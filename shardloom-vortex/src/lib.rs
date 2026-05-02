@@ -972,11 +972,15 @@ mod tests {
     #[test]
     fn adapter_readiness_has_errors_treats_fatal_as_error() {
         let mut readiness = VortexAdapterReadiness::ready_for_dependency_pr();
-        readiness.add_diagnostic(Diagnostic::fatal(
-            DiagnosticCode::UnsupportedStorageOperation,
+        readiness.add_diagnostic(Diagnostic::new(
+            DiagnosticCode::NotImplemented,
+            shardloom_core::DiagnosticSeverity::Fatal,
+            shardloom_core::DiagnosticCategory::Planning,
             "fatal readiness check",
-            "fatal test diagnostic",
+            Some("vortex_adapter_readiness".to_string()),
+            Some("fatal test diagnostic".to_string()),
             None,
+            shardloom_core::FallbackStatus::disabled_by_policy(),
         ));
         assert!(readiness.has_errors());
         assert!(!readiness.is_ready_for_dependency_pr());
