@@ -115,11 +115,13 @@ impl VortexAdapterReadiness {
 
     /// Returns whether dependency readiness gates for a future PR are complete.
     #[must_use]
-    pub const fn is_ready_for_dependency_pr(&self) -> bool {
-        self.license_review_complete
+    pub fn is_ready_for_dependency_pr(&self) -> bool {
+        self.dependency_status == VortexDependencyStatus::Added
+            && self.license_review_complete
             && self.provenance_review_complete
             && self.public_api_review_complete
             && self.fallback_dependencies_absent
+            && !self.has_errors()
     }
 
     /// Returns whether any error diagnostics are present.
@@ -127,7 +129,7 @@ impl VortexAdapterReadiness {
     pub fn has_errors(&self) -> bool {
         self.diagnostics
             .iter()
-            .any(|diagnostic| diagnostic.severity.as_str() == "error")
+            .any(|diagnostic| matches!(diagnostic.severity.as_str(), "error" | "fatal"))
     }
 
     /// Renders a human-readable readiness summary.
@@ -952,6 +954,32 @@ mod tests {
         let text = VortexAdapterReadiness::dependency_added_compile_only().to_human_text();
         assert!(text.contains("fallback execution: disabled"));
         assert!(text.contains("actual Vortex IO is not implemented"));
+    }
+
+    #[test]
+    fn adapter_readiness_not_ready_when_dependency_status_not_added() {
+        let readiness = VortexAdapterReadiness {
+            dependency_status: VortexDependencyStatus::NotAdded,
+            license_review_complete: true,
+            provenance_review_complete: true,
+            public_api_review_complete: true,
+            fallback_dependencies_absent: true,
+            diagnostics: Vec::new(),
+        };
+        assert!(!readiness.is_ready_for_dependency_pr());
+    }
+
+    #[test]
+    fn adapter_readiness_has_errors_treats_fatal_as_error() {
+        let mut readiness = VortexAdapterReadiness::ready_for_dependency_pr();
+        readiness.add_diagnostic(Diagnostic::fatal(
+            DiagnosticCode::UnsupportedStorageOperation,
+            "fatal readiness check",
+            "fatal test diagnostic",
+            None,
+        ));
+        assert!(readiness.has_errors());
+        assert!(!readiness.is_ready_for_dependency_pr());
     }
 
     #[test]

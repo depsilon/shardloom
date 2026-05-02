@@ -1448,7 +1448,7 @@ fn run(args: Vec<String>) -> ExitCode {
                     ("mode".to_string(), "vortex_readiness".to_string()),
                     (
                         "upstream_vortex_dependency".to_string(),
-                        VortexDependencyStatus::Added.as_str().to_string(),
+                        readiness.dependency_status.as_str().to_string(),
                     ),
                     ("execution".to_string(), "not_performed".to_string()),
                     ("io".to_string(), "not_performed".to_string()),
