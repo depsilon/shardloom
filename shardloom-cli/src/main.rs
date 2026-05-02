@@ -11,7 +11,7 @@ use shardloom_core::{
 };
 use shardloom_exec::{
     AdaptiveSizer, AdaptiveSizingPolicy, ByteSize, ParallelismLimit, ParallelismPlan,
-    RuntimePlanSkeleton, SizeEstimate, SizingInput, SizingPlan,
+    RuntimePlanSkeleton, SizeEstimate, SizingInput, SizingPlan, StreamingPlanSkeleton,
 };
 use shardloom_plan::{EstimateReport, ExplainReport, ScanPlanSkeleton, ScanRequest};
 use shardloom_vortex::{VortexFileRef, VortexReadPlan, VortexWriteOptions, VortexWritePlan};
@@ -155,6 +155,45 @@ fn run(args: Vec<String>) -> ExitCode {
             let skeleton = ScanPlanSkeleton::plan_only(request);
             println!("{}", skeleton.to_human_text());
             ExitCode::SUCCESS
+        }
+        Some("streaming-plan") => {
+            let Some(dataset_uri) = args.next() else {
+                eprintln!("usage: shardloom streaming-plan <dataset_uri> <target_uri>");
+                return ExitCode::from(2);
+            };
+            let Some(target_uri) = args.next() else {
+                eprintln!("usage: shardloom streaming-plan <dataset_uri> <target_uri>");
+                return ExitCode::from(2);
+            };
+            let dataset_uri = match DatasetUri::new(dataset_uri) {
+                Ok(uri) => uri,
+                Err(error) => {
+                    eprintln!("invalid dataset uri: {error}");
+                    return ExitCode::from(2);
+                }
+            };
+            let dataset_ref = match DatasetRef::from_uri(dataset_uri) {
+                Ok(dataset_ref) => dataset_ref,
+                Err(error) => {
+                    eprintln!("failed to create dataset reference: {error}");
+                    return ExitCode::from(2);
+                }
+            };
+            let target_uri = match DatasetUri::new(target_uri) {
+                Ok(uri) => uri,
+                Err(error) => {
+                    eprintln!("invalid target uri: {error}");
+                    return ExitCode::from(2);
+                }
+            };
+            let output_target = OutputTarget::from_uri(target_uri);
+            let plan = StreamingPlanSkeleton::for_vortex_to_target(dataset_ref, output_target);
+            println!("{}", plan.to_human_text());
+            if plan.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
         }
         Some("runtime-plan") => {
             let Some(dataset_uri) = args.next() else {

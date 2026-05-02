@@ -8,6 +8,7 @@ use shardloom_plan::{Plan, PlanKind};
 
 pub mod runtime;
 pub mod sizing;
+pub mod streaming;
 
 /// Reported status for the execution subsystem.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -48,6 +49,14 @@ pub use sizing::{
     AdaptiveSizer, AdaptiveSizingPolicy, ByteSize, CoalescingPolicy, ParallelismLimit,
     ParallelismPlan, SizeEstimate, SizingInput, SizingPlan, TaskSizingDecision,
     TaskSizingDecisionKind, TaskSizingMode,
+};
+
+pub use streaming::{
+    BackpressurePolicy, BoundaryInteropKind, BoundedMemoryPolicy, DataWorkLevel,
+    MaterializationBoundary, SinkRequirement, StreamingCapability, StreamingMode,
+    StreamingOperator, StreamingOperatorKind, StreamingPlanSkeleton, StreamingPlanStatus,
+    StreamingSink, StreamingSinkKind, StreamingSource, StreamingSourceKind, StreamingStage,
+    ZeroCopyStatus, ZeroDecodeStatus,
 };
 
 pub use runtime::{
