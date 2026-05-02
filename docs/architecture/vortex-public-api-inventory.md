@@ -98,3 +98,14 @@ This document records upstream `vortex` public APIs inspected for ShardLoom adap
 
 ## Next milestone
 Implement typed DType adapter mapping only if upstream public DType APIs are clearly confirmed and compile-safe; otherwise keep ShardLoom-local placeholder mapping until API stability is better understood.
+
+
+## Typed DType adapter probe
+
+- Typed DType mapping implemented: no (deferred).
+- Public upstream APIs used for typed mapping in this PR: none confirmed compile-safe in this environment.
+- Added compile-safe non-IO typed mapping status/report only: yes.
+- Name-based mapping remains available as a temporary planning utility: yes.
+- Fallback execution introduced: no.
+- Actual IO implemented: no.
+- Risks: upstream public typed DType API names and constructors must be re-validated once registry/docs access is available.

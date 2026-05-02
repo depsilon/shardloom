@@ -198,7 +198,7 @@ impl VortexAdapterCapabilityReport {
                 ),
                 (
                     VortexAdapterCapability::DTypeMapping,
-                    VortexAdapterCapabilityStatus::BlockedOnApiDiscovery,
+                    VortexAdapterCapabilityStatus::Planned,
                 ),
                 (
                     VortexAdapterCapability::EncodingMapping,
@@ -270,6 +270,141 @@ impl VortexAdapterCapabilityReport {
     }
 }
 
+/// Typed DType mapping status for the Vortex adapter boundary.
+///
+/// This reports adapter capability only and does not perform Vortex IO.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexTypedMappingStatus {
+    Implemented,
+    DeferredApiUnclear,
+    DeferredApiUnstable,
+    Unsupported,
+}
+impl VortexTypedMappingStatus {
+    /// Returns a stable machine-readable status label.
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Implemented => "implemented",
+            Self::DeferredApiUnclear => "deferred_api_unclear",
+            Self::DeferredApiUnstable => "deferred_api_unstable",
+            Self::Unsupported => "unsupported",
+        }
+    }
+
+    /// Returns whether typed mapping is currently implemented.
+    #[must_use]
+    pub const fn is_implemented(&self) -> bool {
+        matches!(self, Self::Implemented)
+    }
+}
+
+/// Reporting-only summary for the typed Vortex DType mapping probe.
+///
+/// This report is adapter-boundary metadata only: no IO, no Arrow-default decode path,
+/// and no fallback execution.
+#[derive(Debug, Clone, PartialEq)]
+pub struct VortexDTypeMappingReport {
+    pub status: VortexTypedMappingStatus,
+    pub typed_api_name: Option<String>,
+    pub name_based_mapping_available: bool,
+    pub actual_io_implemented: bool,
+    pub fallback_execution_allowed: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl VortexDTypeMappingReport {
+    /// Creates a report for implemented typed mapping against a public API.
+    #[must_use]
+    pub fn implemented(typed_api_name: impl Into<String>) -> Self {
+        Self {
+            status: VortexTypedMappingStatus::Implemented,
+            typed_api_name: Some(typed_api_name.into()),
+            name_based_mapping_available: true,
+            actual_io_implemented: false,
+            fallback_execution_allowed: false,
+            diagnostics: vec![],
+        }
+    }
+
+    /// Creates a report for deferred mapping when public API remains unclear.
+    #[must_use]
+    pub fn deferred_api_unclear() -> Self {
+        Self {
+            status: VortexTypedMappingStatus::DeferredApiUnclear,
+            typed_api_name: None,
+            name_based_mapping_available: true,
+            actual_io_implemented: false,
+            fallback_execution_allowed: false,
+            diagnostics: vec![],
+        }
+    }
+
+    /// Creates a report for deferred mapping when public API is unstable.
+    #[must_use]
+    pub fn deferred_api_unstable() -> Self {
+        Self {
+            status: VortexTypedMappingStatus::DeferredApiUnstable,
+            typed_api_name: None,
+            name_based_mapping_available: true,
+            actual_io_implemented: false,
+            fallback_execution_allowed: false,
+            diagnostics: vec![],
+        }
+    }
+
+    /// Appends a deterministic diagnostic message.
+    pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
+    }
+
+    /// Returns whether the report contains error/fatal diagnostics.
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.diagnostics
+            .iter()
+            .any(|d| matches!(d.severity.as_str(), "error" | "fatal"))
+    }
+
+    /// Renders a human summary for CLI and operator diagnostics.
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        let mut out = format!(
+            "Vortex typed DType mapping probe
+status: {}
+name-based mapping available: {}
+actual IO implemented: {}
+fallback execution allowed: {}",
+            self.status.as_str(),
+            self.name_based_mapping_available,
+            self.actual_io_implemented,
+            self.fallback_execution_allowed,
+        );
+        if let Some(api) = &self.typed_api_name {
+            let _ = write!(
+                out,
+                "
+typed API: {api}"
+            );
+        }
+        if self.diagnostics.is_empty() {
+            out.push_str(
+                "
+diagnostics: none",
+            );
+        }
+        out
+    }
+}
+
+/// Returns whether compile-safe typed upstream Vortex DType mapping is available.
+///
+/// This probe is currently deferred until a stable public typed DType API is
+/// confirmed in this environment. No Vortex IO occurs.
+#[must_use]
+pub const fn typed_vortex_dtype_mapping_available() -> bool {
+    false
+}
+
 /// Temporary name-based mapping helper until typed upstream `DType` mapping is confirmed.
 #[must_use]
 pub fn map_known_vortex_dtype_name(name: &str) -> LogicalDType {
@@ -282,6 +417,8 @@ pub fn map_known_vortex_dtype_name(name: &str) -> LogicalDType {
         "binary" => LogicalDType::Binary,
         "date32" | "date" => LogicalDType::Date32,
         "timestamp" | "timestamp_micros" => LogicalDType::TimestampMicros,
+        "struct" => LogicalDType::Struct,
+        "list" => LogicalDType::List,
         _ => LogicalDType::Unknown,
     }
 }
@@ -296,9 +433,11 @@ pub fn map_known_vortex_encoding_name(name: &str) -> shardloom_core::EncodingKin
         "runlength" | "rle" | "run_length" => shardloom_core::EncodingKind::RunLength,
         "delta" => shardloom_core::EncodingKind::Delta,
         "bitpacked" | "bit_packed" => shardloom_core::EncodingKind::BitPacked,
-        "fsst" | "fsstlike" => shardloom_core::EncodingKind::FsstLike,
-        "fastlanes" | "fast_lanes" => shardloom_core::EncodingKind::FastLanesLike,
-        "alp" => shardloom_core::EncodingKind::AlpLike,
+        "fsst" | "fsstlike" | "fsst_like" => shardloom_core::EncodingKind::FsstLike,
+        "fastlanes" | "fast_lanes" | "fastlanes_like" => {
+            shardloom_core::EncodingKind::FastLanesLike
+        }
+        "alp" | "alp_like" => shardloom_core::EncodingKind::AlpLike,
         _ => shardloom_core::EncodingKind::Unknown,
     }
 }
@@ -411,6 +550,11 @@ mod tests {
         assert_eq!(map_known_vortex_dtype_name("??"), LogicalDType::Unknown);
     }
     #[test]
+    fn map_dtype_struct_list() {
+        assert_eq!(map_known_vortex_dtype_name("struct"), LogicalDType::Struct);
+        assert_eq!(map_known_vortex_dtype_name("list"), LogicalDType::List);
+    }
+    #[test]
     fn map_encoding_dictionary_dict() {
         assert_eq!(
             map_known_vortex_encoding_name("dictionary"),
@@ -440,6 +584,21 @@ mod tests {
         );
     }
     #[test]
+    fn map_encoding_canonical_like_names() {
+        assert_eq!(
+            map_known_vortex_encoding_name("fsst_like"),
+            shardloom_core::EncodingKind::FsstLike
+        );
+        assert_eq!(
+            map_known_vortex_encoding_name("fastlanes_like"),
+            shardloom_core::EncodingKind::FastLanesLike
+        );
+        assert_eq!(
+            map_known_vortex_encoding_name("alp_like"),
+            shardloom_core::EncodingKind::AlpLike
+        );
+    }
+    #[test]
     fn map_layout_flat() {
         assert_eq!(
             map_known_vortex_layout_name("flat"),
@@ -453,6 +612,36 @@ mod tests {
             shardloom_core::LayoutKind::Chunked
         );
     }
+    #[test]
+    fn typed_mapping_status_implemented_is_implemented() {
+        assert!(VortexTypedMappingStatus::Implemented.is_implemented());
+    }
+
+    #[test]
+    fn typed_mapping_status_deferred_unclear_is_not_implemented() {
+        assert!(!VortexTypedMappingStatus::DeferredApiUnclear.is_implemented());
+    }
+
+    #[test]
+    fn dtype_report_implemented_io_and_fallback_disabled() {
+        let report = VortexDTypeMappingReport::implemented("vortex::DType");
+        assert!(!report.actual_io_implemented);
+        assert!(!report.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn dtype_report_deferred_has_name_mapping_available() {
+        let report = VortexDTypeMappingReport::deferred_api_unclear();
+        assert!(report.name_based_mapping_available);
+    }
+
+    #[test]
+    fn dtype_report_human_text_mentions_io_and_fallback_status() {
+        let text = VortexDTypeMappingReport::deferred_api_unclear().to_human_text();
+        assert!(text.contains("actual IO implemented: false"));
+        assert!(text.contains("fallback execution allowed: false"));
+    }
+
     #[test]
     fn map_layout_unknown() {
         assert_eq!(
