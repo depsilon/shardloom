@@ -250,6 +250,12 @@ impl ExplainReport {
         ];
         for node in &self.nodes {
             lines.push(node.to_human_text());
+            if !node.diagnostics.is_empty() {
+                lines.push(format!("  node diagnostics [{}]:", node.id.as_str()));
+                for diagnostic in &node.diagnostics {
+                    lines.push(format!("  - {}", diagnostic.to_human_text()));
+                }
+            }
         }
         if !self.diagnostics.is_empty() {
             lines.push("diagnostics:".to_string());
@@ -328,6 +334,29 @@ mod tests {
     fn explain_report_unsupported_has_errors() {
         let report = ExplainReport::unsupported("op", "planning", "not implemented");
         assert!(report.has_errors());
+    }
+
+    #[test]
+    fn explain_report_human_text_surfaces_node_diagnostics() {
+        let node = ExplainPlanNode::new(
+            PlanNodeId::new("n1").expect("valid id"),
+            PlanNodeKind::Unsupported,
+            "unsupported node",
+            ExecutionState::Unsupported,
+        )
+        .with_diagnostic(Diagnostic::unsupported(
+            DiagnosticCode::UnsupportedSql,
+            "feature",
+            "node-level unsupported",
+            None,
+        ));
+
+        let mut report = ExplainReport::new("op");
+        report.add_node(node);
+        let text = report.to_human_text();
+
+        assert!(text.contains("node diagnostics [n1]:"));
+        assert!(text.contains("node-level unsupported"));
     }
 
     #[test]

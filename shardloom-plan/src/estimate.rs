@@ -1,4 +1,4 @@
-use shardloom_core::{Diagnostic, DiagnosticCode};
+use shardloom_core::{Diagnostic, DiagnosticCode, DiagnosticSeverity};
 
 /// Estimate value where unknown is represented explicitly.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -27,6 +27,7 @@ impl EstimateValue {
             Self::Unknown => fallback,
         }
     }
+
     #[must_use]
     pub fn to_human_text(&self) -> String {
         match self {
@@ -99,6 +100,17 @@ impl EstimateReport {
     }
     pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
         self.diagnostics.push(diagnostic);
+    }
+
+    /// Returns true when the report contains error/fatal diagnostics.
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.diagnostics.iter().any(|d| {
+            matches!(
+                d.severity,
+                DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+            )
+        })
     }
 
     #[must_use]
@@ -210,6 +222,7 @@ mod tests {
     fn estimate_report_unsupported_has_diagnostics() {
         let report = EstimateReport::unsupported("op", "estimation", "not implemented");
         assert!(!report.diagnostics.is_empty());
+        assert!(report.has_errors());
     }
 
     #[test]

@@ -41,7 +41,11 @@ fn main() -> ExitCode {
                 "Real planning is not implemented yet.",
             );
             println!("{}", report.to_human_text());
-            ExitCode::SUCCESS
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
         }
         Some("estimate") => {
             let operation = args
@@ -53,7 +57,11 @@ fn main() -> ExitCode {
                 "Real estimation is not implemented yet.",
             );
             println!("{}", report.to_human_text());
-            ExitCode::SUCCESS
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
         }
         _ => {
             eprintln!("usage: shardloom-cli <status|capabilities|doctor|explain|estimate>");
