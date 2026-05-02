@@ -38,6 +38,8 @@ For example:
 - Designing logical or physical plans: read `planner-optimizer.md`.
 - Designing expression IR, function signatures, kernel capabilities, or kernel selection policy: read `expression-kernel-registry.md`.
 - Designing plan IR layering, plan import/export constraints, or Substrait-compatible interoperability direction: read `plan-ir-interoperability.md`.
+- Designing extension/plugin ABI, manifests, capability declarations, sandboxing, permission/effect models, or agent-safe plugin inspection: read `extension-plugin-sandboxing.md`.
+- Designing release engineering policy, packaging discipline, API/schema compatibility tiers, or release-governance controls: read `release-engineering-packaging.md`.
 - Writing Vortex, Parquet, Arrow IPC, Iceberg-compatible, or Delta-compatible outputs: read `translation-layer.md`.
 - Making performance claims: read `benchmarking.md`.
 - Adding tests or changing behavior: read `testing-correctness.md`.
