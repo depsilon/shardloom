@@ -244,3 +244,7 @@ Important principles:
 - Adaptive execution must preserve correctness.
 - Fault states, retries, cancellation, commits, and cleanup must be explicit.
 - No Spark or DataFusion fallback is allowed.
+
+## Observability, security, and schema/table compatibility
+
+ShardLoom must be observable, secure, governable, and compatible with evolving schemas and existing table ecosystems before it can credibly support production workloads.
