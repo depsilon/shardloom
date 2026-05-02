@@ -116,8 +116,10 @@ impl VortexAdapterReadiness {
     /// Returns whether dependency readiness gates for a future PR are complete.
     #[must_use]
     pub fn is_ready_for_dependency_pr(&self) -> bool {
-        self.dependency_status == VortexDependencyStatus::Added
-            && self.license_review_complete
+        matches!(
+            self.dependency_status,
+            VortexDependencyStatus::ApprovedForFuturePr | VortexDependencyStatus::Added
+        ) && self.license_review_complete
             && self.provenance_review_complete
             && self.public_api_review_complete
             && self.fallback_dependencies_absent
