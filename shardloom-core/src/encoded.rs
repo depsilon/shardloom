@@ -281,7 +281,7 @@ impl SegmentStats {
     }
     pub fn is_all_null(&self) -> Option<bool> {
         match (self.row_count, self.null_count) {
-            (Some(r), Some(n)) => Some(r == n),
+            (Some(r), Some(n)) if n <= r => Some(r == n),
             _ => None,
         }
     }
@@ -628,6 +628,14 @@ mod tests {
         s.null_count = Some(3);
         assert_eq!(s.is_all_null(), Some(true));
     }
+
+    #[test]
+    fn segment_stats_is_all_null_rejects_impossible_counts() {
+        let mut s = SegmentStats::with_row_count(2);
+        s.null_count = Some(3);
+        assert_eq!(s.is_all_null(), None);
+    }
+
     #[test]
     fn segment_stats_null_fraction() {
         let mut s = SegmentStats::with_row_count(10);

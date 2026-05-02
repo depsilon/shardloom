@@ -3,7 +3,13 @@
 //! This crate intentionally stays small in the setup phase and models planning
 //! artifacts without delegating to external engines.
 
+pub mod estimate;
+pub mod explain;
+
 use shardloom_core::{Result, ShardLoomError};
+
+pub use estimate::{EstimateConfidence, EstimateReport, EstimateValue};
+pub use explain::{ExecutionBoundary, ExplainPlanNode, ExplainReport, PlanNodeId, PlanNodeKind};
 
 /// High-level operation categories for initial planning skeletons.
 #[derive(Debug, Clone, PartialEq, Eq)]
