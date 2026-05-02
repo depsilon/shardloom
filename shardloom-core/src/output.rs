@@ -4,6 +4,7 @@
 //! This module only renders output metadata and diagnostics; it does not execute work.
 
 use crate::{Diagnostic, DiagnosticSeverity, FallbackStatus, Result, ShardLoomError};
+use std::fmt::Write as _;
 
 /// Output rendering format.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -154,7 +155,11 @@ impl OutputEnvelope {
                 DiagnosticSeverity::Info => CommandStatus::Success,
             }
         };
-        Self::new(command, status, summary, human_text).with_diagnostic(diagnostic)
+        let fallback = diagnostic.fallback.clone();
+        let mut envelope =
+            Self::new(command, status, summary, human_text).with_diagnostic(diagnostic);
+        envelope.fallback = fallback;
+        envelope
     }
 
     /// Builds an envelope from a plain error by converting it to a structured diagnostic.
@@ -230,12 +235,23 @@ impl OutputEnvelope {
 }
 
 pub(crate) fn json_escape(value: &str) -> String {
-    value
-        .replace('\\', "\\\\")
-        .replace('"', "\\\"")
-        .replace('\n', "\\n")
-        .replace('\r', "\\r")
-        .replace('\t', "\\t")
+    let mut escaped = String::with_capacity(value.len());
+    for ch in value.chars() {
+        match ch {
+            '\\' => escaped.push_str("\\\\"),
+            '"' => escaped.push_str("\\\""),
+            '\n' => escaped.push_str("\\n"),
+            '\r' => escaped.push_str("\\r"),
+            '\t' => escaped.push_str("\\t"),
+            '\u{08}' => escaped.push_str("\\b"),
+            '\u{0C}' => escaped.push_str("\\f"),
+            c if c.is_control() => {
+                let _ = write!(&mut escaped, "\\u{:04X}", c as u32);
+            }
+            c => escaped.push(c),
+        }
+    }
+    escaped
 }
 
 pub(crate) fn json_string(value: &str) -> String {
@@ -288,6 +304,12 @@ mod tests {
     #[test]
     fn json_escape_escapes_newline() {
         assert_eq!(json_escape("\n"), "\\n");
+    }
+    #[test]
+    fn json_escape_escapes_other_control_chars() {
+        assert_eq!(json_escape("\u{0000}"), "\\u0000");
+        assert_eq!(json_escape("\u{0008}"), "\\b");
+        assert_eq!(json_escape("\u{000C}"), "\\f");
     }
     #[test]
     fn success_defaults_fallback_false() {
@@ -358,6 +380,28 @@ mod tests {
         let envelope =
             OutputEnvelope::from_diagnostic("scan-plan", "bad input", "bad input", diagnostic);
         assert_eq!(envelope.diagnostics.len(), 1);
+    }
+    #[test]
+    fn from_diagnostic_copies_fallback_status() {
+        let diagnostic = Diagnostic::new(
+            DiagnosticCode::UnsupportedSql,
+            DiagnosticSeverity::Error,
+            crate::DiagnosticCategory::UnsupportedFeature,
+            "unsupported",
+            None,
+            None,
+            None,
+            FallbackStatus {
+                attempted: true,
+                allowed: true,
+                engine: Some("legacy".to_string()),
+                reason: "test".to_string(),
+            },
+        );
+        let envelope =
+            OutputEnvelope::from_diagnostic("scan-plan", "bad input", "bad input", diagnostic);
+        assert!(envelope.fallback.allowed);
+        assert!(envelope.fallback.attempted);
     }
 
     #[test]

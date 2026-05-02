@@ -73,6 +73,61 @@ impl OutputTargetKind {
             DatasetFormat::Extension(value) => Self::Extension(value.clone()),
         }
     }
+
+    /// Returns a canonical terminology label for diagnostics/CLI/JSON/agent output.
+    ///
+    /// This helper is terminology-only and does not change translation behavior.
+    #[must_use]
+    pub const fn canonical_label(&self) -> &'static str {
+        match self {
+            Self::Vortex => "native_vortex_output",
+            Self::ArrowIpc
+            | Self::Parquet
+            | Self::IcebergCompatible
+            | Self::DeltaCompatible
+            | Self::JsonLines
+            | Self::Csv => "compatibility_output",
+            Self::Unknown | Self::Extension(_) => "unknown_output",
+        }
+    }
+
+    /// Returns the default fidelity mapping for this target kind.
+    ///
+    /// This helper preserves layer boundaries and does not execute translation.
+    #[must_use]
+    pub const fn default_fidelity(&self) -> FidelityLevel {
+        match self {
+            Self::Vortex => FidelityLevel::NativeFullFidelity,
+            Self::ArrowIpc
+            | Self::Parquet
+            | Self::IcebergCompatible
+            | Self::DeltaCompatible
+            | Self::JsonLines
+            | Self::Csv => FidelityLevel::CompatibilityLossyPhysical,
+            Self::Unknown | Self::Extension(_) => FidelityLevel::Unsupported,
+        }
+    }
+
+    /// Returns the default materialization requirement mapping for this target kind.
+    ///
+    /// This helper is a planning terminology aid only and does not change semantics.
+    #[must_use]
+    pub fn default_materialization_requirement(&self) -> MaterializationRequirement {
+        match self {
+            Self::Vortex => MaterializationRequirement::SelectionOnly,
+            Self::ArrowIpc
+            | Self::Parquet
+            | Self::IcebergCompatible
+            | Self::DeltaCompatible
+            | Self::JsonLines
+            | Self::Csv => MaterializationRequirement::Partial {
+                reason: "compatibility output may require materialized values".to_string(),
+            },
+            Self::Unknown | Self::Extension(_) => MaterializationRequirement::Unknown {
+                reason: "unknown output target cannot determine materialization needs".to_string(),
+            },
+        }
+    }
 }
 
 /// Output target address and kind for translation planning.
@@ -154,6 +209,14 @@ impl FidelityLevel {
     #[must_use]
     pub fn is_lossy(&self) -> bool {
         matches!(self, Self::CompatibilityLossyPhysical | Self::Unsupported)
+    }
+
+    /// Returns the canonical terminology label for this fidelity level.
+    ///
+    /// This helper is label-only and does not change execution or translation semantics.
+    #[must_use]
+    pub const fn canonical_label(&self) -> &'static str {
+        self.as_str()
     }
 }
 
@@ -276,6 +339,20 @@ impl MaterializationRequirement {
             Self::Partial { reason } => format!("partial ({reason})"),
             Self::Full { reason } => format!("full ({reason})"),
             Self::Unknown { reason } => format!("unknown ({reason})"),
+        }
+    }
+
+    /// Returns the canonical terminology label for materialization requirements.
+    ///
+    /// This helper is intended for stable agent/CLI/JSON vocabulary only.
+    #[must_use]
+    pub const fn canonical_label(&self) -> &'static str {
+        match self {
+            Self::None => "no_materialization",
+            Self::SelectionOnly => "selection_only",
+            Self::Partial { .. } => "partial_materialization",
+            Self::Full { .. } => "full_materialization",
+            Self::Unknown { .. } => "unknown_materialization",
         }
     }
 }
@@ -592,6 +669,31 @@ mod tests {
         assert!(OutputTargetKind::Parquet.is_compatibility_output());
     }
     #[test]
+    fn output_target_kind_vortex_default_fidelity_native_full() {
+        assert_eq!(
+            OutputTargetKind::Vortex.default_fidelity(),
+            FidelityLevel::NativeFullFidelity
+        );
+    }
+    #[test]
+    fn output_target_kind_parquet_default_fidelity_compatibility_lossy() {
+        assert_eq!(
+            OutputTargetKind::Parquet.default_fidelity(),
+            FidelityLevel::CompatibilityLossyPhysical
+        );
+    }
+    #[test]
+    fn output_target_kind_labels_are_canonical() {
+        assert_eq!(
+            OutputTargetKind::Vortex.canonical_label(),
+            "native_vortex_output"
+        );
+        assert_eq!(
+            OutputTargetKind::Parquet.canonical_label(),
+            "compatibility_output"
+        );
+    }
+    #[test]
     fn output_target_from_uri_infers_vortex() {
         let target = OutputTarget::from_uri(DatasetUri::new("out.vortex").expect("valid uri"));
         assert_eq!(target.kind, OutputTargetKind::Vortex);
@@ -635,6 +737,13 @@ mod tests {
         assert!(FidelityLevel::CompatibilityLossyPhysical.is_lossy());
     }
     #[test]
+    fn fidelity_native_full_label_is_canonical() {
+        assert_eq!(
+            FidelityLevel::NativeFullFidelity.canonical_label(),
+            "native_full_fidelity"
+        );
+    }
+    #[test]
     fn materialization_none_not_required() {
         assert!(!MaterializationRequirement::None.requires_materialization());
     }
@@ -645,6 +754,21 @@ mod tests {
                 reason: "decode".into()
             }
             .requires_materialization()
+        );
+    }
+    #[test]
+    fn materialization_labels_distinguish_none_partial_full() {
+        assert_eq!(
+            MaterializationRequirement::None.canonical_label(),
+            "no_materialization"
+        );
+        assert_eq!(
+            MaterializationRequirement::Partial { reason: "x".into() }.canonical_label(),
+            "partial_materialization"
+        );
+        assert_eq!(
+            MaterializationRequirement::Full { reason: "x".into() }.canonical_label(),
+            "full_materialization"
         );
     }
     #[test]

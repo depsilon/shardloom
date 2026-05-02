@@ -187,6 +187,26 @@ impl VortexOutputFidelity {
             Self::Unsupported => "unsupported",
         }
     }
+
+    /// Maps adapter-local Vortex fidelity to canonical core fidelity.
+    ///
+    /// This helper preserves layer boundaries and does not perform IO or execution.
+    #[must_use]
+    pub const fn to_core_fidelity(&self) -> shardloom_core::FidelityLevel {
+        match self {
+            Self::NativeFullFidelity => shardloom_core::FidelityLevel::NativeFullFidelity,
+            Self::NativePartialFidelity => shardloom_core::FidelityLevel::NativePartialFidelity,
+            Self::Unsupported => shardloom_core::FidelityLevel::Unsupported,
+        }
+    }
+
+    /// Returns canonical terminology label for this fidelity concept.
+    ///
+    /// This helper is label-only and intended for stable diagnostics output.
+    #[must_use]
+    pub const fn canonical_label(&self) -> &'static str {
+        self.as_str()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -573,6 +593,20 @@ mod tests {
         assert_eq!(
             VortexOpenOptions::native_read().mode,
             VortexOpenMode::NativeRead
+        );
+    }
+    #[test]
+    fn vortex_output_fidelity_native_full_maps_to_core_native_full() {
+        assert_eq!(
+            VortexOutputFidelity::NativeFullFidelity.to_core_fidelity(),
+            shardloom_core::FidelityLevel::NativeFullFidelity
+        );
+    }
+    #[test]
+    fn vortex_output_fidelity_canonical_label_works() {
+        assert_eq!(
+            VortexOutputFidelity::NativePartialFidelity.canonical_label(),
+            "native_partial_fidelity"
         );
     }
 

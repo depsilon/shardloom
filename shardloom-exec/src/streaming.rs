@@ -5,9 +5,9 @@
 
 use crate::ByteSize;
 use shardloom_core::{
-    DatasetRef, Diagnostic, DiagnosticCategory, DiagnosticCode, DiagnosticSeverity, FallbackStatus,
-    FidelityLevel, MaterializationRequirement, OutputTarget, OutputTargetKind, Result,
-    ShardLoomError,
+    DatasetRef, Diagnostic, DiagnosticCategory, DiagnosticCode, DiagnosticSeverity, ExecutionState,
+    FallbackStatus, FidelityLevel, MaterializationRequirement, OutputTarget, OutputTargetKind,
+    Result, ShardLoomError,
 };
 use std::collections::HashSet;
 
@@ -102,6 +102,30 @@ impl DataWorkLevel {
             Self::Shuffle => 7,
             Self::Distributed => 8,
             Self::Unsupported => 255,
+        }
+    }
+
+    /// Returns the canonical terminology label used in stable agent/CLI/JSON output.
+    ///
+    /// This helper does not alter planning or execution semantics.
+    #[must_use]
+    pub const fn canonical_label(&self) -> &'static str {
+        self.as_str()
+    }
+
+    /// Maps streaming work-level terminology into core execution-state terminology.
+    ///
+    /// This is a mapping helper only and preserves layer boundaries.
+    #[must_use]
+    pub const fn to_execution_state(&self) -> ExecutionState {
+        match self {
+            Self::MetadataOnly => ExecutionState::MetadataOnly,
+            Self::Pruned => ExecutionState::Pruned,
+            Self::ZeroDecode => ExecutionState::EncodedEvaluation,
+            Self::ZeroCopyBoundary => ExecutionState::Translation,
+            Self::PartialDecode | Self::LateMaterialization => ExecutionState::PartialDecode,
+            Self::FullMaterialization => ExecutionState::FullMaterialization,
+            Self::Shuffle | Self::Distributed | Self::Unsupported => ExecutionState::Unsupported,
         }
     }
 }
@@ -272,6 +296,37 @@ impl BoundedMemoryPolicy {
                 .map_or("none".to_string(), |b| b.as_bytes().to_string()),
             self.allow_spill
         )
+    }
+
+    /// Returns canonical bounded-memory policy terminology for diagnostics output.
+    ///
+    /// This helper is label-only and does not change memory behavior.
+    #[must_use]
+    pub const fn canonical_label(&self) -> &'static str {
+        if self.required {
+            "bounded_memory_required"
+        } else {
+            "bounded_memory_best_effort"
+        }
+    }
+}
+
+impl MaterializationBoundary {
+    /// Returns canonical terminology for where materialization becomes required.
+    ///
+    /// This helper is for stable labeling and does not alter runtime behavior.
+    #[must_use]
+    pub const fn canonical_label(&self) -> &'static str {
+        if self.required {
+            match self.data_work_level {
+                DataWorkLevel::PartialDecode => "partial_decode_boundary",
+                DataWorkLevel::LateMaterialization => "late_materialization_boundary",
+                DataWorkLevel::FullMaterialization => "full_materialization_boundary",
+                _ => "materialization_boundary",
+            }
+        } else {
+            "no_materialization_boundary"
+        }
     }
 }
 
@@ -1112,6 +1167,20 @@ mod tests {
         assert!(DataWorkLevel::ZeroDecode.rank() < DataWorkLevel::FullMaterialization.rank());
     }
     #[test]
+    fn data_work_zero_decode_maps_to_encoded_evaluation() {
+        assert_eq!(
+            DataWorkLevel::ZeroDecode.to_execution_state(),
+            ExecutionState::EncodedEvaluation
+        );
+    }
+    #[test]
+    fn data_work_full_materialization_maps_to_full_materialization_state() {
+        assert_eq!(
+            DataWorkLevel::FullMaterialization.to_execution_state(),
+            ExecutionState::FullMaterialization
+        );
+    }
+    #[test]
     fn boundary_future_flight_is_future() {
         assert!(BoundaryInteropKind::FutureFlight.is_future_boundary());
     }
@@ -1130,6 +1199,28 @@ mod tests {
     #[test]
     fn bounded_memory_required_sets_required() {
         assert!(BoundedMemoryPolicy::required(ByteSize::from_mib(1)).required);
+    }
+    #[test]
+    fn bounded_memory_policy_canonical_label_distinguishes_modes() {
+        assert_eq!(
+            BoundedMemoryPolicy::required(ByteSize::from_mib(1)).canonical_label(),
+            "bounded_memory_required"
+        );
+        assert_eq!(
+            BoundedMemoryPolicy::best_effort().canonical_label(),
+            "bounded_memory_best_effort"
+        );
+    }
+    #[test]
+    fn materialization_boundary_canonical_labels_work() {
+        assert_eq!(
+            MaterializationBoundary::none().canonical_label(),
+            "no_materialization_boundary"
+        );
+        assert_eq!(
+            MaterializationBoundary::required("x", DataWorkLevel::PartialDecode).canonical_label(),
+            "partial_decode_boundary"
+        );
     }
     #[test]
     fn source_vortex_preserves_zero_decode() {

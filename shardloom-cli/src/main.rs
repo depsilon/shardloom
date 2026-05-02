@@ -40,6 +40,23 @@ fn parse_output_format(args: Vec<String>) -> Result<(Vec<String>, OutputFormat),
     Ok((filtered, format))
 }
 
+fn detect_requested_output_format(args: &[String]) -> OutputFormat {
+    let mut format = OutputFormat::Text;
+    let mut iter = args.iter();
+    while let Some(arg) = iter.next() {
+        if arg == "--format" {
+            if let Some(value) = iter.next() {
+                if let Ok(parsed) = OutputFormat::parse(value) {
+                    format = parsed;
+                }
+            } else {
+                break;
+            }
+        }
+    }
+    format
+}
+
 fn emit(
     command: &str,
     format: OutputFormat,
@@ -75,12 +92,13 @@ fn emit_error(
 
 #[allow(clippy::too_many_lines)]
 fn run(args: Vec<String>) -> ExitCode {
+    let requested_format = detect_requested_output_format(&args);
     let (args, format) = match parse_output_format(args) {
         Ok(parsed) => parsed,
         Err(message) => {
             return emit_error(
                 "cli",
-                OutputFormat::Text,
+                requested_format,
                 "cli argument parsing failed",
                 &ShardLoomError::InvalidOperation(message),
             );
@@ -827,5 +845,16 @@ mod tests {
             "file://tmp/test.parquet".to_string(),
         ]);
         assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn detect_requested_output_format_preserves_json_for_trailing_format_flag() {
+        let args = vec![
+            "status".to_string(),
+            "--format".to_string(),
+            "json".to_string(),
+            "--format".to_string(),
+        ];
+        assert_eq!(detect_requested_output_format(&args), OutputFormat::Json);
     }
 }
