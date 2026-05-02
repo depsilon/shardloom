@@ -758,6 +758,14 @@ mod tests {
         assert!(g.has_errors());
     }
     #[test]
+    fn runtime_plan_has_errors_for_unsupported_shuffle_without_diagnostics() {
+        let graph = TaskGraph::new().with_shuffle(ShuffleRequirement::Unsupported {
+            reason: "shuffle not implemented".to_string(),
+        });
+        let plan = RuntimePlanSkeleton::planned(graph);
+        assert!(plan.has_errors());
+    }
+    #[test]
     fn runtime_for_dataset_planned() {
         let ds =
             DatasetRef::from_uri(DatasetUri::new("s3://bucket/table.vortex").unwrap()).unwrap();

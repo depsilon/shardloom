@@ -98,3 +98,9 @@ ShardLoom should remain Vortex-native and high-performance while exposing flexib
 Use `diagnostics-capabilities.md` for errors, diagnostics, explain output, estimate output, doctor checks, capability discovery, translation reports, and machine-readable agent-facing output.
 
 ShardLoom should provide stable, deterministic, actionable diagnostics for humans and LLM agents. Unsupported behavior must be explicit, and fallback status must be visible.
+
+## Streaming, zero-copy, and zero-decode
+
+Use `streaming-zero-copy.md` for streaming execution, zero-copy boundaries, zero-decode execution, sink-driven planning, Arrow-like interoperability, materialization boundaries, backpressure, and bounded-memory behavior.
+
+ShardLoom should prefer metadata-only, pruning, encoded execution, zero-copy boundaries, partial decode, late materialization, shuffle avoidance, and distribution avoidance in that order.
