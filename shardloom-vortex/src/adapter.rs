@@ -270,7 +270,7 @@ impl VortexAdapterCapabilityReport {
     }
 }
 
-/// Typed DType mapping status for the Vortex adapter boundary.
+/// Typed `DType` mapping status for the Vortex adapter boundary.
 ///
 /// This reports adapter capability only and does not perform Vortex IO.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -299,7 +299,7 @@ impl VortexTypedMappingStatus {
     }
 }
 
-/// Reporting-only summary for the typed Vortex DType mapping probe.
+/// Reporting-only summary for the typed Vortex `DType` mapping probe.
 ///
 /// This report is adapter-boundary metadata only: no IO, no Arrow-default decode path,
 /// and no fallback execution.
@@ -396,9 +396,9 @@ diagnostics: none",
     }
 }
 
-/// Returns whether compile-safe typed upstream Vortex DType mapping is available.
+/// Returns whether compile-safe typed upstream Vortex `DType` mapping is available.
 ///
-/// This probe is currently deferred until a stable public typed DType API is
+/// This probe is currently deferred until a stable public typed `DType` API is
 /// confirmed in this environment. No Vortex IO occurs.
 #[must_use]
 pub const fn typed_vortex_dtype_mapping_available() -> bool {
