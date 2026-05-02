@@ -109,3 +109,23 @@ Implement typed DType adapter mapping only if upstream public DType APIs are cle
 - Fallback execution introduced: no.
 - Actual IO implemented: no.
 - Risks: upstream public typed DType API names and constructors must be re-validated once registry/docs access is available.
+
+## Encoding APIs and Layout APIs update (adapter probe)
+
+- Confirmed compile-time dependency linkage to upstream `vortex` crate remains intact in `shardloom-vortex`.
+- Public typed encoding/layout adapter APIs were **not** implemented in this probe because this environment could not verify stable, non-IO constructible upstream public encoding/layout types safely.
+- Typed encoding mapping status: deferred (`deferred_api_unclear`).
+- Typed layout mapping status: deferred (`deferred_api_unclear`).
+- Name-based mapping helpers remain available for planning-time adapter labeling (`map_known_vortex_encoding_name`, `map_known_vortex_layout_name`).
+- Risk: upstream public encoding/layout surfaces may change; typed mapping should only land when compile-safe constructors and stable public APIs are confirmed.
+- No Vortex IO implemented in this PR.
+
+## Typed encoding and layout adapter probe
+
+- Typed encoding mapping implemented: no (deferred API discovery).
+- Typed layout mapping implemented: no (deferred API discovery).
+- Upstream typed APIs used: none in code paths.
+- Only compile-safe non-IO usage added: yes.
+- Name-based mapping remains as placeholder utility: yes.
+- Fallback execution introduced: no.
+- Actual IO implemented: no.

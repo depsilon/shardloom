@@ -68,3 +68,12 @@ This document records ShardLoom's first upstream Vortex dependency review for de
 - Name-based DType mapping remains available as a temporary adapter utility.
 - No actual Vortex IO was implemented.
 - No fallback execution was introduced.
+
+## Typed encoding/layout mapping update
+
+- Typed encoding mapping: deferred pending confirmed stable public upstream non-IO API surface.
+- Typed layout mapping: deferred pending confirmed stable public upstream non-IO API surface.
+- Public upstream API used for typed mapping: none in this PR (deferred).
+- Name-based mapping remains available for planning/reporting utility.
+- No actual Vortex IO implemented.
+- No fallback execution introduced.
