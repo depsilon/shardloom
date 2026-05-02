@@ -10,6 +10,7 @@ rust-version.workspace = true
 workspace = true
 
 [dependencies]
+shardloom-core = { path = "../shardloom-core" }
 shardloom-exec = { path = "../shardloom-exec" }
 
 [[bin]]
