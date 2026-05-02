@@ -120,3 +120,5 @@ Use `optimizer-adaptive-execution.md` for optimizer rules, adaptive execution, r
 Use `fault-tolerance-recovery.md` for task attempts, retries, cancellation, recovery, idempotency, partial output cleanup, ambiguous commits, spill cleanup, and external effect failure behavior.
 
 ShardLoom should be correct before fast, adaptive before wasteful, and recoverable before massive.
+
+## Observability, security, and schema/table compatibility
