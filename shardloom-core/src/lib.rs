@@ -11,6 +11,7 @@ pub mod dataset;
 pub mod diagnostics;
 pub mod encoded;
 pub mod expression;
+pub mod extension;
 pub mod manifest;
 pub mod observability;
 pub mod output;
@@ -40,6 +41,13 @@ pub use encoded::{
     ExecutionState, LayoutKind, LogicalDType, MaterializationPolicy, Nullability, PredicateExpr,
     PredicateProof, PruningDecision, SegmentId, SegmentLayout, SegmentStats, SelectionVector,
     SortOrder, StatValue, StatisticsExactness,
+};
+pub use extension::{
+    ExtensionCapability, ExtensionCapabilityStatus, ExtensionCategory, ExtensionEffectDeclaration,
+    ExtensionId, ExtensionInspectionReport, ExtensionInspectionStatus, ExtensionLicenseKind,
+    ExtensionLifecycleState, ExtensionManifest, ExtensionPermission, ExtensionProvenance,
+    ExtensionRegistrySnapshot, ExtensionVersion, PluginAbiRequirement, PluginAbiStatus,
+    SandboxPolicy, SandboxPolicyKind, UdfRuntimeKind,
 };
 
 pub use expression::{
