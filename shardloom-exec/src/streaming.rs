@@ -9,6 +9,7 @@ use shardloom_core::{
     FidelityLevel, MaterializationRequirement, OutputTarget, OutputTargetKind, Result,
     ShardLoomError,
 };
+use std::collections::HashSet;
 
 /// Requested streaming mode for planning.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1043,6 +1044,7 @@ impl StreamingPlanSkeleton {
             out.push("diagnostics: none".to_string());
         } else {
             out.push("diagnostics:".to_string());
+            let mut seen = HashSet::new();
             for d in self
                 .source
                 .diagnostics
@@ -1052,7 +1054,10 @@ impl StreamingPlanSkeleton {
                 .chain(self.stages.iter().flat_map(|s| s.diagnostics.iter()))
                 .chain(self.diagnostics.iter())
             {
-                out.push(format!("- {}", d.to_human_text()));
+                let line = format!("- {}", d.to_human_text());
+                if seen.insert(line.clone()) {
+                    out.push(line);
+                }
             }
         }
         out.join("\n")
@@ -1258,6 +1263,20 @@ mod tests {
         let text = p.to_human_text();
         assert!(text.contains("diagnostics:"));
         assert!(!text.contains("diagnostics: none"));
+    }
+    #[test]
+    fn skeleton_human_text_deduplicates_stage_and_sink_diagnostics() {
+        let text =
+            StreamingPlanSkeleton::for_vortex_to_target(ds(), parquet_target()).to_human_text();
+        let matches = text
+            .lines()
+            .filter(|l| {
+                l.contains(
+                    "Compatibility sink may lose Vortex physical layout and encoding metadata.",
+                )
+            })
+            .count();
+        assert_eq!(matches, 1);
     }
     #[test]
     fn skeleton_unknown_target_is_marked_unsupported() {

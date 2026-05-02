@@ -110,3 +110,13 @@ ShardLoom should prefer metadata-only, pruning, encoded execution, zero-copy bou
 Use `memory-spill-oom.md` for memory budgets, reservations, memory pressure, spill policies, spill files, spillable operators, cleanup, stateful operator memory behavior, and OOM diagnostics.
 
 ShardLoom should avoid memory pressure through pruning, streaming, zero-decode, late materialization, and adaptive sizing, then survive memory pressure through reservations and native spill where necessary.
+
+## Correctness, optimizer, and fault tolerance
+
+Use `correctness-testing.md` for tests, semantics, differential testing, fuzzing, decoded reference behavior, unsupported diagnostics, and benchmark correctness validation.
+
+Use `optimizer-adaptive-execution.md` for optimizer rules, adaptive execution, runtime filters, dynamic pruning, join/aggregation strategy, skew handling, sink-driven planning, and memory/spill-aware planning.
+
+Use `fault-tolerance-recovery.md` for task attempts, retries, cancellation, recovery, idempotency, partial output cleanup, ambiguous commits, spill cleanup, and external effect failure behavior.
+
+ShardLoom should be correct before fast, adaptive before wasteful, and recoverable before massive.
