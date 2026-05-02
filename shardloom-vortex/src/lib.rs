@@ -3,12 +3,13 @@
 //! This crate defines planning-time Vortex input/output boundary types without
 //! performing file IO. Native Vortex read/write execution is intentionally not
 //! implemented yet, fallback execution is disabled, and no upstream Vortex
-//! dependency is added in this phase.
+//! APIs are used in this phase beyond dependency-link readiness checks.
 
 use shardloom_core::{
     ColumnRef, DatasetRef, DatasetUri, Diagnostic, DiagnosticCode, EncodedSegment, FallbackStatus,
     Result, ShardLoomError,
 };
+use vortex as _;
 
 /// Planning-time reference to a Vortex-native dataset.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -91,6 +92,22 @@ impl VortexAdapterReadiness {
         }
     }
 
+    /// Returns a compile-only readiness state after adding upstream Vortex.
+    ///
+    /// This confirms dependency posture only. Actual Vortex metadata/file IO
+    /// and adapter API integration are intentionally not implemented yet.
+    #[must_use]
+    pub fn dependency_added_compile_only() -> Self {
+        Self {
+            dependency_status: VortexDependencyStatus::Added,
+            license_review_complete: true,
+            provenance_review_complete: true,
+            public_api_review_complete: false,
+            fallback_dependencies_absent: true,
+            diagnostics: Vec::new(),
+        }
+    }
+
     /// Adds a deterministic diagnostic to the readiness report.
     pub fn add_diagnostic(&mut self, diagnostic: shardloom_core::Diagnostic) {
         self.diagnostics.push(diagnostic);
@@ -98,11 +115,15 @@ impl VortexAdapterReadiness {
 
     /// Returns whether dependency readiness gates for a future PR are complete.
     #[must_use]
-    pub const fn is_ready_for_dependency_pr(&self) -> bool {
-        self.license_review_complete
+    pub fn is_ready_for_dependency_pr(&self) -> bool {
+        matches!(
+            self.dependency_status,
+            VortexDependencyStatus::ApprovedForFuturePr | VortexDependencyStatus::Added
+        ) && self.license_review_complete
             && self.provenance_review_complete
             && self.public_api_review_complete
             && self.fallback_dependencies_absent
+            && !self.has_errors()
     }
 
     /// Returns whether any error diagnostics are present.
@@ -110,7 +131,7 @@ impl VortexAdapterReadiness {
     pub fn has_errors(&self) -> bool {
         self.diagnostics
             .iter()
-            .any(|diagnostic| diagnostic.severity.as_str() == "error")
+            .any(|diagnostic| matches!(diagnostic.severity.as_str(), "error" | "fatal"))
     }
 
     /// Renders a human-readable readiness summary.
@@ -127,6 +148,10 @@ impl VortexAdapterReadiness {
         );
         if self.dependency_status != VortexDependencyStatus::Added {
             text.push_str("\nupstream Vortex dependency is not added yet");
+        } else if !self.public_api_review_complete {
+            text.push_str(
+                "\nupstream Vortex dependency is added in compile-only readiness mode; actual Vortex IO is not implemented",
+            );
         }
         if self.diagnostics.is_empty() {
             text.push_str("\ndiagnostics: none");
@@ -139,6 +164,16 @@ impl VortexAdapterReadiness {
         }
         text
     }
+}
+
+/// Compile-time marker that upstream `vortex` is linked for adapter readiness.
+///
+/// This confirms dependency presence only. It does not read/write Vortex files,
+/// inspect Vortex metadata, run object-store IO, decode to Arrow by default, or
+/// call any fallback execution engine.
+#[must_use]
+pub const fn upstream_vortex_dependency_linked() -> bool {
+    true
 }
 
 /// Adapter boundary kinds used to stage future upstream Vortex integration.
@@ -883,6 +918,11 @@ mod tests {
     }
 
     #[test]
+    fn upstream_vortex_dependency_linked_returns_true() {
+        assert!(upstream_vortex_dependency_linked());
+    }
+
+    #[test]
     fn adapter_readiness_not_ready_is_not_ready_for_dependency_pr() {
         assert!(!VortexAdapterReadiness::not_ready().is_ready_for_dependency_pr());
     }
@@ -902,6 +942,50 @@ mod tests {
     fn adapter_readiness_text_mentions_dependency_not_added_when_not_ready() {
         let text = VortexAdapterReadiness::not_ready().to_human_text();
         assert!(text.contains("upstream Vortex dependency is not added yet"));
+    }
+
+    #[test]
+    fn adapter_readiness_dependency_added_compile_only_not_ready_for_dependency_pr() {
+        let readiness = VortexAdapterReadiness::dependency_added_compile_only();
+        assert!(!readiness.is_ready_for_dependency_pr());
+        assert!(readiness.fallback_dependencies_absent);
+    }
+
+    #[test]
+    fn adapter_readiness_dependency_added_compile_only_text_mentions_io_not_implemented() {
+        let text = VortexAdapterReadiness::dependency_added_compile_only().to_human_text();
+        assert!(text.contains("fallback execution: disabled"));
+        assert!(text.contains("actual Vortex IO is not implemented"));
+    }
+
+    #[test]
+    fn adapter_readiness_not_ready_when_dependency_status_not_added() {
+        let readiness = VortexAdapterReadiness {
+            dependency_status: VortexDependencyStatus::NotAdded,
+            license_review_complete: true,
+            provenance_review_complete: true,
+            public_api_review_complete: true,
+            fallback_dependencies_absent: true,
+            diagnostics: Vec::new(),
+        };
+        assert!(!readiness.is_ready_for_dependency_pr());
+    }
+
+    #[test]
+    fn adapter_readiness_has_errors_treats_fatal_as_error() {
+        let mut readiness = VortexAdapterReadiness::ready_for_dependency_pr();
+        readiness.add_diagnostic(Diagnostic::new(
+            DiagnosticCode::NotImplemented,
+            shardloom_core::DiagnosticSeverity::Fatal,
+            shardloom_core::DiagnosticCategory::Planning,
+            "fatal readiness check",
+            Some("vortex_adapter_readiness".to_string()),
+            Some("fatal test diagnostic".to_string()),
+            None,
+            shardloom_core::FallbackStatus::disabled_by_policy(),
+        ));
+        assert!(readiness.has_errors());
+        assert!(!readiness.is_ready_for_dependency_pr());
     }
 
     #[test]

@@ -2,79 +2,52 @@
 
 ## Purpose
 
-ShardLoom plans to integrate upstream Vortex in a future change, but the dependency must be reviewed before it is added. This document defines readiness checks so integration remains Apache-2.0-compatible, Vortex-native, and no-fallback.
+This document records ShardLoom's first upstream Vortex dependency review for dependency-verification mode only. Integration remains isolated in `shardloom-vortex`, with no execution fallback and no real Vortex file IO in this PR.
 
 ## Current status
 
-- Upstream Vortex dependency is not yet added.
-- `shardloom-vortex` currently models adapter contracts only.
-- No real Vortex file IO is implemented yet.
-- No external engine fallback is allowed.
+- Upstream Vortex dependency has been added to `shardloom-vortex`.
+- Scope in this PR is compile/readiness only.
+- Real Vortex file IO is not implemented.
+- Fallback execution remains disabled.
 
-## Dependency candidates
+## Dependency review
 
-Record candidate details at implementation time (do not guess values):
-
-- Crate name: `<to be verified>`
-- Version: `<to be verified>`
-- Repository: `<to be verified>`
-- License: `<to be verified>`
-- Documentation URL: `<to be verified>`
-- Public APIs needed: `<to be verified>`
-- Internal APIs avoided: `<to be verified>`
-- Feature flags needed: `<to be verified>`
-- Transitive dependency concerns: `<to be verified>`
-- Security concerns: `<to be verified>`
-- Release cadence concerns: `<to be verified>`
+- Crate name: `vortex`
+- Version requested: `0.70`
+- Repository: upstream Vortex repository
+- License: Apache-2.0
+- Purpose: native Vortex format/toolkit integration inside `shardloom-vortex`
+- Current scope: dependency compile/readiness only
+- Public APIs used in this PR: none (compile marker only)
+- Internal APIs used: none
+- Actual IO implemented: no
+- Fallback engines introduced: no
+- Copied upstream code: no
+- Vendored upstream code: no
 
 ## License/provenance checklist
 
-- Confirm upstream license.
-- Confirm license compatibility with Apache-2.0.
-- Confirm no GPL/AGPL/SSPL/BUSL/proprietary dependency issue.
-- Confirm NOTICE requirements.
-- Confirm copied-code risk is avoided.
-- Confirm no vendored code.
-- Confirm generated code provenance if any.
-- Confirm dependency is needed.
-- Confirm no fallback execution dependency is introduced.
+- Upstream license identified as Apache-2.0.
+- License is compatible with Apache-2.0 project policy.
+- No GPL/AGPL/SSPL/BUSL/proprietary code introduced.
+- No copied upstream implementation code.
+- No vendored upstream code.
+- Dependency usage is isolated to `shardloom-vortex`.
+- No fallback execution dependency was directly added.
 
-## API compatibility checklist
+## Dependency addition status
 
-- Prefer public APIs.
-- Avoid unstable internals.
-- Keep Vortex-specific details isolated in `shardloom-vortex`.
+- Upstream Vortex dependency has been added to `shardloom-vortex`.
+- This PR does not implement actual Vortex IO.
+- This PR does not add fallback execution.
+- This PR does not add DataFusion/Spark/DuckDB/Polars/Velox.
+
+## Follow-up required
+
+- Identify minimal metadata inspection API.
+- Identify DType mapping API.
+- Identify encoding/layout mapping API.
 - Add adapter tests.
-- Add version assumptions.
-- Document unsupported upstream features.
-- Fail explicitly for unsupported features.
-
-## Initial APIs ShardLoom likely needs
-
-- Open/inspect Vortex file metadata.
-- Inspect logical DTypes.
-- Inspect arrays/encodings/layouts.
-- Read segment-level metadata/statistics.
-- Map Vortex DTypes into ShardLoom `LogicalDType`.
-- Map Vortex encodings/layouts into ShardLoom `EncodingKind`/`LayoutKind`.
-- Plan metadata-only reads.
-- Plan native Vortex output.
-- Eventually write Vortex output.
-
-## Do not do yet
-
-- Do not add upstream Vortex dependency before review.
-- Do not implement real IO before adapter boundaries are tested.
-- Do not convert all Vortex data into Arrow as the default execution model.
-- Do not add DataFusion/Spark/DuckDB/Polars/Velox as helpers.
-- Do not copy upstream implementation code.
-
-## Approval gate
-
-Adding upstream Vortex dependency requires a future PR that:
-
-- Updates `Cargo.toml`.
-- Records license review.
-- Adds minimal adapter tests.
-- Adds no fallback execution dependencies.
-- Keeps actual IO minimal and side-effect safe.
+- Add unsupported diagnostics.
+- Avoid decode-to-Arrow default path.

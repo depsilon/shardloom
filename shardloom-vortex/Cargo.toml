@@ -11,3 +11,4 @@ workspace = true
 
 [dependencies]
 shardloom-core = { path = "../shardloom-core" }
+vortex = "0.70"
