@@ -104,3 +104,9 @@ ShardLoom should provide stable, deterministic, actionable diagnostics for human
 Use `streaming-zero-copy.md` for streaming execution, zero-copy boundaries, zero-decode execution, sink-driven planning, Arrow-like interoperability, materialization boundaries, backpressure, and bounded-memory behavior.
 
 ShardLoom should prefer metadata-only, pruning, encoded execution, zero-copy boundaries, partial decode, late materialization, shuffle avoidance, and distribution avoidance in that order.
+
+## Memory, spill, and OOM safety
+
+Use `memory-spill-oom.md` for memory budgets, reservations, memory pressure, spill policies, spill files, spillable operators, cleanup, stateful operator memory behavior, and OOM diagnostics.
+
+ShardLoom should avoid memory pressure through pruning, streaming, zero-decode, late materialization, and adaptive sizing, then survive memory pressure through reservations and native spill where necessary.

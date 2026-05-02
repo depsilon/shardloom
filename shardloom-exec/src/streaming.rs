@@ -926,7 +926,9 @@ impl StreamingPlanSkeleton {
             StreamingSink::compatibility(target)
         };
         let mut p = Self::new(StreamingMode::PlanOnly, source.clone(), sink.clone());
-        p.status = if sink.kind.is_native_vortex() {
+        p.status = if sink.kind == StreamingSinkKind::Unsupported {
+            StreamingPlanStatus::Unsupported
+        } else if sink.kind.is_native_vortex() {
             StreamingPlanStatus::Planned
         } else {
             StreamingPlanStatus::RequiresMaterialization
@@ -1001,17 +1003,17 @@ impl StreamingPlanSkeleton {
             DataWorkLevel::MetadataOnly
         };
         for op in &self.operators {
-            if op.data_work_level.rank() < best.rank() {
+            if op.data_work_level.rank() > best.rank() {
                 best = op.data_work_level;
             }
         }
         for st in &self.stages {
-            if st.data_work_level.rank() < best.rank() {
+            if st.data_work_level.rank() > best.rank() {
                 best = st.data_work_level;
             }
         }
         if self.sink.requirement.requires_materialization
-            && DataWorkLevel::FullMaterialization.rank() < best.rank()
+            && DataWorkLevel::FullMaterialization.rank() > best.rank()
         {
             best = DataWorkLevel::FullMaterialization;
         }
@@ -1035,6 +1037,8 @@ impl StreamingPlanSkeleton {
         if self.diagnostics.is_empty()
             && self.source.diagnostics.is_empty()
             && self.sink.diagnostics.is_empty()
+            && self.operators.iter().all(|o| o.diagnostics.is_empty())
+            && self.stages.iter().all(|s| s.diagnostics.is_empty())
         {
             out.push("diagnostics: none".to_string());
         } else {
@@ -1044,6 +1048,8 @@ impl StreamingPlanSkeleton {
                 .diagnostics
                 .iter()
                 .chain(self.sink.diagnostics.iter())
+                .chain(self.operators.iter().flat_map(|o| o.diagnostics.iter()))
+                .chain(self.stages.iter().flat_map(|s| s.diagnostics.iter()))
                 .chain(self.diagnostics.iter())
             {
                 out.push(format!("- {}", d.to_human_text()));
@@ -1228,6 +1234,41 @@ mod tests {
                 .to_human_text()
                 .contains("fallback execution: disabled")
         );
+    }
+    #[test]
+    fn skeleton_best_data_work_level_promotes_to_materialization_for_compat_sink() {
+        assert_eq!(
+            StreamingPlanSkeleton::for_vortex_to_target(ds(), parquet_target())
+                .best_data_work_level(),
+            DataWorkLevel::FullMaterialization
+        );
+    }
+    #[test]
+    fn skeleton_human_text_includes_operator_diagnostics() {
+        let mut p = StreamingPlanSkeleton::new(
+            StreamingMode::PlanOnly,
+            StreamingSource::vortex_dataset(ds()),
+            StreamingSink::vortex_native(vortex_target()),
+        );
+        p.add_operator(StreamingOperator::unsupported(
+            StreamingOperatorKind::Projection,
+            "projection",
+            "projection streaming unsupported",
+        ));
+        let text = p.to_human_text();
+        assert!(text.contains("diagnostics:"));
+        assert!(!text.contains("diagnostics: none"));
+    }
+    #[test]
+    fn skeleton_unknown_target_is_marked_unsupported() {
+        let p = StreamingPlanSkeleton::for_vortex_to_target(
+            ds(),
+            OutputTarget::new(
+                DatasetUri::new("out.unknown").expect("valid uri"),
+                OutputTargetKind::Unknown,
+            ),
+        );
+        assert_eq!(p.status, StreamingPlanStatus::Unsupported);
     }
     #[test]
     fn skeleton_unsupported_has_errors() {
