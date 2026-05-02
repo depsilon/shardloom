@@ -198,7 +198,7 @@ impl VortexAdapterCapabilityReport {
                 ),
                 (
                     VortexAdapterCapability::DTypeMapping,
-                    VortexAdapterCapabilityStatus::Planned,
+                    VortexAdapterCapabilityStatus::BlockedOnApiDiscovery,
                 ),
                 (
                     VortexAdapterCapability::EncodingMapping,
@@ -265,6 +265,14 @@ impl VortexAdapterCapabilityReport {
         );
         for (cap, status) in &self.capabilities {
             let _ = write!(out, "\n- {}: {}", cap.as_str(), status.as_str());
+        }
+        if self.diagnostics.is_empty() {
+            out.push_str("\ndiagnostics: none");
+        } else {
+            out.push_str("\ndiagnostics:");
+            for diagnostic in &self.diagnostics {
+                let _ = write!(out, "\n- {}", diagnostic.to_human_text());
+            }
         }
         out
     }
@@ -391,6 +399,20 @@ typed API: {api}"
                 "
 diagnostics: none",
             );
+        } else {
+            out.push_str(
+                "
+diagnostics:",
+            );
+            for diagnostic in &self.diagnostics {
+                let _ = write!(out, "\n- {}", diagnostic.to_human_text());
+                if let Some(reason) = &diagnostic.reason {
+                    let _ = write!(out, "\n  reason: {reason}");
+                }
+                if let Some(next_step) = &diagnostic.suggested_next_step {
+                    let _ = write!(out, "\n  suggested next step: {next_step}");
+                }
+            }
         }
         out
     }
@@ -403,6 +425,162 @@ diagnostics: none",
 #[must_use]
 pub const fn typed_vortex_dtype_mapping_available() -> bool {
     false
+}
+
+/// Typed encoding mapping status at the Vortex adapter boundary in `ShardLoom`.
+///
+/// This status is compile-safe metadata only and never performs IO.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexEncodingMappingStatus {
+    Implemented,
+    DeferredApiUnclear,
+    DeferredApiUnstable,
+    Unsupported,
+}
+impl VortexEncodingMappingStatus {
+    /// Returns a stable machine-readable status label.
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Implemented => "implemented",
+            Self::DeferredApiUnclear => "deferred_api_unclear",
+            Self::DeferredApiUnstable => "deferred_api_unstable",
+            Self::Unsupported => "unsupported",
+        }
+    }
+    /// Returns whether typed mapping is currently implemented.
+    #[must_use]
+    pub const fn is_implemented(&self) -> bool {
+        matches!(self, Self::Implemented)
+    }
+}
+
+/// Typed layout mapping status at the Vortex adapter boundary in `ShardLoom`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexLayoutMappingStatus {
+    Implemented,
+    DeferredApiUnclear,
+    DeferredApiUnstable,
+    Unsupported,
+}
+impl VortexLayoutMappingStatus {
+    /// Returns a stable machine-readable status label.
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Implemented => "implemented",
+            Self::DeferredApiUnclear => "deferred_api_unclear",
+            Self::DeferredApiUnstable => "deferred_api_unstable",
+            Self::Unsupported => "unsupported",
+        }
+    }
+    /// Returns whether typed mapping is currently implemented.
+    #[must_use]
+    pub const fn is_implemented(&self) -> bool {
+        matches!(self, Self::Implemented)
+    }
+}
+
+/// Report for typed Vortex encoding/layout mapping probe at the `ShardLoom` adapter boundary.
+///
+/// No Vortex IO occurs, name-based mapping remains available, and fallback execution is disabled.
+#[derive(Debug, Clone, PartialEq)]
+pub struct VortexEncodingLayoutMappingReport {
+    pub encoding_status: VortexEncodingMappingStatus,
+    pub layout_status: VortexLayoutMappingStatus,
+    pub encoding_api_name: Option<String>,
+    pub layout_api_name: Option<String>,
+    pub name_based_mapping_available: bool,
+    pub actual_io_implemented: bool,
+    pub fallback_execution_allowed: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl VortexEncodingLayoutMappingReport {
+    #[must_use]
+    pub fn implemented(
+        encoding_api_name: impl Into<String>,
+        layout_api_name: impl Into<String>,
+    ) -> Self {
+        Self {
+            encoding_status: VortexEncodingMappingStatus::Implemented,
+            layout_status: VortexLayoutMappingStatus::Implemented,
+            encoding_api_name: Some(encoding_api_name.into()),
+            layout_api_name: Some(layout_api_name.into()),
+            name_based_mapping_available: true,
+            actual_io_implemented: false,
+            fallback_execution_allowed: false,
+            diagnostics: vec![],
+        }
+    }
+    #[must_use]
+    pub fn encoding_implemented_layout_deferred(encoding_api_name: impl Into<String>) -> Self {
+        Self {
+            encoding_status: VortexEncodingMappingStatus::Implemented,
+            layout_status: VortexLayoutMappingStatus::DeferredApiUnclear,
+            encoding_api_name: Some(encoding_api_name.into()),
+            layout_api_name: None,
+            name_based_mapping_available: true,
+            actual_io_implemented: false,
+            fallback_execution_allowed: false,
+            diagnostics: vec![],
+        }
+    }
+    #[must_use]
+    pub fn deferred_api_unclear() -> Self {
+        Self {
+            encoding_status: VortexEncodingMappingStatus::DeferredApiUnclear,
+            layout_status: VortexLayoutMappingStatus::DeferredApiUnclear,
+            encoding_api_name: None,
+            layout_api_name: None,
+            name_based_mapping_available: true,
+            actual_io_implemented: false,
+            fallback_execution_allowed: false,
+            diagnostics: vec![],
+        }
+    }
+    #[must_use]
+    pub fn deferred_api_unstable() -> Self {
+        Self {
+            encoding_status: VortexEncodingMappingStatus::DeferredApiUnstable,
+            layout_status: VortexLayoutMappingStatus::DeferredApiUnstable,
+            ..Self::deferred_api_unclear()
+        }
+    }
+    pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
+    }
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.diagnostics
+            .iter()
+            .any(|d| matches!(d.severity.as_str(), "error" | "fatal"))
+    }
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        let mut out = format!(
+            "Vortex typed encoding/layout mapping probe\nencoding mapping status: {}\nlayout mapping status: {}\nname-based mapping available: {}\nactual IO implemented: {}\nfallback execution allowed: {}",
+            self.encoding_status.as_str(),
+            self.layout_status.as_str(),
+            self.name_based_mapping_available,
+            self.actual_io_implemented,
+            self.fallback_execution_allowed
+        );
+        if let Some(api) = &self.encoding_api_name {
+            let _ = write!(out, "\nencoding API: {api}");
+        }
+        if let Some(api) = &self.layout_api_name {
+            let _ = write!(out, "\nlayout API: {api}");
+        }
+        if self.diagnostics.is_empty() {
+            out.push_str("\ndiagnostics: none");
+        } else {
+            out.push_str("\ndiagnostics:");
+            for diagnostic in &self.diagnostics {
+                let _ = write!(out, "\n- {}", diagnostic.to_human_text());
+            }
+        }
+        out
+    }
 }
 
 /// Temporary name-based mapping helper until typed upstream `DType` mapping is confirmed.
@@ -533,6 +711,14 @@ mod tests {
         assert!(report.has_errors());
     }
     #[test]
+    fn foundation_dtype_mapping_is_blocked_on_api_discovery() {
+        let report = VortexAdapterCapabilityReport::foundation();
+        assert!(report.capabilities.iter().any(|(capability, status)| {
+            *capability == VortexAdapterCapability::DTypeMapping
+                && *status == VortexAdapterCapabilityStatus::BlockedOnApiDiscovery
+        }));
+    }
+    #[test]
     fn map_dtype_bool_boolean() {
         assert_eq!(map_known_vortex_dtype_name("bool"), LogicalDType::Boolean);
         assert_eq!(
@@ -599,6 +785,21 @@ mod tests {
         );
     }
     #[test]
+    fn map_encoding_fsst_fast_lanes_alp_names() {
+        assert_eq!(
+            map_known_vortex_encoding_name("fsst"),
+            shardloom_core::EncodingKind::FsstLike
+        );
+        assert_eq!(
+            map_known_vortex_encoding_name("fast_lanes"),
+            shardloom_core::EncodingKind::FastLanesLike
+        );
+        assert_eq!(
+            map_known_vortex_encoding_name("alp"),
+            shardloom_core::EncodingKind::AlpLike
+        );
+    }
+    #[test]
     fn map_layout_flat() {
         assert_eq!(
             map_known_vortex_layout_name("flat"),
@@ -610,6 +811,21 @@ mod tests {
         assert_eq!(
             map_known_vortex_layout_name("chunked"),
             shardloom_core::LayoutKind::Chunked
+        );
+    }
+    #[test]
+    fn map_layout_struct_list_sparse() {
+        assert_eq!(
+            map_known_vortex_layout_name("struct"),
+            shardloom_core::LayoutKind::Struct
+        );
+        assert_eq!(
+            map_known_vortex_layout_name("list"),
+            shardloom_core::LayoutKind::List
+        );
+        assert_eq!(
+            map_known_vortex_layout_name("sparse"),
+            shardloom_core::LayoutKind::Sparse
         );
     }
     #[test]
@@ -641,6 +857,18 @@ mod tests {
         assert!(text.contains("actual IO implemented: false"));
         assert!(text.contains("fallback execution allowed: false"));
     }
+    #[test]
+    fn dtype_report_human_text_renders_non_empty_diagnostics() {
+        let mut report = VortexDTypeMappingReport::deferred_api_unclear();
+        report.add_diagnostic(shardloom_core::Diagnostic::configuration_error(
+            "vortex_dtype_mapping",
+            "typed API unresolved",
+            "continue using name-based mapping",
+        ));
+        let text = report.to_human_text();
+        assert!(text.contains("diagnostics:"));
+        assert!(text.contains("typed API unresolved"));
+    }
 
     #[test]
     fn map_layout_unknown() {
@@ -648,5 +876,52 @@ mod tests {
             map_known_vortex_layout_name("??"),
             shardloom_core::LayoutKind::Unknown
         );
+    }
+
+    #[test]
+    fn encoding_mapping_status_implemented_is_implemented() {
+        assert!(VortexEncodingMappingStatus::Implemented.is_implemented());
+    }
+    #[test]
+    fn encoding_mapping_status_deferred_unclear_is_not_implemented() {
+        assert!(!VortexEncodingMappingStatus::DeferredApiUnclear.is_implemented());
+    }
+    #[test]
+    fn layout_mapping_status_implemented_is_implemented() {
+        assert!(VortexLayoutMappingStatus::Implemented.is_implemented());
+    }
+    #[test]
+    fn layout_mapping_status_deferred_unclear_is_not_implemented() {
+        assert!(!VortexLayoutMappingStatus::DeferredApiUnclear.is_implemented());
+    }
+    #[test]
+    fn encoding_layout_report_implemented_io_and_fallback_disabled() {
+        let report = VortexEncodingLayoutMappingReport::implemented("api::encoding", "api::layout");
+        assert!(!report.actual_io_implemented);
+        assert!(!report.fallback_execution_allowed);
+    }
+    #[test]
+    fn encoding_layout_report_deferred_name_mapping_available() {
+        let report = VortexEncodingLayoutMappingReport::deferred_api_unclear();
+        assert!(report.name_based_mapping_available);
+        assert!(!report.actual_io_implemented);
+        assert!(!report.fallback_execution_allowed);
+    }
+    #[test]
+    fn encoding_layout_report_human_text_mentions_io_and_fallback_status() {
+        let text = VortexEncodingLayoutMappingReport::deferred_api_unclear().to_human_text();
+        assert!(text.contains("actual IO implemented: false"));
+        assert!(text.contains("fallback execution allowed: false"));
+    }
+    #[test]
+    fn encoding_layout_report_has_errors_is_severity_based() {
+        let mut report = VortexEncodingLayoutMappingReport::deferred_api_unclear();
+        assert!(!report.has_errors());
+        report.add_diagnostic(shardloom_core::Diagnostic::configuration_error(
+            "vortex_encoding_layout_mapping",
+            "adapter probe failed",
+            "keep mapping deferred",
+        ));
+        assert!(report.has_errors());
     }
 }
