@@ -9,6 +9,7 @@ pub mod capabilities;
 pub mod dataset;
 pub mod diagnostics;
 pub mod encoded;
+pub mod translation;
 
 pub use benchmark::{
     BaselineEngine, BenchmarkMetric, BenchmarkPlan, BenchmarkResult, BenchmarkScenario,
@@ -26,6 +27,12 @@ pub use encoded::{
     ExecutionState, LayoutKind, LogicalDType, MaterializationPolicy, Nullability, PredicateExpr,
     PredicateProof, PruningDecision, SegmentId, SegmentLayout, SegmentStats, SelectionVector,
     SortOrder, StatValue, StatisticsExactness,
+};
+
+pub use translation::{
+    CommitMode, FidelityLevel, MaterializationRequirement, MetadataKind, MetadataPreservation,
+    MetadataPreservationStatus, OutputTarget, OutputTargetKind, TranslationPlan,
+    TranslationPlanningStatus, TranslationReport,
 };
 
 /// Canonical crate-level result type for `ShardLoom`.

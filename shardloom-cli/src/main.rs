@@ -5,7 +5,7 @@
 
 use std::process::ExitCode;
 
-use shardloom_core::{DatasetRef, DatasetUri};
+use shardloom_core::{DatasetRef, DatasetUri, OutputTarget, TranslationPlan};
 use shardloom_plan::{EstimateReport, ExplainReport, ScanPlanSkeleton, ScanRequest};
 use shardloom_vortex::{VortexFileRef, VortexReadPlan, VortexWriteOptions, VortexWritePlan};
 
@@ -108,6 +108,27 @@ fn run(args: Vec<String>) -> ExitCode {
             );
             ExitCode::SUCCESS
         }
+        Some("translation-plan") => {
+            let Some(target_uri) = args.next() else {
+                eprintln!("usage: shardloom translation-plan <target_uri>");
+                return ExitCode::from(2);
+            };
+            let uri = match DatasetUri::new(target_uri) {
+                Ok(uri) => uri,
+                Err(error) => {
+                    eprintln!("invalid dataset uri: {error}");
+                    return ExitCode::from(2);
+                }
+            };
+            let target = OutputTarget::from_uri(uri);
+            let plan = TranslationPlan::for_target(target);
+            println!("{}", plan.to_human_text());
+            if plan.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
         Some("vortex-output-plan") => {
             let Some(target_uri) = args.next() else {
                 eprintln!("usage: shardloom vortex-output-plan <target_uri>");
@@ -152,7 +173,7 @@ fn run(args: Vec<String>) -> ExitCode {
         }
         _ => {
             eprintln!(
-                "usage: shardloom-cli <status|capabilities|doctor|scan-plan|vortex-plan|vortex-output-plan|explain|estimate|benchmark-plan>"
+                "usage: shardloom-cli <status|capabilities|doctor|scan-plan|translation-plan|vortex-plan|vortex-output-plan|explain|estimate|benchmark-plan>"
             );
             ExitCode::from(2)
         }
@@ -188,6 +209,24 @@ mod tests {
             "file://tmp/test.vortex".to_string(),
         ]);
         assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn translation_plan_with_vortex_uri_returns_success() {
+        let code = run(vec![
+            "translation-plan".to_string(),
+            "file://tmp/out.vortex".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn translation_plan_with_unknown_uri_returns_non_zero() {
+        let code = run(vec![
+            "translation-plan".to_string(),
+            "file://tmp/out.unknown".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
     }
 
     #[test]
