@@ -10,6 +10,7 @@ pub mod dataset;
 pub mod diagnostics;
 pub mod encoded;
 pub mod manifest;
+pub mod output;
 pub mod translation;
 
 pub use benchmark::{
@@ -35,6 +36,7 @@ pub use manifest::{
     IncrementalPlanSkeleton, IncrementalPlanningDecision, ManifestSegment, ManifestVersion,
     SegmentChange, SegmentChangeKind, SnapshotRef, WriteIntent, WriteIntentStatus,
 };
+pub use output::{CommandStatus, OutputEnvelope, OutputFormat};
 
 pub use translation::{
     CommitMode, FidelityLevel, MaterializationRequirement, MetadataKind, MetadataPreservation,

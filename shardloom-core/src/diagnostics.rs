@@ -139,6 +139,19 @@ impl FallbackStatus {
             reason: "ShardLoom prohibits Spark, DataFusion, DuckDB, Polars, Velox, and other fallback execution engines.".to_string(),
         }
     }
+
+    #[must_use]
+    pub fn to_json(&self) -> String {
+        format!(
+            "{{\"attempted\":{},\"allowed\":{},\"engine\":{},\"reason\":{}}}",
+            crate::output::json_bool(self.attempted),
+            crate::output::json_bool(self.allowed),
+            self.engine
+                .as_ref()
+                .map_or_else(|| "null".to_string(), |e| crate::output::json_string(e)),
+            crate::output::json_string(&self.reason)
+        )
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -221,6 +234,27 @@ impl Diagnostic {
             message = self.message
         )
     }
+
+    #[must_use]
+    pub fn to_json(&self) -> String {
+        format!(
+            "{{\"code\":{},\"severity\":{},\"category\":{},\"message\":{},\"feature\":{},\"reason\":{},\"suggested_next_step\":{},\"fallback\":{}}}",
+            crate::output::json_string(self.code.as_str()),
+            crate::output::json_string(self.severity.as_str()),
+            crate::output::json_string(self.category.as_str()),
+            crate::output::json_string(&self.message),
+            self.feature
+                .as_ref()
+                .map_or_else(|| "null".to_string(), |v| crate::output::json_string(v)),
+            self.reason
+                .as_ref()
+                .map_or_else(|| "null".to_string(), |v| crate::output::json_string(v)),
+            self.suggested_next_step
+                .as_ref()
+                .map_or_else(|| "null".to_string(), |v| crate::output::json_string(v)),
+            self.fallback.to_json(),
+        )
+    }
 }
 
 #[cfg(test)]
@@ -267,5 +301,24 @@ mod tests {
         let text = diagnostic.to_human_text();
         assert!(text.contains("SL_NO_FALLBACK_EXECUTION"));
         assert!(text.contains("No fallback will be attempted."));
+    }
+
+    #[test]
+    fn diagnostic_to_json_includes_code() {
+        let diagnostic = Diagnostic::no_fallback_execution("No fallback will be attempted.");
+        let json = diagnostic.to_json();
+        assert!(json.contains("SL_NO_FALLBACK_EXECUTION"));
+    }
+
+    #[test]
+    fn diagnostic_to_json_unsupported_has_fallback_attempted_false() {
+        let diagnostic = Diagnostic::unsupported(
+            DiagnosticCode::UnsupportedSql,
+            "window_function",
+            "Window functions are not supported yet.",
+            None,
+        );
+        let json = diagnostic.to_json();
+        assert!(json.contains("\"attempted\":false"));
     }
 }
