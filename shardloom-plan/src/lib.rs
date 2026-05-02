@@ -5,6 +5,7 @@
 
 pub mod estimate;
 pub mod explain;
+pub mod optimizer;
 pub mod plan_ir;
 pub mod scan;
 
@@ -12,6 +13,14 @@ use shardloom_core::{Result, ShardLoomError};
 
 pub use estimate::{EstimateConfidence, EstimateReport, EstimateValue};
 pub use explain::{ExecutionBoundary, ExplainPlanNode, ExplainReport, PlanNodeId, PlanNodeKind};
+pub use optimizer::{
+    AdaptiveDecisionKind, AdaptiveExecutionDecision, AdaptiveTrigger, AdaptiveTriggerKind,
+    AggregateStrategy, CostEstimate, CostMetric, CostModelInput, CostValue, DynamicPruningDecision,
+    JoinStrategy, OptimizerPhase, OptimizerPlanSkeleton, OptimizerPlanStatus,
+    OptimizerRuleDecision, OptimizerRuleId, OptimizerRuleKind, OptimizerRuleStatus, RuntimeFilter,
+    RuntimeFilterKind, RuntimeFilterStatus, SkewHandlingStrategy, SkewSeverity, SkewSignal,
+    SkewSignalKind,
+};
 pub use plan_ir::{
     EffectBoundary, NativePlanDocument, NativePlanNode, NativePlanNodeKind, PlanBoundaryKind,
     PlanCapabilityKind, PlanCapabilityRequirement, PlanExportRequest, PlanExportStatus, PlanId,

@@ -558,11 +558,13 @@ impl KernelCapability {
     }
     #[must_use]
     pub fn supports_dtype(&self, dtype: &LogicalDType) -> bool {
-        self.supported_dtypes.is_empty() || self.supported_dtypes.contains(dtype)
+        !matches!(self.kind, KernelKind::Unsupported)
+            && (self.supported_dtypes.is_empty() || self.supported_dtypes.contains(dtype))
     }
     #[must_use]
     pub fn supports_encoding(&self, encoding: &EncodingKind) -> bool {
-        self.supported_encodings.is_empty() || self.supported_encodings.contains(encoding)
+        !matches!(self.kind, KernelKind::Unsupported)
+            && (self.supported_encodings.is_empty() || self.supported_encodings.contains(encoding))
     }
     #[must_use]
     pub const fn is_effectful(&self) -> bool {
@@ -940,6 +942,12 @@ mod tests {
     #[test]
     fn kernel_capability_supports_dtype_when_empty() {
         assert!(KernelCapability::metadata().supports_dtype(&LogicalDType::Int64));
+    }
+    #[test]
+    fn kernel_capability_unsupported_never_supports_dtype_or_encoding() {
+        let unsupported = KernelCapability::unsupported();
+        assert!(!unsupported.supports_dtype(&LogicalDType::Int64));
+        assert!(!unsupported.supports_encoding(&EncodingKind::Dictionary));
     }
     #[test]
     fn kernel_id_rejects_empty_ids() {

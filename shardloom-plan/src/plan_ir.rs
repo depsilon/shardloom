@@ -167,6 +167,8 @@ impl NativePlanNodeKind {
                 | Self::ModelCall
                 | Self::EmbeddingGeneration
                 | Self::VectorSearch
+                | Self::Write
+                | Self::Commit
         )
     }
 }
@@ -916,6 +918,11 @@ mod tests {
     #[test]
     fn node_kind_scan_not_effectful() {
         assert!(!NativePlanNodeKind::Scan.is_effectful());
+    }
+    #[test]
+    fn node_kind_write_and_commit_are_effectful() {
+        assert!(NativePlanNodeKind::Write.is_effectful());
+        assert!(NativePlanNodeKind::Commit.is_effectful());
     }
     #[test]
     fn boundary_effect_special() {
