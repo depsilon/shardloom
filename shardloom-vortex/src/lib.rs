@@ -1,36 +1,674 @@
-//! `Vortex`-native IO surface for `ShardLoom`.
+//! Vortex-native IO contract skeleton for `ShardLoom`.
 //!
-//! This crate is the dedicated integration point for treating `Vortex` as a
-//! first-class native input and output target.
+//! This crate defines planning-time Vortex input/output boundary types without
+//! performing file IO. Native Vortex read/write execution is intentionally not
+//! implemented yet, fallback execution is disabled, and no upstream Vortex
+//! dependency is added in this phase.
 
-use shardloom_core::{Result, ShardLoomError};
+use shardloom_core::{
+    ColumnRef, DatasetRef, DatasetUri, Diagnostic, DiagnosticCode, EncodedSegment, FallbackStatus,
+    Result, ShardLoomError,
+};
 
-/// Marker for a native `Vortex` dataset handle.
+/// Planning-time reference to a Vortex-native dataset.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct VortexDataset {
-    /// Dataset location or identifier.
-    pub uri: String,
+pub struct VortexFileRef {
+    pub dataset: DatasetRef,
 }
 
-/// Open a `Vortex` dataset handle.
-///
-/// # Errors
-/// Returns an error when the provided URI is empty or only whitespace.
-pub fn open_dataset(uri: impl Into<String>) -> Result<VortexDataset> {
-    let uri = uri.into();
-    if uri.trim().is_empty() {
-        return Err(ShardLoomError::new("vortex dataset URI must not be empty"));
+impl VortexFileRef {
+    /// Creates a validated Vortex file reference from a dataset reference.
+    ///
+    /// # Errors
+    /// Returns `ShardLoomError::InvalidOperation` when the dataset is not Vortex-native.
+    pub fn new(dataset: DatasetRef) -> Result<Self> {
+        if !dataset.format.is_native_vortex() {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "dataset is not Vortex-native: format={}",
+                dataset.format.as_str()
+            )));
+        }
+        Ok(Self { dataset })
     }
-    Ok(VortexDataset { uri })
+
+    /// Creates a Vortex file reference by deriving a dataset reference from URI.
+    ///
+    /// # Errors
+    /// Returns an error when URI parsing fails or when the format is not Vortex-native.
+    pub fn from_uri(uri: DatasetUri) -> Result<Self> {
+        let dataset = DatasetRef::from_uri(uri)?;
+        Self::new(dataset)
+    }
+
+    /// Returns the dataset URI.
+    #[must_use]
+    pub fn uri(&self) -> &DatasetUri {
+        &self.dataset.uri
+    }
+
+    /// Returns a concise planning-time summary.
+    #[must_use]
+    pub fn summary(&self) -> String {
+        format!("vortex_file(uri={})", self.uri().as_str())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum VortexFileVersion {
+    Unknown,
+    V1,
+    Extension(String),
+}
+impl VortexFileVersion {
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Unknown => "unknown",
+            Self::V1 => "v1",
+            Self::Extension(_) => "extension",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexOpenMode {
+    MetadataOnly,
+    PlanRead,
+    NativeRead,
+}
+impl VortexOpenMode {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::MetadataOnly => "metadata_only",
+            Self::PlanRead => "plan_read",
+            Self::NativeRead => "native_read",
+        }
+    }
+}
+
+/// Options for planning Vortex file open/read behavior; no IO occurs.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VortexOpenOptions {
+    pub mode: VortexOpenMode,
+    pub required_columns: Vec<ColumnRef>,
+    pub require_statistics: bool,
+    pub allow_partial_decode: bool,
+}
+
+impl VortexOpenOptions {
+    #[must_use]
+    pub fn metadata_only() -> Self {
+        Self::default()
+    }
+    #[must_use]
+    pub fn plan_read() -> Self {
+        Self {
+            mode: VortexOpenMode::PlanRead,
+            ..Self::default()
+        }
+    }
+    #[must_use]
+    pub fn native_read() -> Self {
+        Self {
+            mode: VortexOpenMode::NativeRead,
+            ..Self::default()
+        }
+    }
+    #[must_use]
+    pub fn with_required_columns(mut self, columns: Vec<ColumnRef>) -> Self {
+        self.required_columns = columns;
+        self
+    }
+    #[must_use]
+    pub fn require_statistics(mut self, value: bool) -> Self {
+        self.require_statistics = value;
+        self
+    }
+    #[must_use]
+    pub fn allow_partial_decode(mut self, value: bool) -> Self {
+        self.allow_partial_decode = value;
+        self
+    }
+    #[must_use]
+    pub fn summary(&self) -> String {
+        format!(
+            "mode={} required_columns={} require_statistics={} allow_partial_decode={}",
+            self.mode.as_str(),
+            self.required_columns.len(),
+            self.require_statistics,
+            self.allow_partial_decode
+        )
+    }
+}
+
+impl Default for VortexOpenOptions {
+    fn default() -> Self {
+        Self {
+            mode: VortexOpenMode::MetadataOnly,
+            required_columns: Vec::new(),
+            require_statistics: false,
+            allow_partial_decode: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexFeatureStatus {
+    Supported,
+    Planned,
+    NotImplemented,
+    Unsupported,
+}
+impl VortexFeatureStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Supported => "supported",
+            Self::Planned => "planned",
+            Self::NotImplemented => "not_implemented",
+            Self::Unsupported => "unsupported",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexOutputFidelity {
+    NativeFullFidelity,
+    NativePartialFidelity,
+    Unsupported,
+}
+impl VortexOutputFidelity {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::NativeFullFidelity => "native_full_fidelity",
+            Self::NativePartialFidelity => "native_partial_fidelity",
+            Self::Unsupported => "unsupported",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct VortexSegmentDescriptor {
+    pub segment: EncodedSegment,
+    pub source_file: VortexFileRef,
+}
+impl VortexSegmentDescriptor {
+    #[must_use]
+    pub fn new(segment: EncodedSegment, source_file: VortexFileRef) -> Self {
+        Self {
+            segment,
+            source_file,
+        }
+    }
+    #[must_use]
+    pub fn summary(&self) -> String {
+        format!(
+            "source={} {}",
+            self.source_file.uri().as_str(),
+            self.segment.execution_summary()
+        )
+    }
+    #[must_use]
+    pub fn can_use_metadata(&self) -> bool {
+        self.segment.can_use_metadata()
+    }
+    #[must_use]
+    pub fn has_byte_ranges(&self) -> bool {
+        self.segment.has_byte_ranges()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct VortexFileMetadata {
+    pub file: VortexFileRef,
+    pub version: VortexFileVersion,
+    pub row_count: Option<u64>,
+    pub segments: Vec<VortexSegmentDescriptor>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl VortexFileMetadata {
+    #[must_use]
+    pub fn empty(file: VortexFileRef) -> Self {
+        Self {
+            file,
+            version: VortexFileVersion::Unknown,
+            row_count: None,
+            segments: Vec::new(),
+            diagnostics: Vec::new(),
+        }
+    }
+    pub fn add_segment(&mut self, segment: VortexSegmentDescriptor) {
+        self.segments.push(segment);
+    }
+    pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
+    }
+    #[must_use]
+    pub fn segment_count(&self) -> usize {
+        self.segments.len()
+    }
+    #[must_use]
+    pub fn has_statistics(&self) -> bool {
+        self.segments
+            .iter()
+            .any(VortexSegmentDescriptor::can_use_metadata)
+    }
+    #[must_use]
+    pub fn summary(&self) -> String {
+        format!(
+            "file={} version={} rows={} segments={} has_statistics={} diagnostics={}",
+            self.file.uri().as_str(),
+            self.version.as_str(),
+            self.row_count
+                .map_or_else(|| "unknown".to_string(), |v| v.to_string()),
+            self.segment_count(),
+            self.has_statistics(),
+            self.diagnostics.len()
+        )
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexReadPlanningStatus {
+    Planned,
+    MetadataOnly,
+    NativeReadNotImplemented,
+    Unsupported,
+}
+impl VortexReadPlanningStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Planned => "planned",
+            Self::MetadataOnly => "metadata_only",
+            Self::NativeReadNotImplemented => "native_read_not_implemented",
+            Self::Unsupported => "unsupported",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct VortexReadPlan {
+    pub file: VortexFileRef,
+    pub options: VortexOpenOptions,
+    pub status: VortexReadPlanningStatus,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl VortexReadPlan {
+    #[must_use]
+    pub fn metadata_only(file: VortexFileRef) -> Self {
+        Self {
+            file,
+            options: VortexOpenOptions::metadata_only(),
+            status: VortexReadPlanningStatus::MetadataOnly,
+            diagnostics: Vec::new(),
+        }
+    }
+    #[must_use]
+    pub fn plan_read(file: VortexFileRef, options: VortexOpenOptions) -> Self {
+        Self {
+            file,
+            options,
+            status: VortexReadPlanningStatus::Planned,
+            diagnostics: Vec::new(),
+        }
+    }
+    #[must_use]
+    pub fn native_read_not_implemented(file: VortexFileRef, options: VortexOpenOptions) -> Self {
+        let mut plan = Self {
+            file,
+            options,
+            status: VortexReadPlanningStatus::NativeReadNotImplemented,
+            diagnostics: Vec::new(),
+        };
+        plan.add_diagnostic(Diagnostic::unsupported(
+            DiagnosticCode::UnsupportedEncoding,
+            "vortex_native_read",
+            "Vortex native read is not implemented yet. Fallback execution was not attempted.",
+            Some("Use metadata-only or read-plan mode until native Vortex read is implemented. Spark/DataFusion/etc. are not fallback engines.".to_string()),
+        ));
+        plan
+    }
+    #[must_use]
+    pub fn unsupported(
+        file: VortexFileRef,
+        feature: impl Into<String>,
+        reason: impl Into<String>,
+    ) -> Self {
+        let feature = feature.into();
+        let reason = reason.into();
+        let mut plan = Self {
+            file,
+            options: VortexOpenOptions::metadata_only(),
+            status: VortexReadPlanningStatus::Unsupported,
+            diagnostics: Vec::new(),
+        };
+        plan.add_diagnostic(Diagnostic::unsupported(
+            DiagnosticCode::UnsupportedEncoding,
+            feature,
+            format!(
+                "Unsupported Vortex read planning feature: {reason}. Fallback execution was not attempted."
+            ),
+            Some("Adjust request to supported Vortex-native planning modes. Spark/DataFusion/etc. are not fallback engines.".to_string()),
+        ));
+        plan
+    }
+    pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
+    }
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.diagnostics
+            .iter()
+            .any(|d| d.severity.as_str() == "error")
+    }
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        let mut text = format!(
+            "Vortex-native input plan\nfile: {}\nmode: {}\nstatus: {}\nfallback execution: disabled",
+            self.file.uri().as_str(),
+            self.options.mode.as_str(),
+            self.status.as_str()
+        );
+        if self.diagnostics.is_empty() {
+            text.push_str("\ndiagnostics: none");
+        } else {
+            text.push_str("\ndiagnostics:");
+            for diagnostic in &self.diagnostics {
+                text.push_str("\n- ");
+                text.push_str(&diagnostic.to_human_text());
+            }
+        }
+        text
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexWriteOptions {
+    pub preserve_statistics: bool,
+    pub preserve_layout_hints: bool,
+    pub emit_manifest_linkage: bool,
+    pub overwrite: bool,
+}
+impl VortexWriteOptions {
+    #[must_use]
+    pub fn native_defaults() -> Self {
+        Self {
+            preserve_statistics: true,
+            preserve_layout_hints: true,
+            emit_manifest_linkage: true,
+            overwrite: false,
+        }
+    }
+    #[must_use]
+    pub fn summary(&self) -> String {
+        format!(
+            "preserve_statistics={} preserve_layout_hints={} emit_manifest_linkage={} overwrite={}",
+            self.preserve_statistics,
+            self.preserve_layout_hints,
+            self.emit_manifest_linkage,
+            self.overwrite
+        )
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexWritePlanningStatus {
+    Planned,
+    NativeWriteNotImplemented,
+    Unsupported,
+}
+impl VortexWritePlanningStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Planned => "planned",
+            Self::NativeWriteNotImplemented => "native_write_not_implemented",
+            Self::Unsupported => "unsupported",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct VortexWritePlan {
+    pub target: VortexFileRef,
+    pub options: VortexWriteOptions,
+    pub fidelity: VortexOutputFidelity,
+    pub status: VortexWritePlanningStatus,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl VortexWritePlan {
+    #[must_use]
+    pub fn planned(target: VortexFileRef, options: VortexWriteOptions) -> Self {
+        Self {
+            target,
+            options,
+            fidelity: VortexOutputFidelity::NativeFullFidelity,
+            status: VortexWritePlanningStatus::Planned,
+            diagnostics: Vec::new(),
+        }
+    }
+    #[must_use]
+    pub fn native_write_not_implemented(
+        target: VortexFileRef,
+        options: VortexWriteOptions,
+    ) -> Self {
+        let mut plan = Self {
+            target,
+            options,
+            fidelity: VortexOutputFidelity::NativePartialFidelity,
+            status: VortexWritePlanningStatus::NativeWriteNotImplemented,
+            diagnostics: Vec::new(),
+        };
+        plan.add_diagnostic(Diagnostic::new(
+            DiagnosticCode::UnsupportedOutputFormat,
+            shardloom_core::DiagnosticSeverity::Error,
+            shardloom_core::DiagnosticCategory::VortexIo,
+            "Vortex native write is not implemented yet. Fallback execution was not attempted.",
+            Some("vortex_native_write".to_string()),
+            Some("Spark/DataFusion/etc. are not fallback engines.".to_string()),
+            Some(
+                "Use planning-only output mode until native Vortex write is implemented."
+                    .to_string(),
+            ),
+            FallbackStatus::disabled_by_policy(),
+        ));
+        plan
+    }
+    #[must_use]
+    pub fn unsupported(
+        target: VortexFileRef,
+        feature: impl Into<String>,
+        reason: impl Into<String>,
+    ) -> Self {
+        let feature = feature.into();
+        let reason = reason.into();
+        let mut plan = Self {
+            target,
+            options: VortexWriteOptions::native_defaults(),
+            fidelity: VortexOutputFidelity::Unsupported,
+            status: VortexWritePlanningStatus::Unsupported,
+            diagnostics: Vec::new(),
+        };
+        plan.add_diagnostic(Diagnostic::unsupported(
+            DiagnosticCode::UnsupportedOutputFormat,
+            feature,
+            format!("Unsupported Vortex output planning feature: {reason}. Fallback execution was not attempted."),
+            Some("Adjust options to supported Vortex-native output planning. Spark/DataFusion/etc. are not fallback engines.".to_string()),
+        ));
+        plan
+    }
+    pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
+    }
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.diagnostics
+            .iter()
+            .any(|d| d.severity.as_str() == "error")
+    }
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        let mut text = format!(
+            "Vortex-native output plan\ntarget: {}\nhighest-fidelity target: vortex\nfidelity: {}\nstatus: {}\nfallback execution: disabled",
+            self.target.uri().as_str(),
+            self.fidelity.as_str(),
+            self.status.as_str(),
+        );
+        if self.diagnostics.is_empty() {
+            text.push_str("\ndiagnostics: none");
+        } else {
+            text.push_str("\ndiagnostics:");
+            for diagnostic in &self.diagnostics {
+                text.push_str("\n- ");
+                text.push_str(&diagnostic.to_human_text());
+            }
+        }
+        text
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::open_dataset;
+    use super::*;
 
     #[test]
-    fn opens_dataset() {
-        let ds = open_dataset("vortex://example").expect("dataset should open");
-        assert_eq!(ds.uri, "vortex://example");
+    fn vortex_file_ref_from_uri_accepts_vortex_extension() {
+        let uri = DatasetUri::new("file://tmp/data.vortex").expect("valid uri");
+        let file = VortexFileRef::from_uri(uri).expect("vortex uri should be accepted");
+        assert!(file.uri().as_str().ends_with(".vortex"));
+    }
+
+    #[test]
+    fn vortex_file_ref_from_uri_accepts_vortex_directory() {
+        let uri = DatasetUri::new("s3://bucket/path/data.vortex/").expect("valid uri");
+        let file = VortexFileRef::from_uri(uri).expect("vortex uri should be accepted");
+        assert!(file.uri().as_str().contains(".vortex/"));
+    }
+
+    #[test]
+    fn vortex_file_ref_from_uri_rejects_parquet() {
+        let uri = DatasetUri::new("file://tmp/data.parquet").expect("valid uri");
+        let error = VortexFileRef::from_uri(uri).expect_err("parquet should be rejected");
+        assert!(
+            error
+                .to_string()
+                .contains("dataset is not Vortex-native: format=parquet")
+        );
+    }
+
+    #[test]
+    fn open_options_factories_set_modes() {
+        assert_eq!(
+            VortexOpenOptions::metadata_only().mode,
+            VortexOpenMode::MetadataOnly
+        );
+        assert_eq!(
+            VortexOpenOptions::plan_read().mode,
+            VortexOpenMode::PlanRead
+        );
+        assert_eq!(
+            VortexOpenOptions::native_read().mode,
+            VortexOpenMode::NativeRead
+        );
+    }
+
+    #[test]
+    fn write_options_defaults_preserve_stats_and_layout_hints() {
+        let options = VortexWriteOptions::native_defaults();
+        assert!(options.preserve_statistics);
+        assert!(options.preserve_layout_hints);
+    }
+
+    #[test]
+    fn file_metadata_empty_starts_with_zero_segments() {
+        let file =
+            VortexFileRef::from_uri(DatasetUri::new("file://tmp/data.vortex").expect("valid"))
+                .expect("vortex uri should be accepted");
+        let metadata = VortexFileMetadata::empty(file);
+        assert_eq!(metadata.segment_count(), 0);
+    }
+
+    #[test]
+    fn file_metadata_segment_count_tracks_added_segment() {
+        let file =
+            VortexFileRef::from_uri(DatasetUri::new("file://tmp/data.vortex").expect("valid"))
+                .expect("vortex uri should be accepted");
+        let mut metadata = VortexFileMetadata::empty(file.clone());
+        let segment = shardloom_core::EncodedSegment::new(
+            shardloom_core::SegmentId::new("seg0").expect("valid"),
+            shardloom_core::ColumnRef::new("c0").expect("valid"),
+            shardloom_core::LogicalDType::Int64,
+            shardloom_core::Nullability::Nullable,
+            shardloom_core::SegmentLayout::new(
+                shardloom_core::EncodingKind::Plain,
+                shardloom_core::LayoutKind::Flat,
+            ),
+            shardloom_core::SegmentStats::with_row_count(1),
+        );
+        metadata.add_segment(VortexSegmentDescriptor::new(segment, file));
+        assert_eq!(metadata.segment_count(), 1);
+    }
+
+    #[test]
+    fn read_plan_metadata_only_status() {
+        let file =
+            VortexFileRef::from_uri(DatasetUri::new("file://tmp/data.vortex").expect("valid"))
+                .expect("vortex uri should be accepted");
+        let plan = VortexReadPlan::metadata_only(file);
+        assert_eq!(plan.status, VortexReadPlanningStatus::MetadataOnly);
+    }
+
+    #[test]
+    fn read_plan_native_read_not_implemented_has_errors() {
+        let file =
+            VortexFileRef::from_uri(DatasetUri::new("file://tmp/data.vortex").expect("valid"))
+                .expect("vortex uri should be accepted");
+        let plan =
+            VortexReadPlan::native_read_not_implemented(file, VortexOpenOptions::native_read());
+        assert!(plan.has_errors());
+    }
+
+    #[test]
+    fn read_plan_human_text_mentions_fallback_disabled() {
+        let file =
+            VortexFileRef::from_uri(DatasetUri::new("file://tmp/data.vortex").expect("valid"))
+                .expect("vortex uri should be accepted");
+        let text = VortexReadPlan::metadata_only(file).to_human_text();
+        assert!(text.contains("fallback execution: disabled"));
+    }
+
+    #[test]
+    fn write_plan_planned_uses_native_full_fidelity() {
+        let file =
+            VortexFileRef::from_uri(DatasetUri::new("file://tmp/data.vortex").expect("valid"))
+                .expect("vortex uri should be accepted");
+        let plan = VortexWritePlan::planned(file, VortexWriteOptions::native_defaults());
+        assert_eq!(plan.fidelity, VortexOutputFidelity::NativeFullFidelity);
+    }
+
+    #[test]
+    fn write_plan_native_write_not_implemented_has_errors() {
+        let file =
+            VortexFileRef::from_uri(DatasetUri::new("file://tmp/data.vortex").expect("valid"))
+                .expect("vortex uri should be accepted");
+        let plan = VortexWritePlan::native_write_not_implemented(
+            file,
+            VortexWriteOptions::native_defaults(),
+        );
+        assert!(plan.has_errors());
+    }
+
+    #[test]
+    fn write_plan_human_text_mentions_highest_fidelity() {
+        let file =
+            VortexFileRef::from_uri(DatasetUri::new("file://tmp/data.vortex").expect("valid"))
+                .expect("vortex uri should be accepted");
+        let text =
+            VortexWritePlan::planned(file, VortexWriteOptions::native_defaults()).to_human_text();
+        assert!(text.contains("highest-fidelity target"));
     }
 }

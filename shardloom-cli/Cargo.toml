@@ -13,6 +13,7 @@ workspace = true
 shardloom-core = { path = "../shardloom-core" }
 shardloom-exec = { path = "../shardloom-exec" }
 shardloom-plan = { path = "../shardloom-plan" }
+shardloom-vortex = { path = "../shardloom-vortex" }
 
 [[bin]]
 name = "shardloom"

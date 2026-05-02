@@ -7,12 +7,14 @@ use std::process::ExitCode;
 
 use shardloom_core::{DatasetRef, DatasetUri};
 use shardloom_plan::{EstimateReport, ExplainReport, ScanPlanSkeleton, ScanRequest};
+use shardloom_vortex::{VortexFileRef, VortexReadPlan, VortexWriteOptions, VortexWritePlan};
 
 fn main() -> ExitCode {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
     run(args)
 }
 
+#[allow(clippy::too_many_lines)]
 fn run(args: Vec<String>) -> ExitCode {
     let mut args = args.into_iter();
 
@@ -81,6 +83,57 @@ fn run(args: Vec<String>) -> ExitCode {
             println!("{}", skeleton.to_human_text());
             ExitCode::SUCCESS
         }
+        Some("vortex-plan") => {
+            let Some(dataset_uri) = args.next() else {
+                eprintln!("usage: shardloom vortex-plan <dataset_uri>");
+                return ExitCode::from(2);
+            };
+            let uri = match DatasetUri::new(dataset_uri) {
+                Ok(uri) => uri,
+                Err(error) => {
+                    eprintln!("invalid dataset uri: {error}");
+                    return ExitCode::from(2);
+                }
+            };
+            let file_ref = match VortexFileRef::from_uri(uri) {
+                Ok(file_ref) => file_ref,
+                Err(error) => {
+                    eprintln!("{error}");
+                    return ExitCode::from(2);
+                }
+            };
+            println!(
+                "{}",
+                VortexReadPlan::metadata_only(file_ref).to_human_text()
+            );
+            ExitCode::SUCCESS
+        }
+        Some("vortex-output-plan") => {
+            let Some(target_uri) = args.next() else {
+                eprintln!("usage: shardloom vortex-output-plan <target_uri>");
+                return ExitCode::from(2);
+            };
+            let uri = match DatasetUri::new(target_uri) {
+                Ok(uri) => uri,
+                Err(error) => {
+                    eprintln!("invalid dataset uri: {error}");
+                    return ExitCode::from(2);
+                }
+            };
+            let file_ref = match VortexFileRef::from_uri(uri) {
+                Ok(file_ref) => file_ref,
+                Err(error) => {
+                    eprintln!("{error}");
+                    return ExitCode::from(2);
+                }
+            };
+            println!(
+                "{}",
+                VortexWritePlan::planned(file_ref, VortexWriteOptions::native_defaults())
+                    .to_human_text()
+            );
+            ExitCode::SUCCESS
+        }
         Some("estimate") => {
             let operation = args
                 .next()
@@ -99,7 +152,7 @@ fn run(args: Vec<String>) -> ExitCode {
         }
         _ => {
             eprintln!(
-                "usage: shardloom-cli <status|capabilities|doctor|scan-plan|explain|estimate|benchmark-plan>"
+                "usage: shardloom-cli <status|capabilities|doctor|scan-plan|vortex-plan|vortex-output-plan|explain|estimate|benchmark-plan>"
             );
             ExitCode::from(2)
         }
@@ -135,5 +188,32 @@ mod tests {
             "file://tmp/test.vortex".to_string(),
         ]);
         assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_plan_with_vortex_uri_returns_success() {
+        let code = run(vec![
+            "vortex-plan".to_string(),
+            "file://tmp/test.vortex".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_output_plan_with_vortex_uri_returns_success() {
+        let code = run(vec![
+            "vortex-output-plan".to_string(),
+            "file://tmp/test.vortex".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_plan_with_non_vortex_uri_returns_non_zero() {
+        let code = run(vec![
+            "vortex-plan".to_string(),
+            "file://tmp/test.parquet".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
     }
 }

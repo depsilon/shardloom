@@ -62,6 +62,12 @@ impl UriScheme {
 pub struct DatasetUri(String);
 
 impl DatasetUri {
+    fn path_without_query_or_fragment(&self) -> &str {
+        self.as_str()
+            .split_once(['?', '#'])
+            .map_or(self.as_str(), |(prefix, _)| prefix)
+    }
+
     /// Creates a validated dataset URI.
     ///
     /// # Errors
@@ -104,7 +110,7 @@ impl DatasetUri {
     /// Returns true when URI appears to reference Vortex-native storage.
     #[must_use]
     pub fn looks_like_vortex(&self) -> bool {
-        let s = self.as_str();
+        let s = self.path_without_query_or_fragment();
         s.ends_with(".vortex") || s.contains(".vortex/")
     }
 }
@@ -163,7 +169,7 @@ impl DatasetFormat {
     /// Infers a format from the URI suffix and path structure only.
     #[must_use]
     pub fn infer_from_uri(uri: &DatasetUri) -> Self {
-        let s = uri.as_str().to_ascii_lowercase();
+        let s = uri.path_without_query_or_fragment().to_ascii_lowercase();
         let ext = std::path::Path::new(&s)
             .extension()
             .and_then(|v| v.to_str())
@@ -346,6 +352,14 @@ mod tests {
         );
     }
     #[test]
+    fn dataset_uri_detects_vortex_extension_with_query() {
+        assert!(
+            DatasetUri::new("s3://bucket/table.vortex?versionId=abc")
+                .unwrap()
+                .looks_like_vortex()
+        );
+    }
+    #[test]
     fn dataset_format_infers_vortex_from_uri() {
         assert_eq!(
             DatasetFormat::infer_from_uri(&DatasetUri::new("x.vortex").unwrap()),
@@ -357,6 +371,15 @@ mod tests {
         assert_eq!(
             DatasetFormat::infer_from_uri(&DatasetUri::new("x.parquet").unwrap()),
             DatasetFormat::Parquet
+        );
+    }
+    #[test]
+    fn dataset_format_infers_vortex_from_uri_with_query_and_fragment() {
+        assert_eq!(
+            DatasetFormat::infer_from_uri(
+                &DatasetUri::new("s3://bucket/table.vortex?versionId=abc#frag").unwrap()
+            ),
+            DatasetFormat::Vortex
         );
     }
     #[test]
