@@ -1,20 +1,81 @@
-# Skill: Testing & Correctness
+# Testing and Correctness Skill
 
 ## Purpose
-Maintain correctness-first behavior across planner, runtime, and I/O changes.
+
+Use this skill when adding tests, changing behavior, implementing operators, changing errors, or validating encoded execution against decoded reference behavior.
+
+The goal is to make ShardLoom correct before it is fast.
 
 ## When to use
-Use for any behavioral change, bug fix, invariant update, or regression defense.
+
+Use this skill for tasks involving:
+
+- Unit tests.
+- Integration tests.
+- Property tests.
+- Fuzzing.
+- Reference result checks.
+- Operator behavior.
+- Null semantics.
+- Type behavior.
+- Unsupported-path diagnostics.
+- Deterministic errors.
+- Edge cases.
 
 ## Rules
-- Add/update targeted tests for every non-trivial behavior change.
-- Test observable semantics: results, errors, nulls, ordering, and boundaries.
-- Include failure-path tests for unsupported plans/features.
-- Keep tests deterministic and fast where practical.
-- Run workspace formatting, lint, and test gates before review.
 
-## Validation checklist
-- [ ] New/changed behavior is covered by focused tests.
-- [ ] Unsupported paths have explicit failure assertions.
-- [ ] Required checks (`fmt`, `clippy -D warnings`, `test`) pass.
-- [ ] Test names describe scenario and expected behavior.
+- Correctness comes before performance.
+- Unsupported behavior must fail explicitly and deterministically.
+- Tests should cover both success and failure paths.
+- Encoded execution should be compared against decoded reference behavior where possible.
+- Reference behavior is for testing correctness, not production fallback execution.
+- Null semantics must be tested directly.
+- Empty inputs and all-null inputs must be tested.
+- Ordering requirements must be tested when order matters.
+- Error messages should be stable enough to diagnose unsupported features.
+- Avoid flaky tests.
+- Avoid tests that depend on external services unless marked and isolated.
+
+## Required checks
+
+For behavior changes, consider tests for:
+
+- Empty inputs.
+- Single-row inputs.
+- All-null inputs.
+- Mixed-null inputs.
+- Low-cardinality data.
+- High-cardinality data.
+- Duplicate values.
+- Sorted and unsorted inputs.
+- Invalid schemas.
+- Unsupported encodings.
+- Unsupported plan shapes.
+- Deterministic error messages.
+- Precision-sensitive types such as decimals or timestamps when relevant.
+- UTF-8 and string edge cases when relevant.
+
+For operator changes:
+
+- Test encoded result.
+- Test decoded reference result.
+- Test selection vector behavior.
+- Test materialization boundary.
+- Test null behavior.
+- Test unsupported diagnostics.
+
+## Red flags
+
+- Only testing the happy path.
+- Skipping nulls.
+- Skipping empty input.
+- Relying on performance benchmarks as correctness tests.
+- Using another execution engine as hidden production fallback.
+- Non-deterministic errors.
+- Tests that pass only because unsupported behavior is ignored.
+
+## Example Codex prompt fragment
+
+When adding or changing behavior, include this instruction:
+
+"Use the Testing and Correctness skill. Add success and failure tests, including empty inputs, nulls, unsupported diagnostics, and decoded reference checks where appropriate. Correctness comes before performance."

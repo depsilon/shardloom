@@ -2,24 +2,43 @@
 
 ShardLoom is a standalone encoded-columnar execution engine designed to compute directly over Vortex-native layouts and produce Vortex-native and lakehouse-compatible outputs.
 
-## Hard requirements
+ShardLoom's core identity is:
 
-- Do not add Apache DataFusion as an execution fallback.
-- Do not add Spark as an execution fallback.
-- Do not silently delegate unsupported execution plans to other engines.
-- Unsupported execution paths should fail explicitly with clear errors.
-- Vortex must be treated as a first-class native input and output target.
+- Standalone execution.
+- Vortex-native input and output.
+- Encoded-columnar execution.
+- Late materialization.
+- Segment-level pruning.
+- Object-store-native planning.
+- Modular storage translation.
+- No Spark fallback.
+- No DataFusion fallback.
+
+## Non-negotiable requirements
+
+Agents and contributors must follow these requirements:
+
+- Do not add Apache Spark as an execution dependency or fallback.
+- Do not add Apache DataFusion as an execution dependency or fallback.
+- Do not silently delegate unsupported execution plans to DuckDB, Polars, Velox, Spark, DataFusion, or another engine.
+- Unsupported execution paths must fail explicitly with clear, deterministic diagnostics.
+- Vortex must be treated as a first-class native input target.
+- Vortex must be treated as a first-class native output target.
+- Vortex output is the highest-fidelity persistence target.
+- Parquet, Arrow IPC, Iceberg-compatible files, and Delta-compatible files are translation/export targets, not execution fallbacks.
 - Keep the core engine standalone.
-- Prefer original implementations over copying from existing engines.
-- Do not copy code from GPL, AGPL, SSPL, BUSL, proprietary, or unknown-license sources.
-- Use Apache-2.0 compatible dependencies only unless explicitly approved.
+- Prefer original implementation over copying from existing engines.
+- Do not copy implementation code from GPL, AGPL, SSPL, BUSL, proprietary, source-available, or unknown-license projects.
+- Use Apache-2.0-compatible dependencies only unless explicitly approved through an RFC.
 - Prioritize correctness before performance claims.
-- Every performance claim needs a reproducible benchmark.
-- Every non-trivial change should include tests.
+- Every performance claim must be backed by a reproducible benchmark.
+- Every non-trivial implementation change should include tests.
 
 ## Architecture principles
 
-ShardLoom should avoid work before optimizing work:
+ShardLoom should avoid work before optimizing work.
+
+Execution priority:
 
 1. Answer from metadata when possible.
 2. Prune segments using statistics.
@@ -28,60 +47,57 @@ ShardLoom should avoid work before optimizing work:
 5. Materialize late.
 6. Distribute only when single-node execution is insufficient.
 7. Avoid shuffle whenever possible.
+8. Fail explicitly instead of silently delegating to another engine.
 
+## Required workflow for implementation tasks
 
-## Required skill review before implementation
+Before making implementation changes:
 
-Before implementation work, contributors using Codex/agents **must** review `docs/skills/README.md` and all relevant skill files in `docs/skills/` for the subsystem being modified. These skills are required guidance and are additive to this `AGENTS.md`.
+1. Read the relevant skill documents in `docs/skills`.
+2. Confirm the change does not violate the no-fallback policy.
+3. Confirm Vortex-native input/output is preserved where relevant.
+4. Keep the change small and reviewable.
+5. Do not publish packages or create releases.
 
-At minimum, always apply:
-- `docs/skills/rust-systems-engineering.md`
-- `docs/skills/license-provenance.md`
-- `docs/skills/testing-correctness.md`
+After making implementation changes:
 
-Then apply subsystem-specific skills (for example: encoded execution, planner/optimizer, translation layer, Vortex internals, object store runtime, benchmarking, and documentation/RFC) based on scope.
+1. Add or update tests for behavior changes.
+2. Run the required validation commands.
+
+Required validation commands:
+
+- `cargo fmt --all -- --check`
+- `cargo clippy --workspace --all-targets -- -D warnings`
+- `cargo test --workspace --all-targets`
+
+## Skill routing
+
+Use these skill documents by task type:
+
+- Rust workspace, crate, API, or runtime changes: `docs/skills/rust-systems-engineering.md`
+- Dependency, license, copied-code, or generated-code questions: `docs/skills/license-provenance.md`
+- Vortex-native input/output, segment modeling, or encoded layout inspection: `docs/skills/vortex-internals.md`
+- Encoded kernels, pruning, selection vectors, or late materialization: `docs/skills/encoded-execution.md`
+- Logical planning, physical planning, cost model, or optimization: `docs/skills/planner-optimizer.md`
+- Vortex, Parquet, Arrow IPC, Iceberg-compatible, or Delta-compatible outputs: `docs/skills/translation-layer.md`
+- Benchmarks or performance claims: `docs/skills/benchmarking.md`
+- Tests, fuzzing, reference checks, and correctness validation: `docs/skills/testing-correctness.md`
+- Object-store IO, distributed runtime, task scheduling, retries, or commits: `docs/skills/object-store-runtime.md`
+- RFCs, architecture docs, design decisions, or project policy: `docs/skills/documentation-rfc.md`
 
 ## Current phase
 
-The project is in early skeleton/setup mode.
+ShardLoom is in early architecture and skeleton setup.
 
-Do not overbuild. Prefer small, reviewable pull requests.
+Do not overbuild.
 
-# Codex Coding Defaults
+Prefer small pull requests that establish clear contracts:
 
-## Engineering Standard
+- No-fallback execution policy.
+- Vortex-native input/output contract.
+- Encoded segment model.
+- Translation-layer contracts.
+- Correctness-first testing.
+- Benchmark methodology.
 
-Use this for code changes, bug fixes, refactors, tests, reviews, architecture questions, debugging, build failures, frontend work, documentation tied to code, repository analysis, and implementation planning.
-
-- Follow system, developer, user, and project instructions in priority order.
-- Prefer repository conventions, local helpers, and existing architecture over generic preferences.
-- Ask only blocking questions. If a safe assumption can be stated and tested, proceed.
-- Implement when the request implies implementation; plan first only when asked or when risk requires it.
-- Keep scope tied to the requested outcome. Avoid unrelated refactors and metadata churn.
-- Inspect the repo shape, relevant docs, configs, tests, and existing patterns before editing.
-- For nontrivial bugs, trace the real call path, data flow, and failure mode before patching.
-- Prefer `rg` and `rg --files` for discovery.
-- Preserve user work. Never revert unrelated changes.
-- Make small, coherent changes that solve the stated problem.
-- Use established abstractions. Add new abstractions only when they remove real complexity or match local patterns.
-- Maintain public contracts unless explicitly asked to change them.
-- Prefer clear names, explicit errors, simple control flow, and maintainability over cleverness.
-- Add comments only where they reduce cognitive load for complex or non-obvious logic.
-- Review the final diff for regressions, accidental files, dead code, formatting drift, and security issues.
-- Final responses should cover what changed, where it changed, what was verified, and any residual risk.
-
-## Test Verification Standard
-
-Use this when adding, changing, selecting, running, or interpreting tests and verification for code changes.
-
-- Define the behavior or invariant that must be true when done.
-- Find the nearest existing test style and follow it before introducing new frameworks or patterns.
-- Add or update tests when the change affects behavior, fixes a bug, protects a contract, or covers a realistic regression.
-- Prefer fast focused tests first, then broader suites when the touched code is shared, cross-cutting, security-sensitive, or release-critical.
-- Include static checks when relevant: typecheck, lint, formatting, schema validation, generated-code checks, or dependency audits.
-- For UI, verify the affected interaction/state and responsive layout when feasible.
-- Rerun the original failing command for bug fixes.
-- Test observable behavior, not implementation details, unless the unit boundary is intentionally internal.
-- Cover important edge cases: empty/null values, invalid inputs, permissions, time, ordering, retries, and compatibility.
-- Avoid brittle waits, snapshots without intent, excessive mocking, and tests that only assert implementation calls.
-- Always report exact commands run and their result. If a relevant check was skipped, state why.
+Implementation depth should increase only after the relevant RFC or design document exists.
