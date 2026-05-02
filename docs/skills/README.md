@@ -80,3 +80,9 @@ A good ShardLoom PR should answer:
 - Does this fail explicitly for unsupported behavior?
 - Does this improve correctness, clarity, or measurable performance?
 - Are claims backed by tests, benchmarks, or RFC rationale?
+
+## Developer and agent experience
+
+Use `developer-agent-experience.md` for public APIs, CLI commands, diagnostics, explain output, estimate output, examples, config files, and agent-facing workflows.
+
+ShardLoom should be internally complex but externally simple, familiar, deterministic, and safe for both humans and LLM agents.
