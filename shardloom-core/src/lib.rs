@@ -4,10 +4,15 @@
 //! identifiers, errors, diagnostics, and capability metadata for native
 //! `Vortex`-first execution.
 
+pub mod benchmark;
 pub mod capabilities;
 pub mod diagnostics;
 pub mod encoded;
 
+pub use benchmark::{
+    BaselineEngine, BenchmarkMetric, BenchmarkPlan, BenchmarkResult, BenchmarkScenario,
+    CorrectnessValidationMode, MetricValue, WorkloadClass,
+};
 pub use capabilities::{Capability, CapabilityStatus, EngineCapabilities};
 pub use diagnostics::{
     Diagnostic, DiagnosticCategory, DiagnosticCode, DiagnosticSeverity, FallbackStatus,

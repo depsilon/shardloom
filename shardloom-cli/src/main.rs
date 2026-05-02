@@ -8,8 +8,12 @@ use std::process::ExitCode;
 use shardloom_plan::{EstimateReport, ExplainReport};
 
 fn main() -> ExitCode {
-    let mut args = std::env::args();
-    let _bin = args.next();
+    let args = std::env::args().skip(1).collect::<Vec<_>>();
+    run(args)
+}
+
+fn run(args: Vec<String>) -> ExitCode {
+    let mut args = args.into_iter();
 
     match args.next().as_deref() {
         Some("status") => {
@@ -47,6 +51,11 @@ fn main() -> ExitCode {
                 ExitCode::SUCCESS
             }
         }
+        Some("benchmark-plan") => {
+            let plan = shardloom_core::BenchmarkPlan::default_foundation_plan();
+            println!("{}", plan.to_human_text());
+            ExitCode::SUCCESS
+        }
         Some("estimate") => {
             let operation = args
                 .next()
@@ -64,8 +73,27 @@ fn main() -> ExitCode {
             }
         }
         _ => {
-            eprintln!("usage: shardloom-cli <status|capabilities|doctor|explain|estimate>");
+            eprintln!(
+                "usage: shardloom-cli <status|capabilities|doctor|explain|estimate|benchmark-plan>"
+            );
             ExitCode::from(2)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn explain_unsupported_returns_non_zero() {
+        let code = run(vec!["explain".to_string(), "demo-op".to_string()]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn estimate_unsupported_returns_non_zero() {
+        let code = run(vec!["estimate".to_string(), "demo-op".to_string()]);
+        assert_ne!(code, ExitCode::SUCCESS);
     }
 }
