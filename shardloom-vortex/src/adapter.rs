@@ -3,6 +3,8 @@
 //! This module is planning-only: no file IO, no object-store IO, no decode-to-Arrow
 //! default path, and no fallback execution engines.
 
+use std::fmt::Write as _;
+
 use shardloom_core::{Diagnostic, LogicalDType, Result, ShardLoomError};
 
 /// Public API area categories discovered from upstream Vortex documentation/source inspection.
@@ -64,7 +66,7 @@ impl VortexApiSupportStatus {
     }
 }
 
-/// One item in ShardLoom's upstream Vortex API inventory.
+/// One item in `ShardLoom`'s upstream Vortex API inventory.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VortexApiInventoryItem {
     pub area: VortexApiArea,
@@ -73,7 +75,12 @@ pub struct VortexApiInventoryItem {
     pub notes: Option<String>,
 }
 impl VortexApiInventoryItem {
-    /// Creates an inventory item with required non-empty API name.
+    /// Creates a Vortex API inventory item.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ShardLoomError::InvalidOperation` when `name` is empty or
+    /// whitespace-only.
     pub fn new(
         area: VortexApiArea,
         name: impl Into<String>,
@@ -257,13 +264,13 @@ impl VortexAdapterCapabilityReport {
             "Vortex API inventory\nfallback execution: disabled\nactual IO: not implemented",
         );
         for (cap, status) in &self.capabilities {
-            out.push_str(&format!("\n- {}: {}", cap.as_str(), status.as_str()));
+            let _ = write!(out, "\n- {}: {}", cap.as_str(), status.as_str());
         }
         out
     }
 }
 
-/// Temporary name-based mapping helper until typed upstream DType mapping is confirmed.
+/// Temporary name-based mapping helper until typed upstream `DType` mapping is confirmed.
 #[must_use]
 pub fn map_known_vortex_dtype_name(name: &str) -> LogicalDType {
     match name.trim().to_ascii_lowercase().as_str() {
@@ -368,6 +375,12 @@ mod tests {
                 .to_human_text()
                 .contains("fallback execution: disabled")
         );
+    }
+
+    #[test]
+    fn has_errors_false_without_diagnostics() {
+        let report = VortexAdapterCapabilityReport::foundation();
+        assert!(!report.has_errors());
     }
 
     #[test]
