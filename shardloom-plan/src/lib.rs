@@ -5,11 +5,13 @@
 
 pub mod estimate;
 pub mod explain;
+pub mod scan;
 
 use shardloom_core::{Result, ShardLoomError};
 
 pub use estimate::{EstimateConfidence, EstimateReport, EstimateValue};
 pub use explain::{ExecutionBoundary, ExplainPlanNode, ExplainReport, PlanNodeId, PlanNodeKind};
+pub use scan::{ProjectionRequest, ScanMode, ScanPlanSkeleton, ScanPlanningStatus, ScanRequest};
 
 /// High-level operation categories for initial planning skeletons.
 #[derive(Debug, Clone, PartialEq, Eq)]

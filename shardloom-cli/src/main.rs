@@ -5,7 +5,8 @@
 
 use std::process::ExitCode;
 
-use shardloom_plan::{EstimateReport, ExplainReport};
+use shardloom_core::{DatasetRef, DatasetUri};
+use shardloom_plan::{EstimateReport, ExplainReport, ScanPlanSkeleton, ScanRequest};
 
 fn main() -> ExitCode {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
@@ -56,6 +57,30 @@ fn run(args: Vec<String>) -> ExitCode {
             println!("{}", plan.to_human_text());
             ExitCode::SUCCESS
         }
+        Some("scan-plan") => {
+            let Some(dataset_uri) = args.next() else {
+                eprintln!("usage: shardloom scan-plan <dataset_uri>");
+                return ExitCode::from(2);
+            };
+            let uri = match DatasetUri::new(dataset_uri) {
+                Ok(uri) => uri,
+                Err(error) => {
+                    eprintln!("invalid dataset uri: {error}");
+                    return ExitCode::from(2);
+                }
+            };
+            let dataset = match DatasetRef::from_uri(uri) {
+                Ok(dataset) => dataset,
+                Err(error) => {
+                    eprintln!("failed to create dataset reference: {error}");
+                    return ExitCode::from(2);
+                }
+            };
+            let request = ScanRequest::new(dataset);
+            let skeleton = ScanPlanSkeleton::plan_only(request);
+            println!("{}", skeleton.to_human_text());
+            ExitCode::SUCCESS
+        }
         Some("estimate") => {
             let operation = args
                 .next()
@@ -74,7 +99,7 @@ fn run(args: Vec<String>) -> ExitCode {
         }
         _ => {
             eprintln!(
-                "usage: shardloom-cli <status|capabilities|doctor|explain|estimate|benchmark-plan>"
+                "usage: shardloom-cli <status|capabilities|doctor|scan-plan|explain|estimate|benchmark-plan>"
             );
             ExitCode::from(2)
         }
@@ -95,5 +120,20 @@ mod tests {
     fn estimate_unsupported_returns_non_zero() {
         let code = run(vec!["estimate".to_string(), "demo-op".to_string()]);
         assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn scan_plan_missing_dataset_uri_returns_non_zero() {
+        let code = run(vec!["scan-plan".to_string()]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn scan_plan_with_dataset_uri_returns_success() {
+        let code = run(vec![
+            "scan-plan".to_string(),
+            "file://tmp/test.vortex".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
     }
 }
