@@ -5,6 +5,14 @@
 //! implemented yet, fallback execution is disabled, and no upstream Vortex
 //! APIs are used in this phase beyond dependency-link readiness checks.
 
+pub use adapter::{
+    VortexAdapterCapability, VortexAdapterCapabilityReport, VortexAdapterCapabilityStatus,
+    VortexApiArea, VortexApiInventoryItem, VortexApiSupportStatus, map_known_vortex_dtype_name,
+    map_known_vortex_encoding_name, map_known_vortex_layout_name,
+};
+
+pub mod adapter;
+
 use shardloom_core::{
     ColumnRef, DatasetRef, DatasetUri, Diagnostic, DiagnosticCode, EncodedSegment, FallbackStatus,
     Result, ShardLoomError,
@@ -87,6 +95,21 @@ impl VortexAdapterReadiness {
             license_review_complete: true,
             provenance_review_complete: true,
             public_api_review_complete: true,
+            fallback_dependencies_absent: true,
+            diagnostics: Vec::new(),
+        }
+    }
+
+    /// Returns readiness state while public upstream API discovery is in progress.
+    ///
+    /// This is still non-IO planning mode; actual Vortex reads/writes are not implemented.
+    #[must_use]
+    pub fn api_discovery_in_progress() -> Self {
+        Self {
+            dependency_status: VortexDependencyStatus::Added,
+            license_review_complete: true,
+            provenance_review_complete: true,
+            public_api_review_complete: false,
             fallback_dependencies_absent: true,
             diagnostics: Vec::new(),
         }

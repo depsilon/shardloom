@@ -51,3 +51,11 @@ This document records ShardLoom's first upstream Vortex dependency review for de
 - Add adapter tests.
 - Add unsupported diagnostics.
 - Avoid decode-to-Arrow default path.
+
+
+## API discovery update
+
+- Added `docs/architecture/vortex-public-api-inventory.md` to track inspected upstream public API areas and adapter boundaries.
+- Current adapter work remains mapping/readiness only.
+- No actual Vortex IO is implemented in this phase.
+- No fallback execution was introduced.

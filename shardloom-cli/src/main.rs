@@ -27,7 +27,8 @@ use shardloom_plan::{
     PlanExportRequest, PlanId, PlanImportRequest, PlanInteropFormat, ScanPlanSkeleton, ScanRequest,
 };
 use shardloom_vortex::{
-    VortexAdapterReadiness, VortexFileRef, VortexReadPlan, VortexWriteOptions, VortexWritePlan,
+    VortexAdapterCapabilityReport, VortexAdapterReadiness, VortexFileRef, VortexReadPlan,
+    VortexWriteOptions, VortexWritePlan,
 };
 
 fn main() -> ExitCode {
@@ -43,7 +44,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan> [--format text|json]",
         cli_command_name()
     )
 }
@@ -1455,6 +1456,31 @@ fn run(args: Vec<String>) -> ExitCode {
             );
             ExitCode::SUCCESS
         }
+        Some("vortex-api-inventory") => {
+            let report = VortexAdapterCapabilityReport::foundation();
+            emit(
+                "vortex-api-inventory",
+                format,
+                CommandStatus::Success,
+                "vortex API inventory".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "vortex_api_inventory".to_string()),
+                    (
+                        "upstream_vortex_dependency".to_string(),
+                        "linked".to_string(),
+                    ),
+                    ("actual_io".to_string(), "not_implemented".to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
+                ],
+            );
+            ExitCode::SUCCESS
+        }
         Some("optimizer-plan") => {
             let report = OptimizerPlanSkeleton::not_implemented(
                 OptimizerPhase::VortexPhysical,
@@ -1661,6 +1687,12 @@ mod tests {
     #[test]
     fn vortex_readiness_returns_success() {
         let code = run(vec!["vortex-readiness".to_string()]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_api_inventory_returns_success() {
+        let code = run(vec!["vortex-api-inventory".to_string()]);
         assert_eq!(code, ExitCode::SUCCESS);
     }
 
