@@ -1,0 +1,15 @@
+[package]
+name = "shardloom-exec"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+shardloom-core = { path = "../shardloom-core" }
+shardloom-plan = { path = "../shardloom-plan" }
+shardloom-vortex = { path = "../shardloom-vortex" }
