@@ -444,7 +444,7 @@ impl DependencyReview {
         self
     }
     pub const fn is_blocking(&self) -> bool {
-        self.status.is_blocking()
+        self.status.is_blocking() || self.license.is_incompatible()
     }
     pub fn summary(&self) -> String {
         format!(
@@ -707,7 +707,7 @@ impl ReleasePlan {
             && self
                 .package_targets
                 .iter()
-                .filter(|t| t.kind.requires_external_publish())
+                .filter(|t| t.enabled && t.kind.requires_external_publish())
                 .all(|t| t.publish_allowed)
     }
     pub fn has_errors(&self) -> bool {
@@ -859,5 +859,62 @@ mod tests {
         let r = ReleaseReport::from_plan(p);
         assert!(!r.published && r.artifacts_published == 0);
         assert!(r.to_human_text().contains("no publish occurred"));
+    }
+
+    #[test]
+    fn dependency_review_incompatible_license_is_always_blocking() {
+        let review = DependencyReview::new("bad-dep", DependencyLicenseClass::Incompatible)
+            .expect("dependency should be created")
+            .with_status(DependencyReviewStatus::Approved);
+        assert!(review.is_blocking());
+    }
+
+    #[test]
+    fn publish_allowed_ignores_disabled_external_targets() {
+        let mut plan = ReleasePlan::draft(ProjectVersion::new(1, 0, 0));
+        plan.readiness = ReleaseReadinessStatus::ReadyForRelease;
+        plan.add_package_target(
+            PackageTarget::planned(PackageTargetKind::CratesIo, "crates")
+                .expect("valid target")
+                .allow_publish(true),
+        );
+        plan.add_package_target(
+            PackageTarget::disabled(PackageTargetKind::GitHubRelease, "gh-release")
+                .expect("valid target"),
+        );
+        plan.add_checklist_item(
+            ReleaseChecklistItem::new(ReleaseChecklistItemKind::HumanApproval)
+                .with_status(ChecklistStatus::Passed),
+        );
+        plan.add_checklist_item(
+            ReleaseChecklistItem::new(ReleaseChecklistItemKind::TestsPass)
+                .with_status(ChecklistStatus::Passed),
+        );
+        plan.add_checklist_item(
+            ReleaseChecklistItem::new(ReleaseChecklistItemKind::FormattingPasses)
+                .with_status(ChecklistStatus::Passed),
+        );
+        plan.add_checklist_item(
+            ReleaseChecklistItem::new(ReleaseChecklistItemKind::ClippyPasses)
+                .with_status(ChecklistStatus::Passed),
+        );
+        plan.add_checklist_item(
+            ReleaseChecklistItem::new(ReleaseChecklistItemKind::LicenseMetadataCorrect)
+                .with_status(ChecklistStatus::Passed),
+        );
+        plan.add_checklist_item(
+            ReleaseChecklistItem::new(ReleaseChecklistItemKind::DependencyLicensesReviewed)
+                .with_status(ChecklistStatus::Passed),
+        );
+        plan.add_checklist_item(
+            ReleaseChecklistItem::new(ReleaseChecklistItemKind::NoFallbackDependency)
+                .with_status(ChecklistStatus::Passed),
+        );
+        plan.add_checklist_item(
+            ReleaseChecklistItem::new(ReleaseChecklistItemKind::VersionBumped)
+                .with_status(ChecklistStatus::Passed),
+        );
+
+        assert!(plan.publish_allowed());
     }
 }

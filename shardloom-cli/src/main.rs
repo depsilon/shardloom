@@ -26,7 +26,10 @@ use shardloom_plan::{
     EstimateReport, ExplainReport, NativePlanDocument, OptimizerPhase, OptimizerPlanSkeleton,
     PlanExportRequest, PlanId, PlanImportRequest, PlanInteropFormat, ScanPlanSkeleton, ScanRequest,
 };
-use shardloom_vortex::{VortexFileRef, VortexReadPlan, VortexWriteOptions, VortexWritePlan};
+use shardloom_vortex::{
+    VortexAdapterReadiness, VortexDependencyStatus, VortexFileRef, VortexReadPlan,
+    VortexWriteOptions, VortexWritePlan,
+};
 
 fn main() -> ExitCode {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
@@ -34,30 +37,14 @@ fn main() -> ExitCode {
 }
 
 const CLI_COMMAND_NAME: &str = "shardloom";
-#[cfg(test)]
-const CLI_COMMANDS: &[&str] = &[
-    "status",
-    "capabilities",
-    "doctor",
-    "scan-plan",
-    "runtime-plan",
-    "translation-plan",
-    "vortex-plan",
-    "vortex-output-plan",
-];
 
 fn cli_command_name() -> &'static str {
     CLI_COMMAND_NAME
 }
 
-#[cfg(test)]
-fn cli_commands() -> &'static [&'static str] {
-    CLI_COMMANDS
-}
-
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan> [--format text|json]",
         cli_command_name()
     )
 }
@@ -1444,6 +1431,31 @@ fn run(args: Vec<String>) -> ExitCode {
             );
             ExitCode::SUCCESS
         }
+        Some("vortex-readiness") => {
+            let readiness = VortexAdapterReadiness::not_ready();
+            emit(
+                "vortex-readiness",
+                format,
+                CommandStatus::Success,
+                "vortex dependency readiness".to_string(),
+                readiness.to_human_text(),
+                readiness.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "vortex_readiness".to_string()),
+                    (
+                        "upstream_vortex_dependency".to_string(),
+                        VortexDependencyStatus::NotAdded.as_str().to_string(),
+                    ),
+                    ("execution".to_string(), "not_performed".to_string()),
+                    ("io".to_string(), "not_performed".to_string()),
+                ],
+            );
+            ExitCode::SUCCESS
+        }
         Some("optimizer-plan") => {
             let report = OptimizerPlanSkeleton::not_implemented(
                 OptimizerPhase::VortexPhysical,
@@ -1648,6 +1660,12 @@ mod tests {
     }
 
     #[test]
+    fn vortex_readiness_returns_success() {
+        let code = run(vec!["vortex-readiness".to_string()]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
     fn correctness_plan_returns_success() {
         let code = run(vec!["correctness-plan".to_string()]);
         assert_eq!(code, ExitCode::SUCCESS);
@@ -1698,12 +1716,21 @@ mod tests {
     }
 
     #[test]
-    fn cli_contract_commands_include_required_introspection_and_plan_only() {
-        let commands = cli_commands();
-        assert!(commands.contains(&"status"));
-        assert!(commands.contains(&"capabilities"));
-        assert!(commands.contains(&"doctor"));
-        assert!(commands.contains(&"scan-plan"));
-        assert!(commands.contains(&"runtime-plan"));
+    fn cli_contract_core_commands_dispatch_without_unknown_command_usage() {
+        for command in [
+            "status",
+            "capabilities",
+            "doctor",
+            "release-plan",
+            "optimizer-plan",
+            "vortex-readiness",
+        ] {
+            let code = run(vec![command.to_string()]);
+            assert_ne!(
+                code,
+                ExitCode::from(2),
+                "command `{command}` should be recognized by dispatcher"
+            );
+        }
     }
 }
