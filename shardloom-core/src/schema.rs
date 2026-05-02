@@ -965,6 +965,10 @@ impl TableCompatibilityReport {
     #[must_use]
     pub fn has_errors(&self) -> bool {
         self.plan.has_errors()
+            || self
+                .schema_report
+                .as_ref()
+                .is_some_and(SchemaCompatibilityReport::has_errors)
             || self.diagnostics.iter().any(|d| {
                 matches!(
                     d.severity,
@@ -1166,6 +1170,23 @@ mod tests {
                 .to_human_text()
                 .contains("fallback execution: disabled")
         );
+    }
+    #[test]
+    fn table_compatibility_report_has_errors_when_schema_report_has_errors() {
+        let plan = TableCompatibilityPlan::native_vortex();
+        let mut schema_report = SchemaCompatibilityReport::new(
+            SchemaId::new("from").expect("id"),
+            SchemaId::new("to").expect("id"),
+            SchemaCompatibilityLevel::Incompatible,
+        );
+        schema_report.add_diagnostic(Diagnostic::unsupported(
+            DiagnosticCode::UnsupportedDType,
+            "schema_compatibility",
+            "incompatible schema",
+            Some("Update schema mappings.".to_string()),
+        ));
+        let report = TableCompatibilityReport::from_plan(plan).with_schema_report(schema_report);
+        assert!(report.has_errors());
     }
     #[test]
     fn table_compatibility_report_from_plan_does_not_perform_io_and_preserves_plan() {

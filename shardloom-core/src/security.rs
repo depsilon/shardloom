@@ -460,7 +460,12 @@ impl ExternalEffectPolicy {
     }
     #[must_use]
     pub const fn allows_execution(&self) -> bool {
-        self.enabled && !self.requires_approval
+        self.enabled
+            && !self.requires_approval
+            && !matches!(
+                self.kind,
+                ExternalEffectKind::None | ExternalEffectKind::Unknown
+            )
     }
     #[must_use]
     pub fn summary(&self) -> String {
@@ -990,6 +995,17 @@ mod tests {
     #[test]
     fn external_effect_policy_disabled_denies() {
         assert!(!ExternalEffectPolicy::disabled(ExternalEffectKind::ApiRead).allows_execution());
+    }
+
+    #[test]
+    fn external_effect_policy_unknown_or_none_never_allows_execution() {
+        assert!(
+            !ExternalEffectPolicy::enabled_read_only(ExternalEffectKind::Unknown)
+                .allows_execution()
+        );
+        assert!(
+            !ExternalEffectPolicy::enabled_read_only(ExternalEffectKind::None).allows_execution()
+        );
     }
     #[test]
     fn external_effect_policy_requires_approval_denies() {

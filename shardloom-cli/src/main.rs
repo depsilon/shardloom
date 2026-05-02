@@ -10,9 +10,10 @@ use shardloom_core::{
     DatasetRef, DatasetUri, ExtensionId, ExtensionInspectionReport, ExtensionLicenseKind,
     ExtensionManifest, ExtensionProvenance, ExtensionRegistrySnapshot, ExtensionVersion,
     IncrementalPlanSkeleton, KernelRegistrySnapshot, ManifestId, ObservabilityPlan, OutputEnvelope,
-    OutputFormat, OutputTarget, RedactionPolicy, RuntimeObservabilityReport, SchemaDefinition,
-    SchemaId, SchemaVersion, SecurityPlan, ShardLoomError, SnapshotId, SnapshotRef,
-    TableCompatibilityPlan, TableFormatKind, TranslationPlan, UdfRuntimeKind, WriteIntent,
+    OutputFormat, OutputTarget, RedactionPolicy, ReleasePlan, RuntimeObservabilityReport,
+    SchemaDefinition, SchemaId, SchemaVersion, SecurityPlan, ShardLoomError, SnapshotId,
+    SnapshotRef, TableCompatibilityPlan, TableFormatKind, TranslationPlan, UdfRuntimeKind,
+    WriteIntent,
 };
 use shardloom_exec::{
     AdaptiveSizer, AdaptiveSizingPolicy, AttemptId, ByteSize, CancellationReason,
@@ -142,6 +143,75 @@ fn run(args: Vec<String>) -> ExitCode {
             );
             ExitCode::SUCCESS
         }
+        Some("release-plan") => {
+            let plan = ReleasePlan::default_foundation_plan();
+            emit(
+                "release-plan",
+                format,
+                CommandStatus::Success,
+                "release plan skeleton".to_string(),
+                plan.to_human_text(),
+                plan.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "release_plan".to_string()),
+                    ("publish_allowed".to_string(), "false".to_string()),
+                    ("published".to_string(), "false".to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
+                    ("external_publish".to_string(), "not_performed".to_string()),
+                ],
+            );
+            ExitCode::SUCCESS
+        }
+        Some("package-plan") => {
+            let plan = ReleasePlan::default_foundation_plan();
+            emit(
+                "package-plan",
+                format,
+                CommandStatus::Success,
+                "package plan skeleton".to_string(),
+                plan.to_human_text(),
+                plan.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "package_plan".to_string()),
+                    ("publish_allowed".to_string(), "false".to_string()),
+                    ("published".to_string(), "false".to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
+                    ("external_publish".to_string(), "not_performed".to_string()),
+                ],
+            );
+            ExitCode::SUCCESS
+        }
+        Some("api-compat-plan") => {
+            let plan = ReleasePlan::default_foundation_plan();
+            emit(
+                "api-compat-plan",
+                format,
+                CommandStatus::Success,
+                "api compatibility plan skeleton".to_string(),
+                plan.to_human_text(),
+                plan.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "api_compat_plan".to_string()),
+                    ("publish_allowed".to_string(), "false".to_string()),
+                    ("published".to_string(), "false".to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
+                    ("external_publish".to_string(), "not_performed".to_string()),
+                ],
+            );
+            ExitCode::SUCCESS
+        }
         Some("schema-plan") => {
             let schema = match (SchemaId::new("schema-placeholder"), SchemaVersion::new(1)) {
                 (Ok(id), Ok(version)) => SchemaDefinition::new(id, version),
@@ -263,7 +333,11 @@ fn run(args: Vec<String>) -> ExitCode {
                     ),
                 ],
             );
-            ExitCode::SUCCESS
+            if plan.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
         }
         Some("capabilities") => {
             let capabilities = shardloom_core::EngineCapabilities::current();
@@ -1393,7 +1467,7 @@ fn run(args: Vec<String>) -> ExitCode {
         }
         _ => {
             eprintln!(
-                "usage: shardloom <status|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan> [--format text|json]"
+                "usage: shardloom <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan> [--format text|json]"
             );
             ExitCode::from(2)
         }
@@ -1473,6 +1547,12 @@ mod tests {
     }
 
     #[test]
+    fn release_plan_returns_success() {
+        let code = run(vec!["release-plan".to_string()]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
     fn security_plan_returns_success() {
         let code = run(vec!["security-plan".to_string()]);
         assert_eq!(code, ExitCode::SUCCESS);
@@ -1490,6 +1570,11 @@ mod tests {
         assert_eq!(code, ExitCode::SUCCESS);
     }
 
+    #[test]
+    fn table_compat_plan_with_unknown_returns_non_zero() {
+        let code = run(vec!["table-compat-plan".to_string(), "unknown".to_string()]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
     #[test]
     fn translation_plan_with_vortex_uri_returns_success() {
         let code = run(vec![

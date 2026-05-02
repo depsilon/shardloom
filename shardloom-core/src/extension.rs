@@ -720,7 +720,7 @@ impl ExtensionManifest {
     pub fn is_usable(&self) -> bool {
         self.lifecycle.is_usable()
             && !self.has_errors()
-            && !self.provenance.requires_review()
+            && !self.requires_review()
             && !self.diagnostics.iter().any(|d| {
                 d.code == DiagnosticCode::NoFallbackExecution
                     || matches!(
@@ -811,10 +811,15 @@ impl ExtensionInspectionReport {
     pub fn requires_review(manifest: ExtensionManifest, reason: impl Into<String>) -> Self {
         let mut out = Self::metadata_only(manifest);
         out.status = ExtensionInspectionStatus::RequiresReview;
-        out.diagnostics.push(Diagnostic::configuration_error(
-            "extension_inspection",
-            reason.into(),
-            "Review extension provenance and permissions.",
+        out.diagnostics.push(Diagnostic::new(
+            DiagnosticCode::ConfigurationError,
+            DiagnosticSeverity::Warning,
+            crate::DiagnosticCategory::Configuration,
+            "Extension requires manual review.",
+            Some("extension_inspection".to_string()),
+            Some(reason.into()),
+            Some("Review extension provenance and permissions.".to_string()),
+            crate::FallbackStatus::disabled_by_policy(),
         ));
         out
     }
@@ -1084,6 +1089,37 @@ mod tests {
         .expect("manifest");
         let r = ExtensionInspectionReport::metadata_only(m);
         assert!(!r.code_executed)
+    }
+    #[test]
+    fn manifest_requiring_review_is_not_usable() {
+        let mut m = ExtensionManifest::new(
+            ExtensionId::new("ext.review").expect("id"),
+            "ReviewExt",
+            ExtensionVersion::new(0, 1, 0),
+            ExtensionCategory::Connector,
+            ExtensionProvenance::new(ExtensionLicenseKind::Apache2),
+        )
+        .expect("manifest");
+        m.add_effect(ExtensionEffectDeclaration::new(
+            ExternalEffectKind::ApiRead,
+            EffectLevel::ExternalRead,
+        ));
+        assert!(m.requires_review());
+        assert!(!m.is_usable());
+    }
+
+    #[test]
+    fn requires_review_inspection_is_not_error() {
+        let manifest = ExtensionManifest::new(
+            ExtensionId::new("ext.inspect").expect("id"),
+            "Inspect",
+            ExtensionVersion::new(0, 1, 0),
+            ExtensionCategory::Connector,
+            ExtensionProvenance::new(ExtensionLicenseKind::Apache2),
+        )
+        .expect("manifest");
+        let report = ExtensionInspectionReport::requires_review(manifest, "manual review");
+        assert!(!report.has_errors());
     }
     #[test]
     fn report_unsupported_has_errors_and_no_fallback() {
