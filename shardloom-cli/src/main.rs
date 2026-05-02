@@ -8,8 +8,8 @@ use std::process::ExitCode;
 use shardloom_core::{
     ChangeSet, CommandStatus, CorrectnessValidationPlan, DatasetManifest, DatasetRef, DatasetUri,
     IncrementalPlanSkeleton, KernelRegistrySnapshot, ManifestId, ObservabilityPlan, OutputEnvelope,
-    OutputFormat, OutputTarget, RuntimeObservabilityReport, ShardLoomError, SnapshotId,
-    SnapshotRef, TranslationPlan, WriteIntent,
+    OutputFormat, OutputTarget, RedactionPolicy, RuntimeObservabilityReport, SecurityPlan,
+    ShardLoomError, SnapshotId, SnapshotRef, TranslationPlan, WriteIntent,
 };
 use shardloom_exec::{
     AdaptiveSizer, AdaptiveSizingPolicy, AttemptId, ByteSize, CancellationReason,
@@ -155,6 +155,79 @@ fn run(args: Vec<String>) -> ExitCode {
                     ),
                     ("native_input".to_string(), "vortex".to_string()),
                     ("native_output".to_string(), "vortex".to_string()),
+                ],
+            );
+            ExitCode::SUCCESS
+        }
+        Some("security-plan") => {
+            let plan = SecurityPlan::default_safe();
+            let text = plan.to_human_text();
+            emit(
+                "security-plan",
+                format,
+                CommandStatus::Success,
+                "security plan skeleton".to_string(),
+                text,
+                vec![],
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "security_plan".to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
+                    ("external_effects".to_string(), "disabled".to_string()),
+                    ("credentials_resolved".to_string(), "false".to_string()),
+                    ("secrets_loaded".to_string(), "false".to_string()),
+                ],
+            );
+            ExitCode::SUCCESS
+        }
+        Some("agent-safety-plan") => {
+            let mut plan = SecurityPlan::default_safe();
+            plan.agent_mode = shardloom_core::AgentSafetyMode::AgentDryRunOnly;
+            let text = plan.to_human_text();
+            emit(
+                "agent-safety-plan",
+                format,
+                CommandStatus::Success,
+                "agent safety plan skeleton".to_string(),
+                text,
+                vec![],
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "agent_safety_plan".to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
+                    ("external_effects".to_string(), "disabled".to_string()),
+                    ("credentials_resolved".to_string(), "false".to_string()),
+                    ("secrets_loaded".to_string(), "false".to_string()),
+                ],
+            );
+            ExitCode::SUCCESS
+        }
+        Some("redaction-plan") => {
+            let redaction = RedactionPolicy::strict();
+            let text = redaction.summary();
+            emit(
+                "redaction-plan",
+                format,
+                CommandStatus::Success,
+                "redaction plan skeleton".to_string(),
+                text,
+                vec![],
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "redaction_plan".to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
+                    ("external_effects".to_string(), "disabled".to_string()),
+                    ("credentials_resolved".to_string(), "false".to_string()),
+                    ("secrets_loaded".to_string(), "false".to_string()),
                 ],
             );
             ExitCode::SUCCESS
@@ -1081,7 +1154,7 @@ fn run(args: Vec<String>) -> ExitCode {
         }
         _ => {
             eprintln!(
-                "usage: shardloom <status|capabilities|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan> [--format text|json]"
+                "usage: shardloom <status|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan> [--format text|json]"
             );
             ExitCode::from(2)
         }
@@ -1157,6 +1230,12 @@ mod tests {
             "scan-plan".to_string(),
             "file://tmp/test.vortex".to_string(),
         ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn security_plan_returns_success() {
+        let code = run(vec!["security-plan".to_string()]);
         assert_eq!(code, ExitCode::SUCCESS);
     }
 

@@ -14,6 +14,7 @@ pub mod expression;
 pub mod manifest;
 pub mod observability;
 pub mod output;
+pub mod security;
 pub mod translation;
 
 pub use benchmark::{
@@ -61,6 +62,14 @@ pub use observability::{
 };
 
 pub use output::{CommandStatus, OutputEnvelope, OutputFormat};
+
+pub use security::{
+    AgentSafetyMode, ApprovalRequirement, AuditActionKind, AuditRecord, CredentialScope,
+    CredentialScopeKind, DataSensitivity, DryRunSafety, ExternalEffectKind, ExternalEffectPolicy,
+    PermissionKind, PermissionRequirement, PermissionStatus, RedactionPolicy, RedactionPolicyKind,
+    SecretProviderKind, SecretRef, SecretRefId, SecurityPlan, SecurityPolicyStatus, SecurityReport,
+    SensitiveField,
+};
 
 pub use translation::{
     CommitMode, FidelityLevel, MaterializationRequirement, MetadataKind, MetadataPreservation,
