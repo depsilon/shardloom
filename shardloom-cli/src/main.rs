@@ -6,8 +6,9 @@
 use std::process::ExitCode;
 
 use shardloom_core::{
-    ChangeSet, DatasetManifest, DatasetRef, DatasetUri, IncrementalPlanSkeleton, ManifestId,
-    OutputTarget, SnapshotId, SnapshotRef, TranslationPlan, WriteIntent,
+    ChangeSet, CommandStatus, DatasetManifest, DatasetRef, DatasetUri, IncrementalPlanSkeleton,
+    ManifestId, OutputEnvelope, OutputFormat, OutputTarget, SnapshotId, SnapshotRef,
+    TranslationPlan, WriteIntent,
 };
 use shardloom_exec::{
     AdaptiveSizer, AdaptiveSizingPolicy, ByteSize, ParallelismLimit, ParallelismPlan,
@@ -21,28 +22,92 @@ fn main() -> ExitCode {
     run(args)
 }
 
+fn parse_output_format(args: Vec<String>) -> Result<(Vec<String>, OutputFormat), String> {
+    let mut filtered = Vec::with_capacity(args.len());
+    let mut format = OutputFormat::Text;
+    let mut iter = args.into_iter();
+    while let Some(arg) = iter.next() {
+        if arg == "--format" {
+            let Some(value) = iter.next() else {
+                return Err("missing value for --format; expected text or json".to_string());
+            };
+            format = OutputFormat::parse(&value).map_err(|e| e.to_string())?;
+        } else {
+            filtered.push(arg);
+        }
+    }
+    Ok((filtered, format))
+}
+
+fn emit(
+    command: &str,
+    format: OutputFormat,
+    status: CommandStatus,
+    summary: String,
+    text: String,
+    diagnostics: Vec<shardloom_core::Diagnostic>,
+    fields: Vec<(String, String)>,
+) {
+    let mut envelope = OutputEnvelope::new(command, status, summary, text);
+    for diagnostic in diagnostics {
+        envelope.add_diagnostic(diagnostic);
+    }
+    for (key, value) in fields {
+        envelope = envelope.with_field(key, value);
+    }
+    println!("{}", envelope.render(format));
+}
+
 #[allow(clippy::too_many_lines)]
 fn run(args: Vec<String>) -> ExitCode {
+    let (args, format) = match parse_output_format(args) {
+        Ok(parsed) => parsed,
+        Err(message) => {
+            eprintln!("{message}");
+            return ExitCode::from(2);
+        }
+    };
     let mut args = args.into_iter();
 
     match args.next().as_deref() {
         Some("status") => {
             let status = shardloom_exec::status();
-            println!("{}", status.summary);
-            println!("fallback execution: disabled");
+            emit(
+                "status",
+                format,
+                CommandStatus::Success,
+                "engine status".to_string(),
+                format!("{}\nfallback execution: disabled", status.summary),
+                vec![],
+                vec![(
+                    "fallback_execution_allowed".to_string(),
+                    "false".to_string(),
+                )],
+            );
             ExitCode::SUCCESS
         }
         Some("capabilities") => {
             let capabilities = shardloom_core::EngineCapabilities::current();
-            println!("{}", capabilities.to_human_text());
+            emit(
+                "capabilities",
+                format,
+                CommandStatus::Success,
+                "engine capabilities".to_string(),
+                capabilities.to_human_text(),
+                vec![],
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("native_input".to_string(), "vortex".to_string()),
+                    ("native_output".to_string(), "vortex".to_string()),
+                ],
+            );
             ExitCode::SUCCESS
         }
         Some("doctor") => {
-            println!("ShardLoom doctor");
-            println!("fallback execution: disabled");
-            println!("native input target: vortex");
-            println!("native output target: vortex");
-            println!("status: early implementation skeleton");
+            emit("doctor", format, CommandStatus::Success, "doctor checks".to_string(), "ShardLoom doctor\nfallback execution: disabled\nnative input target: vortex\nnative output target: vortex\nstatus: early implementation skeleton".to_string(), vec![], vec![("native_input".to_string(), "vortex".to_string()), ("native_output".to_string(), "vortex".to_string())]);
             ExitCode::SUCCESS
         }
         Some("explain") => {
@@ -54,7 +119,15 @@ fn run(args: Vec<String>) -> ExitCode {
                 "planning",
                 "Real planning is not implemented yet.",
             );
-            println!("{}", report.to_human_text());
+            emit(
+                "explain",
+                format,
+                CommandStatus::Unsupported,
+                "explain plan".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                vec![("mode".to_string(), "plan_only".to_string())],
+            );
             if report.has_errors() {
                 ExitCode::from(1)
             } else {
@@ -63,7 +136,15 @@ fn run(args: Vec<String>) -> ExitCode {
         }
         Some("benchmark-plan") => {
             let plan = shardloom_core::BenchmarkPlan::default_foundation_plan();
-            println!("{}", plan.to_human_text());
+            emit(
+                "benchmark-plan",
+                format,
+                CommandStatus::Success,
+                "benchmark plan".to_string(),
+                plan.to_human_text(),
+                vec![],
+                vec![],
+            );
             ExitCode::SUCCESS
         }
         Some("manifest-plan") => {
@@ -92,7 +173,15 @@ fn run(args: Vec<String>) -> ExitCode {
                 dataset,
                 snapshot,
             );
-            println!("{}", manifest.summary());
+            emit(
+                "manifest-plan",
+                format,
+                CommandStatus::Success,
+                "manifest plan".to_string(),
+                manifest.summary(),
+                vec![],
+                vec![("mode".to_string(), "plan_only".to_string())],
+            );
             ExitCode::SUCCESS
         }
         Some("incremental-plan") => {
@@ -109,7 +198,15 @@ fn run(args: Vec<String>) -> ExitCode {
             };
             let change_set = ChangeSet::new(snapshot_id);
             let plan = IncrementalPlanSkeleton::from_change_set(change_set);
-            println!("{}", plan.to_human_text());
+            emit(
+                "incremental-plan",
+                format,
+                CommandStatus::Success,
+                "incremental plan".to_string(),
+                plan.to_human_text(),
+                vec![],
+                vec![],
+            );
             ExitCode::SUCCESS
         }
         Some("write-intent") => {
@@ -125,7 +222,15 @@ fn run(args: Vec<String>) -> ExitCode {
                 }
             };
             let intent = WriteIntent::write_not_implemented(OutputTarget::from_uri(uri));
-            println!("{}", intent.summary());
+            emit(
+                "write-intent",
+                format,
+                CommandStatus::Unsupported,
+                "write intent".to_string(),
+                intent.summary(),
+                intent.diagnostics.clone(),
+                vec![],
+            );
             if intent.has_errors() {
                 ExitCode::from(1)
             } else {
@@ -153,7 +258,19 @@ fn run(args: Vec<String>) -> ExitCode {
             };
             let request = ScanRequest::new(dataset);
             let skeleton = ScanPlanSkeleton::plan_only(request);
-            println!("{}", skeleton.to_human_text());
+            emit(
+                "scan-plan",
+                format,
+                if skeleton.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "scan plan".to_string(),
+                skeleton.to_human_text(),
+                skeleton.diagnostics.clone(),
+                vec![("mode".to_string(), "plan_only".to_string())],
+            );
             ExitCode::SUCCESS
         }
         Some("streaming-plan") => {
@@ -188,7 +305,19 @@ fn run(args: Vec<String>) -> ExitCode {
             };
             let output_target = OutputTarget::from_uri(target_uri);
             let plan = StreamingPlanSkeleton::for_vortex_to_target(dataset_ref, output_target);
-            println!("{}", plan.to_human_text());
+            emit(
+                "streaming-plan",
+                format,
+                if plan.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "streaming plan".to_string(),
+                plan.to_human_text(),
+                plan.diagnostics.clone(),
+                vec![],
+            );
             if plan.has_errors() {
                 ExitCode::from(1)
             } else {
@@ -221,7 +350,15 @@ fn run(args: Vec<String>) -> ExitCode {
                     return ExitCode::from(2);
                 }
             };
-            println!("{}", plan.to_human_text());
+            emit(
+                "runtime-plan",
+                format,
+                CommandStatus::Success,
+                "runtime plan".to_string(),
+                plan.to_human_text(),
+                plan.diagnostics.clone(),
+                vec![],
+            );
             ExitCode::SUCCESS
         }
         Some("sizing-plan") => {
@@ -273,8 +410,15 @@ fn run(args: Vec<String>) -> ExitCode {
                 ParallelismPlan::new(ParallelismLimit::auto(), 1, 1, "planning skeleton");
             let mut plan = SizingPlan::new(policy, parallelism);
             plan.add_decision(input.segment_id.clone(), decision);
-            println!("dataset: {}", dataset.summary());
-            println!("{}", plan.to_human_text());
+            emit(
+                "sizing-plan",
+                format,
+                CommandStatus::Success,
+                "sizing plan".to_string(),
+                format!("dataset: {}\n{}", dataset.summary(), plan.to_human_text()),
+                vec![],
+                vec![],
+            );
             ExitCode::SUCCESS
         }
         Some("task-plan") => {
@@ -303,7 +447,15 @@ fn run(args: Vec<String>) -> ExitCode {
                     return ExitCode::from(2);
                 }
             };
-            println!("{}", plan.graph.summary());
+            emit(
+                "task-plan",
+                format,
+                CommandStatus::Success,
+                "task plan".to_string(),
+                plan.graph.summary(),
+                vec![],
+                vec![],
+            );
             ExitCode::SUCCESS
         }
         Some("vortex-plan") => {
@@ -325,9 +477,14 @@ fn run(args: Vec<String>) -> ExitCode {
                     return ExitCode::from(2);
                 }
             };
-            println!(
-                "{}",
-                VortexReadPlan::metadata_only(file_ref).to_human_text()
+            emit(
+                "vortex-plan",
+                format,
+                CommandStatus::Success,
+                "vortex read plan".to_string(),
+                VortexReadPlan::metadata_only(file_ref).to_human_text(),
+                vec![],
+                vec![("mode".to_string(), "metadata_only".to_string())],
             );
             ExitCode::SUCCESS
         }
@@ -345,7 +502,19 @@ fn run(args: Vec<String>) -> ExitCode {
             };
             let target = OutputTarget::from_uri(uri);
             let plan = TranslationPlan::for_target(target);
-            println!("{}", plan.to_human_text());
+            emit(
+                "translation-plan",
+                format,
+                if plan.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "translation plan".to_string(),
+                plan.to_human_text(),
+                plan.diagnostics.clone(),
+                vec![],
+            );
             if plan.has_errors() {
                 ExitCode::from(1)
             } else {
@@ -371,10 +540,15 @@ fn run(args: Vec<String>) -> ExitCode {
                     return ExitCode::from(2);
                 }
             };
-            println!(
-                "{}",
+            emit(
+                "vortex-output-plan",
+                format,
+                CommandStatus::Success,
+                "vortex output plan".to_string(),
                 VortexWritePlan::planned(file_ref, VortexWriteOptions::native_defaults())
-                    .to_human_text()
+                    .to_human_text(),
+                vec![],
+                vec![("target_format".to_string(), "vortex".to_string())],
             );
             ExitCode::SUCCESS
         }
@@ -387,7 +561,15 @@ fn run(args: Vec<String>) -> ExitCode {
                 "estimation",
                 "Real estimation is not implemented yet.",
             );
-            println!("{}", report.to_human_text());
+            emit(
+                "estimate",
+                format,
+                CommandStatus::Unsupported,
+                "estimate plan".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                vec![("mode".to_string(), "plan_only".to_string())],
+            );
             if report.has_errors() {
                 ExitCode::from(1)
             } else {
@@ -396,7 +578,7 @@ fn run(args: Vec<String>) -> ExitCode {
         }
         _ => {
             eprintln!(
-                "usage: shardloom-cli <status|capabilities|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|explain|estimate|benchmark-plan>"
+                "usage: shardloom <status|capabilities|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|explain|estimate|benchmark-plan> [--format text|json]"
             );
             ExitCode::from(2)
         }
