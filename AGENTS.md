@@ -57,9 +57,12 @@ Before making implementation changes:
 2. Confirm the change does not violate the no-fallback policy.
 3. Confirm Vortex-native input/output is preserved where relevant.
 4. Keep the change small and reviewable.
-5. Add or update tests for behavior changes.
-6. Run the required validation commands.
-7. Do not publish packages or create releases.
+5. Do not publish packages or create releases.
+
+After making implementation changes:
+
+1. Add or update tests for behavior changes.
+2. Run the required validation commands.
 
 Required validation commands:
 
