@@ -92,3 +92,9 @@ ShardLoom should be internally complex but externally simple, familiar, determin
 Use `modular-extensibility.md` for SQL, UDFs, unstructured data, LLM/API calls, embeddings, vector search, connectors, and capability discovery.
 
 ShardLoom should remain Vortex-native and high-performance while exposing flexible, familiar, explicit extension points for adjacent workflows. External effects must be explicit, safe, and machine-readable for agents.
+
+## Diagnostics and capabilities
+
+Use `diagnostics-capabilities.md` for errors, diagnostics, explain output, estimate output, doctor checks, capability discovery, translation reports, and machine-readable agent-facing output.
+
+ShardLoom should provide stable, deterministic, actionable diagnostics for humans and LLM agents. Unsupported behavior must be explicit, and fallback status must be visible.
