@@ -266,6 +266,14 @@ impl VortexAdapterCapabilityReport {
         for (cap, status) in &self.capabilities {
             let _ = write!(out, "\n- {}: {}", cap.as_str(), status.as_str());
         }
+        if self.diagnostics.is_empty() {
+            out.push_str("\ndiagnostics: none");
+        } else {
+            out.push_str("\ndiagnostics:");
+            for diagnostic in &self.diagnostics {
+                let _ = write!(out, "\n- {}", diagnostic.to_human_text());
+            }
+        }
         out
     }
 }
@@ -397,12 +405,13 @@ diagnostics: none",
 diagnostics:",
             );
             for diagnostic in &self.diagnostics {
-                let _ = write!(
-                    out,
-                    "
-- {}",
-                    diagnostic.to_human_text()
-                );
+                let _ = write!(out, "\n- {}", diagnostic.to_human_text());
+                if let Some(reason) = &diagnostic.reason {
+                    let _ = write!(out, "\n  reason: {reason}");
+                }
+                if let Some(next_step) = &diagnostic.suggested_next_step {
+                    let _ = write!(out, "\n  suggested next step: {next_step}");
+                }
             }
         }
         out
@@ -561,6 +570,14 @@ impl VortexEncodingLayoutMappingReport {
         }
         if let Some(api) = &self.layout_api_name {
             let _ = write!(out, "\nlayout API: {api}");
+        }
+        if self.diagnostics.is_empty() {
+            out.push_str("\ndiagnostics: none");
+        } else {
+            out.push_str("\ndiagnostics:");
+            for diagnostic in &self.diagnostics {
+                let _ = write!(out, "\n- {}", diagnostic.to_human_text());
+            }
         }
         out
     }
