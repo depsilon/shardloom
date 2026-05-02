@@ -202,6 +202,14 @@ impl AdaptiveSizingPolicy {
             self.allow_splitting
         )
     }
+
+    /// Returns canonical terminology for adaptive sizing policy.
+    ///
+    /// This helper is label-only and does not modify sizing decisions.
+    #[must_use]
+    pub const fn canonical_label(&self) -> &'static str {
+        "adaptive_sizing_policy"
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -598,6 +606,13 @@ mod tests {
     fn memory_limited_sets_max_memory() {
         let p = AdaptiveSizingPolicy::memory_limited(ByteSize::from_gib(8));
         assert_eq!(p.max_memory_bytes, Some(ByteSize::from_gib(8)));
+    }
+    #[test]
+    fn adaptive_sizing_policy_canonical_label_is_stable() {
+        assert_eq!(
+            AdaptiveSizingPolicy::default_local().canonical_label(),
+            "adaptive_sizing_policy"
+        );
     }
     #[test]
     fn size_unknown_no_hybrid_best() {

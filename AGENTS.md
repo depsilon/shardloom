@@ -283,3 +283,15 @@ Important principles:
 - Release engineering must preserve Apache-2.0 compatibility, dependency hygiene, API stability discipline, and no-fallback architecture.
 - Do not publish packages or create releases without explicit human approval.
 - No Spark or DataFusion fallback is allowed.
+
+## Canonical terminology
+
+Before introducing new public terms, domain types, CLI labels, diagnostics, or JSON fields, read:
+- docs/architecture/canonical-terminology.md
+
+Rules:
+- Use canonical ShardLoom vocabulary.
+- Do not use "fallback" to mean translation/export.
+- Do not use "zero-copy" to mean zero-decode.
+- Keep native Vortex output distinct from compatibility output.
+- Prefer mapping helpers over premature type consolidation.

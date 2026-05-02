@@ -188,6 +188,14 @@ impl DatasetFormat {
             Self::Unknown
         }
     }
+
+    /// Maps dataset-format terminology to output-target terminology.
+    ///
+    /// This helper preserves layer boundaries and does not perform translation.
+    #[must_use]
+    pub fn to_output_target_kind(&self) -> crate::OutputTargetKind {
+        crate::OutputTargetKind::from_dataset_format(self)
+    }
 }
 
 /// Snapshot identifier used in dataset planning references.
@@ -371,6 +379,21 @@ mod tests {
         assert_eq!(
             DatasetFormat::infer_from_uri(&DatasetUri::new("x.parquet").unwrap()),
             DatasetFormat::Parquet
+        );
+    }
+    #[test]
+    fn dataset_format_maps_to_output_target_kind() {
+        assert_eq!(
+            DatasetFormat::Vortex.to_output_target_kind(),
+            crate::OutputTargetKind::Vortex
+        );
+        assert_eq!(
+            DatasetFormat::Parquet.to_output_target_kind(),
+            crate::OutputTargetKind::Parquet
+        );
+        assert_eq!(
+            DatasetFormat::Extension("x".into()).to_output_target_kind(),
+            crate::OutputTargetKind::Extension("x".into())
         );
     }
     #[test]

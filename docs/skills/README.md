@@ -126,3 +126,7 @@ Use `fault-tolerance-recovery.md` for task attempts, retries, cancellation, reco
 ShardLoom should be correct before fast, adaptive before wasteful, and recoverable before massive.
 
 ## Observability, security, and schema/table compatibility
+
+## Canonical terminology
+
+Use docs/architecture/canonical-terminology.md when adding or changing domain types, diagnostics, CLI labels, JSON fields, or RFC language.

@@ -82,6 +82,14 @@ impl MemoryBudget {
             self.hard_limit.to_human_text()
         )
     }
+
+    /// Returns canonical terminology for memory-budget reporting.
+    ///
+    /// This helper is a stable label aid and does not alter memory behavior.
+    #[must_use]
+    pub const fn canonical_label(&self) -> &'static str {
+        "memory_budget"
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -873,6 +881,13 @@ mod tests {
     fn budget_new_limits() {
         let b = MemoryBudget::new(bs(100)).unwrap();
         assert!(b.soft_limit <= b.hard_limit && b.hard_limit <= b.total);
+    }
+    #[test]
+    fn memory_budget_canonical_label_is_memory_budget() {
+        assert_eq!(
+            MemoryBudget::new(bs(100)).unwrap().canonical_label(),
+            "memory_budget"
+        );
     }
     #[test]
     fn budget_pressure_normal_below_soft() {

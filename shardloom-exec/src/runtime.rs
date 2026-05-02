@@ -186,6 +186,18 @@ impl ResourceBudget {
             self.max_runtime_millis
         )
     }
+
+    /// Returns canonical terminology for resource-budget boundedness.
+    ///
+    /// This helper provides stable labels for agent/CLI/JSON output only.
+    #[must_use]
+    pub const fn canonical_label(&self) -> &'static str {
+        if self.has_any_limit() {
+            "bounded_resource_budget"
+        } else {
+            "unbounded_resource_budget"
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -684,6 +696,17 @@ mod tests {
         let b = ResourceBudget::memory_limited(10);
         assert!(b.has_any_limit());
         assert_eq!(b.max_memory_bytes, Some(10));
+    }
+    #[test]
+    fn resource_budget_canonical_label_distinguishes_boundedness() {
+        assert_eq!(
+            ResourceBudget::unbounded().canonical_label(),
+            "unbounded_resource_budget"
+        );
+        assert_eq!(
+            ResourceBudget::memory_limited(1).canonical_label(),
+            "bounded_resource_budget"
+        );
     }
     #[test]
     fn retry_none_one_attempt() {
