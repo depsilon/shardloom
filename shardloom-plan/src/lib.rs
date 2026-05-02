@@ -5,12 +5,19 @@
 
 pub mod estimate;
 pub mod explain;
+pub mod plan_ir;
 pub mod scan;
 
 use shardloom_core::{Result, ShardLoomError};
 
 pub use estimate::{EstimateConfidence, EstimateReport, EstimateValue};
 pub use explain::{ExecutionBoundary, ExplainPlanNode, ExplainReport, PlanNodeId, PlanNodeKind};
+pub use plan_ir::{
+    EffectBoundary, NativePlanDocument, NativePlanNode, NativePlanNodeKind, PlanBoundaryKind,
+    PlanCapabilityKind, PlanCapabilityRequirement, PlanExportRequest, PlanExportStatus, PlanId,
+    PlanImportRequest, PlanImportStatus, PlanInteropFormat, PlanLayer, PlanSchemaVersion,
+    PlanValidationReport, PlanValidationStatus, TranslationBoundary,
+};
 pub use scan::{ProjectionRequest, ScanMode, ScanPlanSkeleton, ScanPlanningStatus, ScanRequest};
 
 /// High-level operation categories for initial planning skeletons.
