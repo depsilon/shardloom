@@ -117,3 +117,22 @@ Prefer small pull requests that establish clear contracts:
 - Benchmark methodology.
 
 Implementation depth should increase only after the relevant RFC or design document exists.
+
+## Developer and agent experience
+
+ShardLoom should be highly performant internally while remaining flexible, familiar, and easy to use.
+
+Before public API, CLI, diagnostics, explain, estimate, config, or documentation changes, read:
+
+- `docs/rfcs/0010-developer-experience-agent-usability.md`
+- `docs/skills/developer-agent-experience.md`
+
+Important principles:
+
+- Internal complexity should produce external simplicity.
+- Human developers should get familiar APIs.
+- LLM agents should get deterministic, machine-readable diagnostics.
+- Simple usage should not require advanced Vortex knowledge.
+- Native Vortex output should be easy to select.
+- Unsupported behavior must be explicit and actionable.
+- No Spark or DataFusion fallback is allowed for convenience.
