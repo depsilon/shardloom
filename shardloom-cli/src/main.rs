@@ -6,9 +6,9 @@
 use std::process::ExitCode;
 
 use shardloom_core::{
-    ChangeSet, CommandStatus, DatasetManifest, DatasetRef, DatasetUri, IncrementalPlanSkeleton,
-    ManifestId, OutputEnvelope, OutputFormat, OutputTarget, ShardLoomError, SnapshotId,
-    SnapshotRef, TranslationPlan, WriteIntent,
+    ChangeSet, CommandStatus, CorrectnessValidationPlan, DatasetManifest, DatasetRef, DatasetUri,
+    IncrementalPlanSkeleton, ManifestId, OutputEnvelope, OutputFormat, OutputTarget,
+    ShardLoomError, SnapshotId, SnapshotRef, TranslationPlan, WriteIntent,
 };
 use shardloom_exec::{
     AdaptiveSizer, AdaptiveSizingPolicy, ByteSize, MemoryBudget, MemoryOwner, MemoryPoolPlan,
@@ -242,6 +242,30 @@ fn run(args: Vec<String>) -> ExitCode {
             } else {
                 ExitCode::SUCCESS
             }
+        }
+        Some("correctness-plan") => {
+            let plan = CorrectnessValidationPlan::default_foundation_plan();
+            emit(
+                "correctness-plan",
+                format,
+                CommandStatus::Success,
+                "correctness validation foundation plan".to_string(),
+                plan.to_human_text(),
+                vec![],
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "correctness_plan".to_string()),
+                    ("status".to_string(), "planned".to_string()),
+                    (
+                        "external_baselines".to_string(),
+                        "test_oracles_only".to_string(),
+                    ),
+                ],
+            );
+            ExitCode::SUCCESS
         }
         Some("doctor") => {
             emit("doctor", format, CommandStatus::Success, "doctor checks".to_string(), "ShardLoom doctor\nfallback execution: disabled\nnative input target: vortex\nnative output target: vortex\nstatus: early implementation skeleton".to_string(), vec![], vec![("native_input".to_string(), "vortex".to_string()), ("native_output".to_string(), "vortex".to_string())]);
@@ -729,7 +753,7 @@ fn run(args: Vec<String>) -> ExitCode {
         }
         _ => {
             eprintln!(
-                "usage: shardloom <status|capabilities|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|explain|estimate|benchmark-plan> [--format text|json]"
+                "usage: shardloom <status|capabilities|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|explain|estimate|benchmark-plan|correctness-plan> [--format text|json]"
             );
             ExitCode::from(2)
         }
@@ -845,6 +869,12 @@ mod tests {
             "file://tmp/test.parquet".to_string(),
         ]);
         assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn correctness_plan_returns_success() {
+        let code = run(vec!["correctness-plan".to_string()]);
+        assert_eq!(code, ExitCode::SUCCESS);
     }
 
     #[test]
