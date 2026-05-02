@@ -1432,7 +1432,7 @@ fn run(args: Vec<String>) -> ExitCode {
             ExitCode::SUCCESS
         }
         Some("vortex-readiness") => {
-            let readiness = VortexAdapterReadiness::not_ready();
+            let readiness = VortexAdapterReadiness::dependency_added_compile_only();
             emit(
                 "vortex-readiness",
                 format,
@@ -1448,7 +1448,7 @@ fn run(args: Vec<String>) -> ExitCode {
                     ("mode".to_string(), "vortex_readiness".to_string()),
                     (
                         "upstream_vortex_dependency".to_string(),
-                        VortexDependencyStatus::NotAdded.as_str().to_string(),
+                        VortexDependencyStatus::Added.as_str().to_string(),
                     ),
                     ("execution".to_string(), "not_performed".to_string()),
                     ("io".to_string(), "not_performed".to_string()),
