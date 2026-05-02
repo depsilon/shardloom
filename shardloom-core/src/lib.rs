@@ -12,6 +12,7 @@ pub mod diagnostics;
 pub mod encoded;
 pub mod expression;
 pub mod manifest;
+pub mod observability;
 pub mod output;
 pub mod translation;
 
@@ -51,6 +52,14 @@ pub use manifest::{
     IncrementalPlanSkeleton, IncrementalPlanningDecision, ManifestSegment, ManifestVersion,
     SegmentChange, SegmentChangeKind, SnapshotRef, WriteIntent, WriteIntentStatus,
 };
+pub use observability::{
+    KernelProfile, MetricCategory, MetricKind, MetricSample, MetricUnit, ObservabilityMetricValue,
+    ObservabilityPlan, ObservabilityPlanStatus, ObservabilitySurface, ObservedField,
+    OperatorProfile, RedactionStatus, RuntimeObservabilityReport, SensitivityLevel,
+    StructuredEvent, StructuredEventKind, TraceSpanCategory, TraceSpanId, TraceSpanSkeleton,
+    TraceSpanStatus,
+};
+
 pub use output::{CommandStatus, OutputEnvelope, OutputFormat};
 
 pub use translation::{
