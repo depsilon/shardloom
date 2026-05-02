@@ -6,10 +6,12 @@
 use std::process::ExitCode;
 
 use shardloom_core::{
-    ChangeSet, CommandStatus, CorrectnessValidationPlan, DatasetManifest, DatasetRef, DatasetUri,
-    IncrementalPlanSkeleton, KernelRegistrySnapshot, ManifestId, ObservabilityPlan, OutputEnvelope,
-    OutputFormat, OutputTarget, RedactionPolicy, RuntimeObservabilityReport, SecurityPlan,
-    ShardLoomError, SnapshotId, SnapshotRef, TranslationPlan, WriteIntent,
+    CatalogKind, CatalogRef, ChangeSet, CommandStatus, CorrectnessValidationPlan, DatasetManifest,
+    DatasetRef, DatasetUri, IncrementalPlanSkeleton, KernelRegistrySnapshot, ManifestId,
+    ObservabilityPlan, OutputEnvelope, OutputFormat, OutputTarget, RedactionPolicy,
+    RuntimeObservabilityReport, SchemaDefinition, SchemaId, SchemaVersion, SecurityPlan,
+    ShardLoomError, SnapshotId, SnapshotRef, TableCompatibilityPlan, TableFormatKind,
+    TranslationPlan, WriteIntent,
 };
 use shardloom_exec::{
     AdaptiveSizer, AdaptiveSizingPolicy, AttemptId, ByteSize, CancellationReason,
@@ -136,6 +138,129 @@ fn run(args: Vec<String>) -> ExitCode {
                     "fallback_execution_allowed".to_string(),
                     "false".to_string(),
                 )],
+            );
+            ExitCode::SUCCESS
+        }
+        Some("schema-plan") => {
+            let schema = match (SchemaId::new("schema-placeholder"), SchemaVersion::new(1)) {
+                (Ok(id), Ok(version)) => SchemaDefinition::new(id, version),
+                (Err(error), _) | (_, Err(error)) => {
+                    return emit_error("schema-plan", format, "schema plan failed", &error);
+                }
+            };
+            let text = schema.summary();
+            emit(
+                "schema-plan",
+                format,
+                CommandStatus::Success,
+                "schema plan skeleton".to_string(),
+                text,
+                vec![],
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "schema_plan".to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
+                    (
+                        "table_formats_are".to_string(),
+                        "compatibility_targets_not_fallback_engines".to_string(),
+                    ),
+                ],
+            );
+            ExitCode::SUCCESS
+        }
+        Some("catalog-plan") => {
+            let kind = match args.next().as_deref() {
+                Some("local") => CatalogKind::LocalManifest,
+                Some("object-store") => CatalogKind::ObjectStoreManifest,
+                Some("iceberg") => CatalogKind::IcebergCompatible,
+                Some("delta") => CatalogKind::DeltaCompatible,
+                Some("hive") => CatalogKind::HiveStylePath,
+                Some("foundry") => CatalogKind::FoundryCompatible,
+                Some(_) | None => CatalogKind::Unknown,
+            };
+            let Some(name) = args.next() else {
+                return emit_error(
+                    "catalog-plan",
+                    format,
+                    "catalog plan failed",
+                    &ShardLoomError::InvalidOperation("missing catalog name".to_string()),
+                );
+            };
+            let catalog = match CatalogRef::new(kind, name) {
+                Ok(c) => c,
+                Err(error) => {
+                    return emit_error("catalog-plan", format, "catalog plan failed", &error);
+                }
+            };
+            emit(
+                "catalog-plan",
+                format,
+                CommandStatus::Success,
+                "catalog reference plan skeleton".to_string(),
+                catalog.summary(),
+                vec![],
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "catalog_plan".to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
+                    (
+                        "table_formats_are".to_string(),
+                        "compatibility_targets_not_fallback_engines".to_string(),
+                    ),
+                ],
+            );
+            ExitCode::SUCCESS
+        }
+        Some("table-compat-plan") => {
+            let format_kind = match args.next().as_deref() {
+                Some("vortex") => TableFormatKind::NativeVortexManifest,
+                Some("iceberg") => TableFormatKind::IcebergCompatible,
+                Some("delta") => TableFormatKind::DeltaCompatible,
+                Some("hive") => TableFormatKind::HiveStyle,
+                Some("external") => TableFormatKind::ExternalCatalogOnly,
+                Some(_) | None => TableFormatKind::Unknown,
+            };
+            let plan = if format_kind.is_native_vortex() {
+                TableCompatibilityPlan::native_vortex()
+            } else if format_kind.is_compatibility_target() {
+                TableCompatibilityPlan::compatibility_target(format_kind)
+            } else {
+                TableCompatibilityPlan::unsupported(
+                    format_kind,
+                    "table_compat_plan",
+                    "Unknown table format is unsupported for compatibility planning.",
+                )
+            };
+            let status = if plan.has_errors() {
+                CommandStatus::Unsupported
+            } else {
+                CommandStatus::Success
+            };
+            emit(
+                "table-compat-plan",
+                format,
+                status,
+                "table compatibility plan skeleton".to_string(),
+                plan.to_human_text(),
+                plan.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "table_compat_plan".to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
+                    (
+                        "table_formats_are".to_string(),
+                        "compatibility_targets_not_fallback_engines".to_string(),
+                    ),
+                ],
             );
             ExitCode::SUCCESS
         }
@@ -1242,6 +1367,12 @@ mod tests {
     #[test]
     fn observability_plan_returns_success() {
         let code = run(vec!["observability-plan".to_string()]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn table_compat_plan_with_iceberg_returns_success() {
+        let code = run(vec!["table-compat-plan".to_string(), "iceberg".to_string()]);
         assert_eq!(code, ExitCode::SUCCESS);
     }
 
