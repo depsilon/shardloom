@@ -9,6 +9,7 @@ use shardloom_core::{
     ChangeSet, DatasetManifest, DatasetRef, DatasetUri, IncrementalPlanSkeleton, ManifestId,
     OutputTarget, SnapshotId, SnapshotRef, TranslationPlan, WriteIntent,
 };
+use shardloom_exec::RuntimePlanSkeleton;
 use shardloom_plan::{EstimateReport, ExplainReport, ScanPlanSkeleton, ScanRequest};
 use shardloom_vortex::{VortexFileRef, VortexReadPlan, VortexWriteOptions, VortexWritePlan};
 
@@ -122,7 +123,11 @@ fn run(args: Vec<String>) -> ExitCode {
             };
             let intent = WriteIntent::write_not_implemented(OutputTarget::from_uri(uri));
             println!("{}", intent.summary());
-            ExitCode::SUCCESS
+            if intent.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
         }
         Some("scan-plan") => {
             let Some(dataset_uri) = args.next() else {
@@ -146,6 +151,64 @@ fn run(args: Vec<String>) -> ExitCode {
             let request = ScanRequest::new(dataset);
             let skeleton = ScanPlanSkeleton::plan_only(request);
             println!("{}", skeleton.to_human_text());
+            ExitCode::SUCCESS
+        }
+        Some("runtime-plan") => {
+            let Some(dataset_uri) = args.next() else {
+                eprintln!("usage: shardloom runtime-plan <dataset_uri>");
+                return ExitCode::from(2);
+            };
+            let uri = match DatasetUri::new(dataset_uri) {
+                Ok(uri) => uri,
+                Err(error) => {
+                    eprintln!("invalid dataset uri: {error}");
+                    return ExitCode::from(2);
+                }
+            };
+            let dataset = match DatasetRef::from_uri(uri) {
+                Ok(dataset) => dataset,
+                Err(error) => {
+                    eprintln!("failed to create dataset reference: {error}");
+                    return ExitCode::from(2);
+                }
+            };
+            let plan = match RuntimePlanSkeleton::for_dataset(dataset) {
+                Ok(plan) => plan,
+                Err(error) => {
+                    eprintln!("failed to build runtime plan: {error}");
+                    return ExitCode::from(2);
+                }
+            };
+            println!("{}", plan.to_human_text());
+            ExitCode::SUCCESS
+        }
+        Some("task-plan") => {
+            let Some(dataset_uri) = args.next() else {
+                eprintln!("usage: shardloom task-plan <dataset_uri>");
+                return ExitCode::from(2);
+            };
+            let uri = match DatasetUri::new(dataset_uri) {
+                Ok(uri) => uri,
+                Err(error) => {
+                    eprintln!("invalid dataset uri: {error}");
+                    return ExitCode::from(2);
+                }
+            };
+            let dataset = match DatasetRef::from_uri(uri) {
+                Ok(dataset) => dataset,
+                Err(error) => {
+                    eprintln!("failed to create dataset reference: {error}");
+                    return ExitCode::from(2);
+                }
+            };
+            let plan = match RuntimePlanSkeleton::for_dataset(dataset) {
+                Ok(plan) => plan,
+                Err(error) => {
+                    eprintln!("failed to build task plan: {error}");
+                    return ExitCode::from(2);
+                }
+            };
+            println!("{}", plan.graph.summary());
             ExitCode::SUCCESS
         }
         Some("vortex-plan") => {
@@ -238,7 +301,7 @@ fn run(args: Vec<String>) -> ExitCode {
         }
         _ => {
             eprintln!(
-                "usage: shardloom-cli <status|capabilities|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|translation-plan|vortex-plan|vortex-output-plan|explain|estimate|benchmark-plan>"
+                "usage: shardloom-cli <status|capabilities|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|translation-plan|vortex-plan|vortex-output-plan|explain|estimate|benchmark-plan>"
             );
             ExitCode::from(2)
         }
@@ -277,12 +340,12 @@ mod tests {
     }
 
     #[test]
-    fn write_intent_with_target_uri_returns_success() {
+    fn write_intent_with_target_uri_returns_non_zero() {
         let code = run(vec![
             "write-intent".to_string(),
             "file://tmp/out.vortex".to_string(),
         ]);
-        assert_eq!(code, ExitCode::SUCCESS);
+        assert_ne!(code, ExitCode::SUCCESS);
     }
 
     #[test]
