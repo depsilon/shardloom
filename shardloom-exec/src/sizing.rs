@@ -230,10 +230,9 @@ impl SizeEstimate {
     }
     pub const fn best_bytes_for_mode(&self, mode: TaskSizingMode) -> Option<ByteSize> {
         match mode {
-            TaskSizingMode::MetadataOnly => None,
+            TaskSizingMode::MetadataOnly | TaskSizingMode::RowCount => None,
             TaskSizingMode::EncodedBytes => self.encoded_bytes,
             TaskSizingMode::EstimatedDecodedBytes => self.estimated_decoded_bytes,
-            TaskSizingMode::RowCount => None,
             TaskSizingMode::Hybrid => {
                 if let Some(decoded) = self.estimated_decoded_bytes {
                     Some(decoded)
