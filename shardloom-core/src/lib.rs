@@ -14,6 +14,7 @@ pub mod expression;
 pub mod manifest;
 pub mod observability;
 pub mod output;
+pub mod schema;
 pub mod security;
 pub mod translation;
 
@@ -62,6 +63,14 @@ pub use observability::{
 };
 
 pub use output::{CommandStatus, OutputEnvelope, OutputFormat};
+
+pub use schema::{
+    CatalogKind, CatalogRef, DeleteModel, FieldId, FieldName, FieldPath, PartitionField,
+    PartitionSpec, PartitionTransform, SchemaChange, SchemaChangeKind, SchemaCompatibilityLevel,
+    SchemaCompatibilityReport, SchemaDefinition, SchemaEvolutionPolicy, SchemaEvolutionPolicyKind,
+    SchemaField, SchemaId, SchemaVersion, TableCompatibilityPlan, TableCompatibilityReport,
+    TableCompatibilityStatus, TableFeature, TableFeatureKind, TableFeatureStatus, TableFormatKind,
+};
 
 pub use security::{
     AgentSafetyMode, ApprovalRequirement, AuditActionKind, AuditRecord, CredentialScope,
