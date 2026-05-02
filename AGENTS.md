@@ -29,6 +29,18 @@ ShardLoom should avoid work before optimizing work:
 6. Distribute only when single-node execution is insufficient.
 7. Avoid shuffle whenever possible.
 
+
+## Required skill review before implementation
+
+Before implementation work, contributors using Codex/agents **must** review `docs/skills/README.md` and all relevant skill files in `docs/skills/` for the subsystem being modified. These skills are required guidance and are additive to this `AGENTS.md`.
+
+At minimum, always apply:
+- `docs/skills/rust-systems-engineering.md`
+- `docs/skills/license-provenance.md`
+- `docs/skills/testing-correctness.md`
+
+Then apply subsystem-specific skills (for example: encoded execution, planner/optimizer, translation layer, Vortex internals, object store runtime, benchmarking, and documentation/RFC) based on scope.
+
 ## Current phase
 
 The project is in early skeleton/setup mode.
