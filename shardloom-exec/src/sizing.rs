@@ -41,10 +41,9 @@ impl ByteSize {
         Self(self.0.saturating_mul(rhs))
     }
     pub const fn saturating_div(&self, rhs: u64) -> Self {
-        if rhs == 0 {
-            Self::from_bytes(0)
-        } else {
-            Self(self.0 / rhs)
+        match self.0.checked_div(rhs) {
+            Some(value) => Self(value),
+            None => Self::from_bytes(0),
         }
     }
     pub fn to_human_text(&self) -> String {
