@@ -289,7 +289,7 @@ impl SegmentStats {
     pub fn null_fraction(&self) -> Option<f64> {
         match (self.row_count, self.null_count) {
             (Some(0), _) => None,
-            (Some(r), Some(n)) => Some(n as f64 / r as f64),
+            (Some(r), Some(n)) if n <= r => Some(n as f64 / r as f64),
             _ => None,
         }
     }
@@ -365,6 +365,9 @@ impl EncodedSegment {
         self.stats.row_count.is_some()
             || self.stats.has_min_max()
             || self.stats.null_count.is_some()
+            || self.stats.true_count.is_some()
+            || self.stats.false_count.is_some()
+            || self.stats.run_count.is_some()
             || self.stats.is_constant.is_some()
     }
     pub fn has_byte_ranges(&self) -> bool {
@@ -630,6 +633,40 @@ mod tests {
         let mut s = SegmentStats::with_row_count(10);
         s.null_count = Some(2);
         assert_eq!(s.null_fraction(), Some(0.2));
+    }
+
+    #[test]
+    fn segment_stats_null_fraction_rejects_impossible_counts() {
+        let mut s = SegmentStats::with_row_count(2);
+        s.null_count = Some(3);
+        assert_eq!(s.null_fraction(), None);
+    }
+
+    #[test]
+    fn encoded_segment_can_use_metadata_with_boolean_or_run_stats() {
+        let mut stats = SegmentStats::unknown();
+        stats.true_count = Some(10);
+        let seg = EncodedSegment::new(
+            SegmentId::new("s2").unwrap(),
+            ColumnRef::new("flag").unwrap(),
+            LogicalDType::Boolean,
+            Nullability::Nullable,
+            SegmentLayout::new(EncodingKind::RunLength, LayoutKind::Flat),
+            stats,
+        );
+        assert!(seg.can_use_metadata());
+
+        let mut stats = SegmentStats::unknown();
+        stats.run_count = Some(4);
+        let seg = EncodedSegment::new(
+            SegmentId::new("s3").unwrap(),
+            ColumnRef::new("rle").unwrap(),
+            LogicalDType::Int64,
+            Nullability::Nullable,
+            SegmentLayout::new(EncodingKind::RunLength, LayoutKind::Flat),
+            stats,
+        );
+        assert!(seg.can_use_metadata());
     }
     #[test]
     fn segment_stats_has_min_max() {
