@@ -136,3 +136,22 @@ Important principles:
 - Native Vortex output should be easy to select.
 - Unsupported behavior must be explicit and actionable.
 - No Spark or DataFusion fallback is allowed for convenience.
+
+## Modular extensibility
+
+ShardLoom should be designed to gracefully support common and adjacent workloads such as SQL, UDFs, unstructured data, LLM calls, API calls, embeddings, and vector search through modular extension points.
+
+Before work involving SQL, UDFs, unstructured data, LLM/API calls, embeddings, vector search, connectors, or capability discovery, read:
+
+- `docs/rfcs/0011-modular-extensibility-sql-udf-unstructured-llm-api-embeddings.md`
+- `docs/skills/modular-extensibility.md`
+
+Important principles:
+
+- SQL is a frontend into ShardLoom planning, not fallback execution.
+- UDFs must be typed and explicit about determinism, null behavior, effects, encoded capability, and materialization.
+- Unstructured data should use typed references, chunks, extracted fields, and manifests.
+- LLM calls, API calls, and embedding generation are explicit effectful operations, not hidden side effects.
+- External writes require explicit enablement and safe planning.
+- Agent-facing capability discovery should be deterministic and machine-readable.
+- No Spark or DataFusion fallback is allowed for convenience.

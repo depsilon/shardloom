@@ -86,3 +86,9 @@ A good ShardLoom PR should answer:
 Use `developer-agent-experience.md` for public APIs, CLI commands, diagnostics, explain output, estimate output, examples, config files, and agent-facing workflows.
 
 ShardLoom should be internally complex but externally simple, familiar, deterministic, and safe for both humans and LLM agents.
+
+## Modular extensibility
+
+Use `modular-extensibility.md` for SQL, UDFs, unstructured data, LLM/API calls, embeddings, vector search, connectors, and capability discovery.
+
+ShardLoom should remain Vortex-native and high-performance while exposing flexible, familiar, explicit extension points for adjacent workflows. External effects must be explicit, safe, and machine-readable for agents.
