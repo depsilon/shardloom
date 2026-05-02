@@ -15,7 +15,10 @@ use shardloom_exec::{
     OomSafetyPlan, OperatorMemoryClass, ParallelismLimit, ParallelismPlan, RuntimePlanSkeleton,
     SizeEstimate, SizingInput, SizingPlan, SpillPlan, SpillPolicy, StreamingPlanSkeleton,
 };
-use shardloom_plan::{EstimateReport, ExplainReport, ScanPlanSkeleton, ScanRequest};
+use shardloom_plan::{
+    EstimateReport, ExplainReport, NativePlanDocument, PlanExportRequest, PlanId,
+    PlanImportRequest, PlanInteropFormat, ScanPlanSkeleton, ScanRequest,
+};
 use shardloom_vortex::{VortexFileRef, VortexReadPlan, VortexWriteOptions, VortexWritePlan};
 
 fn main() -> ExitCode {
@@ -90,6 +93,16 @@ fn emit_error(
     ExitCode::from(2)
 }
 
+fn parse_plan_interop_format(value: &str) -> PlanInteropFormat {
+    match value {
+        "native" => PlanInteropFormat::ShardLoomNative,
+        "agent" => PlanInteropFormat::AgentPlanSpec,
+        "substrait-like" => PlanInteropFormat::SubstraitLike,
+        "json-like" => PlanInteropFormat::JsonLike,
+        _ => PlanInteropFormat::Unknown,
+    }
+}
+
 #[allow(clippy::too_many_lines)]
 fn run(args: Vec<String>) -> ExitCode {
     let requested_format = detect_requested_output_format(&args);
@@ -142,6 +155,102 @@ fn run(args: Vec<String>) -> ExitCode {
                 ],
             );
             ExitCode::SUCCESS
+        }
+        Some("plan-ir") => {
+            let plan_id = match PlanId::new("plan-placeholder") {
+                Ok(v) => v,
+                Err(error) => return emit_error("plan-ir", format, "invalid plan id", &error),
+            };
+            let mut document = NativePlanDocument::empty(plan_id);
+            document.validate_skeleton();
+            emit(
+                "plan-ir",
+                format,
+                CommandStatus::Warning,
+                "native plan ir skeleton".to_string(),
+                document.to_human_text(),
+                document.validation.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "plan_ir".to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
+                    ("interop_format".to_string(), "native".to_string()),
+                    ("validation_required".to_string(), "true".to_string()),
+                ],
+            );
+            ExitCode::SUCCESS
+        }
+        Some("plan-import") => {
+            let Some(format_raw) = args.next() else {
+                eprintln!("usage: shardloom plan-import <format> <source_label>");
+                return ExitCode::from(2);
+            };
+            let Some(source_label) = args.next() else {
+                eprintln!("usage: shardloom plan-import <format> <source_label>");
+                return ExitCode::from(2);
+            };
+            let format_kind = parse_plan_interop_format(&format_raw);
+            let request = match PlanImportRequest::not_implemented(format_kind, source_label) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error("plan-import", format, "invalid import request", &error);
+                }
+            };
+            emit(
+                "plan-import",
+                format,
+                CommandStatus::Unsupported,
+                "plan import skeleton".to_string(),
+                request.summary(),
+                request.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "plan_import".to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
+                    (
+                        "interop_format".to_string(),
+                        format_kind.as_str().to_string(),
+                    ),
+                    ("validation_required".to_string(), "true".to_string()),
+                ],
+            );
+            ExitCode::from(1)
+        }
+        Some("plan-export") => {
+            let Some(format_raw) = args.next() else {
+                eprintln!("usage: shardloom plan-export <format>");
+                return ExitCode::from(2);
+            };
+            let format_kind = parse_plan_interop_format(&format_raw);
+            let request = PlanExportRequest::not_implemented(format_kind);
+            emit(
+                "plan-export",
+                format,
+                CommandStatus::Unsupported,
+                "plan export skeleton".to_string(),
+                request.summary(),
+                request.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "plan_export".to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
+                    (
+                        "interop_format".to_string(),
+                        format_kind.as_str().to_string(),
+                    ),
+                    ("validation_required".to_string(), "false".to_string()),
+                ],
+            );
+            ExitCode::from(1)
         }
         Some("memory-plan") => {
             let Some(memory_gb) = args.next() else {
@@ -907,5 +1016,27 @@ mod tests {
             "--format".to_string(),
         ];
         assert_eq!(detect_requested_output_format(&args), OutputFormat::Json);
+    }
+
+    #[test]
+    fn plan_ir_returns_success() {
+        let code = run(vec!["plan-ir".to_string()]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn plan_import_returns_non_zero_for_not_implemented() {
+        let code = run(vec![
+            "plan-import".to_string(),
+            "substrait-like".to_string(),
+            "fixture".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn plan_export_returns_non_zero_for_not_implemented() {
+        let code = run(vec!["plan-export".to_string(), "native".to_string()]);
+        assert_ne!(code, ExitCode::SUCCESS);
     }
 }
