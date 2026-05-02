@@ -11,9 +11,11 @@ use shardloom_core::{
     OutputTarget, ShardLoomError, SnapshotId, SnapshotRef, TranslationPlan, WriteIntent,
 };
 use shardloom_exec::{
-    AdaptiveSizer, AdaptiveSizingPolicy, ByteSize, MemoryBudget, MemoryOwner, MemoryPoolPlan,
-    OomSafetyPlan, OperatorMemoryClass, ParallelismLimit, ParallelismPlan, RuntimePlanSkeleton,
-    SizeEstimate, SizingInput, SizingPlan, SpillPlan, SpillPolicy, StreamingPlanSkeleton,
+    AdaptiveSizer, AdaptiveSizingPolicy, AttemptId, ByteSize, CancellationReason,
+    CancellationRequest, CancellationScope, MemoryBudget, MemoryOwner, MemoryPoolPlan,
+    OomSafetyPlan, OperatorMemoryClass, ParallelismLimit, ParallelismPlan, RecoveryPlan, RetryPlan,
+    RuntimePlanSkeleton, SizeEstimate, SizingInput, SizingPlan, SpillPlan, SpillPolicy,
+    StreamingPlanSkeleton, TaskAttemptRecord,
 };
 use shardloom_plan::{
     EstimateReport, ExplainReport, NativePlanDocument, OptimizerPhase, OptimizerPlanSkeleton,
@@ -392,6 +394,100 @@ fn run(args: Vec<String>) -> ExitCode {
                     ),
                     ("mode".to_string(), "kernel_registry_snapshot".to_string()),
                     ("status".to_string(), "empty".to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
+                ],
+            );
+            ExitCode::SUCCESS
+        }
+        Some("recovery-plan") => {
+            let plan = RecoveryPlan::recovery_not_implemented(
+                "recovery_execution",
+                "Recovery planning skeleton exists, but actual recovery execution is not implemented yet.",
+            );
+            emit(
+                "recovery-plan",
+                format,
+                CommandStatus::Unsupported,
+                "recovery plan skeleton".to_string(),
+                plan.to_human_text(),
+                plan.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "recovery_plan".to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
+                ],
+            );
+            ExitCode::from(1)
+        }
+        Some("cancellation-plan") => {
+            let scope = match args.next().as_deref() {
+                Some("query") => CancellationScope::Query,
+                Some("task") => CancellationScope::Task,
+                Some("scan") => CancellationScope::Scan,
+                Some("output-write") => CancellationScope::OutputWrite,
+                Some("external-effect") => CancellationScope::ExternalEffect,
+                Some("spill-cleanup") => CancellationScope::SpillCleanup,
+                Some("runtime" | _) | None => CancellationScope::Runtime,
+            };
+            let request = CancellationRequest::new(scope, CancellationReason::UserRequested);
+            emit(
+                "cancellation-plan",
+                format,
+                CommandStatus::Success,
+                "cancellation plan skeleton".to_string(),
+                request.summary(),
+                request.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "cancellation_plan".to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
+                ],
+            );
+            ExitCode::SUCCESS
+        }
+        Some("retry-plan") => {
+            let Some(task_id) = args.next() else {
+                eprintln!("usage: shardloom retry-plan <task_id> <attempt_id>");
+                return ExitCode::from(2);
+            };
+            let Some(attempt_id) = args.next() else {
+                eprintln!("usage: shardloom retry-plan <task_id> <attempt_id>");
+                return ExitCode::from(2);
+            };
+            let task_id = match shardloom_exec::TaskId::new(task_id) {
+                Ok(v) => v,
+                Err(error) => return emit_error("retry-plan", format, "invalid task id", &error),
+            };
+            let attempt_id = match AttemptId::new(attempt_id) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error("retry-plan", format, "invalid attempt id", &error);
+                }
+            };
+            let attempt = TaskAttemptRecord::new(task_id, attempt_id);
+            let plan = RetryPlan::from_attempt(
+                shardloom_exec::RetryPolicy::default_read_retries(),
+                attempt,
+            );
+            emit(
+                "retry-plan",
+                format,
+                CommandStatus::Success,
+                "retry plan skeleton".to_string(),
+                plan.summary(),
+                plan.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "retry_plan".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
                 ],
             );
@@ -909,7 +1005,7 @@ fn run(args: Vec<String>) -> ExitCode {
         }
         _ => {
             eprintln!(
-                "usage: shardloom <status|capabilities|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan> [--format text|json]"
+                "usage: shardloom <status|capabilities|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan> [--format text|json]"
             );
             ExitCode::from(2)
         }
@@ -1063,6 +1159,12 @@ mod tests {
             "substrait-like".to_string(),
             "fixture".to_string(),
         ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn recovery_plan_returns_non_zero_for_not_implemented() {
+        let code = run(vec!["recovery-plan".to_string()]);
         assert_ne!(code, ExitCode::SUCCESS);
     }
 

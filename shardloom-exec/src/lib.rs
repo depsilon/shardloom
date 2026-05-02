@@ -7,6 +7,7 @@ use shardloom_core::{Result, ShardLoomError};
 use shardloom_plan::{Plan, PlanKind};
 
 pub mod memory;
+pub mod recovery;
 pub mod runtime;
 pub mod sizing;
 pub mod streaming;
@@ -52,6 +53,15 @@ pub use memory::{
     OperatorMemoryClass, SpillCompression, SpillDecision, SpillDecisionKind, SpillFileRef,
     SpillFileStatus, SpillFormat, SpillPartition, SpillPlan, SpillPlanStatus, SpillPolicy,
     SpillReport,
+};
+
+pub use recovery::{
+    AmbiguousCommitRecord, AttemptId, CancellationReason, CancellationRequest, CancellationScope,
+    CancellationStatus, CleanupRequirement, CleanupStatus, CleanupTargetKind, CommitRecoveryState,
+    FailureDomain, FailureKind, FailureRecord, FaultToleranceLevel, PartialOutputRecord,
+    RecoveryAction, RecoveryActionKind, RecoveryPlan, RecoveryPlanStatus, RecoveryReport,
+    RetryDecision, RetryDecisionKind, RetryEligibility, RetryPlan, TaskAttemptRecord,
+    TaskAttemptStatus,
 };
 
 pub use sizing::{
