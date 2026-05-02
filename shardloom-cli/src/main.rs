@@ -7,8 +7,8 @@ use std::process::ExitCode;
 
 use shardloom_core::{
     ChangeSet, CommandStatus, CorrectnessValidationPlan, DatasetManifest, DatasetRef, DatasetUri,
-    IncrementalPlanSkeleton, ManifestId, OutputEnvelope, OutputFormat, OutputTarget,
-    ShardLoomError, SnapshotId, SnapshotRef, TranslationPlan, WriteIntent,
+    IncrementalPlanSkeleton, KernelRegistrySnapshot, ManifestId, OutputEnvelope, OutputFormat,
+    OutputTarget, ShardLoomError, SnapshotId, SnapshotRef, TranslationPlan, WriteIntent,
 };
 use shardloom_exec::{
     AdaptiveSizer, AdaptiveSizingPolicy, ByteSize, MemoryBudget, MemoryOwner, MemoryPoolPlan,
@@ -263,6 +263,27 @@ fn run(args: Vec<String>) -> ExitCode {
                         "external_baselines".to_string(),
                         "test_oracles_only".to_string(),
                     ),
+                ],
+            );
+            ExitCode::SUCCESS
+        }
+        Some("kernel-registry") => {
+            let snapshot = KernelRegistrySnapshot::empty();
+            emit(
+                "kernel-registry",
+                format,
+                CommandStatus::Success,
+                "kernel registry snapshot".to_string(),
+                snapshot.summary(),
+                vec![],
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "kernel_registry_snapshot".to_string()),
+                    ("status".to_string(), "empty".to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
                 ],
             );
             ExitCode::SUCCESS
@@ -753,7 +774,7 @@ fn run(args: Vec<String>) -> ExitCode {
         }
         _ => {
             eprintln!(
-                "usage: shardloom <status|capabilities|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|explain|estimate|benchmark-plan|correctness-plan> [--format text|json]"
+                "usage: shardloom <status|capabilities|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|explain|estimate|benchmark-plan|correctness-plan> [--format text|json]"
             );
             ExitCode::from(2)
         }
