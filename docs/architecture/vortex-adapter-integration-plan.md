@@ -77,3 +77,12 @@ First future dependency PR should:
 - Unsupported features fail clearly.
 - No fallback engines introduced.
 - Tests prove adapter mappings.
+
+## Adapter report contract
+
+- All adapter reports must render non-empty diagnostics in human text.
+- All adapter report `has_errors` methods must be severity-based.
+- All adapter reports must keep fallback execution disabled visible.
+- All adapter report text builders should avoid `push_str(format!(...))`.
+- Public `Result`-returning adapter constructors need `# Errors` docs.
+- `ShardLoom` and `DType` should be backticked in Rust doc comments when needed for clippy.

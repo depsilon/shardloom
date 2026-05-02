@@ -1012,6 +1012,23 @@ mod tests {
         assert!(readiness.has_errors());
         assert!(!readiness.is_ready_for_dependency_pr());
     }
+    #[test]
+    fn adapter_readiness_human_text_renders_non_empty_diagnostics() {
+        let mut readiness = VortexAdapterReadiness::dependency_added_compile_only();
+        readiness.add_diagnostic(Diagnostic::configuration_error(
+            "vortex_adapter_readiness",
+            "readiness unresolved",
+            "keep dependency compile-only",
+        ));
+        let text = readiness.to_human_text();
+        assert!(text.contains("readiness unresolved"));
+        assert!(text.contains("fallback execution: disabled"));
+    }
+    #[test]
+    fn adapter_readiness_has_errors_false_without_diagnostics() {
+        let readiness = VortexAdapterReadiness::not_ready();
+        assert!(!readiness.has_errors());
+    }
 
     #[test]
     fn adapter_boundary_actual_read_requires_upstream_dependency() {
