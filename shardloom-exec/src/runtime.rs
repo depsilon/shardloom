@@ -327,6 +327,10 @@ impl ShuffleRequirement {
         matches!(self, Self::Required { .. })
     }
     #[must_use]
+    pub const fn is_unsupported(&self) -> bool {
+        matches!(self, Self::Unsupported { .. })
+    }
+    #[must_use]
     pub fn reason(&self) -> Option<&str> {
         match self {
             Self::None => None,
@@ -476,7 +480,8 @@ impl TaskGraph {
     }
     #[must_use]
     pub fn has_errors(&self) -> bool {
-        self.tasks.iter().any(SegmentTask::has_errors)
+        self.shuffle.is_unsupported()
+            || self.tasks.iter().any(SegmentTask::has_errors)
             || self
                 .diagnostics
                 .iter()
@@ -743,6 +748,13 @@ mod tests {
             TaskId::new("t1").unwrap(),
             TaskKind::MetadataRead,
         ));
+        assert!(g.has_errors());
+    }
+    #[test]
+    fn task_graph_has_errors_for_unsupported_shuffle() {
+        let g = TaskGraph::new().with_shuffle(ShuffleRequirement::Unsupported {
+            reason: "shuffle not implemented".to_string(),
+        });
         assert!(g.has_errors());
     }
     #[test]
