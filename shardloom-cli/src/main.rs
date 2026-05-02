@@ -9,7 +9,10 @@ use shardloom_core::{
     ChangeSet, DatasetManifest, DatasetRef, DatasetUri, IncrementalPlanSkeleton, ManifestId,
     OutputTarget, SnapshotId, SnapshotRef, TranslationPlan, WriteIntent,
 };
-use shardloom_exec::RuntimePlanSkeleton;
+use shardloom_exec::{
+    AdaptiveSizer, AdaptiveSizingPolicy, ByteSize, ParallelismLimit, ParallelismPlan,
+    RuntimePlanSkeleton, SizeEstimate, SizingInput, SizingPlan,
+};
 use shardloom_plan::{EstimateReport, ExplainReport, ScanPlanSkeleton, ScanRequest};
 use shardloom_vortex::{VortexFileRef, VortexReadPlan, VortexWriteOptions, VortexWritePlan};
 
@@ -182,6 +185,59 @@ fn run(args: Vec<String>) -> ExitCode {
             println!("{}", plan.to_human_text());
             ExitCode::SUCCESS
         }
+        Some("sizing-plan") => {
+            let Some(dataset_uri) = args.next() else {
+                eprintln!("usage: shardloom sizing-plan <dataset_uri> --memory-gb <gb>");
+                return ExitCode::from(2);
+            };
+            let Some(memory_flag) = args.next() else {
+                eprintln!("usage: shardloom sizing-plan <dataset_uri> --memory-gb <gb>");
+                return ExitCode::from(2);
+            };
+            if memory_flag != "--memory-gb" {
+                eprintln!("usage: shardloom sizing-plan <dataset_uri> --memory-gb <gb>");
+                return ExitCode::from(2);
+            }
+            let Some(memory_gb_raw) = args.next() else {
+                eprintln!("usage: shardloom sizing-plan <dataset_uri> --memory-gb <gb>");
+                return ExitCode::from(2);
+            };
+            let memory_gb = match memory_gb_raw.parse::<u64>() {
+                Ok(value) if value > 0 => value,
+                _ => {
+                    eprintln!("memory-gb must be a positive integer");
+                    return ExitCode::from(2);
+                }
+            };
+            let uri = match DatasetUri::new(dataset_uri) {
+                Ok(uri) => uri,
+                Err(error) => {
+                    eprintln!("invalid dataset uri: {error}");
+                    return ExitCode::from(2);
+                }
+            };
+            let dataset = match DatasetRef::from_uri(uri) {
+                Ok(dataset) => dataset,
+                Err(error) => {
+                    eprintln!("failed to create dataset reference: {error}");
+                    return ExitCode::from(2);
+                }
+            };
+            let policy = AdaptiveSizingPolicy::memory_limited(ByteSize::from_gib(memory_gb));
+            let sizer = AdaptiveSizer::new(policy.clone());
+            let input = SizingInput::new(
+                shardloom_core::SegmentId::new("placeholder-segment").expect("valid segment id"),
+                SizeEstimate::unknown(),
+            );
+            let decision = sizer.decide_for_segment(&input);
+            let parallelism =
+                ParallelismPlan::new(ParallelismLimit::auto(), 1, 1, "planning skeleton");
+            let mut plan = SizingPlan::new(policy, parallelism);
+            plan.add_decision(input.segment_id.clone(), decision);
+            println!("dataset: {}", dataset.summary());
+            println!("{}", plan.to_human_text());
+            ExitCode::SUCCESS
+        }
         Some("task-plan") => {
             let Some(dataset_uri) = args.next() else {
                 eprintln!("usage: shardloom task-plan <dataset_uri>");
@@ -301,7 +357,7 @@ fn run(args: Vec<String>) -> ExitCode {
         }
         _ => {
             eprintln!(
-                "usage: shardloom-cli <status|capabilities|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|translation-plan|vortex-plan|vortex-output-plan|explain|estimate|benchmark-plan>"
+                "usage: shardloom-cli <status|capabilities|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|explain|estimate|benchmark-plan>"
             );
             ExitCode::from(2)
         }
@@ -352,6 +408,17 @@ mod tests {
     fn scan_plan_missing_dataset_uri_returns_non_zero() {
         let code = run(vec!["scan-plan".to_string()]);
         assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn sizing_plan_with_dataset_uri_returns_success() {
+        let code = run(vec![
+            "sizing-plan".to_string(),
+            "file://tmp/test.vortex".to_string(),
+            "--memory-gb".to_string(),
+            "8".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
     }
 
     #[test]

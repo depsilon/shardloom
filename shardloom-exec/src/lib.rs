@@ -7,6 +7,7 @@ use shardloom_core::{Result, ShardLoomError};
 use shardloom_plan::{Plan, PlanKind};
 
 pub mod runtime;
+pub mod sizing;
 
 /// Reported status for the execution subsystem.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -42,6 +43,12 @@ pub fn unsupported(operation: &str) -> Result<()> {
         "unsupported execution path: {operation}; no fallback engines are enabled"
     )))
 }
+
+pub use sizing::{
+    AdaptiveSizer, AdaptiveSizingPolicy, ByteSize, CoalescingPolicy, ParallelismLimit,
+    ParallelismPlan, SizeEstimate, SizingInput, SizingPlan, TaskSizingDecision,
+    TaskSizingDecisionKind, TaskSizingMode,
+};
 
 pub use runtime::{
     ByteRangeRequest, ObjectStoreKind, ObjectStoreRef, ReadPolicy, ResourceBudget, RetryPolicy,
