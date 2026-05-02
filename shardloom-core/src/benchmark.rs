@@ -78,8 +78,11 @@ impl WorkloadClass {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CorrectnessValidationMode {
     ExpectedOutput,
-    ReferenceEngineComparison,
+    DecodedReference,
+    DifferentialComparison,
     PropertyBased,
+    Fuzz,
+    GoldenDiagnostic,
     UnsupportedDiagnosticOnly,
     NotYetDefined,
 }
@@ -89,8 +92,11 @@ impl CorrectnessValidationMode {
     pub const fn as_str(&self) -> &'static str {
         match self {
             Self::ExpectedOutput => "expected_output",
-            Self::ReferenceEngineComparison => "reference_engine_comparison",
+            Self::DecodedReference => "decoded_reference",
+            Self::DifferentialComparison => "differential_comparison",
             Self::PropertyBased => "property_based",
+            Self::Fuzz => "fuzz",
+            Self::GoldenDiagnostic => "golden_diagnostic",
             Self::UnsupportedDiagnosticOnly => "unsupported_diagnostic_only",
             Self::NotYetDefined => "not_yet_defined",
         }

@@ -6,6 +6,7 @@
 
 pub mod benchmark;
 pub mod capabilities;
+pub mod correctness;
 pub mod dataset;
 pub mod diagnostics;
 pub mod encoded;
@@ -18,6 +19,12 @@ pub use benchmark::{
     CorrectnessValidationMode, MetricValue, WorkloadClass,
 };
 pub use capabilities::{Capability, CapabilityStatus, EngineCapabilities};
+pub use correctness::{
+    CorrectnessFixture, CorrectnessPlanStatus, CorrectnessValidationPlan,
+    CorrectnessValidationReport, DiagnosticExpectation, DifferentialBaseline, EdgeCase,
+    ExpectedOutcome, FixtureFormat, FixtureId, FuzzSeed, ReferenceRole, SemanticArea,
+    ValidationResultStatus,
+};
 pub use dataset::{
     DatasetFormat, DatasetId, DatasetRef, DatasetUri, ManifestId, SnapshotId, UriScheme,
 };
