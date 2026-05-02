@@ -58,9 +58,10 @@ fn run(args: Vec<String>) -> ExitCode {
             ExitCode::SUCCESS
         }
         Some("scan-plan") => {
-            let dataset_uri = args
-                .next()
-                .unwrap_or_else(|| "<unspecified dataset_uri>".to_string());
+            let Some(dataset_uri) = args.next() else {
+                eprintln!("usage: shardloom scan-plan <dataset_uri>");
+                return ExitCode::from(2);
+            };
             let uri = match DatasetUri::new(dataset_uri) {
                 Ok(uri) => uri,
                 Err(error) => {
@@ -119,5 +120,20 @@ mod tests {
     fn estimate_unsupported_returns_non_zero() {
         let code = run(vec!["estimate".to_string(), "demo-op".to_string()]);
         assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn scan_plan_missing_dataset_uri_returns_non_zero() {
+        let code = run(vec!["scan-plan".to_string()]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn scan_plan_with_dataset_uri_returns_success() {
+        let code = run(vec![
+            "scan-plan".to_string(),
+            "file://tmp/test.vortex".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
     }
 }

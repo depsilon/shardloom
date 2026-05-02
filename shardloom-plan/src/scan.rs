@@ -160,6 +160,10 @@ pub struct ScanPlanSkeleton {
 impl ScanPlanSkeleton {
     #[must_use]
     pub fn plan_only(request: ScanRequest) -> Self {
+        if request.requires_execution() {
+            return Self::execution_not_implemented(request);
+        }
+
         Self {
             request,
             status: ScanPlanningStatus::Planned,
@@ -285,6 +289,15 @@ mod tests {
     #[test]
     fn scan_plan_skeleton_plan_only_is_not_an_error() {
         assert!(!ScanPlanSkeleton::plan_only(ScanRequest::new(test_dataset())).has_errors());
+    }
+
+    #[test]
+    fn scan_plan_skeleton_plan_only_native_execute_is_error() {
+        let skeleton = ScanPlanSkeleton::plan_only(
+            ScanRequest::new(test_dataset()).with_mode(ScanMode::NativeExecute),
+        );
+        assert_eq!(skeleton.status, ScanPlanningStatus::ExecutionNotImplemented);
+        assert!(skeleton.has_errors());
     }
     #[test]
     fn scan_plan_skeleton_execution_not_implemented_has_errors() {
