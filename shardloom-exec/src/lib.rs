@@ -6,6 +6,7 @@
 use shardloom_core::{Result, ShardLoomError};
 use shardloom_plan::{Plan, PlanKind};
 
+pub mod memory;
 pub mod runtime;
 pub mod sizing;
 pub mod streaming;
@@ -44,6 +45,14 @@ pub fn unsupported(operation: &str) -> Result<()> {
         "unsupported execution path: {operation}; no fallback engines are enabled"
     )))
 }
+
+pub use memory::{
+    MemoryBudget, MemoryOwner, MemoryPoolPlan, MemoryPoolSnapshot, MemoryPressureLevel,
+    MemoryReservation, MemoryReservationId, MemoryReservationStatus, OomSafetyPlan,
+    OperatorMemoryClass, SpillCompression, SpillDecision, SpillDecisionKind, SpillFileRef,
+    SpillFileStatus, SpillFormat, SpillPartition, SpillPlan, SpillPlanStatus, SpillPolicy,
+    SpillReport,
+};
 
 pub use sizing::{
     AdaptiveSizer, AdaptiveSizingPolicy, ByteSize, CoalescingPolicy, ParallelismLimit,
