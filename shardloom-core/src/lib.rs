@@ -9,6 +9,7 @@ pub mod capabilities;
 pub mod dataset;
 pub mod diagnostics;
 pub mod encoded;
+pub mod manifest;
 pub mod translation;
 
 pub use benchmark::{
@@ -27,6 +28,12 @@ pub use encoded::{
     ExecutionState, LayoutKind, LogicalDType, MaterializationPolicy, Nullability, PredicateExpr,
     PredicateProof, PruningDecision, SegmentId, SegmentLayout, SegmentStats, SelectionVector,
     SortOrder, StatValue, StatisticsExactness,
+};
+
+pub use manifest::{
+    ChangeSet, CommitRecord, CommitStatus, DatasetManifest, FileDescriptor, FileRole,
+    IncrementalPlanSkeleton, IncrementalPlanningDecision, ManifestSegment, ManifestVersion,
+    SegmentChange, SegmentChangeKind, SnapshotRef, WriteIntent, WriteIntentStatus,
 };
 
 pub use translation::{
