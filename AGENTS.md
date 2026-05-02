@@ -155,3 +155,23 @@ Important principles:
 - External writes require explicit enablement and safe planning.
 - Agent-facing capability discovery should be deterministic and machine-readable.
 - No Spark or DataFusion fallback is allowed for convenience.
+
+## Diagnostics, explain, estimate, doctor, and capabilities
+
+ShardLoom should expose structured, deterministic, human-friendly and agent-friendly diagnostics.
+
+Before work involving errors, diagnostics, explain output, estimate output, doctor checks, capability discovery, translation reports, or machine-readable CLI/API output, read:
+
+- `docs/rfcs/0012-diagnostics-explain-estimate-capabilities.md`
+- `docs/skills/diagnostics-capabilities.md`
+
+Important principles:
+
+- Unsupported behavior must fail explicitly with stable diagnostic codes.
+- Fallback status must be explicit and false by default.
+- Explain output should expose execution boundaries.
+- Estimate output should represent uncertainty honestly.
+- Doctor checks should be safe and avoid side effects.
+- Capability discovery should be deterministic and machine-readable.
+- Effectful operations must not run during explain, estimate, doctor, or capabilities.
+- No Spark or DataFusion fallback is allowed.
