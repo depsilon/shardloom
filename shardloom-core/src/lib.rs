@@ -1,7 +1,16 @@
 //! Core types and traits shared across `ShardLoom` crates.
 //!
 //! This crate defines minimal cross-cutting contracts for the initial workspace:
-//! identifiers, errors, and high-level traits for native `Vortex`-first execution.
+//! identifiers, errors, diagnostics, and capability metadata for native
+//! `Vortex`-first execution.
+
+pub mod capabilities;
+pub mod diagnostics;
+
+pub use capabilities::{Capability, CapabilityStatus, EngineCapabilities};
+pub use diagnostics::{
+    Diagnostic, DiagnosticCategory, DiagnosticCode, DiagnosticSeverity, FallbackStatus,
+};
 
 /// Canonical crate-level result type for `ShardLoom`.
 pub type Result<T> = std::result::Result<T, ShardLoomError>;
