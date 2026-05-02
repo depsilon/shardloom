@@ -1054,7 +1054,12 @@ impl StreamingPlanSkeleton {
                 .chain(self.stages.iter().flat_map(|s| s.diagnostics.iter()))
                 .chain(self.diagnostics.iter())
             {
-                let line = format!("- {}", d.to_human_text());
+                let line = format!(
+                    "- {} | feature={} | reason={}",
+                    d.to_human_text(),
+                    d.feature.as_deref().unwrap_or("none"),
+                    d.reason.as_deref().unwrap_or("none")
+                );
                 if seen.insert(line.clone()) {
                     out.push(line);
                 }
@@ -1300,5 +1305,23 @@ mod tests {
             )
             .has_errors()
         );
+    }
+    #[test]
+    fn human_text_keeps_distinct_diagnostics_with_same_message() {
+        let mut p = StreamingPlanSkeleton::for_vortex_to_target(ds(), vortex_target());
+        p.diagnostics.push(unsupported_streaming_diagnostic(
+            "source.scan",
+            "operator requires materialization",
+        ));
+        p.diagnostics.push(unsupported_streaming_diagnostic(
+            "sink.write",
+            "sink requires ordered output",
+        ));
+
+        let text = p.to_human_text();
+        assert!(text.contains("feature=source.scan"));
+        assert!(text.contains("feature=sink.write"));
+        assert!(text.contains("reason=operator requires materialization"));
+        assert!(text.contains("reason=sink requires ordered output"));
     }
 }

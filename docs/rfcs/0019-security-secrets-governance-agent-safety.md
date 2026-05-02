@@ -75,3 +75,83 @@ No operation should surprise the user by:
 ## Secret handling
 
 ShardLoom should never store raw secrets in plans, diagnostics, logs, traces, or reports.
+
+Rules:
+
+- Secrets must be referenced via handles, aliases, environment indirection, or secure runtime providers.
+- Machine-readable outputs should redact credential-bearing fields.
+- Explain/estimate/doctor/capabilities outputs must not trigger secret resolution side effects.
+- Error paths must never echo bearer tokens, key material, signed URLs, passwords, or private keys.
+
+## Credential scope and lifecycle
+
+Credentials should be scoped to least privilege and shortest practical lifetime:
+
+- Read-only credentials for read-only operations.
+- Write credentials only for explicit write/commit nodes.
+- Effect credentials isolated by effect type (API, LLM, embedding, vector index).
+- Optional per-job credential namespaces for multi-tenant runs.
+- Expiration and refresh behavior must be explicit in runtime policy.
+
+## Permissions and capability boundaries
+
+Operations should require explicit capability gates:
+
+- External read.
+- External write.
+- API call.
+- LLM call.
+- Embedding generation.
+- Vector index mutation.
+- Side-effecting UDF.
+
+Default policy should deny effectful capabilities unless explicitly enabled.
+
+## Dry-run, approval, and execution modes
+
+ShardLoom should distinguish planning from effectful execution:
+
+- Explain/estimate/doctor/capabilities: non-effectful only.
+- Dry-run: validates permissions/capabilities without performing external writes or calls.
+- Apply/execute: effectful operations allowed only when approval gates pass.
+
+Approval policy should be explicit, auditable, and machine-readable.
+
+## Auditability and provenance
+
+Sensitive operations should emit structured audit events that include:
+
+- Request id / job id.
+- Principal identity.
+- Capability used.
+- Target system classification.
+- Time and outcome.
+- Diagnostic codes for denial/failure.
+
+Audit logs should avoid raw payloads and secrets.
+
+## Agent safety requirements
+
+Agent-driven planning and automation should obey deterministic safety contracts:
+
+- Capability discovery must be machine-readable.
+- Disallowed operations must fail with stable diagnostic codes.
+- Agents must not infer implicit permission from imported plans.
+- Prompt/tooling flows must keep effect intent explicit.
+
+## UDF and plugin safety
+
+UDF/plugin contracts should declare:
+
+- Determinism.
+- Null behavior.
+- Effect level.
+- Network/file/process access requirements.
+- Resource limits.
+- Provenance/license metadata.
+
+Unsupported sandbox requirements must fail explicitly before execution.
+
+## Failure behavior
+
+Unsupported or unauthorized behavior must fail explicitly with deterministic diagnostics and `fallback_attempted=false`. No Spark, DataFusion, DuckDB, Polars, Velox, or other fallback engines may be used.

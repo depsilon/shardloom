@@ -36,6 +36,8 @@ For example:
 - Modeling Vortex files, arrays, metadata, layouts, or output: read `vortex-internals.md`.
 - Implementing pruning, encoded predicates, or late materialization: read `encoded-execution.md`.
 - Designing logical or physical plans: read `planner-optimizer.md`.
+- Designing expression IR, function signatures, kernel capabilities, or kernel selection policy: read `expression-kernel-registry.md`.
+- Designing plan IR layering, plan import/export constraints, or Substrait-compatible interoperability direction: read `plan-ir-interoperability.md`.
 - Writing Vortex, Parquet, Arrow IPC, Iceberg-compatible, or Delta-compatible outputs: read `translation-layer.md`.
 - Making performance claims: read `benchmarking.md`.
 - Adding tests or changing behavior: read `testing-correctness.md`.
