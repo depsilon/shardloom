@@ -7,8 +7,9 @@ use std::process::ExitCode;
 
 use shardloom_core::{
     ChangeSet, CommandStatus, CorrectnessValidationPlan, DatasetManifest, DatasetRef, DatasetUri,
-    IncrementalPlanSkeleton, KernelRegistrySnapshot, ManifestId, OutputEnvelope, OutputFormat,
-    OutputTarget, ShardLoomError, SnapshotId, SnapshotRef, TranslationPlan, WriteIntent,
+    IncrementalPlanSkeleton, KernelRegistrySnapshot, ManifestId, ObservabilityPlan, OutputEnvelope,
+    OutputFormat, OutputTarget, RuntimeObservabilityReport, ShardLoomError, SnapshotId,
+    SnapshotRef, TranslationPlan, WriteIntent,
 };
 use shardloom_exec::{
     AdaptiveSizer, AdaptiveSizingPolicy, AttemptId, ByteSize, CancellationReason,
@@ -489,6 +490,81 @@ fn run(args: Vec<String>) -> ExitCode {
                     ),
                     ("mode".to_string(), "retry_plan".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
+                ],
+            );
+            ExitCode::SUCCESS
+        }
+        Some("observability-plan") => {
+            let plan = ObservabilityPlan::default_foundation_plan();
+            emit(
+                "observability-plan",
+                format,
+                CommandStatus::Success,
+                "observability plan".to_string(),
+                plan.to_human_text(),
+                plan.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "observability_plan".to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
+                    (
+                        "metrics_collection".to_string(),
+                        "not_performed".to_string(),
+                    ),
+                ],
+            );
+            ExitCode::SUCCESS
+        }
+        Some("runtime-report") => {
+            let report = RuntimeObservabilityReport::not_run();
+            emit(
+                "runtime-report",
+                format,
+                CommandStatus::Success,
+                "runtime observability report".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "runtime_report".to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
+                    (
+                        "metrics_collection".to_string(),
+                        "not_performed".to_string(),
+                    ),
+                ],
+            );
+            ExitCode::SUCCESS
+        }
+        Some("profile-plan") => {
+            let plan = ObservabilityPlan::collection_not_implemented(
+                "profiling",
+                "Profiling domain types exist, but runtime profiling collection is not implemented yet.",
+            );
+            emit(
+                "profile-plan",
+                format,
+                CommandStatus::Unsupported,
+                "profiling collection not implemented".to_string(),
+                plan.to_human_text(),
+                plan.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "profile_plan".to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
+                    (
+                        "metrics_collection".to_string(),
+                        "not_performed".to_string(),
+                    ),
                 ],
             );
             ExitCode::SUCCESS
@@ -1005,7 +1081,7 @@ fn run(args: Vec<String>) -> ExitCode {
         }
         _ => {
             eprintln!(
-                "usage: shardloom <status|capabilities|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan> [--format text|json]"
+                "usage: shardloom <status|capabilities|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan> [--format text|json]"
             );
             ExitCode::from(2)
         }
@@ -1081,6 +1157,12 @@ mod tests {
             "scan-plan".to_string(),
             "file://tmp/test.vortex".to_string(),
         ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn observability_plan_returns_success() {
+        let code = run(vec!["observability-plan".to_string()]);
         assert_eq!(code, ExitCode::SUCCESS);
     }
 
