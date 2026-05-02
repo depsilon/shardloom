@@ -42,6 +42,24 @@ For example:
 - Working on object-store or distributed runtime features: read `object-store-runtime.md`.
 - Creating RFCs or architecture docs: read `documentation-rfc.md`.
 
+
+## Vortex-specific skills
+
+Vortex work requires more detailed guidance than the general `vortex-internals.md` file.
+
+Use the detailed Vortex skill pack under `docs/skills/vortex/` for:
+
+- DTypes and logical/physical modeling.
+- Vortex file IO.
+- Encodings and layouts.
+- Statistics and pruning.
+- Vortex-native output.
+- Scan API boundaries.
+- Arrow interoperability.
+- Upstream Vortex versioning.
+
+For any Vortex-related implementation, read `docs/skills/vortex-internals.md` first, then read the relevant detailed files in `docs/skills/vortex/`.
+
 ## Required validation
 
 For implementation PRs, run:

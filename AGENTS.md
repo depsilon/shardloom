@@ -85,6 +85,22 @@ Use these skill documents by task type:
 - Object-store IO, distributed runtime, task scheduling, retries, or commits: `docs/skills/object-store-runtime.md`
 - RFCs, architecture docs, design decisions, or project policy: `docs/skills/documentation-rfc.md`
 
+
+### Vortex-specific routing
+
+For any Vortex-related work, first read `docs/skills/vortex-internals.md`.
+
+Then read the relevant detailed Vortex skills:
+
+- Vortex concepts, DTypes, arrays, encodings, and layouts: `docs/skills/vortex/vortex-concepts.md`
+- Vortex file reads/writes and metadata: `docs/skills/vortex/vortex-file-io.md`
+- Encoded operations and physical layouts: `docs/skills/vortex/vortex-encodings-layouts.md`
+- Statistics, metadata-only answers, and pruning: `docs/skills/vortex/vortex-stats-pruning.md`
+- Vortex-native persistence: `docs/skills/vortex/vortex-native-output.md`
+- Scan API and source/sink boundaries: `docs/skills/vortex/vortex-scan-api.md`
+- Arrow compatibility and decoded reference boundaries: `docs/skills/vortex/vortex-arrow-interop.md`
+- Upstream Vortex dependency/version behavior: `docs/skills/vortex/vortex-versioning-upstream.md`
+
 ## Current phase
 
 ShardLoom is in early architecture and skeleton setup.
