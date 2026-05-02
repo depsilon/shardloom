@@ -245,6 +245,23 @@ Important principles:
 - Fault states, retries, cancellation, commits, and cleanup must be explicit.
 - No Spark or DataFusion fallback is allowed.
 
+
+## Expression engine and plan interoperability
+
+Before work involving expression IR, kernel registries, kernel selection policy, plan IR layering, plan import/export, or Substrait-compatible interoperability direction, read:
+
+- `docs/rfcs/0021-expression-engine-kernel-registry.md`
+- `docs/rfcs/0022-plan-ir-substrait-compatible-interoperability.md`
+- `docs/skills/expression-kernel-registry.md`
+- `docs/skills/plan-ir-interoperability.md`
+
+Important principles:
+
+- Expression and kernel selection must be native, deterministic, null-safe, type-aware, Vortex-aware, and no-fallback.
+- Plan interoperability is allowed, but imported plans must pass ShardLoom capability checks.
+- Substrait-compatible thinking is an interoperability direction, not a dependency or execution engine.
+- No Spark or DataFusion fallback is allowed.
+
 ## Observability, security, and schema/table compatibility
 
 ShardLoom must be observable, secure, governable, and compatible with evolving schemas and existing table ecosystems before it can credibly support production workloads.
