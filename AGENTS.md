@@ -265,3 +265,21 @@ Important principles:
 ## Observability, security, and schema/table compatibility
 
 ShardLoom must be observable, secure, governable, and compatible with evolving schemas and existing table ecosystems before it can credibly support production workloads.
+
+
+## Extension/plugin safety and release engineering
+
+Before work involving extension/plugin ABI, sandboxing, release engineering, packaging, or public API stability, read:
+
+- `docs/rfcs/0023-extension-plugin-abi-sandboxing.md`
+- `docs/rfcs/0024-release-engineering-api-compatibility-packaging.md`
+- `docs/skills/extension-plugin-sandboxing.md`
+- `docs/skills/release-engineering-packaging.md`
+
+Important principles:
+
+- Extensions/plugins must declare capabilities, permissions, effects, materialization requirements, sandboxing constraints, and license/provenance metadata.
+- Extension inspection must not execute extension code.
+- Release engineering must preserve Apache-2.0 compatibility, dependency hygiene, API stability discipline, and no-fallback architecture.
+- Do not publish packages or create releases without explicit human approval.
+- No Spark or DataFusion fallback is allowed.
