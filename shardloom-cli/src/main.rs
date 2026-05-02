@@ -11,8 +11,9 @@ use shardloom_core::{
     SnapshotRef, TranslationPlan, WriteIntent,
 };
 use shardloom_exec::{
-    AdaptiveSizer, AdaptiveSizingPolicy, ByteSize, ParallelismLimit, ParallelismPlan,
-    RuntimePlanSkeleton, SizeEstimate, SizingInput, SizingPlan, StreamingPlanSkeleton,
+    AdaptiveSizer, AdaptiveSizingPolicy, ByteSize, MemoryBudget, MemoryOwner, MemoryPoolPlan,
+    OomSafetyPlan, OperatorMemoryClass, ParallelismLimit, ParallelismPlan, RuntimePlanSkeleton,
+    SizeEstimate, SizingInput, SizingPlan, SpillPlan, SpillPolicy, StreamingPlanSkeleton,
 };
 use shardloom_plan::{EstimateReport, ExplainReport, ScanPlanSkeleton, ScanRequest};
 use shardloom_vortex::{VortexFileRef, VortexReadPlan, VortexWriteOptions, VortexWritePlan};
@@ -123,6 +124,106 @@ fn run(args: Vec<String>) -> ExitCode {
                 ],
             );
             ExitCode::SUCCESS
+        }
+        Some("memory-plan") => {
+            let Some(memory_gb) = args.next() else {
+                eprintln!("usage: shardloom memory-plan <memory_gb>");
+                return ExitCode::from(2);
+            };
+            let memory_gb = match memory_gb.parse::<u64>() {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "memory-plan",
+                        format,
+                        "invalid memory_gb",
+                        &ShardLoomError::InvalidOperation(format!("invalid memory_gb: {error}")),
+                    );
+                }
+            };
+            let budget = match MemoryBudget::from_gib(memory_gb) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error("memory-plan", format, "invalid memory budget", &error);
+                }
+            };
+            let plan = OomSafetyPlan::new(MemoryPoolPlan::new(budget));
+            emit(
+                "memory-plan",
+                format,
+                CommandStatus::Success,
+                "memory plan".to_string(),
+                plan.to_human_text(),
+                vec![],
+                vec![("mode".to_string(), "plan_only".to_string())],
+            );
+            ExitCode::SUCCESS
+        }
+        Some("spill-plan") => {
+            let Some(operator_label) = args.next() else {
+                eprintln!("usage: shardloom spill-plan <operator_label> <memory_gb>");
+                return ExitCode::from(2);
+            };
+            let Some(memory_gb) = args.next() else {
+                eprintln!("usage: shardloom spill-plan <operator_label> <memory_gb>");
+                return ExitCode::from(2);
+            };
+            let memory_gb = match memory_gb.parse::<u64>() {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "spill-plan",
+                        format,
+                        "invalid memory_gb",
+                        &ShardLoomError::InvalidOperation(format!("invalid memory_gb: {error}")),
+                    );
+                }
+            };
+            let budget = match MemoryBudget::from_gib(memory_gb) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error("spill-plan", format, "invalid memory budget", &error);
+                }
+            };
+            let pool = MemoryPoolPlan::new(budget);
+            let lower = operator_label.to_lowercase();
+            let class = if lower.contains("sort") {
+                OperatorMemoryClass::Sort
+            } else if lower.contains("join") {
+                OperatorMemoryClass::Join
+            } else if lower.contains("agg") || lower.contains("aggregate") {
+                OperatorMemoryClass::Aggregate
+            } else {
+                OperatorMemoryClass::Unknown
+            };
+            let owner = match MemoryOwner::new(class, operator_label) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error("spill-plan", format, "invalid operator label", &error);
+                }
+            };
+            let spill_plan = SpillPlan::spill_not_implemented(owner, SpillPolicy::BestEffort);
+            let mut plan = OomSafetyPlan::new(pool);
+            plan.add_spill_plan(spill_plan);
+            let status = if plan.has_errors() {
+                CommandStatus::Unsupported
+            } else {
+                CommandStatus::Success
+            };
+            emit(
+                "spill-plan",
+                format,
+                status,
+                "spill plan".to_string(),
+                plan.to_human_text(),
+                vec![],
+                vec![("mode".to_string(), "plan_only".to_string())],
+            );
+            if plan.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
         }
         Some("doctor") => {
             emit("doctor", format, CommandStatus::Success, "doctor checks".to_string(), "ShardLoom doctor\nfallback execution: disabled\nnative input target: vortex\nnative output target: vortex\nstatus: early implementation skeleton".to_string(), vec![], vec![("native_input".to_string(), "vortex".to_string()), ("native_output".to_string(), "vortex".to_string())]);
