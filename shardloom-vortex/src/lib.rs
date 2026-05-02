@@ -16,6 +16,172 @@ pub struct VortexFileRef {
     pub dataset: DatasetRef,
 }
 
+/// Planning-only status of upstream Vortex dependency readiness.
+///
+/// This enum reports dependency posture only. It does not perform IO, does not
+/// call upstream Vortex APIs, and does not permit fallback execution.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexDependencyStatus {
+    NotAdded,
+    ReviewRequired,
+    ApprovedForFuturePr,
+    Added,
+    Unsupported,
+}
+impl VortexDependencyStatus {
+    /// Returns a stable machine-readable label for diagnostics/reporting.
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::NotAdded => "not_added",
+            Self::ReviewRequired => "review_required",
+            Self::ApprovedForFuturePr => "approved_for_future_pr",
+            Self::Added => "added",
+            Self::Unsupported => "unsupported",
+        }
+    }
+
+    /// Returns whether upstream Vortex API use is currently allowed.
+    ///
+    /// Only `Added` returns `true`.
+    #[must_use]
+    pub const fn allows_upstream_api_use(&self) -> bool {
+        matches!(self, Self::Added)
+    }
+}
+
+/// Planning/readiness report for a future upstream Vortex dependency PR.
+///
+/// This type is reporting-only. It does not add dependencies and does not
+/// perform real Vortex file IO.
+#[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexAdapterReadiness {
+    pub dependency_status: VortexDependencyStatus,
+    pub license_review_complete: bool,
+    pub provenance_review_complete: bool,
+    pub public_api_review_complete: bool,
+    pub fallback_dependencies_absent: bool,
+    pub diagnostics: Vec<shardloom_core::Diagnostic>,
+}
+impl VortexAdapterReadiness {
+    /// Returns the default not-ready readiness state.
+    #[must_use]
+    pub fn not_ready() -> Self {
+        Self {
+            dependency_status: VortexDependencyStatus::ReviewRequired,
+            license_review_complete: false,
+            provenance_review_complete: false,
+            public_api_review_complete: false,
+            fallback_dependencies_absent: true,
+            diagnostics: Vec::new(),
+        }
+    }
+
+    /// Returns a planning-only readiness state for a future dependency PR.
+    #[must_use]
+    pub fn ready_for_dependency_pr() -> Self {
+        Self {
+            dependency_status: VortexDependencyStatus::ApprovedForFuturePr,
+            license_review_complete: true,
+            provenance_review_complete: true,
+            public_api_review_complete: true,
+            fallback_dependencies_absent: true,
+            diagnostics: Vec::new(),
+        }
+    }
+
+    /// Adds a deterministic diagnostic to the readiness report.
+    pub fn add_diagnostic(&mut self, diagnostic: shardloom_core::Diagnostic) {
+        self.diagnostics.push(diagnostic);
+    }
+
+    /// Returns whether dependency readiness gates for a future PR are complete.
+    #[must_use]
+    pub const fn is_ready_for_dependency_pr(&self) -> bool {
+        self.license_review_complete
+            && self.provenance_review_complete
+            && self.public_api_review_complete
+            && self.fallback_dependencies_absent
+    }
+
+    /// Returns whether any error diagnostics are present.
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.severity.as_str() == "error")
+    }
+
+    /// Renders a human-readable readiness summary.
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        let mut text = format!(
+            "Vortex adapter readiness\nupstream dependency status: {}\nfallback execution: disabled\nlicense review complete: {}\nprovenance review complete: {}\npublic API review complete: {}\nfallback dependencies absent: {}\nready for dependency PR: {}",
+            self.dependency_status.as_str(),
+            self.license_review_complete,
+            self.provenance_review_complete,
+            self.public_api_review_complete,
+            self.fallback_dependencies_absent,
+            self.is_ready_for_dependency_pr(),
+        );
+        if self.dependency_status != VortexDependencyStatus::Added {
+            text.push_str("\nupstream Vortex dependency is not added yet");
+        }
+        if self.diagnostics.is_empty() {
+            text.push_str("\ndiagnostics: none");
+        } else {
+            text.push_str("\ndiagnostics:");
+            for diagnostic in &self.diagnostics {
+                text.push_str("\n- ");
+                text.push_str(&diagnostic.to_human_text());
+            }
+        }
+        text
+    }
+}
+
+/// Adapter boundary kinds used to stage future upstream Vortex integration.
+///
+/// These labels are planning-only and do not execute real Vortex IO.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexAdapterBoundaryKind {
+    MetadataInspection,
+    DTypeMapping,
+    EncodingMapping,
+    LayoutMapping,
+    StatisticsMapping,
+    ReadPlanning,
+    OutputPlanning,
+    ActualRead,
+    ActualWrite,
+    Unsupported,
+}
+impl VortexAdapterBoundaryKind {
+    /// Returns a stable machine-readable label.
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::MetadataInspection => "metadata_inspection",
+            Self::DTypeMapping => "dtype_mapping",
+            Self::EncodingMapping => "encoding_mapping",
+            Self::LayoutMapping => "layout_mapping",
+            Self::StatisticsMapping => "statistics_mapping",
+            Self::ReadPlanning => "read_planning",
+            Self::OutputPlanning => "output_planning",
+            Self::ActualRead => "actual_read",
+            Self::ActualWrite => "actual_write",
+            Self::Unsupported => "unsupported",
+        }
+    }
+
+    /// Returns whether this boundary currently requires upstream dependency.
+    #[must_use]
+    pub const fn requires_upstream_dependency(&self) -> bool {
+        matches!(self, Self::ActualRead | Self::ActualWrite)
+    }
+}
+
 impl VortexFileRef {
     /// Creates a validated Vortex file reference from a dataset reference.
     ///
@@ -704,5 +870,52 @@ mod tests {
         let text =
             VortexWritePlan::planned(file, VortexWriteOptions::native_defaults()).to_human_text();
         assert!(text.contains("highest-fidelity target"));
+    }
+
+    #[test]
+    fn dependency_status_not_added_disallows_upstream_api_use() {
+        assert!(!VortexDependencyStatus::NotAdded.allows_upstream_api_use());
+    }
+
+    #[test]
+    fn dependency_status_added_allows_upstream_api_use() {
+        assert!(VortexDependencyStatus::Added.allows_upstream_api_use());
+    }
+
+    #[test]
+    fn adapter_readiness_not_ready_is_not_ready_for_dependency_pr() {
+        assert!(!VortexAdapterReadiness::not_ready().is_ready_for_dependency_pr());
+    }
+
+    #[test]
+    fn adapter_readiness_ready_is_ready_for_dependency_pr() {
+        assert!(VortexAdapterReadiness::ready_for_dependency_pr().is_ready_for_dependency_pr());
+    }
+
+    #[test]
+    fn adapter_readiness_text_mentions_fallback_execution_disabled() {
+        let text = VortexAdapterReadiness::not_ready().to_human_text();
+        assert!(text.contains("fallback execution: disabled"));
+    }
+
+    #[test]
+    fn adapter_readiness_text_mentions_dependency_not_added_when_not_ready() {
+        let text = VortexAdapterReadiness::not_ready().to_human_text();
+        assert!(text.contains("upstream Vortex dependency is not added yet"));
+    }
+
+    #[test]
+    fn adapter_boundary_actual_read_requires_upstream_dependency() {
+        assert!(VortexAdapterBoundaryKind::ActualRead.requires_upstream_dependency());
+    }
+
+    #[test]
+    fn adapter_boundary_actual_write_requires_upstream_dependency() {
+        assert!(VortexAdapterBoundaryKind::ActualWrite.requires_upstream_dependency());
+    }
+
+    #[test]
+    fn adapter_boundary_metadata_inspection_not_required_for_now() {
+        assert!(!VortexAdapterBoundaryKind::MetadataInspection.requires_upstream_dependency());
     }
 }

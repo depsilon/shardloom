@@ -295,3 +295,19 @@ Rules:
 - Do not use "zero-copy" to mean zero-decode.
 - Keep native Vortex output distinct from compatibility output.
 - Prefer mapping helpers over premature type consolidation.
+
+## Vortex dependency readiness
+
+Before adding any upstream Vortex dependency, read:
+- docs/dependencies/vortex-upstream-review.md
+- docs/architecture/vortex-adapter-integration-plan.md
+- docs/skills/vortex/vortex-versioning-upstream.md
+- docs/skills/license-provenance.md
+
+Rules:
+- Do not add upstream Vortex without license/provenance review.
+- Keep upstream Vortex API usage isolated in shardloom-vortex.
+- Do not use DataFusion/Spark/DuckDB/Polars/Velox as Vortex helpers.
+- Do not default to decode-to-Arrow execution.
+- Preserve Vortex as native input and output.
+- Unsupported upstream features must fail explicitly.

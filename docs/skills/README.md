@@ -130,3 +130,7 @@ ShardLoom should be correct before fast, adaptive before wasteful, and recoverab
 ## Canonical terminology
 
 Use docs/architecture/canonical-terminology.md when adding or changing domain types, diagnostics, CLI labels, JSON fields, or RFC language.
+
+## Vortex dependency readiness
+
+Use docs/dependencies/vortex-upstream-review.md and docs/architecture/vortex-adapter-integration-plan.md before adding upstream Vortex dependencies or adapter code.
