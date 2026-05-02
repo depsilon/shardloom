@@ -333,7 +333,11 @@ fn run(args: Vec<String>) -> ExitCode {
                     ),
                 ],
             );
-            ExitCode::SUCCESS
+            if plan.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
         }
         Some("capabilities") => {
             let capabilities = shardloom_core::EngineCapabilities::current();
@@ -1566,6 +1570,11 @@ mod tests {
         assert_eq!(code, ExitCode::SUCCESS);
     }
 
+    #[test]
+    fn table_compat_plan_with_unknown_returns_non_zero() {
+        let code = run(vec!["table-compat-plan".to_string(), "unknown".to_string()]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
     #[test]
     fn translation_plan_with_vortex_uri_returns_success() {
         let code = run(vec![
