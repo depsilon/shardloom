@@ -1,0 +1,17 @@
+[package]
+name = "shardloom-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+shardloom-exec = { path = "../shardloom-exec" }
+
+[[bin]]
+name = "shardloom"
+path = "src/main.rs"
