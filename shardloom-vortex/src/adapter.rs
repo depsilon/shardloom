@@ -418,7 +418,7 @@ pub const fn typed_vortex_dtype_mapping_available() -> bool {
     false
 }
 
-/// Typed encoding mapping status at the Vortex adapter boundary.
+/// Typed encoding mapping status at the Vortex adapter boundary in `ShardLoom`.
 ///
 /// This status is compile-safe metadata only and never performs IO.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -446,7 +446,7 @@ impl VortexEncodingMappingStatus {
     }
 }
 
-/// Typed layout mapping status at the Vortex adapter boundary.
+/// Typed layout mapping status at the Vortex adapter boundary in `ShardLoom`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VortexLayoutMappingStatus {
     Implemented,
@@ -472,7 +472,7 @@ impl VortexLayoutMappingStatus {
     }
 }
 
-/// Report for typed Vortex encoding/layout mapping probe at adapter boundary.
+/// Report for typed Vortex encoding/layout mapping probe at the `ShardLoom` adapter boundary.
 ///
 /// No Vortex IO occurs, name-based mapping remains available, and fallback execution is disabled.
 #[derive(Debug, Clone, PartialEq)]
@@ -768,6 +768,21 @@ mod tests {
         );
     }
     #[test]
+    fn map_encoding_fsst_fast_lanes_alp_names() {
+        assert_eq!(
+            map_known_vortex_encoding_name("fsst"),
+            shardloom_core::EncodingKind::FsstLike
+        );
+        assert_eq!(
+            map_known_vortex_encoding_name("fast_lanes"),
+            shardloom_core::EncodingKind::FastLanesLike
+        );
+        assert_eq!(
+            map_known_vortex_encoding_name("alp"),
+            shardloom_core::EncodingKind::AlpLike
+        );
+    }
+    #[test]
     fn map_layout_flat() {
         assert_eq!(
             map_known_vortex_layout_name("flat"),
@@ -779,6 +794,21 @@ mod tests {
         assert_eq!(
             map_known_vortex_layout_name("chunked"),
             shardloom_core::LayoutKind::Chunked
+        );
+    }
+    #[test]
+    fn map_layout_struct_list_sparse() {
+        assert_eq!(
+            map_known_vortex_layout_name("struct"),
+            shardloom_core::LayoutKind::Struct
+        );
+        assert_eq!(
+            map_known_vortex_layout_name("list"),
+            shardloom_core::LayoutKind::List
+        );
+        assert_eq!(
+            map_known_vortex_layout_name("sparse"),
+            shardloom_core::LayoutKind::Sparse
         );
     }
     #[test]
@@ -855,14 +885,26 @@ mod tests {
     }
     #[test]
     fn encoding_layout_report_deferred_name_mapping_available() {
-        assert!(
-            VortexEncodingLayoutMappingReport::deferred_api_unclear().name_based_mapping_available
-        );
+        let report = VortexEncodingLayoutMappingReport::deferred_api_unclear();
+        assert!(report.name_based_mapping_available);
+        assert!(!report.actual_io_implemented);
+        assert!(!report.fallback_execution_allowed);
     }
     #[test]
     fn encoding_layout_report_human_text_mentions_io_and_fallback_status() {
         let text = VortexEncodingLayoutMappingReport::deferred_api_unclear().to_human_text();
         assert!(text.contains("actual IO implemented: false"));
         assert!(text.contains("fallback execution allowed: false"));
+    }
+    #[test]
+    fn encoding_layout_report_has_errors_is_severity_based() {
+        let mut report = VortexEncodingLayoutMappingReport::deferred_api_unclear();
+        assert!(!report.has_errors());
+        report.add_diagnostic(shardloom_core::Diagnostic::configuration_error(
+            "vortex_encoding_layout_mapping",
+            "adapter probe failed",
+            "keep mapping deferred",
+        ));
+        assert!(report.has_errors());
     }
 }
