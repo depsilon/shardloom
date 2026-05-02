@@ -175,3 +175,29 @@ Important principles:
 - Capability discovery should be deterministic and machine-readable.
 - Effectful operations must not run during explain, estimate, doctor, or capabilities.
 - No Spark or DataFusion fallback is allowed.
+
+## Streaming, zero-copy, and zero-decode
+
+ShardLoom should minimize data work in this order:
+
+1. Do not read.
+2. Do not decode.
+3. Do not copy.
+4. Do not materialize.
+5. Do not shuffle.
+6. Do not distribute unless necessary.
+
+Before work involving streaming execution, zero-copy boundaries, zero-decode execution, sink-driven planning, Arrow-like interoperability, materialization boundaries, backpressure, or bounded-memory behavior, read:
+
+- `docs/rfcs/0013-streaming-zero-copy-boundary-interoperability.md`
+- `docs/skills/streaming-zero-copy.md`
+
+Important principles:
+
+- Zero-decode Vortex-native execution is more important than zero-copy boundaries.
+- Arrow-like interoperability is a boundary, not the internal execution substrate.
+- Streaming must not silently fall back to full in-memory execution.
+- Sink requirements should influence materialization and metadata preservation.
+- Vortex output remains highest-fidelity.
+- Compatibility outputs must report metadata loss.
+- No Spark or DataFusion fallback is allowed.
