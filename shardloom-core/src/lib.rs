@@ -51,6 +51,7 @@ pub type Result<T> = std::result::Result<T, ShardLoomError>;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ShardLoomError {
     InvalidOperation(String),
+    NotImplemented(String),
     Message(String),
 }
 
@@ -65,7 +66,34 @@ impl ShardLoomError {
     #[must_use]
     pub fn message(&self) -> &str {
         match self {
-            Self::InvalidOperation(message) | Self::Message(message) => message,
+            Self::InvalidOperation(message)
+            | Self::NotImplemented(message)
+            | Self::Message(message) => message,
+        }
+    }
+
+    /// Converts plain errors into stable structured diagnostics for user-facing output.
+    ///
+    /// This keeps machine-readable diagnostics deterministic for agents and preserves
+    /// explicit no-fallback policy visibility.
+    #[must_use]
+    pub fn to_diagnostic(&self) -> Diagnostic {
+        match self {
+            Self::InvalidOperation(message) => Diagnostic::invalid_input(
+                "operation",
+                message.clone(),
+                "Correct the input and retry with a supported value.",
+            ),
+            Self::NotImplemented(feature) => Diagnostic::not_implemented(
+                feature.clone(),
+                "This behavior is not implemented for native ShardLoom execution.",
+                "Use supported planning/introspection commands or wait for native support.",
+            ),
+            Self::Message(message) => Diagnostic::configuration_error(
+                "runtime",
+                message.clone(),
+                "Review command arguments and configuration before retrying.",
+            ),
         }
     }
 }
@@ -80,12 +108,30 @@ impl std::error::Error for ShardLoomError {}
 
 #[cfg(test)]
 mod tests {
-    use super::ShardLoomError;
+    use super::{DiagnosticCode, ShardLoomError};
 
     #[test]
     fn error_message_roundtrip() {
         let error = ShardLoomError::new("boom");
         assert_eq!(error.message(), "boom");
         assert_eq!(error.to_string(), "boom");
+    }
+
+    #[test]
+    fn invalid_operation_maps_to_invalid_input_diagnostic() {
+        let diag = ShardLoomError::InvalidOperation("bad arg".to_string()).to_diagnostic();
+        assert_eq!(diag.code, DiagnosticCode::InvalidInput);
+    }
+
+    #[test]
+    fn message_maps_to_configuration_error_diagnostic() {
+        let diag = ShardLoomError::Message("missing config".to_string()).to_diagnostic();
+        assert_eq!(diag.code, DiagnosticCode::ConfigurationError);
+    }
+
+    #[test]
+    fn not_implemented_maps_to_not_implemented_diagnostic() {
+        let diag = ShardLoomError::NotImplemented("sql".to_string()).to_diagnostic();
+        assert_eq!(diag.code, DiagnosticCode::NotImplemented);
     }
 }

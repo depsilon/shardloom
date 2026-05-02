@@ -130,6 +130,47 @@ impl OutputEnvelope {
         self.diagnostics.push(diagnostic);
     }
 
+    /// Builds an envelope from a diagnostic while preserving structured fallback status.
+    ///
+    /// This is intended for deterministic agent-facing JSON and human-facing text output
+    /// without adding serialization dependencies.
+    #[must_use]
+    pub fn from_diagnostic(
+        command: impl Into<String>,
+        summary: impl Into<String>,
+        human_text: impl Into<String>,
+        diagnostic: Diagnostic,
+    ) -> Self {
+        let status = if matches!(
+            diagnostic.category,
+            crate::DiagnosticCategory::UnsupportedFeature
+                | crate::DiagnosticCategory::NoFallbackPolicy
+        ) {
+            CommandStatus::Unsupported
+        } else {
+            match diagnostic.severity {
+                DiagnosticSeverity::Fatal | DiagnosticSeverity::Error => CommandStatus::Error,
+                DiagnosticSeverity::Warning => CommandStatus::Warning,
+                DiagnosticSeverity::Info => CommandStatus::Success,
+            }
+        };
+        Self::new(command, status, summary, human_text).with_diagnostic(diagnostic)
+    }
+
+    /// Builds an envelope from a plain error by converting it to a structured diagnostic.
+    ///
+    /// Plain errors should be normalized before user-facing rendering so text/json output
+    /// remains stable for both humans and agents.
+    #[must_use]
+    pub fn from_error(
+        command: impl Into<String>,
+        summary: impl Into<String>,
+        error: &ShardLoomError,
+    ) -> Self {
+        let diagnostic = error.to_diagnostic();
+        Self::from_diagnostic(command, summary, error.to_string(), diagnostic)
+    }
+
     #[must_use]
     pub fn has_errors(&self) -> bool {
         self.status.is_error()
@@ -309,5 +350,33 @@ mod tests {
             Diagnostic::unsupported(DiagnosticCode::UnsupportedSql, "sql", "unsupported", None),
         );
         assert!(envelope.has_errors());
+    }
+
+    #[test]
+    fn from_diagnostic_includes_diagnostic() {
+        let diagnostic = Diagnostic::invalid_input("dataset_uri", "invalid", "fix");
+        let envelope =
+            OutputEnvelope::from_diagnostic("scan-plan", "bad input", "bad input", diagnostic);
+        assert_eq!(envelope.diagnostics.len(), 1);
+    }
+
+    #[test]
+    fn from_error_includes_diagnostic() {
+        let envelope = OutputEnvelope::from_error(
+            "scan-plan",
+            "bad input",
+            &ShardLoomError::InvalidOperation("bad".to_string()),
+        );
+        assert_eq!(envelope.diagnostics.len(), 1);
+    }
+
+    #[test]
+    fn from_error_json_has_fallback_attempted_false() {
+        let envelope = OutputEnvelope::from_error(
+            "scan-plan",
+            "bad input",
+            &ShardLoomError::InvalidOperation("bad".to_string()),
+        );
+        assert!(envelope.to_json().contains("\"attempted\":false"));
     }
 }

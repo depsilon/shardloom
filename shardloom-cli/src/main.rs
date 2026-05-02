@@ -7,8 +7,8 @@ use std::process::ExitCode;
 
 use shardloom_core::{
     ChangeSet, CommandStatus, DatasetManifest, DatasetRef, DatasetUri, IncrementalPlanSkeleton,
-    ManifestId, OutputEnvelope, OutputFormat, OutputTarget, SnapshotId, SnapshotRef,
-    TranslationPlan, WriteIntent,
+    ManifestId, OutputEnvelope, OutputFormat, OutputTarget, ShardLoomError, SnapshotId,
+    SnapshotRef, TranslationPlan, WriteIntent,
 };
 use shardloom_exec::{
     AdaptiveSizer, AdaptiveSizingPolicy, ByteSize, ParallelismLimit, ParallelismPlan,
@@ -58,13 +58,31 @@ fn emit(
     println!("{}", envelope.render(format));
 }
 
+fn emit_error(
+    command: &str,
+    format: OutputFormat,
+    summary: &str,
+    error: &ShardLoomError,
+) -> ExitCode {
+    let envelope = OutputEnvelope::from_error(command, summary, error);
+    match format {
+        OutputFormat::Text => eprintln!("{}", envelope.to_text()),
+        OutputFormat::Json => println!("{}", envelope.to_json()),
+    }
+    ExitCode::from(2)
+}
+
 #[allow(clippy::too_many_lines)]
 fn run(args: Vec<String>) -> ExitCode {
     let (args, format) = match parse_output_format(args) {
         Ok(parsed) => parsed,
         Err(message) => {
-            eprintln!("{message}");
-            return ExitCode::from(2);
+            return emit_error(
+                "cli",
+                OutputFormat::Text,
+                "cli argument parsing failed",
+                &ShardLoomError::InvalidOperation(message),
+            );
         }
     };
     let mut args = args.into_iter();
@@ -155,8 +173,12 @@ fn run(args: Vec<String>) -> ExitCode {
             let uri = match DatasetUri::new(dataset_uri) {
                 Ok(uri) => uri,
                 Err(error) => {
-                    eprintln!("invalid dataset uri: {error}");
-                    return ExitCode::from(2);
+                    return emit_error(
+                        "manifest-plan",
+                        format,
+                        "invalid dataset uri",
+                        &ShardLoomError::InvalidOperation(format!("invalid dataset uri: {error}")),
+                    );
                 }
             };
             let dataset = match DatasetRef::from_uri(uri) {
@@ -381,15 +403,25 @@ fn run(args: Vec<String>) -> ExitCode {
             let memory_gb = match memory_gb_raw.parse::<u64>() {
                 Ok(value) if value > 0 => value,
                 _ => {
-                    eprintln!("memory-gb must be a positive integer");
-                    return ExitCode::from(2);
+                    return emit_error(
+                        "sizing-plan",
+                        format,
+                        "invalid memory setting",
+                        &ShardLoomError::InvalidOperation(
+                            "memory-gb must be a positive integer".to_string(),
+                        ),
+                    );
                 }
             };
             let uri = match DatasetUri::new(dataset_uri) {
                 Ok(uri) => uri,
                 Err(error) => {
-                    eprintln!("invalid dataset uri: {error}");
-                    return ExitCode::from(2);
+                    return emit_error(
+                        "sizing-plan",
+                        format,
+                        "invalid dataset uri",
+                        &ShardLoomError::InvalidOperation(format!("invalid dataset uri: {error}")),
+                    );
                 }
             };
             let dataset = match DatasetRef::from_uri(uri) {

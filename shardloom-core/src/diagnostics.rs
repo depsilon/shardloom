@@ -73,6 +73,9 @@ impl DiagnosticCategory {
 /// Stable diagnostic code for machine-readable behavior.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DiagnosticCode {
+    InvalidInput,
+    ConfigurationError,
+    NotImplemented,
     UnsupportedEncoding,
     UnsupportedDType,
     UnsupportedSql,
@@ -98,6 +101,9 @@ impl DiagnosticCode {
     #[must_use]
     pub const fn as_str(&self) -> &'static str {
         match self {
+            Self::InvalidInput => "SL_INVALID_INPUT",
+            Self::ConfigurationError => "SL_CONFIGURATION_ERROR",
+            Self::NotImplemented => "SL_NOT_IMPLEMENTED",
             Self::UnsupportedEncoding => "SL_UNSUPPORTED_ENCODING",
             Self::UnsupportedDType => "SL_UNSUPPORTED_DTYPE",
             Self::UnsupportedSql => "SL_UNSUPPORTED_SQL",
@@ -224,6 +230,101 @@ impl Diagnostic {
         )
     }
 
+    /// Creates a stable invalid-input diagnostic for user-provided values.
+    #[must_use]
+    pub fn invalid_input(
+        feature: impl Into<String>,
+        reason: impl Into<String>,
+        suggested_next_step: impl Into<String>,
+    ) -> Self {
+        Self::new(
+            DiagnosticCode::InvalidInput,
+            DiagnosticSeverity::Error,
+            DiagnosticCategory::InvalidInput,
+            "Invalid input provided.",
+            Some(feature.into()),
+            Some(reason.into()),
+            Some(suggested_next_step.into()),
+            FallbackStatus::disabled_by_policy(),
+        )
+    }
+
+    /// Creates a stable configuration diagnostic for invalid or missing config values.
+    #[must_use]
+    pub fn configuration_error(
+        feature: impl Into<String>,
+        reason: impl Into<String>,
+        suggested_next_step: impl Into<String>,
+    ) -> Self {
+        Self::new(
+            DiagnosticCode::ConfigurationError,
+            DiagnosticSeverity::Error,
+            DiagnosticCategory::Configuration,
+            "Configuration error.",
+            Some(feature.into()),
+            Some(reason.into()),
+            Some(suggested_next_step.into()),
+            FallbackStatus::disabled_by_policy(),
+        )
+    }
+
+    /// Creates a stable not-implemented diagnostic for native execution gaps.
+    #[must_use]
+    pub fn not_implemented(
+        feature: impl Into<String>,
+        reason: impl Into<String>,
+        suggested_next_step: impl Into<String>,
+    ) -> Self {
+        Self::new(
+            DiagnosticCode::NotImplemented,
+            DiagnosticSeverity::Error,
+            DiagnosticCategory::UnsupportedFeature,
+            "Feature not implemented for native ShardLoom execution.",
+            Some(feature.into()),
+            Some(reason.into()),
+            Some(suggested_next_step.into()),
+            FallbackStatus::disabled_by_policy(),
+        )
+    }
+
+    /// Creates a metadata-loss warning diagnostic for compatibility outputs.
+    #[must_use]
+    pub fn metadata_loss_warning(
+        feature: impl Into<String>,
+        reason: impl Into<String>,
+        suggested_next_step: impl Into<String>,
+    ) -> Self {
+        Self::new(
+            DiagnosticCode::MetadataLoss,
+            DiagnosticSeverity::Warning,
+            DiagnosticCategory::MetadataLoss,
+            "Metadata loss may occur for this operation.",
+            Some(feature.into()),
+            Some(reason.into()),
+            Some(suggested_next_step.into()),
+            FallbackStatus::disabled_by_policy(),
+        )
+    }
+
+    /// Creates a no-fallback policy diagnostic with explicit policy visibility.
+    #[must_use]
+    pub fn no_fallback_policy(
+        feature: impl Into<String>,
+        reason: impl Into<String>,
+        suggested_next_step: impl Into<String>,
+    ) -> Self {
+        Self::new(
+            DiagnosticCode::NoFallbackExecution,
+            DiagnosticSeverity::Error,
+            DiagnosticCategory::NoFallbackPolicy,
+            "Fallback execution is disabled by policy.",
+            Some(feature.into()),
+            Some(reason.into()),
+            Some(suggested_next_step.into()),
+            FallbackStatus::disabled_by_policy(),
+        )
+    }
+
     #[must_use]
     pub fn to_human_text(&self) -> String {
         format!(
@@ -320,5 +421,31 @@ mod tests {
         );
         let json = diagnostic.to_json();
         assert!(json.contains("\"attempted\":false"));
+    }
+
+    #[test]
+    fn invalid_input_sets_category_and_fallback() {
+        let diagnostic = Diagnostic::invalid_input("dataset_uri", "invalid", "fix uri");
+        assert_eq!(diagnostic.category, DiagnosticCategory::InvalidInput);
+        assert!(!diagnostic.fallback.attempted);
+    }
+
+    #[test]
+    fn configuration_error_sets_category_and_fallback() {
+        let diagnostic = Diagnostic::configuration_error("memory_gb", "bad", "set positive");
+        assert_eq!(diagnostic.category, DiagnosticCategory::Configuration);
+        assert!(!diagnostic.fallback.attempted);
+    }
+
+    #[test]
+    fn not_implemented_sets_fallback_false() {
+        let diagnostic = Diagnostic::not_implemented("sql", "not supported", "wait");
+        assert!(!diagnostic.fallback.attempted);
+    }
+
+    #[test]
+    fn metadata_loss_warning_has_warning_severity() {
+        let diagnostic = Diagnostic::metadata_loss_warning("translation", "loss", "use vortex");
+        assert_eq!(diagnostic.severity, DiagnosticSeverity::Warning);
     }
 }
