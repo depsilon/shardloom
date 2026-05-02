@@ -10,6 +10,7 @@ pub mod correctness;
 pub mod dataset;
 pub mod diagnostics;
 pub mod encoded;
+pub mod expression;
 pub mod manifest;
 pub mod output;
 pub mod translation;
@@ -36,6 +37,13 @@ pub use encoded::{
     ExecutionState, LayoutKind, LogicalDType, MaterializationPolicy, Nullability, PredicateExpr,
     PredicateProof, PruningDecision, SegmentId, SegmentLayout, SegmentStats, SelectionVector,
     SortOrder, StatValue, StatisticsExactness,
+};
+
+pub use expression::{
+    BinaryOp, Determinism, EffectLevel, ExprId, Expression, ExpressionKind, FunctionCategory,
+    FunctionSignature, KernelCapability, KernelDescriptor, KernelEvalMode, KernelId, KernelKind,
+    KernelRegistrySnapshot, KernelSelectionRequest, KernelSelectionResult, KernelSelectionStatus,
+    NullBehavior, ScalarValue, UnaryOp,
 };
 
 pub use manifest::{
