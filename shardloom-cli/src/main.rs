@@ -16,8 +16,8 @@ use shardloom_exec::{
     SizeEstimate, SizingInput, SizingPlan, SpillPlan, SpillPolicy, StreamingPlanSkeleton,
 };
 use shardloom_plan::{
-    EstimateReport, ExplainReport, NativePlanDocument, PlanExportRequest, PlanId,
-    PlanImportRequest, PlanInteropFormat, ScanPlanSkeleton, ScanRequest,
+    EstimateReport, ExplainReport, NativePlanDocument, OptimizerPhase, OptimizerPlanSkeleton,
+    PlanExportRequest, PlanId, PlanImportRequest, PlanInteropFormat, ScanPlanSkeleton, ScanRequest,
 };
 use shardloom_vortex::{VortexFileRef, VortexReadPlan, VortexWriteOptions, VortexWritePlan};
 
@@ -857,6 +857,32 @@ fn run(args: Vec<String>) -> ExitCode {
             );
             ExitCode::SUCCESS
         }
+        Some("optimizer-plan") => {
+            let report = OptimizerPlanSkeleton::not_implemented(
+                OptimizerPhase::VortexPhysical,
+                "optimizer_execution",
+                "ShardLoom optimizer planning skeleton exists, but real optimizer execution is not implemented yet.",
+            );
+            emit(
+                "optimizer-plan",
+                format,
+                CommandStatus::Unsupported,
+                "optimizer plan skeleton".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "optimizer_plan".to_string()),
+                    ("status".to_string(), "not_implemented".to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
+                    ("optimizer_phase".to_string(), "vortex_physical".to_string()),
+                ],
+            );
+            ExitCode::from(1)
+        }
         Some("estimate") => {
             let operation = args
                 .next()
@@ -883,7 +909,7 @@ fn run(args: Vec<String>) -> ExitCode {
         }
         _ => {
             eprintln!(
-                "usage: shardloom <status|capabilities|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|explain|estimate|benchmark-plan|correctness-plan> [--format text|json]"
+                "usage: shardloom <status|capabilities|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan> [--format text|json]"
             );
             ExitCode::from(2)
         }
@@ -903,6 +929,12 @@ mod tests {
     #[test]
     fn estimate_unsupported_returns_non_zero() {
         let code = run(vec!["estimate".to_string(), "demo-op".to_string()]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn optimizer_plan_returns_non_zero() {
+        let code = run(vec!["optimizer-plan".to_string()]);
         assert_ne!(code, ExitCode::SUCCESS);
     }
 
