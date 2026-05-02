@@ -6,6 +6,8 @@
 use shardloom_core::{Result, ShardLoomError};
 use shardloom_plan::{Plan, PlanKind};
 
+pub mod runtime;
+
 /// Reported status for the execution subsystem.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExecStatus {
@@ -40,6 +42,12 @@ pub fn unsupported(operation: &str) -> Result<()> {
         "unsupported execution path: {operation}; no fallback engines are enabled"
     )))
 }
+
+pub use runtime::{
+    ByteRangeRequest, ObjectStoreKind, ObjectStoreRef, ReadPolicy, ResourceBudget, RetryPolicy,
+    RuntimePlanSkeleton, RuntimePlanningStatus, SegmentTask, ShuffleRequirement, TaskGraph, TaskId,
+    TaskKind, TaskStatus,
+};
 
 #[cfg(test)]
 mod tests {

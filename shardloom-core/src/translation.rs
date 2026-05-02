@@ -98,7 +98,6 @@ impl OutputTarget {
             OutputTargetKind::DeltaCompatible
         } else if lower.contains("/metadata/")
             && (lower.ends_with(".metadata.json") || lower.ends_with("/v1.metadata.json"))
-            || lower.contains("/iceberg/")
         {
             OutputTargetKind::IcebergCompatible
         } else {
@@ -618,6 +617,14 @@ mod tests {
             DatasetUri::new("s3://bucket/table/metadata/v1.metadata.json").expect("valid uri"),
         );
         assert_eq!(target.kind, OutputTargetKind::IcebergCompatible);
+    }
+
+    #[test]
+    fn output_target_from_uri_iceberg_dir_parquet_stays_parquet() {
+        let target = OutputTarget::from_uri(
+            DatasetUri::new("s3://bucket/iceberg/table/out.parquet").expect("valid uri"),
+        );
+        assert_eq!(target.kind, OutputTargetKind::Parquet);
     }
     #[test]
     fn native_full_fidelity_is_native() {
