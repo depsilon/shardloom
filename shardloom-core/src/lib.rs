@@ -15,6 +15,7 @@ pub mod extension;
 pub mod manifest;
 pub mod observability;
 pub mod output;
+pub mod release;
 pub mod schema;
 pub mod security;
 pub mod translation;
@@ -72,6 +73,13 @@ pub use observability::{
 
 pub use output::{CommandStatus, OutputEnvelope, OutputFormat};
 
+pub use release::{
+    ApiStabilityTier, ChecklistStatus, DependencyLicenseClass, DependencyReview,
+    DependencyReviewStatus, MachineReadableSchemaKind, NoFallbackReleaseCheck, PackageTarget,
+    PackageTargetKind, ProjectVersion, PublicSurface, PublicSurfaceKind, ReleaseArtifactKind,
+    ReleaseArtifactPlan, ReleaseChannel, ReleaseChecklistItem, ReleaseChecklistItemKind,
+    ReleasePlan, ReleaseReadinessStatus, ReleaseReport, SchemaCompatibilityPlan, SchemaStability,
+};
 pub use schema::{
     CatalogKind, CatalogRef, DeleteModel, FieldId, FieldName, FieldPath, PartitionField,
     PartitionSpec, PartitionTransform, SchemaChange, SchemaChangeKind, SchemaCompatibilityLevel,
