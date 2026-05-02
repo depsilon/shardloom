@@ -220,3 +220,27 @@ Important principles:
 - Unsupported spill behavior must fail deterministically before process OOM where possible.
 - Spill files must have cleanup semantics.
 - No Spark or DataFusion fallback is allowed.
+
+## Correctness, optimizer, and fault tolerance
+
+ShardLoom must be correct, explainable, adaptive, and recoverable before it can credibly challenge massive Spark-like workloads.
+
+Before work involving correctness, tests, semantics, differential testing, fuzzing, optimizer rules, adaptive execution, runtime filters, skew handling, retries, cancellation, recovery, commits, or cleanup, read the relevant docs:
+
+- `docs/rfcs/0015-correctness-semantics-differential-testing-fuzzing.md`
+- `docs/rfcs/0016-optimizer-adaptive-execution-runtime-filters-skew.md`
+- `docs/rfcs/0017-fault-tolerance-cancellation-recovery.md`
+- `docs/skills/correctness-testing.md`
+- `docs/skills/optimizer-adaptive-execution.md`
+- `docs/skills/fault-tolerance-recovery.md`
+
+Important principles:
+
+- Correctness comes before performance.
+- Encoded execution must be checked against decoded reference behavior where appropriate.
+- Differential testing may use external engines only as testing/comparison oracles, not fallback execution.
+- Optimizer decisions must be semantics-preserving and diagnosable.
+- Runtime filters must be conservative.
+- Adaptive execution must preserve correctness.
+- Fault states, retries, cancellation, commits, and cleanup must be explicit.
+- No Spark or DataFusion fallback is allowed.
