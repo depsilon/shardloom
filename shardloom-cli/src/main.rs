@@ -33,6 +33,35 @@ fn main() -> ExitCode {
     run(args)
 }
 
+const CLI_COMMAND_NAME: &str = "shardloom";
+#[cfg(test)]
+const CLI_COMMANDS: &[&str] = &[
+    "status",
+    "capabilities",
+    "doctor",
+    "scan-plan",
+    "runtime-plan",
+    "translation-plan",
+    "vortex-plan",
+    "vortex-output-plan",
+];
+
+fn cli_command_name() -> &'static str {
+    CLI_COMMAND_NAME
+}
+
+#[cfg(test)]
+fn cli_commands() -> &'static [&'static str] {
+    CLI_COMMANDS
+}
+
+fn cli_usage_line() -> String {
+    format!(
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan> [--format text|json]",
+        cli_command_name()
+    )
+}
+
 fn parse_output_format(args: Vec<String>) -> Result<(Vec<String>, OutputFormat), String> {
     let mut filtered = Vec::with_capacity(args.len());
     let mut format = OutputFormat::Text;
@@ -1466,9 +1495,7 @@ fn run(args: Vec<String>) -> ExitCode {
             }
         }
         _ => {
-            eprintln!(
-                "usage: shardloom <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan> [--format text|json]"
-            );
+            eprintln!("{}", cli_usage_line());
             ExitCode::from(2)
         }
     }
@@ -1663,5 +1690,20 @@ mod tests {
     fn plan_export_returns_non_zero_for_not_implemented() {
         let code = run(vec!["plan-export".to_string(), "native".to_string()]);
         assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn cli_contract_name_is_shardloom() {
+        assert_eq!(cli_command_name(), "shardloom");
+    }
+
+    #[test]
+    fn cli_contract_commands_include_required_introspection_and_plan_only() {
+        let commands = cli_commands();
+        assert!(commands.contains(&"status"));
+        assert!(commands.contains(&"capabilities"));
+        assert!(commands.contains(&"doctor"));
+        assert!(commands.contains(&"scan-plan"));
+        assert!(commands.contains(&"runtime-plan"));
     }
 }

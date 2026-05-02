@@ -13,6 +13,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "shardloom-contract-tests"
+version = "0.1.0"
+dependencies = [
+ "shardloom-core",
+ "shardloom-exec",
+ "shardloom-plan",
+ "shardloom-vortex",
+]
+
+[[package]]
 name = "shardloom-core"
 version = "0.1.0"
 
