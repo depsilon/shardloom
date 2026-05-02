@@ -230,7 +230,7 @@ impl SizeEstimate {
     }
     pub const fn best_bytes_for_mode(&self, mode: TaskSizingMode) -> Option<ByteSize> {
         match mode {
-            TaskSizingMode::MetadataOnly => Some(ByteSize::from_bytes(0)),
+            TaskSizingMode::MetadataOnly => None,
             TaskSizingMode::EncodedBytes => self.encoded_bytes,
             TaskSizingMode::EstimatedDecodedBytes => self.estimated_decoded_bytes,
             TaskSizingMode::RowCount => None,
@@ -656,6 +656,16 @@ mod tests {
     fn sizer_needs_estimate_when_unknown() {
         let d = AdaptiveSizer::new(AdaptiveSizingPolicy::default_local())
             .decide_for_segment(&SizingInput::new(seg(), SizeEstimate::unknown()));
+        assert_eq!(d.kind, TaskSizingDecisionKind::NeedsEstimate);
+    }
+    #[test]
+    fn metadata_only_without_metadata_needs_estimate() {
+        let d = AdaptiveSizer::new(
+            AdaptiveSizingPolicy::default_local().with_mode(TaskSizingMode::MetadataOnly),
+        )
+        .decide_for_segment(
+            &SizingInput::new(seg(), SizeEstimate::unknown()).with_metadata_available(false),
+        );
         assert_eq!(d.kind, TaskSizingDecisionKind::NeedsEstimate);
     }
     #[test]

@@ -201,3 +201,22 @@ Important principles:
 - Vortex output remains highest-fidelity.
 - Compatibility outputs must report metadata loss.
 - No Spark or DataFusion fallback is allowed.
+
+## Memory, spill, and OOM safety
+
+ShardLoom must treat memory management and spill as first-class design concerns for Spark-displacement workloads.
+
+Before work involving memory budgets, reservations, memory pressure, spill, spill files, spillable operators, stateful operators, shuffle buffers, sink buffers, or OOM diagnostics, read:
+
+- `docs/rfcs/0014-memory-management-spill-oom-safety.md`
+- `docs/skills/memory-spill-oom.md`
+
+Important principles:
+
+- Adaptive sizing and streaming reduce OOM risk but are not sufficient.
+- Stateful operators need memory reservations and spill contracts.
+- Spill must be ShardLoom-native.
+- Prefer columnar and Vortex-native spill where practical.
+- Unsupported spill behavior must fail deterministically before process OOM where possible.
+- Spill files must have cleanup semantics.
+- No Spark or DataFusion fallback is allowed.
