@@ -6,6 +6,7 @@
 
 pub mod benchmark;
 pub mod capabilities;
+pub mod dataset;
 pub mod diagnostics;
 pub mod encoded;
 
@@ -14,6 +15,9 @@ pub use benchmark::{
     CorrectnessValidationMode, MetricValue, WorkloadClass,
 };
 pub use capabilities::{Capability, CapabilityStatus, EngineCapabilities};
+pub use dataset::{
+    DatasetFormat, DatasetId, DatasetRef, DatasetUri, ManifestId, SnapshotId, UriScheme,
+};
 pub use diagnostics::{
     Diagnostic, DiagnosticCategory, DiagnosticCode, DiagnosticSeverity, FallbackStatus,
 };
