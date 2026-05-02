@@ -5,7 +5,10 @@
 
 use std::process::ExitCode;
 
-use shardloom_core::{DatasetRef, DatasetUri, OutputTarget, TranslationPlan};
+use shardloom_core::{
+    ChangeSet, DatasetManifest, DatasetRef, DatasetUri, IncrementalPlanSkeleton, ManifestId,
+    OutputTarget, SnapshotId, SnapshotRef, TranslationPlan, WriteIntent,
+};
 use shardloom_plan::{EstimateReport, ExplainReport, ScanPlanSkeleton, ScanRequest};
 use shardloom_vortex::{VortexFileRef, VortexReadPlan, VortexWriteOptions, VortexWritePlan};
 
@@ -57,6 +60,68 @@ fn run(args: Vec<String>) -> ExitCode {
         Some("benchmark-plan") => {
             let plan = shardloom_core::BenchmarkPlan::default_foundation_plan();
             println!("{}", plan.to_human_text());
+            ExitCode::SUCCESS
+        }
+        Some("manifest-plan") => {
+            let Some(dataset_uri) = args.next() else {
+                eprintln!("usage: shardloom manifest-plan <dataset_uri>");
+                return ExitCode::from(2);
+            };
+            let uri = match DatasetUri::new(dataset_uri) {
+                Ok(uri) => uri,
+                Err(error) => {
+                    eprintln!("invalid dataset uri: {error}");
+                    return ExitCode::from(2);
+                }
+            };
+            let dataset = match DatasetRef::from_uri(uri) {
+                Ok(dataset) => dataset,
+                Err(error) => {
+                    eprintln!("failed to create dataset reference: {error}");
+                    return ExitCode::from(2);
+                }
+            };
+            let snapshot =
+                SnapshotRef::new(SnapshotId::new("snapshot-placeholder").expect("valid"));
+            let manifest = DatasetManifest::new(
+                ManifestId::new("manifest-placeholder").expect("valid"),
+                dataset,
+                snapshot,
+            );
+            println!("{}", manifest.summary());
+            ExitCode::SUCCESS
+        }
+        Some("incremental-plan") => {
+            let Some(snapshot_id) = args.next() else {
+                eprintln!("usage: shardloom incremental-plan <snapshot_id>");
+                return ExitCode::from(2);
+            };
+            let snapshot_id = match SnapshotId::new(snapshot_id) {
+                Ok(snapshot) => snapshot,
+                Err(error) => {
+                    eprintln!("invalid snapshot id: {error}");
+                    return ExitCode::from(2);
+                }
+            };
+            let change_set = ChangeSet::new(snapshot_id);
+            let plan = IncrementalPlanSkeleton::from_change_set(change_set);
+            println!("{}", plan.to_human_text());
+            ExitCode::SUCCESS
+        }
+        Some("write-intent") => {
+            let Some(target_uri) = args.next() else {
+                eprintln!("usage: shardloom write-intent <target_uri>");
+                return ExitCode::from(2);
+            };
+            let uri = match DatasetUri::new(target_uri) {
+                Ok(uri) => uri,
+                Err(error) => {
+                    eprintln!("invalid dataset uri: {error}");
+                    return ExitCode::from(2);
+                }
+            };
+            let intent = WriteIntent::write_not_implemented(OutputTarget::from_uri(uri));
+            println!("{}", intent.summary());
             ExitCode::SUCCESS
         }
         Some("scan-plan") => {
@@ -173,7 +238,7 @@ fn run(args: Vec<String>) -> ExitCode {
         }
         _ => {
             eprintln!(
-                "usage: shardloom-cli <status|capabilities|doctor|scan-plan|translation-plan|vortex-plan|vortex-output-plan|explain|estimate|benchmark-plan>"
+                "usage: shardloom-cli <status|capabilities|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|translation-plan|vortex-plan|vortex-output-plan|explain|estimate|benchmark-plan>"
             );
             ExitCode::from(2)
         }
@@ -194,6 +259,30 @@ mod tests {
     fn estimate_unsupported_returns_non_zero() {
         let code = run(vec!["estimate".to_string(), "demo-op".to_string()]);
         assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn manifest_plan_with_dataset_uri_returns_success() {
+        let code = run(vec![
+            "manifest-plan".to_string(),
+            "file://tmp/test.vortex".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn incremental_plan_with_snapshot_id_returns_success() {
+        let code = run(vec!["incremental-plan".to_string(), "snap-1".to_string()]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn write_intent_with_target_uri_returns_success() {
+        let code = run(vec![
+            "write-intent".to_string(),
+            "file://tmp/out.vortex".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
     }
 
     #[test]

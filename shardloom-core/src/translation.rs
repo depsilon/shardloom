@@ -89,7 +89,21 @@ impl OutputTarget {
 
     #[must_use]
     pub fn from_uri(uri: DatasetUri) -> Self {
-        let kind = OutputTargetKind::from_dataset_format(&DatasetFormat::infer_from_uri(&uri));
+        let lower = uri.as_str().to_ascii_lowercase();
+        let delta_ext = std::path::Path::new(&lower)
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("delta"));
+        let kind = if lower.contains("/_delta_log") || delta_ext {
+            OutputTargetKind::DeltaCompatible
+        } else if lower.contains("/metadata/")
+            && (lower.ends_with(".metadata.json") || lower.ends_with("/v1.metadata.json"))
+            || lower.contains("/iceberg/")
+        {
+            OutputTargetKind::IcebergCompatible
+        } else {
+            OutputTargetKind::from_dataset_format(&DatasetFormat::infer_from_uri(&uri))
+        };
         Self { uri, kind }
     }
 
@@ -587,6 +601,23 @@ mod tests {
     fn output_target_from_uri_infers_parquet() {
         let target = OutputTarget::from_uri(DatasetUri::new("out.parquet").expect("valid uri"));
         assert_eq!(target.kind, OutputTargetKind::Parquet);
+    }
+
+    #[test]
+    fn output_target_from_uri_infers_delta_compatible() {
+        let target = OutputTarget::from_uri(
+            DatasetUri::new("s3://bucket/table/_delta_log/00000000000000000000.json")
+                .expect("valid uri"),
+        );
+        assert_eq!(target.kind, OutputTargetKind::DeltaCompatible);
+    }
+
+    #[test]
+    fn output_target_from_uri_infers_iceberg_compatible() {
+        let target = OutputTarget::from_uri(
+            DatasetUri::new("s3://bucket/table/metadata/v1.metadata.json").expect("valid uri"),
+        );
+        assert_eq!(target.kind, OutputTargetKind::IcebergCompatible);
     }
     #[test]
     fn native_full_fidelity_is_native() {
