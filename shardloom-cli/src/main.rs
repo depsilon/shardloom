@@ -27,8 +27,7 @@ use shardloom_plan::{
     PlanExportRequest, PlanId, PlanImportRequest, PlanInteropFormat, ScanPlanSkeleton, ScanRequest,
 };
 use shardloom_vortex::{
-    VortexAdapterReadiness, VortexDependencyStatus, VortexFileRef, VortexReadPlan,
-    VortexWriteOptions, VortexWritePlan,
+    VortexAdapterReadiness, VortexFileRef, VortexReadPlan, VortexWriteOptions, VortexWritePlan,
 };
 
 fn main() -> ExitCode {
