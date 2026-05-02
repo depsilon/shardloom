@@ -27,8 +27,8 @@ use shardloom_plan::{
     PlanExportRequest, PlanId, PlanImportRequest, PlanInteropFormat, ScanPlanSkeleton, ScanRequest,
 };
 use shardloom_vortex::{
-    VortexAdapterCapabilityReport, VortexAdapterReadiness, VortexFileRef, VortexReadPlan,
-    VortexWriteOptions, VortexWritePlan,
+    VortexAdapterCapabilityReport, VortexAdapterReadiness, VortexDTypeMappingReport, VortexFileRef,
+    VortexReadPlan, VortexWriteOptions, VortexWritePlan,
 };
 
 fn main() -> ExitCode {
@@ -1456,6 +1456,43 @@ fn run(args: Vec<String>) -> ExitCode {
             );
             ExitCode::SUCCESS
         }
+        Some("vortex-dtype-mapping") => {
+            let report = if shardloom_vortex::typed_vortex_dtype_mapping_available() {
+                VortexDTypeMappingReport::implemented("vortex::DType")
+            } else {
+                VortexDTypeMappingReport::deferred_api_unclear()
+            };
+            emit(
+                "vortex-dtype-mapping",
+                format,
+                CommandStatus::Success,
+                "vortex dtype mapping".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "vortex_dtype_mapping".to_string()),
+                    (
+                        "upstream_vortex_dependency".to_string(),
+                        "linked".to_string(),
+                    ),
+                    ("actual_io".to_string(), "not_implemented".to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
+                    (
+                        "name_based_mapping_available".to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "typed_mapping_status".to_string(),
+                        report.status.as_str().to_string(),
+                    ),
+                ],
+            );
+            ExitCode::SUCCESS
+        }
         Some("vortex-api-inventory") => {
             let report = VortexAdapterCapabilityReport::foundation();
             emit(
@@ -1693,6 +1730,12 @@ mod tests {
     #[test]
     fn vortex_api_inventory_returns_success() {
         let code = run(vec!["vortex-api-inventory".to_string()]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_dtype_mapping_returns_success() {
+        let code = run(vec!["vortex-dtype-mapping".to_string()]);
         assert_eq!(code, ExitCode::SUCCESS);
     }
 

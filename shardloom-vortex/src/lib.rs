@@ -7,8 +7,9 @@
 
 pub use adapter::{
     VortexAdapterCapability, VortexAdapterCapabilityReport, VortexAdapterCapabilityStatus,
-    VortexApiArea, VortexApiInventoryItem, VortexApiSupportStatus, map_known_vortex_dtype_name,
-    map_known_vortex_encoding_name, map_known_vortex_layout_name,
+    VortexApiArea, VortexApiInventoryItem, VortexApiSupportStatus, VortexDTypeMappingReport,
+    VortexTypedMappingStatus, map_known_vortex_dtype_name, map_known_vortex_encoding_name,
+    map_known_vortex_layout_name, typed_vortex_dtype_mapping_available,
 };
 
 pub mod adapter;
