@@ -5,6 +5,7 @@ members = [
   "shardloom-plan",
   "shardloom-exec",
   "shardloom-cli",
+  "shardloom-contract-tests",
 ]
 resolver = "2"
 
