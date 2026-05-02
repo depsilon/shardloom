@@ -3,7 +3,7 @@
 //! This module is planning-only: no file IO, no object-store IO, no decode-to-Arrow
 //! default path, and no fallback execution engines.
 
-use shardloom_core::{Diagnostic, DiagnosticCode, LogicalDType, Result, ShardLoomError};
+use shardloom_core::{Diagnostic, LogicalDType, Result, ShardLoomError};
 
 /// Public API area categories discovered from upstream Vortex documentation/source inspection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -247,14 +247,9 @@ impl VortexAdapterCapabilityReport {
     }
     #[must_use]
     pub fn has_errors(&self) -> bool {
-        self.diagnostics.iter().any(|d| {
-            matches!(
-                d.code,
-                DiagnosticCode::InvalidInput
-                    | DiagnosticCode::NotImplemented
-                    | DiagnosticCode::NoFallbackExecution
-            )
-        })
+        self.diagnostics
+            .iter()
+            .any(|d| matches!(d.severity.as_str(), "error" | "fatal"))
     }
     #[must_use]
     pub fn to_human_text(&self) -> String {
@@ -373,6 +368,17 @@ mod tests {
                 .to_human_text()
                 .contains("fallback execution: disabled")
         );
+    }
+
+    #[test]
+    fn has_errors_treats_any_error_severity_as_error() {
+        let mut report = VortexAdapterCapabilityReport::foundation();
+        report.add_diagnostic(shardloom_core::Diagnostic::configuration_error(
+            "vortex_api_inventory",
+            "invalid adapter config",
+            "fix config",
+        ));
+        assert!(report.has_errors());
     }
     #[test]
     fn map_dtype_bool_boolean() {
