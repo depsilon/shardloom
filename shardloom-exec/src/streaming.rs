@@ -1238,7 +1238,8 @@ mod tests {
     #[test]
     fn skeleton_best_data_work_level_promotes_to_materialization_for_compat_sink() {
         assert_eq!(
-            StreamingPlanSkeleton::for_vortex_to_target(ds(), parquet_target()).best_data_work_level(),
+            StreamingPlanSkeleton::for_vortex_to_target(ds(), parquet_target())
+                .best_data_work_level(),
             DataWorkLevel::FullMaterialization
         );
     }
