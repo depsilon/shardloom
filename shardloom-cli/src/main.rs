@@ -5,6 +5,8 @@
 
 use std::process::ExitCode;
 
+use shardloom_plan::{EstimateReport, ExplainReport};
+
 fn main() -> ExitCode {
     let mut args = std::env::args();
     let _bin = args.next();
@@ -29,8 +31,32 @@ fn main() -> ExitCode {
             println!("status: early implementation skeleton");
             ExitCode::SUCCESS
         }
+        Some("explain") => {
+            let operation = args
+                .next()
+                .unwrap_or_else(|| "<unspecified operation>".to_string());
+            let report = ExplainReport::unsupported(
+                operation,
+                "planning",
+                "Real planning is not implemented yet.",
+            );
+            println!("{}", report.to_human_text());
+            ExitCode::SUCCESS
+        }
+        Some("estimate") => {
+            let operation = args
+                .next()
+                .unwrap_or_else(|| "<unspecified operation>".to_string());
+            let report = EstimateReport::unsupported(
+                operation,
+                "estimation",
+                "Real estimation is not implemented yet.",
+            );
+            println!("{}", report.to_human_text());
+            ExitCode::SUCCESS
+        }
         _ => {
-            eprintln!("usage: shardloom-cli <status|capabilities|doctor>");
+            eprintln!("usage: shardloom-cli <status|capabilities|doctor|explain|estimate>");
             ExitCode::from(2)
         }
     }

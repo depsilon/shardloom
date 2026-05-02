@@ -12,6 +12,7 @@ workspace = true
 [dependencies]
 shardloom-core = { path = "../shardloom-core" }
 shardloom-exec = { path = "../shardloom-exec" }
+shardloom-plan = { path = "../shardloom-plan" }
 
 [[bin]]
 name = "shardloom"
