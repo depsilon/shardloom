@@ -24,6 +24,7 @@ pub mod metadata_pruning;
 pub mod metadata_summary;
 pub mod read_planning;
 pub mod runtime_bridge;
+pub mod scheduler_bridge;
 
 pub use file_io::{
     VortexFileIoFeatureStatus, VortexMetadataOpenMode, VortexMetadataOpenReport,
@@ -67,6 +68,12 @@ pub use runtime_bridge::{
     VortexRuntimeBridgeInput, VortexRuntimeBridgeMode, VortexRuntimeBridgeReport,
     VortexRuntimeBridgeStatus, VortexTaskMapping, VortexTaskMappingKind,
     build_vortex_runtime_task_graph, vortex_runtime_bridge_is_side_effect_free,
+};
+pub use scheduler_bridge::{
+    VortexSchedulerBridgeInput, VortexSchedulerBridgeMode, VortexSchedulerBridgeReport,
+    VortexSchedulerBridgeStatus, VortexSchedulingDecisionKind, VortexTaskBatchPlan,
+    VortexTaskQueueClass, VortexTaskSchedulingDecision, plan_vortex_scheduler_queue,
+    vortex_scheduler_bridge_is_side_effect_free,
 };
 
 pub use metadata_summary::{

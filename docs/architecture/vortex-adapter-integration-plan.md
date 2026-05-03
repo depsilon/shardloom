@@ -157,3 +157,11 @@ Object-store and write capabilities remain future feature gates.
 Missing estimates are preserved as `NeedsEstimate` decisions rather than guessed byte sizes. Byte-range intents can contribute encoded-byte estimates only when safe to derive from known ranges.
 
 This bridge remains plan-only: no tasks are executed, no data is read, no decode/materialization is performed, and no object-store IO or writes are issued. It prepares future scheduling and memory-aware execution while preserving no-fallback behavior.
+
+## Scheduler and queue planning bridge
+
+`Vortex` memory bridge reports now feed scheduler/queue planning in a planning-only bridge.
+Scheduled batches are advisory only and are not executed.
+Blocked tasks remain explicit in queue-classified planning outputs.
+Spill-required tasks are not silently run and remain blocked until explicit spill support exists.
+This bridge prepares future execution scheduling without introducing runtime task execution.
