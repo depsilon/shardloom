@@ -124,3 +124,11 @@ First future dependency PR should:
 - The contract is designed to feed metadata summary/planning/pruning flows.
 - Actual scan execution remains out of scope.
 - Object-store and write support remain future feature-gated work.
+
+## Universal input bridge
+
+The `Vortex` adapter now accepts normalized `UniversalInputSource` values.
+
+Native `Vortex` input can flow into metadata open/summary/planning/pruning reports, providing the input-side counterpart to native `Vortex` output fidelity.
+
+Actual scan execution remains out of scope.
