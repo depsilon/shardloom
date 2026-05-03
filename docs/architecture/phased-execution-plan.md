@@ -390,3 +390,10 @@ Cross-cutting epics:
 - Phase 10C is complete (`vortex-run` local engine surface landed in PR #90).
 - Phase 10D is the current stabilization phase for local engine diagnostic propagation.
 - Phase 11A has not started.
+
+## RFC traceability
+
+- Reference: `docs/architecture/rfc-phase-traceability.md`.
+- Each phase has mapped RFCs.
+- Check mapped RFCs before starting a phase.
+- Reviews happen at phase boundaries, not after every small PR.

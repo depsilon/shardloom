@@ -337,3 +337,11 @@ Rules:
 - Do not jump to object-store, writes, spill, distributed execution, or fallback engines early.
 - Cross-cutting epics should be attached to phases, not implemented as unrelated sprawl.
 - ShardLoom should solve incumbent pain points through Vortex-native, no-fallback, metadata-first design.
+
+## RFC and phase traceability
+
+Before starting a new phase, consult:
+- `docs/architecture/phased-execution-plan.md`
+- `docs/architecture/rfc-phase-traceability.md`
+
+Do not re-read every RFC for every PR. Use targeted RFC checks based on the current phase.
