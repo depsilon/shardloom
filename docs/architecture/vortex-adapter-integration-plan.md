@@ -165,3 +165,11 @@ Scheduled batches are advisory only and are not executed.
 Blocked tasks remain explicit in queue-classified planning outputs.
 Spill-required tasks are not silently run and remain blocked until explicit spill support exists.
 This bridge prepares future execution scheduling without introducing runtime task execution.
+
+## Execution readiness gate
+
+Scheduler planning reports now feed a deterministic `VortexExecutionReadinessReport` gate across the end-to-end Vortex planning chain.
+All readiness gates must pass before any future execution path is attempted.
+`VortexDryRunContract` is reporting-only and does not execute tasks.
+Dry-run reporting does not read data.
+Actual execution remains out of scope in this phase.

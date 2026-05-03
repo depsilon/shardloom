@@ -458,7 +458,22 @@ impl VortexMemoryBridgeReport {
     }
     #[must_use]
     fn computed_status(&self) -> VortexMemoryBridgeStatus {
-        if self.tasks_considered == 0 {
+        let has_unsupported_decision = self
+            .task_decisions
+            .iter()
+            .any(|d| d.kind == VortexTaskMemoryDecisionKind::Unsupported);
+        let has_diagnostic_errors = self.diagnostics.iter().any(|d| {
+            matches!(
+                d.severity,
+                DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+            )
+        }) || self
+            .task_decisions
+            .iter()
+            .any(VortexTaskMemoryDecision::has_errors);
+        if has_unsupported_decision || has_diagnostic_errors {
+            VortexMemoryBridgeStatus::Unsupported
+        } else if self.tasks_considered == 0 {
             VortexMemoryBridgeStatus::NoTasksRequired
         } else if self.tasks_spill_required_not_implemented > 0 {
             VortexMemoryBridgeStatus::SpillRequiredButNotImplemented
@@ -764,5 +779,21 @@ mod tests {
             report.tasks_considered > 0
                 || report.status == VortexMemoryBridgeStatus::NoTasksRequired
         );
+    }
+
+    #[test]
+    fn unsupported_task_decision_sets_unsupported_status() {
+        let mut report = VortexMemoryBridgeReport::from_input(VortexMemoryBridgeInput::new(
+            MemoryBudget::from_gib(1).expect("budget"),
+        ))
+        .expect("bridge");
+        report.add_task_decision(VortexTaskMemoryDecision::unsupported(
+            None,
+            "partial-decode",
+            "spill policy blocks partial decode",
+        ));
+        report.recompute_counts();
+        report.status = report.computed_status();
+        assert_eq!(report.status, VortexMemoryBridgeStatus::Unsupported);
     }
 }
