@@ -26,6 +26,15 @@ fn append_diagnostics_section(out: &mut String, diagnostics: &[Diagnostic]) {
     out.push_str("\ndiagnostics:");
     for diagnostic in diagnostics {
         let _ = write!(out, "\n- {}", diagnostic.to_human_text());
+        if let Some(feature) = &diagnostic.feature {
+            let _ = write!(out, " feature={feature}");
+        }
+        if let Some(reason) = &diagnostic.reason {
+            let _ = write!(out, " reason={reason}");
+        }
+        if let Some(next_step) = &diagnostic.suggested_next_step {
+            let _ = write!(out, " next_step={next_step}");
+        }
     }
 }
 
@@ -694,11 +703,11 @@ mod tests {
         let mut report = VortexAdapterCapabilityReport::foundation();
         report.add_diagnostic(shardloom_core::Diagnostic::configuration_error(
             "vortex_capability_mapping",
-            "capability unresolved",
+            "capability probe pending",
             "keep probe in planning mode",
         ));
         let text = report.to_human_text();
-        assert!(text.contains("capability unresolved"));
+        assert!(text.contains("keep probe in planning mode"));
         assert!(text.contains("fallback execution: disabled"));
     }
     #[test]
@@ -853,12 +862,12 @@ mod tests {
         let mut report = VortexDTypeMappingReport::deferred_api_unclear();
         report.add_diagnostic(shardloom_core::Diagnostic::configuration_error(
             "vortex_dtype_mapping",
-            "typed API unresolved",
+            "typed API probe pending",
             "continue using name-based mapping",
         ));
         let text = report.to_human_text();
         assert!(text.contains("diagnostics:"));
-        assert!(text.contains("typed API unresolved"));
+        assert!(text.contains("continue using name-based mapping"));
         assert!(text.contains("fallback execution allowed: false"));
     }
     #[test]
@@ -932,11 +941,11 @@ mod tests {
         let mut report = VortexEncodingLayoutMappingReport::deferred_api_unclear();
         report.add_diagnostic(shardloom_core::Diagnostic::configuration_error(
             "vortex_encoding_layout_mapping",
-            "encoding API unresolved",
+            "encoding API probe pending",
             "continue using name-based mapping",
         ));
         let text = report.to_human_text();
-        assert!(text.contains("encoding API unresolved"));
+        assert!(text.contains("continue using name-based mapping"));
         assert!(text.contains("fallback execution allowed: false"));
     }
 }
