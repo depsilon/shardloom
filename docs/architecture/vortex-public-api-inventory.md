@@ -350,3 +350,9 @@ No fallback execution was introduced.
 - Query primitive layer now models projection/filter work.
 - These remain future encoded-read/predicate-kernel work unless metadata proves an answer.
 - No fallback execution introduced.
+
+
+## Query trace and work avoided update
+
+- These reports are `ShardLoom`-native and do not call upstream `Vortex` scan execution.
+- No fallback execution is introduced.

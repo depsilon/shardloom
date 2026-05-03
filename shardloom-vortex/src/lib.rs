@@ -29,6 +29,7 @@ pub mod metadata_planning;
 pub mod metadata_pruning;
 pub mod metadata_summary;
 pub mod query_primitive;
+pub mod query_trace;
 pub mod read_planning;
 pub mod runtime_bridge;
 pub mod scheduler_bridge;
@@ -113,6 +114,12 @@ pub use query_primitive::{
     VortexQueryPrimitiveKind, VortexQueryPrimitiveMode, VortexQueryPrimitiveRequest,
     VortexQueryPrimitiveResult, VortexQueryPrimitiveStatus, VortexQueryPrimitiveValue,
     evaluate_vortex_count_all_from_summary, evaluate_vortex_query_primitive,
+};
+pub use query_trace::{
+    VortexQueryDecisionKind, VortexQueryDecisionTrace, VortexQueryDecisionTraceEntry,
+    VortexQueryPrimitiveAnalysisReport, VortexWorkAvoidedMetric, VortexWorkAvoidedMetricKind,
+    VortexWorkAvoidedReport, VortexWorkAvoidedValue, analyze_vortex_query_primitive_result,
+    evaluate_vortex_query_primitive_with_analysis,
 };
 
 pub use read_planning::{

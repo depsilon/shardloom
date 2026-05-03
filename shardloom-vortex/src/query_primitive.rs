@@ -247,6 +247,10 @@ pub struct VortexQueryPrimitiveResult {
 }
 impl VortexQueryPrimitiveResult {
     #[must_use]
+    pub fn to_analysis_report(self) -> crate::VortexQueryPrimitiveAnalysisReport {
+        crate::analyze_vortex_query_primitive_result(self)
+    }
+    #[must_use]
     pub fn metadata_answered(
         request: VortexQueryPrimitiveRequest,
         value: VortexQueryPrimitiveValue,
