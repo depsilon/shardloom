@@ -17,6 +17,7 @@ pub use adapter::{
     typed_vortex_statistics_mapping_available,
 };
 
+pub mod bounded_execution;
 pub mod encoded_read_api;
 pub mod encoded_read_executor;
 pub mod encoded_read_probe;
@@ -138,6 +139,13 @@ pub use scheduler_bridge::{
     VortexSchedulerBridgeStatus, VortexSchedulingDecisionKind, VortexTaskBatchPlan,
     VortexTaskQueueClass, VortexTaskSchedulingDecision, plan_vortex_scheduler_queue,
     vortex_scheduler_bridge_is_side_effect_free,
+};
+
+pub use bounded_execution::{
+    VortexBoundedExecutionDecision, VortexBoundedExecutionDecisionKind,
+    VortexBoundedExecutionInput, VortexBoundedExecutionMode, VortexBoundedExecutionPolicy,
+    VortexBoundedExecutionReport, VortexBoundedExecutionStatus, execute_vortex_bounded_local_query,
+    vortex_bounded_execution_is_side_effect_free,
 };
 
 pub use local_execution::{

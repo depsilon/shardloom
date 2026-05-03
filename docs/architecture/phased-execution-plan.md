@@ -373,3 +373,9 @@ Cross-cutting epics:
 - Phase 9C: complete.
 - Phase 9D: complete (DecisionTrace + WorkAvoidedReport for query primitives).
 - Phase 10A: current (local execution loop skeleton; metadata/no-op only).
+
+
+## Phase 10B update
+
+- Phase 10A is complete.
+- Phase 10B is now the current phase, focused on memory-safe bounded scheduling for local execution.
