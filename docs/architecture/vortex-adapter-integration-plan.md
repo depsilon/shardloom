@@ -295,3 +295,9 @@ This begins visible engine behavior without broad query execution.
 ## Memory-safe bounded local execution
 
 The bounded local loop consumes metadata-only local execution results plus resource policy, completes safe metadata/no-op work, defers encoded-read-required work, preserves memory and max-parallelism policy, and does not scan/decode/materialize/write/object-store/spill/fallback.
+
+
+## Local engine CLI/API surface
+- `vortex-run` wraps query primitives, local execution, bounded execution, `DecisionTrace`, and `WorkAvoidedReport`.
+- It is currently metadata/no-op/deferred only.
+- It does not execute encoded reads, scan rows, decode, materialize, write, object-store IO, spill IO, or fallback execution.

@@ -379,3 +379,8 @@ Cross-cutting epics:
 
 - Phase 10A is complete.
 - Phase 10B is now the current phase, focused on memory-safe bounded scheduling for local execution.
+
+
+## Phase 10C update
+- Phase 10B is complete.
+- Phase 10C is current and introduces the local engine CLI/API surface.

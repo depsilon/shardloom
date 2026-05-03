@@ -39,9 +39,10 @@ use shardloom_vortex::{
     execute_vortex_encoded_read_spike, execute_vortex_local_query_primitive,
     execute_vortex_metadata_only, metadata_planning_is_side_effect_free,
     metadata_pruning_is_side_effect_free, metadata_summary_is_plan_only, open_vortex_metadata_only,
-    plan_from_vortex_metadata_summary, plan_native_vortex_universal_input,
-    plan_vortex_encoded_read_probe, plan_vortex_memory_safety, plan_vortex_metadata_pruning,
-    plan_vortex_read_from_universal_input, plan_vortex_scheduler_queue, probe_vortex_metadata_only,
+    parse_vortex_local_engine_primitive, plan_from_vortex_metadata_summary,
+    plan_native_vortex_universal_input, plan_vortex_encoded_read_probe, plan_vortex_memory_safety,
+    plan_vortex_metadata_pruning, plan_vortex_read_from_universal_input,
+    plan_vortex_scheduler_queue, probe_vortex_metadata_only, run_vortex_local_engine,
     size_vortex_runtime_task_graph, summarize_vortex_metadata_probe,
     vortex_encoded_read_executor_feature_enabled, vortex_encoded_read_public_api_boundary,
     vortex_encoded_read_spike_feature_enabled, vortex_file_io_feature_enabled,
@@ -61,7 +62,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count|vortex-count-where|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count|vortex-count-where|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run> [--format text|json]",
         cli_command_name()
     )
 }
@@ -4703,6 +4704,119 @@ fn run(args: Vec<String>) -> ExitCode {
                 ExitCode::SUCCESS
             }
         }
+        Some("vortex-run") => {
+            let Some(uri_arg) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-run <dataset_uri> <primitive> <memory_gb> <max_parallelism>"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(primitive_arg) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-run <dataset_uri> <primitive> <memory_gb> <max_parallelism>"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(memory_gb_text) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-run <dataset_uri> <primitive> <memory_gb> <max_parallelism>"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(max_parallelism_text) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-run <dataset_uri> <primitive> <memory_gb> <max_parallelism>"
+                );
+                return ExitCode::from(2);
+            };
+            let uri = match DatasetUri::new(uri_arg) {
+                Ok(v) => v,
+                Err(error) => return emit_error("vortex-run", format, "vortex run failed", &error),
+            };
+            let primitive = match parse_vortex_local_engine_primitive(&primitive_arg) {
+                Ok(v) => v,
+                Err(error) => return emit_error("vortex-run", format, "vortex run failed", &error),
+            };
+            let memory_gb: u64 = match memory_gb_text.parse() {
+                Ok(v) => v,
+                Err(_) => {
+                    return emit_error(
+                        "vortex-run",
+                        format,
+                        "vortex run failed",
+                        &ShardLoomError::InvalidOperation(
+                            "memory_gb must be an unsigned integer".to_string(),
+                        ),
+                    );
+                }
+            };
+            let max_parallelism: usize = match max_parallelism_text.parse() {
+                Ok(v) => v,
+                Err(_) => {
+                    return emit_error(
+                        "vortex-run",
+                        format,
+                        "vortex run failed",
+                        &ShardLoomError::InvalidOperation(
+                            "max_parallelism must be an unsigned integer".to_string(),
+                        ),
+                    );
+                }
+            };
+            let request = match shardloom_vortex::VortexLocalEngineRequest::new(
+                uri,
+                primitive,
+                memory_gb,
+                max_parallelism,
+            ) {
+                Ok(v) => v,
+                Err(error) => return emit_error("vortex-run", format, "vortex run failed", &error),
+            };
+            let report = match run_vortex_local_engine(request) {
+                Ok(v) => v,
+                Err(error) => return emit_error("vortex-run", format, "vortex run failed", &error),
+            };
+            emit(
+                "vortex-run",
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "vortex local engine surface".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "vortex_run".to_string()),
+                    ("primitive".to_string(), primitive_arg),
+                    ("memory_gb".to_string(), memory_gb.to_string()),
+                    ("max_parallelism".to_string(), max_parallelism.to_string()),
+                    ("result_known".to_string(), report.result_known.to_string()),
+                    ("tasks_executed".to_string(), "false".to_string()),
+                    ("data_read".to_string(), "false".to_string()),
+                    ("data_decoded".to_string(), "false".to_string()),
+                    ("data_materialized".to_string(), "false".to_string()),
+                    ("object_store_io".to_string(), "false".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
+                    ("spill_io_performed".to_string(), "false".to_string()),
+                    ("external_effects_executed".to_string(), "false".to_string()),
+                    (
+                        "execution".to_string(),
+                        "metadata_only_or_not_performed".to_string(),
+                    ),
+                ],
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
         Some("vortex-query-trace") => {
             let Some(uri_arg) = args.next() else {
                 eprintln!("usage: shardloom vortex-query-trace <dataset_uri> <primitive>");
@@ -5417,34 +5531,55 @@ mod tests {
 
     #[test]
     fn vortex_schedule_plan_with_vortex_uri_returns_success() {
-        let code = run(vec![
-            "vortex-schedule-plan".to_string(),
-            "file://tmp/data.vortex".to_string(),
-            "8".to_string(),
-            "2".to_string(),
-        ]);
+        let code = std::thread::Builder::new()
+            .stack_size(8 * 1024 * 1024)
+            .spawn(|| {
+                run(vec![
+                    "vortex-schedule-plan".to_string(),
+                    "file://tmp/data.vortex".to_string(),
+                    "8".to_string(),
+                    "2".to_string(),
+                ])
+            })
+            .expect("thread spawn should succeed")
+            .join()
+            .expect("thread join should succeed");
         assert_eq!(code, ExitCode::SUCCESS);
     }
 
     #[test]
     fn vortex_execution_readiness_with_vortex_uri_returns_non_zero_when_blocked() {
-        let code = run(vec![
-            "vortex-execution-readiness".to_string(),
-            "file://tmp/data.vortex".to_string(),
-            "8".to_string(),
-            "2".to_string(),
-        ]);
+        let code = std::thread::Builder::new()
+            .stack_size(8 * 1024 * 1024)
+            .spawn(|| {
+                run(vec![
+                    "vortex-execution-readiness".to_string(),
+                    "file://tmp/data.vortex".to_string(),
+                    "8".to_string(),
+                    "2".to_string(),
+                ])
+            })
+            .expect("thread spawn should succeed")
+            .join()
+            .expect("thread join should succeed");
         assert_ne!(code, ExitCode::SUCCESS);
     }
 
     #[test]
     fn vortex_dry_run_with_vortex_uri_returns_non_zero_when_readiness_blocked() {
-        let code = run(vec![
-            "vortex-dry-run".to_string(),
-            "file://tmp/data.vortex".to_string(),
-            "8".to_string(),
-            "2".to_string(),
-        ]);
+        let code = std::thread::Builder::new()
+            .stack_size(8 * 1024 * 1024)
+            .spawn(|| {
+                run(vec![
+                    "vortex-dry-run".to_string(),
+                    "file://tmp/data.vortex".to_string(),
+                    "8".to_string(),
+                    "2".to_string(),
+                ])
+            })
+            .expect("thread spawn should succeed")
+            .join()
+            .expect("thread join should succeed");
         assert_ne!(code, ExitCode::SUCCESS);
     }
 

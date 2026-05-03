@@ -148,6 +148,11 @@ pub use bounded_execution::{
     vortex_bounded_execution_is_side_effect_free,
 };
 
+pub use local_engine::{
+    VortexLocalEngineMode, VortexLocalEnginePrimitive, VortexLocalEngineReport,
+    VortexLocalEngineRequest, VortexLocalEngineStatus, parse_vortex_local_engine_primitive,
+    run_vortex_local_engine, vortex_local_engine_is_side_effect_free,
+};
 pub use local_execution::{
     VortexLocalExecutionInput, VortexLocalExecutionMode, VortexLocalExecutionReport,
     VortexLocalExecutionStatus, VortexLocalExecutionStep, VortexLocalExecutionStepKind,
@@ -164,6 +169,7 @@ pub use metadata_summary::{
 pub mod adapter;
 pub mod adaptive_sizing;
 pub mod input_bridge;
+pub mod local_engine;
 pub mod local_execution;
 
 use std::fmt::Write as _;
