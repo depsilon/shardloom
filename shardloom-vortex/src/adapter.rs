@@ -7,6 +7,41 @@ use std::fmt::Write as _;
 
 use shardloom_core::{Diagnostic, LogicalDType, Result, ShardLoomError};
 
+/// Shared report hygiene helpers for `ShardLoom` Vortex adapter reporting.
+///
+/// Adapter reports must render non-empty diagnostics in human text, implement
+/// severity-based `has_errors`, keep fallback execution disabled visible, and
+/// remain planning-only (no real IO in these skeleton reports).
+fn diagnostics_have_errors(diagnostics: &[Diagnostic]) -> bool {
+    diagnostics
+        .iter()
+        .any(|diagnostic| matches!(diagnostic.severity.as_str(), "error" | "fatal"))
+}
+
+fn append_diagnostics_section(out: &mut String, diagnostics: &[Diagnostic]) {
+    if diagnostics.is_empty() {
+        out.push_str("\ndiagnostics: none");
+        return;
+    }
+    out.push_str("\ndiagnostics:");
+    for diagnostic in diagnostics {
+        let _ = write!(out, "\n- {}", diagnostic.to_human_text());
+        if let Some(feature) = &diagnostic.feature {
+            let _ = write!(out, " feature={feature}");
+        }
+        if let Some(reason) = &diagnostic.reason {
+            let _ = write!(out, " reason={reason}");
+        }
+        if let Some(next_step) = &diagnostic.suggested_next_step {
+            let _ = write!(out, " next_step={next_step}");
+        }
+    }
+}
+
+fn append_fallback_disabled_line(out: &mut String) {
+    out.push_str("\nfallback execution allowed: false");
+}
+
 /// Public API area categories discovered from upstream Vortex documentation/source inspection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VortexApiArea {
@@ -254,9 +289,7 @@ impl VortexAdapterCapabilityReport {
     }
     #[must_use]
     pub fn has_errors(&self) -> bool {
-        self.diagnostics
-            .iter()
-            .any(|d| matches!(d.severity.as_str(), "error" | "fatal"))
+        diagnostics_have_errors(&self.diagnostics)
     }
     #[must_use]
     pub fn to_human_text(&self) -> String {
@@ -266,14 +299,7 @@ impl VortexAdapterCapabilityReport {
         for (cap, status) in &self.capabilities {
             let _ = write!(out, "\n- {}: {}", cap.as_str(), status.as_str());
         }
-        if self.diagnostics.is_empty() {
-            out.push_str("\ndiagnostics: none");
-        } else {
-            out.push_str("\ndiagnostics:");
-            for diagnostic in &self.diagnostics {
-                let _ = write!(out, "\n- {}", diagnostic.to_human_text());
-            }
-        }
+        append_diagnostics_section(&mut out, &self.diagnostics);
         out
     }
 }
@@ -368,52 +394,23 @@ impl VortexDTypeMappingReport {
     /// Returns whether the report contains error/fatal diagnostics.
     #[must_use]
     pub fn has_errors(&self) -> bool {
-        self.diagnostics
-            .iter()
-            .any(|d| matches!(d.severity.as_str(), "error" | "fatal"))
+        diagnostics_have_errors(&self.diagnostics)
     }
 
     /// Renders a human summary for CLI and operator diagnostics.
     #[must_use]
     pub fn to_human_text(&self) -> String {
         let mut out = format!(
-            "Vortex typed DType mapping probe
-status: {}
-name-based mapping available: {}
-actual IO implemented: {}
-fallback execution allowed: {}",
+            "Vortex typed DType mapping probe\nstatus: {}\nname-based mapping available: {}\nactual IO implemented: {}",
             self.status.as_str(),
             self.name_based_mapping_available,
             self.actual_io_implemented,
-            self.fallback_execution_allowed,
         );
+        append_fallback_disabled_line(&mut out);
         if let Some(api) = &self.typed_api_name {
-            let _ = write!(
-                out,
-                "
-typed API: {api}"
-            );
+            let _ = write!(out, "\ntyped API: {api}");
         }
-        if self.diagnostics.is_empty() {
-            out.push_str(
-                "
-diagnostics: none",
-            );
-        } else {
-            out.push_str(
-                "
-diagnostics:",
-            );
-            for diagnostic in &self.diagnostics {
-                let _ = write!(out, "\n- {}", diagnostic.to_human_text());
-                if let Some(reason) = &diagnostic.reason {
-                    let _ = write!(out, "\n  reason: {reason}");
-                }
-                if let Some(next_step) = &diagnostic.suggested_next_step {
-                    let _ = write!(out, "\n  suggested next step: {next_step}");
-                }
-            }
-        }
+        append_diagnostics_section(&mut out, &self.diagnostics);
         out
     }
 }
@@ -551,34 +548,25 @@ impl VortexEncodingLayoutMappingReport {
     }
     #[must_use]
     pub fn has_errors(&self) -> bool {
-        self.diagnostics
-            .iter()
-            .any(|d| matches!(d.severity.as_str(), "error" | "fatal"))
+        diagnostics_have_errors(&self.diagnostics)
     }
     #[must_use]
     pub fn to_human_text(&self) -> String {
         let mut out = format!(
-            "Vortex typed encoding/layout mapping probe\nencoding mapping status: {}\nlayout mapping status: {}\nname-based mapping available: {}\nactual IO implemented: {}\nfallback execution allowed: {}",
+            "Vortex typed encoding/layout mapping probe\nencoding mapping status: {}\nlayout mapping status: {}\nname-based mapping available: {}\nactual IO implemented: {}",
             self.encoding_status.as_str(),
             self.layout_status.as_str(),
             self.name_based_mapping_available,
-            self.actual_io_implemented,
-            self.fallback_execution_allowed
+            self.actual_io_implemented
         );
+        append_fallback_disabled_line(&mut out);
         if let Some(api) = &self.encoding_api_name {
             let _ = write!(out, "\nencoding API: {api}");
         }
         if let Some(api) = &self.layout_api_name {
             let _ = write!(out, "\nlayout API: {api}");
         }
-        if self.diagnostics.is_empty() {
-            out.push_str("\ndiagnostics: none");
-        } else {
-            out.push_str("\ndiagnostics:");
-            for diagnostic in &self.diagnostics {
-                let _ = write!(out, "\n- {}", diagnostic.to_human_text());
-            }
-        }
+        append_diagnostics_section(&mut out, &self.diagnostics);
         out
     }
 }
@@ -709,6 +697,18 @@ mod tests {
             "fix config",
         ));
         assert!(report.has_errors());
+    }
+    #[test]
+    fn capability_report_human_text_renders_non_empty_diagnostics() {
+        let mut report = VortexAdapterCapabilityReport::foundation();
+        report.add_diagnostic(shardloom_core::Diagnostic::configuration_error(
+            "vortex_capability_mapping",
+            "capability probe pending",
+            "capability unresolved",
+        ));
+        let text = report.to_human_text();
+        assert!(text.contains("capability unresolved"));
+        assert!(text.contains("fallback execution: disabled"));
     }
     #[test]
     fn foundation_dtype_mapping_is_blocked_on_api_discovery() {
@@ -862,12 +862,24 @@ mod tests {
         let mut report = VortexDTypeMappingReport::deferred_api_unclear();
         report.add_diagnostic(shardloom_core::Diagnostic::configuration_error(
             "vortex_dtype_mapping",
+            "typed API probe pending",
             "typed API unresolved",
-            "continue using name-based mapping",
         ));
         let text = report.to_human_text();
         assert!(text.contains("diagnostics:"));
         assert!(text.contains("typed API unresolved"));
+        assert!(text.contains("fallback execution allowed: false"));
+    }
+    #[test]
+    fn dtype_report_has_errors_is_severity_based() {
+        let mut report = VortexDTypeMappingReport::deferred_api_unclear();
+        assert!(!report.has_errors());
+        report.add_diagnostic(shardloom_core::Diagnostic::configuration_error(
+            "vortex_dtype_mapping",
+            "typed API unresolved",
+            "keep typed mapping deferred",
+        ));
+        assert!(report.has_errors());
     }
 
     #[test]
@@ -923,5 +935,17 @@ mod tests {
             "keep mapping deferred",
         ));
         assert!(report.has_errors());
+    }
+    #[test]
+    fn encoding_layout_report_human_text_renders_non_empty_diagnostics() {
+        let mut report = VortexEncodingLayoutMappingReport::deferred_api_unclear();
+        report.add_diagnostic(shardloom_core::Diagnostic::configuration_error(
+            "vortex_encoding_layout_mapping",
+            "encoding API probe pending",
+            "encoding API unresolved",
+        ));
+        let text = report.to_human_text();
+        assert!(text.contains("encoding API unresolved"));
+        assert!(text.contains("fallback execution allowed: false"));
     }
 }

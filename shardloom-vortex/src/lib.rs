@@ -15,6 +15,8 @@ pub use adapter::{
 
 pub mod adapter;
 
+use std::fmt::Write as _;
+
 use shardloom_core::{
     ColumnRef, DatasetRef, DatasetUri, Diagnostic, DiagnosticCode, EncodedSegment, FallbackStatus,
     Result, ShardLoomError,
@@ -183,8 +185,16 @@ impl VortexAdapterReadiness {
         } else {
             text.push_str("\ndiagnostics:");
             for diagnostic in &self.diagnostics {
-                text.push_str("\n- ");
-                text.push_str(&diagnostic.to_human_text());
+                let _ = write!(text, "\n- {}", diagnostic.to_human_text());
+                if let Some(feature) = &diagnostic.feature {
+                    let _ = write!(text, " feature={feature}");
+                }
+                if let Some(reason) = &diagnostic.reason {
+                    let _ = write!(text, " reason={reason}");
+                }
+                if let Some(next_step) = &diagnostic.suggested_next_step {
+                    let _ = write!(text, " next_step={next_step}");
+                }
             }
         }
         text
@@ -1011,6 +1021,23 @@ mod tests {
         ));
         assert!(readiness.has_errors());
         assert!(!readiness.is_ready_for_dependency_pr());
+    }
+    #[test]
+    fn adapter_readiness_human_text_renders_non_empty_diagnostics() {
+        let mut readiness = VortexAdapterReadiness::dependency_added_compile_only();
+        readiness.add_diagnostic(Diagnostic::configuration_error(
+            "vortex_adapter_readiness",
+            "readiness probe pending",
+            "readiness unresolved",
+        ));
+        let text = readiness.to_human_text();
+        assert!(text.contains("readiness unresolved"));
+        assert!(text.contains("fallback execution: disabled"));
+    }
+    #[test]
+    fn adapter_readiness_has_errors_false_without_diagnostics() {
+        let readiness = VortexAdapterReadiness::not_ready();
+        assert!(!readiness.has_errors());
     }
 
     #[test]
