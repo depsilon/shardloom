@@ -18,11 +18,18 @@ pub use adapter::{
 };
 
 pub mod metadata_planning;
+pub mod metadata_pruning;
 pub mod metadata_summary;
 
 pub use metadata_planning::{
     VortexMetadataPlanningMode, VortexMetadataPlanningReport, VortexMetadataPlanningStatus,
     metadata_planning_is_side_effect_free, plan_from_vortex_metadata_summary,
+};
+
+pub use metadata_pruning::{
+    VortexMetadataPruningInput, VortexMetadataPruningMode, VortexMetadataPruningReport,
+    VortexMetadataPruningStatus, VortexSegmentPruningResult, metadata_pruning_is_side_effect_free,
+    plan_vortex_metadata_pruning, prove_predicate_from_segment_stats,
 };
 
 pub use metadata_summary::{

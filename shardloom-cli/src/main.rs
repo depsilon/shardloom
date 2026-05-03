@@ -30,8 +30,9 @@ use shardloom_vortex::{
     VortexAdapterCapabilityReport, VortexAdapterReadiness, VortexDTypeMappingReport,
     VortexEncodingLayoutMappingReport, VortexFileRef, VortexMetadataProbeReport, VortexReadPlan,
     VortexStatisticsMappingReport, VortexWriteOptions, VortexWritePlan,
-    metadata_planning_is_side_effect_free, metadata_summary_is_plan_only,
-    plan_from_vortex_metadata_summary, probe_vortex_metadata_only, summarize_vortex_metadata_probe,
+    metadata_planning_is_side_effect_free, metadata_pruning_is_side_effect_free,
+    metadata_summary_is_plan_only, plan_from_vortex_metadata_summary, plan_vortex_metadata_pruning,
+    probe_vortex_metadata_only, summarize_vortex_metadata_probe,
 };
 
 fn main() -> ExitCode {
@@ -47,7 +48,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-metadata-summary|vortex-metadata-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan> [--format text|json]",
         cli_command_name()
     )
 }
@@ -1701,6 +1702,99 @@ fn run(args: Vec<String>) -> ExitCode {
             } else {
                 ExitCode::SUCCESS
             }
+        }
+
+        Some("vortex-pruning-plan") => {
+            let Some(uri_arg) = args.next() else {
+                return emit_error(
+                    "vortex-pruning-plan",
+                    format,
+                    "vortex pruning plan failed",
+                    &ShardLoomError::InvalidOperation("missing <dataset_uri> argument".to_string()),
+                );
+            };
+            let uri = match DatasetUri::new(uri_arg) {
+                Ok(uri) => uri,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-pruning-plan",
+                        format,
+                        "vortex pruning plan failed",
+                        &error,
+                    );
+                }
+            };
+            let probe = match probe_vortex_metadata_only(uri) {
+                Ok(p) => p,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-pruning-plan",
+                        format,
+                        "vortex pruning plan failed",
+                        &error,
+                    );
+                }
+            };
+            let summary = summarize_vortex_metadata_probe(&probe);
+            let planning = match plan_from_vortex_metadata_summary(summary) {
+                Ok(p) => p,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-pruning-plan",
+                        format,
+                        "vortex pruning plan failed",
+                        &error,
+                    );
+                }
+            };
+            let report = match plan_vortex_metadata_pruning(planning, None) {
+                Ok(r) => r,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-pruning-plan",
+                        format,
+                        "vortex pruning plan failed",
+                        &error,
+                    );
+                }
+            };
+            let text = report.to_human_text();
+            emit(
+                "vortex-pruning-plan",
+                format,
+                CommandStatus::Success,
+                "vortex metadata pruning plan".to_string(),
+                text,
+                report.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "vortex_pruning_plan".to_string()),
+                    ("metadata_only".to_string(), "true".to_string()),
+                    ("plan_only".to_string(), report.is_plan_only().to_string()),
+                    (
+                        "data_executed".to_string(),
+                        report.data_executed.to_string(),
+                    ),
+                    (
+                        "data_materialized".to_string(),
+                        report.data_materialized.to_string(),
+                    ),
+                    (
+                        "object_store_io".to_string(),
+                        report.object_store_io.to_string(),
+                    ),
+                    ("write_io".to_string(), report.write_io.to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
+                    (
+                        "side_effect_free".to_string(),
+                        metadata_pruning_is_side_effect_free(&report).to_string(),
+                    ),
+                ],
+            );
+            ExitCode::SUCCESS
         }
 
         Some("vortex-metadata-probe") => {

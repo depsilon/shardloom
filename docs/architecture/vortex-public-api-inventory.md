@@ -191,3 +191,12 @@ Implement typed DType adapter mapping only if upstream public DType APIs are cle
 - This integration is planning-only: it does not scan, decode, materialize, or write data.
 - This bridge is the near-term seam for future pruning and metadata-only explain/estimate evolution.
 - No fallback execution behavior or external execution engine was introduced.
+
+## Metadata-driven pruning update
+
+- `Vortex` metadata summaries now feed conservative metadata-driven pruning plans.
+- Pruning uses `SegmentStats` and metadata only.
+- Missing statistics do not prove absence.
+- No scan, decode, materialization, object-store IO, or writes are performed.
+- This is the future seam for metadata-only execution and segment pruning.
+- No fallback execution is introduced.

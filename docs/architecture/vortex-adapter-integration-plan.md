@@ -101,3 +101,11 @@ First future dependency PR should:
 - The bridge remains plan-only and side-effect-free.
 - It prepares future segment pruning and richer scan planning integration.
 - Actual scan execution remains explicitly out of scope for this stage.
+
+## Metadata pruning bridge
+
+- Metadata planning now feeds conservative pruning decisions.
+- `PredicateProof` derivation is conservative.
+- Incorrect pruning is a correctness bug.
+- Future execution should consume these pruning reports before reading data.
+- Actual scan execution remains out of scope.
