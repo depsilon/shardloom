@@ -254,3 +254,9 @@ If metadata-only behavior cannot be guaranteed from public upstream APIs for a r
 Projection/filter remain `encoded_read_required` or deferred.
 No scan/decode/materialization path is introduced in this phase.
 This begins visible engine behavior without broad query execution.
+
+## Metadata-filtered count primitive
+- `CountWhere` can be answered from metadata only when predicate proof is decisive.
+- Missing or inconclusive stats return `NeedsEncodedRead` / `NeedsPredicateEvaluation`.
+- No selectivity guessing.
+- No scan, decode, or materialization is introduced.
