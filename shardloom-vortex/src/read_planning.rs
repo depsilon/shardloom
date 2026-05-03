@@ -431,6 +431,20 @@ impl VortexReadPlanningReport {
             diagnostics: vec![],
         };
         if let Some(pruning) = out.input.pruning_report.clone() {
+            if matches!(
+                pruning.status,
+                crate::VortexMetadataPruningStatus::Unsupported
+            ) {
+                out.add_diagnostic(Diagnostic::unsupported(
+                    DiagnosticCode::NotImplemented,
+                    "vortex-read-plan",
+                    "Upstream metadata pruning reported unsupported planning state",
+                    Some("Fallback attempted: false".to_string()),
+                ));
+            }
+            for diagnostic in pruning.diagnostics {
+                out.add_diagnostic(diagnostic);
+            }
             for result in pruning.results {
                 let mut intent = match result.status {
                     crate::VortexMetadataPruningStatus::Pruned => VortexSegmentReadIntent::pruned(
@@ -513,6 +527,13 @@ impl VortexReadPlanningReport {
             out.status = VortexReadIntentStatus::MetadataOnly;
         } else if out.segments_pruned > 0 {
             out.status = VortexReadIntentStatus::Pruned;
+        } else if out.segment_intents.iter().any(|intent| {
+            matches!(
+                intent.status,
+                VortexReadIntentStatus::BlockedByMissingMetadata
+            )
+        }) {
+            out.status = VortexReadIntentStatus::BlockedByMissingMetadata;
         }
         Ok(out)
     }
@@ -714,6 +735,29 @@ mod tests {
     fn report_empty_side_effect_free() {
         let r = VortexReadPlanningReport::from_input(VortexReadPlanningInput::new()).unwrap();
         assert!(r.is_side_effect_free());
+    }
+    #[test]
+    fn report_preserves_pruning_unsupported_without_results() {
+        let pruning =
+            crate::VortexMetadataPruningReport::unsupported("vortex-prune", "unsupported");
+        let report = VortexReadPlanningReport::from_input(
+            VortexReadPlanningInput::new().with_pruning_report(pruning),
+        )
+        .unwrap();
+        assert!(report.has_errors());
+        assert!(matches!(report.status, VortexReadIntentStatus::Unsupported));
+    }
+    #[test]
+    fn report_surfaces_blocked_by_missing_metadata_status() {
+        let pruning = mk_pruning(crate::VortexMetadataPruningStatus::StatisticsUnavailable);
+        let report = VortexReadPlanningReport::from_input(
+            VortexReadPlanningInput::new().with_pruning_report(pruning),
+        )
+        .unwrap();
+        assert!(matches!(
+            report.status,
+            VortexReadIntentStatus::BlockedByMissingMetadata
+        ));
     }
 
     fn mk_pruning(
