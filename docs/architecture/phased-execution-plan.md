@@ -183,7 +183,7 @@ Cross-cutting epics:
 - DecisionTrace: explain metadata proof vs encoded-read requirement.
 - Correctness Harness: predicate/projection semantic tests.
 
-### Phase 9D — WorkAvoidedReport and DecisionTrace for query primitives — Planned
+### Phase 9D — WorkAvoidedReport and DecisionTrace for query primitives — Complete
 
 Checklist:
 - report segments considered/pruned
@@ -198,7 +198,7 @@ Cross-cutting epics:
 - WorkAvoidedReport: first concrete implementation.
 - DecisionTrace: first concrete implementation.
 
-### Phase 10A — Local execution loop skeleton — Planned
+### Phase 10A — Local execution loop skeleton — Current
 
 Checklist:
 - execute scheduled no-op/metadata tasks
@@ -371,4 +371,5 @@ Cross-cutting epics:
 
 
 - Phase 9C: complete.
-- Phase 9D: current (DecisionTrace + WorkAvoidedReport for query primitives).
+- Phase 9D: complete (DecisionTrace + WorkAvoidedReport for query primitives).
+- Phase 10A: current (local execution loop skeleton; metadata/no-op only).
