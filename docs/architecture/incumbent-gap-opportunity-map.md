@@ -179,3 +179,8 @@ Phase/epic ownership:
 - `ShardLoom` introduces a first engine-loop-shaped local path for `Vortex` query primitives.
 - Initial loop behavior is metadata/no-op only and side-effect free.
 - Encoded reads remain deferred in this phase; no scan/decode/materialization/write/object-store/spill/fallback execution occurs.
+
+
+## Phase 10B bounded scheduling
+
+Memory-safe bounded scheduling starts in Phase 10B and translates memory/parallelism contracts into deterministic execute/defer/block decisions.

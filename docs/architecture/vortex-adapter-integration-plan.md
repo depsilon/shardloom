@@ -290,3 +290,8 @@ This begins visible engine behavior without broad query execution.
 - It defers encoded-read-required and encoded-predicate-required outcomes.
 - It attaches `DecisionTrace` and `WorkAvoidedReport` through primitive analysis integration.
 - It does not scan, decode, materialize, write, perform object-store IO, perform spill IO, or enable fallback execution.
+
+
+## Memory-safe bounded local execution
+
+The bounded local loop consumes metadata-only local execution results plus resource policy, completes safe metadata/no-op work, defers encoded-read-required work, preserves memory and max-parallelism policy, and does not scan/decode/materialize/write/object-store/spill/fallback.
