@@ -15,6 +15,8 @@ pub use adapter::{
 
 pub mod adapter;
 
+use std::fmt::Write as _;
+
 use shardloom_core::{
     ColumnRef, DatasetRef, DatasetUri, Diagnostic, DiagnosticCode, EncodedSegment, FallbackStatus,
     Result, ShardLoomError,
@@ -183,8 +185,16 @@ impl VortexAdapterReadiness {
         } else {
             text.push_str("\ndiagnostics:");
             for diagnostic in &self.diagnostics {
-                text.push_str("\n- ");
-                text.push_str(&diagnostic.to_human_text());
+                let _ = write!(text, "\n- {}", diagnostic.to_human_text());
+                if let Some(feature) = &diagnostic.feature {
+                    let _ = write!(text, " feature={feature}");
+                }
+                if let Some(reason) = &diagnostic.reason {
+                    let _ = write!(text, " reason={reason}");
+                }
+                if let Some(next_step) = &diagnostic.suggested_next_step {
+                    let _ = write!(text, " next_step={next_step}");
+                }
             }
         }
         text
