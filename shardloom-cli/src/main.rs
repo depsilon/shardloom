@@ -3847,9 +3847,22 @@ fn run(args: Vec<String>) -> ExitCode {
                         "fallback_execution_allowed".to_string(),
                         "false".to_string(),
                     ),
-                    ("data_io_performed".to_string(), "false".to_string()),
-                    ("object_store_io_performed".to_string(), "false".to_string()),
-                    ("write_io_performed".to_string(), "false".to_string()),
+                    (
+                        "file_io_performed".to_string(),
+                        report.file_io_performed.to_string(),
+                    ),
+                    (
+                        "data_io_performed".to_string(),
+                        report.data_io_performed.to_string(),
+                    ),
+                    (
+                        "object_store_io_performed".to_string(),
+                        report.object_store_io_performed.to_string(),
+                    ),
+                    (
+                        "write_io_performed".to_string(),
+                        report.write_io_performed.to_string(),
+                    ),
                     ("write_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
                     ("plan_only".to_string(), "true".to_string()),

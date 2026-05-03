@@ -220,6 +220,19 @@ Implement typed DType adapter mapping only if upstream public DType APIs are cle
 - No writes are performed.
 - No fallback execution is allowed.
 
+## Metadata-only open update
+
+- Public APIs re-validated for this phase: `vortex::file::VortexOpenOptions`, `vortex::file::OpenOptionsSessionExt`, and `vortex::file::VortexFile::footer` as inventory targets from upstream public surfaces.
+- Runtime usage posture in this phase:
+  - non-Vortex targets: deterministic invalid-target report;
+  - object-store URIs: deterministic unsupported/deferred report;
+  - missing local `.vortex` path: deterministic file-missing report;
+  - existing local file: metadata open remains `ApiDeferred` until metadata-only behavior guarantees are explicit.
+- `footer`/`row_count`/`dtype` usage remains deferred for existing-file metadata open because this phase avoids guessing about data-read side effects.
+- Tests exercised in this phase: missing local path, invalid target, object-store rejection, feature-disabled path, and feature-enabled deterministic reporting.
+- No scan execution introduced.
+- No fallback execution introduced.
+
 ## Read planning update
 
 - ShardLoom now has a metadata-driven read planning skeleton.
