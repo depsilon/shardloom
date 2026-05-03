@@ -95,3 +95,12 @@ This document records ShardLoom's first upstream Vortex dependency review for de
 - Write implemented: no.
 - Object-store IO implemented: no.
 - Fallback execution introduced: no.
+
+## Dependency footprint gating update
+
+- Upstream `vortex` dependency is now feature-gated in `shardloom-vortex` (`upstream-vortex`).
+- Default workspace builds do not enable the broad upstream Vortex graph by default.
+- `vortex-file-io`, `vortex-object-store`, and `vortex-write` are declared as staged feature gates only.
+- File IO and object-store IO remain disabled by default and unimplemented.
+- No DataFusion/Spark/DuckDB/Polars/Velox/vortex-datafusion direct dependencies were introduced.
+- No fallback execution behavior was introduced.

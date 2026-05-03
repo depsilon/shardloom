@@ -46,7 +46,6 @@ use shardloom_core::{
     ColumnRef, DatasetRef, DatasetUri, Diagnostic, DiagnosticCode, EncodedSegment, FallbackStatus,
     Result, ShardLoomError,
 };
-use vortex as _;
 
 /// Planning-time reference to a Vortex-native dataset.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -135,7 +134,11 @@ impl VortexAdapterReadiness {
     #[must_use]
     pub fn api_discovery_in_progress() -> Self {
         Self {
-            dependency_status: VortexDependencyStatus::Added,
+            dependency_status: if cfg!(feature = "upstream-vortex") {
+                VortexDependencyStatus::Added
+            } else {
+                VortexDependencyStatus::ApprovedForFuturePr
+            },
             license_review_complete: true,
             provenance_review_complete: true,
             public_api_review_complete: false,
@@ -151,7 +154,11 @@ impl VortexAdapterReadiness {
     #[must_use]
     pub fn dependency_added_compile_only() -> Self {
         Self {
-            dependency_status: VortexDependencyStatus::Added,
+            dependency_status: if cfg!(feature = "upstream-vortex") {
+                VortexDependencyStatus::Added
+            } else {
+                VortexDependencyStatus::ApprovedForFuturePr
+            },
             license_review_complete: true,
             provenance_review_complete: true,
             public_api_review_complete: false,
@@ -198,7 +205,9 @@ impl VortexAdapterReadiness {
             self.fallback_dependencies_absent,
             self.is_ready_for_dependency_pr(),
         );
-        if self.dependency_status != VortexDependencyStatus::Added {
+        if !cfg!(feature = "upstream-vortex") {
+            text.push_str("\nupstream Vortex dependency feature is not enabled in this build");
+        } else if self.dependency_status != VortexDependencyStatus::Added {
             text.push_str("\nupstream Vortex dependency is not added yet");
         } else if !self.public_api_review_complete {
             text.push_str(
@@ -233,7 +242,7 @@ impl VortexAdapterReadiness {
 /// call any fallback execution engine.
 #[must_use]
 pub const fn upstream_vortex_dependency_linked() -> bool {
-    true
+    cfg!(feature = "upstream-vortex")
 }
 
 /// Adapter boundary kinds used to stage future upstream Vortex integration.
@@ -978,8 +987,11 @@ mod tests {
     }
 
     #[test]
-    fn upstream_vortex_dependency_linked_returns_true() {
-        assert!(upstream_vortex_dependency_linked());
+    fn upstream_vortex_dependency_linked_matches_feature_gate() {
+        assert_eq!(
+            upstream_vortex_dependency_linked(),
+            cfg!(feature = "upstream-vortex")
+        );
     }
 
     #[test]
@@ -1001,7 +1013,10 @@ mod tests {
     #[test]
     fn adapter_readiness_text_mentions_dependency_not_added_when_not_ready() {
         let text = VortexAdapterReadiness::not_ready().to_human_text();
-        assert!(text.contains("upstream Vortex dependency is not added yet"));
+        assert!(
+            text.contains("upstream Vortex dependency feature is not enabled in this build")
+                || text.contains("upstream Vortex dependency is not added yet")
+        );
     }
 
     #[test]
@@ -1015,7 +1030,10 @@ mod tests {
     fn adapter_readiness_dependency_added_compile_only_text_mentions_io_not_implemented() {
         let text = VortexAdapterReadiness::dependency_added_compile_only().to_human_text();
         assert!(text.contains("fallback execution: disabled"));
-        assert!(text.contains("actual Vortex IO is not implemented"));
+        assert!(
+            text.contains("upstream Vortex dependency feature is not enabled in this build")
+                || text.contains("actual Vortex IO is not implemented")
+        );
     }
 
     #[test]
