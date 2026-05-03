@@ -9,6 +9,7 @@ use shardloom_plan::ProjectionRequest;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VortexQueryPrimitiveKind {
     CountAll,
+    CountWhere,
     ProjectColumns,
     FilterPredicate,
     FilterAndProject,
@@ -20,6 +21,7 @@ impl VortexQueryPrimitiveKind {
     pub const fn as_str(&self) -> &'static str {
         match self {
             Self::CountAll => "count_all",
+            Self::CountWhere => "count_where",
             Self::ProjectColumns => "project_columns",
             Self::FilterPredicate => "filter_predicate",
             Self::FilterAndProject => "filter_and_project",
@@ -29,7 +31,7 @@ impl VortexQueryPrimitiveKind {
     }
     #[must_use]
     pub const fn requires_data_read(&self) -> bool {
-        !matches!(self, Self::CountAll | Self::Unsupported)
+        !matches!(self, Self::CountAll | Self::CountWhere | Self::Unsupported)
     }
     #[must_use]
     pub const fn requires_decode(&self) -> bool {
@@ -119,6 +121,16 @@ impl VortexQueryPrimitiveRequest {
             source_uri: Some(uri),
             projection: ProjectionRequest::all(),
             predicate: None,
+            diagnostics: vec![],
+        }
+    }
+    #[must_use]
+    pub fn count_where(uri: DatasetUri, predicate: PredicateExpr) -> Self {
+        Self {
+            kind: VortexQueryPrimitiveKind::CountWhere,
+            source_uri: Some(uri),
+            projection: ProjectionRequest::all(),
+            predicate: Some(predicate),
             diagnostics: vec![],
         }
     }
@@ -423,6 +435,67 @@ pub fn evaluate_vortex_count_all_from_summary(
     }
 }
 
+/// Evaluates metadata-only `CountWhere` using a `VortexMetadataSummaryReport`.
+///
+/// # Errors
+/// Returns an error only if `ShardLoom` detects an internal overflow conversion issue.
+pub fn evaluate_vortex_count_where_from_summary(
+    request: VortexQueryPrimitiveRequest,
+    summary: &crate::VortexMetadataSummaryReport,
+) -> Result<VortexQueryPrimitiveResult> {
+    if request.kind != VortexQueryPrimitiveKind::CountWhere {
+        return Ok(VortexQueryPrimitiveResult::unsupported(
+            request,
+            "count_where",
+            "Only `CountWhere` is supported by metadata-filtered count evaluation.",
+        ));
+    }
+    let Some(predicate) = request.predicate.as_ref() else {
+        return Ok(VortexQueryPrimitiveResult::unsupported(
+            request,
+            "count_where",
+            "missing `PredicateExpr` for `CountWhere` request",
+        ));
+    };
+    let mut total = 0_u64;
+    for seg in &summary.summary.segments {
+        match crate::prove_predicate_from_segment_stats(predicate, seg) {
+            shardloom_core::PredicateProof::AlwaysFalse { .. } => {}
+            shardloom_core::PredicateProof::AlwaysTrue { .. } => {
+                let Some(rows) = seg.row_count else {
+                    return Ok(VortexQueryPrimitiveResult::missing_metadata(
+                        request,
+                        "segment row_count is required for metadata-proven true predicate",
+                    ));
+                };
+                total = total.checked_add(rows).ok_or_else(|| {
+                    shardloom_core::ShardLoomError::InvalidOperation(
+                        "row count overflow while summing metadata-filtered count".to_string(),
+                    )
+                })?;
+            }
+            shardloom_core::PredicateProof::MayMatch { reason }
+            | shardloom_core::PredicateProof::Unknown { reason } => {
+                let mut out = VortexQueryPrimitiveResult::needs_encoded_read(request, reason);
+                out.status = VortexQueryPrimitiveStatus::NeedsPredicateEvaluation;
+                out.mode = VortexQueryPrimitiveMode::Deferred;
+                return Ok(out);
+            }
+            shardloom_core::PredicateProof::Unsupported { reason } => {
+                return Ok(VortexQueryPrimitiveResult::unsupported(
+                    request,
+                    "count_where",
+                    reason,
+                ));
+            }
+        }
+    }
+    Ok(VortexQueryPrimitiveResult::metadata_answered(
+        request,
+        VortexQueryPrimitiveValue::Count(total),
+    ))
+}
+
 /// Evaluates a minimal `Vortex` query primitive against metadata summary.
 /// # Errors
 /// Returns an error only if metadata count evaluation overflows while summing rows.
@@ -433,6 +506,9 @@ pub fn evaluate_vortex_query_primitive(
     match request.kind {
         VortexQueryPrimitiveKind::CountAll => {
             evaluate_vortex_count_all_from_summary(request, summary)
+        }
+        VortexQueryPrimitiveKind::CountWhere => {
+            evaluate_vortex_count_where_from_summary(request, summary)
         }
         VortexQueryPrimitiveKind::ProjectColumns | VortexQueryPrimitiveKind::FilterAndProject => {
             Ok(VortexQueryPrimitiveResult::needs_encoded_read(
@@ -464,7 +540,7 @@ pub fn evaluate_vortex_query_primitive(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use shardloom_core::{DatasetUri, SegmentId};
+    use shardloom_core::{ColumnRef, DatasetUri, SegmentId, SegmentStats};
     fn uri() -> DatasetUri {
         DatasetUri::new("file:///tmp/test.vortex").expect("uri")
     }
@@ -474,6 +550,10 @@ mod tests {
     #[test]
     fn countall_no_read() {
         assert!(!VortexQueryPrimitiveKind::CountAll.requires_data_read());
+    }
+    #[test]
+    fn countwhere_no_read() {
+        assert!(!VortexQueryPrimitiveKind::CountWhere.requires_data_read());
     }
     #[test]
     fn project_may_read() {
@@ -570,6 +650,63 @@ mod tests {
         .expect("ok");
         assert_eq!(out.status, VortexQueryPrimitiveStatus::NeedsEncodedRead);
         assert!(out.is_side_effect_free());
+    }
+    #[test]
+    fn count_where_request_stores_predicate() {
+        let req = VortexQueryPrimitiveRequest::count_where(
+            uri(),
+            PredicateExpr::IsNull {
+                column: ColumnRef::new("x").expect("column"),
+            },
+        );
+        assert_eq!(req.kind, VortexQueryPrimitiveKind::CountWhere);
+        assert!(req.predicate.is_some());
+    }
+    fn seg_with_stats(
+        row_count: Option<u64>,
+        stats: SegmentStats,
+    ) -> crate::VortexSegmentMetadataSummary {
+        let mut s = crate::VortexSegmentMetadataSummary::unknown();
+        s.row_count = row_count;
+        let mut c = crate::VortexColumnMetadataSummary::new(ColumnRef::new("x").expect("column"));
+        c.stats = stats;
+        s.add_column(c);
+        s
+    }
+    #[test]
+    fn eval_count_where_all_false_returns_zero() {
+        let mut s = empty_summary();
+        let mut stats = SegmentStats::unknown();
+        stats.null_count = Some(0);
+        s.summary.segments = vec![seg_with_stats(Some(9), stats)];
+        let req = VortexQueryPrimitiveRequest::count_where(
+            uri(),
+            PredicateExpr::IsNull {
+                column: ColumnRef::new("x").expect("column"),
+            },
+        );
+        let out = evaluate_vortex_count_where_from_summary(req, &s).expect("ok");
+        assert_eq!(out.value, VortexQueryPrimitiveValue::Count(0));
+    }
+    #[test]
+    fn eval_count_where_all_true_sums_rows() {
+        let mut s = empty_summary();
+        let mut stats_a = SegmentStats::unknown();
+        stats_a.null_count = Some(0);
+        let mut stats_b = SegmentStats::unknown();
+        stats_b.null_count = Some(0);
+        s.summary.segments = vec![
+            seg_with_stats(Some(2), stats_a),
+            seg_with_stats(Some(3), stats_b),
+        ];
+        let req = VortexQueryPrimitiveRequest::count_where(
+            uri(),
+            PredicateExpr::IsNotNull {
+                column: ColumnRef::new("x").expect("column"),
+            },
+        );
+        let out = evaluate_vortex_count_where_from_summary(req, &s).expect("ok");
+        assert_eq!(out.value, VortexQueryPrimitiveValue::Count(5));
     }
     #[test]
     fn human_text_contains_flags() {

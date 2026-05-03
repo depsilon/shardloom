@@ -338,3 +338,9 @@ No fallback execution is introduced by this boundary update.
 `CountAll` can now use `Vortex` metadata summaries when row counts are available.
 Projection/filter primitives remain future encoded-read or predicate-kernel work.
 No fallback execution was introduced.
+
+## Predicate-count primitive update
+- Query primitive layer supports metadata-filtered count planning/evaluation.
+- It uses `ShardLoom` metadata summaries and conservative predicate proofs.
+- Projection/filter remain future encoded-read or predicate-kernel work.
+- No fallback execution introduced.

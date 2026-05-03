@@ -6,13 +6,14 @@
 use std::process::ExitCode;
 
 use shardloom_core::{
-    CatalogKind, CatalogRef, ChangeSet, CommandStatus, CorrectnessValidationPlan, DatasetManifest,
-    DatasetRef, DatasetUri, ExtensionId, ExtensionInspectionReport, ExtensionLicenseKind,
-    ExtensionManifest, ExtensionProvenance, ExtensionRegistrySnapshot, ExtensionVersion,
-    IncrementalPlanSkeleton, InputAdapterRegistrySnapshot, KernelRegistrySnapshot, ManifestId,
-    ObservabilityPlan, OutputEnvelope, OutputFormat, OutputTarget, RedactionPolicy, ReleasePlan,
+    CatalogKind, CatalogRef, ChangeSet, ColumnRef, CommandStatus, ComparisonOp,
+    CorrectnessValidationPlan, DatasetManifest, DatasetRef, DatasetUri, ExtensionId,
+    ExtensionInspectionReport, ExtensionLicenseKind, ExtensionManifest, ExtensionProvenance,
+    ExtensionRegistrySnapshot, ExtensionVersion, IncrementalPlanSkeleton,
+    InputAdapterRegistrySnapshot, KernelRegistrySnapshot, ManifestId, ObservabilityPlan,
+    OutputEnvelope, OutputFormat, OutputTarget, PredicateExpr, RedactionPolicy, ReleasePlan,
     RuntimeObservabilityReport, SchemaDefinition, SchemaId, SchemaVersion, SecurityPlan,
-    ShardLoomError, SnapshotId, SnapshotRef, TableCompatibilityPlan, TableFormatKind,
+    ShardLoomError, SnapshotId, SnapshotRef, StatValue, TableCompatibilityPlan, TableFormatKind,
     TranslationPlan, UdfRuntimeKind, WriteIntent,
 };
 use shardloom_exec::{
@@ -59,7 +60,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count|vortex-count-where> [--format text|json]",
         cli_command_name()
     )
 }
@@ -150,6 +151,45 @@ fn parse_plan_interop_format(value: &str) -> PlanInteropFormat {
         "substrait-like" => PlanInteropFormat::SubstraitLike,
         "json-like" => PlanInteropFormat::JsonLike,
         _ => PlanInteropFormat::Unknown,
+    }
+}
+
+fn parse_tiny_predicate(value: &str) -> Result<PredicateExpr, ShardLoomError> {
+    let parts = value.split(':').collect::<Vec<_>>();
+    match parts.as_slice() {
+        ["is_null", column] => Ok(PredicateExpr::IsNull {
+            column: ColumnRef::new(*column)?,
+        }),
+        ["is_not_null", column] => Ok(PredicateExpr::IsNotNull {
+            column: ColumnRef::new(*column)?,
+        }),
+        [op, column, int_value] => {
+            let parsed: i64 = int_value.parse().map_err(|_| {
+                ShardLoomError::InvalidOperation(
+                    "predicate integer literal must be valid i64".to_string(),
+                )
+            })?;
+            let op = match *op {
+                "eq" => ComparisonOp::Eq,
+                "gt" => ComparisonOp::Gt,
+                "gte" => ComparisonOp::GtEq,
+                "lt" => ComparisonOp::Lt,
+                "lte" => ComparisonOp::LtEq,
+                _ => {
+                    return Err(ShardLoomError::InvalidOperation(
+                        "unsupported predicate operator".to_string(),
+                    ));
+                }
+            };
+            Ok(PredicateExpr::Compare {
+                column: ColumnRef::new(*column)?,
+                op,
+                value: StatValue::Int64(parsed),
+            })
+        }
+        _ => Err(ShardLoomError::InvalidOperation(
+            "invalid predicate format; expected is_null:<column>, is_not_null:<column>, or <op>:<column>:<integer>".to_string(),
+        )),
     }
 }
 
@@ -4115,6 +4155,107 @@ fn run(args: Vec<String>) -> ExitCode {
                         "count".to_string(),
                         count.map_or_else(|| "unknown".to_string(), |v| v.to_string()),
                     ),
+                ],
+            );
+            if result.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
+        Some("vortex-count-where") => {
+            let Some(uri_arg) = args.next() else {
+                eprintln!("usage: shardloom vortex-count-where <dataset_uri> <predicate>");
+                return ExitCode::from(2);
+            };
+            let Some(predicate_arg) = args.next() else {
+                eprintln!("usage: shardloom vortex-count-where <dataset_uri> <predicate>");
+                return ExitCode::from(2);
+            };
+            let uri = match DatasetUri::new(uri_arg) {
+                Ok(uri) => uri,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-count-where",
+                        format,
+                        "vortex count where failed",
+                        &error,
+                    );
+                }
+            };
+            let predicate = match parse_tiny_predicate(&predicate_arg) {
+                Ok(predicate) => predicate,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-count-where",
+                        format,
+                        "vortex count where failed",
+                        &error,
+                    );
+                }
+            };
+            let request =
+                shardloom_vortex::VortexQueryPrimitiveRequest::count_where(uri.clone(), predicate);
+            let open = open_vortex_metadata_only(VortexMetadataOpenRequest::metadata_only(uri));
+            let summary = if let Ok(report) = open {
+                report.metadata_summary.unwrap_or_else(|| {
+                    summarize_vortex_metadata_probe(
+                        &VortexMetadataProbeReport::deferred_api_unclear(),
+                    )
+                })
+            } else {
+                summarize_vortex_metadata_probe(&VortexMetadataProbeReport::deferred_api_unclear())
+            };
+            let result = match evaluate_vortex_query_primitive(request, &summary) {
+                Ok(result) => result,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-count-where",
+                        format,
+                        "vortex count where failed",
+                        &error,
+                    );
+                }
+            };
+            let status = if result.has_errors() {
+                CommandStatus::Unsupported
+            } else {
+                CommandStatus::Success
+            };
+            let count = match result.value {
+                shardloom_vortex::VortexQueryPrimitiveValue::Count(v) => Some(v),
+                _ => None,
+            };
+            emit(
+                "vortex-count-where",
+                format,
+                status,
+                "vortex count where primitive".to_string(),
+                result.to_human_text(),
+                result.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "vortex_count_where".to_string()),
+                    ("primitive".to_string(), "count_where".to_string()),
+                    ("data_read".to_string(), "false".to_string()),
+                    ("data_decoded".to_string(), "false".to_string()),
+                    ("data_materialized".to_string(), "false".to_string()),
+                    ("object_store_io".to_string(), "false".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
+                    ("spill_io_performed".to_string(), "false".to_string()),
+                    (
+                        "execution".to_string(),
+                        "metadata_only_or_not_performed".to_string(),
+                    ),
+                    ("result_known".to_string(), count.is_some().to_string()),
+                    (
+                        "count".to_string(),
+                        count.map_or_else(|| "unknown".to_string(), |v| v.to_string()),
+                    ),
+                    ("predicate".to_string(), predicate_arg),
                 ],
             );
             if result.has_errors() {

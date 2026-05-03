@@ -17,3 +17,7 @@ Phase 7A is contract-only and does not execute scans, read data, decode/material
 - Phase 9 is now the current stream.
 - Phase 9A introduces minimal `Vortex` query primitives and a metadata-count path (`CountAll`).
 - This phase keeps scan/decode/materialization disabled and preserves no-fallback execution policy.
+
+## Phase 9B status update
+- Phase 9A is complete.
+- Phase 9B is current: metadata-filtered `CountWhere` primitive.
