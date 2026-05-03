@@ -245,3 +245,12 @@ If metadata-only behavior cannot be guaranteed from public upstream APIs for a r
 - Does not decode or materialize data.
 - Does not perform object-store IO, write IO, spill IO, or fallback execution.
 - May return deterministic blocked/deferred status when public API safety is unclear.
+
+
+## Minimal query primitives
+
+`ShardLoom` now models `CountAll`, projection, and filter primitives for `Vortex` query intent.
+`CountAll` can be metadata-answered when `row_count` metadata is known.
+Projection/filter remain `encoded_read_required` or deferred.
+No scan/decode/materialization path is introduced in this phase.
+This begins visible engine behavior without broad query execution.

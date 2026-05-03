@@ -1,0 +1,599 @@
+use std::fmt::Write as _;
+
+use shardloom_core::{
+    DatasetUri, Diagnostic, DiagnosticCode, DiagnosticSeverity, PredicateExpr, Result,
+};
+use shardloom_plan::ProjectionRequest;
+
+/// Query primitive kind for minimal `Vortex` planning in `ShardLoom`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexQueryPrimitiveKind {
+    CountAll,
+    ProjectColumns,
+    FilterPredicate,
+    FilterAndProject,
+    SimpleAggregate,
+    Unsupported,
+}
+impl VortexQueryPrimitiveKind {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::CountAll => "count_all",
+            Self::ProjectColumns => "project_columns",
+            Self::FilterPredicate => "filter_predicate",
+            Self::FilterAndProject => "filter_and_project",
+            Self::SimpleAggregate => "simple_aggregate",
+            Self::Unsupported => "unsupported",
+        }
+    }
+    #[must_use]
+    pub const fn requires_data_read(&self) -> bool {
+        !matches!(self, Self::CountAll | Self::Unsupported)
+    }
+    #[must_use]
+    pub const fn requires_decode(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn requires_materialization(&self) -> bool {
+        false
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexQueryPrimitiveMode {
+    MetadataOnly,
+    EncodedReadRequired,
+    Deferred,
+    Unsupported,
+}
+impl VortexQueryPrimitiveMode {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::MetadataOnly => "metadata_only",
+            Self::EncodedReadRequired => "encoded_read_required",
+            Self::Deferred => "deferred",
+            Self::Unsupported => "unsupported",
+        }
+    }
+    #[must_use]
+    pub const fn reads_data(&self) -> bool {
+        matches!(self, Self::EncodedReadRequired)
+    }
+    #[must_use]
+    pub const fn decodes_data(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn materializes_data(&self) -> bool {
+        false
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexQueryPrimitiveStatus {
+    Planned,
+    MetadataAnswered,
+    NeedsEncodedRead,
+    NeedsPredicateEvaluation,
+    MissingMetadata,
+    Unsupported,
+}
+impl VortexQueryPrimitiveStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Planned => "planned",
+            Self::MetadataAnswered => "metadata_answered",
+            Self::NeedsEncodedRead => "needs_encoded_read",
+            Self::NeedsPredicateEvaluation => "needs_predicate_evaluation",
+            Self::MissingMetadata => "missing_metadata",
+            Self::Unsupported => "unsupported",
+        }
+    }
+    #[must_use]
+    pub const fn is_error(&self) -> bool {
+        matches!(self, Self::Unsupported)
+    }
+    #[must_use]
+    pub const fn has_result(&self) -> bool {
+        matches!(self, Self::MetadataAnswered)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct VortexQueryPrimitiveRequest {
+    pub kind: VortexQueryPrimitiveKind,
+    pub source_uri: Option<DatasetUri>,
+    pub projection: ProjectionRequest,
+    pub predicate: Option<PredicateExpr>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl VortexQueryPrimitiveRequest {
+    #[must_use]
+    pub fn count_all(uri: DatasetUri) -> Self {
+        Self {
+            kind: VortexQueryPrimitiveKind::CountAll,
+            source_uri: Some(uri),
+            projection: ProjectionRequest::all(),
+            predicate: None,
+            diagnostics: vec![],
+        }
+    }
+    #[must_use]
+    pub fn project(uri: DatasetUri, projection: ProjectionRequest) -> Self {
+        Self {
+            kind: VortexQueryPrimitiveKind::ProjectColumns,
+            source_uri: Some(uri),
+            projection,
+            predicate: None,
+            diagnostics: vec![],
+        }
+    }
+    #[must_use]
+    pub fn filter(uri: DatasetUri, predicate: PredicateExpr) -> Self {
+        Self {
+            kind: VortexQueryPrimitiveKind::FilterPredicate,
+            source_uri: Some(uri),
+            projection: ProjectionRequest::all(),
+            predicate: Some(predicate),
+            diagnostics: vec![],
+        }
+    }
+    #[must_use]
+    pub fn unsupported(feature: impl Into<String>, reason: impl Into<String>) -> Self {
+        let mut request = Self {
+            kind: VortexQueryPrimitiveKind::Unsupported,
+            source_uri: None,
+            projection: ProjectionRequest::all(),
+            predicate: None,
+            diagnostics: vec![],
+        };
+        request.add_diagnostic(Diagnostic::unsupported(
+            DiagnosticCode::NoFallbackExecution,
+            feature.into(),
+            "Requested query primitive is not supported for native `Vortex` execution.",
+            Some(reason.into()),
+        ));
+        request
+    }
+    pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
+    }
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.diagnostics.iter().any(|d| {
+            matches!(
+                d.severity,
+                DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+            )
+        })
+    }
+    #[must_use]
+    pub fn summary(&self) -> String {
+        format!(
+            "kind={} uri={} projection={} predicate={} diagnostics={}",
+            self.kind.as_str(),
+            self.source_uri
+                .as_ref()
+                .map_or("<none>", DatasetUri::as_str),
+            self.projection.summary(),
+            self.predicate
+                .as_ref()
+                .map_or_else(|| "none".to_string(), PredicateExpr::summary),
+            self.diagnostics.len()
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum VortexQueryPrimitiveValue {
+    Count(u64),
+    Boolean(bool),
+    Text(String),
+    Unknown,
+}
+impl VortexQueryPrimitiveValue {
+    #[must_use]
+    pub fn as_str(&self) -> String {
+        match self {
+            Self::Count(v) => v.to_string(),
+            Self::Boolean(v) => v.to_string(),
+            Self::Text(v) => v.clone(),
+            Self::Unknown => "unknown".to_string(),
+        }
+    }
+    #[must_use]
+    pub const fn is_known(&self) -> bool {
+        !matches!(self, Self::Unknown)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexQueryPrimitiveResult {
+    pub status: VortexQueryPrimitiveStatus,
+    pub mode: VortexQueryPrimitiveMode,
+    pub request: VortexQueryPrimitiveRequest,
+    pub value: VortexQueryPrimitiveValue,
+    pub data_read: bool,
+    pub data_decoded: bool,
+    pub data_materialized: bool,
+    pub object_store_io: bool,
+    pub write_io: bool,
+    pub spill_io_performed: bool,
+    pub fallback_execution_allowed: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl VortexQueryPrimitiveResult {
+    #[must_use]
+    pub fn metadata_answered(
+        request: VortexQueryPrimitiveRequest,
+        value: VortexQueryPrimitiveValue,
+    ) -> Self {
+        Self {
+            status: VortexQueryPrimitiveStatus::MetadataAnswered,
+            mode: VortexQueryPrimitiveMode::MetadataOnly,
+            request,
+            value,
+            data_read: false,
+            data_decoded: false,
+            data_materialized: false,
+            object_store_io: false,
+            write_io: false,
+            spill_io_performed: false,
+            fallback_execution_allowed: false,
+            diagnostics: vec![],
+        }
+    }
+    #[must_use]
+    pub fn needs_encoded_read(
+        request: VortexQueryPrimitiveRequest,
+        reason: impl Into<String>,
+    ) -> Self {
+        let mut out = Self {
+            status: VortexQueryPrimitiveStatus::NeedsEncodedRead,
+            mode: VortexQueryPrimitiveMode::EncodedReadRequired,
+            request,
+            value: VortexQueryPrimitiveValue::Unknown,
+            data_read: false,
+            data_decoded: false,
+            data_materialized: false,
+            object_store_io: false,
+            write_io: false,
+            spill_io_performed: false,
+            fallback_execution_allowed: false,
+            diagnostics: vec![],
+        };
+        out.add_diagnostic(Diagnostic::new(
+            DiagnosticCode::NotImplemented,
+            DiagnosticSeverity::Warning,
+            shardloom_core::DiagnosticCategory::Execution,
+            "Encoded read is required for this primitive.",
+            Some("vortex_query_primitive".to_string()),
+            Some(reason.into()),
+            Some(
+                "Use metadata-only `CountAll` or wait for native encoded-read execution support."
+                    .to_string(),
+            ),
+            shardloom_core::FallbackStatus::disabled_by_policy(),
+        ));
+        out
+    }
+    #[must_use]
+    pub fn missing_metadata(
+        request: VortexQueryPrimitiveRequest,
+        reason: impl Into<String>,
+    ) -> Self {
+        let mut out = Self::needs_encoded_read(request, reason);
+        out.status = VortexQueryPrimitiveStatus::MissingMetadata;
+        out.mode = VortexQueryPrimitiveMode::Deferred;
+        out
+    }
+    #[must_use]
+    pub fn unsupported(
+        request: VortexQueryPrimitiveRequest,
+        feature: impl Into<String>,
+        reason: impl Into<String>,
+    ) -> Self {
+        let mut out = Self {
+            status: VortexQueryPrimitiveStatus::Unsupported,
+            mode: VortexQueryPrimitiveMode::Unsupported,
+            request,
+            value: VortexQueryPrimitiveValue::Unknown,
+            data_read: false,
+            data_decoded: false,
+            data_materialized: false,
+            object_store_io: false,
+            write_io: false,
+            spill_io_performed: false,
+            fallback_execution_allowed: false,
+            diagnostics: vec![],
+        };
+        out.add_diagnostic(Diagnostic::unsupported(
+            DiagnosticCode::NoFallbackExecution,
+            feature.into(),
+            "Requested query primitive is unsupported for native execution.",
+            Some(reason.into()),
+        ));
+        out
+    }
+    pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
+    }
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.status.is_error()
+            || self.request.has_errors()
+            || self.diagnostics.iter().any(|d| {
+                matches!(
+                    d.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+    #[must_use]
+    pub const fn is_side_effect_free(&self) -> bool {
+        !self.data_read
+            && !self.data_decoded
+            && !self.data_materialized
+            && !self.object_store_io
+            && !self.write_io
+            && !self.spill_io_performed
+            && !self.fallback_execution_allowed
+    }
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        let mut text = String::new();
+        let _ = writeln!(text, "primitive: {}", self.request.kind.as_str());
+        let _ = writeln!(text, "status: {}", self.status.as_str());
+        let _ = writeln!(text, "mode: {}", self.mode.as_str());
+        if self.value.is_known() {
+            let _ = writeln!(text, "value: {}", self.value.as_str());
+        }
+        let _ = writeln!(text, "data read: {}", self.data_read);
+        let _ = writeln!(text, "data decoded: {}", self.data_decoded);
+        let _ = writeln!(text, "data materialized: {}", self.data_materialized);
+        let _ = writeln!(text, "object-store io: {}", self.object_store_io);
+        let _ = writeln!(text, "write io: {}", self.write_io);
+        let _ = writeln!(text, "spill io: {}", self.spill_io_performed);
+        let _ = writeln!(
+            text,
+            "fallback execution disabled: {}",
+            !self.fallback_execution_allowed
+        );
+        if !self.diagnostics.is_empty() {
+            let _ = writeln!(text, "diagnostics:");
+            for d in &self.diagnostics {
+                let _ = writeln!(text, "- {} [{}]", d.message, d.code.as_str());
+            }
+        }
+        text
+    }
+}
+
+/// Evaluates metadata-only `CountAll` using a `VortexMetadataSummaryReport`.
+/// # Errors
+/// Returns an error only if `ShardLoom` detects an internal overflow conversion issue.
+pub fn evaluate_vortex_count_all_from_summary(
+    request: VortexQueryPrimitiveRequest,
+    summary: &crate::VortexMetadataSummaryReport,
+) -> Result<VortexQueryPrimitiveResult> {
+    if request.kind != VortexQueryPrimitiveKind::CountAll {
+        return Ok(VortexQueryPrimitiveResult::unsupported(
+            request,
+            "count_all",
+            "Only `CountAll` is supported by metadata-count evaluation.",
+        ));
+    }
+    if let Some(v) = summary.summary.row_count {
+        return Ok(VortexQueryPrimitiveResult::metadata_answered(
+            request,
+            VortexQueryPrimitiveValue::Count(v),
+        ));
+    }
+    let mut total = 0_u64;
+    let mut any = false;
+    for seg in &summary.summary.segments {
+        let Some(rows) = seg.row_count else {
+            return Ok(VortexQueryPrimitiveResult::missing_metadata(
+                request,
+                "segment row_count is missing",
+            ));
+        };
+        total = total.checked_add(rows).ok_or_else(|| {
+            shardloom_core::ShardLoomError::InvalidOperation(
+                "row count overflow while summing segment metadata".to_string(),
+            )
+        })?;
+        any = true;
+    }
+    if any {
+        Ok(VortexQueryPrimitiveResult::metadata_answered(
+            request,
+            VortexQueryPrimitiveValue::Count(total),
+        ))
+    } else {
+        Ok(VortexQueryPrimitiveResult::missing_metadata(
+            request,
+            "file and segment row_count metadata are unavailable",
+        ))
+    }
+}
+
+/// Evaluates a minimal `Vortex` query primitive against metadata summary.
+/// # Errors
+/// Returns an error only if metadata count evaluation overflows while summing rows.
+pub fn evaluate_vortex_query_primitive(
+    request: VortexQueryPrimitiveRequest,
+    summary: &crate::VortexMetadataSummaryReport,
+) -> Result<VortexQueryPrimitiveResult> {
+    match request.kind {
+        VortexQueryPrimitiveKind::CountAll => {
+            evaluate_vortex_count_all_from_summary(request, summary)
+        }
+        VortexQueryPrimitiveKind::ProjectColumns | VortexQueryPrimitiveKind::FilterAndProject => {
+            Ok(VortexQueryPrimitiveResult::needs_encoded_read(
+                request,
+                "projection/filter-and-project requires future native encoded-read support",
+            ))
+        }
+        VortexQueryPrimitiveKind::FilterPredicate => Ok(VortexQueryPrimitiveResult {
+            status: VortexQueryPrimitiveStatus::NeedsPredicateEvaluation,
+            mode: VortexQueryPrimitiveMode::Deferred,
+            ..VortexQueryPrimitiveResult::needs_encoded_read(
+                request,
+                format!(
+                    "predicate metadata proof unavailable (metadata status={})",
+                    summary.status.as_str()
+                ),
+            )
+        }),
+        VortexQueryPrimitiveKind::SimpleAggregate | VortexQueryPrimitiveKind::Unsupported => {
+            Ok(VortexQueryPrimitiveResult::unsupported(
+                request,
+                "simple_aggregate",
+                "Only metadata `CountAll` is supported in this phase.",
+            ))
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use shardloom_core::{DatasetUri, SegmentId};
+    fn uri() -> DatasetUri {
+        DatasetUri::new("file:///tmp/test.vortex").expect("uri")
+    }
+    fn empty_summary() -> crate::VortexMetadataSummaryReport {
+        crate::VortexMetadataSummaryReport::unsupported("metadata_summary", "test fallback summary")
+    }
+    #[test]
+    fn countall_no_read() {
+        assert!(!VortexQueryPrimitiveKind::CountAll.requires_data_read());
+    }
+    #[test]
+    fn project_may_read() {
+        assert!(VortexQueryPrimitiveKind::ProjectColumns.requires_data_read());
+    }
+    #[test]
+    fn metadata_mode_flags_false() {
+        let m = VortexQueryPrimitiveMode::MetadataOnly;
+        assert!(!m.reads_data() && !m.decodes_data() && !m.materializes_data());
+    }
+    #[test]
+    fn status_meta_has_result() {
+        assert!(VortexQueryPrimitiveStatus::MetadataAnswered.has_result());
+    }
+    #[test]
+    fn unsupported_error() {
+        assert!(VortexQueryPrimitiveStatus::Unsupported.is_error());
+    }
+    #[test]
+    fn count_known() {
+        assert!(VortexQueryPrimitiveValue::Count(7).is_known());
+    }
+    #[test]
+    fn metadata_answer_side_effect_false() {
+        let r = VortexQueryPrimitiveResult::metadata_answered(
+            VortexQueryPrimitiveRequest::count_all(uri()),
+            VortexQueryPrimitiveValue::Count(1),
+        );
+        assert!(r.is_side_effect_free());
+    }
+    #[test]
+    fn needs_read_side_effect_false() {
+        let r = VortexQueryPrimitiveResult::needs_encoded_read(
+            VortexQueryPrimitiveRequest::count_all(uri()),
+            "x",
+        );
+        assert!(r.is_side_effect_free());
+    }
+    #[test]
+    fn unsupported_errors_no_fallback() {
+        let r = VortexQueryPrimitiveResult::unsupported(
+            VortexQueryPrimitiveRequest::count_all(uri()),
+            "x",
+            "y",
+        );
+        assert!(r.has_errors());
+        assert!(!r.fallback_execution_allowed);
+    }
+    #[test]
+    fn eval_count_file_row_count() {
+        let mut s = empty_summary();
+        s.summary.row_count = Some(11);
+        let out = evaluate_vortex_count_all_from_summary(
+            VortexQueryPrimitiveRequest::count_all(uri()),
+            &s,
+        )
+        .expect("ok");
+        assert_eq!(out.value, VortexQueryPrimitiveValue::Count(11));
+    }
+    #[test]
+    fn eval_count_segments_sum() {
+        let mut s = empty_summary();
+        s.summary.segments = vec![
+            crate::VortexSegmentMetadataSummary::unknown()
+                .with_segment_id(SegmentId::new("s1").expect("id"))
+                .with_row_count(2),
+            crate::VortexSegmentMetadataSummary::unknown()
+                .with_segment_id(SegmentId::new("s2").expect("id"))
+                .with_row_count(3),
+        ];
+        let out = evaluate_vortex_count_all_from_summary(
+            VortexQueryPrimitiveRequest::count_all(uri()),
+            &s,
+        )
+        .expect("ok");
+        assert_eq!(out.value, VortexQueryPrimitiveValue::Count(5));
+    }
+    #[test]
+    fn eval_count_missing_metadata() {
+        let s = empty_summary();
+        let out = evaluate_vortex_count_all_from_summary(
+            VortexQueryPrimitiveRequest::count_all(uri()),
+            &s,
+        )
+        .expect("ok");
+        assert_eq!(out.status, VortexQueryPrimitiveStatus::MissingMetadata);
+    }
+    #[test]
+    fn eval_project_needs_read() {
+        let out = evaluate_vortex_query_primitive(
+            VortexQueryPrimitiveRequest::project(uri(), ProjectionRequest::all()),
+            &empty_summary(),
+        )
+        .expect("ok");
+        assert_eq!(out.status, VortexQueryPrimitiveStatus::NeedsEncodedRead);
+        assert!(out.is_side_effect_free());
+    }
+    #[test]
+    fn human_text_contains_flags() {
+        let mut r = VortexQueryPrimitiveResult::needs_encoded_read(
+            VortexQueryPrimitiveRequest::count_all(uri()),
+            "x",
+        );
+        r.add_diagnostic(Diagnostic::no_fallback_execution("nope"));
+        let t = r.to_human_text();
+        assert!(t.contains("fallback execution disabled"));
+        assert!(t.contains("data read: false"));
+        assert!(t.contains("diagnostics:"));
+    }
+    #[test]
+    fn side_effect_free_metadata_and_deferred() {
+        let a = VortexQueryPrimitiveResult::metadata_answered(
+            VortexQueryPrimitiveRequest::count_all(uri()),
+            VortexQueryPrimitiveValue::Count(1),
+        );
+        let b = VortexQueryPrimitiveResult::missing_metadata(
+            VortexQueryPrimitiveRequest::count_all(uri()),
+            "missing",
+        );
+        assert!(a.is_side_effect_free());
+        assert!(b.is_side_effect_free());
+    }
+}

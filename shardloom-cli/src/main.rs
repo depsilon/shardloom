@@ -33,16 +33,17 @@ use shardloom_vortex::{
     VortexExecutionReadinessStatus, VortexFileRef, VortexMetadataOpenRequest,
     VortexMetadataProbeReport, VortexReadPlan, VortexStatisticsMappingReport, VortexWriteOptions,
     VortexWritePlan, build_vortex_runtime_task_graph, evaluate_vortex_encoded_read_readiness,
-    evaluate_vortex_execution_readiness, execute_vortex_encoded_read_contract,
-    execute_vortex_encoded_read_spike, execute_vortex_metadata_only,
-    metadata_planning_is_side_effect_free, metadata_pruning_is_side_effect_free,
-    metadata_summary_is_plan_only, open_vortex_metadata_only, plan_from_vortex_metadata_summary,
-    plan_native_vortex_universal_input, plan_vortex_encoded_read_probe, plan_vortex_memory_safety,
-    plan_vortex_metadata_pruning, plan_vortex_read_from_universal_input,
-    plan_vortex_scheduler_queue, probe_vortex_metadata_only, size_vortex_runtime_task_graph,
-    summarize_vortex_metadata_probe, vortex_encoded_read_executor_feature_enabled,
-    vortex_encoded_read_public_api_boundary, vortex_encoded_read_spike_feature_enabled,
-    vortex_file_io_feature_enabled, vortex_metadata_executor_feature_enabled,
+    evaluate_vortex_execution_readiness, evaluate_vortex_query_primitive,
+    execute_vortex_encoded_read_contract, execute_vortex_encoded_read_spike,
+    execute_vortex_metadata_only, metadata_planning_is_side_effect_free,
+    metadata_pruning_is_side_effect_free, metadata_summary_is_plan_only, open_vortex_metadata_only,
+    plan_from_vortex_metadata_summary, plan_native_vortex_universal_input,
+    plan_vortex_encoded_read_probe, plan_vortex_memory_safety, plan_vortex_metadata_pruning,
+    plan_vortex_read_from_universal_input, plan_vortex_scheduler_queue, probe_vortex_metadata_only,
+    size_vortex_runtime_task_graph, summarize_vortex_metadata_probe,
+    vortex_encoded_read_executor_feature_enabled, vortex_encoded_read_public_api_boundary,
+    vortex_encoded_read_spike_feature_enabled, vortex_file_io_feature_enabled,
+    vortex_metadata_executor_feature_enabled,
 };
 
 fn main() -> ExitCode {
@@ -58,7 +59,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count> [--format text|json]",
         cli_command_name()
     )
 }
@@ -4042,6 +4043,81 @@ fn run(args: Vec<String>) -> ExitCode {
                 ],
             );
             if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
+
+        Some("vortex-count") => {
+            let Some(uri_arg) = args.next() else {
+                eprintln!("usage: shardloom vortex-count <dataset_uri>");
+                return ExitCode::from(2);
+            };
+            let uri = match DatasetUri::new(uri_arg) {
+                Ok(uri) => uri,
+                Err(error) => {
+                    return emit_error("vortex-count", format, "vortex count failed", &error);
+                }
+            };
+            let request = shardloom_vortex::VortexQueryPrimitiveRequest::count_all(uri.clone());
+            let open = open_vortex_metadata_only(VortexMetadataOpenRequest::metadata_only(uri));
+            let summary = if let Ok(report) = open {
+                report.metadata_summary.unwrap_or_else(|| {
+                    summarize_vortex_metadata_probe(
+                        &VortexMetadataProbeReport::deferred_api_unclear(),
+                    )
+                })
+            } else {
+                summarize_vortex_metadata_probe(&VortexMetadataProbeReport::deferred_api_unclear())
+            };
+            let result = match evaluate_vortex_query_primitive(request, &summary) {
+                Ok(result) => result,
+                Err(error) => {
+                    return emit_error("vortex-count", format, "vortex count failed", &error);
+                }
+            };
+            let status = if result.has_errors() {
+                CommandStatus::Unsupported
+            } else {
+                CommandStatus::Success
+            };
+            let count = match result.value {
+                shardloom_vortex::VortexQueryPrimitiveValue::Count(v) => Some(v),
+                _ => None,
+            };
+            emit(
+                "vortex-count",
+                format,
+                status,
+                "vortex count primitive".to_string(),
+                result.to_human_text(),
+                result.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "vortex_count".to_string()),
+                    ("primitive".to_string(), "count_all".to_string()),
+                    ("data_read".to_string(), "false".to_string()),
+                    ("data_decoded".to_string(), "false".to_string()),
+                    ("data_materialized".to_string(), "false".to_string()),
+                    ("object_store_io".to_string(), "false".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
+                    ("spill_io_performed".to_string(), "false".to_string()),
+                    (
+                        "execution".to_string(),
+                        "metadata_only_or_not_performed".to_string(),
+                    ),
+                    ("result_known".to_string(), count.is_some().to_string()),
+                    (
+                        "count".to_string(),
+                        count.map_or_else(|| "unknown".to_string(), |v| v.to_string()),
+                    ),
+                ],
+            );
+            if result.has_errors() {
                 ExitCode::from(1)
             } else {
                 ExitCode::SUCCESS
