@@ -21,6 +21,7 @@ pub mod file_io;
 pub mod metadata_planning;
 pub mod metadata_pruning;
 pub mod metadata_summary;
+pub mod read_planning;
 
 pub use file_io::{
     VortexFileIoFeatureStatus, VortexMetadataOpenMode, VortexMetadataOpenReport,
@@ -42,6 +43,12 @@ pub use metadata_pruning::{
 pub use input_bridge::{
     VortexUniversalInputMode, VortexUniversalInputPlan, VortexUniversalInputStatus,
     plan_native_vortex_universal_input, vortex_universal_input_plan_is_side_effect_free,
+};
+
+pub use read_planning::{
+    VortexByteRangeIntent, VortexReadIntentStatus, VortexReadPlanningInput, VortexReadPlanningMode,
+    VortexReadPlanningReport, VortexReadSplitDescriptor, VortexSegmentReadIntent,
+    plan_vortex_read_from_universal_input, vortex_read_planning_is_side_effect_free,
 };
 
 pub use metadata_summary::{

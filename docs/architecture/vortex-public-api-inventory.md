@@ -219,3 +219,11 @@ Implement typed DType adapter mapping only if upstream public DType APIs are cle
 - No object-store IO is performed.
 - No writes are performed.
 - No fallback execution is allowed.
+
+## Read planning update
+
+- ShardLoom now has a metadata-driven read planning skeleton.
+- It does not call upstream Vortex scan execution.
+- It prepares the future scan/split boundary.
+- It preserves no-decode/no-materialization/no-object-store/no-write behavior.
+- No fallback execution introduced.

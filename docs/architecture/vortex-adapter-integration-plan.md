@@ -132,3 +132,12 @@ The `Vortex` adapter now accepts normalized `UniversalInputSource` values.
 Native `Vortex` input can flow into metadata open/summary/planning/pruning reports, providing the input-side counterpart to native `Vortex` output fidelity.
 
 Actual scan execution remains out of scope.
+
+## Metadata-driven read planning
+
+- Vortex metadata/pruning reports can now produce read planning reports.
+- Read planning creates segment intents and split descriptors only.
+- Split descriptors do not execute reads.
+- Byte ranges are intentions, not IO.
+- Actual scan execution remains out of scope.
+- Object-store and write features remain future gates.
