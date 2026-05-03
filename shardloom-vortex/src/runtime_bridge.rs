@@ -300,12 +300,12 @@ impl VortexRuntimeBridgeReport {
             diagnostics: vec![],
             input,
         };
+        for diagnostic in out.input.read_planning_report.diagnostics.clone() {
+            out.add_diagnostic(diagnostic);
+        }
         if out.input.read_planning_report.has_errors() {
             out.status = VortexRuntimeBridgeStatus::Unsupported;
             out.mode = VortexRuntimeBridgeMode::Unsupported;
-            for diagnostic in out.input.read_planning_report.diagnostics.clone() {
-                out.add_diagnostic(diagnostic);
-            }
             return Ok(out);
         }
         let intents = out.input.read_planning_report.segment_intents.clone();
@@ -397,7 +397,13 @@ impl VortexRuntimeBridgeReport {
         let has_encoded = out.encoded_task_count > 0;
         let has_partial = out.partial_decode_task_count > 0;
         let has_meta = out.metadata_task_count > 0;
-        out.status = if has_unsupported {
+        out.status = if matches!(
+            out.input.read_planning_report.status,
+            crate::VortexReadIntentStatus::BlockedByMissingMetadata
+        ) && out.task_count == 0
+        {
+            VortexRuntimeBridgeStatus::BlockedByMissingMetadata
+        } else if has_unsupported {
             VortexRuntimeBridgeStatus::Unsupported
         } else if !out.mappings.is_empty() && out.no_task_count == out.mappings.len() {
             if out.mappings.iter().any(|m| {
@@ -607,5 +613,62 @@ mod tests {
             VortexRuntimeBridgeReport::from_read_planning_report(read).expect("bridge report");
         assert!(matches!(out.status, VortexRuntimeBridgeStatus::Unsupported));
         assert!(out.has_errors());
+        assert_eq!(out.task_count, 0);
+        assert!(!out.data_read);
+        assert!(!out.data_materialized);
+        assert!(!out.write_io);
+        assert!(!out.object_store_io);
+        assert!(!out.fallback_execution_allowed);
+        let text = out.to_human_text();
+        assert!(text.contains("fallback execution disabled"));
+        assert!(text.contains("unsupported"));
+    }
+
+    #[test]
+    fn blocked_read_plan_stays_blocked_without_tasks() {
+        let mut read =
+            crate::VortexReadPlanningReport::from_input(crate::VortexReadPlanningInput::new())
+                .expect("read report");
+        read.status = crate::VortexReadIntentStatus::BlockedByMissingMetadata;
+        read.add_diagnostic(Diagnostic::new(
+            DiagnosticCode::MissingStatistics,
+            DiagnosticSeverity::Warning,
+            shardloom_core::DiagnosticCategory::Statistics,
+            "missing stats",
+            Some("vortex-read-plan".to_string()),
+            Some("blocked".to_string()),
+            None,
+            FallbackStatus::disabled_by_policy(),
+        ));
+        let out =
+            VortexRuntimeBridgeReport::from_read_planning_report(read).expect("bridge report");
+        assert!(matches!(
+            out.status,
+            VortexRuntimeBridgeStatus::BlockedByMissingMetadata
+        ));
+        assert_eq!(out.task_count, 0);
+        assert!(!out.data_read);
+        assert!(!out.data_materialized);
+        assert!(!out.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn top_level_read_plan_diagnostic_is_preserved() {
+        let mut read =
+            crate::VortexReadPlanningReport::from_input(crate::VortexReadPlanningInput::new())
+                .expect("read report");
+        read.add_diagnostic(Diagnostic::new(
+            DiagnosticCode::NotImplemented,
+            DiagnosticSeverity::Warning,
+            shardloom_core::DiagnosticCategory::Planning,
+            "top-level bridge note",
+            Some("vortex-read-plan".to_string()),
+            Some("detail".to_string()),
+            None,
+            FallbackStatus::disabled_by_policy(),
+        ));
+        let out =
+            VortexRuntimeBridgeReport::from_read_planning_report(read).expect("bridge report");
+        assert!(out.to_human_text().contains("top-level bridge note"));
     }
 }
