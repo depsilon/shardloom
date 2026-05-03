@@ -5,7 +5,9 @@
 
 use std::fmt::Write as _;
 
-use shardloom_core::{Diagnostic, LogicalDType, Result, ShardLoomError};
+use shardloom_core::{
+    DatasetUri, Diagnostic, DiagnosticCode, LogicalDType, Result, ShardLoomError,
+};
 
 /// Shared report hygiene helpers for `ShardLoom` Vortex adapter reporting.
 ///
@@ -249,7 +251,7 @@ impl VortexAdapterCapabilityReport {
                 ),
                 (
                     VortexAdapterCapability::MetadataInspection,
-                    VortexAdapterCapabilityStatus::Planned,
+                    VortexAdapterCapabilityStatus::BlockedOnApiDiscovery,
                 ),
                 (
                     VortexAdapterCapability::ReadPlanning,
@@ -466,6 +468,211 @@ pub struct VortexStatisticsMappingReport {
     pub actual_io_implemented: bool,
     pub fallback_execution_allowed: bool,
     pub diagnostics: Vec<Diagnostic>,
+}
+
+/// Metadata-only IO status for `Vortex` adapter probing in `ShardLoom`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexMetadataIoStatus {
+    Implemented,
+    DeferredApiUnclear,
+    DeferredApiUnstable,
+    Unsupported,
+}
+impl VortexMetadataIoStatus {
+    /// Returns a stable machine-readable status label.
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Implemented => "implemented",
+            Self::DeferredApiUnclear => "deferred_api_unclear",
+            Self::DeferredApiUnstable => "deferred_api_unstable",
+            Self::Unsupported => "unsupported",
+        }
+    }
+    /// Returns whether metadata-only IO is implemented.
+    #[must_use]
+    pub const fn is_implemented(&self) -> bool {
+        matches!(self, Self::Implemented)
+    }
+}
+
+/// Metadata probe mode for `VortexMetadataProbeReport`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexMetadataIoMode {
+    ReportOnly,
+    LocalFileMetadataOnly,
+    Unsupported,
+}
+impl VortexMetadataIoMode {
+    /// Returns a stable machine-readable mode label.
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::ReportOnly => "report_only",
+            Self::LocalFileMetadataOnly => "local_file_metadata_only",
+            Self::Unsupported => "unsupported",
+        }
+    }
+    /// Returns whether the mode performs local file IO.
+    #[must_use]
+    pub const fn performs_file_io(&self) -> bool {
+        matches!(self, Self::LocalFileMetadataOnly)
+    }
+}
+
+/// Report for `ShardLoom` metadata-only `Vortex` probing.
+#[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexMetadataProbeReport {
+    pub status: VortexMetadataIoStatus,
+    pub mode: VortexMetadataIoMode,
+    pub api_name: Option<String>,
+    pub target_uri: Option<DatasetUri>,
+    pub metadata_available: bool,
+    pub schema_available: bool,
+    pub statistics_available: bool,
+    pub encoding_layout_available: bool,
+    pub data_materialized: bool,
+    pub object_store_io: bool,
+    pub write_io: bool,
+    pub fallback_execution_allowed: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl VortexMetadataProbeReport {
+    #[must_use]
+    pub fn implemented_metadata_only(api_name: impl Into<String>, target_uri: DatasetUri) -> Self {
+        Self {
+            status: VortexMetadataIoStatus::Implemented,
+            mode: VortexMetadataIoMode::LocalFileMetadataOnly,
+            api_name: Some(api_name.into()),
+            target_uri: Some(target_uri),
+            metadata_available: true,
+            schema_available: false,
+            statistics_available: false,
+            encoding_layout_available: false,
+            data_materialized: false,
+            object_store_io: false,
+            write_io: false,
+            fallback_execution_allowed: false,
+            diagnostics: vec![],
+        }
+    }
+    #[must_use]
+    pub fn deferred_api_unclear() -> Self {
+        Self {
+            status: VortexMetadataIoStatus::DeferredApiUnclear,
+            mode: VortexMetadataIoMode::ReportOnly,
+            api_name: None,
+            target_uri: None,
+            metadata_available: false,
+            schema_available: false,
+            statistics_available: false,
+            encoding_layout_available: false,
+            data_materialized: false,
+            object_store_io: false,
+            write_io: false,
+            fallback_execution_allowed: false,
+            diagnostics: vec![Diagnostic::unsupported(
+                DiagnosticCode::NotImplemented,
+                "vortex_metadata_probe",
+                "Metadata-only Vortex API remains deferred until public API clarity is confirmed.",
+                Some("Use report-only mode and retry after API discovery updates.".to_string()),
+            )],
+        }
+    }
+    #[must_use]
+    pub fn deferred_api_unstable() -> Self {
+        Self {
+            status: VortexMetadataIoStatus::DeferredApiUnstable,
+            ..Self::deferred_api_unclear()
+        }
+    }
+    #[must_use]
+    pub fn unsupported(feature: impl Into<String>, reason: impl Into<String>) -> Self {
+        let feature = feature.into();
+        let reason = reason.into();
+        Self {
+            status: VortexMetadataIoStatus::Unsupported,
+            mode: VortexMetadataIoMode::Unsupported,
+            api_name: None,
+            target_uri: None,
+            metadata_available: false,
+            schema_available: false,
+            statistics_available: false,
+            encoding_layout_available: false,
+            data_materialized: false,
+            object_store_io: false,
+            write_io: false,
+            fallback_execution_allowed: false,
+            diagnostics: vec![Diagnostic::unsupported(
+                DiagnosticCode::NotImplemented,
+                feature,
+                reason,
+                Some("Use local .vortex or file://... paths for report-only probing.".to_string()),
+            )],
+        }
+    }
+    pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
+    }
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        diagnostics_have_errors(&self.diagnostics)
+    }
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        let mut out = format!(
+            "Vortex metadata-only probe\nmetadata IO status: {}\nmode: {}\nmetadata available: {}\nschema available: {}\nstatistics available: {}\nencoding/layout available: {}\ndata materialized: {}\nobject-store IO: {}\nwrite IO: {}",
+            self.status.as_str(),
+            self.mode.as_str(),
+            self.metadata_available,
+            self.schema_available,
+            self.statistics_available,
+            self.encoding_layout_available,
+            self.data_materialized,
+            self.object_store_io,
+            self.write_io
+        );
+        append_fallback_disabled_line(&mut out);
+        if let Some(api_name) = &self.api_name {
+            let _ = write!(out, "\nAPI name: {api_name}");
+        }
+        if let Some(target_uri) = &self.target_uri {
+            let _ = write!(out, "\ntarget URI: {}", target_uri.as_str());
+        }
+        append_diagnostics_section(&mut out, &self.diagnostics);
+        out
+    }
+}
+
+/// Probes `Vortex` metadata-only IO behavior for `ShardLoom`.
+///
+/// This probe is report-only for now and never performs data scan/decode/materialization,
+/// object-store IO, writes, or fallback execution.
+///
+/// # Errors
+///
+/// Returns `ShardLoomError` when input URI validation fails.
+#[allow(clippy::needless_pass_by_value)]
+pub fn probe_vortex_metadata_only(uri: DatasetUri) -> Result<VortexMetadataProbeReport> {
+    match uri.scheme() {
+        shardloom_core::UriScheme::S3
+        | shardloom_core::UriScheme::Gcs
+        | shardloom_core::UriScheme::Adls => {
+            return Ok(VortexMetadataProbeReport::unsupported(
+                "vortex_metadata_probe_object_store",
+                "Object-store URI is unsupported for metadata-only probe in this phase.",
+            ));
+        }
+        _ => {}
+    }
+    if !uri.looks_like_vortex() {
+        return Ok(VortexMetadataProbeReport::unsupported(
+            "vortex_metadata_probe_uri_validation",
+            "Dataset URI does not look like native Vortex input.",
+        ));
+    }
+    Ok(VortexMetadataProbeReport::deferred_api_unclear())
 }
 impl VortexStatisticsMappingReport {
     /// Creates a report for implemented typed statistics mapping against a public API.
@@ -1161,5 +1368,57 @@ mod tests {
     #[test]
     fn can_map_statistics_without_io_returns_true() {
         assert!(can_map_statistics_without_io());
+    }
+    #[test]
+    fn metadata_status_implemented_true() {
+        assert!(VortexMetadataIoStatus::Implemented.is_implemented());
+    }
+    #[test]
+    fn metadata_status_deferred_false() {
+        assert!(!VortexMetadataIoStatus::DeferredApiUnclear.is_implemented());
+    }
+    #[test]
+    fn metadata_mode_local_file_performs_io() {
+        assert!(VortexMetadataIoMode::LocalFileMetadataOnly.performs_file_io());
+    }
+    #[test]
+    fn metadata_mode_report_only_no_file_io() {
+        assert!(!VortexMetadataIoMode::ReportOnly.performs_file_io());
+    }
+    #[test]
+    fn metadata_deferred_flags_are_false() {
+        let report = VortexMetadataProbeReport::deferred_api_unclear();
+        assert!(!report.data_materialized);
+        assert!(!report.object_store_io);
+        assert!(!report.write_io);
+        assert!(!report.fallback_execution_allowed);
+    }
+    #[test]
+    fn metadata_human_text_contains_required_lines() {
+        let text = VortexMetadataProbeReport::deferred_api_unclear().to_human_text();
+        assert!(text.contains("data materialized: false"));
+        assert!(text.contains("object-store IO: false"));
+        assert!(text.contains("write IO: false"));
+        assert!(text.contains("fallback execution allowed: false"));
+        assert!(text.contains("diagnostics:"));
+    }
+    #[test]
+    fn metadata_has_errors_severity_based() {
+        let mut report = VortexMetadataProbeReport::deferred_api_unclear();
+        assert!(report.has_errors());
+        report.diagnostics.clear();
+        assert!(!report.has_errors());
+    }
+    #[test]
+    fn probe_rejects_non_vortex_uri() {
+        let uri = DatasetUri::new("file://tmp/not-vortex.parquet").expect("uri");
+        let report = probe_vortex_metadata_only(uri).expect("report");
+        assert_eq!(report.status, VortexMetadataIoStatus::Unsupported);
+    }
+    #[test]
+    fn probe_rejects_object_store_uri() {
+        let uri = DatasetUri::new("s3://bucket/path/data.vortex").expect("uri");
+        let report = probe_vortex_metadata_only(uri).expect("report");
+        assert_eq!(report.status, VortexMetadataIoStatus::Unsupported);
     }
 }

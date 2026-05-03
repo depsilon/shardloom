@@ -85,3 +85,13 @@ This document records ShardLoom's first upstream Vortex dependency review for de
 - `ShardLoom` `SegmentStats` placeholder mapping remains available for planning/reporting utility.
 - No actual Vortex IO implemented.
 - No fallback execution introduced.
+
+## Metadata-only IO update
+
+- Metadata-only local `Vortex` inspection: deferred to report-only mode in this PR.
+- Public upstream API used for implemented runtime metadata inspection: none (deferred).
+- Scan execution implemented: no.
+- Data materialization implemented: no.
+- Write implemented: no.
+- Object-store IO implemented: no.
+- Fallback execution introduced: no.
