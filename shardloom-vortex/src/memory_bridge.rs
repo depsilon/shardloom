@@ -18,6 +18,7 @@ pub enum VortexMemoryBridgeStatus {
     Unsupported,
 }
 impl VortexMemoryBridgeStatus {
+    #[must_use]
     pub const fn as_str(&self) -> &'static str {
         match self {
             Self::Planned => "planned",
@@ -55,6 +56,7 @@ pub enum VortexMemoryBridgeMode {
     Unsupported,
 }
 impl VortexMemoryBridgeMode {
+    #[must_use]
     pub const fn as_str(&self) -> &'static str {
         match self {
             Self::PlanOnly => "plan_only",
@@ -77,6 +79,7 @@ pub enum VortexTaskMemoryClass {
     Unsupported,
 }
 impl VortexTaskMemoryClass {
+    #[must_use]
     pub const fn as_str(&self) -> &'static str {
         match self {
             Self::MetadataOnly => "metadata_only",
@@ -107,6 +110,7 @@ pub enum VortexTaskMemoryDecisionKind {
     Unsupported,
 }
 impl VortexTaskMemoryDecisionKind {
+    #[must_use]
     pub const fn as_str(&self) -> &'static str {
         match self {
             Self::NoMemoryActionNeeded => "no_memory_action_needed",
@@ -225,10 +229,12 @@ impl VortexTaskMemoryDecision {
         ));
         s
     }
+    #[must_use]
     pub fn with_segment_id(mut self, segment_id: SegmentId) -> Self {
         self.segment_id = Some(segment_id);
         self
     }
+    #[must_use]
     pub fn with_memory_class(mut self, memory_class: VortexTaskMemoryClass) -> Self {
         self.memory_class = memory_class;
         self
@@ -236,9 +242,11 @@ impl VortexTaskMemoryDecision {
     pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
         self.diagnostics.push(diagnostic);
     }
+    #[must_use]
     pub const fn requires_action(&self) -> bool {
         self.kind.requires_action()
     }
+    #[must_use]
     pub fn has_errors(&self) -> bool {
         self.diagnostics.iter().any(|d| {
             matches!(
@@ -247,6 +255,7 @@ impl VortexTaskMemoryDecision {
             )
         })
     }
+    #[must_use]
     pub fn summary(&self) -> String {
         format!(
             "kind={} memory_class={} planning-only execution=not_performed",
@@ -265,6 +274,7 @@ pub struct VortexMemoryBridgeInput {
     pub diagnostics: Vec<Diagnostic>,
 }
 impl VortexMemoryBridgeInput {
+    #[must_use]
     pub fn new(memory_budget: MemoryBudget) -> Self {
         Self {
             adaptive_sizing_report: None,
@@ -274,6 +284,7 @@ impl VortexMemoryBridgeInput {
             diagnostics: vec![],
         }
     }
+    #[must_use]
     pub fn from_adaptive_sizing_report(
         report: crate::VortexAdaptiveSizingReport,
         memory_budget: MemoryBudget,
@@ -282,6 +293,7 @@ impl VortexMemoryBridgeInput {
         s.adaptive_sizing_report = Some(report);
         s
     }
+    #[must_use]
     pub fn from_runtime_bridge_report(
         report: crate::VortexRuntimeBridgeReport,
         memory_budget: MemoryBudget,
@@ -290,6 +302,7 @@ impl VortexMemoryBridgeInput {
         s.runtime_bridge_report = Some(report);
         s
     }
+    #[must_use]
     pub fn with_spill_policy(mut self, policy: SpillPolicy) -> Self {
         self.spill_policy = policy;
         self
@@ -297,6 +310,7 @@ impl VortexMemoryBridgeInput {
     pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
         self.diagnostics.push(diagnostic);
     }
+    #[must_use]
     pub fn has_errors(&self) -> bool {
         self.diagnostics.iter().any(|d| {
             matches!(
@@ -305,6 +319,7 @@ impl VortexMemoryBridgeInput {
             )
         })
     }
+    #[must_use]
     pub fn summary(&self) -> String {
         format!(
             "budget=[{}] spill_policy={}",
@@ -339,6 +354,8 @@ pub struct VortexMemoryBridgeReport {
     pub diagnostics: Vec<Diagnostic>,
 }
 impl VortexMemoryBridgeReport {
+    /// # Errors
+    /// Returns an error when constructing `MemoryBudget`-derived planning state fails.
     pub fn from_input(input: VortexMemoryBridgeInput) -> Result<Self> {
         let mp = MemoryPoolPlan::new(input.memory_budget.clone());
         let oop = OomSafetyPlan::new(mp.clone());
@@ -366,7 +383,10 @@ impl VortexMemoryBridgeReport {
             diagnostics: vec![],
         };
         if let Some(r) = &out.input.adaptive_sizing_report {
-            let min_task_bytes = r.input.policy.min_task_bytes;
+            out.diagnostics.extend(r.diagnostics.clone());
+            if r.has_errors() || r.status == crate::VortexAdaptiveSizingStatus::Unsupported {
+                out.status = VortexMemoryBridgeStatus::Unsupported;
+            }
             let decisions = r.sizing_plan.decisions.clone();
             for (seg, d) in &decisions {
                 let decision = match d.kind {
@@ -374,26 +394,78 @@ impl VortexMemoryBridgeReport {
                         VortexTaskMemoryDecision::needs_estimate(None, "missing size estimate")
                             .with_segment_id(seg.clone())
                     }
-                    _ => VortexTaskMemoryDecision::reserve_memory_planned(
+                    _ => VortexTaskMemoryDecision::needs_estimate(
                         None,
-                        min_task_bytes,
-                        "budget planning using adaptive sizing minimum task bytes",
+                        format!("unavailable explicit byte estimate: {}", d.reason),
                     )
                     .with_segment_id(seg.clone()),
                 };
                 out.add_task_decision(decision);
             }
         }
+        if let Some(r) = &out.input.runtime_bridge_report {
+            out.diagnostics.extend(r.diagnostics.clone());
+            if r.has_errors() || r.status == crate::VortexRuntimeBridgeStatus::Unsupported {
+                out.status = VortexMemoryBridgeStatus::Unsupported;
+            }
+            if out.input.adaptive_sizing_report.is_none() {
+                let mappings = r.mappings.clone();
+                for mapping in &mappings {
+                    let decision = match mapping.kind {
+                        crate::VortexTaskMappingKind::NoTaskNeeded
+                        | crate::VortexTaskMappingKind::MetadataTask => {
+                            VortexTaskMemoryDecision::no_action("runtime mapping is metadata-only")
+                        }
+                        crate::VortexTaskMappingKind::PartialDecodeTask => {
+                            VortexTaskMemoryDecision::spill_may_be_required(
+                                mapping.task_id.clone(),
+                                "partial decode mapping may require spill planning",
+                            )
+                            .with_memory_class(VortexTaskMemoryClass::PartialDecode)
+                        }
+                        crate::VortexTaskMappingKind::SegmentScanTask
+                        | crate::VortexTaskMappingKind::EncodedEvaluateTask => {
+                            VortexTaskMemoryDecision::needs_estimate(
+                                mapping.task_id.clone(),
+                                "runtime bridge mapping does not provide explicit bytes",
+                            )
+                            .with_memory_class(VortexTaskMemoryClass::EncodedRead)
+                        }
+                        crate::VortexTaskMappingKind::Unsupported => {
+                            VortexTaskMemoryDecision::unsupported(
+                                mapping.task_id.clone(),
+                                "runtime-bridge-mapping",
+                                "unsupported runtime mapping for memory planning",
+                            )
+                        }
+                    };
+                    let decision = if let Some(seg) = &mapping.segment_id {
+                        decision.with_segment_id(seg.clone())
+                    } else {
+                        decision
+                    };
+                    out.add_task_decision(decision);
+                }
+            }
+        }
         out.recompute_counts();
-        out.status = if out.tasks_considered == 0 {
-            VortexMemoryBridgeStatus::NoTasksRequired
-        } else if out.tasks_needing_estimate > 0 {
-            VortexMemoryBridgeStatus::NeedsEstimate
-        } else {
-            VortexMemoryBridgeStatus::MemorySafe
-        };
+        if out.status != VortexMemoryBridgeStatus::Unsupported {
+            out.status = if out.tasks_considered == 0 {
+                VortexMemoryBridgeStatus::NoTasksRequired
+            } else if out.tasks_spill_required_not_implemented > 0 {
+                VortexMemoryBridgeStatus::SpillRequiredButNotImplemented
+            } else if out.tasks_spill_may_be_required > 0 {
+                VortexMemoryBridgeStatus::SpillMayBeRequired
+            } else if out.tasks_needing_estimate > 0 {
+                VortexMemoryBridgeStatus::NeedsEstimate
+            } else {
+                VortexMemoryBridgeStatus::MemorySafe
+            };
+        }
         Ok(out)
     }
+    /// # Errors
+    /// Returns errors propagated from `from_input`.
     pub fn from_adaptive_sizing_report(
         report: crate::VortexAdaptiveSizingReport,
         memory_budget: MemoryBudget,
@@ -408,9 +480,29 @@ impl VortexMemoryBridgeReport {
         feature: impl Into<String>,
         reason: impl Into<String>,
     ) -> Self {
-        let mut s = Self::from_input(input).expect("memory input is valid");
-        s.status = VortexMemoryBridgeStatus::Unsupported;
-        s.mode = VortexMemoryBridgeMode::Unsupported;
+        let mut s = Self {
+            status: VortexMemoryBridgeStatus::Unsupported,
+            mode: VortexMemoryBridgeMode::Unsupported,
+            memory_pool_plan: MemoryPoolPlan::new(input.memory_budget.clone()),
+            oom_safety_plan: OomSafetyPlan::new(MemoryPoolPlan::new(input.memory_budget.clone())),
+            input,
+            spill_plans: vec![],
+            task_decisions: vec![],
+            tasks_considered: 0,
+            tasks_needing_estimate: 0,
+            tasks_memory_safe: 0,
+            tasks_spill_may_be_required: 0,
+            tasks_spill_required_not_implemented: 0,
+            data_executed: false,
+            data_read: false,
+            data_materialized: false,
+            object_store_io: false,
+            write_io: false,
+            spill_io_performed: false,
+            external_effects_executed: false,
+            fallback_execution_allowed: false,
+            diagnostics: vec![],
+        };
         s.diagnostics.push(Diagnostic::unsupported(
             DiagnosticCode::NotImplemented,
             feature,
@@ -420,13 +512,13 @@ impl VortexMemoryBridgeReport {
         s
     }
     pub fn add_task_decision(&mut self, decision: VortexTaskMemoryDecision) {
-        self.task_decisions.push(decision)
+        self.task_decisions.push(decision);
     }
     pub fn add_spill_plan(&mut self, spill_plan: SpillPlan) {
-        self.spill_plans.push(spill_plan)
+        self.spill_plans.push(spill_plan);
     }
     pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
-        self.diagnostics.push(diagnostic)
+        self.diagnostics.push(diagnostic);
     }
     pub fn recompute_counts(&mut self) {
         self.tasks_considered = self.task_decisions.len();
@@ -474,6 +566,7 @@ impl VortexMemoryBridgeReport {
                 )
             })
     }
+    #[must_use]
     pub const fn is_side_effect_free(&self) -> bool {
         !self.data_executed
             && !self.data_read
@@ -484,6 +577,7 @@ impl VortexMemoryBridgeReport {
             && !self.external_effects_executed
             && !self.fallback_execution_allowed
     }
+    #[must_use]
     pub fn to_human_text(&self) -> String {
         let mut out = String::new();
         let _ = write!(
@@ -503,18 +597,87 @@ impl VortexMemoryBridgeReport {
             out.push_str("\ndiagnostics:");
             for d in &self.diagnostics {
                 let _ = write!(out, "\n- {}", d.to_human_text());
+                if let Some(feature) = &d.feature {
+                    let _ = write!(out, " feature={feature}");
+                }
+                if let Some(reason) = &d.reason {
+                    let _ = write!(out, " reason={reason}");
+                }
+                if let Some(next_step) = &d.suggested_next_step {
+                    let _ = write!(out, " next_step={next_step}");
+                }
             }
         }
         out
     }
 }
 
+/// # Errors
+/// Returns errors propagated from `VortexMemoryBridgeReport::from_adaptive_sizing_report`.
 pub fn plan_vortex_memory_safety(
     report: crate::VortexAdaptiveSizingReport,
     memory_budget: MemoryBudget,
 ) -> Result<VortexMemoryBridgeReport> {
     VortexMemoryBridgeReport::from_adaptive_sizing_report(report, memory_budget)
 }
+#[must_use]
 pub fn vortex_memory_bridge_is_side_effect_free(report: &VortexMemoryBridgeReport) -> bool {
     report.is_side_effect_free()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use shardloom_exec::AdaptiveSizingPolicy;
+
+    #[test]
+    fn adaptive_non_needs_estimate_stays_needs_estimate_without_bytes() {
+        let input_plan = crate::plan_native_vortex_universal_input(
+            shardloom_core::UniversalInputSource::from_dataset_uri(
+                shardloom_core::DatasetUri::new("file://tmp/test.vortex").expect("uri"),
+            )
+            .expect("source"),
+        )
+        .expect("input");
+        let read = crate::plan_vortex_read_from_universal_input(input_plan).expect("read");
+        let runtime = crate::build_vortex_runtime_task_graph(read).expect("runtime");
+        let sizing =
+            crate::size_vortex_runtime_task_graph(runtime, AdaptiveSizingPolicy::default_local())
+                .expect("sizing");
+        let report = VortexMemoryBridgeReport::from_adaptive_sizing_report(
+            sizing,
+            MemoryBudget::from_gib(4).expect("budget"),
+        )
+        .expect("bridge");
+        assert!(
+            report.tasks_needing_estimate
+                >= report
+                    .tasks_considered
+                    .saturating_sub(report.tasks_memory_safe)
+        );
+    }
+
+    #[test]
+    fn runtime_only_input_creates_decisions_when_mappings_exist() {
+        let input_plan = crate::plan_native_vortex_universal_input(
+            shardloom_core::UniversalInputSource::from_dataset_uri(
+                shardloom_core::DatasetUri::new("file://tmp/test.vortex").expect("uri"),
+            )
+            .expect("source"),
+        )
+        .expect("input");
+        let read = crate::plan_vortex_read_from_universal_input(input_plan).expect("read");
+        let runtime = crate::build_vortex_runtime_task_graph(read).expect("runtime");
+        let report = VortexMemoryBridgeReport::from_input(
+            VortexMemoryBridgeInput::from_runtime_bridge_report(
+                runtime,
+                MemoryBudget::from_gib(4).expect("budget"),
+            ),
+        )
+        .expect("bridge");
+        assert!(
+            report.tasks_considered > 0
+                || report.status == VortexMemoryBridgeStatus::NoTasksRequired
+        );
+    }
 }

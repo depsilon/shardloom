@@ -1817,6 +1817,25 @@ fn run(args: Vec<String>) -> ExitCode {
                     );
                 }
             };
+            if input_plan.has_errors() || !input_plan.source.is_native_vortex() {
+                emit(
+                    "vortex-memory-plan",
+                    format,
+                    CommandStatus::Unsupported,
+                    "vortex memory planning report".to_string(),
+                    input_plan.to_human_text(),
+                    input_plan.diagnostics.clone(),
+                    vec![
+                        (
+                            "fallback_execution_allowed".to_string(),
+                            "false".to_string(),
+                        ),
+                        ("mode".to_string(), "vortex_memory_plan".to_string()),
+                        ("execution".to_string(), "not_performed".to_string()),
+                    ],
+                );
+                return ExitCode::from(1);
+            }
             let read_report = match plan_vortex_read_from_universal_input(input_plan.clone()) {
                 Ok(v) => v,
                 Err(error) => {
@@ -1828,6 +1847,25 @@ fn run(args: Vec<String>) -> ExitCode {
                     );
                 }
             };
+            if read_report.has_errors() {
+                emit(
+                    "vortex-memory-plan",
+                    format,
+                    CommandStatus::Unsupported,
+                    "vortex memory planning report".to_string(),
+                    read_report.to_human_text(),
+                    read_report.diagnostics.clone(),
+                    vec![
+                        (
+                            "fallback_execution_allowed".to_string(),
+                            "false".to_string(),
+                        ),
+                        ("mode".to_string(), "vortex_memory_plan".to_string()),
+                        ("execution".to_string(), "not_performed".to_string()),
+                    ],
+                );
+                return ExitCode::from(1);
+            }
             let runtime_report = match build_vortex_runtime_task_graph(read_report) {
                 Ok(v) => v,
                 Err(error) => {
@@ -1839,6 +1877,25 @@ fn run(args: Vec<String>) -> ExitCode {
                     );
                 }
             };
+            if runtime_report.has_errors() {
+                emit(
+                    "vortex-memory-plan",
+                    format,
+                    CommandStatus::Unsupported,
+                    "vortex memory planning report".to_string(),
+                    runtime_report.to_human_text(),
+                    runtime_report.diagnostics.clone(),
+                    vec![
+                        (
+                            "fallback_execution_allowed".to_string(),
+                            "false".to_string(),
+                        ),
+                        ("mode".to_string(), "vortex_memory_plan".to_string()),
+                        ("execution".to_string(), "not_performed".to_string()),
+                    ],
+                );
+                return ExitCode::from(1);
+            }
             let policy = AdaptiveSizingPolicy::memory_limited(ByteSize::from_gib(memory_gb));
             let report = match size_vortex_runtime_task_graph(runtime_report, policy) {
                 Ok(v) => v,
@@ -1980,6 +2037,25 @@ fn run(args: Vec<String>) -> ExitCode {
                     );
                 }
             };
+            if sizing_report.has_errors() {
+                emit(
+                    "vortex-memory-plan",
+                    format,
+                    CommandStatus::Unsupported,
+                    "vortex memory planning report".to_string(),
+                    sizing_report.to_human_text(),
+                    sizing_report.diagnostics.clone(),
+                    vec![
+                        (
+                            "fallback_execution_allowed".to_string(),
+                            "false".to_string(),
+                        ),
+                        ("mode".to_string(), "vortex_memory_plan".to_string()),
+                        ("execution".to_string(), "not_performed".to_string()),
+                    ],
+                );
+                return ExitCode::from(1);
+            }
             let budget = match MemoryBudget::from_gib(memory_gb) {
                 Ok(v) => v,
                 Err(error) => {
