@@ -249,3 +249,13 @@ This bridge does not execute tasks.
 This bridge does not materialize values.
 This bridge does not write spill files.
 No fallback execution is introduced.
+
+## Execution readiness update
+
+`ShardLoom` now exposes a Vortex execution-readiness gate over the Vortex planning chain.
+This update does not call upstream Vortex scan execution.
+This update does not read data.
+This update does not execute tasks.
+This update does not materialize values.
+This update does not write spill files.
+No fallback execution was introduced.
