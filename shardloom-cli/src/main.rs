@@ -1819,10 +1819,10 @@ fn run(args: Vec<String>) -> ExitCode {
             };
             if input_plan.has_errors() || !input_plan.source.is_native_vortex() {
                 emit(
-                    "vortex-memory-plan",
+                    "vortex-adaptive-sizing",
                     format,
                     CommandStatus::Unsupported,
-                    "vortex memory planning report".to_string(),
+                    "vortex adaptive sizing report".to_string(),
                     input_plan.to_human_text(),
                     input_plan.diagnostics.clone(),
                     vec![
@@ -1830,7 +1830,7 @@ fn run(args: Vec<String>) -> ExitCode {
                             "fallback_execution_allowed".to_string(),
                             "false".to_string(),
                         ),
-                        ("mode".to_string(), "vortex_memory_plan".to_string()),
+                        ("mode".to_string(), "vortex_adaptive_sizing".to_string()),
                         ("execution".to_string(), "not_performed".to_string()),
                     ],
                 );
@@ -1849,10 +1849,10 @@ fn run(args: Vec<String>) -> ExitCode {
             };
             if read_report.has_errors() {
                 emit(
-                    "vortex-memory-plan",
+                    "vortex-adaptive-sizing",
                     format,
                     CommandStatus::Unsupported,
-                    "vortex memory planning report".to_string(),
+                    "vortex adaptive sizing report".to_string(),
                     read_report.to_human_text(),
                     read_report.diagnostics.clone(),
                     vec![
@@ -1860,7 +1860,7 @@ fn run(args: Vec<String>) -> ExitCode {
                             "fallback_execution_allowed".to_string(),
                             "false".to_string(),
                         ),
-                        ("mode".to_string(), "vortex_memory_plan".to_string()),
+                        ("mode".to_string(), "vortex_adaptive_sizing".to_string()),
                         ("execution".to_string(), "not_performed".to_string()),
                     ],
                 );
@@ -1879,10 +1879,10 @@ fn run(args: Vec<String>) -> ExitCode {
             };
             if runtime_report.has_errors() {
                 emit(
-                    "vortex-memory-plan",
+                    "vortex-adaptive-sizing",
                     format,
                     CommandStatus::Unsupported,
-                    "vortex memory planning report".to_string(),
+                    "vortex adaptive sizing report".to_string(),
                     runtime_report.to_human_text(),
                     runtime_report.diagnostics.clone(),
                     vec![
@@ -1890,7 +1890,7 @@ fn run(args: Vec<String>) -> ExitCode {
                             "fallback_execution_allowed".to_string(),
                             "false".to_string(),
                         ),
-                        ("mode".to_string(), "vortex_memory_plan".to_string()),
+                        ("mode".to_string(), "vortex_adaptive_sizing".to_string()),
                         ("execution".to_string(), "not_performed".to_string()),
                     ],
                 );
