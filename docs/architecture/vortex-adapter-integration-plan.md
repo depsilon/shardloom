@@ -273,3 +273,11 @@ This begins visible engine behavior without broad query execution.
 - Vortex adapter work should support work avoidance, decision traces, layout health, and feature-footprint transparency.
 - Do not turn Vortex integration into Arrow-default or DataFusion/Spark fallback execution.
 - Encoded predicate/projection phases should start emitting work-avoided and decision-trace data when practical.
+
+
+## Query primitive decision trace and work avoided
+
+- Query primitives now produce decision traces and work-avoided metrics.
+- Metadata answers explain why they were safe.
+- Deferred encoded-read paths explain what is missing.
+- Metrics never guess unknown bytes or selectivity.

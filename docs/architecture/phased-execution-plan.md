@@ -368,3 +368,7 @@ Cross-cutting epics:
 - Missing metadata/statistics/estimates must never be treated as proof.
 - Delete/tombstone semantics must never be silently ignored.
 - Benchmark claims require evidence.
+
+
+- Phase 9C: complete.
+- Phase 9D: current (DecisionTrace + WorkAvoidedReport for query primitives).

@@ -60,7 +60,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count|vortex-count-where|vortex-project|vortex-filter> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count|vortex-count-where|vortex-project|vortex-filter|vortex-query-trace> [--format text|json]",
         cli_command_name()
     )
 }
@@ -4426,6 +4426,125 @@ fn run(args: Vec<String>) -> ExitCode {
                 ],
             );
             if result.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
+        Some("vortex-query-trace") => {
+            let Some(uri_arg) = args.next() else {
+                eprintln!("usage: shardloom vortex-query-trace <dataset_uri> <primitive>");
+                return ExitCode::from(2);
+            };
+            let Some(primitive_arg) = args.next() else {
+                eprintln!("usage: shardloom vortex-query-trace <dataset_uri> <primitive>");
+                return ExitCode::from(2);
+            };
+            let uri = match DatasetUri::new(uri_arg) {
+                Ok(uri) => uri,
+                Err(error) => {
+                    return emit_error("vortex-query-trace", format, "query trace failed", &error);
+                }
+            };
+            let request = if primitive_arg == "count" {
+                shardloom_vortex::VortexQueryPrimitiveRequest::count_all(uri.clone())
+            } else if let Some(pred) = primitive_arg.strip_prefix("count-where:") {
+                match parse_tiny_predicate(pred) {
+                    Ok(p) => {
+                        shardloom_vortex::VortexQueryPrimitiveRequest::count_where(uri.clone(), p)
+                    }
+                    Err(error) => {
+                        return emit_error(
+                            "vortex-query-trace",
+                            format,
+                            "query trace failed",
+                            &error,
+                        );
+                    }
+                }
+            } else if let Some(cols) = primitive_arg.strip_prefix("project:") {
+                match parse_projection_columns(cols) {
+                    Ok(p) => shardloom_vortex::VortexQueryPrimitiveRequest::project(uri.clone(), p),
+                    Err(error) => {
+                        return emit_error(
+                            "vortex-query-trace",
+                            format,
+                            "query trace failed",
+                            &error,
+                        );
+                    }
+                }
+            } else if let Some(pred) = primitive_arg.strip_prefix("filter:") {
+                match parse_tiny_predicate(pred) {
+                    Ok(p) => shardloom_vortex::VortexQueryPrimitiveRequest::filter(uri.clone(), p),
+                    Err(error) => {
+                        return emit_error(
+                            "vortex-query-trace",
+                            format,
+                            "query trace failed",
+                            &error,
+                        );
+                    }
+                }
+            } else {
+                return emit_error("vortex-query-trace", format, "query trace failed", &ShardLoomError::InvalidOperation("invalid primitive; expected count, count-where:<predicate>, project:<columns>, filter:<predicate>".to_string()));
+            };
+            let summary = open_vortex_metadata_only(VortexMetadataOpenRequest::metadata_only(uri))
+                .ok()
+                .and_then(|report| report.metadata_summary)
+                .unwrap_or_else(|| {
+                    summarize_vortex_metadata_probe(
+                        &VortexMetadataProbeReport::deferred_api_unclear(),
+                    )
+                });
+            let analysis = match shardloom_vortex::evaluate_vortex_query_primitive_with_analysis(
+                request, &summary,
+            ) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error("vortex-query-trace", format, "query trace failed", &error);
+                }
+            };
+            emit(
+                "vortex-query-trace",
+                format,
+                if analysis.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "vortex query trace primitive analysis".to_string(),
+                analysis.to_human_text(),
+                analysis.result.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "vortex_query_trace".to_string()),
+                    ("primitive".to_string(), primitive_arg),
+                    ("data_read".to_string(), "false".to_string()),
+                    ("data_decoded".to_string(), "false".to_string()),
+                    ("data_materialized".to_string(), "false".to_string()),
+                    ("object_store_io".to_string(), "false".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
+                    ("spill_io_performed".to_string(), "false".to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
+                    (
+                        "decision_trace_entries".to_string(),
+                        analysis.decision_trace.entry_count().to_string(),
+                    ),
+                    (
+                        "work_avoided_metrics".to_string(),
+                        analysis.work_avoided.metric_count().to_string(),
+                    ),
+                    (
+                        "result_known".to_string(),
+                        analysis.result.value.is_known().to_string(),
+                    ),
+                ],
+            );
+            if analysis.has_errors() {
                 ExitCode::from(1)
             } else {
                 ExitCode::SUCCESS

@@ -167,3 +167,9 @@ Phase/epic ownership:
 - Do not execute effectful inputs without explicit enablement.
 - Do not implement object-store/write/spill execution before the relevant phase.
 - Do not claim benchmark wins without reproducible evidence.
+
+
+### Phase 9D reporting milestone
+- `WorkAvoidedReport` first concrete implementation lands in Phase 9D.
+- `DecisionTrace` first concrete implementation lands in Phase 9D.
+- This is the first user-visible "why" and "work avoided" report for query primitives.
