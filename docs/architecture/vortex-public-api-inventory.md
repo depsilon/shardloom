@@ -239,3 +239,13 @@ No fallback execution is introduced.
 `ShardLoom` now exposes a bridge that maps `Vortex` read planning and runtime graph reports into adaptive sizing reports and plans.
 
 This integration is planning-only and does not call upstream `Vortex` scan execution. It does not read data, materialize values, or execute tasks. No fallback execution behavior or external execution engine is introduced.
+
+## Scheduler planning update
+
+`ShardLoom` now bridges `Vortex` memory plans into scheduler queue plans.
+This bridge does not call upstream `Vortex` scan execution.
+This bridge does not read data.
+This bridge does not execute tasks.
+This bridge does not materialize values.
+This bridge does not write spill files.
+No fallback execution is introduced.
