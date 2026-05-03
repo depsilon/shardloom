@@ -267,3 +267,9 @@ This begins visible engine behavior without broad query execution.
 - Metadata proof is attempted first for filters.
 - Inconclusive predicates return `NeedsEncodedPredicate`/`NeedsEncodedRead`.
 - No scan/decode/materialization is introduced.
+
+## Incumbent gap alignment
+
+- Vortex adapter work should support work avoidance, decision traces, layout health, and feature-footprint transparency.
+- Do not turn Vortex integration into Arrow-default or DataFusion/Spark fallback execution.
+- Encoded predicate/projection phases should start emitting work-avoided and decision-trace data when practical.

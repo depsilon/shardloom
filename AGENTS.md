@@ -325,3 +325,15 @@ Rules:
 - Input adapters must not imply fallback execution.
 - No silent decode/materialization.
 - Default build stays lightweight.
+
+## Phased execution and incumbent gap map
+
+Before adding engine behavior, read:
+- docs/architecture/phased-execution-plan.md
+- docs/architecture/incumbent-gap-opportunity-map.md
+
+Rules:
+- Keep work aligned to the current phase.
+- Do not jump to object-store, writes, spill, distributed execution, or fallback engines early.
+- Cross-cutting epics should be attached to phases, not implemented as unrelated sprawl.
+- ShardLoom should solve incumbent pain points through Vortex-native, no-fallback, metadata-first design.
