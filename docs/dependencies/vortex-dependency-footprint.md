@@ -51,3 +51,12 @@ Direct dependencies in `shardloom-vortex`:
 - Do not implement Vortex IO yet.
 - Do not default to decode-to-Arrow.
 - Do not add fallback execution engines.
+
+## Vortex file IO feature gate
+
+- `vortex-file-io` remains off by default.
+- Default build does not perform `Vortex` file IO.
+- Metadata-only local file open is gated behind `vortex-file-io`.
+- Object-store IO remains disabled in this contract.
+- Writes remain disabled in this contract.
+- No fallback engines were introduced.

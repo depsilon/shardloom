@@ -17,9 +17,16 @@ pub use adapter::{
     typed_vortex_statistics_mapping_available,
 };
 
+pub mod file_io;
 pub mod metadata_planning;
 pub mod metadata_pruning;
 pub mod metadata_summary;
+
+pub use file_io::{
+    VortexFileIoFeatureStatus, VortexMetadataOpenMode, VortexMetadataOpenReport,
+    VortexMetadataOpenRequest, VortexMetadataOpenStatus, open_vortex_metadata_only,
+    vortex_file_io_feature_enabled,
+};
 
 pub use metadata_planning::{
     VortexMetadataPlanningMode, VortexMetadataPlanningReport, VortexMetadataPlanningStatus,

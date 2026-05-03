@@ -28,11 +28,12 @@ use shardloom_plan::{
 };
 use shardloom_vortex::{
     VortexAdapterCapabilityReport, VortexAdapterReadiness, VortexDTypeMappingReport,
-    VortexEncodingLayoutMappingReport, VortexFileRef, VortexMetadataProbeReport, VortexReadPlan,
-    VortexStatisticsMappingReport, VortexWriteOptions, VortexWritePlan,
-    metadata_planning_is_side_effect_free, metadata_pruning_is_side_effect_free,
-    metadata_summary_is_plan_only, plan_from_vortex_metadata_summary, plan_vortex_metadata_pruning,
-    probe_vortex_metadata_only, summarize_vortex_metadata_probe,
+    VortexEncodingLayoutMappingReport, VortexFileRef, VortexMetadataOpenRequest,
+    VortexMetadataProbeReport, VortexReadPlan, VortexStatisticsMappingReport, VortexWriteOptions,
+    VortexWritePlan, metadata_planning_is_side_effect_free, metadata_pruning_is_side_effect_free,
+    metadata_summary_is_plan_only, open_vortex_metadata_only, plan_from_vortex_metadata_summary,
+    plan_vortex_metadata_pruning, probe_vortex_metadata_only, summarize_vortex_metadata_probe,
+    vortex_file_io_feature_enabled,
 };
 
 fn main() -> ExitCode {
@@ -48,7 +49,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan> [--format text|json]",
         cli_command_name()
     )
 }
@@ -1572,6 +1573,69 @@ fn run(args: Vec<String>) -> ExitCode {
             );
             ExitCode::SUCCESS
         }
+        Some("vortex-file-metadata-open") => {
+            let Some(uri_arg) = args.next() else {
+                eprintln!("usage: shardloom vortex-file-metadata-open <dataset_uri>");
+                return ExitCode::from(2);
+            };
+            let uri = match DatasetUri::new(uri_arg) {
+                Ok(uri) => uri,
+                Err(err) => {
+                    return emit_error(
+                        "vortex-file-metadata-open",
+                        format,
+                        "vortex file metadata open failed",
+                        &err,
+                    );
+                }
+            };
+            let request = VortexMetadataOpenRequest::metadata_only(uri);
+            let report = match open_vortex_metadata_only(request) {
+                Ok(report) => report,
+                Err(err) => {
+                    return emit_error(
+                        "vortex-file-metadata-open",
+                        format,
+                        "vortex file metadata open failed",
+                        &err,
+                    );
+                }
+            };
+            let status = if report.has_errors() {
+                CommandStatus::Error
+            } else {
+                CommandStatus::Success
+            };
+            emit(
+                "vortex-file-metadata-open",
+                format,
+                status,
+                "vortex file metadata-only open".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                vec![
+                    ("mode".to_string(), "vortex_file_metadata_open".to_string()),
+                    ("metadata_only".to_string(), "true".to_string()),
+                    (
+                        "file_io_feature_enabled".to_string(),
+                        vortex_file_io_feature_enabled().to_string(),
+                    ),
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("data_io_performed".to_string(), "false".to_string()),
+                    ("object_store_io_performed".to_string(), "false".to_string()),
+                    ("write_io_performed".to_string(), "false".to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
+                ],
+            );
+            if matches!(status, CommandStatus::Error) {
+                ExitCode::from(2)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
         Some("vortex-metadata-summary") => {
             let Some(uri_text) = args.next() else {
                 return emit_error(
@@ -2213,5 +2277,14 @@ mod tests {
                 "command `{command}` should be recognized by dispatcher"
             );
         }
+    }
+
+    #[test]
+    fn vortex_file_metadata_open_non_vortex_uri_returns_non_zero() {
+        let code = run(vec![
+            "vortex-file-metadata-open".to_string(),
+            "file://tmp/not-vortex.parquet".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
     }
 }
