@@ -17,6 +17,14 @@ pub use adapter::{
     typed_vortex_statistics_mapping_available,
 };
 
+pub mod metadata_summary;
+
+pub use metadata_summary::{
+    VortexColumnMetadataSummary, VortexFileMetadataSummary, VortexMetadataAvailability,
+    VortexMetadataSummaryReport, VortexMetadataSummaryStatus, VortexSegmentMetadataSummary,
+    metadata_summary_is_plan_only, summarize_vortex_metadata_probe,
+};
+
 pub mod adapter;
 
 use std::fmt::Write as _;

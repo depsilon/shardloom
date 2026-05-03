@@ -29,7 +29,8 @@ use shardloom_plan::{
 use shardloom_vortex::{
     VortexAdapterCapabilityReport, VortexAdapterReadiness, VortexDTypeMappingReport,
     VortexEncodingLayoutMappingReport, VortexFileRef, VortexMetadataProbeReport, VortexReadPlan,
-    VortexStatisticsMappingReport, VortexWriteOptions, VortexWritePlan, probe_vortex_metadata_only,
+    VortexStatisticsMappingReport, VortexWriteOptions, VortexWritePlan,
+    metadata_summary_is_plan_only, probe_vortex_metadata_only, summarize_vortex_metadata_probe,
 };
 
 fn main() -> ExitCode {
@@ -45,7 +46,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-metadata-summary|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan> [--format text|json]",
         cli_command_name()
     )
 }
@@ -1569,6 +1570,51 @@ fn run(args: Vec<String>) -> ExitCode {
             );
             ExitCode::SUCCESS
         }
+        Some("vortex-metadata-summary") => {
+            let probe = if let Some(uri_text) = args.next() {
+                match DatasetUri::new(uri_text) {
+                    Ok(uri) => probe_vortex_metadata_only(uri)
+                        .unwrap_or_else(|_| VortexMetadataProbeReport::deferred_api_unclear()),
+                    Err(_) => VortexMetadataProbeReport::deferred_api_unclear(),
+                }
+            } else {
+                VortexMetadataProbeReport::deferred_api_unclear()
+            };
+            let report = summarize_vortex_metadata_probe(&probe);
+            emit(
+                "vortex-metadata-summary",
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "vortex metadata summary".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "vortex_metadata_summary".to_string()),
+                    (
+                        "metadata_summary_plan_only".to_string(),
+                        metadata_summary_is_plan_only(&report).to_string(),
+                    ),
+                    ("data_materialized".to_string(), "false".to_string()),
+                    ("object_store_io".to_string(), "false".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
+                ],
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
+
         Some("vortex-metadata-probe") => {
             let report = if let Some(uri_text) = args.next() {
                 match DatasetUri::new(uri_text) {
@@ -1868,6 +1914,15 @@ mod tests {
     fn vortex_statistics_mapping_command_returns_success() {
         let code = run(vec!["vortex-statistics-mapping".to_string()]);
         assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_metadata_summary_with_non_vortex_uri_returns_non_zero() {
+        let code = run(vec![
+            "vortex-metadata-summary".to_string(),
+            "file://tmp/data.parquet".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
     }
 
     #[test]
