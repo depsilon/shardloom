@@ -29,9 +29,10 @@ use shardloom_plan::{
 };
 use shardloom_vortex::{
     VortexAdapterCapabilityReport, VortexAdapterReadiness, VortexDTypeMappingReport,
-    VortexEncodingLayoutMappingReport, VortexFileRef, VortexMetadataOpenRequest,
-    VortexMetadataProbeReport, VortexReadPlan, VortexStatisticsMappingReport, VortexWriteOptions,
-    VortexWritePlan, build_vortex_runtime_task_graph, evaluate_vortex_execution_readiness,
+    VortexEncodingLayoutMappingReport, VortexExecutionReadinessStatus, VortexFileRef,
+    VortexMetadataOpenRequest, VortexMetadataProbeReport, VortexReadPlan,
+    VortexStatisticsMappingReport, VortexWriteOptions, VortexWritePlan,
+    build_vortex_runtime_task_graph, evaluate_vortex_execution_readiness,
     metadata_planning_is_side_effect_free, metadata_pruning_is_side_effect_free,
     metadata_summary_is_plan_only, open_vortex_metadata_only, plan_from_vortex_metadata_summary,
     plan_native_vortex_universal_input, plan_vortex_memory_safety, plan_vortex_metadata_pruning,
@@ -123,6 +124,18 @@ fn emit_error(
         OutputFormat::Json => println!("{}", envelope.to_json()),
     }
     ExitCode::from(2)
+}
+
+fn readiness_is_blocked(status: VortexExecutionReadinessStatus) -> bool {
+    matches!(
+        status,
+        VortexExecutionReadinessStatus::BlockedByUnsupportedInput
+            | VortexExecutionReadinessStatus::BlockedByMissingMetadata
+            | VortexExecutionReadinessStatus::BlockedByMissingEstimate
+            | VortexExecutionReadinessStatus::BlockedByMemoryPolicy
+            | VortexExecutionReadinessStatus::BlockedBySpillPolicy
+            | VortexExecutionReadinessStatus::BlockedByFeatureGate
+    )
 }
 
 fn parse_plan_interop_format(value: &str) -> PlanInteropFormat {
@@ -2437,7 +2450,7 @@ fn run(args: Vec<String>) -> ExitCode {
             emit(
                 command,
                 format,
-                if readiness_report.has_errors() {
+                if readiness_report.has_errors() || readiness_is_blocked(readiness_report.status) {
                     CommandStatus::Unsupported
                 } else {
                     CommandStatus::Success
@@ -2477,7 +2490,7 @@ fn run(args: Vec<String>) -> ExitCode {
                     ("max_parallelism".to_string(), max_parallelism.to_string()),
                 ],
             );
-            if readiness_report.has_errors() {
+            if readiness_report.has_errors() || readiness_is_blocked(readiness_report.status) {
                 ExitCode::from(1)
             } else {
                 ExitCode::SUCCESS
@@ -2599,7 +2612,7 @@ fn run(args: Vec<String>) -> ExitCode {
             emit(
                 command,
                 format,
-                if readiness_report.has_errors() {
+                if readiness_report.has_errors() || readiness_is_blocked(readiness_report.status) {
                     CommandStatus::Unsupported
                 } else {
                     CommandStatus::Success
@@ -2639,7 +2652,7 @@ fn run(args: Vec<String>) -> ExitCode {
                     ("max_parallelism".to_string(), max_parallelism.to_string()),
                 ],
             );
-            if readiness_report.has_errors() {
+            if readiness_report.has_errors() || readiness_is_blocked(readiness_report.status) {
                 ExitCode::from(1)
             } else {
                 ExitCode::SUCCESS
@@ -3652,25 +3665,25 @@ mod tests {
     }
 
     #[test]
-    fn vortex_execution_readiness_with_vortex_uri_returns_success() {
+    fn vortex_execution_readiness_with_vortex_uri_returns_non_zero_when_blocked() {
         let code = run(vec![
             "vortex-execution-readiness".to_string(),
             "file://tmp/data.vortex".to_string(),
             "8".to_string(),
             "2".to_string(),
         ]);
-        assert_eq!(code, ExitCode::SUCCESS);
+        assert_ne!(code, ExitCode::SUCCESS);
     }
 
     #[test]
-    fn vortex_dry_run_with_vortex_uri_returns_success() {
+    fn vortex_dry_run_with_vortex_uri_returns_non_zero_when_readiness_blocked() {
         let code = run(vec![
             "vortex-dry-run".to_string(),
             "file://tmp/data.vortex".to_string(),
             "8".to_string(),
             "2".to_string(),
         ]);
-        assert_eq!(code, ExitCode::SUCCESS);
+        assert_ne!(code, ExitCode::SUCCESS);
     }
 
     #[test]
