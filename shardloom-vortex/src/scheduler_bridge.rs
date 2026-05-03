@@ -656,19 +656,6 @@ fn map_memory_decision(m: &VortexTaskMemoryDecision) -> VortexTaskSchedulingDeci
 }
 
 fn derive_status(out: &VortexSchedulerBridgeReport) -> VortexSchedulerBridgeStatus {
-    if out.decisions.is_empty() {
-        return VortexSchedulerBridgeStatus::NoTasksRequired;
-    }
-    let has_spill = out
-        .decisions
-        .iter()
-        .any(|d| matches!(d.kind, VortexSchedulingDecisionKind::HoldForSpillSupport));
-    if has_spill {
-        return VortexSchedulerBridgeStatus::SpillRequiredButNotImplemented;
-    }
-    if out.unsupported_task_count > 0 {
-        return VortexSchedulerBridgeStatus::Unsupported;
-    }
     let has_diagnostic_errors = out.diagnostics.iter().any(|d| {
         matches!(
             d.severity,
@@ -680,6 +667,19 @@ fn derive_status(out: &VortexSchedulerBridgeReport) -> VortexSchedulerBridgeStat
         .any(VortexTaskSchedulingDecision::has_errors);
     if has_diagnostic_errors {
         return VortexSchedulerBridgeStatus::Unsupported;
+    }
+    if out.unsupported_task_count > 0 {
+        return VortexSchedulerBridgeStatus::Unsupported;
+    }
+    let has_spill = out
+        .decisions
+        .iter()
+        .any(|d| matches!(d.kind, VortexSchedulingDecisionKind::HoldForSpillSupport));
+    if has_spill {
+        return VortexSchedulerBridgeStatus::SpillRequiredButNotImplemented;
+    }
+    if out.decisions.is_empty() {
+        return VortexSchedulerBridgeStatus::NoTasksRequired;
     }
     if out.scheduled_task_count == 0
         && out.metadata_only_task_count > 0
@@ -824,6 +824,17 @@ mod tests {
         ))
         .expect("ok");
         assert!(r.is_side_effect_free());
+    }
+    #[test]
+    fn empty_decisions_with_error_diagnostics_are_unsupported() {
+        let mut input = VortexSchedulerBridgeInput::new(empty_memory_report());
+        input.add_diagnostic(Diagnostic::configuration_error(
+            "scheduler bridge",
+            "simulated planner failure",
+            "for test",
+        ));
+        let report = VortexSchedulerBridgeReport::from_input(input).expect("ok");
+        assert_eq!(report.status, VortexSchedulerBridgeStatus::Unsupported);
     }
     #[test]
     fn from_input_needs_estimate_blocked() {
