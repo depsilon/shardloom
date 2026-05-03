@@ -6,6 +6,9 @@ use shardloom_core::{DatasetUri, Diagnostic, DiagnosticCode, Result, UriScheme};
 
 use crate::VortexMetadataSummaryReport;
 
+/// Feature state for the `vortex-file-io` gate in `ShardLoom`.
+///
+/// This status is contract/report-only and does not imply scan execution.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VortexFileIoFeatureStatus {
     Disabled,
@@ -35,6 +38,9 @@ impl VortexFileIoFeatureStatus {
     }
 }
 
+/// Operating mode for `open_vortex_metadata_only`.
+///
+/// This contract is metadata-only and never performs data IO in this PR.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VortexMetadataOpenMode {
     ReportOnly,
@@ -59,6 +65,7 @@ impl VortexMetadataOpenMode {
         false
     }
 }
+/// Deterministic lifecycle status for metadata-only open.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VortexMetadataOpenStatus {
     Planned,
@@ -91,6 +98,9 @@ impl VortexMetadataOpenStatus {
     }
 }
 
+/// Input request for metadata-only `Vortex` open in `ShardLoom`.
+///
+/// This request does not authorize object-store IO or writes by default.
 #[derive(Debug, Clone, PartialEq)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct VortexMetadataOpenRequest {
@@ -138,6 +148,10 @@ impl VortexMetadataOpenRequest {
     }
 }
 
+/// Deterministic report for metadata-only `Vortex` open attempts.
+///
+/// `VortexMetadataOpenReport` must keep fallback execution disabled and record
+/// whether any IO was performed.
 #[derive(Debug, Clone, PartialEq)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct VortexMetadataOpenReport {
@@ -214,6 +228,18 @@ impl VortexMetadataOpenReport {
             "vortex-file-metadata-open",
             reason.into(),
             "Provide a URI that looks like a local .vortex path.",
+        ));
+        r
+    }
+    #[must_use]
+    pub fn file_missing(request: VortexMetadataOpenRequest, reason: impl Into<String>) -> Self {
+        let mut r = Self::feature_disabled(request);
+        r.feature_status = VortexFileIoFeatureStatus::Enabled;
+        r.open_status = VortexMetadataOpenStatus::FileMissing;
+        r.add_diagnostic(Diagnostic::configuration_error(
+            "vortex-file-metadata-open",
+            reason,
+            "Provide an existing local .vortex file path.",
         ));
         r
     }
@@ -331,15 +357,10 @@ fn open_local_only(request: VortexMetadataOpenRequest) -> VortexMetadataOpenRepo
             request.uri.as_str()
         };
         if !Path::new(path).exists() {
-            let mut report = VortexMetadataOpenReport::feature_disabled(request);
-            report.feature_status = VortexFileIoFeatureStatus::Enabled;
-            report.open_status = VortexMetadataOpenStatus::FileMissing;
-            report.add_diagnostic(Diagnostic::invalid_input(
-                "vortex-file-metadata-open",
+            return VortexMetadataOpenReport::file_missing(
+                request,
                 "local Vortex file path does not exist",
-                "Provide an existing local .vortex file path.",
-            ));
-            return report;
+            );
         }
         VortexMetadataOpenReport::api_deferred(
             request,
@@ -395,6 +416,8 @@ mod tests {
         );
         let bad = VortexMetadataOpenReport::invalid_target(req.clone(), "bad");
         assert!(bad.has_errors());
+        let missing = VortexMetadataOpenReport::file_missing(req.clone(), "missing");
+        assert!(missing.has_errors());
         let unsup = VortexMetadataOpenReport::unsupported(req, "f", "r");
         assert!(unsup.has_errors());
         assert!(!unsup.diagnostics[0].fallback.attempted);
