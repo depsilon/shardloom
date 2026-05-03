@@ -308,3 +308,5 @@ Forbidden-for-now areas:
 - Data read, decode, materialization, object-store IO, and write IO remain blocked.
 
 No fallback execution is introduced by this boundary update.
+
+- Encoded-read probe plan (`vortex-encoded-read-probe`) combines `VortexEncodedReadApiBoundaryReport` and `VortexEncodedReadReadinessReport`; it is plan-only and performs no scan execution, no data read/decode/materialization, no object-store/write/spill IO, and no fallback.

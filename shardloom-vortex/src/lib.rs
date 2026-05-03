@@ -19,6 +19,7 @@ pub use adapter::{
 
 pub mod encoded_read_api;
 pub mod encoded_read_executor;
+pub mod encoded_read_probe;
 pub mod encoded_read_readiness;
 pub mod execution_readiness;
 pub mod file_io;
@@ -71,6 +72,13 @@ pub use encoded_read_executor::{
     VortexEncodedReadExecutorFeatureStatus, execute_vortex_encoded_read_contract,
     vortex_encoded_read_execution_is_side_effect_free,
     vortex_encoded_read_executor_feature_enabled,
+};
+
+pub use encoded_read_probe::{
+    VortexEncodedReadProbeCandidate, VortexEncodedReadProbeCandidateKind,
+    VortexEncodedReadProbeInput, VortexEncodedReadProbeMode, VortexEncodedReadProbeReport,
+    VortexEncodedReadProbeStatus, VortexProbeCounts, VortexProbeRequirement, VortexProbeSideEffect,
+    plan_vortex_encoded_read_probe, vortex_encoded_read_probe_is_side_effect_free,
 };
 
 pub use encoded_read_readiness::{
