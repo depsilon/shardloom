@@ -227,3 +227,9 @@ Implement typed DType adapter mapping only if upstream public DType APIs are cle
 - It prepares the future scan/split boundary.
 - It preserves no-decode/no-materialization/no-object-store/no-write behavior.
 - No fallback execution introduced.
+
+## Runtime task graph integration update
+
+`ShardLoom` now bridges `Vortex` read planning into runtime task graph skeletons.
+This bridge does not call upstream `Vortex` scan execution, does not read data, does not materialize values, and does not execute tasks.
+No fallback execution is introduced.

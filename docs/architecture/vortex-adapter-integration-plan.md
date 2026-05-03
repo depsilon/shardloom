@@ -141,3 +141,11 @@ Actual scan execution remains out of scope.
 - Byte ranges are intentions, not IO.
 - Actual scan execution remains out of scope.
 - Object-store and write features remain future gates.
+
+## Runtime task graph bridge
+
+`Vortex` read planning reports can now produce `ShardLoom` runtime `TaskGraph` plans.
+Segment read intents are mapped into `SegmentTask` skeletons only, and tasks are not executed.
+Byte ranges remain read intentions only for future scheduling.
+This prepares future scheduling/execution boundaries while keeping actual scan execution out of scope.
+Object-store and write capabilities remain future feature gates.
