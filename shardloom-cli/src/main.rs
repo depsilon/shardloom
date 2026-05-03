@@ -693,6 +693,19 @@ fn run(args: Vec<String>) -> ExitCode {
                     ),
                     ("spill_data_written".to_string(), "false".to_string()),
                     ("spill_data_read".to_string(), "false".to_string()),
+                    (
+                        "reservation_lifecycle_integration".to_string(),
+                        "true".to_string(),
+                    ),
+                    ("memory_integration".to_string(), "true".to_string()),
+                    (
+                        "vortex_memory_bridge_integration".to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "bounded_execution_integration".to_string(),
+                        "true".to_string(),
+                    ),
                     ("object_store_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
                 ],
@@ -2492,6 +2505,19 @@ fn run(args: Vec<String>) -> ExitCode {
                     ("external_effects_executed".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
                     ("memory_gb".to_string(), memory_gb.to_string()),
+                    (
+                        "reservation_lifecycle_integration".to_string(),
+                        "true".to_string(),
+                    ),
+                    ("memory_integration".to_string(), "true".to_string()),
+                    (
+                        "vortex_memory_bridge_integration".to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "bounded_execution_integration".to_string(),
+                        "true".to_string(),
+                    ),
                 ],
             );
             if report.has_errors() {
@@ -2666,6 +2692,19 @@ fn run(args: Vec<String>) -> ExitCode {
                     ("external_effects_executed".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
                     ("memory_gb".to_string(), memory_gb.to_string()),
+                    (
+                        "reservation_lifecycle_integration".to_string(),
+                        "true".to_string(),
+                    ),
+                    ("memory_integration".to_string(), "true".to_string()),
+                    (
+                        "vortex_memory_bridge_integration".to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "bounded_execution_integration".to_string(),
+                        "true".to_string(),
+                    ),
                 ],
             );
             if report.has_errors() {
