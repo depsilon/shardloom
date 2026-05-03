@@ -462,38 +462,48 @@ impl VortexExecutionReadinessReport {
             .iter()
             .filter(|g| g.status == VortexReadinessGateStatus::Warning)
             .count();
+        let blocked_by_feature_gate = self.gates.iter().any(|g| {
+            g.status == VortexReadinessGateStatus::Blocked
+                && matches!(g.kind, VortexReadinessGateKind::NoUnsupportedDiagnostics)
+                && g.reason.contains("feature gate")
+        });
+        let blocked_by_missing_estimate = self.gates.iter().any(|g| {
+            g.kind == VortexReadinessGateKind::NoMissingEstimates
+                && g.status == VortexReadinessGateStatus::Blocked
+        });
+        let blocked_by_memory =
+            self.gates.iter().any(|g| {
+                g.kind == VortexReadinessGateKind::SchedulerPlanAvailable && g.is_blocking()
+            }) || self.input.scheduler_report.status
+                == VortexSchedulerBridgeStatus::BlockedByMemoryPolicy;
+        let blocked_by_spill = self.gates.iter().any(|g| {
+            g.kind == VortexReadinessGateKind::NoSpillRequiredWithoutSupport && g.is_blocking()
+        }) || self.input.scheduler_report.status
+            == VortexSchedulerBridgeStatus::SpillRequiredButNotImplemented;
+        let has_failed_unsupported_gate = self.gates.iter().any(|g| {
+            g.status == VortexReadinessGateStatus::Failed
+                && matches!(
+                    g.kind,
+                    VortexReadinessGateKind::NoUnsupportedDiagnostics
+                        | VortexReadinessGateKind::NoFallbackExecution
+                )
+        });
         let hard_errors = self.has_errors();
         self.ready_for_dry_run = self.dry_run_contract.is_side_effect_free() && !hard_errors;
         self.ready_for_future_execution = self.blocking_gate_count == 0
             && !hard_errors
             && self.input.scheduler_report.scheduled_task_count > 0
             && !self.fallback_execution_allowed;
-        self.status = if hard_errors
-            || self
-                .gates
-                .iter()
-                .any(|g| g.status == VortexReadinessGateStatus::Failed)
-        {
-            VortexExecutionReadinessStatus::Unsupported
-        } else if self.gates.iter().any(|g| {
-            g.kind == VortexReadinessGateKind::NoMissingEstimates
-                && g.status == VortexReadinessGateStatus::Blocked
-        }) {
+        self.status = if blocked_by_feature_gate {
+            VortexExecutionReadinessStatus::BlockedByFeatureGate
+        } else if blocked_by_missing_estimate {
             VortexExecutionReadinessStatus::BlockedByMissingEstimate
-        } else if self
-            .gates
-            .iter()
-            .any(|g| g.kind == VortexReadinessGateKind::SchedulerPlanAvailable && g.is_blocking())
-            || self.input.scheduler_report.status
-                == VortexSchedulerBridgeStatus::BlockedByMemoryPolicy
-        {
+        } else if blocked_by_memory {
             VortexExecutionReadinessStatus::BlockedByMemoryPolicy
-        } else if self.gates.iter().any(|g| {
-            g.kind == VortexReadinessGateKind::NoSpillRequiredWithoutSupport && g.is_blocking()
-        }) || self.input.scheduler_report.status
-            == VortexSchedulerBridgeStatus::SpillRequiredButNotImplemented
-        {
+        } else if blocked_by_spill {
             VortexExecutionReadinessStatus::BlockedBySpillPolicy
+        } else if hard_errors || has_failed_unsupported_gate {
+            VortexExecutionReadinessStatus::Unsupported
         } else if self.input.scheduler_report.status == VortexSchedulerBridgeStatus::NoTasksRequired
             && self.blocking_gate_count == 0
         {
@@ -645,6 +655,12 @@ fn evaluate_scheduler_readiness_gates(
             "no unsupported diagnostics",
         )
     });
+    if input.require_feature_enabled && !cfg!(feature = "vortex-file-io") {
+        gates.push(VortexReadinessGateResult::blocked(
+            VortexReadinessGateKind::NoUnsupportedDiagnostics,
+            "required feature gate `vortex-file-io` is disabled",
+        ));
+    }
     let needs_estimate = r.status == VortexSchedulerBridgeStatus::NeedsEstimate
         || r.decisions
             .iter()
@@ -778,13 +794,44 @@ mod tests {
     fn estimate_blocks_when_required() {
         let mut s = scheduler();
         s.status = VortexSchedulerBridgeStatus::NeedsEstimate;
-        let r = VortexExecutionReadinessReport::from_input(VortexExecutionReadinessInput::new(s))
-            .expect("ok");
+        let r = VortexExecutionReadinessReport::from_input(
+            VortexExecutionReadinessInput::new(s).require_feature_enabled(false),
+        )
+        .expect("ok");
         assert_eq!(
             r.status,
             VortexExecutionReadinessStatus::BlockedByMissingEstimate
         );
         assert!(!r.ready_for_future_execution);
         assert!(r.ready_for_dry_run);
+    }
+
+    #[test]
+    fn memory_blocked_status_is_reported_before_unsupported() {
+        let mut s = scheduler();
+        s.status = VortexSchedulerBridgeStatus::BlockedByMemoryPolicy;
+        let report = VortexExecutionReadinessReport::from_input(
+            VortexExecutionReadinessInput::new(s).require_feature_enabled(false),
+        )
+        .expect("ok");
+        assert_eq!(
+            report.status,
+            VortexExecutionReadinessStatus::BlockedByMemoryPolicy
+        );
+    }
+
+    #[test]
+    fn require_feature_enabled_blocks_by_feature_gate_when_disabled() {
+        if cfg!(feature = "vortex-file-io") {
+            return;
+        }
+        let report = VortexExecutionReadinessReport::from_input(
+            VortexExecutionReadinessInput::new(scheduler()),
+        )
+        .expect("ok");
+        assert_eq!(
+            report.status,
+            VortexExecutionReadinessStatus::BlockedByFeatureGate
+        );
     }
 }
