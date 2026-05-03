@@ -669,6 +669,7 @@ mod tests {
         let sched = plan_vortex_scheduler_queue(memory, 1).expect("sched");
         evaluate_vortex_execution_readiness(sched).expect("ready")
     }
+    #[cfg(not(feature = "vortex-metadata-executor"))]
     #[test]
     fn feature_flag_default_false() {
         assert!(!vortex_metadata_executor_feature_enabled());
@@ -710,10 +711,60 @@ mod tests {
         assert!(rpt.is_side_effect_free());
         assert!(!rpt.fallback_execution_allowed);
     }
+    #[cfg(not(feature = "vortex-metadata-executor"))]
     #[test]
     fn execute_default_feature_disabled() {
         let r = execute_vortex_metadata_only(sample_readiness()).expect("ok");
         assert_eq!(r.status, VortexMetadataExecutionStatus::FeatureDisabled);
+    }
+    #[cfg(feature = "vortex-metadata-executor")]
+    #[test]
+    fn feature_flag_enabled_true() {
+        assert!(vortex_metadata_executor_feature_enabled());
+    }
+    #[cfg(feature = "vortex-metadata-executor")]
+    #[test]
+    fn execute_feature_enabled_stays_side_effect_free() {
+        let r = execute_vortex_metadata_only(sample_readiness()).expect("ok");
+        assert_eq!(
+            r.feature_status,
+            VortexMetadataExecutorFeatureStatus::Enabled
+        );
+        assert_ne!(r.status, VortexMetadataExecutionStatus::FeatureDisabled);
+        assert!(matches!(
+            r.status,
+            VortexMetadataExecutionStatus::ExecutedMetadataOnly
+                | VortexMetadataExecutionStatus::NoTasksRequired
+                | VortexMetadataExecutionStatus::BlockedByDataRead
+                | VortexMetadataExecutionStatus::BlockedByMaterialization
+                | VortexMetadataExecutionStatus::BlockedByObjectStoreIo
+                | VortexMetadataExecutionStatus::BlockedByWriteIo
+                | VortexMetadataExecutionStatus::BlockedBySpillIo
+                | VortexMetadataExecutionStatus::BlockedByExternalEffect
+                | VortexMetadataExecutionStatus::BlockedByReadiness
+                | VortexMetadataExecutionStatus::Unsupported
+        ));
+        assert!(!r.data_read);
+        assert!(!r.data_materialized);
+        assert!(!r.object_store_io);
+        assert!(!r.write_io);
+        assert!(!r.spill_io_performed);
+        assert!(!r.external_effects_executed);
+        assert!(!r.fallback_execution_allowed);
+        assert!(r.is_side_effect_free());
+    }
+    #[cfg(all(feature = "vortex-file-io", feature = "vortex-metadata-executor"))]
+    #[test]
+    fn file_io_feature_does_not_disable_metadata_executor() {
+        assert!(vortex_metadata_executor_feature_enabled());
+        let r = execute_vortex_metadata_only(sample_readiness()).expect("ok");
+        assert_eq!(
+            r.feature_status,
+            VortexMetadataExecutorFeatureStatus::Enabled
+        );
+        assert_ne!(r.status, VortexMetadataExecutionStatus::FeatureDisabled);
+        assert!(!r.fallback_execution_allowed);
+        assert!(r.is_side_effect_free());
     }
     #[test]
     fn human_text_fields() {
