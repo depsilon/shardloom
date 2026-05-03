@@ -331,13 +331,28 @@ impl UniversalInputSource {
                 InputSourceKind::VortexFile,
                 InputAdapterKind::NativeVortexAdapter,
             ),
-            DatasetFormat::Parquet
-            | DatasetFormat::ArrowIpc
-            | DatasetFormat::Csv
-            | DatasetFormat::JsonLines
-            | DatasetFormat::IcebergCompatible
-            | DatasetFormat::DeltaCompatible => (
+            DatasetFormat::Parquet => (
                 InputSourceKind::Parquet,
+                InputAdapterKind::CompatibilityFileAdapter,
+            ),
+            DatasetFormat::ArrowIpc => (
+                InputSourceKind::ArrowIpc,
+                InputAdapterKind::CompatibilityFileAdapter,
+            ),
+            DatasetFormat::Csv => (
+                InputSourceKind::Csv,
+                InputAdapterKind::CompatibilityFileAdapter,
+            ),
+            DatasetFormat::JsonLines => (
+                InputSourceKind::JsonLines,
+                InputAdapterKind::CompatibilityFileAdapter,
+            ),
+            DatasetFormat::IcebergCompatible => (
+                InputSourceKind::IcebergCompatible,
+                InputAdapterKind::CompatibilityFileAdapter,
+            ),
+            DatasetFormat::DeltaCompatible => (
+                InputSourceKind::DeltaCompatible,
                 InputAdapterKind::CompatibilityFileAdapter,
             ),
             DatasetFormat::Unknown | DatasetFormat::Extension(_) => {
@@ -671,6 +686,22 @@ mod tests {
         let p = UniversalInputSource::from_dataset_uri(DatasetUri::new("x.parquet").expect("uri"))
             .expect("ok");
         assert!(p.source_kind.is_compatibility_structured());
+    }
+    #[test]
+    fn from_uri_preserves_compatibility_source_kind() {
+        let csv = UniversalInputSource::from_dataset_uri(DatasetUri::new("x.csv").expect("uri"))
+            .expect("ok");
+        assert_eq!(csv.source_kind, InputSourceKind::Csv);
+
+        let jsonl =
+            UniversalInputSource::from_dataset_uri(DatasetUri::new("x.jsonl").expect("uri"))
+                .expect("ok");
+        assert_eq!(jsonl.source_kind, InputSourceKind::JsonLines);
+
+        let arrow =
+            UniversalInputSource::from_dataset_uri(DatasetUri::new("x.arrow").expect("uri"))
+                .expect("ok");
+        assert_eq!(arrow.source_kind, InputSourceKind::ArrowIpc);
     }
     #[test]
     fn report_behaviors() {

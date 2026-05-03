@@ -45,3 +45,12 @@ Input planning tracks input source, fidelity, metadata availability, materializa
 - Do not add external effects.
 - Do not add fallback engines.
 - Do not compile all inputs by default.
+
+
+## Input planning bridge
+- Universal input reports now feed scan, explain, and estimate planning surfaces.
+- The bridge is plan-only and side-effect-free.
+- It does not read files, inspect object stores, or execute external effects.
+- Compatibility and effectful inputs remain explicit contracts.
+- `Vortex` remains native input.
+- No fallback execution is introduced.

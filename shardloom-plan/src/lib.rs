@@ -6,6 +6,7 @@
 pub mod estimate;
 pub mod explain;
 pub mod input_bridge;
+pub mod input_planning;
 pub mod optimizer;
 pub mod plan_ir;
 pub mod scan;
@@ -15,6 +16,10 @@ use shardloom_core::{Result, ShardLoomError};
 pub use estimate::{EstimateConfidence, EstimateReport, EstimateValue};
 pub use explain::{ExecutionBoundary, ExplainPlanNode, ExplainReport, PlanNodeId, PlanNodeKind};
 pub use input_bridge::input_source_to_scan_request;
+pub use input_planning::{
+    InputPlanningMode, InputPlanningStatus, UniversalInputPlanningReport,
+    plan_universal_input_source, universal_input_planning_is_side_effect_free,
+};
 pub use optimizer::{
     AdaptiveDecisionKind, AdaptiveExecutionDecision, AdaptiveTrigger, AdaptiveTriggerKind,
     AggregateStrategy, CostEstimate, CostMetric, CostModelInput, CostValue, DynamicPruningDecision,
