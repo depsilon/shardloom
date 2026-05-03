@@ -301,3 +301,11 @@ The bounded local loop consumes metadata-only local execution results plus resou
 - `vortex-run` wraps query primitives, local execution, bounded execution, `DecisionTrace`, and `WorkAvoidedReport`.
 - It is currently metadata/no-op/deferred only.
 - It does not execute encoded reads, scan rows, decode, materialize, write, object-store IO, spill IO, or fallback execution.
+
+## Local engine diagnostic propagation
+
+`vortex-run` now preserves metadata-open diagnostics from metadata-open reports instead of collapsing them into generic missing-metadata outcomes.
+
+Missing local files, unsupported object-store URIs, invalid targets, feature-disabled IO states, and API-deferred states remain visible to users and agents.
+
+The local engine must not collapse metadata-open diagnostics into generic missing metadata when a more specific root cause is available.

@@ -384,3 +384,9 @@ Cross-cutting epics:
 ## Phase 10C update
 - Phase 10B is complete.
 - Phase 10C is current and introduces the local engine CLI/API surface.
+
+## Phase 10 status update
+
+- Phase 10C is complete (`vortex-run` local engine surface landed in PR #90).
+- Phase 10D is the current stabilization phase for local engine diagnostic propagation.
+- Phase 11A has not started.

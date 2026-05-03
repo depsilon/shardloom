@@ -4796,6 +4796,34 @@ fn run(args: Vec<String>) -> ExitCode {
                     ("primitive".to_string(), primitive_arg),
                     ("memory_gb".to_string(), memory_gb.to_string()),
                     ("max_parallelism".to_string(), max_parallelism.to_string()),
+                    (
+                        "metadata_open_report_present".to_string(),
+                        report.metadata_open_report.is_some().to_string(),
+                    ),
+                    (
+                        "metadata_open_status".to_string(),
+                        report.metadata_open_report.as_ref().map_or_else(
+                            || "none".to_string(),
+                            |open| open.open_status.as_str().to_string(),
+                        ),
+                    ),
+                    (
+                        "metadata_open_feature_enabled".to_string(),
+                        report.metadata_open_report.as_ref().map_or_else(
+                            || "false".to_string(),
+                            |open| open.feature_status.is_enabled().to_string(),
+                        ),
+                    ),
+                    (
+                        "file_io_performed".to_string(),
+                        report.metadata_open_report.as_ref().map_or_else(
+                            || "false".to_string(),
+                            |open| open.file_io_performed.to_string(),
+                        ),
+                    ),
+                    ("data_io_performed".to_string(), "false".to_string()),
+                    ("object_store_io_performed".to_string(), "false".to_string()),
+                    ("write_io_performed".to_string(), "false".to_string()),
                     ("result_known".to_string(), report.result_known.to_string()),
                     ("tasks_executed".to_string(), "false".to_string()),
                     ("data_read".to_string(), "false".to_string()),

@@ -374,3 +374,9 @@ This is `ShardLoom`-native scheduling/runtime plumbing for `Vortex` local execut
 - This is `ShardLoom`-native CLI/API plumbing.
 - It does not call upstream `Vortex` scan execution.
 - No fallback execution is introduced.
+
+## Local engine metadata-open propagation update
+
+The local engine surface preserves metadata-open report context in `VortexLocalEngineReport`, including metadata-open status and diagnostics.
+
+This update does not introduce scans, decode, materialization, writes, object-store IO, spill IO, or fallback execution.
