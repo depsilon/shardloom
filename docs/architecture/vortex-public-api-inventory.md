@@ -276,3 +276,9 @@ The feature-gated file IO seam remains metadata/report oriented, and no fallback
 ## Encoded-read readiness update
 
 This contract does not call upstream Vortex scan execution. It consumes `ShardLoom` scheduler/readiness reports, does not invoke upstream data APIs, and introduces no fallback execution.
+
+## Encoded-read executor skeleton update
+
+- This skeleton does not invoke upstream data APIs.
+- It classifies what would execute later.
+- No fallback execution introduced.

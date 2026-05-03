@@ -202,3 +202,12 @@ Future real execution must pass readiness gates before any executor is introduce
 ## Encoded-read readiness contract
 
 Encoded-read readiness is not execution. It classifies future encoded-read candidates, blocks decode/materialization/object-store/write/spill/external-effects/unsupported paths, preserves unknown estimates as blockers, and prepares the future encoded-read executor.
+
+## Encoded-read executor skeleton
+
+- Encoded-read executor is feature-gated.
+- It is blocked-by-default.
+- It consumes encoded-read readiness reports.
+- It does not call upstream Vortex scan execution.
+- It does not read data, decode, materialize, or write.
+- It blocks unsafe candidates.
