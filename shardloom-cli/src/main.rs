@@ -20,8 +20,9 @@ use shardloom_exec::{
     AdaptiveSizer, AdaptiveSizingPolicy, AttemptId, ByteSize, CancellationReason,
     CancellationRequest, CancellationScope, MemoryBudget, MemoryOwner, MemoryPoolPlan,
     OomSafetyPlan, OperatorMemoryClass, ParallelismLimit, ParallelismPlan, RecoveryPlan, RetryPlan,
-    RuntimePlanSkeleton, SizeEstimate, SizingInput, SizingPlan, SpillPlan, SpillPolicy,
-    StreamingPlanSkeleton, TaskAttemptRecord,
+    RuntimePlanSkeleton, SizeEstimate, SizingInput, SizingPlan, SpillLifecycleRequest, SpillPlan,
+    SpillPolicy, SpillWorkspaceId, SpillWorkspacePath, StreamingPlanSkeleton, TaskAttemptRecord,
+    plan_spill_lifecycle,
 };
 use shardloom_plan::{
     EstimateReport, ExplainReport, NativePlanDocument, OptimizerPhase, OptimizerPlanSkeleton,
@@ -62,7 +63,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count|vortex-count-where|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count|vortex-count-where|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle> [--format text|json]",
         cli_command_name()
     )
 }
@@ -605,6 +606,104 @@ fn run(args: Vec<String>) -> ExitCode {
     let mut args = args.into_iter();
 
     match args.next().as_deref() {
+        Some("spill-lifecycle") => {
+            let Some(workspace_id_text) = args.next() else {
+                eprintln!(
+                    "usage: shardloom spill-lifecycle <workspace_id> <workspace_path> <mode>"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(workspace_path_text) = args.next() else {
+                eprintln!(
+                    "usage: shardloom spill-lifecycle <workspace_id> <workspace_path> <mode>"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(mode_text) = args.next() else {
+                eprintln!(
+                    "usage: shardloom spill-lifecycle <workspace_id> <workspace_path> <mode>"
+                );
+                return ExitCode::from(2);
+            };
+            let workspace_id = match SpillWorkspaceId::new(workspace_id_text) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error("spill-lifecycle", format, "spill lifecycle failed", &error);
+                }
+            };
+            let workspace_path = match SpillWorkspacePath::new(workspace_path_text) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error("spill-lifecycle", format, "spill lifecycle failed", &error);
+                }
+            };
+            let request = match mode_text.as_str() {
+                "report-only" => SpillLifecycleRequest::report_only(workspace_id, workspace_path),
+                "local-workspace" => {
+                    SpillLifecycleRequest::local_workspace(workspace_id, workspace_path)
+                }
+                "cleanup-only" => SpillLifecycleRequest::cleanup_only(workspace_id, workspace_path),
+                _ => {
+                    return emit_error(
+                        "spill-lifecycle",
+                        format,
+                        "spill lifecycle failed",
+                        &ShardLoomError::InvalidOperation(
+                            "mode must be report-only, local-workspace, or cleanup-only"
+                                .to_string(),
+                        ),
+                    );
+                }
+            };
+            let report = match plan_spill_lifecycle(request) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error("spill-lifecycle", format, "spill lifecycle failed", &error);
+                }
+            };
+            emit(
+                "spill-lifecycle",
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "spill lifecycle report".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "spill_lifecycle".to_string()),
+                    ("spill_lifecycle_mode".to_string(), mode_text),
+                    (
+                        "workspace_created".to_string(),
+                        report.workspace_created.as_bool().to_string(),
+                    ),
+                    (
+                        "marker_created".to_string(),
+                        report.marker_created.as_bool().to_string(),
+                    ),
+                    (
+                        "cleanup_performed".to_string(),
+                        report.cleanup_performed.as_bool().to_string(),
+                    ),
+                    ("spill_data_written".to_string(), "false".to_string()),
+                    ("spill_data_read".to_string(), "false".to_string()),
+                    ("object_store_io".to_string(), "false".to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
+                ],
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
+
         Some("status") => {
             let status = shardloom_exec::status();
             emit(

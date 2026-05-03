@@ -309,3 +309,10 @@ The bounded local loop consumes metadata-only local execution results plus resou
 Missing local files, unsupported object-store URIs, invalid targets, feature-disabled IO states, and API-deferred states remain visible to users and agents.
 
 The local engine must not collapse metadata-open diagnostics into generic missing metadata when a more specific root cause is available.
+
+
+## Spill lifecycle transition
+
+Spill lifecycle is `ShardLoom`-native and not `Vortex`-specific.
+No spill data movement is implemented in this phase.
+`Vortex` execution paths may later request spill lifecycle support through memory/scheduler reports.

@@ -10,6 +10,7 @@ pub mod memory;
 pub mod recovery;
 pub mod runtime;
 pub mod sizing;
+pub mod spill_lifecycle;
 pub mod streaming;
 
 /// Reported status for the execution subsystem.
@@ -77,6 +78,8 @@ pub use streaming::{
     StreamingSink, StreamingSinkKind, StreamingSource, StreamingSourceKind, StreamingStage,
     ZeroCopyStatus, ZeroDecodeStatus,
 };
+
+pub use spill_lifecycle::*;
 
 pub use runtime::{
     ByteRangeRequest, ObjectStoreKind, ObjectStoreRef, ReadPolicy, ResourceBudget, RetryPolicy,
