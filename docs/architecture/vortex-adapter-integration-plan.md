@@ -236,3 +236,12 @@ Scope and guarantees:
 - fallback execution remains disabled.
 
 If metadata-only behavior cannot be guaranteed from public upstream APIs for a requested path, the contract must return deterministic `ApiDeferred` diagnostics rather than attempting unsafe IO.
+
+## First encoded-read execution spike
+
+- Feature-gated behind `vortex-encoded-read-spike`.
+- Local file only.
+- Requires readiness, API boundary, and probe checks before attempting execution.
+- Does not decode or materialize data.
+- Does not perform object-store IO, write IO, spill IO, or fallback execution.
+- May return deterministic blocked/deferred status when public API safety is unclear.

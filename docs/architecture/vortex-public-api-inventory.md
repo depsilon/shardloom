@@ -323,3 +323,11 @@ Forbidden-for-now areas:
 No fallback execution is introduced by this boundary update.
 
 - Encoded-read probe plan (`vortex-encoded-read-probe`) combines `VortexEncodedReadApiBoundaryReport` and `VortexEncodedReadReadinessReport`; it is plan-only and performs no scan execution, no data read/decode/materialization, no object-store/write/spill IO, and no fallback.
+
+## Encoded-read spike update
+
+- Inspected public upstream `vortex` API surface via compile-time integration and existing `vortex-file-io` path.
+- Phase 8 spike is feature-gated behind `vortex-encoded-read-spike`.
+- Current spike returns deterministic blocked/deferred execution when a safe no-decode/no-materialize encoded-read API path is not yet proven.
+- No fixture was added in this phase.
+- No decode/materialization/write/object-store/fallback behavior was introduced.

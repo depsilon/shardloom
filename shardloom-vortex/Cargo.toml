@@ -17,6 +17,7 @@ vortex-object-store = ["vortex-file-io"]
 vortex-write = ["vortex-file-io"]
 vortex-metadata-executor = []
 vortex-encoded-read-executor = []
+vortex-encoded-read-spike = ["vortex-file-io", "vortex-encoded-read-executor"]
 
 [dependencies]
 shardloom-core = { path = "../shardloom-core" }
