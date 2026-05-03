@@ -282,3 +282,29 @@ This contract does not call upstream Vortex scan execution. It consumes `ShardLo
 - This skeleton does not invoke upstream data APIs.
 - It classifies what would execute later.
 - No fallback execution introduced.
+
+## Encoded-read public API boundary update
+
+This update adds a `ShardLoom` contract-only boundary for future `Vortex` encoded-read work.
+
+Confirmed public upstream API surfaces from the current review include `VortexOpenOptions`, `OpenOptionsSessionExt`, and `VortexFile::footer` plus related metadata (`row_count`/`dtype`) surfaces.
+
+Contract-usable now:
+- `VortexFile::footer` (metadata-only inventory contract item).
+
+Deferred contract surfaces:
+- `VortexOpenOptions`, `OpenOptionsSessionExt`, and `row_count`/`dtype` metadata surfaces are classified as confirmed public but deferred while encoded-read execution remains blocked by default.
+
+APIs that would start data reads:
+- Scan/start-read APIs are explicitly classified under data-read and marked forbidden for now.
+
+APIs that would decode/materialize:
+- Decode/materialization related areas are classified as forbidden-for-now boundary areas.
+
+APIs with Arrow-default behavior risk:
+- Arrow interop/conversion APIs are classified with `ArrowDefaultPath` blocking risk.
+
+Forbidden-for-now areas:
+- Data read, decode, materialization, object-store IO, and write IO remain blocked.
+
+No fallback execution is introduced by this boundary update.

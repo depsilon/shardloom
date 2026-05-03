@@ -40,7 +40,8 @@ use shardloom_vortex::{
     plan_vortex_memory_safety, plan_vortex_metadata_pruning, plan_vortex_read_from_universal_input,
     plan_vortex_scheduler_queue, probe_vortex_metadata_only, size_vortex_runtime_task_graph,
     summarize_vortex_metadata_probe, vortex_encoded_read_executor_feature_enabled,
-    vortex_file_io_feature_enabled, vortex_metadata_executor_feature_enabled,
+    vortex_encoded_read_public_api_boundary, vortex_file_io_feature_enabled,
+    vortex_metadata_executor_feature_enabled,
 };
 
 fn main() -> ExitCode {
@@ -56,7 +57,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-readiness|vortex-encoded-read-execute|vortex-dry-run|vortex-metadata-execute> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-execute|vortex-dry-run|vortex-metadata-execute> [--format text|json]",
         cli_command_name()
     )
 }
@@ -2499,6 +2500,39 @@ fn run(args: Vec<String>) -> ExitCode {
             }
         }
 
+        Some("vortex-encoded-read-api") => {
+            let command = "vortex-encoded-read-api";
+            let report = vortex_encoded_read_public_api_boundary();
+            emit(
+                command,
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "vortex encoded-read API boundary report".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "vortex_encoded_read_api".to_string()),
+                    ("contract_only".to_string(), "true".to_string()),
+                    ("execution_usable".to_string(), "false".to_string()),
+                    ("data_read".to_string(), "false".to_string()),
+                    ("data_decoded".to_string(), "false".to_string()),
+                    ("data_materialized".to_string(), "false".to_string()),
+                    ("object_store_io".to_string(), "false".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
+                    ("spill_io_performed".to_string(), "false".to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
+                ],
+            );
+            ExitCode::SUCCESS
+        }
         Some("vortex-encoded-read-readiness") => {
             let command = "vortex-encoded-read-readiness";
             let Some(dataset_uri) = args.next() else {
