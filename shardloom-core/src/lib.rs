@@ -12,6 +12,7 @@ pub mod diagnostics;
 pub mod encoded;
 pub mod expression;
 pub mod extension;
+pub mod input;
 pub mod manifest;
 pub mod observability;
 pub mod output;
@@ -56,6 +57,13 @@ pub use expression::{
     FunctionSignature, KernelCapability, KernelDescriptor, KernelEvalMode, KernelId, KernelKind,
     KernelRegistrySnapshot, KernelSelectionRequest, KernelSelectionResult, KernelSelectionStatus,
     NullBehavior, ScalarValue, UnaryOp,
+};
+
+pub use input::{
+    InputAdapterKind, InputAdapterRegistrySnapshot, InputAdapterReport, InputCapability,
+    InputCapabilityStatus, InputEffectLevel, InputFidelityLevel, InputMaterializationRisk,
+    InputMetadataAvailability, InputSourceId, InputSourceKind, UniversalInputSource,
+    input_source_to_dataset_ref,
 };
 
 pub use manifest::{

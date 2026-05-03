@@ -131,6 +131,11 @@ ShardLoom should be correct before fast, adaptive before wasteful, and recoverab
 
 Use docs/architecture/canonical-terminology.md when adding or changing domain types, diagnostics, CLI labels, JSON fields, or RFC language.
 
+## Universal input contract
+
+Use docs/architecture/universal-input-contract.md for universal input source/adapter contracts, capability status, fidelity, metadata availability, materialization risk, and effect-level modeling.
+
+
 ## Vortex dependency readiness
 
 Use docs/dependencies/vortex-upstream-review.md and docs/architecture/vortex-adapter-integration-plan.md before adding upstream Vortex dependencies or adapter code.
