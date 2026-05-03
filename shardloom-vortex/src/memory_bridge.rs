@@ -31,12 +31,14 @@ impl VortexMemoryBridgeStatus {
             Self::Unsupported => "unsupported",
         }
     }
+    #[must_use]
     pub const fn is_error(&self) -> bool {
         matches!(
             self,
             Self::Unsupported | Self::SpillRequiredButNotImplemented | Self::BlockedByMemoryPolicy
         )
     }
+    #[must_use]
     pub const fn requires_future_action(&self) -> bool {
         matches!(
             self,
@@ -66,6 +68,7 @@ impl VortexMemoryBridgeMode {
             Self::Unsupported => "unsupported",
         }
     }
+    #[must_use]
     pub const fn executes_memory_actions(&self) -> bool {
         false
     }
@@ -89,12 +92,14 @@ impl VortexTaskMemoryClass {
             Self::Unsupported => "unsupported",
         }
     }
+    #[must_use]
     pub const fn may_materialize(&self) -> bool {
         matches!(
             self,
             Self::PartialDecode | Self::UnknownEstimate | Self::Unsupported
         )
     }
+    #[must_use]
     pub const fn may_need_spill(&self) -> bool {
         !matches!(self, Self::MetadataOnly)
     }
@@ -122,6 +127,7 @@ impl VortexTaskMemoryDecisionKind {
             Self::Unsupported => "unsupported",
         }
     }
+    #[must_use]
     pub const fn requires_action(&self) -> bool {
         !matches!(
             self,
@@ -330,6 +336,26 @@ impl VortexMemoryBridgeInput {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct VortexPlanOnlyIoFlags {
+    pub data_executed: bool,
+    pub data_read: bool,
+    pub data_materialized: bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct VortexPlanOnlyEffectFlags {
+    pub object_store_io: bool,
+    pub write_io: bool,
+    pub spill_io_performed: bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct VortexPlanOnlyExecutionPolicyFlags {
+    pub external_effects_executed: bool,
+    pub fallback_execution_allowed: bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct VortexMemoryBridgeReport {
     pub status: VortexMemoryBridgeStatus,
     pub mode: VortexMemoryBridgeMode,
@@ -343,17 +369,49 @@ pub struct VortexMemoryBridgeReport {
     pub tasks_memory_safe: usize,
     pub tasks_spill_may_be_required: usize,
     pub tasks_spill_required_not_implemented: usize,
-    pub data_executed: bool,
-    pub data_read: bool,
-    pub data_materialized: bool,
-    pub object_store_io: bool,
-    pub write_io: bool,
-    pub spill_io_performed: bool,
-    pub external_effects_executed: bool,
-    pub fallback_execution_allowed: bool,
+    pub io_flags: VortexPlanOnlyIoFlags,
+    pub effect_flags: VortexPlanOnlyEffectFlags,
+    pub execution_policy_flags: VortexPlanOnlyExecutionPolicyFlags,
     pub diagnostics: Vec<Diagnostic>,
 }
 impl VortexMemoryBridgeReport {
+    #[must_use]
+    fn default_io_flags() -> VortexPlanOnlyIoFlags {
+        VortexPlanOnlyIoFlags {
+            data_executed: false,
+            data_read: false,
+            data_materialized: false,
+        }
+    }
+    #[must_use]
+    fn default_effect_flags() -> VortexPlanOnlyEffectFlags {
+        VortexPlanOnlyEffectFlags {
+            object_store_io: false,
+            write_io: false,
+            spill_io_performed: false,
+        }
+    }
+    #[must_use]
+    fn default_execution_policy_flags() -> VortexPlanOnlyExecutionPolicyFlags {
+        VortexPlanOnlyExecutionPolicyFlags {
+            external_effects_executed: false,
+            fallback_execution_allowed: false,
+        }
+    }
+    #[must_use]
+    fn computed_status(&self) -> VortexMemoryBridgeStatus {
+        if self.tasks_considered == 0 {
+            VortexMemoryBridgeStatus::NoTasksRequired
+        } else if self.tasks_spill_required_not_implemented > 0 {
+            VortexMemoryBridgeStatus::SpillRequiredButNotImplemented
+        } else if self.tasks_spill_may_be_required > 0 {
+            VortexMemoryBridgeStatus::SpillMayBeRequired
+        } else if self.tasks_needing_estimate > 0 {
+            VortexMemoryBridgeStatus::NeedsEstimate
+        } else {
+            VortexMemoryBridgeStatus::MemorySafe
+        }
+    }
     /// # Errors
     /// Returns an error when constructing `MemoryBudget`-derived planning state fails.
     pub fn from_input(input: VortexMemoryBridgeInput) -> Result<Self> {
@@ -372,14 +430,9 @@ impl VortexMemoryBridgeReport {
             tasks_memory_safe: 0,
             tasks_spill_may_be_required: 0,
             tasks_spill_required_not_implemented: 0,
-            data_executed: false,
-            data_read: false,
-            data_materialized: false,
-            object_store_io: false,
-            write_io: false,
-            spill_io_performed: false,
-            external_effects_executed: false,
-            fallback_execution_allowed: false,
+            io_flags: Self::default_io_flags(),
+            effect_flags: Self::default_effect_flags(),
+            execution_policy_flags: Self::default_execution_policy_flags(),
             diagnostics: vec![],
         };
         if let Some(r) = &out.input.adaptive_sizing_report {
@@ -450,17 +503,7 @@ impl VortexMemoryBridgeReport {
         }
         out.recompute_counts();
         if out.status != VortexMemoryBridgeStatus::Unsupported {
-            out.status = if out.tasks_considered == 0 {
-                VortexMemoryBridgeStatus::NoTasksRequired
-            } else if out.tasks_spill_required_not_implemented > 0 {
-                VortexMemoryBridgeStatus::SpillRequiredButNotImplemented
-            } else if out.tasks_spill_may_be_required > 0 {
-                VortexMemoryBridgeStatus::SpillMayBeRequired
-            } else if out.tasks_needing_estimate > 0 {
-                VortexMemoryBridgeStatus::NeedsEstimate
-            } else {
-                VortexMemoryBridgeStatus::MemorySafe
-            };
+            out.status = out.computed_status();
         }
         Ok(out)
     }
@@ -493,14 +536,9 @@ impl VortexMemoryBridgeReport {
             tasks_memory_safe: 0,
             tasks_spill_may_be_required: 0,
             tasks_spill_required_not_implemented: 0,
-            data_executed: false,
-            data_read: false,
-            data_materialized: false,
-            object_store_io: false,
-            write_io: false,
-            spill_io_performed: false,
-            external_effects_executed: false,
-            fallback_execution_allowed: false,
+            io_flags: Self::default_io_flags(),
+            effect_flags: Self::default_effect_flags(),
+            execution_policy_flags: Self::default_execution_policy_flags(),
             diagnostics: vec![],
         };
         s.diagnostics.push(Diagnostic::unsupported(
@@ -568,14 +606,14 @@ impl VortexMemoryBridgeReport {
     }
     #[must_use]
     pub const fn is_side_effect_free(&self) -> bool {
-        !self.data_executed
-            && !self.data_read
-            && !self.data_materialized
-            && !self.object_store_io
-            && !self.write_io
-            && !self.spill_io_performed
-            && !self.external_effects_executed
-            && !self.fallback_execution_allowed
+        !self.io_flags.data_executed
+            && !self.io_flags.data_read
+            && !self.io_flags.data_materialized
+            && !self.effect_flags.object_store_io
+            && !self.effect_flags.write_io
+            && !self.effect_flags.spill_io_performed
+            && !self.execution_policy_flags.external_effects_executed
+            && !self.execution_policy_flags.fallback_execution_allowed
     }
     #[must_use]
     pub fn to_human_text(&self) -> String {

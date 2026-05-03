@@ -316,7 +316,7 @@ impl VortexAdaptiveSizingReport {
             bridged_runtime_has_errors = runtime.has_errors();
             bridged_runtime_status_unsupported =
                 runtime.status == crate::VortexRuntimeBridgeStatus::Unsupported;
-            bridged_runtime_diagnostics = runtime.diagnostics.clone();
+            bridged_runtime_diagnostics.clone_from(&runtime.diagnostics);
             for m in &runtime.mappings {
                 segs.push(VortexSegmentSizingInput::from_task_mapping(m));
             }
