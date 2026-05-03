@@ -62,3 +62,10 @@ Native `Vortex` universal inputs can now be routed through the `shardloom-vortex
 The bridge remains plan-only and side-effect-free. It may call the feature-gated metadata-only open contract when enabled, and it does not scan, decode, materialize, write, or inspect object stores.
 
 Compatibility/effectful inputs remain explicit and unsupported/deferred in this `Vortex`-specific bridge. No fallback execution is introduced.
+
+## Input gap alignment
+
+- Universal inputs should remain adapter contracts, not eager dependency compilation.
+- Effectful inputs require explicit enablement.
+- Compatibility inputs are not fallback execution.
+- Future API/LLM/embedding/vector inputs should participate in EffectBudgetReport.

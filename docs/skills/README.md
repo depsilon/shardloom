@@ -139,3 +139,9 @@ Use docs/architecture/universal-input-contract.md for universal input source/ada
 ## Vortex dependency readiness
 
 Use docs/dependencies/vortex-upstream-review.md and docs/architecture/vortex-adapter-integration-plan.md before adding upstream Vortex dependencies or adapter code.
+
+## Roadmap alignment references
+
+For phased sequencing and incumbent-gap alignment, read:
+- docs/architecture/phased-execution-plan.md
+- docs/architecture/incumbent-gap-opportunity-map.md
