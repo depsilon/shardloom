@@ -368,3 +368,9 @@ No fallback execution was introduced.
 ## Bounded local execution update
 
 This is `ShardLoom`-native scheduling/runtime plumbing for `Vortex` local execution. It does not call upstream `Vortex` scan execution and introduces no fallback execution.
+
+
+## Local engine surface update
+- This is `ShardLoom`-native CLI/API plumbing.
+- It does not call upstream `Vortex` scan execution.
+- No fallback execution is introduced.
