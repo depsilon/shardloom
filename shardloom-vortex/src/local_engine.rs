@@ -10,9 +10,10 @@ use shardloom_plan::ProjectionRequest;
 
 use crate::{
     VortexBoundedExecutionPolicy, VortexBoundedExecutionReport, VortexBoundedExecutionStatus,
-    VortexLocalExecutionReport, VortexLocalExecutionStatus, VortexMetadataOpenRequest,
-    VortexMetadataProbeReport, VortexQueryPrimitiveAnalysisReport, VortexQueryPrimitiveRequest,
-    VortexQueryPrimitiveResult, VortexQueryPrimitiveStatus, execute_vortex_bounded_local_query,
+    VortexLocalExecutionReport, VortexLocalExecutionStatus, VortexMetadataOpenReport,
+    VortexMetadataOpenRequest, VortexMetadataOpenStatus, VortexMetadataProbeReport,
+    VortexQueryPrimitiveAnalysisReport, VortexQueryPrimitiveRequest, VortexQueryPrimitiveResult,
+    VortexQueryPrimitiveStatus, execute_vortex_bounded_local_query,
     execute_vortex_local_query_primitive, open_vortex_metadata_only,
     summarize_vortex_metadata_probe,
 };
@@ -203,6 +204,7 @@ pub struct VortexLocalEngineReport {
     pub mode: VortexLocalEngineMode,
     pub request: VortexLocalEngineRequest,
     pub query_request: Option<VortexQueryPrimitiveRequest>,
+    pub metadata_open_report: Option<VortexMetadataOpenReport>,
     pub query_result: Option<VortexQueryPrimitiveResult>,
     pub analysis_report: Option<VortexQueryPrimitiveAnalysisReport>,
     pub local_execution_report: Option<VortexLocalExecutionReport>,
@@ -228,14 +230,16 @@ impl VortexLocalEngineReport {
     /// Returns an error when nested planning/execution report creation fails.
     pub fn from_request(request: VortexLocalEngineRequest) -> Result<Self> {
         let query_request = primitive_to_query_request(&request)?;
-        let summary = open_vortex_metadata_only(VortexMetadataOpenRequest::metadata_only(
-            request.uri.clone(),
-        ))
-        .ok()
-        .and_then(|r| r.metadata_summary)
-        .unwrap_or_else(|| {
-            summarize_vortex_metadata_probe(&VortexMetadataProbeReport::deferred_api_unclear())
-        });
+        let metadata_open_report = open_vortex_metadata_only(
+            VortexMetadataOpenRequest::metadata_only(request.uri.clone()),
+        )
+        .ok();
+        let summary = metadata_open_report
+            .as_ref()
+            .and_then(|r| r.metadata_summary.clone())
+            .unwrap_or_else(|| {
+                summarize_vortex_metadata_probe(&VortexMetadataProbeReport::deferred_api_unclear())
+            });
         let query_result = crate::evaluate_vortex_query_primitive(query_request.clone(), &summary)?;
         let analysis_report = Some(crate::analyze_vortex_query_primitive_result(
             query_result.clone(),
@@ -254,6 +258,7 @@ impl VortexLocalEngineReport {
             None
         };
         let status = map_status(
+            metadata_open_report.as_ref(),
             local_execution_report.as_ref(),
             bounded_execution_report.as_ref(),
             &query_result,
@@ -261,6 +266,9 @@ impl VortexLocalEngineReport {
         let mode = map_mode(status);
         let mut diagnostics = request.diagnostics.clone();
         diagnostics.extend(query_result.diagnostics.clone());
+        if let Some(r) = &metadata_open_report {
+            diagnostics.extend(r.diagnostics.clone());
+        }
         if let Some(r) = &local_execution_report {
             diagnostics.extend(r.diagnostics.clone());
         }
@@ -287,6 +295,7 @@ impl VortexLocalEngineReport {
             mode,
             request,
             query_request: Some(query_request),
+            metadata_open_report,
             query_result: Some(query_result),
             analysis_report,
             local_execution_report,
@@ -318,6 +327,7 @@ impl VortexLocalEngineReport {
             mode: VortexLocalEngineMode::Unsupported,
             request,
             query_request: None,
+            metadata_open_report: None,
             query_result: None,
             analysis_report: None,
             local_execution_report: None,
@@ -350,13 +360,7 @@ impl VortexLocalEngineReport {
         self.diagnostics.push(d);
     }
     pub fn has_errors(&self) -> bool {
-        self.status.is_error()
-            || self.diagnostics.iter().any(|d| {
-                matches!(
-                    d.severity,
-                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
-                )
-            })
+        self.status.is_error() || report_has_error_diagnostics(self)
     }
     pub const fn is_side_effect_free(&self) -> bool {
         !self.tasks_executed
@@ -374,6 +378,39 @@ impl VortexLocalEngineReport {
         let _ = writeln!(out, "local engine status: {}", self.status.as_str());
         let _ = writeln!(out, "mode: {}", self.mode.as_str());
         let _ = writeln!(out, "primitive: {}", self.request.primitive.summary());
+        let _ = writeln!(
+            out,
+            "metadata open report present: {}",
+            self.metadata_open_report.is_some()
+        );
+        if let Some(metadata_open_report) = &self.metadata_open_report {
+            let _ = writeln!(
+                out,
+                "metadata open status: {}",
+                metadata_open_report.open_status.as_str()
+            );
+            let _ = writeln!(
+                out,
+                "metadata open mode: {}",
+                metadata_open_report.mode.as_str()
+            );
+            if !metadata_open_report.diagnostics.is_empty() {
+                let _ = writeln!(
+                    out,
+                    "metadata open diagnostics: {}",
+                    metadata_open_report.diagnostics.len()
+                );
+                for diagnostic in &metadata_open_report.diagnostics {
+                    let _ = writeln!(
+                        out,
+                        "- [{}] {}: {}",
+                        diagnostic.severity.as_str(),
+                        diagnostic.code.as_str(),
+                        diagnostic.message
+                    );
+                }
+            }
+        }
         if let Some(v) = &self.value_summary {
             let _ = writeln!(out, "value summary: {v}");
         }
@@ -420,90 +457,19 @@ fn map_mode(status: VortexLocalEngineStatus) -> VortexLocalEngineMode {
     }
 }
 fn map_status(
+    metadata_open_report: Option<&VortexMetadataOpenReport>,
     local: Option<&VortexLocalExecutionReport>,
     bounded: Option<&VortexBoundedExecutionReport>,
     query: &VortexQueryPrimitiveResult,
 ) -> VortexLocalEngineStatus {
+    if let Some(status) = metadata_open_report.and_then(map_metadata_open_status) {
+        return status;
+    }
     if let Some(b) = bounded {
-        return match b.status {
-            VortexBoundedExecutionStatus::MetadataTasksCompleted => {
-                VortexLocalEngineStatus::MetadataCompleted
-            }
-            VortexBoundedExecutionStatus::NoOpTasksCompleted => {
-                VortexLocalEngineStatus::NoOpCompleted
-            }
-            VortexBoundedExecutionStatus::NeedsEncodedRead => {
-                VortexLocalEngineStatus::DeferredEncodedRead
-            }
-            VortexBoundedExecutionStatus::NeedsPredicateEvaluation => {
-                VortexLocalEngineStatus::DeferredPredicateEvaluation
-            }
-            VortexBoundedExecutionStatus::BlockedByMemoryPolicy
-            | VortexBoundedExecutionStatus::BlockedByMissingEstimate => {
-                VortexLocalEngineStatus::BlockedByMemoryPolicy
-            }
-            VortexBoundedExecutionStatus::BlockedByScheduler => {
-                VortexLocalEngineStatus::BlockedByScheduler
-            }
-            VortexBoundedExecutionStatus::BlockedByDecodeRisk => {
-                VortexLocalEngineStatus::BlockedByDecodeRisk
-            }
-            VortexBoundedExecutionStatus::BlockedByMaterializationRisk => {
-                VortexLocalEngineStatus::BlockedByMaterializationRisk
-            }
-            VortexBoundedExecutionStatus::BlockedByObjectStoreIo => {
-                VortexLocalEngineStatus::BlockedByObjectStoreIo
-            }
-            VortexBoundedExecutionStatus::BlockedByWriteIo => {
-                VortexLocalEngineStatus::BlockedByWriteIo
-            }
-            VortexBoundedExecutionStatus::BlockedBySpillIo => {
-                VortexLocalEngineStatus::BlockedBySpillIo
-            }
-            VortexBoundedExecutionStatus::BlockedByExternalEffect => {
-                VortexLocalEngineStatus::BlockedByExternalEffect
-            }
-            VortexBoundedExecutionStatus::Unsupported => VortexLocalEngineStatus::Unsupported,
-            VortexBoundedExecutionStatus::Planned
-            | VortexBoundedExecutionStatus::ReadyButNoExecutableTasks => {
-                VortexLocalEngineStatus::Planned
-            }
-        };
+        return map_bounded_execution_status(b.status);
     }
     if let Some(l) = local {
-        return match l.status {
-            VortexLocalExecutionStatus::MetadataExecuted => {
-                VortexLocalEngineStatus::MetadataCompleted
-            }
-            VortexLocalExecutionStatus::NoOpCompleted => VortexLocalEngineStatus::NoOpCompleted,
-            VortexLocalExecutionStatus::NeedsEncodedRead => {
-                VortexLocalEngineStatus::DeferredEncodedRead
-            }
-            VortexLocalExecutionStatus::NeedsPredicateEvaluation => {
-                VortexLocalEngineStatus::DeferredPredicateEvaluation
-            }
-            VortexLocalExecutionStatus::MissingMetadata => VortexLocalEngineStatus::MissingMetadata,
-            VortexLocalExecutionStatus::BlockedByDecodeRisk => {
-                VortexLocalEngineStatus::BlockedByDecodeRisk
-            }
-            VortexLocalExecutionStatus::BlockedByMaterializationRisk => {
-                VortexLocalEngineStatus::BlockedByMaterializationRisk
-            }
-            VortexLocalExecutionStatus::BlockedByObjectStoreIo => {
-                VortexLocalEngineStatus::BlockedByObjectStoreIo
-            }
-            VortexLocalExecutionStatus::BlockedByWriteIo => {
-                VortexLocalEngineStatus::BlockedByWriteIo
-            }
-            VortexLocalExecutionStatus::BlockedBySpillIo => {
-                VortexLocalEngineStatus::BlockedBySpillIo
-            }
-            VortexLocalExecutionStatus::BlockedByExternalEffect => {
-                VortexLocalEngineStatus::BlockedByExternalEffect
-            }
-            VortexLocalExecutionStatus::Unsupported => VortexLocalEngineStatus::Unsupported,
-            VortexLocalExecutionStatus::Planned => VortexLocalEngineStatus::Planned,
-        };
+        return map_local_execution_status(l.status);
     }
     match query.status {
         VortexQueryPrimitiveStatus::MissingMetadata => VortexLocalEngineStatus::MissingMetadata,
@@ -517,6 +483,121 @@ fn map_status(
         VortexQueryPrimitiveStatus::MetadataAnswered => VortexLocalEngineStatus::MetadataCompleted,
         _ => VortexLocalEngineStatus::Planned,
     }
+}
+fn map_metadata_open_status(report: &VortexMetadataOpenReport) -> Option<VortexLocalEngineStatus> {
+    match report.open_status {
+        VortexMetadataOpenStatus::InvalidTarget | VortexMetadataOpenStatus::Unsupported => {
+            Some(VortexLocalEngineStatus::Unsupported)
+        }
+        VortexMetadataOpenStatus::FileMissing => Some(VortexLocalEngineStatus::MissingMetadata),
+        VortexMetadataOpenStatus::FeatureDisabled
+        | VortexMetadataOpenStatus::ApiDeferred
+        | VortexMetadataOpenStatus::Planned
+        | VortexMetadataOpenStatus::OpenedMetadataOnly => None,
+    }
+}
+fn map_bounded_execution_status(status: VortexBoundedExecutionStatus) -> VortexLocalEngineStatus {
+    match status {
+        VortexBoundedExecutionStatus::MetadataTasksCompleted => {
+            VortexLocalEngineStatus::MetadataCompleted
+        }
+        VortexBoundedExecutionStatus::NoOpTasksCompleted => VortexLocalEngineStatus::NoOpCompleted,
+        VortexBoundedExecutionStatus::NeedsEncodedRead => {
+            VortexLocalEngineStatus::DeferredEncodedRead
+        }
+        VortexBoundedExecutionStatus::NeedsPredicateEvaluation => {
+            VortexLocalEngineStatus::DeferredPredicateEvaluation
+        }
+        VortexBoundedExecutionStatus::BlockedByMemoryPolicy
+        | VortexBoundedExecutionStatus::BlockedByMissingEstimate => {
+            VortexLocalEngineStatus::BlockedByMemoryPolicy
+        }
+        VortexBoundedExecutionStatus::BlockedByScheduler => {
+            VortexLocalEngineStatus::BlockedByScheduler
+        }
+        VortexBoundedExecutionStatus::BlockedByDecodeRisk => {
+            VortexLocalEngineStatus::BlockedByDecodeRisk
+        }
+        VortexBoundedExecutionStatus::BlockedByMaterializationRisk => {
+            VortexLocalEngineStatus::BlockedByMaterializationRisk
+        }
+        VortexBoundedExecutionStatus::BlockedByObjectStoreIo => {
+            VortexLocalEngineStatus::BlockedByObjectStoreIo
+        }
+        VortexBoundedExecutionStatus::BlockedByWriteIo => VortexLocalEngineStatus::BlockedByWriteIo,
+        VortexBoundedExecutionStatus::BlockedBySpillIo => VortexLocalEngineStatus::BlockedBySpillIo,
+        VortexBoundedExecutionStatus::BlockedByExternalEffect => {
+            VortexLocalEngineStatus::BlockedByExternalEffect
+        }
+        VortexBoundedExecutionStatus::Unsupported => VortexLocalEngineStatus::Unsupported,
+        VortexBoundedExecutionStatus::Planned
+        | VortexBoundedExecutionStatus::ReadyButNoExecutableTasks => {
+            VortexLocalEngineStatus::Planned
+        }
+    }
+}
+fn map_local_execution_status(status: VortexLocalExecutionStatus) -> VortexLocalEngineStatus {
+    match status {
+        VortexLocalExecutionStatus::MetadataExecuted => VortexLocalEngineStatus::MetadataCompleted,
+        VortexLocalExecutionStatus::NoOpCompleted => VortexLocalEngineStatus::NoOpCompleted,
+        VortexLocalExecutionStatus::NeedsEncodedRead => {
+            VortexLocalEngineStatus::DeferredEncodedRead
+        }
+        VortexLocalExecutionStatus::NeedsPredicateEvaluation => {
+            VortexLocalEngineStatus::DeferredPredicateEvaluation
+        }
+        VortexLocalExecutionStatus::MissingMetadata => VortexLocalEngineStatus::MissingMetadata,
+        VortexLocalExecutionStatus::BlockedByDecodeRisk => {
+            VortexLocalEngineStatus::BlockedByDecodeRisk
+        }
+        VortexLocalExecutionStatus::BlockedByMaterializationRisk => {
+            VortexLocalEngineStatus::BlockedByMaterializationRisk
+        }
+        VortexLocalExecutionStatus::BlockedByObjectStoreIo => {
+            VortexLocalEngineStatus::BlockedByObjectStoreIo
+        }
+        VortexLocalExecutionStatus::BlockedByWriteIo => VortexLocalEngineStatus::BlockedByWriteIo,
+        VortexLocalExecutionStatus::BlockedBySpillIo => VortexLocalEngineStatus::BlockedBySpillIo,
+        VortexLocalExecutionStatus::BlockedByExternalEffect => {
+            VortexLocalEngineStatus::BlockedByExternalEffect
+        }
+        VortexLocalExecutionStatus::Unsupported => VortexLocalEngineStatus::Unsupported,
+        VortexLocalExecutionStatus::Planned => VortexLocalEngineStatus::Planned,
+    }
+}
+
+fn diagnostics_have_errors(diagnostics: &[Diagnostic]) -> bool {
+    diagnostics.iter().any(|d| {
+        matches!(
+            d.severity,
+            DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+        )
+    })
+}
+
+fn report_has_error_diagnostics(report: &VortexLocalEngineReport) -> bool {
+    diagnostics_have_errors(&report.diagnostics)
+        || diagnostics_have_errors(&report.request.diagnostics)
+        || report
+            .metadata_open_report
+            .as_ref()
+            .is_some_and(|r| diagnostics_have_errors(&r.diagnostics))
+        || report
+            .query_result
+            .as_ref()
+            .is_some_and(|r| diagnostics_have_errors(&r.diagnostics))
+        || report
+            .analysis_report
+            .as_ref()
+            .is_some_and(|r| diagnostics_have_errors(&r.diagnostics))
+        || report
+            .local_execution_report
+            .as_ref()
+            .is_some_and(|r| diagnostics_have_errors(&r.diagnostics))
+        || report
+            .bounded_execution_report
+            .as_ref()
+            .is_some_and(|r| diagnostics_have_errors(&r.diagnostics))
 }
 
 fn primitive_to_query_request(
@@ -747,5 +828,66 @@ mod tests {
         assert!(rep.to_human_text().contains("decision trace entries"));
         assert!(rep.to_human_text().contains("work avoided metrics"));
         assert!(vortex_local_engine_is_side_effect_free(&rep));
+    }
+    #[test]
+    fn from_request_preserves_metadata_open_diag_missing_path() {
+        let uri = DatasetUri::new("file:///definitely/missing.vortex").unwrap();
+        let req =
+            VortexLocalEngineRequest::new(uri, VortexLocalEnginePrimitive::Count, 4, 1).unwrap();
+        let rep = run_vortex_local_engine(req).unwrap();
+        assert!(rep.metadata_open_report.is_some());
+        assert!(!rep.fallback_execution_allowed);
+    }
+    #[test]
+    fn from_request_preserves_metadata_open_diag_object_store_uri() {
+        let uri = DatasetUri::new("s3://bucket/data.vortex").unwrap();
+        let req =
+            VortexLocalEngineRequest::new(uri, VortexLocalEnginePrimitive::Count, 4, 1).unwrap();
+        let rep = run_vortex_local_engine(req).unwrap();
+        let open = rep.metadata_open_report.expect("metadata open report");
+        assert!(
+            !open.diagnostics.is_empty()
+                || matches!(open.open_status, VortexMetadataOpenStatus::ApiDeferred)
+        );
+        assert!(!rep.fallback_execution_allowed);
+    }
+    #[test]
+    fn from_request_preserves_metadata_open_diag_invalid_target() {
+        let uri = DatasetUri::new("file://tmp/data.parquet").unwrap();
+        let req =
+            VortexLocalEngineRequest::new(uri, VortexLocalEnginePrimitive::Count, 4, 1).unwrap();
+        let rep = run_vortex_local_engine(req).unwrap();
+        let open = rep.metadata_open_report.expect("metadata open report");
+        assert_eq!(open.open_status, VortexMetadataOpenStatus::InvalidTarget);
+        assert_eq!(rep.status, VortexLocalEngineStatus::Unsupported);
+    }
+    #[test]
+    fn to_human_text_mentions_metadata_open_status_and_diagnostics() {
+        let uri = DatasetUri::new("file://tmp/data.parquet").unwrap();
+        let req =
+            VortexLocalEngineRequest::new(uri, VortexLocalEnginePrimitive::Count, 4, 1).unwrap();
+        let rep = run_vortex_local_engine(req).unwrap();
+        let text = rep.to_human_text();
+        assert!(text.contains("metadata open report present: true"));
+        assert!(text.contains("metadata open status:"));
+        assert!(text.contains("metadata open mode:"));
+    }
+    #[test]
+    fn has_errors_includes_metadata_open_errors() {
+        let uri = DatasetUri::new("file://tmp/data.parquet").unwrap();
+        let req =
+            VortexLocalEngineRequest::new(uri, VortexLocalEnginePrimitive::Count, 4, 1).unwrap();
+        let rep = run_vortex_local_engine(req).unwrap();
+        assert!(rep.has_errors());
+    }
+    #[cfg(not(feature = "vortex-file-io"))]
+    #[test]
+    fn from_request_preserves_feature_disabled_metadata_open_status() {
+        let uri = DatasetUri::new("file:///tmp/missing.vortex").unwrap();
+        let req =
+            VortexLocalEngineRequest::new(uri, VortexLocalEnginePrimitive::Count, 4, 1).unwrap();
+        let rep = run_vortex_local_engine(req).unwrap();
+        let open = rep.metadata_open_report.expect("metadata open report");
+        assert_eq!(open.open_status, VortexMetadataOpenStatus::FeatureDisabled);
     }
 }
