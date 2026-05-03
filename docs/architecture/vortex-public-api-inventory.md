@@ -208,3 +208,14 @@ Implement typed DType adapter mapping only if upstream public DType APIs are cle
 - Vortex file IO remains unimplemented and staged behind future `vortex-file-io` work.
 - Object-store support remains disabled by default.
 - No fallback engines were introduced.
+
+## Metadata-only file open contract update
+
+- Feature gate used: `vortex-file-io`.
+- Public metadata-only file API integration is currently deferred when metadata-only guarantees are unclear.
+- `VortexMetadataSummaryReport` integration exists as an optional field on the open report.
+- No scan execution is performed.
+- No data materialization is performed.
+- No object-store IO is performed.
+- No writes are performed.
+- No fallback execution is allowed.

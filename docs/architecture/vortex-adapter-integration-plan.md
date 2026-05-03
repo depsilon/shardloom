@@ -116,3 +116,11 @@ First future dependency PR should:
 - Default build keeps upstream Vortex disabled to reduce transitive footprint.
 - File IO/object-store IO stay out of scope and disabled by default.
 - No fallback engine dependency or behavior is introduced.
+
+## Feature-gated metadata-only open contract
+
+- Metadata-only local file open is the first IO seam for `shardloom-vortex`.
+- The seam is explicitly no-scan/no-decode/no-write.
+- The contract is designed to feed metadata summary/planning/pruning flows.
+- Actual scan execution remains out of scope.
+- Object-store and write support remain future feature-gated work.
