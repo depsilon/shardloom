@@ -18,6 +18,7 @@ pub use adapter::{
 };
 
 pub mod file_io;
+pub mod memory_bridge;
 pub mod metadata_planning;
 pub mod metadata_pruning;
 pub mod metadata_summary;
@@ -50,6 +51,12 @@ pub use adaptive_sizing::{
     VortexAdaptiveSizingInput, VortexAdaptiveSizingMode, VortexAdaptiveSizingReport,
     VortexAdaptiveSizingStatus, VortexSegmentSizingInput, VortexSizingEstimateSource,
     size_vortex_runtime_task_graph, vortex_adaptive_sizing_is_side_effect_free,
+};
+pub use memory_bridge::{
+    VortexMemoryBridgeInput, VortexMemoryBridgeMode, VortexMemoryBridgeReport,
+    VortexMemoryBridgeStatus, VortexTaskMemoryClass, VortexTaskMemoryDecision,
+    VortexTaskMemoryDecisionKind, plan_vortex_memory_safety,
+    vortex_memory_bridge_is_side_effect_free,
 };
 pub use read_planning::{
     VortexByteRangeIntent, VortexReadIntentStatus, VortexReadPlanningInput, VortexReadPlanningMode,
