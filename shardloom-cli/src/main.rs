@@ -28,8 +28,8 @@ use shardloom_plan::{
 };
 use shardloom_vortex::{
     VortexAdapterCapabilityReport, VortexAdapterReadiness, VortexDTypeMappingReport,
-    VortexEncodingLayoutMappingReport, VortexFileRef, VortexReadPlan, VortexWriteOptions,
-    VortexWritePlan,
+    VortexEncodingLayoutMappingReport, VortexFileRef, VortexReadPlan,
+    VortexStatisticsMappingReport, VortexWriteOptions, VortexWritePlan,
 };
 
 fn main() -> ExitCode {
@@ -45,7 +45,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan> [--format text|json]",
         cli_command_name()
     )
 }
@@ -1534,6 +1534,41 @@ fn run(args: Vec<String>) -> ExitCode {
             );
             ExitCode::SUCCESS
         }
+
+        Some("vortex-statistics-mapping") => {
+            let report = if shardloom_vortex::typed_vortex_statistics_mapping_available() {
+                VortexStatisticsMappingReport::implemented("vortex::statistics::<public_api>")
+            } else {
+                VortexStatisticsMappingReport::deferred_api_unclear()
+            };
+            emit(
+                "vortex-statistics-mapping",
+                format,
+                CommandStatus::Success,
+                "vortex statistics mapping".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "vortex_statistics_mapping".to_string()),
+                    (
+                        "upstream_vortex_dependency".to_string(),
+                        "linked".to_string(),
+                    ),
+                    ("actual_io".to_string(), "not_implemented".to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
+                    ("segment_stats_available".to_string(), "true".to_string()),
+                    (
+                        "statistics_mapping_status".to_string(),
+                        report.status.as_str().to_string(),
+                    ),
+                ],
+            );
+            ExitCode::SUCCESS
+        }
         Some("vortex-api-inventory") => {
             let report = VortexAdapterCapabilityReport::foundation();
             emit(
@@ -1782,6 +1817,12 @@ mod tests {
     #[test]
     fn vortex_encoding_layout_mapping_returns_success() {
         let code = run(vec!["vortex-encoding-layout-mapping".to_string()]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_statistics_mapping_command_returns_success() {
+        let code = run(vec!["vortex-statistics-mapping".to_string()]);
         assert_eq!(code, ExitCode::SUCCESS);
     }
 
