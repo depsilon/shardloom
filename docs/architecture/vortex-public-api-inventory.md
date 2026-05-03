@@ -184,3 +184,10 @@ Implement typed DType adapter mapping only if upstream public DType APIs are cle
 - The summary layer preserves metadata availability flags.
 - Future scan/explain/estimate integration should consume this summary layer.
 - No fallback execution introduced.
+
+## Metadata planning integration update
+
+- Vortex metadata summaries now feed `ShardLoom` scan/explain/estimate planning skeletons.
+- This integration is planning-only: it does not scan, decode, materialize, or write data.
+- This bridge is the near-term seam for future pruning and metadata-only explain/estimate evolution.
+- No fallback execution behavior or external execution engine was introduced.

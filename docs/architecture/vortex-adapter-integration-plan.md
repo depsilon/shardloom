@@ -94,3 +94,10 @@ First future dependency PR should:
 - It must remain no-decode and no-materialization.
 - Object-store support remains out of scope.
 - Vortex output remains highest-fidelity.
+
+## Metadata summary to planning bridge
+
+- `Vortex` metadata summaries now convert into scan/explain/estimate planning reports.
+- The bridge remains plan-only and side-effect-free.
+- It prepares future segment pruning and richer scan planning integration.
+- Actual scan execution remains explicitly out of scope for this stage.

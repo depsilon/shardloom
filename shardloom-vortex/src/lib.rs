@@ -17,7 +17,13 @@ pub use adapter::{
     typed_vortex_statistics_mapping_available,
 };
 
+pub mod metadata_planning;
 pub mod metadata_summary;
+
+pub use metadata_planning::{
+    VortexMetadataPlanningMode, VortexMetadataPlanningReport, VortexMetadataPlanningStatus,
+    metadata_planning_is_side_effect_free, plan_from_vortex_metadata_summary,
+};
 
 pub use metadata_summary::{
     VortexColumnMetadataSummary, VortexFileMetadataSummary, VortexMetadataAvailability,

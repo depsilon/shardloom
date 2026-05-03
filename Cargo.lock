@@ -1877,6 +1877,7 @@ name = "shardloom-vortex"
 version = "0.1.0"
 dependencies = [
  "shardloom-core",
+ "shardloom-plan",
  "vortex",
 ]
 
