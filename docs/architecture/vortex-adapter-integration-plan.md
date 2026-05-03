@@ -149,3 +149,11 @@ Segment read intents are mapped into `SegmentTask` skeletons only, and tasks are
 Byte ranges remain read intentions only for future scheduling.
 This prepares future scheduling/execution boundaries while keeping actual scan execution out of scope.
 Object-store and write capabilities remain future feature gates.
+
+## Adaptive sizing bridge
+
+`Vortex` read planning reports and runtime task-graph bridge reports now feed directly into adaptive sizing planning. Segment read intents, split descriptors, byte-range intentions, and runtime mappings are converted into memory-aware sizing decisions.
+
+Missing estimates are preserved as `NeedsEstimate` decisions rather than guessed byte sizes. Byte-range intents can contribute encoded-byte estimates only when safe to derive from known ranges.
+
+This bridge remains plan-only: no tasks are executed, no data is read, no decode/materialization is performed, and no object-store IO or writes are issued. It prepares future scheduling and memory-aware execution while preserving no-fallback behavior.

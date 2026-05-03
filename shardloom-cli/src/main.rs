@@ -35,7 +35,8 @@ use shardloom_vortex::{
     metadata_pruning_is_side_effect_free, metadata_summary_is_plan_only, open_vortex_metadata_only,
     plan_from_vortex_metadata_summary, plan_native_vortex_universal_input,
     plan_vortex_metadata_pruning, plan_vortex_read_from_universal_input,
-    probe_vortex_metadata_only, summarize_vortex_metadata_probe, vortex_file_io_feature_enabled,
+    probe_vortex_metadata_only, size_vortex_runtime_task_graph, summarize_vortex_metadata_probe,
+    vortex_file_io_feature_enabled,
 };
 
 fn main() -> ExitCode {
@@ -51,7 +52,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing> [--format text|json]",
         cli_command_name()
     )
 }
@@ -1759,6 +1760,135 @@ fn run(args: Vec<String>) -> ExitCode {
                 vec![],
             );
             ExitCode::SUCCESS
+        }
+
+        Some("vortex-adaptive-sizing") => {
+            let Some(dataset_uri) = args.next() else {
+                eprintln!("usage: shardloom vortex-adaptive-sizing <dataset_uri> <memory_gb>");
+                return ExitCode::from(2);
+            };
+            let Some(memory_gb_text) = args.next() else {
+                eprintln!("usage: shardloom vortex-adaptive-sizing <dataset_uri> <memory_gb>");
+                return ExitCode::from(2);
+            };
+            let uri = match DatasetUri::new(dataset_uri) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-adaptive-sizing",
+                        format,
+                        "vortex adaptive sizing failed",
+                        &error,
+                    );
+                }
+            };
+            let memory_gb: u64 = match memory_gb_text.parse() {
+                Ok(v) => v,
+                Err(_) => {
+                    return emit_error(
+                        "vortex-adaptive-sizing",
+                        format,
+                        "vortex adaptive sizing failed",
+                        &ShardLoomError::InvalidOperation(
+                            "memory_gb must be an unsigned integer".to_string(),
+                        ),
+                    );
+                }
+            };
+            let source = match shardloom_core::UniversalInputSource::from_dataset_uri(uri.clone()) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-adaptive-sizing",
+                        format,
+                        "vortex adaptive sizing failed",
+                        &error,
+                    );
+                }
+            };
+            let input_plan = match plan_native_vortex_universal_input(source) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-adaptive-sizing",
+                        format,
+                        "vortex adaptive sizing failed",
+                        &error,
+                    );
+                }
+            };
+            let read_report = match plan_vortex_read_from_universal_input(input_plan.clone()) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-adaptive-sizing",
+                        format,
+                        "vortex adaptive sizing failed",
+                        &error,
+                    );
+                }
+            };
+            let runtime_report = match build_vortex_runtime_task_graph(read_report) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-adaptive-sizing",
+                        format,
+                        "vortex adaptive sizing failed",
+                        &error,
+                    );
+                }
+            };
+            let policy = AdaptiveSizingPolicy::memory_limited(ByteSize::from_gib(memory_gb));
+            let report = match size_vortex_runtime_task_graph(runtime_report, policy) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-adaptive-sizing",
+                        format,
+                        "vortex adaptive sizing failed",
+                        &error,
+                    );
+                }
+            };
+            emit(
+                "vortex-adaptive-sizing",
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "vortex adaptive sizing report".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "vortex_adaptive_sizing".to_string()),
+                    (
+                        "native_vortex_input".to_string(),
+                        input_plan.source.is_native_vortex().to_string(),
+                    ),
+                    ("plan_only".to_string(), "true".to_string()),
+                    ("tasks_executed".to_string(), "false".to_string()),
+                    ("data_executed".to_string(), "false".to_string()),
+                    ("data_read".to_string(), "false".to_string()),
+                    ("data_materialized".to_string(), "false".to_string()),
+                    ("object_store_io".to_string(), "false".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
+                    ("external_effects_executed".to_string(), "false".to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
+                    ("memory_gb".to_string(), memory_gb.to_string()),
+                ],
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
         }
         Some("vortex-plan") => {
             let Some(dataset_uri) = args.next() else {

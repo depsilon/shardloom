@@ -46,6 +46,11 @@ pub use input_bridge::{
     plan_native_vortex_universal_input, vortex_universal_input_plan_is_side_effect_free,
 };
 
+pub use adaptive_sizing::{
+    VortexAdaptiveSizingInput, VortexAdaptiveSizingMode, VortexAdaptiveSizingReport,
+    VortexAdaptiveSizingStatus, VortexSegmentSizingInput, VortexSizingEstimateSource,
+    size_vortex_runtime_task_graph, vortex_adaptive_sizing_is_side_effect_free,
+};
 pub use read_planning::{
     VortexByteRangeIntent, VortexReadIntentStatus, VortexReadPlanningInput, VortexReadPlanningMode,
     VortexReadPlanningReport, VortexReadSplitDescriptor, VortexSegmentReadIntent,
@@ -64,6 +69,7 @@ pub use metadata_summary::{
 };
 
 pub mod adapter;
+pub mod adaptive_sizing;
 pub mod input_bridge;
 
 use std::fmt::Write as _;

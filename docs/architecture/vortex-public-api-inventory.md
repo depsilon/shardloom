@@ -233,3 +233,9 @@ Implement typed DType adapter mapping only if upstream public DType APIs are cle
 `ShardLoom` now bridges `Vortex` read planning into runtime task graph skeletons.
 This bridge does not call upstream `Vortex` scan execution, does not read data, does not materialize values, and does not execute tasks.
 No fallback execution is introduced.
+
+## Adaptive sizing integration update
+
+`ShardLoom` now exposes a bridge that maps `Vortex` read planning and runtime graph reports into adaptive sizing reports and plans.
+
+This integration is planning-only and does not call upstream `Vortex` scan execution. It does not read data, materialize values, or execute tasks. No fallback execution behavior or external execution engine is introduced.
