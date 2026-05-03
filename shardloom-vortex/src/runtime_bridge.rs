@@ -72,6 +72,10 @@ impl VortexRuntimeBridgeMode {
     }
 }
 
+/// Planning-only mapping kind from `Vortex` read intent to `ShardLoom` `SegmentTask`.
+///
+/// This mapping records future scheduling intent and never executes tasks, reads,
+/// materialization, object-store IO, writes, or external effects.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VortexTaskMappingKind {
     NoTaskNeeded,
@@ -102,6 +106,9 @@ impl VortexTaskMappingKind {
     }
 }
 
+/// Planning-only mapping from a `Vortex` read intent to runtime `TaskGraph` entries.
+///
+/// The mapping is metadata only and does not execute the `SegmentTask`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct VortexTaskMapping {
     pub kind: VortexTaskMappingKind,
@@ -236,6 +243,7 @@ impl VortexTaskMapping {
     }
 }
 
+/// Planning-only bridge input for generating `VortexRuntimeBridgeReport`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct VortexRuntimeBridgeInput {
     pub read_planning_report: crate::VortexReadPlanningReport,
@@ -272,6 +280,11 @@ impl VortexRuntimeBridgeInput {
     }
 }
 
+/// Planning-only bridge report from `Vortex` read planning into a runtime `TaskGraph`.
+///
+/// This report contains task skeletons for future execution scheduling and never
+/// performs data reads, decode, materialization, writes, object-store IO, or
+/// fallback execution.
 #[derive(Debug, Clone, PartialEq)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct VortexRuntimeBridgeReport {
@@ -328,6 +341,11 @@ impl VortexRuntimeBridgeReport {
         if out.input.read_planning_report.has_errors() {
             out.status = VortexRuntimeBridgeStatus::Unsupported;
             out.mode = VortexRuntimeBridgeMode::Unsupported;
+            out.runtime_plan = RuntimePlanSkeleton::unsupported(
+                out.task_graph.clone(),
+                "vortex-runtime-bridge",
+                "read planning report contains errors",
+            );
             return Ok(out);
         }
         let intents = out.input.read_planning_report.segment_intents.clone();
@@ -654,6 +672,10 @@ mod tests {
         let out =
             VortexRuntimeBridgeReport::from_read_planning_report(read).expect("bridge report");
         assert!(matches!(out.status, VortexRuntimeBridgeStatus::Unsupported));
+        assert!(matches!(
+            out.runtime_plan.status,
+            shardloom_exec::RuntimePlanningStatus::Unsupported
+        ));
         assert!(out.has_errors());
         assert_eq!(out.task_count, 0);
         assert!(!out.data_read);
@@ -712,5 +734,38 @@ mod tests {
         let out =
             VortexRuntimeBridgeReport::from_read_planning_report(read).expect("bridge report");
         assert!(out.to_human_text().contains("top-level bridge note"));
+    }
+
+    #[test]
+    fn input_new_defaults_unbounded_budget_and_no_retry() {
+        let read =
+            crate::VortexReadPlanningReport::from_input(crate::VortexReadPlanningInput::new())
+                .expect("read report");
+        let input = VortexRuntimeBridgeInput::new(read);
+        assert_eq!(input.resource_budget, ResourceBudget::unbounded());
+        assert_eq!(input.retry_policy, RetryPolicy::none());
+    }
+
+    #[test]
+    fn unsupported_report_has_errors_and_fallback_false() {
+        let read =
+            crate::VortexReadPlanningReport::from_input(crate::VortexReadPlanningInput::new())
+                .expect("read report");
+        let report = VortexRuntimeBridgeReport::unsupported(
+            VortexRuntimeBridgeInput::new(read),
+            "feature",
+            "reason",
+        );
+        assert!(report.has_errors());
+        assert!(report.diagnostics.iter().any(|d| !d.fallback.attempted));
+    }
+
+    #[test]
+    fn helper_functions_delegate_without_io() {
+        let read =
+            crate::VortexReadPlanningReport::from_input(crate::VortexReadPlanningInput::new())
+                .expect("read report");
+        let report = build_vortex_runtime_task_graph(read).expect("bridge");
+        assert!(vortex_runtime_bridge_is_side_effect_free(&report));
     }
 }
