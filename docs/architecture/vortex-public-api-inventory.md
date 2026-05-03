@@ -344,3 +344,9 @@ No fallback execution was introduced.
 - It uses `ShardLoom` metadata summaries and conservative predicate proofs.
 - Projection/filter remain future encoded-read or predicate-kernel work.
 - No fallback execution introduced.
+
+
+## Encoded predicate/projection primitive update
+- Query primitive layer now models projection/filter work.
+- These remain future encoded-read/predicate-kernel work unless metadata proves an answer.
+- No fallback execution introduced.

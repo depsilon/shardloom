@@ -79,8 +79,11 @@ pub enum VortexQueryPrimitiveStatus {
     Planned,
     MetadataAnswered,
     NeedsEncodedRead,
-    NeedsPredicateEvaluation,
+    NeedsEncodedPredicate,
+    NeedsProjection,
     MissingMetadata,
+    BlockedByDecodeRisk,
+    BlockedByMaterializationRisk,
     Unsupported,
 }
 impl VortexQueryPrimitiveStatus {
@@ -90,8 +93,11 @@ impl VortexQueryPrimitiveStatus {
             Self::Planned => "planned",
             Self::MetadataAnswered => "metadata_answered",
             Self::NeedsEncodedRead => "needs_encoded_read",
-            Self::NeedsPredicateEvaluation => "needs_predicate_evaluation",
+            Self::NeedsEncodedPredicate => "needs_encoded_predicate",
+            Self::NeedsProjection => "needs_projection",
             Self::MissingMetadata => "missing_metadata",
+            Self::BlockedByDecodeRisk => "blocked_by_decode_risk",
+            Self::BlockedByMaterializationRisk => "blocked_by_materialization_risk",
             Self::Unsupported => "unsupported",
         }
     }
@@ -477,7 +483,7 @@ pub fn evaluate_vortex_count_where_from_summary(
             shardloom_core::PredicateProof::MayMatch { reason }
             | shardloom_core::PredicateProof::Unknown { reason } => {
                 let mut out = VortexQueryPrimitiveResult::needs_encoded_read(request, reason);
-                out.status = VortexQueryPrimitiveStatus::NeedsPredicateEvaluation;
+                out.status = VortexQueryPrimitiveStatus::NeedsEncodedPredicate;
                 out.mode = VortexQueryPrimitiveMode::Deferred;
                 return Ok(out);
             }
@@ -496,6 +502,120 @@ pub fn evaluate_vortex_count_where_from_summary(
     ))
 }
 
+/// Plans encoded projection intent for `ProjectColumns`/`FilterAndProject`.
+/// # Errors
+/// Returns an error only if `ShardLoom` observes malformed internal metadata state.
+pub fn plan_vortex_encoded_projection(
+    request: VortexQueryPrimitiveRequest,
+    summary: &crate::VortexMetadataSummaryReport,
+    _probe_report: Option<&crate::VortexEncodedReadProbeReport>,
+) -> Result<VortexQueryPrimitiveResult> {
+    if !matches!(
+        request.kind,
+        VortexQueryPrimitiveKind::ProjectColumns | VortexQueryPrimitiveKind::FilterAndProject
+    ) {
+        return Ok(VortexQueryPrimitiveResult::unsupported(
+            request,
+            "encoded_projection",
+            "only `ProjectColumns` and `FilterAndProject` can plan encoded projection",
+        ));
+    }
+    if request.projection.is_all() {
+        return Ok(VortexQueryPrimitiveResult::needs_encoded_read(
+            request,
+            "projection=all requires encoded-read candidate planning",
+        ));
+    }
+    let known_columns: std::collections::BTreeSet<&str> = summary
+        .summary
+        .segments
+        .iter()
+        .flat_map(|segment| segment.columns.iter())
+        .filter_map(|column| {
+            column
+                .column
+                .as_ref()
+                .map(shardloom_core::ColumnRef::as_str)
+        })
+        .collect();
+    if let ProjectionRequest::Columns(columns) = &request.projection {
+        let missing: Vec<&str> = columns
+            .iter()
+            .map(shardloom_core::ColumnRef::as_str)
+            .filter(|name| !known_columns.contains(*name))
+            .collect();
+        if !missing.is_empty() {
+            let missing_text = missing.join(",");
+            return Ok(VortexQueryPrimitiveResult::missing_metadata(
+                request,
+                format!("projection columns missing from metadata summary: {missing_text}"),
+            ));
+        }
+    }
+    let mut out = VortexQueryPrimitiveResult::needs_encoded_read(
+        request,
+        "projection columns are metadata-known; encoded projection may be possible",
+    );
+    out.status = VortexQueryPrimitiveStatus::NeedsProjection;
+    Ok(out)
+}
+
+/// Plans encoded predicate intent for `FilterPredicate`/`FilterAndProject`.
+/// # Errors
+/// Returns an error only if `ShardLoom` detects internal overflow while deriving metadata answers.
+pub fn plan_vortex_encoded_predicate(
+    request: VortexQueryPrimitiveRequest,
+    summary: &crate::VortexMetadataSummaryReport,
+    _probe_report: Option<&crate::VortexEncodedReadProbeReport>,
+) -> Result<VortexQueryPrimitiveResult> {
+    if !matches!(
+        request.kind,
+        VortexQueryPrimitiveKind::FilterPredicate | VortexQueryPrimitiveKind::FilterAndProject
+    ) {
+        return Ok(VortexQueryPrimitiveResult::unsupported(
+            request,
+            "encoded_predicate",
+            "only `FilterPredicate` and `FilterAndProject` can plan encoded predicate",
+        ));
+    }
+    let Some(predicate) = request.predicate.as_ref() else {
+        return Ok(VortexQueryPrimitiveResult::unsupported(
+            request,
+            "encoded_predicate",
+            "missing `PredicateExpr` for filter request",
+        ));
+    };
+    let mut saw_inconclusive = false;
+    for segment in &summary.summary.segments {
+        match crate::prove_predicate_from_segment_stats(predicate, segment) {
+            shardloom_core::PredicateProof::AlwaysFalse { .. } => {}
+            shardloom_core::PredicateProof::AlwaysTrue { .. }
+            | shardloom_core::PredicateProof::MayMatch { .. }
+            | shardloom_core::PredicateProof::Unknown { .. } => saw_inconclusive = true,
+            shardloom_core::PredicateProof::Unsupported { reason } => {
+                return Ok(VortexQueryPrimitiveResult::unsupported(
+                    request,
+                    "encoded_predicate",
+                    reason,
+                ));
+            }
+        }
+    }
+    if !saw_inconclusive {
+        return Ok(VortexQueryPrimitiveResult::metadata_answered(
+            request,
+            VortexQueryPrimitiveValue::Boolean(false),
+        ));
+    }
+    let mut out = VortexQueryPrimitiveResult::needs_encoded_read(
+        request,
+        "metadata proof is inconclusive; encoded predicate planning is required",
+    );
+    out.status = VortexQueryPrimitiveStatus::NeedsEncodedPredicate;
+    out.mode = VortexQueryPrimitiveMode::Deferred;
+    Ok(out)
+}
+
 /// Evaluates a minimal `Vortex` query primitive against metadata summary.
 /// # Errors
 /// Returns an error only if metadata count evaluation overflows while summing rows.
@@ -510,23 +630,26 @@ pub fn evaluate_vortex_query_primitive(
         VortexQueryPrimitiveKind::CountWhere => {
             evaluate_vortex_count_where_from_summary(request, summary)
         }
-        VortexQueryPrimitiveKind::ProjectColumns | VortexQueryPrimitiveKind::FilterAndProject => {
-            Ok(VortexQueryPrimitiveResult::needs_encoded_read(
-                request,
-                "projection/filter-and-project requires future native encoded-read support",
-            ))
+        VortexQueryPrimitiveKind::ProjectColumns => {
+            plan_vortex_encoded_projection(request, summary, None)
         }
-        VortexQueryPrimitiveKind::FilterPredicate => Ok(VortexQueryPrimitiveResult {
-            status: VortexQueryPrimitiveStatus::NeedsPredicateEvaluation,
-            mode: VortexQueryPrimitiveMode::Deferred,
-            ..VortexQueryPrimitiveResult::needs_encoded_read(
-                request,
-                format!(
-                    "predicate metadata proof unavailable (metadata status={})",
-                    summary.status.as_str()
-                ),
-            )
-        }),
+        VortexQueryPrimitiveKind::FilterPredicate => {
+            plan_vortex_encoded_predicate(request, summary, None)
+        }
+        VortexQueryPrimitiveKind::FilterAndProject => {
+            let predicate_result = plan_vortex_encoded_predicate(request.clone(), summary, None)?;
+            if predicate_result.has_errors()
+                || matches!(
+                    predicate_result.status,
+                    VortexQueryPrimitiveStatus::MetadataAnswered
+                        | VortexQueryPrimitiveStatus::MissingMetadata
+                )
+            {
+                Ok(predicate_result)
+            } else {
+                plan_vortex_encoded_projection(request, summary, None)
+            }
+        }
         VortexQueryPrimitiveKind::SimpleAggregate | VortexQueryPrimitiveKind::Unsupported => {
             Ok(VortexQueryPrimitiveResult::unsupported(
                 request,
@@ -650,6 +773,68 @@ mod tests {
         .expect("ok");
         assert_eq!(out.status, VortexQueryPrimitiveStatus::NeedsEncodedRead);
         assert!(out.is_side_effect_free());
+    }
+    #[test]
+    fn eval_project_known_columns_needs_projection() {
+        let mut s = empty_summary();
+        let mut seg = crate::VortexSegmentMetadataSummary::unknown();
+        seg.add_column(crate::VortexColumnMetadataSummary::new(
+            ColumnRef::new("col1").expect("column"),
+        ));
+        s.summary.segments.push(seg);
+        let out = evaluate_vortex_query_primitive(
+            VortexQueryPrimitiveRequest::project(
+                uri(),
+                ProjectionRequest::columns(vec![ColumnRef::new("col1").expect("column")]),
+            ),
+            &s,
+        )
+        .expect("ok");
+        assert_eq!(out.status, VortexQueryPrimitiveStatus::NeedsProjection);
+        assert!(out.is_side_effect_free());
+    }
+    #[test]
+    fn eval_filter_inconclusive_needs_encoded_predicate() {
+        let mut s = empty_summary();
+        s.summary
+            .segments
+            .push(crate::VortexSegmentMetadataSummary::unknown());
+        let out = evaluate_vortex_query_primitive(
+            VortexQueryPrimitiveRequest::filter(
+                uri(),
+                PredicateExpr::Compare {
+                    column: ColumnRef::new("x").expect("column"),
+                    op: shardloom_core::ComparisonOp::Eq,
+                    value: shardloom_core::StatValue::Int64(7),
+                },
+            ),
+            &s,
+        )
+        .expect("ok");
+        assert_eq!(
+            out.status,
+            VortexQueryPrimitiveStatus::NeedsEncodedPredicate
+        );
+        assert!(out.is_side_effect_free());
+    }
+    #[test]
+    fn eval_filter_all_false_metadata_answered() {
+        let mut s = empty_summary();
+        let mut stats = SegmentStats::unknown();
+        stats.null_count = Some(0);
+        s.summary.segments = vec![seg_with_stats(Some(4), stats)];
+        let out = evaluate_vortex_query_primitive(
+            VortexQueryPrimitiveRequest::filter(
+                uri(),
+                PredicateExpr::IsNull {
+                    column: ColumnRef::new("x").expect("column"),
+                },
+            ),
+            &s,
+        )
+        .expect("ok");
+        assert_eq!(out.status, VortexQueryPrimitiveStatus::MetadataAnswered);
+        assert_eq!(out.value, VortexQueryPrimitiveValue::Boolean(false));
     }
     #[test]
     fn count_where_request_stores_predicate() {

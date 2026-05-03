@@ -260,3 +260,10 @@ This begins visible engine behavior without broad query execution.
 - Missing or inconclusive stats return `NeedsEncodedRead` / `NeedsPredicateEvaluation`.
 - No selectivity guessing.
 - No scan, decode, or materialization is introduced.
+
+
+## Encoded predicate and projection primitive
+- Projection/filter primitives now route to encoded-read candidate planning.
+- Metadata proof is attempted first for filters.
+- Inconclusive predicates return `NeedsEncodedPredicate`/`NeedsEncodedRead`.
+- No scan/decode/materialization is introduced.

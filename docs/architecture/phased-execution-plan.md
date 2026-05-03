@@ -21,3 +21,8 @@ Phase 7A is contract-only and does not execute scans, read data, decode/material
 ## Phase 9B status update
 - Phase 9A is complete.
 - Phase 9B is current: metadata-filtered `CountWhere` primitive.
+
+
+## Phase 9C update
+- Phase 9B is complete.
+- Phase 9C is current: encoded predicate/projection primitive planning routes filter/project requests to encoded-read candidates without execution.

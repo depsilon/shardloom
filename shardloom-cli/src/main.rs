@@ -25,8 +25,8 @@ use shardloom_exec::{
 };
 use shardloom_plan::{
     EstimateReport, ExplainReport, NativePlanDocument, OptimizerPhase, OptimizerPlanSkeleton,
-    PlanExportRequest, PlanId, PlanImportRequest, PlanInteropFormat, ScanPlanSkeleton, ScanRequest,
-    plan_universal_input_source,
+    PlanExportRequest, PlanId, PlanImportRequest, PlanInteropFormat, ProjectionRequest,
+    ScanPlanSkeleton, ScanRequest, plan_universal_input_source,
 };
 use shardloom_vortex::{
     VortexAdapterCapabilityReport, VortexAdapterReadiness, VortexDTypeMappingReport,
@@ -60,7 +60,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count|vortex-count-where> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count|vortex-count-where|vortex-project|vortex-filter> [--format text|json]",
         cli_command_name()
     )
 }
@@ -191,6 +191,25 @@ fn parse_tiny_predicate(value: &str) -> Result<PredicateExpr, ShardLoomError> {
             "invalid predicate format; expected is_null:<column>, is_not_null:<column>, or <op>:<column>:<integer>".to_string(),
         )),
     }
+}
+
+fn parse_projection_columns(value: &str) -> Result<ProjectionRequest, ShardLoomError> {
+    if value == "*" {
+        return Ok(ProjectionRequest::all());
+    }
+    let columns: Result<Vec<_>, _> = value
+        .split(',')
+        .map(str::trim)
+        .map(|name| {
+            if name.is_empty() {
+                return Err(ShardLoomError::InvalidOperation(
+                    "projection contains empty column name".to_string(),
+                ));
+            }
+            shardloom_core::ColumnRef::new(name)
+        })
+        .collect();
+    Ok(ProjectionRequest::columns(columns?))
 }
 
 #[allow(clippy::too_many_lines)]
@@ -4256,6 +4275,154 @@ fn run(args: Vec<String>) -> ExitCode {
                         count.map_or_else(|| "unknown".to_string(), |v| v.to_string()),
                     ),
                     ("predicate".to_string(), predicate_arg),
+                ],
+            );
+            if result.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
+        Some("vortex-project") => {
+            let Some(uri_arg) = args.next() else {
+                eprintln!("usage: shardloom vortex-project <dataset_uri> <columns>");
+                return ExitCode::from(2);
+            };
+            let Some(columns_arg) = args.next() else {
+                eprintln!("usage: shardloom vortex-project <dataset_uri> <columns>");
+                return ExitCode::from(2);
+            };
+            let uri = match DatasetUri::new(uri_arg) {
+                Ok(uri) => uri,
+                Err(error) => {
+                    return emit_error("vortex-project", format, "vortex project failed", &error);
+                }
+            };
+            let projection = match parse_projection_columns(&columns_arg) {
+                Ok(projection) => projection,
+                Err(error) => {
+                    return emit_error("vortex-project", format, "vortex project failed", &error);
+                }
+            };
+            let request =
+                shardloom_vortex::VortexQueryPrimitiveRequest::project(uri.clone(), projection);
+            let summary = open_vortex_metadata_only(VortexMetadataOpenRequest::metadata_only(uri))
+                .ok()
+                .and_then(|report| report.metadata_summary)
+                .unwrap_or_else(|| {
+                    summarize_vortex_metadata_probe(
+                        &VortexMetadataProbeReport::deferred_api_unclear(),
+                    )
+                });
+            let result = match evaluate_vortex_query_primitive(request, &summary) {
+                Ok(result) => result,
+                Err(error) => {
+                    return emit_error("vortex-project", format, "vortex project failed", &error);
+                }
+            };
+            emit(
+                "vortex-project",
+                format,
+                if result.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "vortex project primitive".to_string(),
+                result.to_human_text(),
+                result.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "vortex_project".to_string()),
+                    ("primitive".to_string(), "project_columns".to_string()),
+                    ("data_read".to_string(), "false".to_string()),
+                    ("data_decoded".to_string(), "false".to_string()),
+                    ("data_materialized".to_string(), "false".to_string()),
+                    ("object_store_io".to_string(), "false".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
+                    ("spill_io_performed".to_string(), "false".to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
+                    (
+                        "result_known".to_string(),
+                        result.value.is_known().to_string(),
+                    ),
+                ],
+            );
+            if result.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
+        Some("vortex-filter") => {
+            let Some(uri_arg) = args.next() else {
+                eprintln!("usage: shardloom vortex-filter <dataset_uri> <predicate>");
+                return ExitCode::from(2);
+            };
+            let Some(predicate_arg) = args.next() else {
+                eprintln!("usage: shardloom vortex-filter <dataset_uri> <predicate>");
+                return ExitCode::from(2);
+            };
+            let uri = match DatasetUri::new(uri_arg) {
+                Ok(uri) => uri,
+                Err(error) => {
+                    return emit_error("vortex-filter", format, "vortex filter failed", &error);
+                }
+            };
+            let predicate = match parse_tiny_predicate(&predicate_arg) {
+                Ok(predicate) => predicate,
+                Err(error) => {
+                    return emit_error("vortex-filter", format, "vortex filter failed", &error);
+                }
+            };
+            let request =
+                shardloom_vortex::VortexQueryPrimitiveRequest::filter(uri.clone(), predicate);
+            let summary = open_vortex_metadata_only(VortexMetadataOpenRequest::metadata_only(uri))
+                .ok()
+                .and_then(|report| report.metadata_summary)
+                .unwrap_or_else(|| {
+                    summarize_vortex_metadata_probe(
+                        &VortexMetadataProbeReport::deferred_api_unclear(),
+                    )
+                });
+            let result = match evaluate_vortex_query_primitive(request, &summary) {
+                Ok(result) => result,
+                Err(error) => {
+                    return emit_error("vortex-filter", format, "vortex filter failed", &error);
+                }
+            };
+            emit(
+                "vortex-filter",
+                format,
+                if result.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "vortex filter primitive".to_string(),
+                result.to_human_text(),
+                result.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "vortex_filter".to_string()),
+                    ("primitive".to_string(), "filter_predicate".to_string()),
+                    ("data_read".to_string(), "false".to_string()),
+                    ("data_decoded".to_string(), "false".to_string()),
+                    ("data_materialized".to_string(), "false".to_string()),
+                    ("object_store_io".to_string(), "false".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
+                    ("spill_io_performed".to_string(), "false".to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
+                    (
+                        "result_known".to_string(),
+                        result.value.is_known().to_string(),
+                    ),
                 ],
             );
             if result.has_errors() {
