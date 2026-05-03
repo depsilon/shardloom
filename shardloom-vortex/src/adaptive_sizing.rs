@@ -309,7 +309,14 @@ impl VortexAdaptiveSizingReport {
     pub fn from_input(input: VortexAdaptiveSizingInput) -> Result<Self> {
         let sizer = AdaptiveSizer::new(input.policy.clone());
         let mut segs = vec![];
+        let mut bridged_runtime_has_errors = false;
+        let mut bridged_runtime_status_unsupported = false;
+        let mut bridged_runtime_diagnostics: Vec<Diagnostic> = vec![];
         if let Some(runtime) = &input.runtime_bridge_report {
+            bridged_runtime_has_errors = runtime.has_errors();
+            bridged_runtime_status_unsupported =
+                runtime.status == crate::VortexRuntimeBridgeStatus::Unsupported;
+            bridged_runtime_diagnostics = runtime.diagnostics.clone();
             for m in &runtime.mappings {
                 segs.push(VortexSegmentSizingInput::from_task_mapping(m));
             }
@@ -371,8 +378,11 @@ impl VortexAdaptiveSizingReport {
             fallback_execution_allowed: false,
             diagnostics: vec![],
         };
+        out.diagnostics.extend(bridged_runtime_diagnostics);
         out.recompute_counts();
-        if out.needs_estimate_count > 0 {
+        if bridged_runtime_status_unsupported || bridged_runtime_has_errors {
+            out.status = VortexAdaptiveSizingStatus::Unsupported;
+        } else if out.needs_estimate_count > 0 {
             out.status = VortexAdaptiveSizingStatus::NeedsEstimate;
         } else if out.planned_task_count > 0 {
             out.status = VortexAdaptiveSizingStatus::Sized;
@@ -650,5 +660,30 @@ mod tests {
                 && t.contains("data materialized: false")
                 && t.contains("diagnostics:")
         );
+    }
+
+    #[test]
+    fn runtime_bridge_unsupported_is_preserved() {
+        let input_plan = crate::plan_native_vortex_universal_input(
+            shardloom_core::UniversalInputSource::from_dataset_uri(
+                shardloom_core::DatasetUri::new("file://tmp/test.vortex").expect("uri"),
+            )
+            .expect("source"),
+        )
+        .expect("input");
+        let read_report = crate::plan_vortex_read_from_universal_input(input_plan).expect("read");
+        let runtime = crate::VortexRuntimeBridgeReport::unsupported(
+            crate::VortexRuntimeBridgeInput::new(read_report),
+            "feature",
+            "reason",
+        );
+        let out = VortexAdaptiveSizingReport::from_runtime_bridge_report(
+            runtime,
+            AdaptiveSizingPolicy::default_local(),
+        )
+        .expect("sizing");
+        assert_eq!(out.status, VortexAdaptiveSizingStatus::Unsupported);
+        assert!(out.has_errors());
+        assert!(!out.diagnostics.is_empty());
     }
 }
