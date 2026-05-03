@@ -7,7 +7,10 @@ use std::fmt::Write as _;
 use shardloom_core::{
     Diagnostic, DiagnosticCode, DiagnosticSeverity, Result, SegmentId, ShardLoomError,
 };
-use shardloom_exec::{MemoryBudget, TaskId};
+use shardloom_exec::{
+    MemoryBudget, SpillLifecycleRequest, SpillPolicy, SpillReservationIntegrationReport,
+    SpillReservationIntegrationRequest, TaskId, plan_spill_reservation_integration,
+};
 
 use crate::{
     VortexLocalExecutionReport, VortexLocalExecutionStatus, VortexMemoryBridgeReport,
@@ -718,4 +721,30 @@ pub fn execute_vortex_bounded_local_query(
 }
 pub fn vortex_bounded_execution_is_side_effect_free(report: &VortexBoundedExecutionReport) -> bool {
     report.is_side_effect_free()
+}
+
+/// # Errors
+/// Returns an error when building or planning a `SpillReservationIntegrationReport` fails.
+pub fn plan_bounded_execution_spill_reservation(
+    bounded_report: &VortexBoundedExecutionReport,
+    lifecycle_request: Option<SpillLifecycleRequest>,
+) -> Result<Option<SpillReservationIntegrationReport>> {
+    let spill_blocked = bounded_report
+        .decisions
+        .iter()
+        .any(|d| matches!(d.kind, VortexBoundedExecutionDecisionKind::BlockSpill));
+    if !spill_blocked {
+        return Ok(None);
+    }
+    let mut request = SpillReservationIntegrationRequest::new(
+        format!("vortex-bounded-{}", bounded_report.blocked_task_count),
+        SpillPolicy::Required,
+    )?;
+    if let Some(lifecycle_request) = lifecycle_request {
+        request = request.with_lifecycle_request(lifecycle_request);
+    }
+    for diagnostic in &bounded_report.diagnostics {
+        request.add_diagnostic(diagnostic.clone());
+    }
+    Ok(Some(plan_spill_reservation_integration(request)?))
 }
