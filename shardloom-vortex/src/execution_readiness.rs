@@ -471,11 +471,8 @@ impl VortexExecutionReadinessReport {
             g.kind == VortexReadinessGateKind::NoMissingEstimates
                 && g.status == VortexReadinessGateStatus::Blocked
         });
-        let blocked_by_memory =
-            self.gates.iter().any(|g| {
-                g.kind == VortexReadinessGateKind::SchedulerPlanAvailable && g.is_blocking()
-            }) || self.input.scheduler_report.status
-                == VortexSchedulerBridgeStatus::BlockedByMemoryPolicy;
+        let blocked_by_memory = self.input.scheduler_report.status
+            == VortexSchedulerBridgeStatus::BlockedByMemoryPolicy;
         let blocked_by_spill = self.gates.iter().any(|g| {
             g.kind == VortexReadinessGateKind::NoSpillRequiredWithoutSupport && g.is_blocking()
         }) || self.input.scheduler_report.status
