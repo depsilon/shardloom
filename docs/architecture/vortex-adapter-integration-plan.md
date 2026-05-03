@@ -223,3 +223,16 @@ The boundary blocks data-read, decode, materialization, write, object-store IO, 
 Future execution work must pass existing readiness gates and this encoded-read API boundary before any probe or execution path is enabled.
 
 - Phase 7A adds a contract-only encoded-read probe plan that combines API boundary and readiness reports without executing scans, reading data, decoding/materializing, object-store/write/spill IO, or fallback execution.
+
+## Metadata-only local Vortex open transition
+
+This transition is the first real upstream `Vortex` contact for `ShardLoom` and is feature-gated behind `vortex-file-io`.
+
+Scope and guarantees:
+- local-file only;
+- no upstream scan/start-read API calls;
+- no decode or materialization;
+- no object-store/write/spill IO;
+- fallback execution remains disabled.
+
+If metadata-only behavior cannot be guaranteed from public upstream APIs for a requested path, the contract must return deterministic `ApiDeferred` diagnostics rather than attempting unsafe IO.
