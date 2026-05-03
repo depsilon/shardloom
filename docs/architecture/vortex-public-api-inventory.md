@@ -200,3 +200,11 @@ Implement typed DType adapter mapping only if upstream public DType APIs are cle
 - No scan, decode, materialization, object-store IO, or writes are performed.
 - This is the future seam for metadata-only execution and segment pruning.
 - No fallback execution is introduced.
+
+## Feature-gated upstream posture update
+
+- Upstream Vortex dependency is now optional behind `upstream-vortex`.
+- Default builds remain planning/report-only and do not require compiling upstream Vortex.
+- Vortex file IO remains unimplemented and staged behind future `vortex-file-io` work.
+- Object-store support remains disabled by default.
+- No fallback engines were introduced.

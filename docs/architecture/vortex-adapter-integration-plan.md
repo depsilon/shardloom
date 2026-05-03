@@ -109,3 +109,10 @@ First future dependency PR should:
 - Incorrect pruning is a correctness bug.
 - Future execution should consume these pruning reports before reading data.
 - Actual scan execution remains out of scope.
+
+## Dependency footprint staging update
+
+- Adapter dependency posture now uses feature gates: `upstream-vortex`, `vortex-file-io`, `vortex-object-store`, `vortex-write`.
+- Default build keeps upstream Vortex disabled to reduce transitive footprint.
+- File IO/object-store IO stay out of scope and disabled by default.
+- No fallback engine dependency or behavior is introduced.

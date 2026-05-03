@@ -9,7 +9,14 @@ rust-version.workspace = true
 [lints]
 workspace = true
 
+[features]
+default = []
+upstream-vortex = ["dep:vortex"]
+vortex-file-io = ["upstream-vortex"]
+vortex-object-store = ["vortex-file-io"]
+vortex-write = ["vortex-file-io"]
+
 [dependencies]
 shardloom-core = { path = "../shardloom-core" }
 shardloom-plan = { path = "../shardloom-plan" }
-vortex = "0.70"
+vortex = { version = "0.70", optional = true }
