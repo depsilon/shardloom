@@ -331,3 +331,10 @@ No fallback execution is introduced by this boundary update.
 - Current spike returns deterministic blocked/deferred execution when a safe no-decode/no-materialize encoded-read API path is not yet proven.
 - No fixture was added in this phase.
 - No decode/materialization/write/object-store/fallback behavior was introduced.
+
+
+## Query primitive update
+
+`CountAll` can now use `Vortex` metadata summaries when row counts are available.
+Projection/filter primitives remain future encoded-read or predicate-kernel work.
+No fallback execution was introduced.

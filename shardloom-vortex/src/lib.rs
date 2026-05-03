@@ -28,6 +28,7 @@ pub mod metadata_executor;
 pub mod metadata_planning;
 pub mod metadata_pruning;
 pub mod metadata_summary;
+pub mod query_primitive;
 pub mod read_planning;
 pub mod runtime_bridge;
 pub mod scheduler_bridge;
@@ -108,6 +109,12 @@ pub use memory_bridge::{
     VortexTaskMemoryDecisionKind, plan_vortex_memory_safety,
     vortex_memory_bridge_is_side_effect_free,
 };
+pub use query_primitive::{
+    VortexQueryPrimitiveKind, VortexQueryPrimitiveMode, VortexQueryPrimitiveRequest,
+    VortexQueryPrimitiveResult, VortexQueryPrimitiveStatus, VortexQueryPrimitiveValue,
+    evaluate_vortex_count_all_from_summary, evaluate_vortex_query_primitive,
+};
+
 pub use read_planning::{
     VortexByteRangeIntent, VortexReadIntentStatus, VortexReadPlanningInput, VortexReadPlanningMode,
     VortexReadPlanningReport, VortexReadSplitDescriptor, VortexSegmentReadIntent,

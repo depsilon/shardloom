@@ -9,3 +9,11 @@ Phase 7A is contract-only and does not execute scans, read data, decode/material
 - Phase 7A: complete (encoded-read probe plan contract).
 - Phase 7B: complete (feature-gated local metadata-only open transition).
 - Phase 8: current (first controlled encoded-read execution spike).
+
+
+## Phase 9A update (current)
+
+- Phase 8 is complete once PR #82 is merged.
+- Phase 9 is now the current stream.
+- Phase 9A introduces minimal `Vortex` query primitives and a metadata-count path (`CountAll`).
+- This phase keeps scan/decode/materialization disabled and preserves no-fallback execution policy.
