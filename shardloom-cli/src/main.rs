@@ -1823,10 +1823,15 @@ fn run(args: Vec<String>) -> ExitCode {
                 }
             };
             let text = report.to_human_text();
+            let status = if report.has_errors() {
+                CommandStatus::Error
+            } else {
+                CommandStatus::Success
+            };
             emit(
                 "vortex-pruning-plan",
                 format,
-                CommandStatus::Success,
+                status,
                 "vortex metadata pruning plan".to_string(),
                 text,
                 report.diagnostics.clone(),
