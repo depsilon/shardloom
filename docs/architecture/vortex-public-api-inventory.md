@@ -259,3 +259,9 @@ This update does not execute tasks.
 This update does not materialize values.
 This update does not write spill files.
 No fallback execution was introduced.
+
+## Metadata-only execution spike update
+
+The current spike validates ShardLoom's end-to-end Vortex contract without invoking upstream scan execution.
+
+The feature-gated file IO seam remains metadata/report oriented, and no fallback execution is introduced.

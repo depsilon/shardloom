@@ -173,3 +173,15 @@ All readiness gates must pass before any future execution path is attempted.
 `VortexDryRunContract` is reporting-only and does not execute tasks.
 Dry-run reporting does not read data.
 Actual execution remains out of scope in this phase.
+
+## Metadata-only execution spike contract
+
+The current Vortex execution spike is contract-only.
+
+It validates the full Vortex planning/readiness/dry-run chain (`vortex-input-plan` -> `vortex-read-plan` -> `vortex-task-graph` -> `vortex-execution-readiness` -> `vortex-dry-run`) while remaining side-effect free.
+
+This spike does not execute tasks, read rows, decode data, materialize values, write files, perform object-store IO, or perform spill IO.
+
+Fallback execution remains disabled throughout this chain.
+
+Future real execution must pass readiness gates before any executor is introduced.
