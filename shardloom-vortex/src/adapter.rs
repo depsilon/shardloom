@@ -245,7 +245,7 @@ impl VortexAdapterCapabilityReport {
                 ),
                 (
                     VortexAdapterCapability::StatisticsMapping,
-                    VortexAdapterCapabilityStatus::BlockedOnApiDiscovery,
+                    VortexAdapterCapabilityStatus::Planned,
                 ),
                 (
                     VortexAdapterCapability::MetadataInspection,
@@ -421,6 +421,147 @@ impl VortexDTypeMappingReport {
 /// confirmed in this environment. No Vortex IO occurs.
 #[must_use]
 pub const fn typed_vortex_dtype_mapping_available() -> bool {
+    false
+}
+
+/// Typed statistics mapping status at the Vortex adapter boundary in `ShardLoom`.
+///
+/// This status captures compile-safe adapter readiness only; no Vortex IO occurs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexStatisticsMappingStatus {
+    Implemented,
+    DeferredApiUnclear,
+    DeferredApiUnstable,
+    Unsupported,
+}
+impl VortexStatisticsMappingStatus {
+    /// Returns a stable machine-readable status label.
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Implemented => "implemented",
+            Self::DeferredApiUnclear => "deferred_api_unclear",
+            Self::DeferredApiUnstable => "deferred_api_unstable",
+            Self::Unsupported => "unsupported",
+        }
+    }
+
+    /// Returns whether typed statistics mapping is currently implemented.
+    #[must_use]
+    pub const fn is_implemented(&self) -> bool {
+        matches!(self, Self::Implemented)
+    }
+}
+
+/// Reporting-only summary for the typed Vortex statistics mapping probe.
+///
+/// This report describes `ShardLoom` adapter-boundary planning capability for
+/// `SegmentStats` mapping without file IO, object-store IO, decode-to-Arrow
+/// default behavior, or fallback execution.
+#[derive(Debug, Clone, PartialEq)]
+pub struct VortexStatisticsMappingReport {
+    pub status: VortexStatisticsMappingStatus,
+    pub statistics_api_name: Option<String>,
+    pub shardloom_segment_stats_available: bool,
+    pub actual_io_implemented: bool,
+    pub fallback_execution_allowed: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl VortexStatisticsMappingReport {
+    /// Creates a report for implemented typed statistics mapping against a public API.
+    #[must_use]
+    pub fn implemented(statistics_api_name: impl Into<String>) -> Self {
+        Self {
+            status: VortexStatisticsMappingStatus::Implemented,
+            statistics_api_name: Some(statistics_api_name.into()),
+            shardloom_segment_stats_available: true,
+            actual_io_implemented: false,
+            fallback_execution_allowed: false,
+            diagnostics: vec![],
+        }
+    }
+
+    /// Creates a report for deferred typed statistics mapping when public API is unclear.
+    #[must_use]
+    pub fn deferred_api_unclear() -> Self {
+        Self {
+            status: VortexStatisticsMappingStatus::DeferredApiUnclear,
+            statistics_api_name: None,
+            shardloom_segment_stats_available: true,
+            actual_io_implemented: false,
+            fallback_execution_allowed: false,
+            diagnostics: vec![],
+        }
+    }
+
+    /// Creates a report for deferred typed statistics mapping when public API is unstable.
+    #[must_use]
+    pub fn deferred_api_unstable() -> Self {
+        Self {
+            status: VortexStatisticsMappingStatus::DeferredApiUnstable,
+            ..Self::deferred_api_unclear()
+        }
+    }
+
+    /// Appends a deterministic diagnostic message.
+    pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
+    }
+
+    /// Returns whether report diagnostics include any error/fatal severities.
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        diagnostics_have_errors(&self.diagnostics)
+    }
+
+    /// Renders a human summary for CLI and operator diagnostics.
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        let mut out = format!(
+            "Vortex typed statistics mapping probe
+statistics mapping status: {}
+ShardLoom SegmentStats available: {}
+actual IO implemented: {}",
+            self.status.as_str(),
+            self.shardloom_segment_stats_available,
+            self.actual_io_implemented,
+        );
+        append_fallback_disabled_line(&mut out);
+        if let Some(api) = &self.statistics_api_name {
+            let _ = write!(
+                out,
+                "
+statistics API: {api}"
+            );
+        }
+        append_diagnostics_section(&mut out, &self.diagnostics);
+        out
+    }
+}
+
+/// Returns an unknown `SegmentStats` placeholder for planning-only statistics mapping.
+#[must_use]
+pub fn empty_vortex_segment_stats_placeholder() -> shardloom_core::SegmentStats {
+    shardloom_core::SegmentStats::unknown()
+}
+
+/// Returns a row-count-only `SegmentStats` placeholder for planning-only mapping.
+#[must_use]
+pub fn row_count_stats_placeholder(row_count: u64) -> shardloom_core::SegmentStats {
+    shardloom_core::SegmentStats::with_row_count(row_count)
+}
+
+/// Returns whether `ShardLoom` can represent statistics mapping plans without IO.
+#[must_use]
+pub const fn can_map_statistics_without_io() -> bool {
+    true
+}
+
+/// Returns whether compile-safe typed upstream Vortex statistics mapping is available.
+///
+/// This remains deferred until stable public non-IO statistics APIs are confirmed.
+#[must_use]
+pub const fn typed_vortex_statistics_mapping_available() -> bool {
     false
 }
 
@@ -947,5 +1088,78 @@ mod tests {
         let text = report.to_human_text();
         assert!(text.contains("encoding API unresolved"));
         assert!(text.contains("fallback execution allowed: false"));
+    }
+    #[test]
+    fn statistics_mapping_status_implemented_is_implemented() {
+        assert!(VortexStatisticsMappingStatus::Implemented.is_implemented());
+    }
+
+    #[test]
+    fn statistics_mapping_status_deferred_unclear_is_not_implemented() {
+        assert!(!VortexStatisticsMappingStatus::DeferredApiUnclear.is_implemented());
+    }
+
+    #[test]
+    fn statistics_report_implemented_io_and_fallback_disabled() {
+        let report = VortexStatisticsMappingReport::implemented("vortex::statistics::<public_api>");
+        assert!(!report.actual_io_implemented);
+        assert!(!report.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn statistics_report_deferred_has_segment_stats_available() {
+        let report = VortexStatisticsMappingReport::deferred_api_unclear();
+        assert!(report.shardloom_segment_stats_available);
+    }
+
+    #[test]
+    fn statistics_report_human_text_mentions_io_and_fallback_status() {
+        let text = VortexStatisticsMappingReport::deferred_api_unclear().to_human_text();
+        assert!(text.contains("actual IO implemented: false"));
+        assert!(text.contains("fallback execution allowed: false"));
+    }
+
+    #[test]
+    fn statistics_report_human_text_renders_non_empty_diagnostics() {
+        let mut report = VortexStatisticsMappingReport::deferred_api_unclear();
+        report.add_diagnostic(shardloom_core::Diagnostic::configuration_error(
+            "vortex_statistics_mapping",
+            "statistics API probe pending",
+            "statistics API unresolved",
+        ));
+        let text = report.to_human_text();
+        assert!(text.contains("statistics API unresolved"));
+        assert!(text.contains("diagnostics:"));
+    }
+
+    #[test]
+    fn statistics_report_has_errors_is_severity_based() {
+        let mut report = VortexStatisticsMappingReport::deferred_api_unclear();
+        assert!(!report.has_errors());
+        report.add_diagnostic(shardloom_core::Diagnostic::configuration_error(
+            "vortex_statistics_mapping",
+            "statistics mapping unresolved",
+            "keep mapping deferred",
+        ));
+        assert!(report.has_errors());
+    }
+
+    #[test]
+    fn empty_segment_stats_placeholder_returns_unknown() {
+        assert_eq!(
+            empty_vortex_segment_stats_placeholder(),
+            shardloom_core::SegmentStats::unknown()
+        );
+    }
+
+    #[test]
+    fn row_count_stats_placeholder_sets_row_count() {
+        let stats = row_count_stats_placeholder(42);
+        assert_eq!(stats.row_count, Some(42));
+    }
+
+    #[test]
+    fn can_map_statistics_without_io_returns_true() {
+        assert!(can_map_statistics_without_io());
     }
 }

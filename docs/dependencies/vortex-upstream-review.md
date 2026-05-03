@@ -77,3 +77,11 @@ This document records ShardLoom's first upstream Vortex dependency review for de
 - Name-based mapping remains available for planning/reporting utility.
 - No actual Vortex IO implemented.
 - No fallback execution introduced.
+
+## Typed statistics mapping update
+
+- Typed statistics mapping: deferred in this PR (`deferred_api_unclear`) because a compile-safe, unambiguous public upstream API surface for typed statistics mapping was not confirmed in this environment.
+- Public upstream statistics API used: none.
+- `ShardLoom` `SegmentStats` placeholder mapping remains available for planning/reporting utility.
+- No actual Vortex IO implemented.
+- No fallback execution introduced.

@@ -129,3 +129,21 @@ Implement typed DType adapter mapping only if upstream public DType APIs are cle
 - Name-based mapping remains as placeholder utility: yes.
 - Fallback execution introduced: no.
 - Actual IO implemented: no.
+
+## Statistics APIs update (adapter probe)
+
+- Public statistics type/API names discovered: no obvious public typed statistics structs/enums were found in the locally resolved `vortex` crate surface for this environment.
+- Use in this PR: typed statistics mapping is deferred; compile-safe report/status + `ShardLoom` `SegmentStats` placeholders were added.
+- Stability for first typed adapter work: unclear.
+- Adapter support state: deferred (`deferred_api_unclear`).
+- Risks: probing private/internal APIs would be brittle and violate the public-API-only boundary.
+- No Vortex IO implemented in this PR.
+
+## Typed statistics adapter probe
+
+- Typed statistics mapping implemented: no (deferred).
+- Upstream public APIs used for typed statistics mapping: none.
+- Added compile-safe non-IO usage only: yes.
+- `ShardLoom` local placeholder mapping utilities remain available: yes.
+- Fallback execution introduced: no.
+- Actual IO implemented: no.
