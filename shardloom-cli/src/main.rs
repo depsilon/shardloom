@@ -388,124 +388,21 @@ fn handle_vortex_encoded_read_probe(
 }
 
 fn handle_vortex_encoded_read_spike(
-    mut args: std::vec::IntoIter<String>,
+    args: std::vec::IntoIter<String>,
     format: OutputFormat,
 ) -> ExitCode {
     let command = "vortex-encoded-read-spike";
-    let Some(dataset_uri) = args.next() else {
-        eprintln!("usage: shardloom {command} <dataset_uri> <memory_gb> <max_parallelism>");
-        return ExitCode::from(2);
-    };
-    let Some(memory_gb_text) = args.next() else {
-        eprintln!("usage: shardloom {command} <dataset_uri> <memory_gb> <max_parallelism>");
-        return ExitCode::from(2);
-    };
-    let Some(max_parallelism_text) = args.next() else {
-        eprintln!("usage: shardloom {command} <dataset_uri> <memory_gb> <max_parallelism>");
-        return ExitCode::from(2);
-    };
-    let uri = match DatasetUri::new(dataset_uri) {
+    let parsed = match parse_vortex_spike_args(command, args) {
         Ok(v) => v,
-        Err(error) => {
-            return emit_error(command, format, "vortex encoded-read spike failed", &error);
-        }
+        Err(code) => return code,
     };
-    let memory_gb: u64 = match memory_gb_text.parse() {
-        Ok(v) => v,
-        Err(_) => {
-            return emit_error(
-                command,
-                format,
-                "vortex encoded-read spike failed",
-                &ShardLoomError::InvalidOperation(
-                    "memory_gb must be an unsigned integer".to_string(),
-                ),
-            );
-        }
-    };
-    let max_parallelism: usize = match max_parallelism_text.parse() {
-        Ok(v) => v,
-        Err(_) => {
-            return emit_error(
-                command,
-                format,
-                "vortex encoded-read spike failed",
-                &ShardLoomError::InvalidOperation(
-                    "max_parallelism must be an unsigned integer".to_string(),
-                ),
-            );
-        }
-    };
-    let source = match shardloom_core::UniversalInputSource::from_dataset_uri(uri) {
-        Ok(v) => v,
-        Err(error) => {
-            return emit_error(command, format, "vortex encoded-read spike failed", &error);
-        }
-    };
-    let input_plan = match plan_native_vortex_universal_input(source) {
-        Ok(v) => v,
-        Err(error) => {
-            return emit_error(command, format, "vortex encoded-read spike failed", &error);
-        }
-    };
-    let read_report = match plan_vortex_read_from_universal_input(input_plan) {
-        Ok(v) => v,
-        Err(error) => {
-            return emit_error(command, format, "vortex encoded-read spike failed", &error);
-        }
-    };
-    let runtime_report = match build_vortex_runtime_task_graph(read_report) {
-        Ok(v) => v,
-        Err(error) => {
-            return emit_error(command, format, "vortex encoded-read spike failed", &error);
-        }
-    };
-    let sizing_report = match size_vortex_runtime_task_graph(
-        runtime_report,
-        AdaptiveSizingPolicy::memory_limited(ByteSize::from_gib(memory_gb)),
-    ) {
-        Ok(v) => v,
-        Err(error) => {
-            return emit_error(command, format, "vortex encoded-read spike failed", &error);
-        }
-    };
-    let budget = match MemoryBudget::from_gib(memory_gb) {
-        Ok(v) => v,
-        Err(error) => {
-            return emit_error(command, format, "vortex encoded-read spike failed", &error);
-        }
-    };
-    let memory_report = match plan_vortex_memory_safety(sizing_report, budget) {
-        Ok(v) => v,
-        Err(error) => {
-            return emit_error(command, format, "vortex encoded-read spike failed", &error);
-        }
-    };
-    let scheduler_report = match plan_vortex_scheduler_queue(memory_report, max_parallelism) {
-        Ok(v) => v,
-        Err(error) => {
-            return emit_error(command, format, "vortex encoded-read spike failed", &error);
-        }
-    };
-    let readiness_report = match evaluate_vortex_encoded_read_readiness(scheduler_report) {
-        Ok(v) => v,
-        Err(error) => {
-            return emit_error(command, format, "vortex encoded-read spike failed", &error);
-        }
-    };
-    let api = vortex_encoded_read_public_api_boundary();
-    let probe = match plan_vortex_encoded_read_probe(api.clone(), readiness_report.clone()) {
-        Ok(v) => v,
-        Err(error) => {
-            return emit_error(command, format, "vortex encoded-read spike failed", &error);
-        }
-    };
-    let report = match execute_vortex_encoded_read_spike(readiness_report, api, probe) {
-        Ok(v) => v,
-        Err(error) => {
-            return emit_error(command, format, "vortex encoded-read spike failed", &error);
-        }
-    };
+    let (memory_gb, max_parallelism, report) =
+        match run_vortex_encoded_read_spike(parsed.0, parsed.1, parsed.2) {
+            Ok(v) => v,
+            Err(error) => {
+                return emit_error(command, format, "vortex encoded-read spike failed", &error);
+            }
+        };
     emit(
         command,
         format,
@@ -548,6 +445,57 @@ fn handle_vortex_encoded_read_spike(
     } else {
         ExitCode::SUCCESS
     }
+}
+
+fn parse_vortex_spike_args(
+    command: &str,
+    mut args: std::vec::IntoIter<String>,
+) -> std::result::Result<(DatasetUri, u64, usize), ExitCode> {
+    let Some(dataset_uri) = args.next() else {
+        eprintln!("usage: shardloom {command} <dataset_uri> <memory_gb> <max_parallelism>");
+        return Err(ExitCode::from(2));
+    };
+    let Some(memory_gb_text) = args.next() else {
+        eprintln!("usage: shardloom {command} <dataset_uri> <memory_gb> <max_parallelism>");
+        return Err(ExitCode::from(2));
+    };
+    let Some(max_parallelism_text) = args.next() else {
+        eprintln!("usage: shardloom {command} <dataset_uri> <memory_gb> <max_parallelism>");
+        return Err(ExitCode::from(2));
+    };
+    let uri = DatasetUri::new(dataset_uri).map_err(|_| ExitCode::from(2))?;
+    let memory_gb = memory_gb_text.parse().map_err(|_| ExitCode::from(2))?;
+    let max_parallelism = max_parallelism_text
+        .parse()
+        .map_err(|_| ExitCode::from(2))?;
+    Ok((uri, memory_gb, max_parallelism))
+}
+
+fn run_vortex_encoded_read_spike(
+    uri: DatasetUri,
+    memory_gb: u64,
+    max_parallelism: usize,
+) -> shardloom_core::Result<(
+    u64,
+    usize,
+    shardloom_vortex::VortexEncodedReadExecutionReport,
+)> {
+    let source = shardloom_core::UniversalInputSource::from_dataset_uri(uri)?;
+    let input_plan = plan_native_vortex_universal_input(source)?;
+    let read_report = plan_vortex_read_from_universal_input(input_plan)?;
+    let runtime_report = build_vortex_runtime_task_graph(read_report)?;
+    let sizing_report = size_vortex_runtime_task_graph(
+        runtime_report,
+        AdaptiveSizingPolicy::memory_limited(ByteSize::from_gib(memory_gb)),
+    )?;
+    let budget = MemoryBudget::from_gib(memory_gb)?;
+    let memory_report = plan_vortex_memory_safety(sizing_report, budget)?;
+    let scheduler_report = plan_vortex_scheduler_queue(memory_report, max_parallelism)?;
+    let readiness_report = evaluate_vortex_encoded_read_readiness(scheduler_report)?;
+    let api = vortex_encoded_read_public_api_boundary();
+    let probe = plan_vortex_encoded_read_probe(api.clone(), readiness_report.clone())?;
+    let report = execute_vortex_encoded_read_spike(readiness_report, api, probe)?;
+    Ok((memory_gb, max_parallelism, report))
 }
 
 #[allow(clippy::too_many_lines)]
