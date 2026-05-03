@@ -1571,15 +1571,29 @@ fn run(args: Vec<String>) -> ExitCode {
             ExitCode::SUCCESS
         }
         Some("vortex-metadata-summary") => {
-            let probe = if let Some(uri_text) = args.next() {
-                match DatasetUri::new(uri_text) {
-                    Ok(uri) => probe_vortex_metadata_only(uri)
-                        .unwrap_or_else(|_| VortexMetadataProbeReport::deferred_api_unclear()),
-                    Err(_) => VortexMetadataProbeReport::deferred_api_unclear(),
-                }
-            } else {
-                VortexMetadataProbeReport::deferred_api_unclear()
+            let Some(uri_text) = args.next() else {
+                return emit_error(
+                    "vortex-metadata-summary",
+                    format,
+                    "missing dataset uri",
+                    &ShardLoomError::InvalidOperation(
+                        "missing required argument: <dataset_uri>".to_string(),
+                    ),
+                );
             };
+            let uri = match DatasetUri::new(uri_text) {
+                Ok(uri) => uri,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-metadata-summary",
+                        format,
+                        "invalid dataset uri",
+                        &ShardLoomError::InvalidOperation(format!("invalid dataset uri: {error}")),
+                    );
+                }
+            };
+            let probe = probe_vortex_metadata_only(uri)
+                .unwrap_or_else(|_| VortexMetadataProbeReport::deferred_api_unclear());
             let report = summarize_vortex_metadata_probe(&probe);
             emit(
                 "vortex-metadata-summary",
@@ -1616,15 +1630,29 @@ fn run(args: Vec<String>) -> ExitCode {
         }
 
         Some("vortex-metadata-probe") => {
-            let report = if let Some(uri_text) = args.next() {
-                match DatasetUri::new(uri_text) {
-                    Ok(uri) => probe_vortex_metadata_only(uri)
-                        .unwrap_or_else(|_| VortexMetadataProbeReport::deferred_api_unclear()),
-                    Err(_) => VortexMetadataProbeReport::deferred_api_unclear(),
-                }
-            } else {
-                VortexMetadataProbeReport::deferred_api_unclear()
+            let Some(uri_text) = args.next() else {
+                return emit_error(
+                    "vortex-metadata-probe",
+                    format,
+                    "missing dataset uri",
+                    &ShardLoomError::InvalidOperation(
+                        "missing required argument: <dataset_uri>".to_string(),
+                    ),
+                );
             };
+            let uri = match DatasetUri::new(uri_text) {
+                Ok(uri) => uri,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-metadata-probe",
+                        format,
+                        "invalid dataset uri",
+                        &ShardLoomError::InvalidOperation(format!("invalid dataset uri: {error}")),
+                    );
+                }
+            };
+            let report = probe_vortex_metadata_only(uri)
+                .unwrap_or_else(|_| VortexMetadataProbeReport::deferred_api_unclear());
             emit(
                 "vortex-metadata-probe",
                 format,
@@ -1914,6 +1942,18 @@ mod tests {
     fn vortex_statistics_mapping_command_returns_success() {
         let code = run(vec!["vortex-statistics-mapping".to_string()]);
         assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_metadata_probe_missing_uri_returns_non_zero() {
+        let code = run(vec!["vortex-metadata-probe".to_string()]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_metadata_probe_invalid_uri_returns_non_zero() {
+        let code = run(vec!["vortex-metadata-probe".to_string(), "   ".to_string()]);
+        assert_ne!(code, ExitCode::SUCCESS);
     }
 
     #[test]
