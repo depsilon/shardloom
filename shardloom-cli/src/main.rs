@@ -34,13 +34,14 @@ use shardloom_vortex::{
     VortexMetadataProbeReport, VortexReadPlan, VortexStatisticsMappingReport, VortexWriteOptions,
     VortexWritePlan, build_vortex_runtime_task_graph, evaluate_vortex_encoded_read_readiness,
     evaluate_vortex_execution_readiness, execute_vortex_encoded_read_contract,
-    execute_vortex_metadata_only, metadata_planning_is_side_effect_free,
-    metadata_pruning_is_side_effect_free, metadata_summary_is_plan_only, open_vortex_metadata_only,
-    plan_from_vortex_metadata_summary, plan_native_vortex_universal_input,
-    plan_vortex_encoded_read_probe, plan_vortex_memory_safety, plan_vortex_metadata_pruning,
-    plan_vortex_read_from_universal_input, plan_vortex_scheduler_queue, probe_vortex_metadata_only,
-    size_vortex_runtime_task_graph, summarize_vortex_metadata_probe,
-    vortex_encoded_read_executor_feature_enabled, vortex_encoded_read_public_api_boundary,
+    execute_vortex_encoded_read_spike, execute_vortex_metadata_only,
+    metadata_planning_is_side_effect_free, metadata_pruning_is_side_effect_free,
+    metadata_summary_is_plan_only, open_vortex_metadata_only, plan_from_vortex_metadata_summary,
+    plan_native_vortex_universal_input, plan_vortex_encoded_read_probe, plan_vortex_memory_safety,
+    plan_vortex_metadata_pruning, plan_vortex_read_from_universal_input,
+    plan_vortex_scheduler_queue, probe_vortex_metadata_only, size_vortex_runtime_task_graph,
+    summarize_vortex_metadata_probe, vortex_encoded_read_executor_feature_enabled,
+    vortex_encoded_read_public_api_boundary, vortex_encoded_read_spike_feature_enabled,
     vortex_file_io_feature_enabled, vortex_metadata_executor_feature_enabled,
 };
 
@@ -57,7 +58,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-dry-run|vortex-metadata-execute> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute> [--format text|json]",
         cli_command_name()
     )
 }
@@ -384,6 +385,117 @@ fn handle_vortex_encoded_read_probe(
     } else {
         ExitCode::SUCCESS
     }
+}
+
+fn handle_vortex_encoded_read_spike(
+    args: std::vec::IntoIter<String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let command = "vortex-encoded-read-spike";
+    let parsed = match parse_vortex_spike_args(command, args) {
+        Ok(v) => v,
+        Err(code) => return code,
+    };
+    let (memory_gb, max_parallelism, report) =
+        match run_vortex_encoded_read_spike(parsed.0, parsed.1, parsed.2) {
+            Ok(v) => v,
+            Err(error) => {
+                return emit_error(command, format, "vortex encoded-read spike failed", &error);
+            }
+        };
+    emit(
+        command,
+        format,
+        if report.has_errors() {
+            CommandStatus::Unsupported
+        } else {
+            CommandStatus::Success
+        },
+        "vortex encoded-read spike report".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        vec![
+            (
+                "fallback_execution_allowed".to_string(),
+                "false".to_string(),
+            ),
+            ("mode".to_string(), "vortex_encoded_read_spike".to_string()),
+            (
+                "feature_enabled".to_string(),
+                vortex_encoded_read_spike_feature_enabled().to_string(),
+            ),
+            ("encoded_read_attempted".to_string(), "false".to_string()),
+            ("data_read".to_string(), report.data_read.to_string()),
+            ("data_decoded".to_string(), "false".to_string()),
+            ("data_materialized".to_string(), "false".to_string()),
+            ("object_store_io".to_string(), "false".to_string()),
+            ("write_io".to_string(), "false".to_string()),
+            ("spill_io_performed".to_string(), "false".to_string()),
+            ("external_effects_executed".to_string(), "false".to_string()),
+            (
+                "execution".to_string(),
+                "encoded_read_spike_or_not_performed".to_string(),
+            ),
+            ("memory_gb".to_string(), memory_gb.to_string()),
+            ("max_parallelism".to_string(), max_parallelism.to_string()),
+        ],
+    );
+    if report.has_errors() {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+fn parse_vortex_spike_args(
+    command: &str,
+    mut args: std::vec::IntoIter<String>,
+) -> std::result::Result<(DatasetUri, u64, usize), ExitCode> {
+    let Some(dataset_uri) = args.next() else {
+        eprintln!("usage: shardloom {command} <dataset_uri> <memory_gb> <max_parallelism>");
+        return Err(ExitCode::from(2));
+    };
+    let Some(memory_gb_text) = args.next() else {
+        eprintln!("usage: shardloom {command} <dataset_uri> <memory_gb> <max_parallelism>");
+        return Err(ExitCode::from(2));
+    };
+    let Some(max_parallelism_text) = args.next() else {
+        eprintln!("usage: shardloom {command} <dataset_uri> <memory_gb> <max_parallelism>");
+        return Err(ExitCode::from(2));
+    };
+    let uri = DatasetUri::new(dataset_uri).map_err(|_| ExitCode::from(2))?;
+    let memory_gb = memory_gb_text.parse().map_err(|_| ExitCode::from(2))?;
+    let max_parallelism = max_parallelism_text
+        .parse()
+        .map_err(|_| ExitCode::from(2))?;
+    Ok((uri, memory_gb, max_parallelism))
+}
+
+fn run_vortex_encoded_read_spike(
+    uri: DatasetUri,
+    memory_gb: u64,
+    max_parallelism: usize,
+) -> shardloom_core::Result<(
+    u64,
+    usize,
+    shardloom_vortex::VortexEncodedReadExecutionReport,
+)> {
+    let source = shardloom_core::UniversalInputSource::from_dataset_uri(uri)?;
+    let input_plan = plan_native_vortex_universal_input(source)?;
+    let read_report = plan_vortex_read_from_universal_input(input_plan)?;
+    let runtime_report = build_vortex_runtime_task_graph(read_report)?;
+    let sizing_report = size_vortex_runtime_task_graph(
+        runtime_report,
+        AdaptiveSizingPolicy::memory_limited(ByteSize::from_gib(memory_gb)),
+    )?;
+    let budget = MemoryBudget::from_gib(memory_gb)?;
+    let memory_report = plan_vortex_memory_safety(sizing_report, budget)?;
+    let scheduler_report = plan_vortex_scheduler_queue(memory_report, max_parallelism)?;
+    let readiness_report = evaluate_vortex_encoded_read_readiness(scheduler_report)?;
+    let api = vortex_encoded_read_public_api_boundary();
+    let probe = plan_vortex_encoded_read_probe(api.clone(), readiness_report.clone())?;
+    let report = execute_vortex_encoded_read_spike(readiness_report, api, probe)?;
+    Ok((memory_gb, max_parallelism, report))
 }
 
 #[allow(clippy::too_many_lines)]
@@ -2974,6 +3086,7 @@ fn run(args: Vec<String>) -> ExitCode {
         }
 
         Some("vortex-encoded-read-probe") => handle_vortex_encoded_read_probe(args, format),
+        Some("vortex-encoded-read-spike") => handle_vortex_encoded_read_spike(args, format),
 
         Some("vortex-encoded-read-execute") => {
             let command = "vortex-encoded-read-execute";

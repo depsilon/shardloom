@@ -70,8 +70,8 @@ pub use encoded_read_executor::{
     VortexEncodedReadExecutionInput, VortexEncodedReadExecutionMode,
     VortexEncodedReadExecutionReport, VortexEncodedReadExecutionStatus,
     VortexEncodedReadExecutorFeatureStatus, execute_vortex_encoded_read_contract,
-    vortex_encoded_read_execution_is_side_effect_free,
-    vortex_encoded_read_executor_feature_enabled,
+    execute_vortex_encoded_read_spike, vortex_encoded_read_execution_is_side_effect_free,
+    vortex_encoded_read_executor_feature_enabled, vortex_encoded_read_spike_feature_enabled,
 };
 
 pub use encoded_read_probe::{

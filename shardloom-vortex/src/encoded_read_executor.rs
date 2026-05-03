@@ -11,7 +11,10 @@ use std::fmt::Write as _;
 use shardloom_core::{Diagnostic, DiagnosticCode, DiagnosticSeverity, Result, SegmentId};
 use shardloom_exec::TaskId;
 
-use crate::{VortexEncodedReadCandidateKind, VortexEncodedReadReadinessReport};
+use crate::{
+    VortexEncodedReadApiBoundaryStatus, VortexEncodedReadCandidateKind,
+    VortexEncodedReadReadinessReport,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VortexEncodedReadExecutorFeatureStatus {
@@ -772,6 +775,11 @@ impl VortexEncodedReadExecutionReport {
 pub const fn vortex_encoded_read_executor_feature_enabled() -> bool {
     cfg!(feature = "vortex-encoded-read-executor")
 }
+
+#[must_use]
+pub const fn vortex_encoded_read_spike_feature_enabled() -> bool {
+    cfg!(feature = "vortex-encoded-read-spike")
+}
 /// # Errors
 /// Returns an error if encoded-read contract report construction fails.
 pub fn execute_vortex_encoded_read_contract(
@@ -780,6 +788,78 @@ pub fn execute_vortex_encoded_read_contract(
     VortexEncodedReadExecutionReport::from_input(VortexEncodedReadExecutionInput::new(
         readiness_report,
     ))
+}
+
+/// Executes the Phase 8 `Vortex` encoded-read spike contract path.
+///
+/// # Errors
+/// Returns an error only if internal report construction fails.
+pub fn execute_vortex_encoded_read_spike(
+    readiness_report: crate::VortexEncodedReadReadinessReport,
+    api_boundary_report: crate::VortexEncodedReadApiBoundaryReport,
+    probe_report: crate::VortexEncodedReadProbeReport,
+) -> Result<VortexEncodedReadExecutionReport> {
+    let api_boundary = api_boundary_report.clone();
+    let probe = probe_report.clone();
+    std::mem::drop((api_boundary_report, probe_report));
+    let input = VortexEncodedReadExecutionInput::new(readiness_report);
+    if !vortex_encoded_read_spike_feature_enabled() {
+        return Ok(VortexEncodedReadExecutionReport::feature_disabled(input));
+    }
+    if !probe.status.allows_future_probe() || probe.counts.eligible_candidate_count == 0 {
+        let mut report = VortexEncodedReadExecutionReport::feature_disabled(input);
+        report.feature_status = VortexEncodedReadExecutorFeatureStatus::Enabled;
+        report.status = VortexEncodedReadExecutionStatus::NoEncodedReadCandidates;
+        report.mode = VortexEncodedReadExecutionMode::EncodedReadContractOnly;
+        return Ok(report);
+    }
+    if !probe
+        .input
+        .encoded_readiness_report
+        .status
+        .allows_future_encoded_read()
+    {
+        let mut report = VortexEncodedReadExecutionReport::feature_disabled(input);
+        report.feature_status = VortexEncodedReadExecutorFeatureStatus::Enabled;
+        report.status = VortexEncodedReadExecutionStatus::BlockedByReadiness;
+        report.mode = VortexEncodedReadExecutionMode::EncodedReadContractOnly;
+        return Ok(report);
+    }
+    let api_blocked = api_boundary.has_errors()
+        || !matches!(
+            api_boundary.status,
+            VortexEncodedReadApiBoundaryStatus::ContractReady
+                | VortexEncodedReadApiBoundaryStatus::ContractPartiallyReady
+        )
+        || api_boundary.data_read_api_count > 0
+        || api_boundary.decode_api_count > 0
+        || api_boundary.materialization_api_count > 0
+        || api_boundary.arrow_default_risk_count > 0
+        || api_boundary.object_store_api_count > 0
+        || api_boundary.write_api_count > 0
+        || api_boundary.fallback_execution_allowed;
+    if api_blocked {
+        let mut report = VortexEncodedReadExecutionReport::feature_disabled(input);
+        report.feature_status = VortexEncodedReadExecutorFeatureStatus::Enabled;
+        report.status = VortexEncodedReadExecutionStatus::BlockedByReadiness;
+        report.mode = VortexEncodedReadExecutionMode::EncodedReadContractOnly;
+        report.add_diagnostic(Diagnostic::unsupported(
+            DiagnosticCode::NotImplemented,
+            "vortex_encoded_read_spike",
+            "Encoded-read public API path is not yet safe without decode/materialization.",
+            Some("Fallback attempted: false".to_string()),
+        ));
+        return Ok(report);
+    }
+    let mut report = VortexEncodedReadExecutionReport::from_input(input)?;
+    report.status = VortexEncodedReadExecutionStatus::BlockedByReadiness;
+    report.add_diagnostic(Diagnostic::unsupported(
+        DiagnosticCode::NotImplemented,
+        "vortex_encoded_read_spike",
+        "Encoded-read public API path is not yet safe without decode/materialization.",
+        Some("Fallback attempted: false".to_string()),
+    ));
+    Ok(report)
 }
 pub fn vortex_encoded_read_execution_is_side_effect_free(
     report: &VortexEncodedReadExecutionReport,
