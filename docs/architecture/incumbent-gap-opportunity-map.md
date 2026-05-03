@@ -189,3 +189,8 @@ Memory-safe bounded scheduling starts in Phase 10B and translates memory/paralle
 ## Phase 10C local engine surface
 - `vortex-run` introduces a user-facing local engine command/API.
 - The command remains no-fallback and side-effect-safe.
+
+
+## Spill progression
+
+Spill support should become real in phases: first lifecycle/cleanup contracts, then memory reservation integration, then spill data movement.

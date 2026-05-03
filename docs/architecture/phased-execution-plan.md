@@ -4,8 +4,8 @@
 
 - Production engine completion estimate: approximately 30%.
 - Architecture/control-plane completion estimate: approximately 95%.
-- Current phase: Phase 9C — Encoded predicate/projection primitive.
-- Next major phase: Phase 10 — Local execution loop with memory-safe bounded scheduling.
+- Current phase: Phase 11A.1 — Spill temp-path lifecycle and cleanup contract.
+- Next major phase: Phase 11A.2 — reservation and bounded-memory integration.
 
 ## Phase checklist
 
