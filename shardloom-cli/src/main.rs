@@ -519,6 +519,38 @@ fn run(args: Vec<String>) -> ExitCode {
                     );
                 }
             };
+            if input_plan.has_errors() {
+                let command_status = CommandStatus::Unsupported;
+                emit(
+                    "vortex-task-graph",
+                    format,
+                    command_status,
+                    "vortex task graph plan failed: unsupported input".to_string(),
+                    input_plan.to_human_text(),
+                    input_plan.diagnostics.clone(),
+                    vec![
+                        (
+                            "fallback_execution_allowed".to_string(),
+                            "false".to_string(),
+                        ),
+                        ("mode".to_string(), "vortex_task_graph".to_string()),
+                        (
+                            "native_vortex_input".to_string(),
+                            input_plan.source.is_native_vortex().to_string(),
+                        ),
+                        ("plan_only".to_string(), "true".to_string()),
+                        ("tasks_executed".to_string(), "false".to_string()),
+                        ("data_executed".to_string(), "false".to_string()),
+                        ("data_read".to_string(), "false".to_string()),
+                        ("data_materialized".to_string(), "false".to_string()),
+                        ("object_store_io".to_string(), "false".to_string()),
+                        ("write_io".to_string(), "false".to_string()),
+                        ("external_effects_executed".to_string(), "false".to_string()),
+                        ("execution".to_string(), "not_performed".to_string()),
+                    ],
+                );
+                return ExitCode::from(1);
+            }
             let read_report = match plan_vortex_read_from_universal_input(input_plan.clone()) {
                 Ok(v) => v,
                 Err(error) => {
@@ -2660,12 +2692,12 @@ mod tests {
     }
 
     #[test]
-    fn vortex_task_graph_with_parquet_uri_returns_success() {
+    fn vortex_task_graph_with_parquet_uri_returns_non_zero() {
         let code = run(vec![
             "vortex-task-graph".to_string(),
             "file://tmp/data.parquet".to_string(),
         ]);
-        assert_eq!(code, ExitCode::SUCCESS);
+        assert_ne!(code, ExitCode::SUCCESS);
     }
 
     #[test]

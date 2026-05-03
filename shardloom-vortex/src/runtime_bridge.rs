@@ -300,6 +300,14 @@ impl VortexRuntimeBridgeReport {
             diagnostics: vec![],
             input,
         };
+        if out.input.read_planning_report.has_errors() {
+            out.status = VortexRuntimeBridgeStatus::Unsupported;
+            out.mode = VortexRuntimeBridgeMode::Unsupported;
+            for diagnostic in out.input.read_planning_report.diagnostics.clone() {
+                out.add_diagnostic(diagnostic);
+            }
+            return Ok(out);
+        }
         let intents = out.input.read_planning_report.segment_intents.clone();
         for (i, intent) in intents.iter().enumerate() {
             let id = TaskId::new(format!("vortex-task-{i}"))?;
@@ -590,5 +598,14 @@ mod tests {
         assert!(out.is_side_effect_free());
         assert!(out.to_human_text().contains("fallback execution disabled"));
         assert!(out.to_human_text().contains("data read: false"));
+    }
+
+    #[test]
+    fn unsupported_read_plan_propagates_to_bridge() {
+        let read = crate::VortexReadPlanningReport::unsupported("vortex-read-plan", "unsupported");
+        let out =
+            VortexRuntimeBridgeReport::from_read_planning_report(read).expect("bridge report");
+        assert!(matches!(out.status, VortexRuntimeBridgeStatus::Unsupported));
+        assert!(out.has_errors());
     }
 }
