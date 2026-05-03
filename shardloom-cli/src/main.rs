@@ -21,8 +21,9 @@ use shardloom_exec::{
     CancellationRequest, CancellationScope, MemoryBudget, MemoryOwner, MemoryPoolPlan,
     OomSafetyPlan, OperatorMemoryClass, ParallelismLimit, ParallelismPlan, RecoveryPlan, RetryPlan,
     RuntimePlanSkeleton, SizeEstimate, SizingInput, SizingPlan, SpillLifecycleRequest, SpillPlan,
-    SpillPolicy, SpillWorkspaceId, SpillWorkspacePath, StreamingPlanSkeleton, TaskAttemptRecord,
-    plan_spill_lifecycle,
+    SpillPolicy, SpillReservationIntegrationRequest, SpillWorkspaceId, SpillWorkspacePath,
+    StreamingPlanSkeleton, TaskAttemptRecord, plan_spill_lifecycle,
+    plan_spill_reservation_integration,
 };
 use shardloom_plan::{
     EstimateReport, ExplainReport, NativePlanDocument, OptimizerPhase, OptimizerPlanSkeleton,
@@ -63,7 +64,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count|vortex-count-where|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count|vortex-count-where|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan> [--format text|json]",
         cli_command_name()
     )
 }
@@ -694,6 +695,12 @@ fn run(args: Vec<String>) -> ExitCode {
                     ("spill_data_written".to_string(), "false".to_string()),
                     ("spill_data_read".to_string(), "false".to_string()),
                     (
+                        "reservation_integration_status".to_string(),
+                        "not_applicable".to_string(),
+                    ),
+                    ("reservation_granted".to_string(), "false".to_string()),
+                    ("estimated_bytes_known".to_string(), "false".to_string()),
+                    (
                         "reservation_lifecycle_integration".to_string(),
                         "true".to_string(),
                     ),
@@ -706,6 +713,119 @@ fn run(args: Vec<String>) -> ExitCode {
                         "bounded_execution_integration".to_string(),
                         "true".to_string(),
                     ),
+                    ("object_store_io".to_string(), "false".to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
+                ],
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
+        Some("spill-reservation-plan") => {
+            let Some(label) = args.next() else {
+                eprintln!(
+                    "usage: shardloom spill-reservation-plan <reservation_label> <policy> <estimated_bytes>"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(policy_text) = args.next() else {
+                eprintln!(
+                    "usage: shardloom spill-reservation-plan <reservation_label> <policy> <estimated_bytes>"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(estimated_text) = args.next() else {
+                eprintln!(
+                    "usage: shardloom spill-reservation-plan <reservation_label> <policy> <estimated_bytes>"
+                );
+                return ExitCode::from(2);
+            };
+            let policy = match policy_text.as_str() {
+                "never" => SpillPolicy::Never,
+                "best-effort" => SpillPolicy::BestEffort,
+                "required" => SpillPolicy::Required,
+                _ => {
+                    return emit_error(
+                        "spill-reservation-plan",
+                        format,
+                        "spill reservation plan failed",
+                        &ShardLoomError::InvalidOperation(
+                            "policy must be never, best-effort, or required".to_string(),
+                        ),
+                    );
+                }
+            };
+            let mut request = match SpillReservationIntegrationRequest::new(label, policy) {
+                Ok(v) => v,
+                Err(e) => {
+                    return emit_error(
+                        "spill-reservation-plan",
+                        format,
+                        "spill reservation plan failed",
+                        &e,
+                    );
+                }
+            };
+            if estimated_text != "unknown" {
+                let bytes: u64 = match estimated_text.parse() {
+                    Ok(v) => v,
+                    Err(_) => {
+                        return emit_error(
+                            "spill-reservation-plan",
+                            format,
+                            "spill reservation plan failed",
+                            &ShardLoomError::InvalidOperation(
+                                "estimated_bytes must be unknown or unsigned integer".to_string(),
+                            ),
+                        );
+                    }
+                };
+                request = request.with_estimated_bytes(ByteSize::from_bytes(bytes));
+            }
+            let report = match plan_spill_reservation_integration(request) {
+                Ok(v) => v,
+                Err(e) => {
+                    return emit_error(
+                        "spill-reservation-plan",
+                        format,
+                        "spill reservation plan failed",
+                        &e,
+                    );
+                }
+            };
+            emit(
+                "spill-reservation-plan",
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "spill reservation integration report".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "spill_reservation_plan".to_string()),
+                    (
+                        "reservation_integration_status".to_string(),
+                        report.status.as_str().to_string(),
+                    ),
+                    (
+                        "reservation_granted".to_string(),
+                        report.reservation_granted.to_string(),
+                    ),
+                    (
+                        "estimated_bytes_known".to_string(),
+                        report.estimated_bytes_known.to_string(),
+                    ),
+                    ("spill_data_written".to_string(), "false".to_string()),
+                    ("spill_data_read".to_string(), "false".to_string()),
                     ("object_store_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
                 ],

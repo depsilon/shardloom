@@ -2,8 +2,9 @@ use std::fmt::Write as _;
 
 use shardloom_core::{Diagnostic, DiagnosticCode, DiagnosticSeverity, Result, SegmentId};
 use shardloom_exec::{
-    ByteSize, MemoryBudget, MemoryPoolPlan, OomSafetyPlan, SpillDecision, SpillPlan, SpillPolicy,
-    TaskId, TaskSizingDecisionKind,
+    ByteSize, MemoryBudget, MemoryPoolPlan, OomSafetyPlan, SpillDecision, SpillLifecycleRequest,
+    SpillPlan, SpillPolicy, SpillReservationIntegrationReport, SpillReservationIntegrationRequest,
+    TaskId, TaskSizingDecisionKind, plan_spill_reservation_integration,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -723,6 +724,37 @@ pub fn plan_vortex_memory_safety(
 #[must_use]
 pub fn vortex_memory_bridge_is_side_effect_free(report: &VortexMemoryBridgeReport) -> bool {
     report.is_side_effect_free()
+}
+
+/// # Errors
+/// Returns an error when building or planning a `SpillReservationIntegrationReport` fails.
+pub fn plan_vortex_memory_spill_reservation(
+    memory_report: &VortexMemoryBridgeReport,
+    lifecycle_request: Option<SpillLifecycleRequest>,
+) -> Result<Option<SpillReservationIntegrationReport>> {
+    if memory_report.tasks_spill_may_be_required == 0
+        && memory_report.tasks_spill_required_not_implemented == 0
+    {
+        return Ok(None);
+    }
+    let mut request = SpillReservationIntegrationRequest::new(
+        format!("vortex-memory-{}", memory_report.tasks_considered),
+        memory_report.input.spill_policy,
+    )?;
+    if let Some(bytes) = memory_report
+        .task_decisions
+        .iter()
+        .find_map(|d| d.estimated_bytes)
+    {
+        request = request.with_estimated_bytes(bytes);
+    }
+    if let Some(lifecycle_request) = lifecycle_request {
+        request = request.with_lifecycle_request(lifecycle_request);
+    }
+    for diagnostic in &memory_report.diagnostics {
+        request.add_diagnostic(diagnostic.clone());
+    }
+    Ok(Some(plan_spill_reservation_integration(request)?))
 }
 
 #[cfg(test)]

@@ -108,7 +108,7 @@ pub use metadata_executor::{
 pub use memory_bridge::{
     VortexMemoryBridgeInput, VortexMemoryBridgeMode, VortexMemoryBridgeReport,
     VortexMemoryBridgeStatus, VortexTaskMemoryClass, VortexTaskMemoryDecision,
-    VortexTaskMemoryDecisionKind, plan_vortex_memory_safety,
+    VortexTaskMemoryDecisionKind, plan_vortex_memory_safety, plan_vortex_memory_spill_reservation,
     vortex_memory_bridge_is_side_effect_free,
 };
 pub use query_primitive::{
@@ -145,7 +145,7 @@ pub use bounded_execution::{
     VortexBoundedExecutionDecision, VortexBoundedExecutionDecisionKind,
     VortexBoundedExecutionInput, VortexBoundedExecutionMode, VortexBoundedExecutionPolicy,
     VortexBoundedExecutionReport, VortexBoundedExecutionStatus, execute_vortex_bounded_local_query,
-    vortex_bounded_execution_is_side_effect_free,
+    plan_bounded_execution_spill_reservation, vortex_bounded_execution_is_side_effect_free,
 };
 
 pub use local_engine::{
