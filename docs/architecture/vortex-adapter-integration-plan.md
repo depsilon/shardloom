@@ -86,3 +86,11 @@ First future dependency PR should:
 - All adapter report text builders should avoid `push_str(format!(...))`.
 - Public `Result`-returning adapter constructors need `# Errors` docs.
 - `ShardLoom` and `DType` should be backticked in Rust doc comments when needed for clippy.
+
+## Metadata summary layer
+
+- Metadata probe results are normalized before scan planning.
+- This layer is the future input to pruning/explain/estimate.
+- It must remain no-decode and no-materialization.
+- Object-store support remains out of scope.
+- Vortex output remains highest-fidelity.

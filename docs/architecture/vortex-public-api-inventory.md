@@ -176,3 +176,11 @@ Implement typed DType adapter mapping only if upstream public DType APIs are cle
 - Fallback execution introduced: no.
 - Actual scan execution implemented: no.
 - Actual write implemented: no.
+
+## Metadata normalization update
+
+- Vortex metadata probe reports are now normalized into ShardLoom-facing metadata summaries.
+- The summary layer does not scan, decode, materialize, or write data.
+- The summary layer preserves metadata availability flags.
+- Future scan/explain/estimate integration should consume this summary layer.
+- No fallback execution introduced.
