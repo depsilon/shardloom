@@ -211,3 +211,13 @@ Encoded-read readiness is not execution. It classifies future encoded-read candi
 - It does not call upstream Vortex scan execution.
 - It does not read data, decode, materialize, or write.
 - It blocks unsafe candidates.
+
+## Encoded-read public API boundary
+
+This boundary is not execution.
+
+It classifies public upstream `Vortex` APIs before future encoded-read probes and keeps usage isolated in `shardloom-vortex`.
+
+The boundary blocks data-read, decode, materialization, write, object-store IO, and fallback execution paths.
+
+Future execution work must pass existing readiness gates and this encoded-read API boundary before any probe or execution path is enabled.

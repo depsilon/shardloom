@@ -17,6 +17,7 @@ pub use adapter::{
     typed_vortex_statistics_mapping_available,
 };
 
+pub mod encoded_read_api;
 pub mod encoded_read_executor;
 pub mod encoded_read_readiness;
 pub mod execution_readiness;
@@ -56,6 +57,12 @@ pub use adaptive_sizing::{
     VortexAdaptiveSizingInput, VortexAdaptiveSizingMode, VortexAdaptiveSizingReport,
     VortexAdaptiveSizingStatus, VortexSegmentSizingInput, VortexSizingEstimateSource,
     size_vortex_runtime_task_graph, vortex_adaptive_sizing_is_side_effect_free,
+};
+pub use encoded_read_api::{
+    VortexEncodedReadApiArea, VortexEncodedReadApiBoundaryReport,
+    VortexEncodedReadApiBoundaryStatus, VortexEncodedReadApiItem, VortexEncodedReadApiRisk,
+    VortexEncodedReadApiStatus, vortex_encoded_read_api_allows_future_probe,
+    vortex_encoded_read_public_api_boundary,
 };
 pub use encoded_read_executor::{
     VortexEncodedReadExecutionDecision, VortexEncodedReadExecutionDecisionKind,
