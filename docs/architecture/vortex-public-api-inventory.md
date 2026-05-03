@@ -147,3 +147,32 @@ Implement typed DType adapter mapping only if upstream public DType APIs are cle
 - `ShardLoom` local placeholder mapping utilities remain available: yes.
 - Fallback execution introduced: no.
 - Actual IO implemented: no.
+
+## File/open APIs
+
+- Public API names discovered: `vortex::file::VortexOpenOptions`, `vortex::file::OpenOptionsSessionExt`, and `vortex::file::VortexFile::footer` via upstream crate public re-exports.
+- Used in this PR: no runtime invocation; discovery-only.
+- Metadata-only open appears supported: potentially, but runtime semantics are not yet proven compile-safe for strict no-materialization guarantees in this phase.
+- Actual scan/materialization avoided: yes.
+- Stability for first metadata probe: deferred pending clearer adapter-safe API contract.
+- Risks: async/session requirements and footer open path may read more than minimal metadata depending on upstream behavior.
+
+## Metadata inspection APIs
+
+- Public API names discovered: `Footer` accessors exposed through `vortex::file` module surface, plus dtype/layout/statistics references in crate docs.
+- Schema/`DType` metadata access: appears possible through footer/layout APIs, but not adopted in this PR.
+- Row count / length access: appears available via footer row count APIs, not adopted in this PR.
+- Statistics access: appears available in footer/file statistics APIs, not adopted in this PR.
+- Encoding/layout metadata access: appears available through footer/layout graph, not adopted in this PR.
+- Adapter support state: deferred (`deferred_api_unclear`) for runtime metadata IO; report-only status implemented.
+
+## Metadata-only Vortex IO probe
+
+- Metadata-only `Vortex` IO implemented: deferred runtime IO; report-only probe implemented.
+- Upstream public APIs used by runtime probe: none (deferred path).
+- Only local file metadata inspection added: no runtime file inspection yet.
+- Data buffers read/materialized: no.
+- Object-store IO implemented: no.
+- Fallback execution introduced: no.
+- Actual scan execution implemented: no.
+- Actual write implemented: no.
