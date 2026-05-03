@@ -39,6 +39,11 @@ pub use metadata_pruning::{
     plan_vortex_metadata_pruning, prove_predicate_from_segment_stats,
 };
 
+pub use input_bridge::{
+    VortexUniversalInputMode, VortexUniversalInputPlan, VortexUniversalInputStatus,
+    plan_native_vortex_universal_input, vortex_universal_input_plan_is_side_effect_free,
+};
+
 pub use metadata_summary::{
     VortexColumnMetadataSummary, VortexFileMetadataSummary, VortexMetadataAvailability,
     VortexMetadataSummaryReport, VortexMetadataSummaryStatus, VortexSegmentMetadataSummary,
@@ -46,6 +51,7 @@ pub use metadata_summary::{
 };
 
 pub mod adapter;
+pub mod input_bridge;
 
 use std::fmt::Write as _;
 

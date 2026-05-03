@@ -54,3 +54,11 @@ Input planning tracks input source, fidelity, metadata availability, materializa
 - Compatibility and effectful inputs remain explicit contracts.
 - `Vortex` remains native input.
 - No fallback execution is introduced.
+
+## Native Vortex input bridge
+
+Native `Vortex` universal inputs can now be routed through the `shardloom-vortex` metadata path via a dedicated universal input bridge.
+
+The bridge remains plan-only and side-effect-free. It may call the feature-gated metadata-only open contract when enabled, and it does not scan, decode, materialize, write, or inspect object stores.
+
+Compatibility/effectful inputs remain explicit and unsupported/deferred in this `Vortex`-specific bridge. No fallback execution is introduced.

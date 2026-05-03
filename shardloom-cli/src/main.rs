@@ -33,8 +33,8 @@ use shardloom_vortex::{
     VortexMetadataProbeReport, VortexReadPlan, VortexStatisticsMappingReport, VortexWriteOptions,
     VortexWritePlan, metadata_planning_is_side_effect_free, metadata_pruning_is_side_effect_free,
     metadata_summary_is_plan_only, open_vortex_metadata_only, plan_from_vortex_metadata_summary,
-    plan_vortex_metadata_pruning, probe_vortex_metadata_only, summarize_vortex_metadata_probe,
-    vortex_file_io_feature_enabled,
+    plan_native_vortex_universal_input, plan_vortex_metadata_pruning, probe_vortex_metadata_only,
+    summarize_vortex_metadata_probe, vortex_file_io_feature_enabled,
 };
 
 fn main() -> ExitCode {
@@ -50,7 +50,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan> [--format text|json]",
         cli_command_name()
     )
 }
@@ -314,6 +314,84 @@ fn run(args: Vec<String>) -> ExitCode {
                 ExitCode::SUCCESS
             }
         }
+
+        Some("vortex-input-plan") => {
+            let Some(dataset_uri) = args.next() else {
+                eprintln!("usage: shardloom vortex-input-plan <dataset_uri>");
+                return ExitCode::from(2);
+            };
+            let uri = match DatasetUri::new(dataset_uri) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-input-plan",
+                        format,
+                        "vortex input plan failed",
+                        &error,
+                    );
+                }
+            };
+            let source = match shardloom_core::UniversalInputSource::from_dataset_uri(uri) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-input-plan",
+                        format,
+                        "vortex input plan failed",
+                        &error,
+                    );
+                }
+            };
+            let report = match plan_native_vortex_universal_input(source) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-input-plan",
+                        format,
+                        "vortex input plan failed",
+                        &error,
+                    );
+                }
+            };
+            let command_status = if report.has_errors() {
+                CommandStatus::Unsupported
+            } else {
+                CommandStatus::Success
+            };
+            emit(
+                "vortex-input-plan",
+                format,
+                command_status,
+                "vortex universal input plan report".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "vortex_input_plan".to_string()),
+                    (
+                        "native_vortex_input".to_string(),
+                        report.source.is_native_vortex().to_string(),
+                    ),
+                    ("metadata_only".to_string(), "true".to_string()),
+                    ("plan_only".to_string(), "true".to_string()),
+                    ("data_read".to_string(), "false".to_string()),
+                    ("data_materialized".to_string(), "false".to_string()),
+                    ("object_store_io".to_string(), "false".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
+                    ("external_effects_executed".to_string(), "false".to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
+                ],
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
+
         Some("schema-plan") => {
             let schema = match (SchemaId::new("schema-placeholder"), SchemaVersion::new(1)) {
                 (Ok(id), Ok(version)) => SchemaDefinition::new(id, version),
@@ -2363,6 +2441,24 @@ mod tests {
             "file://tmp/data.vortex".to_string(),
         ]);
         assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_input_plan_with_vortex_uri_returns_success() {
+        let code = run(vec![
+            "vortex-input-plan".to_string(),
+            "file://tmp/data.vortex".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_input_plan_with_parquet_uri_returns_non_zero() {
+        let code = run(vec![
+            "vortex-input-plan".to_string(),
+            "file://tmp/data.parquet".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
     }
 
     #[test]
