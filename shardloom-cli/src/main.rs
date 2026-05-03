@@ -1794,7 +1794,11 @@ fn run(args: Vec<String>) -> ExitCode {
                     ),
                 ],
             );
-            ExitCode::SUCCESS
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
         }
 
         Some("vortex-metadata-probe") => {

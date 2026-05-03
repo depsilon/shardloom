@@ -266,6 +266,26 @@ impl VortexMetadataPruningReport {
         planning_report: crate::VortexMetadataPlanningReport,
         predicate: Option<PredicateExpr>,
     ) -> Result<Self> {
+        if planning_report.has_errors() {
+            let mut out = Self {
+                status: VortexMetadataPruningStatus::Unsupported,
+                mode: VortexMetadataPruningMode::Unsupported,
+                metadata_planning: Some(planning_report.clone()),
+                results: vec![],
+                segments_considered: 0,
+                segments_pruned: 0,
+                segments_metadata_answered: 0,
+                segments_requiring_read: 0,
+                data_executed: false,
+                data_materialized: false,
+                object_store_io: planning_report.object_store_io,
+                write_io: planning_report.write_io,
+                fallback_execution_allowed: false,
+                diagnostics: planning_report.diagnostics.clone(),
+            };
+            out.recompute_counts();
+            return Ok(out);
+        }
         #[allow(clippy::needless_pass_by_value)]
         let mut out = Self {
             status: VortexMetadataPruningStatus::Planned,
@@ -439,10 +459,27 @@ pub fn metadata_pruning_is_side_effect_free(report: &VortexMetadataPruningReport
 }
 
 #[must_use]
+#[allow(clippy::too_many_lines)]
 pub fn prove_predicate_from_segment_stats(
     predicate: &PredicateExpr,
     segment: &crate::VortexSegmentMetadataSummary,
 ) -> PredicateProof {
+    match predicate {
+        PredicateExpr::AlwaysTrue => {
+            return PredicateProof::AlwaysTrue {
+                reason: "always true predicate".to_string(),
+            };
+        }
+        PredicateExpr::AlwaysFalse => {
+            return PredicateProof::AlwaysFalse {
+                reason: "always false predicate".to_string(),
+            };
+        }
+        PredicateExpr::IsNull { .. }
+        | PredicateExpr::IsNotNull { .. }
+        | PredicateExpr::Compare { .. } => {}
+    }
+
     let Some(column_stats) = (match predicate {
         PredicateExpr::IsNull { column }
         | PredicateExpr::IsNotNull { column }
