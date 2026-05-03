@@ -704,10 +704,10 @@ mod tests {
         report.add_diagnostic(shardloom_core::Diagnostic::configuration_error(
             "vortex_capability_mapping",
             "capability probe pending",
-            "keep probe in planning mode",
+            "capability unresolved",
         ));
         let text = report.to_human_text();
-        assert!(text.contains("keep probe in planning mode"));
+        assert!(text.contains("capability unresolved"));
         assert!(text.contains("fallback execution: disabled"));
     }
     #[test]
@@ -863,11 +863,11 @@ mod tests {
         report.add_diagnostic(shardloom_core::Diagnostic::configuration_error(
             "vortex_dtype_mapping",
             "typed API probe pending",
-            "continue using name-based mapping",
+            "typed API unresolved",
         ));
         let text = report.to_human_text();
         assert!(text.contains("diagnostics:"));
-        assert!(text.contains("continue using name-based mapping"));
+        assert!(text.contains("typed API unresolved"));
         assert!(text.contains("fallback execution allowed: false"));
     }
     #[test]
@@ -942,10 +942,10 @@ mod tests {
         report.add_diagnostic(shardloom_core::Diagnostic::configuration_error(
             "vortex_encoding_layout_mapping",
             "encoding API probe pending",
-            "continue using name-based mapping",
+            "encoding API unresolved",
         ));
         let text = report.to_human_text();
-        assert!(text.contains("continue using name-based mapping"));
+        assert!(text.contains("encoding API unresolved"));
         assert!(text.contains("fallback execution allowed: false"));
     }
 }

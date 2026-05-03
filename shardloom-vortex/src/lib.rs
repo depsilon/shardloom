@@ -1017,8 +1017,8 @@ mod tests {
         let mut readiness = VortexAdapterReadiness::dependency_added_compile_only();
         readiness.add_diagnostic(Diagnostic::configuration_error(
             "vortex_adapter_readiness",
+            "readiness probe pending",
             "readiness unresolved",
-            "keep dependency compile-only",
         ));
         let text = readiness.to_human_text();
         assert!(text.contains("readiness unresolved"));
