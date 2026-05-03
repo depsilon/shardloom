@@ -281,3 +281,12 @@ This begins visible engine behavior without broad query execution.
 - Metadata answers explain why they were safe.
 - Deferred encoded-read paths explain what is missing.
 - Metrics never guess unknown bytes or selectivity.
+
+
+## Local execution loop skeleton
+
+- The local execution loop consumes query primitive requests plus optional metadata summaries.
+- It can complete metadata-only results from available summary information.
+- It defers encoded-read-required and encoded-predicate-required outcomes.
+- It attaches `DecisionTrace` and `WorkAvoidedReport` through primitive analysis integration.
+- It does not scan, decode, materialize, write, perform object-store IO, perform spill IO, or enable fallback execution.

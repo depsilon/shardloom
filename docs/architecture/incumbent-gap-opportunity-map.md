@@ -173,3 +173,9 @@ Phase/epic ownership:
 - `WorkAvoidedReport` first concrete implementation lands in Phase 9D.
 - `DecisionTrace` first concrete implementation lands in Phase 9D.
 - This is the first user-visible "why" and "work avoided" report for query primitives.
+
+
+### Phase 10A local execution loop skeleton starts
+- `ShardLoom` introduces a first engine-loop-shaped local path for `Vortex` query primitives.
+- Initial loop behavior is metadata/no-op only and side-effect free.
+- Encoded reads remain deferred in this phase; no scan/decode/materialization/write/object-store/spill/fallback execution occurs.

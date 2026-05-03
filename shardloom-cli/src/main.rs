@@ -36,15 +36,15 @@ use shardloom_vortex::{
     VortexWritePlan, build_vortex_runtime_task_graph, evaluate_vortex_encoded_read_readiness,
     evaluate_vortex_execution_readiness, evaluate_vortex_query_primitive,
     execute_vortex_encoded_read_contract, execute_vortex_encoded_read_spike,
-    execute_vortex_metadata_only, metadata_planning_is_side_effect_free,
-    metadata_pruning_is_side_effect_free, metadata_summary_is_plan_only, open_vortex_metadata_only,
-    plan_from_vortex_metadata_summary, plan_native_vortex_universal_input,
-    plan_vortex_encoded_read_probe, plan_vortex_memory_safety, plan_vortex_metadata_pruning,
-    plan_vortex_read_from_universal_input, plan_vortex_scheduler_queue, probe_vortex_metadata_only,
-    size_vortex_runtime_task_graph, summarize_vortex_metadata_probe,
-    vortex_encoded_read_executor_feature_enabled, vortex_encoded_read_public_api_boundary,
-    vortex_encoded_read_spike_feature_enabled, vortex_file_io_feature_enabled,
-    vortex_metadata_executor_feature_enabled,
+    execute_vortex_local_query_primitive, execute_vortex_metadata_only,
+    metadata_planning_is_side_effect_free, metadata_pruning_is_side_effect_free,
+    metadata_summary_is_plan_only, open_vortex_metadata_only, plan_from_vortex_metadata_summary,
+    plan_native_vortex_universal_input, plan_vortex_encoded_read_probe, plan_vortex_memory_safety,
+    plan_vortex_metadata_pruning, plan_vortex_read_from_universal_input,
+    plan_vortex_scheduler_queue, probe_vortex_metadata_only, size_vortex_runtime_task_graph,
+    summarize_vortex_metadata_probe, vortex_encoded_read_executor_feature_enabled,
+    vortex_encoded_read_public_api_boundary, vortex_encoded_read_spike_feature_enabled,
+    vortex_file_io_feature_enabled, vortex_metadata_executor_feature_enabled,
 };
 
 fn main() -> ExitCode {
@@ -60,7 +60,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count|vortex-count-where|vortex-project|vortex-filter|vortex-query-trace> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count|vortex-count-where|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec> [--format text|json]",
         cli_command_name()
     )
 }
@@ -210,6 +210,34 @@ fn parse_projection_columns(value: &str) -> Result<ProjectionRequest, ShardLoomE
         })
         .collect();
     Ok(ProjectionRequest::columns(columns?))
+}
+
+fn parse_vortex_primitive_request(
+    uri: DatasetUri,
+    primitive_arg: &str,
+) -> Result<shardloom_vortex::VortexQueryPrimitiveRequest, ShardLoomError> {
+    if primitive_arg == "count" {
+        Ok(shardloom_vortex::VortexQueryPrimitiveRequest::count_all(
+            uri,
+        ))
+    } else if let Some(pred) = primitive_arg.strip_prefix("count-where:") {
+        Ok(shardloom_vortex::VortexQueryPrimitiveRequest::count_where(
+            uri,
+            parse_tiny_predicate(pred)?,
+        ))
+    } else if let Some(cols) = primitive_arg.strip_prefix("project:") {
+        Ok(shardloom_vortex::VortexQueryPrimitiveRequest::project(
+            uri,
+            parse_projection_columns(cols)?,
+        ))
+    } else if let Some(pred) = primitive_arg.strip_prefix("filter:") {
+        Ok(shardloom_vortex::VortexQueryPrimitiveRequest::filter(
+            uri,
+            parse_tiny_predicate(pred)?,
+        ))
+    } else {
+        Err(ShardLoomError::InvalidOperation("invalid primitive; expected count, count-where:<predicate>, project:<columns>, filter:<predicate>".to_string()))
+    }
 }
 
 #[allow(clippy::too_many_lines)]
@@ -4431,6 +4459,93 @@ fn run(args: Vec<String>) -> ExitCode {
                 ExitCode::SUCCESS
             }
         }
+        Some("vortex-local-exec") => {
+            let Some(uri_arg) = args.next() else {
+                eprintln!("usage: shardloom vortex-local-exec <dataset_uri> <primitive>");
+                return ExitCode::from(2);
+            };
+            let Some(primitive_arg) = args.next() else {
+                eprintln!("usage: shardloom vortex-local-exec <dataset_uri> <primitive>");
+                return ExitCode::from(2);
+            };
+            let uri = match DatasetUri::new(uri_arg) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-local-exec",
+                        format,
+                        "vortex local exec failed",
+                        &error,
+                    );
+                }
+            };
+            let request = match parse_vortex_primitive_request(uri.clone(), &primitive_arg) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-local-exec",
+                        format,
+                        "vortex local exec failed",
+                        &error,
+                    );
+                }
+            };
+            let summary = open_vortex_metadata_only(VortexMetadataOpenRequest::metadata_only(uri))
+                .ok()
+                .and_then(|report| report.metadata_summary);
+            let report = match execute_vortex_local_query_primitive(request, summary) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-local-exec",
+                        format,
+                        "vortex local exec failed",
+                        &error,
+                    );
+                }
+            };
+            emit(
+                "vortex-local-exec",
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "vortex local execution loop skeleton".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "vortex_local_exec".to_string()),
+                    ("primitive".to_string(), primitive_arg),
+                    ("tasks_executed".to_string(), "false".to_string()),
+                    ("data_read".to_string(), "false".to_string()),
+                    ("data_decoded".to_string(), "false".to_string()),
+                    ("data_materialized".to_string(), "false".to_string()),
+                    ("object_store_io".to_string(), "false".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
+                    ("spill_io_performed".to_string(), "false".to_string()),
+                    ("external_effects_executed".to_string(), "false".to_string()),
+                    (
+                        "execution".to_string(),
+                        "metadata_only_or_not_performed".to_string(),
+                    ),
+                    (
+                        "result_known".to_string(),
+                        report.value.is_known().to_string(),
+                    ),
+                ],
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
         Some("vortex-query-trace") => {
             let Some(uri_arg) = args.next() else {
                 eprintln!("usage: shardloom vortex-query-trace <dataset_uri> <primitive>");
@@ -4446,48 +4561,11 @@ fn run(args: Vec<String>) -> ExitCode {
                     return emit_error("vortex-query-trace", format, "query trace failed", &error);
                 }
             };
-            let request = if primitive_arg == "count" {
-                shardloom_vortex::VortexQueryPrimitiveRequest::count_all(uri.clone())
-            } else if let Some(pred) = primitive_arg.strip_prefix("count-where:") {
-                match parse_tiny_predicate(pred) {
-                    Ok(p) => {
-                        shardloom_vortex::VortexQueryPrimitiveRequest::count_where(uri.clone(), p)
-                    }
-                    Err(error) => {
-                        return emit_error(
-                            "vortex-query-trace",
-                            format,
-                            "query trace failed",
-                            &error,
-                        );
-                    }
+            let request = match parse_vortex_primitive_request(uri.clone(), &primitive_arg) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error("vortex-query-trace", format, "query trace failed", &error);
                 }
-            } else if let Some(cols) = primitive_arg.strip_prefix("project:") {
-                match parse_projection_columns(cols) {
-                    Ok(p) => shardloom_vortex::VortexQueryPrimitiveRequest::project(uri.clone(), p),
-                    Err(error) => {
-                        return emit_error(
-                            "vortex-query-trace",
-                            format,
-                            "query trace failed",
-                            &error,
-                        );
-                    }
-                }
-            } else if let Some(pred) = primitive_arg.strip_prefix("filter:") {
-                match parse_tiny_predicate(pred) {
-                    Ok(p) => shardloom_vortex::VortexQueryPrimitiveRequest::filter(uri.clone(), p),
-                    Err(error) => {
-                        return emit_error(
-                            "vortex-query-trace",
-                            format,
-                            "query trace failed",
-                            &error,
-                        );
-                    }
-                }
-            } else {
-                return emit_error("vortex-query-trace", format, "query trace failed", &ShardLoomError::InvalidOperation("invalid primitive; expected count, count-where:<predicate>, project:<columns>, filter:<predicate>".to_string()));
             };
             let summary = open_vortex_metadata_only(VortexMetadataOpenRequest::metadata_only(uri))
                 .ok()

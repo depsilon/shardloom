@@ -140,6 +140,13 @@ pub use scheduler_bridge::{
     vortex_scheduler_bridge_is_side_effect_free,
 };
 
+pub use local_execution::{
+    VortexLocalExecutionInput, VortexLocalExecutionMode, VortexLocalExecutionReport,
+    VortexLocalExecutionStatus, VortexLocalExecutionStep, VortexLocalExecutionStepKind,
+    VortexLocalExecutionValue, execute_vortex_local_query_primitive,
+    vortex_local_execution_is_side_effect_free,
+};
+
 pub use metadata_summary::{
     VortexColumnMetadataSummary, VortexFileMetadataSummary, VortexMetadataAvailability,
     VortexMetadataSummaryReport, VortexMetadataSummaryStatus, VortexSegmentMetadataSummary,
@@ -149,6 +156,7 @@ pub use metadata_summary::{
 pub mod adapter;
 pub mod adaptive_sizing;
 pub mod input_bridge;
+pub mod local_execution;
 
 use std::fmt::Write as _;
 
