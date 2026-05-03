@@ -221,3 +221,5 @@ It classifies public upstream `Vortex` APIs before future encoded-read probes an
 The boundary blocks data-read, decode, materialization, write, object-store IO, and fallback execution paths.
 
 Future execution work must pass existing readiness gates and this encoded-read API boundary before any probe or execution path is enabled.
+
+- Phase 7A adds a contract-only encoded-read probe plan that combines API boundary and readiness reports without executing scans, reading data, decoding/materializing, object-store/write/spill IO, or fallback execution.
