@@ -265,3 +265,10 @@ No fallback execution was introduced.
 The current spike validates ShardLoom's end-to-end Vortex contract without invoking upstream scan execution.
 
 The feature-gated file IO seam remains metadata/report oriented, and no fallback execution is introduced.
+
+## Metadata-only executor update
+
+- This executor does not call upstream Vortex scan execution.
+- It consumes ShardLoom planning/readiness reports.
+- It does not invoke upstream data APIs.
+- No fallback execution introduced.

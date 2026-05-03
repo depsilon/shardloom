@@ -15,6 +15,7 @@ upstream-vortex = ["dep:vortex"]
 vortex-file-io = ["upstream-vortex"]
 vortex-object-store = ["vortex-file-io"]
 vortex-write = ["vortex-file-io"]
+vortex-metadata-executor = []
 
 [dependencies]
 shardloom-core = { path = "../shardloom-core" }

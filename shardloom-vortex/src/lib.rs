@@ -20,6 +20,7 @@ pub use adapter::{
 pub mod execution_readiness;
 pub mod file_io;
 pub mod memory_bridge;
+pub mod metadata_executor;
 pub mod metadata_planning;
 pub mod metadata_pruning;
 pub mod metadata_summary;
@@ -60,6 +61,14 @@ pub use execution_readiness::{
     VortexReadinessGateResult, VortexReadinessGateStatus, evaluate_vortex_execution_readiness,
     vortex_execution_readiness_is_side_effect_free,
 };
+pub use metadata_executor::{
+    VortexMetadataExecutableDecisionKind, VortexMetadataExecutionDecision,
+    VortexMetadataExecutionInput, VortexMetadataExecutionMode, VortexMetadataExecutionReport,
+    VortexMetadataExecutionStatus, VortexMetadataExecutorFeatureStatus,
+    execute_vortex_metadata_only, vortex_metadata_execution_is_side_effect_free,
+    vortex_metadata_executor_feature_enabled,
+};
+
 pub use memory_bridge::{
     VortexMemoryBridgeInput, VortexMemoryBridgeMode, VortexMemoryBridgeReport,
     VortexMemoryBridgeStatus, VortexTaskMemoryClass, VortexTaskMemoryDecision,

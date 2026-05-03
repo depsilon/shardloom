@@ -185,3 +185,16 @@ This spike does not execute tasks, read rows, decode data, materialize values, w
 Fallback execution remains disabled throughout this chain.
 
 Future real execution must pass readiness gates before any executor is introduced.
+
+## Metadata-only executor skeleton
+
+- Metadata-only executor is feature-gated.
+- It only handles no-op and metadata-only decisions.
+- It does not read data.
+- It does not decode arrays.
+- It does not materialize values.
+- It does not write files.
+- It does not perform object-store IO.
+- It does not perform spill IO.
+- It blocks all tasks that would require data reads or side effects.
+- It is the first executor-shaped layer, not a general executor.
