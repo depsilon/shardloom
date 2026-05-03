@@ -447,6 +447,7 @@ impl VortexSchedulerBridgeReport {
             fallback_execution_allowed: false,
             diagnostics: vec![],
         };
+        out.diagnostics.extend(out.input.diagnostics.clone());
         out.diagnostics
             .extend(out.input.memory_bridge_report.diagnostics.clone());
         let memory_decisions = out.input.memory_bridge_report.task_decisions.clone();
@@ -655,9 +656,6 @@ fn map_memory_decision(m: &VortexTaskMemoryDecision) -> VortexTaskSchedulingDeci
 }
 
 fn derive_status(out: &VortexSchedulerBridgeReport) -> VortexSchedulerBridgeStatus {
-    if out.has_errors() || out.unsupported_task_count > 0 {
-        return VortexSchedulerBridgeStatus::Unsupported;
-    }
     if out.decisions.is_empty() {
         return VortexSchedulerBridgeStatus::NoTasksRequired;
     }
@@ -667,6 +665,21 @@ fn derive_status(out: &VortexSchedulerBridgeReport) -> VortexSchedulerBridgeStat
         .any(|d| matches!(d.kind, VortexSchedulingDecisionKind::HoldForSpillSupport));
     if has_spill {
         return VortexSchedulerBridgeStatus::SpillRequiredButNotImplemented;
+    }
+    if out.unsupported_task_count > 0 {
+        return VortexSchedulerBridgeStatus::Unsupported;
+    }
+    let has_diagnostic_errors = out.diagnostics.iter().any(|d| {
+        matches!(
+            d.severity,
+            DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+        )
+    }) || out
+        .decisions
+        .iter()
+        .any(VortexTaskSchedulingDecision::has_errors);
+    if has_diagnostic_errors {
+        return VortexSchedulerBridgeStatus::Unsupported;
     }
     if out.scheduled_task_count == 0
         && out.metadata_only_task_count > 0

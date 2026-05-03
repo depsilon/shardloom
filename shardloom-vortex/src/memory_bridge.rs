@@ -375,6 +375,64 @@ pub struct VortexMemoryBridgeReport {
     pub diagnostics: Vec<Diagnostic>,
 }
 impl VortexMemoryBridgeReport {
+    fn map_adaptive_decision(
+        seg: &SegmentId,
+        d: &shardloom_exec::TaskSizingDecision,
+    ) -> VortexTaskMemoryDecision {
+        match d.kind {
+            TaskSizingDecisionKind::KeepSingle
+            | TaskSizingDecisionKind::Split
+            | TaskSizingDecisionKind::CoalesceCandidate => VortexTaskMemoryDecision::no_action(
+                format!("adaptive sizing decision preserved: {}", d.reason),
+            )
+            .with_memory_class(VortexTaskMemoryClass::EncodedRead)
+            .with_segment_id(seg.clone()),
+            TaskSizingDecisionKind::MetadataOnly => VortexTaskMemoryDecision::no_action(format!(
+                "adaptive sizing decision preserved: {}",
+                d.reason
+            ))
+            .with_memory_class(VortexTaskMemoryClass::MetadataOnly)
+            .with_segment_id(seg.clone()),
+            TaskSizingDecisionKind::NeedsEstimate => {
+                VortexTaskMemoryDecision::needs_estimate(None, "missing size estimate")
+                    .with_segment_id(seg.clone())
+            }
+            TaskSizingDecisionKind::Unsupported => VortexTaskMemoryDecision::unsupported(
+                None,
+                "adaptive-sizing-decision",
+                format!("unsupported adaptive sizing decision: {}", d.reason),
+            )
+            .with_segment_id(seg.clone()),
+        }
+    }
+    fn map_partial_decode_decision(
+        task_id: Option<TaskId>,
+        spill_policy: SpillPolicy,
+    ) -> VortexTaskMemoryDecision {
+        let decision = match spill_policy {
+            SpillPolicy::Never => VortexTaskMemoryDecision::unsupported(
+                task_id.clone(),
+                "memory-bridge-spill-policy",
+                "partial decode mapping requires spill, but spill_policy=never",
+            ),
+            SpillPolicy::Required | SpillPolicy::ForceBeforeOom => {
+                VortexTaskMemoryDecision::spill_required_not_implemented(
+                    task_id.clone(),
+                    "partial decode mapping requires spill but spill is not implemented",
+                )
+            }
+            SpillPolicy::BestEffort => VortexTaskMemoryDecision::spill_may_be_required(
+                task_id.clone(),
+                "partial decode mapping may require spill planning",
+            ),
+            SpillPolicy::DisabledForOperator => VortexTaskMemoryDecision::unsupported(
+                task_id,
+                "memory-bridge-spill-policy",
+                "partial decode mapping cannot run when spill is disabled for operator",
+            ),
+        };
+        decision.with_memory_class(VortexTaskMemoryClass::PartialDecode)
+    }
     #[must_use]
     fn default_io_flags() -> VortexPlanOnlyIoFlags {
         VortexPlanOnlyIoFlags {
@@ -442,17 +500,7 @@ impl VortexMemoryBridgeReport {
             }
             let decisions = r.sizing_plan.decisions.clone();
             for (seg, d) in &decisions {
-                let decision = match d.kind {
-                    TaskSizingDecisionKind::NeedsEstimate => {
-                        VortexTaskMemoryDecision::needs_estimate(None, "missing size estimate")
-                            .with_segment_id(seg.clone())
-                    }
-                    _ => VortexTaskMemoryDecision::needs_estimate(
-                        None,
-                        format!("unavailable explicit byte estimate: {}", d.reason),
-                    )
-                    .with_segment_id(seg.clone()),
-                };
+                let decision = Self::map_adaptive_decision(seg, d);
                 out.add_task_decision(decision);
             }
         }
@@ -470,11 +518,10 @@ impl VortexMemoryBridgeReport {
                             VortexTaskMemoryDecision::no_action("runtime mapping is metadata-only")
                         }
                         crate::VortexTaskMappingKind::PartialDecodeTask => {
-                            VortexTaskMemoryDecision::spill_may_be_required(
+                            Self::map_partial_decode_decision(
                                 mapping.task_id.clone(),
-                                "partial decode mapping may require spill planning",
+                                out.input.spill_policy,
                             )
-                            .with_memory_class(VortexTaskMemoryClass::PartialDecode)
                         }
                         crate::VortexTaskMappingKind::SegmentScanTask
                         | crate::VortexTaskMappingKind::EncodedEvaluateTask => {
