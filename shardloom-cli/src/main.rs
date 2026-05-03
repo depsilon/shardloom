@@ -9,11 +9,11 @@ use shardloom_core::{
     CatalogKind, CatalogRef, ChangeSet, CommandStatus, CorrectnessValidationPlan, DatasetManifest,
     DatasetRef, DatasetUri, ExtensionId, ExtensionInspectionReport, ExtensionLicenseKind,
     ExtensionManifest, ExtensionProvenance, ExtensionRegistrySnapshot, ExtensionVersion,
-    IncrementalPlanSkeleton, KernelRegistrySnapshot, ManifestId, ObservabilityPlan, OutputEnvelope,
-    OutputFormat, OutputTarget, RedactionPolicy, ReleasePlan, RuntimeObservabilityReport,
-    SchemaDefinition, SchemaId, SchemaVersion, SecurityPlan, ShardLoomError, SnapshotId,
-    SnapshotRef, TableCompatibilityPlan, TableFormatKind, TranslationPlan, UdfRuntimeKind,
-    WriteIntent,
+    IncrementalPlanSkeleton, InputAdapterRegistrySnapshot, InputAdapterReport,
+    KernelRegistrySnapshot, ManifestId, ObservabilityPlan, OutputEnvelope, OutputFormat,
+    OutputTarget, RedactionPolicy, ReleasePlan, RuntimeObservabilityReport, SchemaDefinition,
+    SchemaId, SchemaVersion, SecurityPlan, ShardLoomError, SnapshotId, SnapshotRef,
+    TableCompatibilityPlan, TableFormatKind, TranslationPlan, UdfRuntimeKind, WriteIntent,
 };
 use shardloom_exec::{
     AdaptiveSizer, AdaptiveSizingPolicy, AttemptId, ByteSize, CancellationReason,
@@ -49,7 +49,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan> [--format text|json]",
         cli_command_name()
     )
 }
@@ -229,6 +229,64 @@ fn run(args: Vec<String>) -> ExitCode {
                     ("published".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
                     ("external_publish".to_string(), "not_performed".to_string()),
+                ],
+            );
+            ExitCode::SUCCESS
+        }
+
+        Some("input-adapters") => {
+            let snapshot = InputAdapterRegistrySnapshot::foundation();
+            emit(
+                "input-adapters",
+                format,
+                CommandStatus::Success,
+                "input adapters snapshot".to_string(),
+                snapshot.to_human_text(),
+                snapshot.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "input_adapters".to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
+                    ("external_effects_executed".to_string(), "false".to_string()),
+                ],
+            );
+            ExitCode::SUCCESS
+        }
+        Some("input-plan") => {
+            let Some(dataset_uri) = args.next() else {
+                eprintln!("usage: shardloom input-plan <dataset_uri>");
+                return ExitCode::from(2);
+            };
+            let uri = match DatasetUri::new(dataset_uri) {
+                Ok(v) => v,
+                Err(error) => return emit_error("input-plan", format, "input plan failed", &error),
+            };
+            let source = match shardloom_core::UniversalInputSource::from_dataset_uri(uri) {
+                Ok(v) => v,
+                Err(error) => return emit_error("input-plan", format, "input plan failed", &error),
+            };
+            let report = InputAdapterReport::for_source(source);
+            emit(
+                "input-plan",
+                format,
+                CommandStatus::Success,
+                "input plan report".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "input_plan".to_string()),
+                    ("data_read".to_string(), "false".to_string()),
+                    ("data_materialized".to_string(), "false".to_string()),
+                    ("object_store_io".to_string(), "false".to_string()),
+                    ("external_effects_executed".to_string(), "false".to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
                 ],
             );
             ExitCode::SUCCESS

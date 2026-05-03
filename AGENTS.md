@@ -311,3 +311,17 @@ Rules:
 - Do not default to decode-to-Arrow execution.
 - Preserve Vortex as native input and output.
 - Unsupported upstream features must fail explicitly.
+
+
+## Universal input contract
+
+Before adding input formats, readers, connectors, catalog sources, API/LLM/embedding/vector inputs, or unstructured ingestion, read:
+- docs/architecture/universal-input-contract.md
+
+Rules:
+- Vortex is native input.
+- Compatibility inputs must be explicit and feature-gated.
+- Effectful inputs require explicit enablement.
+- Input adapters must not imply fallback execution.
+- No silent decode/materialization.
+- Default build stays lightweight.
