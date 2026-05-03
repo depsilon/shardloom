@@ -22,6 +22,7 @@ pub mod metadata_planning;
 pub mod metadata_pruning;
 pub mod metadata_summary;
 pub mod read_planning;
+pub mod runtime_bridge;
 
 pub use file_io::{
     VortexFileIoFeatureStatus, VortexMetadataOpenMode, VortexMetadataOpenReport,
@@ -49,6 +50,11 @@ pub use read_planning::{
     VortexByteRangeIntent, VortexReadIntentStatus, VortexReadPlanningInput, VortexReadPlanningMode,
     VortexReadPlanningReport, VortexReadSplitDescriptor, VortexSegmentReadIntent,
     plan_vortex_read_from_universal_input, vortex_read_planning_is_side_effect_free,
+};
+pub use runtime_bridge::{
+    VortexRuntimeBridgeInput, VortexRuntimeBridgeMode, VortexRuntimeBridgeReport,
+    VortexRuntimeBridgeStatus, VortexTaskMapping, VortexTaskMappingKind,
+    build_vortex_runtime_task_graph, vortex_runtime_bridge_is_side_effect_free,
 };
 
 pub use metadata_summary::{

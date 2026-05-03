@@ -18,5 +18,6 @@ vortex-write = ["vortex-file-io"]
 
 [dependencies]
 shardloom-core = { path = "../shardloom-core" }
+shardloom-exec = { path = "../shardloom-exec" }
 shardloom-plan = { path = "../shardloom-plan" }
 vortex = { version = "0.70", optional = true }

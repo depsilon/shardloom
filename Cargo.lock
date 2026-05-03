@@ -1862,7 +1862,6 @@ version = "0.1.0"
 dependencies = [
  "shardloom-core",
  "shardloom-plan",
- "shardloom-vortex",
 ]
 
 [[package]]
@@ -1877,6 +1876,7 @@ name = "shardloom-vortex"
 version = "0.1.0"
 dependencies = [
  "shardloom-core",
+ "shardloom-exec",
  "shardloom-plan",
  "vortex",
 ]
