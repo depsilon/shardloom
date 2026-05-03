@@ -11,6 +11,7 @@ pub mod recovery;
 pub mod runtime;
 pub mod sizing;
 pub mod spill_lifecycle;
+pub mod spill_payload;
 pub mod streaming;
 
 /// Reported status for the execution subsystem.
@@ -80,6 +81,11 @@ pub use streaming::{
 };
 
 pub use spill_lifecycle::*;
+pub use spill_payload::{
+    SpillPayloadEffect, SpillPayloadId, SpillPayloadMode, SpillPayloadPlanReport,
+    SpillPayloadPlanRequest, SpillPayloadRef, SpillPayloadStatus, SyntheticSpillPayload,
+    plan_spill_payload, spill_payload_plan_is_side_effect_free,
+};
 
 pub use runtime::{
     ByteRangeRequest, ObjectStoreKind, ObjectStoreRef, ReadPolicy, ResourceBudget, RetryPolicy,
