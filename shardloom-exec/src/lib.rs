@@ -85,10 +85,11 @@ pub use spill_payload::{
     SpillPayloadEffect, SpillPayloadFsFeatureStatus, SpillPayloadFsPlanMode,
     SpillPayloadFsPlanReport, SpillPayloadFsPlanStatus, SpillPayloadFsRef, SpillPayloadId,
     SpillPayloadMode, SpillPayloadPath, SpillPayloadPlanReport, SpillPayloadPlanRequest,
-    SpillPayloadRef, SpillPayloadStatus, SpillPayloadWriteOption, SpillPayloadWriteReport,
-    SpillPayloadWriteRequest, SyntheticSpillPayload, plan_spill_payload,
-    plan_spill_payload_filesystem_ref, spill_payload_fs_feature_enabled,
-    spill_payload_plan_is_side_effect_free, write_spill_payload,
+    SpillPayloadReadReport, SpillPayloadReadRequest, SpillPayloadRef, SpillPayloadStatus,
+    SpillPayloadWriteOption, SpillPayloadWriteReport, SpillPayloadWriteRequest,
+    SyntheticSpillPayload, plan_spill_payload, plan_spill_payload_filesystem_ref,
+    read_spill_payload, spill_payload_fs_feature_enabled, spill_payload_plan_is_side_effect_free,
+    write_spill_payload,
 };
 
 pub use runtime::{

@@ -4,8 +4,8 @@
 
 - Production engine completion estimate: approximately 30%.
 - Architecture/control-plane completion estimate: approximately 95%.
-- Current phase: Phase 11A.3a.2b — feature-gated synthetic local spill payload write-only API.
-- Next major phase: Phase 11A.3a.2c — feature-gated synthetic local spill payload read API.
+- Current phase: Phase 11A.3a.2c — feature-gated synthetic local spill payload read API.
+- Next major phase: Phase 11A.3a.2d — feature-gated synthetic local spill payload cleanup API.
 
 ## Phase checklist
 
@@ -391,8 +391,8 @@ Cross-cutting epics:
 - Phase 10D is the current stabilization phase for local engine diagnostic propagation.
 - Phase 11A.3a.1 is complete.
 - Phase 11A.3a.2a is complete.
-- Phase 11A.3a.2b is current.
-- Phase 11A.3a.2c is planned.
+- Phase 11A.3a.2b is complete.
+- Phase 11A.3a.2c is current.
 - Phase 11A.3a.2d is planned.
 - Phase 11A.3a.3 is planned.
 

@@ -482,9 +482,7 @@ impl SyntheticSpillPayload {
 
     #[must_use]
     pub fn checksum_u64(&self) -> u64 {
-        self.bytes.iter().fold(0_u64, |acc, byte| {
-            acc.wrapping_mul(16_777_619) ^ u64::from(*byte)
-        })
+        checksum_bytes_u64(&self.bytes)
     }
 
     #[must_use]
@@ -495,6 +493,12 @@ impl SyntheticSpillPayload {
             self.checksum_u64()
         )
     }
+}
+
+fn checksum_bytes_u64(bytes: &[u8]) -> u64 {
+    bytes.iter().fold(0_u64, |acc, byte| {
+        acc.wrapping_mul(16_777_619) ^ u64::from(*byte)
+    })
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -717,6 +721,69 @@ pub struct SpillPayloadWriteReport {
     pub request: SpillPayloadWriteRequest,
     pub bytes_written: usize,
     pub checksum: Option<u64>,
+    pub effects_performed: Vec<SpillPayloadEffect>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SpillPayloadReadRequest {
+    pub fs_ref: SpillPayloadFsRef,
+    pub expected_len: Option<usize>,
+    pub expected_checksum: Option<u64>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl SpillPayloadReadRequest {
+    #[must_use]
+    pub fn new(fs_ref: SpillPayloadFsRef) -> Self {
+        Self {
+            fs_ref,
+            expected_len: None,
+            expected_checksum: None,
+            diagnostics: Vec::new(),
+        }
+    }
+    #[must_use]
+    pub fn with_expected_len(mut self, len: usize) -> Self {
+        self.expected_len = Some(len);
+        self
+    }
+    #[must_use]
+    pub fn with_expected_checksum(mut self, checksum: u64) -> Self {
+        self.expected_checksum = Some(checksum);
+        self
+    }
+    pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
+    }
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.diagnostics.iter().any(|d| {
+            matches!(
+                d.severity,
+                DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+            )
+        })
+    }
+    #[must_use]
+    pub fn summary(&self) -> String {
+        format!(
+            "{}, expected_len={:?}, expected_checksum={:?}",
+            self.fs_ref.summary(),
+            self.expected_len,
+            self.expected_checksum
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SpillPayloadReadReport {
+    pub status: SpillPayloadStatus,
+    pub mode: SpillPayloadMode,
+    pub request: SpillPayloadReadRequest,
+    pub bytes_read: usize,
+    pub checksum: Option<u64>,
+    pub verification_passed: bool,
     pub effects_performed: Vec<SpillPayloadEffect>,
     pub diagnostics: Vec<Diagnostic>,
 }
@@ -1139,6 +1206,232 @@ impl SpillPayloadWriteReport {
     }
 }
 
+impl SpillPayloadReadReport {
+    #[must_use]
+    pub fn feature_disabled(request: SpillPayloadReadRequest) -> Self {
+        Self {
+            status: SpillPayloadStatus::FeatureDisabled,
+            mode: SpillPayloadMode::ReportOnly,
+            request,
+            bytes_read: 0,
+            checksum: None,
+            verification_passed: false,
+            effects_performed: Vec::new(),
+            diagnostics: Vec::new(),
+        }
+    }
+    #[must_use]
+    pub fn read_back(
+        request: SpillPayloadReadRequest,
+        bytes_read: usize,
+        checksum: u64,
+        verification_passed: bool,
+    ) -> Self {
+        Self {
+            status: SpillPayloadStatus::PayloadPrepared,
+            mode: SpillPayloadMode::SyntheticPayloadPlan,
+            request,
+            bytes_read,
+            checksum: Some(checksum),
+            verification_passed,
+            effects_performed: vec![SpillPayloadEffect::PayloadRead],
+            diagnostics: Vec::new(),
+        }
+    }
+    #[must_use]
+    pub fn blocked_missing_payload(
+        request: SpillPayloadReadRequest,
+        reason: impl Into<String>,
+    ) -> Self {
+        let mut report = Self::feature_disabled(request);
+        report.status = SpillPayloadStatus::BlockedByMissingWorkspace;
+        report.mode = SpillPayloadMode::SyntheticPayloadPlan;
+        report.add_diagnostic(Diagnostic::invalid_input(
+            "spill_payload_read",
+            reason.into(),
+            "Provide an existing synthetic spill payload file.",
+        ));
+        report
+    }
+    #[must_use]
+    pub fn verification_failed(
+        request: SpillPayloadReadRequest,
+        reason: impl Into<String>,
+    ) -> Self {
+        let mut report = Self::feature_disabled(request);
+        report.status = SpillPayloadStatus::BlockedByInvalidPayload;
+        report.mode = SpillPayloadMode::SyntheticPayloadPlan;
+        report.add_diagnostic(Diagnostic::invalid_input(
+            "spill_payload_read",
+            reason.into(),
+            "Update the expected length/checksum to match the payload.",
+        ));
+        report
+    }
+    #[must_use]
+    pub fn unsupported(
+        request: SpillPayloadReadRequest,
+        feature: impl Into<String>,
+        reason: impl Into<String>,
+    ) -> Self {
+        let mut report = Self::feature_disabled(request);
+        report.status = SpillPayloadStatus::Unsupported;
+        report.mode = SpillPayloadMode::Unsupported;
+        report.add_diagnostic(Diagnostic::unsupported(
+            DiagnosticCode::UnsupportedEffect,
+            feature,
+            format!(
+                "Unsupported spill payload read operation: {}",
+                reason.into()
+            ),
+            Some("fallback_attempted=false".to_string()),
+        ));
+        report
+    }
+    /// Builds a `SpillPayloadReadReport` and performs gated synthetic local reads.
+    ///
+    /// # Errors
+    /// Returns an error when read operations fail.
+    pub fn from_request(request: SpillPayloadReadRequest) -> Result<Self> {
+        if !spill_payload_fs_feature_enabled() {
+            return Ok(Self::feature_disabled(request));
+        }
+        let target_path = Path::new(&request.fs_ref.path_string()).to_path_buf();
+        if !target_path.exists() {
+            return Ok(Self::blocked_missing_payload(
+                request,
+                format!(
+                    "spill payload target does not exist: {}",
+                    target_path.display()
+                ),
+            ));
+        }
+        let bytes = fs::read(&target_path).map_err(|e| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to read spill payload '{}': {e}",
+                target_path.display()
+            ))
+        })?;
+        let bytes_read = bytes.len();
+        let checksum = checksum_bytes_u64(&bytes);
+        if let Some(expected_len) = request.expected_len
+            && expected_len != bytes_read
+        {
+            return Ok(Self::verification_failed(
+                request,
+                format!("expected length {expected_len} but read {bytes_read}"),
+            ));
+        }
+        if let Some(expected_checksum) = request.expected_checksum
+            && expected_checksum != checksum
+        {
+            return Ok(Self::verification_failed(
+                request,
+                format!("expected checksum {expected_checksum} but read {checksum}"),
+            ));
+        }
+        Ok(Self::read_back(request, bytes_read, checksum, true))
+    }
+    pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
+    }
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.status.is_error()
+            || self
+                .diagnostics
+                .iter()
+                .chain(self.request.diagnostics.iter())
+                .any(|d| {
+                    matches!(
+                        d.severity,
+                        DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                    )
+                })
+    }
+    #[must_use]
+    pub fn payload_written(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub fn payload_read(&self) -> bool {
+        self.effects_performed
+            .contains(&SpillPayloadEffect::PayloadRead)
+    }
+    #[must_use]
+    pub fn cleanup_performed(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub fn object_store_io(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub fn output_dataset_write(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub fn fallback_execution_allowed(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub fn is_side_effect_free(&self) -> bool {
+        !self.payload_read()
+    }
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        let mut text = String::new();
+        let _ = writeln!(text, "spill payload read status: {}", self.status.as_str());
+        let _ = writeln!(text, "mode: {}", self.mode.as_str());
+        let _ = writeln!(
+            text,
+            "payload id: {}",
+            self.request.fs_ref.payload_ref().payload_id().as_str()
+        );
+        let _ = writeln!(
+            text,
+            "workspace label: {}",
+            self.request.fs_ref.payload_ref().workspace_label()
+        );
+        let _ = writeln!(
+            text,
+            "workspace path: {}",
+            self.request.fs_ref.workspace_path().as_str()
+        );
+        let _ = writeln!(text, "file name: {}", self.request.fs_ref.file_name());
+        let _ = writeln!(text, "path string: {}", self.request.fs_ref.path_string());
+        let _ = writeln!(text, "bytes read: {}", self.bytes_read);
+        if let Some(checksum) = self.checksum {
+            let _ = writeln!(text, "checksum: {checksum}");
+        }
+        let _ = writeln!(text, "verification passed: {}", self.verification_passed);
+        let _ = writeln!(text, "payload written: false");
+        let _ = writeln!(text, "payload read: {}", self.payload_read());
+        let _ = writeln!(text, "cleanup performed: false");
+        let _ = writeln!(text, "object-store IO: false");
+        let _ = writeln!(text, "output dataset write: false");
+        let _ = writeln!(text, "fallback execution disabled");
+        if !self.request.diagnostics.is_empty() || !self.diagnostics.is_empty() {
+            let _ = writeln!(text, "diagnostics:");
+            for d in self
+                .request
+                .diagnostics
+                .iter()
+                .chain(self.diagnostics.iter())
+            {
+                let _ = writeln!(
+                    text,
+                    "- [{}] {} ({})",
+                    d.code.as_str(),
+                    d.message,
+                    d.severity.as_str()
+                );
+            }
+        }
+        text
+    }
+}
+
 /// Plans a report-only spill payload contract response.
 ///
 /// # Errors
@@ -1153,6 +1446,14 @@ pub fn plan_spill_payload(request: SpillPayloadPlanRequest) -> Result<SpillPaylo
 /// Returns an error when request invariants fail or filesystem write operations fail.
 pub fn write_spill_payload(request: SpillPayloadWriteRequest) -> Result<SpillPayloadWriteReport> {
     SpillPayloadWriteReport::from_request(request)
+}
+
+/// Reads a synthetic spill payload behind the `spill-payload-fs` feature gate.
+///
+/// # Errors
+/// Returns an error when filesystem read operations fail.
+pub fn read_spill_payload(request: SpillPayloadReadRequest) -> Result<SpillPayloadReadReport> {
+    SpillPayloadReadReport::from_request(request)
 }
 
 #[must_use]
@@ -1326,6 +1627,9 @@ mod tests {
         let payload = SyntheticSpillPayload::from_text("tiny-write").expect("valid payload");
         SpillPayloadWriteRequest::new(sample_fs_ref(), payload)
     }
+    fn sample_read_request() -> SpillPayloadReadRequest {
+        SpillPayloadReadRequest::new(sample_fs_ref())
+    }
 
     #[cfg(not(feature = "spill-payload-fs"))]
     #[test]
@@ -1426,6 +1730,35 @@ mod tests {
         assert!(text.contains("payload written: false"));
     }
 
+    #[cfg(not(feature = "spill-payload-fs"))]
+    #[test]
+    fn read_spill_payload_disabled_report_is_side_effect_free() {
+        let report = read_spill_payload(sample_read_request()).expect("report");
+        assert_eq!(report.status, SpillPayloadStatus::FeatureDisabled);
+        assert_eq!(report.bytes_read, 0);
+        assert_eq!(report.checksum, None);
+        assert!(!report.verification_passed);
+        assert!(!report.payload_written());
+        assert!(!report.payload_read());
+        assert!(!report.cleanup_performed());
+        assert!(!report.object_store_io());
+        assert!(!report.output_dataset_write());
+        assert!(!report.fallback_execution_allowed());
+        assert!(report.is_side_effect_free());
+        let text = report.to_human_text();
+        assert!(text.contains("fallback execution disabled"));
+        assert!(text.contains("payload read: false"));
+    }
+
+    #[test]
+    fn read_request_builders_set_expectations() {
+        let request = sample_read_request()
+            .with_expected_len(5)
+            .with_expected_checksum(33);
+        assert_eq!(request.expected_len, Some(5));
+        assert_eq!(request.expected_checksum, Some(33));
+    }
+
     #[cfg(feature = "spill-payload-fs")]
     #[test]
     fn write_spill_payload_feature_flow() {
@@ -1468,6 +1801,77 @@ mod tests {
         }
         if workspace.exists() {
             fs::remove_dir(&workspace).expect("remove workspace directory");
+        }
+    }
+
+    #[cfg(feature = "spill-payload-fs")]
+    #[test]
+    fn read_spill_payload_feature_flow_and_verification() {
+        let unique = format!("spill-payload-read-{}-{}", std::process::id(), 7);
+        let workspace = std::env::temp_dir().join(unique);
+        let payload_id = SpillPayloadId::new("payload-read").expect("id");
+        let payload_ref = SpillPayloadRef::new(payload_id, "workspace-read").expect("ref");
+        let fs_ref = SpillPayloadFsRef::new(
+            payload_ref,
+            SpillPayloadPath::new(workspace.to_string_lossy().into_owned()).expect("path"),
+        );
+        let missing = read_spill_payload(SpillPayloadReadRequest::new(fs_ref.clone()))
+            .expect("missing report");
+        assert_eq!(
+            missing.status,
+            SpillPayloadStatus::BlockedByMissingWorkspace
+        );
+        assert!(!missing.payload_read());
+        assert!(missing.is_side_effect_free());
+
+        let payload = SyntheticSpillPayload::from_text("tiny-read").expect("payload");
+        let write = write_spill_payload(
+            SpillPayloadWriteRequest::new(fs_ref.clone(), payload.clone()).create_workspace(true),
+        )
+        .expect("write");
+        assert!(write.payload_written());
+
+        let read = read_spill_payload(
+            SpillPayloadReadRequest::new(fs_ref.clone())
+                .with_expected_len(payload.len())
+                .with_expected_checksum(payload.checksum_u64()),
+        )
+        .expect("read");
+        assert_eq!(read.bytes_read, payload.len());
+        assert_eq!(read.checksum, Some(payload.checksum_u64()));
+        assert!(read.verification_passed);
+        assert!(read.payload_read());
+        assert!(!read.payload_written());
+        assert!(!read.cleanup_performed());
+        assert!(!read.object_store_io());
+        assert!(!read.output_dataset_write());
+        assert!(!read.fallback_execution_allowed());
+
+        let checksum_mismatch = read_spill_payload(
+            SpillPayloadReadRequest::new(fs_ref.clone())
+                .with_expected_checksum(payload.checksum_u64() + 1),
+        )
+        .expect("checksum mismatch");
+        assert_eq!(
+            checksum_mismatch.status,
+            SpillPayloadStatus::BlockedByInvalidPayload
+        );
+
+        let len_mismatch = read_spill_payload(
+            SpillPayloadReadRequest::new(fs_ref.clone()).with_expected_len(payload.len() + 1),
+        )
+        .expect("len mismatch");
+        assert_eq!(
+            len_mismatch.status,
+            SpillPayloadStatus::BlockedByInvalidPayload
+        );
+
+        let payload_file = workspace.join(fs_ref.file_name());
+        if payload_file.exists() {
+            fs::remove_file(&payload_file).expect("remove payload file");
+        }
+        if workspace.exists() {
+            fs::remove_dir(&workspace).expect("remove workspace");
         }
     }
 }
