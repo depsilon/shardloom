@@ -198,3 +198,7 @@ Future real execution must pass readiness gates before any executor is introduce
 - It does not perform spill IO.
 - It blocks all tasks that would require data reads or side effects.
 - It is the first executor-shaped layer, not a general executor.
+
+## Encoded-read readiness contract
+
+Encoded-read readiness is not execution. It classifies future encoded-read candidates, blocks decode/materialization/object-store/write/spill/external-effects/unsupported paths, preserves unknown estimates as blockers, and prepares the future encoded-read executor.
