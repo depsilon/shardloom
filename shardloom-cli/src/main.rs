@@ -9,11 +9,11 @@ use shardloom_core::{
     CatalogKind, CatalogRef, ChangeSet, CommandStatus, CorrectnessValidationPlan, DatasetManifest,
     DatasetRef, DatasetUri, ExtensionId, ExtensionInspectionReport, ExtensionLicenseKind,
     ExtensionManifest, ExtensionProvenance, ExtensionRegistrySnapshot, ExtensionVersion,
-    IncrementalPlanSkeleton, InputAdapterRegistrySnapshot, InputAdapterReport,
-    KernelRegistrySnapshot, ManifestId, ObservabilityPlan, OutputEnvelope, OutputFormat,
-    OutputTarget, RedactionPolicy, ReleasePlan, RuntimeObservabilityReport, SchemaDefinition,
-    SchemaId, SchemaVersion, SecurityPlan, ShardLoomError, SnapshotId, SnapshotRef,
-    TableCompatibilityPlan, TableFormatKind, TranslationPlan, UdfRuntimeKind, WriteIntent,
+    IncrementalPlanSkeleton, InputAdapterRegistrySnapshot, KernelRegistrySnapshot, ManifestId,
+    ObservabilityPlan, OutputEnvelope, OutputFormat, OutputTarget, RedactionPolicy, ReleasePlan,
+    RuntimeObservabilityReport, SchemaDefinition, SchemaId, SchemaVersion, SecurityPlan,
+    ShardLoomError, SnapshotId, SnapshotRef, TableCompatibilityPlan, TableFormatKind,
+    TranslationPlan, UdfRuntimeKind, WriteIntent,
 };
 use shardloom_exec::{
     AdaptiveSizer, AdaptiveSizingPolicy, AttemptId, ByteSize, CancellationReason,
@@ -25,6 +25,7 @@ use shardloom_exec::{
 use shardloom_plan::{
     EstimateReport, ExplainReport, NativePlanDocument, OptimizerPhase, OptimizerPlanSkeleton,
     PlanExportRequest, PlanId, PlanImportRequest, PlanInteropFormat, ScanPlanSkeleton, ScanRequest,
+    plan_universal_input_source,
 };
 use shardloom_vortex::{
     VortexAdapterCapabilityReport, VortexAdapterReadiness, VortexDTypeMappingReport,
@@ -181,7 +182,9 @@ fn run(args: Vec<String>) -> ExitCode {
                     ("mode".to_string(), "release_plan".to_string()),
                     ("publish_allowed".to_string(), "false".to_string()),
                     ("published".to_string(), "false".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
+                    ("plan_only".to_string(), "true".to_string()),
                     ("external_publish".to_string(), "not_performed".to_string()),
                 ],
             );
@@ -204,7 +207,9 @@ fn run(args: Vec<String>) -> ExitCode {
                     ("mode".to_string(), "package_plan".to_string()),
                     ("publish_allowed".to_string(), "false".to_string()),
                     ("published".to_string(), "false".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
+                    ("plan_only".to_string(), "true".to_string()),
                     ("external_publish".to_string(), "not_performed".to_string()),
                 ],
             );
@@ -227,7 +232,9 @@ fn run(args: Vec<String>) -> ExitCode {
                     ("mode".to_string(), "api_compat_plan".to_string()),
                     ("publish_allowed".to_string(), "false".to_string()),
                     ("published".to_string(), "false".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
+                    ("plan_only".to_string(), "true".to_string()),
                     ("external_publish".to_string(), "not_performed".to_string()),
                 ],
             );
@@ -249,7 +256,9 @@ fn run(args: Vec<String>) -> ExitCode {
                         "false".to_string(),
                     ),
                     ("mode".to_string(), "input_adapters".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
+                    ("plan_only".to_string(), "true".to_string()),
                     ("external_effects_executed".to_string(), "false".to_string()),
                 ],
             );
@@ -268,11 +277,19 @@ fn run(args: Vec<String>) -> ExitCode {
                 Ok(v) => v,
                 Err(error) => return emit_error("input-plan", format, "input plan failed", &error),
             };
-            let report = InputAdapterReport::for_source(source);
+            let report = match plan_universal_input_source(source) {
+                Ok(v) => v,
+                Err(error) => return emit_error("input-plan", format, "input plan failed", &error),
+            };
+            let command_status = if report.has_errors() {
+                CommandStatus::Unsupported
+            } else {
+                CommandStatus::Success
+            };
             emit(
                 "input-plan",
                 format,
-                CommandStatus::Success,
+                command_status,
                 "input plan report".to_string(),
                 report.to_human_text(),
                 report.diagnostics.clone(),
@@ -286,10 +303,16 @@ fn run(args: Vec<String>) -> ExitCode {
                     ("data_materialized".to_string(), "false".to_string()),
                     ("object_store_io".to_string(), "false".to_string()),
                     ("external_effects_executed".to_string(), "false".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
+                    ("plan_only".to_string(), "true".to_string()),
                 ],
             );
-            ExitCode::SUCCESS
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
         }
         Some("schema-plan") => {
             let schema = match (SchemaId::new("schema-placeholder"), SchemaVersion::new(1)) {
@@ -312,7 +335,9 @@ fn run(args: Vec<String>) -> ExitCode {
                         "false".to_string(),
                     ),
                     ("mode".to_string(), "schema_plan".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
+                    ("plan_only".to_string(), "true".to_string()),
                     (
                         "table_formats_are".to_string(),
                         "compatibility_targets_not_fallback_engines".to_string(),
@@ -358,7 +383,9 @@ fn run(args: Vec<String>) -> ExitCode {
                         "false".to_string(),
                     ),
                     ("mode".to_string(), "catalog_plan".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
+                    ("plan_only".to_string(), "true".to_string()),
                     (
                         "table_formats_are".to_string(),
                         "compatibility_targets_not_fallback_engines".to_string(),
@@ -405,7 +432,9 @@ fn run(args: Vec<String>) -> ExitCode {
                         "false".to_string(),
                     ),
                     ("mode".to_string(), "table_compat_plan".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
+                    ("plan_only".to_string(), "true".to_string()),
                     (
                         "table_formats_are".to_string(),
                         "compatibility_targets_not_fallback_engines".to_string(),
@@ -453,7 +482,9 @@ fn run(args: Vec<String>) -> ExitCode {
                         "false".to_string(),
                     ),
                     ("mode".to_string(), "extension_registry".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
+                    ("plan_only".to_string(), "true".to_string()),
                     ("extension_code_executed".to_string(), "false".to_string()),
                     ("dynamic_loading".to_string(), "false".to_string()),
                 ],
@@ -509,7 +540,9 @@ fn run(args: Vec<String>) -> ExitCode {
                         "false".to_string(),
                     ),
                     ("mode".to_string(), "extension_inspect".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
+                    ("plan_only".to_string(), "true".to_string()),
                     ("extension_code_executed".to_string(), "false".to_string()),
                     ("dynamic_loading".to_string(), "false".to_string()),
                 ],
@@ -544,7 +577,9 @@ fn run(args: Vec<String>) -> ExitCode {
                         "false".to_string(),
                     ),
                     ("mode".to_string(), "udf_runtime_plan".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
+                    ("plan_only".to_string(), "true".to_string()),
                     ("extension_code_executed".to_string(), "false".to_string()),
                     ("dynamic_loading".to_string(), "false".to_string()),
                 ],
@@ -567,7 +602,9 @@ fn run(args: Vec<String>) -> ExitCode {
                         "false".to_string(),
                     ),
                     ("mode".to_string(), "security_plan".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
+                    ("plan_only".to_string(), "true".to_string()),
                     ("external_effects".to_string(), "disabled".to_string()),
                     ("credentials_resolved".to_string(), "false".to_string()),
                     ("secrets_loaded".to_string(), "false".to_string()),
@@ -592,7 +629,9 @@ fn run(args: Vec<String>) -> ExitCode {
                         "false".to_string(),
                     ),
                     ("mode".to_string(), "agent_safety_plan".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
+                    ("plan_only".to_string(), "true".to_string()),
                     ("external_effects".to_string(), "disabled".to_string()),
                     ("credentials_resolved".to_string(), "false".to_string()),
                     ("secrets_loaded".to_string(), "false".to_string()),
@@ -616,7 +655,9 @@ fn run(args: Vec<String>) -> ExitCode {
                         "false".to_string(),
                     ),
                     ("mode".to_string(), "redaction_plan".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
+                    ("plan_only".to_string(), "true".to_string()),
                     ("external_effects".to_string(), "disabled".to_string()),
                     ("credentials_resolved".to_string(), "false".to_string()),
                     ("secrets_loaded".to_string(), "false".to_string()),
@@ -644,7 +685,9 @@ fn run(args: Vec<String>) -> ExitCode {
                         "false".to_string(),
                     ),
                     ("mode".to_string(), "plan_ir".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
+                    ("plan_only".to_string(), "true".to_string()),
                     ("interop_format".to_string(), "native".to_string()),
                     ("validation_required".to_string(), "true".to_string()),
                 ],
@@ -680,7 +723,9 @@ fn run(args: Vec<String>) -> ExitCode {
                         "false".to_string(),
                     ),
                     ("mode".to_string(), "plan_import".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
+                    ("plan_only".to_string(), "true".to_string()),
                     (
                         "interop_format".to_string(),
                         format_kind.as_str().to_string(),
@@ -710,7 +755,9 @@ fn run(args: Vec<String>) -> ExitCode {
                         "false".to_string(),
                     ),
                     ("mode".to_string(), "plan_export".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
+                    ("plan_only".to_string(), "true".to_string()),
                     (
                         "interop_format".to_string(),
                         format_kind.as_str().to_string(),
@@ -860,7 +907,9 @@ fn run(args: Vec<String>) -> ExitCode {
                     ),
                     ("mode".to_string(), "kernel_registry_snapshot".to_string()),
                     ("status".to_string(), "empty".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
+                    ("plan_only".to_string(), "true".to_string()),
                 ],
             );
             ExitCode::SUCCESS
@@ -883,7 +932,9 @@ fn run(args: Vec<String>) -> ExitCode {
                         "false".to_string(),
                     ),
                     ("mode".to_string(), "recovery_plan".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
+                    ("plan_only".to_string(), "true".to_string()),
                 ],
             );
             ExitCode::from(1)
@@ -912,7 +963,9 @@ fn run(args: Vec<String>) -> ExitCode {
                         "false".to_string(),
                     ),
                     ("mode".to_string(), "cancellation_plan".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
+                    ("plan_only".to_string(), "true".to_string()),
                 ],
             );
             ExitCode::SUCCESS
@@ -954,7 +1007,9 @@ fn run(args: Vec<String>) -> ExitCode {
                         "false".to_string(),
                     ),
                     ("mode".to_string(), "retry_plan".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
+                    ("plan_only".to_string(), "true".to_string()),
                 ],
             );
             ExitCode::SUCCESS
@@ -974,7 +1029,9 @@ fn run(args: Vec<String>) -> ExitCode {
                         "false".to_string(),
                     ),
                     ("mode".to_string(), "observability_plan".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
+                    ("plan_only".to_string(), "true".to_string()),
                     (
                         "metrics_collection".to_string(),
                         "not_performed".to_string(),
@@ -998,7 +1055,9 @@ fn run(args: Vec<String>) -> ExitCode {
                         "false".to_string(),
                     ),
                     ("mode".to_string(), "runtime_report".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
+                    ("plan_only".to_string(), "true".to_string()),
                     (
                         "metrics_collection".to_string(),
                         "not_performed".to_string(),
@@ -1025,7 +1084,9 @@ fn run(args: Vec<String>) -> ExitCode {
                         "false".to_string(),
                     ),
                     ("mode".to_string(), "profile_plan".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
+                    ("plan_only".to_string(), "true".to_string()),
                     (
                         "metrics_collection".to_string(),
                         "not_performed".to_string(),
@@ -1513,7 +1574,9 @@ fn run(args: Vec<String>) -> ExitCode {
                         "upstream_vortex_dependency".to_string(),
                         readiness.dependency_status.as_str().to_string(),
                     ),
+                    ("write_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
+                    ("plan_only".to_string(), "true".to_string()),
                     ("io".to_string(), "not_performed".to_string()),
                 ],
             );
@@ -1543,7 +1606,9 @@ fn run(args: Vec<String>) -> ExitCode {
                         "linked".to_string(),
                     ),
                     ("actual_io".to_string(), "not_implemented".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
+                    ("plan_only".to_string(), "true".to_string()),
                     (
                         "name_based_mapping_available".to_string(),
                         "true".to_string(),
@@ -1579,7 +1644,9 @@ fn run(args: Vec<String>) -> ExitCode {
                         "linked".to_string(),
                     ),
                     ("actual_io".to_string(), "not_implemented".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
+                    ("plan_only".to_string(), "true".to_string()),
                     (
                         "name_based_mapping_available".to_string(),
                         "true".to_string(),
@@ -1621,7 +1688,9 @@ fn run(args: Vec<String>) -> ExitCode {
                         "linked".to_string(),
                     ),
                     ("actual_io".to_string(), "not_implemented".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
+                    ("plan_only".to_string(), "true".to_string()),
                     ("segment_stats_available".to_string(), "true".to_string()),
                     (
                         "statistics_mapping_status".to_string(),
@@ -1685,7 +1754,9 @@ fn run(args: Vec<String>) -> ExitCode {
                     ("data_io_performed".to_string(), "false".to_string()),
                     ("object_store_io_performed".to_string(), "false".to_string()),
                     ("write_io_performed".to_string(), "false".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
+                    ("plan_only".to_string(), "true".to_string()),
                 ],
             );
             if matches!(status, CommandStatus::Error) {
@@ -1743,7 +1814,9 @@ fn run(args: Vec<String>) -> ExitCode {
                     ("data_materialized".to_string(), "false".to_string()),
                     ("object_store_io".to_string(), "false".to_string()),
                     ("write_io".to_string(), "false".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
+                    ("plan_only".to_string(), "true".to_string()),
                 ],
             );
             if report.has_errors() {
@@ -1812,7 +1885,9 @@ fn run(args: Vec<String>) -> ExitCode {
                     ("data_materialized".to_string(), "false".to_string()),
                     ("object_store_io".to_string(), "false".to_string()),
                     ("write_io".to_string(), "false".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
+                    ("plan_only".to_string(), "true".to_string()),
                     (
                         "side_effect_free".to_string(),
                         metadata_planning_is_side_effect_free(&report).to_string(),
@@ -1914,7 +1989,9 @@ fn run(args: Vec<String>) -> ExitCode {
                         report.object_store_io.to_string(),
                     ),
                     ("write_io".to_string(), report.write_io.to_string()),
+                    ("write_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
+                    ("plan_only".to_string(), "true".to_string()),
                     (
                         "side_effect_free".to_string(),
                         metadata_pruning_is_side_effect_free(&report).to_string(),
@@ -1973,7 +2050,9 @@ fn run(args: Vec<String>) -> ExitCode {
                     ("data_materialized".to_string(), "false".to_string()),
                     ("object_store_io".to_string(), "false".to_string()),
                     ("write_io".to_string(), "false".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
+                    ("plan_only".to_string(), "true".to_string()),
                     (
                         "metadata_io_status".to_string(),
                         report.status.as_str().to_string(),
@@ -2006,7 +2085,9 @@ fn run(args: Vec<String>) -> ExitCode {
                         "linked".to_string(),
                     ),
                     ("actual_io".to_string(), "not_implemented".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
+                    ("plan_only".to_string(), "true".to_string()),
                 ],
             );
             ExitCode::SUCCESS
@@ -2031,7 +2112,9 @@ fn run(args: Vec<String>) -> ExitCode {
                     ),
                     ("mode".to_string(), "optimizer_plan".to_string()),
                     ("status".to_string(), "not_implemented".to_string()),
+                    ("write_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
+                    ("plan_only".to_string(), "true".to_string()),
                     ("optimizer_phase".to_string(), "vortex_physical".to_string()),
                 ],
             );
@@ -2269,6 +2352,24 @@ mod tests {
         let code = run(vec![
             "vortex-metadata-probe".to_string(),
             "file://tmp/data.parquet".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn input_plan_with_vortex_uri_returns_success() {
+        let code = run(vec![
+            "input-plan".to_string(),
+            "file://tmp/data.vortex".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn input_plan_with_unknown_uri_returns_non_zero() {
+        let code = run(vec![
+            "input-plan".to_string(),
+            "file://tmp/data.unknown".to_string(),
         ]);
         assert_ne!(code, ExitCode::SUCCESS);
     }
