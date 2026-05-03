@@ -1,4 +1,4 @@
-use std::fmt::Write;
+use std::{fmt::Write, path::Path};
 
 use shardloom_core::{Diagnostic, DiagnosticCode, DiagnosticSeverity, Result, ShardLoomError};
 
@@ -12,6 +12,328 @@ pub enum SpillPayloadEffect {
     ObjectStoreIo,
     OutputDatasetWrite,
     FallbackExecution,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SpillPayloadFsFeatureStatus {
+    Disabled,
+    Enabled,
+}
+
+impl SpillPayloadFsFeatureStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Disabled => "disabled",
+            Self::Enabled => "enabled",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_enabled(&self) -> bool {
+        matches!(self, Self::Enabled)
+    }
+}
+
+#[must_use]
+pub const fn spill_payload_fs_feature_enabled() -> bool {
+    cfg!(feature = "spill-payload-fs")
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SpillPayloadPath(String);
+
+impl SpillPayloadPath {
+    /// Creates a validated spill payload workspace path string.
+    ///
+    /// # Errors
+    /// Returns an error when the path is empty, whitespace-only, or contains `\0`.
+    pub fn new(value: impl Into<String>) -> Result<Self> {
+        let value = value.into();
+        if value.trim().is_empty() {
+            return Err(ShardLoomError::InvalidOperation(
+                "spill payload workspace path must not be empty".to_string(),
+            ));
+        }
+        if value.contains('\0') {
+            return Err(ShardLoomError::InvalidOperation(
+                "spill payload workspace path must not contain NUL".to_string(),
+            ));
+        }
+        Ok(Self(value))
+    }
+
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    #[must_use]
+    pub fn summary(&self) -> String {
+        format!("workspace_path={}", self.as_str())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SpillPayloadFsRef {
+    payload_ref: SpillPayloadRef,
+    workspace_path: SpillPayloadPath,
+}
+
+impl SpillPayloadFsRef {
+    #[must_use]
+    pub fn new(payload_ref: SpillPayloadRef, workspace_path: SpillPayloadPath) -> Self {
+        Self {
+            payload_ref,
+            workspace_path,
+        }
+    }
+
+    #[must_use]
+    pub fn payload_ref(&self) -> &SpillPayloadRef {
+        &self.payload_ref
+    }
+
+    #[must_use]
+    pub fn workspace_path(&self) -> &SpillPayloadPath {
+        &self.workspace_path
+    }
+
+    #[must_use]
+    pub fn file_name(&self) -> &str {
+        self.payload_ref.file_name()
+    }
+
+    #[must_use]
+    pub fn path_string(&self) -> String {
+        Path::new(self.workspace_path.as_str())
+            .join(self.file_name())
+            .to_string_lossy()
+            .into_owned()
+    }
+
+    #[must_use]
+    pub fn summary(&self) -> String {
+        format!(
+            "{}, payload_id={}, file_name={}, path={}",
+            self.workspace_path.summary(),
+            self.payload_ref.payload_id().as_str(),
+            self.file_name(),
+            self.path_string()
+        )
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SpillPayloadFsPlanStatus {
+    FeatureDisabled,
+    Planned,
+    Unsupported,
+}
+
+impl SpillPayloadFsPlanStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::FeatureDisabled => "feature_disabled",
+            Self::Planned => "planned",
+            Self::Unsupported => "unsupported",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_error(&self) -> bool {
+        matches!(self, Self::Unsupported)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SpillPayloadFsPlanMode {
+    ReportOnly,
+    FilesystemFeatureAvailable,
+    Unsupported,
+}
+
+impl SpillPayloadFsPlanMode {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::ReportOnly => "report_only",
+            Self::FilesystemFeatureAvailable => "filesystem_feature_available",
+            Self::Unsupported => "unsupported",
+        }
+    }
+
+    #[must_use]
+    pub const fn writes_payload(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn reads_payload(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn touches_filesystem(&self) -> bool {
+        false
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SpillPayloadFsPlanReport {
+    pub feature_status: SpillPayloadFsFeatureStatus,
+    pub status: SpillPayloadFsPlanStatus,
+    pub mode: SpillPayloadFsPlanMode,
+    pub fs_ref: SpillPayloadFsRef,
+    pub effects_performed: Vec<SpillPayloadEffect>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl SpillPayloadFsPlanReport {
+    #[must_use]
+    pub fn planned(fs_ref: SpillPayloadFsRef) -> Self {
+        Self {
+            feature_status: SpillPayloadFsFeatureStatus::Enabled,
+            status: SpillPayloadFsPlanStatus::Planned,
+            mode: SpillPayloadFsPlanMode::FilesystemFeatureAvailable,
+            fs_ref,
+            effects_performed: Vec::new(),
+            diagnostics: Vec::new(),
+        }
+    }
+    #[must_use]
+    pub fn feature_disabled(fs_ref: SpillPayloadFsRef) -> Self {
+        Self {
+            feature_status: SpillPayloadFsFeatureStatus::Disabled,
+            status: SpillPayloadFsPlanStatus::FeatureDisabled,
+            mode: SpillPayloadFsPlanMode::ReportOnly,
+            fs_ref,
+            effects_performed: Vec::new(),
+            diagnostics: Vec::new(),
+        }
+    }
+    #[must_use]
+    pub fn unsupported(
+        fs_ref: SpillPayloadFsRef,
+        feature: impl Into<String>,
+        reason: impl Into<String>,
+    ) -> Self {
+        let diagnostic = Diagnostic::unsupported(
+            DiagnosticCode::UnsupportedEffect,
+            feature,
+            format!(
+                "Unsupported spill payload filesystem operation: {}",
+                reason.into()
+            ),
+            Some("fallback_attempted=false".to_string()),
+        );
+        let mut report = Self {
+            feature_status: if spill_payload_fs_feature_enabled() {
+                SpillPayloadFsFeatureStatus::Enabled
+            } else {
+                SpillPayloadFsFeatureStatus::Disabled
+            },
+            status: SpillPayloadFsPlanStatus::Unsupported,
+            mode: SpillPayloadFsPlanMode::Unsupported,
+            fs_ref,
+            effects_performed: Vec::new(),
+            diagnostics: Vec::new(),
+        };
+        report.add_diagnostic(diagnostic);
+        report
+    }
+
+    #[must_use]
+    pub fn from_fs_ref(fs_ref: SpillPayloadFsRef) -> Self {
+        if spill_payload_fs_feature_enabled() {
+            Self::planned(fs_ref)
+        } else {
+            Self::feature_disabled(fs_ref)
+        }
+    }
+    pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
+    }
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.status.is_error()
+            || self.diagnostics.iter().any(|d| {
+                matches!(
+                    d.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+    #[must_use]
+    pub fn payload_written(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub fn payload_read(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub fn cleanup_performed(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub fn object_store_io(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub fn output_dataset_write(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub fn fallback_execution_allowed(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub fn is_side_effect_free(&self) -> bool {
+        true
+    }
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        let mut text = String::new();
+        let _ = writeln!(text, "feature status: {}", self.feature_status.as_str());
+        let _ = writeln!(text, "plan status: {}", self.status.as_str());
+        let _ = writeln!(text, "mode: {}", self.mode.as_str());
+        let _ = writeln!(
+            text,
+            "workspace path: {}",
+            self.fs_ref.workspace_path().as_str()
+        );
+        let _ = writeln!(
+            text,
+            "payload id: {}",
+            self.fs_ref.payload_ref().payload_id().as_str()
+        );
+        let _ = writeln!(text, "file name: {}", self.fs_ref.file_name());
+        let _ = writeln!(text, "path string: {}", self.fs_ref.path_string());
+        let _ = writeln!(text, "payload written: false");
+        let _ = writeln!(text, "payload read: false");
+        let _ = writeln!(text, "cleanup performed: false");
+        let _ = writeln!(text, "object-store IO: false");
+        let _ = writeln!(text, "output dataset write: false");
+        let _ = writeln!(text, "fallback execution disabled");
+        if !self.diagnostics.is_empty() {
+            let _ = writeln!(text, "diagnostics:");
+            for d in &self.diagnostics {
+                let _ = writeln!(
+                    text,
+                    "- [{}] {} ({})",
+                    d.code.as_str(),
+                    d.message,
+                    d.severity.as_str()
+                );
+            }
+        }
+        text
+    }
+}
+
+#[must_use]
+pub fn plan_spill_payload_filesystem_ref(fs_ref: SpillPayloadFsRef) -> SpillPayloadFsPlanReport {
+    SpillPayloadFsPlanReport::from_fs_ref(fs_ref)
 }
 
 impl SpillPayloadEffect {
@@ -637,5 +959,83 @@ mod tests {
         assert!(text.contains("diagnostics:"));
         assert!(text.contains("SL_NO_FALLBACK_EXECUTION"));
         assert!(text.contains("still disabled"));
+    }
+
+    fn sample_fs_ref() -> SpillPayloadFsRef {
+        let payload_id = SpillPayloadId::new("payload-fs-1").expect("valid payload id");
+        let payload_ref =
+            SpillPayloadRef::new(payload_id, "workspace-a").expect("valid payload ref");
+        let workspace_path = SpillPayloadPath::new("relative/workspace").expect("valid path");
+        SpillPayloadFsRef::new(payload_ref, workspace_path)
+    }
+
+    #[cfg(not(feature = "spill-payload-fs"))]
+    #[test]
+    fn spill_payload_fs_feature_disabled_by_default() {
+        assert!(!spill_payload_fs_feature_enabled());
+        assert!(!SpillPayloadFsFeatureStatus::Disabled.is_enabled());
+    }
+
+    #[test]
+    fn spill_payload_path_rejects_empty_whitespace_and_nul() {
+        assert!(SpillPayloadPath::new("").is_err());
+        assert!(SpillPayloadPath::new("   ").is_err());
+        assert!(SpillPayloadPath::new("a\0b").is_err());
+    }
+
+    #[test]
+    fn spill_payload_path_constructor_is_pure_validation() {
+        let path = SpillPayloadPath::new("does/not/need/to/exist").expect("valid path");
+        assert_eq!(path.as_str(), "does/not/need/to/exist");
+    }
+
+    #[test]
+    fn spill_payload_fs_ref_path_string_is_deterministic() {
+        let fs_ref = sample_fs_ref();
+        assert_eq!(
+            fs_ref.path_string(),
+            "relative/workspace/payload-fs-1.spill".to_string()
+        );
+    }
+
+    #[test]
+    fn spill_payload_fs_plan_mode_report_only_no_effects() {
+        let mode = SpillPayloadFsPlanMode::ReportOnly;
+        assert!(!mode.writes_payload());
+        assert!(!mode.reads_payload());
+        assert!(!mode.touches_filesystem());
+    }
+
+    #[cfg(not(feature = "spill-payload-fs"))]
+    #[test]
+    fn plan_spill_payload_filesystem_ref_default_is_feature_disabled() {
+        let report = plan_spill_payload_filesystem_ref(sample_fs_ref());
+        assert_eq!(report.status, SpillPayloadFsPlanStatus::FeatureDisabled);
+        assert!(!report.payload_written());
+        assert!(!report.payload_read());
+        assert!(!report.cleanup_performed());
+        assert!(!report.object_store_io());
+        assert!(!report.output_dataset_write());
+        assert!(!report.fallback_execution_allowed());
+        assert!(report.is_side_effect_free());
+        let text = report.to_human_text();
+        assert!(text.contains("fallback execution disabled"));
+        assert!(text.contains("payload written: false"));
+        assert!(text.contains("payload read: false"));
+    }
+
+    #[cfg(feature = "spill-payload-fs")]
+    #[test]
+    fn spill_payload_fs_feature_enabled_when_feature_selected() {
+        assert!(spill_payload_fs_feature_enabled());
+        let report = plan_spill_payload_filesystem_ref(sample_fs_ref());
+        assert_eq!(report.status, SpillPayloadFsPlanStatus::Planned);
+        assert!(!report.payload_written());
+        assert!(!report.payload_read());
+        assert!(!report.cleanup_performed());
+        assert!(!report.object_store_io());
+        assert!(!report.output_dataset_write());
+        assert!(!report.fallback_execution_allowed());
+        assert!(report.is_side_effect_free());
     }
 }

@@ -82,9 +82,12 @@ pub use streaming::{
 
 pub use spill_lifecycle::*;
 pub use spill_payload::{
-    SpillPayloadEffect, SpillPayloadId, SpillPayloadMode, SpillPayloadPlanReport,
-    SpillPayloadPlanRequest, SpillPayloadRef, SpillPayloadStatus, SyntheticSpillPayload,
-    plan_spill_payload, spill_payload_plan_is_side_effect_free,
+    SpillPayloadEffect, SpillPayloadFsFeatureStatus, SpillPayloadFsPlanMode,
+    SpillPayloadFsPlanReport, SpillPayloadFsPlanStatus, SpillPayloadFsRef, SpillPayloadId,
+    SpillPayloadMode, SpillPayloadPath, SpillPayloadPlanReport, SpillPayloadPlanRequest,
+    SpillPayloadRef, SpillPayloadStatus, SyntheticSpillPayload, plan_spill_payload,
+    plan_spill_payload_filesystem_ref, spill_payload_fs_feature_enabled,
+    spill_payload_plan_is_side_effect_free,
 };
 
 pub use runtime::{
