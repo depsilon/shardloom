@@ -21,6 +21,7 @@ pub enum VortexRuntimeBridgeStatus {
     Unsupported,
 }
 impl VortexRuntimeBridgeStatus {
+    #[must_use]
     pub const fn as_str(&self) -> &'static str {
         match self {
             Self::Planned => "planned",
@@ -33,9 +34,11 @@ impl VortexRuntimeBridgeStatus {
             Self::Unsupported => "unsupported",
         }
     }
+    #[must_use]
     pub const fn is_error(&self) -> bool {
         matches!(self, Self::Unsupported)
     }
+    #[must_use]
     pub const fn requires_future_execution(&self) -> bool {
         matches!(
             self,
@@ -54,6 +57,7 @@ pub enum VortexRuntimeBridgeMode {
     Unsupported,
 }
 impl VortexRuntimeBridgeMode {
+    #[must_use]
     pub const fn as_str(&self) -> &'static str {
         match self {
             Self::TaskGraphPlanOnly => "task_graph_plan_only",
@@ -62,6 +66,7 @@ impl VortexRuntimeBridgeMode {
             Self::Unsupported => "unsupported",
         }
     }
+    #[must_use]
     pub const fn executes_tasks(&self) -> bool {
         false
     }
@@ -77,6 +82,7 @@ pub enum VortexTaskMappingKind {
     Unsupported,
 }
 impl VortexTaskMappingKind {
+    #[must_use]
     pub const fn as_str(&self) -> &'static str {
         match self {
             Self::NoTaskNeeded => "no_task_needed",
@@ -87,6 +93,7 @@ impl VortexTaskMappingKind {
             Self::Unsupported => "unsupported",
         }
     }
+    #[must_use]
     pub const fn requires_future_execution(&self) -> bool {
         matches!(
             self,
@@ -126,6 +133,7 @@ impl VortexTaskMapping {
         ));
         out
     }
+    #[must_use]
     pub fn metadata_task(segment_id: Option<SegmentId>, task_id: TaskId) -> Self {
         Self {
             kind: VortexTaskMappingKind::MetadataTask,
@@ -136,6 +144,7 @@ impl VortexTaskMapping {
             diagnostics: vec![],
         }
     }
+    #[must_use]
     pub fn segment_scan_task(segment_id: Option<SegmentId>, task_id: TaskId) -> Self {
         Self {
             kind: VortexTaskMappingKind::SegmentScanTask,
@@ -146,6 +155,7 @@ impl VortexTaskMapping {
             diagnostics: vec![],
         }
     }
+    #[must_use]
     pub fn encoded_evaluate_task(segment_id: Option<SegmentId>, task_id: TaskId) -> Self {
         Self {
             kind: VortexTaskMappingKind::EncodedEvaluateTask,
@@ -156,6 +166,7 @@ impl VortexTaskMapping {
             diagnostics: vec![],
         }
     }
+    #[must_use]
     pub fn partial_decode_task(segment_id: Option<SegmentId>, task_id: TaskId) -> Self {
         Self {
             kind: VortexTaskMappingKind::PartialDecodeTask,
@@ -187,10 +198,12 @@ impl VortexTaskMapping {
         ));
         out
     }
+    #[must_use]
     pub fn with_split_id(mut self, split_id: impl Into<String>) -> Self {
         self.split_id = Some(split_id.into());
         self
     }
+    #[must_use]
     pub fn with_task(mut self, task: SegmentTask) -> Self {
         self.task = Some(task);
         self
@@ -198,6 +211,7 @@ impl VortexTaskMapping {
     pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
         self.diagnostics.push(diagnostic);
     }
+    #[must_use]
     pub fn requires_future_execution(&self) -> bool {
         self.kind.requires_future_execution()
     }
@@ -229,6 +243,7 @@ pub struct VortexRuntimeBridgeInput {
     pub retry_policy: RetryPolicy,
 }
 impl VortexRuntimeBridgeInput {
+    #[must_use]
     pub fn new(read_planning_report: crate::VortexReadPlanningReport) -> Self {
         Self {
             read_planning_report,
@@ -236,14 +251,17 @@ impl VortexRuntimeBridgeInput {
             retry_policy: RetryPolicy::none(),
         }
     }
+    #[must_use]
     pub fn with_resource_budget(mut self, budget: ResourceBudget) -> Self {
         self.resource_budget = budget;
         self
     }
+    #[must_use]
     pub fn with_retry_policy(mut self, policy: RetryPolicy) -> Self {
         self.retry_policy = policy;
         self
     }
+    #[must_use]
     pub fn summary(&self) -> String {
         format!(
             "runtime bridge input: intents={} budget={} retry={}",
@@ -278,6 +296,10 @@ pub struct VortexRuntimeBridgeReport {
     pub diagnostics: Vec<Diagnostic>,
 }
 impl VortexRuntimeBridgeReport {
+    /// Builds a planning-only `VortexRuntimeBridgeReport` from a `VortexReadPlanningReport`.
+    ///
+    /// # Errors
+    /// Returns identifier-construction errors while building deterministic `TaskId` values.
     pub fn from_input(input: VortexRuntimeBridgeInput) -> Result<Self> {
         let mut out = Self {
             status: VortexRuntimeBridgeStatus::Planned,
@@ -311,84 +333,13 @@ impl VortexRuntimeBridgeReport {
         let intents = out.input.read_planning_report.segment_intents.clone();
         for (i, intent) in intents.iter().enumerate() {
             let id = TaskId::new(format!("vortex-task-{i}"))?;
-            let mapping = match intent.status {
-                crate::VortexReadIntentStatus::Planned => {
-                    VortexTaskMapping::metadata_task(intent.segment_id.clone(), id)
-                }
-                crate::VortexReadIntentStatus::Pruned => VortexTaskMapping::no_task_needed(
-                    intent.segment_id.clone(),
-                    "pruned by metadata",
-                ),
-                crate::VortexReadIntentStatus::MetadataOnly => {
-                    VortexTaskMapping::metadata_task(intent.segment_id.clone(), id)
-                }
-                crate::VortexReadIntentStatus::NeedsEncodedRead => {
-                    VortexTaskMapping::encoded_evaluate_task(intent.segment_id.clone(), id)
-                }
-                crate::VortexReadIntentStatus::NeedsPartialDecode => {
-                    VortexTaskMapping::partial_decode_task(intent.segment_id.clone(), id)
-                }
-                crate::VortexReadIntentStatus::BlockedByMissingMetadata => {
-                    let mut m = VortexTaskMapping::no_task_needed(
-                        intent.segment_id.clone(),
-                        "blocked by missing metadata",
-                    );
-                    m.add_diagnostic(Diagnostic::new(
-                        DiagnosticCode::MissingStatistics,
-                        DiagnosticSeverity::Warning,
-                        shardloom_core::DiagnosticCategory::Statistics,
-                        "Blocked by missing metadata",
-                        Some("vortex-runtime-bridge".to_string()),
-                        Some("No runtime task created".to_string()),
-                        None,
-                        FallbackStatus::disabled_by_policy(),
-                    ));
-                    m
-                }
-                crate::VortexReadIntentStatus::Unsupported => VortexTaskMapping::unsupported(
-                    intent.segment_id.clone(),
-                    "vortex-runtime-bridge",
-                    "unsupported read intent",
-                ),
-            };
+            let mapping = Self::mapping_for_intent(intent, id.clone());
             let mut mapping = if let Some(split) = intent.split.as_ref() {
                 mapping.with_split_id(split.split_id.clone())
             } else {
                 mapping
             };
-            if mapping.requires_future_execution()
-                || mapping.kind == VortexTaskMappingKind::MetadataTask
-            {
-                let kind = match mapping.kind {
-                    VortexTaskMappingKind::MetadataTask => TaskKind::MetadataRead,
-                    VortexTaskMappingKind::EncodedEvaluateTask => TaskKind::EncodedEvaluate,
-                    VortexTaskMappingKind::PartialDecodeTask => TaskKind::PartialDecode,
-                    _ => TaskKind::SegmentScan,
-                };
-                let mut task =
-                    SegmentTask::new(mapping.task_id.clone().expect("task id exists"), kind)
-                        .with_materialization(intent.materialization.clone())
-                        .with_resource_budget(out.input.resource_budget.clone())
-                        .with_retry_policy(out.input.retry_policy.clone());
-                if let Some(seg) = intent.segment_id.clone() {
-                    task.add_segment(seg);
-                }
-                if let Some(split) = intent.split.as_ref() {
-                    for col in &split.required_columns {
-                        task.add_required_column(col.clone());
-                    }
-                    for br in &split.byte_ranges {
-                        if let Some(uri) = br.uri.clone() {
-                            task.add_byte_range(
-                                ByteRangeRequest::new(uri, br.range)
-                                    .with_policy(ReadPolicy::ByteRangePreferred),
-                            );
-                        }
-                    }
-                }
-                out.task_graph.add_task(task.clone());
-                mapping = mapping.with_task(task);
-            }
+            Self::attach_task_if_needed(&out.input, intent, &mut out.task_graph, &mut mapping, &id);
             out.add_mapping(mapping);
         }
         out.runtime_plan = RuntimePlanSkeleton::planned(out.task_graph.clone());
@@ -442,6 +393,92 @@ impl VortexRuntimeBridgeReport {
         };
         Ok(out)
     }
+    fn mapping_for_intent(
+        intent: &crate::VortexSegmentReadIntent,
+        id: TaskId,
+    ) -> VortexTaskMapping {
+        match intent.status {
+            crate::VortexReadIntentStatus::Planned
+            | crate::VortexReadIntentStatus::MetadataOnly => {
+                VortexTaskMapping::metadata_task(intent.segment_id.clone(), id)
+            }
+            crate::VortexReadIntentStatus::Pruned => {
+                VortexTaskMapping::no_task_needed(intent.segment_id.clone(), "pruned by metadata")
+            }
+            crate::VortexReadIntentStatus::NeedsEncodedRead => {
+                VortexTaskMapping::encoded_evaluate_task(intent.segment_id.clone(), id)
+            }
+            crate::VortexReadIntentStatus::NeedsPartialDecode => {
+                VortexTaskMapping::partial_decode_task(intent.segment_id.clone(), id)
+            }
+            crate::VortexReadIntentStatus::BlockedByMissingMetadata => {
+                let mut m = VortexTaskMapping::no_task_needed(
+                    intent.segment_id.clone(),
+                    "blocked by missing metadata",
+                );
+                m.add_diagnostic(Diagnostic::new(
+                    DiagnosticCode::MissingStatistics,
+                    DiagnosticSeverity::Warning,
+                    shardloom_core::DiagnosticCategory::Statistics,
+                    "Blocked by missing metadata",
+                    Some("vortex-runtime-bridge".to_string()),
+                    Some("No runtime task created".to_string()),
+                    None,
+                    FallbackStatus::disabled_by_policy(),
+                ));
+                m
+            }
+            crate::VortexReadIntentStatus::Unsupported => VortexTaskMapping::unsupported(
+                intent.segment_id.clone(),
+                "vortex-runtime-bridge",
+                "unsupported read intent",
+            ),
+        }
+    }
+    fn attach_task_if_needed(
+        input: &VortexRuntimeBridgeInput,
+        intent: &crate::VortexSegmentReadIntent,
+        task_graph: &mut TaskGraph,
+        mapping: &mut VortexTaskMapping,
+        id: &TaskId,
+    ) {
+        if !mapping.requires_future_execution()
+            && mapping.kind != VortexTaskMappingKind::MetadataTask
+        {
+            return;
+        }
+        let kind = match mapping.kind {
+            VortexTaskMappingKind::MetadataTask => TaskKind::MetadataRead,
+            VortexTaskMappingKind::EncodedEvaluateTask => TaskKind::EncodedEvaluate,
+            VortexTaskMappingKind::PartialDecodeTask => TaskKind::PartialDecode,
+            _ => TaskKind::SegmentScan,
+        };
+        let mut task =
+            SegmentTask::new(mapping.task_id.clone().unwrap_or_else(|| id.clone()), kind)
+                .with_materialization(intent.materialization.clone())
+                .with_resource_budget(input.resource_budget.clone())
+                .with_retry_policy(input.retry_policy.clone());
+        if let Some(seg) = intent.segment_id.clone() {
+            task.add_segment(seg);
+        }
+        if let Some(split) = intent.split.as_ref() {
+            for col in &split.required_columns {
+                task.add_required_column(col.clone());
+            }
+            for br in &split.byte_ranges {
+                if let Some(uri) = br.uri.clone() {
+                    task.add_byte_range(
+                        ByteRangeRequest::new(uri, br.range)
+                            .with_policy(ReadPolicy::ByteRangePreferred),
+                    );
+                }
+            }
+        }
+        task_graph.add_task(task.clone());
+        *mapping = mapping.clone().with_task(task);
+    }
+    /// # Errors
+    /// Propagates errors from `VortexRuntimeBridgeReport::from_input`.
     pub fn from_read_planning_report(report: crate::VortexReadPlanningReport) -> Result<Self> {
         Self::from_input(VortexRuntimeBridgeInput::new(report))
     }
@@ -520,6 +557,7 @@ impl VortexRuntimeBridgeReport {
             || self.task_graph.has_errors()
             || self.runtime_plan.has_errors()
     }
+    #[must_use]
     pub const fn is_side_effect_free(&self) -> bool {
         !self.data_executed
             && !self.data_read
@@ -529,6 +567,7 @@ impl VortexRuntimeBridgeReport {
             && !self.external_effects_executed
             && !self.fallback_execution_allowed
     }
+    #[must_use]
     pub fn to_human_text(&self) -> String {
         let mut out = String::new();
         let _ = writeln!(&mut out, "bridge status: {}", self.status.as_str());
@@ -564,11 +603,14 @@ impl VortexRuntimeBridgeReport {
     }
 }
 
+/// # Errors
+/// Propagates errors from `VortexRuntimeBridgeReport::from_read_planning_report`.
 pub fn build_vortex_runtime_task_graph(
     read_planning_report: crate::VortexReadPlanningReport,
 ) -> Result<VortexRuntimeBridgeReport> {
     VortexRuntimeBridgeReport::from_read_planning_report(read_planning_report)
 }
+#[must_use]
 pub fn vortex_runtime_bridge_is_side_effect_free(report: &VortexRuntimeBridgeReport) -> bool {
     report.is_side_effect_free()
 }
