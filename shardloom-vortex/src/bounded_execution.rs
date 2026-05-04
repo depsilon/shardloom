@@ -10,8 +10,9 @@ use shardloom_core::{
 use shardloom_exec::{
     MemoryBudget, SpillLifecycleRequest, SpillPayloadFsRef, SpillPayloadRoundTripReport,
     SpillPayloadRoundTripRequest, SpillPayloadWriteRequest, SpillPolicy,
-    SpillReservationIntegrationReport, SpillReservationIntegrationRequest, SyntheticSpillPayload,
-    TaskId, plan_spill_reservation_integration, roundtrip_spill_payload,
+    SpillReservationIntegrationReport, SpillReservationIntegrationRequest,
+    SpillReservationIntegrationStatus, SyntheticSpillPayload, TaskId,
+    plan_spill_reservation_integration, roundtrip_spill_payload,
 };
 
 use crate::{
@@ -812,6 +813,19 @@ impl VortexBoundedSpillIntegrationStatus {
     pub const fn requires_action(&self) -> bool {
         !matches!(self, Self::NotRequired | Self::PayloadRoundTripAvailable)
     }
+    pub const fn is_blocking(&self) -> bool {
+        matches!(
+            self,
+            Self::BlockedByMissingEstimate
+                | Self::BlockedByMemoryPolicy
+                | Self::BlockedBySpillPolicy
+                | Self::BlockedByFeatureGate
+                | Self::Unsupported
+        )
+    }
+    pub const fn allows_payload_roundtrip_available(&self) -> bool {
+        matches!(self, Self::ReservationReady | Self::PayloadWriteAllowed)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -956,6 +970,16 @@ impl VortexBoundedSpillIntegrationReport {
     /// # Errors
     /// Returns an error if reservation or synthetic payload roundtrip planning fails.
     pub fn from_request(request: VortexBoundedSpillIntegrationRequest) -> Result<Self> {
+        let blocked_by_memory = request
+            .bounded_report
+            .decisions
+            .iter()
+            .any(|d| matches!(d.kind, VortexBoundedExecutionDecisionKind::HoldForMemory));
+        let blocked_by_estimate = request
+            .bounded_report
+            .decisions
+            .iter()
+            .any(|d| matches!(d.kind, VortexBoundedExecutionDecisionKind::HoldForEstimate));
         let needs_spill = request.bounded_report.decisions.iter().any(|d| {
             matches!(
                 d.kind,
@@ -976,12 +1000,31 @@ impl VortexBoundedSpillIntegrationReport {
             out.request.lifecycle_request.clone(),
         )? {
             out.reservation_status = Some(r.status.as_str().to_string());
-            if r.has_errors() {
-                out.status = VortexBoundedSpillIntegrationStatus::BlockedBySpillPolicy;
-            } else {
-                out.status = VortexBoundedSpillIntegrationStatus::ReservationReady;
-            }
+            out.status = match r.status {
+                SpillReservationIntegrationStatus::LifecycleReady => {
+                    VortexBoundedSpillIntegrationStatus::ReservationReady
+                }
+                SpillReservationIntegrationStatus::NeedsEstimate => {
+                    VortexBoundedSpillIntegrationStatus::BlockedByMissingEstimate
+                }
+                SpillReservationIntegrationStatus::BlockedByPolicy => {
+                    VortexBoundedSpillIntegrationStatus::BlockedBySpillPolicy
+                }
+                SpillReservationIntegrationStatus::Unsupported => {
+                    VortexBoundedSpillIntegrationStatus::Unsupported
+                }
+                SpillReservationIntegrationStatus::NeedsWorkspace
+                | SpillReservationIntegrationStatus::LifecycleDeferred
+                | SpillReservationIntegrationStatus::Planned
+                | SpillReservationIntegrationStatus::NotRequired => {
+                    VortexBoundedSpillIntegrationStatus::ReservationRequired
+                }
+            };
             out.spill_reservation_report = Some(r);
+        } else if blocked_by_memory {
+            out.status = VortexBoundedSpillIntegrationStatus::BlockedByMemoryPolicy;
+        } else if blocked_by_estimate {
+            out.status = VortexBoundedSpillIntegrationStatus::BlockedByMissingEstimate;
         }
         if out.request.allow_synthetic_payload_roundtrip {
             out.payload_write_allowed = true;
@@ -995,14 +1038,41 @@ impl VortexBoundedSpillIntegrationReport {
                     out.payload_written = rep.payload_written();
                     out.payload_read = rep.payload_read();
                     out.cleanup_performed = rep.cleanup_performed();
-                    out.spill_data_is_synthetic = out.payload_written || out.payload_read;
-                    out.mode = VortexBoundedSpillIntegrationMode::SyntheticPayloadAvailable;
-                    out.status = VortexBoundedSpillIntegrationStatus::PayloadRoundTripAvailable;
+                    out.spill_data_is_synthetic = out.payload_written && out.payload_read;
+                    out.mode = VortexBoundedSpillIntegrationMode::SyntheticPayloadPlanning;
+                    out.status = VortexBoundedSpillIntegrationStatus::PayloadWriteAllowed;
+                    if !rep.has_errors()
+                        && rep.payload_written()
+                        && rep.payload_read()
+                        && out.status.allows_payload_roundtrip_available()
+                    {
+                        out.mode = VortexBoundedSpillIntegrationMode::SyntheticPayloadAvailable;
+                        out.status = VortexBoundedSpillIntegrationStatus::PayloadRoundTripAvailable;
+                        out.spill_data_is_synthetic = true;
+                    } else {
+                        match rep.status.as_str() {
+                            "feature_disabled" => {
+                                out.status =
+                                    VortexBoundedSpillIntegrationStatus::BlockedByFeatureGate;
+                                out.spill_data_is_synthetic = false;
+                            }
+                            "unsupported" => {
+                                out.status = VortexBoundedSpillIntegrationStatus::Unsupported;
+                            }
+                            _ if rep.has_errors() => {
+                                out.status =
+                                    VortexBoundedSpillIntegrationStatus::BlockedBySpillPolicy;
+                            }
+                            _ => {}
+                        }
+                    }
                     out.payload_roundtrip_report = Some(rep);
                 }
                 _ => {
                     out.mode = VortexBoundedSpillIntegrationMode::SyntheticPayloadPlanning;
-                    out.status = VortexBoundedSpillIntegrationStatus::PayloadPlanReady;
+                    if !out.status.is_blocking() {
+                        out.status = VortexBoundedSpillIntegrationStatus::PayloadPlanReady;
+                    }
                     out.add_diagnostic(Diagnostic::invalid_input(
                         "vortex_bounded_spill_integration",
                         "synthetic payload roundtrip requested but payload refs or reservation readiness are missing",
@@ -1103,6 +1173,13 @@ reservation required: {}",
         if let Some(status) = &self.reservation_status {
             let _ = writeln!(out, "reservation status: {status}");
         }
+        if let Some(roundtrip_report) = &self.payload_roundtrip_report {
+            let _ = writeln!(
+                out,
+                "nested payload roundtrip status: {}",
+                roundtrip_report.status.as_str()
+            );
+        }
         let _ = write!(
             out,
             "payload write allowed: {}
@@ -1183,6 +1260,9 @@ impl VortexBoundedSpillIntegrationRequest {
 mod tests {
     use super::*;
     use shardloom_core::DatasetUri;
+    use shardloom_exec::{
+        SpillPayloadId, SpillPayloadPath, SpillPayloadRef, SpillWorkspaceId, SpillWorkspacePath,
+    };
     fn sample_bounded() -> VortexBoundedExecutionReport {
         let req = crate::VortexQueryPrimitiveRequest::count_all(
             DatasetUri::new("file://tmp/test.vortex").expect("uri"),
@@ -1213,5 +1293,94 @@ mod tests {
     fn request_defaults() {
         let req = VortexBoundedSpillIntegrationRequest::new(sample_bounded());
         assert!(!req.allow_synthetic_payload_roundtrip);
+    }
+    fn blocked_spill_bounded() -> VortexBoundedExecutionReport {
+        let mut report = sample_bounded();
+        report.decisions = vec![VortexBoundedExecutionDecision::block_spill(
+            None,
+            "spill required for bounded execution",
+        )];
+        report.add_diagnostic(Diagnostic::invalid_input(
+            "bounded_execution",
+            "forced blocked status for reservation test",
+            "test-only blocked diagnostic",
+        ));
+        report
+    }
+    fn sample_payload_fs_ref() -> SpillPayloadFsRef {
+        let payload_id = SpillPayloadId::new("payload-1").expect("payload id");
+        let payload_ref = SpillPayloadRef::new(payload_id, "workspace-a").expect("payload ref");
+        let workspace =
+            SpillPayloadPath::new(std::env::temp_dir().display().to_string()).expect("workspace");
+        SpillPayloadFsRef::new(payload_ref, workspace)
+    }
+    fn lifecycle_request_with_error() -> SpillLifecycleRequest {
+        let mut req = SpillLifecycleRequest::report_only(
+            SpillWorkspaceId::new("ws-1").expect("workspace id"),
+            SpillWorkspacePath::new(std::env::temp_dir().display().to_string())
+                .expect("workspace path"),
+        );
+        req.add_diagnostic(Diagnostic::invalid_input(
+            "spill_lifecycle",
+            "forced blocking diagnostic for test",
+            "keep test deterministic",
+        ));
+        req
+    }
+    #[test]
+    fn feature_disabled_roundtrip_not_available() {
+        let report = plan_bounded_execution_spill_payload_roundtrip(
+            blocked_spill_bounded(),
+            None,
+            Some(sample_payload_fs_ref()),
+            Some(SyntheticSpillPayload::from_text("abc").expect("payload")),
+        )
+        .expect("report");
+        assert_ne!(
+            report.status,
+            VortexBoundedSpillIntegrationStatus::PayloadRoundTripAvailable
+        );
+        assert_ne!(
+            report.mode,
+            VortexBoundedSpillIntegrationMode::SyntheticPayloadAvailable
+        );
+        assert!(!report.payload_written);
+        assert!(!report.payload_read);
+        assert!(!report.query_spill_data_written);
+        assert!(!report.object_store_io);
+        assert!(!report.output_dataset_write);
+        assert!(!report.fallback_execution_allowed);
+    }
+    #[test]
+    fn blocked_reservation_not_downgraded_to_payload_plan_ready() {
+        let report = plan_bounded_execution_spill_payload_roundtrip(
+            blocked_spill_bounded(),
+            Some(lifecycle_request_with_error()),
+            None,
+            None,
+        )
+        .expect("report");
+        assert_ne!(
+            report.status,
+            VortexBoundedSpillIntegrationStatus::PayloadPlanReady
+        );
+        assert!(report.has_errors());
+        assert!(!report.fallback_execution_allowed);
+    }
+    #[test]
+    fn missing_payload_inputs_plans_when_not_blocked() {
+        let report = plan_bounded_execution_spill_payload_roundtrip(
+            blocked_spill_bounded(),
+            None,
+            None,
+            None,
+        )
+        .expect("report");
+        assert_ne!(
+            report.status,
+            VortexBoundedSpillIntegrationStatus::PayloadRoundTripAvailable
+        );
+        assert!(!report.payload_written);
+        assert!(!report.payload_read);
     }
 }
