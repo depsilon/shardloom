@@ -371,3 +371,15 @@ No spill data movement is implemented in this phase.
 - The command does not write manifests.
 - The command does not call upstream `Vortex` write APIs.
 - The command does not perform object-store IO.
+
+
+## Staged marker CLI
+
+- `vortex-staged-marker-write` exposes the staged marker helper through a stable `ShardLoom` command surface.
+- Default build remains feature-disabled/report-only.
+- Under `vortex-staged-output-fs`, the CLI may write only a tiny deterministic marker file in an existing local staged workspace.
+- It does not create workspaces.
+- It does not write output data.
+- It does not write manifests.
+- It does not call upstream `Vortex` write APIs.
+- It does not perform object-store IO.

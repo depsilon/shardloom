@@ -407,3 +407,11 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - This command is `ShardLoom`-native and wraps existing staged workspace setup reporting/helpers.
 - It does not use upstream `Vortex` write APIs.
 - It does not write output payload files or manifests.
+
+
+## `ShardLoom` staged marker write CLI
+
+- `ShardLoom` exposes staged marker writing via `vortex-staged-marker-write`.
+- The staged marker CLI is `ShardLoom`-native.
+- It does not use upstream `Vortex` write APIs.
+- Actual `Vortex` write execution remains deferred.
