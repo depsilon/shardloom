@@ -4,7 +4,7 @@
 
 - Production-grade engine completion estimate: approximately 37–38%.
 - Architecture/control-plane completion estimate: approximately 97%.
-- Current checkpoint: Phase 12B.1c — commit readiness integration validation closeout before protocol state machine.
+- Current checkpoint: Phase 12B.2a.1 — commit protocol state machine core contract (report-only, explicit signals only).
 - Immediate focus: keep commit execution, manifest finalization, output-data writes, upstream `Vortex` write API calls, and object-store writes disabled while validating report-only commit readiness integration before Phase 12B.2.
 
 ## Cross-cutting epic legend
@@ -877,8 +877,10 @@ Must include:
 - Phase 12A.4 complete: staged output/write-readiness closeout before commit protocol.
 - Phase 12B.1 complete: commit-intent core contract (report-only) before commit execution.
 - Phase 12B.1b complete: commit-intent report integrations for retry/cancellation/recovery inputs.
-- Phase 12B.1c current: commit readiness integration validation closeout.
-- Phase 12B.2 planned: commit protocol state machine (report-only start, still no broad commit execution).
+- Phase 12B.1c complete: commit readiness integration validation closeout.
+- Phase 12B.2a.1 current: commit protocol state machine core contract (report-only, explicit signals only).
+- Phase 12B.2a.2 planned: commit protocol report integration with commit-intent reports.
+- Phase 12B.3 planned: commit execution follow-on phases (still no fallback execution).
 
 ### Phase 12B.2 entry criteria
 

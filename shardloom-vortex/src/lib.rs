@@ -19,6 +19,7 @@ pub use adapter::{
 
 pub mod bounded_execution;
 pub mod commit_intent;
+pub mod commit_protocol;
 pub mod encoded_read_api;
 pub mod encoded_read_executor;
 pub mod encoded_read_probe;
@@ -143,6 +144,13 @@ pub use staged_manifest::{
     vortex_staged_manifest_draft_is_side_effect_free,
     vortex_staged_manifest_file_is_side_effect_free,
     vortex_staged_manifest_file_write_is_side_effect_free, write_vortex_staged_manifest_file,
+};
+
+pub use commit_protocol::{
+    VortexCommitProtocolEffect, VortexCommitProtocolMode, VortexCommitProtocolReport,
+    VortexCommitProtocolRequest, VortexCommitProtocolSignal, VortexCommitProtocolState,
+    VortexCommitProtocolStatus, VortexCommitProtocolTransition, plan_vortex_commit_protocol,
+    vortex_commit_protocol_is_side_effect_free,
 };
 
 pub use commit_intent::{
