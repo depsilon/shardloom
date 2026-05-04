@@ -279,6 +279,12 @@ impl VortexWriteIntentReport {
         {
             report.status = VortexWriteIntentStatus::StagedOutputRequired;
             report.mode = VortexWriteIntentMode::StagedOutputPlanning;
+        } else if !report
+            .request
+            .has_signal(VortexWriteIntentSignal::UpstreamVortexWriteFeatureEnabled)
+        {
+            report.status = VortexWriteIntentStatus::BlockedByFeatureGate;
+            report.mode = VortexWriteIntentMode::ReportOnly;
         } else {
             report.status = VortexWriteIntentStatus::Planned;
             report.mode = VortexWriteIntentMode::NativeVortexIntent;
@@ -572,10 +578,22 @@ mod tests {
         assert_eq!(rep.status, VortexWriteIntentStatus::StagedOutputRequired);
         assert_eq!(rep.mode, VortexWriteIntentMode::StagedOutputPlanning);
     }
+
     #[test]
-    fn all_signals_planned_but_disabled() {
+    fn missing_upstream_feature_gate_blocks() {
         let rep =
             VortexWriteIntentReport::from_request(base().commit_protocol_available(true)).unwrap();
+        assert_eq!(rep.status, VortexWriteIntentStatus::BlockedByFeatureGate);
+        assert_eq!(rep.mode, VortexWriteIntentMode::ReportOnly);
+    }
+    #[test]
+    fn all_signals_planned_but_disabled() {
+        let rep = VortexWriteIntentReport::from_request(
+            base()
+                .commit_protocol_available(true)
+                .upstream_vortex_write_feature_enabled(true),
+        )
+        .unwrap();
         assert_eq!(rep.status, VortexWriteIntentStatus::Planned);
         assert!(!rep.allows_write_execution());
         assert!(rep.is_side_effect_free());
