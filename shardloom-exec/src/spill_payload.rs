@@ -1432,6 +1432,312 @@ impl SpillPayloadReadReport {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SpillPayloadRoundTripOption {
+    CleanupAfter,
+}
+
+impl SpillPayloadRoundTripOption {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::CleanupAfter => "cleanup_after",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SpillPayloadRoundTripRequest {
+    pub write_request: SpillPayloadWriteRequest,
+    pub options: Vec<SpillPayloadRoundTripOption>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl SpillPayloadRoundTripRequest {
+    #[must_use]
+    pub fn new(write_request: SpillPayloadWriteRequest) -> Self {
+        Self {
+            write_request,
+            options: Vec::new(),
+            diagnostics: Vec::new(),
+        }
+    }
+    #[must_use]
+    pub fn cleanup_after(mut self, value: bool) -> Self {
+        if value
+            && !self
+                .options
+                .contains(&SpillPayloadRoundTripOption::CleanupAfter)
+        {
+            self.options.push(SpillPayloadRoundTripOption::CleanupAfter);
+        } else if !value {
+            self.options
+                .retain(|o| *o != SpillPayloadRoundTripOption::CleanupAfter);
+        }
+        self
+    }
+    #[must_use]
+    pub fn should_cleanup(&self) -> bool {
+        self.options
+            .contains(&SpillPayloadRoundTripOption::CleanupAfter)
+    }
+    pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
+    }
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.diagnostics
+            .iter()
+            .chain(self.write_request.diagnostics.iter())
+            .any(|d| {
+                matches!(
+                    d.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+    #[must_use]
+    pub fn summary(&self) -> String {
+        format!(
+            "{}, roundtrip_options={:?}",
+            self.write_request.summary(),
+            self.options
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SpillPayloadRoundTripReport {
+    pub status: SpillPayloadStatus,
+    pub mode: SpillPayloadMode,
+    pub request_summary: String,
+    pub write_report: SpillPayloadWriteReport,
+    pub read_report: Option<SpillPayloadReadReport>,
+    pub cleanup_performed: bool,
+    pub effects_performed: Vec<SpillPayloadEffect>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl SpillPayloadRoundTripReport {
+    /// Builds a `SpillPayloadRoundTripReport` and performs gated local roundtrip verification.
+    ///
+    /// # Errors
+    /// Returns an error when write/read operations fail or cleanup file removal fails.
+    pub fn from_request(request: SpillPayloadRoundTripRequest) -> Result<Self> {
+        let request_summary = request.summary();
+        let SpillPayloadRoundTripRequest {
+            write_request,
+            options,
+            diagnostics: request_diagnostics,
+        } = request;
+        let write_report = write_spill_payload(write_request)?;
+        if !spill_payload_fs_feature_enabled() {
+            return Ok(Self {
+                status: SpillPayloadStatus::FeatureDisabled,
+                mode: SpillPayloadMode::ReportOnly,
+                request_summary,
+                write_report,
+                read_report: None,
+                cleanup_performed: false,
+                effects_performed: Vec::new(),
+                diagnostics: Vec::new(),
+            });
+        }
+        let mut effects = Vec::new();
+        if write_report.payload_written() {
+            effects.push(SpillPayloadEffect::PayloadWritten);
+        }
+        if write_report.has_errors() || !write_report.payload_written() {
+            return Ok(Self {
+                status: write_report.status,
+                mode: write_report.mode,
+                request_summary,
+                write_report,
+                read_report: None,
+                cleanup_performed: false,
+                effects_performed: effects,
+                diagnostics: Vec::new(),
+            });
+        }
+        let mut read_request = SpillPayloadReadRequest::new(write_report.request.fs_ref.clone())
+            .with_expected_len(write_report.bytes_written);
+        if let Some(checksum) = write_report.checksum {
+            read_request = read_request.with_expected_checksum(checksum);
+        }
+        let read_report = read_spill_payload(read_request)?;
+        if read_report.payload_read() {
+            effects.push(SpillPayloadEffect::PayloadRead);
+        }
+        let mut cleanup_performed = false;
+        let mut diagnostics = Vec::new();
+        if options.contains(&SpillPayloadRoundTripOption::CleanupAfter)
+            && read_report.verification_passed
+        {
+            let target = Path::new(&write_report.request.fs_ref.path_string()).to_path_buf();
+            fs::remove_file(&target).map_err(|e| {
+                ShardLoomError::InvalidOperation(format!(
+                    "failed to remove spill payload '{}': {e}",
+                    target.display()
+                ))
+            })?;
+            cleanup_performed = true;
+            effects.push(SpillPayloadEffect::CleanupPerformed);
+        }
+        let status = if read_report.verification_passed {
+            SpillPayloadStatus::PayloadPrepared
+        } else {
+            read_report.status
+        };
+        if !read_report.verification_passed {
+            diagnostics.push(Diagnostic::invalid_input(
+                "spill_payload_roundtrip",
+                "roundtrip verification failed",
+                "Inspect write/read diagnostics for details.",
+            ));
+        }
+        Ok(Self {
+            status,
+            mode: SpillPayloadMode::SyntheticPayloadPlan,
+            request_summary,
+            write_report,
+            read_report: Some(read_report),
+            cleanup_performed,
+            effects_performed: effects,
+            diagnostics: request_diagnostics.into_iter().chain(diagnostics).collect(),
+        })
+    }
+
+    #[must_use]
+    pub fn unsupported(
+        request_summary: impl Into<String>,
+        feature: impl Into<String>,
+        reason: impl Into<String>,
+    ) -> Self {
+        let write_report = SpillPayloadWriteReport::unsupported(
+            SpillPayloadWriteRequest::new(
+                SpillPayloadFsRef::new(
+                    SpillPayloadRef {
+                        payload_id: SpillPayloadId("unsupported-roundtrip".to_string()),
+                        workspace_label: "unsupported".to_string(),
+                        file_name: "unsupported-roundtrip.spill".to_string(),
+                    },
+                    SpillPayloadPath("unsupported".to_string()),
+                ),
+                SyntheticSpillPayload {
+                    bytes: b"unsupported".to_vec(),
+                },
+            ),
+            "spill_payload_roundtrip",
+            reason.into(),
+        );
+        let mut report = Self {
+            status: SpillPayloadStatus::Unsupported,
+            mode: SpillPayloadMode::Unsupported,
+            request_summary: request_summary.into(),
+            write_report,
+            read_report: None,
+            cleanup_performed: false,
+            effects_performed: Vec::new(),
+            diagnostics: Vec::new(),
+        };
+        report.add_diagnostic(Diagnostic::unsupported(
+            DiagnosticCode::UnsupportedEffect,
+            feature,
+            "Unsupported spill payload roundtrip operation".to_string(),
+            Some("fallback_attempted=false".to_string()),
+        ));
+        report
+    }
+    pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
+    }
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.status.is_error()
+            || self
+                .diagnostics
+                .iter()
+                .chain(self.write_report.diagnostics.iter())
+                .chain(self.write_report.request.diagnostics.iter())
+                .chain(
+                    self.read_report
+                        .iter()
+                        .flat_map(|r| r.diagnostics.iter().chain(r.request.diagnostics.iter())),
+                )
+                .any(|d| {
+                    matches!(
+                        d.severity,
+                        DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                    )
+                })
+    }
+    #[must_use]
+    pub fn payload_written(&self) -> bool {
+        self.effects_performed
+            .contains(&SpillPayloadEffect::PayloadWritten)
+    }
+    #[must_use]
+    pub fn payload_read(&self) -> bool {
+        self.effects_performed
+            .contains(&SpillPayloadEffect::PayloadRead)
+    }
+    #[must_use]
+    pub const fn cleanup_performed(&self) -> bool {
+        self.cleanup_performed
+    }
+    #[must_use]
+    pub const fn object_store_io(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn output_dataset_write(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn fallback_execution_allowed(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub fn is_side_effect_free(&self) -> bool {
+        !self.payload_written() && !self.payload_read() && !self.cleanup_performed
+    }
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        let mut t = String::new();
+        let _ = writeln!(
+            t,
+            "spill payload roundtrip status: {}",
+            self.status.as_str()
+        );
+        let _ = writeln!(t, "mode: {}", self.mode.as_str());
+        let _ = writeln!(t, "request summary: {}", self.request_summary);
+        let _ = writeln!(t, "write status: {}", self.write_report.status.as_str());
+        let _ = writeln!(t, "bytes written: {}", self.write_report.bytes_written);
+        if let Some(rr) = &self.read_report {
+            let _ = writeln!(t, "read status: {}", rr.status.as_str());
+            let _ = writeln!(t, "bytes read: {}", rr.bytes_read);
+            let _ = writeln!(t, "verification passed: {}", rr.verification_passed);
+        }
+        let _ = writeln!(t, "cleanup performed: {}", self.cleanup_performed);
+        let _ = writeln!(t, "payload written: {}", self.payload_written());
+        let _ = writeln!(t, "payload read: {}", self.payload_read());
+        let _ = writeln!(t, "object-store IO: false");
+        let _ = writeln!(t, "output dataset write: false");
+        let _ = writeln!(t, "fallback execution disabled");
+        t
+    }
+}
+
+/// Performs a synthetic spill payload roundtrip behind the `spill-payload-fs` feature gate.
+///
+/// # Errors
+/// Returns an error when write/read operations fail or cleanup deletion fails.
+pub fn roundtrip_spill_payload(
+    request: SpillPayloadRoundTripRequest,
+) -> Result<SpillPayloadRoundTripReport> {
+    SpillPayloadRoundTripReport::from_request(request)
+}
+
 /// Plans a report-only spill payload contract response.
 ///
 /// # Errors
@@ -1630,6 +1936,9 @@ mod tests {
     fn sample_read_request() -> SpillPayloadReadRequest {
         SpillPayloadReadRequest::new(sample_fs_ref())
     }
+    fn sample_roundtrip_request() -> SpillPayloadRoundTripRequest {
+        SpillPayloadRoundTripRequest::new(sample_write_request())
+    }
 
     #[cfg(not(feature = "spill-payload-fs"))]
     #[test]
@@ -1759,6 +2068,32 @@ mod tests {
         assert_eq!(request.expected_checksum, Some(33));
     }
 
+    #[cfg(not(feature = "spill-payload-fs"))]
+    #[test]
+    fn roundtrip_spill_payload_feature_disabled_report_only() {
+        let report = roundtrip_spill_payload(sample_roundtrip_request()).expect("report");
+        assert_eq!(report.status, SpillPayloadStatus::FeatureDisabled);
+        assert!(report.read_report.is_none());
+        assert!(!report.cleanup_performed());
+        assert!(!report.payload_written());
+        assert!(!report.payload_read());
+        assert!(!report.object_store_io());
+        assert!(!report.output_dataset_write());
+        assert!(!report.fallback_execution_allowed());
+        assert!(report.is_side_effect_free());
+        let text = report.to_human_text();
+        assert!(text.contains("fallback execution disabled"));
+        assert!(text.contains("cleanup performed: false"));
+    }
+
+    #[test]
+    fn roundtrip_request_cleanup_option_builder() {
+        let request = sample_roundtrip_request();
+        assert!(!request.should_cleanup());
+        let request = request.cleanup_after(true);
+        assert!(request.should_cleanup());
+    }
+
     #[cfg(feature = "spill-payload-fs")]
     #[test]
     fn write_spill_payload_feature_flow() {
@@ -1872,6 +2207,66 @@ mod tests {
         }
         if workspace.exists() {
             fs::remove_dir(&workspace).expect("remove workspace");
+        }
+    }
+
+    #[cfg(feature = "spill-payload-fs")]
+    #[test]
+    fn roundtrip_spill_payload_feature_flow_and_cleanup() {
+        let unique = format!("spill-payload-roundtrip-{}-{}", std::process::id(), 91);
+        let workspace = std::env::temp_dir().join(unique);
+        let payload_id = SpillPayloadId::new("payload-roundtrip").expect("id");
+        let payload_ref = SpillPayloadRef::new(payload_id, "workspace-roundtrip").expect("ref");
+        let fs_ref = SpillPayloadFsRef::new(
+            payload_ref,
+            SpillPayloadPath::new(workspace.to_string_lossy().into_owned()).expect("path"),
+        );
+        let payload = SyntheticSpillPayload::from_text("tiny-roundtrip").expect("payload");
+
+        let report = roundtrip_spill_payload(SpillPayloadRoundTripRequest::new(
+            SpillPayloadWriteRequest::new(fs_ref.clone(), payload.clone()).create_workspace(true),
+        ))
+        .expect("roundtrip report");
+        assert!(report.payload_written());
+        assert!(report.payload_read());
+        assert!(!report.object_store_io());
+        assert!(!report.output_dataset_write());
+        assert!(!report.fallback_execution_allowed());
+        assert!(report.read_report.is_some());
+        assert!(
+            report
+                .read_report
+                .as_ref()
+                .is_some_and(|r| r.verification_passed)
+        );
+        let payload_file = workspace.join(fs_ref.file_name());
+        assert!(payload_file.exists());
+
+        let blocked = roundtrip_spill_payload(SpillPayloadRoundTripRequest::new(
+            SpillPayloadWriteRequest::new(
+                fs_ref.clone(),
+                SyntheticSpillPayload::from_text("new").expect("payload"),
+            )
+            .create_workspace(true),
+        ))
+        .expect("blocked report");
+        assert_eq!(blocked.status, SpillPayloadStatus::BlockedByExistingPayload);
+
+        let cleanup_report = roundtrip_spill_payload(
+            SpillPayloadRoundTripRequest::new(
+                SpillPayloadWriteRequest::new(fs_ref.clone(), payload).allow_overwrite(true),
+            )
+            .cleanup_after(true),
+        )
+        .expect("cleanup report");
+        assert!(cleanup_report.cleanup_performed());
+        assert!(!payload_file.exists());
+
+        if payload_file.exists() {
+            fs::remove_file(&payload_file).expect("cleanup payload file");
+        }
+        if workspace.exists() {
+            fs::remove_dir(&workspace).expect("cleanup workspace");
         }
     }
 }
