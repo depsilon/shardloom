@@ -844,6 +844,7 @@ Must include:
 - Phase 12A.1a (write-intent commit-protocol blocker stabilization) is complete.
 - Phase 12A.2a (staged output workspace core contract, report-only) is complete.
 - Phase 12A.2b.1a (feature gate and setup request/status scaffolding) is complete.
-- Phase 12A.2b.1b (staged workspace setup report/helper behavior) is current.
+- Phase 12A.2b.1b (staged workspace setup report/helper behavior) is complete.
+- Phase 12A.2b.1c (staged workspace setup path/effect correctness) is current.
 - Phase 12A.2b.2 (staged-output marker planning under feature gate) is planned.
 - Phase 12A.2c (CLI surface for staged-output reporting) is planned.

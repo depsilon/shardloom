@@ -348,6 +348,9 @@ No spill data movement is implemented in this phase.
 - `VortexStagedWorkspaceSetupReport` and setup helper behavior are now defined for Phase 12A.2b.1b.
 - Default builds remain feature-disabled and side-effect-free.
 - Under `vortex-staged-output-fs`, setup may only create/confirm the exact local workspace directory when explicitly requested.
+- Local `file://` staged workspace paths are normalized to local filesystem paths before checks and setup.
+- Existing valid workspace directories are reported as ready/confirmed planning state rather than newly created.
+- `WorkspaceCreated` effects are recorded only when setup actually creates the directory.
 - It does not write markers.
 - It does not write output data.
 - It does not write manifests.
