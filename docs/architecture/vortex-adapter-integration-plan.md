@@ -421,3 +421,12 @@ No spill data movement is implemented in this phase.
 - The flow does not write output data.
 - The flow does not call upstream `Vortex` write APIs.
 - Commit protocol execution remains future work.
+
+
+## Staged manifest CLI
+- `vortex-staged-manifest-file-plan` exposes the staged manifest file plan helper.
+- `vortex-staged-manifest-file-write` exposes the feature-gated staged manifest draft-file write helper.
+- Default build is report-only/feature-disabled for writes.
+- Feature build writes only the local draft artifact.
+- It is not a committed manifest, does not write output data, does not call upstream `Vortex` write APIs, and does not perform object-store IO.
+- Commit protocol remains future work in Phase 12B.

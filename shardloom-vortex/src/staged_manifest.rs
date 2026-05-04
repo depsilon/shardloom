@@ -1833,7 +1833,7 @@ impl VortexStagedManifestFileWriteReport {
     }
     #[must_use]
     pub fn is_side_effect_free(&self) -> bool {
-        !self.draft_file_written() && !self.fallback_execution_allowed()
+        self.effects_performed.is_empty() && !self.fallback_execution_allowed()
     }
     #[must_use]
     pub fn to_human_text(&self) -> String {
@@ -1924,6 +1924,17 @@ pub fn write_vortex_staged_manifest_file(
             report.status,
             VortexStagedManifestFileWriteStatus::WriteWouldExecute
         ) {
+            return Ok(report);
+        }
+        let workspace_uri = DatasetUri::new(report.request.file_ref.workspace_path().as_str())?;
+        if !matches!(
+            workspace_uri.scheme(),
+            UriScheme::LocalPath | UriScheme::File
+        ) {
+            report
+                .request
+                .add_signal(VortexStagedManifestFileWriteSignal::ObjectStoreTarget, true);
+            report.status = VortexStagedManifestFileWriteStatus::BlockedByObjectStoreTarget;
             return Ok(report);
         }
         let draft_path = staged_manifest_draft_local_path(&report.request.file_ref)?;
@@ -2387,5 +2398,27 @@ mod staged_manifest_file_tests {
             content.as_str()
         );
         std::fs::remove_dir_all(&base).expect("cleanup");
+    }
+
+    #[cfg(feature = "vortex-staged-output-fs")]
+    #[test]
+    fn write_helper_blocks_object_store_workspace_with_report_status() {
+        let req = VortexStagedManifestFileWriteRequest::new(
+            VortexStagedManifestFileRef::default_for_workspace(
+                crate::VortexStagedWorkspacePath::new("s3://bucket/stage".to_string())
+                    .expect("workspace"),
+            ),
+            VortexStagedManifestDraftContent::new("deterministic").expect("content"),
+        )
+        .file_plan_ready(true)
+        .workspace_known(true)
+        .feature_gate_enabled(true);
+        let report = write_vortex_staged_manifest_file(req).expect("write");
+        assert!(matches!(
+            report.status,
+            VortexStagedManifestFileWriteStatus::BlockedByObjectStoreTarget
+        ));
+        assert!(!report.draft_file_written());
+        assert!(report.is_side_effect_free());
     }
 }

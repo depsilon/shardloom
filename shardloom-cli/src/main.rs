@@ -40,25 +40,30 @@ use shardloom_vortex::{
     VortexAdapterCapabilityReport, VortexAdapterReadiness, VortexDTypeMappingReport,
     VortexEncodedReadReadinessStatus, VortexEncodingLayoutMappingReport,
     VortexExecutionReadinessStatus, VortexFileRef, VortexMetadataOpenRequest,
-    VortexMetadataProbeReport, VortexReadPlan, VortexStagedMarkerOption, VortexStagedMarkerRequest,
-    VortexStagedWorkspaceId, VortexStagedWorkspacePath, VortexStagedWorkspaceSetupOption,
-    VortexStagedWorkspaceSetupRequest, VortexStatisticsMappingReport, VortexWriteIntentReport,
-    VortexWriteIntentRequest, VortexWriteIntentSignal, VortexWriteOptions, VortexWritePlan,
-    build_vortex_runtime_task_graph, evaluate_vortex_encoded_read_readiness,
-    evaluate_vortex_execution_readiness, evaluate_vortex_query_primitive,
-    execute_vortex_bounded_local_query, execute_vortex_encoded_read_contract,
-    execute_vortex_encoded_read_spike, execute_vortex_local_query_primitive,
-    execute_vortex_metadata_only, metadata_planning_is_side_effect_free,
-    metadata_pruning_is_side_effect_free, metadata_summary_is_plan_only, open_vortex_metadata_only,
-    parse_vortex_local_engine_primitive, plan_from_vortex_metadata_summary,
-    plan_native_vortex_universal_input, plan_vortex_encoded_read_probe, plan_vortex_memory_safety,
-    plan_vortex_metadata_pruning, plan_vortex_read_from_universal_input,
-    plan_vortex_scheduler_queue, plan_vortex_write_intent, probe_vortex_metadata_only,
+    VortexMetadataProbeReport, VortexReadPlan, VortexStagedManifestDraftContent,
+    VortexStagedManifestFileEffect, VortexStagedManifestFileRef, VortexStagedManifestFileReport,
+    VortexStagedManifestFileRequest, VortexStagedManifestFileSignal,
+    VortexStagedManifestFileWriteEffect, VortexStagedManifestFileWriteOption,
+    VortexStagedManifestFileWriteRequest, VortexStagedManifestFileWriteSignal,
+    VortexStagedMarkerOption, VortexStagedMarkerRequest, VortexStagedWorkspaceId,
+    VortexStagedWorkspacePath, VortexStagedWorkspaceSetupOption, VortexStagedWorkspaceSetupRequest,
+    VortexStatisticsMappingReport, VortexWriteIntentReport, VortexWriteIntentRequest,
+    VortexWriteIntentSignal, VortexWriteOptions, VortexWritePlan, build_vortex_runtime_task_graph,
+    evaluate_vortex_encoded_read_readiness, evaluate_vortex_execution_readiness,
+    evaluate_vortex_query_primitive, execute_vortex_bounded_local_query,
+    execute_vortex_encoded_read_contract, execute_vortex_encoded_read_spike,
+    execute_vortex_local_query_primitive, execute_vortex_metadata_only,
+    metadata_planning_is_side_effect_free, metadata_pruning_is_side_effect_free,
+    metadata_summary_is_plan_only, open_vortex_metadata_only, parse_vortex_local_engine_primitive,
+    plan_from_vortex_metadata_summary, plan_native_vortex_universal_input,
+    plan_vortex_encoded_read_probe, plan_vortex_memory_safety, plan_vortex_metadata_pruning,
+    plan_vortex_read_from_universal_input, plan_vortex_scheduler_queue,
+    plan_vortex_staged_manifest_file, plan_vortex_write_intent, probe_vortex_metadata_only,
     run_vortex_local_engine, setup_vortex_staged_workspace, size_vortex_runtime_task_graph,
     summarize_vortex_metadata_probe, vortex_encoded_read_executor_feature_enabled,
     vortex_encoded_read_public_api_boundary, vortex_encoded_read_spike_feature_enabled,
     vortex_file_io_feature_enabled, vortex_metadata_executor_feature_enabled,
-    write_vortex_staged_marker,
+    write_vortex_staged_manifest_file, write_vortex_staged_marker,
 };
 
 fn main() -> ExitCode {
@@ -74,7 +79,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -140,6 +145,50 @@ fn parse_vortex_staged_marker_options(
     Ok(options)
 }
 
+fn staged_manifest_cli_draft_content() -> Result<VortexStagedManifestDraftContent, ShardLoomError> {
+    VortexStagedManifestDraftContent::new(
+        "shardloom_staged_manifest_draft=true\ncli_plan=true\noutput_data_written=false\ncommit_performed=false\nfallback_execution_allowed=false\n",
+    )
+}
+
+fn parse_vortex_staged_manifest_file_signals(
+    signals_raw: &str,
+) -> Result<Vec<VortexStagedManifestFileSignal>, ShardLoomError> {
+    if signals_raw.trim().is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "staged manifest file signals must not be empty".to_string(),
+        ));
+    }
+    let mut signals = Vec::new();
+    for token in signals_raw.split(',') {
+        let token = token.trim();
+        if token.is_empty() {
+            return Err(ShardLoomError::InvalidOperation(
+                "staged manifest file signals must not contain empty tokens".to_string(),
+            ));
+        }
+        let signal = match token {
+            "draft-ready" => VortexStagedManifestFileSignal::DraftReady,
+            "draft-blocked" => VortexStagedManifestFileSignal::DraftBlocked,
+            "workspace-known" => VortexStagedManifestFileSignal::WorkspaceKnown,
+            "workspace-missing" => VortexStagedManifestFileSignal::WorkspaceMissing,
+            "marker-written" => VortexStagedManifestFileSignal::MarkerWritten,
+            "marker-missing" => VortexStagedManifestFileSignal::MarkerMissing,
+            "local-workspace" => VortexStagedManifestFileSignal::LocalWorkspace,
+            "object-store-workspace" => VortexStagedManifestFileSignal::ObjectStoreWorkspace,
+            _ => {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "unknown staged manifest file signal token: {token}"
+                )));
+            }
+        };
+        if !signals.contains(&signal) {
+            signals.push(signal);
+        }
+    }
+    Ok(signals)
+}
+
 fn vortex_staged_marker_fields(
     workspace_id: String,
     workspace_path: String,
@@ -167,6 +216,77 @@ fn vortex_staged_marker_fields(
             "marker_write_or_not_performed".to_string(),
         ),
     ]
+}
+
+fn parse_vortex_staged_manifest_file_write_signals(
+    signals_raw: &str,
+) -> Result<Vec<VortexStagedManifestFileWriteSignal>, ShardLoomError> {
+    if signals_raw.trim().is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "staged manifest file write signals must not be empty".to_string(),
+        ));
+    }
+    let mut signals = Vec::new();
+    for token in signals_raw.split(',') {
+        let token = token.trim();
+        if token.is_empty() {
+            return Err(ShardLoomError::InvalidOperation(
+                "staged manifest file write signals must not contain empty tokens".to_string(),
+            ));
+        }
+        let signal = match token {
+            "file-plan-ready" => VortexStagedManifestFileWriteSignal::FilePlanReady,
+            "file-plan-blocked" => VortexStagedManifestFileWriteSignal::FilePlanBlocked,
+            "workspace-known" => VortexStagedManifestFileWriteSignal::WorkspaceKnown,
+            "workspace-missing" => VortexStagedManifestFileWriteSignal::WorkspaceMissing,
+            "object-store-target" => VortexStagedManifestFileWriteSignal::ObjectStoreTarget,
+            "existing-draft-file" => VortexStagedManifestFileWriteSignal::ExistingDraftFile,
+            "feature-gate-enabled" => VortexStagedManifestFileWriteSignal::FeatureGateEnabled,
+            _ => {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "unknown staged manifest file write signal token: {token}"
+                )));
+            }
+        };
+        if !signals.contains(&signal) {
+            signals.push(signal);
+        }
+    }
+    Ok(signals)
+}
+
+fn parse_vortex_staged_manifest_file_write_options(
+    options_raw: &str,
+) -> Result<Vec<VortexStagedManifestFileWriteOption>, ShardLoomError> {
+    if options_raw.trim().is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "staged manifest file write options must not be empty".to_string(),
+        ));
+    }
+    if options_raw.trim() == "none" {
+        return Ok(Vec::new());
+    }
+    let mut options = Vec::new();
+    for token in options_raw.split(',') {
+        let token = token.trim();
+        if token.is_empty() {
+            return Err(ShardLoomError::InvalidOperation(
+                "staged manifest file write options must not contain empty tokens".to_string(),
+            ));
+        }
+        let option = match token {
+            "allow-overwrite" => VortexStagedManifestFileWriteOption::AllowOverwrite,
+            _ => {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "unknown staged manifest file write option token: {token}"
+                )));
+            }
+        };
+        if !options.contains(&option) {
+            options.push(option);
+        }
+    }
+    Ok(options)
 }
 fn parse_output_format(args: Vec<String>) -> Result<(Vec<String>, OutputFormat), String> {
     let mut filtered = Vec::with_capacity(args.len());
@@ -3280,6 +3400,245 @@ fn run(args: Vec<String>) -> ExitCode {
                     workspace_path_raw,
                     report.marker_written(),
                 ),
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
+        Some("vortex-staged-manifest-file-plan") => {
+            let Some(workspace_path_raw) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-staged-manifest-file-plan <workspace_path> <signals>"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(signals_raw) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-staged-manifest-file-plan <workspace_path> <signals>"
+                );
+                return ExitCode::from(2);
+            };
+            let workspace_path = match VortexStagedWorkspacePath::new(workspace_path_raw.clone()) {
+                Ok(path) => path,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-staged-manifest-file-plan",
+                        format,
+                        "invalid workspace path",
+                        &error,
+                    );
+                }
+            };
+            let signals = match parse_vortex_staged_manifest_file_signals(&signals_raw) {
+                Ok(signals) => signals,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-staged-manifest-file-plan",
+                        format,
+                        "invalid staged manifest file signals",
+                        &error,
+                    );
+                }
+            };
+            let draft_content = match staged_manifest_cli_draft_content() {
+                Ok(content) => content,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-staged-manifest-file-plan",
+                        format,
+                        "invalid staged manifest draft content",
+                        &error,
+                    );
+                }
+            };
+            let mut request = VortexStagedManifestFileRequest::new(
+                VortexStagedManifestFileRef::default_for_workspace(workspace_path),
+                draft_content,
+            );
+            for signal in signals {
+                request.add_signal(signal, true);
+            }
+            let report: VortexStagedManifestFileReport =
+                match plan_vortex_staged_manifest_file(request) {
+                    Ok(report) => report,
+                    Err(error) => {
+                        return emit_error(
+                            "vortex-staged-manifest-file-plan",
+                            format,
+                            "staged manifest file planning failed",
+                            &error,
+                        );
+                    }
+                };
+            emit(
+                "vortex-staged-manifest-file-plan",
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "vortex staged manifest file plan".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    (
+                        "mode".to_string(),
+                        "vortex_staged_manifest_file_plan".to_string(),
+                    ),
+                    (
+                        "manifest_file_written".to_string(),
+                        report
+                            .effects_performed
+                            .contains(&VortexStagedManifestFileEffect::ManifestFileWritten)
+                            .to_string(),
+                    ),
+                    ("output_data_written".to_string(), "false".to_string()),
+                    ("object_store_io".to_string(), "false".to_string()),
+                    (
+                        "upstream_vortex_write_called".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("commit_performed".to_string(), "false".to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
+                ],
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
+        Some("vortex-staged-manifest-file-write") => {
+            let Some(workspace_path_raw) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-staged-manifest-file-write <workspace_path> <signals> <options>"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(signals_raw) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-staged-manifest-file-write <workspace_path> <signals> <options>"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(options_raw) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-staged-manifest-file-write <workspace_path> <signals> <options>"
+                );
+                return ExitCode::from(2);
+            };
+            let workspace_path = match VortexStagedWorkspacePath::new(workspace_path_raw.clone()) {
+                Ok(path) => path,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-staged-manifest-file-write",
+                        format,
+                        "invalid workspace path",
+                        &error,
+                    );
+                }
+            };
+            let signals = match parse_vortex_staged_manifest_file_write_signals(&signals_raw) {
+                Ok(signals) => signals,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-staged-manifest-file-write",
+                        format,
+                        "invalid staged manifest file write signals",
+                        &error,
+                    );
+                }
+            };
+            let options = match parse_vortex_staged_manifest_file_write_options(&options_raw) {
+                Ok(options) => options,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-staged-manifest-file-write",
+                        format,
+                        "invalid staged manifest file write options",
+                        &error,
+                    );
+                }
+            };
+            let draft_content = match staged_manifest_cli_draft_content() {
+                Ok(content) => content,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-staged-manifest-file-write",
+                        format,
+                        "invalid staged manifest draft content",
+                        &error,
+                    );
+                }
+            };
+            let mut request = VortexStagedManifestFileWriteRequest::new(
+                VortexStagedManifestFileRef::default_for_workspace(workspace_path),
+                draft_content,
+            );
+            for signal in signals {
+                request.add_signal(signal, true);
+            }
+            if options.contains(&VortexStagedManifestFileWriteOption::AllowOverwrite) {
+                request = request.allow_overwrite(true);
+            }
+            let report = match write_vortex_staged_manifest_file(request) {
+                Ok(report) => report,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-staged-manifest-file-write",
+                        format,
+                        "staged manifest file write failed",
+                        &error,
+                    );
+                }
+            };
+            emit(
+                "vortex-staged-manifest-file-write",
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "vortex staged manifest file write".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    (
+                        "mode".to_string(),
+                        "vortex_staged_manifest_file_write".to_string(),
+                    ),
+                    (
+                        "draft_file_written".to_string(),
+                        report
+                            .effects_performed
+                            .contains(&VortexStagedManifestFileWriteEffect::DraftFileWritten)
+                            .to_string(),
+                    ),
+                    ("manifest_file_written".to_string(), "false".to_string()),
+                    ("output_data_written".to_string(), "false".to_string()),
+                    ("object_store_io".to_string(), "false".to_string()),
+                    (
+                        "upstream_vortex_write_called".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("commit_performed".to_string(), "false".to_string()),
+                    (
+                        "execution".to_string(),
+                        "draft_file_write_or_not_performed".to_string(),
+                    ),
+                ],
             );
             if report.has_errors() {
                 ExitCode::from(1)
@@ -6851,6 +7210,49 @@ mod tests {
         )));
         assert!(fields.contains(&("marker_written".to_string(), "false".to_string())));
         assert!(fields.contains(&("output_data_written".to_string(), "false".to_string())));
+    }
+
+    #[test]
+    fn vortex_staged_manifest_file_plan_valid_args_returns_success() {
+        let code = run(vec![
+            "vortex-staged-manifest-file-plan".to_string(),
+            "/tmp/stage".to_string(),
+            "draft-ready,workspace-known,marker-written,local-workspace".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_staged_manifest_file_write_valid_args_returns_success_report_only_when_feature_disabled()
+     {
+        let code = run(vec![
+            "vortex-staged-manifest-file-write".to_string(),
+            "/tmp/stage".to_string(),
+            "file-plan-ready,workspace-known,feature-gate-enabled".to_string(),
+            "allow-overwrite".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn parse_staged_manifest_file_signals_rejects_unknown_and_empty() {
+        assert!(parse_vortex_staged_manifest_file_signals("draft-ready,unknown").is_err());
+        assert!(parse_vortex_staged_manifest_file_signals(" ").is_err());
+    }
+
+    #[test]
+    fn parse_staged_manifest_file_write_signals_and_options_validate_tokens() {
+        assert!(
+            parse_vortex_staged_manifest_file_write_signals("file-plan-ready,unknown").is_err()
+        );
+        assert!(parse_vortex_staged_manifest_file_write_options(" ").is_err());
+        assert!(parse_vortex_staged_manifest_file_write_options("unknown-option").is_err());
+        assert_eq!(
+            parse_vortex_staged_manifest_file_write_options("none")
+                .unwrap()
+                .len(),
+            0
+        );
     }
 
     #[test]
