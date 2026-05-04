@@ -6198,23 +6198,37 @@ mod tests {
 
     #[test]
     fn vortex_execution_readiness_with_non_vortex_uri_returns_non_zero() {
-        let code = run(vec![
-            "vortex-execution-readiness".to_string(),
-            "file://tmp/data.parquet".to_string(),
-            "8".to_string(),
-            "2".to_string(),
-        ]);
+        let code = std::thread::Builder::new()
+            .stack_size(8 * 1024 * 1024)
+            .spawn(|| {
+                run(vec![
+                    "vortex-execution-readiness".to_string(),
+                    "file://tmp/data.parquet".to_string(),
+                    "8".to_string(),
+                    "2".to_string(),
+                ])
+            })
+            .expect("thread spawn should succeed")
+            .join()
+            .expect("thread join should succeed");
         assert_ne!(code, ExitCode::SUCCESS);
     }
 
     #[test]
     fn vortex_schedule_plan_with_non_vortex_uri_returns_non_zero() {
-        let code = run(vec![
-            "vortex-schedule-plan".to_string(),
-            "file://tmp/data.parquet".to_string(),
-            "8".to_string(),
-            "2".to_string(),
-        ]);
+        let code = std::thread::Builder::new()
+            .stack_size(8 * 1024 * 1024)
+            .spawn(|| {
+                run(vec![
+                    "vortex-schedule-plan".to_string(),
+                    "file://tmp/data.parquet".to_string(),
+                    "8".to_string(),
+                    "2".to_string(),
+                ])
+            })
+            .expect("thread spawn should succeed")
+            .join()
+            .expect("thread join should succeed");
         assert_ne!(code, ExitCode::SUCCESS);
     }
 
