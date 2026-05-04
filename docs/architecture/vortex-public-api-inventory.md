@@ -415,7 +415,12 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - The staged marker CLI is `ShardLoom`-native.
 - It does not use upstream `Vortex` write APIs.
 - Actual `Vortex` write execution remains deferred.
-\n## Phase 12A.3a update\n- Phase 12A.2c.2 complete.\n- Phase 12A.3a current: staged manifest draft core contract (report-only, no filesystem).\n- Phase 12A.3b planned: feature-gated local staged manifest draft file.\n- Phase 12A.3c planned: CLI/docs integration.\n- Actual output payload and  file writes remain deferred.
+## Phase 12A.3a update
+- Phase 12A.2c.2 complete.
+- Phase 12A.3a current: staged manifest draft core contract (report-only, no filesystem).
+- Phase 12A.3b planned: feature-gated local staged manifest draft file.
+- Phase 12A.3c planned: CLI/docs integration.
+- Actual output payload and file writes remain deferred.
 
 - Staged manifest draft is `ShardLoom`-native.
 - Upstream `Vortex` write APIs remain deferred.
@@ -432,3 +437,9 @@ This update does not introduce scans, decode, materialization, writes, object-st
 
 
 - Staged manifest CLI is `ShardLoom`-native, and upstream `Vortex` write APIs remain deferred.
+
+## Phase 12A write API boundary closeout
+
+- Upstream Vortex write APIs remain unused.
+- ShardLoom-native staged artifacts exist.
+- Vortex file output and committed manifest behavior remain deferred.

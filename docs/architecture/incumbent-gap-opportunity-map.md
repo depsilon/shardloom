@@ -212,3 +212,8 @@ The remaining spill gap is bounded execution integration and recovery, starting 
 ## Phase 12 kickoff
 
 Phase 12 begins native `Vortex` write/commit value propositions with safe write-intent planning before any execution behavior.
+
+## Phase 12A staged output closeout gap note
+
+- Phase 12A establishes safe staged write-readiness artifacts before commit protocol.
+- Remaining gap before write-value claims: commit protocol, manifest finalization, and output payload writing.
