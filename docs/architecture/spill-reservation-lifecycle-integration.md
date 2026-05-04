@@ -77,3 +77,14 @@ Run:
 - Retry can be allowed after cleanup when cleanup requirements are known.
 - Cancellation can be planned without executing cancellation.
 - No cleanup, retry, or cancellation execution is performed yet.
+
+## Exact synthetic payload cleanup execution
+
+- Cleanup execution is limited to exact known synthetic spill payload files.
+- Cleanup uses `SpillPayloadFsRef` to derive a single exact local target file path.
+- Unknown artifacts block cleanup deterministically.
+- Directories/workspaces are not deleted.
+- Object-store cleanup is unsupported.
+- Output commit cleanup is not implemented.
+- Retry/cancellation execution remains disabled.
+- No fallback execution is introduced.

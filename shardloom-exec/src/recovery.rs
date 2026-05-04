@@ -1590,6 +1590,7 @@ pub enum ShardLoomCleanupExecutionStatus {
     CleanupRequired,
     CleanupNotRequired,
     CleanupWouldExecute,
+    CleanupCompleted,
     BlockedByUnknownArtifact,
     BlockedByUnsupportedArtifact,
     BlockedByMissingArtifact,
@@ -1604,6 +1605,7 @@ impl ShardLoomCleanupExecutionStatus {
             Self::CleanupRequired => "cleanup_required",
             Self::CleanupNotRequired => "cleanup_not_required",
             Self::CleanupWouldExecute => "cleanup_would_execute",
+            Self::CleanupCompleted => "cleanup_completed",
             Self::BlockedByUnknownArtifact => "blocked_by_unknown_artifact",
             Self::BlockedByUnsupportedArtifact => "blocked_by_unsupported_artifact",
             Self::BlockedByMissingArtifact => "blocked_by_missing_artifact",
@@ -1629,6 +1631,7 @@ impl ShardLoomCleanupExecutionStatus {
 pub enum ShardLoomCleanupExecutionMode {
     ReportOnly,
     CleanupPlanOnly,
+    SyntheticPayloadCleanup,
     Unsupported,
 }
 impl ShardLoomCleanupExecutionMode {
@@ -1636,11 +1639,12 @@ impl ShardLoomCleanupExecutionMode {
         match self {
             Self::ReportOnly => "report_only",
             Self::CleanupPlanOnly => "cleanup_plan_only",
+            Self::SyntheticPayloadCleanup => "synthetic_payload_cleanup",
             Self::Unsupported => "unsupported",
         }
     }
     pub const fn executes_cleanup(&self) -> bool {
-        false
+        matches!(self, Self::SyntheticPayloadCleanup)
     }
     pub const fn executes_retry(&self) -> bool {
         false
@@ -1669,6 +1673,7 @@ impl CleanupExecutionOption {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ShardLoomCleanupExecutionRequest {
     pub artifact: RecoveryArtifactRef,
+    pub synthetic_payload_ref: Option<crate::SpillPayloadFsRef>,
     pub options: Vec<CleanupExecutionOption>,
     pub diagnostics: Vec<Diagnostic>,
 }
@@ -1676,9 +1681,20 @@ impl ShardLoomCleanupExecutionRequest {
     pub fn new(artifact: RecoveryArtifactRef) -> Self {
         Self {
             artifact,
+            synthetic_payload_ref: None,
             options: vec![],
             diagnostics: vec![],
         }
+    }
+    pub fn synthetic_payload(
+        artifact: RecoveryArtifactRef,
+        fs_ref: crate::SpillPayloadFsRef,
+    ) -> Self {
+        Self::new(artifact).with_synthetic_payload_ref(fs_ref)
+    }
+    pub fn with_synthetic_payload_ref(mut self, fs_ref: crate::SpillPayloadFsRef) -> Self {
+        self.synthetic_payload_ref = Some(fs_ref);
+        self
     }
     pub fn allow_synthetic_payload_cleanup(mut self, value: bool) -> Self {
         self.options
@@ -1729,14 +1745,20 @@ impl ShardLoomCleanupExecutionReport {
                 "artifact kind is unknown",
             )),
             RecoveryArtifactKind::SyntheticSpillPayload => {
-                if request.has_option(CleanupExecutionOption::AllowSyntheticPayloadCleanup) {
-                    Ok(Self::cleanup_would_execute(request))
-                } else {
+                if !request.has_option(CleanupExecutionOption::AllowSyntheticPayloadCleanup) {
                     Ok(Self::blocked(
                         request,
                         ShardLoomCleanupExecutionStatus::BlockedByPolicy,
                         "synthetic payload cleanup must be explicitly enabled in planning options",
                     ))
+                } else if request.synthetic_payload_ref.is_none() {
+                    Ok(Self::blocked(
+                        request,
+                        ShardLoomCleanupExecutionStatus::BlockedByMissingArtifact,
+                        "synthetic spill payload filesystem reference is required",
+                    ))
+                } else {
+                    Ok(Self::execute_synthetic_payload_cleanup(request))
                 }
             }
             RecoveryArtifactKind::SpillWorkspace
@@ -1773,6 +1795,15 @@ impl ShardLoomCleanupExecutionReport {
             mode: ShardLoomCleanupExecutionMode::CleanupPlanOnly,
             request,
             effects_performed: vec![],
+            diagnostics: vec![],
+        }
+    }
+    pub fn cleanup_completed(request: ShardLoomCleanupExecutionRequest) -> Self {
+        Self {
+            status: ShardLoomCleanupExecutionStatus::CleanupCompleted,
+            mode: ShardLoomCleanupExecutionMode::SyntheticPayloadCleanup,
+            request,
+            effects_performed: vec![ShardLoomCleanupExecutionEffect::CleanupExecuted],
             diagnostics: vec![],
         }
     }
@@ -1850,6 +1881,14 @@ impl ShardLoomCleanupExecutionReport {
         let _ = writeln!(out, "cleanup execution status: {}", self.status.as_str());
         let _ = writeln!(out, "mode: {}", self.mode.as_str());
         let _ = writeln!(out, "artifact: {}", self.request.artifact.summary());
+        let _ = writeln!(
+            out,
+            "synthetic payload ref present: {}",
+            self.request.synthetic_payload_ref.is_some()
+        );
+        if let Some(fs_ref) = &self.request.synthetic_payload_ref {
+            let _ = writeln!(out, "cleanup target summary: {}", fs_ref.summary());
+        }
         let fallback_allowed = self.fallback_execution_allowed();
         let _ = write!(
             out,
@@ -1873,10 +1912,66 @@ impl ShardLoomCleanupExecutionReport {
         }
         out
     }
+    fn execute_synthetic_payload_cleanup(request: ShardLoomCleanupExecutionRequest) -> Self {
+        #[cfg(feature = "spill-payload-fs")]
+        {
+            use std::fs;
+            use std::path::Path;
+
+            let Some(fs_ref) = request.synthetic_payload_ref.as_ref() else {
+                return Self::blocked(
+                    request,
+                    ShardLoomCleanupExecutionStatus::BlockedByMissingArtifact,
+                    "synthetic spill payload filesystem reference is required",
+                );
+            };
+            let target_path = Path::new(&fs_ref.path_string()).to_path_buf();
+            if !target_path.exists() {
+                return Self::blocked(
+                    request,
+                    ShardLoomCleanupExecutionStatus::BlockedByMissingArtifact,
+                    "synthetic spill payload file does not exist",
+                );
+            }
+            if target_path.is_dir() {
+                return Self::blocked(
+                    request,
+                    ShardLoomCleanupExecutionStatus::BlockedByUnsupportedArtifact,
+                    "synthetic spill payload path is a directory",
+                );
+            }
+            match fs::remove_file(&target_path) {
+                Ok(()) => Self::cleanup_completed(request),
+                Err(error) => Self::blocked(
+                    request,
+                    ShardLoomCleanupExecutionStatus::BlockedByUnsupportedArtifact,
+                    format!(
+                        "failed to remove synthetic spill payload file '{}': {error}",
+                        target_path.to_string_lossy()
+                    ),
+                ),
+            }
+        }
+        #[cfg(not(feature = "spill-payload-fs"))]
+        {
+            Self::blocked(
+                request,
+                ShardLoomCleanupExecutionStatus::FeatureDisabled,
+                "synthetic spill payload cleanup execution requires the `spill-payload-fs` feature",
+            )
+        }
+    }
 }
 /// # Errors
 /// Returns an error when creating a `ShardLoomCleanupExecutionReport` from planning inputs fails.
 pub fn plan_cleanup_execution(
+    request: ShardLoomCleanupExecutionRequest,
+) -> Result<ShardLoomCleanupExecutionReport> {
+    ShardLoomCleanupExecutionReport::from_request(request)
+}
+/// # Errors
+/// Returns an error when generating a `ShardLoomCleanupExecutionReport` fails.
+pub fn execute_cleanup_plan(
     request: ShardLoomCleanupExecutionRequest,
 ) -> Result<ShardLoomCleanupExecutionReport> {
     ShardLoomCleanupExecutionReport::from_request(request)
@@ -2723,7 +2818,7 @@ mod tests {
             blocked.status,
             ShardLoomCleanupExecutionStatus::BlockedByPolicy
         );
-        let allowed = ShardLoomCleanupExecutionReport::from_request(
+        let missing_ref = ShardLoomCleanupExecutionReport::from_request(
             ShardLoomCleanupExecutionRequest::new(RecoveryArtifactRef::synthetic_spill_payload(
                 &payload_ref,
             ))
@@ -2731,9 +2826,79 @@ mod tests {
         )
         .expect("report");
         assert_eq!(
-            allowed.status,
-            ShardLoomCleanupExecutionStatus::CleanupWouldExecute
+            missing_ref.status,
+            ShardLoomCleanupExecutionStatus::BlockedByMissingArtifact
         );
+        let allowed = ShardLoomCleanupExecutionReport::from_request(
+            ShardLoomCleanupExecutionRequest::synthetic_payload(
+                RecoveryArtifactRef::synthetic_spill_payload(&payload_ref),
+                payload_ref.clone(),
+            )
+            .allow_synthetic_payload_cleanup(true),
+        )
+        .expect("report");
+        #[cfg(feature = "spill-payload-fs")]
+        assert_eq!(
+            allowed.status,
+            ShardLoomCleanupExecutionStatus::BlockedByMissingArtifact
+        );
+        #[cfg(not(feature = "spill-payload-fs"))]
+        assert_eq!(
+            allowed.status,
+            ShardLoomCleanupExecutionStatus::FeatureDisabled
+        );
+    }
+    #[cfg(feature = "spill-payload-fs")]
+    #[test]
+    fn cleanup_execution_feature_removes_only_target_file() {
+        use crate::{SpillPayloadWriteRequest, SyntheticSpillPayload};
+        use std::fs;
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time")
+            .as_nanos();
+        let workspace = std::env::temp_dir().join(format!("shardloom-cleanup-{unique}"));
+        fs::create_dir_all(&workspace).expect("workspace");
+        let workspace_str = workspace.to_string_lossy().into_owned();
+        let fs_ref = spill_payload_fs_ref("p-cleanup", &workspace_str);
+        let sibling = workspace.join("sibling.bin");
+        fs::write(&sibling, b"sibling").expect("sibling");
+        let payload = SyntheticSpillPayload::from_bytes(vec![1, 2, 3, 4]).expect("payload");
+        let write_report = crate::write_spill_payload(
+            SpillPayloadWriteRequest::new(fs_ref.clone(), payload)
+                .create_workspace(true)
+                .allow_overwrite(true),
+        )
+        .expect("write");
+        assert!(write_report.payload_written());
+        let target = workspace.join(fs_ref.file_name());
+        assert!(target.exists());
+        let report = execute_cleanup_plan(
+            ShardLoomCleanupExecutionRequest::synthetic_payload(
+                RecoveryArtifactRef::synthetic_spill_payload(&fs_ref),
+                fs_ref.clone(),
+            )
+            .allow_synthetic_payload_cleanup(true),
+        )
+        .expect("report");
+        assert_eq!(
+            report.status,
+            ShardLoomCleanupExecutionStatus::CleanupCompleted
+        );
+        assert!(report.cleanup_executed());
+        assert!(!report.retry_executed());
+        assert!(!report.cancellation_executed());
+        assert!(!report.external_effects_executed());
+        assert!(!report.object_store_io());
+        assert!(!report.output_dataset_write());
+        assert!(!report.fallback_execution_allowed());
+        assert!(!target.exists());
+        assert!(sibling.exists());
+        assert!(workspace.exists());
+        let _ = fs::remove_file(&sibling);
+        let _ = fs::remove_dir(&workspace);
     }
     #[test]
     fn cleanup_execution_report_side_effects_and_human_text() {
