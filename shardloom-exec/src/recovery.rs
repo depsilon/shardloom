@@ -11,6 +11,7 @@
 use shardloom_core::{
     Diagnostic, DiagnosticCode, DiagnosticSeverity, OutputTarget, Result, ShardLoomError,
 };
+use std::fmt::Write as _;
 
 use crate::{RetryPolicy, TaskId};
 
@@ -1102,6 +1103,457 @@ pub struct RecoveryReport {
     pub diagnostics: Vec<Diagnostic>,
     pub notes: Vec<String>,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShardLoomRecoveryIntegrationStatus {
+    Planned,
+    CleanupNotRequired,
+    CleanupRequired,
+    RetryAllowedAfterCleanup,
+    RetryBlocked,
+    CancellationPlanned,
+    BlockedByExternalEffect,
+    BlockedByUnknownArtifact,
+    Unsupported,
+}
+impl ShardLoomRecoveryIntegrationStatus {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Planned => "planned",
+            Self::CleanupNotRequired => "cleanup_not_required",
+            Self::CleanupRequired => "cleanup_required",
+            Self::RetryAllowedAfterCleanup => "retry_allowed_after_cleanup",
+            Self::RetryBlocked => "retry_blocked",
+            Self::CancellationPlanned => "cancellation_planned",
+            Self::BlockedByExternalEffect => "blocked_by_external_effect",
+            Self::BlockedByUnknownArtifact => "blocked_by_unknown_artifact",
+            Self::Unsupported => "unsupported",
+        }
+    }
+    pub const fn is_error(&self) -> bool {
+        matches!(
+            self,
+            Self::RetryBlocked
+                | Self::BlockedByExternalEffect
+                | Self::BlockedByUnknownArtifact
+                | Self::Unsupported
+        )
+    }
+    pub const fn requires_cleanup(&self) -> bool {
+        matches!(
+            self,
+            Self::CleanupRequired | Self::RetryAllowedAfterCleanup | Self::BlockedByUnknownArtifact
+        )
+    }
+    pub const fn allows_retry(&self) -> bool {
+        matches!(self, Self::Planned | Self::RetryAllowedAfterCleanup)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShardLoomRecoveryIntegrationMode {
+    ReportOnly,
+    CleanupPlanning,
+    RetryPlanning,
+    CancellationPlanning,
+    Unsupported,
+}
+impl ShardLoomRecoveryIntegrationMode {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::ReportOnly => "report_only",
+            Self::CleanupPlanning => "cleanup_planning",
+            Self::RetryPlanning => "retry_planning",
+            Self::CancellationPlanning => "cancellation_planning",
+            Self::Unsupported => "unsupported",
+        }
+    }
+    pub const fn executes_cleanup(&self) -> bool {
+        false
+    }
+    pub const fn executes_retry(&self) -> bool {
+        false
+    }
+    pub const fn executes_cancellation(&self) -> bool {
+        false
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RecoveryArtifactKind {
+    SyntheticSpillPayload,
+    SpillWorkspace,
+    SpillMarker,
+    TemporaryOutput,
+    PartialOutput,
+    Unknown,
+}
+impl RecoveryArtifactKind {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::SyntheticSpillPayload => "synthetic_spill_payload",
+            Self::SpillWorkspace => "spill_workspace",
+            Self::SpillMarker => "spill_marker",
+            Self::TemporaryOutput => "temporary_output",
+            Self::PartialOutput => "partial_output",
+            Self::Unknown => "unknown",
+        }
+    }
+    pub const fn requires_cleanup(&self) -> bool {
+        !matches!(self, Self::Unknown)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RecoveryArtifactRef {
+    pub kind: RecoveryArtifactKind,
+    pub artifact_id: String,
+    pub location_summary: Option<String>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl RecoveryArtifactRef {
+    pub fn synthetic_spill_payload(payload_ref: &crate::SpillPayloadFsRef) -> Self {
+        Self {
+            kind: RecoveryArtifactKind::SyntheticSpillPayload,
+            artifact_id: payload_ref.payload_ref().payload_id().as_str().to_string(),
+            location_summary: Some(payload_ref.path_string()),
+            diagnostics: vec![],
+        }
+    }
+    pub fn spill_workspace(workspace_id: impl Into<String>, location: impl Into<String>) -> Self {
+        let mut out = Self {
+            kind: RecoveryArtifactKind::SpillWorkspace,
+            artifact_id: workspace_id.into().trim().to_string(),
+            location_summary: Some(location.into()),
+            diagnostics: vec![],
+        };
+        if out.artifact_id.is_empty() {
+            out.add_diagnostic(Diagnostic::invalid_input(
+                "recovery_artifact_ref",
+                "workspace id must not be empty",
+                "set a non-empty workspace id",
+            ));
+        }
+        out
+    }
+    pub fn unknown(artifact_id: impl Into<String>, reason: impl Into<String>) -> Self {
+        let mut out = Self {
+            kind: RecoveryArtifactKind::Unknown,
+            artifact_id: artifact_id.into().trim().to_string(),
+            location_summary: None,
+            diagnostics: vec![],
+        };
+        if out.artifact_id.is_empty() {
+            out.artifact_id = "unknown-artifact".to_string();
+            out.add_diagnostic(Diagnostic::invalid_input(
+                "recovery_artifact_ref",
+                "artifact id must not be empty",
+                "set a non-empty artifact id",
+            ));
+        }
+        out.add_diagnostic(unsupported_diagnostic("unknown_recovery_artifact", reason));
+        out
+    }
+    pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
+    }
+    pub fn has_errors(&self) -> bool {
+        self.kind == RecoveryArtifactKind::Unknown || has_error_diagnostics(&self.diagnostics)
+    }
+    pub fn summary(&self) -> String {
+        format!(
+            "kind={} artifact_id={}",
+            self.kind.as_str(),
+            self.artifact_id
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ShardLoomRecoveryIntegrationRequest {
+    pub attempt_id: Option<AttemptId>,
+    pub bounded_spill_report_summary: Option<String>,
+    pub artifacts: Vec<RecoveryArtifactRef>,
+    pub retry_requested: bool,
+    pub cancellation_requested: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl Default for ShardLoomRecoveryIntegrationRequest {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl ShardLoomRecoveryIntegrationRequest {
+    pub fn new() -> Self {
+        Self {
+            attempt_id: None,
+            bounded_spill_report_summary: None,
+            artifacts: vec![],
+            retry_requested: false,
+            cancellation_requested: false,
+            diagnostics: vec![],
+        }
+    }
+    pub fn for_attempt(attempt_id: AttemptId) -> Self {
+        let mut out = Self::new();
+        out.attempt_id = Some(attempt_id);
+        out
+    }
+    pub fn add_artifact(&mut self, artifact: RecoveryArtifactRef) {
+        self.artifacts.push(artifact);
+    }
+    pub fn retry_requested(mut self, value: bool) -> Self {
+        self.retry_requested = value;
+        self
+    }
+    pub fn cancellation_requested(mut self, value: bool) -> Self {
+        self.cancellation_requested = value;
+        self
+    }
+    pub fn with_bounded_spill_report_summary(mut self, value: impl Into<String>) -> Self {
+        self.bounded_spill_report_summary = Some(value.into());
+        self
+    }
+    pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
+    }
+    pub fn has_option(&self, option: RecoveryIntegrationOption) -> bool {
+        match option {
+            RecoveryIntegrationOption::RetryRequested => self.retry_requested,
+            RecoveryIntegrationOption::CancellationRequested => self.cancellation_requested,
+        }
+    }
+    pub fn has_errors(&self) -> bool {
+        self.artifacts.iter().any(RecoveryArtifactRef::has_errors)
+            || has_error_diagnostics(&self.diagnostics)
+    }
+    pub fn summary(&self) -> String {
+        format!(
+            "attempt_present={} artifacts={} retry_requested={} cancellation_requested={}",
+            self.attempt_id.is_some(),
+            self.artifacts.len(),
+            self.retry_requested,
+            self.cancellation_requested
+        )
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RecoveryIntegrationOption {
+    RetryRequested,
+    CancellationRequested,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ShardLoomRecoveryIntegrationReport {
+    pub status: ShardLoomRecoveryIntegrationStatus,
+    pub mode: ShardLoomRecoveryIntegrationMode,
+    pub request: ShardLoomRecoveryIntegrationRequest,
+    pub cleanup_requirements: Vec<CleanupRequirement>,
+    pub retry_decision: Option<RetryDecision>,
+    pub artifact_count: usize,
+    pub cleanup_required_count: usize,
+    pub unknown_artifact_count: usize,
+    pub cleanup_execution: RecoveryExecutionState,
+    pub retry_execution: RecoveryExecutionState,
+    pub cancellation_execution: RecoveryExecutionState,
+    pub external_effects_execution: RecoveryExecutionState,
+    pub object_store_io: RecoveryExecutionState,
+    pub output_dataset_write: RecoveryExecutionState,
+    pub fallback_execution: FallbackExecutionState,
+    pub diagnostics: Vec<Diagnostic>,
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RecoveryExecutionState {
+    NotPerformed,
+}
+impl RecoveryExecutionState {
+    pub const fn executed(self) -> bool {
+        false
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FallbackExecutionState {
+    Disabled,
+}
+impl FallbackExecutionState {
+    pub const fn allowed(self) -> bool {
+        false
+    }
+}
+impl ShardLoomRecoveryIntegrationReport {
+    /// # Errors
+    /// Returns an error if creating cleanup requirements fails.
+    pub fn from_request(request: ShardLoomRecoveryIntegrationRequest) -> Result<Self> {
+        let mut cleanup_requirements = Vec::new();
+        let mut unknown_artifact_count = 0usize;
+        for artifact in &request.artifacts {
+            match artifact.kind {
+                RecoveryArtifactKind::Unknown => unknown_artifact_count += 1,
+                RecoveryArtifactKind::SyntheticSpillPayload | RecoveryArtifactKind::SpillMarker => {
+                    cleanup_requirements.push(CleanupRequirement::required(
+                        CleanupTargetKind::SpillFile,
+                        artifact.artifact_id.clone(),
+                    )?);
+                }
+                RecoveryArtifactKind::SpillWorkspace
+                | RecoveryArtifactKind::TemporaryOutput
+                | RecoveryArtifactKind::PartialOutput => {
+                    cleanup_requirements.push(CleanupRequirement::required(
+                        CleanupTargetKind::TemporaryOutput,
+                        artifact.artifact_id.clone(),
+                    )?);
+                }
+            }
+        }
+        let status;
+        let mut mode = ShardLoomRecoveryIntegrationMode::ReportOnly;
+        let mut retry_decision = None;
+        if unknown_artifact_count > 0 {
+            status = ShardLoomRecoveryIntegrationStatus::BlockedByUnknownArtifact;
+        } else if request.cancellation_requested {
+            mode = ShardLoomRecoveryIntegrationMode::CancellationPlanning;
+            status = ShardLoomRecoveryIntegrationStatus::CancellationPlanned;
+        } else if request.retry_requested && !cleanup_requirements.is_empty() {
+            mode = ShardLoomRecoveryIntegrationMode::RetryPlanning;
+            status = ShardLoomRecoveryIntegrationStatus::RetryAllowedAfterCleanup;
+            retry_decision = Some(RetryDecision::retry_after_cleanup(
+                "cleanup required before retry",
+            ));
+        } else if request.retry_requested {
+            mode = ShardLoomRecoveryIntegrationMode::RetryPlanning;
+            status = ShardLoomRecoveryIntegrationStatus::Planned;
+            retry_decision = Some(RetryDecision::retry_now("no cleanup requirements found"));
+        } else if !cleanup_requirements.is_empty() {
+            mode = ShardLoomRecoveryIntegrationMode::CleanupPlanning;
+            status = ShardLoomRecoveryIntegrationStatus::CleanupRequired;
+        } else {
+            status = ShardLoomRecoveryIntegrationStatus::CleanupNotRequired;
+        }
+        Ok(Self {
+            status,
+            mode,
+            artifact_count: request.artifacts.len(),
+            cleanup_required_count: cleanup_requirements.len(),
+            unknown_artifact_count,
+            cleanup_requirements,
+            retry_decision,
+            request,
+            cleanup_execution: RecoveryExecutionState::NotPerformed,
+            retry_execution: RecoveryExecutionState::NotPerformed,
+            cancellation_execution: RecoveryExecutionState::NotPerformed,
+            external_effects_execution: RecoveryExecutionState::NotPerformed,
+            object_store_io: RecoveryExecutionState::NotPerformed,
+            output_dataset_write: RecoveryExecutionState::NotPerformed,
+            fallback_execution: FallbackExecutionState::Disabled,
+            diagnostics: vec![],
+        })
+    }
+    pub fn unsupported(
+        request: ShardLoomRecoveryIntegrationRequest,
+        feature: impl Into<String>,
+        reason: impl Into<String>,
+    ) -> Self {
+        let mut out = Self {
+            status: ShardLoomRecoveryIntegrationStatus::Unsupported,
+            mode: ShardLoomRecoveryIntegrationMode::Unsupported,
+            artifact_count: request.artifacts.len(),
+            cleanup_required_count: 0,
+            unknown_artifact_count: 0,
+            cleanup_requirements: vec![],
+            retry_decision: None,
+            request,
+            cleanup_execution: RecoveryExecutionState::NotPerformed,
+            retry_execution: RecoveryExecutionState::NotPerformed,
+            cancellation_execution: RecoveryExecutionState::NotPerformed,
+            external_effects_execution: RecoveryExecutionState::NotPerformed,
+            object_store_io: RecoveryExecutionState::NotPerformed,
+            output_dataset_write: RecoveryExecutionState::NotPerformed,
+            fallback_execution: FallbackExecutionState::Disabled,
+            diagnostics: vec![],
+        };
+        out.add_diagnostic(unsupported_diagnostic(feature, reason));
+        out
+    }
+    pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
+    }
+    pub fn has_errors(&self) -> bool {
+        self.status.is_error()
+            || self.request.has_errors()
+            || self
+                .cleanup_requirements
+                .iter()
+                .any(CleanupRequirement::has_errors)
+            || self
+                .retry_decision
+                .as_ref()
+                .is_some_and(RetryDecision::has_errors)
+            || has_error_diagnostics(&self.diagnostics)
+    }
+    pub const fn is_side_effect_free(&self) -> bool {
+        !self.cleanup_execution.executed()
+            && !self.retry_execution.executed()
+            && !self.cancellation_execution.executed()
+            && !self.external_effects_execution.executed()
+            && !self.object_store_io.executed()
+            && !self.output_dataset_write.executed()
+            && !self.fallback_execution.allowed()
+    }
+    pub fn to_human_text(&self) -> String {
+        let mut out = String::new();
+        let _ = writeln!(out, "recovery integration status: {}", self.status.as_str());
+        let _ = writeln!(out, "mode: {}", self.mode.as_str());
+        if let Some(attempt_id) = &self.request.attempt_id {
+            let _ = writeln!(out, "attempt id: {}", attempt_id.as_str());
+        }
+        let _ = writeln!(out, "artifact count: {}", self.artifact_count);
+        let _ = writeln!(
+            out,
+            "cleanup required count: {}",
+            self.cleanup_required_count
+        );
+        let _ = writeln!(
+            out,
+            "unknown artifact count: {}",
+            self.unknown_artifact_count
+        );
+        if let Some(retry_decision) = &self.retry_decision {
+            let _ = writeln!(out, "retry decision: {}", retry_decision.kind.as_str());
+        }
+        let _ = write!(
+            out,
+            "cleanup executed: {}\nretry executed: {}\ncancellation executed: {}\nexternal effects executed: {}\nobject-store IO: {}\noutput dataset write: {}\nfallback execution: disabled",
+            self.cleanup_execution.executed(),
+            self.retry_execution.executed(),
+            self.cancellation_execution.executed(),
+            self.external_effects_execution.executed(),
+            self.object_store_io.executed(),
+            self.output_dataset_write.executed()
+        );
+        if !self.diagnostics.is_empty() {
+            let _ = writeln!(out, "\ndiagnostics:");
+            for d in &self.diagnostics {
+                let _ = writeln!(out, "- {}", d.message);
+            }
+        }
+        out
+    }
+}
+
+/// # Errors
+/// Returns an error when `ShardLoomRecoveryIntegrationReport` planning fails.
+pub fn plan_recovery_integration(
+    request: ShardLoomRecoveryIntegrationRequest,
+) -> Result<ShardLoomRecoveryIntegrationReport> {
+    ShardLoomRecoveryIntegrationReport::from_request(request)
+}
+
+pub fn recovery_integration_is_side_effect_free(
+    report: &ShardLoomRecoveryIntegrationReport,
+) -> bool {
+    report.is_side_effect_free()
+}
 impl RecoveryReport {
     pub fn not_run() -> Self {
         Self {
@@ -1288,5 +1740,107 @@ mod tests {
         let r = RecoveryReport::from_plan(&p);
         assert_eq!(r.status, p.status);
         assert_eq!(r.actions_completed, 0);
+    }
+    #[test]
+    fn recovery_integration_status_cleanup_required_requires_cleanup() {
+        assert!(ShardLoomRecoveryIntegrationStatus::CleanupRequired.requires_cleanup());
+    }
+    #[test]
+    fn recovery_integration_status_retry_blocked_is_error() {
+        assert!(ShardLoomRecoveryIntegrationStatus::RetryBlocked.is_error());
+    }
+    #[test]
+    fn recovery_integration_mode_report_only_executes_cleanup_false() {
+        assert!(!ShardLoomRecoveryIntegrationMode::ReportOnly.executes_cleanup());
+    }
+    #[test]
+    fn recovery_artifact_kind_synthetic_requires_cleanup() {
+        assert!(RecoveryArtifactKind::SyntheticSpillPayload.requires_cleanup());
+    }
+    #[test]
+    fn recovery_artifact_kind_unknown_blocks_and_has_no_direct_cleanup_requirement() {
+        assert!(!RecoveryArtifactKind::Unknown.requires_cleanup());
+    }
+    #[test]
+    fn recovery_artifact_ref_unknown_has_errors() {
+        let artifact = RecoveryArtifactRef::unknown("a", "unknown kind");
+        assert!(artifact.has_errors());
+    }
+    #[test]
+    fn recovery_integration_request_new_has_no_errors() {
+        assert!(!ShardLoomRecoveryIntegrationRequest::new().has_errors());
+    }
+    #[test]
+    fn recovery_integration_request_retry_option_works() {
+        let req = ShardLoomRecoveryIntegrationRequest::new().retry_requested(true);
+        assert!(req.has_option(RecoveryIntegrationOption::RetryRequested));
+    }
+    #[test]
+    fn recovery_integration_request_cancellation_option_works() {
+        let req = ShardLoomRecoveryIntegrationRequest::new().cancellation_requested(true);
+        assert!(req.has_option(RecoveryIntegrationOption::CancellationRequested));
+    }
+    #[test]
+    fn recovery_integration_from_request_no_artifacts_is_cleanup_not_required_side_effect_free() {
+        let report = ShardLoomRecoveryIntegrationReport::from_request(
+            ShardLoomRecoveryIntegrationRequest::new(),
+        )
+        .expect("report");
+        assert_eq!(
+            report.status,
+            ShardLoomRecoveryIntegrationStatus::CleanupNotRequired
+        );
+        assert!(report.is_side_effect_free());
+    }
+    #[test]
+    fn recovery_integration_with_spill_artifact_returns_cleanup_or_retry_after_cleanup() {
+        let mut req = ShardLoomRecoveryIntegrationRequest::new().retry_requested(true);
+        req.add_artifact(RecoveryArtifactRef::spill_workspace("ws-1", "/tmp/ws-1"));
+        let report = ShardLoomRecoveryIntegrationReport::from_request(req).expect("report");
+        assert_eq!(
+            report.status,
+            ShardLoomRecoveryIntegrationStatus::RetryAllowedAfterCleanup
+        );
+    }
+    #[test]
+    fn recovery_integration_unknown_artifact_is_blocked() {
+        let mut req = ShardLoomRecoveryIntegrationRequest::new();
+        req.add_artifact(RecoveryArtifactRef::unknown("u1", "not classified"));
+        let report = ShardLoomRecoveryIntegrationReport::from_request(req).expect("report");
+        assert_eq!(
+            report.status,
+            ShardLoomRecoveryIntegrationStatus::BlockedByUnknownArtifact
+        );
+    }
+    #[test]
+    fn recovery_integration_report_side_effect_flags_are_false() {
+        let report = ShardLoomRecoveryIntegrationReport::from_request(
+            ShardLoomRecoveryIntegrationRequest::new(),
+        )
+        .expect("report");
+        assert!(!report.cleanup_execution.executed());
+        assert!(!report.retry_execution.executed());
+        assert!(!report.cancellation_execution.executed());
+        assert!(!report.object_store_io.executed());
+        assert!(!report.output_dataset_write.executed());
+        assert!(!report.fallback_execution.allowed());
+    }
+    #[test]
+    fn recovery_integration_human_text_contains_expected_markers() {
+        let mut report = ShardLoomRecoveryIntegrationReport::from_request(
+            ShardLoomRecoveryIntegrationRequest::new(),
+        )
+        .expect("report");
+        report.add_diagnostic(Diagnostic::invalid_input("recovery", "diag-message", "fix"));
+        let text = report.to_human_text();
+        assert!(text.contains("fallback execution: disabled"));
+        assert!(text.contains("cleanup executed: false"));
+        assert!(text.contains("diagnostics:"));
+    }
+    #[test]
+    fn plan_recovery_integration_is_side_effect_free() {
+        let report =
+            plan_recovery_integration(ShardLoomRecoveryIntegrationRequest::new()).expect("report");
+        assert!(recovery_integration_is_side_effect_free(&report));
     }
 }

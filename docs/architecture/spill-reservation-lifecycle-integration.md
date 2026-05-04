@@ -61,3 +61,11 @@ Run:
 - Phase 11A.3b.1 fixes status propagation: nested `SpillPayloadRoundTripReport` states (feature-disabled, blocked, unsupported, or verification/error states) cannot be advertised as `PayloadRoundTripAvailable`.
 - Existing blockers from reservation planning must not be downgraded to `PayloadPlanReady`.
 - Synthetic spill support remains distinct from query/`Vortex` data spill.
+
+
+## Recovery context for bounded spill integration
+
+- Bounded spill integration can now produce recovery planning context for task attempts and synthetic artifacts.
+- Synthetic payload cleanup is planned only; cleanup is not executed in this phase.
+- Unknown artifacts block cleanup/retry planning until they are explicitly classified.
+- No object-store IO, output dataset write, or fallback execution behavior is introduced.

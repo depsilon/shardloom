@@ -634,7 +634,7 @@ Must include:
 - spill_data_is_synthetic.
 - fallback_execution_allowed=false.
 
-### Phase 11A.3b.1 — Bounded spill status propagation stabilization — Current
+### Phase 11A.3b.1 — Bounded spill status propagation stabilization — Complete
 
 Checklist:
 - Preserve nested `SpillPayloadRoundTripReport` status propagation.
@@ -647,7 +647,13 @@ Epic coverage:
 - Epic F — Agent Contract Pack: machine-readable status correctness.
 - Epic I — Correctness Harness: regression checks for blocked/deferred propagation.
 
-### Phase 11B — Recovery, cancellation, retry — Planned
+### Phase 11B — Recovery, cancellation, retry — Current
+
+### Phase 11B.1 — Recovery context and cleanup planning integration — Current
+
+### Phase 11B.2 — Retry/cancellation planning integration — Planned
+
+### Phase 11B.3 — Feature-gated cleanup execution for known synthetic artifacts — Planned
 
 Checklist:
 - Task attempt identity.
