@@ -34,6 +34,7 @@ pub mod query_trace;
 pub mod read_planning;
 pub mod runtime_bridge;
 pub mod scheduler_bridge;
+pub mod staged_output;
 pub mod write_intent;
 
 pub use file_io::{
@@ -123,6 +124,13 @@ pub use query_trace::{
     VortexWorkAvoidedReport, VortexWorkAvoidedValue, analyze_vortex_query_primitive_result,
     evaluate_vortex_query_primitive_with_analysis,
 };
+pub use staged_output::{
+    VortexStagedOutputEffect, VortexStagedOutputMode, VortexStagedOutputReport,
+    VortexStagedOutputRequest, VortexStagedOutputSignal, VortexStagedOutputStatus,
+    VortexStagedWorkspaceId, VortexStagedWorkspacePath, plan_vortex_staged_output,
+    staged_output_request_from_write_intent, vortex_staged_output_is_side_effect_free,
+};
+
 pub use write_intent::{
     VortexWriteIntentEffect, VortexWriteIntentMode, VortexWriteIntentReport,
     VortexWriteIntentRequest, VortexWriteIntentSignal, VortexWriteIntentStatus,

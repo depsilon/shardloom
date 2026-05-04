@@ -340,3 +340,14 @@ No spill data movement is implemented in this phase.
 - `VortexWriteIntentReport` must keep missing commit protocol machine-readable as `BlockedByCommitProtocol`.
 - `StagedOutputRequired` remains reserved for explicit staged-output planning intent.
 - This phase remains plan-only and side-effect-free: no output data writes, manifest writes, object-store IO, upstream Vortex write calls, or fallback execution.
+
+
+## Staged output workspace contract
+
+- Staged output workspace is report-only in Phase 12A.2a.
+- It does not create directories.
+- It does not write markers.
+- It does not write output data.
+- It does not write manifests.
+- It blocks object-store staged workspaces.
+- It requires future commit protocol before finalization.

@@ -389,3 +389,10 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - No actual `Vortex` write API calls.
 - No object-store writes.
 - No fallback execution.
+
+
+## Staged output boundary update
+
+- No upstream `Vortex` write APIs are called.
+- Staged output is a `ShardLoom`-native planning contract.
+- Actual write execution remains deferred.
