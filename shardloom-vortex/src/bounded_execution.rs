@@ -1031,9 +1031,9 @@ impl VortexBoundedSpillIntegrationReport {
             out.status = VortexBoundedSpillIntegrationStatus::BlockedByMissingEstimate;
         }
         if out.request.allow_synthetic_payload_roundtrip {
-            out.payload_write_allowed = true;
             match (&out.request.payload_fs_ref, &out.request.synthetic_payload) {
                 (Some(fs), Some(payload)) if !out.status.is_error() => {
+                    out.payload_write_allowed = true;
                     let req = SpillPayloadRoundTripRequest::new(SpillPayloadWriteRequest::new(
                         fs.clone(),
                         payload.clone(),
@@ -1059,18 +1059,24 @@ impl VortexBoundedSpillIntegrationReport {
                                 out.status =
                                     VortexBoundedSpillIntegrationStatus::BlockedByFeatureGate;
                                 out.spill_data_is_synthetic = false;
+                                out.payload_write_allowed = false;
                             }
                             "unsupported" => {
                                 out.status = VortexBoundedSpillIntegrationStatus::Unsupported;
+                                out.payload_write_allowed = false;
                             }
                             _ if rep.has_errors() => {
                                 out.status =
                                     VortexBoundedSpillIntegrationStatus::BlockedBySpillPolicy;
+                                out.payload_write_allowed = false;
                             }
                             _ => {}
                         }
                     }
                     out.payload_roundtrip_report = Some(rep);
+                    if out.status.is_error() {
+                        out.payload_write_allowed = false;
+                    }
                 }
                 _ => {
                     out.mode = VortexBoundedSpillIntegrationMode::SyntheticPayloadPlanning;
@@ -1370,6 +1376,7 @@ mod tests {
         );
         assert!(!report.payload_written);
         assert!(!report.payload_read);
+        assert!(!report.payload_write_allowed);
         assert!(!report.query_spill_data_written);
         assert!(!report.object_store_io);
         assert!(!report.output_dataset_write);

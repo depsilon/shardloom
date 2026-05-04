@@ -649,9 +649,9 @@ Epic coverage:
 
 ### Phase 11B — Recovery, cancellation, retry — Current
 
-### Phase 11B.1 — Recovery context and cleanup planning integration — Current
+### Phase 11B.1 — Recovery context and cleanup planning integration — Complete
 
-### Phase 11B.2 — Retry/cancellation planning integration — Planned
+### Phase 11B.2 — Retry/cancellation planning integration — Current
 
 ### Phase 11B.3 — Feature-gated cleanup execution for known synthetic artifacts — Planned
 

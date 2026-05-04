@@ -69,3 +69,11 @@ Run:
 - Synthetic payload cleanup is planned only; cleanup is not executed in this phase.
 - Unknown artifacts block cleanup/retry planning until they are explicitly classified.
 - No object-store IO, output dataset write, or fallback execution behavior is introduced.
+
+## Retry and cancellation planning
+
+- Retry/cancellation behavior is planning-only in this phase.
+- Retry is blocked for unknown artifacts and external effects.
+- Retry can be allowed after cleanup when cleanup requirements are known.
+- Cancellation can be planned without executing cancellation.
+- No cleanup, retry, or cancellation execution is performed yet.

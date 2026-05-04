@@ -1409,11 +1409,11 @@ impl ShardLoomRecoveryIntegrationReport {
         let status;
         let mut mode = ShardLoomRecoveryIntegrationMode::ReportOnly;
         let mut retry_decision = None;
-        if unknown_artifact_count > 0 {
-            status = ShardLoomRecoveryIntegrationStatus::BlockedByUnknownArtifact;
-        } else if request.cancellation_requested {
+        if request.cancellation_requested {
             mode = ShardLoomRecoveryIntegrationMode::CancellationPlanning;
             status = ShardLoomRecoveryIntegrationStatus::CancellationPlanned;
+        } else if unknown_artifact_count > 0 {
+            status = ShardLoomRecoveryIntegrationStatus::BlockedByUnknownArtifact;
         } else if request.retry_requested && !cleanup_requirements.is_empty() {
             mode = ShardLoomRecoveryIntegrationMode::RetryPlanning;
             status = ShardLoomRecoveryIntegrationStatus::RetryAllowedAfterCleanup;
@@ -1551,6 +1551,390 @@ pub fn plan_recovery_integration(
 
 pub fn recovery_integration_is_side_effect_free(
     report: &ShardLoomRecoveryIntegrationReport,
+) -> bool {
+    report.is_side_effect_free()
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShardLoomRetryCancellationStatus {
+    Planned,
+    RetryAllowed,
+    RetryAllowedAfterCleanup,
+    RetryBlockedByCleanup,
+    RetryBlockedByUnknownArtifact,
+    RetryBlockedByExternalEffect,
+    RetryBlockedByPolicy,
+    CancellationPlanned,
+    CancellationBlocked,
+    NotRequired,
+    Unsupported,
+}
+impl ShardLoomRetryCancellationStatus {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Planned => "planned",
+            Self::RetryAllowed => "retry_allowed",
+            Self::RetryAllowedAfterCleanup => "retry_allowed_after_cleanup",
+            Self::RetryBlockedByCleanup => "retry_blocked_by_cleanup",
+            Self::RetryBlockedByUnknownArtifact => "retry_blocked_by_unknown_artifact",
+            Self::RetryBlockedByExternalEffect => "retry_blocked_by_external_effect",
+            Self::RetryBlockedByPolicy => "retry_blocked_by_policy",
+            Self::CancellationPlanned => "cancellation_planned",
+            Self::CancellationBlocked => "cancellation_blocked",
+            Self::NotRequired => "not_required",
+            Self::Unsupported => "unsupported",
+        }
+    }
+    pub const fn is_error(&self) -> bool {
+        matches!(
+            self,
+            Self::RetryBlockedByCleanup
+                | Self::RetryBlockedByUnknownArtifact
+                | Self::RetryBlockedByExternalEffect
+                | Self::RetryBlockedByPolicy
+                | Self::CancellationBlocked
+                | Self::Unsupported
+        )
+    }
+    pub const fn allows_retry(&self) -> bool {
+        matches!(self, Self::RetryAllowed | Self::RetryAllowedAfterCleanup)
+    }
+    pub const fn requires_cleanup_before_retry(&self) -> bool {
+        matches!(self, Self::RetryAllowedAfterCleanup)
+    }
+    pub const fn cancellation_requested(&self) -> bool {
+        matches!(self, Self::CancellationPlanned)
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShardLoomRetryCancellationMode {
+    ReportOnly,
+    RetryPlanning,
+    CancellationPlanning,
+    RetryAndCancellationPlanning,
+    Unsupported,
+}
+impl ShardLoomRetryCancellationMode {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::ReportOnly => "report_only",
+            Self::RetryPlanning => "retry_planning",
+            Self::CancellationPlanning => "cancellation_planning",
+            Self::RetryAndCancellationPlanning => "retry_and_cancellation_planning",
+            Self::Unsupported => "unsupported",
+        }
+    }
+    pub const fn executes_retry(&self) -> bool {
+        false
+    }
+    pub const fn executes_cancellation(&self) -> bool {
+        false
+    }
+    pub const fn executes_cleanup(&self) -> bool {
+        false
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RetryCancellationOption {
+    RetryRequested,
+    CancellationRequested,
+    ExternalEffectsPresent,
+    CleanupAlreadyCompleted,
+    AllowRetryAfterCleanup,
+}
+impl RetryCancellationOption {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::RetryRequested => "retry_requested",
+            Self::CancellationRequested => "cancellation_requested",
+            Self::ExternalEffectsPresent => "external_effects_present",
+            Self::CleanupAlreadyCompleted => "cleanup_already_completed",
+            Self::AllowRetryAfterCleanup => "allow_retry_after_cleanup",
+        }
+    }
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct ShardLoomRetryCancellationRequest {
+    pub recovery_report: ShardLoomRecoveryIntegrationReport,
+    pub attempt_id: Option<AttemptId>,
+    pub options: Vec<RetryCancellationOption>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl ShardLoomRetryCancellationRequest {
+    pub fn new(recovery_report: ShardLoomRecoveryIntegrationReport) -> Self {
+        Self {
+            attempt_id: recovery_report.request.attempt_id.clone(),
+            recovery_report,
+            options: vec![],
+            diagnostics: vec![],
+        }
+    }
+    pub fn for_attempt(
+        recovery_report: ShardLoomRecoveryIntegrationReport,
+        attempt_id: AttemptId,
+    ) -> Self {
+        let mut req = Self::new(recovery_report);
+        req.attempt_id = Some(attempt_id);
+        req
+    }
+    fn set_option(mut self, option: RetryCancellationOption, value: bool) -> Self {
+        self.options.retain(|o| o != &option);
+        if value {
+            self.options.push(option);
+        }
+        self
+    }
+    pub fn retry_requested(self, value: bool) -> Self {
+        self.set_option(RetryCancellationOption::RetryRequested, value)
+    }
+    pub fn cancellation_requested(self, value: bool) -> Self {
+        self.set_option(RetryCancellationOption::CancellationRequested, value)
+    }
+    pub fn external_effects_present(self, value: bool) -> Self {
+        self.set_option(RetryCancellationOption::ExternalEffectsPresent, value)
+    }
+    pub fn cleanup_already_completed(self, value: bool) -> Self {
+        self.set_option(RetryCancellationOption::CleanupAlreadyCompleted, value)
+    }
+    pub fn allow_retry_after_cleanup(self, value: bool) -> Self {
+        self.set_option(RetryCancellationOption::AllowRetryAfterCleanup, value)
+    }
+    pub fn has_option(&self, option: RetryCancellationOption) -> bool {
+        self.options.contains(&option)
+    }
+    pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
+    }
+    pub fn has_errors(&self) -> bool {
+        has_error_diagnostics(&self.diagnostics) || self.recovery_report.has_errors()
+    }
+    pub fn summary(&self) -> String {
+        format!(
+            "attempt_present={} options={} retry_requested={} cancellation_requested={}",
+            self.attempt_id.is_some(),
+            self.options.len(),
+            self.has_option(RetryCancellationOption::RetryRequested),
+            self.has_option(RetryCancellationOption::CancellationRequested)
+        )
+    }
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct ShardLoomRetryCancellationReport {
+    pub status: ShardLoomRetryCancellationStatus,
+    pub mode: ShardLoomRetryCancellationMode,
+    pub request: ShardLoomRetryCancellationRequest,
+    pub retry_decision: Option<RetryDecision>,
+    pub cancellation_request: Option<CancellationRequest>,
+    pub cleanup_required_count: usize,
+    pub unknown_artifact_count: usize,
+    pub retry_allowed: bool,
+    pub retry_requires_cleanup: bool,
+    pub cancellation_requested: bool,
+    pub retry_execution: RecoveryExecutionState,
+    pub cancellation_execution: RecoveryExecutionState,
+    pub cleanup_execution: RecoveryExecutionState,
+    pub external_effects_execution: RecoveryExecutionState,
+    pub object_store_io: RecoveryExecutionState,
+    pub output_dataset_write: RecoveryExecutionState,
+    pub fallback_execution: FallbackExecutionState,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl ShardLoomRetryCancellationReport {
+    /// # Errors
+    /// Returns an error when deriving retry/cancellation planning from the recovery report fails.
+    pub fn from_request(request: ShardLoomRetryCancellationRequest) -> Result<Self> {
+        let retry_requested = request.has_option(RetryCancellationOption::RetryRequested);
+        let cancellation_requested =
+            request.has_option(RetryCancellationOption::CancellationRequested);
+        let external_effects = request.has_option(RetryCancellationOption::ExternalEffectsPresent);
+        let cleanup_complete = request.has_option(RetryCancellationOption::CleanupAlreadyCompleted);
+        let allow_after_cleanup =
+            request.has_option(RetryCancellationOption::AllowRetryAfterCleanup);
+        let cleanup_required_count = request.recovery_report.cleanup_required_count;
+        let unknown_artifact_count = request.recovery_report.unknown_artifact_count;
+        let retry_requires_cleanup =
+            retry_requested && cleanup_required_count > 0 && !cleanup_complete;
+        let mut status;
+        let mut retry_allowed = false;
+        let mut retry_decision = None;
+        if retry_requested {
+            if external_effects {
+                status = ShardLoomRetryCancellationStatus::RetryBlockedByExternalEffect;
+            } else if unknown_artifact_count > 0 {
+                status = ShardLoomRetryCancellationStatus::RetryBlockedByUnknownArtifact;
+            } else if retry_requires_cleanup && !allow_after_cleanup {
+                status = ShardLoomRetryCancellationStatus::RetryBlockedByCleanup;
+            } else if retry_requires_cleanup {
+                status = ShardLoomRetryCancellationStatus::RetryAllowedAfterCleanup;
+                retry_allowed = true;
+                retry_decision = Some(RetryDecision::retry_after_cleanup(
+                    "cleanup required before retry",
+                ));
+            } else {
+                status = ShardLoomRetryCancellationStatus::RetryAllowed;
+                retry_allowed = true;
+                retry_decision = Some(RetryDecision::retry_now("retry allowed by planning policy"));
+            }
+        } else {
+            status = ShardLoomRetryCancellationStatus::NotRequired;
+        }
+        let mut mode = if retry_requested {
+            ShardLoomRetryCancellationMode::RetryPlanning
+        } else {
+            ShardLoomRetryCancellationMode::ReportOnly
+        };
+        let mut cancellation_request = None;
+        if cancellation_requested {
+            mode = if retry_requested {
+                ShardLoomRetryCancellationMode::RetryAndCancellationPlanning
+            } else {
+                ShardLoomRetryCancellationMode::CancellationPlanning
+            };
+            cancellation_request = Some(CancellationRequest::new(
+                CancellationScope::Task,
+                CancellationReason::UserRequested,
+            ));
+            if !retry_requested {
+                status = ShardLoomRetryCancellationStatus::CancellationPlanned;
+            }
+        }
+        Ok(Self {
+            status,
+            mode,
+            request,
+            retry_decision,
+            cancellation_request,
+            cleanup_required_count,
+            unknown_artifact_count,
+            retry_allowed,
+            retry_requires_cleanup,
+            cancellation_requested,
+            retry_execution: RecoveryExecutionState::NotPerformed,
+            cancellation_execution: RecoveryExecutionState::NotPerformed,
+            cleanup_execution: RecoveryExecutionState::NotPerformed,
+            external_effects_execution: RecoveryExecutionState::NotPerformed,
+            object_store_io: RecoveryExecutionState::NotPerformed,
+            output_dataset_write: RecoveryExecutionState::NotPerformed,
+            fallback_execution: FallbackExecutionState::Disabled,
+            diagnostics: vec![],
+        })
+    }
+    pub fn unsupported(
+        request: ShardLoomRetryCancellationRequest,
+        feature: impl Into<String>,
+        reason: impl Into<String>,
+    ) -> Self {
+        let mut r = Self {
+            status: ShardLoomRetryCancellationStatus::Unsupported,
+            mode: ShardLoomRetryCancellationMode::Unsupported,
+            request,
+            retry_decision: None,
+            cancellation_request: None,
+            cleanup_required_count: 0,
+            unknown_artifact_count: 0,
+            retry_allowed: false,
+            retry_requires_cleanup: false,
+            cancellation_requested: false,
+            retry_execution: RecoveryExecutionState::NotPerformed,
+            cancellation_execution: RecoveryExecutionState::NotPerformed,
+            cleanup_execution: RecoveryExecutionState::NotPerformed,
+            external_effects_execution: RecoveryExecutionState::NotPerformed,
+            object_store_io: RecoveryExecutionState::NotPerformed,
+            output_dataset_write: RecoveryExecutionState::NotPerformed,
+            fallback_execution: FallbackExecutionState::Disabled,
+            diagnostics: vec![],
+        };
+        r.add_diagnostic(unsupported_diagnostic(feature, reason));
+        r
+    }
+    pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
+    }
+    pub fn has_errors(&self) -> bool {
+        self.status.is_error()
+            || self.request.has_errors()
+            || self
+                .retry_decision
+                .as_ref()
+                .is_some_and(RetryDecision::has_errors)
+            || self
+                .cancellation_request
+                .as_ref()
+                .is_some_and(CancellationRequest::has_errors)
+            || has_error_diagnostics(&self.diagnostics)
+            || has_error_diagnostics(&self.request.recovery_report.diagnostics)
+    }
+    pub const fn is_side_effect_free(&self) -> bool {
+        !self.cleanup_execution.executed()
+            && !self.retry_execution.executed()
+            && !self.cancellation_execution.executed()
+            && !self.external_effects_execution.executed()
+            && !self.object_store_io.executed()
+            && !self.output_dataset_write.executed()
+            && !self.fallback_execution.allowed()
+    }
+    pub fn to_human_text(&self) -> String {
+        let mut out = String::new();
+        let _ = writeln!(out, "retry/cancellation status: {}", self.status.as_str());
+        let _ = writeln!(out, "mode: {}", self.mode.as_str());
+        if let Some(attempt) = &self.request.attempt_id {
+            let _ = writeln!(out, "attempt id: {}", attempt.as_str());
+        }
+        let _ = writeln!(
+            out,
+            "retry requested: {}",
+            self.request
+                .has_option(RetryCancellationOption::RetryRequested)
+        );
+        let _ = writeln!(out, "retry allowed: {}", self.retry_allowed);
+        let _ = writeln!(
+            out,
+            "retry requires cleanup: {}",
+            self.retry_requires_cleanup
+        );
+        let _ = writeln!(
+            out,
+            "cleanup required count: {}",
+            self.cleanup_required_count
+        );
+        let _ = writeln!(
+            out,
+            "unknown artifact count: {}",
+            self.unknown_artifact_count
+        );
+        let _ = writeln!(
+            out,
+            "cancellation requested: {}",
+            self.cancellation_requested
+        );
+        let _ = write!(
+            out,
+            "retry executed: {}\ncancellation executed: {}\ncleanup executed: {}\nexternal effects executed: {}\nobject-store IO: {}\noutput dataset write: {}\nfallback execution: disabled",
+            self.retry_execution.executed(),
+            self.cancellation_execution.executed(),
+            self.cleanup_execution.executed(),
+            self.external_effects_execution.executed(),
+            self.object_store_io.executed(),
+            self.output_dataset_write.executed()
+        );
+        if !self.diagnostics.is_empty() {
+            let _ = writeln!(out, "\ndiagnostics:");
+            for d in &self.diagnostics {
+                let _ = writeln!(out, "- {}", d.message);
+            }
+        }
+        out
+    }
+}
+/// # Errors
+/// Returns an error when retry/cancellation planning cannot be derived from the request.
+pub fn plan_retry_cancellation(
+    request: ShardLoomRetryCancellationRequest,
+) -> Result<ShardLoomRetryCancellationReport> {
+    ShardLoomRetryCancellationReport::from_request(request)
+}
+pub fn retry_cancellation_plan_is_side_effect_free(
+    report: &ShardLoomRetryCancellationReport,
 ) -> bool {
     report.is_side_effect_free()
 }
@@ -1813,6 +2197,21 @@ mod tests {
         );
     }
     #[test]
+    fn recovery_integration_cancellation_with_unknown_artifact_is_cancellation_planned() {
+        let mut req = ShardLoomRecoveryIntegrationRequest::new().cancellation_requested(true);
+        req.add_artifact(RecoveryArtifactRef::unknown("u1", "not classified"));
+        let report = ShardLoomRecoveryIntegrationReport::from_request(req).expect("report");
+        assert_eq!(
+            report.status,
+            ShardLoomRecoveryIntegrationStatus::CancellationPlanned
+        );
+        assert_eq!(
+            report.mode,
+            ShardLoomRecoveryIntegrationMode::CancellationPlanning
+        );
+        assert_eq!(report.unknown_artifact_count, 1);
+    }
+    #[test]
     fn recovery_integration_report_side_effect_flags_are_false() {
         let report = ShardLoomRecoveryIntegrationReport::from_request(
             ShardLoomRecoveryIntegrationRequest::new(),
@@ -1842,5 +2241,107 @@ mod tests {
         let report =
             plan_recovery_integration(ShardLoomRecoveryIntegrationRequest::new()).expect("report");
         assert!(recovery_integration_is_side_effect_free(&report));
+    }
+    #[test]
+    fn retry_cancellation_status_retry_allowed_allows_retry() {
+        assert!(ShardLoomRetryCancellationStatus::RetryAllowed.allows_retry());
+    }
+    #[test]
+    fn retry_cancellation_status_retry_allowed_after_cleanup_requires_cleanup() {
+        assert!(ShardLoomRetryCancellationStatus::RetryAllowedAfterCleanup.allows_retry());
+        assert!(
+            ShardLoomRetryCancellationStatus::RetryAllowedAfterCleanup
+                .requires_cleanup_before_retry()
+        );
+    }
+    #[test]
+    fn retry_cancellation_status_blocked_states_are_errors() {
+        assert!(ShardLoomRetryCancellationStatus::RetryBlockedByCleanup.is_error());
+        assert!(ShardLoomRetryCancellationStatus::RetryBlockedByExternalEffect.is_error());
+    }
+    #[test]
+    fn retry_cancellation_status_cancellation_planned_marks_requested() {
+        assert!(ShardLoomRetryCancellationStatus::CancellationPlanned.cancellation_requested());
+    }
+    #[test]
+    fn retry_cancellation_mode_report_only_executes_are_false() {
+        assert!(!ShardLoomRetryCancellationMode::ReportOnly.executes_retry());
+        assert!(!ShardLoomRetryCancellationMode::ReportOnly.executes_cleanup());
+    }
+    #[test]
+    fn retry_cancellation_request_defaults_to_no_retry_or_cancel() {
+        let report = ShardLoomRecoveryIntegrationReport::from_request(
+            ShardLoomRecoveryIntegrationRequest::new(),
+        )
+        .expect("report");
+        let req = ShardLoomRetryCancellationRequest::new(report);
+        assert!(!req.has_option(RetryCancellationOption::RetryRequested));
+        assert!(!req.has_option(RetryCancellationOption::CancellationRequested));
+    }
+    #[test]
+    fn retry_cancellation_request_options_work() {
+        let report = ShardLoomRecoveryIntegrationReport::from_request(
+            ShardLoomRecoveryIntegrationRequest::new(),
+        )
+        .expect("report");
+        let req = ShardLoomRetryCancellationRequest::new(report)
+            .retry_requested(true)
+            .cancellation_requested(true);
+        assert!(req.has_option(RetryCancellationOption::RetryRequested));
+        assert!(req.has_option(RetryCancellationOption::CancellationRequested));
+    }
+    #[test]
+    fn retry_cancellation_from_request_blocks_external_effect_retry() {
+        let base = ShardLoomRecoveryIntegrationReport::from_request(
+            ShardLoomRecoveryIntegrationRequest::new(),
+        )
+        .expect("report");
+        let report = ShardLoomRetryCancellationReport::from_request(
+            ShardLoomRetryCancellationRequest::new(base)
+                .retry_requested(true)
+                .external_effects_present(true),
+        )
+        .expect("report");
+        assert_eq!(
+            report.status,
+            ShardLoomRetryCancellationStatus::RetryBlockedByExternalEffect
+        );
+        assert!(!report.retry_allowed);
+    }
+    #[test]
+    fn retry_cancellation_from_request_retry_allowed_and_cleanup_variants() {
+        let base = ShardLoomRecoveryIntegrationReport::from_request(
+            ShardLoomRecoveryIntegrationRequest::new(),
+        )
+        .expect("report");
+        let allowed = ShardLoomRetryCancellationReport::from_request(
+            ShardLoomRetryCancellationRequest::new(base.clone()).retry_requested(true),
+        )
+        .expect("report");
+        assert_eq!(
+            allowed.status,
+            ShardLoomRetryCancellationStatus::RetryAllowed
+        );
+        let mut req = ShardLoomRecoveryIntegrationRequest::new();
+        req.add_artifact(RecoveryArtifactRef::spill_workspace("ws-1", "/tmp/ws-1"));
+        let with_cleanup = ShardLoomRecoveryIntegrationReport::from_request(req).expect("report");
+        let blocked = ShardLoomRetryCancellationReport::from_request(
+            ShardLoomRetryCancellationRequest::new(with_cleanup.clone()).retry_requested(true),
+        )
+        .expect("report");
+        assert_eq!(
+            blocked.status,
+            ShardLoomRetryCancellationStatus::RetryBlockedByCleanup
+        );
+        let allowed_after_cleanup = ShardLoomRetryCancellationReport::from_request(
+            ShardLoomRetryCancellationRequest::new(with_cleanup)
+                .retry_requested(true)
+                .allow_retry_after_cleanup(true),
+        )
+        .expect("report");
+        assert_eq!(
+            allowed_after_cleanup.status,
+            ShardLoomRetryCancellationStatus::RetryAllowedAfterCleanup
+        );
     }
 }
