@@ -40,7 +40,8 @@ use shardloom_vortex::{
     VortexAdapterCapabilityReport, VortexAdapterReadiness, VortexDTypeMappingReport,
     VortexEncodedReadReadinessStatus, VortexEncodingLayoutMappingReport,
     VortexExecutionReadinessStatus, VortexFileRef, VortexMetadataOpenRequest,
-    VortexMetadataProbeReport, VortexReadPlan, VortexStatisticsMappingReport, VortexWriteOptions,
+    VortexMetadataProbeReport, VortexReadPlan, VortexStatisticsMappingReport,
+    VortexWriteIntentReport, VortexWriteIntentRequest, VortexWriteIntentSignal, VortexWriteOptions,
     VortexWritePlan, build_vortex_runtime_task_graph, evaluate_vortex_encoded_read_readiness,
     evaluate_vortex_execution_readiness, evaluate_vortex_query_primitive,
     execute_vortex_bounded_local_query, execute_vortex_encoded_read_contract,
@@ -50,8 +51,8 @@ use shardloom_vortex::{
     parse_vortex_local_engine_primitive, plan_from_vortex_metadata_summary,
     plan_native_vortex_universal_input, plan_vortex_encoded_read_probe, plan_vortex_memory_safety,
     plan_vortex_metadata_pruning, plan_vortex_read_from_universal_input,
-    plan_vortex_scheduler_queue, probe_vortex_metadata_only, run_vortex_local_engine,
-    size_vortex_runtime_task_graph, summarize_vortex_metadata_probe,
+    plan_vortex_scheduler_queue, plan_vortex_write_intent, probe_vortex_metadata_only,
+    run_vortex_local_engine, size_vortex_runtime_task_graph, summarize_vortex_metadata_probe,
     vortex_encoded_read_executor_feature_enabled, vortex_encoded_read_public_api_boundary,
     vortex_encoded_read_spike_feature_enabled, vortex_file_io_feature_enabled,
     vortex_metadata_executor_feature_enabled,
@@ -2866,6 +2867,131 @@ fn run(args: Vec<String>) -> ExitCode {
                 vec![],
             );
             ExitCode::SUCCESS
+        }
+        Some("vortex-write-intent-plan") => {
+            let Some(target_uri) = args.next() else {
+                eprintln!("usage: shardloom vortex-write-intent-plan <target_uri> <signals>");
+                return ExitCode::from(2);
+            };
+            let Some(signals_raw) = args.next() else {
+                eprintln!("usage: shardloom vortex-write-intent-plan <target_uri> <signals>");
+                return ExitCode::from(2);
+            };
+            let uri = match DatasetUri::new(target_uri.clone()) {
+                Ok(uri) => uri,
+                Err(error) => {
+                    eprintln!("invalid dataset uri: {error}");
+                    return ExitCode::from(2);
+                }
+            };
+            let mut req = VortexWriteIntentRequest::new(uri);
+            for token in signals_raw.split(',').filter(|s| !s.trim().is_empty()) {
+                match token.trim() {
+                    "native-vortex-target" => {
+                        req.add_signal(VortexWriteIntentSignal::TargetIsNativeVortex, true);
+                    }
+                    "staged-output-required" => {
+                        req.add_signal(VortexWriteIntentSignal::StagedOutputRequired, true);
+                    }
+                    "schema-known" => req.add_signal(VortexWriteIntentSignal::SchemaKnown, true),
+                    "schema-compatible" => {
+                        req.add_signal(VortexWriteIntentSignal::SchemaCompatible, true);
+                    }
+                    "delete-semantics-known" => {
+                        req.add_signal(VortexWriteIntentSignal::DeleteSemanticsKnown, true);
+                    }
+                    "tombstone-semantics-known" => {
+                        req.add_signal(VortexWriteIntentSignal::TombstoneSemanticsKnown, true);
+                    }
+                    "commit-protocol-available" => {
+                        req.add_signal(VortexWriteIntentSignal::CommitProtocolAvailable, true);
+                    }
+                    "object-store-target" => {
+                        req.add_signal(VortexWriteIntentSignal::ObjectStoreTarget, true);
+                    }
+                    "upstream-vortex-write-feature-enabled" => req.add_signal(
+                        VortexWriteIntentSignal::UpstreamVortexWriteFeatureEnabled,
+                        true,
+                    ),
+                    other => {
+                        eprintln!("unknown signal token: {other}");
+                        return ExitCode::from(2);
+                    }
+                }
+            }
+            let report: VortexWriteIntentReport = match plan_vortex_write_intent(req) {
+                Ok(report) => report,
+                Err(error) => {
+                    eprintln!("failed to plan write intent: {error}");
+                    return ExitCode::from(1);
+                }
+            };
+            emit(
+                "vortex-write-intent-plan",
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "vortex write intent plan".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "vortex_write_intent_plan".to_string()),
+                    ("target_uri".to_string(), target_uri),
+                    (
+                        "target_is_native_vortex".to_string(),
+                        report.target_is_native_vortex().to_string(),
+                    ),
+                    (
+                        "staged_output_required".to_string(),
+                        report.staged_output_required().to_string(),
+                    ),
+                    (
+                        "schema_known".to_string(),
+                        report.schema_known().to_string(),
+                    ),
+                    (
+                        "schema_compatible".to_string(),
+                        report.schema_compatible().to_string(),
+                    ),
+                    (
+                        "delete_semantics_known".to_string(),
+                        report.delete_semantics_known().to_string(),
+                    ),
+                    (
+                        "tombstone_semantics_known".to_string(),
+                        report.tombstone_semantics_known().to_string(),
+                    ),
+                    (
+                        "commit_protocol_available".to_string(),
+                        report.commit_protocol_available().to_string(),
+                    ),
+                    (
+                        "object_store_target".to_string(),
+                        report.object_store_target().to_string(),
+                    ),
+                    ("output_data_written".to_string(), "false".to_string()),
+                    ("manifest_written".to_string(), "false".to_string()),
+                    ("object_store_io".to_string(), "false".to_string()),
+                    (
+                        "upstream_vortex_write_called".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("write_execution_allowed".to_string(), "false".to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
+                ],
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
         }
         Some("write-intent") => {
             let Some(target_uri) = args.next() else {
