@@ -380,3 +380,12 @@ This is `ShardLoom`-native scheduling/runtime plumbing for `Vortex` local execut
 The local engine surface preserves metadata-open report context in `VortexLocalEngineReport`, including metadata-open status and diagnostics.
 
 This update does not introduce scans, decode, materialization, writes, object-store IO, spill IO, or fallback execution.
+
+
+## Vortex write API boundary update
+
+- Upstream `Vortex` write APIs remain deferred.
+- Phase 12A.1 models write intent only.
+- No actual `Vortex` write API calls.
+- No object-store writes.
+- No fallback execution.

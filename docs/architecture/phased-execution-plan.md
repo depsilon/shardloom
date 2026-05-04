@@ -836,3 +836,10 @@ Must include:
 | Epic I — Correctness and Differential Harness | 1, 3, 9B-14 | Early semantic/test scaffolding pre-9D | Active | no large differential harness yet. | Phase 11A.3b tests must prove synthetic spill is not query data spill. |
 | Epic J — Benchmark and Competitive Claims | 8, 14B | Not started | Not ready | no benchmark claims yet. | only after meaningful local/distributed execution. |
 | Epic K — Dynamic Work Shaping | 3, 5-14 | Phase 10B bounded scheduling | Active | dynamic sizing/parallelism/spill shaping not fully tied to payload path. | Phase 11A.3b. |
+
+
+## Phase 12A update
+
+- Phase 11B.6 is complete.
+- Phase 12A.1 (native `Vortex` write intent core contract) is current.
+- Phase 12A.2 (staged output workspace contract) is planned.
