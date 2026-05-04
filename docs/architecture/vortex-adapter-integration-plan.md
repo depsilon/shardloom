@@ -359,3 +359,15 @@ No spill data movement is implemented in this phase.
 - It does not perform object-store IO.
 - It blocks object-store staged workspaces.
 - It requires future commit protocol before finalization.
+
+
+## Staged workspace setup CLI
+
+- `vortex-staged-workspace-setup` exposes the staged workspace setup helper through a stable `ShardLoom` command surface.
+- Default builds remain feature-disabled/report-only.
+- Under `vortex-staged-output-fs`, the CLI can create/confirm only an explicitly requested local staged workspace path.
+- The command does not write staged marker files.
+- The command does not write output data.
+- The command does not write manifests.
+- The command does not call upstream `Vortex` write APIs.
+- The command does not perform object-store IO.

@@ -40,19 +40,21 @@ use shardloom_vortex::{
     VortexAdapterCapabilityReport, VortexAdapterReadiness, VortexDTypeMappingReport,
     VortexEncodedReadReadinessStatus, VortexEncodingLayoutMappingReport,
     VortexExecutionReadinessStatus, VortexFileRef, VortexMetadataOpenRequest,
-    VortexMetadataProbeReport, VortexReadPlan, VortexStatisticsMappingReport,
-    VortexWriteIntentReport, VortexWriteIntentRequest, VortexWriteIntentSignal, VortexWriteOptions,
-    VortexWritePlan, build_vortex_runtime_task_graph, evaluate_vortex_encoded_read_readiness,
-    evaluate_vortex_execution_readiness, evaluate_vortex_query_primitive,
-    execute_vortex_bounded_local_query, execute_vortex_encoded_read_contract,
-    execute_vortex_encoded_read_spike, execute_vortex_local_query_primitive,
-    execute_vortex_metadata_only, metadata_planning_is_side_effect_free,
-    metadata_pruning_is_side_effect_free, metadata_summary_is_plan_only, open_vortex_metadata_only,
-    parse_vortex_local_engine_primitive, plan_from_vortex_metadata_summary,
-    plan_native_vortex_universal_input, plan_vortex_encoded_read_probe, plan_vortex_memory_safety,
-    plan_vortex_metadata_pruning, plan_vortex_read_from_universal_input,
-    plan_vortex_scheduler_queue, plan_vortex_write_intent, probe_vortex_metadata_only,
-    run_vortex_local_engine, size_vortex_runtime_task_graph, summarize_vortex_metadata_probe,
+    VortexMetadataProbeReport, VortexReadPlan, VortexStagedWorkspaceId, VortexStagedWorkspacePath,
+    VortexStagedWorkspaceSetupOption, VortexStagedWorkspaceSetupRequest,
+    VortexStatisticsMappingReport, VortexWriteIntentReport, VortexWriteIntentRequest,
+    VortexWriteIntentSignal, VortexWriteOptions, VortexWritePlan, build_vortex_runtime_task_graph,
+    evaluate_vortex_encoded_read_readiness, evaluate_vortex_execution_readiness,
+    evaluate_vortex_query_primitive, execute_vortex_bounded_local_query,
+    execute_vortex_encoded_read_contract, execute_vortex_encoded_read_spike,
+    execute_vortex_local_query_primitive, execute_vortex_metadata_only,
+    metadata_planning_is_side_effect_free, metadata_pruning_is_side_effect_free,
+    metadata_summary_is_plan_only, open_vortex_metadata_only, parse_vortex_local_engine_primitive,
+    plan_from_vortex_metadata_summary, plan_native_vortex_universal_input,
+    plan_vortex_encoded_read_probe, plan_vortex_memory_safety, plan_vortex_metadata_pruning,
+    plan_vortex_read_from_universal_input, plan_vortex_scheduler_queue, plan_vortex_write_intent,
+    probe_vortex_metadata_only, run_vortex_local_engine, setup_vortex_staged_workspace,
+    size_vortex_runtime_task_graph, summarize_vortex_metadata_probe,
     vortex_encoded_read_executor_feature_enabled, vortex_encoded_read_public_api_boundary,
     vortex_encoded_read_spike_feature_enabled, vortex_file_io_feature_enabled,
     vortex_metadata_executor_feature_enabled,
@@ -71,9 +73,41 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count|vortex-count-where|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
+}
+
+fn parse_vortex_staged_workspace_options(
+    options_raw: &str,
+) -> Result<Vec<VortexStagedWorkspaceSetupOption>, ShardLoomError> {
+    if options_raw.trim().is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "staged workspace options must not be empty".to_string(),
+        ));
+    }
+    let mut options = Vec::new();
+    for token in options_raw.split(',') {
+        let token = token.trim();
+        if token.is_empty() {
+            return Err(ShardLoomError::InvalidOperation(
+                "staged workspace options must not contain empty tokens".to_string(),
+            ));
+        }
+        let option = match token {
+            "create-if-missing" => VortexStagedWorkspaceSetupOption::CreateIfMissing,
+            "require-empty" => VortexStagedWorkspaceSetupOption::RequireEmpty,
+            _ => {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "unknown staged workspace option token: {token}"
+                )));
+            }
+        };
+        if !options.contains(&option) {
+            options.push(option);
+        }
+    }
+    Ok(options)
 }
 
 fn parse_output_format(args: Vec<String>) -> Result<(Vec<String>, OutputFormat), String> {
@@ -2985,6 +3019,122 @@ fn run(args: Vec<String>) -> ExitCode {
                     ),
                     ("write_execution_allowed".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
+                ],
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
+        Some("vortex-staged-workspace-setup") => {
+            let Some(workspace_id_raw) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-staged-workspace-setup <workspace_id> <workspace_path> <options>"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(workspace_path_raw) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-staged-workspace-setup <workspace_id> <workspace_path> <options>"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(options_raw) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-staged-workspace-setup <workspace_id> <workspace_path> <options>"
+                );
+                return ExitCode::from(2);
+            };
+            let workspace_id = match VortexStagedWorkspaceId::new(workspace_id_raw.clone()) {
+                Ok(id) => id,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-staged-workspace-setup",
+                        format,
+                        "invalid workspace id",
+                        &error,
+                    );
+                }
+            };
+            let workspace_path = match VortexStagedWorkspacePath::new(workspace_path_raw.clone()) {
+                Ok(path) => path,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-staged-workspace-setup",
+                        format,
+                        "invalid workspace path",
+                        &error,
+                    );
+                }
+            };
+            let options = match parse_vortex_staged_workspace_options(&options_raw) {
+                Ok(options) => options,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-staged-workspace-setup",
+                        format,
+                        "invalid staged workspace options",
+                        &error,
+                    );
+                }
+            };
+            let mut request = VortexStagedWorkspaceSetupRequest::new(workspace_id, workspace_path);
+            for option in options {
+                match option {
+                    VortexStagedWorkspaceSetupOption::CreateIfMissing => {
+                        request = request.create_if_missing(true);
+                    }
+                    VortexStagedWorkspaceSetupOption::RequireEmpty => {
+                        request = request.require_empty(true);
+                    }
+                }
+            }
+            let report = match setup_vortex_staged_workspace(request) {
+                Ok(report) => report,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-staged-workspace-setup",
+                        format,
+                        "staged workspace setup failed",
+                        &error,
+                    );
+                }
+            };
+            emit(
+                "vortex-staged-workspace-setup",
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "vortex staged workspace setup".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    (
+                        "mode".to_string(),
+                        "vortex_staged_workspace_setup".to_string(),
+                    ),
+                    ("workspace_id".to_string(), workspace_id_raw),
+                    ("workspace_path".to_string(), workspace_path_raw),
+                    (
+                        "workspace_created".to_string(),
+                        report.workspace_created().to_string(),
+                    ),
+                    ("marker_written".to_string(), "false".to_string()),
+                    ("output_data_written".to_string(), "false".to_string()),
+                    ("manifest_written".to_string(), "false".to_string()),
+                    ("object_store_io".to_string(), "false".to_string()),
+                    (
+                        "execution".to_string(),
+                        "workspace_setup_or_not_performed".to_string(),
+                    ),
                 ],
             );
             if report.has_errors() {
@@ -6424,6 +6574,63 @@ mod tests {
             "native-vortex-target,schema-known,schema-compatible,object-store-target".to_string(),
         ]);
         assert_ne!(code, ExitCode::SUCCESS);
+    }
+    #[test]
+    fn vortex_staged_workspace_setup_missing_workspace_id_returns_non_zero() {
+        let code = run(vec!["vortex-staged-workspace-setup".to_string()]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_staged_workspace_setup_missing_workspace_path_returns_non_zero() {
+        let code = run(vec![
+            "vortex-staged-workspace-setup".to_string(),
+            "stage1".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_staged_workspace_setup_missing_options_returns_non_zero() {
+        let code = run(vec![
+            "vortex-staged-workspace-setup".to_string(),
+            "stage1".to_string(),
+            "/tmp/shardloom-stage".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_staged_workspace_setup_unknown_option_returns_non_zero() {
+        let code = run(vec![
+            "vortex-staged-workspace-setup".to_string(),
+            "stage1".to_string(),
+            "/tmp/shardloom-stage".to_string(),
+            "unknown".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_staged_workspace_setup_valid_args_returns_success() {
+        let code = run(vec![
+            "vortex-staged-workspace-setup".to_string(),
+            "stage1".to_string(),
+            "/tmp/shardloom-stage".to_string(),
+            "create-if-missing".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn parse_staged_workspace_options_deduplicates_and_trims() {
+        let options = parse_vortex_staged_workspace_options(
+            "create-if-missing, require-empty,create-if-missing",
+        )
+        .unwrap();
+        assert_eq!(options.len(), 2);
+        assert!(options.contains(&VortexStagedWorkspaceSetupOption::CreateIfMissing));
+        assert!(options.contains(&VortexStagedWorkspaceSetupOption::RequireEmpty));
     }
     #[test]
     fn write_intent_with_target_uri_returns_non_zero() {
