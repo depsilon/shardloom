@@ -149,8 +149,9 @@ pub use staged_manifest::{
 pub use commit_protocol::{
     VortexCommitProtocolEffect, VortexCommitProtocolMode, VortexCommitProtocolReport,
     VortexCommitProtocolRequest, VortexCommitProtocolSignal, VortexCommitProtocolState,
-    VortexCommitProtocolStatus, VortexCommitProtocolTransition, plan_vortex_commit_protocol,
-    vortex_commit_protocol_is_side_effect_free,
+    VortexCommitProtocolStatus, VortexCommitProtocolTransition,
+    commit_protocol_request_from_commit_intent, plan_vortex_commit_protocol,
+    plan_vortex_commit_protocol_from_commit_intent, vortex_commit_protocol_is_side_effect_free,
 };
 
 pub use commit_intent::{
