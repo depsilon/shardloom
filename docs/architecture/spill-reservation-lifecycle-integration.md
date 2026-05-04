@@ -17,6 +17,17 @@ This document records the current planning-phase integration points for spill re
 - Unsupported behavior returns explicit deterministic diagnostics.
 - Fallback execution remains disabled by policy.
 
+## Spill payload roundtrip CLI
+
+- `spill-payload-roundtrip` exposes the synthetic local payload roundtrip API.
+- Default build is feature-disabled/report-only when `spill-payload-fs` is not enabled.
+- Feature build under `spill-payload-fs` writes and reads only synthetic payloads.
+- Optional cleanup removes only the exact payload file created for the request.
+- No `Vortex`/query data spill is performed.
+- No object-store IO is performed.
+- No output dataset writes are performed.
+- No fallback execution is allowed.
+
 ## Validation
 
 Run:

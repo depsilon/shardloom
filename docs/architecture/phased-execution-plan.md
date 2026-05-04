@@ -4,8 +4,8 @@
 
 - Production engine completion estimate: approximately 30%.
 - Architecture/control-plane completion estimate: approximately 95%.
-- Current phase: Phase 11A.3a.2d — feature-gated synthetic local spill payload roundtrip + cleanup API.
-- Next major phase: Phase 11A.3a.3 — spill-payload-roundtrip CLI contract.
+- Current phase: Phase 11A.3a.3 — `spill-payload-roundtrip` CLI/docs integration.
+- Next major phase: Phase 11A.3b — bounded execution spill payload integration.
 
 ## Phase checklist
 
@@ -393,8 +393,9 @@ Cross-cutting epics:
 - Phase 11A.3a.2a is complete.
 - Phase 11A.3a.2b is complete.
 - Phase 11A.3a.2c is complete.
-- Phase 11A.3a.2d is current.
-- Phase 11A.3a.3 is planned.
+- Phase 11A.3a.2d is complete.
+- Phase 11A.3a.3 is current.
+- Phase 11A.3b is planned.
 
 ## RFC traceability
 
