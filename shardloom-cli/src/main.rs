@@ -6371,7 +6371,50 @@ mod tests {
         let code = run(vec!["incremental-plan".to_string(), "snap-1".to_string()]);
         assert_eq!(code, ExitCode::SUCCESS);
     }
+    #[test]
+    fn vortex_write_intent_plan_missing_target_returns_non_zero() {
+        let code = run(vec!["vortex-write-intent-plan".to_string()]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
 
+    #[test]
+    fn vortex_write_intent_plan_missing_signals_returns_non_zero() {
+        let code = run(vec![
+            "vortex-write-intent-plan".to_string(),
+            "file://tmp/out.vortex".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_write_intent_plan_unknown_signal_returns_non_zero() {
+        let code = run(vec![
+            "vortex-write-intent-plan".to_string(),
+            "file://tmp/out.vortex".to_string(),
+            "native-vortex-target,unknown-signal".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_write_intent_plan_native_vortex_staged_returns_success_plan_only() {
+        let code = run(vec![
+            "vortex-write-intent-plan".to_string(),
+            "file://tmp/out.vortex".to_string(),
+            "native-vortex-target,schema-known,schema-compatible,delete-semantics-known,tombstone-semantics-known,staged-output-required".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_write_intent_plan_object_store_target_returns_non_zero() {
+        let code = run(vec![
+            "vortex-write-intent-plan".to_string(),
+            "s3://bucket/out.vortex".to_string(),
+            "native-vortex-target,schema-known,schema-compatible,object-store-target".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
     #[test]
     fn write_intent_with_target_uri_returns_non_zero() {
         let code = run(vec![
