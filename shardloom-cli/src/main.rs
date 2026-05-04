@@ -6246,10 +6246,17 @@ mod tests {
 
     #[test]
     fn vortex_task_graph_with_parquet_uri_returns_non_zero() {
-        let code = run(vec![
-            "vortex-task-graph".to_string(),
-            "file://tmp/data.parquet".to_string(),
-        ]);
+        let code = std::thread::Builder::new()
+            .stack_size(8 * 1024 * 1024)
+            .spawn(|| {
+                run(vec![
+                    "vortex-task-graph".to_string(),
+                    "file://tmp/data.parquet".to_string(),
+                ])
+            })
+            .expect("thread spawn should succeed")
+            .join()
+            .expect("thread join should succeed");
         assert_ne!(code, ExitCode::SUCCESS);
     }
 
