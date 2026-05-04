@@ -2419,7 +2419,10 @@ fn run(args: Vec<String>) -> ExitCode {
             ExitCode::SUCCESS
         }
         Some("retry-gate-plan") => {
-            let raw = args.next().unwrap_or_default();
+            let Some(raw) = args.next() else {
+                eprintln!("usage: shardloom retry-gate-plan <signals>");
+                return ExitCode::from(2);
+            };
             if args.next().is_some() {
                 return emit_error(
                     "retry-gate-plan",
@@ -6522,6 +6525,12 @@ mod tests {
             "retry-requested,retry-allowed".to_string(),
         ]);
         assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn retry_gate_plan_missing_signals_returns_non_zero() {
+        let code = run(vec!["retry-gate-plan".to_string()]);
+        assert_ne!(code, ExitCode::SUCCESS);
     }
 
     #[test]
