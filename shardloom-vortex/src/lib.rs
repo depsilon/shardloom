@@ -34,6 +34,7 @@ pub mod query_trace;
 pub mod read_planning;
 pub mod runtime_bridge;
 pub mod scheduler_bridge;
+pub mod staged_manifest;
 pub mod staged_output;
 pub mod write_intent;
 
@@ -124,6 +125,14 @@ pub use query_trace::{
     VortexWorkAvoidedReport, VortexWorkAvoidedValue, analyze_vortex_query_primitive_result,
     evaluate_vortex_query_primitive_with_analysis,
 };
+pub use staged_manifest::{
+    VortexStagedManifestDraftEffect, VortexStagedManifestDraftMode,
+    VortexStagedManifestDraftReport, VortexStagedManifestDraftRequest,
+    VortexStagedManifestDraftSignal, VortexStagedManifestDraftStatus,
+    plan_vortex_staged_manifest_draft, staged_manifest_request_from_reports,
+    vortex_staged_manifest_draft_is_side_effect_free,
+};
+
 pub use staged_output::{
     VortexStagedMarkerMode, VortexStagedMarkerOption, VortexStagedMarkerReport,
     VortexStagedMarkerRequest, VortexStagedMarkerStatus, VortexStagedOutputEffect,
