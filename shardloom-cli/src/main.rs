@@ -115,9 +115,7 @@ fn parse_vortex_staged_marker_options(
     options_raw: &str,
 ) -> Result<Vec<VortexStagedMarkerOption>, ShardLoomError> {
     if options_raw.trim().is_empty() {
-        return Err(ShardLoomError::InvalidOperation(
-            "staged marker options must not be empty".to_string(),
-        ));
+        return Ok(Vec::new());
     }
     let mut options = Vec::new();
     for token in options_raw.split(',') {
@@ -3217,12 +3215,7 @@ fn run(args: Vec<String>) -> ExitCode {
                 );
                 return ExitCode::from(2);
             };
-            let Some(options_raw) = args.next() else {
-                eprintln!(
-                    "usage: shardloom vortex-staged-marker-write <workspace_id> <workspace_path> <options>"
-                );
-                return ExitCode::from(2);
-            };
+            let options_raw = args.next().unwrap_or_default();
             let workspace_id = match VortexStagedWorkspaceId::new(workspace_id_raw.clone()) {
                 Ok(id) => id,
                 Err(error) => {
@@ -6800,13 +6793,13 @@ mod tests {
     }
 
     #[test]
-    fn vortex_staged_marker_write_missing_options_returns_non_zero() {
+    fn vortex_staged_marker_write_missing_options_uses_no_overwrite_default() {
         let code = run(vec![
             "vortex-staged-marker-write".to_string(),
             "stage1".to_string(),
             "/tmp/shardloom-stage".to_string(),
         ]);
-        assert_ne!(code, ExitCode::SUCCESS);
+        assert_eq!(code, ExitCode::SUCCESS);
     }
 
     #[test]
@@ -6840,9 +6833,9 @@ mod tests {
     }
 
     #[test]
-    fn parse_staged_marker_options_whitespace_only_rejected() {
-        let error = parse_vortex_staged_marker_options("   ").unwrap_err();
-        assert!(error.to_string().contains("must not be empty"));
+    fn parse_staged_marker_options_whitespace_only_means_no_overwrite() {
+        let options = parse_vortex_staged_marker_options("   ").unwrap();
+        assert!(options.is_empty());
     }
 
     #[test]

@@ -420,3 +420,6 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - Staged manifest draft is `ShardLoom`-native.
 - Upstream `Vortex` write APIs remain deferred.
 - Actual `Vortex` writes remain deferred.
+
+- Manifest draft file planning is `ShardLoom`-native.
+- Upstream `Vortex` write APIs remain deferred.

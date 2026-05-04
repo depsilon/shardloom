@@ -851,3 +851,9 @@ Must include:
 - Phase 12A.2c.2 (staged marker CLI/docs integration) is current.
 - Phase 12A.3 (staged manifest draft/report-only contract) is planned.
 \n## Phase 12A.3a update\n- Phase 12A.2c.2 complete.\n- Phase 12A.3a current: staged manifest draft core contract (report-only, no filesystem).\n- Phase 12A.3b planned: feature-gated local staged manifest draft file.\n- Phase 12A.3c planned: CLI/docs integration.\n- Actual output payload and  file writes remain deferred.
+
+## Phase 12A.3b.1 update
+- Phase 12A.3a complete.
+- Phase 12A.3b.1 current: staged manifest draft file path/content contract (report-only, no filesystem writes).
+- Phase 12A.3b.2 planned.
+- Phase 12A.3c planned.
