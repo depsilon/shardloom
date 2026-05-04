@@ -207,3 +207,8 @@ The remaining spill gap is bounded execution integration and recovery, starting 
 
 
 - Phase 11A.3b connects dynamic work shaping to synthetic spill payload capability while keeping object-store writes, output dataset writes, and fallback execution disabled.
+
+
+## Phase 12 kickoff
+
+Phase 12 begins native `Vortex` write/commit value propositions with safe write-intent planning before any execution behavior.

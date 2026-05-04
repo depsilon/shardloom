@@ -34,6 +34,7 @@ pub mod query_trace;
 pub mod read_planning;
 pub mod runtime_bridge;
 pub mod scheduler_bridge;
+pub mod write_intent;
 
 pub use file_io::{
     VortexFileIoFeatureStatus, VortexMetadataOpenMode, VortexMetadataOpenReport,
@@ -121,6 +122,11 @@ pub use query_trace::{
     VortexQueryPrimitiveAnalysisReport, VortexWorkAvoidedMetric, VortexWorkAvoidedMetricKind,
     VortexWorkAvoidedReport, VortexWorkAvoidedValue, analyze_vortex_query_primitive_result,
     evaluate_vortex_query_primitive_with_analysis,
+};
+pub use write_intent::{
+    VortexWriteIntentEffect, VortexWriteIntentMode, VortexWriteIntentReport,
+    VortexWriteIntentRequest, VortexWriteIntentSignal, VortexWriteIntentStatus,
+    plan_vortex_write_intent, vortex_write_intent_is_side_effect_free,
 };
 
 pub use read_planning::{
