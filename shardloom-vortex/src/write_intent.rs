@@ -272,10 +272,12 @@ impl VortexWriteIntentReport {
             report.status = VortexWriteIntentStatus::BlockedByDeleteSemantics;
         } else if !report.tombstone_semantics_known() {
             report.status = VortexWriteIntentStatus::BlockedByTombstoneSemantics;
+        } else if !report.commit_protocol_available() {
+            report.status = VortexWriteIntentStatus::BlockedByCommitProtocol;
+            report.mode = VortexWriteIntentMode::ReportOnly;
         } else if report
             .request
             .has_signal(VortexWriteIntentSignal::StagedOutputRequired)
-            || !report.commit_protocol_available()
         {
             report.status = VortexWriteIntentStatus::StagedOutputRequired;
             report.mode = VortexWriteIntentMode::StagedOutputPlanning;
@@ -562,9 +564,16 @@ mod tests {
         );
     }
     #[test]
-    fn missing_commit_staged_required() {
+    fn missing_commit_protocol_blocks() {
         let rep = VortexWriteIntentReport::from_request(base()).unwrap();
-        assert_eq!(rep.status, VortexWriteIntentStatus::StagedOutputRequired);
+        assert_eq!(rep.status, VortexWriteIntentStatus::BlockedByCommitProtocol);
+        assert!(rep.status.is_error());
+        assert_ne!(rep.status, VortexWriteIntentStatus::StagedOutputRequired);
+        assert!(!rep.output_data_written());
+        assert!(!rep.manifest_written());
+        assert!(!rep.object_store_io());
+        assert!(!rep.upstream_vortex_write_called());
+        assert!(!rep.fallback_execution_allowed());
     }
 
     #[test]
@@ -618,6 +627,7 @@ mod tests {
         ));
         let rep = VortexWriteIntentReport::from_request(req).unwrap();
         let text = rep.to_human_text();
+        assert!(text.contains("commit protocol available: false"));
         assert!(text.contains("fallback execution: disabled"));
         assert!(text.contains("upstream Vortex write called: false"));
         assert!(text.contains("SL_INVALID_INPUT"));
