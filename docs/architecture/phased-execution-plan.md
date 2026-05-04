@@ -5,7 +5,7 @@
 - Production-grade engine completion estimate: approximately 37–38%.
 - Architecture/control-plane completion estimate: approximately 97%.
 - Current checkpoint: all-phase epic coverage and roadmap synchronization.
-- Next implementation phase: Phase 11B.4a.1 — retry execution gate signal/effect core.
+- Next implementation phase: Phase 11B.4a.2 — retry gate integration with cancellation/cleanup reports.
 
 ## Cross-cutting epic legend
 
@@ -659,9 +659,9 @@ Epic coverage:
 
 ### Phase 11B.3c — Cleanup execution CLI/reporting integration — Complete
 
-### Phase 11B.4a.1 — Retry execution gate signal/effect core — Current
+### Phase 11B.4a.1 — Retry execution gate signal/effect core — Complete
 
-### Phase 11B.4a.2 — Retry gate integration with cancellation/cleanup reports — Planned
+### Phase 11B.4a.2 — Retry gate integration with cancellation/cleanup reports — Current
 
 ### Phase 11B.4b — Retry/cancellation execution integration — Planned
 

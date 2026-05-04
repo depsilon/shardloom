@@ -101,3 +101,9 @@ Run:
 - Output commit cleanup is not implemented.
 - Retry/cancellation execution remains disabled.
 - No fallback execution is introduced.
+
+## Retry gate report integration
+
+- Retry gate request construction can now derive gate signals from `ShardLoomRetryCancellationReport` and `ShardLoomCleanupExecutionReport`.
+- `CleanupCompleted` is only derived from actual cleanup execution state (`cleanup_executed() == true`), not from report presence alone.
+- Retry gate evaluation remains planning-only and does not execute retry, cleanup, or cancellation.
