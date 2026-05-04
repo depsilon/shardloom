@@ -1,4 +1,6 @@
 use std::fmt::Write as _;
+#[cfg(feature = "vortex-staged-output-fs")]
+use std::path::{Path, PathBuf};
 
 use shardloom_core::{
     DatasetUri, Diagnostic, DiagnosticCode, DiagnosticSeverity, Result, ShardLoomError, UriScheme,
@@ -371,20 +373,13 @@ impl VortexStagedWorkspaceSetupReport {
         }
         #[cfg(feature = "vortex-staged-output-fs")]
         {
-            use std::path::Path;
-
-            let path = request.workspace_path.as_str();
-            if DatasetUri::new(path.to_string())
-                .map(|uri| !matches!(uri.scheme(), UriScheme::LocalPath | UriScheme::File))
-                .unwrap_or(false)
-            {
+            let Ok(path_ref) = staged_workspace_local_path(&request.workspace_path) else {
                 return Ok(Self::blocked(
                     request,
                     VortexStagedWorkspaceSetupStatus::BlockedByObjectStoreTarget,
                     "workspace path looks like object-store target",
                 ));
-            }
-            let path_ref = Path::new(path);
+            };
             if path_ref.exists() && !path_ref.is_dir() {
                 return Ok(Self::blocked(
                     request,
@@ -404,7 +399,7 @@ impl VortexStagedWorkspaceSetupReport {
             if !path_ref.exists()
                 && request.has_option(VortexStagedWorkspaceSetupOption::CreateIfMissing)
             {
-                std::fs::create_dir_all(path_ref).map_err(|error| {
+                std::fs::create_dir_all(&path_ref).map_err(|error| {
                     ShardLoomError::InvalidOperation(format!(
                         "failed to create staged workspace directory: {error}"
                     ))
@@ -412,7 +407,7 @@ impl VortexStagedWorkspaceSetupReport {
                 return Ok(Self::workspace_created_report(request));
             }
             if request.has_option(VortexStagedWorkspaceSetupOption::RequireEmpty)
-                && std::fs::read_dir(path_ref)
+                && std::fs::read_dir(&path_ref)
                     .map_err(|error| {
                         ShardLoomError::InvalidOperation(format!(
                             "failed to read staged workspace directory: {error}"
@@ -427,7 +422,7 @@ impl VortexStagedWorkspaceSetupReport {
                     "workspace path must be empty",
                 ));
             }
-            Ok(Self::workspace_created_report(request))
+            Ok(Self::planned(request))
         }
     }
     #[must_use]
@@ -577,6 +572,27 @@ impl VortexStagedWorkspaceSetupReport {
             }
         }
         t
+    }
+}
+
+#[cfg(feature = "vortex-staged-output-fs")]
+fn staged_workspace_local_path(path: &VortexStagedWorkspacePath) -> Result<PathBuf> {
+    let raw_path = path.as_str();
+    let uri = DatasetUri::new(raw_path.to_string())?;
+    match uri.scheme() {
+        UriScheme::LocalPath => Ok(PathBuf::from(raw_path)),
+        UriScheme::File => {
+            if let Some(local_path) = raw_path.strip_prefix("file:///") {
+                Ok(Path::new("/").join(local_path))
+            } else {
+                Err(ShardLoomError::InvalidOperation(
+                    "workspace file URI must use file:/// absolute local path".to_string(),
+                ))
+            }
+        }
+        _ => Err(ShardLoomError::InvalidOperation(
+            "workspace path looks like object-store target".to_string(),
+        )),
     }
 }
 
@@ -1152,6 +1168,18 @@ mod tests {
         assert!(text.contains("marker written: false"));
     }
 
+    #[cfg(not(feature = "vortex-staged-output-fs"))]
+    #[test]
+    fn setup_default_build_file_uri_still_feature_disabled() {
+        let report =
+            setup_vortex_staged_workspace(setup_request("file:///tmp/shardloom-ws")).unwrap();
+        assert_eq!(
+            report.status,
+            VortexStagedWorkspaceSetupStatus::FeatureDisabled
+        );
+        assert!(report.is_side_effect_free());
+    }
+
     #[cfg(feature = "vortex-staged-output-fs")]
     #[test]
     fn setup_feature_missing_workspace_blocked() {
@@ -1183,6 +1211,44 @@ mod tests {
         assert!(!report.fallback_execution_allowed());
         assert!(!path.join("_MARKER").exists());
         assert!(!path.join("manifest.json").exists());
+        std::fs::remove_dir_all(path).unwrap();
+    }
+
+    #[cfg(feature = "vortex-staged-output-fs")]
+    #[test]
+    fn setup_feature_file_uri_is_normalized() {
+        let path = unique_temp_path("file-uri");
+        let file_uri = format!("file://{}", path.to_string_lossy());
+        let report =
+            setup_vortex_staged_workspace(setup_request(&file_uri).create_if_missing(true))
+                .unwrap();
+        assert_eq!(
+            report.status,
+            VortexStagedWorkspaceSetupStatus::WorkspaceCreated
+        );
+        assert!(path.exists());
+        assert!(!Path::new("file:").exists());
+        assert!(!report.marker_written());
+        assert!(!report.output_data_written());
+        assert!(!report.manifest_written());
+        assert!(!report.object_store_io());
+        assert!(!report.fallback_execution_allowed());
+        std::fs::remove_dir_all(path).unwrap();
+    }
+
+    #[cfg(feature = "vortex-staged-output-fs")]
+    #[test]
+    fn setup_feature_existing_workspace_not_reported_as_created() {
+        let path = unique_temp_path("exists");
+        std::fs::create_dir_all(&path).unwrap();
+        let report = setup_vortex_staged_workspace(setup_request(&path.to_string_lossy())).unwrap();
+        assert_eq!(report.status, VortexStagedWorkspaceSetupStatus::Planned);
+        assert!(!report.workspace_created());
+        assert!(report.is_side_effect_free());
+        assert!(!report.marker_written());
+        assert!(!report.output_data_written());
+        assert!(!report.manifest_written());
+        assert!(!report.fallback_execution_allowed());
         std::fs::remove_dir_all(path).unwrap();
     }
 
@@ -1220,10 +1286,12 @@ mod tests {
     #[cfg(feature = "vortex-staged-output-fs")]
     #[test]
     fn setup_feature_object_store_path_blocked() {
+        let path = unique_temp_path("s3-blocked");
         let report = setup_vortex_staged_workspace(setup_request("s3://bucket/ws")).unwrap();
         assert_eq!(
             report.status,
             VortexStagedWorkspaceSetupStatus::BlockedByObjectStoreTarget
         );
+        assert!(!path.exists());
     }
 }
