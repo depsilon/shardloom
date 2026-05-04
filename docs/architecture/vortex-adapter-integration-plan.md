@@ -383,3 +383,13 @@ No spill data movement is implemented in this phase.
 - It does not write manifests.
 - It does not call upstream `Vortex` write APIs.
 - It does not perform object-store IO.
+\n## Phase 12A.3a update\n- Phase 12A.2c.2 complete.\n- Phase 12A.3a current: staged manifest draft core contract (report-only, no filesystem).\n- Phase 12A.3b planned: feature-gated local staged manifest draft file.\n- Phase 12A.3c planned: CLI/docs integration.\n- Actual output payload and  file writes remain deferred.
+
+## Staged manifest draft contract
+
+- `ShardLoom` manifest draft is report-only in Phase 12A.3a.
+- It requires `VortexWriteIntentReport`, `VortexStagedOutputReport`, workspace, marker, schema/delete/tombstone, and commit protocol signals.
+- It does not write manifest files.
+- It does not write output data.
+- It does not call upstream `Vortex` write APIs.
+- It blocks object-store targets.
