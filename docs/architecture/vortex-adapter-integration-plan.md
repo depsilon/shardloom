@@ -467,3 +467,11 @@ No spill data movement is implemented in this phase.
 - No upstream `Vortex` write APIs are called.
 - No object-store IO is performed.
 - Fallback execution remains disabled.
+
+## Commit readiness integration closeout
+
+- Commit intent can derive readiness from staged manifest draft-file write and recovery/retry/cancellation gate reports.
+- Missing or blocked recovery/gate reports keep commit blocked.
+- Commit remains report-only.
+- Manifest finalization and commit protocol remain future work.
+- No output writes, upstream `Vortex` write APIs, object-store IO, or fallback execution are enabled.

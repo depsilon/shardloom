@@ -448,5 +448,7 @@ This update does not introduce scans, decode, materialization, writes, object-st
 ## Phase 12B commit intent note
 
 - Commit intent remains `ShardLoom`-native in Phase 12B.1 report-only surfaces.
+- Commit readiness integration remains `ShardLoom`-native and report-derived.
 - Upstream `Vortex` write APIs remain deferred.
+- Upstream `Vortex` write APIs remain unused.
 - Commit protocol execution is not implemented in this phase.
