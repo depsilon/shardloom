@@ -287,6 +287,181 @@ impl VortexStagedWorkspaceSetupOption {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexStagedMarkerStatus {
+    FeatureDisabled,
+    Planned,
+    MarkerWritten,
+    BlockedByMissingWorkspace,
+    BlockedByObjectStoreTarget,
+    BlockedByExistingMarker,
+    BlockedByExistingNonDirectory,
+    Unsupported,
+}
+impl VortexStagedMarkerStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::FeatureDisabled => "feature_disabled",
+            Self::Planned => "planned",
+            Self::MarkerWritten => "marker_written",
+            Self::BlockedByMissingWorkspace => "blocked_by_missing_workspace",
+            Self::BlockedByObjectStoreTarget => "blocked_by_object_store_target",
+            Self::BlockedByExistingMarker => "blocked_by_existing_marker",
+            Self::BlockedByExistingNonDirectory => "blocked_by_existing_non_directory",
+            Self::Unsupported => "unsupported",
+        }
+    }
+    #[must_use]
+    pub const fn is_error(self) -> bool {
+        matches!(
+            self,
+            Self::BlockedByMissingWorkspace
+                | Self::BlockedByObjectStoreTarget
+                | Self::BlockedByExistingMarker
+                | Self::BlockedByExistingNonDirectory
+                | Self::Unsupported
+        )
+    }
+    #[must_use]
+    pub const fn marker_written(self) -> bool {
+        matches!(self, Self::MarkerWritten)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexStagedMarkerMode {
+    ReportOnly,
+    LocalMarkerWrite,
+    Unsupported,
+}
+impl VortexStagedMarkerMode {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::ReportOnly => "report_only",
+            Self::LocalMarkerWrite => "local_marker_write",
+            Self::Unsupported => "unsupported",
+        }
+    }
+    #[must_use]
+    pub const fn writes_marker(self) -> bool {
+        matches!(self, Self::LocalMarkerWrite)
+    }
+    #[must_use]
+    pub const fn writes_output_data(self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn writes_manifest(self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn writes_object_store(self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn calls_upstream_vortex_write(self) -> bool {
+        false
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexStagedMarkerOption {
+    AllowOverwrite,
+}
+impl VortexStagedMarkerOption {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::AllowOverwrite => "allow_overwrite",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct VortexStagedMarkerRequest {
+    pub workspace_id: VortexStagedWorkspaceId,
+    pub workspace_path: VortexStagedWorkspacePath,
+    pub options: Vec<VortexStagedMarkerOption>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl VortexStagedMarkerRequest {
+    #[must_use]
+    pub fn new(
+        workspace_id: VortexStagedWorkspaceId,
+        workspace_path: VortexStagedWorkspacePath,
+    ) -> Self {
+        Self {
+            workspace_id,
+            workspace_path,
+            options: Vec::new(),
+            diagnostics: Vec::new(),
+        }
+    }
+    #[must_use]
+    pub fn allow_overwrite(mut self, value: bool) -> Self {
+        if value
+            && !self
+                .options
+                .contains(&VortexStagedMarkerOption::AllowOverwrite)
+        {
+            self.options.push(VortexStagedMarkerOption::AllowOverwrite);
+        }
+        if !value {
+            self.options
+                .retain(|o| *o != VortexStagedMarkerOption::AllowOverwrite);
+        }
+        self
+    }
+    #[must_use]
+    pub fn has_option(&self, option: VortexStagedMarkerOption) -> bool {
+        self.options.contains(&option)
+    }
+    #[must_use]
+    pub const fn marker_file_name(&self) -> &'static str {
+        ".shardloom-staged-output"
+    }
+    #[must_use]
+    pub fn marker_path_string(&self) -> String {
+        format!(
+            "{}/{}",
+            self.workspace_path.as_str(),
+            self.marker_file_name()
+        )
+    }
+    pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
+    }
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.diagnostics.iter().any(|d| {
+            matches!(
+                d.severity,
+                DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+            )
+        })
+    }
+    #[must_use]
+    pub fn summary(&self) -> String {
+        format!(
+            "workspace_id={} workspace_path={} marker={} options={}",
+            self.workspace_id.as_str(),
+            self.workspace_path.as_str(),
+            self.marker_file_name(),
+            self.options.len()
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct VortexStagedMarkerReport {
+    pub status: VortexStagedMarkerStatus,
+    pub mode: VortexStagedMarkerMode,
+    pub request: VortexStagedMarkerRequest,
+    pub effects_performed: Vec<VortexStagedOutputEffect>,
+    pub diagnostics: Vec<Diagnostic>,
+}
 #[derive(Debug, Clone, PartialEq)]
 pub struct VortexStagedWorkspaceSetupRequest {
     pub workspace_id: VortexStagedWorkspaceId,
@@ -575,6 +750,208 @@ impl VortexStagedWorkspaceSetupReport {
     }
 }
 
+impl VortexStagedMarkerReport {
+    /// # Errors
+    /// Returns an error only when a feature-gated local marker write is attempted
+    /// and filesystem writing fails.
+    pub fn from_request(request: VortexStagedMarkerRequest) -> Result<Self> {
+        #[cfg(not(feature = "vortex-staged-output-fs"))]
+        {
+            Ok(Self::feature_disabled(request))
+        }
+        #[cfg(feature = "vortex-staged-output-fs")]
+        {
+            let Ok(path_ref) = staged_workspace_local_path(&request.workspace_path) else {
+                return Ok(Self::blocked(
+                    request,
+                    VortexStagedMarkerStatus::BlockedByObjectStoreTarget,
+                    "workspace path looks like object-store target",
+                ));
+            };
+            if !path_ref.exists() {
+                return Ok(Self::blocked(
+                    request,
+                    VortexStagedMarkerStatus::BlockedByMissingWorkspace,
+                    "workspace path does not exist",
+                ));
+            }
+            if !path_ref.is_dir() {
+                return Ok(Self::blocked(
+                    request,
+                    VortexStagedMarkerStatus::BlockedByExistingNonDirectory,
+                    "workspace path exists and is not a directory",
+                ));
+            }
+            let marker_path = path_ref.join(request.marker_file_name());
+            if marker_path.exists() && !request.has_option(VortexStagedMarkerOption::AllowOverwrite)
+            {
+                return Ok(Self::blocked(
+                    request,
+                    VortexStagedMarkerStatus::BlockedByExistingMarker,
+                    "marker already exists and overwrite is disabled",
+                ));
+            }
+            std::fs::write(&marker_path, b"shardloom-staged-output-marker-v1\n").map_err(
+                |error| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "failed to write staged marker file: {error}"
+                    ))
+                },
+            )?;
+            Ok(Self::marker_written_report(request))
+        }
+    }
+    #[must_use]
+    pub fn feature_disabled(request: VortexStagedMarkerRequest) -> Self {
+        Self {
+            status: VortexStagedMarkerStatus::FeatureDisabled,
+            mode: VortexStagedMarkerMode::ReportOnly,
+            request,
+            effects_performed: Vec::new(),
+            diagnostics: Vec::new(),
+        }
+    }
+    #[must_use]
+    pub fn planned(request: VortexStagedMarkerRequest) -> Self {
+        Self {
+            status: VortexStagedMarkerStatus::Planned,
+            mode: VortexStagedMarkerMode::ReportOnly,
+            request,
+            effects_performed: Vec::new(),
+            diagnostics: Vec::new(),
+        }
+    }
+    #[must_use]
+    pub fn marker_written_report(request: VortexStagedMarkerRequest) -> Self {
+        Self {
+            status: VortexStagedMarkerStatus::MarkerWritten,
+            mode: VortexStagedMarkerMode::LocalMarkerWrite,
+            request,
+            effects_performed: vec![VortexStagedOutputEffect::MarkerWritten],
+            diagnostics: Vec::new(),
+        }
+    }
+    #[must_use]
+    pub fn blocked(
+        request: VortexStagedMarkerRequest,
+        status: VortexStagedMarkerStatus,
+        reason: impl Into<String>,
+    ) -> Self {
+        let mut report = Self::planned(request);
+        report.status = status;
+        report.add_diagnostic(Diagnostic::unsupported(
+            DiagnosticCode::UnsupportedOutputFormat,
+            "vortex_staged_marker",
+            reason,
+            None,
+        ));
+        report
+    }
+    #[must_use]
+    pub fn unsupported(
+        request: VortexStagedMarkerRequest,
+        feature: impl Into<String>,
+        reason: impl Into<String>,
+    ) -> Self {
+        let mut report = Self {
+            status: VortexStagedMarkerStatus::Unsupported,
+            mode: VortexStagedMarkerMode::Unsupported,
+            request,
+            effects_performed: Vec::new(),
+            diagnostics: Vec::new(),
+        };
+        report.add_diagnostic(Diagnostic::unsupported(
+            DiagnosticCode::UnsupportedOutputFormat,
+            feature,
+            reason,
+            None,
+        ));
+        report
+    }
+    pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
+    }
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.status.is_error()
+            || self.request.has_errors()
+            || self.diagnostics.iter().any(|d| {
+                matches!(
+                    d.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+    #[must_use]
+    pub fn marker_written(&self) -> bool {
+        self.effects_performed
+            .contains(&VortexStagedOutputEffect::MarkerWritten)
+    }
+    #[must_use]
+    pub const fn workspace_created(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn output_data_written(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn manifest_written(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn object_store_io(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn upstream_vortex_write_called(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn fallback_execution_allowed(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub fn is_side_effect_free(&self) -> bool {
+        !self.marker_written()
+    }
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        let mut t = String::new();
+        let _ = writeln!(t, "Vortex staged marker");
+        let _ = writeln!(t, "status: {}", self.status.as_str());
+        let _ = writeln!(t, "mode: {}", self.mode.as_str());
+        let _ = writeln!(t, "workspace id: {}", self.request.workspace_id.as_str());
+        let _ = writeln!(
+            t,
+            "workspace path: {}",
+            self.request.workspace_path.as_str()
+        );
+        let _ = writeln!(t, "marker file name: {}", self.request.marker_file_name());
+        let _ = writeln!(t, "marker written: {}", self.marker_written());
+        let _ = writeln!(t, "workspace created: false");
+        let _ = writeln!(t, "output data written: false");
+        let _ = writeln!(t, "manifest written: false");
+        let _ = writeln!(t, "object-store IO: false");
+        let _ = writeln!(t, "upstream Vortex write called: false");
+        let _ = write!(t, "fallback execution: disabled");
+        if self.request.diagnostics.is_empty() && self.diagnostics.is_empty() {
+            let _ = write!(t, "\ndiagnostics: none");
+        } else {
+            let _ = write!(t, "\ndiagnostics:");
+            for d in self
+                .request
+                .diagnostics
+                .iter()
+                .chain(self.diagnostics.iter())
+            {
+                let _ = write!(t, "\n- {}", d.to_human_text());
+            }
+        }
+        t
+    }
+}
+
 #[cfg(feature = "vortex-staged-output-fs")]
 fn staged_workspace_local_path(path: &VortexStagedWorkspacePath) -> Result<PathBuf> {
     let raw_path = path.as_str();
@@ -594,6 +971,22 @@ fn staged_workspace_local_path(path: &VortexStagedWorkspacePath) -> Result<PathB
             "workspace path looks like object-store target".to_string(),
         )),
     }
+}
+
+/// Writes a feature-gated staged marker file for `VortexStagedMarkerRequest`.
+///
+/// # Errors
+/// Returns an error only when a feature-gated local marker write is attempted
+/// and filesystem writing fails.
+pub fn write_vortex_staged_marker(
+    request: VortexStagedMarkerRequest,
+) -> Result<VortexStagedMarkerReport> {
+    VortexStagedMarkerReport::from_request(request)
+}
+
+#[must_use]
+pub fn vortex_staged_marker_is_side_effect_free(report: &VortexStagedMarkerReport) -> bool {
+    report.is_side_effect_free()
 }
 
 /// Sets up local staged workspace behavior for `VortexStagedWorkspaceSetupRequest`.
@@ -964,12 +1357,59 @@ mod tests {
             VortexStagedWorkspacePath::new(path).unwrap(),
         )
     }
+    fn marker_request(path: &str) -> VortexStagedMarkerRequest {
+        VortexStagedMarkerRequest::new(
+            VortexStagedWorkspaceId::new("ws_marker").unwrap(),
+            VortexStagedWorkspacePath::new(path).unwrap(),
+        )
+    }
     fn unique_temp_path(name: &str) -> std::path::PathBuf {
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
         std::env::temp_dir().join(format!("shardloom-{name}-{nanos}"))
+    }
+    #[test]
+    fn marker_request_options_and_name() {
+        let req = marker_request("/tmp/ws");
+        assert!(!req.has_option(VortexStagedMarkerOption::AllowOverwrite));
+        let req = req.allow_overwrite(true);
+        assert!(req.has_option(VortexStagedMarkerOption::AllowOverwrite));
+        assert_eq!(req.marker_file_name(), ".shardloom-staged-output");
+    }
+    #[test]
+    #[cfg(not(feature = "vortex-staged-output-fs"))]
+    fn marker_feature_disabled_defaults() {
+        let report = write_vortex_staged_marker(marker_request("/tmp/ws")).unwrap();
+        assert_eq!(report.status, VortexStagedMarkerStatus::FeatureDisabled);
+        assert!(!report.marker_written());
+        assert!(!report.workspace_created());
+        assert!(!report.output_data_written());
+        assert!(!report.manifest_written());
+        assert!(!report.object_store_io());
+        assert!(!report.upstream_vortex_write_called());
+        assert!(!report.fallback_execution_allowed());
+        assert!(
+            report
+                .to_human_text()
+                .contains("fallback execution: disabled")
+        );
+        assert!(
+            report
+                .to_human_text()
+                .contains("output data written: false")
+        );
+    }
+    #[test]
+    #[cfg(feature = "vortex-staged-output-fs")]
+    fn marker_feature_blocks_missing_workspace() {
+        let path = unique_temp_path("marker-missing");
+        let report = write_vortex_staged_marker(marker_request(&path.to_string_lossy())).unwrap();
+        assert_eq!(
+            report.status,
+            VortexStagedMarkerStatus::BlockedByMissingWorkspace
+        );
     }
     #[test]
     fn status_planned_workspace_creation_false() {
@@ -1293,5 +1733,59 @@ mod tests {
             VortexStagedWorkspaceSetupStatus::BlockedByObjectStoreTarget
         );
         assert!(!path.exists());
+    }
+
+    #[cfg(feature = "vortex-staged-output-fs")]
+    #[test]
+    fn marker_feature_blocks_object_store_and_non_directory() {
+        let object_store = write_vortex_staged_marker(marker_request("s3://bucket/ws")).unwrap();
+        assert_eq!(
+            object_store.status,
+            VortexStagedMarkerStatus::BlockedByObjectStoreTarget
+        );
+        let path = unique_temp_path("marker-file");
+        std::fs::write(&path, b"x").unwrap();
+        let non_dir = write_vortex_staged_marker(marker_request(&path.to_string_lossy())).unwrap();
+        assert_eq!(
+            non_dir.status,
+            VortexStagedMarkerStatus::BlockedByExistingNonDirectory
+        );
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[cfg(feature = "vortex-staged-output-fs")]
+    #[test]
+    fn marker_feature_writes_deterministic_marker_and_overwrite() {
+        let path = unique_temp_path("marker-write");
+        std::fs::create_dir_all(&path).unwrap();
+        let request = marker_request(&path.to_string_lossy());
+        let marker_path = path.join(request.marker_file_name());
+        let report = write_vortex_staged_marker(request).unwrap();
+        assert_eq!(report.status, VortexStagedMarkerStatus::MarkerWritten);
+        assert!(report.marker_written());
+        assert!(!report.workspace_created());
+        assert!(!report.output_data_written());
+        assert!(!report.manifest_written());
+        assert!(!report.object_store_io());
+        assert!(!report.upstream_vortex_write_called());
+        assert!(!report.fallback_execution_allowed());
+        assert_eq!(
+            std::fs::read_to_string(&marker_path).unwrap(),
+            "shardloom-staged-output-marker-v1\n"
+        );
+        let blocked = write_vortex_staged_marker(marker_request(&path.to_string_lossy())).unwrap();
+        assert_eq!(
+            blocked.status,
+            VortexStagedMarkerStatus::BlockedByExistingMarker
+        );
+        let overwritten = write_vortex_staged_marker(
+            marker_request(&path.to_string_lossy()).allow_overwrite(true),
+        )
+        .unwrap();
+        assert_eq!(overwritten.status, VortexStagedMarkerStatus::MarkerWritten);
+        assert!(!path.join("manifest.json").exists());
+        assert!(!path.join("output.vortex").exists());
+        std::fs::remove_file(marker_path).unwrap();
+        std::fs::remove_dir(path).unwrap();
     }
 }

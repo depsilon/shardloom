@@ -395,4 +395,7 @@ This update does not introduce scans, decode, materialization, writes, object-st
 
 - No upstream `Vortex` write APIs are called.
 - Staged output is a `ShardLoom`-native planning contract.
+- Feature-gated staged markers remain `ShardLoom`-native local workspace behavior.
+- Marker writes are tiny/deterministic and are not manifests or output payload writes.
+- Upstream `Vortex` write API integration remains deferred.
 - Actual write execution remains deferred.
