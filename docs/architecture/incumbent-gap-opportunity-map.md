@@ -194,3 +194,13 @@ Memory-safe bounded scheduling starts in Phase 10B and translates memory/paralle
 ## Spill progression
 
 Spill support should become real in phases: first lifecycle/cleanup contracts, then memory reservation integration, then spill data movement.
+
+## Epic coverage across phases
+
+ShardLoom is using epics A–K as cross-cutting product/engine guardrails across the full phased roadmap.
+
+Spark/DataFusion/Arrow/lakehouse gaps are not single-phase concerns; they recur across planning, runtime, memory/spill, diagnostics, output, and compatibility phases.
+
+Spill/OOM pain points now have lifecycle, reservation, synthetic payload, and CLI coverage in phased form.
+
+The remaining spill gap is bounded execution integration and recovery, starting with Phase 11A.3b and continuing into Phase 11B.

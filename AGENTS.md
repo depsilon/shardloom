@@ -345,3 +345,12 @@ Before starting a new phase, consult:
 - `docs/architecture/rfc-phase-traceability.md`
 
 Do not re-read every RFC for every PR. Use targeted RFC checks based on the current phase.
+
+## Phase and epic checklist
+
+Before proposing next implementation work:
+- Check `docs/architecture/phased-execution-plan.md`.
+- Include current phase status and relevant epics in the prompt.
+- Do not treat synthetic spill payload support as query/Vortex data spill permission.
+- Attach cross-cutting epic obligations to the current phase.
+- Reviews should happen at phase boundaries or when entering a new behavior class, not after every small PR.
