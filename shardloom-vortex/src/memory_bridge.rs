@@ -744,6 +744,13 @@ pub fn plan_vortex_memory_spill_reservation(
     if let Some(bytes) = memory_report
         .task_decisions
         .iter()
+        .filter(|d| {
+            matches!(
+                d.kind,
+                VortexTaskMemoryDecisionKind::SpillMayBeRequired
+                    | VortexTaskMemoryDecisionKind::SpillRequiredButNotImplemented
+            )
+        })
         .find_map(|d| d.estimated_bytes)
     {
         request = request.with_estimated_bytes(bytes);

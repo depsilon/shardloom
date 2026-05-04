@@ -549,12 +549,13 @@ impl VortexEncodedReadProbeReport {
             .extend(s.input.api_boundary_report.diagnostics.clone());
         s.diagnostics
             .extend(s.input.encoded_readiness_report.diagnostics.clone());
-        let api_blocked = s.input.api_boundary_report.has_errors()
-            || matches!(
-                s.input.api_boundary_report.status,
-                VortexEncodedReadApiBoundaryStatus::BlockedByRisk
-                    | VortexEncodedReadApiBoundaryStatus::Unsupported
-            );
+        let api_blocked = s.input.requires(VortexProbeRequirement::ApiContractReady)
+            && (s.input.api_boundary_report.has_errors()
+                || matches!(
+                    s.input.api_boundary_report.status,
+                    VortexEncodedReadApiBoundaryStatus::BlockedByRisk
+                        | VortexEncodedReadApiBoundaryStatus::Unsupported
+                ));
         for rc in &s.input.encoded_readiness_report.candidates {
             let pc = map_candidate(rc, &s.input, api_blocked);
             s.candidates.push(pc);
@@ -675,15 +676,17 @@ impl VortexEncodedReadProbeReport {
     }
     #[must_use]
     pub fn has_errors(&self) -> bool {
-        self.diagnostics.iter().any(|d| {
-            matches!(
-                d.severity,
-                DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
-            )
-        }) || self
-            .candidates
-            .iter()
-            .any(VortexEncodedReadProbeCandidate::has_errors)
+        self.status.is_error()
+            || self.diagnostics.iter().any(|d| {
+                matches!(
+                    d.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+            || self
+                .candidates
+                .iter()
+                .any(VortexEncodedReadProbeCandidate::has_errors)
     }
     #[must_use]
     pub fn is_side_effect_free(&self) -> bool {

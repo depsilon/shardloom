@@ -60,9 +60,9 @@ When a capability is not fully native, ShardLoom should model it as:
 
 | Value prop | Classification | ShardLoom stance |
 |---|---|---|
-| Snapshots / time travel | `compatibility_target`, `planned` | Treat snapshot references as table-management compatibility inputs; planning can target a specific snapshot identity only when metadata contract is available. No implicit external log replay in execution core. |
-| Schema evolution | `shardloom_native`, `vortex_native`, `compatibility_target`, `planned` | Evolving schemas are represented natively with explicit field identity/version mapping, then translated to/from compatibility systems with loss reporting when semantics diverge. |
-| Schema enforcement | `shardloom_native`, `planned` | Enforcement is a core contract: incompatible reads/writes or unsafe coercions must fail with stable diagnostics. |
+| Snapshots / time travel | `compatibility_target`; state: `planned` | Treat snapshot references as table-management compatibility inputs; planning can target a specific snapshot identity only when metadata contract is available. No implicit external log replay in execution core. |
+| Schema evolution | `compatibility_target`; state: `planned` | Evolving schemas are represented natively with explicit field identity/version mapping, then translated to/from compatibility systems with loss reporting when semantics diverge. |
+| Schema enforcement | `shardloom_native`; state: `planned` | Enforcement is a core contract: incompatible reads/writes or unsafe coercions must fail with stable diagnostics. |
 | Hidden partitioning | `compatibility_target`, `planned` | Support partition transforms as compatibility metadata semantics; internal planning consumes normalized partition descriptors, not engine-specific hidden behavior. |
 | Partition evolution | `compatibility_target`, `planned` | Versioned partition specs are compatibility concepts mapped into ShardLoom manifest descriptors when available. |
 | Manifests / transaction logs | `shardloom_native`, `vortex_native`, `compatibility_target`, `planned` | ShardLoom manifests are native planning artifacts; compatibility logs are adapter-facing inputs/outputs and must not become execution dependencies. |
@@ -105,7 +105,8 @@ For lakehouse compatibility semantics, diagnostics should include at least:
 - `fallback_execution_allowed`: always `false` by default.
 - `fallback_attempted`: `false` unless a forbidden path was requested and rejected.
 - `feature`: value prop name (e.g., `tombstone_semantics`, `snapshot_time_travel`).
-- `status`: supported/planned/deferred/unsupported classification at request time.
+- `status`: implementation-state classification at request time (`planned`, `deferred`, or `unsupported`; use `shardloom_native`/`vortex_native`/`compatibility_target` in `classification`).
+- `classification`: one or more capability-kind tags from the classification model.
 - `metadata_loss`: explicit description when fidelity cannot be preserved.
 - `next_step`: actionable guidance (choose native Vortex path, enable explicit adapter, or simplify request).
 

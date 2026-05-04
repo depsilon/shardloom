@@ -530,10 +530,7 @@ pub fn analyze_vortex_query_primitive_result(
         "fallback remains disabled",
     ));
     if matches!(result.status, VortexQueryPrimitiveStatus::MetadataAnswered)
-        && matches!(
-            result.request.kind,
-            VortexQueryPrimitiveKind::CountAll | VortexQueryPrimitiveKind::CountWhere
-        )
+        && matches!(result.request.kind, VortexQueryPrimitiveKind::CountAll)
     {
         if let VortexQueryPrimitiveValue::Count(v) = result.value {
             work.add_metric(VortexWorkAvoidedMetric::known_u64(
@@ -542,6 +539,11 @@ pub fn analyze_vortex_query_primitive_result(
                 "metadata count avoided row scans",
             ));
         }
+    } else if matches!(result.request.kind, VortexQueryPrimitiveKind::CountWhere) {
+        work.add_metric(VortexWorkAvoidedMetric::unknown(
+            VortexWorkAvoidedMetricKind::RowsNotScanned,
+            "count-where rows-not-scanned requires scanned-input cardinality metadata",
+        ));
     }
     work.add_metric(VortexWorkAvoidedMetric::unknown(
         VortexWorkAvoidedMetricKind::SegmentsPruned,

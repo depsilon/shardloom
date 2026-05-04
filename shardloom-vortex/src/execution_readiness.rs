@@ -485,7 +485,12 @@ impl VortexExecutionReadinessReport {
                         | VortexReadinessGateKind::NoFallbackExecution
                 )
         });
-        let hard_errors = self.has_errors();
+        let hard_errors = self.diagnostics.iter().any(|d| {
+            matches!(
+                d.severity,
+                DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+            )
+        }) || self.gates.iter().any(VortexReadinessGateResult::has_errors);
         self.ready_for_dry_run = self.dry_run_contract.is_side_effect_free() && !hard_errors;
         self.ready_for_future_execution = self.blocking_gate_count == 0
             && !hard_errors

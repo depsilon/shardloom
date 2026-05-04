@@ -416,6 +416,12 @@ pub fn evaluate_vortex_count_all_from_summary(
             VortexQueryPrimitiveValue::Count(v),
         ));
     }
+    if summary.summary.segments.is_empty() {
+        return Ok(VortexQueryPrimitiveResult::missing_metadata(
+            request,
+            "no segment metadata available for CountWhere evaluation",
+        ));
+    }
     let mut total = 0_u64;
     let mut any = false;
     for seg in &summary.summary.segments {
@@ -467,6 +473,12 @@ pub fn evaluate_vortex_count_where_from_summary(
             "missing `PredicateExpr` for `CountWhere` request",
         ));
     };
+    if summary.summary.segments.is_empty() {
+        return Ok(VortexQueryPrimitiveResult::missing_metadata(
+            request,
+            "no segment metadata available for CountWhere evaluation",
+        ));
+    }
     let mut total = 0_u64;
     for seg in &summary.summary.segments {
         match crate::prove_predicate_from_segment_stats(predicate, seg) {

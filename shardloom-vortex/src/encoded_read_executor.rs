@@ -395,6 +395,7 @@ pub struct VortexEncodedReadExecutionReport {
     pub object_store_blocked_count: usize,
     pub write_blocked_count: usize,
     pub spill_blocked_count: usize,
+    pub unsupported_blocked_count: usize,
     pub data_read: bool,
     pub data_decoded: bool,
     pub data_materialized: bool,
@@ -425,6 +426,7 @@ impl VortexEncodedReadExecutionReport {
             object_store_blocked_count: 0,
             write_blocked_count: 0,
             spill_blocked_count: 0,
+            unsupported_blocked_count: 0,
             data_read: false,
             data_decoded: false,
             data_materialized: false,
@@ -460,6 +462,7 @@ impl VortexEncodedReadExecutionReport {
             object_store_blocked_count: 0,
             write_blocked_count: 0,
             spill_blocked_count: 0,
+            unsupported_blocked_count: 0,
             data_read: false,
             data_decoded: false,
             data_materialized: false,
@@ -550,6 +553,7 @@ impl VortexEncodedReadExecutionReport {
             }
             r.add_decision(d);
         }
+        r.diagnostics.extend(r.input.diagnostics.clone());
         r.diagnostics
             .extend(r.input.readiness_report.diagnostics.clone());
         r.recompute_counts();
@@ -569,6 +573,8 @@ impl VortexEncodedReadExecutionReport {
                 VortexEncodedReadExecutionStatus::BlockedByWriteIo
             } else if r.spill_blocked_count > 0 {
                 VortexEncodedReadExecutionStatus::BlockedBySpillIo
+            } else if r.unsupported_blocked_count > 0 {
+                VortexEncodedReadExecutionStatus::BlockedByUnsupportedInput
             } else if r.missing_estimate_count > 0 {
                 VortexEncodedReadExecutionStatus::BlockedByMissingEstimate
             } else if r.missing_byte_range_count > 0 {
@@ -694,6 +700,16 @@ impl VortexEncodedReadExecutionReport {
                 )
             })
             .count();
+        self.unsupported_blocked_count = self
+            .decisions
+            .iter()
+            .filter(|d| {
+                matches!(
+                    d.kind,
+                    VortexEncodedReadExecutionDecisionKind::BlockedUnsupported
+                )
+            })
+            .count();
     }
     pub fn has_errors(&self) -> bool {
         self.status.is_error()
@@ -757,6 +773,11 @@ impl VortexEncodedReadExecutionReport {
         let _ = writeln!(o, "spill blocked count: {}", self.spill_blocked_count);
         let _ = writeln!(
             o,
+            "unsupported blocked count: {}",
+            self.unsupported_blocked_count
+        );
+        let _ = writeln!(
+            o,
             "data read: false\ndata decoded: false\ndata materialized: false\nobject-store IO: false\nwrite IO: false\nspill IO performed: false\nexternal effects executed: false\nfallback execution disabled"
         );
         if !self.input.allow_encoded_read_execution {
@@ -805,6 +826,14 @@ pub fn execute_vortex_encoded_read_spike(
     let input = VortexEncodedReadExecutionInput::new(readiness_report);
     if !vortex_encoded_read_spike_feature_enabled() {
         return Ok(VortexEncodedReadExecutionReport::feature_disabled(input));
+    }
+    if probe.status.is_error() {
+        let mut report = VortexEncodedReadExecutionReport::feature_disabled(input);
+        report.feature_status = VortexEncodedReadExecutorFeatureStatus::Enabled;
+        report.status = VortexEncodedReadExecutionStatus::BlockedByReadiness;
+        report.mode = VortexEncodedReadExecutionMode::EncodedReadContractOnly;
+        report.diagnostics.extend(probe.diagnostics.clone());
+        return Ok(report);
     }
     if !probe.status.allows_future_probe() || probe.counts.eligible_candidate_count == 0 {
         let mut report = VortexEncodedReadExecutionReport::feature_disabled(input);

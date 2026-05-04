@@ -41,7 +41,10 @@ impl SpillLifecycleStatus {
     pub const fn is_error(&self) -> bool {
         matches!(
             self,
-            Self::BlockedByPolicy | Self::BlockedByMissingPath | Self::Unsupported
+            Self::FeatureDisabled
+                | Self::BlockedByPolicy
+                | Self::BlockedByMissingPath
+                | Self::Unsupported
         )
     }
     #[must_use]
@@ -541,8 +544,20 @@ fn execute_request(request: SpillLifecycleRequest) -> SpillLifecycleReport {
     if request.allow_cleanup {
         let mut report = SpillLifecycleReport::cleanup_planned(request, plan);
         if std::path::Path::new(&marker).exists() {
-            let _ = std::fs::remove_file(&marker);
-            report.cleanup_performed = SpillIoState::Yes;
+            if let Err(error) = std::fs::remove_file(&marker) {
+                report.add_diagnostic(Diagnostic::new(
+                    DiagnosticCode::InvalidOperation,
+                    DiagnosticSeverity::Error,
+                    DiagnosticCategory::Execution,
+                    format!("failed to remove spill lifecycle marker: {error}"),
+                    None,
+                    None,
+                    None,
+                    FallbackStatus::disabled_by_policy(),
+                ));
+            } else {
+                report.cleanup_performed = SpillIoState::Yes;
+            }
         }
         if std::path::Path::new(&workspace).exists()
             && std::fs::read_dir(&workspace).is_ok_and(|mut it| it.next().is_none())
@@ -553,9 +568,35 @@ fn execute_request(request: SpillLifecycleRequest) -> SpillLifecycleReport {
         report
     } else {
         let mut report = SpillLifecycleReport::workspace_ready(request, plan);
-        let _ = std::fs::create_dir_all(&workspace);
+        if let Err(error) = std::fs::create_dir_all(&workspace) {
+            report.add_diagnostic(Diagnostic::new(
+                DiagnosticCode::InvalidOperation,
+                DiagnosticSeverity::Error,
+                DiagnosticCategory::Execution,
+                format!("failed to create spill workspace: {error}"),
+                None,
+                None,
+                None,
+                FallbackStatus::disabled_by_policy(),
+            ));
+            report.status = SpillLifecycleStatus::BlockedByMissingPath;
+            return report;
+        }
         report.workspace_created = SpillIoState::Yes;
-        let _ = std::fs::write(marker, b"lifecycle-marker");
+        if let Err(error) = std::fs::write(marker, b"lifecycle-marker") {
+            report.add_diagnostic(Diagnostic::new(
+                DiagnosticCode::InvalidOperation,
+                DiagnosticSeverity::Error,
+                DiagnosticCategory::Execution,
+                format!("failed to write spill lifecycle marker: {error}"),
+                None,
+                None,
+                None,
+                FallbackStatus::disabled_by_policy(),
+            ));
+            report.status = SpillLifecycleStatus::BlockedByMissingPath;
+            return report;
+        }
         report.marker_created = SpillIoState::Yes;
         report
     }
@@ -886,8 +927,13 @@ impl SpillReservationIntegrationReport {
         }
         if let Some(lifecycle_request) = request.lifecycle_request.clone() {
             let lifecycle_report = plan_spill_lifecycle(lifecycle_request)?;
-            let has_errors = lifecycle_report.has_errors();
-            if has_errors {
+            let lifecycle_ready = matches!(
+                lifecycle_report.status,
+                SpillLifecycleStatus::WorkspaceReady
+                    | SpillLifecycleStatus::CleanupPlanned
+                    | SpillLifecycleStatus::CleanupCompleted
+            );
+            if lifecycle_report.has_errors() || !lifecycle_ready {
                 let mut report = Self::lifecycle_deferred(request, lifecycle_report.clone());
                 report
                     .diagnostics
