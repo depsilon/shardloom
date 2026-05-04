@@ -1,6 +1,8 @@
 use std::fmt::Write as _;
 
-use shardloom_core::{DatasetUri, Diagnostic, DiagnosticCode, DiagnosticSeverity, Result};
+use shardloom_core::{
+    DatasetUri, Diagnostic, DiagnosticCode, DiagnosticSeverity, Result, UriScheme,
+};
 #[cfg(test)]
 use shardloom_core::{DiagnosticCategory, FallbackStatus};
 
@@ -366,6 +368,10 @@ impl VortexWriteIntentReport {
     pub fn object_store_target(&self) -> bool {
         self.request
             .has_signal(VortexWriteIntentSignal::ObjectStoreTarget)
+            || matches!(
+                self.request.target_uri.scheme(),
+                UriScheme::S3 | UriScheme::Gcs | UriScheme::Adls | UriScheme::Other
+            )
     }
     #[must_use]
     pub fn output_data_written(&self) -> bool {
@@ -496,6 +502,23 @@ mod tests {
             .schema_compatible(true)
             .delete_semantics_known(true)
             .tombstone_semantics_known(true)
+    }
+
+    #[test]
+    fn object_store_uri_blocks_without_signal() {
+        let req = VortexWriteIntentRequest::new(DatasetUri::new("s3://bucket/out.vortex").unwrap())
+            .target_is_native_vortex(true)
+            .schema_known(true)
+            .schema_compatible(true)
+            .delete_semantics_known(true)
+            .tombstone_semantics_known(true)
+            .commit_protocol_available(true)
+            .upstream_vortex_write_feature_enabled(true);
+        let rep = VortexWriteIntentReport::from_request(req).unwrap();
+        assert_eq!(
+            rep.status,
+            VortexWriteIntentStatus::BlockedByObjectStoreWrite
+        );
     }
     #[test]
     fn object_store_blocks() {
