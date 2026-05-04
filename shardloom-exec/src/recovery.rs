@@ -1738,34 +1738,49 @@ impl ShardLoomCleanupExecutionReport {
     /// # Errors
     /// Returns an error only if planning metadata cannot be derived from the request.
     pub fn from_request(request: ShardLoomCleanupExecutionRequest) -> Result<Self> {
+        if let Some((status, reason)) = Self::validate_request_for_cleanup(&request) {
+            return Ok(Self::blocked(request, status, reason));
+        }
+        Ok(Self::cleanup_would_execute(request))
+    }
+    fn validate_request_for_cleanup(
+        request: &ShardLoomCleanupExecutionRequest,
+    ) -> Option<(ShardLoomCleanupExecutionStatus, &'static str)> {
         match request.artifact.kind {
-            RecoveryArtifactKind::Unknown => Ok(Self::blocked(
-                request,
+            RecoveryArtifactKind::Unknown => Some((
                 ShardLoomCleanupExecutionStatus::BlockedByUnknownArtifact,
                 "artifact kind is unknown",
             )),
             RecoveryArtifactKind::SyntheticSpillPayload => {
                 if !request.has_option(CleanupExecutionOption::AllowSyntheticPayloadCleanup) {
-                    Ok(Self::blocked(
-                        request,
+                    Some((
                         ShardLoomCleanupExecutionStatus::BlockedByPolicy,
                         "synthetic payload cleanup must be explicitly enabled in planning options",
                     ))
                 } else if request.synthetic_payload_ref.is_none() {
-                    Ok(Self::blocked(
-                        request,
+                    Some((
                         ShardLoomCleanupExecutionStatus::BlockedByMissingArtifact,
                         "synthetic spill payload filesystem reference is required",
                     ))
+                } else if request.artifact.artifact_id
+                    != request
+                        .synthetic_payload_ref
+                        .as_ref()
+                        .map(|fs_ref| fs_ref.payload_ref().payload_id().as_str().to_string())
+                        .unwrap_or_default()
+                {
+                    Some((
+                        ShardLoomCleanupExecutionStatus::BlockedByMissingArtifact,
+                        "synthetic spill payload filesystem reference payload id does not match artifact id",
+                    ))
                 } else {
-                    Ok(Self::execute_synthetic_payload_cleanup(request))
+                    None
                 }
             }
             RecoveryArtifactKind::SpillWorkspace
             | RecoveryArtifactKind::SpillMarker
             | RecoveryArtifactKind::TemporaryOutput
-            | RecoveryArtifactKind::PartialOutput => Ok(Self::blocked(
-                request,
+            | RecoveryArtifactKind::PartialOutput => Some((
                 ShardLoomCleanupExecutionStatus::BlockedByUnsupportedArtifact,
                 "cleanup execution for this artifact kind is not implemented in this phase",
             )),
@@ -1974,7 +1989,11 @@ pub fn plan_cleanup_execution(
 pub fn execute_cleanup_plan(
     request: ShardLoomCleanupExecutionRequest,
 ) -> Result<ShardLoomCleanupExecutionReport> {
-    ShardLoomCleanupExecutionReport::from_request(request)
+    let planned = ShardLoomCleanupExecutionReport::from_request(request)?;
+    if planned.status != ShardLoomCleanupExecutionStatus::CleanupWouldExecute {
+        return Ok(planned);
+    }
+    Ok(ShardLoomCleanupExecutionReport::execute_synthetic_payload_cleanup(planned.request))
 }
 pub fn cleanup_execution_plan_is_side_effect_free(
     report: &ShardLoomCleanupExecutionReport,
@@ -2837,15 +2856,26 @@ mod tests {
             .allow_synthetic_payload_cleanup(true),
         )
         .expect("report");
-        #[cfg(feature = "spill-payload-fs")]
         assert_eq!(
             allowed.status,
-            ShardLoomCleanupExecutionStatus::BlockedByMissingArtifact
+            ShardLoomCleanupExecutionStatus::CleanupWouldExecute
         );
-        #[cfg(not(feature = "spill-payload-fs"))]
+    }
+    #[test]
+    fn cleanup_execution_from_request_blocks_mismatched_payload_reference() {
+        let artifact_ref = spill_payload_fs_ref("artifact-a", "/tmp/p1");
+        let mismatched_ref = spill_payload_fs_ref("payload-b", "/tmp/p1");
+        let report = ShardLoomCleanupExecutionReport::from_request(
+            ShardLoomCleanupExecutionRequest::synthetic_payload(
+                RecoveryArtifactRef::synthetic_spill_payload(&artifact_ref),
+                mismatched_ref,
+            )
+            .allow_synthetic_payload_cleanup(true),
+        )
+        .expect("report");
         assert_eq!(
-            allowed.status,
-            ShardLoomCleanupExecutionStatus::FeatureDisabled
+            report.status,
+            ShardLoomCleanupExecutionStatus::BlockedByMissingArtifact
         );
     }
     #[cfg(feature = "spill-payload-fs")]

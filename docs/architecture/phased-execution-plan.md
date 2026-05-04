@@ -5,7 +5,7 @@
 - Production-grade engine completion estimate: approximately 37–38%.
 - Architecture/control-plane completion estimate: approximately 97%.
 - Current checkpoint: all-phase epic coverage and roadmap synchronization.
-- Next implementation phase: Phase 11A.3b — bounded execution spill payload integration.
+- Next implementation phase: Phase 11B.3c — cleanup CLI/docs integration.
 
 ## Cross-cutting epic legend
 
@@ -655,9 +655,11 @@ Epic coverage:
 
 ### Phase 11B.3a — Cleanup execution core contract, no filesystem — Complete
 
-### Phase 11B.3b — Feature-gated cleanup execution for known synthetic artifacts — Current
+### Phase 11B.3b — Feature-gated cleanup execution for known synthetic artifacts — Complete
 
-### Phase 11B.3c — Cleanup execution CLI/reporting integration — Planned
+### Phase 11B.3c — Cleanup execution CLI/reporting integration — Current
+
+### Phase 11B.4 — Retry/cancellation execution integration — Planned
 
 Checklist:
 - Task attempt identity.

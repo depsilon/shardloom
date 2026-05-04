@@ -20,8 +20,8 @@ use shardloom_exec::{
     AdaptiveSizer, AdaptiveSizingPolicy, AttemptId, ByteSize, CancellationReason,
     CancellationRequest, CancellationScope, MemoryBudget, MemoryOwner, MemoryPoolPlan,
     OomSafetyPlan, OperatorMemoryClass, ParallelismLimit, ParallelismPlan, RecoveryPlan, RetryPlan,
-    RuntimePlanSkeleton, SizeEstimate, SizingInput, SizingPlan, SpillLifecycleRequest,
-    SpillPayloadFsRef, SpillPayloadId, SpillPayloadPath, SpillPayloadRef,
+    RuntimePlanSkeleton, ShardLoomCleanupExecutionRequest, SizeEstimate, SizingInput, SizingPlan,
+    SpillLifecycleRequest, SpillPayloadFsRef, SpillPayloadId, SpillPayloadPath, SpillPayloadRef,
     SpillPayloadRoundTripRequest, SpillPayloadWriteRequest, SpillPlan, SpillPolicy,
     SpillReservationIntegrationRequest, SpillWorkspaceId, SpillWorkspacePath,
     StreamingPlanSkeleton, SyntheticSpillPayload, TaskAttemptRecord, plan_spill_lifecycle,
@@ -66,7 +66,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count|vortex-count-where|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count|vortex-count-where|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload> [--format text|json]",
         cli_command_name()
     )
 }
@@ -1000,6 +1000,142 @@ fn run(args: Vec<String>) -> ExitCode {
                         "verification_passed".to_string(),
                         verification_passed.to_string(),
                     ),
+                ],
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
+        Some("cleanup-synthetic-payload") => {
+            let Some(workspace_path_text) = args.next() else {
+                eprintln!(
+                    "usage: shardloom cleanup-synthetic-payload <workspace_path> <payload_id>"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(payload_id_text) = args.next() else {
+                eprintln!(
+                    "usage: shardloom cleanup-synthetic-payload <workspace_path> <payload_id>"
+                );
+                return ExitCode::from(2);
+            };
+            if args.next().is_some() {
+                return emit_error(
+                    "cleanup-synthetic-payload",
+                    format,
+                    "synthetic spill payload cleanup failed",
+                    &ShardLoomError::InvalidOperation(
+                        "too many arguments for cleanup-synthetic-payload".to_string(),
+                    ),
+                );
+            }
+            let workspace_path = match SpillPayloadPath::new(workspace_path_text) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "cleanup-synthetic-payload",
+                        format,
+                        "synthetic spill payload cleanup failed",
+                        &error,
+                    );
+                }
+            };
+            let payload_id = match SpillPayloadId::new(payload_id_text) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "cleanup-synthetic-payload",
+                        format,
+                        "synthetic spill payload cleanup failed",
+                        &error,
+                    );
+                }
+            };
+            let payload_ref =
+                match SpillPayloadRef::new(payload_id.clone(), "shardloom_cli_workspace") {
+                    Ok(v) => v,
+                    Err(error) => {
+                        return emit_error(
+                            "cleanup-synthetic-payload",
+                            format,
+                            "synthetic spill payload cleanup failed",
+                            &error,
+                        );
+                    }
+                };
+            let fs_ref = SpillPayloadFsRef::new(payload_ref, workspace_path);
+            let request = ShardLoomCleanupExecutionRequest::synthetic_payload(
+                shardloom_exec::recovery::RecoveryArtifactRef::synthetic_spill_payload(&fs_ref),
+                fs_ref,
+            )
+            .allow_synthetic_payload_cleanup(true);
+            let report = match shardloom_exec::recovery::execute_cleanup_plan(request) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "cleanup-synthetic-payload",
+                        format,
+                        "synthetic spill payload cleanup failed",
+                        &error,
+                    );
+                }
+            };
+            emit(
+                "cleanup-synthetic-payload",
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "synthetic spill payload cleanup report".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "cleanup_synthetic_payload".to_string()),
+                    (
+                        "cleanup_executed".to_string(),
+                        report.cleanup_executed().to_string(),
+                    ),
+                    (
+                        "cleanup_performed".to_string(),
+                        report.cleanup_executed().to_string(),
+                    ),
+                    (
+                        "retry_executed".to_string(),
+                        report.retry_executed().to_string(),
+                    ),
+                    (
+                        "cancellation_executed".to_string(),
+                        report.cancellation_executed().to_string(),
+                    ),
+                    (
+                        "external_effects_executed".to_string(),
+                        report.external_effects_executed().to_string(),
+                    ),
+                    (
+                        "object_store_io".to_string(),
+                        report.object_store_io().to_string(),
+                    ),
+                    (
+                        "output_dataset_write".to_string(),
+                        report.output_dataset_write().to_string(),
+                    ),
+                    (
+                        "execution".to_string(),
+                        "cleanup_or_not_performed".to_string(),
+                    ),
+                    (
+                        "artifact_kind".to_string(),
+                        "synthetic_spill_payload".to_string(),
+                    ),
+                    ("payload_id".to_string(), payload_id.as_str().to_string()),
                 ],
             );
             if report.has_errors() {
@@ -6062,23 +6198,37 @@ mod tests {
 
     #[test]
     fn vortex_execution_readiness_with_non_vortex_uri_returns_non_zero() {
-        let code = run(vec![
-            "vortex-execution-readiness".to_string(),
-            "file://tmp/data.parquet".to_string(),
-            "8".to_string(),
-            "2".to_string(),
-        ]);
+        let code = std::thread::Builder::new()
+            .stack_size(8 * 1024 * 1024)
+            .spawn(|| {
+                run(vec![
+                    "vortex-execution-readiness".to_string(),
+                    "file://tmp/data.parquet".to_string(),
+                    "8".to_string(),
+                    "2".to_string(),
+                ])
+            })
+            .expect("thread spawn should succeed")
+            .join()
+            .expect("thread join should succeed");
         assert_ne!(code, ExitCode::SUCCESS);
     }
 
     #[test]
     fn vortex_schedule_plan_with_non_vortex_uri_returns_non_zero() {
-        let code = run(vec![
-            "vortex-schedule-plan".to_string(),
-            "file://tmp/data.parquet".to_string(),
-            "8".to_string(),
-            "2".to_string(),
-        ]);
+        let code = std::thread::Builder::new()
+            .stack_size(8 * 1024 * 1024)
+            .spawn(|| {
+                run(vec![
+                    "vortex-schedule-plan".to_string(),
+                    "file://tmp/data.parquet".to_string(),
+                    "8".to_string(),
+                    "2".to_string(),
+                ])
+            })
+            .expect("thread spawn should succeed")
+            .join()
+            .expect("thread join should succeed");
         assert_ne!(code, ExitCode::SUCCESS);
     }
 
@@ -6152,5 +6302,54 @@ mod tests {
     fn spill_payload_roundtrip_missing_args_returns_non_zero() {
         let code = run(vec!["spill-payload-roundtrip".to_string()]);
         assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn cleanup_synthetic_payload_valid_args_default_build_reports_without_execution() {
+        let code = run(vec![
+            "cleanup-synthetic-payload".to_string(),
+            "/tmp/shardloom_spill_payload".to_string(),
+            "payload-1".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::from(2));
+    }
+
+    #[test]
+    fn cleanup_synthetic_payload_invalid_payload_id_returns_non_zero() {
+        let code = run(vec![
+            "cleanup-synthetic-payload".to_string(),
+            "/tmp/shardloom_spill_payload".to_string(),
+            "../bad".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn cleanup_synthetic_payload_missing_args_returns_non_zero() {
+        let code = run(vec!["cleanup-synthetic-payload".to_string()]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn cleanup_synthetic_payload_too_many_args_returns_non_zero() {
+        let code = run(vec![
+            "cleanup-synthetic-payload".to_string(),
+            "/tmp/shardloom_spill_payload".to_string(),
+            "payload-1".to_string(),
+            "extra".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn cleanup_synthetic_payload_json_format_dispatches() {
+        let code = run(vec![
+            "cleanup-synthetic-payload".to_string(),
+            "/tmp/shardloom_spill_payload".to_string(),
+            "payload-1".to_string(),
+            "--format".to_string(),
+            "json".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::from(2));
     }
 }
