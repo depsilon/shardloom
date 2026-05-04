@@ -10,8 +10,9 @@ use shardloom_core::{
 use shardloom_exec::{
     MemoryBudget, SpillLifecycleRequest, SpillPayloadFsRef, SpillPayloadRoundTripReport,
     SpillPayloadRoundTripRequest, SpillPayloadWriteRequest, SpillPolicy,
-    SpillReservationIntegrationReport, SpillReservationIntegrationRequest, SyntheticSpillPayload,
-    TaskId, plan_spill_reservation_integration, roundtrip_spill_payload,
+    SpillReservationIntegrationReport, SpillReservationIntegrationRequest,
+    SpillReservationIntegrationStatus, SyntheticSpillPayload, TaskId,
+    plan_spill_reservation_integration, roundtrip_spill_payload,
 };
 
 use crate::{
@@ -969,6 +970,16 @@ impl VortexBoundedSpillIntegrationReport {
     /// # Errors
     /// Returns an error if reservation or synthetic payload roundtrip planning fails.
     pub fn from_request(request: VortexBoundedSpillIntegrationRequest) -> Result<Self> {
+        let blocked_by_memory = request
+            .bounded_report
+            .decisions
+            .iter()
+            .any(|d| matches!(d.kind, VortexBoundedExecutionDecisionKind::HoldForMemory));
+        let blocked_by_estimate = request
+            .bounded_report
+            .decisions
+            .iter()
+            .any(|d| matches!(d.kind, VortexBoundedExecutionDecisionKind::HoldForEstimate));
         let needs_spill = request.bounded_report.decisions.iter().any(|d| {
             matches!(
                 d.kind,
@@ -989,12 +1000,31 @@ impl VortexBoundedSpillIntegrationReport {
             out.request.lifecycle_request.clone(),
         )? {
             out.reservation_status = Some(r.status.as_str().to_string());
-            if r.has_errors() {
-                out.status = VortexBoundedSpillIntegrationStatus::BlockedBySpillPolicy;
-            } else {
-                out.status = VortexBoundedSpillIntegrationStatus::ReservationReady;
-            }
+            out.status = match r.status {
+                SpillReservationIntegrationStatus::LifecycleReady => {
+                    VortexBoundedSpillIntegrationStatus::ReservationReady
+                }
+                SpillReservationIntegrationStatus::NeedsEstimate => {
+                    VortexBoundedSpillIntegrationStatus::BlockedByMissingEstimate
+                }
+                SpillReservationIntegrationStatus::BlockedByPolicy => {
+                    VortexBoundedSpillIntegrationStatus::BlockedBySpillPolicy
+                }
+                SpillReservationIntegrationStatus::Unsupported => {
+                    VortexBoundedSpillIntegrationStatus::Unsupported
+                }
+                SpillReservationIntegrationStatus::NeedsWorkspace
+                | SpillReservationIntegrationStatus::LifecycleDeferred
+                | SpillReservationIntegrationStatus::Planned
+                | SpillReservationIntegrationStatus::NotRequired => {
+                    VortexBoundedSpillIntegrationStatus::ReservationRequired
+                }
+            };
             out.spill_reservation_report = Some(r);
+        } else if blocked_by_memory {
+            out.status = VortexBoundedSpillIntegrationStatus::BlockedByMemoryPolicy;
+        } else if blocked_by_estimate {
+            out.status = VortexBoundedSpillIntegrationStatus::BlockedByMissingEstimate;
         }
         if out.request.allow_synthetic_payload_roundtrip {
             out.payload_write_allowed = true;
