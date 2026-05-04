@@ -381,7 +381,7 @@ impl VortexCommitProtocolReport {
     /// Propagates formatting failures when constructing human-facing summaries.
     pub fn from_request(request: VortexCommitProtocolRequest) -> Result<Self> {
         let status = derive_status(&request);
-        let next_state = derive_next_state(request.transition, status);
+        let next_state = derive_next_state(request.current_state, request.transition, status);
         Ok(Self {
             status,
             mode: VortexCommitProtocolMode::ReportOnly,
@@ -426,11 +426,14 @@ impl VortexCommitProtocolReport {
     }
     #[must_use]
     pub fn has_errors(&self) -> bool {
-        self.request.has_errors()
-            || self
-                .diagnostics
-                .iter()
-                .any(|d| matches!(d.severity, DiagnosticSeverity::Error))
+        self.status.is_error()
+            || self.request.has_errors()
+            || self.diagnostics.iter().any(|d| {
+                matches!(
+                    d.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
     }
     #[must_use]
     pub const fn transition_allowed(&self) -> bool {
@@ -590,6 +593,9 @@ impl VortexCommitProtocolReport {
 }
 
 fn derive_status(request: &VortexCommitProtocolRequest) -> VortexCommitProtocolStatus {
+    if matches!(request.transition, VortexCommitProtocolTransition::Abort) {
+        return VortexCommitProtocolStatus::TransitionAllowed;
+    }
     if request.has_signal(VortexCommitProtocolSignal::ObjectStoreTarget) {
         return VortexCommitProtocolStatus::BlockedByObjectStoreTarget;
     }
@@ -641,6 +647,7 @@ fn derive_status(request: &VortexCommitProtocolRequest) -> VortexCommitProtocolS
     }
 }
 fn derive_next_state(
+    current_state: VortexCommitProtocolState,
     transition: VortexCommitProtocolTransition,
     status: VortexCommitProtocolStatus,
 ) -> VortexCommitProtocolState {
@@ -648,6 +655,9 @@ fn derive_next_state(
         return VortexCommitProtocolState::Unsupported;
     }
     if !matches!(status, VortexCommitProtocolStatus::TransitionAllowed) {
+        return VortexCommitProtocolState::CommitBlocked;
+    }
+    if !is_transition_allowed_from_state(current_state, transition) {
         return VortexCommitProtocolState::CommitBlocked;
     }
     match transition {
@@ -665,6 +675,41 @@ fn derive_next_state(
         VortexCommitProtocolTransition::Unsupported => VortexCommitProtocolState::Unsupported,
     }
 }
+fn is_transition_allowed_from_state(
+    current_state: VortexCommitProtocolState,
+    transition: VortexCommitProtocolTransition,
+) -> bool {
+    match transition {
+        VortexCommitProtocolTransition::ValidateIntent => {
+            matches!(current_state, VortexCommitProtocolState::NotStarted)
+        }
+        VortexCommitProtocolTransition::PrepareManifestFinalization => matches!(
+            current_state,
+            VortexCommitProtocolState::IntentValidated
+                | VortexCommitProtocolState::DraftManifestReady
+                | VortexCommitProtocolState::AwaitingManifestFinalization
+        ),
+        VortexCommitProtocolTransition::PrepareCommitMarker => {
+            matches!(
+                current_state,
+                VortexCommitProtocolState::AwaitingManifestFinalization
+            )
+        }
+        VortexCommitProtocolTransition::MarkCommitReady => {
+            matches!(
+                current_state,
+                VortexCommitProtocolState::AwaitingCommitMarker
+            )
+        }
+        VortexCommitProtocolTransition::Abort => !matches!(
+            current_state,
+            VortexCommitProtocolState::CommitReady
+                | VortexCommitProtocolState::CommitAborted
+                | VortexCommitProtocolState::Unsupported
+        ),
+        VortexCommitProtocolTransition::Unsupported => false,
+    }
+}
 
 /// Plans a `Vortex` commit protocol transition from explicit signals only.
 /// # Errors
@@ -674,6 +719,68 @@ pub fn plan_vortex_commit_protocol(
 ) -> Result<VortexCommitProtocolReport> {
     VortexCommitProtocolReport::from_request(request)
 }
+
+/// Derives a [`VortexCommitProtocolRequest`] from a [`VortexCommitIntentReport`].
+///
+/// The derived request is report-only and preserves readiness/blocker signals without
+/// attempting commit execution, manifest finalization, commit marker writes,
+/// upstream `Vortex` writes, object-store IO, or fallback behavior.
+#[must_use]
+pub fn commit_protocol_request_from_commit_intent(
+    target_uri: DatasetUri,
+    current_state: VortexCommitProtocolState,
+    transition: VortexCommitProtocolTransition,
+    commit_intent: &crate::VortexCommitIntentReport,
+) -> VortexCommitProtocolRequest {
+    let mut request = VortexCommitProtocolRequest::new(target_uri, current_state, transition)
+        .with_commit_intent_summary(commit_intent.to_human_text())
+        .commit_intent_ready(matches!(
+            commit_intent.status,
+            crate::VortexCommitIntentStatus::CommitReady
+        ))
+        .commit_intent_blocked(
+            commit_intent.has_errors()
+                || !matches!(
+                    commit_intent.status,
+                    crate::VortexCommitIntentStatus::Planned
+                        | crate::VortexCommitIntentStatus::CommitReady
+                ),
+        )
+        .object_store_target(commit_intent.object_store_target())
+        .recovery_ready(commit_intent.recovery_ready())
+        .recovery_blocked(!commit_intent.recovery_ready())
+        .draft_manifest_ready(commit_intent.staged_manifest_draft_written())
+        .draft_manifest_missing(!commit_intent.staged_manifest_draft_written())
+        .manifest_finalization_available(commit_intent.manifest_finalization_available())
+        .manifest_finalization_missing(!commit_intent.manifest_finalization_available());
+
+    for diagnostic in &commit_intent.request.diagnostics {
+        request.add_diagnostic(diagnostic.clone());
+    }
+    for diagnostic in &commit_intent.diagnostics {
+        request.add_diagnostic(diagnostic.clone());
+    }
+    request
+}
+
+/// Plans a report-only [`VortexCommitProtocolReport`] from a [`VortexCommitIntentReport`].
+///
+/// # Errors
+/// Propagates errors from [`plan_vortex_commit_protocol`].
+pub fn plan_vortex_commit_protocol_from_commit_intent(
+    target_uri: DatasetUri,
+    current_state: VortexCommitProtocolState,
+    transition: VortexCommitProtocolTransition,
+    commit_intent: &crate::VortexCommitIntentReport,
+) -> Result<VortexCommitProtocolReport> {
+    let request = commit_protocol_request_from_commit_intent(
+        target_uri,
+        current_state,
+        transition,
+        commit_intent,
+    );
+    plan_vortex_commit_protocol(request)
+}
 #[must_use]
 pub fn vortex_commit_protocol_is_side_effect_free(report: &VortexCommitProtocolReport) -> bool {
     report.is_side_effect_free()
@@ -682,7 +789,7 @@ pub fn vortex_commit_protocol_is_side_effect_free(report: &VortexCommitProtocolR
 #[cfg(test)]
 mod tests {
     use super::*;
-    use shardloom_core::{DatasetUri, DiagnosticCategory};
+    use shardloom_core::{DatasetUri, DiagnosticCategory, FallbackStatus};
     fn uri() -> DatasetUri {
         DatasetUri::new("file:///tmp/dataset.vortex").expect("uri")
     }
@@ -690,6 +797,24 @@ mod tests {
         VortexCommitProtocolRequest::new(uri(), VortexCommitProtocolState::NotStarted, t)
             .commit_intent_ready(true)
             .recovery_ready(true)
+    }
+    fn ready_commit_intent() -> crate::VortexCommitIntentReport {
+        crate::plan_vortex_commit_intent(
+            crate::VortexCommitIntentRequest::new(uri())
+                .commit_requested(true)
+                .staged_manifest_draft_written(true)
+                .manifest_finalization_available(true)
+                .commit_protocol_available(true)
+                .schema_known(true)
+                .schema_compatible(true)
+                .delete_semantics_known(true)
+                .tombstone_semantics_known(true)
+                .recovery_ready(true)
+                .retry_gate_open(true)
+                .cancellation_gate_open(true)
+                .feature_gate_enabled(true),
+        )
+        .expect("ready commit intent")
     }
     #[test]
     fn required_behaviors() {
@@ -760,11 +885,20 @@ mod tests {
             .status,
             VortexCommitProtocolStatus::BlockedByManifestFinalization
         );
+    }
+    #[test]
+    fn status_transitions_manifest_and_marker_paths() {
         assert_eq!(
             VortexCommitProtocolReport::from_request(
-                req(VortexCommitProtocolTransition::PrepareManifestFinalization)
-                    .draft_manifest_ready(true)
-                    .manifest_finalization_available(true)
+                VortexCommitProtocolRequest::new(
+                    uri(),
+                    VortexCommitProtocolState::IntentValidated,
+                    VortexCommitProtocolTransition::PrepareManifestFinalization,
+                )
+                .commit_intent_ready(true)
+                .recovery_ready(true)
+                .draft_manifest_ready(true)
+                .manifest_finalization_available(true)
             )
             .expect("r")
             .next_state,
@@ -772,19 +906,34 @@ mod tests {
         );
         assert_eq!(
             VortexCommitProtocolReport::from_request(
-                req(VortexCommitProtocolTransition::PrepareCommitMarker)
-                    .manifest_finalization_available(true)
+                VortexCommitProtocolRequest::new(
+                    uri(),
+                    VortexCommitProtocolState::AwaitingManifestFinalization,
+                    VortexCommitProtocolTransition::PrepareCommitMarker,
+                )
+                .commit_intent_ready(true)
+                .recovery_ready(true)
+                .manifest_finalization_available(true)
             )
             .expect("r")
             .status,
             VortexCommitProtocolStatus::BlockedByCommitMarker
         );
+    }
+    #[test]
+    fn status_transitions_mark_ready_and_abort() {
         assert_eq!(
             VortexCommitProtocolReport::from_request(
-                req(VortexCommitProtocolTransition::MarkCommitReady)
-                    .draft_manifest_ready(true)
-                    .manifest_finalization_available(true)
-                    .commit_marker_available(true)
+                VortexCommitProtocolRequest::new(
+                    uri(),
+                    VortexCommitProtocolState::AwaitingCommitMarker,
+                    VortexCommitProtocolTransition::MarkCommitReady,
+                )
+                .commit_intent_ready(true)
+                .recovery_ready(true)
+                .draft_manifest_ready(true)
+                .manifest_finalization_available(true)
+                .commit_marker_available(true)
             )
             .expect("r")
             .next_state,
@@ -795,6 +944,41 @@ mod tests {
                 .expect("r")
                 .next_state,
             VortexCommitProtocolState::CommitAborted
+        );
+    }
+    #[test]
+    fn abort_transition_allowed_when_readiness_missing() {
+        let report = VortexCommitProtocolReport::from_request(VortexCommitProtocolRequest::new(
+            uri(),
+            VortexCommitProtocolState::CommitBlocked,
+            VortexCommitProtocolTransition::Abort,
+        ))
+        .expect("abort report");
+        assert_eq!(report.status, VortexCommitProtocolStatus::TransitionAllowed);
+        assert_eq!(
+            report.next_state(),
+            VortexCommitProtocolState::CommitAborted
+        );
+    }
+    #[test]
+    fn invalid_state_hop_does_not_progress_to_commit_ready() {
+        let report = VortexCommitProtocolReport::from_request(
+            VortexCommitProtocolRequest::new(
+                uri(),
+                VortexCommitProtocolState::CommitAborted,
+                VortexCommitProtocolTransition::MarkCommitReady,
+            )
+            .commit_intent_ready(true)
+            .recovery_ready(true)
+            .draft_manifest_ready(true)
+            .manifest_finalization_available(true)
+            .commit_marker_available(true),
+        )
+        .expect("report");
+        assert_eq!(report.status, VortexCommitProtocolStatus::TransitionAllowed);
+        assert_eq!(
+            report.next_state(),
+            VortexCommitProtocolState::CommitBlocked
         );
     }
     #[test]
@@ -829,6 +1013,32 @@ mod tests {
         assert!(text.contains("details"));
     }
     #[test]
+    fn has_errors_includes_blocked_status_and_fatal_diagnostics() {
+        let blocked = VortexCommitProtocolReport::from_request(VortexCommitProtocolRequest::new(
+            uri(),
+            VortexCommitProtocolState::NotStarted,
+            VortexCommitProtocolTransition::ValidateIntent,
+        ))
+        .expect("blocked report");
+        assert!(blocked.has_errors());
+
+        let mut fatal = VortexCommitProtocolReport::from_request(req(
+            VortexCommitProtocolTransition::ValidateIntent,
+        ))
+        .expect("fatal report");
+        fatal.add_diagnostic(Diagnostic::new(
+            DiagnosticCode::UnsupportedEffect,
+            DiagnosticSeverity::Fatal,
+            DiagnosticCategory::UnsupportedFeature,
+            "fatal details",
+            None,
+            None,
+            None,
+            FallbackStatus::disabled_by_policy(),
+        ));
+        assert!(fatal.has_errors());
+    }
+    #[test]
     fn helper_and_constructor() {
         let request = VortexCommitProtocolRequest::new(
             uri(),
@@ -840,5 +1050,95 @@ mod tests {
             plan_vortex_commit_protocol(request.commit_intent_ready(true).recovery_ready(true))
                 .expect("report");
         assert_eq!(report.status, VortexCommitProtocolStatus::TransitionAllowed);
+    }
+    #[test]
+    fn request_from_commit_intent_maps_signals() {
+        let ready = ready_commit_intent();
+        let request = commit_protocol_request_from_commit_intent(
+            uri(),
+            VortexCommitProtocolState::NotStarted,
+            VortexCommitProtocolTransition::ValidateIntent,
+            &ready,
+        );
+        assert!(request.has_signal(VortexCommitProtocolSignal::CommitIntentReady));
+        assert!(!request.has_signal(VortexCommitProtocolSignal::CommitIntentBlocked));
+        assert!(request.has_signal(VortexCommitProtocolSignal::RecoveryReady));
+        assert!(!request.has_signal(VortexCommitProtocolSignal::RecoveryBlocked));
+        assert!(request.has_signal(VortexCommitProtocolSignal::DraftManifestReady));
+        assert!(!request.has_signal(VortexCommitProtocolSignal::DraftManifestMissing));
+        assert!(request.has_signal(VortexCommitProtocolSignal::ManifestFinalizationAvailable));
+        assert!(!request.has_signal(VortexCommitProtocolSignal::ManifestFinalizationMissing));
+        assert!(!request.has_signal(VortexCommitProtocolSignal::CommitMarkerAvailable));
+    }
+    #[test]
+    fn request_from_commit_intent_maps_blockers_and_diagnostics() {
+        let mut blocked = crate::plan_vortex_commit_intent(
+            crate::VortexCommitIntentRequest::new(uri())
+                .commit_requested(true)
+                .object_store_target(true),
+        )
+        .expect("blocked");
+        blocked.add_diagnostic(Diagnostic::new(
+            DiagnosticCode::UnsupportedEffect,
+            DiagnosticSeverity::Error,
+            DiagnosticCategory::UnsupportedFeature,
+            "blocked details",
+            None,
+            None,
+            None,
+            FallbackStatus::disabled_by_policy(),
+        ));
+        let request = commit_protocol_request_from_commit_intent(
+            uri(),
+            VortexCommitProtocolState::NotStarted,
+            VortexCommitProtocolTransition::ValidateIntent,
+            &blocked,
+        );
+        assert!(request.has_signal(VortexCommitProtocolSignal::CommitIntentBlocked));
+        assert!(request.has_signal(VortexCommitProtocolSignal::ObjectStoreTarget));
+        assert!(request.has_signal(VortexCommitProtocolSignal::RecoveryBlocked));
+        assert!(request.has_signal(VortexCommitProtocolSignal::DraftManifestMissing));
+        assert!(request.has_signal(VortexCommitProtocolSignal::ManifestFinalizationMissing));
+        assert_eq!(request.diagnostics.len(), 1);
+        let report = plan_vortex_commit_protocol(request).expect("report");
+        assert!(report.to_human_text().contains("blocked details"));
+    }
+    #[test]
+    fn plan_from_commit_intent_is_report_only_and_blocks_missing_marker() {
+        let ready = ready_commit_intent();
+        let validated = plan_vortex_commit_protocol_from_commit_intent(
+            uri(),
+            VortexCommitProtocolState::NotStarted,
+            VortexCommitProtocolTransition::ValidateIntent,
+            &ready,
+        )
+        .expect("validate report");
+        assert_eq!(
+            validated.next_state(),
+            VortexCommitProtocolState::IntentValidated
+        );
+        let marker_blocked = plan_vortex_commit_protocol_from_commit_intent(
+            uri(),
+            VortexCommitProtocolState::IntentValidated,
+            VortexCommitProtocolTransition::MarkCommitReady,
+            &ready,
+        )
+        .expect("marker blocked report");
+        assert_eq!(
+            marker_blocked.status,
+            VortexCommitProtocolStatus::BlockedByCommitMarker
+        );
+        assert!(!marker_blocked.manifest_finalized());
+        assert!(!marker_blocked.commit_marker_written());
+        assert!(!marker_blocked.manifest_committed());
+        assert!(!marker_blocked.output_data_written());
+        assert!(!marker_blocked.object_store_io());
+        assert!(!marker_blocked.upstream_vortex_write_called());
+        assert!(!marker_blocked.recovery_action_executed());
+        assert!(!marker_blocked.fallback_execution_allowed());
+        assert!(!marker_blocked.allows_commit_execution());
+        assert!(marker_blocked.is_side_effect_free());
+        let text = marker_blocked.to_human_text();
+        assert!(text.contains("fallback execution disabled"));
     }
 }

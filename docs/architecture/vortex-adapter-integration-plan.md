@@ -487,3 +487,16 @@ No spill data movement is implemented in this phase.
 - It does not write output data.
 - It does not call upstream `Vortex` write APIs.
 - It does not perform object-store operations.
+
+## Commit protocol request derivation from commit intent
+
+`VortexCommitProtocolRequest` values can now be derived directly from `VortexCommitIntentReport` values through a report-only helper path.
+
+- Derived requests preserve commit-intent readiness/blockers.
+- Derived requests preserve recovery readiness/blockers.
+- Derived requests preserve staged draft-manifest readiness.
+- Derived requests preserve manifest finalization readiness.
+- Derived requests preserve object-store target blockers.
+- Commit marker readiness is not guessed.
+- Commit protocol remains report-only.
+- No manifest finalization, commit marker writes, manifest commits, output writes, upstream `Vortex` write API calls, object-store IO, or fallback execution are introduced.

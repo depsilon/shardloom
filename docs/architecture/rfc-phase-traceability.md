@@ -114,8 +114,8 @@ Status categories:
 - Phase 12B.1 commit-intent core contract is complete.
 - Phase 12B.1b commit readiness integration is complete.
 - Phase 12B.1c validation closeout is complete.
-- Phase 12B.2a.1 commit protocol state machine core contract is current and report-only.
-- Phase 12B.2a.2 commit protocol report integration is planned.
+- Phase 12B.2a.1 commit protocol state machine core contract is complete and report-only.
+- Phase 12B.2a.2 commit intent report integration is current.
 - Commit protocol remains report-only and commit execution remains deferred.
 - Commit execution remains deferred.
 - Commit protocol must start report-only.
