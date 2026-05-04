@@ -6406,7 +6406,6 @@ mod tests {
         assert_eq!(code, ExitCode::SUCCESS);
     }
 
-
     #[test]
     fn vortex_write_intent_plan_missing_commit_protocol_returns_non_zero() {
         let code = run(vec![
