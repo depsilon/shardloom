@@ -65,8 +65,12 @@ pub use recovery::{
     RecoveryPlanStatus, RecoveryReport, RetryDecision, RetryDecisionKind, RetryEligibility,
     RetryPlan, ShardLoomCleanupExecutionEffect, ShardLoomCleanupExecutionMode,
     ShardLoomCleanupExecutionReport, ShardLoomCleanupExecutionRequest,
-    ShardLoomCleanupExecutionStatus, TaskAttemptRecord, TaskAttemptStatus,
-    cleanup_execution_plan_is_side_effect_free, plan_cleanup_execution,
+    ShardLoomCleanupExecutionStatus, ShardLoomRetryExecutionGateEffect,
+    ShardLoomRetryExecutionGateMode, ShardLoomRetryExecutionGateReport,
+    ShardLoomRetryExecutionGateRequest, ShardLoomRetryExecutionGateSignal,
+    ShardLoomRetryExecutionGateStatus, TaskAttemptRecord, TaskAttemptStatus,
+    cleanup_execution_plan_is_side_effect_free, plan_cleanup_execution, plan_retry_execution_gate,
+    retry_execution_gate_is_side_effect_free,
 };
 
 pub use sizing::{

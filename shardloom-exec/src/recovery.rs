@@ -2384,6 +2384,428 @@ pub fn retry_cancellation_plan_is_side_effect_free(
 ) -> bool {
     report.is_side_effect_free()
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShardLoomRetryExecutionGateStatus {
+    GateOpen,
+    GateClosedCleanupRequired,
+    GateClosedUnknownArtifact,
+    GateClosedExternalEffect,
+    GateClosedRetryNotRequested,
+    GateClosedRetryNotAllowed,
+    GateClosedCancellationRequested,
+    GateClosedObjectStoreRecovery,
+    GateClosedOutputRecovery,
+    Unsupported,
+}
+impl ShardLoomRetryExecutionGateStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::GateOpen => "gate_open",
+            Self::GateClosedCleanupRequired => "gate_closed_cleanup_required",
+            Self::GateClosedUnknownArtifact => "gate_closed_unknown_artifact",
+            Self::GateClosedExternalEffect => "gate_closed_external_effect",
+            Self::GateClosedRetryNotRequested => "gate_closed_retry_not_requested",
+            Self::GateClosedRetryNotAllowed => "gate_closed_retry_not_allowed",
+            Self::GateClosedCancellationRequested => "gate_closed_cancellation_requested",
+            Self::GateClosedObjectStoreRecovery => "gate_closed_object_store_recovery",
+            Self::GateClosedOutputRecovery => "gate_closed_output_recovery",
+            Self::Unsupported => "unsupported",
+        }
+    }
+    #[must_use]
+    pub const fn is_error(&self) -> bool {
+        !matches!(self, Self::GateOpen)
+    }
+    #[must_use]
+    pub const fn gate_open(&self) -> bool {
+        matches!(self, Self::GateOpen)
+    }
+    #[must_use]
+    pub const fn requires_cleanup(&self) -> bool {
+        matches!(self, Self::GateClosedCleanupRequired)
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShardLoomRetryExecutionGateMode {
+    ReportOnly,
+    RetryGateOnly,
+    Unsupported,
+}
+impl ShardLoomRetryExecutionGateMode {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::ReportOnly => "report_only",
+            Self::RetryGateOnly => "retry_gate_only",
+            Self::Unsupported => "unsupported",
+        }
+    }
+    #[must_use]
+    pub const fn executes_retry(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn executes_cleanup(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn executes_cancellation(&self) -> bool {
+        false
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShardLoomRetryExecutionGateSignal {
+    RetryRequested,
+    RetryAllowedByPlan,
+    RetryRequiresCleanup,
+    CleanupCompleted,
+    UnknownArtifactPresent,
+    ExternalEffectsPresent,
+    ObjectStoreRecoveryRequired,
+    OutputRecoveryRequired,
+    CancellationRequested,
+}
+impl ShardLoomRetryExecutionGateSignal {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::RetryRequested => "retry_requested",
+            Self::RetryAllowedByPlan => "retry_allowed_by_plan",
+            Self::RetryRequiresCleanup => "retry_requires_cleanup",
+            Self::CleanupCompleted => "cleanup_completed",
+            Self::UnknownArtifactPresent => "unknown_artifact_present",
+            Self::ExternalEffectsPresent => "external_effects_present",
+            Self::ObjectStoreRecoveryRequired => "object_store_recovery_required",
+            Self::OutputRecoveryRequired => "output_recovery_required",
+            Self::CancellationRequested => "cancellation_requested",
+        }
+    }
+    #[must_use]
+    pub const fn is_blocking(&self) -> bool {
+        matches!(
+            self,
+            Self::UnknownArtifactPresent
+                | Self::ExternalEffectsPresent
+                | Self::ObjectStoreRecoveryRequired
+                | Self::OutputRecoveryRequired
+                | Self::CancellationRequested
+                | Self::RetryRequiresCleanup
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShardLoomRetryExecutionGateEffect {
+    RetryExecuted,
+    CleanupExecutedByGate,
+    CancellationExecuted,
+    ExternalEffectExecuted,
+    ObjectStoreIo,
+    OutputDatasetWrite,
+    FallbackExecution,
+}
+impl ShardLoomRetryExecutionGateEffect {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::RetryExecuted => "retry_executed",
+            Self::CleanupExecutedByGate => "cleanup_executed_by_gate",
+            Self::CancellationExecuted => "cancellation_executed",
+            Self::ExternalEffectExecuted => "external_effect_executed",
+            Self::ObjectStoreIo => "object_store_io",
+            Self::OutputDatasetWrite => "output_dataset_write",
+            Self::FallbackExecution => "fallback_execution",
+        }
+    }
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct ShardLoomRetryExecutionGateRequest {
+    pub signals: Vec<ShardLoomRetryExecutionGateSignal>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl ShardLoomRetryExecutionGateRequest {
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            signals: vec![],
+            diagnostics: vec![],
+        }
+    }
+    pub fn add_signal(&mut self, signal: ShardLoomRetryExecutionGateSignal) {
+        if !self.signals.contains(&signal) {
+            self.signals.push(signal);
+        }
+    }
+    fn set_signal(mut self, signal: ShardLoomRetryExecutionGateSignal, value: bool) -> Self {
+        self.signals.retain(|existing| existing != &signal);
+        if value {
+            self.signals.push(signal);
+        }
+        self
+    }
+    pub fn retry_requested(self, value: bool) -> Self {
+        self.set_signal(ShardLoomRetryExecutionGateSignal::RetryRequested, value)
+    }
+    pub fn retry_allowed_by_plan(self, value: bool) -> Self {
+        self.set_signal(ShardLoomRetryExecutionGateSignal::RetryAllowedByPlan, value)
+    }
+    pub fn retry_requires_cleanup(self, value: bool) -> Self {
+        self.set_signal(
+            ShardLoomRetryExecutionGateSignal::RetryRequiresCleanup,
+            value,
+        )
+    }
+    pub fn cleanup_completed(self, value: bool) -> Self {
+        self.set_signal(ShardLoomRetryExecutionGateSignal::CleanupCompleted, value)
+    }
+    pub fn unknown_artifact_present(self, value: bool) -> Self {
+        self.set_signal(
+            ShardLoomRetryExecutionGateSignal::UnknownArtifactPresent,
+            value,
+        )
+    }
+    pub fn external_effects_present(self, value: bool) -> Self {
+        self.set_signal(
+            ShardLoomRetryExecutionGateSignal::ExternalEffectsPresent,
+            value,
+        )
+    }
+    pub fn object_store_recovery_required(self, value: bool) -> Self {
+        self.set_signal(
+            ShardLoomRetryExecutionGateSignal::ObjectStoreRecoveryRequired,
+            value,
+        )
+    }
+    pub fn output_recovery_required(self, value: bool) -> Self {
+        self.set_signal(
+            ShardLoomRetryExecutionGateSignal::OutputRecoveryRequired,
+            value,
+        )
+    }
+    pub fn cancellation_requested(self, value: bool) -> Self {
+        self.set_signal(
+            ShardLoomRetryExecutionGateSignal::CancellationRequested,
+            value,
+        )
+    }
+    #[must_use]
+    pub fn has_signal(&self, signal: ShardLoomRetryExecutionGateSignal) -> bool {
+        self.signals.contains(&signal)
+    }
+    pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
+    }
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        has_error_diagnostics(&self.diagnostics)
+    }
+    #[must_use]
+    pub fn summary(&self) -> String {
+        format!(
+            "signals={} retry_requested={} retry_allowed_by_plan={}",
+            self.signals.len(),
+            self.has_signal(ShardLoomRetryExecutionGateSignal::RetryRequested),
+            self.has_signal(ShardLoomRetryExecutionGateSignal::RetryAllowedByPlan)
+        )
+    }
+}
+impl Default for ShardLoomRetryExecutionGateRequest {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct ShardLoomRetryExecutionGateReport {
+    pub status: ShardLoomRetryExecutionGateStatus,
+    pub mode: ShardLoomRetryExecutionGateMode,
+    pub request: ShardLoomRetryExecutionGateRequest,
+    pub effects_performed: Vec<ShardLoomRetryExecutionGateEffect>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl ShardLoomRetryExecutionGateReport {
+    /// # Errors
+    /// Returns an error when creating a `ShardLoomRetryExecutionGateReport` fails.
+    pub fn from_request(request: ShardLoomRetryExecutionGateRequest) -> Result<Self> {
+        let status = if request.has_signal(ShardLoomRetryExecutionGateSignal::CancellationRequested)
+        {
+            ShardLoomRetryExecutionGateStatus::GateClosedCancellationRequested
+        } else if request.has_signal(ShardLoomRetryExecutionGateSignal::ExternalEffectsPresent) {
+            ShardLoomRetryExecutionGateStatus::GateClosedExternalEffect
+        } else if request.has_signal(ShardLoomRetryExecutionGateSignal::ObjectStoreRecoveryRequired)
+        {
+            ShardLoomRetryExecutionGateStatus::GateClosedObjectStoreRecovery
+        } else if request.has_signal(ShardLoomRetryExecutionGateSignal::OutputRecoveryRequired) {
+            ShardLoomRetryExecutionGateStatus::GateClosedOutputRecovery
+        } else if request.has_signal(ShardLoomRetryExecutionGateSignal::UnknownArtifactPresent) {
+            ShardLoomRetryExecutionGateStatus::GateClosedUnknownArtifact
+        } else if !request.has_signal(ShardLoomRetryExecutionGateSignal::RetryRequested) {
+            ShardLoomRetryExecutionGateStatus::GateClosedRetryNotRequested
+        } else if !request.has_signal(ShardLoomRetryExecutionGateSignal::RetryAllowedByPlan) {
+            ShardLoomRetryExecutionGateStatus::GateClosedRetryNotAllowed
+        } else if request.has_signal(ShardLoomRetryExecutionGateSignal::RetryRequiresCleanup)
+            && !request.has_signal(ShardLoomRetryExecutionGateSignal::CleanupCompleted)
+        {
+            ShardLoomRetryExecutionGateStatus::GateClosedCleanupRequired
+        } else {
+            ShardLoomRetryExecutionGateStatus::GateOpen
+        };
+        Ok(Self {
+            status,
+            mode: ShardLoomRetryExecutionGateMode::RetryGateOnly,
+            request,
+            effects_performed: vec![],
+            diagnostics: vec![],
+        })
+    }
+    #[must_use]
+    pub fn unsupported(
+        request: ShardLoomRetryExecutionGateRequest,
+        feature: impl Into<String>,
+        reason: impl Into<String>,
+    ) -> Self {
+        let mut report = Self {
+            status: ShardLoomRetryExecutionGateStatus::Unsupported,
+            mode: ShardLoomRetryExecutionGateMode::Unsupported,
+            request,
+            effects_performed: vec![],
+            diagnostics: vec![],
+        };
+        report.add_diagnostic(unsupported_diagnostic(feature, reason));
+        report
+    }
+    pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
+    }
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.status.is_error()
+            || self.request.has_errors()
+            || has_error_diagnostics(&self.diagnostics)
+    }
+    #[must_use]
+    pub fn retry_requested(&self) -> bool {
+        self.request
+            .has_signal(ShardLoomRetryExecutionGateSignal::RetryRequested)
+    }
+    #[must_use]
+    pub fn retry_allowed_by_plan(&self) -> bool {
+        self.request
+            .has_signal(ShardLoomRetryExecutionGateSignal::RetryAllowedByPlan)
+    }
+    #[must_use]
+    pub fn retry_gate_open(&self) -> bool {
+        self.status.gate_open()
+    }
+    #[must_use]
+    pub fn retry_requires_cleanup(&self) -> bool {
+        self.request
+            .has_signal(ShardLoomRetryExecutionGateSignal::RetryRequiresCleanup)
+    }
+    #[must_use]
+    pub fn cleanup_completed(&self) -> bool {
+        self.request
+            .has_signal(ShardLoomRetryExecutionGateSignal::CleanupCompleted)
+    }
+    #[must_use]
+    pub fn unknown_artifact_present(&self) -> bool {
+        self.request
+            .has_signal(ShardLoomRetryExecutionGateSignal::UnknownArtifactPresent)
+    }
+    #[must_use]
+    pub fn retry_executed(&self) -> bool {
+        self.effects_performed
+            .contains(&ShardLoomRetryExecutionGateEffect::RetryExecuted)
+    }
+    #[must_use]
+    pub fn cleanup_executed_by_gate(&self) -> bool {
+        self.effects_performed
+            .contains(&ShardLoomRetryExecutionGateEffect::CleanupExecutedByGate)
+    }
+    #[must_use]
+    pub fn cancellation_executed(&self) -> bool {
+        self.effects_performed
+            .contains(&ShardLoomRetryExecutionGateEffect::CancellationExecuted)
+    }
+    #[must_use]
+    pub fn external_effects_executed(&self) -> bool {
+        self.effects_performed
+            .contains(&ShardLoomRetryExecutionGateEffect::ExternalEffectExecuted)
+    }
+    #[must_use]
+    pub fn object_store_io(&self) -> bool {
+        self.effects_performed
+            .contains(&ShardLoomRetryExecutionGateEffect::ObjectStoreIo)
+    }
+    #[must_use]
+    pub fn output_dataset_write(&self) -> bool {
+        self.effects_performed
+            .contains(&ShardLoomRetryExecutionGateEffect::OutputDatasetWrite)
+    }
+    #[must_use]
+    pub fn fallback_execution_allowed(&self) -> bool {
+        self.effects_performed
+            .contains(&ShardLoomRetryExecutionGateEffect::FallbackExecution)
+    }
+    #[must_use]
+    pub fn is_side_effect_free(&self) -> bool {
+        self.effects_performed.is_empty() && !self.fallback_execution_allowed()
+    }
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        let mut out = String::new();
+        let _ = writeln!(out, "retry execution gate status: {}", self.status.as_str());
+        let _ = writeln!(out, "mode: {}", self.mode.as_str());
+        let _ = writeln!(out, "retry requested: {}", self.retry_requested());
+        let _ = writeln!(
+            out,
+            "retry allowed by plan: {}",
+            self.retry_allowed_by_plan()
+        );
+        let _ = writeln!(out, "retry gate open: {}", self.retry_gate_open());
+        let _ = writeln!(
+            out,
+            "retry requires cleanup: {}",
+            self.retry_requires_cleanup()
+        );
+        let _ = writeln!(out, "cleanup completed: {}", self.cleanup_completed());
+        let _ = writeln!(
+            out,
+            "unknown artifact present: {}",
+            self.unknown_artifact_present()
+        );
+        let _ = write!(
+            out,
+            "retry executed: {}\ncleanup executed by gate: {}\ncancellation executed: {}\nexternal effects executed: {}\nobject-store IO: {}\noutput dataset write: {}\nfallback execution: disabled",
+            self.retry_executed(),
+            self.cleanup_executed_by_gate(),
+            self.cancellation_executed(),
+            self.external_effects_executed(),
+            self.object_store_io(),
+            self.output_dataset_write()
+        );
+        if !self.request.diagnostics.is_empty() || !self.diagnostics.is_empty() {
+            let _ = writeln!(out, "\ndiagnostics:");
+            for diagnostic in self.request.diagnostics.iter().chain(&self.diagnostics) {
+                let _ = writeln!(out, "- {}", diagnostic.message);
+            }
+        }
+        out
+    }
+}
+/// # Errors
+/// Returns an error when creating a `ShardLoomRetryExecutionGateReport` from planning signals fails.
+pub fn plan_retry_execution_gate(
+    request: ShardLoomRetryExecutionGateRequest,
+) -> Result<ShardLoomRetryExecutionGateReport> {
+    ShardLoomRetryExecutionGateReport::from_request(request)
+}
+#[must_use]
+pub fn retry_execution_gate_is_side_effect_free(
+    report: &ShardLoomRetryExecutionGateReport,
+) -> bool {
+    report.is_side_effect_free()
+}
 impl RecoveryReport {
     pub fn not_run() -> Self {
         Self {
@@ -3017,5 +3439,167 @@ mod tests {
         )
         .expect("report");
         assert!(cleanup_execution_plan_is_side_effect_free(&report));
+    }
+
+    #[test]
+    fn retry_execution_gate_status_and_mode_basics() {
+        assert!(ShardLoomRetryExecutionGateStatus::GateOpen.gate_open());
+        assert!(ShardLoomRetryExecutionGateStatus::GateClosedCleanupRequired.is_error());
+        assert!(ShardLoomRetryExecutionGateStatus::GateClosedCleanupRequired.requires_cleanup());
+        assert!(!ShardLoomRetryExecutionGateMode::ReportOnly.executes_retry());
+    }
+
+    #[test]
+    fn retry_execution_gate_request_builders() {
+        let request = ShardLoomRetryExecutionGateRequest::new();
+        assert!(request.signals.is_empty());
+        let request = request.retry_requested(true).cleanup_completed(true);
+        assert!(request.has_signal(ShardLoomRetryExecutionGateSignal::RetryRequested));
+        assert!(request.has_signal(ShardLoomRetryExecutionGateSignal::CleanupCompleted));
+    }
+
+    #[test]
+    fn retry_execution_gate_from_request_statuses() {
+        let not_requested = ShardLoomRetryExecutionGateReport::from_request(
+            ShardLoomRetryExecutionGateRequest::new(),
+        )
+        .expect("report");
+        assert_eq!(
+            not_requested.status,
+            ShardLoomRetryExecutionGateStatus::GateClosedRetryNotRequested
+        );
+        let not_allowed = ShardLoomRetryExecutionGateReport::from_request(
+            ShardLoomRetryExecutionGateRequest::new().retry_requested(true),
+        )
+        .expect("report");
+        assert_eq!(
+            not_allowed.status,
+            ShardLoomRetryExecutionGateStatus::GateClosedRetryNotAllowed
+        );
+        let cleanup_required = ShardLoomRetryExecutionGateReport::from_request(
+            ShardLoomRetryExecutionGateRequest::new()
+                .retry_requested(true)
+                .retry_allowed_by_plan(true)
+                .retry_requires_cleanup(true),
+        )
+        .expect("report");
+        assert_eq!(
+            cleanup_required.status,
+            ShardLoomRetryExecutionGateStatus::GateClosedCleanupRequired
+        );
+    }
+
+    #[test]
+    fn retry_execution_gate_from_request_open_states() {
+        let open_no_cleanup = ShardLoomRetryExecutionGateReport::from_request(
+            ShardLoomRetryExecutionGateRequest::new()
+                .retry_requested(true)
+                .retry_allowed_by_plan(true),
+        )
+        .expect("report");
+        assert!(open_no_cleanup.retry_gate_open());
+        let open_cleanup_completed = ShardLoomRetryExecutionGateReport::from_request(
+            ShardLoomRetryExecutionGateRequest::new()
+                .retry_requested(true)
+                .retry_allowed_by_plan(true)
+                .retry_requires_cleanup(true)
+                .cleanup_completed(true),
+        )
+        .expect("report");
+        assert!(open_cleanup_completed.retry_gate_open());
+    }
+
+    #[test]
+    fn retry_execution_gate_from_request_blocking_priority() {
+        let unknown = ShardLoomRetryExecutionGateReport::from_request(
+            ShardLoomRetryExecutionGateRequest::new()
+                .retry_requested(true)
+                .retry_allowed_by_plan(true)
+                .unknown_artifact_present(true),
+        )
+        .expect("report");
+        assert_eq!(
+            unknown.status,
+            ShardLoomRetryExecutionGateStatus::GateClosedUnknownArtifact
+        );
+        let external = ShardLoomRetryExecutionGateReport::from_request(
+            ShardLoomRetryExecutionGateRequest::new()
+                .retry_requested(true)
+                .retry_allowed_by_plan(true)
+                .external_effects_present(true),
+        )
+        .expect("report");
+        assert_eq!(
+            external.status,
+            ShardLoomRetryExecutionGateStatus::GateClosedExternalEffect
+        );
+        let cancellation = ShardLoomRetryExecutionGateReport::from_request(
+            ShardLoomRetryExecutionGateRequest::new()
+                .retry_requested(true)
+                .retry_allowed_by_plan(true)
+                .cancellation_requested(true),
+        )
+        .expect("report");
+        assert_eq!(
+            cancellation.status,
+            ShardLoomRetryExecutionGateStatus::GateClosedCancellationRequested
+        );
+    }
+
+    #[test]
+    fn retry_execution_gate_from_request_object_store_and_output_recovery() {
+        let object_store = ShardLoomRetryExecutionGateReport::from_request(
+            ShardLoomRetryExecutionGateRequest::new()
+                .retry_requested(true)
+                .retry_allowed_by_plan(true)
+                .object_store_recovery_required(true),
+        )
+        .expect("report");
+        assert_eq!(
+            object_store.status,
+            ShardLoomRetryExecutionGateStatus::GateClosedObjectStoreRecovery
+        );
+        let output = ShardLoomRetryExecutionGateReport::from_request(
+            ShardLoomRetryExecutionGateRequest::new()
+                .retry_requested(true)
+                .retry_allowed_by_plan(true)
+                .output_recovery_required(true),
+        )
+        .expect("report");
+        assert_eq!(
+            output.status,
+            ShardLoomRetryExecutionGateStatus::GateClosedOutputRecovery
+        );
+    }
+
+    #[test]
+    fn retry_execution_gate_report_effect_defaults_and_human_text() {
+        let mut request = ShardLoomRetryExecutionGateRequest::new()
+            .retry_requested(true)
+            .retry_allowed_by_plan(true);
+        request.add_diagnostic(Diagnostic::no_fallback_execution("diag"));
+        let report = ShardLoomRetryExecutionGateReport::from_request(request).expect("report");
+        assert!(!report.retry_executed());
+        assert!(!report.cleanup_executed_by_gate());
+        assert!(!report.cancellation_executed());
+        assert!(!report.object_store_io());
+        assert!(!report.output_dataset_write());
+        assert!(!report.fallback_execution_allowed());
+        assert!(report.is_side_effect_free());
+        let text = report.to_human_text();
+        assert!(text.contains("fallback execution: disabled"));
+        assert!(text.contains("retry executed: false"));
+        assert!(text.contains("diag"));
+    }
+
+    #[test]
+    fn retry_execution_gate_helpers_are_side_effect_free() {
+        let report = plan_retry_execution_gate(
+            ShardLoomRetryExecutionGateRequest::new()
+                .retry_requested(true)
+                .retry_allowed_by_plan(true),
+        )
+        .expect("report");
+        assert!(retry_execution_gate_is_side_effect_free(&report));
     }
 }
