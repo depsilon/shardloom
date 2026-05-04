@@ -191,6 +191,162 @@ impl VortexStagedWorkspacePath {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexStagedWorkspaceSetupStatus {
+    FeatureDisabled,
+    Planned,
+    WorkspaceCreated,
+    BlockedByMissingWorkspace,
+    BlockedByObjectStoreTarget,
+    BlockedByExistingNonDirectory,
+    Unsupported,
+}
+impl VortexStagedWorkspaceSetupStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::FeatureDisabled => "feature_disabled",
+            Self::Planned => "planned",
+            Self::WorkspaceCreated => "workspace_created",
+            Self::BlockedByMissingWorkspace => "blocked_by_missing_workspace",
+            Self::BlockedByObjectStoreTarget => "blocked_by_object_store_target",
+            Self::BlockedByExistingNonDirectory => "blocked_by_existing_non_directory",
+            Self::Unsupported => "unsupported",
+        }
+    }
+    #[must_use]
+    pub const fn is_error(self) -> bool {
+        matches!(
+            self,
+            Self::BlockedByMissingWorkspace
+                | Self::BlockedByObjectStoreTarget
+                | Self::BlockedByExistingNonDirectory
+                | Self::Unsupported
+        )
+    }
+    #[must_use]
+    pub const fn workspace_created(self) -> bool {
+        matches!(self, Self::WorkspaceCreated)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexStagedWorkspaceSetupMode {
+    ReportOnly,
+    LocalWorkspaceSetup,
+    Unsupported,
+}
+impl VortexStagedWorkspaceSetupMode {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::ReportOnly => "report_only",
+            Self::LocalWorkspaceSetup => "local_workspace_setup",
+            Self::Unsupported => "unsupported",
+        }
+    }
+    #[must_use]
+    pub const fn creates_workspace(self) -> bool {
+        matches!(self, Self::LocalWorkspaceSetup)
+    }
+    #[must_use]
+    pub const fn writes_marker(self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn writes_output_data(self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn writes_manifest(self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn writes_object_store(self) -> bool {
+        false
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexStagedWorkspaceSetupOption {
+    CreateIfMissing,
+    RequireEmpty,
+}
+impl VortexStagedWorkspaceSetupOption {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::CreateIfMissing => "create_if_missing",
+            Self::RequireEmpty => "require_empty",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct VortexStagedWorkspaceSetupRequest {
+    pub workspace_id: VortexStagedWorkspaceId,
+    pub workspace_path: VortexStagedWorkspacePath,
+    pub options: Vec<VortexStagedWorkspaceSetupOption>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl VortexStagedWorkspaceSetupRequest {
+    #[must_use]
+    pub fn new(
+        workspace_id: VortexStagedWorkspaceId,
+        workspace_path: VortexStagedWorkspacePath,
+    ) -> Self {
+        Self {
+            workspace_id,
+            workspace_path,
+            options: Vec::new(),
+            diagnostics: Vec::new(),
+        }
+    }
+    #[must_use]
+    pub fn create_if_missing(mut self, value: bool) -> Self {
+        self.set_option(VortexStagedWorkspaceSetupOption::CreateIfMissing, value);
+        self
+    }
+    #[must_use]
+    pub fn require_empty(mut self, value: bool) -> Self {
+        self.set_option(VortexStagedWorkspaceSetupOption::RequireEmpty, value);
+        self
+    }
+    fn set_option(&mut self, option: VortexStagedWorkspaceSetupOption, value: bool) {
+        if value && !self.options.contains(&option) {
+            self.options.push(option);
+        }
+        if !value {
+            self.options.retain(|o| *o != option);
+        }
+    }
+    #[must_use]
+    pub fn has_option(&self, option: VortexStagedWorkspaceSetupOption) -> bool {
+        self.options.contains(&option)
+    }
+    pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
+    }
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.diagnostics.iter().any(|d| {
+            matches!(
+                d.severity,
+                DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+            )
+        })
+    }
+    #[must_use]
+    pub fn summary(&self) -> String {
+        format!(
+            "workspace_id={} workspace_path={} options={}",
+            self.workspace_id.as_str(),
+            self.workspace_path.as_str(),
+            self.options.len()
+        )
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct VortexStagedOutputRequest {
     pub workspace_id: VortexStagedWorkspaceId,
@@ -326,14 +482,12 @@ impl VortexStagedOutputReport {
         {
             report.status = VortexStagedOutputStatus::BlockedByWriteIntent;
         } else if report.workspace_required() && !report.workspace_path_known() {
-            report.status = VortexStagedOutputStatus::BlockedByMissingWorkspace;
+            report.status = VortexStagedOutputStatus::WorkspaceRequired;
+            report.mode = VortexStagedOutputMode::WorkspacePlanning;
         } else if !report.commit_protocol_available() {
             report.status = VortexStagedOutputStatus::BlockedByCommitProtocol;
         } else if report.workspace_path_known() {
             report.status = VortexStagedOutputStatus::WorkspaceKnown;
-            report.mode = VortexStagedOutputMode::WorkspacePlanning;
-        } else if report.workspace_required() {
-            report.status = VortexStagedOutputStatus::WorkspaceRequired;
             report.mode = VortexStagedOutputMode::WorkspacePlanning;
         }
         Ok(report)
@@ -590,12 +744,9 @@ mod tests {
         assert_eq!(rep.status, VortexStagedOutputStatus::BlockedByWriteIntent);
     }
     #[test]
-    fn report_missing_workspace() {
+    fn report_workspace_required_reachable() {
         let rep = VortexStagedOutputReport::from_request(base()).unwrap();
-        assert_eq!(
-            rep.status,
-            VortexStagedOutputStatus::BlockedByMissingWorkspace
-        );
+        assert_eq!(rep.status, VortexStagedOutputStatus::WorkspaceRequired);
     }
     #[test]
     fn report_missing_commit_protocol() {
