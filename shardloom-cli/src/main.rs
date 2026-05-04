@@ -2420,9 +2420,25 @@ fn run(args: Vec<String>) -> ExitCode {
         }
         Some("retry-gate-plan") => {
             let Some(raw) = args.next() else {
-                eprintln!("usage: shardloom retry-gate-plan <signals>");
-                return ExitCode::from(2);
+                return emit_error(
+                    "retry-gate-plan",
+                    format,
+                    "invalid retry gate signal list",
+                    &ShardLoomError::InvalidOperation(
+                        "retry-gate-plan requires <signals>".to_string(),
+                    ),
+                );
             };
+            if raw.trim().is_empty() {
+                return emit_error(
+                    "retry-gate-plan",
+                    format,
+                    "invalid retry gate signal list",
+                    &ShardLoomError::InvalidOperation(
+                        "retry-gate-plan requires <signals>".to_string(),
+                    ),
+                );
+            }
             if args.next().is_some() {
                 return emit_error(
                     "retry-gate-plan",
@@ -6537,6 +6553,12 @@ mod tests {
     #[test]
     fn retry_gate_plan_missing_signals_returns_non_zero() {
         let code = run(vec!["retry-gate-plan".to_string()]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn retry_gate_plan_whitespace_only_signals_returns_non_zero() {
+        let code = run(vec!["retry-gate-plan".to_string(), "   ".to_string()]);
         assert_ne!(code, ExitCode::SUCCESS);
     }
 

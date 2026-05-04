@@ -111,7 +111,8 @@ Run:
 
 ## Retry gate CLI
 
-- `retry-gate-plan` exposes the retry execution gate through explicit signal input.
+- `retry-gate-plan` exposes the retry execution gate through explicit signal input and requires a `<signals>` argument.
+- Missing or whitespace-only `<signals>` is invalid input and returns a non-zero result.
 - The command is planning/report-only.
 - It does not execute retry.
 - It does not execute cleanup.
