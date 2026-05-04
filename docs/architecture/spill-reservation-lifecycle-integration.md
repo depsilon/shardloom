@@ -88,3 +88,16 @@ Run:
 - Output commit cleanup is not implemented.
 - Retry/cancellation execution remains disabled.
 - No fallback execution is introduced.
+
+## Synthetic payload cleanup CLI
+
+- `cleanup-synthetic-payload` exposes exact synthetic payload cleanup execution.
+- Cleanup is keyed by `SpillPayloadFsRef` and only targets one validated synthetic payload file.
+- Default build remains feature-disabled/report-only for cleanup execution when `spill-payload-fs` is not enabled.
+- Feature build under `spill-payload-fs` deletes only the exact synthetic payload file.
+- Unknown artifacts block cleanup deterministically.
+- Directories/workspaces are not deleted.
+- Object-store cleanup is unsupported.
+- Output commit cleanup is not implemented.
+- Retry/cancellation execution remains disabled.
+- No fallback execution is introduced.
