@@ -316,3 +316,11 @@ The local engine must not collapse metadata-open diagnostics into generic missin
 Spill lifecycle is `ShardLoom`-native and not `Vortex`-specific.
 No spill data movement is implemented in this phase.
 `Vortex` execution paths may later request spill lifecycle support through memory/scheduler reports.
+
+## Phase 12 write-readiness boundary
+
+- Phase 12A should start with native `Vortex` write intent and staged-output planning.
+- Phase 12A must not perform broad write execution yet.
+- Phase 12A must not perform object-store writes.
+- Phase 12A must preserve recovery/commit diagnostics continuity from Phase 11 surfaces.
+- Phase 12A must keep fallback execution disabled.

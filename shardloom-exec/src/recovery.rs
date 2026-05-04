@@ -3348,6 +3348,12 @@ pub fn cancellation_gate_request_from_retry_cancellation_report(
     if report.cleanup_required_count > 0 {
         request.add_signal(ShardLoomCancellationExecutionGateSignal::CleanupRequired);
     }
+    if report
+        .request
+        .has_option(RetryCancellationOption::CleanupAlreadyCompleted)
+    {
+        request.add_signal(ShardLoomCancellationExecutionGateSignal::CleanupCompleted);
+    }
     if report.unknown_artifact_count > 0 {
         request.add_signal(ShardLoomCancellationExecutionGateSignal::UnknownArtifactPresent);
     }
@@ -4660,6 +4666,23 @@ mod cancellation_execution_gate_tests {
             external_request
                 .has_signal(ShardLoomCancellationExecutionGateSignal::ExternalEffectsPresent)
         );
+    }
+
+    #[test]
+    fn cancellation_gate_request_from_retry_report_maps_cleanup_completed_signal() {
+        let report = retry_report_with_options(
+            ShardLoomRecoveryIntegrationRequest::new(),
+            ShardLoomRetryCancellationRequest::new(
+                ShardLoomRecoveryIntegrationReport::from_request(
+                    ShardLoomRecoveryIntegrationRequest::new(),
+                )
+                .expect("report"),
+            )
+            .cancellation_requested(true)
+            .cleanup_already_completed(true),
+        );
+        let request = cancellation_gate_request_from_retry_cancellation_report(&report);
+        assert!(request.has_signal(ShardLoomCancellationExecutionGateSignal::CleanupCompleted));
     }
 
     #[test]

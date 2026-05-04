@@ -136,3 +136,13 @@ Run:
 - It does not execute cleanup.
 - It blocks cancellation when cleanup is required but incomplete, unknown artifacts exist, external effects are present, object-store/output recovery is required, or retry is in progress.
 - No fallback execution is introduced.
+
+## Phase 11 recovery closeout
+
+- Synthetic spill payload path is complete through CLI and cleanup.
+- Bounded spill integration exists through `VortexBoundedSpillIntegrationReport`.
+- Retry/cancellation gates exist via `ShardLoomRetryExecutionGateReport` and `ShardLoomCancellationExecutionGateReport`.
+- Actual retry execution remains deferred.
+- Actual cancellation execution remains deferred.
+- Native output/write behavior remains Phase 12 work.
+- Synthetic spill support is not query/`Vortex` data spill.

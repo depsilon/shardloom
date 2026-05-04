@@ -5,7 +5,7 @@
 - Production-grade engine completion estimate: approximately 37–38%.
 - Architecture/control-plane completion estimate: approximately 97%.
 - Current checkpoint: all-phase epic coverage and roadmap synchronization.
-- Next implementation phase: Phase 11B.5c — cancellation gate CLI/docs integration.
+- Next implementation phase: Phase 11B.6 — recovery phase final audit before Phase 12 writes.
 
 ## Cross-cutting epic legend
 
@@ -673,29 +673,39 @@ Epic coverage:
 
 ### Phase 11B.5b — Cancellation gate integration with retry/cancellation + cleanup reports — Complete
 
-### Phase 11B.5c — Cancellation gate CLI/docs integration — Current
+### Phase 11B.5c — Cancellation gate CLI/docs integration — Complete
 
-### Phase 11B.6 — Cancellation execution implementation — Planned
+### Phase 11B.6 — Recovery phase final audit before Phase 12 writes — Current
 
 Checklist:
-- Task attempt identity.
-- Retry eligibility.
-- Cancellation propagation.
-- Cleanup required/completed.
-- Partial output records.
-- Ambiguous commit handling.
-- Spill cleanup integration.
+- Verify recovery, cleanup, retry, and cancellation contracts remain coherent and non-contradictory.
+- Verify machine-readable fields remain stable and deterministic.
+- Verify synthetic spill support is not treated as permission to spill query/`Vortex` data.
+- Verify object-store recovery and output recovery remain blocked/deferred.
+- Verify fallback execution remains disabled and explicitly reported.
+- Define Phase 12A entry criteria before native write intent work begins.
 
 Epic coverage:
-- Epic A — DecisionTrace: retry/recovery why.
-- Epic I — Correctness Harness: retry/cancellation edge cases.
-- Epic F — Agent Contract Pack: recovery diagnostics.
-- Epic E — EffectBudgetReport: external-effect retry safety.
+- Epic A — DecisionTrace: contract and blocker coherence across recovery surfaces.
+- Epic F — Agent Contract Pack: stable machine-readable gate/report fields.
+- Epic I — Correctness Harness: guardrail checks for no-execution/no-fallback recovery posture.
 
 Must include:
-- retry decisions never silently repeat external effects.
-- cleanup actions are explicit.
-- ambiguous commit states are explicit.
+- no retry/cancellation execution.
+- no object-store recovery execution.
+- no output write behavior.
+- no fallback execution.
+
+### Phase 11 closeout criteria
+
+- spill lifecycle/reservation/payload path complete for synthetic artifacts.
+- recovery cleanup planning complete.
+- retry/cancellation planning complete.
+- retry/cancellation gates complete.
+- no actual retry execution.
+- no object-store recovery.
+- no output writes.
+- fallback disabled.
 
 ### Phase 12A — Native Vortex write intent to staged output — Planned
 
