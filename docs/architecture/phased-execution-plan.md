@@ -4,7 +4,7 @@
 
 - Production-grade engine completion estimate: approximately 37–38%.
 - Architecture/control-plane completion estimate: approximately 97%.
-- Current checkpoint: Phase 12A.1a — write-intent commit-protocol blocker stabilization.
+- Current checkpoint: Phase 12A.2a — staged output workspace core contract (report-only, no filesystem).
 - Immediate focus: keep write execution disabled while distinguishing `BlockedByCommitProtocol` from `StagedOutputRequired`.
 
 ## Cross-cutting epic legend
@@ -841,5 +841,7 @@ Must include:
 ## Phase 12A update
 
 - Phase 11B.6 is complete.
-- Phase 12A.1 (native `Vortex` write intent core contract) is current.
-- Phase 12A.2 (staged output workspace contract) is planned.
+- Phase 12A.1a (write-intent commit-protocol blocker stabilization) is complete.
+- Phase 12A.2a (staged output workspace core contract, report-only) is current.
+- Phase 12A.2b (feature-gated local staged workspace/marker planning) is planned.
+- Phase 12A.2c (CLI surface for staged-output reporting) is planned.

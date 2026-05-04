@@ -90,6 +90,10 @@ Status categories:
 
 ## Phase 12A refinement
 
+- 12A.2a staged output workspace core contract is current and report-only.
+- 12A.2b feature-gated local staged workspace/marker behavior remains planned.
+- Output payload and manifest writes remain deferred.
+
 - 12A.1 native `Vortex` write intent core contract is current.
 - 12A.2 staged output workspace contract is planned.
 - Actual write execution remains deferred.
