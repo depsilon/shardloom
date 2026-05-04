@@ -2416,7 +2416,17 @@ impl ShardLoomRetryExecutionGateStatus {
     }
     #[must_use]
     pub const fn is_error(&self) -> bool {
-        !matches!(self, Self::GateOpen)
+        matches!(
+            self,
+            Self::GateClosedCleanupRequired
+                | Self::GateClosedUnknownArtifact
+                | Self::GateClosedExternalEffect
+                | Self::GateClosedRetryNotAllowed
+                | Self::GateClosedCancellationRequested
+                | Self::GateClosedObjectStoreRecovery
+                | Self::GateClosedOutputRecovery
+                | Self::Unsupported
+        )
     }
     #[must_use]
     pub const fn gate_open(&self) -> bool {
@@ -2799,6 +2809,96 @@ pub fn plan_retry_execution_gate(
     request: ShardLoomRetryExecutionGateRequest,
 ) -> Result<ShardLoomRetryExecutionGateReport> {
     ShardLoomRetryExecutionGateReport::from_request(request)
+}
+#[must_use]
+pub fn retry_gate_request_from_retry_cancellation_report(
+    report: &ShardLoomRetryCancellationReport,
+) -> ShardLoomRetryExecutionGateRequest {
+    let mut request = ShardLoomRetryExecutionGateRequest::new();
+    if report
+        .request
+        .has_option(RetryCancellationOption::RetryRequested)
+    {
+        request.add_signal(ShardLoomRetryExecutionGateSignal::RetryRequested);
+    }
+    if report.retry_allowed {
+        request.add_signal(ShardLoomRetryExecutionGateSignal::RetryAllowedByPlan);
+    }
+    if report.retry_requires_cleanup {
+        request.add_signal(ShardLoomRetryExecutionGateSignal::RetryRequiresCleanup);
+    }
+    if report.unknown_artifact_count > 0 {
+        request.add_signal(ShardLoomRetryExecutionGateSignal::UnknownArtifactPresent);
+    }
+    if report
+        .request
+        .has_option(RetryCancellationOption::ExternalEffectsPresent)
+        || report.status == ShardLoomRetryCancellationStatus::RetryBlockedByExternalEffect
+    {
+        request.add_signal(ShardLoomRetryExecutionGateSignal::ExternalEffectsPresent);
+    }
+    if report.cancellation_requested {
+        request.add_signal(ShardLoomRetryExecutionGateSignal::CancellationRequested);
+    }
+    request
+        .diagnostics
+        .extend(report.request.diagnostics.clone());
+    request
+        .diagnostics
+        .extend(report.request.recovery_report.diagnostics.clone());
+    request.diagnostics.extend(report.diagnostics.clone());
+    request
+}
+#[must_use]
+pub fn retry_gate_request_with_cleanup_report(
+    mut request: ShardLoomRetryExecutionGateRequest,
+    cleanup_report: &ShardLoomCleanupExecutionReport,
+) -> ShardLoomRetryExecutionGateRequest {
+    if cleanup_report.cleanup_executed() {
+        request.add_signal(ShardLoomRetryExecutionGateSignal::CleanupCompleted);
+    }
+    if matches!(
+        cleanup_report.status,
+        ShardLoomCleanupExecutionStatus::BlockedByUnknownArtifact
+            | ShardLoomCleanupExecutionStatus::BlockedByMissingArtifact
+    ) {
+        request.add_signal(ShardLoomRetryExecutionGateSignal::UnknownArtifactPresent);
+    }
+    if cleanup_report.object_store_io() {
+        request.add_signal(ShardLoomRetryExecutionGateSignal::ObjectStoreRecoveryRequired);
+    }
+    if cleanup_report.output_dataset_write() {
+        request.add_signal(ShardLoomRetryExecutionGateSignal::OutputRecoveryRequired);
+    }
+    request
+        .diagnostics
+        .extend(cleanup_report.request.diagnostics.clone());
+    request
+        .diagnostics
+        .extend(cleanup_report.diagnostics.clone());
+    request
+}
+#[must_use]
+pub fn retry_gate_request_from_reports(
+    retry_report: &ShardLoomRetryCancellationReport,
+    cleanup_report: Option<&ShardLoomCleanupExecutionReport>,
+) -> ShardLoomRetryExecutionGateRequest {
+    let request = retry_gate_request_from_retry_cancellation_report(retry_report);
+    if let Some(cleanup_report) = cleanup_report {
+        return retry_gate_request_with_cleanup_report(request, cleanup_report);
+    }
+    request
+}
+/// # Errors
+/// Returns an error when creating a `ShardLoomRetryExecutionGateReport` from derived report signals fails.
+pub fn plan_retry_execution_gate_from_reports(
+    retry_report: &ShardLoomRetryCancellationReport,
+    cleanup_report: Option<&ShardLoomCleanupExecutionReport>,
+) -> Result<ShardLoomRetryExecutionGateReport> {
+    plan_retry_execution_gate(retry_gate_request_from_reports(
+        retry_report,
+        cleanup_report,
+    ))
 }
 #[must_use]
 pub fn retry_execution_gate_is_side_effect_free(
@@ -3468,6 +3568,7 @@ mod tests {
             not_requested.status,
             ShardLoomRetryExecutionGateStatus::GateClosedRetryNotRequested
         );
+        assert!(!not_requested.has_errors());
         let not_allowed = ShardLoomRetryExecutionGateReport::from_request(
             ShardLoomRetryExecutionGateRequest::new().retry_requested(true),
         )
@@ -3601,5 +3702,165 @@ mod tests {
         )
         .expect("report");
         assert!(retry_execution_gate_is_side_effect_free(&report));
+    }
+
+    fn retry_report_with_options(
+        recovery_request: ShardLoomRecoveryIntegrationRequest,
+        request: ShardLoomRetryCancellationRequest,
+    ) -> ShardLoomRetryCancellationReport {
+        let recovery_report =
+            ShardLoomRecoveryIntegrationReport::from_request(recovery_request).expect("report");
+        let request = ShardLoomRetryCancellationRequest {
+            recovery_report,
+            ..request
+        };
+        ShardLoomRetryCancellationReport::from_request(request).expect("report")
+    }
+
+    #[test]
+    fn retry_gate_request_from_retry_report_maps_core_signals() {
+        let report = retry_report_with_options(
+            ShardLoomRecoveryIntegrationRequest::new(),
+            ShardLoomRetryCancellationRequest::new(
+                ShardLoomRecoveryIntegrationReport::from_request(
+                    ShardLoomRecoveryIntegrationRequest::new(),
+                )
+                .expect("report"),
+            )
+            .retry_requested(true),
+        );
+        let request = retry_gate_request_from_retry_cancellation_report(&report);
+        assert!(request.has_signal(ShardLoomRetryExecutionGateSignal::RetryRequested));
+        assert!(request.has_signal(ShardLoomRetryExecutionGateSignal::RetryAllowedByPlan));
+    }
+
+    #[test]
+    fn retry_gate_request_from_retry_report_maps_cleanup_unknown_external_signals() {
+        let mut cleanup_recovery = ShardLoomRecoveryIntegrationRequest::new();
+        cleanup_recovery.add_artifact(RecoveryArtifactRef::spill_workspace("ws", "/tmp/ws"));
+        let cleanup_report = retry_report_with_options(
+            cleanup_recovery,
+            ShardLoomRetryCancellationRequest::new(
+                ShardLoomRecoveryIntegrationReport::from_request(
+                    ShardLoomRecoveryIntegrationRequest::new(),
+                )
+                .expect("report"),
+            )
+            .retry_requested(true)
+            .allow_retry_after_cleanup(true),
+        );
+        let cleanup_request = retry_gate_request_from_retry_cancellation_report(&cleanup_report);
+        assert!(
+            cleanup_request.has_signal(ShardLoomRetryExecutionGateSignal::RetryRequiresCleanup)
+        );
+
+        let mut unknown_recovery = ShardLoomRecoveryIntegrationRequest::new();
+        unknown_recovery.add_artifact(RecoveryArtifactRef::unknown("u1", "unknown"));
+        let unknown_report = retry_report_with_options(
+            unknown_recovery,
+            ShardLoomRetryCancellationRequest::new(
+                ShardLoomRecoveryIntegrationReport::from_request(
+                    ShardLoomRecoveryIntegrationRequest::new(),
+                )
+                .expect("report"),
+            )
+            .retry_requested(true),
+        );
+        let unknown_request = retry_gate_request_from_retry_cancellation_report(&unknown_report);
+        assert!(
+            unknown_request.has_signal(ShardLoomRetryExecutionGateSignal::UnknownArtifactPresent)
+        );
+
+        let external_report = retry_report_with_options(
+            ShardLoomRecoveryIntegrationRequest::new(),
+            ShardLoomRetryCancellationRequest::new(
+                ShardLoomRecoveryIntegrationReport::from_request(
+                    ShardLoomRecoveryIntegrationRequest::new(),
+                )
+                .expect("report"),
+            )
+            .retry_requested(true)
+            .external_effects_present(true),
+        );
+        let external_request = retry_gate_request_from_retry_cancellation_report(&external_report);
+        assert!(
+            external_request.has_signal(ShardLoomRetryExecutionGateSignal::ExternalEffectsPresent)
+        );
+    }
+
+    #[test]
+    fn retry_gate_request_with_cleanup_report_only_sets_cleanup_completed_when_executed() {
+        let base = ShardLoomRetryExecutionGateRequest::new();
+        let payload_ref = spill_payload_fs_ref("p1", "/tmp/p1");
+        let executed = ShardLoomCleanupExecutionReport::cleanup_completed(
+            ShardLoomCleanupExecutionRequest::new(RecoveryArtifactRef::synthetic_spill_payload(
+                &payload_ref,
+            )),
+        );
+        let with_exec = retry_gate_request_with_cleanup_report(base.clone(), &executed);
+        assert!(with_exec.has_signal(ShardLoomRetryExecutionGateSignal::CleanupCompleted));
+
+        let not_executed = ShardLoomCleanupExecutionReport::blocked(
+            ShardLoomCleanupExecutionRequest::new(RecoveryArtifactRef::synthetic_spill_payload(
+                &payload_ref,
+            )),
+            ShardLoomCleanupExecutionStatus::FeatureDisabled,
+            "disabled",
+        );
+        let without_exec = retry_gate_request_with_cleanup_report(base, &not_executed);
+        assert!(!without_exec.has_signal(ShardLoomRetryExecutionGateSignal::CleanupCompleted));
+    }
+
+    #[test]
+    fn plan_retry_execution_gate_from_reports_enforces_expected_states() {
+        let mut cleanup_needed = ShardLoomRecoveryIntegrationRequest::new();
+        cleanup_needed.add_artifact(RecoveryArtifactRef::spill_workspace("ws2", "/tmp/ws2"));
+        let retry_report = retry_report_with_options(
+            cleanup_needed,
+            ShardLoomRetryCancellationRequest::new(
+                ShardLoomRecoveryIntegrationReport::from_request(
+                    ShardLoomRecoveryIntegrationRequest::new(),
+                )
+                .expect("report"),
+            )
+            .retry_requested(true)
+            .allow_retry_after_cleanup(true),
+        );
+        let no_cleanup =
+            plan_retry_execution_gate_from_reports(&retry_report, None).expect("report");
+        assert_eq!(
+            no_cleanup.status,
+            ShardLoomRetryExecutionGateStatus::GateClosedCleanupRequired
+        );
+
+        let cleanup_not_run = ShardLoomCleanupExecutionReport::cleanup_would_execute(
+            ShardLoomCleanupExecutionRequest::new(RecoveryArtifactRef::synthetic_spill_payload(
+                &spill_payload_fs_ref("p2", "/tmp/p2"),
+            )),
+        );
+        let blocked = plan_retry_execution_gate_from_reports(&retry_report, Some(&cleanup_not_run))
+            .expect("report");
+        assert_eq!(
+            blocked.status,
+            ShardLoomRetryExecutionGateStatus::GateClosedCleanupRequired
+        );
+
+        let cleanup_done = ShardLoomCleanupExecutionReport::cleanup_completed(
+            ShardLoomCleanupExecutionRequest::new(RecoveryArtifactRef::synthetic_spill_payload(
+                &spill_payload_fs_ref("p2", "/tmp/p2"),
+            )),
+        );
+        let open = plan_retry_execution_gate_from_reports(&retry_report, Some(&cleanup_done))
+            .expect("report");
+        assert_eq!(open.status, ShardLoomRetryExecutionGateStatus::GateOpen);
+        assert!(open.is_side_effect_free());
+        assert!(!open.retry_executed());
+        assert!(!open.cleanup_executed_by_gate());
+        assert!(!open.cancellation_executed());
+        assert!(!open.object_store_io());
+        assert!(!open.output_dataset_write());
+        assert!(!open.fallback_execution_allowed());
+        let text = open.to_human_text();
+        assert!(text.contains("fallback execution: disabled"));
     }
 }
