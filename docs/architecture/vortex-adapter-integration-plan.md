@@ -334,3 +334,9 @@ No spill data movement is implemented in this phase.
 - It blocks unknown schema/delete/tombstone semantics.
 - It blocks object-store writes.
 - It requires a future commit protocol before execution.
+
+## Phase 12A.1a write-intent blocker stabilization
+
+- `VortexWriteIntentReport` must keep missing commit protocol machine-readable as `BlockedByCommitProtocol`.
+- `StagedOutputRequired` remains reserved for explicit staged-output planning intent.
+- This phase remains plan-only and side-effect-free: no output data writes, manifest writes, object-store IO, upstream Vortex write calls, or fallback execution.

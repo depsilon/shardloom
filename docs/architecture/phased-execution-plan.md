@@ -4,8 +4,8 @@
 
 - Production-grade engine completion estimate: approximately 37–38%.
 - Architecture/control-plane completion estimate: approximately 97%.
-- Current checkpoint: all-phase epic coverage and roadmap synchronization.
-- Next implementation phase: Phase 11B.6 — recovery phase final audit before Phase 12 writes.
+- Current checkpoint: Phase 12A.1a — write-intent commit-protocol blocker stabilization.
+- Immediate focus: keep write execution disabled while distinguishing `BlockedByCommitProtocol` from `StagedOutputRequired`.
 
 ## Cross-cutting epic legend
 

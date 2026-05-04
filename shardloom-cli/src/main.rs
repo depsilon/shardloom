@@ -6401,9 +6401,20 @@ mod tests {
         let code = run(vec![
             "vortex-write-intent-plan".to_string(),
             "file://tmp/out.vortex".to_string(),
-            "native-vortex-target,schema-known,schema-compatible,delete-semantics-known,tombstone-semantics-known,staged-output-required".to_string(),
+            "native-vortex-target,schema-known,schema-compatible,delete-semantics-known,tombstone-semantics-known,commit-protocol-available,staged-output-required".to_string(),
         ]);
         assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+
+    #[test]
+    fn vortex_write_intent_plan_missing_commit_protocol_returns_non_zero() {
+        let code = run(vec![
+            "vortex-write-intent-plan".to_string(),
+            "file://tmp/out.vortex".to_string(),
+            "native-vortex-target,schema-known,schema-compatible,delete-semantics-known,tombstone-semantics-known".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
     }
 
     #[test]
