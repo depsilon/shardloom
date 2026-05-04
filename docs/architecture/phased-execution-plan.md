@@ -5,7 +5,7 @@
 - Production-grade engine completion estimate: approximately 37–38%.
 - Architecture/control-plane completion estimate: approximately 97%.
 - Current checkpoint: all-phase epic coverage and roadmap synchronization.
-- Next implementation phase: Phase 11B.4b — retry gate CLI/docs integration.
+- Next implementation phase: Phase 11B.4b.1 — retry gate CLI argument validation stabilization.
 
 ## Cross-cutting epic legend
 
@@ -663,7 +663,9 @@ Epic coverage:
 
 ### Phase 11B.4a.2 — Retry gate integration with cancellation/cleanup reports — Complete
 
-### Phase 11B.4b — Retry gate CLI/docs integration — Current
+### Phase 11B.4b — Retry gate CLI/docs integration — Complete
+
+### Phase 11B.4b.1 — Retry gate CLI argument validation stabilization — Current
 
 ### Phase 11B.5 — Retry/cancellation execution integration — Planned
 

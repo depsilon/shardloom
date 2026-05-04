@@ -183,13 +183,17 @@ fn parse_retry_gate_signals(
             signals.push(signal);
         }
     }
-    {
-        let mut request = ShardLoomRetryExecutionGateRequest::new();
-        for signal in signals {
-            request.add_signal(signal);
-        }
-        Ok(request)
+    if signals.is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "retry-gate-plan requires <signals>".to_string(),
+        ));
     }
+
+    let mut request = ShardLoomRetryExecutionGateRequest::new();
+    for signal in signals {
+        request.add_signal(signal);
+    }
+    Ok(request)
 }
 
 fn retry_gate_plan_fields(report: &ShardLoomRetryExecutionGateReport) -> Vec<(String, String)> {
@@ -2420,9 +2424,25 @@ fn run(args: Vec<String>) -> ExitCode {
         }
         Some("retry-gate-plan") => {
             let Some(raw) = args.next() else {
-                eprintln!("usage: shardloom retry-gate-plan <signals>");
-                return ExitCode::from(2);
+                return emit_error(
+                    "retry-gate-plan",
+                    format,
+                    "invalid retry gate signal list",
+                    &ShardLoomError::InvalidOperation(
+                        "retry-gate-plan requires <signals>".to_string(),
+                    ),
+                );
             };
+            if raw.trim().is_empty() {
+                return emit_error(
+                    "retry-gate-plan",
+                    format,
+                    "invalid retry gate signal list",
+                    &ShardLoomError::InvalidOperation(
+                        "retry-gate-plan requires <signals>".to_string(),
+                    ),
+                );
+            }
             if args.next().is_some() {
                 return emit_error(
                     "retry-gate-plan",
@@ -2458,13 +2478,21 @@ fn run(args: Vec<String>) -> ExitCode {
             emit(
                 "retry-gate-plan",
                 format,
-                CommandStatus::Success,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
                 "retry execution gate plan".to_string(),
                 report.to_human_text(),
                 report.diagnostics.clone(),
                 retry_gate_plan_fields(&report),
             );
-            ExitCode::SUCCESS
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
         }
         Some("observability-plan") => {
             let plan = ObservabilityPlan::default_foundation_plan();
@@ -6537,6 +6565,27 @@ mod tests {
     #[test]
     fn retry_gate_plan_missing_signals_returns_non_zero() {
         let code = run(vec!["retry-gate-plan".to_string()]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn retry_gate_plan_whitespace_only_signals_returns_non_zero() {
+        let code = run(vec!["retry-gate-plan".to_string(), "   ".to_string()]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn retry_gate_plan_empty_signal_list_returns_non_zero() {
+        let code = run(vec!["retry-gate-plan".to_string(), ",,,".to_string()]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn retry_gate_plan_retry_not_allowed_returns_non_zero() {
+        let code = run(vec![
+            "retry-gate-plan".to_string(),
+            "retry-requested".to_string(),
+        ]);
         assert_ne!(code, ExitCode::SUCCESS);
     }
 
