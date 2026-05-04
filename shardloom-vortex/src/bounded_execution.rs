@@ -7,6 +7,10 @@ use std::fmt::Write as _;
 use shardloom_core::{
     Diagnostic, DiagnosticCode, DiagnosticSeverity, Result, SegmentId, ShardLoomError,
 };
+use shardloom_exec::recovery::{
+    RecoveryArtifactRef, ShardLoomRecoveryIntegrationReport, ShardLoomRecoveryIntegrationRequest,
+    plan_recovery_integration,
+};
 use shardloom_exec::{
     MemoryBudget, SpillLifecycleRequest, SpillPayloadFsRef, SpillPayloadRoundTripReport,
     SpillPayloadRoundTripRequest, SpillPayloadWriteRequest, SpillPolicy,
@@ -1235,6 +1239,26 @@ pub fn plan_bounded_execution_spill_payload_roundtrip(
     VortexBoundedSpillIntegrationReport::from_request(request)
 }
 
+/// # Errors
+/// Returns an error if planning the recovery integration report fails.
+pub fn plan_bounded_spill_recovery(
+    report: &VortexBoundedSpillIntegrationReport,
+) -> Result<ShardLoomRecoveryIntegrationReport> {
+    let mut request = ShardLoomRecoveryIntegrationRequest::new()
+        .with_bounded_spill_report_summary(report.to_human_text());
+    if report.payload_written && !report.cleanup_performed {
+        if let Some(payload_ref) = &report.request.payload_fs_ref {
+            request.add_artifact(RecoveryArtifactRef::synthetic_spill_payload(payload_ref));
+        } else {
+            request.add_artifact(RecoveryArtifactRef::unknown(
+                "synthetic-spill-payload",
+                "payload was written but payload filesystem reference is unavailable",
+            ));
+        }
+    }
+    plan_recovery_integration(request)
+}
+
 impl VortexBoundedSpillIntegrationRequest {
     fn with_lifecycle_request_opt(self, v: Option<SpillLifecycleRequest>) -> Self {
         match v {
@@ -1382,5 +1406,39 @@ mod tests {
         );
         assert!(!report.payload_written);
         assert!(!report.payload_read);
+    }
+    #[test]
+    fn bounded_spill_recovery_no_payload_written_is_cleanup_not_required() {
+        let report = plan_bounded_execution_spill_payload_integration(
+            blocked_spill_bounded(),
+            None,
+            None,
+            None,
+        )
+        .expect("spill report");
+        let recovery = plan_bounded_spill_recovery(&report).expect("recovery report");
+        assert_eq!(recovery.status.as_str(), "cleanup_not_required");
+        assert!(recovery.is_side_effect_free());
+        assert!(!recovery.fallback_execution.allowed());
+    }
+    #[test]
+    fn bounded_spill_recovery_payload_written_without_cleanup_requires_cleanup_or_unknown() {
+        let mut report = plan_bounded_execution_spill_payload_integration(
+            blocked_spill_bounded(),
+            None,
+            None,
+            None,
+        )
+        .expect("spill report");
+        report.payload_written = true;
+        report.cleanup_performed = false;
+        report.request.payload_fs_ref = Some(sample_payload_fs_ref());
+        let recovery = plan_bounded_spill_recovery(&report).expect("recovery report");
+        assert!(matches!(
+            recovery.status.as_str(),
+            "cleanup_required" | "retry_allowed_after_cleanup" | "blocked_by_unknown_artifact"
+        ));
+        assert!(recovery.is_side_effect_free());
+        assert!(!recovery.fallback_execution.allowed());
     }
 }
