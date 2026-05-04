@@ -1153,4 +1153,65 @@ mod tests {
         assert!(!report.recovery_action_executed());
         assert!(!report.fallback_execution_allowed());
     }
+
+    #[test]
+    fn readiness_combined_helpers_ready_status_still_disallows_commit_execution() {
+        let file_req = crate::VortexStagedManifestFileWriteRequest::new(
+            crate::VortexStagedManifestFileRef::new(
+                crate::VortexStagedWorkspacePath::new("/tmp/w").expect("p"),
+                crate::VortexStagedManifestFileName::new("manifest.draft").expect("n"),
+            ),
+            crate::VortexStagedManifestDraftContent::new("d").expect("c"),
+        )
+        .file_plan_ready(true)
+        .workspace_known(true)
+        .feature_gate_enabled(true);
+        let mut staged =
+            crate::VortexStagedManifestFileWriteReport::from_request(file_req).expect("stage");
+        staged
+            .effects_performed
+            .push(crate::VortexStagedManifestFileWriteEffect::DraftFileWritten);
+
+        let recovery = ShardLoomRecoveryIntegrationReport::from_request(
+            ShardLoomRecoveryIntegrationRequest::new(),
+        )
+        .expect("recovery");
+        let retry_gate = plan_retry_execution_gate(
+            ShardLoomRetryExecutionGateRequest::new()
+                .retry_requested(true)
+                .retry_allowed_by_plan(true),
+        )
+        .expect("retry");
+        let cancellation_gate = plan_cancellation_execution_gate(
+            ShardLoomCancellationExecutionGateRequest::new().cancellation_requested(true),
+        )
+        .expect("cancellation");
+
+        let request = commit_intent_request_from_readiness_reports(
+            uri(),
+            &staged,
+            Some(&recovery),
+            Some(&retry_gate),
+            Some(&cancellation_gate),
+        )
+        .commit_requested(true)
+        .manifest_finalization_available(true)
+        .commit_protocol_available(true)
+        .schema_known(true)
+        .schema_compatible(true)
+        .delete_semantics_known(true)
+        .tombstone_semantics_known(true)
+        .feature_gate_enabled(true);
+        let report = plan_vortex_commit_intent(request).expect("report");
+        assert_eq!(report.status, VortexCommitIntentStatus::CommitReady);
+        assert!(!report.allows_commit_execution());
+        assert!(report.is_side_effect_free());
+        assert!(!report.manifest_committed());
+        assert!(!report.manifest_finalized());
+        assert!(!report.output_data_written());
+        assert!(!report.object_store_io());
+        assert!(!report.upstream_vortex_write_called());
+        assert!(!report.recovery_action_executed());
+        assert!(!report.fallback_execution_allowed());
+    }
 }
