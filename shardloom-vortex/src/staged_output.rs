@@ -196,6 +196,7 @@ pub enum VortexStagedWorkspaceSetupStatus {
     FeatureDisabled,
     Planned,
     WorkspaceCreated,
+    BlockedByNonEmptyWorkspace,
     BlockedByMissingWorkspace,
     BlockedByObjectStoreTarget,
     BlockedByExistingNonDirectory,
@@ -208,6 +209,7 @@ impl VortexStagedWorkspaceSetupStatus {
             Self::FeatureDisabled => "feature_disabled",
             Self::Planned => "planned",
             Self::WorkspaceCreated => "workspace_created",
+            Self::BlockedByNonEmptyWorkspace => "blocked_by_non_empty_workspace",
             Self::BlockedByMissingWorkspace => "blocked_by_missing_workspace",
             Self::BlockedByObjectStoreTarget => "blocked_by_object_store_target",
             Self::BlockedByExistingNonDirectory => "blocked_by_existing_non_directory",
@@ -221,6 +223,7 @@ impl VortexStagedWorkspaceSetupStatus {
             Self::BlockedByMissingWorkspace
                 | Self::BlockedByObjectStoreTarget
                 | Self::BlockedByExistingNonDirectory
+                | Self::BlockedByNonEmptyWorkspace
                 | Self::Unsupported
         )
     }
@@ -345,6 +348,254 @@ impl VortexStagedWorkspaceSetupRequest {
             self.options.len()
         )
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct VortexStagedWorkspaceSetupReport {
+    pub status: VortexStagedWorkspaceSetupStatus,
+    pub mode: VortexStagedWorkspaceSetupMode,
+    pub request: VortexStagedWorkspaceSetupRequest,
+    pub effects_performed: Vec<VortexStagedOutputEffect>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl VortexStagedWorkspaceSetupReport {
+    /// Builds a setup report from a `VortexStagedWorkspaceSetupRequest`.
+    ///
+    /// # Errors
+    /// Returns an error only when local workspace creation is explicitly requested
+    /// and local filesystem directory creation fails.
+    pub fn from_request(request: VortexStagedWorkspaceSetupRequest) -> Result<Self> {
+        #[cfg(not(feature = "vortex-staged-output-fs"))]
+        {
+            Ok(Self::feature_disabled(request))
+        }
+        #[cfg(feature = "vortex-staged-output-fs")]
+        {
+            use std::path::Path;
+
+            let path = request.workspace_path.as_str();
+            if DatasetUri::new(path.to_string())
+                .map(|uri| !matches!(uri.scheme(), UriScheme::LocalPath | UriScheme::File))
+                .unwrap_or(false)
+            {
+                return Ok(Self::blocked(
+                    request,
+                    VortexStagedWorkspaceSetupStatus::BlockedByObjectStoreTarget,
+                    "workspace path looks like object-store target",
+                ));
+            }
+            let path_ref = Path::new(path);
+            if path_ref.exists() && !path_ref.is_dir() {
+                return Ok(Self::blocked(
+                    request,
+                    VortexStagedWorkspaceSetupStatus::BlockedByExistingNonDirectory,
+                    "workspace path exists and is not a directory",
+                ));
+            }
+            if !path_ref.exists()
+                && !request.has_option(VortexStagedWorkspaceSetupOption::CreateIfMissing)
+            {
+                return Ok(Self::blocked(
+                    request,
+                    VortexStagedWorkspaceSetupStatus::BlockedByMissingWorkspace,
+                    "workspace path does not exist",
+                ));
+            }
+            if !path_ref.exists()
+                && request.has_option(VortexStagedWorkspaceSetupOption::CreateIfMissing)
+            {
+                std::fs::create_dir_all(path_ref).map_err(|error| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "failed to create staged workspace directory: {error}"
+                    ))
+                })?;
+                return Ok(Self::workspace_created_report(request));
+            }
+            if request.has_option(VortexStagedWorkspaceSetupOption::RequireEmpty)
+                && std::fs::read_dir(path_ref)
+                    .map_err(|error| {
+                        ShardLoomError::InvalidOperation(format!(
+                            "failed to read staged workspace directory: {error}"
+                        ))
+                    })?
+                    .next()
+                    .is_some()
+            {
+                return Ok(Self::blocked(
+                    request,
+                    VortexStagedWorkspaceSetupStatus::BlockedByNonEmptyWorkspace,
+                    "workspace path must be empty",
+                ));
+            }
+            Ok(Self::workspace_created_report(request))
+        }
+    }
+    #[must_use]
+    pub fn feature_disabled(request: VortexStagedWorkspaceSetupRequest) -> Self {
+        Self {
+            status: VortexStagedWorkspaceSetupStatus::FeatureDisabled,
+            mode: VortexStagedWorkspaceSetupMode::ReportOnly,
+            request,
+            effects_performed: Vec::new(),
+            diagnostics: Vec::new(),
+        }
+    }
+    #[must_use]
+    pub fn planned(request: VortexStagedWorkspaceSetupRequest) -> Self {
+        Self {
+            status: VortexStagedWorkspaceSetupStatus::Planned,
+            mode: VortexStagedWorkspaceSetupMode::ReportOnly,
+            request,
+            effects_performed: Vec::new(),
+            diagnostics: Vec::new(),
+        }
+    }
+    #[must_use]
+    pub fn workspace_created_report(request: VortexStagedWorkspaceSetupRequest) -> Self {
+        Self {
+            status: VortexStagedWorkspaceSetupStatus::WorkspaceCreated,
+            mode: VortexStagedWorkspaceSetupMode::LocalWorkspaceSetup,
+            request,
+            effects_performed: vec![VortexStagedOutputEffect::WorkspaceCreated],
+            diagnostics: Vec::new(),
+        }
+    }
+    #[must_use]
+    pub fn blocked(
+        request: VortexStagedWorkspaceSetupRequest,
+        status: VortexStagedWorkspaceSetupStatus,
+        reason: impl Into<String>,
+    ) -> Self {
+        let mut report = Self {
+            status,
+            mode: VortexStagedWorkspaceSetupMode::ReportOnly,
+            request,
+            effects_performed: Vec::new(),
+            diagnostics: Vec::new(),
+        };
+        report.add_diagnostic(Diagnostic::unsupported(
+            DiagnosticCode::UnsupportedOutputFormat,
+            "vortex_staged_workspace_setup",
+            reason,
+            None,
+        ));
+        report
+    }
+    #[must_use]
+    pub fn unsupported(
+        request: VortexStagedWorkspaceSetupRequest,
+        feature: impl Into<String>,
+        reason: impl Into<String>,
+    ) -> Self {
+        let mut report = Self {
+            status: VortexStagedWorkspaceSetupStatus::Unsupported,
+            mode: VortexStagedWorkspaceSetupMode::Unsupported,
+            request,
+            effects_performed: Vec::new(),
+            diagnostics: Vec::new(),
+        };
+        report.add_diagnostic(Diagnostic::unsupported(
+            DiagnosticCode::UnsupportedOutputFormat,
+            feature,
+            reason,
+            None,
+        ));
+        report
+    }
+    pub fn add_diagnostic(&mut self, d: Diagnostic) {
+        self.diagnostics.push(d);
+    }
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.status.is_error()
+            || self.request.has_errors()
+            || self.diagnostics.iter().any(|d| {
+                matches!(
+                    d.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+    #[must_use]
+    pub fn workspace_created(&self) -> bool {
+        self.effects_performed
+            .contains(&VortexStagedOutputEffect::WorkspaceCreated)
+    }
+    #[must_use]
+    pub const fn marker_written(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn output_data_written(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn manifest_written(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn object_store_io(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn fallback_execution_allowed(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub fn is_side_effect_free(&self) -> bool {
+        !self.workspace_created() && !self.fallback_execution_allowed()
+    }
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        let mut t = String::new();
+        let _ = writeln!(t, "Vortex staged workspace setup");
+        let _ = writeln!(t, "status: {}", self.status.as_str());
+        let _ = writeln!(t, "mode: {}", self.mode.as_str());
+        let _ = writeln!(t, "workspace id: {}", self.request.workspace_id.as_str());
+        let _ = writeln!(
+            t,
+            "workspace path: {}",
+            self.request.workspace_path.as_str()
+        );
+        let _ = writeln!(t, "workspace created: {}", self.workspace_created());
+        let _ = writeln!(t, "marker written: false");
+        let _ = writeln!(t, "output data written: false");
+        let _ = writeln!(t, "manifest written: false");
+        let _ = writeln!(t, "object-store IO: false");
+        let _ = write!(t, "fallback execution: disabled");
+        if self.request.diagnostics.is_empty() && self.diagnostics.is_empty() {
+            let _ = write!(t, "\ndiagnostics: none");
+        } else {
+            let _ = write!(t, "\ndiagnostics:");
+            for d in self
+                .request
+                .diagnostics
+                .iter()
+                .chain(self.diagnostics.iter())
+            {
+                let _ = write!(t, "\n- {}", d.to_human_text());
+            }
+        }
+        t
+    }
+}
+
+/// Sets up local staged workspace behavior for `VortexStagedWorkspaceSetupRequest`.
+///
+/// # Errors
+/// Returns an error only when explicit local workspace creation is requested
+/// and filesystem directory creation fails.
+pub fn setup_vortex_staged_workspace(
+    request: VortexStagedWorkspaceSetupRequest,
+) -> Result<VortexStagedWorkspaceSetupReport> {
+    VortexStagedWorkspaceSetupReport::from_request(request)
+}
+
+#[must_use]
+pub fn vortex_staged_workspace_setup_is_side_effect_free(
+    report: &VortexStagedWorkspaceSetupReport,
+) -> bool {
+    report.is_side_effect_free()
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -683,12 +934,26 @@ pub fn staged_output_request_from_write_intent(
 mod tests {
     use super::*;
     use shardloom_core::{DiagnosticCategory, FallbackStatus};
+    use std::time::{SystemTime, UNIX_EPOCH};
     fn base() -> VortexStagedOutputRequest {
         VortexStagedOutputRequest::new(
             VortexStagedWorkspaceId::new("ws1").unwrap(),
             DatasetUri::new("file://tmp/out.vortex").unwrap(),
         )
         .workspace_required(true)
+    }
+    fn setup_request(path: &str) -> VortexStagedWorkspaceSetupRequest {
+        VortexStagedWorkspaceSetupRequest::new(
+            VortexStagedWorkspaceId::new("ws_setup").unwrap(),
+            VortexStagedWorkspacePath::new(path).unwrap(),
+        )
+    }
+    fn unique_temp_path(name: &str) -> std::path::PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!("shardloom-{name}-{nanos}"))
     }
     #[test]
     fn status_planned_workspace_creation_false() {
@@ -854,5 +1119,111 @@ mod tests {
             &intent_report,
         );
         assert!(req.has_signal(VortexStagedOutputSignal::WriteIntentBlocked));
+    }
+
+    #[test]
+    fn setup_request_options_work() {
+        let req = setup_request("/tmp/ws");
+        assert!(!req.has_option(VortexStagedWorkspaceSetupOption::CreateIfMissing));
+        assert!(!req.has_option(VortexStagedWorkspaceSetupOption::RequireEmpty));
+        let req = req.create_if_missing(true).require_empty(true);
+        assert!(req.has_option(VortexStagedWorkspaceSetupOption::CreateIfMissing));
+        assert!(req.has_option(VortexStagedWorkspaceSetupOption::RequireEmpty));
+    }
+
+    #[cfg(not(feature = "vortex-staged-output-fs"))]
+    #[test]
+    fn setup_default_build_feature_disabled() {
+        let path = unique_temp_path("feature-disabled");
+        let report = setup_vortex_staged_workspace(setup_request(&path.to_string_lossy())).unwrap();
+        assert_eq!(
+            report.status,
+            VortexStagedWorkspaceSetupStatus::FeatureDisabled
+        );
+        assert!(!report.workspace_created());
+        assert!(!report.marker_written());
+        assert!(!report.output_data_written());
+        assert!(!report.manifest_written());
+        assert!(!report.object_store_io());
+        assert!(!report.fallback_execution_allowed());
+        assert!(report.is_side_effect_free());
+        let text = report.to_human_text();
+        assert!(text.contains("fallback execution: disabled"));
+        assert!(text.contains("marker written: false"));
+    }
+
+    #[cfg(feature = "vortex-staged-output-fs")]
+    #[test]
+    fn setup_feature_missing_workspace_blocked() {
+        let path = unique_temp_path("missing");
+        let report = setup_vortex_staged_workspace(setup_request(&path.to_string_lossy())).unwrap();
+        assert_eq!(
+            report.status,
+            VortexStagedWorkspaceSetupStatus::BlockedByMissingWorkspace
+        );
+    }
+
+    #[cfg(feature = "vortex-staged-output-fs")]
+    #[test]
+    fn setup_feature_create_if_missing_creates_directory() {
+        let path = unique_temp_path("create");
+        let report = setup_vortex_staged_workspace(
+            setup_request(&path.to_string_lossy()).create_if_missing(true),
+        )
+        .unwrap();
+        assert_eq!(
+            report.status,
+            VortexStagedWorkspaceSetupStatus::WorkspaceCreated
+        );
+        assert!(report.workspace_created());
+        assert!(!report.marker_written());
+        assert!(!report.output_data_written());
+        assert!(!report.manifest_written());
+        assert!(!report.object_store_io());
+        assert!(!report.fallback_execution_allowed());
+        assert!(!path.join("_MARKER").exists());
+        assert!(!path.join("manifest.json").exists());
+        std::fs::remove_dir_all(path).unwrap();
+    }
+
+    #[cfg(feature = "vortex-staged-output-fs")]
+    #[test]
+    fn setup_feature_existing_non_directory_blocked() {
+        let path = unique_temp_path("nondir");
+        std::fs::write(&path, "x").unwrap();
+        let report = setup_vortex_staged_workspace(setup_request(&path.to_string_lossy())).unwrap();
+        assert_eq!(
+            report.status,
+            VortexStagedWorkspaceSetupStatus::BlockedByExistingNonDirectory
+        );
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[cfg(feature = "vortex-staged-output-fs")]
+    #[test]
+    fn setup_feature_require_empty_non_empty_blocked() {
+        let path = unique_temp_path("nonempty");
+        std::fs::create_dir_all(&path).unwrap();
+        std::fs::write(path.join("keep.txt"), "x").unwrap();
+        let report = setup_vortex_staged_workspace(
+            setup_request(&path.to_string_lossy()).require_empty(true),
+        )
+        .unwrap();
+        assert_eq!(
+            report.status,
+            VortexStagedWorkspaceSetupStatus::BlockedByNonEmptyWorkspace
+        );
+        std::fs::remove_file(path.join("keep.txt")).unwrap();
+        std::fs::remove_dir(path).unwrap();
+    }
+
+    #[cfg(feature = "vortex-staged-output-fs")]
+    #[test]
+    fn setup_feature_object_store_path_blocked() {
+        let report = setup_vortex_staged_workspace(setup_request("s3://bucket/ws")).unwrap();
+        assert_eq!(
+            report.status,
+            VortexStagedWorkspaceSetupStatus::BlockedByObjectStoreTarget
+        );
     }
 }

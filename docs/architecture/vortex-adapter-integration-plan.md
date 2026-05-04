@@ -345,7 +345,9 @@ No spill data movement is implemented in this phase.
 ## Staged output workspace contract
 
 - Staged output workspace is report-only in Phase 12A.2a.
-- It does not create directories.
+- `VortexStagedWorkspaceSetupReport` and setup helper behavior are now defined for Phase 12A.2b.1b.
+- Default builds remain feature-disabled and side-effect-free.
+- Under `vortex-staged-output-fs`, setup may only create/confirm the exact local workspace directory when explicitly requested.
 - It does not write markers.
 - It does not write output data.
 - It does not write manifests.
