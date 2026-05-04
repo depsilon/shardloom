@@ -86,3 +86,10 @@ Status categories:
 - All phases must preserve no Spark, DataFusion, DuckDB, Polars, Velox, or fallback engine execution.
 - Compatibility formats are inputs/outputs, not fallback engines.
 - Unsupported behavior must fail explicitly.
+
+
+## Phase 12A refinement
+
+- 12A.1 native `Vortex` write intent core contract is current.
+- 12A.2 staged output workspace contract is planned.
+- Actual write execution remains deferred.

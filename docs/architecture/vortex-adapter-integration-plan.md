@@ -324,3 +324,13 @@ No spill data movement is implemented in this phase.
 - Phase 12A must not perform object-store writes.
 - Phase 12A must preserve recovery/commit diagnostics continuity from Phase 11 surfaces.
 - Phase 12A must keep fallback execution disabled.
+
+
+## Native Vortex write intent core
+
+- Write intent is report-only in Phase 12A.1.
+- It does not call upstream `Vortex` write APIs.
+- It does not write files.
+- It blocks unknown schema/delete/tombstone semantics.
+- It blocks object-store writes.
+- It requires a future commit protocol before execution.
