@@ -452,3 +452,9 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - Upstream `Vortex` write APIs remain deferred.
 - Upstream `Vortex` write APIs remain unused.
 - Commit protocol execution is not implemented in this phase.
+
+
+## Commit protocol planning boundary update
+
+- Commit protocol state machine is `ShardLoom`-native and report-only.
+- Upstream `Vortex` write APIs remain deferred for commit execution phases.

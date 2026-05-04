@@ -475,3 +475,15 @@ No spill data movement is implemented in this phase.
 - Commit remains report-only.
 - Manifest finalization and commit protocol remain future work.
 - No output writes, upstream `Vortex` write APIs, object-store IO, or fallback execution are enabled.
+
+
+## Commit protocol state machine contract
+
+- `ShardLoom` commit protocol state machine is report-only.
+- It models states and transitions but does not execute them.
+- It does not finalize manifests.
+- It does not write commit markers.
+- It does not commit manifests.
+- It does not write output data.
+- It does not call upstream `Vortex` write APIs.
+- It does not perform object-store operations.
