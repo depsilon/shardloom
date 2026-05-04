@@ -20,14 +20,16 @@ use shardloom_exec::{
     AdaptiveSizer, AdaptiveSizingPolicy, AttemptId, ByteSize, CancellationReason,
     CancellationRequest, CancellationScope, MemoryBudget, MemoryOwner, MemoryPoolPlan,
     OomSafetyPlan, OperatorMemoryClass, ParallelismLimit, ParallelismPlan, RecoveryPlan, RetryPlan,
-    RuntimePlanSkeleton, ShardLoomCleanupExecutionRequest, ShardLoomRetryExecutionGateReport,
+    RuntimePlanSkeleton, ShardLoomCancellationExecutionGateReport,
+    ShardLoomCancellationExecutionGateRequest, ShardLoomCancellationExecutionGateSignal,
+    ShardLoomCleanupExecutionRequest, ShardLoomRetryExecutionGateReport,
     ShardLoomRetryExecutionGateRequest, ShardLoomRetryExecutionGateSignal, SizeEstimate,
     SizingInput, SizingPlan, SpillLifecycleRequest, SpillPayloadFsRef, SpillPayloadId,
     SpillPayloadPath, SpillPayloadRef, SpillPayloadRoundTripRequest, SpillPayloadWriteRequest,
     SpillPlan, SpillPolicy, SpillReservationIntegrationRequest, SpillWorkspaceId,
     SpillWorkspacePath, StreamingPlanSkeleton, SyntheticSpillPayload, TaskAttemptRecord,
-    plan_retry_execution_gate, plan_spill_lifecycle, plan_spill_reservation_integration,
-    roundtrip_spill_payload, spill_payload_fs_feature_enabled,
+    plan_cancellation_execution_gate, plan_retry_execution_gate, plan_spill_lifecycle,
+    plan_spill_reservation_integration, roundtrip_spill_payload, spill_payload_fs_feature_enabled,
 };
 use shardloom_plan::{
     EstimateReport, ExplainReport, NativePlanDocument, OptimizerPhase, OptimizerPlanSkeleton,
@@ -68,7 +70,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count|vortex-count-where|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count|vortex-count-where|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -258,6 +260,117 @@ fn retry_gate_plan_fields(report: &ShardLoomRetryExecutionGateReport) -> Vec<(St
         ("retry_executed".to_string(), "false".to_string()),
         ("cleanup_executed_by_gate".to_string(), "false".to_string()),
         ("cancellation_executed".to_string(), "false".to_string()),
+        ("external_effects_executed".to_string(), "false".to_string()),
+        ("object_store_io".to_string(), "false".to_string()),
+        ("output_dataset_write".to_string(), "false".to_string()),
+        ("execution".to_string(), "not_performed".to_string()),
+    ]
+}
+
+fn parse_cancellation_gate_signals(
+    value: &str,
+) -> Result<ShardLoomCancellationExecutionGateRequest, ShardLoomError> {
+    let mut signals = Vec::new();
+    for token in value
+        .split(',')
+        .map(str::trim)
+        .filter(|token| !token.is_empty())
+    {
+        let signal = match token {
+            "cancellation-requested" => {
+                ShardLoomCancellationExecutionGateSignal::CancellationRequested
+            }
+            "cleanup-required" => ShardLoomCancellationExecutionGateSignal::CleanupRequired,
+            "cleanup-completed" => ShardLoomCancellationExecutionGateSignal::CleanupCompleted,
+            "unknown-artifact" => ShardLoomCancellationExecutionGateSignal::UnknownArtifactPresent,
+            "external-effects" => ShardLoomCancellationExecutionGateSignal::ExternalEffectsPresent,
+            "object-store-recovery" => {
+                ShardLoomCancellationExecutionGateSignal::ObjectStoreRecoveryRequired
+            }
+            "output-recovery" => ShardLoomCancellationExecutionGateSignal::OutputRecoveryRequired,
+            "retry-in-progress" => ShardLoomCancellationExecutionGateSignal::RetryInProgress,
+            _ => {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "invalid cancellation gate signal token: {token}"
+                )));
+            }
+        };
+        if !signals.contains(&signal) {
+            signals.push(signal);
+        }
+    }
+    if signals.is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "cancellation-gate-plan requires <signals>".to_string(),
+        ));
+    }
+    let mut request = ShardLoomCancellationExecutionGateRequest::new();
+    for signal in signals {
+        request.add_signal(signal);
+    }
+    Ok(request)
+}
+
+fn cancellation_gate_plan_fields(
+    report: &ShardLoomCancellationExecutionGateReport,
+) -> Vec<(String, String)> {
+    vec![
+        (
+            "fallback_execution_allowed".to_string(),
+            "false".to_string(),
+        ),
+        ("mode".to_string(), "cancellation_gate_plan".to_string()),
+        (
+            "cancellation_requested".to_string(),
+            report.cancellation_requested().to_string(),
+        ),
+        (
+            "cancellation_gate_open".to_string(),
+            report.cancellation_gate_open().to_string(),
+        ),
+        (
+            "cleanup_required".to_string(),
+            report.cleanup_required().to_string(),
+        ),
+        (
+            "cleanup_completed".to_string(),
+            report.cleanup_completed().to_string(),
+        ),
+        (
+            "unknown_artifact_present".to_string(),
+            report.unknown_artifact_present().to_string(),
+        ),
+        (
+            "external_effects_present".to_string(),
+            report
+                .request
+                .has_signal(ShardLoomCancellationExecutionGateSignal::ExternalEffectsPresent)
+                .to_string(),
+        ),
+        (
+            "object_store_recovery_required".to_string(),
+            report
+                .request
+                .has_signal(ShardLoomCancellationExecutionGateSignal::ObjectStoreRecoveryRequired)
+                .to_string(),
+        ),
+        (
+            "output_recovery_required".to_string(),
+            report
+                .request
+                .has_signal(ShardLoomCancellationExecutionGateSignal::OutputRecoveryRequired)
+                .to_string(),
+        ),
+        (
+            "retry_in_progress".to_string(),
+            report
+                .request
+                .has_signal(ShardLoomCancellationExecutionGateSignal::RetryInProgress)
+                .to_string(),
+        ),
+        ("cancellation_executed".to_string(), "false".to_string()),
+        ("retry_executed".to_string(), "false".to_string()),
+        ("cleanup_executed_by_gate".to_string(), "false".to_string()),
         ("external_effects_executed".to_string(), "false".to_string()),
         ("object_store_io".to_string(), "false".to_string()),
         ("output_dataset_write".to_string(), "false".to_string()),
@@ -2487,6 +2600,78 @@ fn run(args: Vec<String>) -> ExitCode {
                 report.to_human_text(),
                 report.diagnostics.clone(),
                 retry_gate_plan_fields(&report),
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
+        Some("cancellation-gate-plan") => {
+            let Some(raw) = args.next() else {
+                return emit_error(
+                    "cancellation-gate-plan",
+                    format,
+                    "invalid cancellation gate signal list",
+                    &ShardLoomError::InvalidOperation(
+                        "cancellation-gate-plan requires <signals>".to_string(),
+                    ),
+                );
+            };
+            if raw.trim().is_empty() {
+                return emit_error(
+                    "cancellation-gate-plan",
+                    format,
+                    "invalid cancellation gate signal list",
+                    &ShardLoomError::InvalidOperation(
+                        "cancellation-gate-plan requires <signals>".to_string(),
+                    ),
+                );
+            }
+            if args.next().is_some() {
+                return emit_error(
+                    "cancellation-gate-plan",
+                    format,
+                    "invalid cancellation gate signal list",
+                    &ShardLoomError::InvalidOperation(
+                        "too many arguments for cancellation-gate-plan".to_string(),
+                    ),
+                );
+            }
+            let request = match parse_cancellation_gate_signals(&raw) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "cancellation-gate-plan",
+                        format,
+                        "invalid cancellation gate signal list",
+                        &error,
+                    );
+                }
+            };
+            let report = match plan_cancellation_execution_gate(request) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "cancellation-gate-plan",
+                        format,
+                        "cancellation gate planning failed",
+                        &error,
+                    );
+                }
+            };
+            emit(
+                "cancellation-gate-plan",
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "cancellation execution gate plan".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                cancellation_gate_plan_fields(&report),
             );
             if report.has_errors() {
                 ExitCode::from(1)
@@ -6620,5 +6805,85 @@ mod tests {
         )
         .expect("report");
         assert!(open.retry_gate_open());
+    }
+
+    #[test]
+    fn cancellation_gate_plan_missing_signals_returns_non_zero() {
+        let code = run(vec!["cancellation-gate-plan".to_string()]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn cancellation_gate_plan_whitespace_only_signals_returns_non_zero() {
+        let code = run(vec![
+            "cancellation-gate-plan".to_string(),
+            "   ".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn cancellation_gate_plan_unknown_signal_returns_non_zero() {
+        let code = run(vec![
+            "cancellation-gate-plan".to_string(),
+            "unknown".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn cancellation_gate_plan_requested_returns_success() {
+        let code = run(vec![
+            "cancellation-gate-plan".to_string(),
+            "cancellation-requested".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn cancellation_gate_signal_parsing_and_fields_cover_required_states() {
+        let cleanup_required = plan_cancellation_execution_gate(
+            parse_cancellation_gate_signals("cancellation-requested,cleanup-required")
+                .expect("request"),
+        )
+        .expect("report");
+        assert!(!cleanup_required.cancellation_gate_open());
+
+        let open = plan_cancellation_execution_gate(
+            parse_cancellation_gate_signals(
+                "cancellation-requested,cleanup-required,cleanup-completed",
+            )
+            .expect("request"),
+        )
+        .expect("report");
+        assert!(open.cancellation_gate_open());
+
+        let unknown_closed = plan_cancellation_execution_gate(
+            parse_cancellation_gate_signals("cancellation-requested,unknown-artifact")
+                .expect("request"),
+        )
+        .expect("report");
+        assert!(!unknown_closed.cancellation_gate_open());
+
+        let external_closed = plan_cancellation_execution_gate(
+            parse_cancellation_gate_signals("cancellation-requested,external-effects")
+                .expect("request"),
+        )
+        .expect("report");
+        assert!(!external_closed.cancellation_gate_open());
+
+        let retry_closed = plan_cancellation_execution_gate(
+            parse_cancellation_gate_signals("cancellation-requested,retry-in-progress")
+                .expect("request"),
+        )
+        .expect("report");
+        assert!(!retry_closed.cancellation_gate_open());
+
+        let fields = cancellation_gate_plan_fields(&retry_closed);
+        assert!(fields.contains(&(
+            "fallback_execution_allowed".to_string(),
+            "false".to_string()
+        )));
+        assert!(fields.contains(&("cancellation_executed".to_string(), "false".to_string())));
     }
 }

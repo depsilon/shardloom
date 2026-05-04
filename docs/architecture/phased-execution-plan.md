@@ -5,7 +5,7 @@
 - Production-grade engine completion estimate: approximately 37–38%.
 - Architecture/control-plane completion estimate: approximately 97%.
 - Current checkpoint: all-phase epic coverage and roadmap synchronization.
-- Next implementation phase: Phase 11B.5b — cancellation gate integration with retry/cancellation + cleanup reports.
+- Next implementation phase: Phase 11B.5c — cancellation gate CLI/docs integration.
 
 ## Cross-cutting epic legend
 
@@ -671,9 +671,11 @@ Epic coverage:
 
 ### Phase 11B.5a — Cancellation execution gate core contract (planning/report-only) — Complete
 
-### Phase 11B.5b — Cancellation gate integration with retry/cancellation + cleanup reports — Current
+### Phase 11B.5b — Cancellation gate integration with retry/cancellation + cleanup reports — Complete
 
-### Phase 11B.5c — Cancellation gate CLI/docs integration — Planned
+### Phase 11B.5c — Cancellation gate CLI/docs integration — Current
+
+### Phase 11B.6 — Cancellation execution implementation — Planned
 
 Checklist:
 - Task attempt identity.

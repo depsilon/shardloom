@@ -125,3 +125,14 @@ Run:
 - It does not execute cancellation.
 - It blocks retry when cleanup is required but incomplete, unknown artifacts exist, external effects are present, object-store/output recovery is required, or cancellation is requested.
 - No fallback execution is introduced.
+
+## Cancellation gate CLI
+
+- `cancellation-gate-plan` exposes the cancellation execution gate through explicit signal input.
+- It requires a `<signals>` argument.
+- It is planning/report-only.
+- It does not execute cancellation.
+- It does not execute retry.
+- It does not execute cleanup.
+- It blocks cancellation when cleanup is required but incomplete, unknown artifacts exist, external effects are present, object-store/output recovery is required, or retry is in progress.
+- No fallback execution is introduced.

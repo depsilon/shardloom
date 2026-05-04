@@ -3345,7 +3345,7 @@ pub fn cancellation_gate_request_from_retry_cancellation_report(
     if report.cancellation_requested {
         request.add_signal(ShardLoomCancellationExecutionGateSignal::CancellationRequested);
     }
-    if report.retry_requires_cleanup {
+    if report.cleanup_required_count > 0 {
         request.add_signal(ShardLoomCancellationExecutionGateSignal::CleanupRequired);
     }
     if report.unknown_artifact_count > 0 {
@@ -4588,7 +4588,7 @@ mod cancellation_execution_gate_tests {
         let mut cleanup_needed = ShardLoomRecoveryIntegrationRequest::new();
         cleanup_needed.add_artifact(RecoveryArtifactRef::spill_workspace("ws-c", "/tmp/ws-c"));
         let cleanup_report = retry_report_with_options(
-            cleanup_needed,
+            cleanup_needed.clone(),
             ShardLoomRetryCancellationRequest::new(
                 ShardLoomRecoveryIntegrationReport::from_request(
                     ShardLoomRecoveryIntegrationRequest::new(),
@@ -4603,6 +4603,25 @@ mod cancellation_execution_gate_tests {
             cancellation_gate_request_from_retry_cancellation_report(&cleanup_report);
         assert!(
             cleanup_request.has_signal(ShardLoomCancellationExecutionGateSignal::CleanupRequired)
+        );
+
+        let cancellation_only_cleanup_report = retry_report_with_options(
+            cleanup_needed,
+            ShardLoomRetryCancellationRequest::new(
+                ShardLoomRecoveryIntegrationReport::from_request(
+                    ShardLoomRecoveryIntegrationRequest::new(),
+                )
+                .expect("report"),
+            )
+            .cancellation_requested(true),
+        );
+        let cancellation_only_cleanup_request =
+            cancellation_gate_request_from_retry_cancellation_report(
+                &cancellation_only_cleanup_report,
+            );
+        assert!(
+            cancellation_only_cleanup_request
+                .has_signal(ShardLoomCancellationExecutionGateSignal::CleanupRequired)
         );
 
         let mut unknown = ShardLoomRecoveryIntegrationRequest::new();
