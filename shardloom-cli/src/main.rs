@@ -20,10 +20,12 @@ use shardloom_exec::{
     AdaptiveSizer, AdaptiveSizingPolicy, AttemptId, ByteSize, CancellationReason,
     CancellationRequest, CancellationScope, MemoryBudget, MemoryOwner, MemoryPoolPlan,
     OomSafetyPlan, OperatorMemoryClass, ParallelismLimit, ParallelismPlan, RecoveryPlan, RetryPlan,
-    RuntimePlanSkeleton, SizeEstimate, SizingInput, SizingPlan, SpillLifecycleRequest, SpillPlan,
-    SpillPolicy, SpillReservationIntegrationRequest, SpillWorkspaceId, SpillWorkspacePath,
-    StreamingPlanSkeleton, TaskAttemptRecord, plan_spill_lifecycle,
-    plan_spill_reservation_integration,
+    RuntimePlanSkeleton, SizeEstimate, SizingInput, SizingPlan, SpillLifecycleRequest,
+    SpillPayloadFsRef, SpillPayloadId, SpillPayloadPath, SpillPayloadRef,
+    SpillPayloadRoundTripRequest, SpillPayloadWriteRequest, SpillPlan, SpillPolicy,
+    SpillReservationIntegrationRequest, SpillWorkspaceId, SpillWorkspacePath,
+    StreamingPlanSkeleton, SyntheticSpillPayload, TaskAttemptRecord, plan_spill_lifecycle,
+    plan_spill_reservation_integration, roundtrip_spill_payload, spill_payload_fs_feature_enabled,
 };
 use shardloom_plan::{
     EstimateReport, ExplainReport, NativePlanDocument, OptimizerPhase, OptimizerPlanSkeleton,
@@ -64,7 +66,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count|vortex-count-where|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count|vortex-count-where|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip> [--format text|json]",
         cli_command_name()
     )
 }
@@ -828,6 +830,176 @@ fn run(args: Vec<String>) -> ExitCode {
                     ("spill_data_read".to_string(), "false".to_string()),
                     ("object_store_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
+                ],
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
+        Some("spill-payload-roundtrip") => {
+            let Some(workspace_path_text) = args.next() else {
+                eprintln!(
+                    "usage: shardloom spill-payload-roundtrip <workspace_path> <payload_id> <payload_text> [--cleanup]"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(payload_id_text) = args.next() else {
+                eprintln!(
+                    "usage: shardloom spill-payload-roundtrip <workspace_path> <payload_id> <payload_text> [--cleanup]"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(payload_text) = args.next() else {
+                eprintln!(
+                    "usage: shardloom spill-payload-roundtrip <workspace_path> <payload_id> <payload_text> [--cleanup]"
+                );
+                return ExitCode::from(2);
+            };
+            let mut cleanup_after = false;
+            if let Some(extra) = args.next() {
+                if extra == "--cleanup" {
+                    cleanup_after = true;
+                } else {
+                    return emit_error(
+                        "spill-payload-roundtrip",
+                        format,
+                        "spill payload roundtrip failed",
+                        &ShardLoomError::InvalidOperation(
+                            "unknown trailing argument; expected optional --cleanup".to_string(),
+                        ),
+                    );
+                }
+                if args.next().is_some() {
+                    return emit_error(
+                        "spill-payload-roundtrip",
+                        format,
+                        "spill payload roundtrip failed",
+                        &ShardLoomError::InvalidOperation(
+                            "too many arguments for spill-payload-roundtrip".to_string(),
+                        ),
+                    );
+                }
+            }
+            let workspace_path = match SpillPayloadPath::new(workspace_path_text) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "spill-payload-roundtrip",
+                        format,
+                        "spill payload roundtrip failed",
+                        &error,
+                    );
+                }
+            };
+            let payload_id = match SpillPayloadId::new(payload_id_text) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "spill-payload-roundtrip",
+                        format,
+                        "spill payload roundtrip failed",
+                        &error,
+                    );
+                }
+            };
+            let payload = match SyntheticSpillPayload::from_text(payload_text) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "spill-payload-roundtrip",
+                        format,
+                        "spill payload roundtrip failed",
+                        &error,
+                    );
+                }
+            };
+            let payload_ref = match SpillPayloadRef::new(payload_id, "shardloom_cli_workspace") {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "spill-payload-roundtrip",
+                        format,
+                        "spill payload roundtrip failed",
+                        &error,
+                    );
+                }
+            };
+            let fs_ref = SpillPayloadFsRef::new(payload_ref, workspace_path);
+            let write_request = SpillPayloadWriteRequest::new(fs_ref, payload);
+            let request =
+                SpillPayloadRoundTripRequest::new(write_request).cleanup_after(cleanup_after);
+            let report = match roundtrip_spill_payload(request) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "spill-payload-roundtrip",
+                        format,
+                        "spill payload roundtrip failed",
+                        &error,
+                    );
+                }
+            };
+            let bytes_read = report.read_report.as_ref().map_or(0, |v| v.bytes_read);
+            let verification_passed = report
+                .read_report
+                .as_ref()
+                .is_some_and(|v| v.verification_passed);
+            emit(
+                "spill-payload-roundtrip",
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "spill payload roundtrip report".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "spill_payload_roundtrip".to_string()),
+                    (
+                        "spill_payload_feature_enabled".to_string(),
+                        spill_payload_fs_feature_enabled().to_string(),
+                    ),
+                    (
+                        "payload_written".to_string(),
+                        report.payload_written().to_string(),
+                    ),
+                    (
+                        "payload_read".to_string(),
+                        report.payload_read().to_string(),
+                    ),
+                    (
+                        "cleanup_performed".to_string(),
+                        report.cleanup_performed().to_string(),
+                    ),
+                    (
+                        "object_store_io".to_string(),
+                        report.object_store_io().to_string(),
+                    ),
+                    (
+                        "output_dataset_write".to_string(),
+                        report.output_dataset_write().to_string(),
+                    ),
+                    (
+                        "execution".to_string(),
+                        "spill_payload_roundtrip_or_not_performed".to_string(),
+                    ),
+                    (
+                        "bytes_written".to_string(),
+                        report.write_report.bytes_written.to_string(),
+                    ),
+                    ("bytes_read".to_string(), bytes_read.to_string()),
+                    (
+                        "verification_passed".to_string(),
+                        verification_passed.to_string(),
+                    ),
                 ],
             );
             if report.has_errors() {
@@ -5921,6 +6093,45 @@ mod tests {
             "vortex-file-metadata-open".to_string(),
             "file://tmp/not-vortex.parquet".to_string(),
         ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn spill_payload_roundtrip_valid_args_default_build_returns_success() {
+        let code = run(vec![
+            "spill-payload-roundtrip".to_string(),
+            "/tmp/shardloom_spill_payload".to_string(),
+            "payload-1".to_string(),
+            "hello".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn spill_payload_roundtrip_invalid_payload_id_returns_non_zero() {
+        let code = run(vec![
+            "spill-payload-roundtrip".to_string(),
+            "/tmp/shardloom_spill_payload".to_string(),
+            "../bad".to_string(),
+            "hello".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn spill_payload_roundtrip_empty_payload_text_returns_non_zero() {
+        let code = run(vec![
+            "spill-payload-roundtrip".to_string(),
+            "/tmp/shardloom_spill_payload".to_string(),
+            "payload-1".to_string(),
+            String::new(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn spill_payload_roundtrip_missing_args_returns_non_zero() {
+        let code = run(vec!["spill-payload-roundtrip".to_string()]);
         assert_ne!(code, ExitCode::SUCCESS);
     }
 }
