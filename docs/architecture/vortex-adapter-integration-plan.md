@@ -444,3 +444,15 @@ No spill data movement is implemented in this phase.
 - No output data write path exists yet.
 - No upstream Vortex write API path exists yet.
 - No object-store write path exists yet.
+
+
+## Commit intent core contract
+
+- `ShardLoom` commit intent is report-only in this phase.
+- `VortexCommitIntentRequest`/`VortexCommitIntentReport` require staged manifest draft write readiness, manifest finalization availability, commit protocol availability, schema/delete/tombstone readiness, and recovery/retry/cancellation gate readiness.
+- This phase does not commit manifests.
+- This phase does not finalize manifests.
+- This phase does not write output data.
+- This phase does not call upstream `Vortex` write APIs.
+- This phase does not perform object-store IO.
+- This phase does not enable fallback execution.

@@ -443,3 +443,10 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - Upstream Vortex write APIs remain unused.
 - ShardLoom-native staged artifacts exist.
 - Vortex file output and committed manifest behavior remain deferred.
+
+
+## Phase 12B commit intent note
+
+- Commit intent remains `ShardLoom`-native in Phase 12B.1 report-only surfaces.
+- Upstream `Vortex` write APIs remain deferred.
+- Commit protocol execution is not implemented in this phase.
