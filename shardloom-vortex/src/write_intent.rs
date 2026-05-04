@@ -272,7 +272,11 @@ impl VortexWriteIntentReport {
             report.status = VortexWriteIntentStatus::BlockedByDeleteSemantics;
         } else if !report.tombstone_semantics_known() {
             report.status = VortexWriteIntentStatus::BlockedByTombstoneSemantics;
-        } else if !report.commit_protocol_available() {
+        } else if report
+            .request
+            .has_signal(VortexWriteIntentSignal::StagedOutputRequired)
+            || !report.commit_protocol_available()
+        {
             report.status = VortexWriteIntentStatus::StagedOutputRequired;
             report.mode = VortexWriteIntentMode::StagedOutputPlanning;
         } else {
@@ -555,6 +559,18 @@ mod tests {
     fn missing_commit_staged_required() {
         let rep = VortexWriteIntentReport::from_request(base()).unwrap();
         assert_eq!(rep.status, VortexWriteIntentStatus::StagedOutputRequired);
+    }
+
+    #[test]
+    fn staged_output_signal_overrides_commit_available_mode() {
+        let rep = VortexWriteIntentReport::from_request(
+            base()
+                .commit_protocol_available(true)
+                .staged_output_required(true),
+        )
+        .unwrap();
+        assert_eq!(rep.status, VortexWriteIntentStatus::StagedOutputRequired);
+        assert_eq!(rep.mode, VortexWriteIntentMode::StagedOutputPlanning);
     }
     #[test]
     fn all_signals_planned_but_disabled() {
