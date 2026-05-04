@@ -6594,10 +6594,17 @@ mod tests {
 
     #[test]
     fn vortex_input_plan_with_vortex_uri_returns_success() {
-        let code = run(vec![
-            "vortex-input-plan".to_string(),
-            "file://tmp/data.vortex".to_string(),
-        ]);
+        let code = std::thread::Builder::new()
+            .stack_size(8 * 1024 * 1024)
+            .spawn(|| {
+                run(vec![
+                    "vortex-input-plan".to_string(),
+                    "file://tmp/data.vortex".to_string(),
+                ])
+            })
+            .expect("thread spawn should succeed")
+            .join()
+            .expect("thread join should succeed");
         assert_eq!(code, ExitCode::SUCCESS);
     }
 
