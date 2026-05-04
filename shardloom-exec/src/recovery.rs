@@ -1521,16 +1521,21 @@ impl ShardLoomRecoveryIntegrationReport {
         if let Some(retry_decision) = &self.retry_decision {
             let _ = writeln!(out, "retry decision: {}", retry_decision.kind.as_str());
         }
+        let fallback_allowed = self.fallback_execution.allowed();
         let _ = write!(
             out,
-            "cleanup executed: {}\nretry executed: {}\ncancellation executed: {}\nexternal effects executed: {}\nobject-store IO: {}\noutput dataset write: {}\nfallback execution: disabled",
+            "cleanup executed: {}\nretry executed: {}\ncancellation executed: {}\nexternal effects executed: {}\nobject-store IO: {}\noutput dataset write: {}\nfallback execution allowed: {}",
             self.cleanup_execution.executed(),
             self.retry_execution.executed(),
             self.cancellation_execution.executed(),
             self.external_effects_execution.executed(),
             self.object_store_io.executed(),
-            self.output_dataset_write.executed()
+            self.output_dataset_write.executed(),
+            fallback_allowed
         );
+        if !fallback_allowed {
+            let _ = write!(out, "\nfallback execution: disabled");
+        }
         if !self.diagnostics.is_empty() {
             let _ = writeln!(out, "\ndiagnostics:");
             for d in &self.diagnostics {
@@ -2567,6 +2572,7 @@ mod tests {
         .expect("report");
         report.add_diagnostic(Diagnostic::invalid_input("recovery", "diag-message", "fix"));
         let text = report.to_human_text();
+        assert!(text.contains("fallback execution allowed: false"));
         assert!(text.contains("fallback execution: disabled"));
         assert!(text.contains("cleanup executed: false"));
         assert!(text.contains("diagnostics:"));
