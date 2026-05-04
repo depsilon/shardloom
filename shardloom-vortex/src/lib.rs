@@ -126,11 +126,16 @@ pub use query_trace::{
     evaluate_vortex_query_primitive_with_analysis,
 };
 pub use staged_manifest::{
-    VortexStagedManifestDraftEffect, VortexStagedManifestDraftMode,
-    VortexStagedManifestDraftReport, VortexStagedManifestDraftRequest,
-    VortexStagedManifestDraftSignal, VortexStagedManifestDraftStatus,
-    plan_vortex_staged_manifest_draft, staged_manifest_request_from_reports,
-    vortex_staged_manifest_draft_is_side_effect_free,
+    VortexStagedManifestDraftContent, VortexStagedManifestDraftEffect,
+    VortexStagedManifestDraftMode, VortexStagedManifestDraftReport,
+    VortexStagedManifestDraftRequest, VortexStagedManifestDraftSignal,
+    VortexStagedManifestDraftStatus, VortexStagedManifestFileEffect, VortexStagedManifestFileMode,
+    VortexStagedManifestFileName, VortexStagedManifestFileRef, VortexStagedManifestFileReport,
+    VortexStagedManifestFileRequest, VortexStagedManifestFileSignal,
+    VortexStagedManifestFileStatus, plan_vortex_staged_manifest_draft,
+    plan_vortex_staged_manifest_file, staged_manifest_file_request_from_reports,
+    staged_manifest_request_from_reports, vortex_staged_manifest_draft_is_side_effect_free,
+    vortex_staged_manifest_file_is_side_effect_free,
 };
 
 pub use staged_output::{

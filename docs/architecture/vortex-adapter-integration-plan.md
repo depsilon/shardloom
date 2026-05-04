@@ -393,3 +393,14 @@ No spill data movement is implemented in this phase.
 - It does not write output data.
 - It does not call upstream `Vortex` write APIs.
 - It blocks object-store targets.
+
+
+## Staged manifest file contract
+
+- The manifest draft file contract is report-only.
+- It defines deterministic path/content but writes no files.
+- It depends on draft/workspace/marker readiness.
+- It does not write manifests.
+- It does not write output data.
+- It does not call upstream `Vortex` write APIs.
+- It does not perform object-store IO.

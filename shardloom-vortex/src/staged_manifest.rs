@@ -578,9 +578,14 @@ pub fn staged_manifest_request_from_reports(
     );
     if let Some(w) = workspace {
         req.workspace_summary = Some(w.request.summary());
+        let workspace_usable = matches!(
+            w.status,
+            crate::VortexStagedWorkspaceSetupStatus::Planned
+                | crate::VortexStagedWorkspaceSetupStatus::WorkspaceCreated
+        );
         req.add_signal(
             VortexStagedManifestDraftSignal::WorkspaceKnown,
-            w.workspace_created() || !w.has_errors(),
+            workspace_usable && !w.has_errors(),
         );
         req.add_signal(
             VortexStagedManifestDraftSignal::WorkspaceMissing,
@@ -627,6 +632,41 @@ pub fn staged_manifest_request_from_reports(
         write_intent.object_store_target(),
     );
     req
+}
+
+const STAGED_MANIFEST_DRAFT_MAX_BYTES: usize = 64 * 1024;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexStagedManifestFileStatus {
+    Planned,
+    FileReady,
+    BlockedByDraft,
+    BlockedByWorkspace,
+    BlockedByMarker,
+    BlockedByObjectStoreTarget,
+    Unsupported,
+}
+impl VortexStagedManifestFileStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Planned => "planned",
+            Self::FileReady => "file_ready",
+            Self::BlockedByDraft => "blocked_by_draft",
+            Self::BlockedByWorkspace => "blocked_by_workspace",
+            Self::BlockedByMarker => "blocked_by_marker",
+            Self::BlockedByObjectStoreTarget => "blocked_by_object_store_target",
+            Self::Unsupported => "unsupported",
+        }
+    }
+    #[must_use]
+    pub const fn is_error(self) -> bool {
+        !matches!(self, Self::Planned | Self::FileReady)
+    }
+    #[must_use]
+    pub const fn allows_file_write(self) -> bool {
+        false
+    }
 }
 
 #[cfg(test)]
@@ -810,5 +850,765 @@ mod tests {
         );
         let req3 = staged_manifest_request_from_reports(uri(), &blocked_wi, &so, None, None);
         assert!(req3.has_signal(VortexStagedManifestDraftSignal::WriteIntentBlocked));
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexStagedManifestFileMode {
+    ReportOnly,
+    FilePlanning,
+    Unsupported,
+}
+impl VortexStagedManifestFileMode {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::ReportOnly => "report_only",
+            Self::FilePlanning => "file_planning",
+            Self::Unsupported => "unsupported",
+        }
+    }
+    #[must_use]
+    pub const fn writes_manifest_file(self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn writes_output_data(self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn writes_object_store(self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn calls_upstream_vortex_write(self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn commits_manifest(self) -> bool {
+        false
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexStagedManifestFileSignal {
+    DraftReady,
+    DraftBlocked,
+    WorkspaceKnown,
+    WorkspaceMissing,
+    MarkerWritten,
+    MarkerMissing,
+    LocalWorkspace,
+    ObjectStoreWorkspace,
+}
+impl VortexStagedManifestFileSignal {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::DraftReady => "draft_ready",
+            Self::DraftBlocked => "draft_blocked",
+            Self::WorkspaceKnown => "workspace_known",
+            Self::WorkspaceMissing => "workspace_missing",
+            Self::MarkerWritten => "marker_written",
+            Self::MarkerMissing => "marker_missing",
+            Self::LocalWorkspace => "local_workspace",
+            Self::ObjectStoreWorkspace => "object_store_workspace",
+        }
+    }
+    #[must_use]
+    pub const fn is_blocking(self) -> bool {
+        matches!(
+            self,
+            Self::DraftBlocked
+                | Self::WorkspaceMissing
+                | Self::MarkerMissing
+                | Self::ObjectStoreWorkspace
+        )
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexStagedManifestFileEffect {
+    ManifestFileWritten,
+    OutputDataWritten,
+    ObjectStoreIo,
+    UpstreamVortexWriteCalled,
+    CommitPerformed,
+    FallbackExecution,
+}
+impl VortexStagedManifestFileEffect {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::ManifestFileWritten => "manifest_file_written",
+            Self::OutputDataWritten => "output_data_written",
+            Self::ObjectStoreIo => "object_store_io",
+            Self::UpstreamVortexWriteCalled => "upstream_vortex_write_called",
+            Self::CommitPerformed => "commit_performed",
+            Self::FallbackExecution => "fallback_execution",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VortexStagedManifestFileName(String);
+impl VortexStagedManifestFileName {
+    /// # Errors
+    /// Returns an error when the file name is empty or contains invalid traversal/path separator content.
+    pub fn new(value: impl Into<String>) -> Result<Self> {
+        let value = value.into();
+        let t = value.trim();
+        if t.is_empty() || t.contains('/') || t.contains('\\') || t.contains("..") {
+            return Err(shardloom_core::ShardLoomError::InvalidOperation(
+                "invalid staged manifest file name".to_string(),
+            ));
+        }
+        Ok(Self(t.to_string()))
+    }
+    #[must_use]
+    pub fn default_draft() -> Self {
+        Self("_shardloom_staged_manifest_draft.json".to_string())
+    }
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+    #[must_use]
+    pub fn summary(&self) -> String {
+        format!("file_name={}", self.0)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VortexStagedManifestFileRef {
+    workspace_path: crate::VortexStagedWorkspacePath,
+    file_name: VortexStagedManifestFileName,
+}
+impl VortexStagedManifestFileRef {
+    #[must_use]
+    pub fn new(
+        workspace_path: crate::VortexStagedWorkspacePath,
+        file_name: VortexStagedManifestFileName,
+    ) -> Self {
+        Self {
+            workspace_path,
+            file_name,
+        }
+    }
+    #[must_use]
+    pub fn default_for_workspace(workspace_path: crate::VortexStagedWorkspacePath) -> Self {
+        Self::new(
+            workspace_path,
+            VortexStagedManifestFileName::default_draft(),
+        )
+    }
+    #[must_use]
+    pub fn workspace_path(&self) -> &crate::VortexStagedWorkspacePath {
+        &self.workspace_path
+    }
+    #[must_use]
+    pub fn file_name(&self) -> &VortexStagedManifestFileName {
+        &self.file_name
+    }
+    #[must_use]
+    pub fn path_string(&self) -> String {
+        format!(
+            "{}/{}",
+            self.workspace_path.as_str().trim_end_matches('/'),
+            self.file_name.as_str()
+        )
+    }
+    #[must_use]
+    pub fn summary(&self) -> String {
+        format!("manifest_file_path={}", self.path_string())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VortexStagedManifestDraftContent {
+    content: String,
+}
+impl VortexStagedManifestDraftContent {
+    /// # Errors
+    /// Returns an error when content is empty/whitespace or exceeds the phase size limit.
+    pub fn new(content: impl Into<String>) -> Result<Self> {
+        let content = content.into();
+        if content.trim().is_empty() || content.len() > STAGED_MANIFEST_DRAFT_MAX_BYTES {
+            return Err(shardloom_core::ShardLoomError::InvalidOperation(
+                "invalid staged manifest draft content".to_string(),
+            ));
+        }
+        Ok(Self { content })
+    }
+    /// # Errors
+    /// Propagates validation errors from [`Self::new`].
+    pub fn from_report_summary(report: &VortexStagedManifestDraftReport) -> Result<Self> {
+        let mut content = String::new();
+        let _ = writeln!(content, "shardloom_staged_manifest_draft=true");
+        let _ = writeln!(content, "draft_status={}", report.status.as_str());
+        let _ = writeln!(content, "manifest_written=false");
+        let _ = writeln!(content, "output_data_written=false");
+        let _ = writeln!(content, "commit_performed=false");
+        let _ = writeln!(content, "fallback_execution_allowed=false");
+        Self::new(content)
+    }
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.content
+    }
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.content.len()
+    }
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.content.is_empty()
+    }
+    #[must_use]
+    pub fn checksum_u64(&self) -> u64 {
+        self.content
+            .as_bytes()
+            .iter()
+            .fold(1_469_598_103_934_665_603_u64, |acc, b| {
+                acc.wrapping_mul(1_099_511_628_211) ^ u64::from(*b)
+            })
+    }
+    #[must_use]
+    pub fn summary(&self) -> String {
+        format!(
+            "content_len={} checksum_u64={}",
+            self.len(),
+            self.checksum_u64()
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct VortexStagedManifestFileRequest {
+    pub file_ref: VortexStagedManifestFileRef,
+    pub draft_content: VortexStagedManifestDraftContent,
+    pub signals: Vec<VortexStagedManifestFileSignal>,
+    pub draft_summary: Option<String>,
+    pub workspace_summary: Option<String>,
+    pub marker_summary: Option<String>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl VortexStagedManifestFileRequest {
+    #[must_use]
+    pub fn new(
+        file_ref: VortexStagedManifestFileRef,
+        draft_content: VortexStagedManifestDraftContent,
+    ) -> Self {
+        Self {
+            file_ref,
+            draft_content,
+            signals: Vec::new(),
+            draft_summary: None,
+            workspace_summary: None,
+            marker_summary: None,
+            diagnostics: Vec::new(),
+        }
+    }
+    pub fn add_signal(&mut self, signal: VortexStagedManifestFileSignal, value: bool) {
+        if value {
+            if !self.signals.contains(&signal) {
+                self.signals.push(signal);
+            }
+        } else {
+            self.signals.retain(|s| *s != signal);
+        }
+    }
+    signal_builder!(draft_ready, VortexStagedManifestFileSignal::DraftReady);
+    signal_builder!(draft_blocked, VortexStagedManifestFileSignal::DraftBlocked);
+    signal_builder!(
+        workspace_known,
+        VortexStagedManifestFileSignal::WorkspaceKnown
+    );
+    signal_builder!(
+        workspace_missing,
+        VortexStagedManifestFileSignal::WorkspaceMissing
+    );
+    signal_builder!(
+        marker_written,
+        VortexStagedManifestFileSignal::MarkerWritten
+    );
+    signal_builder!(
+        marker_missing,
+        VortexStagedManifestFileSignal::MarkerMissing
+    );
+    signal_builder!(
+        local_workspace,
+        VortexStagedManifestFileSignal::LocalWorkspace
+    );
+    signal_builder!(
+        object_store_workspace,
+        VortexStagedManifestFileSignal::ObjectStoreWorkspace
+    );
+    #[must_use]
+    pub fn with_draft_summary(mut self, v: impl Into<String>) -> Self {
+        self.draft_summary = Some(v.into());
+        self
+    }
+    #[must_use]
+    pub fn with_workspace_summary(mut self, v: impl Into<String>) -> Self {
+        self.workspace_summary = Some(v.into());
+        self
+    }
+    #[must_use]
+    pub fn with_marker_summary(mut self, v: impl Into<String>) -> Self {
+        self.marker_summary = Some(v.into());
+        self
+    }
+    #[must_use]
+    pub fn has_signal(&self, s: VortexStagedManifestFileSignal) -> bool {
+        self.signals.contains(&s)
+    }
+    pub fn add_diagnostic(&mut self, d: Diagnostic) {
+        self.diagnostics.push(d);
+    }
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.diagnostics.iter().any(|d| {
+            matches!(
+                d.severity,
+                DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+            )
+        })
+    }
+    #[must_use]
+    pub fn summary(&self) -> String {
+        format!(
+            "{} {}",
+            self.file_ref.summary(),
+            self.draft_content.summary()
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct VortexStagedManifestFileReport {
+    pub status: VortexStagedManifestFileStatus,
+    pub mode: VortexStagedManifestFileMode,
+    pub request: VortexStagedManifestFileRequest,
+    pub effects_performed: Vec<VortexStagedManifestFileEffect>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl VortexStagedManifestFileReport {
+    /// # Errors
+    /// Returns an error only if text rendering fails unexpectedly.
+    pub fn from_request(request: VortexStagedManifestFileRequest) -> Result<Self> {
+        let mut r = Self {
+            status: VortexStagedManifestFileStatus::Planned,
+            mode: VortexStagedManifestFileMode::ReportOnly,
+            request,
+            effects_performed: Vec::new(),
+            diagnostics: Vec::new(),
+        };
+        r.status = if r.object_store_workspace() {
+            VortexStagedManifestFileStatus::BlockedByObjectStoreTarget
+        } else if r
+            .request
+            .has_signal(VortexStagedManifestFileSignal::DraftBlocked)
+        {
+            VortexStagedManifestFileStatus::BlockedByDraft
+        } else if r
+            .request
+            .has_signal(VortexStagedManifestFileSignal::WorkspaceMissing)
+            || !r.workspace_known()
+        {
+            VortexStagedManifestFileStatus::BlockedByWorkspace
+        } else if r
+            .request
+            .has_signal(VortexStagedManifestFileSignal::MarkerMissing)
+            || !r.marker_written()
+        {
+            VortexStagedManifestFileStatus::BlockedByMarker
+        } else {
+            VortexStagedManifestFileStatus::FileReady
+        };
+        Ok(r)
+    }
+    #[must_use]
+    pub fn unsupported(
+        request: VortexStagedManifestFileRequest,
+        feature: impl Into<String>,
+        reason: impl Into<String>,
+    ) -> Self {
+        let mut r = Self {
+            status: VortexStagedManifestFileStatus::Unsupported,
+            mode: VortexStagedManifestFileMode::Unsupported,
+            request,
+            effects_performed: Vec::new(),
+            diagnostics: Vec::new(),
+        };
+        r.add_diagnostic(Diagnostic::unsupported(
+            DiagnosticCode::UnsupportedOutputFormat,
+            feature,
+            reason,
+            None,
+        ));
+        r
+    }
+    pub fn add_diagnostic(&mut self, d: Diagnostic) {
+        self.diagnostics.push(d);
+    }
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.status.is_error()
+            || self.request.has_errors()
+            || self.diagnostics.iter().any(|d| {
+                matches!(
+                    d.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+    #[must_use]
+    pub fn draft_ready(&self) -> bool {
+        self.request
+            .has_signal(VortexStagedManifestFileSignal::DraftReady)
+    }
+    #[must_use]
+    pub fn workspace_known(&self) -> bool {
+        self.request
+            .has_signal(VortexStagedManifestFileSignal::WorkspaceKnown)
+    }
+    #[must_use]
+    pub fn marker_written(&self) -> bool {
+        self.request
+            .has_signal(VortexStagedManifestFileSignal::MarkerWritten)
+    }
+    #[must_use]
+    pub fn local_workspace(&self) -> bool {
+        self.request
+            .has_signal(VortexStagedManifestFileSignal::LocalWorkspace)
+    }
+    #[must_use]
+    pub fn object_store_workspace(&self) -> bool {
+        self.request
+            .has_signal(VortexStagedManifestFileSignal::ObjectStoreWorkspace)
+    }
+    #[must_use]
+    pub const fn manifest_file_written(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn output_data_written(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn object_store_io(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn upstream_vortex_write_called(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn commit_performed(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn fallback_execution_allowed(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn allows_file_write(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub fn is_side_effect_free(&self) -> bool {
+        self.effects_performed.is_empty() && !self.fallback_execution_allowed()
+    }
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        let mut t = String::new();
+        let _ = writeln!(t, "Vortex staged manifest file plan");
+        let _ = writeln!(t, "status: {}", self.status.as_str());
+        let _ = writeln!(t, "mode: {}", self.mode.as_str());
+        let _ = writeln!(t, "file path: {}", self.request.file_ref.path_string());
+        let _ = writeln!(t, "content length: {}", self.request.draft_content.len());
+        let _ = writeln!(
+            t,
+            "content checksum: {}",
+            self.request.draft_content.checksum_u64()
+        );
+        let _ = writeln!(t, "draft ready: {}", self.draft_ready());
+        let _ = writeln!(t, "workspace known: {}", self.workspace_known());
+        let _ = writeln!(t, "marker written: {}", self.marker_written());
+        let _ = writeln!(t, "local workspace: {}", self.local_workspace());
+        let _ = writeln!(
+            t,
+            "object-store workspace: {}",
+            self.object_store_workspace()
+        );
+        let _ = writeln!(t, "manifest file written: false");
+        let _ = writeln!(t, "output data written: false");
+        let _ = writeln!(t, "object-store IO: false");
+        let _ = writeln!(t, "upstream Vortex write called: false");
+        let _ = writeln!(t, "commit performed: false");
+        let _ = write!(t, "fallback execution: disabled");
+        if self.request.diagnostics.is_empty() && self.diagnostics.is_empty() {
+            let _ = write!(t, "\ndiagnostics: none");
+        } else {
+            let _ = write!(t, "\ndiagnostics:");
+            for d in self
+                .request
+                .diagnostics
+                .iter()
+                .chain(self.diagnostics.iter())
+            {
+                let _ = write!(t, "\n- {}", d.to_human_text());
+            }
+        }
+        t
+    }
+}
+
+/// # Errors
+/// Propagates errors from [`VortexStagedManifestFileReport::from_request`].
+pub fn plan_vortex_staged_manifest_file(
+    request: VortexStagedManifestFileRequest,
+) -> Result<VortexStagedManifestFileReport> {
+    VortexStagedManifestFileReport::from_request(request)
+}
+#[must_use]
+pub fn vortex_staged_manifest_file_is_side_effect_free(
+    report: &VortexStagedManifestFileReport,
+) -> bool {
+    report.is_side_effect_free()
+}
+
+/// # Errors
+/// Propagates errors from draft-content and file-name validation.
+pub fn staged_manifest_file_request_from_reports(
+    workspace_path: crate::VortexStagedWorkspacePath,
+    draft: &VortexStagedManifestDraftReport,
+    workspace: Option<&crate::VortexStagedWorkspaceSetupReport>,
+    marker: Option<&crate::VortexStagedMarkerReport>,
+) -> Result<VortexStagedManifestFileRequest> {
+    let file_ref = VortexStagedManifestFileRef::default_for_workspace(workspace_path);
+    let draft_content = VortexStagedManifestDraftContent::from_report_summary(draft)?;
+    let mut request = VortexStagedManifestFileRequest::new(file_ref, draft_content)
+        .with_draft_summary(draft.request.summary());
+    request.add_signal(
+        VortexStagedManifestFileSignal::DraftBlocked,
+        draft.has_errors(),
+    );
+    request.add_signal(
+        VortexStagedManifestFileSignal::DraftReady,
+        !draft.has_errors() && matches!(draft.status, VortexStagedManifestDraftStatus::DraftReady),
+    );
+    if let Some(w) = workspace {
+        request.workspace_summary = Some(w.request.summary());
+        request.add_signal(
+            VortexStagedManifestFileSignal::WorkspaceKnown,
+            w.workspace_created() || !w.has_errors(),
+        );
+        request.add_signal(
+            VortexStagedManifestFileSignal::WorkspaceMissing,
+            w.has_errors(),
+        );
+    } else {
+        request.add_signal(VortexStagedManifestFileSignal::WorkspaceMissing, true);
+    }
+    if let Some(m) = marker {
+        request.marker_summary = Some(m.request.summary());
+        request.add_signal(
+            VortexStagedManifestFileSignal::MarkerWritten,
+            m.marker_written(),
+        );
+        request.add_signal(
+            VortexStagedManifestFileSignal::MarkerMissing,
+            !m.marker_written(),
+        );
+    } else {
+        request.add_signal(VortexStagedManifestFileSignal::MarkerMissing, true);
+    }
+    request.add_signal(
+        VortexStagedManifestFileSignal::ObjectStoreWorkspace,
+        draft.object_store_target(),
+    );
+    request.add_signal(
+        VortexStagedManifestFileSignal::LocalWorkspace,
+        !draft.object_store_target(),
+    );
+    Ok(request)
+}
+
+#[cfg(test)]
+mod staged_manifest_file_tests {
+    use super::*;
+
+    fn ws() -> crate::VortexStagedWorkspacePath {
+        crate::VortexStagedWorkspacePath::new("/tmp/ws").unwrap()
+    }
+
+    fn draft_report_ready() -> VortexStagedManifestDraftReport {
+        VortexStagedManifestDraftReport::from_request(
+            VortexStagedManifestDraftRequest::new(
+                DatasetUri::new("file://tmp/out.vortex").unwrap(),
+            )
+            .write_intent_planned(true)
+            .staged_output_planned(true)
+            .workspace_known(true)
+            .marker_written(true)
+            .schema_known(true)
+            .schema_compatible(true)
+            .delete_semantics_known(true)
+            .tombstone_semantics_known(true)
+            .commit_protocol_available(true),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn file_contract_basics() {
+        assert!(!VortexStagedManifestFileStatus::FileReady.allows_file_write());
+        assert!(VortexStagedManifestFileStatus::BlockedByDraft.is_error());
+        assert!(!VortexStagedManifestFileMode::ReportOnly.writes_manifest_file());
+        assert!(VortexStagedManifestFileName::new(" ").is_err());
+        assert!(VortexStagedManifestFileName::new("a/b").is_err());
+        assert!(VortexStagedManifestFileName::new("a..b").is_err());
+        assert_eq!(
+            VortexStagedManifestFileName::default_draft().as_str(),
+            "_shardloom_staged_manifest_draft.json"
+        );
+        let rf = VortexStagedManifestFileRef::default_for_workspace(ws());
+        assert_eq!(
+            rf.path_string(),
+            "/tmp/ws/_shardloom_staged_manifest_draft.json"
+        );
+    }
+
+    #[test]
+    fn draft_content_checks() {
+        assert!(VortexStagedManifestDraftContent::new(" ").is_err());
+        assert!(VortexStagedManifestDraftContent::new("x".repeat(70000)).is_err());
+        let c = VortexStagedManifestDraftContent::new("hello").unwrap();
+        assert_eq!(
+            c.checksum_u64(),
+            VortexStagedManifestDraftContent::new("hello")
+                .unwrap()
+                .checksum_u64()
+        );
+    }
+
+    #[test]
+    fn request_and_report_no_io_behaviors() {
+        let mut req = VortexStagedManifestFileRequest::new(
+            VortexStagedManifestFileRef::default_for_workspace(ws()),
+            VortexStagedManifestDraftContent::new("ok").unwrap(),
+        );
+        req.add_signal(VortexStagedManifestFileSignal::DraftReady, true);
+        req.add_signal(VortexStagedManifestFileSignal::DraftReady, true);
+        req.add_signal(VortexStagedManifestFileSignal::DraftReady, false);
+        assert!(!req.has_signal(VortexStagedManifestFileSignal::DraftReady));
+
+        let report = VortexStagedManifestFileReport::from_request(
+            VortexStagedManifestFileRequest::new(
+                VortexStagedManifestFileRef::default_for_workspace(ws()),
+                VortexStagedManifestDraftContent::new("ok").unwrap(),
+            )
+            .draft_ready(true)
+            .workspace_known(true)
+            .marker_written(true),
+        )
+        .unwrap();
+        assert_eq!(report.status, VortexStagedManifestFileStatus::FileReady);
+        assert!(!report.allows_file_write());
+        assert!(!report.manifest_file_written());
+        assert!(!report.output_data_written());
+        assert!(!report.object_store_io());
+        assert!(!report.upstream_vortex_write_called());
+        assert!(!report.commit_performed());
+        assert!(!report.fallback_execution_allowed());
+        assert!(report.is_side_effect_free());
+        assert!(
+            report
+                .to_human_text()
+                .contains("fallback execution: disabled")
+        );
+        assert!(
+            report
+                .to_human_text()
+                .contains("manifest file written: false")
+        );
+    }
+
+    #[test]
+    fn report_status_priority() {
+        let base = VortexStagedManifestFileRequest::new(
+            VortexStagedManifestFileRef::default_for_workspace(ws()),
+            VortexStagedManifestDraftContent::new("ok").unwrap(),
+        )
+        .draft_ready(true)
+        .workspace_known(true)
+        .marker_written(true);
+        assert_eq!(
+            VortexStagedManifestFileReport::from_request(base.clone().object_store_workspace(true))
+                .unwrap()
+                .status,
+            VortexStagedManifestFileStatus::BlockedByObjectStoreTarget
+        );
+        assert_eq!(
+            VortexStagedManifestFileReport::from_request(base.clone().draft_blocked(true))
+                .unwrap()
+                .status,
+            VortexStagedManifestFileStatus::BlockedByDraft
+        );
+        assert_eq!(
+            VortexStagedManifestFileReport::from_request(base.clone().workspace_known(false))
+                .unwrap()
+                .status,
+            VortexStagedManifestFileStatus::BlockedByWorkspace
+        );
+        assert_eq!(
+            VortexStagedManifestFileReport::from_request(base.clone().marker_written(false))
+                .unwrap()
+                .status,
+            VortexStagedManifestFileStatus::BlockedByMarker
+        );
+    }
+
+    #[test]
+    fn helper_from_reports_mapping() {
+        let draft = draft_report_ready();
+        let req = staged_manifest_file_request_from_reports(ws(), &draft, None, None).unwrap();
+        assert!(req.has_signal(VortexStagedManifestFileSignal::MarkerMissing));
+        let mut marker =
+            crate::VortexStagedMarkerReport::planned(crate::VortexStagedMarkerRequest::new(
+                crate::VortexStagedWorkspaceId::new("ws").unwrap(),
+                ws(),
+            ));
+        marker.status = crate::VortexStagedMarkerStatus::MarkerWritten;
+        marker
+            .effects_performed
+            .push(crate::VortexStagedOutputEffect::MarkerWritten);
+        let req2 =
+            staged_manifest_file_request_from_reports(ws(), &draft, None, Some(&marker)).unwrap();
+        assert!(req2.has_signal(VortexStagedManifestFileSignal::MarkerWritten));
+
+        let mut blocked = draft.clone();
+        blocked.add_diagnostic(Diagnostic::unsupported(
+            DiagnosticCode::UnsupportedOutputFormat,
+            "staged_manifest_file",
+            "e",
+            None,
+        ));
+        let req3 = staged_manifest_file_request_from_reports(ws(), &blocked, None, None).unwrap();
+        assert!(req3.has_signal(VortexStagedManifestFileSignal::DraftBlocked));
+
+        let rep = plan_vortex_staged_manifest_file(
+            VortexStagedManifestFileRequest::new(
+                VortexStagedManifestFileRef::default_for_workspace(ws()),
+                VortexStagedManifestDraftContent::new("ok").unwrap(),
+            )
+            .draft_ready(true)
+            .workspace_known(true)
+            .marker_written(true),
+        )
+        .unwrap();
+        assert!(vortex_staged_manifest_file_is_side_effect_free(&rep));
     }
 }
