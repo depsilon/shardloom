@@ -409,6 +409,11 @@ impl VortexCommitIntentReport {
             || !report.cancellation_gate_open()
         {
             VortexCommitIntentStatus::BlockedByCancellationGate
+        } else if !report
+            .request
+            .has_signal(VortexCommitIntentSignal::FeatureGateEnabled)
+        {
+            VortexCommitIntentStatus::BlockedByFeatureGate
         } else {
             VortexCommitIntentStatus::CommitReady
         };
@@ -636,14 +641,128 @@ pub fn commit_intent_request_from_reports(
     );
     request.add_signal(
         VortexCommitIntentSignal::StagedManifestDraftMissing,
-        !staged_manifest_write.draft_file_written() || staged_manifest_write.has_errors(),
+        !staged_manifest_write.draft_file_written(),
+    );
+    request.add_signal(
+        VortexCommitIntentSignal::ObjectStoreTarget,
+        staged_manifest_write.object_store_target(),
+    );
+    request.add_signal(
+        VortexCommitIntentSignal::FeatureGateEnabled,
+        staged_manifest_write
+            .request
+            .has_signal(crate::VortexStagedManifestFileWriteSignal::FeatureGateEnabled),
     );
     request
+        .diagnostics
+        .extend(staged_manifest_write.diagnostics.clone());
+    request
+}
+
+#[must_use]
+pub fn commit_intent_request_with_recovery_report(
+    mut request: VortexCommitIntentRequest,
+    recovery: &shardloom_exec::recovery::ShardLoomRecoveryIntegrationReport,
+) -> VortexCommitIntentRequest {
+    let recovery_ready = recovery.is_side_effect_free()
+        && !recovery.has_errors()
+        && recovery.unknown_artifact_count == 0;
+    request = request
+        .recovery_ready(recovery_ready)
+        .recovery_blocked(!recovery_ready)
+        .with_recovery_summary(recovery.to_human_text());
+    request.diagnostics.extend(recovery.diagnostics.clone());
+    request
+}
+
+#[must_use]
+pub fn commit_intent_request_with_retry_gate_report(
+    mut request: VortexCommitIntentRequest,
+    retry_gate: &shardloom_exec::ShardLoomRetryExecutionGateReport,
+) -> VortexCommitIntentRequest {
+    let retry_gate_open = retry_gate.retry_gate_open()
+        && retry_gate.is_side_effect_free()
+        && !retry_gate.has_errors();
+    request = request
+        .retry_gate_open(retry_gate_open)
+        .retry_gate_closed(!retry_gate_open)
+        .with_retry_gate_summary(retry_gate.to_human_text());
+    request.diagnostics.extend(retry_gate.diagnostics.clone());
+    request
+}
+
+#[must_use]
+pub fn commit_intent_request_with_cancellation_gate_report(
+    mut request: VortexCommitIntentRequest,
+    cancellation_gate: &shardloom_exec::ShardLoomCancellationExecutionGateReport,
+) -> VortexCommitIntentRequest {
+    let cancellation_gate_open = cancellation_gate.is_side_effect_free()
+        && !cancellation_gate.has_errors()
+        && (cancellation_gate.cancellation_gate_open()
+            || !cancellation_gate.cancellation_requested());
+    request = request
+        .cancellation_gate_open(cancellation_gate_open)
+        .cancellation_gate_closed(!cancellation_gate_open)
+        .with_cancellation_gate_summary(cancellation_gate.to_human_text());
+    request
+        .diagnostics
+        .extend(cancellation_gate.diagnostics.clone());
+    request
+}
+
+#[must_use]
+pub fn commit_intent_request_from_readiness_reports(
+    target_uri: DatasetUri,
+    staged_manifest_write: &crate::VortexStagedManifestFileWriteReport,
+    recovery: Option<&shardloom_exec::recovery::ShardLoomRecoveryIntegrationReport>,
+    retry_gate: Option<&shardloom_exec::ShardLoomRetryExecutionGateReport>,
+    cancellation_gate: Option<&shardloom_exec::ShardLoomCancellationExecutionGateReport>,
+) -> VortexCommitIntentRequest {
+    let mut request = commit_intent_request_from_reports(target_uri, staged_manifest_write);
+    request = match recovery {
+        Some(report) => commit_intent_request_with_recovery_report(request, report),
+        None => request.recovery_blocked(true),
+    };
+    request = match retry_gate {
+        Some(report) => commit_intent_request_with_retry_gate_report(request, report),
+        None => request.retry_gate_closed(true),
+    };
+    match cancellation_gate {
+        Some(report) => commit_intent_request_with_cancellation_gate_report(request, report),
+        None => request.cancellation_gate_closed(true),
+    }
+}
+
+/// # Errors
+/// Propagates errors from [`plan_vortex_commit_intent`].
+pub fn plan_vortex_commit_intent_from_readiness_reports(
+    target_uri: DatasetUri,
+    staged_manifest_write: &crate::VortexStagedManifestFileWriteReport,
+    recovery: Option<&shardloom_exec::recovery::ShardLoomRecoveryIntegrationReport>,
+    retry_gate: Option<&shardloom_exec::ShardLoomRetryExecutionGateReport>,
+    cancellation_gate: Option<&shardloom_exec::ShardLoomCancellationExecutionGateReport>,
+) -> Result<VortexCommitIntentReport> {
+    let request = commit_intent_request_from_readiness_reports(
+        target_uri,
+        staged_manifest_write,
+        recovery,
+        retry_gate,
+        cancellation_gate,
+    );
+    plan_vortex_commit_intent(request)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use shardloom_exec::{
+        ShardLoomCancellationExecutionGateRequest, ShardLoomRetryExecutionGateRequest,
+        plan_cancellation_execution_gate, plan_retry_execution_gate,
+        recovery::{
+            RecoveryArtifactRef, ShardLoomRecoveryIntegrationReport,
+            ShardLoomRecoveryIntegrationRequest,
+        },
+    };
     fn uri() -> DatasetUri {
         DatasetUri::new("file:///tmp/t.vortex").expect("uri")
     }
@@ -660,6 +779,7 @@ mod tests {
             .recovery_ready(true)
             .retry_gate_open(true)
             .cancellation_gate_open(true)
+            .feature_gate_enabled(true)
     }
     #[test]
     fn status_ready_disallows_exec() {
@@ -837,10 +957,30 @@ mod tests {
                     .recovery_ready(true)
                     .retry_gate_open(true)
                     .cancellation_gate_closed(true)
+                    .feature_gate_enabled(true)
             )
             .expect("r")
             .status,
             VortexCommitIntentStatus::BlockedByCancellationGate
+        );
+        assert_eq!(
+            VortexCommitIntentReport::from_request(
+                VortexCommitIntentRequest::new(uri())
+                    .commit_requested(true)
+                    .staged_manifest_draft_written(true)
+                    .manifest_finalization_available(true)
+                    .commit_protocol_available(true)
+                    .schema_known(true)
+                    .schema_compatible(true)
+                    .delete_semantics_known(true)
+                    .tombstone_semantics_known(true)
+                    .recovery_ready(true)
+                    .retry_gate_open(true)
+                    .cancellation_gate_open(true)
+            )
+            .expect("r")
+            .status,
+            VortexCommitIntentStatus::BlockedByFeatureGate
         );
     }
 
@@ -888,7 +1028,8 @@ mod tests {
             crate::VortexStagedManifestDraftContent::new("d").expect("c"),
         )
         .file_plan_ready(true)
-        .workspace_known(true);
+        .workspace_known(true)
+        .feature_gate_enabled(true);
         let stage =
             crate::VortexStagedManifestFileWriteReport::from_request(file_req).expect("stage");
         let mut stage = stage;
@@ -897,7 +1038,119 @@ mod tests {
             .push(crate::VortexStagedManifestFileWriteEffect::DraftFileWritten);
         let req = commit_intent_request_from_reports(uri(), &stage);
         assert!(req.has_signal(VortexCommitIntentSignal::StagedManifestDraftWritten));
+        assert!(req.has_signal(VortexCommitIntentSignal::FeatureGateEnabled));
         let rep = VortexCommitIntentReport::from_request(req.commit_requested(true)).expect("rep");
         assert!(!rep.manifest_committed());
+    }
+
+    #[test]
+    fn readiness_helpers_map_recovery_retry_and_cancellation() {
+        let recovery = ShardLoomRecoveryIntegrationReport::from_request(
+            ShardLoomRecoveryIntegrationRequest::new(),
+        )
+        .expect("recovery");
+        let req = commit_intent_request_with_recovery_report(
+            VortexCommitIntentRequest::new(uri()),
+            &recovery,
+        );
+        assert!(req.has_signal(VortexCommitIntentSignal::RecoveryReady));
+
+        let mut recovery_unknown_req = ShardLoomRecoveryIntegrationRequest::new();
+        recovery_unknown_req.add_artifact(RecoveryArtifactRef::unknown(
+            "artifact-unknown",
+            "unknown artifact",
+        ));
+        let recovery_unknown =
+            ShardLoomRecoveryIntegrationReport::from_request(recovery_unknown_req).expect("report");
+        let req = commit_intent_request_with_recovery_report(
+            VortexCommitIntentRequest::new(uri()),
+            &recovery_unknown,
+        );
+        assert!(req.has_signal(VortexCommitIntentSignal::RecoveryBlocked));
+
+        let retry_open = plan_retry_execution_gate(
+            ShardLoomRetryExecutionGateRequest::new()
+                .retry_requested(true)
+                .retry_allowed_by_plan(true),
+        )
+        .expect("retry open");
+        let req = commit_intent_request_with_retry_gate_report(
+            VortexCommitIntentRequest::new(uri()),
+            &retry_open,
+        );
+        assert!(req.has_signal(VortexCommitIntentSignal::RetryGateOpen));
+
+        let retry_closed = plan_retry_execution_gate(ShardLoomRetryExecutionGateRequest::new())
+            .expect("retry closed");
+        let req = commit_intent_request_with_retry_gate_report(
+            VortexCommitIntentRequest::new(uri()),
+            &retry_closed,
+        );
+        assert!(req.has_signal(VortexCommitIntentSignal::RetryGateClosed));
+
+        let cancellation_open = plan_cancellation_execution_gate(
+            ShardLoomCancellationExecutionGateRequest::new().cancellation_requested(true),
+        )
+        .expect("cancel open");
+        let req = commit_intent_request_with_cancellation_gate_report(
+            VortexCommitIntentRequest::new(uri()),
+            &cancellation_open,
+        );
+        assert!(req.has_signal(VortexCommitIntentSignal::CancellationGateOpen));
+
+        let cancellation_not_requested =
+            plan_cancellation_execution_gate(ShardLoomCancellationExecutionGateRequest::new())
+                .expect("cancel not requested");
+        let req = commit_intent_request_with_cancellation_gate_report(
+            VortexCommitIntentRequest::new(uri()),
+            &cancellation_not_requested,
+        );
+        assert!(req.has_signal(VortexCommitIntentSignal::CancellationGateOpen));
+
+        let cancellation_blocked = plan_cancellation_execution_gate(
+            ShardLoomCancellationExecutionGateRequest::new()
+                .cancellation_requested(true)
+                .cleanup_required(true),
+        )
+        .expect("cancel blocked");
+        let req = commit_intent_request_with_cancellation_gate_report(
+            VortexCommitIntentRequest::new(uri()),
+            &cancellation_blocked,
+        );
+        assert!(req.has_signal(VortexCommitIntentSignal::CancellationGateClosed));
+    }
+
+    #[test]
+    fn readiness_combined_helpers_keep_staged_manifest_and_block_on_missing_inputs() {
+        let file_req = crate::VortexStagedManifestFileWriteRequest::new(
+            crate::VortexStagedManifestFileRef::new(
+                crate::VortexStagedWorkspacePath::new("/tmp/w").expect("p"),
+                crate::VortexStagedManifestFileName::new("manifest.draft").expect("n"),
+            ),
+            crate::VortexStagedManifestDraftContent::new("d").expect("c"),
+        )
+        .file_plan_ready(true)
+        .workspace_known(true);
+        let mut staged =
+            crate::VortexStagedManifestFileWriteReport::from_request(file_req).expect("stage");
+        staged
+            .effects_performed
+            .push(crate::VortexStagedManifestFileWriteEffect::DraftFileWritten);
+
+        let request =
+            commit_intent_request_from_readiness_reports(uri(), &staged, None, None, None);
+        assert!(request.has_signal(VortexCommitIntentSignal::StagedManifestDraftWritten));
+        let report =
+            plan_vortex_commit_intent_from_readiness_reports(uri(), &staged, None, None, None)
+                .expect("report");
+        assert_ne!(report.status, VortexCommitIntentStatus::CommitReady);
+        assert!(report.is_side_effect_free());
+        assert!(!report.manifest_committed());
+        assert!(!report.manifest_finalized());
+        assert!(!report.output_data_written());
+        assert!(!report.object_store_io());
+        assert!(!report.upstream_vortex_write_called());
+        assert!(!report.recovery_action_executed());
+        assert!(!report.fallback_execution_allowed());
     }
 }

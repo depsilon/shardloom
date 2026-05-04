@@ -456,3 +456,14 @@ No spill data movement is implemented in this phase.
 - This phase does not call upstream `Vortex` write APIs.
 - This phase does not perform object-store IO.
 - This phase does not enable fallback execution.
+
+## Commit intent readiness integration
+
+- `ShardLoom` commit intent can derive readiness from `VortexStagedManifestFileWriteReport`, `ShardLoomRecoveryIntegrationReport`, `ShardLoomRetryExecutionGateReport`, and `ShardLoomCancellationExecutionGateReport`.
+- Missing or blocked recovery/gate reports remain explicit commit blockers.
+- Commit intent remains report-only.
+- No manifest finalization is executed.
+- No output data is written.
+- No upstream `Vortex` write APIs are called.
+- No object-store IO is performed.
+- Fallback execution remains disabled.
