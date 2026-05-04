@@ -4,7 +4,7 @@
 
 - Production-grade engine completion estimate: approximately 37–38%.
 - Architecture/control-plane completion estimate: approximately 97%.
-- Current checkpoint: Phase 12A.2c.2 — staged marker CLI/docs integration.
+- Current checkpoint: Phase 12A.3b.2a — staged manifest file write contract (report-only, no filesystem writes).
 - Immediate focus: keep write execution disabled while distinguishing `BlockedByCommitProtocol` from `StagedOutputRequired`.
 
 ## Cross-cutting epic legend
@@ -856,4 +856,11 @@ Must include:
 - Phase 12A.3a complete.
 - Phase 12A.3b.1 current: staged manifest draft file path/content contract (report-only, no filesystem writes).
 - Phase 12A.3b.2 planned.
+- Phase 12A.3c planned.
+
+## Phase 12A.3b.2 update
+
+- Phase 12A.3b.1 complete.
+- Phase 12A.3b.2a current: staged manifest file write contract (report-only, no filesystem writes).
+- Phase 12A.3b.2b planned: feature-gated local draft-file write execution.
 - Phase 12A.3c planned.

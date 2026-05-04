@@ -258,6 +258,14 @@ This begins visible engine behavior without broad query execution.
 ## Metadata-filtered count primitive
 - `CountWhere` can be answered from metadata only when predicate proof is decisive.
 - Missing or inconclusive stats return `NeedsEncodedRead` / `NeedsPredicateEvaluation`.
+
+## Staged manifest file write contract
+
+- This is a report-only write contract for `ShardLoom` `Vortex` staged manifest draft-file flows.
+- It does not write the draft file yet.
+- It models blockers and future write eligibility through `VortexStagedManifestFileWriteRequest` and `VortexStagedManifestFileWriteReport`.
+- It keeps output-data writes, object-store IO, upstream `Vortex` write calls, and fallback execution disabled.
+- Actual feature-gated local draft-file write execution is Phase 12A.3b.2b.
 - No selectivity guessing.
 - No scan, decode, or materialization is introduced.
 
