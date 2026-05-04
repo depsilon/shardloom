@@ -2416,7 +2416,17 @@ impl ShardLoomRetryExecutionGateStatus {
     }
     #[must_use]
     pub const fn is_error(&self) -> bool {
-        !matches!(self, Self::GateOpen)
+        matches!(
+            self,
+            Self::GateClosedCleanupRequired
+                | Self::GateClosedUnknownArtifact
+                | Self::GateClosedExternalEffect
+                | Self::GateClosedRetryNotAllowed
+                | Self::GateClosedCancellationRequested
+                | Self::GateClosedObjectStoreRecovery
+                | Self::GateClosedOutputRecovery
+                | Self::Unsupported
+        )
     }
     #[must_use]
     pub const fn gate_open(&self) -> bool {
@@ -3558,6 +3568,7 @@ mod tests {
             not_requested.status,
             ShardLoomRetryExecutionGateStatus::GateClosedRetryNotRequested
         );
+        assert!(!not_requested.has_errors());
         let not_allowed = ShardLoomRetryExecutionGateReport::from_request(
             ShardLoomRetryExecutionGateRequest::new().retry_requested(true),
         )
