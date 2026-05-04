@@ -1556,6 +1556,328 @@ pub fn recovery_integration_is_side_effect_free(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShardLoomCleanupExecutionEffect {
+    CleanupExecuted,
+    RetryExecuted,
+    CancellationExecuted,
+    ExternalEffectExecuted,
+    ObjectStoreIo,
+    OutputDatasetWrite,
+    FallbackExecution,
+}
+impl ShardLoomCleanupExecutionEffect {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::CleanupExecuted => "cleanup_executed",
+            Self::RetryExecuted => "retry_executed",
+            Self::CancellationExecuted => "cancellation_executed",
+            Self::ExternalEffectExecuted => "external_effect_executed",
+            Self::ObjectStoreIo => "object_store_io",
+            Self::OutputDatasetWrite => "output_dataset_write",
+            Self::FallbackExecution => "fallback_execution",
+        }
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShardLoomCleanupExecutionStatus {
+    Planned,
+    FeatureDisabled,
+    CleanupRequired,
+    CleanupNotRequired,
+    CleanupWouldExecute,
+    BlockedByUnknownArtifact,
+    BlockedByUnsupportedArtifact,
+    BlockedByMissingArtifact,
+    BlockedByPolicy,
+    Unsupported,
+}
+impl ShardLoomCleanupExecutionStatus {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Planned => "planned",
+            Self::FeatureDisabled => "feature_disabled",
+            Self::CleanupRequired => "cleanup_required",
+            Self::CleanupNotRequired => "cleanup_not_required",
+            Self::CleanupWouldExecute => "cleanup_would_execute",
+            Self::BlockedByUnknownArtifact => "blocked_by_unknown_artifact",
+            Self::BlockedByUnsupportedArtifact => "blocked_by_unsupported_artifact",
+            Self::BlockedByMissingArtifact => "blocked_by_missing_artifact",
+            Self::BlockedByPolicy => "blocked_by_policy",
+            Self::Unsupported => "unsupported",
+        }
+    }
+    pub const fn is_error(&self) -> bool {
+        matches!(
+            self,
+            Self::BlockedByUnknownArtifact
+                | Self::BlockedByUnsupportedArtifact
+                | Self::BlockedByMissingArtifact
+                | Self::BlockedByPolicy
+                | Self::Unsupported
+        )
+    }
+    pub const fn cleanup_would_execute(&self) -> bool {
+        matches!(self, Self::CleanupWouldExecute)
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShardLoomCleanupExecutionMode {
+    ReportOnly,
+    CleanupPlanOnly,
+    Unsupported,
+}
+impl ShardLoomCleanupExecutionMode {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::ReportOnly => "report_only",
+            Self::CleanupPlanOnly => "cleanup_plan_only",
+            Self::Unsupported => "unsupported",
+        }
+    }
+    pub const fn executes_cleanup(&self) -> bool {
+        false
+    }
+    pub const fn executes_retry(&self) -> bool {
+        false
+    }
+    pub const fn executes_cancellation(&self) -> bool {
+        false
+    }
+    pub const fn touches_object_store(&self) -> bool {
+        false
+    }
+    pub const fn writes_output_dataset(&self) -> bool {
+        false
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CleanupExecutionOption {
+    AllowSyntheticPayloadCleanup,
+}
+impl CleanupExecutionOption {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::AllowSyntheticPayloadCleanup => "allow_synthetic_payload_cleanup",
+        }
+    }
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct ShardLoomCleanupExecutionRequest {
+    pub artifact: RecoveryArtifactRef,
+    pub options: Vec<CleanupExecutionOption>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl ShardLoomCleanupExecutionRequest {
+    pub fn new(artifact: RecoveryArtifactRef) -> Self {
+        Self {
+            artifact,
+            options: vec![],
+            diagnostics: vec![],
+        }
+    }
+    pub fn allow_synthetic_payload_cleanup(mut self, value: bool) -> Self {
+        self.options
+            .retain(|option| *option != CleanupExecutionOption::AllowSyntheticPayloadCleanup);
+        if value {
+            self.options
+                .push(CleanupExecutionOption::AllowSyntheticPayloadCleanup);
+        }
+        self
+    }
+    pub fn has_option(&self, option: CleanupExecutionOption) -> bool {
+        self.options.contains(&option)
+    }
+    pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
+    }
+    pub fn has_errors(&self) -> bool {
+        self.artifact.has_errors() || has_error_diagnostics(&self.diagnostics)
+    }
+    pub fn summary(&self) -> String {
+        format!(
+            "{} options={}",
+            self.artifact.summary(),
+            self.options
+                .iter()
+                .map(CleanupExecutionOption::as_str)
+                .collect::<Vec<_>>()
+                .join(",")
+        )
+    }
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct ShardLoomCleanupExecutionReport {
+    pub status: ShardLoomCleanupExecutionStatus,
+    pub mode: ShardLoomCleanupExecutionMode,
+    pub request: ShardLoomCleanupExecutionRequest,
+    pub effects_performed: Vec<ShardLoomCleanupExecutionEffect>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl ShardLoomCleanupExecutionReport {
+    /// # Errors
+    /// Returns an error only if planning metadata cannot be derived from the request.
+    pub fn from_request(request: ShardLoomCleanupExecutionRequest) -> Result<Self> {
+        match request.artifact.kind {
+            RecoveryArtifactKind::Unknown => Ok(Self::blocked(
+                request,
+                ShardLoomCleanupExecutionStatus::BlockedByUnknownArtifact,
+                "artifact kind is unknown",
+            )),
+            RecoveryArtifactKind::SyntheticSpillPayload => {
+                if request.has_option(CleanupExecutionOption::AllowSyntheticPayloadCleanup) {
+                    Ok(Self::cleanup_would_execute(request))
+                } else {
+                    Ok(Self::blocked(
+                        request,
+                        ShardLoomCleanupExecutionStatus::BlockedByPolicy,
+                        "synthetic payload cleanup must be explicitly enabled in planning options",
+                    ))
+                }
+            }
+            RecoveryArtifactKind::SpillWorkspace
+            | RecoveryArtifactKind::SpillMarker
+            | RecoveryArtifactKind::TemporaryOutput
+            | RecoveryArtifactKind::PartialOutput => Ok(Self::blocked(
+                request,
+                ShardLoomCleanupExecutionStatus::BlockedByUnsupportedArtifact,
+                "cleanup execution for this artifact kind is not implemented in this phase",
+            )),
+        }
+    }
+    pub fn planned(request: ShardLoomCleanupExecutionRequest) -> Self {
+        Self {
+            status: ShardLoomCleanupExecutionStatus::Planned,
+            mode: ShardLoomCleanupExecutionMode::ReportOnly,
+            request,
+            effects_performed: vec![],
+            diagnostics: vec![],
+        }
+    }
+    pub fn cleanup_not_required(request: ShardLoomCleanupExecutionRequest) -> Self {
+        Self {
+            status: ShardLoomCleanupExecutionStatus::CleanupNotRequired,
+            mode: ShardLoomCleanupExecutionMode::ReportOnly,
+            request,
+            effects_performed: vec![],
+            diagnostics: vec![],
+        }
+    }
+    pub fn cleanup_would_execute(request: ShardLoomCleanupExecutionRequest) -> Self {
+        Self {
+            status: ShardLoomCleanupExecutionStatus::CleanupWouldExecute,
+            mode: ShardLoomCleanupExecutionMode::CleanupPlanOnly,
+            request,
+            effects_performed: vec![],
+            diagnostics: vec![],
+        }
+    }
+    pub fn blocked(
+        request: ShardLoomCleanupExecutionRequest,
+        status: ShardLoomCleanupExecutionStatus,
+        reason: impl Into<String>,
+    ) -> Self {
+        let mut out = Self {
+            status,
+            mode: ShardLoomCleanupExecutionMode::ReportOnly,
+            request,
+            effects_performed: vec![],
+            diagnostics: vec![],
+        };
+        out.add_diagnostic(unsupported_diagnostic("cleanup_execution", reason));
+        out
+    }
+    pub fn unsupported(
+        request: ShardLoomCleanupExecutionRequest,
+        feature: impl Into<String>,
+        reason: impl Into<String>,
+    ) -> Self {
+        let mut out = Self {
+            status: ShardLoomCleanupExecutionStatus::Unsupported,
+            mode: ShardLoomCleanupExecutionMode::Unsupported,
+            request,
+            effects_performed: vec![],
+            diagnostics: vec![],
+        };
+        out.add_diagnostic(unsupported_diagnostic(feature, reason));
+        out
+    }
+    pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
+    }
+    pub fn has_errors(&self) -> bool {
+        self.status.is_error()
+            || self.request.has_errors()
+            || has_error_diagnostics(&self.diagnostics)
+    }
+    pub fn cleanup_executed(&self) -> bool {
+        self.effects_performed
+            .contains(&ShardLoomCleanupExecutionEffect::CleanupExecuted)
+    }
+    pub fn retry_executed(&self) -> bool {
+        self.effects_performed
+            .contains(&ShardLoomCleanupExecutionEffect::RetryExecuted)
+    }
+    pub fn cancellation_executed(&self) -> bool {
+        self.effects_performed
+            .contains(&ShardLoomCleanupExecutionEffect::CancellationExecuted)
+    }
+    pub fn external_effects_executed(&self) -> bool {
+        self.effects_performed
+            .contains(&ShardLoomCleanupExecutionEffect::ExternalEffectExecuted)
+    }
+    pub fn object_store_io(&self) -> bool {
+        self.effects_performed
+            .contains(&ShardLoomCleanupExecutionEffect::ObjectStoreIo)
+    }
+    pub fn output_dataset_write(&self) -> bool {
+        self.effects_performed
+            .contains(&ShardLoomCleanupExecutionEffect::OutputDatasetWrite)
+    }
+    pub fn fallback_execution_allowed(&self) -> bool {
+        self.effects_performed
+            .contains(&ShardLoomCleanupExecutionEffect::FallbackExecution)
+    }
+    pub fn is_side_effect_free(&self) -> bool {
+        self.effects_performed.is_empty() && !self.fallback_execution_allowed()
+    }
+    pub fn to_human_text(&self) -> String {
+        let mut out = String::new();
+        let _ = writeln!(out, "cleanup execution status: {}", self.status.as_str());
+        let _ = writeln!(out, "mode: {}", self.mode.as_str());
+        let _ = writeln!(out, "artifact: {}", self.request.artifact.summary());
+        let _ = write!(
+            out,
+            "cleanup executed: {}\nretry executed: {}\ncancellation executed: {}\nexternal effects executed: {}\nobject-store IO: {}\noutput dataset write: {}\nfallback execution: disabled",
+            self.cleanup_executed(),
+            self.retry_executed(),
+            self.cancellation_executed(),
+            self.external_effects_executed(),
+            self.object_store_io(),
+            self.output_dataset_write()
+        );
+        if !self.diagnostics.is_empty() {
+            let _ = writeln!(out, "\ndiagnostics:");
+            for diagnostic in &self.diagnostics {
+                let _ = writeln!(out, "- {}", diagnostic.message);
+            }
+        }
+        out
+    }
+}
+/// # Errors
+/// Returns an error when creating a `ShardLoomCleanupExecutionReport` from planning inputs fails.
+pub fn plan_cleanup_execution(
+    request: ShardLoomCleanupExecutionRequest,
+) -> Result<ShardLoomCleanupExecutionReport> {
+    ShardLoomCleanupExecutionReport::from_request(request)
+}
+pub fn cleanup_execution_plan_is_side_effect_free(
+    report: &ShardLoomCleanupExecutionReport,
+) -> bool {
+    report.is_side_effect_free()
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ShardLoomRetryCancellationStatus {
     Planned,
     RetryAllowed,
@@ -1980,6 +2302,8 @@ impl RecoveryReport {
 
 #[cfg(test)]
 mod tests {
+    use crate::{SpillPayloadFsRef, SpillPayloadId, SpillPayloadPath, SpillPayloadRef};
+
     use super::*;
     use shardloom_core::DatasetUri;
     fn task_id() -> TaskId {
@@ -1987,6 +2311,12 @@ mod tests {
     }
     fn output_target() -> OutputTarget {
         OutputTarget::from_uri(DatasetUri::new("file://tmp/out.vortex").expect("uri"))
+    }
+    fn spill_payload_fs_ref(payload_id: &str, workspace: &str) -> SpillPayloadFsRef {
+        let payload_id = SpillPayloadId::new(payload_id).expect("payload id");
+        let payload_ref = SpillPayloadRef::new(payload_id, workspace).expect("payload ref");
+        let workspace_path = SpillPayloadPath::new(workspace).expect("workspace path");
+        SpillPayloadFsRef::new(payload_ref, workspace_path)
     }
     #[test]
     fn attempt_id_rejects_empty_ids() {
@@ -2343,5 +2673,98 @@ mod tests {
             allowed_after_cleanup.status,
             ShardLoomRetryCancellationStatus::RetryAllowedAfterCleanup
         );
+    }
+    #[test]
+    fn cleanup_execution_status_would_execute_and_error_behaviors() {
+        assert!(ShardLoomCleanupExecutionStatus::CleanupWouldExecute.cleanup_would_execute());
+        assert!(ShardLoomCleanupExecutionStatus::BlockedByUnknownArtifact.is_error());
+    }
+    #[test]
+    fn cleanup_execution_mode_report_only_methods_are_false() {
+        assert!(!ShardLoomCleanupExecutionMode::ReportOnly.executes_cleanup());
+        assert!(!ShardLoomCleanupExecutionMode::ReportOnly.executes_retry());
+        assert!(!ShardLoomCleanupExecutionMode::ReportOnly.touches_object_store());
+    }
+    #[test]
+    fn cleanup_execution_request_option_defaults_and_setter_work() {
+        let request = ShardLoomCleanupExecutionRequest::new(RecoveryArtifactRef::unknown("a", "u"));
+        assert!(!request.has_option(CleanupExecutionOption::AllowSyntheticPayloadCleanup));
+        let request = request.allow_synthetic_payload_cleanup(true);
+        assert!(request.has_option(CleanupExecutionOption::AllowSyntheticPayloadCleanup));
+    }
+    #[test]
+    fn cleanup_execution_from_request_unknown_and_synthetic_policy() {
+        let unknown = ShardLoomCleanupExecutionReport::from_request(
+            ShardLoomCleanupExecutionRequest::new(RecoveryArtifactRef::unknown("u1", "unknown")),
+        )
+        .expect("report");
+        assert_eq!(
+            unknown.status,
+            ShardLoomCleanupExecutionStatus::BlockedByUnknownArtifact
+        );
+        let payload_ref = spill_payload_fs_ref("p1", "/tmp/p1");
+        let blocked =
+            ShardLoomCleanupExecutionReport::from_request(ShardLoomCleanupExecutionRequest::new(
+                RecoveryArtifactRef::synthetic_spill_payload(&payload_ref),
+            ))
+            .expect("report");
+        assert_eq!(
+            blocked.status,
+            ShardLoomCleanupExecutionStatus::BlockedByPolicy
+        );
+        let allowed = ShardLoomCleanupExecutionReport::from_request(
+            ShardLoomCleanupExecutionRequest::new(RecoveryArtifactRef::synthetic_spill_payload(
+                &payload_ref,
+            ))
+            .allow_synthetic_payload_cleanup(true),
+        )
+        .expect("report");
+        assert_eq!(
+            allowed.status,
+            ShardLoomCleanupExecutionStatus::CleanupWouldExecute
+        );
+    }
+    #[test]
+    fn cleanup_execution_report_side_effects_and_human_text() {
+        let payload_ref = spill_payload_fs_ref("p1", "/tmp/p1");
+        let mut report = ShardLoomCleanupExecutionReport::from_request(
+            ShardLoomCleanupExecutionRequest::new(RecoveryArtifactRef::synthetic_spill_payload(
+                &payload_ref,
+            ))
+            .allow_synthetic_payload_cleanup(true),
+        )
+        .expect("report");
+        assert!(!report.cleanup_executed());
+        assert!(!report.retry_executed());
+        assert!(!report.cancellation_executed());
+        assert!(!report.external_effects_executed());
+        assert!(!report.object_store_io());
+        assert!(!report.output_dataset_write());
+        assert!(!report.fallback_execution_allowed());
+        assert!(report.is_side_effect_free());
+        report.add_diagnostic(unsupported_diagnostic("cleanup_test", "diag-message"));
+        let text = report.to_human_text();
+        assert!(text.contains("fallback execution: disabled"));
+        assert!(text.contains("cleanup executed: false"));
+        assert!(text.contains("diagnostics:"));
+        assert!(text.contains("- "));
+    }
+    #[test]
+    fn cleanup_execution_unsupported_and_helpers() {
+        let unsupported = ShardLoomCleanupExecutionReport::unsupported(
+            ShardLoomCleanupExecutionRequest::new(RecoveryArtifactRef::unknown("u2", "unknown")),
+            "cleanup_exec",
+            "unsupported",
+        );
+        assert!(unsupported.has_errors());
+        assert!(!unsupported.fallback_execution_allowed());
+        let report = plan_cleanup_execution(
+            ShardLoomCleanupExecutionRequest::new(RecoveryArtifactRef::synthetic_spill_payload(
+                &spill_payload_fs_ref("p2", "/tmp/p2"),
+            ))
+            .allow_synthetic_payload_cleanup(true),
+        )
+        .expect("report");
+        assert!(cleanup_execution_plan_is_side_effect_free(&report));
     }
 }
