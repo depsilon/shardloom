@@ -351,8 +351,11 @@ No spill data movement is implemented in this phase.
 - Local `file://` staged workspace paths are normalized to local filesystem paths before checks and setup.
 - Existing valid workspace directories are reported as ready/confirmed planning state rather than newly created.
 - `WorkspaceCreated` effects are recorded only when setup actually creates the directory.
-- It does not write markers.
+- Under `vortex-staged-output-fs`, staged marker writes are feature-gated and local-path-only.
+- Marker writes are limited to one tiny deterministic marker file inside the known workspace.
 - It does not write output data.
 - It does not write manifests.
+- It does not call upstream `Vortex` write APIs.
+- It does not perform object-store IO.
 - It blocks object-store staged workspaces.
 - It requires future commit protocol before finalization.

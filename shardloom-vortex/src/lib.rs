@@ -125,13 +125,16 @@ pub use query_trace::{
     evaluate_vortex_query_primitive_with_analysis,
 };
 pub use staged_output::{
-    VortexStagedOutputEffect, VortexStagedOutputMode, VortexStagedOutputReport,
-    VortexStagedOutputRequest, VortexStagedOutputSignal, VortexStagedOutputStatus,
-    VortexStagedWorkspaceId, VortexStagedWorkspacePath, VortexStagedWorkspaceSetupMode,
-    VortexStagedWorkspaceSetupOption, VortexStagedWorkspaceSetupReport,
-    VortexStagedWorkspaceSetupRequest, VortexStagedWorkspaceSetupStatus, plan_vortex_staged_output,
-    setup_vortex_staged_workspace, staged_output_request_from_write_intent,
+    VortexStagedMarkerMode, VortexStagedMarkerOption, VortexStagedMarkerReport,
+    VortexStagedMarkerRequest, VortexStagedMarkerStatus, VortexStagedOutputEffect,
+    VortexStagedOutputMode, VortexStagedOutputReport, VortexStagedOutputRequest,
+    VortexStagedOutputSignal, VortexStagedOutputStatus, VortexStagedWorkspaceId,
+    VortexStagedWorkspacePath, VortexStagedWorkspaceSetupMode, VortexStagedWorkspaceSetupOption,
+    VortexStagedWorkspaceSetupReport, VortexStagedWorkspaceSetupRequest,
+    VortexStagedWorkspaceSetupStatus, plan_vortex_staged_output, setup_vortex_staged_workspace,
+    staged_output_request_from_write_intent, vortex_staged_marker_is_side_effect_free,
     vortex_staged_output_is_side_effect_free, vortex_staged_workspace_setup_is_side_effect_free,
+    write_vortex_staged_marker,
 };
 
 pub use write_intent::{
