@@ -4,7 +4,7 @@
 
 - Production-grade engine completion estimate: approximately 37–38%.
 - Architecture/control-plane completion estimate: approximately 97%.
-- Current checkpoint: Phase 12A.2a — staged output workspace core contract (report-only, no filesystem).
+- Current checkpoint: Phase 12A.2c.1 — staged output workspace setup CLI/docs integration.
 - Immediate focus: keep write execution disabled while distinguishing `BlockedByCommitProtocol` from `StagedOutputRequired`.
 
 ## Cross-cutting epic legend
@@ -846,5 +846,6 @@ Must include:
 - Phase 12A.2b.1a (feature gate and setup request/status scaffolding) is complete.
 - Phase 12A.2b.1b (staged workspace setup report/helper behavior) is complete.
 - Phase 12A.2b.1c (staged workspace setup path/effect correctness) is complete.
-- Phase 12A.2b.2 (feature-gated staged-output marker file) is current.
-- Phase 12A.2c (CLI surface for staged-output reporting) is planned.
+- Phase 12A.2b.2 (feature-gated staged-output marker file) is complete.
+- Phase 12A.2c.1 (staged output workspace setup CLI/docs integration) is current.
+- Phase 12A.2c.2 (staged marker CLI/report integration) is planned.
