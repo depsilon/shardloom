@@ -1381,6 +1381,538 @@ pub fn vortex_staged_manifest_file_is_side_effect_free(
 
 /// # Errors
 /// Propagates errors from draft-content and file-name validation.
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexStagedManifestFileWriteStatus {
+    Planned,
+    WriteWouldExecute,
+    BlockedByFilePlan,
+    BlockedByObjectStoreTarget,
+    BlockedByMissingWorkspace,
+    BlockedByExistingDraftFile,
+    BlockedByFeatureGate,
+    Unsupported,
+}
+impl VortexStagedManifestFileWriteStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Planned => "planned",
+            Self::WriteWouldExecute => "write_would_execute",
+            Self::BlockedByFilePlan => "blocked_by_file_plan",
+            Self::BlockedByObjectStoreTarget => "blocked_by_object_store_target",
+            Self::BlockedByMissingWorkspace => "blocked_by_missing_workspace",
+            Self::BlockedByExistingDraftFile => "blocked_by_existing_draft_file",
+            Self::BlockedByFeatureGate => "blocked_by_feature_gate",
+            Self::Unsupported => "unsupported",
+        }
+    }
+    #[must_use]
+    pub const fn is_error(self) -> bool {
+        !matches!(self, Self::Planned | Self::WriteWouldExecute)
+    }
+    #[must_use]
+    pub const fn allows_file_write(self) -> bool {
+        false
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexStagedManifestFileWriteMode {
+    ReportOnly,
+    WritePlanning,
+    Unsupported,
+}
+impl VortexStagedManifestFileWriteMode {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::ReportOnly => "report_only",
+            Self::WritePlanning => "write_planning",
+            Self::Unsupported => "unsupported",
+        }
+    }
+    #[must_use]
+    pub const fn writes_manifest_file(self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn writes_output_data(self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn writes_object_store(self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn calls_upstream_vortex_write(self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn commits_manifest(self) -> bool {
+        false
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexStagedManifestFileWriteSignal {
+    FilePlanReady,
+    FilePlanBlocked,
+    WorkspaceKnown,
+    WorkspaceMissing,
+    ObjectStoreTarget,
+    ExistingDraftFile,
+    FeatureGateEnabled,
+    OverwriteAllowed,
+}
+impl VortexStagedManifestFileWriteSignal {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::FilePlanReady => "file_plan_ready",
+            Self::FilePlanBlocked => "file_plan_blocked",
+            Self::WorkspaceKnown => "workspace_known",
+            Self::WorkspaceMissing => "workspace_missing",
+            Self::ObjectStoreTarget => "object_store_target",
+            Self::ExistingDraftFile => "existing_draft_file",
+            Self::FeatureGateEnabled => "feature_gate_enabled",
+            Self::OverwriteAllowed => "overwrite_allowed",
+        }
+    }
+    #[must_use]
+    pub const fn is_blocking(self) -> bool {
+        matches!(
+            self,
+            Self::FilePlanBlocked
+                | Self::WorkspaceMissing
+                | Self::ObjectStoreTarget
+                | Self::ExistingDraftFile
+        )
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexStagedManifestFileWriteEffect {
+    DraftFileWritten,
+    OutputDataWritten,
+    ObjectStoreIo,
+    UpstreamVortexWriteCalled,
+    CommitPerformed,
+    FallbackExecution,
+}
+impl VortexStagedManifestFileWriteEffect {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::DraftFileWritten => "draft_file_written",
+            Self::OutputDataWritten => "output_data_written",
+            Self::ObjectStoreIo => "object_store_io",
+            Self::UpstreamVortexWriteCalled => "upstream_vortex_write_called",
+            Self::CommitPerformed => "commit_performed",
+            Self::FallbackExecution => "fallback_execution",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexStagedManifestFileWriteOption {
+    AllowOverwrite,
+}
+impl VortexStagedManifestFileWriteOption {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::AllowOverwrite => "allow_overwrite",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct VortexStagedManifestFileWriteRequest {
+    pub file_ref: VortexStagedManifestFileRef,
+    pub draft_content: VortexStagedManifestDraftContent,
+    pub options: Vec<VortexStagedManifestFileWriteOption>,
+    pub signals: Vec<VortexStagedManifestFileWriteSignal>,
+    pub file_plan_summary: Option<String>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl VortexStagedManifestFileWriteRequest {
+    #[must_use]
+    pub fn new(
+        file_ref: VortexStagedManifestFileRef,
+        draft_content: VortexStagedManifestDraftContent,
+    ) -> Self {
+        Self {
+            file_ref,
+            draft_content,
+            options: Vec::new(),
+            signals: Vec::new(),
+            file_plan_summary: None,
+            diagnostics: Vec::new(),
+        }
+    }
+    #[must_use]
+    pub fn from_file_request(request: &VortexStagedManifestFileRequest) -> Self {
+        Self::new(request.file_ref.clone(), request.draft_content.clone())
+    }
+    #[must_use]
+    pub fn allow_overwrite(mut self, value: bool) -> Self {
+        if value {
+            if !self
+                .options
+                .contains(&VortexStagedManifestFileWriteOption::AllowOverwrite)
+            {
+                self.options
+                    .push(VortexStagedManifestFileWriteOption::AllowOverwrite);
+            }
+            self.add_signal(VortexStagedManifestFileWriteSignal::OverwriteAllowed, true);
+        } else {
+            self.options
+                .retain(|o| *o != VortexStagedManifestFileWriteOption::AllowOverwrite);
+            self.add_signal(VortexStagedManifestFileWriteSignal::OverwriteAllowed, false);
+        }
+        self
+    }
+    pub fn add_signal(&mut self, signal: VortexStagedManifestFileWriteSignal, value: bool) {
+        if value {
+            if !self.signals.contains(&signal) {
+                self.signals.push(signal);
+            }
+        } else {
+            self.signals.retain(|s| *s != signal);
+        }
+    }
+    signal_builder!(
+        file_plan_ready,
+        VortexStagedManifestFileWriteSignal::FilePlanReady
+    );
+    signal_builder!(
+        file_plan_blocked,
+        VortexStagedManifestFileWriteSignal::FilePlanBlocked
+    );
+    signal_builder!(
+        workspace_known,
+        VortexStagedManifestFileWriteSignal::WorkspaceKnown
+    );
+    signal_builder!(
+        workspace_missing,
+        VortexStagedManifestFileWriteSignal::WorkspaceMissing
+    );
+    signal_builder!(
+        object_store_target,
+        VortexStagedManifestFileWriteSignal::ObjectStoreTarget
+    );
+    signal_builder!(
+        existing_draft_file,
+        VortexStagedManifestFileWriteSignal::ExistingDraftFile
+    );
+    signal_builder!(
+        feature_gate_enabled,
+        VortexStagedManifestFileWriteSignal::FeatureGateEnabled
+    );
+    #[must_use]
+    pub fn with_file_plan_summary(mut self, v: impl Into<String>) -> Self {
+        self.file_plan_summary = Some(v.into());
+        self
+    }
+    #[must_use]
+    pub fn has_option(&self, option: VortexStagedManifestFileWriteOption) -> bool {
+        self.options.contains(&option)
+    }
+    #[must_use]
+    pub fn has_signal(&self, signal: VortexStagedManifestFileWriteSignal) -> bool {
+        self.signals.contains(&signal)
+    }
+    pub fn add_diagnostic(&mut self, d: Diagnostic) {
+        self.diagnostics.push(d);
+    }
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.diagnostics.iter().any(|d| {
+            matches!(
+                d.severity,
+                DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+            )
+        })
+    }
+    #[must_use]
+    pub fn summary(&self) -> String {
+        format!(
+            "{} {}",
+            self.file_ref.summary(),
+            self.draft_content.summary()
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct VortexStagedManifestFileWriteReport {
+    pub status: VortexStagedManifestFileWriteStatus,
+    pub mode: VortexStagedManifestFileWriteMode,
+    pub request: VortexStagedManifestFileWriteRequest,
+    pub effects_performed: Vec<VortexStagedManifestFileWriteEffect>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl VortexStagedManifestFileWriteReport {
+    /// # Errors
+    /// Returns an error only if rendering diagnostics text fails unexpectedly.
+    pub fn from_request(request: VortexStagedManifestFileWriteRequest) -> Result<Self> {
+        let mut r = Self::planned(request);
+        r.status = if r.object_store_target() {
+            VortexStagedManifestFileWriteStatus::BlockedByObjectStoreTarget
+        } else if r
+            .request
+            .has_signal(VortexStagedManifestFileWriteSignal::FilePlanBlocked)
+        {
+            VortexStagedManifestFileWriteStatus::BlockedByFilePlan
+        } else if r
+            .request
+            .has_signal(VortexStagedManifestFileWriteSignal::WorkspaceMissing)
+            || !r.workspace_known()
+        {
+            VortexStagedManifestFileWriteStatus::BlockedByMissingWorkspace
+        } else if r.existing_draft_file() && !r.overwrite_allowed() {
+            VortexStagedManifestFileWriteStatus::BlockedByExistingDraftFile
+        } else if !r
+            .request
+            .has_signal(VortexStagedManifestFileWriteSignal::FeatureGateEnabled)
+        {
+            VortexStagedManifestFileWriteStatus::Planned
+        } else {
+            VortexStagedManifestFileWriteStatus::WriteWouldExecute
+        };
+        Ok(r)
+    }
+    #[must_use]
+    pub fn planned(request: VortexStagedManifestFileWriteRequest) -> Self {
+        Self {
+            status: VortexStagedManifestFileWriteStatus::Planned,
+            mode: VortexStagedManifestFileWriteMode::ReportOnly,
+            request,
+            effects_performed: Vec::new(),
+            diagnostics: Vec::new(),
+        }
+    }
+    #[must_use]
+    pub fn write_would_execute(request: VortexStagedManifestFileWriteRequest) -> Self {
+        let mut r = Self::planned(request);
+        r.status = VortexStagedManifestFileWriteStatus::WriteWouldExecute;
+        r
+    }
+    #[must_use]
+    pub fn blocked(
+        request: VortexStagedManifestFileWriteRequest,
+        status: VortexStagedManifestFileWriteStatus,
+        reason: impl Into<String>,
+    ) -> Self {
+        let mut r = Self::planned(request);
+        r.status = status;
+        r.add_diagnostic(Diagnostic::invalid_input(
+            "staged_manifest_file_write_plan",
+            reason,
+            "adjust staged manifest file write planning signals",
+        ));
+        r
+    }
+    #[must_use]
+    pub fn unsupported(
+        request: VortexStagedManifestFileWriteRequest,
+        feature: impl Into<String>,
+        reason: impl Into<String>,
+    ) -> Self {
+        let mut r = Self {
+            status: VortexStagedManifestFileWriteStatus::Unsupported,
+            mode: VortexStagedManifestFileWriteMode::Unsupported,
+            request,
+            effects_performed: Vec::new(),
+            diagnostics: Vec::new(),
+        };
+        r.add_diagnostic(Diagnostic::unsupported(
+            DiagnosticCode::UnsupportedOutputFormat,
+            feature,
+            reason,
+            None,
+        ));
+        r
+    }
+    pub fn add_diagnostic(&mut self, d: Diagnostic) {
+        self.diagnostics.push(d);
+    }
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.status.is_error()
+            || self.request.has_errors()
+            || self.diagnostics.iter().any(|d| {
+                matches!(
+                    d.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+    #[must_use]
+    pub fn file_plan_ready(&self) -> bool {
+        self.request
+            .has_signal(VortexStagedManifestFileWriteSignal::FilePlanReady)
+    }
+    #[must_use]
+    pub fn workspace_known(&self) -> bool {
+        self.request
+            .has_signal(VortexStagedManifestFileWriteSignal::WorkspaceKnown)
+    }
+    #[must_use]
+    pub fn object_store_target(&self) -> bool {
+        self.request
+            .has_signal(VortexStagedManifestFileWriteSignal::ObjectStoreTarget)
+    }
+    #[must_use]
+    pub fn existing_draft_file(&self) -> bool {
+        self.request
+            .has_signal(VortexStagedManifestFileWriteSignal::ExistingDraftFile)
+    }
+    #[must_use]
+    pub fn overwrite_allowed(&self) -> bool {
+        self.request
+            .has_option(VortexStagedManifestFileWriteOption::AllowOverwrite)
+            || self
+                .request
+                .has_signal(VortexStagedManifestFileWriteSignal::OverwriteAllowed)
+    }
+    #[must_use]
+    pub const fn draft_file_written(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn manifest_file_written(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn output_data_written(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn object_store_io(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn upstream_vortex_write_called(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn commit_performed(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn fallback_execution_allowed(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn allows_file_write(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub fn is_side_effect_free(&self) -> bool {
+        self.effects_performed.is_empty() && !self.fallback_execution_allowed()
+    }
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        let mut t = String::new();
+        let _ = writeln!(t, "Vortex staged manifest file write plan");
+        let _ = writeln!(t, "status: {}", self.status.as_str());
+        let _ = writeln!(t, "mode: {}", self.mode.as_str());
+        let _ = writeln!(t, "file path: {}", self.request.file_ref.path_string());
+        let _ = writeln!(t, "content length: {}", self.request.draft_content.len());
+        let _ = writeln!(
+            t,
+            "content checksum: {}",
+            self.request.draft_content.checksum_u64()
+        );
+        let _ = writeln!(t, "file plan ready: {}", self.file_plan_ready());
+        let _ = writeln!(t, "workspace known: {}", self.workspace_known());
+        let _ = writeln!(t, "object-store target: {}", self.object_store_target());
+        let _ = writeln!(t, "existing draft file: {}", self.existing_draft_file());
+        let _ = writeln!(t, "overwrite allowed: {}", self.overwrite_allowed());
+        let _ = writeln!(t, "draft file written: false");
+        let _ = writeln!(t, "manifest file written: false");
+        let _ = writeln!(t, "output data written: false");
+        let _ = writeln!(t, "object-store IO: false");
+        let _ = writeln!(t, "upstream Vortex write called: false");
+        let _ = writeln!(t, "commit performed: false");
+        let _ = write!(t, "fallback execution: disabled");
+        if self.request.diagnostics.is_empty() && self.diagnostics.is_empty() {
+            let _ = write!(
+                t,
+                "
+diagnostics: none"
+            );
+        } else {
+            let _ = write!(
+                t,
+                "
+diagnostics:"
+            );
+            for d in self
+                .request
+                .diagnostics
+                .iter()
+                .chain(self.diagnostics.iter())
+            {
+                let _ = write!(
+                    t,
+                    "
+- {}",
+                    d.to_human_text()
+                );
+            }
+        }
+        t
+    }
+}
+
+/// # Errors
+/// Propagates errors from [`VortexStagedManifestFileWriteReport::from_request`].
+pub fn plan_vortex_staged_manifest_file_write(
+    request: VortexStagedManifestFileWriteRequest,
+) -> Result<VortexStagedManifestFileWriteReport> {
+    VortexStagedManifestFileWriteReport::from_request(request)
+}
+#[must_use]
+pub fn vortex_staged_manifest_file_write_is_side_effect_free(
+    report: &VortexStagedManifestFileWriteReport,
+) -> bool {
+    report.is_side_effect_free()
+}
+
+/// # Errors
+/// Propagates validation errors from `VortexStagedManifestDraftContent` conversion.
+pub fn staged_manifest_file_write_request_from_plan(
+    plan: &VortexStagedManifestFileReport,
+) -> Result<VortexStagedManifestFileWriteRequest> {
+    let mut request = VortexStagedManifestFileWriteRequest::from_file_request(&plan.request)
+        .with_file_plan_summary(plan.request.summary());
+    if plan.has_errors() {
+        request.add_signal(VortexStagedManifestFileWriteSignal::FilePlanBlocked, true);
+        for d in plan
+            .request
+            .diagnostics
+            .iter()
+            .chain(plan.diagnostics.iter())
+        {
+            request.add_diagnostic(d.clone());
+        }
+    }
+    if matches!(plan.status, VortexStagedManifestFileStatus::FileReady) {
+        request.add_signal(VortexStagedManifestFileWriteSignal::FilePlanReady, true);
+    }
+    if plan.workspace_known() {
+        request.add_signal(VortexStagedManifestFileWriteSignal::WorkspaceKnown, true);
+    }
+    if plan.object_store_workspace() {
+        request.add_signal(VortexStagedManifestFileWriteSignal::ObjectStoreTarget, true);
+    }
+    Ok(request)
+}
+/// # Errors
+/// Propagates errors from draft-content and file-name validation.
 pub fn staged_manifest_file_request_from_reports(
     workspace_path: crate::VortexStagedWorkspacePath,
     draft: &VortexStagedManifestDraftReport,
@@ -1610,5 +2142,67 @@ mod staged_manifest_file_tests {
         )
         .unwrap();
         assert!(vortex_staged_manifest_file_is_side_effect_free(&rep));
+    }
+
+    #[test]
+    fn write_contract_behaviors() {
+        assert!(!VortexStagedManifestFileWriteStatus::WriteWouldExecute.allows_file_write());
+        assert!(VortexStagedManifestFileWriteStatus::BlockedByFilePlan.is_error());
+        assert!(!VortexStagedManifestFileWriteMode::ReportOnly.writes_manifest_file());
+
+        let req = VortexStagedManifestFileWriteRequest::new(
+            VortexStagedManifestFileRef::default_for_workspace(ws()),
+            VortexStagedManifestDraftContent::new("ok").expect("draft content"),
+        )
+        .file_plan_ready(true)
+        .workspace_known(true)
+        .existing_draft_file(true)
+        .allow_overwrite(true)
+        .feature_gate_enabled(true);
+        assert!(req.has_option(VortexStagedManifestFileWriteOption::AllowOverwrite));
+
+        let rep = VortexStagedManifestFileWriteReport::from_request(req).expect("report");
+        assert!(matches!(
+            rep.status,
+            VortexStagedManifestFileWriteStatus::WriteWouldExecute
+        ));
+        assert!(!rep.draft_file_written());
+        assert!(!rep.manifest_file_written());
+        assert!(!rep.output_data_written());
+        assert!(!rep.object_store_io());
+        assert!(!rep.upstream_vortex_write_called());
+        assert!(!rep.commit_performed());
+        assert!(!rep.fallback_execution_allowed());
+        assert!(!rep.allows_file_write());
+        assert!(rep.is_side_effect_free());
+        assert!(rep.to_human_text().contains("fallback execution: disabled"));
+        assert!(rep.to_human_text().contains("draft file written: false"));
+
+        let blocked = VortexStagedManifestFileWriteReport::from_request(
+            VortexStagedManifestFileWriteRequest::new(
+                VortexStagedManifestFileRef::default_for_workspace(ws()),
+                VortexStagedManifestDraftContent::new("ok").expect("draft content"),
+            )
+            .object_store_target(true),
+        )
+        .expect("blocked report");
+        assert!(matches!(
+            blocked.status,
+            VortexStagedManifestFileWriteStatus::BlockedByObjectStoreTarget
+        ));
+
+        let plan = VortexStagedManifestFileReport::from_request(
+            VortexStagedManifestFileRequest::new(
+                VortexStagedManifestFileRef::default_for_workspace(ws()),
+                VortexStagedManifestDraftContent::new("ok").expect("draft"),
+            )
+            .draft_ready(true)
+            .workspace_known(true)
+            .marker_written(true),
+        )
+        .expect("plan");
+        let from_plan =
+            staged_manifest_file_write_request_from_plan(&plan).expect("write request from plan");
+        assert!(from_plan.has_signal(VortexStagedManifestFileWriteSignal::FilePlanReady));
     }
 }
