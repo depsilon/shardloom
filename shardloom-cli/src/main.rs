@@ -719,7 +719,11 @@ fn run(args: Vec<String>) -> ExitCode {
                     ("execution".to_string(), "not_performed".to_string()),
                 ],
             );
-            ExitCode::SUCCESS
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
         }
         Some("spill-reservation-plan") => {
             let Some(label) = args.next() else {

@@ -204,3 +204,6 @@ Spark/DataFusion/Arrow/lakehouse gaps are not single-phase concerns; they recur 
 Spill/OOM pain points now have lifecycle, reservation, synthetic payload, and CLI coverage in phased form.
 
 The remaining spill gap is bounded execution integration and recovery, starting with Phase 11A.3b and continuing into Phase 11B.
+
+
+- Phase 11A.3b connects dynamic work shaping to synthetic spill payload capability while keeping object-store writes, output dataset writes, and fallback execution disabled.

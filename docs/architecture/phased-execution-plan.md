@@ -591,7 +591,7 @@ Missed or weak coverage:
 Next obligations:
 - Before Phase 11A.3b, assert synthetic support is not permission to spill query data.
 
-### Phase 11A.3a.4 — All-phase epic coverage and roadmap synchronization — Current
+### Phase 11A.3a.4 — All-phase epic coverage and roadmap synchronization — Complete
 
 Checklist:
 - Update all-phase checklist.
@@ -610,7 +610,7 @@ Missed or weak coverage:
 Next obligations:
 - Proceed to Phase 11A.3b after this lands.
 
-### Phase 11A.3b — Bounded execution spill payload integration — Planned
+### Phase 11A.3b — Bounded execution spill payload integration — Current
 
 Checklist:
 - Bounded execution can request synthetic spill payload path.

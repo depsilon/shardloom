@@ -144,8 +144,12 @@ pub use scheduler_bridge::{
 pub use bounded_execution::{
     VortexBoundedExecutionDecision, VortexBoundedExecutionDecisionKind,
     VortexBoundedExecutionInput, VortexBoundedExecutionMode, VortexBoundedExecutionPolicy,
-    VortexBoundedExecutionReport, VortexBoundedExecutionStatus, execute_vortex_bounded_local_query,
-    plan_bounded_execution_spill_reservation, vortex_bounded_execution_is_side_effect_free,
+    VortexBoundedExecutionReport, VortexBoundedExecutionStatus, VortexBoundedSpillIntegrationMode,
+    VortexBoundedSpillIntegrationReport, VortexBoundedSpillIntegrationRequest,
+    VortexBoundedSpillIntegrationStatus, execute_vortex_bounded_local_query,
+    plan_bounded_execution_spill_payload_integration,
+    plan_bounded_execution_spill_payload_roundtrip, plan_bounded_execution_spill_reservation,
+    vortex_bounded_execution_is_side_effect_free,
 };
 
 pub use local_engine::{
