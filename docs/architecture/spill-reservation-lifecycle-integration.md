@@ -107,3 +107,14 @@ Run:
 - Retry gate request construction can now derive gate signals from `ShardLoomRetryCancellationReport` and `ShardLoomCleanupExecutionReport`.
 - `CleanupCompleted` is only derived from actual cleanup execution state (`cleanup_executed() == true`), not from report presence alone.
 - Retry gate evaluation remains planning-only and does not execute retry, cleanup, or cancellation.
+
+
+## Retry gate CLI
+
+- `retry-gate-plan` exposes the retry execution gate through explicit signal input.
+- The command is planning/report-only.
+- It does not execute retry.
+- It does not execute cleanup.
+- It does not execute cancellation.
+- It blocks retry when cleanup is required but incomplete, unknown artifacts exist, external effects are present, object-store/output recovery is required, or cancellation is requested.
+- No fallback execution is introduced.

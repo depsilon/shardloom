@@ -20,12 +20,14 @@ use shardloom_exec::{
     AdaptiveSizer, AdaptiveSizingPolicy, AttemptId, ByteSize, CancellationReason,
     CancellationRequest, CancellationScope, MemoryBudget, MemoryOwner, MemoryPoolPlan,
     OomSafetyPlan, OperatorMemoryClass, ParallelismLimit, ParallelismPlan, RecoveryPlan, RetryPlan,
-    RuntimePlanSkeleton, ShardLoomCleanupExecutionRequest, SizeEstimate, SizingInput, SizingPlan,
-    SpillLifecycleRequest, SpillPayloadFsRef, SpillPayloadId, SpillPayloadPath, SpillPayloadRef,
-    SpillPayloadRoundTripRequest, SpillPayloadWriteRequest, SpillPlan, SpillPolicy,
-    SpillReservationIntegrationRequest, SpillWorkspaceId, SpillWorkspacePath,
-    StreamingPlanSkeleton, SyntheticSpillPayload, TaskAttemptRecord, plan_spill_lifecycle,
-    plan_spill_reservation_integration, roundtrip_spill_payload, spill_payload_fs_feature_enabled,
+    RuntimePlanSkeleton, ShardLoomCleanupExecutionRequest, ShardLoomRetryExecutionGateReport,
+    ShardLoomRetryExecutionGateRequest, ShardLoomRetryExecutionGateSignal, SizeEstimate,
+    SizingInput, SizingPlan, SpillLifecycleRequest, SpillPayloadFsRef, SpillPayloadId,
+    SpillPayloadPath, SpillPayloadRef, SpillPayloadRoundTripRequest, SpillPayloadWriteRequest,
+    SpillPlan, SpillPolicy, SpillReservationIntegrationRequest, SpillWorkspaceId,
+    SpillWorkspacePath, StreamingPlanSkeleton, SyntheticSpillPayload, TaskAttemptRecord,
+    plan_retry_execution_gate, plan_spill_lifecycle, plan_spill_reservation_integration,
+    roundtrip_spill_payload, spill_payload_fs_feature_enabled,
 };
 use shardloom_plan::{
     EstimateReport, ExplainReport, NativePlanDocument, OptimizerPhase, OptimizerPlanSkeleton,
@@ -66,7 +68,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count|vortex-count-where|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count|vortex-count-where|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -150,6 +152,114 @@ fn readiness_is_blocked(status: VortexExecutionReadinessStatus) -> bool {
     )
 }
 
+fn parse_retry_gate_signals(
+    value: &str,
+) -> Result<ShardLoomRetryExecutionGateRequest, ShardLoomError> {
+    let mut signals = Vec::new();
+    for token in value
+        .split(',')
+        .map(str::trim)
+        .filter(|token| !token.is_empty())
+    {
+        let signal = match token {
+            "retry-requested" => ShardLoomRetryExecutionGateSignal::RetryRequested,
+            "retry-allowed" => ShardLoomRetryExecutionGateSignal::RetryAllowedByPlan,
+            "retry-requires-cleanup" => ShardLoomRetryExecutionGateSignal::RetryRequiresCleanup,
+            "cleanup-completed" => ShardLoomRetryExecutionGateSignal::CleanupCompleted,
+            "unknown-artifact" => ShardLoomRetryExecutionGateSignal::UnknownArtifactPresent,
+            "external-effects" => ShardLoomRetryExecutionGateSignal::ExternalEffectsPresent,
+            "object-store-recovery" => {
+                ShardLoomRetryExecutionGateSignal::ObjectStoreRecoveryRequired
+            }
+            "output-recovery" => ShardLoomRetryExecutionGateSignal::OutputRecoveryRequired,
+            "cancellation-requested" => ShardLoomRetryExecutionGateSignal::CancellationRequested,
+            _ => {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "invalid retry gate signal token: {token}"
+                )));
+            }
+        };
+        if !signals.contains(&signal) {
+            signals.push(signal);
+        }
+    }
+    {
+        let mut request = ShardLoomRetryExecutionGateRequest::new();
+        for signal in signals {
+            request.add_signal(signal);
+        }
+        Ok(request)
+    }
+}
+
+fn retry_gate_plan_fields(report: &ShardLoomRetryExecutionGateReport) -> Vec<(String, String)> {
+    vec![
+        (
+            "fallback_execution_allowed".to_string(),
+            "false".to_string(),
+        ),
+        ("mode".to_string(), "retry_gate_plan".to_string()),
+        (
+            "retry_requested".to_string(),
+            report.retry_requested().to_string(),
+        ),
+        (
+            "retry_allowed_by_plan".to_string(),
+            report.retry_allowed_by_plan().to_string(),
+        ),
+        (
+            "retry_gate_open".to_string(),
+            report.retry_gate_open().to_string(),
+        ),
+        (
+            "retry_requires_cleanup".to_string(),
+            report.retry_requires_cleanup().to_string(),
+        ),
+        (
+            "cleanup_completed".to_string(),
+            report.cleanup_completed().to_string(),
+        ),
+        (
+            "unknown_artifact_present".to_string(),
+            report.unknown_artifact_present().to_string(),
+        ),
+        (
+            "external_effects_present".to_string(),
+            report
+                .request
+                .has_signal(ShardLoomRetryExecutionGateSignal::ExternalEffectsPresent)
+                .to_string(),
+        ),
+        (
+            "object_store_recovery_required".to_string(),
+            report
+                .request
+                .has_signal(ShardLoomRetryExecutionGateSignal::ObjectStoreRecoveryRequired)
+                .to_string(),
+        ),
+        (
+            "output_recovery_required".to_string(),
+            report
+                .request
+                .has_signal(ShardLoomRetryExecutionGateSignal::OutputRecoveryRequired)
+                .to_string(),
+        ),
+        (
+            "cancellation_requested".to_string(),
+            report
+                .request
+                .has_signal(ShardLoomRetryExecutionGateSignal::CancellationRequested)
+                .to_string(),
+        ),
+        ("retry_executed".to_string(), "false".to_string()),
+        ("cleanup_executed_by_gate".to_string(), "false".to_string()),
+        ("cancellation_executed".to_string(), "false".to_string()),
+        ("external_effects_executed".to_string(), "false".to_string()),
+        ("object_store_io".to_string(), "false".to_string()),
+        ("output_dataset_write".to_string(), "false".to_string()),
+        ("execution".to_string(), "not_performed".to_string()),
+    ]
+}
 fn parse_plan_interop_format(value: &str) -> PlanInteropFormat {
     match value {
         "native" => PlanInteropFormat::ShardLoomNative,
@@ -2305,6 +2415,51 @@ fn run(args: Vec<String>) -> ExitCode {
                     ("execution".to_string(), "not_performed".to_string()),
                     ("plan_only".to_string(), "true".to_string()),
                 ],
+            );
+            ExitCode::SUCCESS
+        }
+        Some("retry-gate-plan") => {
+            let raw = args.next().unwrap_or_default();
+            if args.next().is_some() {
+                return emit_error(
+                    "retry-gate-plan",
+                    format,
+                    "invalid retry gate signal list",
+                    &ShardLoomError::InvalidOperation(
+                        "too many arguments for retry-gate-plan".to_string(),
+                    ),
+                );
+            }
+            let request = match parse_retry_gate_signals(&raw) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "retry-gate-plan",
+                        format,
+                        "invalid retry gate signal list",
+                        &error,
+                    );
+                }
+            };
+            let report = match plan_retry_execution_gate(request) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "retry-gate-plan",
+                        format,
+                        "retry gate planning failed",
+                        &error,
+                    );
+                }
+            };
+            emit(
+                "retry-gate-plan",
+                format,
+                CommandStatus::Success,
+                "retry execution gate plan".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                retry_gate_plan_fields(&report),
             );
             ExitCode::SUCCESS
         }
@@ -6351,5 +6506,47 @@ mod tests {
             "json".to_string(),
         ]);
         assert_ne!(code, ExitCode::from(2));
+    }
+
+    #[test]
+    fn retry_gate_plan_requested_and_allowed_returns_success() {
+        let code = run(vec![
+            "retry-gate-plan".to_string(),
+            "retry-requested,retry-allowed".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn retry_gate_plan_unknown_signal_returns_non_zero() {
+        let code = run(vec!["retry-gate-plan".to_string(), "unknown".to_string()]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn retry_gate_signal_parsing_and_fields_cover_required_states() {
+        let blocked = plan_retry_execution_gate(
+            parse_retry_gate_signals(
+                "retry-requested,retry-allowed,retry-requires-cleanup,unknown-artifact,external-effects,cancellation-requested",
+            )
+            .expect("request"),
+        )
+        .expect("report");
+        assert!(!blocked.retry_gate_open());
+        let fields = retry_gate_plan_fields(&blocked);
+        assert!(fields.contains(&(
+            "fallback_execution_allowed".to_string(),
+            "false".to_string()
+        )));
+        assert!(fields.contains(&("retry_executed".to_string(), "false".to_string())));
+
+        let open = plan_retry_execution_gate(
+            parse_retry_gate_signals(
+                "retry-requested,retry-allowed,retry-requires-cleanup,cleanup-completed",
+            )
+            .expect("request"),
+        )
+        .expect("report");
+        assert!(open.retry_gate_open());
     }
 }
