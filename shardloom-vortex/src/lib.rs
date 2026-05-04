@@ -127,8 +127,11 @@ pub use query_trace::{
 pub use staged_output::{
     VortexStagedOutputEffect, VortexStagedOutputMode, VortexStagedOutputReport,
     VortexStagedOutputRequest, VortexStagedOutputSignal, VortexStagedOutputStatus,
-    VortexStagedWorkspaceId, VortexStagedWorkspacePath, plan_vortex_staged_output,
-    staged_output_request_from_write_intent, vortex_staged_output_is_side_effect_free,
+    VortexStagedWorkspaceId, VortexStagedWorkspacePath, VortexStagedWorkspaceSetupMode,
+    VortexStagedWorkspaceSetupOption, VortexStagedWorkspaceSetupReport,
+    VortexStagedWorkspaceSetupRequest, VortexStagedWorkspaceSetupStatus, plan_vortex_staged_output,
+    setup_vortex_staged_workspace, staged_output_request_from_write_intent,
+    vortex_staged_output_is_side_effect_free, vortex_staged_workspace_setup_is_side_effect_free,
 };
 
 pub use write_intent::{
