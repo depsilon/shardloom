@@ -1,5 +1,9 @@
 use std::fmt::Write as _;
+#[cfg(feature = "vortex-staged-output-fs")]
+use std::{fs, path::PathBuf};
 
+#[cfg(feature = "vortex-staged-output-fs")]
+use shardloom_core::UriScheme;
 use shardloom_core::{DatasetUri, Diagnostic, DiagnosticCode, DiagnosticSeverity, Result};
 
 use crate::{
@@ -1386,9 +1390,11 @@ pub fn vortex_staged_manifest_file_is_side_effect_free(
 pub enum VortexStagedManifestFileWriteStatus {
     Planned,
     WriteWouldExecute,
+    DraftFileWritten,
     BlockedByFilePlan,
     BlockedByObjectStoreTarget,
     BlockedByMissingWorkspace,
+    BlockedByExistingNonDirectory,
     BlockedByExistingDraftFile,
     BlockedByFeatureGate,
     Unsupported,
@@ -1399,9 +1405,11 @@ impl VortexStagedManifestFileWriteStatus {
         match self {
             Self::Planned => "planned",
             Self::WriteWouldExecute => "write_would_execute",
+            Self::DraftFileWritten => "draft_file_written",
             Self::BlockedByFilePlan => "blocked_by_file_plan",
             Self::BlockedByObjectStoreTarget => "blocked_by_object_store_target",
             Self::BlockedByMissingWorkspace => "blocked_by_missing_workspace",
+            Self::BlockedByExistingNonDirectory => "blocked_by_existing_non_directory",
             Self::BlockedByExistingDraftFile => "blocked_by_existing_draft_file",
             Self::BlockedByFeatureGate => "blocked_by_feature_gate",
             Self::Unsupported => "unsupported",
@@ -1409,7 +1417,10 @@ impl VortexStagedManifestFileWriteStatus {
     }
     #[must_use]
     pub const fn is_error(self) -> bool {
-        !matches!(self, Self::Planned | Self::WriteWouldExecute)
+        !matches!(
+            self,
+            Self::Planned | Self::WriteWouldExecute | Self::DraftFileWritten
+        )
     }
     #[must_use]
     pub const fn allows_file_write(self) -> bool {
@@ -1421,6 +1432,7 @@ impl VortexStagedManifestFileWriteStatus {
 pub enum VortexStagedManifestFileWriteMode {
     ReportOnly,
     WritePlanning,
+    LocalDraftFileWrite,
     Unsupported,
 }
 impl VortexStagedManifestFileWriteMode {
@@ -1429,6 +1441,7 @@ impl VortexStagedManifestFileWriteMode {
         match self {
             Self::ReportOnly => "report_only",
             Self::WritePlanning => "write_planning",
+            Self::LocalDraftFileWrite => "local_draft_file_write",
             Self::Unsupported => "unsupported",
         }
     }
@@ -1651,6 +1664,8 @@ pub struct VortexStagedManifestFileWriteReport {
     pub mode: VortexStagedManifestFileWriteMode,
     pub request: VortexStagedManifestFileWriteRequest,
     pub effects_performed: Vec<VortexStagedManifestFileWriteEffect>,
+    pub bytes_written: usize,
+    pub checksum: Option<u64>,
     pub diagnostics: Vec<Diagnostic>,
 }
 impl VortexStagedManifestFileWriteReport {
@@ -1671,6 +1686,8 @@ impl VortexStagedManifestFileWriteReport {
             || !r.workspace_known()
         {
             VortexStagedManifestFileWriteStatus::BlockedByMissingWorkspace
+        } else if !r.file_plan_ready() {
+            VortexStagedManifestFileWriteStatus::BlockedByFilePlan
         } else if r.existing_draft_file() && !r.overwrite_allowed() {
             VortexStagedManifestFileWriteStatus::BlockedByExistingDraftFile
         } else if !r
@@ -1690,6 +1707,8 @@ impl VortexStagedManifestFileWriteReport {
             mode: VortexStagedManifestFileWriteMode::ReportOnly,
             request,
             effects_performed: Vec::new(),
+            bytes_written: 0,
+            checksum: None,
             diagnostics: Vec::new(),
         }
     }
@@ -1725,6 +1744,8 @@ impl VortexStagedManifestFileWriteReport {
             mode: VortexStagedManifestFileWriteMode::Unsupported,
             request,
             effects_performed: Vec::new(),
+            bytes_written: 0,
+            checksum: None,
             diagnostics: Vec::new(),
         };
         r.add_diagnostic(Diagnostic::unsupported(
@@ -1778,8 +1799,9 @@ impl VortexStagedManifestFileWriteReport {
                 .has_signal(VortexStagedManifestFileWriteSignal::OverwriteAllowed)
     }
     #[must_use]
-    pub const fn draft_file_written(&self) -> bool {
-        false
+    pub fn draft_file_written(&self) -> bool {
+        self.effects_performed
+            .contains(&VortexStagedManifestFileWriteEffect::DraftFileWritten)
     }
     #[must_use]
     pub const fn manifest_file_written(&self) -> bool {
@@ -1811,7 +1833,7 @@ impl VortexStagedManifestFileWriteReport {
     }
     #[must_use]
     pub fn is_side_effect_free(&self) -> bool {
-        self.effects_performed.is_empty() && !self.fallback_execution_allowed()
+        !self.draft_file_written() && !self.fallback_execution_allowed()
     }
     #[must_use]
     pub fn to_human_text(&self) -> String {
@@ -1831,12 +1853,19 @@ impl VortexStagedManifestFileWriteReport {
         let _ = writeln!(t, "object-store target: {}", self.object_store_target());
         let _ = writeln!(t, "existing draft file: {}", self.existing_draft_file());
         let _ = writeln!(t, "overwrite allowed: {}", self.overwrite_allowed());
-        let _ = writeln!(t, "draft file written: false");
+        let _ = writeln!(t, "draft file written: {}", self.draft_file_written());
         let _ = writeln!(t, "manifest file written: false");
         let _ = writeln!(t, "output data written: false");
         let _ = writeln!(t, "object-store IO: false");
         let _ = writeln!(t, "upstream Vortex write called: false");
         let _ = writeln!(t, "commit performed: false");
+        let _ = writeln!(t, "bytes written: {}", self.bytes_written);
+        let _ = writeln!(
+            t,
+            "checksum: {}",
+            self.checksum
+                .map_or_else(|| "none".to_string(), |c| c.to_string())
+        );
         let _ = write!(t, "fallback execution: disabled");
         if self.request.diagnostics.is_empty() && self.diagnostics.is_empty() {
             let _ = write!(
@@ -1874,6 +1903,86 @@ pub fn plan_vortex_staged_manifest_file_write(
     request: VortexStagedManifestFileWriteRequest,
 ) -> Result<VortexStagedManifestFileWriteReport> {
     VortexStagedManifestFileWriteReport::from_request(request)
+}
+
+/// Writes only the staged manifest draft file addressed by `request.file_ref` when
+/// `vortex-staged-output-fs` is enabled.
+///
+/// # Errors
+/// Propagates report-construction and local path normalization errors.
+pub fn write_vortex_staged_manifest_file(
+    request: VortexStagedManifestFileWriteRequest,
+) -> Result<VortexStagedManifestFileWriteReport> {
+    #[cfg(not(feature = "vortex-staged-output-fs"))]
+    {
+        VortexStagedManifestFileWriteReport::from_request(request)
+    }
+    #[cfg(feature = "vortex-staged-output-fs")]
+    {
+        let mut report = VortexStagedManifestFileWriteReport::from_request(request)?;
+        if !matches!(
+            report.status,
+            VortexStagedManifestFileWriteStatus::WriteWouldExecute
+        ) {
+            return Ok(report);
+        }
+        let draft_path = staged_manifest_draft_local_path(&report.request.file_ref)?;
+        let workspace_path = draft_path.parent().ok_or_else(|| {
+            shardloom_core::ShardLoomError::InvalidOperation("missing parent path".to_string())
+        })?;
+        if !workspace_path.exists() {
+            report.status = VortexStagedManifestFileWriteStatus::BlockedByMissingWorkspace;
+            return Ok(report);
+        }
+        if !workspace_path.is_dir() {
+            report.status = VortexStagedManifestFileWriteStatus::BlockedByExistingNonDirectory;
+            return Ok(report);
+        }
+        if draft_path.exists() && !report.overwrite_allowed() {
+            report.status = VortexStagedManifestFileWriteStatus::BlockedByExistingDraftFile;
+            return Ok(report);
+        }
+        fs::write(
+            &draft_path,
+            report.request.draft_content.as_str().as_bytes(),
+        )
+        .map_err(|err| {
+            shardloom_core::ShardLoomError::InvalidOperation(format!(
+                "failed to write staged manifest draft file: {err}"
+            ))
+        })?;
+        report.mode = VortexStagedManifestFileWriteMode::LocalDraftFileWrite;
+        report.status = VortexStagedManifestFileWriteStatus::DraftFileWritten;
+        report.bytes_written = report.request.draft_content.len();
+        report.checksum = Some(report.request.draft_content.checksum_u64());
+        report
+            .effects_performed
+            .push(VortexStagedManifestFileWriteEffect::DraftFileWritten);
+        Ok(report)
+    }
+}
+
+#[cfg(feature = "vortex-staged-output-fs")]
+fn staged_manifest_draft_local_path(file_ref: &VortexStagedManifestFileRef) -> Result<PathBuf> {
+    let workspace_raw = file_ref.workspace_path().as_str();
+    let workspace = match DatasetUri::new(workspace_raw.to_string())?.scheme() {
+        UriScheme::LocalPath => PathBuf::from(workspace_raw),
+        UriScheme::File => {
+            if let Some(local) = workspace_raw.strip_prefix("file:///") {
+                PathBuf::from(format!("/{local}"))
+            } else {
+                return Err(shardloom_core::ShardLoomError::InvalidOperation(
+                    "workspace file URI must use file:/// absolute local path".to_string(),
+                ));
+            }
+        }
+        _ => {
+            return Err(shardloom_core::ShardLoomError::InvalidOperation(
+                "workspace path looks like object-store target".to_string(),
+            ));
+        }
+    };
+    Ok(workspace.join(file_ref.file_name().as_str()))
 }
 #[must_use]
 pub fn vortex_staged_manifest_file_write_is_side_effect_free(
@@ -2204,5 +2313,79 @@ mod staged_manifest_file_tests {
         let from_plan =
             staged_manifest_file_write_request_from_plan(&plan).expect("write request from plan");
         assert!(from_plan.has_signal(VortexStagedManifestFileWriteSignal::FilePlanReady));
+
+        let missing_file_plan = VortexStagedManifestFileWriteReport::from_request(
+            VortexStagedManifestFileWriteRequest::new(
+                VortexStagedManifestFileRef::default_for_workspace(ws()),
+                VortexStagedManifestDraftContent::new("ok").expect("draft"),
+            )
+            .workspace_known(true)
+            .feature_gate_enabled(true),
+        )
+        .expect("missing file plan");
+        assert!(matches!(
+            missing_file_plan.status,
+            VortexStagedManifestFileWriteStatus::BlockedByFilePlan
+        ));
+    }
+
+    #[test]
+    fn write_helper_is_report_only_without_feature() {
+        let req = VortexStagedManifestFileWriteRequest::new(
+            VortexStagedManifestFileRef::default_for_workspace(ws()),
+            VortexStagedManifestDraftContent::new("ok").expect("draft"),
+        )
+        .file_plan_ready(true)
+        .workspace_known(true)
+        .feature_gate_enabled(true);
+        let report = write_vortex_staged_manifest_file(req).expect("write report");
+        #[cfg(not(feature = "vortex-staged-output-fs"))]
+        assert!(matches!(
+            report.status,
+            VortexStagedManifestFileWriteStatus::WriteWouldExecute
+        ));
+        assert!(!report.draft_file_written());
+        assert!(!report.output_data_written());
+        assert!(!report.object_store_io());
+        assert!(!report.upstream_vortex_write_called());
+        assert!(!report.commit_performed());
+        assert!(!report.fallback_execution_allowed());
+    }
+
+    #[cfg(feature = "vortex-staged-output-fs")]
+    #[test]
+    fn write_helper_writes_exact_draft_file() {
+        let base = std::env::temp_dir().join(format!(
+            "shardloom-staged-manifest-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("time")
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&base).expect("create workspace");
+        let workspace = crate::VortexStagedWorkspacePath::new(base.to_string_lossy().to_string())
+            .expect("workspace");
+        let content = VortexStagedManifestDraftContent::new("deterministic").expect("content");
+        let req = VortexStagedManifestFileWriteRequest::new(
+            VortexStagedManifestFileRef::default_for_workspace(workspace.clone()),
+            content.clone(),
+        )
+        .file_plan_ready(true)
+        .workspace_known(true)
+        .feature_gate_enabled(true);
+        let report = write_vortex_staged_manifest_file(req).expect("write");
+        assert!(matches!(
+            report.status,
+            VortexStagedManifestFileWriteStatus::DraftFileWritten
+        ));
+        assert!(report.draft_file_written());
+        assert_eq!(report.bytes_written, content.len());
+        assert_eq!(report.checksum, Some(content.checksum_u64()));
+        let draft_path = base.join("_shardloom_staged_manifest_draft.json");
+        assert_eq!(
+            std::fs::read_to_string(draft_path).expect("read"),
+            content.as_str()
+        );
+        std::fs::remove_dir_all(&base).expect("cleanup");
     }
 }

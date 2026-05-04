@@ -412,3 +412,12 @@ No spill data movement is implemented in this phase.
 - It does not write output data.
 - It does not call upstream `Vortex` write APIs.
 - It does not perform object-store IO.
+
+## Staged manifest draft write boundary
+
+- `ShardLoom` now includes feature-gated staged manifest draft file writing in `shardloom-vortex` behind `vortex-staged-output-fs`.
+- The helper writes only the exact local staged draft artifact path.
+- The draft artifact is not a committed manifest.
+- The flow does not write output data.
+- The flow does not call upstream `Vortex` write APIs.
+- Commit protocol execution remains future work.

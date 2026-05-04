@@ -141,7 +141,7 @@ pub use staged_manifest::{
     staged_manifest_file_write_request_from_plan, staged_manifest_request_from_reports,
     vortex_staged_manifest_draft_is_side_effect_free,
     vortex_staged_manifest_file_is_side_effect_free,
-    vortex_staged_manifest_file_write_is_side_effect_free,
+    vortex_staged_manifest_file_write_is_side_effect_free, write_vortex_staged_manifest_file,
 };
 
 pub use staged_output::{

@@ -423,3 +423,9 @@ This update does not introduce scans, decode, materialization, writes, object-st
 
 - Manifest draft file planning is `ShardLoom`-native.
 - Upstream `Vortex` write APIs remain deferred.
+
+
+## Staged manifest draft write posture
+
+- Staged manifest draft file writing is `ShardLoom`-native and does not depend on upstream `Vortex` write APIs.
+- Upstream `Vortex` write API integration remains deferred.
