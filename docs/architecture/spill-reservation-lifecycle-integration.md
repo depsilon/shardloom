@@ -28,6 +28,22 @@ This document records the current planning-phase integration points for spill re
 - No output dataset writes are performed.
 - No fallback execution is allowed.
 
+## All-phase epic retro
+
+- Synthetic spill payload support is now plan/write/read/roundtrip/CLI complete.
+- It is still synthetic only.
+- It is not permission to spill Vortex/query data.
+- Phase 11A.3b must connect bounded execution to spill payload support through explicit reservation and feature gates.
+- Required next machine-readable fields:
+  - `reservation_required`
+  - `reservation_status`
+  - `payload_write_allowed`
+  - `payload_written`
+  - `payload_read`
+  - `cleanup_performed`
+  - `spill_data_is_synthetic`
+  - `fallback_execution_allowed=false`
+
 ## Validation
 
 Run:
