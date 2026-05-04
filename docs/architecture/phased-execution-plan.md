@@ -610,7 +610,7 @@ Missed or weak coverage:
 Next obligations:
 - Proceed to Phase 11A.3b after this lands.
 
-### Phase 11A.3b — Bounded execution spill payload integration — Current
+### Phase 11A.3b — Bounded execution spill payload integration — Complete (first pass)
 
 Checklist:
 - Bounded execution can request synthetic spill payload path.
@@ -633,6 +633,19 @@ Must include:
 - cleanup_performed.
 - spill_data_is_synthetic.
 - fallback_execution_allowed=false.
+
+### Phase 11A.3b.1 — Bounded spill status propagation stabilization — Current
+
+Checklist:
+- Preserve nested `SpillPayloadRoundTripReport` status propagation.
+- Do not advertise `PayloadRoundTripAvailable` unless synthetic write/read verification succeeds.
+- Do not downgrade blocked reservation statuses to `PayloadPlanReady`.
+- Keep synthetic spill support distinct from query/`Vortex` data spill.
+
+Epic coverage:
+- Epic A — DecisionTrace: nested roundtrip and reservation blockers remain explicit.
+- Epic F — Agent Contract Pack: machine-readable status correctness.
+- Epic I — Correctness Harness: regression checks for blocked/deferred propagation.
 
 ### Phase 11B — Recovery, cancellation, retry — Planned
 

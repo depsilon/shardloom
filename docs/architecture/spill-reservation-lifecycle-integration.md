@@ -58,3 +58,6 @@ Run:
 - Bounded execution can now plan synthetic spill payload integration.
 - Synthetic payload support is not query/`Vortex` data spill.
 - Machine-readable fields include `reservation_required`, `reservation_status`, `payload_write_allowed`, `payload_written`, `payload_read`, `cleanup_performed`, `spill_data_is_synthetic`, `query_spill_data_written=false`, and `fallback_execution_allowed=false`.
+- Phase 11A.3b.1 fixes status propagation: nested `SpillPayloadRoundTripReport` states (feature-disabled, blocked, unsupported, or verification/error states) cannot be advertised as `PayloadRoundTripAvailable`.
+- Existing blockers from reservation planning must not be downgraded to `PayloadPlanReady`.
+- Synthetic spill support remains distinct from query/`Vortex` data spill.
