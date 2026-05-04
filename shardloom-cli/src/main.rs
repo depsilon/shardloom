@@ -719,11 +719,7 @@ fn run(args: Vec<String>) -> ExitCode {
                     ("execution".to_string(), "not_performed".to_string()),
                 ],
             );
-            if report.has_errors() {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            }
+            ExitCode::SUCCESS
         }
         Some("spill-reservation-plan") => {
             let Some(label) = args.next() else {
@@ -3398,7 +3394,11 @@ fn run(args: Vec<String>) -> ExitCode {
                     ("execution".to_string(), "not_performed".to_string()),
                 ],
             );
-            ExitCode::SUCCESS
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
         }
         Some("vortex-encoded-read-readiness") => {
             let command = "vortex-encoded-read-readiness";
@@ -3598,7 +3598,14 @@ fn run(args: Vec<String>) -> ExitCode {
                     ("max_parallelism".to_string(), max_parallelism.to_string()),
                 ],
             );
-            if report.has_errors() {
+            if report.has_errors()
+                || !matches!(
+                    report.status,
+                    VortexEncodedReadReadinessStatus::ReadyForFutureEncodedRead
+                        | VortexEncodedReadReadinessStatus::ReadyForContract
+                        | VortexEncodedReadReadinessStatus::NoEncodedReadCandidates
+                )
+            {
                 ExitCode::from(1)
             } else {
                 ExitCode::SUCCESS
@@ -4582,11 +4589,19 @@ fn run(args: Vec<String>) -> ExitCode {
             let request = shardloom_vortex::VortexQueryPrimitiveRequest::count_all(uri.clone());
             let open = open_vortex_metadata_only(VortexMetadataOpenRequest::metadata_only(uri));
             let summary = if let Ok(report) = open {
-                report.metadata_summary.unwrap_or_else(|| {
+                if let Some(summary) = report.metadata_summary {
+                    summary
+                } else if report.has_errors() {
+                    let mut degraded = summarize_vortex_metadata_probe(
+                        &VortexMetadataProbeReport::deferred_api_unclear(),
+                    );
+                    degraded.diagnostics.extend(report.diagnostics.clone());
+                    degraded
+                } else {
                     summarize_vortex_metadata_probe(
                         &VortexMetadataProbeReport::deferred_api_unclear(),
                     )
-                })
+                }
             } else {
                 summarize_vortex_metadata_probe(&VortexMetadataProbeReport::deferred_api_unclear())
             };
@@ -4596,14 +4611,14 @@ fn run(args: Vec<String>) -> ExitCode {
                     return emit_error("vortex-count", format, "vortex count failed", &error);
                 }
             };
-            let status = if result.has_errors() {
-                CommandStatus::Unsupported
-            } else {
-                CommandStatus::Success
-            };
             let count = match result.value {
                 shardloom_vortex::VortexQueryPrimitiveValue::Count(v) => Some(v),
                 _ => None,
+            };
+            let status = if result.has_errors() || count.is_none() {
+                CommandStatus::Unsupported
+            } else {
+                CommandStatus::Success
             };
             emit(
                 "vortex-count",
@@ -4636,7 +4651,7 @@ fn run(args: Vec<String>) -> ExitCode {
                     ),
                 ],
             );
-            if result.has_errors() {
+            if result.has_errors() || count.is_none() {
                 ExitCode::from(1)
             } else {
                 ExitCode::SUCCESS

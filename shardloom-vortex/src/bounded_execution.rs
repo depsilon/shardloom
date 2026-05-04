@@ -406,6 +406,14 @@ impl VortexBoundedExecutionInput {
     pub fn has_errors(&self) -> bool {
         self.local_execution_report.has_errors()
             || self.policy.has_errors()
+            || self
+                .scheduler_report
+                .as_ref()
+                .is_some_and(VortexSchedulerBridgeReport::has_errors)
+            || self
+                .memory_report
+                .as_ref()
+                .is_some_and(VortexMemoryBridgeReport::has_errors)
             || self.diagnostics.iter().any(|d| {
                 matches!(
                     d.severity,
@@ -527,59 +535,67 @@ impl VortexBoundedExecutionReport {
                 ));
             }
         }
-        match local.status {
-            VortexLocalExecutionStatus::MetadataExecuted
-                if out.input.policy.allow_metadata_tasks =>
-            {
-                out.status = VortexBoundedExecutionStatus::MetadataTasksCompleted;
-                out.mode = VortexBoundedExecutionMode::MetadataOnly;
-                out.add_decision(VortexBoundedExecutionDecision::execute_metadata_only(
-                    None,
-                    "metadata-only local execution completed",
-                ));
-            }
-            VortexLocalExecutionStatus::NoOpCompleted if out.input.policy.allow_noop_tasks => {
-                out.status = VortexBoundedExecutionStatus::NoOpTasksCompleted;
-                out.mode = VortexBoundedExecutionMode::NoOp;
-                out.add_decision(VortexBoundedExecutionDecision::complete_noop(
-                    None,
-                    "no-op local execution completed",
-                ));
-            }
-            VortexLocalExecutionStatus::NeedsEncodedRead => {
-                out.status = VortexBoundedExecutionStatus::NeedsEncodedRead;
-                out.mode = VortexBoundedExecutionMode::ScheduledPlanOnly;
-                out.add_decision(VortexBoundedExecutionDecision::defer_encoded_read(
-                    None,
-                    "encoded-read work deferred by bounded execution policy",
-                ));
-            }
-            VortexLocalExecutionStatus::NeedsPredicateEvaluation => {
-                out.status = VortexBoundedExecutionStatus::NeedsPredicateEvaluation;
-                out.mode = VortexBoundedExecutionMode::ScheduledPlanOnly;
-                out.add_decision(VortexBoundedExecutionDecision::defer_predicate_evaluation(
-                    None,
-                    "predicate evaluation deferred by bounded execution policy",
-                ));
-            }
-            VortexLocalExecutionStatus::MissingMetadata => {
-                out.status = VortexBoundedExecutionStatus::BlockedByMissingEstimate;
-                out.mode = VortexBoundedExecutionMode::Blocked;
-                out.add_decision(VortexBoundedExecutionDecision::hold_for_estimate(
-                    None,
-                    "metadata missing for bounded execution",
-                ));
-            }
-            VortexLocalExecutionStatus::Unsupported => {
-                return Ok(Self::unsupported(
-                    out.input,
-                    "vortex_bounded_execution",
-                    "local execution reported unsupported status",
-                ));
-            }
-            _ => {
-                if out.status == VortexBoundedExecutionStatus::Planned {
-                    out.status = VortexBoundedExecutionStatus::ReadyButNoExecutableTasks;
+        if !matches!(
+            out.status,
+            VortexBoundedExecutionStatus::BlockedByMemoryPolicy
+                | VortexBoundedExecutionStatus::BlockedByScheduler
+                | VortexBoundedExecutionStatus::BlockedBySpillIo
+                | VortexBoundedExecutionStatus::Unsupported
+        ) {
+            match local.status {
+                VortexLocalExecutionStatus::MetadataExecuted
+                    if out.input.policy.allow_metadata_tasks =>
+                {
+                    out.status = VortexBoundedExecutionStatus::MetadataTasksCompleted;
+                    out.mode = VortexBoundedExecutionMode::MetadataOnly;
+                    out.add_decision(VortexBoundedExecutionDecision::execute_metadata_only(
+                        None,
+                        "metadata-only local execution completed",
+                    ));
+                }
+                VortexLocalExecutionStatus::NoOpCompleted if out.input.policy.allow_noop_tasks => {
+                    out.status = VortexBoundedExecutionStatus::NoOpTasksCompleted;
+                    out.mode = VortexBoundedExecutionMode::NoOp;
+                    out.add_decision(VortexBoundedExecutionDecision::complete_noop(
+                        None,
+                        "no-op local execution completed",
+                    ));
+                }
+                VortexLocalExecutionStatus::NeedsEncodedRead => {
+                    out.status = VortexBoundedExecutionStatus::NeedsEncodedRead;
+                    out.mode = VortexBoundedExecutionMode::ScheduledPlanOnly;
+                    out.add_decision(VortexBoundedExecutionDecision::defer_encoded_read(
+                        None,
+                        "encoded-read work deferred by bounded execution policy",
+                    ));
+                }
+                VortexLocalExecutionStatus::NeedsPredicateEvaluation => {
+                    out.status = VortexBoundedExecutionStatus::NeedsPredicateEvaluation;
+                    out.mode = VortexBoundedExecutionMode::ScheduledPlanOnly;
+                    out.add_decision(VortexBoundedExecutionDecision::defer_predicate_evaluation(
+                        None,
+                        "predicate evaluation deferred by bounded execution policy",
+                    ));
+                }
+                VortexLocalExecutionStatus::MissingMetadata => {
+                    out.status = VortexBoundedExecutionStatus::BlockedByMissingEstimate;
+                    out.mode = VortexBoundedExecutionMode::Blocked;
+                    out.add_decision(VortexBoundedExecutionDecision::hold_for_estimate(
+                        None,
+                        "metadata missing for bounded execution",
+                    ));
+                }
+                VortexLocalExecutionStatus::Unsupported => {
+                    return Ok(Self::unsupported(
+                        out.input,
+                        "vortex_bounded_execution",
+                        "local execution reported unsupported status",
+                    ));
+                }
+                _ => {
+                    if out.status == VortexBoundedExecutionStatus::Planned {
+                        out.status = VortexBoundedExecutionStatus::ReadyButNoExecutableTasks;
+                    }
                 }
             }
         }

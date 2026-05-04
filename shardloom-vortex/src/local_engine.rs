@@ -234,12 +234,19 @@ impl VortexLocalEngineReport {
             VortexMetadataOpenRequest::metadata_only(request.uri.clone()),
         )
         .ok();
-        let summary = metadata_open_report
-            .as_ref()
-            .and_then(|r| r.metadata_summary.clone())
-            .unwrap_or_else(|| {
-                summarize_vortex_metadata_probe(&VortexMetadataProbeReport::deferred_api_unclear())
-            });
+        let summary = if let Some(open) = metadata_open_report.as_ref() {
+            if let Some(summary) = open.metadata_summary.clone() {
+                summary
+            } else {
+                let mut degraded = summarize_vortex_metadata_probe(
+                    &VortexMetadataProbeReport::deferred_api_unclear(),
+                );
+                degraded.diagnostics.extend(open.diagnostics.clone());
+                degraded
+            }
+        } else {
+            summarize_vortex_metadata_probe(&VortexMetadataProbeReport::deferred_api_unclear())
+        };
         let query_result = crate::evaluate_vortex_query_primitive(query_request.clone(), &summary)?;
         let analysis_report = Some(crate::analyze_vortex_query_primitive_result(
             query_result.clone(),
@@ -508,9 +515,11 @@ fn map_bounded_execution_status(status: VortexBoundedExecutionStatus) -> VortexL
         VortexBoundedExecutionStatus::NeedsPredicateEvaluation => {
             VortexLocalEngineStatus::DeferredPredicateEvaluation
         }
-        VortexBoundedExecutionStatus::BlockedByMemoryPolicy
-        | VortexBoundedExecutionStatus::BlockedByMissingEstimate => {
+        VortexBoundedExecutionStatus::BlockedByMemoryPolicy => {
             VortexLocalEngineStatus::BlockedByMemoryPolicy
+        }
+        VortexBoundedExecutionStatus::BlockedByMissingEstimate => {
+            VortexLocalEngineStatus::MissingMetadata
         }
         VortexBoundedExecutionStatus::BlockedByScheduler => {
             VortexLocalEngineStatus::BlockedByScheduler

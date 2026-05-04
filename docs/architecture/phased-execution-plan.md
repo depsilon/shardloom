@@ -364,7 +364,7 @@ Cross-cutting epics:
 - No Arrow-default path.
 - No object-store/write/spill until explicit phase.
 - Every phase must preserve diagnostics and side-effect flags.
-- Reviews happen at phase boundaries, not after every small PR.
+- Normal per-PR reviews remain required; phase-boundary reviews are additional roadmap checkpoints.
 - Missing metadata/statistics/estimates must never be treated as proof.
 - Delete/tombstone semantics must never be silently ignored.
 - Benchmark claims require evidence.
@@ -402,4 +402,4 @@ Cross-cutting epics:
 - Reference: `docs/architecture/rfc-phase-traceability.md`.
 - Each phase has mapped RFCs.
 - Check mapped RFCs before starting a phase.
-- Reviews happen at phase boundaries, not after every small PR.
+- Normal per-PR reviews remain required; phase-boundary reviews are additional roadmap checkpoints.

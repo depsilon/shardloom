@@ -122,6 +122,7 @@ pub enum VortexMetadataExecutableDecisionKind {
     BlockedWouldWrite,
     BlockedWouldUseObjectStore,
     BlockedWouldSpill,
+    BlockedWouldMemory,
     BlockedExternalEffect,
     BlockedUnsupported,
 }
@@ -135,6 +136,7 @@ impl VortexMetadataExecutableDecisionKind {
             Self::BlockedWouldWrite => "blocked_would_write",
             Self::BlockedWouldUseObjectStore => "blocked_would_use_object_store",
             Self::BlockedWouldSpill => "blocked_would_spill",
+            Self::BlockedWouldMemory => "blocked_would_memory",
             Self::BlockedExternalEffect => "blocked_external_effect",
             Self::BlockedUnsupported => "blocked_unsupported",
         }
@@ -215,6 +217,13 @@ impl VortexMetadataExecutionDecision {
     pub fn blocked_would_spill(task_id: Option<TaskId>, reason: impl Into<String>) -> Self {
         Self::base(
             VortexMetadataExecutableDecisionKind::BlockedWouldSpill,
+            task_id,
+            reason,
+        )
+    }
+    pub fn blocked_would_memory(task_id: Option<TaskId>, reason: impl Into<String>) -> Self {
+        Self::base(
+            VortexMetadataExecutableDecisionKind::BlockedWouldMemory,
             task_id,
             reason,
         )
@@ -403,9 +412,20 @@ impl VortexMetadataExecutionReport {
             .extend(input.readiness_report.diagnostics.clone());
         out.diagnostics
             .extend(input.readiness_report.input.diagnostics.clone());
-        if input.readiness_report.status == VortexExecutionReadinessStatus::Unsupported {
-            out.status = VortexMetadataExecutionStatus::Unsupported;
-        }
+        out.status = match input.readiness_report.status {
+            VortexExecutionReadinessStatus::Unsupported => {
+                VortexMetadataExecutionStatus::Unsupported
+            }
+            VortexExecutionReadinessStatus::BlockedByUnsupportedInput
+            | VortexExecutionReadinessStatus::BlockedByMissingMetadata
+            | VortexExecutionReadinessStatus::BlockedByMissingEstimate
+            | VortexExecutionReadinessStatus::BlockedByMemoryPolicy
+            | VortexExecutionReadinessStatus::BlockedBySpillPolicy
+            | VortexExecutionReadinessStatus::BlockedByFeatureGate => {
+                VortexMetadataExecutionStatus::BlockedByReadiness
+            }
+            _ => out.status,
+        };
         for d in &input.readiness_report.input.scheduler_report.decisions {
             let mapped = match d.kind {
                 VortexSchedulingDecisionKind::SkipPruned => {
@@ -426,8 +446,13 @@ impl VortexMetadataExecutionReport {
                         &d.reason,
                     )
                 }
-                VortexSchedulingDecisionKind::HoldForMemory
-                | VortexSchedulingDecisionKind::HoldForSpillSupport => {
+                VortexSchedulingDecisionKind::HoldForMemory => {
+                    VortexMetadataExecutionDecision::blocked_would_memory(
+                        d.task_id.clone(),
+                        &d.reason,
+                    )
+                }
+                VortexSchedulingDecisionKind::HoldForSpillSupport => {
                     VortexMetadataExecutionDecision::blocked_would_spill(
                         d.task_id.clone(),
                         &d.reason,
@@ -445,26 +470,32 @@ impl VortexMetadataExecutionReport {
             out.add_decision(mapped);
         }
         out.recompute_counts();
-        if out.decisions.is_empty() {
-            out.status = VortexMetadataExecutionStatus::NoTasksRequired;
-        } else if out.blocked_task_count > 0 {
-            out.status = if out.tasks_that_would_read_data > 0 {
-                VortexMetadataExecutionStatus::BlockedByDataRead
-            } else if out.tasks_that_would_materialize > 0 {
-                VortexMetadataExecutionStatus::BlockedByMaterialization
-            } else if out.tasks_that_would_write > 0 {
-                VortexMetadataExecutionStatus::BlockedByWriteIo
-            } else if out.tasks_that_would_use_object_store > 0 {
-                VortexMetadataExecutionStatus::BlockedByObjectStoreIo
-            } else if out.tasks_that_would_spill > 0 {
-                VortexMetadataExecutionStatus::BlockedBySpillIo
-            } else if out.external_effect_tasks_blocked > 0 {
-                VortexMetadataExecutionStatus::BlockedByExternalEffect
+        if !matches!(
+            out.status,
+            VortexMetadataExecutionStatus::Unsupported
+                | VortexMetadataExecutionStatus::BlockedByReadiness
+        ) {
+            if out.decisions.is_empty() {
+                out.status = VortexMetadataExecutionStatus::NoTasksRequired;
+            } else if out.blocked_task_count > 0 {
+                out.status = if out.tasks_that_would_read_data > 0 {
+                    VortexMetadataExecutionStatus::BlockedByDataRead
+                } else if out.tasks_that_would_materialize > 0 {
+                    VortexMetadataExecutionStatus::BlockedByMaterialization
+                } else if out.tasks_that_would_write > 0 {
+                    VortexMetadataExecutionStatus::BlockedByWriteIo
+                } else if out.tasks_that_would_use_object_store > 0 {
+                    VortexMetadataExecutionStatus::BlockedByObjectStoreIo
+                } else if out.tasks_that_would_spill > 0 {
+                    VortexMetadataExecutionStatus::BlockedBySpillIo
+                } else if out.external_effect_tasks_blocked > 0 {
+                    VortexMetadataExecutionStatus::BlockedByExternalEffect
+                } else {
+                    VortexMetadataExecutionStatus::BlockedByReadiness
+                };
             } else {
-                VortexMetadataExecutionStatus::BlockedByReadiness
-            };
-        } else {
-            out.status = VortexMetadataExecutionStatus::ExecutedMetadataOnly;
+                out.status = VortexMetadataExecutionStatus::ExecutedMetadataOnly;
+            }
         }
         Ok(out)
     }
