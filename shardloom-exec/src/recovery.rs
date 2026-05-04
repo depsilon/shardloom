@@ -2906,6 +2906,440 @@ pub fn retry_execution_gate_is_side_effect_free(
 ) -> bool {
     report.is_side_effect_free()
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShardLoomCancellationExecutionGateStatus {
+    GateOpen,
+    GateClosedCancellationNotRequested,
+    GateClosedCleanupRequired,
+    GateClosedUnknownArtifact,
+    GateClosedExternalEffect,
+    GateClosedObjectStoreRecovery,
+    GateClosedOutputRecovery,
+    GateClosedRetryInProgress,
+    Unsupported,
+}
+impl ShardLoomCancellationExecutionGateStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::GateOpen => "gate_open",
+            Self::GateClosedCancellationNotRequested => "gate_closed_cancellation_not_requested",
+            Self::GateClosedCleanupRequired => "gate_closed_cleanup_required",
+            Self::GateClosedUnknownArtifact => "gate_closed_unknown_artifact",
+            Self::GateClosedExternalEffect => "gate_closed_external_effect",
+            Self::GateClosedObjectStoreRecovery => "gate_closed_object_store_recovery",
+            Self::GateClosedOutputRecovery => "gate_closed_output_recovery",
+            Self::GateClosedRetryInProgress => "gate_closed_retry_in_progress",
+            Self::Unsupported => "unsupported",
+        }
+    }
+    #[must_use]
+    pub const fn is_error(&self) -> bool {
+        !matches!(self, Self::GateOpen)
+    }
+    #[must_use]
+    pub const fn gate_open(&self) -> bool {
+        matches!(self, Self::GateOpen)
+    }
+    #[must_use]
+    pub const fn requires_cleanup(&self) -> bool {
+        matches!(self, Self::GateClosedCleanupRequired)
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShardLoomCancellationExecutionGateMode {
+    ReportOnly,
+    CancellationGateOnly,
+    Unsupported,
+}
+impl ShardLoomCancellationExecutionGateMode {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::ReportOnly => "report_only",
+            Self::CancellationGateOnly => "cancellation_gate_only",
+            Self::Unsupported => "unsupported",
+        }
+    }
+    #[must_use]
+    pub const fn executes_cancellation(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn executes_retry(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn executes_cleanup(&self) -> bool {
+        false
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShardLoomCancellationExecutionGateSignal {
+    CancellationRequested,
+    CleanupRequired,
+    CleanupCompleted,
+    UnknownArtifactPresent,
+    ExternalEffectsPresent,
+    ObjectStoreRecoveryRequired,
+    OutputRecoveryRequired,
+    RetryInProgress,
+}
+impl ShardLoomCancellationExecutionGateSignal {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::CancellationRequested => "cancellation_requested",
+            Self::CleanupRequired => "cleanup_required",
+            Self::CleanupCompleted => "cleanup_completed",
+            Self::UnknownArtifactPresent => "unknown_artifact_present",
+            Self::ExternalEffectsPresent => "external_effects_present",
+            Self::ObjectStoreRecoveryRequired => "object_store_recovery_required",
+            Self::OutputRecoveryRequired => "output_recovery_required",
+            Self::RetryInProgress => "retry_in_progress",
+        }
+    }
+    #[must_use]
+    pub const fn is_blocking(&self) -> bool {
+        matches!(
+            self,
+            Self::UnknownArtifactPresent
+                | Self::ExternalEffectsPresent
+                | Self::ObjectStoreRecoveryRequired
+                | Self::OutputRecoveryRequired
+                | Self::RetryInProgress
+                | Self::CleanupRequired
+        )
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShardLoomCancellationExecutionGateEffect {
+    CancellationExecuted,
+    RetryExecuted,
+    CleanupExecutedByGate,
+    ExternalEffectExecuted,
+    ObjectStoreIo,
+    OutputDatasetWrite,
+    FallbackExecution,
+}
+impl ShardLoomCancellationExecutionGateEffect {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::CancellationExecuted => "cancellation_executed",
+            Self::RetryExecuted => "retry_executed",
+            Self::CleanupExecutedByGate => "cleanup_executed_by_gate",
+            Self::ExternalEffectExecuted => "external_effect_executed",
+            Self::ObjectStoreIo => "object_store_io",
+            Self::OutputDatasetWrite => "output_dataset_write",
+            Self::FallbackExecution => "fallback_execution",
+        }
+    }
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct ShardLoomCancellationExecutionGateRequest {
+    pub signals: Vec<ShardLoomCancellationExecutionGateSignal>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl ShardLoomCancellationExecutionGateRequest {
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            signals: vec![],
+            diagnostics: vec![],
+        }
+    }
+    pub fn add_signal(&mut self, signal: ShardLoomCancellationExecutionGateSignal) {
+        if !self.signals.contains(&signal) {
+            self.signals.push(signal);
+        }
+    }
+    fn set_signal(mut self, signal: ShardLoomCancellationExecutionGateSignal, value: bool) -> Self {
+        self.signals.retain(|s| s != &signal);
+        if value {
+            self.signals.push(signal);
+        }
+        self
+    }
+    pub fn cancellation_requested(self, value: bool) -> Self {
+        self.set_signal(
+            ShardLoomCancellationExecutionGateSignal::CancellationRequested,
+            value,
+        )
+    }
+    pub fn cleanup_required(self, value: bool) -> Self {
+        self.set_signal(
+            ShardLoomCancellationExecutionGateSignal::CleanupRequired,
+            value,
+        )
+    }
+    pub fn cleanup_completed(self, value: bool) -> Self {
+        self.set_signal(
+            ShardLoomCancellationExecutionGateSignal::CleanupCompleted,
+            value,
+        )
+    }
+    pub fn unknown_artifact_present(self, value: bool) -> Self {
+        self.set_signal(
+            ShardLoomCancellationExecutionGateSignal::UnknownArtifactPresent,
+            value,
+        )
+    }
+    pub fn external_effects_present(self, value: bool) -> Self {
+        self.set_signal(
+            ShardLoomCancellationExecutionGateSignal::ExternalEffectsPresent,
+            value,
+        )
+    }
+    pub fn object_store_recovery_required(self, value: bool) -> Self {
+        self.set_signal(
+            ShardLoomCancellationExecutionGateSignal::ObjectStoreRecoveryRequired,
+            value,
+        )
+    }
+    pub fn output_recovery_required(self, value: bool) -> Self {
+        self.set_signal(
+            ShardLoomCancellationExecutionGateSignal::OutputRecoveryRequired,
+            value,
+        )
+    }
+    pub fn retry_in_progress(self, value: bool) -> Self {
+        self.set_signal(
+            ShardLoomCancellationExecutionGateSignal::RetryInProgress,
+            value,
+        )
+    }
+    #[must_use]
+    pub fn has_signal(&self, signal: ShardLoomCancellationExecutionGateSignal) -> bool {
+        self.signals.contains(&signal)
+    }
+    pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
+    }
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        has_error_diagnostics(&self.diagnostics)
+    }
+    #[must_use]
+    pub fn summary(&self) -> String {
+        format!(
+            "signals={} cancellation_requested={}",
+            self.signals.len(),
+            self.has_signal(ShardLoomCancellationExecutionGateSignal::CancellationRequested)
+        )
+    }
+}
+impl Default for ShardLoomCancellationExecutionGateRequest {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct ShardLoomCancellationExecutionGateReport {
+    pub status: ShardLoomCancellationExecutionGateStatus,
+    pub mode: ShardLoomCancellationExecutionGateMode,
+    pub request: ShardLoomCancellationExecutionGateRequest,
+    pub effects_performed: Vec<ShardLoomCancellationExecutionGateEffect>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl ShardLoomCancellationExecutionGateReport {
+    /// # Errors
+    /// Returns an error when creating a `ShardLoomCancellationExecutionGateReport` fails.
+    pub fn from_request(request: ShardLoomCancellationExecutionGateRequest) -> Result<Self> {
+        let status = if !request
+            .has_signal(ShardLoomCancellationExecutionGateSignal::CancellationRequested)
+        {
+            ShardLoomCancellationExecutionGateStatus::GateClosedCancellationNotRequested
+        } else if request.has_signal(ShardLoomCancellationExecutionGateSignal::RetryInProgress) {
+            ShardLoomCancellationExecutionGateStatus::GateClosedRetryInProgress
+        } else if request
+            .has_signal(ShardLoomCancellationExecutionGateSignal::ExternalEffectsPresent)
+        {
+            ShardLoomCancellationExecutionGateStatus::GateClosedExternalEffect
+        } else if request
+            .has_signal(ShardLoomCancellationExecutionGateSignal::ObjectStoreRecoveryRequired)
+        {
+            ShardLoomCancellationExecutionGateStatus::GateClosedObjectStoreRecovery
+        } else if request
+            .has_signal(ShardLoomCancellationExecutionGateSignal::OutputRecoveryRequired)
+        {
+            ShardLoomCancellationExecutionGateStatus::GateClosedOutputRecovery
+        } else if request
+            .has_signal(ShardLoomCancellationExecutionGateSignal::UnknownArtifactPresent)
+        {
+            ShardLoomCancellationExecutionGateStatus::GateClosedUnknownArtifact
+        } else if request.has_signal(ShardLoomCancellationExecutionGateSignal::CleanupRequired)
+            && !request.has_signal(ShardLoomCancellationExecutionGateSignal::CleanupCompleted)
+        {
+            ShardLoomCancellationExecutionGateStatus::GateClosedCleanupRequired
+        } else {
+            ShardLoomCancellationExecutionGateStatus::GateOpen
+        };
+        Ok(Self {
+            status,
+            mode: ShardLoomCancellationExecutionGateMode::CancellationGateOnly,
+            request,
+            effects_performed: vec![],
+            diagnostics: vec![],
+        })
+    }
+    #[must_use]
+    pub fn unsupported(
+        request: ShardLoomCancellationExecutionGateRequest,
+        feature: impl Into<String>,
+        reason: impl Into<String>,
+    ) -> Self {
+        let mut report = Self {
+            status: ShardLoomCancellationExecutionGateStatus::Unsupported,
+            mode: ShardLoomCancellationExecutionGateMode::Unsupported,
+            request,
+            effects_performed: vec![],
+            diagnostics: vec![],
+        };
+        report.add_diagnostic(unsupported_diagnostic(feature, reason));
+        report
+    }
+    pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
+    }
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.status.is_error()
+            || self.request.has_errors()
+            || has_error_diagnostics(&self.diagnostics)
+    }
+    #[must_use]
+    pub fn cancellation_requested(&self) -> bool {
+        self.request
+            .has_signal(ShardLoomCancellationExecutionGateSignal::CancellationRequested)
+    }
+    #[must_use]
+    pub fn cancellation_gate_open(&self) -> bool {
+        self.status.gate_open()
+    }
+    #[must_use]
+    pub fn cleanup_required(&self) -> bool {
+        self.request
+            .has_signal(ShardLoomCancellationExecutionGateSignal::CleanupRequired)
+    }
+    #[must_use]
+    pub fn cleanup_completed(&self) -> bool {
+        self.request
+            .has_signal(ShardLoomCancellationExecutionGateSignal::CleanupCompleted)
+    }
+    #[must_use]
+    pub fn unknown_artifact_present(&self) -> bool {
+        self.request
+            .has_signal(ShardLoomCancellationExecutionGateSignal::UnknownArtifactPresent)
+    }
+    #[must_use]
+    pub fn cancellation_executed(&self) -> bool {
+        self.effects_performed
+            .contains(&ShardLoomCancellationExecutionGateEffect::CancellationExecuted)
+    }
+    #[must_use]
+    pub fn retry_executed(&self) -> bool {
+        self.effects_performed
+            .contains(&ShardLoomCancellationExecutionGateEffect::RetryExecuted)
+    }
+    #[must_use]
+    pub fn cleanup_executed_by_gate(&self) -> bool {
+        self.effects_performed
+            .contains(&ShardLoomCancellationExecutionGateEffect::CleanupExecutedByGate)
+    }
+    #[must_use]
+    pub fn external_effects_executed(&self) -> bool {
+        self.effects_performed
+            .contains(&ShardLoomCancellationExecutionGateEffect::ExternalEffectExecuted)
+    }
+    #[must_use]
+    pub fn object_store_io(&self) -> bool {
+        self.effects_performed
+            .contains(&ShardLoomCancellationExecutionGateEffect::ObjectStoreIo)
+    }
+    #[must_use]
+    pub fn output_dataset_write(&self) -> bool {
+        self.effects_performed
+            .contains(&ShardLoomCancellationExecutionGateEffect::OutputDatasetWrite)
+    }
+    #[must_use]
+    pub fn fallback_execution_allowed(&self) -> bool {
+        self.effects_performed
+            .contains(&ShardLoomCancellationExecutionGateEffect::FallbackExecution)
+    }
+    #[must_use]
+    pub fn is_side_effect_free(&self) -> bool {
+        self.effects_performed.is_empty() && !self.fallback_execution_allowed()
+    }
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        let mut out = String::new();
+        let _ = writeln!(
+            out,
+            "cancellation execution gate status: {}",
+            self.status.as_str()
+        );
+        let _ = writeln!(out, "mode: {}", self.mode.as_str());
+        let _ = writeln!(
+            out,
+            "cancellation requested: {}",
+            self.cancellation_requested()
+        );
+        let _ = writeln!(
+            out,
+            "cancellation gate open: {}",
+            self.cancellation_gate_open()
+        );
+        let _ = writeln!(out, "cleanup required: {}", self.cleanup_required());
+        let _ = writeln!(out, "cleanup completed: {}", self.cleanup_completed());
+        let _ = writeln!(
+            out,
+            "unknown artifact present: {}",
+            self.unknown_artifact_present()
+        );
+        let _ = write!(
+            out,
+            "cancellation executed: {}
+retry executed: {}
+cleanup executed by gate: {}
+external effects executed: {}
+object-store IO: {}
+output dataset write: {}
+fallback execution: disabled",
+            self.cancellation_executed(),
+            self.retry_executed(),
+            self.cleanup_executed_by_gate(),
+            self.external_effects_executed(),
+            self.object_store_io(),
+            self.output_dataset_write()
+        );
+        if !self.request.diagnostics.is_empty() || !self.diagnostics.is_empty() {
+            let _ = writeln!(
+                out,
+                "
+diagnostics:"
+            );
+            for diagnostic in self.request.diagnostics.iter().chain(&self.diagnostics) {
+                let _ = writeln!(out, "- {}", diagnostic.message);
+            }
+        }
+        out
+    }
+}
+/// # Errors
+/// Returns an error when creating a `ShardLoomCancellationExecutionGateReport` from planning signals fails.
+pub fn plan_cancellation_execution_gate(
+    request: ShardLoomCancellationExecutionGateRequest,
+) -> Result<ShardLoomCancellationExecutionGateReport> {
+    ShardLoomCancellationExecutionGateReport::from_request(request)
+}
+#[must_use]
+pub fn cancellation_execution_gate_is_side_effect_free(
+    report: &ShardLoomCancellationExecutionGateReport,
+) -> bool {
+    report.is_side_effect_free()
+}
 impl RecoveryReport {
     pub fn not_run() -> Self {
         Self {
@@ -3862,5 +4296,163 @@ mod tests {
         assert!(!open.fallback_execution_allowed());
         let text = open.to_human_text();
         assert!(text.contains("fallback execution: disabled"));
+    }
+}
+
+#[cfg(test)]
+mod cancellation_execution_gate_tests {
+    use super::*;
+
+    #[test]
+    fn cancellation_execution_gate_status_and_mode_basics() {
+        assert!(ShardLoomCancellationExecutionGateStatus::GateOpen.gate_open());
+        assert!(
+            ShardLoomCancellationExecutionGateStatus::GateClosedCancellationNotRequested.is_error()
+        );
+        assert!(ShardLoomCancellationExecutionGateStatus::GateClosedCleanupRequired.is_error());
+        assert!(
+            ShardLoomCancellationExecutionGateStatus::GateClosedCleanupRequired.requires_cleanup()
+        );
+        assert!(!ShardLoomCancellationExecutionGateMode::ReportOnly.executes_cancellation());
+    }
+
+    #[test]
+    fn cancellation_execution_gate_request_builders_work() {
+        let request = ShardLoomCancellationExecutionGateRequest::new();
+        assert!(request.signals.is_empty());
+        let request = request.cancellation_requested(true).cleanup_completed(true);
+        assert!(
+            request.has_signal(ShardLoomCancellationExecutionGateSignal::CancellationRequested)
+        );
+        assert!(request.has_signal(ShardLoomCancellationExecutionGateSignal::CleanupCompleted));
+    }
+
+    #[test]
+    fn cancellation_execution_gate_status_priority_and_open_cases() {
+        let not_requested = ShardLoomCancellationExecutionGateReport::from_request(
+            ShardLoomCancellationExecutionGateRequest::new().cleanup_required(true),
+        )
+        .expect("report");
+        assert_eq!(
+            not_requested.status,
+            ShardLoomCancellationExecutionGateStatus::GateClosedCancellationNotRequested
+        );
+
+        let cleanup_required = ShardLoomCancellationExecutionGateReport::from_request(
+            ShardLoomCancellationExecutionGateRequest::new()
+                .cancellation_requested(true)
+                .cleanup_required(true),
+        )
+        .expect("report");
+        assert_eq!(
+            cleanup_required.status,
+            ShardLoomCancellationExecutionGateStatus::GateClosedCleanupRequired
+        );
+
+        let open_no_cleanup = ShardLoomCancellationExecutionGateReport::from_request(
+            ShardLoomCancellationExecutionGateRequest::new().cancellation_requested(true),
+        )
+        .expect("report");
+        assert_eq!(
+            open_no_cleanup.status,
+            ShardLoomCancellationExecutionGateStatus::GateOpen
+        );
+
+        let open_cleanup_done = ShardLoomCancellationExecutionGateReport::from_request(
+            ShardLoomCancellationExecutionGateRequest::new()
+                .cancellation_requested(true)
+                .cleanup_required(true)
+                .cleanup_completed(true),
+        )
+        .expect("report");
+        assert_eq!(
+            open_cleanup_done.status,
+            ShardLoomCancellationExecutionGateStatus::GateOpen
+        );
+    }
+
+    #[test]
+    fn cancellation_execution_gate_blocking_signals_close_gate() {
+        let unknown = ShardLoomCancellationExecutionGateReport::from_request(
+            ShardLoomCancellationExecutionGateRequest::new()
+                .cancellation_requested(true)
+                .unknown_artifact_present(true),
+        )
+        .expect("report");
+        assert_eq!(
+            unknown.status,
+            ShardLoomCancellationExecutionGateStatus::GateClosedUnknownArtifact
+        );
+
+        let external = ShardLoomCancellationExecutionGateReport::from_request(
+            ShardLoomCancellationExecutionGateRequest::new()
+                .cancellation_requested(true)
+                .external_effects_present(true),
+        )
+        .expect("report");
+        assert_eq!(
+            external.status,
+            ShardLoomCancellationExecutionGateStatus::GateClosedExternalEffect
+        );
+
+        let retry = ShardLoomCancellationExecutionGateReport::from_request(
+            ShardLoomCancellationExecutionGateRequest::new()
+                .cancellation_requested(true)
+                .retry_in_progress(true),
+        )
+        .expect("report");
+        assert_eq!(
+            retry.status,
+            ShardLoomCancellationExecutionGateStatus::GateClosedRetryInProgress
+        );
+
+        let object_store = ShardLoomCancellationExecutionGateReport::from_request(
+            ShardLoomCancellationExecutionGateRequest::new()
+                .cancellation_requested(true)
+                .object_store_recovery_required(true),
+        )
+        .expect("report");
+        assert_eq!(
+            object_store.status,
+            ShardLoomCancellationExecutionGateStatus::GateClosedObjectStoreRecovery
+        );
+
+        let output = ShardLoomCancellationExecutionGateReport::from_request(
+            ShardLoomCancellationExecutionGateRequest::new()
+                .cancellation_requested(true)
+                .output_recovery_required(true),
+        )
+        .expect("report");
+        assert_eq!(
+            output.status,
+            ShardLoomCancellationExecutionGateStatus::GateClosedOutputRecovery
+        );
+    }
+
+    #[test]
+    fn cancellation_execution_gate_side_effect_fields_and_text() {
+        let mut request =
+            ShardLoomCancellationExecutionGateRequest::new().cancellation_requested(true);
+        request.add_diagnostic(unsupported_diagnostic("cancel", "diag-message"));
+        let report =
+            ShardLoomCancellationExecutionGateReport::from_request(request).expect("report");
+        assert!(!report.cancellation_executed());
+        assert!(!report.retry_executed());
+        assert!(!report.cleanup_executed_by_gate());
+        assert!(!report.object_store_io());
+        assert!(!report.output_dataset_write());
+        assert!(!report.fallback_execution_allowed());
+        assert!(report.is_side_effect_free());
+
+        let text = report.to_human_text();
+        assert!(text.contains("fallback execution: disabled"));
+        assert!(text.contains("cancellation executed: false"));
+        assert!(text.contains("diag-message"));
+
+        let via_plan = plan_cancellation_execution_gate(
+            ShardLoomCancellationExecutionGateRequest::new().cancellation_requested(true),
+        )
+        .expect("report");
+        assert!(cancellation_execution_gate_is_side_effect_free(&via_plan));
     }
 }
