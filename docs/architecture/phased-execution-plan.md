@@ -651,9 +651,13 @@ Epic coverage:
 
 ### Phase 11B.1 — Recovery context and cleanup planning integration — Complete
 
-### Phase 11B.2 — Retry/cancellation planning integration — Current
+### Phase 11B.2 — Retry/cancellation planning integration — Complete
 
-### Phase 11B.3 — Feature-gated cleanup execution for known synthetic artifacts — Planned
+### Phase 11B.3a — Cleanup execution core contract, no filesystem — Current
+
+### Phase 11B.3b — Feature-gated cleanup execution for known synthetic artifacts — Planned
+
+### Phase 11B.3c — Cleanup execution CLI/reporting integration — Planned
 
 Checklist:
 - Task attempt identity.

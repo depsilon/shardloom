@@ -59,11 +59,14 @@ pub use memory::{
 
 pub use recovery::{
     AmbiguousCommitRecord, AttemptId, CancellationReason, CancellationRequest, CancellationScope,
-    CancellationStatus, CleanupRequirement, CleanupStatus, CleanupTargetKind, CommitRecoveryState,
-    FailureDomain, FailureKind, FailureRecord, FaultToleranceLevel, PartialOutputRecord,
-    RecoveryAction, RecoveryActionKind, RecoveryPlan, RecoveryPlanStatus, RecoveryReport,
-    RetryDecision, RetryDecisionKind, RetryEligibility, RetryPlan, TaskAttemptRecord,
-    TaskAttemptStatus,
+    CancellationStatus, CleanupExecutionOption, CleanupRequirement, CleanupStatus,
+    CleanupTargetKind, CommitRecoveryState, FailureDomain, FailureKind, FailureRecord,
+    FaultToleranceLevel, PartialOutputRecord, RecoveryAction, RecoveryActionKind, RecoveryPlan,
+    RecoveryPlanStatus, RecoveryReport, RetryDecision, RetryDecisionKind, RetryEligibility,
+    RetryPlan, ShardLoomCleanupExecutionEffect, ShardLoomCleanupExecutionMode,
+    ShardLoomCleanupExecutionReport, ShardLoomCleanupExecutionRequest,
+    ShardLoomCleanupExecutionStatus, TaskAttemptRecord, TaskAttemptStatus,
+    cleanup_execution_plan_is_side_effect_free, plan_cleanup_execution,
 };
 
 pub use sizing::{
