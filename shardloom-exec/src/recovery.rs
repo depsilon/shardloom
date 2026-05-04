@@ -1738,28 +1738,27 @@ impl ShardLoomCleanupExecutionReport {
     /// # Errors
     /// Returns an error only if planning metadata cannot be derived from the request.
     pub fn from_request(request: ShardLoomCleanupExecutionRequest) -> Result<Self> {
-        if let Some(blocked) = Self::validate_request_for_cleanup(request.clone()) {
-            return Ok(blocked);
+        if let Some((status, reason)) = Self::validate_request_for_cleanup(&request) {
+            return Ok(Self::blocked(request, status, reason));
         }
         Ok(Self::cleanup_would_execute(request))
     }
-    fn validate_request_for_cleanup(request: ShardLoomCleanupExecutionRequest) -> Option<Self> {
+    fn validate_request_for_cleanup(
+        request: &ShardLoomCleanupExecutionRequest,
+    ) -> Option<(ShardLoomCleanupExecutionStatus, &'static str)> {
         match request.artifact.kind {
-            RecoveryArtifactKind::Unknown => Some(Self::blocked(
-                request,
+            RecoveryArtifactKind::Unknown => Some((
                 ShardLoomCleanupExecutionStatus::BlockedByUnknownArtifact,
                 "artifact kind is unknown",
             )),
             RecoveryArtifactKind::SyntheticSpillPayload => {
                 if !request.has_option(CleanupExecutionOption::AllowSyntheticPayloadCleanup) {
-                    Some(Self::blocked(
-                        request,
+                    Some((
                         ShardLoomCleanupExecutionStatus::BlockedByPolicy,
                         "synthetic payload cleanup must be explicitly enabled in planning options",
                     ))
                 } else if request.synthetic_payload_ref.is_none() {
-                    Some(Self::blocked(
-                        request,
+                    Some((
                         ShardLoomCleanupExecutionStatus::BlockedByMissingArtifact,
                         "synthetic spill payload filesystem reference is required",
                     ))
@@ -1770,8 +1769,7 @@ impl ShardLoomCleanupExecutionReport {
                         .map(|fs_ref| fs_ref.payload_ref().payload_id().as_str().to_string())
                         .unwrap_or_default()
                 {
-                    Some(Self::blocked(
-                        request,
+                    Some((
                         ShardLoomCleanupExecutionStatus::BlockedByMissingArtifact,
                         "synthetic spill payload filesystem reference payload id does not match artifact id",
                     ))
@@ -1782,8 +1780,7 @@ impl ShardLoomCleanupExecutionReport {
             RecoveryArtifactKind::SpillWorkspace
             | RecoveryArtifactKind::SpillMarker
             | RecoveryArtifactKind::TemporaryOutput
-            | RecoveryArtifactKind::PartialOutput => Some(Self::blocked(
-                request,
+            | RecoveryArtifactKind::PartialOutput => Some((
                 ShardLoomCleanupExecutionStatus::BlockedByUnsupportedArtifact,
                 "cleanup execution for this artifact kind is not implemented in this phase",
             )),
