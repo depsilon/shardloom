@@ -1521,16 +1521,21 @@ impl ShardLoomRecoveryIntegrationReport {
         if let Some(retry_decision) = &self.retry_decision {
             let _ = writeln!(out, "retry decision: {}", retry_decision.kind.as_str());
         }
+        let fallback_allowed = self.fallback_execution.allowed();
         let _ = write!(
             out,
-            "cleanup executed: {}\nretry executed: {}\ncancellation executed: {}\nexternal effects executed: {}\nobject-store IO: {}\noutput dataset write: {}\nfallback execution: disabled",
+            "cleanup executed: {}\nretry executed: {}\ncancellation executed: {}\nexternal effects executed: {}\nobject-store IO: {}\noutput dataset write: {}\nfallback execution allowed: {}",
             self.cleanup_execution.executed(),
             self.retry_execution.executed(),
             self.cancellation_execution.executed(),
             self.external_effects_execution.executed(),
             self.object_store_io.executed(),
-            self.output_dataset_write.executed()
+            self.output_dataset_write.executed(),
+            fallback_allowed
         );
+        if !fallback_allowed {
+            let _ = write!(out, "\nfallback execution: disabled");
+        }
         if !self.diagnostics.is_empty() {
             let _ = writeln!(out, "\ndiagnostics:");
             for d in &self.diagnostics {
@@ -1845,16 +1850,21 @@ impl ShardLoomCleanupExecutionReport {
         let _ = writeln!(out, "cleanup execution status: {}", self.status.as_str());
         let _ = writeln!(out, "mode: {}", self.mode.as_str());
         let _ = writeln!(out, "artifact: {}", self.request.artifact.summary());
+        let fallback_allowed = self.fallback_execution_allowed();
         let _ = write!(
             out,
-            "cleanup executed: {}\nretry executed: {}\ncancellation executed: {}\nexternal effects executed: {}\nobject-store IO: {}\noutput dataset write: {}\nfallback execution: disabled",
+            "cleanup executed: {}\nretry executed: {}\ncancellation executed: {}\nexternal effects executed: {}\nobject-store IO: {}\noutput dataset write: {}\nfallback execution allowed: {}",
             self.cleanup_executed(),
             self.retry_executed(),
             self.cancellation_executed(),
             self.external_effects_executed(),
             self.object_store_io(),
-            self.output_dataset_write()
+            self.output_dataset_write(),
+            fallback_allowed
         );
+        if !fallback_allowed {
+            let _ = write!(out, "\nfallback execution: disabled");
+        }
         if !self.diagnostics.is_empty() {
             let _ = writeln!(out, "\ndiagnostics:");
             for diagnostic in &self.diagnostics {
@@ -2562,6 +2572,7 @@ mod tests {
         .expect("report");
         report.add_diagnostic(Diagnostic::invalid_input("recovery", "diag-message", "fix"));
         let text = report.to_human_text();
+        assert!(text.contains("fallback execution allowed: false"));
         assert!(text.contains("fallback execution: disabled"));
         assert!(text.contains("cleanup executed: false"));
         assert!(text.contains("diagnostics:"));
@@ -2744,10 +2755,55 @@ mod tests {
         assert!(report.is_side_effect_free());
         report.add_diagnostic(unsupported_diagnostic("cleanup_test", "diag-message"));
         let text = report.to_human_text();
+        assert!(text.contains("fallback execution allowed: false"));
         assert!(text.contains("fallback execution: disabled"));
         assert!(text.contains("cleanup executed: false"));
         assert!(text.contains("diagnostics:"));
         assert!(text.contains("- "));
+    }
+    #[test]
+    fn cleanup_execution_report_human_text_reflects_effects() {
+        let request =
+            ShardLoomCleanupExecutionRequest::new(RecoveryArtifactRef::unknown("u3", "unknown"));
+        let mut report = ShardLoomCleanupExecutionReport::planned(request);
+        report.effects_performed.extend([
+            ShardLoomCleanupExecutionEffect::CleanupExecuted,
+            ShardLoomCleanupExecutionEffect::RetryExecuted,
+            ShardLoomCleanupExecutionEffect::CancellationExecuted,
+            ShardLoomCleanupExecutionEffect::FallbackExecution,
+        ]);
+        assert!(report.cleanup_executed());
+        assert!(report.retry_executed());
+        assert!(report.cancellation_executed());
+        assert!(report.fallback_execution_allowed());
+        assert!(!report.is_side_effect_free());
+        let text = report.to_human_text();
+        assert!(text.contains("cleanup executed: true"));
+        assert!(text.contains("retry executed: true"));
+        assert!(text.contains("cancellation executed: true"));
+        assert!(text.contains("fallback execution allowed: true"));
+        assert!(!text.contains("fallback execution: disabled"));
+    }
+    #[test]
+    fn cleanup_execution_report_normal_states_keep_fallback_disabled() {
+        let planned = ShardLoomCleanupExecutionReport::planned(
+            ShardLoomCleanupExecutionRequest::new(RecoveryArtifactRef::unknown("u4", "unknown")),
+        );
+        let planned_text = planned.to_human_text();
+        assert!(!planned.fallback_execution_allowed());
+        assert!(planned.is_side_effect_free());
+        assert!(planned_text.contains("fallback execution allowed: false"));
+        assert!(planned_text.contains("fallback execution: disabled"));
+
+        let unsupported = ShardLoomCleanupExecutionReport::unsupported(
+            ShardLoomCleanupExecutionRequest::new(RecoveryArtifactRef::unknown("u5", "unknown")),
+            "cleanup_exec",
+            "unsupported",
+        );
+        let unsupported_text = unsupported.to_human_text();
+        assert!(!unsupported.fallback_execution_allowed());
+        assert!(unsupported_text.contains("fallback execution allowed: false"));
+        assert!(unsupported_text.contains("fallback execution: disabled"));
     }
     #[test]
     fn cleanup_execution_unsupported_and_helpers() {
