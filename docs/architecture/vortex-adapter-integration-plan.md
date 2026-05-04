@@ -391,7 +391,12 @@ No spill data movement is implemented in this phase.
 - It does not write manifests.
 - It does not call upstream `Vortex` write APIs.
 - It does not perform object-store IO.
-\n## Phase 12A.3a update\n- Phase 12A.2c.2 complete.\n- Phase 12A.3a current: staged manifest draft core contract (report-only, no filesystem).\n- Phase 12A.3b planned: feature-gated local staged manifest draft file.\n- Phase 12A.3c planned: CLI/docs integration.\n- Actual output payload and  file writes remain deferred.
+## Phase 12A.3a update
+- Phase 12A.2c.2 complete.
+- Phase 12A.3a current: staged manifest draft core contract (report-only, no filesystem).
+- Phase 12A.3b planned: feature-gated local staged manifest draft file.
+- Phase 12A.3c planned: CLI/docs integration.
+- Actual output payload and file writes remain deferred.
 
 ## Staged manifest draft contract
 
@@ -430,3 +435,12 @@ No spill data movement is implemented in this phase.
 - Feature build writes only the local draft artifact.
 - It is not a committed manifest, does not write output data, does not call upstream `Vortex` write APIs, and does not perform object-store IO.
 - Commit protocol remains future work in Phase 12B.
+
+## Phase 12A staged output closeout
+
+- Staged marker and staged manifest draft file are local draft artifacts only.
+- They are not committed manifests.
+- Commit protocol and manifest finalization are Phase 12B work.
+- No output data write path exists yet.
+- No upstream Vortex write API path exists yet.
+- No object-store write path exists yet.

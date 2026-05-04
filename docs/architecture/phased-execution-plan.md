@@ -4,8 +4,8 @@
 
 - Production-grade engine completion estimate: approximately 37–38%.
 - Architecture/control-plane completion estimate: approximately 97%.
-- Current checkpoint: Phase 12A.3c — staged manifest CLI/docs integration.
-- Immediate focus: keep staged manifest draft writes narrowly scoped (local draft artifact only), and keep committed-manifest/output-data writes disabled pending Phase 12B commit protocol work.
+- Current checkpoint: Phase 12A.4 — staged output/write-readiness closeout before commit protocol.
+- Immediate focus: complete Phase 12A closeout consistency checks and keep committed-manifest/output-data writes disabled pending Phase 12B.1 commit-intent core contract work.
 
 ## Cross-cutting epic legend
 
@@ -850,7 +850,12 @@ Must include:
 - Phase 12A.2c.1 (staged output workspace setup CLI/docs integration) is complete.
 - Phase 12A.2c.2 (staged marker CLI/docs integration) is current.
 - Phase 12A.3 (staged manifest draft/report-only contract) is planned.
-\n## Phase 12A.3a update\n- Phase 12A.2c.2 complete.\n- Phase 12A.3a current: staged manifest draft core contract (report-only, no filesystem).\n- Phase 12A.3b planned: feature-gated local staged manifest draft file.\n- Phase 12A.3c planned: CLI/docs integration.\n- Actual output payload and  file writes remain deferred.
+## Phase 12A.3a update
+- Phase 12A.2c.2 complete.
+- Phase 12A.3a current: staged manifest draft core contract (report-only, no filesystem).
+- Phase 12A.3b planned: feature-gated local staged manifest draft file.
+- Phase 12A.3c planned: CLI/docs integration.
+- Actual output payload and file writes remain deferred.
 
 ## Phase 12A.3b.1 update
 - Phase 12A.3a complete.
@@ -868,5 +873,19 @@ Must include:
 
 ## Phase 12A.3c update
 - Phase 12A.3b.2b complete.
-- Phase 12A.3c current: staged manifest CLI/docs integration.
-- Phase 12B planned: commit protocol and recovery.
+- Phase 12A.3c complete: staged manifest CLI/docs integration.
+- Phase 12A.4 current: staged output/write-readiness closeout before commit protocol.
+- Phase 12B.1 planned: commit-intent core contract (report-only) before commit execution.
+
+### Phase 12A closeout criteria
+
+- Native Vortex write intent exists but does not execute writes.
+- Staged workspace setup exists and is feature-gated.
+- Staged marker exists and is feature-gated.
+- Staged manifest draft file write exists and is feature-gated.
+- Staged manifest draft file is not a committed manifest.
+- Output payload writes remain disabled.
+- Upstream Vortex write APIs remain deferred.
+- Object-store writes remain disabled.
+- Commit protocol is not implemented yet.
+- Fallback execution remains disabled.
