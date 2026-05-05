@@ -546,6 +546,19 @@ No spill data movement is implemented in this phase.
 - It does not perform object-store IO.
 - Recovery and idempotency semantics remain future work.
 
+## Commit marker planning CLI
+
+- `vortex-commit-marker-plan` exposes the report-only commit marker planner.
+- It wraps `plan_vortex_commit_marker` and surfaces a `VortexCommitMarkerReport`.
+- Marker-ready planning requires explicit `feature-gate-enabled` signaling.
+- It does not write marker files.
+- It does not finalize manifests.
+- It does not commit manifests.
+- It does not write output data.
+- It does not call upstream `Vortex` write APIs.
+- It does not perform object-store IO.
+- The write `CLI` remains deferred to Phase 12B.3c.2.
+
 ## Competitive execution path (Competitive Engine Track: CG-1..CG-11)
 
 - Staged write-readiness is only the control-plane foundation.
