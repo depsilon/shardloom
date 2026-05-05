@@ -1173,3 +1173,11 @@ Entry criteria for the next implementation phase:
 - stable comparison report dataset
 - no runtime fallback
 
+
+
+## Competitive Engine Track RFC backing
+
+- RFC 0025 through RFC 0030 now define the expanded Competitive Engine Track.
+- CG-1 remains the next implementation path after this docs PR.
+- CG-18 is universal import/deployment/baseline harness, with Foundry only as an optional deployment/comparison example.
+- Competitive gates are success gates and do not replace canonical implementation phase IDs.

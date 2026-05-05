@@ -169,3 +169,19 @@ Competitive gate coverage:
 
 | Phase 12C.3b — output payload artifact write CLI (complete) | RFC 0012 Diagnostics, Explain, Estimate, and Capabilities | RFC 0004 Native Dataset Manifest, Snapshot, Incremental | CLI for local placeholder output payload artifact writes; default build remains feature-disabled/report-only; no real upstream `Vortex` payload writes; no manifest writes/commit execution/object-store IO | Current phase. |
 | Phase 12C.4 — staged smoke test includes output payload artifact (current) | RFC 0015 Correctness, Semantics, Differential Testing, and Fuzzing | RFC 0004 Native Dataset Manifest, Snapshot, Incremental | Extends staged CLI-driven write-readiness smoke coverage with output payload plan and placeholder artifact write; verifies no real `Vortex` payload writes, no upstream `Vortex` write API calls, no manifest/commit writes, no object-store IO, fallback disabled | Current phase. |
+
+
+## Competitive Engine Track RFC mappings
+
+CG items are competitive success gates, not implementation phase aliases.
+External engines are baselines only.
+No fallback execution.
+
+| RFC | Competitive gates covered |
+| --- | --- |
+| RFC 0025 | CG-1 through CG-18 |
+| RFC 0026 | CG-1, CG-2, CG-13 |
+| RFC 0027 | CG-7, CG-8, CG-14, CG-15 |
+| RFC 0028 | CG-3, CG-4, CG-9, CG-10 |
+| RFC 0029 | CG-5, CG-6, CG-16, CG-17 |
+| RFC 0030 | CG-11, CG-12, CG-18 |
