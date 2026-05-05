@@ -602,3 +602,13 @@ No spill data movement is implemented in this phase.
 ## Manifest finalization core contract
 
 In Phase 12B.5a, manifest finalization is `ShardLoom`-native and report-only. The contract distinguishes staged manifest draft state, finalized manifest candidate state, and committed manifest state. Finalization planning requires staged draft readiness, commit-marker readiness, commit-protocol readiness, plus schema/delete/tombstone readiness signals. This phase does not write finalized manifests, does not commit manifests, does not write output data, does not call upstream `Vortex` write APIs, and does not perform object-store IO.
+
+## Feature-gated local finalized-manifest candidate artifact
+
+- Finalized-manifest candidate writing is feature-gated behind `vortex-staged-output-fs`.
+- It writes only the exact local finalized-manifest candidate artifact path represented by `VortexFinalizedManifestFileRef`.
+- The candidate artifact is not treated as a committed manifest.
+- It does not write output data.
+- It does not call upstream `Vortex` write APIs.
+- It does not perform object-store IO.
+- Commit execution remains future work.

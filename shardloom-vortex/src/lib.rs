@@ -149,12 +149,17 @@ pub use staged_manifest::{
 };
 
 pub use manifest_finalization::{
-    VortexFinalizedManifestContent, VortexFinalizedManifestFileName,
-    VortexFinalizedManifestFileRef, VortexManifestFinalizationEffect,
-    VortexManifestFinalizationMode, VortexManifestFinalizationReport,
-    VortexManifestFinalizationRequest, VortexManifestFinalizationSignal,
-    VortexManifestFinalizationStatus, manifest_finalization_request_from_reports,
-    plan_vortex_manifest_finalization, vortex_manifest_finalization_is_side_effect_free,
+    VortexFinalizedManifestArtifactWriteMode, VortexFinalizedManifestArtifactWriteOption,
+    VortexFinalizedManifestArtifactWriteReport, VortexFinalizedManifestArtifactWriteRequest,
+    VortexFinalizedManifestArtifactWriteStatus, VortexFinalizedManifestContent,
+    VortexFinalizedManifestFileName, VortexFinalizedManifestFileRef,
+    VortexManifestFinalizationEffect, VortexManifestFinalizationMode,
+    VortexManifestFinalizationReport, VortexManifestFinalizationRequest,
+    VortexManifestFinalizationSignal, VortexManifestFinalizationStatus,
+    finalized_manifest_artifact_write_request_from_plan,
+    manifest_finalization_request_from_reports, plan_vortex_manifest_finalization,
+    vortex_finalized_manifest_artifact_write_is_side_effect_free,
+    vortex_manifest_finalization_is_side_effect_free, write_vortex_finalized_manifest_artifact,
 };
 
 pub use commit_marker::{
