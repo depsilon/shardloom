@@ -4,7 +4,7 @@ ShardLoom is a standalone encoded-columnar execution engine designed to compute 
 
 ## Mission
 
-Compute less. Decode later. Weave at scale.
+Compute less. Decode later. Weave at scale. Approaching zero.
 
 ## Status
 
