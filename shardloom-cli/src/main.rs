@@ -7692,9 +7692,13 @@ mod tests {
     fn run_with_larger_stack(test_name: &str, args: Vec<String>) -> ExitCode {
         let (sender, receiver) = std::sync::mpsc::channel();
         run_test_with_larger_stack(test_name, move || {
-            let _ = sender.send(run(args));
+            let _ = sender.send(super::run(args));
         });
         receiver.recv().expect("receive test exit code")
+    }
+
+    fn run(args: Vec<String>) -> ExitCode {
+        run_with_larger_stack("cli-test", args)
     }
 
     #[test]
