@@ -497,3 +497,6 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - CG-4: commit protocol execution APIs remain deterministic and side-effect gated.
 - CG-6: benchmark metrics/report APIs must support reproducible competitive claims.
 - CG-10: object-store/distributed APIs remain future, explicit, and no-fallback.
+
+
+- The staged write-readiness smoke test remains `ShardLoom`-native and does not use upstream `Vortex` write APIs.
