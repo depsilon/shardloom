@@ -4,8 +4,8 @@
 
 - Production-grade engine completion estimate: approximately 37–38%.
 - Architecture/control-plane completion estimate: approximately 97%.
-- Current checkpoint: Phase 12B.3a — commit marker core contract (report-only, no filesystem writes).
-- Immediate focus: model commit marker name/ref/content planning and commit-marker readiness blockers while keeping commit marker writes, manifest finalization, committed manifests, output-data writes, upstream `Vortex` write API calls, and object-store writes disabled.
+- Current checkpoint: Phase 12B.3b — feature-gated local commit marker file, no manifest finalization.
+- Immediate focus: feature-gated local commit marker file writes that write only the exact planned marker artifact while keeping manifest finalization, committed manifests, output-data writes, upstream `Vortex` write API calls, object-store writes, and fallback execution disabled.
 
 
 ## Competitive engine target
@@ -966,8 +966,11 @@ Must include:
 - Phase 12B.2a.2 complete: commit protocol report integration with commit-intent reports.
 - Phase 12B.2a.3 complete: commit intent/protocol CLI wrappers.
 - Phase 12B.2a.4 complete: local staged write-readiness smoke test.
-- Phase 12B.3a current: commit marker core contract (report-only, no filesystem writes).
-- Phase 12B.3b planned: feature-gated local commit marker write execution.
+- Phase 12B.3a complete: commit marker core contract (report-only, no filesystem writes).
+- Phase 12B.3a.1b complete: competitive roadmap identifier normalization and commit-marker feature-gate readiness requirement.
+- Phase 12B.3b current: feature-gated local commit marker file write, no manifest finalization.
+- Phase 12B.3c planned: commit marker CLI/docs integration.
+- Phase 12B.4 planned: manifest finalization contract remains deferred.
 
 Phase 12B.2a.4 note:
 - First local staged write-readiness smoke test exercises staged workspace setup, staged marker write, staged manifest draft-file write, commit intent planning, and commit protocol planning.

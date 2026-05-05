@@ -475,6 +475,7 @@ This update does not introduce scans, decode, materialization, writes, object-st
 ## Commit marker planning note
 
 - Commit marker planning is `ShardLoom`-native.
+- Commit marker writing is `ShardLoom`-native and limited to the exact feature-gated local marker artifact.
 - Upstream `Vortex` write APIs remain deferred.
 
 

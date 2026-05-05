@@ -3,7 +3,11 @@ use std::{
     fmt::Write as _,
     hash::{Hash, Hasher},
 };
+#[cfg(feature = "vortex-staged-output-fs")]
+use std::{fs, path::PathBuf};
 
+#[cfg(feature = "vortex-staged-output-fs")]
+use shardloom_core::{DatasetUri, UriScheme};
 use shardloom_core::{
     Diagnostic, DiagnosticCategory, DiagnosticCode, DiagnosticSeverity, FallbackStatus, Result,
     ShardLoomError,
@@ -150,6 +154,486 @@ impl VortexCommitMarkerEffect {
             Self::RecoveryActionExecuted => "recovery_action_executed",
             Self::FallbackExecution => "fallback_execution",
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexCommitMarkerWriteStatus {
+    FeatureDisabled,
+    Planned,
+    CommitMarkerWritten,
+    BlockedByMarkerPlan,
+    BlockedByObjectStoreTarget,
+    BlockedByMissingWorkspace,
+    BlockedByExistingCommitMarker,
+    BlockedByExistingNonDirectory,
+    BlockedByFeatureGate,
+    Unsupported,
+}
+impl VortexCommitMarkerWriteStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::FeatureDisabled => "feature_disabled",
+            Self::Planned => "planned",
+            Self::CommitMarkerWritten => "commit_marker_written",
+            Self::BlockedByMarkerPlan => "blocked_by_marker_plan",
+            Self::BlockedByObjectStoreTarget => "blocked_by_object_store_target",
+            Self::BlockedByMissingWorkspace => "blocked_by_missing_workspace",
+            Self::BlockedByExistingCommitMarker => "blocked_by_existing_commit_marker",
+            Self::BlockedByExistingNonDirectory => "blocked_by_existing_non_directory",
+            Self::BlockedByFeatureGate => "blocked_by_feature_gate",
+            Self::Unsupported => "unsupported",
+        }
+    }
+    #[must_use]
+    pub const fn is_error(self) -> bool {
+        !matches!(
+            self,
+            Self::FeatureDisabled | Self::Planned | Self::CommitMarkerWritten
+        )
+    }
+    #[must_use]
+    pub const fn commit_marker_written(self) -> bool {
+        matches!(self, Self::CommitMarkerWritten)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexCommitMarkerWriteMode {
+    ReportOnly,
+    LocalCommitMarkerWrite,
+    Unsupported,
+}
+impl VortexCommitMarkerWriteMode {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::ReportOnly => "report_only",
+            Self::LocalCommitMarkerWrite => "local_commit_marker_write",
+            Self::Unsupported => "unsupported",
+        }
+    }
+    #[must_use]
+    pub const fn writes_commit_marker(self) -> bool {
+        matches!(self, Self::LocalCommitMarkerWrite)
+    }
+    #[must_use]
+    pub const fn finalizes_manifest(self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn commits_manifest(self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn writes_output_data(self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn writes_object_store(self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn calls_upstream_vortex_write(self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn executes_recovery_action(self) -> bool {
+        false
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexCommitMarkerWriteOption {
+    AllowOverwrite,
+}
+impl VortexCommitMarkerWriteOption {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::AllowOverwrite => "allow_overwrite",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexCommitMarkerWriteSignal {
+    MarkerPlanReady,
+    MarkerPlanBlocked,
+    FeatureGateReady,
+    ObjectStoreTarget,
+    ExistingCommitMarker,
+}
+impl VortexCommitMarkerWriteSignal {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::MarkerPlanReady => "marker_plan_ready",
+            Self::MarkerPlanBlocked => "marker_plan_blocked",
+            Self::FeatureGateReady => "feature_gate_ready",
+            Self::ObjectStoreTarget => "object_store_target",
+            Self::ExistingCommitMarker => "existing_commit_marker",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct VortexCommitMarkerWriteRequest {
+    pub marker_ref: VortexCommitMarkerFileRef,
+    pub marker_content: VortexCommitMarkerContent,
+    pub options: Vec<VortexCommitMarkerWriteOption>,
+    pub signals: Vec<VortexCommitMarkerWriteSignal>,
+    pub marker_plan_summary: Option<String>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl VortexCommitMarkerWriteRequest {
+    #[must_use]
+    pub fn new(
+        marker_ref: VortexCommitMarkerFileRef,
+        marker_content: VortexCommitMarkerContent,
+    ) -> Self {
+        Self {
+            marker_ref,
+            marker_content,
+            options: Vec::new(),
+            signals: Vec::new(),
+            marker_plan_summary: None,
+            diagnostics: Vec::new(),
+        }
+    }
+    #[must_use]
+    pub fn from_marker_request(request: &VortexCommitMarkerRequest) -> Self {
+        let mut write_request =
+            Self::new(request.marker_ref.clone(), request.marker_content.clone());
+        if request.has_signal(VortexCommitMarkerSignal::FeatureGateEnabled) {
+            write_request.add_signal(VortexCommitMarkerWriteSignal::FeatureGateReady, true);
+        }
+        if request.has_signal(VortexCommitMarkerSignal::ObjectStoreTarget) {
+            write_request.add_signal(VortexCommitMarkerWriteSignal::ObjectStoreTarget, true);
+        }
+        write_request
+    }
+    #[must_use]
+    pub fn allow_overwrite(mut self, value: bool) -> Self {
+        if value {
+            if !self
+                .options
+                .contains(&VortexCommitMarkerWriteOption::AllowOverwrite)
+            {
+                self.options
+                    .push(VortexCommitMarkerWriteOption::AllowOverwrite);
+            }
+        } else {
+            self.options
+                .retain(|o| *o != VortexCommitMarkerWriteOption::AllowOverwrite);
+        }
+        self
+    }
+    pub fn add_signal(&mut self, signal: VortexCommitMarkerWriteSignal, value: bool) {
+        if value {
+            if !self.signals.contains(&signal) {
+                self.signals.push(signal);
+            }
+        } else {
+            self.signals.retain(|s| *s != signal);
+        }
+    }
+    #[must_use]
+    pub fn marker_plan_ready(mut self, value: bool) -> Self {
+        self.add_signal(VortexCommitMarkerWriteSignal::MarkerPlanReady, value);
+        self
+    }
+    #[must_use]
+    pub fn marker_plan_blocked(mut self, value: bool) -> Self {
+        self.add_signal(VortexCommitMarkerWriteSignal::MarkerPlanBlocked, value);
+        self
+    }
+    #[must_use]
+    pub fn feature_gate_ready(mut self, value: bool) -> Self {
+        self.add_signal(VortexCommitMarkerWriteSignal::FeatureGateReady, value);
+        self
+    }
+    #[must_use]
+    pub fn object_store_target(mut self, value: bool) -> Self {
+        self.add_signal(VortexCommitMarkerWriteSignal::ObjectStoreTarget, value);
+        self
+    }
+    #[must_use]
+    pub fn existing_commit_marker(mut self, value: bool) -> Self {
+        self.add_signal(VortexCommitMarkerWriteSignal::ExistingCommitMarker, value);
+        self
+    }
+    #[must_use]
+    pub fn with_marker_plan_summary(mut self, summary: impl Into<String>) -> Self {
+        self.marker_plan_summary = Some(summary.into());
+        self
+    }
+    #[must_use]
+    pub fn has_option(&self, option: VortexCommitMarkerWriteOption) -> bool {
+        self.options.contains(&option)
+    }
+    #[must_use]
+    pub fn has_signal(&self, signal: VortexCommitMarkerWriteSignal) -> bool {
+        self.signals.contains(&signal)
+    }
+    pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
+    }
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.diagnostics.iter().any(|d| {
+            matches!(
+                d.severity,
+                DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+            )
+        })
+    }
+    #[must_use]
+    pub fn summary(&self) -> String {
+        format!(
+            "{} {} signals={}",
+            self.marker_ref.summary(),
+            self.marker_content.summary(),
+            self.signals.len()
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct VortexCommitMarkerWriteReport {
+    pub status: VortexCommitMarkerWriteStatus,
+    pub mode: VortexCommitMarkerWriteMode,
+    pub request: VortexCommitMarkerWriteRequest,
+    pub effects_performed: Vec<VortexCommitMarkerEffect>,
+    pub bytes_written: usize,
+    pub checksum: Option<u64>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl VortexCommitMarkerWriteReport {
+    /// # Errors
+    /// Returns an error if commit marker write report construction fails.
+    pub fn from_request(request: VortexCommitMarkerWriteRequest) -> Result<Self> {
+        #[cfg(not(feature = "vortex-staged-output-fs"))]
+        {
+            Ok(Self::feature_disabled(request))
+        }
+        #[cfg(feature = "vortex-staged-output-fs")]
+        {
+            let mut report = Self::planned(request);
+            if report
+                .request
+                .has_signal(VortexCommitMarkerWriteSignal::ObjectStoreTarget)
+            {
+                report = Self::blocked(
+                    report.request,
+                    VortexCommitMarkerWriteStatus::BlockedByObjectStoreTarget,
+                    "commit marker path targets object-store storage",
+                );
+            } else if report
+                .request
+                .has_signal(VortexCommitMarkerWriteSignal::MarkerPlanBlocked)
+                || !report
+                    .request
+                    .has_signal(VortexCommitMarkerWriteSignal::MarkerPlanReady)
+            {
+                report = Self::blocked(
+                    report.request,
+                    VortexCommitMarkerWriteStatus::BlockedByMarkerPlan,
+                    "commit marker plan is not ready",
+                );
+            } else if !report
+                .request
+                .has_signal(VortexCommitMarkerWriteSignal::FeatureGateReady)
+            {
+                report = Self::blocked(
+                    report.request,
+                    VortexCommitMarkerWriteStatus::BlockedByFeatureGate,
+                    "commit marker planning feature-gate readiness is missing",
+                );
+            }
+            Ok(report)
+        }
+    }
+    #[must_use]
+    pub fn feature_disabled(request: VortexCommitMarkerWriteRequest) -> Self {
+        Self {
+            status: VortexCommitMarkerWriteStatus::FeatureDisabled,
+            mode: VortexCommitMarkerWriteMode::ReportOnly,
+            request,
+            effects_performed: Vec::new(),
+            bytes_written: 0,
+            checksum: None,
+            diagnostics: Vec::new(),
+        }
+    }
+    #[must_use]
+    pub fn planned(request: VortexCommitMarkerWriteRequest) -> Self {
+        Self {
+            status: VortexCommitMarkerWriteStatus::Planned,
+            mode: VortexCommitMarkerWriteMode::ReportOnly,
+            request,
+            effects_performed: Vec::new(),
+            bytes_written: 0,
+            checksum: None,
+            diagnostics: Vec::new(),
+        }
+    }
+    #[must_use]
+    pub fn commit_marker_written_report(
+        request: VortexCommitMarkerWriteRequest,
+        bytes_written: usize,
+        checksum: u64,
+    ) -> Self {
+        Self {
+            status: VortexCommitMarkerWriteStatus::CommitMarkerWritten,
+            mode: VortexCommitMarkerWriteMode::LocalCommitMarkerWrite,
+            request,
+            effects_performed: vec![VortexCommitMarkerEffect::CommitMarkerWritten],
+            bytes_written,
+            checksum: Some(checksum),
+            diagnostics: Vec::new(),
+        }
+    }
+    #[must_use]
+    pub fn blocked(
+        request: VortexCommitMarkerWriteRequest,
+        status: VortexCommitMarkerWriteStatus,
+        reason: impl Into<String>,
+    ) -> Self {
+        let mut report = Self::planned(request);
+        report.status = status;
+        report.add_diagnostic(Diagnostic::invalid_input(
+            "commit_marker_write",
+            reason,
+            "adjust commit marker write request signals or local workspace state",
+        ));
+        report
+    }
+    #[must_use]
+    pub fn unsupported(
+        request: VortexCommitMarkerWriteRequest,
+        feature: impl Into<String>,
+        reason: impl Into<String>,
+    ) -> Self {
+        let feature = feature.into();
+        let reason = reason.into();
+        Self {
+            status: VortexCommitMarkerWriteStatus::Unsupported,
+            mode: VortexCommitMarkerWriteMode::Unsupported,
+            request,
+            effects_performed: Vec::new(),
+            bytes_written: 0,
+            checksum: None,
+            diagnostics: vec![Diagnostic::new(
+                DiagnosticCode::UnsupportedEffect,
+                DiagnosticSeverity::Error,
+                DiagnosticCategory::UnsupportedFeature,
+                format!("unsupported commit marker write feature: {feature}"),
+                Some(feature),
+                Some(reason),
+                Some("Use feature-gated local commit marker writes only.".to_string()),
+                FallbackStatus::disabled_by_policy(),
+            )],
+        }
+    }
+    pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
+    }
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.request.has_errors()
+            || self.diagnostics.iter().any(|d| {
+                matches!(
+                    d.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+    #[must_use]
+    pub fn commit_marker_written(&self) -> bool {
+        self.effects_performed
+            .contains(&VortexCommitMarkerEffect::CommitMarkerWritten)
+    }
+    #[must_use]
+    pub const fn manifest_finalized(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn manifest_committed(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn output_data_written(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn object_store_io(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn upstream_vortex_write_called(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn recovery_action_executed(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn fallback_execution_allowed(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub fn is_side_effect_free(&self) -> bool {
+        self.effects_performed.is_empty() && !self.fallback_execution_allowed()
+    }
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        let mut out = String::new();
+        let _ = writeln!(out, "commit marker write status: {}", self.status.as_str());
+        let _ = writeln!(out, "mode: {}", self.mode.as_str());
+        let _ = writeln!(
+            out,
+            "marker path: {}",
+            self.request.marker_ref.path_string()
+        );
+        let _ = writeln!(out, "bytes written: {}", self.bytes_written);
+        let _ = writeln!(
+            out,
+            "checksum: {}",
+            self.checksum
+                .map_or_else(|| "none".to_string(), |v| v.to_string())
+        );
+        let _ = writeln!(
+            out,
+            "feature gate ready: {}",
+            self.request
+                .has_signal(VortexCommitMarkerWriteSignal::FeatureGateReady)
+        );
+        let _ = writeln!(
+            out,
+            "commit marker written: {}",
+            self.commit_marker_written()
+        );
+        let _ = writeln!(out, "manifest finalized: false");
+        let _ = writeln!(out, "manifest committed: false");
+        let _ = writeln!(out, "output data written: false");
+        let _ = writeln!(out, "object-store IO: false");
+        let _ = writeln!(out, "upstream Vortex write called: false");
+        let _ = writeln!(out, "recovery action executed: false");
+        let _ = writeln!(out, "fallback execution disabled");
+        if !self.request.diagnostics.is_empty() || !self.diagnostics.is_empty() {
+            let _ = writeln!(out, "diagnostics:");
+            for d in self
+                .request
+                .diagnostics
+                .iter()
+                .chain(self.diagnostics.iter())
+            {
+                let _ = writeln!(out, "- [{}] {}", d.code.as_str(), d.message);
+            }
+        }
+        out
     }
 }
 
@@ -626,9 +1110,185 @@ pub fn commit_marker_request_from_protocol_report(
         || (protocol.status == VortexCommitProtocolStatus::TransitionAllowed
             && protocol.request.transition == VortexCommitProtocolTransition::MarkCommitReady);
     request = request.commit_protocol_ready(ready);
-    request = request.commit_protocol_blocked(protocol.has_errors() && !waiting_for_commit_marker);
+    let protocol_has_blocking_diagnostics = protocol
+        .request
+        .diagnostics
+        .iter()
+        .chain(protocol.diagnostics.iter())
+        .any(|d| {
+            matches!(
+                d.severity,
+                DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+            )
+        });
+    let protocol_status_blocks_marker = protocol.status.is_error() && !waiting_for_commit_marker;
+    request = request.commit_protocol_blocked(
+        protocol_status_blocks_marker || protocol_has_blocking_diagnostics,
+    );
+    for diagnostic in protocol
+        .request
+        .diagnostics
+        .iter()
+        .chain(protocol.diagnostics.iter())
+    {
+        request.add_diagnostic(diagnostic.clone());
+    }
     if workspace_path_string.starts_with('/') || workspace_path_string.starts_with('.') {
         request = request.local_workspace(true);
+    }
+    Ok(request)
+}
+
+/// Writes only the local commit marker file addressed by `request.marker_ref` when
+/// `vortex-staged-output-fs` is enabled and marker-plan readiness is explicit.
+///
+/// The helper never finalizes manifests, commits manifests, writes output payload data,
+/// calls upstream `Vortex` write APIs, performs object-store IO, executes recovery, or
+/// enables fallback execution.
+///
+/// # Errors
+/// Returns an error only when local path normalization or the exact local file write fails.
+pub fn write_vortex_commit_marker(
+    request: VortexCommitMarkerWriteRequest,
+) -> Result<VortexCommitMarkerWriteReport> {
+    #[cfg(not(feature = "vortex-staged-output-fs"))]
+    {
+        Ok(VortexCommitMarkerWriteReport::feature_disabled(request))
+    }
+    #[cfg(feature = "vortex-staged-output-fs")]
+    {
+        let mut report = VortexCommitMarkerWriteReport::from_request(request)?;
+        if report.status != VortexCommitMarkerWriteStatus::Planned {
+            return Ok(report);
+        }
+        let workspace_uri = DatasetUri::new(report.request.marker_ref.workspace_path().as_str())?;
+        if !matches!(
+            workspace_uri.scheme(),
+            UriScheme::LocalPath | UriScheme::File
+        ) {
+            report
+                .request
+                .add_signal(VortexCommitMarkerWriteSignal::ObjectStoreTarget, true);
+            report = VortexCommitMarkerWriteReport::blocked(
+                report.request,
+                VortexCommitMarkerWriteStatus::BlockedByObjectStoreTarget,
+                "commit marker path targets object-store storage",
+            );
+            return Ok(report);
+        }
+        let marker_path = commit_marker_local_path(&report.request.marker_ref)?;
+        let workspace_path = marker_path.parent().ok_or_else(|| {
+            ShardLoomError::InvalidOperation("missing commit marker parent path".to_string())
+        })?;
+        if !workspace_path.exists() {
+            report = VortexCommitMarkerWriteReport::blocked(
+                report.request,
+                VortexCommitMarkerWriteStatus::BlockedByMissingWorkspace,
+                "commit marker workspace is missing",
+            );
+            return Ok(report);
+        }
+        if !workspace_path.is_dir() {
+            report = VortexCommitMarkerWriteReport::blocked(
+                report.request,
+                VortexCommitMarkerWriteStatus::BlockedByExistingNonDirectory,
+                "commit marker workspace path exists but is not a directory",
+            );
+            return Ok(report);
+        }
+        if marker_path.exists()
+            && !report
+                .request
+                .has_option(VortexCommitMarkerWriteOption::AllowOverwrite)
+        {
+            let mut request = report.request;
+            request.add_signal(VortexCommitMarkerWriteSignal::ExistingCommitMarker, true);
+            report = VortexCommitMarkerWriteReport::blocked(
+                request,
+                VortexCommitMarkerWriteStatus::BlockedByExistingCommitMarker,
+                "commit marker file already exists",
+            );
+            return Ok(report);
+        }
+        fs::write(
+            &marker_path,
+            report.request.marker_content.as_str().as_bytes(),
+        )
+        .map_err(|err| {
+            ShardLoomError::InvalidOperation(format!("failed to write commit marker file: {err}"))
+        })?;
+        let bytes_written = report.request.marker_content.len();
+        let checksum = report.request.marker_content.checksum_u64();
+        Ok(VortexCommitMarkerWriteReport::commit_marker_written_report(
+            report.request,
+            bytes_written,
+            checksum,
+        ))
+    }
+}
+
+#[cfg(feature = "vortex-staged-output-fs")]
+fn commit_marker_local_path(marker_ref: &VortexCommitMarkerFileRef) -> Result<PathBuf> {
+    let workspace_raw = marker_ref.workspace_path().as_str();
+    let workspace = match DatasetUri::new(workspace_raw.to_string())?.scheme() {
+        UriScheme::LocalPath => PathBuf::from(workspace_raw),
+        UriScheme::File => {
+            if let Some(local) = workspace_raw.strip_prefix("file:///") {
+                PathBuf::from(format!("/{local}"))
+            } else {
+                return Err(ShardLoomError::InvalidOperation(
+                    "workspace file URI must use file:/// absolute local path".to_string(),
+                ));
+            }
+        }
+        _ => {
+            return Err(ShardLoomError::InvalidOperation(
+                "commit marker path looks like object-store target".to_string(),
+            ));
+        }
+    };
+    Ok(workspace.join(marker_ref.file_name().as_str()))
+}
+
+#[must_use]
+pub fn vortex_commit_marker_write_is_side_effect_free(
+    report: &VortexCommitMarkerWriteReport,
+) -> bool {
+    report.is_side_effect_free()
+}
+
+/// Converts a report-only marker plan into a local commit marker write request without IO.
+///
+/// # Errors
+/// Returns an error if the copied `VortexCommitMarkerContent` or marker reference is invalid.
+pub fn commit_marker_write_request_from_plan(
+    plan: &VortexCommitMarkerReport,
+) -> Result<VortexCommitMarkerWriteRequest> {
+    let mut request = VortexCommitMarkerWriteRequest::from_marker_request(&plan.request)
+        .with_marker_plan_summary(plan.request.summary());
+    if plan.has_errors() {
+        request.add_signal(VortexCommitMarkerWriteSignal::MarkerPlanBlocked, true);
+        for d in plan
+            .request
+            .diagnostics
+            .iter()
+            .chain(plan.diagnostics.iter())
+        {
+            request.add_diagnostic(d.clone());
+        }
+    }
+    if matches!(plan.status, VortexCommitMarkerStatus::MarkerReady) {
+        request.add_signal(VortexCommitMarkerWriteSignal::MarkerPlanReady, true);
+        request = request.with_marker_plan_summary(plan.to_human_text());
+    }
+    if plan
+        .request
+        .has_signal(VortexCommitMarkerSignal::FeatureGateEnabled)
+    {
+        request.add_signal(VortexCommitMarkerWriteSignal::FeatureGateReady, true);
+    }
+    if plan.object_store_target() {
+        request.add_signal(VortexCommitMarkerWriteSignal::ObjectStoreTarget, true);
     }
     Ok(request)
 }
@@ -646,12 +1306,234 @@ mod tests {
             VortexCommitMarkerContent::new("ok").unwrap(),
         )
     }
+
+    fn write_req() -> VortexCommitMarkerWriteRequest {
+        VortexCommitMarkerWriteRequest::new(
+            VortexCommitMarkerFileRef::default_for_workspace(
+                VortexStagedWorkspacePath::new("/tmp/commit-marker-write-test").unwrap(),
+            ),
+            VortexCommitMarkerContent::new("commit_marker=true\n").unwrap(),
+        )
+    }
+
+    #[test]
+    fn write_request_defaults_and_feature_disabled_report() {
+        let request = write_req();
+        assert!(!request.has_option(VortexCommitMarkerWriteOption::AllowOverwrite));
+        assert!(
+            request
+                .clone()
+                .allow_overwrite(true)
+                .has_option(VortexCommitMarkerWriteOption::AllowOverwrite)
+        );
+        let report = write_vortex_commit_marker(
+            request
+                .marker_plan_ready(true)
+                .feature_gate_ready(true)
+                .allow_overwrite(true),
+        )
+        .unwrap();
+        #[cfg(not(feature = "vortex-staged-output-fs"))]
+        assert_eq!(
+            report.status,
+            VortexCommitMarkerWriteStatus::FeatureDisabled
+        );
+        assert!(!report.commit_marker_written());
+        assert!(!report.manifest_finalized());
+        assert!(!report.manifest_committed());
+        assert!(!report.output_data_written());
+        assert!(!report.object_store_io());
+        assert!(!report.upstream_vortex_write_called());
+        assert!(!report.recovery_action_executed());
+        assert!(!report.fallback_execution_allowed());
+        let text = report.to_human_text();
+        assert!(text.contains("fallback execution disabled"));
+        assert!(text.contains("output data written: false"));
+    }
+
+    #[test]
+    fn write_request_from_plan_preserves_diagnostics_and_feature_gate() {
+        let mut blocked_request = base_req();
+        blocked_request.add_diagnostic(Diagnostic::invalid_input(
+            "commit_marker_plan",
+            "test diagnostic",
+            "fix test input",
+        ));
+        let blocked_plan = plan_vortex_commit_marker(blocked_request).unwrap();
+        let from_blocked = commit_marker_write_request_from_plan(&blocked_plan).unwrap();
+        assert!(from_blocked.has_signal(VortexCommitMarkerWriteSignal::MarkerPlanBlocked));
+        assert!(from_blocked.has_errors());
+
+        let ready_plan = plan_vortex_commit_marker(
+            base_req()
+                .commit_protocol_ready(true)
+                .manifest_finalization_available(true)
+                .feature_gate_enabled(true),
+        )
+        .unwrap();
+        let ready_write = commit_marker_write_request_from_plan(&ready_plan).unwrap();
+        assert!(ready_write.has_signal(VortexCommitMarkerWriteSignal::MarkerPlanReady));
+        assert!(ready_write.has_signal(VortexCommitMarkerWriteSignal::FeatureGateReady));
+        assert!(ready_write.marker_plan_summary.is_some());
+        assert!(!std::path::Path::new(&ready_write.marker_ref.path_string()).exists());
+    }
+
+    #[cfg(feature = "vortex-staged-output-fs")]
+    fn unique_commit_marker_workspace(name: &str) -> std::path::PathBuf {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!("shardloom-commit-marker-{name}-{nanos}"))
+    }
+
+    #[cfg(feature = "vortex-staged-output-fs")]
+    fn feature_write_req(workspace: &std::path::Path) -> VortexCommitMarkerWriteRequest {
+        VortexCommitMarkerWriteRequest::new(
+            VortexCommitMarkerFileRef::default_for_workspace(
+                VortexStagedWorkspacePath::new(workspace.to_str().unwrap()).unwrap(),
+            ),
+            VortexCommitMarkerContent::new("commit_marker_written=true\n").unwrap(),
+        )
+    }
+
+    #[cfg(feature = "vortex-staged-output-fs")]
+    #[test]
+    fn feature_write_blocks_without_feature_gate_or_workspace() {
+        let workspace = unique_commit_marker_workspace("blocked");
+        let no_gate =
+            write_vortex_commit_marker(feature_write_req(&workspace).marker_plan_ready(true))
+                .unwrap();
+        assert_eq!(
+            no_gate.status,
+            VortexCommitMarkerWriteStatus::BlockedByFeatureGate
+        );
+        let missing = write_vortex_commit_marker(
+            feature_write_req(&workspace)
+                .marker_plan_ready(true)
+                .feature_gate_ready(true),
+        )
+        .unwrap();
+        assert_eq!(
+            missing.status,
+            VortexCommitMarkerWriteStatus::BlockedByMissingWorkspace
+        );
+        assert!(!workspace.exists());
+    }
+
+    #[cfg(feature = "vortex-staged-output-fs")]
+    #[test]
+    fn feature_write_blocks_object_store_and_non_directory_parent() {
+        let object_store = VortexCommitMarkerWriteRequest::new(
+            VortexCommitMarkerFileRef::default_for_workspace(
+                VortexStagedWorkspacePath::new("s3://bucket/workspace").unwrap(),
+            ),
+            VortexCommitMarkerContent::new("commit_marker=true\n").unwrap(),
+        )
+        .marker_plan_ready(true)
+        .feature_gate_ready(true);
+        let object_report = write_vortex_commit_marker(object_store).unwrap();
+        assert_eq!(
+            object_report.status,
+            VortexCommitMarkerWriteStatus::BlockedByObjectStoreTarget
+        );
+
+        let parent_file = unique_commit_marker_workspace("parent-file");
+        std::fs::write(&parent_file, b"not a directory").unwrap();
+        let non_dir = write_vortex_commit_marker(
+            feature_write_req(&parent_file)
+                .marker_plan_ready(true)
+                .feature_gate_ready(true),
+        )
+        .unwrap();
+        assert_eq!(
+            non_dir.status,
+            VortexCommitMarkerWriteStatus::BlockedByExistingNonDirectory
+        );
+        std::fs::remove_file(parent_file).unwrap();
+    }
+
+    #[cfg(feature = "vortex-staged-output-fs")]
+    #[test]
+    fn feature_write_writes_exact_marker_and_blocks_overwrite_by_default() {
+        let workspace = unique_commit_marker_workspace("exact");
+        std::fs::create_dir(&workspace).unwrap();
+        let request = feature_write_req(&workspace)
+            .marker_plan_ready(true)
+            .feature_gate_ready(true);
+        let marker_path = workspace.join(request.marker_ref.file_name().as_str());
+        let committed_manifest = workspace.join(".shardloom-committed-manifest");
+        let output_payload = workspace.join(".shardloom-output-data");
+        let report = write_vortex_commit_marker(request.clone()).unwrap();
+        assert_eq!(
+            report.status,
+            VortexCommitMarkerWriteStatus::CommitMarkerWritten
+        );
+        assert!(report.commit_marker_written());
+        assert_eq!(report.bytes_written, request.marker_content.len());
+        assert_eq!(report.checksum, Some(request.marker_content.checksum_u64()));
+        assert!(!report.manifest_finalized());
+        assert!(!report.manifest_committed());
+        assert!(!report.output_data_written());
+        assert!(!report.object_store_io());
+        assert!(!report.upstream_vortex_write_called());
+        assert!(!report.recovery_action_executed());
+        assert!(!report.fallback_execution_allowed());
+        assert_eq!(
+            std::fs::read_to_string(&marker_path).unwrap(),
+            request.marker_content.as_str()
+        );
+        assert!(!committed_manifest.exists());
+        assert!(!output_payload.exists());
+
+        let blocked = write_vortex_commit_marker(request.clone()).unwrap();
+        assert_eq!(
+            blocked.status,
+            VortexCommitMarkerWriteStatus::BlockedByExistingCommitMarker
+        );
+        let overwrite_content = VortexCommitMarkerContent::new("overwritten=true\n").unwrap();
+        let overwrite_request = VortexCommitMarkerWriteRequest::new(
+            request.marker_ref.clone(),
+            overwrite_content.clone(),
+        )
+        .marker_plan_ready(true)
+        .feature_gate_ready(true)
+        .allow_overwrite(true);
+        let overwritten = write_vortex_commit_marker(overwrite_request).unwrap();
+        assert_eq!(
+            overwritten.status,
+            VortexCommitMarkerWriteStatus::CommitMarkerWritten
+        );
+        assert_eq!(
+            std::fs::read_to_string(&marker_path).unwrap(),
+            overwrite_content.as_str()
+        );
+        assert!(!committed_manifest.exists());
+        assert!(!output_payload.exists());
+        std::fs::remove_file(marker_path).unwrap();
+        std::fs::remove_dir(workspace).unwrap();
+    }
+
     #[test]
     fn status_mode_and_validations() {
         assert!(!VortexCommitMarkerStatus::MarkerReady.allows_marker_write());
         assert!(VortexCommitMarkerStatus::BlockedByCommitProtocol.is_error());
         assert!(!VortexCommitMarkerMode::ReportOnly.writes_commit_marker());
         assert!(!VortexCommitMarkerMode::ReportOnly.finalizes_manifest());
+        assert!(VortexCommitMarkerWriteStatus::CommitMarkerWritten.commit_marker_written());
+        assert!(VortexCommitMarkerWriteStatus::BlockedByFeatureGate.is_error());
+        assert!(VortexCommitMarkerWriteMode::LocalCommitMarkerWrite.writes_commit_marker());
+        assert!(!VortexCommitMarkerWriteMode::LocalCommitMarkerWrite.finalizes_manifest());
+        assert!(!VortexCommitMarkerWriteMode::LocalCommitMarkerWrite.commits_manifest());
+        assert!(!VortexCommitMarkerWriteMode::LocalCommitMarkerWrite.writes_output_data());
+        assert!(!VortexCommitMarkerWriteMode::LocalCommitMarkerWrite.writes_object_store());
+        assert!(!VortexCommitMarkerWriteMode::LocalCommitMarkerWrite.calls_upstream_vortex_write());
+        assert!(!VortexCommitMarkerWriteMode::LocalCommitMarkerWrite.executes_recovery_action());
+        assert_eq!(
+            VortexCommitMarkerWriteOption::AllowOverwrite.as_str(),
+            "allow_overwrite"
+        );
         assert!(VortexCommitMarkerFileName::new("").is_err());
         assert!(VortexCommitMarkerFileName::new("a/b").is_err());
         assert!(VortexCommitMarkerFileName::new("..a").is_err());
@@ -800,6 +1682,26 @@ mod tests {
         assert_eq!(
             plan_vortex_commit_marker(mapped_waiting).unwrap().status,
             VortexCommitMarkerStatus::BlockedByFeatureGate
+        );
+        let mut invalid_waiting = waiting.clone();
+        invalid_waiting.add_diagnostic(Diagnostic::invalid_input(
+            "commit_protocol",
+            "unrelated protocol diagnostic",
+            "fix protocol request",
+        ));
+        let mapped_invalid_waiting = commit_marker_request_from_protocol_report(
+            VortexStagedWorkspacePath::new("/tmp/w").unwrap(),
+            &invalid_waiting,
+        )
+        .unwrap();
+        assert!(mapped_invalid_waiting.has_signal(VortexCommitMarkerSignal::CommitProtocolReady));
+        assert!(mapped_invalid_waiting.has_signal(VortexCommitMarkerSignal::CommitProtocolBlocked));
+        assert_eq!(mapped_invalid_waiting.diagnostics.len(), 1);
+        assert_eq!(
+            plan_vortex_commit_marker(mapped_invalid_waiting.feature_gate_enabled(true))
+                .unwrap()
+                .status,
+            VortexCommitMarkerStatus::BlockedByCommitProtocol
         );
         let rep = plan_vortex_commit_marker(mapped).unwrap();
         assert!(!rep.commit_marker_written());
