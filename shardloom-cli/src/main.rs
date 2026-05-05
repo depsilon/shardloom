@@ -8118,12 +8118,20 @@ mod tests {
 
     #[test]
     fn spill_payload_roundtrip_valid_args_default_build_returns_success() {
-        let code = run(vec![
-            "spill-payload-roundtrip".to_string(),
-            "/tmp/shardloom_spill_payload".to_string(),
-            "payload-1".to_string(),
-            "hello".to_string(),
-        ]);
+        let code = std::thread::Builder::new()
+            .name("spill-payload-roundtrip-test".to_string())
+            .stack_size(8 * 1024 * 1024)
+            .spawn(|| {
+                run(vec![
+                    "spill-payload-roundtrip".to_string(),
+                    "/tmp/shardloom_spill_payload".to_string(),
+                    "payload-1".to_string(),
+                    "hello".to_string(),
+                ])
+            })
+            .expect("spawn spill payload roundtrip test thread")
+            .join()
+            .expect("join spill payload roundtrip test thread");
         assert_eq!(code, ExitCode::SUCCESS);
     }
 
