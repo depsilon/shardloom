@@ -505,3 +505,6 @@ This update does not introduce scans, decode, materialization, writes, object-st
 
 - Upstream Vortex write APIs remain unused after commit-marker staging.
 - Manifest finalization remains ShardLoom-native and report-only for the next phase.
+
+
+- Manifest finalization remains `ShardLoom`-native/report-only in Phase 12B.5a; upstream `Vortex` write APIs remain deferred.

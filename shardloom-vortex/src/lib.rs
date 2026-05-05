@@ -27,6 +27,7 @@ pub mod encoded_read_probe;
 pub mod encoded_read_readiness;
 pub mod execution_readiness;
 pub mod file_io;
+pub mod manifest_finalization;
 pub mod memory_bridge;
 pub mod metadata_executor;
 pub mod metadata_planning;
@@ -145,6 +146,15 @@ pub use staged_manifest::{
     vortex_staged_manifest_draft_is_side_effect_free,
     vortex_staged_manifest_file_is_side_effect_free,
     vortex_staged_manifest_file_write_is_side_effect_free, write_vortex_staged_manifest_file,
+};
+
+pub use manifest_finalization::{
+    VortexFinalizedManifestContent, VortexFinalizedManifestFileName,
+    VortexFinalizedManifestFileRef, VortexManifestFinalizationEffect,
+    VortexManifestFinalizationMode, VortexManifestFinalizationReport,
+    VortexManifestFinalizationRequest, VortexManifestFinalizationSignal,
+    VortexManifestFinalizationStatus, manifest_finalization_request_from_reports,
+    plan_vortex_manifest_finalization, vortex_manifest_finalization_is_side_effect_free,
 };
 
 pub use commit_marker::{

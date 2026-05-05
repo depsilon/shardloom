@@ -597,3 +597,8 @@ No spill data movement is implemented in this phase.
 - This still does not object-store.
 - Manifest finalization must begin report-only.
 
+
+
+## Manifest finalization core contract
+
+In Phase 12B.5a, manifest finalization is `ShardLoom`-native and report-only. The contract distinguishes staged manifest draft state, finalized manifest candidate state, and committed manifest state. Finalization planning requires staged draft readiness, commit-marker readiness, commit-protocol readiness, plus schema/delete/tombstone readiness signals. This phase does not write finalized manifests, does not commit manifests, does not write output data, does not call upstream `Vortex` write APIs, and does not perform object-store IO.
