@@ -8617,50 +8617,65 @@ mod tests {
 
     #[test]
     fn cleanup_synthetic_payload_valid_args_default_build_reports_without_execution() {
-        let code = run(vec![
-            "cleanup-synthetic-payload".to_string(),
-            "/tmp/shardloom_spill_payload".to_string(),
-            "payload-1".to_string(),
-        ]);
+        let code = run_with_larger_stack(
+            "cleanup-synthetic-payload-valid",
+            vec![
+                "cleanup-synthetic-payload".to_string(),
+                "/tmp/shardloom_spill_payload".to_string(),
+                "payload-1".to_string(),
+            ],
+        );
         assert_ne!(code, ExitCode::from(2));
     }
 
     #[test]
     fn cleanup_synthetic_payload_invalid_payload_id_returns_non_zero() {
-        let code = run(vec![
-            "cleanup-synthetic-payload".to_string(),
-            "/tmp/shardloom_spill_payload".to_string(),
-            "../bad".to_string(),
-        ]);
+        let code = run_with_larger_stack(
+            "cleanup-synthetic-payload-invalid-id",
+            vec![
+                "cleanup-synthetic-payload".to_string(),
+                "/tmp/shardloom_spill_payload".to_string(),
+                "../bad".to_string(),
+            ],
+        );
         assert_ne!(code, ExitCode::SUCCESS);
     }
 
     #[test]
     fn cleanup_synthetic_payload_missing_args_returns_non_zero() {
-        let code = run(vec!["cleanup-synthetic-payload".to_string()]);
+        let code = run_with_larger_stack(
+            "cleanup-synthetic-payload-missing-args",
+            vec!["cleanup-synthetic-payload".to_string()],
+        );
         assert_ne!(code, ExitCode::SUCCESS);
     }
 
     #[test]
     fn cleanup_synthetic_payload_too_many_args_returns_non_zero() {
-        let code = run(vec![
-            "cleanup-synthetic-payload".to_string(),
-            "/tmp/shardloom_spill_payload".to_string(),
-            "payload-1".to_string(),
-            "extra".to_string(),
-        ]);
+        let code = run_with_larger_stack(
+            "cleanup-synthetic-payload-too-many-args",
+            vec![
+                "cleanup-synthetic-payload".to_string(),
+                "/tmp/shardloom_spill_payload".to_string(),
+                "payload-1".to_string(),
+                "extra".to_string(),
+            ],
+        );
         assert_ne!(code, ExitCode::SUCCESS);
     }
 
     #[test]
     fn cleanup_synthetic_payload_json_format_dispatches() {
-        let code = run(vec![
-            "cleanup-synthetic-payload".to_string(),
-            "/tmp/shardloom_spill_payload".to_string(),
-            "payload-1".to_string(),
-            "--format".to_string(),
-            "json".to_string(),
-        ]);
+        let code = run_with_larger_stack(
+            "cleanup-synthetic-payload-json",
+            vec![
+                "cleanup-synthetic-payload".to_string(),
+                "/tmp/shardloom_spill_payload".to_string(),
+                "payload-1".to_string(),
+                "--format".to_string(),
+                "json".to_string(),
+            ],
+        );
         assert_ne!(code, ExitCode::from(2));
     }
 
