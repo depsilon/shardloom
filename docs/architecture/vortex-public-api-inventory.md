@@ -458,3 +458,10 @@ This update does not introduce scans, decode, materialization, writes, object-st
 
 - Commit protocol state machine is `ShardLoom`-native and report-only.
 - Upstream `Vortex` write APIs remain deferred for commit execution phases.
+
+## Phase 12B commit planning CLI wrappers
+
+- `vortex-commit-intent-plan` and `vortex-commit-protocol-plan` are `ShardLoom`-native report-only CLI wrappers over commit planning reports.
+- They provide stable text/JSON output fields for readiness validation.
+- They do not execute commits, finalize manifests, write commit markers, write output payloads, or perform object-store IO.
+- Upstream `Vortex` write API calls remain deferred.

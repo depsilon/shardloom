@@ -37,25 +37,28 @@ use shardloom_plan::{
     ScanPlanSkeleton, ScanRequest, plan_universal_input_source,
 };
 use shardloom_vortex::{
-    VortexAdapterCapabilityReport, VortexAdapterReadiness, VortexDTypeMappingReport,
-    VortexEncodedReadReadinessStatus, VortexEncodingLayoutMappingReport,
-    VortexExecutionReadinessStatus, VortexFileRef, VortexMetadataOpenRequest,
-    VortexMetadataProbeReport, VortexReadPlan, VortexStagedManifestDraftContent,
-    VortexStagedManifestFileEffect, VortexStagedManifestFileRef, VortexStagedManifestFileReport,
-    VortexStagedManifestFileRequest, VortexStagedManifestFileSignal,
-    VortexStagedManifestFileWriteEffect, VortexStagedManifestFileWriteOption,
-    VortexStagedManifestFileWriteRequest, VortexStagedManifestFileWriteSignal,
-    VortexStagedMarkerOption, VortexStagedMarkerRequest, VortexStagedWorkspaceId,
-    VortexStagedWorkspacePath, VortexStagedWorkspaceSetupOption, VortexStagedWorkspaceSetupRequest,
-    VortexStatisticsMappingReport, VortexWriteIntentReport, VortexWriteIntentRequest,
-    VortexWriteIntentSignal, VortexWriteOptions, VortexWritePlan, build_vortex_runtime_task_graph,
-    evaluate_vortex_encoded_read_readiness, evaluate_vortex_execution_readiness,
-    evaluate_vortex_query_primitive, execute_vortex_bounded_local_query,
-    execute_vortex_encoded_read_contract, execute_vortex_encoded_read_spike,
-    execute_vortex_local_query_primitive, execute_vortex_metadata_only,
-    metadata_planning_is_side_effect_free, metadata_pruning_is_side_effect_free,
-    metadata_summary_is_plan_only, open_vortex_metadata_only, parse_vortex_local_engine_primitive,
-    plan_from_vortex_metadata_summary, plan_native_vortex_universal_input,
+    VortexAdapterCapabilityReport, VortexAdapterReadiness, VortexCommitIntentReport,
+    VortexCommitIntentRequest, VortexCommitIntentSignal, VortexCommitProtocolReport,
+    VortexCommitProtocolRequest, VortexCommitProtocolSignal, VortexCommitProtocolState,
+    VortexCommitProtocolTransition, VortexDTypeMappingReport, VortexEncodedReadReadinessStatus,
+    VortexEncodingLayoutMappingReport, VortexExecutionReadinessStatus, VortexFileRef,
+    VortexMetadataOpenRequest, VortexMetadataProbeReport, VortexReadPlan,
+    VortexStagedManifestDraftContent, VortexStagedManifestFileEffect, VortexStagedManifestFileRef,
+    VortexStagedManifestFileReport, VortexStagedManifestFileRequest,
+    VortexStagedManifestFileSignal, VortexStagedManifestFileWriteEffect,
+    VortexStagedManifestFileWriteOption, VortexStagedManifestFileWriteRequest,
+    VortexStagedManifestFileWriteSignal, VortexStagedMarkerOption, VortexStagedMarkerRequest,
+    VortexStagedWorkspaceId, VortexStagedWorkspacePath, VortexStagedWorkspaceSetupOption,
+    VortexStagedWorkspaceSetupRequest, VortexStatisticsMappingReport, VortexWriteIntentReport,
+    VortexWriteIntentRequest, VortexWriteIntentSignal, VortexWriteOptions, VortexWritePlan,
+    build_vortex_runtime_task_graph, evaluate_vortex_encoded_read_readiness,
+    evaluate_vortex_execution_readiness, evaluate_vortex_query_primitive,
+    execute_vortex_bounded_local_query, execute_vortex_encoded_read_contract,
+    execute_vortex_encoded_read_spike, execute_vortex_local_query_primitive,
+    execute_vortex_metadata_only, metadata_planning_is_side_effect_free,
+    metadata_pruning_is_side_effect_free, metadata_summary_is_plan_only, open_vortex_metadata_only,
+    parse_vortex_local_engine_primitive, plan_from_vortex_metadata_summary,
+    plan_native_vortex_universal_input, plan_vortex_commit_intent, plan_vortex_commit_protocol,
     plan_vortex_encoded_read_probe, plan_vortex_memory_safety, plan_vortex_metadata_pruning,
     plan_vortex_read_from_universal_input, plan_vortex_scheduler_queue,
     plan_vortex_staged_manifest_file, plan_vortex_write_intent, probe_vortex_metadata_only,
@@ -79,7 +82,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -287,6 +290,143 @@ fn parse_vortex_staged_manifest_file_write_options(
         }
     }
     Ok(options)
+}
+
+fn parse_vortex_commit_intent_signals(
+    signals_raw: &str,
+) -> Result<Vec<VortexCommitIntentSignal>, ShardLoomError> {
+    if signals_raw.trim().is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "commit intent signals must not be empty".to_string(),
+        ));
+    }
+    let mut signals = Vec::new();
+    for token in signals_raw.split(',') {
+        let token = token.trim();
+        if token.is_empty() {
+            return Err(ShardLoomError::InvalidOperation(
+                "commit intent signals must not contain empty tokens".to_string(),
+            ));
+        }
+        let signal = match token {
+            "commit-requested" => VortexCommitIntentSignal::CommitRequested,
+            "staged-manifest-draft-written" => VortexCommitIntentSignal::StagedManifestDraftWritten,
+            "staged-manifest-draft-missing" => VortexCommitIntentSignal::StagedManifestDraftMissing,
+            "manifest-finalization-available" => {
+                VortexCommitIntentSignal::ManifestFinalizationAvailable
+            }
+            "manifest-finalization-missing" => {
+                VortexCommitIntentSignal::ManifestFinalizationMissing
+            }
+            "commit-protocol-available" => VortexCommitIntentSignal::CommitProtocolAvailable,
+            "schema-known" => VortexCommitIntentSignal::SchemaKnown,
+            "schema-compatible" => VortexCommitIntentSignal::SchemaCompatible,
+            "delete-semantics-known" => VortexCommitIntentSignal::DeleteSemanticsKnown,
+            "tombstone-semantics-known" => VortexCommitIntentSignal::TombstoneSemanticsKnown,
+            "recovery-ready" => VortexCommitIntentSignal::RecoveryReady,
+            "recovery-blocked" => VortexCommitIntentSignal::RecoveryBlocked,
+            "retry-gate-open" => VortexCommitIntentSignal::RetryGateOpen,
+            "retry-gate-closed" => VortexCommitIntentSignal::RetryGateClosed,
+            "cancellation-gate-open" => VortexCommitIntentSignal::CancellationGateOpen,
+            "cancellation-gate-closed" => VortexCommitIntentSignal::CancellationGateClosed,
+            "object-store-target" => VortexCommitIntentSignal::ObjectStoreTarget,
+            "feature-gate-enabled" => VortexCommitIntentSignal::FeatureGateEnabled,
+            _ => {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "unknown commit intent signal token: {token}"
+                )));
+            }
+        };
+        if !signals.contains(&signal) {
+            signals.push(signal);
+        }
+    }
+    Ok(signals)
+}
+
+fn parse_vortex_commit_protocol_state(
+    state_raw: &str,
+) -> Result<VortexCommitProtocolState, ShardLoomError> {
+    match state_raw.trim() {
+        "not-started" => Ok(VortexCommitProtocolState::NotStarted),
+        "intent-validated" => Ok(VortexCommitProtocolState::IntentValidated),
+        "draft-manifest-ready" => Ok(VortexCommitProtocolState::DraftManifestReady),
+        "awaiting-manifest-finalization" => {
+            Ok(VortexCommitProtocolState::AwaitingManifestFinalization)
+        }
+        "awaiting-commit-marker" => Ok(VortexCommitProtocolState::AwaitingCommitMarker),
+        "commit-ready" => Ok(VortexCommitProtocolState::CommitReady),
+        "commit-blocked" => Ok(VortexCommitProtocolState::CommitBlocked),
+        "commit-aborted" => Ok(VortexCommitProtocolState::CommitAborted),
+        "unsupported" => Ok(VortexCommitProtocolState::Unsupported),
+        _ => Err(ShardLoomError::InvalidOperation(format!(
+            "unknown commit protocol current_state token: {state_raw}"
+        ))),
+    }
+}
+
+fn parse_vortex_commit_protocol_transition(
+    transition_raw: &str,
+) -> Result<VortexCommitProtocolTransition, ShardLoomError> {
+    match transition_raw.trim() {
+        "validate-intent" => Ok(VortexCommitProtocolTransition::ValidateIntent),
+        "prepare-manifest-finalization" => {
+            Ok(VortexCommitProtocolTransition::PrepareManifestFinalization)
+        }
+        "prepare-commit-marker" => Ok(VortexCommitProtocolTransition::PrepareCommitMarker),
+        "mark-commit-ready" => Ok(VortexCommitProtocolTransition::MarkCommitReady),
+        "abort" => Ok(VortexCommitProtocolTransition::Abort),
+        "unsupported" => Ok(VortexCommitProtocolTransition::Unsupported),
+        _ => Err(ShardLoomError::InvalidOperation(format!(
+            "unknown commit protocol transition token: {transition_raw}"
+        ))),
+    }
+}
+
+fn parse_vortex_commit_protocol_signals(
+    signals_raw: &str,
+) -> Result<Vec<VortexCommitProtocolSignal>, ShardLoomError> {
+    if signals_raw.trim().is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "commit protocol signals must not be empty".to_string(),
+        ));
+    }
+    let mut signals = Vec::new();
+    for token in signals_raw.split(',') {
+        let token = token.trim();
+        if token.is_empty() {
+            return Err(ShardLoomError::InvalidOperation(
+                "commit protocol signals must not contain empty tokens".to_string(),
+            ));
+        }
+        let signal = match token {
+            "commit-intent-ready" => VortexCommitProtocolSignal::CommitIntentReady,
+            "commit-intent-blocked" => VortexCommitProtocolSignal::CommitIntentBlocked,
+            "draft-manifest-ready" => VortexCommitProtocolSignal::DraftManifestReady,
+            "draft-manifest-missing" => VortexCommitProtocolSignal::DraftManifestMissing,
+            "manifest-finalization-available" => {
+                VortexCommitProtocolSignal::ManifestFinalizationAvailable
+            }
+            "manifest-finalization-missing" => {
+                VortexCommitProtocolSignal::ManifestFinalizationMissing
+            }
+            "commit-marker-available" => VortexCommitProtocolSignal::CommitMarkerAvailable,
+            "commit-marker-missing" => VortexCommitProtocolSignal::CommitMarkerMissing,
+            "object-store-target" => VortexCommitProtocolSignal::ObjectStoreTarget,
+            "recovery-ready" => VortexCommitProtocolSignal::RecoveryReady,
+            "recovery-blocked" => VortexCommitProtocolSignal::RecoveryBlocked,
+            "feature-gate-enabled" => VortexCommitProtocolSignal::FeatureGateEnabled,
+            _ => {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "unknown commit protocol signal token: {token}"
+                )));
+            }
+        };
+        if !signals.contains(&signal) {
+            signals.push(signal);
+        }
+    }
+    Ok(signals)
 }
 fn parse_output_format(args: Vec<String>) -> Result<(Vec<String>, OutputFormat), String> {
     let mut filtered = Vec::with_capacity(args.len());
@@ -3196,6 +3336,248 @@ fn run(args: Vec<String>) -> ExitCode {
                         "false".to_string(),
                     ),
                     ("write_execution_allowed".to_string(), "false".to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
+                ],
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
+        Some("vortex-commit-intent-plan") => {
+            let Some(target_uri) = args.next() else {
+                eprintln!("usage: shardloom vortex-commit-intent-plan <target_uri> <signals>");
+                return ExitCode::from(2);
+            };
+            let Some(signals_raw) = args.next() else {
+                eprintln!("usage: shardloom vortex-commit-intent-plan <target_uri> <signals>");
+                return ExitCode::from(2);
+            };
+            let uri = match DatasetUri::new(target_uri.clone()) {
+                Ok(uri) => uri,
+                Err(error) => {
+                    eprintln!("invalid dataset uri: {error}");
+                    return ExitCode::from(2);
+                }
+            };
+            let signals = match parse_vortex_commit_intent_signals(&signals_raw) {
+                Ok(s) => s,
+                Err(error) => {
+                    eprintln!("{error}");
+                    return ExitCode::from(2);
+                }
+            };
+            let mut request = VortexCommitIntentRequest::new(uri);
+            for signal in signals {
+                request.add_signal(signal, true);
+            }
+            let report: VortexCommitIntentReport = match plan_vortex_commit_intent(request) {
+                Ok(r) => r,
+                Err(error) => {
+                    eprintln!("failed to plan commit intent: {error}");
+                    return ExitCode::from(1);
+                }
+            };
+            emit(
+                "vortex-commit-intent-plan",
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "vortex commit intent plan".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "vortex_commit_intent_plan".to_string()),
+                    (
+                        "commit_requested".to_string(),
+                        report.commit_requested().to_string(),
+                    ),
+                    (
+                        "staged_manifest_draft_written".to_string(),
+                        report.staged_manifest_draft_written().to_string(),
+                    ),
+                    (
+                        "manifest_finalization_available".to_string(),
+                        report.manifest_finalization_available().to_string(),
+                    ),
+                    (
+                        "commit_protocol_available".to_string(),
+                        report.commit_protocol_available().to_string(),
+                    ),
+                    (
+                        "recovery_ready".to_string(),
+                        report.recovery_ready().to_string(),
+                    ),
+                    (
+                        "retry_gate_open".to_string(),
+                        report.retry_gate_open().to_string(),
+                    ),
+                    (
+                        "cancellation_gate_open".to_string(),
+                        report.cancellation_gate_open().to_string(),
+                    ),
+                    (
+                        "object_store_target".to_string(),
+                        report.object_store_target().to_string(),
+                    ),
+                    ("manifest_committed".to_string(), "false".to_string()),
+                    ("manifest_finalized".to_string(), "false".to_string()),
+                    ("output_data_written".to_string(), "false".to_string()),
+                    ("object_store_io".to_string(), "false".to_string()),
+                    (
+                        "upstream_vortex_write_called".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("recovery_action_executed".to_string(), "false".to_string()),
+                    ("commit_execution_allowed".to_string(), "false".to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
+                ],
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
+        Some("vortex-commit-protocol-plan") => {
+            let Some(target_uri) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-commit-protocol-plan <target_uri> <current_state> <transition> <signals>"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(current_state_raw) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-commit-protocol-plan <target_uri> <current_state> <transition> <signals>"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(transition_raw) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-commit-protocol-plan <target_uri> <current_state> <transition> <signals>"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(signals_raw) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-commit-protocol-plan <target_uri> <current_state> <transition> <signals>"
+                );
+                return ExitCode::from(2);
+            };
+            let uri = match DatasetUri::new(target_uri.clone()) {
+                Ok(uri) => uri,
+                Err(error) => {
+                    eprintln!("invalid dataset uri: {error}");
+                    return ExitCode::from(2);
+                }
+            };
+            let current_state = match parse_vortex_commit_protocol_state(&current_state_raw) {
+                Ok(s) => s,
+                Err(error) => {
+                    eprintln!("{error}");
+                    return ExitCode::from(2);
+                }
+            };
+            let transition = match parse_vortex_commit_protocol_transition(&transition_raw) {
+                Ok(t) => t,
+                Err(error) => {
+                    eprintln!("{error}");
+                    return ExitCode::from(2);
+                }
+            };
+            let signals = match parse_vortex_commit_protocol_signals(&signals_raw) {
+                Ok(s) => s,
+                Err(error) => {
+                    eprintln!("{error}");
+                    return ExitCode::from(2);
+                }
+            };
+            let mut request = VortexCommitProtocolRequest::new(uri, current_state, transition);
+            for signal in signals {
+                request.add_signal(signal, true);
+            }
+            let report: VortexCommitProtocolReport = match plan_vortex_commit_protocol(request) {
+                Ok(r) => r,
+                Err(error) => {
+                    eprintln!("failed to plan commit protocol: {error}");
+                    return ExitCode::from(1);
+                }
+            };
+            emit(
+                "vortex-commit-protocol-plan",
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "vortex commit protocol plan".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    (
+                        "mode".to_string(),
+                        "vortex_commit_protocol_plan".to_string(),
+                    ),
+                    (
+                        "current_state".to_string(),
+                        report.current_state().as_str().to_string(),
+                    ),
+                    (
+                        "requested_transition".to_string(),
+                        report.request.transition.as_str().to_string(),
+                    ),
+                    (
+                        "next_state".to_string(),
+                        report.next_state().as_str().to_string(),
+                    ),
+                    (
+                        "commit_intent_ready".to_string(),
+                        report.commit_intent_ready().to_string(),
+                    ),
+                    (
+                        "draft_manifest_ready".to_string(),
+                        report.draft_manifest_ready().to_string(),
+                    ),
+                    (
+                        "manifest_finalization_available".to_string(),
+                        report.manifest_finalization_available().to_string(),
+                    ),
+                    (
+                        "commit_marker_available".to_string(),
+                        report.commit_marker_available().to_string(),
+                    ),
+                    (
+                        "recovery_ready".to_string(),
+                        report.recovery_ready().to_string(),
+                    ),
+                    (
+                        "object_store_target".to_string(),
+                        report.object_store_target().to_string(),
+                    ),
+                    ("manifest_finalized".to_string(), "false".to_string()),
+                    ("commit_marker_written".to_string(), "false".to_string()),
+                    ("manifest_committed".to_string(), "false".to_string()),
+                    ("output_data_written".to_string(), "false".to_string()),
+                    ("object_store_io".to_string(), "false".to_string()),
+                    (
+                        "upstream_vortex_write_called".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("recovery_action_executed".to_string(), "false".to_string()),
+                    ("commit_execution_allowed".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
                 ],
             );
@@ -7075,6 +7457,67 @@ mod tests {
             "vortex-write-intent-plan".to_string(),
             "s3://bucket/out.vortex".to_string(),
             "native-vortex-target,schema-known,schema-compatible,object-store-target".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+    #[test]
+    fn vortex_commit_intent_plan_valid_full_ready_returns_success() {
+        let code = run(vec!["vortex-commit-intent-plan".to_string(),"file://tmp/out.vortex".to_string(),"commit-requested,staged-manifest-draft-written,manifest-finalization-available,commit-protocol-available,schema-known,schema-compatible,delete-semantics-known,tombstone-semantics-known,recovery-ready,retry-gate-open,cancellation-gate-open,feature-gate-enabled".to_string()]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+    #[test]
+    fn vortex_commit_intent_plan_missing_signals_returns_non_zero() {
+        let code = run(vec![
+            "vortex-commit-intent-plan".to_string(),
+            "file://tmp/out.vortex".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+    #[test]
+    fn vortex_commit_intent_plan_unknown_signal_returns_non_zero() {
+        let code = run(vec![
+            "vortex-commit-intent-plan".to_string(),
+            "file://tmp/out.vortex".to_string(),
+            "commit-requested,unknown".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+    #[test]
+    fn vortex_commit_intent_plan_object_store_target_returns_non_zero() {
+        let code = run(vec![
+            "vortex-commit-intent-plan".to_string(),
+            "s3://bucket/out.vortex".to_string(),
+            "commit-requested,object-store-target".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+    #[test]
+    fn vortex_commit_protocol_plan_validate_intent_ready_returns_success() {
+        let code = run(vec!["vortex-commit-protocol-plan".to_string(),"file://tmp/out.vortex".to_string(),"not-started".to_string(),"validate-intent".to_string(),"commit-intent-ready,draft-manifest-ready,manifest-finalization-available,commit-marker-available,recovery-ready,feature-gate-enabled".to_string()]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+    #[test]
+    fn vortex_commit_protocol_plan_mark_commit_ready_missing_marker_blocks() {
+        let code = run(vec!["vortex-commit-protocol-plan".to_string(),"file://tmp/out.vortex".to_string(),"awaiting-commit-marker".to_string(),"mark-commit-ready".to_string(),"commit-intent-ready,draft-manifest-ready,manifest-finalization-available,commit-marker-missing,recovery-ready".to_string()]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+    #[test]
+    fn vortex_commit_protocol_plan_missing_args_returns_non_zero() {
+        let code = run(vec![
+            "vortex-commit-protocol-plan".to_string(),
+            "file://tmp/out.vortex".to_string(),
+            "not-started".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+    #[test]
+    fn vortex_commit_protocol_plan_unknown_transition_returns_non_zero() {
+        let code = run(vec![
+            "vortex-commit-protocol-plan".to_string(),
+            "file://tmp/out.vortex".to_string(),
+            "not-started".to_string(),
+            "unknown".to_string(),
+            "commit-intent-ready".to_string(),
         ]);
         assert_ne!(code, ExitCode::SUCCESS);
     }

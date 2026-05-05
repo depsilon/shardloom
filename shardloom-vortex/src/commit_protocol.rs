@@ -609,7 +609,7 @@ fn derive_status(request: &VortexCommitProtocolRequest) -> VortexCommitProtocolS
     {
         return VortexCommitProtocolStatus::BlockedByRecovery;
     }
-    match request.transition {
+    let status = match request.transition {
         VortexCommitProtocolTransition::PrepareManifestFinalization => {
             if !request.has_signal(VortexCommitProtocolSignal::DraftManifestReady)
                 || !request.has_signal(VortexCommitProtocolSignal::ManifestFinalizationAvailable)
@@ -644,6 +644,13 @@ fn derive_status(request: &VortexCommitProtocolRequest) -> VortexCommitProtocolS
         }
         VortexCommitProtocolTransition::Abort => VortexCommitProtocolStatus::TransitionAllowed,
         VortexCommitProtocolTransition::Unsupported => VortexCommitProtocolStatus::Unsupported,
+    };
+    if matches!(status, VortexCommitProtocolStatus::TransitionAllowed)
+        && !is_transition_allowed_from_state(request.current_state, request.transition)
+    {
+        VortexCommitProtocolStatus::TransitionBlocked
+    } else {
+        status
     }
 }
 fn derive_next_state(
@@ -975,7 +982,9 @@ mod tests {
             .commit_marker_available(true),
         )
         .expect("report");
-        assert_eq!(report.status, VortexCommitProtocolStatus::TransitionAllowed);
+        assert_eq!(report.status, VortexCommitProtocolStatus::TransitionBlocked);
+        assert!(report.has_errors());
+        assert!(!report.transition_allowed());
         assert_eq!(
             report.next_state(),
             VortexCommitProtocolState::CommitBlocked

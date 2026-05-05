@@ -500,3 +500,15 @@ No spill data movement is implemented in this phase.
 - Commit marker readiness is not guessed.
 - Commit protocol remains report-only.
 - No manifest finalization, commit marker writes, manifest commits, output writes, upstream `Vortex` write API calls, object-store IO, or fallback execution are introduced.
+
+## Commit intent/protocol CLI wrappers
+
+- `shardloom vortex-commit-intent-plan <target_uri> <signals>` is report-only.
+- `shardloom vortex-commit-protocol-plan <target_uri> <current_state> <transition> <signals>` is report-only.
+- Both commands expose deterministic text/JSON planning envelopes for staged write-readiness validation.
+- Neither command executes commit transitions.
+- Neither command finalizes manifests.
+- Neither command writes commit markers, manifests, or output payload data.
+- Neither command performs object-store IO.
+- Neither command calls upstream `Vortex` write APIs.
+- Fallback execution remains disabled.
