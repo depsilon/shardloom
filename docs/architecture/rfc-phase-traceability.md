@@ -130,10 +130,11 @@ Status categories:
 
 ## Competitive roadmap traceability additions
 
-- CG-1 through CG-11 are **Competitive Engine Track** gates used for competitive-readiness traceability.
-- CG gates are not aliases for canonical implementation phase IDs (for example, they are distinct from Phase 13A/13B/14A/14B roadmap phases).
-- Spark/Polars/DataFusion (and other external engines) are allowed only as future external correctness/benchmark baselines.
+- CG-1 through CG-18 are **Competitive Engine Track** success gates and roadmap tracks.
+- CG gates are not aliases for canonical implementation phase IDs (for example, they are distinct from Phase 12/13/14 implementation phases).
+- Spark/Polars/DataFusion (and other external engines) are future external baseline references only.
 - External engines are never runtime fallback or delegation targets.
+- No fallback execution remains mandatory across all CG gates.
 
 Competitive gate coverage:
 - CG-1: encoded read boundary and real encoded reads
@@ -147,6 +148,13 @@ Competitive gate coverage:
 - CG-9: lakehouse/table intelligence
 - CG-10: object-store/distributed execution
 - CG-11: Python/API surface later
+- CG-12: plan portability / semantic IR
+- CG-13: encoded-native compressed execution
+- CG-14: runtime-adaptive optimizer and execution memory
+- CG-15: CPU operator specialization
+- CG-16: evidence-first execution certificates
+- CG-17: stateful result reuse / incremental execution
+- CG-18: universal import/deployment/baseline harness
 
 | Phase 12B.5a — manifest finalization core contract (complete) | RFC 0017 Fault Tolerance, Cancellation, and Recovery; RFC 0012 Diagnostics, Explain, Estimate, and Capabilities | RFC 0004 Native Dataset Manifest, Snapshot, Incremental | report-only finalization contract distinguishing staged draft manifest, finalized manifest candidate, and committed manifest; requires draft/marker/protocol/schema/delete/tombstone readiness signals; no finalized manifest writes; no committed manifest writes; no output payload writes; no object-store IO; no upstream `Vortex` write API calls; no fallback execution | Complete. Finalized manifest file writing and manifest commit remain deferred. |
 

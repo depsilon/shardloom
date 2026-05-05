@@ -365,3 +365,11 @@ When proposing next work:
 - external baselines are allowed only for correctness/benchmark references
 - do not make superiority claims until CG-5 and CG-6 are satisfied
 - preserve Vortex-native, no-fallback, explicit-side-effect contracts
+- keep the Competitive Engine Track visible in phase proposals
+- do not reduce or omit CG-1 through CG-18
+- Foundry belongs under CG-18 as an optional deployment/comparison target, not as the primary engine target
+- external engines are baselines only
+- no runtime fallback/delegation
+- do not make superiority claims until CG-5 and CG-6 are satisfied
+- commodity CPU vectorized execution is a first-class target
+- GPU/FPGA acceleration is not required for the primary competitive claim

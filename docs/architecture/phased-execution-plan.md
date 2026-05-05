@@ -1046,86 +1046,55 @@ Entry criteria for the next implementation phase:
 ## Competitive Engine Track (CG)
 
 ### CG-1 — Real encoded read path
-
-- feature-gated local encoded read API boundary
-- byte-range / segment / chunk read descriptor
-- encoded segment/chunk read report
+- encoded read API boundary
+- feature-gated local encoded read fixture
 - no broad row materialization
 - no Arrow-default conversion
-- first local Vortex encoded-read fixture
 
 ### CG-2 — Real query primitive execution over actual Vortex data
-
-- actual count over Vortex data
-- actual filtered count
-- actual projection
-- actual predicate/filter primitive
-- encoded-first selection vectors
-- decode only when explicitly allowed
-- no fallback engines
+- count
+- filtered count
+- projection
+- predicate/filter primitive
 
 ### CG-3 — Actual output payload write path
-
-- output payload write contract
-- feature-gated synthetic output payload write
-- feature-gated local Vortex output payload write if upstream public APIs are safe
-- output payload + staged manifest alignment
-- output payload smoke test
-- no object-store writes initially
+- local placeholder artifact path complete
+- real Vortex output payload path planned
 
 ### CG-4 — Commit protocol execution
+- local-first commit execution
+- idempotency/recovery
+- no object-store commit yet
 
-- feature-gated local commit marker execution
-- manifest finalization contract
-- feature-gated local manifest finalization
-- idempotent commit record
-- rollback / ambiguous commit report
-- local write+commit smoke test
-- no object-store commits until later
-
-### CG-5 — Correctness and differential harness
-
+### CG-5 — Correctness/differential tests
 - golden Vortex fixtures
-- edge-case fixtures
-- reference outputs
-- Spark/Polars/DataFusion external baselines only, never fallback
-- equivalence tests
-- no silent unsupported success
+- Spark/Polars/DataFusion external baselines only
+- no fallback execution
 
-### CG-6 — Benchmark harness
-
-- work avoided
-- bytes avoided
+### CG-6 — Benchmarks
+- runtime
+- peak memory
+- bytes read/written
 - decode avoided
 - materialization avoided
-- memory peak
-- spill required/avoided
-- startup latency
-- query runtime
-- write/commit latency
-- selected Spark/Polars/DataFusion comparisons
+- work avoided
 
 ### CG-7 — Physical operator/kernel layer
+- commodity CPU vectorized execution contract
+- encoded batch/segment operator API
+- selection-vector execution
+- SIMD/cache-friendly kernels
+- no GPU/FPGA requirement
+- no fallback engines
 
-- filter kernel
-- projection kernel
-- count/aggregate kernel
-- metadata/encoded/hybrid execution levels
-- expression evaluation over encoded segments
-- kernel capability reports
-
-### CG-8 — Streaming, parallelism, and adaptive execution
-
+### CG-8 — Streaming/parallel/adaptive execution
 - streaming encoded batches
 - bounded parallel local execution
 - adaptive split/coalesce
-- dynamic sizing feedback loop
 - backpressure
 - memory/spill-aware scheduler
-- multi-file execution
 
 ### CG-9 — Lakehouse/table intelligence
-
 - schema evolution
 - partition evolution
 - delete/tombstone semantics
@@ -1133,18 +1102,74 @@ Entry criteria for the next implementation phase:
 - layout health
 - compaction planning
 
-### CG-10 — Object-store and distributed execution
-
+### CG-10 — Object-store/distributed execution
 - object-store read planning
 - byte-range coalescing
 - object-store commit protocol
 - distributed scheduling
 - checkpoint/retry/idempotency
-- distributed benchmark comparisons
 
 ### CG-11 — Python/API surface later
-
 - thin Python wrapper over CLI JSON first
-- Foundry-friendly later
+- stable command schema
 - no PyO3/maturin unless explicitly approved
 - no Spark fallback
+
+### CG-12 — Plan portability and semantic IR boundary
+- ShardLoom plan export contract
+- optional Substrait-like export/import validation
+- residual unsupported plan reporting
+- no external engine execution
+- no fallback execution
+
+### CG-13 — Encoded-native compressed execution
+- dictionary-aware predicates
+- RLE/run-end-aware predicates
+- bitpack/bytebool-aware predicates
+- FSST/string-encoded predicate path
+- ALP/fastlanes numeric path
+- direct count/filter/project over encoded segments
+- decode-avoided proof/report
+
+### CG-14 — Runtime-adaptive optimizer and execution memory
+- runtime filter reordering
+- segment-level adaptive pruning
+- dynamic split/coalesce from observed throughput
+- memory-pressure-aware operator switching
+- spill-risk-aware query shaping
+- workload profile cache
+
+### CG-15 — Operator specialization and commodity CPU dispatch
+- CPU feature detection/report
+- SIMD-specialized count/filter/project kernels
+- branchless predicate paths
+- cacheline-aware segment iteration
+- vector-width-specific benchmark reports
+- no GPU/FPGA requirement
+
+### CG-16 — Evidence-first execution certificates
+- plan hash
+- input snapshot/manifest hash
+- selected/skipped segments
+- bytes read/avoided
+- decode/materialization avoided
+- side effects performed
+- reproducibility metadata
+
+### CG-17 — Stateful result reuse and incremental execution
+- segment-result cache
+- predicate-result cache
+- encoded dictionary/filter cache
+- incremental recompute from manifest diffs
+- cache invalidation proof
+
+### CG-18 — Universal import, deployment, and external baseline harness
+- universal CLI JSON runner contract
+- package/import guidance independent of Foundry
+- optional Foundry transform examples
+- Spark baseline runner, external only
+- Polars baseline runner, external only
+- DataFusion baseline runner, external only
+- stable comparison report dataset
+- no runtime fallback
+

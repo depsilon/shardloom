@@ -572,15 +572,14 @@ No spill data movement is implemented in this phase.
 - It does not perform object-store IO.
 - Manifest finalization remains future work.
 
-## Competitive execution path (Competitive Engine Track: CG-1..CG-11)
+## Competitive execution expansion before CG-1
 
-- Staged write-readiness is only the control-plane foundation.
-- The next competitive milestones require actual encoded reads, actual query primitives, output payload writes, commit execution, correctness, and benchmarks.
-- Gate mapping: CG-1 encoded reads, CG-2 query primitives, CG-3 output payload writes, CG-4 commit execution, CG-5 correctness, CG-6 benchmarks, CG-7 kernels, CG-8 streaming/parallel/adaptive execution, CG-9 lakehouse intelligence, CG-10 object-store/distributed execution, CG-11 Python/API surface later.
-- Upstream Vortex write/read APIs remain feature-gated and isolated.
+- CG-1 remains the next engine implementation path.
+- CG-12 through CG-18 expand the long-term competitive track.
+- Foundry support is not the engine target; universal import/deployment is.
+- Upstream Vortex remains feature-gated and isolated.
 - Arrow conversion remains explicit, not default.
 - No fallback engines.
-
 
 ## Commit marker smoke test integration
 
