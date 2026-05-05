@@ -4,7 +4,7 @@ use std::{
     hash::{Hash, Hasher},
 };
 #[cfg(feature = "vortex-staged-output-fs")]
-use std::{fs, path::PathBuf};
+use std::{fs, fs::OpenOptions, io::Write as _, path::PathBuf};
 
 #[cfg(feature = "vortex-staged-output-fs")]
 use shardloom_core::{DatasetUri, UriScheme};
@@ -947,6 +947,11 @@ impl VortexCommitMarkerReport {
             .has_signal(VortexCommitMarkerSignal::ObjectStoreTarget)
     }
     #[must_use]
+    pub fn feature_gate_enabled(&self) -> bool {
+        self.request
+            .has_signal(VortexCommitMarkerSignal::FeatureGateEnabled)
+    }
+    #[must_use]
     pub fn commit_marker_written(&self) -> bool {
         self.effects_performed
             .contains(&VortexCommitMarkerEffect::CommitMarkerWritten)
@@ -1196,27 +1201,49 @@ pub fn write_vortex_commit_marker(
             );
             return Ok(report);
         }
-        if marker_path.exists()
-            && !report
-                .request
-                .has_option(VortexCommitMarkerWriteOption::AllowOverwrite)
+        if report
+            .request
+            .has_option(VortexCommitMarkerWriteOption::AllowOverwrite)
         {
-            let mut request = report.request;
-            request.add_signal(VortexCommitMarkerWriteSignal::ExistingCommitMarker, true);
-            report = VortexCommitMarkerWriteReport::blocked(
-                request,
-                VortexCommitMarkerWriteStatus::BlockedByExistingCommitMarker,
-                "commit marker file already exists",
-            );
-            return Ok(report);
+            fs::write(
+                &marker_path,
+                report.request.marker_content.as_str().as_bytes(),
+            )
+            .map_err(|err| {
+                ShardLoomError::InvalidOperation(format!(
+                    "failed to write commit marker file: {err}"
+                ))
+            })?;
+        } else {
+            let mut file = match OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&marker_path)
+            {
+                Ok(file) => file,
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                    let mut request = report.request;
+                    request.add_signal(VortexCommitMarkerWriteSignal::ExistingCommitMarker, true);
+                    report = VortexCommitMarkerWriteReport::blocked(
+                        request,
+                        VortexCommitMarkerWriteStatus::BlockedByExistingCommitMarker,
+                        "commit marker file already exists",
+                    );
+                    return Ok(report);
+                }
+                Err(error) => {
+                    return Err(ShardLoomError::InvalidOperation(format!(
+                        "failed to open commit marker file for atomic create: {error}"
+                    )));
+                }
+            };
+            file.write_all(report.request.marker_content.as_str().as_bytes())
+                .map_err(|error| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "failed to write commit marker file: {error}"
+                    ))
+                })?;
         }
-        fs::write(
-            &marker_path,
-            report.request.marker_content.as_str().as_bytes(),
-        )
-        .map_err(|err| {
-            ShardLoomError::InvalidOperation(format!("failed to write commit marker file: {err}"))
-        })?;
         let bytes_written = report.request.marker_content.len();
         let checksum = report.request.marker_content.checksum_u64();
         Ok(VortexCommitMarkerWriteReport::commit_marker_written_report(

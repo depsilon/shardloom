@@ -38,27 +38,29 @@ use shardloom_plan::{
 };
 use shardloom_vortex::{
     VortexAdapterCapabilityReport, VortexAdapterReadiness, VortexCommitIntentReport,
-    VortexCommitIntentRequest, VortexCommitIntentSignal, VortexCommitProtocolReport,
-    VortexCommitProtocolRequest, VortexCommitProtocolSignal, VortexCommitProtocolState,
-    VortexCommitProtocolTransition, VortexDTypeMappingReport, VortexEncodedReadReadinessStatus,
-    VortexEncodingLayoutMappingReport, VortexExecutionReadinessStatus, VortexFileRef,
-    VortexMetadataOpenRequest, VortexMetadataProbeReport, VortexReadPlan,
-    VortexStagedManifestDraftContent, VortexStagedManifestFileEffect, VortexStagedManifestFileRef,
-    VortexStagedManifestFileReport, VortexStagedManifestFileRequest,
-    VortexStagedManifestFileSignal, VortexStagedManifestFileWriteEffect,
-    VortexStagedManifestFileWriteOption, VortexStagedManifestFileWriteRequest,
-    VortexStagedManifestFileWriteSignal, VortexStagedMarkerOption, VortexStagedMarkerRequest,
-    VortexStagedWorkspaceId, VortexStagedWorkspacePath, VortexStagedWorkspaceSetupOption,
-    VortexStagedWorkspaceSetupRequest, VortexStatisticsMappingReport, VortexWriteIntentReport,
-    VortexWriteIntentRequest, VortexWriteIntentSignal, VortexWriteOptions, VortexWritePlan,
-    build_vortex_runtime_task_graph, evaluate_vortex_encoded_read_readiness,
-    evaluate_vortex_execution_readiness, evaluate_vortex_query_primitive,
-    execute_vortex_bounded_local_query, execute_vortex_encoded_read_contract,
-    execute_vortex_encoded_read_spike, execute_vortex_local_query_primitive,
-    execute_vortex_metadata_only, metadata_planning_is_side_effect_free,
-    metadata_pruning_is_side_effect_free, metadata_summary_is_plan_only, open_vortex_metadata_only,
-    parse_vortex_local_engine_primitive, plan_from_vortex_metadata_summary,
-    plan_native_vortex_universal_input, plan_vortex_commit_intent, plan_vortex_commit_protocol,
+    VortexCommitIntentRequest, VortexCommitIntentSignal, VortexCommitMarkerContent,
+    VortexCommitMarkerFileName, VortexCommitMarkerFileRef, VortexCommitMarkerRequest,
+    VortexCommitMarkerSignal, VortexCommitProtocolReport, VortexCommitProtocolRequest,
+    VortexCommitProtocolSignal, VortexCommitProtocolState, VortexCommitProtocolTransition,
+    VortexDTypeMappingReport, VortexEncodedReadReadinessStatus, VortexEncodingLayoutMappingReport,
+    VortexExecutionReadinessStatus, VortexFileRef, VortexMetadataOpenRequest,
+    VortexMetadataProbeReport, VortexReadPlan, VortexStagedManifestDraftContent,
+    VortexStagedManifestFileEffect, VortexStagedManifestFileRef, VortexStagedManifestFileReport,
+    VortexStagedManifestFileRequest, VortexStagedManifestFileSignal,
+    VortexStagedManifestFileWriteEffect, VortexStagedManifestFileWriteOption,
+    VortexStagedManifestFileWriteRequest, VortexStagedManifestFileWriteSignal,
+    VortexStagedMarkerOption, VortexStagedMarkerRequest, VortexStagedWorkspaceId,
+    VortexStagedWorkspacePath, VortexStagedWorkspaceSetupOption, VortexStagedWorkspaceSetupRequest,
+    VortexStatisticsMappingReport, VortexWriteIntentReport, VortexWriteIntentRequest,
+    VortexWriteIntentSignal, VortexWriteOptions, VortexWritePlan, build_vortex_runtime_task_graph,
+    evaluate_vortex_encoded_read_readiness, evaluate_vortex_execution_readiness,
+    evaluate_vortex_query_primitive, execute_vortex_bounded_local_query,
+    execute_vortex_encoded_read_contract, execute_vortex_encoded_read_spike,
+    execute_vortex_local_query_primitive, execute_vortex_metadata_only,
+    metadata_planning_is_side_effect_free, metadata_pruning_is_side_effect_free,
+    metadata_summary_is_plan_only, open_vortex_metadata_only, parse_vortex_local_engine_primitive,
+    plan_from_vortex_metadata_summary, plan_native_vortex_universal_input,
+    plan_vortex_commit_intent, plan_vortex_commit_marker, plan_vortex_commit_protocol,
     plan_vortex_encoded_read_probe, plan_vortex_memory_safety, plan_vortex_metadata_pruning,
     plan_vortex_read_from_universal_input, plan_vortex_scheduler_queue,
     plan_vortex_staged_manifest_file, plan_vortex_write_intent, probe_vortex_metadata_only,
@@ -82,7 +84,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-commit-marker-plan|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -419,6 +421,47 @@ fn parse_vortex_commit_protocol_signals(
             _ => {
                 return Err(ShardLoomError::InvalidOperation(format!(
                     "unknown commit protocol signal token: {token}"
+                )));
+            }
+        };
+        if !signals.contains(&signal) {
+            signals.push(signal);
+        }
+    }
+    Ok(signals)
+}
+
+fn parse_vortex_commit_marker_signals(
+    signals_raw: &str,
+) -> Result<Vec<VortexCommitMarkerSignal>, ShardLoomError> {
+    if signals_raw.trim().is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "commit marker signals must not be empty".to_string(),
+        ));
+    }
+    let mut signals = Vec::new();
+    for token in signals_raw.split(',') {
+        let token = token.trim();
+        if token.is_empty() {
+            return Err(ShardLoomError::InvalidOperation(
+                "commit marker signals must not contain empty tokens".to_string(),
+            ));
+        }
+        let signal = match token {
+            "commit-protocol-ready" => VortexCommitMarkerSignal::CommitProtocolReady,
+            "commit-protocol-blocked" => VortexCommitMarkerSignal::CommitProtocolBlocked,
+            "manifest-finalization-available" => {
+                VortexCommitMarkerSignal::ManifestFinalizationAvailable
+            }
+            "manifest-finalization-missing" => {
+                VortexCommitMarkerSignal::ManifestFinalizationMissing
+            }
+            "local-workspace" => VortexCommitMarkerSignal::LocalWorkspace,
+            "object-store-target" => VortexCommitMarkerSignal::ObjectStoreTarget,
+            "feature-gate-enabled" => VortexCommitMarkerSignal::FeatureGateEnabled,
+            _ => {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "unknown commit marker signal token: {token}"
                 )));
             }
         };
@@ -3438,6 +3481,108 @@ fn run(args: Vec<String>) -> ExitCode {
                     ),
                     ("recovery_action_executed".to_string(), "false".to_string()),
                     ("commit_execution_allowed".to_string(), "false".to_string()),
+                    ("execution".to_string(), "not_performed".to_string()),
+                ],
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
+        Some("vortex-commit-marker-plan") => {
+            let Some(workspace_path_raw) = args.next() else {
+                eprintln!("usage: shardloom vortex-commit-marker-plan <workspace_path> <signals>");
+                return ExitCode::from(2);
+            };
+            let Some(signals_raw) = args.next() else {
+                eprintln!("usage: shardloom vortex-commit-marker-plan <workspace_path> <signals>");
+                return ExitCode::from(2);
+            };
+            let workspace_path = match VortexStagedWorkspacePath::new(workspace_path_raw.clone()) {
+                Ok(path) => path,
+                Err(error) => {
+                    eprintln!("invalid staged workspace path: {error}");
+                    return ExitCode::from(2);
+                }
+            };
+            let signals = match parse_vortex_commit_marker_signals(&signals_raw) {
+                Ok(s) => s,
+                Err(error) => {
+                    eprintln!("{error}");
+                    return ExitCode::from(2);
+                }
+            };
+            let marker_ref = VortexCommitMarkerFileRef::default_for_workspace(workspace_path);
+            let _marker_name = VortexCommitMarkerFileName::default_marker();
+            let marker_content = match VortexCommitMarkerContent::new(
+                "shardloom_commit_marker_draft=true\ncli_plan=true\ncommit_marker_written=false\nmanifest_finalized=false\nmanifest_committed=false\noutput_data_written=false\nfallback_execution_allowed=false\n",
+            ) {
+                Ok(content) => content,
+                Err(error) => {
+                    eprintln!("failed to construct commit marker content: {error}");
+                    return ExitCode::from(1);
+                }
+            };
+            let mut request = VortexCommitMarkerRequest::new(marker_ref, marker_content);
+            for signal in signals {
+                request.add_signal(signal, true);
+            }
+            let report = match plan_vortex_commit_marker(request) {
+                Ok(report) => report,
+                Err(error) => {
+                    eprintln!("failed to plan commit marker: {error}");
+                    return ExitCode::from(1);
+                }
+            };
+            emit(
+                "vortex-commit-marker-plan",
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "vortex commit marker plan".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "vortex_commit_marker_plan".to_string()),
+                    (
+                        "commit_protocol_ready".to_string(),
+                        report.commit_protocol_ready().to_string(),
+                    ),
+                    (
+                        "manifest_finalization_available".to_string(),
+                        report.manifest_finalization_available().to_string(),
+                    ),
+                    (
+                        "local_workspace".to_string(),
+                        report.local_workspace().to_string(),
+                    ),
+                    (
+                        "object_store_target".to_string(),
+                        report.object_store_target().to_string(),
+                    ),
+                    (
+                        "feature_gate_enabled".to_string(),
+                        report.feature_gate_enabled().to_string(),
+                    ),
+                    ("commit_marker_written".to_string(), "false".to_string()),
+                    ("manifest_finalized".to_string(), "false".to_string()),
+                    ("manifest_committed".to_string(), "false".to_string()),
+                    ("output_data_written".to_string(), "false".to_string()),
+                    ("object_store_io".to_string(), "false".to_string()),
+                    (
+                        "upstream_vortex_write_called".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("recovery_action_executed".to_string(), "false".to_string()),
+                    ("marker_write_allowed".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
                 ],
             );
@@ -7520,6 +7665,75 @@ mod tests {
             "commit-intent-ready".to_string(),
         ]);
         assert_ne!(code, ExitCode::SUCCESS);
+    }
+    #[test]
+    fn vortex_commit_marker_plan_ready_returns_success() {
+        let code = run(vec![
+            "vortex-commit-marker-plan".to_string(),
+            "/tmp/stage".to_string(),
+            "commit-protocol-ready,manifest-finalization-available,local-workspace,feature-gate-enabled".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+    #[test]
+    fn vortex_commit_marker_plan_object_store_target_returns_non_zero() {
+        let code = run(vec![
+            "vortex-commit-marker-plan".to_string(),
+            "s3://bucket/stage".to_string(),
+            "commit-protocol-ready,manifest-finalization-available,object-store-target,feature-gate-enabled".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+    #[test]
+    fn vortex_commit_marker_plan_missing_feature_gate_returns_non_zero() {
+        let code = run(vec![
+            "vortex-commit-marker-plan".to_string(),
+            "/tmp/stage".to_string(),
+            "commit-protocol-ready,manifest-finalization-available,local-workspace".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+    #[test]
+    fn vortex_commit_marker_plan_missing_workspace_returns_non_zero() {
+        let code = run(vec!["vortex-commit-marker-plan".to_string()]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+    #[test]
+    fn vortex_commit_marker_plan_missing_signals_returns_non_zero() {
+        let code = run(vec![
+            "vortex-commit-marker-plan".to_string(),
+            "/tmp/stage".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+    #[test]
+    fn vortex_commit_marker_plan_unknown_signal_returns_non_zero() {
+        let code = run(vec![
+            "vortex-commit-marker-plan".to_string(),
+            "/tmp/stage".to_string(),
+            "feature-gate-enabled,unknown-token".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+    #[test]
+    fn vortex_commit_marker_plan_blank_signal_returns_non_zero() {
+        let code = run(vec![
+            "vortex-commit-marker-plan".to_string(),
+            "/tmp/stage".to_string(),
+            "   ".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+    #[test]
+    fn vortex_commit_marker_plan_json_format_returns_success() {
+        let code = run(vec![
+            "vortex-commit-marker-plan".to_string(),
+            "/tmp/stage".to_string(),
+            "commit-protocol-ready,manifest-finalization-available,local-workspace,feature-gate-enabled".to_string(),
+            "--format".to_string(),
+            "json".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
     }
     #[test]
     fn vortex_staged_workspace_setup_missing_workspace_id_returns_non_zero() {
