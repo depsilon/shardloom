@@ -557,7 +557,20 @@ No spill data movement is implemented in this phase.
 - It does not write output data.
 - It does not call upstream `Vortex` write APIs.
 - It does not perform object-store IO.
-- The write `CLI` remains deferred to Phase 12B.3c.2.
+- The write `CLI` is delivered in Phase 12B.3c.2.
+
+## Commit marker write CLI
+
+- `vortex-commit-marker-write` exposes the feature-gated commit marker write helper.
+- Default build behavior is feature-disabled/report-only.
+- Feature build behavior writes only the exact local commit marker artifact.
+- It requires marker plan feature-gate readiness.
+- It does not finalize manifests.
+- It does not commit manifests.
+- It does not write output data.
+- It does not call upstream `Vortex` write APIs.
+- It does not perform object-store IO.
+- Manifest finalization remains future work.
 
 ## Competitive execution path (Competitive Engine Track: CG-1..CG-11)
 

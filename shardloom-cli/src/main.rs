@@ -40,19 +40,20 @@ use shardloom_vortex::{
     VortexAdapterCapabilityReport, VortexAdapterReadiness, VortexCommitIntentReport,
     VortexCommitIntentRequest, VortexCommitIntentSignal, VortexCommitMarkerContent,
     VortexCommitMarkerFileName, VortexCommitMarkerFileRef, VortexCommitMarkerRequest,
-    VortexCommitMarkerSignal, VortexCommitProtocolReport, VortexCommitProtocolRequest,
-    VortexCommitProtocolSignal, VortexCommitProtocolState, VortexCommitProtocolTransition,
-    VortexDTypeMappingReport, VortexEncodedReadReadinessStatus, VortexEncodingLayoutMappingReport,
-    VortexExecutionReadinessStatus, VortexFileRef, VortexMetadataOpenRequest,
-    VortexMetadataProbeReport, VortexReadPlan, VortexStagedManifestDraftContent,
-    VortexStagedManifestFileEffect, VortexStagedManifestFileRef, VortexStagedManifestFileReport,
-    VortexStagedManifestFileRequest, VortexStagedManifestFileSignal,
-    VortexStagedManifestFileWriteEffect, VortexStagedManifestFileWriteOption,
-    VortexStagedManifestFileWriteRequest, VortexStagedManifestFileWriteSignal,
-    VortexStagedMarkerOption, VortexStagedMarkerRequest, VortexStagedWorkspaceId,
-    VortexStagedWorkspacePath, VortexStagedWorkspaceSetupOption, VortexStagedWorkspaceSetupRequest,
-    VortexStatisticsMappingReport, VortexWriteIntentReport, VortexWriteIntentRequest,
-    VortexWriteIntentSignal, VortexWriteOptions, VortexWritePlan, build_vortex_runtime_task_graph,
+    VortexCommitMarkerSignal, VortexCommitMarkerWriteOption, VortexCommitProtocolReport,
+    VortexCommitProtocolRequest, VortexCommitProtocolSignal, VortexCommitProtocolState,
+    VortexCommitProtocolTransition, VortexDTypeMappingReport, VortexEncodedReadReadinessStatus,
+    VortexEncodingLayoutMappingReport, VortexExecutionReadinessStatus, VortexFileRef,
+    VortexMetadataOpenRequest, VortexMetadataProbeReport, VortexReadPlan,
+    VortexStagedManifestDraftContent, VortexStagedManifestFileEffect, VortexStagedManifestFileRef,
+    VortexStagedManifestFileReport, VortexStagedManifestFileRequest,
+    VortexStagedManifestFileSignal, VortexStagedManifestFileWriteEffect,
+    VortexStagedManifestFileWriteOption, VortexStagedManifestFileWriteRequest,
+    VortexStagedManifestFileWriteSignal, VortexStagedMarkerOption, VortexStagedMarkerRequest,
+    VortexStagedWorkspaceId, VortexStagedWorkspacePath, VortexStagedWorkspaceSetupOption,
+    VortexStagedWorkspaceSetupRequest, VortexStatisticsMappingReport, VortexWriteIntentReport,
+    VortexWriteIntentRequest, VortexWriteIntentSignal, VortexWriteOptions, VortexWritePlan,
+    build_vortex_runtime_task_graph, commit_marker_write_request_from_plan,
     evaluate_vortex_encoded_read_readiness, evaluate_vortex_execution_readiness,
     evaluate_vortex_query_primitive, execute_vortex_bounded_local_query,
     execute_vortex_encoded_read_contract, execute_vortex_encoded_read_spike,
@@ -68,7 +69,7 @@ use shardloom_vortex::{
     summarize_vortex_metadata_probe, vortex_encoded_read_executor_feature_enabled,
     vortex_encoded_read_public_api_boundary, vortex_encoded_read_spike_feature_enabled,
     vortex_file_io_feature_enabled, vortex_metadata_executor_feature_enabled,
-    write_vortex_staged_manifest_file, write_vortex_staged_marker,
+    write_vortex_commit_marker, write_vortex_staged_manifest_file, write_vortex_staged_marker,
 };
 
 fn main() -> ExitCode {
@@ -84,9 +85,41 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-commit-marker-plan|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
+}
+fn parse_vortex_commit_marker_write_options(
+    options_raw: &str,
+) -> Result<Vec<VortexCommitMarkerWriteOption>, ShardLoomError> {
+    if options_raw.trim().is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "commit marker write options must not be empty".to_string(),
+        ));
+    }
+    let mut options = Vec::new();
+    for token in options_raw.split(',') {
+        let token = token.trim();
+        if token.is_empty() {
+            return Err(ShardLoomError::InvalidOperation(
+                "commit marker write options must not contain empty tokens".to_string(),
+            ));
+        }
+        match token {
+            "allow-overwrite" => {
+                if !options.contains(&VortexCommitMarkerWriteOption::AllowOverwrite) {
+                    options.push(VortexCommitMarkerWriteOption::AllowOverwrite);
+                }
+            }
+            "none" => {}
+            _ => {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "unknown commit marker write option token: {token}"
+                )));
+            }
+        }
+    }
+    Ok(options)
 }
 
 fn parse_vortex_staged_workspace_options(
@@ -3587,6 +3620,135 @@ fn run(args: Vec<String>) -> ExitCode {
                 ],
             );
             if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
+        Some("vortex-commit-marker-write") => {
+            let Some(workspace_path_raw) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-commit-marker-write <workspace_path> <signals> <options>"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(signals_raw) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-commit-marker-write <workspace_path> <signals> <options>"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(options_raw) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-commit-marker-write <workspace_path> <signals> <options>"
+                );
+                return ExitCode::from(2);
+            };
+            let workspace_path = match VortexStagedWorkspacePath::new(workspace_path_raw.clone()) {
+                Ok(path) => path,
+                Err(error) => {
+                    eprintln!("invalid staged workspace path: {error}");
+                    return ExitCode::from(2);
+                }
+            };
+            let signals = match parse_vortex_commit_marker_signals(&signals_raw) {
+                Ok(s) => s,
+                Err(error) => {
+                    eprintln!("{error}");
+                    return ExitCode::from(2);
+                }
+            };
+            let options = match parse_vortex_commit_marker_write_options(&options_raw) {
+                Ok(o) => o,
+                Err(error) => {
+                    eprintln!("{error}");
+                    return ExitCode::from(2);
+                }
+            };
+            let marker_ref = VortexCommitMarkerFileRef::default_for_workspace(workspace_path);
+            let _marker_name = VortexCommitMarkerFileName::default_marker();
+            let marker_content = match VortexCommitMarkerContent::new(
+                "shardloom_commit_marker_draft=true\ncli_write=true\ncommit_marker_written=false\nmanifest_finalized=false\nmanifest_committed=false\noutput_data_written=false\nfallback_execution_allowed=false\n",
+            ) {
+                Ok(content) => content,
+                Err(error) => {
+                    eprintln!("failed to construct commit marker content: {error}");
+                    return ExitCode::from(1);
+                }
+            };
+            let mut plan_request = VortexCommitMarkerRequest::new(marker_ref, marker_content);
+            for signal in signals {
+                plan_request.add_signal(signal, true);
+            }
+            let plan_report = match plan_vortex_commit_marker(plan_request) {
+                Ok(report) => report,
+                Err(error) => {
+                    eprintln!("failed to plan commit marker write: {error}");
+                    return ExitCode::from(1);
+                }
+            };
+            let mut write_request = match commit_marker_write_request_from_plan(&plan_report) {
+                Ok(request) => request,
+                Err(error) => {
+                    eprintln!("failed to build commit marker write request: {error}");
+                    return ExitCode::from(1);
+                }
+            };
+            write_request.options = options;
+            let write_report = match write_vortex_commit_marker(write_request) {
+                Ok(report) => report,
+                Err(error) => {
+                    eprintln!("failed to write commit marker: {error}");
+                    return ExitCode::from(1);
+                }
+            };
+            emit(
+                "vortex-commit-marker-write",
+                format,
+                if write_report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "vortex commit marker write".to_string(),
+                write_report.to_human_text(),
+                write_report.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "vortex_commit_marker_write".to_string()),
+                    (
+                        "commit_marker_written".to_string(),
+                        write_report.commit_marker_written().to_string(),
+                    ),
+                    ("manifest_finalized".to_string(), "false".to_string()),
+                    ("manifest_committed".to_string(), "false".to_string()),
+                    ("output_data_written".to_string(), "false".to_string()),
+                    ("object_store_io".to_string(), "false".to_string()),
+                    (
+                        "upstream_vortex_write_called".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("recovery_action_executed".to_string(), "false".to_string()),
+                    (
+                        "bytes_written".to_string(),
+                        write_report.bytes_written.to_string(),
+                    ),
+                    (
+                        "checksum".to_string(),
+                        write_report
+                            .checksum
+                            .map_or_else(|| "none".to_string(), |checksum| checksum.to_string()),
+                    ),
+                    (
+                        "execution".to_string(),
+                        "commit_marker_write_or_not_performed".to_string(),
+                    ),
+                ],
+            );
+            if write_report.has_errors() {
                 ExitCode::from(1)
             } else {
                 ExitCode::SUCCESS
@@ -7527,6 +7689,18 @@ mod tests {
         handle.join().expect("join test thread");
     }
 
+    fn run_with_larger_stack(test_name: &str, args: Vec<String>) -> ExitCode {
+        let (sender, receiver) = std::sync::mpsc::channel();
+        run_test_with_larger_stack(test_name, move || {
+            let _ = sender.send(super::run(args));
+        });
+        receiver.recv().expect("receive test exit code")
+    }
+
+    fn run(args: Vec<String>) -> ExitCode {
+        run_with_larger_stack("cli-test", args)
+    }
+
     #[test]
     fn explain_unsupported_returns_non_zero() {
         let code = run(vec!["explain".to_string(), "demo-op".to_string()]);
@@ -7738,6 +7912,103 @@ mod tests {
             "vortex-commit-marker-plan".to_string(),
             "/tmp/stage".to_string(),
             "commit-protocol-ready,manifest-finalization-available,local-workspace,feature-gate-enabled".to_string(),
+            "--format".to_string(),
+            "json".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+    #[test]
+    fn vortex_commit_marker_write_ready_returns_success_by_default_feature_disabled() {
+        let code = run(vec![
+            "vortex-commit-marker-write".to_string(),
+            "/tmp/stage".to_string(),
+            "commit-protocol-ready,manifest-finalization-available,local-workspace,feature-gate-enabled".to_string(),
+            "none".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+    #[test]
+    fn vortex_commit_marker_write_missing_workspace_returns_non_zero() {
+        let code = run(vec!["vortex-commit-marker-write".to_string()]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+    #[test]
+    fn vortex_commit_marker_write_missing_signals_returns_non_zero() {
+        let code = run(vec![
+            "vortex-commit-marker-write".to_string(),
+            "/tmp/stage".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+    #[test]
+    fn vortex_commit_marker_write_missing_options_returns_non_zero() {
+        let code = run(vec![
+            "vortex-commit-marker-write".to_string(),
+            "/tmp/stage".to_string(),
+            "commit-protocol-ready,manifest-finalization-available,local-workspace,feature-gate-enabled"
+                .to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+    #[test]
+    fn vortex_commit_marker_write_unknown_signal_returns_non_zero() {
+        let code = run(vec![
+            "vortex-commit-marker-write".to_string(),
+            "/tmp/stage".to_string(),
+            "feature-gate-enabled,unknown-token".to_string(),
+            "none".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+    #[test]
+    fn vortex_commit_marker_write_unknown_option_returns_non_zero() {
+        let code = run(vec![
+            "vortex-commit-marker-write".to_string(),
+            "/tmp/stage".to_string(),
+            "commit-protocol-ready,manifest-finalization-available,local-workspace,feature-gate-enabled"
+                .to_string(),
+            "unknown".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+    #[test]
+    fn vortex_commit_marker_write_blank_signal_returns_non_zero() {
+        let code = run(vec![
+            "vortex-commit-marker-write".to_string(),
+            "/tmp/stage".to_string(),
+            "   ".to_string(),
+            "none".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+    #[test]
+    fn vortex_commit_marker_write_blank_options_returns_non_zero() {
+        let code = run(vec![
+            "vortex-commit-marker-write".to_string(),
+            "/tmp/stage".to_string(),
+            "commit-protocol-ready,manifest-finalization-available,local-workspace,feature-gate-enabled"
+                .to_string(),
+            "   ".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+    #[test]
+    fn vortex_commit_marker_write_missing_feature_gate_returns_success_when_feature_disabled() {
+        let code = run(vec![
+            "vortex-commit-marker-write".to_string(),
+            "/tmp/stage".to_string(),
+            "commit-protocol-ready,manifest-finalization-available,local-workspace".to_string(),
+            "none".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+    #[test]
+    fn vortex_commit_marker_write_json_format_returns_success() {
+        let code = run(vec![
+            "vortex-commit-marker-write".to_string(),
+            "/tmp/stage".to_string(),
+            "commit-protocol-ready,manifest-finalization-available,local-workspace,feature-gate-enabled".to_string(),
+            "none".to_string(),
             "--format".to_string(),
             "json".to_string(),
         ]);
@@ -8101,65 +8372,49 @@ mod tests {
 
     #[test]
     fn vortex_input_plan_with_vortex_uri_returns_success() {
-        let code = std::thread::Builder::new()
-            .stack_size(8 * 1024 * 1024)
-            .spawn(|| {
-                run(vec![
-                    "vortex-input-plan".to_string(),
-                    "file://tmp/data.vortex".to_string(),
-                ])
-            })
-            .expect("thread spawn should succeed")
-            .join()
-            .expect("thread join should succeed");
+        let code = run_with_larger_stack(
+            "vortex-input-plan-vortex-uri",
+            vec![
+                "vortex-input-plan".to_string(),
+                "file://tmp/data.vortex".to_string(),
+            ],
+        );
         assert_eq!(code, ExitCode::SUCCESS);
     }
 
     #[test]
     fn vortex_input_plan_with_parquet_uri_returns_non_zero() {
-        let code = std::thread::Builder::new()
-            .stack_size(8 * 1024 * 1024)
-            .spawn(|| {
-                run(vec![
-                    "vortex-input-plan".to_string(),
-                    "file://tmp/data.parquet".to_string(),
-                ])
-            })
-            .expect("thread spawn should succeed")
-            .join()
-            .expect("thread join should succeed");
+        let code = run_with_larger_stack(
+            "vortex-input-plan-parquet-uri",
+            vec![
+                "vortex-input-plan".to_string(),
+                "file://tmp/data.parquet".to_string(),
+            ],
+        );
         assert_ne!(code, ExitCode::SUCCESS);
     }
 
     #[test]
     fn vortex_task_graph_with_vortex_uri_returns_success() {
-        let code = std::thread::Builder::new()
-            .stack_size(8 * 1024 * 1024)
-            .spawn(|| {
-                run(vec![
-                    "vortex-task-graph".to_string(),
-                    "file://tmp/data.vortex".to_string(),
-                ])
-            })
-            .expect("thread spawn should succeed")
-            .join()
-            .expect("thread join should succeed");
+        let code = run_with_larger_stack(
+            "vortex-task-graph-vortex-uri",
+            vec![
+                "vortex-task-graph".to_string(),
+                "file://tmp/data.vortex".to_string(),
+            ],
+        );
         assert_eq!(code, ExitCode::SUCCESS);
     }
 
     #[test]
     fn vortex_task_graph_with_parquet_uri_returns_non_zero() {
-        let code = std::thread::Builder::new()
-            .stack_size(8 * 1024 * 1024)
-            .spawn(|| {
-                run(vec![
-                    "vortex-task-graph".to_string(),
-                    "file://tmp/data.parquet".to_string(),
-                ])
-            })
-            .expect("thread spawn should succeed")
-            .join()
-            .expect("thread join should succeed");
+        let code = run_with_larger_stack(
+            "vortex-task-graph-parquet-uri",
+            vec![
+                "vortex-task-graph".to_string(),
+                "file://tmp/data.parquet".to_string(),
+            ],
+        );
         assert_ne!(code, ExitCode::SUCCESS);
     }
 
@@ -8221,91 +8476,71 @@ mod tests {
 
     #[test]
     fn vortex_schedule_plan_with_vortex_uri_returns_success() {
-        let code = std::thread::Builder::new()
-            .stack_size(8 * 1024 * 1024)
-            .spawn(|| {
-                run(vec![
-                    "vortex-schedule-plan".to_string(),
-                    "file://tmp/data.vortex".to_string(),
-                    "8".to_string(),
-                    "2".to_string(),
-                ])
-            })
-            .expect("thread spawn should succeed")
-            .join()
-            .expect("thread join should succeed");
+        let code = run_with_larger_stack(
+            "vortex-schedule-plan-vortex-uri",
+            vec![
+                "vortex-schedule-plan".to_string(),
+                "file://tmp/data.vortex".to_string(),
+                "8".to_string(),
+                "2".to_string(),
+            ],
+        );
         assert_eq!(code, ExitCode::SUCCESS);
     }
 
     #[test]
     fn vortex_execution_readiness_with_vortex_uri_returns_non_zero_when_blocked() {
-        let code = std::thread::Builder::new()
-            .stack_size(8 * 1024 * 1024)
-            .spawn(|| {
-                run(vec![
-                    "vortex-execution-readiness".to_string(),
-                    "file://tmp/data.vortex".to_string(),
-                    "8".to_string(),
-                    "2".to_string(),
-                ])
-            })
-            .expect("thread spawn should succeed")
-            .join()
-            .expect("thread join should succeed");
+        let code = run_with_larger_stack(
+            "vortex-execution-readiness-vortex-uri",
+            vec![
+                "vortex-execution-readiness".to_string(),
+                "file://tmp/data.vortex".to_string(),
+                "8".to_string(),
+                "2".to_string(),
+            ],
+        );
         assert_ne!(code, ExitCode::SUCCESS);
     }
 
     #[test]
     fn vortex_dry_run_with_vortex_uri_returns_non_zero_when_readiness_blocked() {
-        let code = std::thread::Builder::new()
-            .stack_size(8 * 1024 * 1024)
-            .spawn(|| {
-                run(vec![
-                    "vortex-dry-run".to_string(),
-                    "file://tmp/data.vortex".to_string(),
-                    "8".to_string(),
-                    "2".to_string(),
-                ])
-            })
-            .expect("thread spawn should succeed")
-            .join()
-            .expect("thread join should succeed");
+        let code = run_with_larger_stack(
+            "vortex-dry-run-vortex-uri",
+            vec![
+                "vortex-dry-run".to_string(),
+                "file://tmp/data.vortex".to_string(),
+                "8".to_string(),
+                "2".to_string(),
+            ],
+        );
         assert_ne!(code, ExitCode::SUCCESS);
     }
 
     #[test]
     fn vortex_execution_readiness_with_non_vortex_uri_returns_non_zero() {
-        let code = std::thread::Builder::new()
-            .stack_size(8 * 1024 * 1024)
-            .spawn(|| {
-                run(vec![
-                    "vortex-execution-readiness".to_string(),
-                    "file://tmp/data.parquet".to_string(),
-                    "8".to_string(),
-                    "2".to_string(),
-                ])
-            })
-            .expect("thread spawn should succeed")
-            .join()
-            .expect("thread join should succeed");
+        let code = run_with_larger_stack(
+            "vortex-execution-readiness-parquet-uri",
+            vec![
+                "vortex-execution-readiness".to_string(),
+                "file://tmp/data.parquet".to_string(),
+                "8".to_string(),
+                "2".to_string(),
+            ],
+        );
         assert_ne!(code, ExitCode::SUCCESS);
     }
 
     #[test]
     fn vortex_schedule_plan_with_non_vortex_uri_returns_non_zero() {
-        let code = std::thread::Builder::new()
-            .stack_size(8 * 1024 * 1024)
-            .spawn(|| {
-                run(vec![
-                    "vortex-schedule-plan".to_string(),
-                    "file://tmp/data.parquet".to_string(),
-                    "8".to_string(),
-                    "2".to_string(),
-                ])
-            })
-            .expect("thread spawn should succeed")
-            .join()
-            .expect("thread join should succeed");
+        let code = run_with_larger_stack(
+            "vortex-schedule-plan-parquet-uri",
+            vec![
+                "vortex-schedule-plan".to_string(),
+                "file://tmp/data.parquet".to_string(),
+                "8".to_string(),
+                "2".to_string(),
+            ],
+        );
         assert_ne!(code, ExitCode::SUCCESS);
     }
 
@@ -8316,21 +8551,23 @@ mod tests {
 
     #[test]
     fn cli_contract_core_commands_dispatch_without_unknown_command_usage() {
-        for command in [
-            "status",
-            "capabilities",
-            "doctor",
-            "release-plan",
-            "optimizer-plan",
-            "vortex-readiness",
-        ] {
-            let code = run(vec![command.to_string()]);
-            assert_ne!(
-                code,
-                ExitCode::from(2),
-                "command `{command}` should be recognized by dispatcher"
-            );
-        }
+        run_test_with_larger_stack("cli-contract-core-commands-dispatch", || {
+            for command in [
+                "status",
+                "capabilities",
+                "doctor",
+                "release-plan",
+                "optimizer-plan",
+                "vortex-readiness",
+            ] {
+                let code = run(vec![command.to_string()]);
+                assert_ne!(
+                    code,
+                    ExitCode::from(2),
+                    "command `{command}` should be recognized by dispatcher"
+                );
+            }
+        });
     }
 
     #[test]
@@ -8344,20 +8581,15 @@ mod tests {
 
     #[test]
     fn spill_payload_roundtrip_valid_args_default_build_returns_success() {
-        let code = std::thread::Builder::new()
-            .name("spill-payload-roundtrip-test".to_string())
-            .stack_size(8 * 1024 * 1024)
-            .spawn(|| {
-                run(vec![
-                    "spill-payload-roundtrip".to_string(),
-                    "/tmp/shardloom_spill_payload".to_string(),
-                    "payload-1".to_string(),
-                    "hello".to_string(),
-                ])
-            })
-            .expect("spawn spill payload roundtrip test thread")
-            .join()
-            .expect("join spill payload roundtrip test thread");
+        let code = run_with_larger_stack(
+            "spill-payload-roundtrip-test",
+            vec![
+                "spill-payload-roundtrip".to_string(),
+                "/tmp/shardloom_spill_payload".to_string(),
+                "payload-1".to_string(),
+                "hello".to_string(),
+            ],
+        );
         assert_eq!(code, ExitCode::SUCCESS);
     }
 
@@ -8391,50 +8623,65 @@ mod tests {
 
     #[test]
     fn cleanup_synthetic_payload_valid_args_default_build_reports_without_execution() {
-        let code = run(vec![
-            "cleanup-synthetic-payload".to_string(),
-            "/tmp/shardloom_spill_payload".to_string(),
-            "payload-1".to_string(),
-        ]);
+        let code = run_with_larger_stack(
+            "cleanup-synthetic-payload-valid",
+            vec![
+                "cleanup-synthetic-payload".to_string(),
+                "/tmp/shardloom_spill_payload".to_string(),
+                "payload-1".to_string(),
+            ],
+        );
         assert_ne!(code, ExitCode::from(2));
     }
 
     #[test]
     fn cleanup_synthetic_payload_invalid_payload_id_returns_non_zero() {
-        let code = run(vec![
-            "cleanup-synthetic-payload".to_string(),
-            "/tmp/shardloom_spill_payload".to_string(),
-            "../bad".to_string(),
-        ]);
+        let code = run_with_larger_stack(
+            "cleanup-synthetic-payload-invalid-id",
+            vec![
+                "cleanup-synthetic-payload".to_string(),
+                "/tmp/shardloom_spill_payload".to_string(),
+                "../bad".to_string(),
+            ],
+        );
         assert_ne!(code, ExitCode::SUCCESS);
     }
 
     #[test]
     fn cleanup_synthetic_payload_missing_args_returns_non_zero() {
-        let code = run(vec!["cleanup-synthetic-payload".to_string()]);
+        let code = run_with_larger_stack(
+            "cleanup-synthetic-payload-missing-args",
+            vec!["cleanup-synthetic-payload".to_string()],
+        );
         assert_ne!(code, ExitCode::SUCCESS);
     }
 
     #[test]
     fn cleanup_synthetic_payload_too_many_args_returns_non_zero() {
-        let code = run(vec![
-            "cleanup-synthetic-payload".to_string(),
-            "/tmp/shardloom_spill_payload".to_string(),
-            "payload-1".to_string(),
-            "extra".to_string(),
-        ]);
+        let code = run_with_larger_stack(
+            "cleanup-synthetic-payload-too-many-args",
+            vec![
+                "cleanup-synthetic-payload".to_string(),
+                "/tmp/shardloom_spill_payload".to_string(),
+                "payload-1".to_string(),
+                "extra".to_string(),
+            ],
+        );
         assert_ne!(code, ExitCode::SUCCESS);
     }
 
     #[test]
     fn cleanup_synthetic_payload_json_format_dispatches() {
-        let code = run(vec![
-            "cleanup-synthetic-payload".to_string(),
-            "/tmp/shardloom_spill_payload".to_string(),
-            "payload-1".to_string(),
-            "--format".to_string(),
-            "json".to_string(),
-        ]);
+        let code = run_with_larger_stack(
+            "cleanup-synthetic-payload-json",
+            vec![
+                "cleanup-synthetic-payload".to_string(),
+                "/tmp/shardloom_spill_payload".to_string(),
+                "payload-1".to_string(),
+                "--format".to_string(),
+                "json".to_string(),
+            ],
+        );
         assert_ne!(code, ExitCode::from(2));
     }
 
@@ -8509,34 +8756,40 @@ mod tests {
 
     #[test]
     fn cancellation_gate_plan_missing_signals_returns_non_zero() {
-        let code = run(vec!["cancellation-gate-plan".to_string()]);
+        let code = run_with_larger_stack(
+            "cancellation-gate-plan-missing-signals",
+            vec!["cancellation-gate-plan".to_string()],
+        );
         assert_ne!(code, ExitCode::SUCCESS);
     }
 
     #[test]
     fn cancellation_gate_plan_whitespace_only_signals_returns_non_zero() {
-        let code = run(vec![
-            "cancellation-gate-plan".to_string(),
-            "   ".to_string(),
-        ]);
+        let code = run_with_larger_stack(
+            "cancellation-gate-plan-whitespace-only-signals",
+            vec!["cancellation-gate-plan".to_string(), "   ".to_string()],
+        );
         assert_ne!(code, ExitCode::SUCCESS);
     }
 
     #[test]
     fn cancellation_gate_plan_unknown_signal_returns_non_zero() {
-        let code = run(vec![
-            "cancellation-gate-plan".to_string(),
-            "unknown".to_string(),
-        ]);
+        let code = run_with_larger_stack(
+            "cancellation-gate-plan-unknown-signal",
+            vec!["cancellation-gate-plan".to_string(), "unknown".to_string()],
+        );
         assert_ne!(code, ExitCode::SUCCESS);
     }
 
     #[test]
     fn cancellation_gate_plan_requested_returns_success() {
-        let code = run(vec![
-            "cancellation-gate-plan".to_string(),
-            "cancellation-requested".to_string(),
-        ]);
+        let code = run_with_larger_stack(
+            "cancellation-gate-plan-requested",
+            vec![
+                "cancellation-gate-plan".to_string(),
+                "cancellation-requested".to_string(),
+            ],
+        );
         assert_eq!(code, ExitCode::SUCCESS);
     }
 
