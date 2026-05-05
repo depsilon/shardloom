@@ -355,7 +355,13 @@ impl VortexEncodedReadFixtureReport {
     /// # Errors
     /// Returns an error only if `ShardLoom` cannot build a deterministic report.
     pub fn from_request(request: VortexEncodedReadFixtureRequest) -> Result<Self> {
-        let status = if request.has_signal(VortexEncodedReadFixtureSignal::ObjectStoreTarget) {
+        let object_store_fixture_ref = request
+            .fixture_ref
+            .as_ref()
+            .is_some_and(VortexEncodedReadFixtureRef::is_object_store_like);
+        let status = if object_store_fixture_ref
+            || request.has_signal(VortexEncodedReadFixtureSignal::ObjectStoreTarget)
+        {
             VortexEncodedReadFixtureStatus::BlockedByObjectStoreTarget
         } else if request.has_signal(VortexEncodedReadFixtureSignal::BoundaryBlocked)
             || !request.has_signal(VortexEncodedReadFixtureSignal::BoundaryReady)
@@ -756,6 +762,55 @@ mod tests {
     }
 
     #[test]
+    fn object_store_like_fixture_ref_is_blocked_without_explicit_signal() {
+        let request = VortexEncodedReadFixtureRequest::with_fixture_ref(
+            uri(),
+            VortexEncodedReadFixtureRef::new("s3://bucket/file.vortex").expect("ok"),
+        )
+        .boundary_ready(true)
+        .fixture_ref_provided(true)
+        .feature_gate_enabled(true);
+
+        let report = VortexEncodedReadFixtureReport::from_request(request).expect("ok");
+        assert_eq!(
+            report.status,
+            VortexEncodedReadFixtureStatus::BlockedByObjectStoreTarget
+        );
+        assert!(!report.metadata_opened());
+        assert!(!report.footer_inspected());
+        assert!(!report.encoded_data_read());
+        assert!(!report.row_read());
+        assert!(!report.array_decoded());
+        assert!(!report.values_materialized());
+        assert!(!report.arrow_converted());
+        assert!(!report.object_store_io());
+        assert!(!report.data_written());
+        assert!(!report.upstream_scan_called());
+        assert!(!report.fallback_execution_allowed());
+    }
+
+    #[test]
+    fn http_fixture_ref_is_blocked_without_explicit_object_store_signal() {
+        for fixture_ref in [
+            "http://example.com/file.vortex",
+            "https://example.com/file.vortex",
+        ] {
+            let request = VortexEncodedReadFixtureRequest::with_fixture_ref(
+                uri(),
+                VortexEncodedReadFixtureRef::new(fixture_ref).expect("ok"),
+            )
+            .boundary_ready(true)
+            .fixture_ref_provided(true)
+            .feature_gate_enabled(true);
+            let report = VortexEncodedReadFixtureReport::from_request(request).expect("ok");
+            assert_eq!(
+                report.status,
+                VortexEncodedReadFixtureStatus::BlockedByObjectStoreTarget
+            );
+        }
+    }
+
+    #[test]
     fn report_effect_flags_false() {
         let ref_local = VortexEncodedReadFixtureRef::new("/tmp/x.vortex").expect("ok");
         let ready = VortexEncodedReadFixtureReport::from_request(
@@ -871,5 +926,46 @@ mod tests {
         );
         let report = VortexEncodedReadFixtureReport::from_request(req).expect("ok");
         assert_eq!(report.status, VortexEncodedReadFixtureStatus::FixtureReady);
+    }
+
+    #[test]
+    fn request_from_boundary_preserves_feature_gate_and_risks_without_io() {
+        let boundary = crate::VortexEncodedReadBoundaryReport::from_request(
+            crate::VortexEncodedReadBoundaryRequest::new(uri())
+                .upstream_open_options_available(true)
+                .upstream_footer_available(true)
+                .upstream_scan_surface_deferred(true)
+                .local_path_only(true)
+                .feature_gate_enabled(true)
+                .decode_risk(true)
+                .materialization_risk(true)
+                .arrow_default_risk(true)
+                .write_risk(true),
+        )
+        .expect("ok");
+
+        let request = encoded_read_fixture_request_from_boundary_report(
+            uri(),
+            VortexEncodedReadFixtureRef::new("/tmp/x.vortex").expect("ok"),
+            &boundary,
+        );
+
+        assert!(request.has_signal(VortexEncodedReadFixtureSignal::BoundaryBlocked));
+        assert!(request.has_signal(VortexEncodedReadFixtureSignal::LocalPathOnly));
+        assert!(request.has_signal(VortexEncodedReadFixtureSignal::FeatureGateEnabled));
+        assert!(request.has_signal(VortexEncodedReadFixtureSignal::DecodeRisk));
+        assert!(request.has_signal(VortexEncodedReadFixtureSignal::MaterializationRisk));
+        assert!(request.has_signal(VortexEncodedReadFixtureSignal::ArrowDefaultRisk));
+        assert!(request.has_signal(VortexEncodedReadFixtureSignal::WriteRisk));
+
+        let report = VortexEncodedReadFixtureReport::from_request(request).expect("ok");
+        assert_eq!(
+            report.status,
+            VortexEncodedReadFixtureStatus::BlockedByBoundary
+        );
+        assert!(!report.metadata_opened());
+        assert!(!report.footer_inspected());
+        assert!(!report.encoded_data_read());
+        assert!(!report.row_read());
     }
 }
