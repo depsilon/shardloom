@@ -7518,6 +7518,14 @@ fn run(args: Vec<String>) -> ExitCode {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn run_test_with_larger_stack(test_name: &str, test_fn: impl FnOnce() + Send + 'static) {
+        let handle = std::thread::Builder::new()
+            .name(test_name.to_string())
+            .stack_size(2 * 1024 * 1024)
+            .spawn(test_fn)
+            .expect("spawn test thread");
+        handle.join().expect("join test thread");
+    }
 
     #[test]
     fn explain_unsupported_returns_non_zero() {
@@ -8082,11 +8090,13 @@ mod tests {
 
     #[test]
     fn input_plan_with_vortex_uri_returns_success() {
-        let code = run(vec![
-            "input-plan".to_string(),
-            "file://tmp/data.vortex".to_string(),
-        ]);
-        assert_eq!(code, ExitCode::SUCCESS);
+        run_test_with_larger_stack("input-plan-vortex-uri", || {
+            let code = run(vec![
+                "input-plan".to_string(),
+                "file://tmp/data.vortex".to_string(),
+            ]);
+            assert_eq!(code, ExitCode::SUCCESS);
+        });
     }
 
     #[test]
@@ -8155,18 +8165,13 @@ mod tests {
 
     #[test]
     fn input_plan_with_unknown_uri_returns_non_zero() {
-        let handle = std::thread::Builder::new()
-            .name("input-plan-unknown-uri".to_string())
-            .stack_size(2 * 1024 * 1024)
-            .spawn(|| {
-                let code = run(vec![
-                    "input-plan".to_string(),
-                    "file://tmp/data.unknown".to_string(),
-                ]);
-                assert_ne!(code, ExitCode::SUCCESS);
-            })
-            .expect("spawn test thread");
-        handle.join().expect("join test thread");
+        run_test_with_larger_stack("input-plan-unknown-uri", || {
+            let code = run(vec![
+                "input-plan".to_string(),
+                "file://tmp/data.unknown".to_string(),
+            ]);
+            assert_ne!(code, ExitCode::SUCCESS);
+        });
     }
 
     #[test]
