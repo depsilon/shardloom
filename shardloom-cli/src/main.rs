@@ -8155,11 +8155,18 @@ mod tests {
 
     #[test]
     fn input_plan_with_unknown_uri_returns_non_zero() {
-        let code = run(vec![
-            "input-plan".to_string(),
-            "file://tmp/data.unknown".to_string(),
-        ]);
-        assert_ne!(code, ExitCode::SUCCESS);
+        let handle = std::thread::Builder::new()
+            .name("input-plan-unknown-uri".to_string())
+            .stack_size(2 * 1024 * 1024)
+            .spawn(|| {
+                let code = run(vec![
+                    "input-plan".to_string(),
+                    "file://tmp/data.unknown".to_string(),
+                ]);
+                assert_ne!(code, ExitCode::SUCCESS);
+            })
+            .expect("spawn test thread");
+        handle.join().expect("join test thread");
     }
 
     #[test]
