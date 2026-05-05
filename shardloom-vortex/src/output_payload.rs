@@ -1531,27 +1531,63 @@ mod tests {
     }
 
     #[cfg(feature = "vortex-staged-output-fs")]
+    struct ArtifactWriteFixture {
+        root: std::path::PathBuf,
+        workspace_dir: std::path::PathBuf,
+        payload_ref: VortexOutputPayloadFileRef,
+        payload: VortexOutputPayloadContentDescriptor,
+    }
+
+    #[cfg(feature = "vortex-staged-output-fs")]
+    impl ArtifactWriteFixture {
+        fn new() -> Self {
+            use std::time::{SystemTime, UNIX_EPOCH};
+            let unique = format!(
+                "shardloom-output-payload-test-{}",
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos()
+            );
+            let root = std::env::temp_dir().join(unique);
+            let workspace_dir = root.join("ws");
+            std::fs::create_dir_all(&workspace_dir).unwrap();
+            let workspace =
+                VortexStagedWorkspacePath::new(workspace_dir.to_string_lossy().to_string())
+                    .unwrap();
+            let payload_ref = VortexOutputPayloadFileRef::default_for_workspace(workspace);
+            let payload =
+                VortexOutputPayloadContentDescriptor::synthetic_placeholder("placeholder").unwrap();
+            Self {
+                root,
+                workspace_dir,
+                payload_ref,
+                payload,
+            }
+        }
+
+        fn base_request(&self) -> VortexOutputPayloadArtifactWriteRequest {
+            VortexOutputPayloadArtifactWriteRequest::new(
+                self.payload_ref.clone(),
+                self.payload.clone(),
+            )
+        }
+    }
+
+    #[cfg(feature = "vortex-staged-output-fs")]
+    impl Drop for ArtifactWriteFixture {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_file(self.payload_ref.path_string());
+            let _ = std::fs::remove_dir(&self.workspace_dir);
+            let _ = std::fs::remove_dir(&self.root);
+        }
+    }
+
+    #[cfg(feature = "vortex-staged-output-fs")]
     #[test]
-    fn artifact_write_feature_paths() {
-        use std::fs;
-        use std::time::{SystemTime, UNIX_EPOCH};
-        let unique = format!(
-            "shardloom-output-payload-test-{}",
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        );
-        let root = std::env::temp_dir().join(unique);
-        let workspace_dir = root.join("ws");
-        fs::create_dir_all(&workspace_dir).unwrap();
-        let workspace =
-            VortexStagedWorkspacePath::new(workspace_dir.to_string_lossy().to_string()).unwrap();
-        let payload_ref = VortexOutputPayloadFileRef::default_for_workspace(workspace.clone());
-        let payload =
-            VortexOutputPayloadContentDescriptor::synthetic_placeholder("placeholder").unwrap();
-        let base =
-            VortexOutputPayloadArtifactWriteRequest::new(payload_ref.clone(), payload.clone());
+    fn artifact_write_feature_gate_blockers() {
+        let fixture = ArtifactWriteFixture::new();
+        let base = fixture.base_request();
         assert_eq!(
             write_vortex_output_payload_artifact(base.clone())
                 .unwrap()
@@ -1569,14 +1605,16 @@ mod tests {
             .status,
             VortexOutputPayloadArtifactWriteStatus::BlockedByUpstreamVortexWrite
         );
-        let missing_workspace =
-            VortexStagedWorkspacePath::new(root.join("missing").to_string_lossy().to_string())
-                .unwrap();
+
+        let missing_workspace = VortexStagedWorkspacePath::new(
+            fixture.root.join("missing").to_string_lossy().to_string(),
+        )
+        .unwrap();
         assert_eq!(
             write_vortex_output_payload_artifact(
                 VortexOutputPayloadArtifactWriteRequest::new(
                     VortexOutputPayloadFileRef::default_for_workspace(missing_workspace),
-                    payload.clone()
+                    fixture.payload.clone()
                 )
                 .with_payload_plan_summary("payload_ready")
                 .feature_gate_ready(true)
@@ -1585,12 +1623,13 @@ mod tests {
             .status,
             VortexOutputPayloadArtifactWriteStatus::BlockedByMissingWorkspace
         );
+
         let obj_workspace = VortexStagedWorkspacePath::new("s3://bucket/key".to_string()).unwrap();
         assert_eq!(
             write_vortex_output_payload_artifact(
                 VortexOutputPayloadArtifactWriteRequest::new(
                     VortexOutputPayloadFileRef::default_for_workspace(obj_workspace),
-                    payload.clone()
+                    fixture.payload.clone()
                 )
                 .with_payload_plan_summary("payload_ready")
                 .feature_gate_ready(true)
@@ -1599,6 +1638,13 @@ mod tests {
             .status,
             VortexOutputPayloadArtifactWriteStatus::BlockedByObjectStoreTarget
         );
+    }
+
+    #[cfg(feature = "vortex-staged-output-fs")]
+    #[test]
+    fn artifact_write_writes_placeholder_only() {
+        let fixture = ArtifactWriteFixture::new();
+        let base = fixture.base_request();
         let report = write_vortex_output_payload_artifact(
             base.clone()
                 .with_payload_plan_summary("payload_ready")
@@ -1608,20 +1654,30 @@ mod tests {
         assert!(report.output_payload_artifact_written());
         assert!(report.output_payload_written());
         assert!(!report.vortex_file_written());
-        let file_path = std::path::PathBuf::from(payload_ref.path_string());
-        let content = fs::read_to_string(&file_path).unwrap();
+
+        let content = std::fs::read_to_string(fixture.payload_ref.path_string()).unwrap();
         assert!(content.contains("shardloom_output_payload_placeholder=true"));
         assert!(content.contains("real_vortex_payload=false"));
         assert!(content.contains("upstream_vortex_write_called=false"));
         assert!(content.contains("fallback_execution_allowed=false"));
+    }
+
+    #[cfg(feature = "vortex-staged-output-fs")]
+    #[test]
+    fn artifact_write_overwrite_and_file_uri_workspace() {
+        let fixture = ArtifactWriteFixture::new();
+        let base = fixture.base_request();
+        let ready = base
+            .clone()
+            .with_payload_plan_summary("payload_ready")
+            .feature_gate_ready(true);
+        assert!(
+            write_vortex_output_payload_artifact(ready.clone())
+                .unwrap()
+                .output_payload_artifact_written()
+        );
         assert_eq!(
-            write_vortex_output_payload_artifact(
-                base.clone()
-                    .with_payload_plan_summary("payload_ready")
-                    .feature_gate_ready(true),
-            )
-            .unwrap()
-            .status,
+            write_vortex_output_payload_artifact(ready).unwrap().status,
             VortexOutputPayloadArtifactWriteStatus::BlockedByExistingOutputPayload
         );
         assert!(
@@ -1633,12 +1689,15 @@ mod tests {
             .unwrap()
             .output_payload_artifact_written()
         );
-        let file_uri_workspace =
-            VortexStagedWorkspacePath::new(format!("file://{}", workspace_dir.to_string_lossy()))
-                .unwrap();
+
+        let file_uri_workspace = VortexStagedWorkspacePath::new(format!(
+            "file://{}",
+            fixture.workspace_dir.to_string_lossy()
+        ))
+        .unwrap();
         let file_uri_request = VortexOutputPayloadArtifactWriteRequest::new(
             VortexOutputPayloadFileRef::default_for_workspace(file_uri_workspace),
-            payload,
+            fixture.payload.clone(),
         )
         .with_payload_plan_summary("payload_ready")
         .feature_gate_ready(true)
@@ -1648,8 +1707,5 @@ mod tests {
                 .unwrap()
                 .output_payload_artifact_written()
         );
-        fs::remove_file(file_path).unwrap();
-        fs::remove_dir(workspace_dir).unwrap();
-        fs::remove_dir(root).unwrap();
     }
 }
