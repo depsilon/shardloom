@@ -4,8 +4,8 @@
 
 - Production-grade engine completion estimate: approximately 37–38%.
 - Architecture/control-plane completion estimate: approximately 97%.
-- Current checkpoint: Phase 12B.2a.3 — commit intent/protocol CLI wrappers (report-only, explicit signals only).
-- Immediate focus: keep commit execution, manifest finalization, output-data writes, upstream `Vortex` write API calls, and object-store writes disabled while validating report-only commit readiness integration before Phase 12B.2.
+- Current checkpoint: Phase 12B.2a.4 — local staged write-readiness smoke test (control-plane and staged artifacts only).
+- Immediate focus: validate staged workspace/marker/manifest-draft artifact readiness and commit planning while keeping commit execution, manifest finalization, output-data writes, upstream `Vortex` write API calls, and object-store writes disabled.
 
 ## Cross-cutting epic legend
 
@@ -880,9 +880,15 @@ Must include:
 - Phase 12B.1c complete: commit readiness integration validation closeout.
 - Phase 12B.2a.1 complete: commit protocol state machine core contract (report-only, explicit signals only).
 - Phase 12B.2a.2 complete: commit protocol report integration with commit-intent reports.
-- Phase 12B.2a.3 current: commit intent/protocol CLI wrappers.
-- Phase 12B.2a.4 planned: commit marker behavior follow-on planning.
+- Phase 12B.2a.3 complete: commit intent/protocol CLI wrappers.
+- Phase 12B.2a.4 current: local staged write-readiness smoke test.
 - Phase 12B.3 planned: commit execution follow-on phases (still no fallback execution).
+
+Phase 12B.2a.4 note:
+- First local staged write-readiness smoke test exercises staged workspace setup, staged marker write, staged manifest draft-file write, commit intent planning, and commit protocol planning.
+- This is not output payload writing.
+- This is not committed manifest writing.
+- This is not upstream `Vortex` write execution.
 
 ### Phase 12B.2 entry criteria
 
