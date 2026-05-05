@@ -219,37 +219,31 @@ Phase 12 begins native `Vortex` write/commit value propositions with safe write-
 - Remaining gap before write-value claims: commit protocol, manifest finalization, and output payload writing.
 
 
-## Competitive engine target
+## Universal competitive engine target
 
-- The product goal is to beat Spark, Polars, DataFusion, and Arrow-adjacent execution stacks for Vortex-native lakehouse workloads.
-- ShardLoom’s wedge is Vortex-native fidelity, less decode/materialization, explicit memory/spill/recovery behavior, safer staged writes/commits, deterministic diagnostics, and measured performance wins.
-- Baseline engines may be used only as external correctness/benchmark references, not runtime dependencies, fallback engines, or runtime delegation targets.
-- Superiority claims require CG-5 (correctness/differential) and CG-6 (benchmark) gates.
-- The architecture is promising, but performance claims must wait for real encoded reads, real query execution, real output payload writes, correctness, and benchmarks.
+- ShardLoom targets wholesale global replacement of Spark, Polars, DataFusion, and Arrow-adjacent stacks for supported Vortex-native workloads.
+- The strategy is universal Vortex-native execution first, not Foundry-specific deployment.
+- Foundry is a later optional deployment/comparison target under CG-18.
+- No superiority claims until CG-5 correctness and CG-6 benchmark gates are satisfied.
+- Spark/Polars/DataFusion may be used only as external baselines.
 
-### Spark gaps ShardLoom targets
+### Why CG-13 encoded-native compressed execution matters
+- CG-13 establishes direct encoded predicate/filter/project behavior over compressed layouts and is the primary proof point for decode-avoided execution.
 
-- Reduce avoidable decode/materialization for Vortex-native workloads.
-- Make memory/spill/recovery behavior explicit and diagnosable.
-- Preserve deterministic readiness and failure contracts.
+### Why CG-14 runtime adaptivity matters
+- CG-14 keeps plans robust under throughput shifts and memory pressure so encoded-native gains remain real under workload variance.
 
-### Polars gaps ShardLoom targets
+### Why CG-15 CPU specialization matters
+- CG-15 captures commodity CPU vectorized specialization required for competitive outcomes without requiring GPU/FPGA acceleration.
 
-- Improve encoded-first planning and zero-decode posture for Vortex-native execution.
-- Keep staged write/commit semantics explicit and recoverable.
-- Keep deterministic machine-readable diagnostics for agent workflows.
+### Why CG-16 execution certificates matter
+- CG-16 provides evidence-first execution certificates for plan/input hashes, skipped work, and side effects to make claims reproducible and auditable.
 
-### DataFusion gaps ShardLoom targets
+### Why CG-17 stateful reuse matters
+- CG-17 reduces repeated work via segment/predicate reuse and manifest-diff incremental recompute with explicit invalidation guarantees.
 
-- Keep ShardLoom-native runtime, memory, and spill policy without fallback delegation.
-- Keep Arrow conversion explicit at boundaries rather than default execution.
-- Improve explicit unsupported-path diagnostics and capability gating.
-
-### Arrow-adjacent gaps ShardLoom targets
-
-- Treat Arrow as an interoperability boundary, not internal default execution.
-- Preserve Vortex-native fidelity and metadata richness end-to-end.
-- Measure and report decode/materialization/work avoided with reproducible benchmarks.
+### Why CG-18 universal import/deployment comes last
+- CG-18 is universal-first and comes after correctness/benchmark proof; Foundry is optional here, and external engines remain baseline-only.
 
 ## Phase 12B closeout status
 
