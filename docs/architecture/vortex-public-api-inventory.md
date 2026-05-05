@@ -508,3 +508,9 @@ This update does not introduce scans, decode, materialization, writes, object-st
 
 
 - Manifest finalization remains `ShardLoom`-native/report-only in Phase 12B.5a; upstream `Vortex` write APIs remain deferred.
+
+## Finalized-manifest candidate artifact posture
+
+- Finalized-manifest candidate writing is `ShardLoom`-native.
+- Upstream `Vortex` write APIs remain deferred.
+- Candidate artifact writes do not imply committed manifest state.

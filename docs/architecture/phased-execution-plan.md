@@ -4,7 +4,7 @@
 
 - Production-grade engine completion estimate: approximately 37–38%.
 - Architecture/control-plane completion estimate: approximately 97%.
-- Current checkpoint: Phase 12B.5a — manifest finalization core contract, no filesystem writes.
+- Current checkpoint: Phase 12B.5b — feature-gated local finalized-manifest artifact, no commit execution.
 - Immediate focus: keep the full staged local write-readiness chain safe and feature-gated while manifest finalization and commit execution remain report-only/deferred.
 
 
@@ -973,8 +973,8 @@ Must include:
 - Phase 12B.3c.2 complete: commit marker write `CLI` (feature-gated local-only path).
 - Phase 12B.3c.3 complete: staged write-readiness smoke test includes the commit marker artifact.
 - Phase 12B.4 complete: commit protocol closeout before manifest finalization.
-- Phase 12B.5a current: manifest finalization core contract, no filesystem writes.
-- Phase 12B.5b planned: finalized manifest file write contract (still side-effect disabled by default).
+- Phase 12B.5a complete: manifest finalization core contract, no filesystem writes.
+- Phase 12B.5b current: feature-gated local finalized-manifest candidate artifact write (no commit execution).
 - Phase 12B.5c planned: manifest commit contract boundaries (execution still deferred).
 - Next planned phase: manifest finalization report-only contract.
 
