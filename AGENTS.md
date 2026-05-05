@@ -373,3 +373,9 @@ When proposing next work:
 - do not make superiority claims until CG-5 and CG-6 are satisfied
 - commodity CPU vectorized execution is a first-class target
 - GPU/FPGA acceleration is not required for the primary competitive claim
+
+## Competitive gate guardrail
+
+- Do not mark CG-3 complete from placeholder output payload artifacts alone.
+- In responses/checklists, explicitly distinguish placeholder artifact path status from real Vortex output payload path status.
+- Competitive claims require CG-5 correctness and CG-6 benchmark evidence.

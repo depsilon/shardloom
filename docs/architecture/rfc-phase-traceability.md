@@ -139,7 +139,7 @@ Status categories:
 Competitive gate coverage:
 - CG-1: encoded read boundary and real encoded reads
 - CG-2: real query primitive execution over Vortex data
-- CG-3: output payload write path
+- CG-3: output payload write path (placeholder artifact phases support readiness only; completion requires real executable Vortex payload writes with evidence)
 - CG-4: commit protocol execution
 - CG-5: correctness/differential harness
 - CG-6: benchmark harness
@@ -168,7 +168,7 @@ Competitive gate coverage:
 | Phase 12C.3b — output payload artifact write CLI (planned) | RFC 0012 Diagnostics, Explain, Estimate, and Capabilities | RFC 0004 Native Dataset Manifest, Snapshot, Incremental | CLI wiring for feature-gated artifact write path; real upstream `Vortex` payload writes remain deferred | Planned. |
 
 | Phase 12C.3b — output payload artifact write CLI (complete) | RFC 0012 Diagnostics, Explain, Estimate, and Capabilities | RFC 0004 Native Dataset Manifest, Snapshot, Incremental | CLI for local placeholder output payload artifact writes; default build remains feature-disabled/report-only; no real upstream `Vortex` payload writes; no manifest writes/commit execution/object-store IO | Current phase. |
-| Phase 12C.4 — staged smoke test includes output payload artifact (current) | RFC 0015 Correctness, Semantics, Differential Testing, and Fuzzing | RFC 0004 Native Dataset Manifest, Snapshot, Incremental | Extends staged CLI-driven write-readiness smoke coverage with output payload plan and placeholder artifact write; verifies no real `Vortex` payload writes, no upstream `Vortex` write API calls, no manifest/commit writes, no object-store IO, fallback disabled | Current phase. |
+| Phase 12C.4 — staged smoke test includes output payload artifact (current) | RFC 0015 Correctness, Semantics, Differential Testing, and Fuzzing | RFC 0004 Native Dataset Manifest, Snapshot, Incremental | Extends staged CLI-driven write-readiness smoke coverage with output payload plan and placeholder artifact write; verifies no real `Vortex` payload writes, no upstream `Vortex` write API calls, no manifest/commit writes, no object-store IO, fallback disabled; this is CG-3 readiness evidence only and does not complete CG-3 | Current phase. |
 
 
 ## Competitive Engine Track RFC mappings
@@ -185,3 +185,7 @@ No fallback execution.
 | RFC 0028 | CG-3, CG-4, CG-9, CG-10 |
 | RFC 0029 | CG-5, CG-6, CG-16, CG-17 |
 | RFC 0030 | CG-11, CG-12, CG-18 |
+
+- Phase 12C placeholder output payload artifact work supports CG-3 readiness only; it does not complete CG-3.
+- CG-3 completion requires a real Vortex output payload write implementation plus evidence.
+- Competitive claims still require CG-5 correctness and CG-6 benchmarks before any “beats Spark/Polars/DataFusion” statement.

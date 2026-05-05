@@ -23,7 +23,7 @@ ShardLoom will integrate Vortex through a narrow adapter boundary so core crates
 - Vortex statistics mapping.
 - Vortex read planning.
 - Vortex output planning.
-- Future Vortex actual read/write.
+- Future Vortex actual read/write (write remains explicitly deferred until a feature-gated, approved real payload milestone).
 
 ## First integration milestone
 
@@ -650,3 +650,10 @@ Output payload artifact write CLI remains deferred to Phase 12C.3b, and upstream
 The staged write-readiness smoke chain now includes `vortex-output-payload-plan` and `vortex-output-payload-artifact-write` after finalized-manifest candidate artifact write. Coverage remains CLI-driven and `ShardLoom`-native.
 
 The output payload artifact remains a local placeholder contract artifact, not a real `Vortex` payload and not committed dataset output. Upstream `Vortex` write APIs remain unused. Manifest writes, committed-manifest writes, commit execution, and object-store IO remain disabled in this phase.
+
+
+## CG-3 clarification
+
+- Local placeholder output payload artifact paths are readiness scaffolding only, not real Vortex payload paths.
+- Upstream Vortex write APIs remain deferred in this phase.
+- Any future real payload write path must be explicitly feature-gated and approved before implementation.
