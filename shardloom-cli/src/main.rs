@@ -8790,10 +8790,18 @@ mod tests {
 
     #[test]
     fn cancellation_gate_plan_requested_returns_success() {
-        let code = run(vec![
-            "cancellation-gate-plan".to_string(),
-            "cancellation-requested".to_string(),
-        ]);
+        let code = std::thread::Builder::new()
+            .name("cancellation_gate_plan_requested_returns_success".to_string())
+            .stack_size(8 * 1024 * 1024)
+            .spawn(|| {
+                run(vec![
+                    "cancellation-gate-plan".to_string(),
+                    "cancellation-requested".to_string(),
+                ])
+            })
+            .expect("spawn cancellation gate test")
+            .join()
+            .expect("join cancellation gate test");
         assert_eq!(code, ExitCode::SUCCESS);
     }
 
