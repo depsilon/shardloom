@@ -3740,8 +3740,7 @@ fn run(args: Vec<String>) -> ExitCode {
                         "checksum".to_string(),
                         write_report
                             .checksum
-                            .map(|checksum| checksum.to_string())
-                            .unwrap_or_else(|| "none".to_string()),
+                            .map_or_else(|| "none".to_string(), |checksum| checksum.to_string()),
                     ),
                     (
                         "execution".to_string(),
@@ -8369,65 +8368,49 @@ mod tests {
 
     #[test]
     fn vortex_input_plan_with_vortex_uri_returns_success() {
-        let code = std::thread::Builder::new()
-            .stack_size(8 * 1024 * 1024)
-            .spawn(|| {
-                run(vec![
-                    "vortex-input-plan".to_string(),
-                    "file://tmp/data.vortex".to_string(),
-                ])
-            })
-            .expect("thread spawn should succeed")
-            .join()
-            .expect("thread join should succeed");
+        let code = run_with_larger_stack(
+            "vortex-input-plan-vortex-uri",
+            vec![
+                "vortex-input-plan".to_string(),
+                "file://tmp/data.vortex".to_string(),
+            ],
+        );
         assert_eq!(code, ExitCode::SUCCESS);
     }
 
     #[test]
     fn vortex_input_plan_with_parquet_uri_returns_non_zero() {
-        let code = std::thread::Builder::new()
-            .stack_size(8 * 1024 * 1024)
-            .spawn(|| {
-                run(vec![
-                    "vortex-input-plan".to_string(),
-                    "file://tmp/data.parquet".to_string(),
-                ])
-            })
-            .expect("thread spawn should succeed")
-            .join()
-            .expect("thread join should succeed");
+        let code = run_with_larger_stack(
+            "vortex-input-plan-parquet-uri",
+            vec![
+                "vortex-input-plan".to_string(),
+                "file://tmp/data.parquet".to_string(),
+            ],
+        );
         assert_ne!(code, ExitCode::SUCCESS);
     }
 
     #[test]
     fn vortex_task_graph_with_vortex_uri_returns_success() {
-        let code = std::thread::Builder::new()
-            .stack_size(8 * 1024 * 1024)
-            .spawn(|| {
-                run(vec![
-                    "vortex-task-graph".to_string(),
-                    "file://tmp/data.vortex".to_string(),
-                ])
-            })
-            .expect("thread spawn should succeed")
-            .join()
-            .expect("thread join should succeed");
+        let code = run_with_larger_stack(
+            "vortex-task-graph-vortex-uri",
+            vec![
+                "vortex-task-graph".to_string(),
+                "file://tmp/data.vortex".to_string(),
+            ],
+        );
         assert_eq!(code, ExitCode::SUCCESS);
     }
 
     #[test]
     fn vortex_task_graph_with_parquet_uri_returns_non_zero() {
-        let code = std::thread::Builder::new()
-            .stack_size(8 * 1024 * 1024)
-            .spawn(|| {
-                run(vec![
-                    "vortex-task-graph".to_string(),
-                    "file://tmp/data.parquet".to_string(),
-                ])
-            })
-            .expect("thread spawn should succeed")
-            .join()
-            .expect("thread join should succeed");
+        let code = run_with_larger_stack(
+            "vortex-task-graph-parquet-uri",
+            vec![
+                "vortex-task-graph".to_string(),
+                "file://tmp/data.parquet".to_string(),
+            ],
+        );
         assert_ne!(code, ExitCode::SUCCESS);
     }
 
@@ -8489,91 +8472,71 @@ mod tests {
 
     #[test]
     fn vortex_schedule_plan_with_vortex_uri_returns_success() {
-        let code = std::thread::Builder::new()
-            .stack_size(8 * 1024 * 1024)
-            .spawn(|| {
-                run(vec![
-                    "vortex-schedule-plan".to_string(),
-                    "file://tmp/data.vortex".to_string(),
-                    "8".to_string(),
-                    "2".to_string(),
-                ])
-            })
-            .expect("thread spawn should succeed")
-            .join()
-            .expect("thread join should succeed");
+        let code = run_with_larger_stack(
+            "vortex-schedule-plan-vortex-uri",
+            vec![
+                "vortex-schedule-plan".to_string(),
+                "file://tmp/data.vortex".to_string(),
+                "8".to_string(),
+                "2".to_string(),
+            ],
+        );
         assert_eq!(code, ExitCode::SUCCESS);
     }
 
     #[test]
     fn vortex_execution_readiness_with_vortex_uri_returns_non_zero_when_blocked() {
-        let code = std::thread::Builder::new()
-            .stack_size(8 * 1024 * 1024)
-            .spawn(|| {
-                run(vec![
-                    "vortex-execution-readiness".to_string(),
-                    "file://tmp/data.vortex".to_string(),
-                    "8".to_string(),
-                    "2".to_string(),
-                ])
-            })
-            .expect("thread spawn should succeed")
-            .join()
-            .expect("thread join should succeed");
+        let code = run_with_larger_stack(
+            "vortex-execution-readiness-vortex-uri",
+            vec![
+                "vortex-execution-readiness".to_string(),
+                "file://tmp/data.vortex".to_string(),
+                "8".to_string(),
+                "2".to_string(),
+            ],
+        );
         assert_ne!(code, ExitCode::SUCCESS);
     }
 
     #[test]
     fn vortex_dry_run_with_vortex_uri_returns_non_zero_when_readiness_blocked() {
-        let code = std::thread::Builder::new()
-            .stack_size(8 * 1024 * 1024)
-            .spawn(|| {
-                run(vec![
-                    "vortex-dry-run".to_string(),
-                    "file://tmp/data.vortex".to_string(),
-                    "8".to_string(),
-                    "2".to_string(),
-                ])
-            })
-            .expect("thread spawn should succeed")
-            .join()
-            .expect("thread join should succeed");
+        let code = run_with_larger_stack(
+            "vortex-dry-run-vortex-uri",
+            vec![
+                "vortex-dry-run".to_string(),
+                "file://tmp/data.vortex".to_string(),
+                "8".to_string(),
+                "2".to_string(),
+            ],
+        );
         assert_ne!(code, ExitCode::SUCCESS);
     }
 
     #[test]
     fn vortex_execution_readiness_with_non_vortex_uri_returns_non_zero() {
-        let code = std::thread::Builder::new()
-            .stack_size(8 * 1024 * 1024)
-            .spawn(|| {
-                run(vec![
-                    "vortex-execution-readiness".to_string(),
-                    "file://tmp/data.parquet".to_string(),
-                    "8".to_string(),
-                    "2".to_string(),
-                ])
-            })
-            .expect("thread spawn should succeed")
-            .join()
-            .expect("thread join should succeed");
+        let code = run_with_larger_stack(
+            "vortex-execution-readiness-parquet-uri",
+            vec![
+                "vortex-execution-readiness".to_string(),
+                "file://tmp/data.parquet".to_string(),
+                "8".to_string(),
+                "2".to_string(),
+            ],
+        );
         assert_ne!(code, ExitCode::SUCCESS);
     }
 
     #[test]
     fn vortex_schedule_plan_with_non_vortex_uri_returns_non_zero() {
-        let code = std::thread::Builder::new()
-            .stack_size(8 * 1024 * 1024)
-            .spawn(|| {
-                run(vec![
-                    "vortex-schedule-plan".to_string(),
-                    "file://tmp/data.parquet".to_string(),
-                    "8".to_string(),
-                    "2".to_string(),
-                ])
-            })
-            .expect("thread spawn should succeed")
-            .join()
-            .expect("thread join should succeed");
+        let code = run_with_larger_stack(
+            "vortex-schedule-plan-parquet-uri",
+            vec![
+                "vortex-schedule-plan".to_string(),
+                "file://tmp/data.parquet".to_string(),
+                "8".to_string(),
+                "2".to_string(),
+            ],
+        );
         assert_ne!(code, ExitCode::SUCCESS);
     }
 
@@ -8612,20 +8575,15 @@ mod tests {
 
     #[test]
     fn spill_payload_roundtrip_valid_args_default_build_returns_success() {
-        let code = std::thread::Builder::new()
-            .name("spill-payload-roundtrip-test".to_string())
-            .stack_size(8 * 1024 * 1024)
-            .spawn(|| {
-                run(vec![
-                    "spill-payload-roundtrip".to_string(),
-                    "/tmp/shardloom_spill_payload".to_string(),
-                    "payload-1".to_string(),
-                    "hello".to_string(),
-                ])
-            })
-            .expect("spawn spill payload roundtrip test thread")
-            .join()
-            .expect("join spill payload roundtrip test thread");
+        let code = run_with_larger_stack(
+            "spill-payload-roundtrip-test",
+            vec![
+                "spill-payload-roundtrip".to_string(),
+                "/tmp/shardloom_spill_payload".to_string(),
+                "payload-1".to_string(),
+                "hello".to_string(),
+            ],
+        );
         assert_eq!(code, ExitCode::SUCCESS);
     }
 
