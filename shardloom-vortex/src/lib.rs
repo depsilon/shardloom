@@ -4,6 +4,10 @@
 //! performing file IO. Native Vortex read/write execution is intentionally not
 //! implemented yet, fallback execution is disabled, and no upstream Vortex
 //! APIs are used in this phase beyond dependency-link readiness checks.
+// Intentionally scoped to `shardloom-vortex`: report-contract modules naturally
+// use pairs like request/report/status/mode/plan. Keep strict `-D warnings`
+// for all other lints, and do not add broader lint exceptions.
+#![allow(clippy::similar_names)]
 
 pub use adapter::{
     VortexAdapterCapability, VortexAdapterCapabilityReport, VortexAdapterCapabilityStatus,
