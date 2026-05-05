@@ -1202,7 +1202,7 @@ pub fn write_vortex_output_payload_artifact(
         if request.payload_plan_summary.is_none() {
             return Ok(VortexOutputPayloadArtifactWriteReport::blocked(
                 request,
-                VortexOutputPayloadArtifactWriteStatus::BlockedByWriteIntent,
+                VortexOutputPayloadArtifactWriteStatus::BlockedByPayloadPlan,
                 "output payload plan is not ready for artifact write",
             ));
         }
@@ -1556,7 +1556,7 @@ mod tests {
             write_vortex_output_payload_artifact(base.clone())
                 .unwrap()
                 .status,
-            VortexOutputPayloadArtifactWriteStatus::BlockedByWriteIntent
+            VortexOutputPayloadArtifactWriteStatus::BlockedByPayloadPlan
         );
         assert_eq!(
             write_vortex_output_payload_artifact(
@@ -1615,9 +1615,13 @@ mod tests {
         assert!(content.contains("upstream_vortex_write_called=false"));
         assert!(content.contains("fallback_execution_allowed=false"));
         assert_eq!(
-            write_vortex_output_payload_artifact(base.clone().feature_gate_ready(true))
-                .unwrap()
-                .status,
+            write_vortex_output_payload_artifact(
+                base.clone()
+                    .with_payload_plan_summary("payload_ready")
+                    .feature_gate_ready(true),
+            )
+            .unwrap()
+            .status,
             VortexOutputPayloadArtifactWriteStatus::BlockedByExistingOutputPayload
         );
         assert!(

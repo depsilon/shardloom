@@ -4,7 +4,7 @@
 
 - Production-grade engine completion estimate: approximately 37–38%.
 - Architecture/control-plane completion estimate: approximately 97%.
-- Current checkpoint: Phase 12C.3a — output payload plan CLI (report-only).
+- Current checkpoint: Phase 12C.3b — output payload artifact write CLI.
 - Immediate focus: keep the full staged local write-readiness chain safe and feature-gated while manifest finalization and commit execution remain report-only/deferred.
 
 
@@ -979,7 +979,9 @@ Must include:
 - Phase 12B.6 complete: local commit execution gate (report-only; blocks on output payload readiness).
 - Phase 12C.1 complete: actual local output payload write contract (report-only; no filesystem writes).
 - Phase 12C.2 complete: feature-gated local output payload artifact write.
-- Phase 12C.3a current: output payload plan CLI (report-only).
+- Phase 12C.3a complete: output payload plan CLI (report-only).
+- Phase 12C.3b current: output payload artifact write CLI.
+- Phase 12C.4 planned: staged smoke-test updates for output payload write-readiness.
 - Phase 12C.3b planned: output payload artifact write CLI.
 - Phase 12C.4 planned: payload/manifest alignment and smoke validation.
 - Phase 12C planned: output payload write path (CG-3).

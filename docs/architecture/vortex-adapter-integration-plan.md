@@ -634,8 +634,13 @@ The local commit execution gate is report-only in this phase. It requires commit
 
 Output payload artifact writing is feature-gated. In this phase it writes only a local placeholder output payload artifact and is not a real `Vortex` payload. It does not call upstream `Vortex` write APIs, does not write manifests, does not commit manifests, and does not perform object-store IO. Real native `Vortex` output payload writing remains future work.
 
-### Output payload plan CLI (Phase 12C.3a)
+### Output payload plan CLI (Phase 12C.3a complete)
 
 `shardloom vortex-output-payload-plan` is report-only. It builds a deterministic payload planning request, applies explicit readiness/blocking signals, and returns a planning report via text/json envelopes. It does not write payload artifacts, does not write real `Vortex` payload data, does not write manifests, does not commit manifests, does not perform object-store IO, and does not call upstream `Vortex` write APIs.
 
 Output payload artifact write CLI remains deferred to Phase 12C.3b, and upstream `Vortex` write APIs remain unused in this phase.
+
+
+### Output payload artifact write CLI (Phase 12C.3b)
+
+`shardloom vortex-output-payload-artifact-write` wraps planning plus placeholder artifact write request generation and execution. Default builds remain feature-disabled/report-only and do not write artifacts. Feature-enabled builds write only the exact local placeholder output payload artifact, never real `Vortex` payloads, manifests, or committed manifests. Upstream `Vortex` write APIs remain unused in this phase.
