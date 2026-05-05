@@ -519,3 +519,15 @@ No spill data movement is implemented in this phase.
 - The smoke test runs the staged write-readiness CLI chain through ShardLoom-native planning and staged local artifact helpers.
 - It verifies local staged artifacts only (workspace, marker, and staged manifest draft file).
 - It verifies no output payload writes, no committed manifest writes, no commit marker writes, no upstream Vortex write API calls, no object-store IO, and no fallback execution.
+
+
+## Commit marker core contract
+
+- Commit marker planning is report-only in this phase.
+- It is distinct from manifest finalization and committed manifest state.
+- It does not write a marker file.
+- It does not finalize manifests.
+- It does not commit manifests.
+- It does not write output data.
+- It does not call upstream `Vortex` write APIs.
+- It does not perform object-store IO.

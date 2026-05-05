@@ -470,3 +470,9 @@ This update does not introduce scans, decode, materialization, writes, object-st
 ## Local staged write-readiness smoke test posture
 
 - The staged write-readiness smoke test remains ShardLoom-native and does not use upstream `Vortex` write APIs.
+
+
+## Commit marker planning note
+
+- Commit marker planning is `ShardLoom`-native.
+- Upstream `Vortex` write APIs remain deferred.
