@@ -512,3 +512,10 @@ No spill data movement is implemented in this phase.
 - Neither command performs object-store IO.
 - Neither command calls upstream `Vortex` write APIs.
 - Fallback execution remains disabled.
+
+
+## Local staged write-readiness smoke test
+
+- The smoke test runs the staged write-readiness CLI chain through ShardLoom-native planning and staged local artifact helpers.
+- It verifies local staged artifacts only (workspace, marker, and staged manifest draft file).
+- It verifies no output payload writes, no committed manifest writes, no commit marker writes, no upstream Vortex write API calls, no object-store IO, and no fallback execution.

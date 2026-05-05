@@ -465,3 +465,8 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - They provide stable text/JSON output fields for readiness validation.
 - They do not execute commits, finalize manifests, write commit markers, write output payloads, or perform object-store IO.
 - Upstream `Vortex` write API calls remain deferred.
+
+
+## Local staged write-readiness smoke test posture
+
+- The staged write-readiness smoke test remains ShardLoom-native and does not use upstream `Vortex` write APIs.
