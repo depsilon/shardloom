@@ -974,9 +974,9 @@ Must include:
 - Phase 12B.3c.3 complete: staged write-readiness smoke test includes the commit marker artifact.
 - Phase 12B.4 complete: commit protocol closeout before manifest finalization.
 - Phase 12B.5a complete: manifest finalization core contract, no filesystem writes.
-- Phase 12B.5b current: feature-gated local finalized-manifest candidate artifact write (no commit execution).
-- Phase 12B.5c planned: manifest commit contract boundaries (execution still deferred).
-- Next planned phase: manifest finalization report-only contract.
+- Phase 12B.5b complete: feature-gated local finalized-manifest candidate artifact write (no commit execution).
+- Phase 12B.5c current: manifest finalization CLI/docs integration.
+- Phase 12B.6 planned: manifest commit contract boundaries (execution still deferred).
 
 Phase 12B.2a.4 note:
 - First local staged write-readiness smoke test exercises staged workspace setup, staged marker write, staged manifest draft-file write, commit intent planning, and commit protocol planning.

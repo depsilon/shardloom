@@ -44,32 +44,37 @@ use shardloom_vortex::{
     VortexCommitProtocolRequest, VortexCommitProtocolSignal, VortexCommitProtocolState,
     VortexCommitProtocolTransition, VortexDTypeMappingReport, VortexEncodedReadReadinessStatus,
     VortexEncodingLayoutMappingReport, VortexExecutionReadinessStatus, VortexFileRef,
-    VortexMetadataOpenRequest, VortexMetadataProbeReport, VortexReadPlan,
-    VortexStagedManifestDraftContent, VortexStagedManifestFileEffect, VortexStagedManifestFileRef,
-    VortexStagedManifestFileReport, VortexStagedManifestFileRequest,
-    VortexStagedManifestFileSignal, VortexStagedManifestFileWriteEffect,
-    VortexStagedManifestFileWriteOption, VortexStagedManifestFileWriteRequest,
-    VortexStagedManifestFileWriteSignal, VortexStagedMarkerOption, VortexStagedMarkerRequest,
-    VortexStagedWorkspaceId, VortexStagedWorkspacePath, VortexStagedWorkspaceSetupOption,
-    VortexStagedWorkspaceSetupRequest, VortexStatisticsMappingReport, VortexWriteIntentReport,
-    VortexWriteIntentRequest, VortexWriteIntentSignal, VortexWriteOptions, VortexWritePlan,
-    build_vortex_runtime_task_graph, commit_marker_write_request_from_plan,
-    evaluate_vortex_encoded_read_readiness, evaluate_vortex_execution_readiness,
-    evaluate_vortex_query_primitive, execute_vortex_bounded_local_query,
-    execute_vortex_encoded_read_contract, execute_vortex_encoded_read_spike,
-    execute_vortex_local_query_primitive, execute_vortex_metadata_only,
+    VortexFinalizedManifestArtifactWriteOption, VortexFinalizedManifestContent,
+    VortexFinalizedManifestFileName, VortexFinalizedManifestFileRef,
+    VortexManifestFinalizationRequest, VortexManifestFinalizationSignal, VortexMetadataOpenRequest,
+    VortexMetadataProbeReport, VortexReadPlan, VortexStagedManifestDraftContent,
+    VortexStagedManifestFileEffect, VortexStagedManifestFileRef, VortexStagedManifestFileReport,
+    VortexStagedManifestFileRequest, VortexStagedManifestFileSignal,
+    VortexStagedManifestFileWriteEffect, VortexStagedManifestFileWriteOption,
+    VortexStagedManifestFileWriteRequest, VortexStagedManifestFileWriteSignal,
+    VortexStagedMarkerOption, VortexStagedMarkerRequest, VortexStagedWorkspaceId,
+    VortexStagedWorkspacePath, VortexStagedWorkspaceSetupOption, VortexStagedWorkspaceSetupRequest,
+    VortexStatisticsMappingReport, VortexWriteIntentReport, VortexWriteIntentRequest,
+    VortexWriteIntentSignal, VortexWriteOptions, VortexWritePlan, build_vortex_runtime_task_graph,
+    commit_marker_write_request_from_plan, evaluate_vortex_encoded_read_readiness,
+    evaluate_vortex_execution_readiness, evaluate_vortex_query_primitive,
+    execute_vortex_bounded_local_query, execute_vortex_encoded_read_contract,
+    execute_vortex_encoded_read_spike, execute_vortex_local_query_primitive,
+    execute_vortex_metadata_only, finalized_manifest_artifact_write_request_from_plan,
     metadata_planning_is_side_effect_free, metadata_pruning_is_side_effect_free,
     metadata_summary_is_plan_only, open_vortex_metadata_only, parse_vortex_local_engine_primitive,
     plan_from_vortex_metadata_summary, plan_native_vortex_universal_input,
     plan_vortex_commit_intent, plan_vortex_commit_marker, plan_vortex_commit_protocol,
-    plan_vortex_encoded_read_probe, plan_vortex_memory_safety, plan_vortex_metadata_pruning,
-    plan_vortex_read_from_universal_input, plan_vortex_scheduler_queue,
-    plan_vortex_staged_manifest_file, plan_vortex_write_intent, probe_vortex_metadata_only,
-    run_vortex_local_engine, setup_vortex_staged_workspace, size_vortex_runtime_task_graph,
-    summarize_vortex_metadata_probe, vortex_encoded_read_executor_feature_enabled,
-    vortex_encoded_read_public_api_boundary, vortex_encoded_read_spike_feature_enabled,
-    vortex_file_io_feature_enabled, vortex_metadata_executor_feature_enabled,
-    write_vortex_commit_marker, write_vortex_staged_manifest_file, write_vortex_staged_marker,
+    plan_vortex_encoded_read_probe, plan_vortex_manifest_finalization, plan_vortex_memory_safety,
+    plan_vortex_metadata_pruning, plan_vortex_read_from_universal_input,
+    plan_vortex_scheduler_queue, plan_vortex_staged_manifest_file, plan_vortex_write_intent,
+    probe_vortex_metadata_only, run_vortex_local_engine, setup_vortex_staged_workspace,
+    size_vortex_runtime_task_graph, summarize_vortex_metadata_probe,
+    vortex_encoded_read_executor_feature_enabled, vortex_encoded_read_public_api_boundary,
+    vortex_encoded_read_spike_feature_enabled, vortex_file_io_feature_enabled,
+    vortex_metadata_executor_feature_enabled, write_vortex_commit_marker,
+    write_vortex_finalized_manifest_artifact, write_vortex_staged_manifest_file,
+    write_vortex_staged_marker,
 };
 
 fn main() -> ExitCode {
@@ -85,7 +90,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -504,6 +509,95 @@ fn parse_vortex_commit_marker_signals(
     }
     Ok(signals)
 }
+
+fn finalized_manifest_cli_content(
+    cli_write: bool,
+) -> Result<VortexFinalizedManifestContent, ShardLoomError> {
+    let mode = if cli_write { "cli_write" } else { "cli_plan" };
+    VortexFinalizedManifestContent::new(format!(
+        "shardloom_finalized_manifest_candidate=true\n{mode}=true\nfinalized_manifest_written=false\nmanifest_committed=false\noutput_data_written=false\nfallback_execution_allowed=false\n"
+    ))
+}
+
+fn parse_vortex_manifest_finalization_signals(
+    signals_raw: &str,
+) -> Result<Vec<VortexManifestFinalizationSignal>, ShardLoomError> {
+    if signals_raw.trim().is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "manifest finalization signals must not be empty".to_string(),
+        ));
+    }
+    let mut signals = Vec::new();
+    for token in signals_raw.split(',') {
+        let token = token.trim();
+        if token.is_empty() {
+            return Err(ShardLoomError::InvalidOperation(
+                "manifest finalization signals must not contain empty tokens".to_string(),
+            ));
+        }
+        let signal = match token {
+            "draft-manifest-written" => VortexManifestFinalizationSignal::DraftManifestWritten,
+            "draft-manifest-missing" => VortexManifestFinalizationSignal::DraftManifestMissing,
+            "commit-marker-written" => VortexManifestFinalizationSignal::CommitMarkerWritten,
+            "commit-marker-missing" => VortexManifestFinalizationSignal::CommitMarkerMissing,
+            "commit-protocol-ready" => VortexManifestFinalizationSignal::CommitProtocolReady,
+            "commit-protocol-blocked" => VortexManifestFinalizationSignal::CommitProtocolBlocked,
+            "schema-known" => VortexManifestFinalizationSignal::SchemaKnown,
+            "schema-compatible" => VortexManifestFinalizationSignal::SchemaCompatible,
+            "delete-semantics-known" => VortexManifestFinalizationSignal::DeleteSemanticsKnown,
+            "tombstone-semantics-known" => {
+                VortexManifestFinalizationSignal::TombstoneSemanticsKnown
+            }
+            "local-workspace" => VortexManifestFinalizationSignal::LocalWorkspace,
+            "object-store-target" => VortexManifestFinalizationSignal::ObjectStoreTarget,
+            "feature-gate-enabled" => VortexManifestFinalizationSignal::FeatureGateEnabled,
+            _ => {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "unknown manifest finalization signal token: {token}"
+                )));
+            }
+        };
+        if !signals.contains(&signal) {
+            signals.push(signal);
+        }
+    }
+    Ok(signals)
+}
+
+fn parse_vortex_finalized_manifest_artifact_write_options(
+    options_raw: &str,
+) -> Result<Vec<VortexFinalizedManifestArtifactWriteOption>, ShardLoomError> {
+    if options_raw.trim().is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "finalized manifest artifact write options must not be empty".to_string(),
+        ));
+    }
+    let mut options = Vec::new();
+    for token in options_raw.split(',') {
+        let token = token.trim();
+        if token.is_empty() {
+            return Err(ShardLoomError::InvalidOperation(
+                "finalized manifest artifact write options must not contain empty tokens"
+                    .to_string(),
+            ));
+        }
+        match token {
+            "allow-overwrite" => {
+                if !options.contains(&VortexFinalizedManifestArtifactWriteOption::AllowOverwrite) {
+                    options.push(VortexFinalizedManifestArtifactWriteOption::AllowOverwrite);
+                }
+            }
+            "none" => {}
+            _ => {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "unknown finalized manifest artifact write option token: {token}"
+                )));
+            }
+        }
+    }
+    Ok(options)
+}
+
 fn parse_output_format(args: Vec<String>) -> Result<(Vec<String>, OutputFormat), String> {
     let mut filtered = Vec::with_capacity(args.len());
     let mut format = OutputFormat::Text;
@@ -3518,6 +3612,355 @@ fn run(args: Vec<String>) -> ExitCode {
                 ],
             );
             if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
+        Some("vortex-manifest-finalization-plan") => {
+            let Some(target_uri_raw) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-manifest-finalization-plan <target_uri> <workspace_path> <signals>"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(workspace_path_raw) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-manifest-finalization-plan <target_uri> <workspace_path> <signals>"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(signals_raw) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-manifest-finalization-plan <target_uri> <workspace_path> <signals>"
+                );
+                return ExitCode::from(2);
+            };
+            let target_uri = match DatasetUri::new(target_uri_raw) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-manifest-finalization-plan",
+                        format,
+                        "invalid dataset uri",
+                        &error,
+                    );
+                }
+            };
+            let workspace_path = match VortexStagedWorkspacePath::new(workspace_path_raw) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-manifest-finalization-plan",
+                        format,
+                        "invalid workspace path",
+                        &error,
+                    );
+                }
+            };
+            let signals = match parse_vortex_manifest_finalization_signals(&signals_raw) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-manifest-finalization-plan",
+                        format,
+                        "invalid manifest finalization signals",
+                        &error,
+                    );
+                }
+            };
+            let _manifest_name = VortexFinalizedManifestFileName::default_finalized();
+            let file_ref = VortexFinalizedManifestFileRef::default_for_workspace(workspace_path);
+            let content = match finalized_manifest_cli_content(false) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-manifest-finalization-plan",
+                        format,
+                        "invalid finalized manifest content",
+                        &error,
+                    );
+                }
+            };
+            let mut request = VortexManifestFinalizationRequest::new(target_uri, file_ref, content);
+            for signal in signals {
+                request.add_signal(signal, true);
+            }
+            let report = match plan_vortex_manifest_finalization(request) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-manifest-finalization-plan",
+                        format,
+                        "manifest finalization planning failed",
+                        &error,
+                    );
+                }
+            };
+            emit(
+                "vortex-manifest-finalization-plan",
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "vortex manifest finalization plan".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    (
+                        "mode".to_string(),
+                        "vortex_manifest_finalization_plan".to_string(),
+                    ),
+                    (
+                        "draft_manifest_written".to_string(),
+                        report.draft_manifest_written().to_string(),
+                    ),
+                    (
+                        "commit_marker_written".to_string(),
+                        report.commit_marker_written().to_string(),
+                    ),
+                    (
+                        "commit_protocol_ready".to_string(),
+                        report.commit_protocol_ready().to_string(),
+                    ),
+                    (
+                        "schema_known".to_string(),
+                        report.schema_known().to_string(),
+                    ),
+                    (
+                        "schema_compatible".to_string(),
+                        report.schema_compatible().to_string(),
+                    ),
+                    (
+                        "delete_semantics_known".to_string(),
+                        report.delete_semantics_known().to_string(),
+                    ),
+                    (
+                        "tombstone_semantics_known".to_string(),
+                        report.tombstone_semantics_known().to_string(),
+                    ),
+                    (
+                        "local_workspace".to_string(),
+                        report.local_workspace().to_string(),
+                    ),
+                    (
+                        "object_store_target".to_string(),
+                        report.object_store_target().to_string(),
+                    ),
+                    (
+                        "feature_gate_enabled".to_string(),
+                        report
+                            .request
+                            .has_signal(VortexManifestFinalizationSignal::FeatureGateEnabled)
+                            .to_string(),
+                    ),
+                    (
+                        "finalized_manifest_written".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("manifest_committed".to_string(), "false".to_string()),
+                    ("output_data_written".to_string(), "false".to_string()),
+                    ("object_store_io".to_string(), "false".to_string()),
+                    (
+                        "upstream_vortex_write_called".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("recovery_action_executed".to_string(), "false".to_string()),
+                    (
+                        "finalization_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("execution".to_string(), "not_performed".to_string()),
+                ],
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
+        Some("vortex-finalized-manifest-artifact-write") => {
+            let Some(target_uri_raw) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-finalized-manifest-artifact-write <target_uri> <workspace_path> <signals> <options>"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(workspace_path_raw) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-finalized-manifest-artifact-write <target_uri> <workspace_path> <signals> <options>"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(signals_raw) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-finalized-manifest-artifact-write <target_uri> <workspace_path> <signals> <options>"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(options_raw) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-finalized-manifest-artifact-write <target_uri> <workspace_path> <signals> <options>"
+                );
+                return ExitCode::from(2);
+            };
+            let target_uri = match DatasetUri::new(target_uri_raw) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-finalized-manifest-artifact-write",
+                        format,
+                        "invalid dataset uri",
+                        &error,
+                    );
+                }
+            };
+            let workspace_path = match VortexStagedWorkspacePath::new(workspace_path_raw) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-finalized-manifest-artifact-write",
+                        format,
+                        "invalid workspace path",
+                        &error,
+                    );
+                }
+            };
+            let signals = match parse_vortex_manifest_finalization_signals(&signals_raw) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-finalized-manifest-artifact-write",
+                        format,
+                        "invalid manifest finalization signals",
+                        &error,
+                    );
+                }
+            };
+            let options = match parse_vortex_finalized_manifest_artifact_write_options(&options_raw)
+            {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-finalized-manifest-artifact-write",
+                        format,
+                        "invalid finalized manifest artifact write options",
+                        &error,
+                    );
+                }
+            };
+            let file_ref = VortexFinalizedManifestFileRef::default_for_workspace(workspace_path);
+            let content = match finalized_manifest_cli_content(true) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-finalized-manifest-artifact-write",
+                        format,
+                        "invalid finalized manifest content",
+                        &error,
+                    );
+                }
+            };
+            let mut request = VortexManifestFinalizationRequest::new(target_uri, file_ref, content);
+            for signal in signals {
+                request.add_signal(signal, true);
+            }
+            let plan_report = match plan_vortex_manifest_finalization(request) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-finalized-manifest-artifact-write",
+                        format,
+                        "manifest finalization planning failed",
+                        &error,
+                    );
+                }
+            };
+            let mut write_request =
+                match finalized_manifest_artifact_write_request_from_plan(&plan_report) {
+                    Ok(v) => v,
+                    Err(error) => {
+                        return emit_error(
+                            "vortex-finalized-manifest-artifact-write",
+                            format,
+                            "failed to build finalized manifest artifact write request",
+                            &error,
+                        );
+                    }
+                };
+            write_request.options = options;
+            let write_report = match write_vortex_finalized_manifest_artifact(write_request) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-finalized-manifest-artifact-write",
+                        format,
+                        "finalized manifest artifact write failed",
+                        &error,
+                    );
+                }
+            };
+            emit(
+                "vortex-finalized-manifest-artifact-write",
+                format,
+                if write_report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "vortex finalized manifest artifact write".to_string(),
+                write_report.to_human_text(),
+                write_report.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    (
+                        "mode".to_string(),
+                        "vortex_finalized_manifest_artifact_write".to_string(),
+                    ),
+                    (
+                        "finalized_manifest_artifact_written".to_string(),
+                        write_report
+                            .finalized_manifest_artifact_written()
+                            .to_string(),
+                    ),
+                    (
+                        "finalized_manifest_written".to_string(),
+                        write_report.finalized_manifest_written().to_string(),
+                    ),
+                    ("manifest_committed".to_string(), "false".to_string()),
+                    ("output_data_written".to_string(), "false".to_string()),
+                    ("object_store_io".to_string(), "false".to_string()),
+                    (
+                        "upstream_vortex_write_called".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("recovery_action_executed".to_string(), "false".to_string()),
+                    (
+                        "bytes_written".to_string(),
+                        write_report.bytes_written.to_string(),
+                    ),
+                    (
+                        "checksum".to_string(),
+                        write_report
+                            .checksum
+                            .map_or_else(|| "none".to_string(), |v| v.to_string()),
+                    ),
+                    (
+                        "execution".to_string(),
+                        "finalized_manifest_artifact_write_or_not_performed".to_string(),
+                    ),
+                ],
+            );
+            if write_report.has_errors() {
                 ExitCode::from(1)
             } else {
                 ExitCode::SUCCESS
@@ -8189,6 +8632,40 @@ mod tests {
                 .len(),
             0
         );
+    }
+
+    #[test]
+    fn vortex_manifest_finalization_plan_ready_returns_success() {
+        let code = run(vec![
+            "vortex-manifest-finalization-plan".to_string(),
+            "file:///tmp/out.vortex".to_string(),
+            "/tmp/stage".to_string(),
+            "draft-manifest-written,commit-marker-written,commit-protocol-ready,schema-known,schema-compatible,delete-semantics-known,tombstone-semantics-known,local-workspace,feature-gate-enabled".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_manifest_finalization_plan_unknown_signal_returns_non_zero() {
+        let code = run(vec![
+            "vortex-manifest-finalization-plan".to_string(),
+            "file:///tmp/out.vortex".to_string(),
+            "/tmp/stage".to_string(),
+            "unknown".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_finalized_manifest_artifact_write_default_build_returns_success() {
+        let code = run(vec![
+            "vortex-finalized-manifest-artifact-write".to_string(),
+            "file:///tmp/out.vortex".to_string(),
+            "/tmp/stage".to_string(),
+            "draft-manifest-written,commit-marker-written,commit-protocol-ready,schema-known,schema-compatible,delete-semantics-known,tombstone-semantics-known,local-workspace,feature-gate-enabled".to_string(),
+            "none".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
     }
 
     #[test]
