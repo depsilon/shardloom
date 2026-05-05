@@ -500,3 +500,8 @@ This update does not introduce scans, decode, materialization, writes, object-st
 
 
 - The staged write-readiness smoke test remains `ShardLoom`-native and does not use upstream `Vortex` write APIs.
+
+## Phase 12B.4 closeout note
+
+- Upstream Vortex write APIs remain unused after commit-marker staging.
+- Manifest finalization remains ShardLoom-native and report-only for the next phase.
