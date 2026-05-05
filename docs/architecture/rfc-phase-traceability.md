@@ -121,3 +121,10 @@ Status categories:
 - Commit execution remains deferred.
 - Commit protocol must start report-only.
 - Commit execution remains deferred.
+
+
+## Competitive roadmap traceability additions
+
+- Traceability now includes: actual encoded read, query primitive execution over real data, output payload writes, commit execution, correctness/differential harness, benchmark harness, streaming/parallel adaptive execution, and object-store/distributed execution.
+- Spark/Polars/DataFusion are future external baseline references only.
+- No fallback execution remains mandatory across all of these tracks.

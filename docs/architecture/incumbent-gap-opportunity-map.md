@@ -217,3 +217,36 @@ Phase 12 begins native `Vortex` write/commit value propositions with safe write-
 
 - Phase 12A establishes safe staged write-readiness artifacts before commit protocol.
 - Remaining gap before write-value claims: commit protocol, manifest finalization, and output payload writing.
+
+
+## Competitive engine target
+
+- The product goal is to beat Spark, Polars, DataFusion, and Arrow-adjacent execution stacks for Vortex-native lakehouse workloads.
+- ShardLoom’s wedge is Vortex-native fidelity, less decode/materialization, explicit memory/spill/recovery behavior, safer staged writes/commits, deterministic diagnostics, and measured performance wins.
+- Baseline engines may be used only as external correctness/benchmark references, not runtime dependencies or fallback engines.
+- Superiority claims require correctness and benchmark gates.
+- The architecture is promising, but performance claims must wait for real encoded reads, real query execution, real output payload writes, correctness, and benchmarks.
+
+### Spark gaps ShardLoom targets
+
+- Reduce avoidable decode/materialization for Vortex-native workloads.
+- Make memory/spill/recovery behavior explicit and diagnosable.
+- Preserve deterministic readiness and failure contracts.
+
+### Polars gaps ShardLoom targets
+
+- Improve encoded-first planning and zero-decode posture for Vortex-native execution.
+- Keep staged write/commit semantics explicit and recoverable.
+- Keep deterministic machine-readable diagnostics for agent workflows.
+
+### DataFusion gaps ShardLoom targets
+
+- Keep ShardLoom-native runtime, memory, and spill policy without fallback delegation.
+- Keep Arrow conversion explicit at boundaries rather than default execution.
+- Improve explicit unsupported-path diagnostics and capability gating.
+
+### Arrow-adjacent gaps ShardLoom targets
+
+- Treat Arrow as an interoperability boundary, not internal default execution.
+- Preserve Vortex-native fidelity and metadata richness end-to-end.
+- Measure and report decode/materialization/work avoided with reproducible benchmarks.

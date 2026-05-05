@@ -476,3 +476,12 @@ This update does not introduce scans, decode, materialization, writes, object-st
 
 - Commit marker planning is `ShardLoom`-native.
 - Upstream `Vortex` write APIs remain deferred.
+
+
+## APIs needed for competitive execution
+
+- encoded read / segment read boundary
+- safe local Vortex file output write boundary
+- manifest/output metadata boundary
+- stats/layout/encoding APIs for work-avoidance metrics
+- no upstream API should be called if it implies row materialization, Arrow conversion, object-store IO, or write execution without explicit feature gate

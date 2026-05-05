@@ -531,3 +531,12 @@ No spill data movement is implemented in this phase.
 - It does not write output data.
 - It does not call upstream `Vortex` write APIs.
 - It does not perform object-store IO.
+
+
+## Competitive execution path
+
+- Staged write-readiness is only the control-plane foundation.
+- The next competitive milestones require actual encoded reads, actual query primitives, output payload writes, commit execution, correctness, and benchmarks.
+- Upstream Vortex write/read APIs remain feature-gated and isolated.
+- Arrow conversion remains explicit, not default.
+- No fallback engines.
