@@ -19,6 +19,7 @@ pub use adapter::{
 
 pub mod bounded_execution;
 pub mod commit_intent;
+pub mod commit_marker;
 pub mod commit_protocol;
 pub mod encoded_read_api;
 pub mod encoded_read_executor;
@@ -144,6 +145,14 @@ pub use staged_manifest::{
     vortex_staged_manifest_draft_is_side_effect_free,
     vortex_staged_manifest_file_is_side_effect_free,
     vortex_staged_manifest_file_write_is_side_effect_free, write_vortex_staged_manifest_file,
+};
+
+pub use commit_marker::{
+    VortexCommitMarkerContent, VortexCommitMarkerEffect, VortexCommitMarkerFileName,
+    VortexCommitMarkerFileRef, VortexCommitMarkerMode, VortexCommitMarkerReport,
+    VortexCommitMarkerRequest, VortexCommitMarkerSignal, VortexCommitMarkerStatus,
+    commit_marker_request_from_protocol_report, plan_vortex_commit_marker,
+    vortex_commit_marker_is_side_effect_free,
 };
 
 pub use commit_protocol::{

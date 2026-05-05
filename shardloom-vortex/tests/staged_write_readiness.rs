@@ -7,12 +7,12 @@ use std::{
 
 use shardloom_core::DatasetUri;
 use shardloom_vortex::{
-    VortexCommitIntentRequest, VortexCommitProtocolRequest, VortexCommitProtocolState,
-    VortexCommitProtocolTransition, VortexStagedManifestDraftContent, VortexStagedManifestFileRef,
-    VortexStagedManifestFileRequest, VortexStagedWorkspaceId, VortexStagedWorkspacePath,
-    VortexStagedWorkspaceSetupRequest, plan_vortex_commit_intent, plan_vortex_commit_protocol,
-    plan_vortex_staged_manifest_file, setup_vortex_staged_workspace,
-    write_vortex_staged_manifest_file, write_vortex_staged_marker,
+    VortexCommitIntentRequest, VortexCommitIntentStatus, VortexCommitProtocolRequest,
+    VortexCommitProtocolState, VortexCommitProtocolStatus, VortexCommitProtocolTransition,
+    VortexStagedManifestDraftContent, VortexStagedManifestFileRef, VortexStagedManifestFileRequest,
+    VortexStagedWorkspaceId, VortexStagedWorkspacePath, VortexStagedWorkspaceSetupRequest,
+    plan_vortex_commit_intent, plan_vortex_commit_protocol, plan_vortex_staged_manifest_file,
+    setup_vortex_staged_workspace, write_vortex_staged_manifest_file, write_vortex_staged_marker,
 };
 
 fn unique_workspace_path() -> std::path::PathBuf {
@@ -96,6 +96,8 @@ fn staged_write_readiness_local_smoke_test() {
             .feature_gate_enabled(true),
     )
     .unwrap();
+    assert_eq!(commit_intent.status, VortexCommitIntentStatus::CommitReady);
+    assert!(!commit_intent.has_errors());
     assert!(
         commit_intent
             .to_human_text()
@@ -116,6 +118,16 @@ fn staged_write_readiness_local_smoke_test() {
         .feature_gate_enabled(true),
     )
     .unwrap();
+    assert_eq!(
+        commit_protocol.status,
+        VortexCommitProtocolStatus::TransitionAllowed
+    );
+    assert!(commit_protocol.transition_allowed());
+    assert_eq!(
+        commit_protocol.next_state(),
+        VortexCommitProtocolState::CommitReady
+    );
+    assert!(!commit_protocol.has_errors());
     assert!(
         commit_protocol
             .to_human_text()
