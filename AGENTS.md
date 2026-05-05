@@ -354,3 +354,13 @@ Before proposing next implementation work:
 - Do not treat synthetic spill payload support as query/Vortex data spill permission.
 - Attach cross-cutting epic obligations to the current phase.
 - Reviews should happen at phase boundaries or when entering a new behavior class, not after every small PR.
+
+
+## Competitive engine roadmap
+
+When proposing next work:
+- include the competitive engine success gates in phase checklists
+- do not introduce Spark/DataFusion/Polars/DuckDB/Velox/vortex-datafusion as fallback
+- external baselines are allowed only for correctness/benchmark references
+- do not make superiority claims until correctness and benchmark gates pass
+- preserve Vortex-native, no-fallback, explicit-side-effect contracts

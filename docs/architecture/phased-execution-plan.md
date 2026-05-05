@@ -7,6 +7,90 @@
 - Current checkpoint: Phase 12B.3a — commit marker core contract (report-only, no filesystem writes).
 - Immediate focus: model commit marker name/ref/content planning and commit-marker readiness blockers while keeping commit marker writes, manifest finalization, committed manifests, output-data writes, upstream `Vortex` write API calls, and object-store writes disabled.
 
+
+## Competitive engine target
+
+- ShardLoom’s long-term goal is to beat Spark, Polars, DataFusion, and Arrow-adjacent execution stacks for Vortex-native lakehouse workloads.
+- ShardLoom will not do this through fallback or delegation.
+- Spark, Polars, DataFusion, DuckDB, Velox, and vortex-datafusion remain disallowed as runtime fallback engines.
+- Baselines may be used later for correctness/differential testing and benchmarking only.
+- Arrow conversion remains explicit boundary behavior, not the default execution path.
+
+## Competitive engine success gates
+
+1. Real encoded read path
+   - feature-gated local encoded read API boundary
+   - segment/chunk/byte-range descriptors
+   - no broad row materialization
+   - no Arrow-default conversion
+2. Real query primitive execution over actual Vortex data
+   - actual count
+   - actual filtered count
+   - actual projection
+   - actual predicate/filter primitive
+   - encoded-first selection vectors
+   - decode only when explicitly allowed
+3. Actual output payload write path
+   - local output payload artifact
+   - native Vortex output fidelity
+   - no committed state until commit protocol
+   - no object-store writes initially
+4. Commit protocol execution
+   - local-first
+   - feature-gated
+   - idempotent
+   - recoverable
+   - rollback/ambiguous commit reports
+   - no object-store commit until later
+5. Correctness/differential tests
+   - golden Vortex fixtures
+   - reference outputs
+   - null/nested/dictionary/sparse/run-length/temporal edge cases
+   - Spark/Polars/DataFusion external baselines only, never fallback
+6. Benchmarks
+   - runtime
+   - peak memory
+   - bytes read/written
+   - decode avoided
+   - materialization avoided
+   - segments skipped
+   - work avoided
+   - spill required/avoided
+   - startup latency
+   - query runtime
+   - write/commit latency
+7. Physical operator/kernel layer
+   - filter kernel
+   - projection kernel
+   - count/aggregate kernel
+   - metadata/encoded/hybrid execution levels
+   - expression evaluation over encoded segments
+8. Streaming and parallel adaptive execution
+   - streaming encoded batches
+   - bounded parallel local execution
+   - adaptive split/coalesce
+   - dynamic sizing feedback loop
+   - backpressure
+   - memory/spill-aware scheduler
+9. Lakehouse/table intelligence
+   - schema evolution
+   - partition evolution
+   - delete/tombstone semantics
+   - CDC/incremental planning
+   - layout health
+   - compaction planning
+10. Object-store and distributed execution
+   - object-store range planning
+   - request coalescing
+   - object-store commit protocol
+   - distributed scheduling
+   - checkpoint/retry/idempotency
+11. Python/API surface later
+   - thin Python wrapper over CLI JSON first
+   - Foundry-friendly later
+   - no PyO3/maturin unless explicitly approved
+   - no Spark fallback
+
 ## Cross-cutting epic legend
 
 **Epic A — DecisionTrace / WhyReport**  
@@ -917,3 +1001,101 @@ Phase 12B.2a.4 note:
 - Object-store writes remain disabled.
 - Commit protocol is not implemented yet.
 - Fallback execution remains disabled.
+
+
+### Phase 12C — Actual local output payload write path
+
+- output payload write contract
+- feature-gated synthetic output payload write
+- feature-gated local Vortex output payload write if upstream public APIs are safe
+- output payload + staged manifest alignment
+- output payload smoke test
+- no object-store writes yet
+
+### Phase 12D — Commit protocol execution, local-first
+
+- feature-gated local commit marker execution
+- manifest finalization contract
+- feature-gated local manifest finalization
+- idempotent commit record
+- rollback / ambiguous commit report
+- local write+commit smoke test
+- no object-store commits yet
+
+### Phase 13A — Real encoded read path
+
+- feature-gated local encoded read API boundary
+- byte-range / segment / chunk read descriptor
+- encoded segment/chunk read report
+- no broad row materialization
+- no Arrow-default conversion
+- first local Vortex encoded-read fixture
+
+### Phase 13B — Real query primitive execution over actual Vortex data
+
+- actual count over Vortex data
+- actual filtered count
+- actual projection
+- actual predicate/filter primitive
+- encoded-first selection vectors
+- decode only when explicitly allowed
+- no fallback engines
+
+### Phase 13C — Physical operators and expression/kernel layer
+
+- filter kernel
+- projection kernel
+- count/aggregate kernel
+- metadata/encoded/hybrid execution levels
+- expression evaluation over encoded segments
+- kernel capability reports
+
+### Phase 13D — Correctness and differential harness
+
+- golden Vortex fixtures
+- edge-case fixtures
+- reference outputs
+- Spark/Polars/DataFusion external baselines only, never fallback
+- equivalence tests
+- no silent unsupported success
+
+### Phase 13E — Benchmark harness
+
+- work avoided
+- bytes avoided
+- decode avoided
+- materialization avoided
+- memory peak
+- spill required/avoided
+- startup latency
+- query runtime
+- write/commit latency
+- selected Spark/Polars/DataFusion comparisons
+
+### Phase 14 — Streaming, parallelism, and adaptive execution
+
+- streaming encoded batches
+- bounded parallel local execution
+- adaptive split/coalesce
+- dynamic sizing feedback loop
+- backpressure
+- memory/spill-aware scheduler
+- multi-file execution
+
+### Phase 15 — Lakehouse/table intelligence
+
+- schema evolution
+- partition evolution
+- delete/tombstone semantics
+- CDC/incremental planning
+- layout health
+- compaction planning
+
+### Phase 16 — Object-store and distributed execution
+
+- object-store read planning
+- byte-range coalescing
+- object-store commit protocol
+- distributed scheduling
+- checkpoint/retry/idempotency
+- distributed benchmark comparisons
