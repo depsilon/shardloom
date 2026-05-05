@@ -1199,6 +1199,13 @@ pub fn write_vortex_output_payload_artifact(
     }
     #[cfg(feature = "vortex-staged-output-fs")]
     {
+        if request.payload_plan_summary.is_none() {
+            return Ok(VortexOutputPayloadArtifactWriteReport::blocked(
+                request,
+                VortexOutputPayloadArtifactWriteStatus::BlockedByWriteIntent,
+                "output payload plan is not ready for artifact write",
+            ));
+        }
         if !request.payload_plan_feature_gate_ready {
             return Ok(VortexOutputPayloadArtifactWriteReport::blocked(
                 request,
@@ -1214,14 +1221,18 @@ pub fn write_vortex_output_payload_artifact(
             ));
         }
         let path_string = request.payload_ref.path_string();
-        if path_string.contains("://") {
+        let local_path_string = if let Some(rest) = path_string.strip_prefix("file://") {
+            rest.to_string()
+        } else if path_string.contains("://") {
             return Ok(VortexOutputPayloadArtifactWriteReport::blocked(
                 request,
                 VortexOutputPayloadArtifactWriteStatus::BlockedByObjectStoreTarget,
                 "object-store target is unsupported for local output payload artifact",
             ));
-        }
-        let payload_path = Path::new(&path_string);
+        } else {
+            path_string
+        };
+        let payload_path = Path::new(&local_path_string);
         let Some(parent) = payload_path.parent() else {
             return Ok(VortexOutputPayloadArtifactWriteReport::blocked(
                 request,
@@ -1545,11 +1556,12 @@ mod tests {
             write_vortex_output_payload_artifact(base.clone())
                 .unwrap()
                 .status,
-            VortexOutputPayloadArtifactWriteStatus::BlockedByFeatureGate
+            VortexOutputPayloadArtifactWriteStatus::BlockedByWriteIntent
         );
         assert_eq!(
             write_vortex_output_payload_artifact(
                 base.clone()
+                    .with_payload_plan_summary("payload_ready")
                     .feature_gate_ready(true)
                     .upstream_vortex_write_required(true)
             )
@@ -1566,6 +1578,7 @@ mod tests {
                     VortexOutputPayloadFileRef::default_for_workspace(missing_workspace),
                     payload.clone()
                 )
+                .with_payload_plan_summary("payload_ready")
                 .feature_gate_ready(true)
             )
             .unwrap()
@@ -1579,14 +1592,19 @@ mod tests {
                     VortexOutputPayloadFileRef::default_for_workspace(obj_workspace),
                     payload.clone()
                 )
+                .with_payload_plan_summary("payload_ready")
                 .feature_gate_ready(true)
             )
             .unwrap()
             .status,
             VortexOutputPayloadArtifactWriteStatus::BlockedByObjectStoreTarget
         );
-        let report =
-            write_vortex_output_payload_artifact(base.clone().feature_gate_ready(true)).unwrap();
+        let report = write_vortex_output_payload_artifact(
+            base.clone()
+                .with_payload_plan_summary("payload_ready")
+                .feature_gate_ready(true),
+        )
+        .unwrap();
         assert!(report.output_payload_artifact_written());
         assert!(report.output_payload_written());
         assert!(!report.vortex_file_written());
@@ -1604,10 +1622,27 @@ mod tests {
         );
         assert!(
             write_vortex_output_payload_artifact(
-                base.feature_gate_ready(true).allow_overwrite(true)
+                base.with_payload_plan_summary("payload_ready")
+                    .feature_gate_ready(true)
+                    .allow_overwrite(true)
             )
             .unwrap()
             .output_payload_artifact_written()
+        );
+        let file_uri_workspace =
+            VortexStagedWorkspacePath::new(format!("file://{}", workspace_dir.to_string_lossy()))
+                .unwrap();
+        let file_uri_request = VortexOutputPayloadArtifactWriteRequest::new(
+            VortexOutputPayloadFileRef::default_for_workspace(file_uri_workspace),
+            payload,
+        )
+        .with_payload_plan_summary("payload_ready")
+        .feature_gate_ready(true)
+        .allow_overwrite(true);
+        assert!(
+            write_vortex_output_payload_artifact(file_uri_request)
+                .unwrap()
+                .output_payload_artifact_written()
         );
         fs::remove_file(file_path).unwrap();
         fs::remove_dir(workspace_dir).unwrap();
