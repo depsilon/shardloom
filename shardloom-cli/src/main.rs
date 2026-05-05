@@ -8547,21 +8547,23 @@ mod tests {
 
     #[test]
     fn cli_contract_core_commands_dispatch_without_unknown_command_usage() {
-        for command in [
-            "status",
-            "capabilities",
-            "doctor",
-            "release-plan",
-            "optimizer-plan",
-            "vortex-readiness",
-        ] {
-            let code = run(vec![command.to_string()]);
-            assert_ne!(
-                code,
-                ExitCode::from(2),
-                "command `{command}` should be recognized by dispatcher"
-            );
-        }
+        run_test_with_larger_stack("cli-contract-core-commands-dispatch", || {
+            for command in [
+                "status",
+                "capabilities",
+                "doctor",
+                "release-plan",
+                "optimizer-plan",
+                "vortex-readiness",
+            ] {
+                let code = run(vec![command.to_string()]);
+                assert_ne!(
+                    code,
+                    ExitCode::from(2),
+                    "command `{command}` should be recognized by dispatcher"
+                );
+            }
+        });
     }
 
     #[test]
