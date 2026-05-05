@@ -259,3 +259,7 @@ Phase 12 begins native `Vortex` write/commit value propositions with safe write-
 
 - Phase 12B now includes a local commit execution gate contract, but it intentionally blocks on missing output payload readiness.
 - This keeps CG-3 (output payload write path) and CG-4 (commit protocol execution) explicit and deferred.
+
+
+- CG-3 starts with output payload write contract.
+- Real payload writes and benchmarks are still future work.

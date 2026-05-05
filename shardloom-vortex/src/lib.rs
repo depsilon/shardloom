@@ -34,6 +34,7 @@ pub mod metadata_executor;
 pub mod metadata_planning;
 pub mod metadata_pruning;
 pub mod metadata_summary;
+pub mod output_payload;
 pub mod query_primitive;
 pub mod query_trace;
 pub mod read_planning;
@@ -208,6 +209,14 @@ pub use staged_output::{
     staged_output_request_from_write_intent, vortex_staged_marker_is_side_effect_free,
     vortex_staged_output_is_side_effect_free, vortex_staged_workspace_setup_is_side_effect_free,
     write_vortex_staged_marker,
+};
+
+pub use output_payload::{
+    VortexOutputPayloadContentDescriptor, VortexOutputPayloadContentKind,
+    VortexOutputPayloadEffect, VortexOutputPayloadFileName, VortexOutputPayloadFileRef,
+    VortexOutputPayloadMode, VortexOutputPayloadReport, VortexOutputPayloadRequest,
+    VortexOutputPayloadSignal, VortexOutputPayloadStatus, output_payload_request_from_reports,
+    plan_vortex_output_payload, vortex_output_payload_is_side_effect_free,
 };
 
 pub use write_intent::{

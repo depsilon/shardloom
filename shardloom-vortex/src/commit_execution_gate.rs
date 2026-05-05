@@ -10,6 +10,7 @@ use crate::{
     VortexFinalizedManifestArtifactWriteReport, VortexManifestFinalizationReport,
     VortexManifestFinalizationStatus,
 };
+use shardloom_core::UriScheme;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VortexLocalCommitExecutionGateStatus {
@@ -627,22 +628,29 @@ pub fn local_commit_execution_gate_request_from_reports(
     req = req.object_store_target(
         commit_protocol.object_store_target()
             || manifest_finalization.object_store_target()
-            || commit_marker
-                .request
-                .marker_ref
-                .path_string()
-                .starts_with("s3://")
-            || finalized_manifest_artifact
-                .request
-                .finalized_manifest_ref
-                .path_string()
-                .starts_with("s3://"),
+            || is_object_store_path(commit_marker.request.marker_ref.path_string().as_str())
+            || is_object_store_path(
+                finalized_manifest_artifact
+                    .request
+                    .finalized_manifest_ref
+                    .path_string()
+                    .as_str(),
+            ),
     );
     req.upstream_vortex_write_required(
         commit_protocol.upstream_vortex_write_called()
             || manifest_finalization.upstream_vortex_write_called()
             || finalized_manifest_artifact.upstream_vortex_write_called(),
     )
+}
+
+fn is_object_store_path(path: &str) -> bool {
+    DatasetUri::new(path).is_ok_and(|uri| {
+        matches!(
+            uri.scheme(),
+            UriScheme::S3 | UriScheme::Gcs | UriScheme::Adls
+        )
+    })
 }
 
 #[cfg(test)]
@@ -838,5 +846,64 @@ mod tests {
         assert!(req.has_signal(VortexLocalCommitExecutionGateSignal::OutputPayloadMissing));
         let rep = VortexLocalCommitExecutionGateReport::from_request(req).unwrap();
         assert!(!rep.manifest_committed());
+    }
+
+    #[test]
+    fn from_reports_detects_non_s3_object_store_paths() {
+        let cp = crate::VortexCommitProtocolReport::from_request(
+            crate::VortexCommitProtocolRequest::new(
+                uri(),
+                VortexCommitProtocolState::AwaitingCommitMarker,
+                crate::VortexCommitProtocolTransition::MarkCommitReady,
+            )
+            .commit_intent_ready(true)
+            .draft_manifest_ready(true)
+            .manifest_finalization_available(true)
+            .commit_marker_available(true)
+            .recovery_ready(true)
+            .feature_gate_enabled(true),
+        )
+        .unwrap();
+        let cm = crate::VortexCommitMarkerWriteReport::from_request(
+            VortexCommitMarkerWriteRequest::new(
+                VortexCommitMarkerFileRef::new(
+                    VortexStagedWorkspacePath::new("gs://bucket/path").unwrap(),
+                    crate::VortexCommitMarkerFileName::default_marker(),
+                ),
+                crate::VortexCommitMarkerContent::new("marker").unwrap(),
+            )
+            .feature_gate_ready(false),
+        )
+        .unwrap();
+        let mf = VortexManifestFinalizationReport::from_request(
+            VortexManifestFinalizationRequest::new(
+                uri(),
+                VortexFinalizedManifestFileRef::default_for_workspace(ws()),
+                VortexFinalizedManifestContent::new("{}").unwrap(),
+            )
+            .draft_manifest_written(true)
+            .commit_marker_written(true)
+            .commit_protocol_ready(true)
+            .schema_known(true)
+            .schema_compatible(true)
+            .delete_semantics_known(true)
+            .tombstone_semantics_known(true)
+            .local_workspace(true)
+            .feature_gate_enabled(true),
+        )
+        .unwrap();
+        let fmw = crate::VortexFinalizedManifestArtifactWriteReport::from_request(
+            VortexFinalizedManifestArtifactWriteRequest::new(
+                VortexFinalizedManifestFileRef::new(
+                    VortexStagedWorkspacePath::new("abfss://cont@acct/path").unwrap(),
+                    crate::VortexFinalizedManifestFileName::default_finalized(),
+                ),
+                VortexFinalizedManifestContent::new("{}").unwrap(),
+            )
+            .feature_gate_ready(false),
+        )
+        .unwrap();
+        let req = local_commit_execution_gate_request_from_reports(uri(), &cp, &cm, &mf, &fmw);
+        assert!(req.has_signal(VortexLocalCommitExecutionGateSignal::ObjectStoreTarget));
     }
 }
