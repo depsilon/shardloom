@@ -212,11 +212,15 @@ pub use staged_output::{
 };
 
 pub use output_payload::{
-    VortexOutputPayloadContentDescriptor, VortexOutputPayloadContentKind,
-    VortexOutputPayloadEffect, VortexOutputPayloadFileName, VortexOutputPayloadFileRef,
-    VortexOutputPayloadMode, VortexOutputPayloadReport, VortexOutputPayloadRequest,
-    VortexOutputPayloadSignal, VortexOutputPayloadStatus, output_payload_request_from_reports,
-    plan_vortex_output_payload, vortex_output_payload_is_side_effect_free,
+    VortexOutputPayloadArtifactWriteMode, VortexOutputPayloadArtifactWriteOption,
+    VortexOutputPayloadArtifactWriteReport, VortexOutputPayloadArtifactWriteRequest,
+    VortexOutputPayloadArtifactWriteStatus, VortexOutputPayloadContentDescriptor,
+    VortexOutputPayloadContentKind, VortexOutputPayloadEffect, VortexOutputPayloadFileName,
+    VortexOutputPayloadFileRef, VortexOutputPayloadMode, VortexOutputPayloadReport,
+    VortexOutputPayloadRequest, VortexOutputPayloadSignal, VortexOutputPayloadStatus,
+    output_payload_artifact_write_request_from_plan, output_payload_request_from_reports,
+    plan_vortex_output_payload, vortex_output_payload_artifact_write_is_side_effect_free,
+    vortex_output_payload_is_side_effect_free, write_vortex_output_payload_artifact,
 };
 
 pub use write_intent::{

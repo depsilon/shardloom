@@ -263,3 +263,6 @@ Phase 12 begins native `Vortex` write/commit value propositions with safe write-
 
 - CG-3 starts with output payload write contract.
 - Real payload writes and benchmarks are still future work.
+
+- CG-3 now includes local placeholder output payload artifact readiness.
+- Real `Vortex` payload writing, correctness evidence, and benchmarks remain future work.

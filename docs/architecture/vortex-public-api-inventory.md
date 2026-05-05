@@ -524,3 +524,6 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - Output payload contract is `ShardLoom`-native and report-only.
 - Upstream `Vortex` write APIs remain deferred until explicit approval.
 - Object-store write APIs remain deferred.
+
+- Output payload artifact writing is `ShardLoom`-native and does not use upstream `Vortex` write APIs.
+- Upstream `Vortex` write APIs for real payload writes remain deferred.
