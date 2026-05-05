@@ -2,22 +2,17 @@
 
 use std::{
     fs,
+    path::{Path, PathBuf},
+    process::Command,
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use shardloom_core::DatasetUri;
 use shardloom_vortex::{
-    VortexCommitIntentRequest, VortexCommitIntentStatus, VortexCommitMarkerContent,
-    VortexCommitMarkerFileRef, VortexCommitMarkerWriteRequest, VortexCommitProtocolRequest,
-    VortexCommitProtocolState, VortexCommitProtocolStatus, VortexCommitProtocolTransition,
-    VortexStagedManifestDraftContent, VortexStagedManifestFileRef, VortexStagedManifestFileRequest,
-    VortexStagedWorkspaceId, VortexStagedWorkspacePath, VortexStagedWorkspaceSetupRequest,
-    plan_vortex_commit_intent, plan_vortex_commit_protocol, plan_vortex_staged_manifest_file,
-    setup_vortex_staged_workspace, write_vortex_commit_marker, write_vortex_staged_manifest_file,
-    write_vortex_staged_marker,
+    VortexCommitMarkerFileRef, VortexStagedManifestFileRef, VortexStagedMarkerRequest,
+    VortexStagedWorkspaceId, VortexStagedWorkspacePath,
 };
 
-fn unique_workspace_path() -> std::path::PathBuf {
+fn unique_workspace_path() -> PathBuf {
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
@@ -25,154 +20,204 @@ fn unique_workspace_path() -> std::path::PathBuf {
     std::env::temp_dir().join(format!("shardloom-staged-write-readiness-{nanos}"))
 }
 
+fn run_shardloom_json(args: &[&str]) -> String {
+    let output = Command::new("cargo")
+        .args([
+            "run",
+            "-q",
+            "-p",
+            "shardloom-cli",
+            "--features",
+            "shardloom-vortex/vortex-staged-output-fs",
+            "--",
+        ])
+        .args(args)
+        .arg("--format")
+        .arg("json")
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "command failed: cargo run -q -p shardloom-cli -- {} --format json\nstdout:{}\nstderr:{}",
+        args.join(" "),
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    String::from_utf8(output.stdout).unwrap()
+}
+
+fn assert_json_field(output: &str, key: &str, value: &str) {
+    let pair_pattern = format!("\"key\":\"{key}\",\"value\":\"{value}\"");
+    assert!(
+        output.contains(&pair_pattern),
+        "expected JSON output to contain key/value pair {key:?}={value:?}; output:
+{output}"
+    );
+}
+
+fn assert_json_field_false(output: &str, key: &str) {
+    assert_json_field(output, key, "false");
+}
+
+fn assert_json_field_true(output: &str, key: &str) {
+    assert_json_field(output, key, "true");
+}
+
+fn assert_common_safety_flags(json: &str) {
+    assert_json_field_false(json, "fallback_execution_allowed");
+    assert_json_field_false(json, "output_data_written");
+    assert_json_field_false(json, "object_store_io");
+}
+
+fn remove_if_exists(path: &Path) {
+    if path.exists() {
+        fs::remove_file(path).unwrap();
+    }
+}
+
 #[test]
 #[allow(clippy::too_many_lines)]
 fn staged_write_readiness_local_smoke_test() {
-    let workspace_id = VortexStagedWorkspaceId::new("stage-smoke").unwrap();
-    let workspace_path_buf = unique_workspace_path();
-    let workspace_path =
-        VortexStagedWorkspacePath::new(workspace_path_buf.to_str().unwrap()).unwrap();
+    let workspace_id = "stage-smoke";
+    let workspace_path = unique_workspace_path();
+    let workspace_path_str = workspace_path.to_str().unwrap();
+    let target_uri = "file://tmp/staged-smoke-target.vortex";
 
-    let setup = setup_vortex_staged_workspace(
-        VortexStagedWorkspaceSetupRequest::new(workspace_id.clone(), workspace_path.clone())
-            .create_if_missing(true),
-    )
-    .unwrap();
-    assert!(
-        setup
-            .to_human_text()
-            .contains("fallback execution: disabled")
+    let workspace_path_ref = VortexStagedWorkspacePath::new(workspace_path_str).unwrap();
+    let workspace_id_ref = VortexStagedWorkspaceId::new(workspace_id).unwrap();
+    let marker_path = workspace_path.join(
+        VortexStagedMarkerRequest::new(workspace_id_ref, workspace_path_ref.clone())
+            .marker_file_name(),
+    );
+    let draft_path = workspace_path.join(
+        VortexStagedManifestFileRef::default_for_workspace(workspace_path_ref.clone())
+            .file_name()
+            .as_str(),
+    );
+    let commit_marker_path = workspace_path.join(
+        VortexCommitMarkerFileRef::default_for_workspace(workspace_path_ref)
+            .file_name()
+            .as_str(),
     );
 
-    let marker_request =
-        shardloom_vortex::VortexStagedMarkerRequest::new(workspace_id, workspace_path.clone())
-            .allow_overwrite(true);
-    let marker_path = workspace_path_buf.join(marker_request.marker_file_name());
-    let marker = write_vortex_staged_marker(marker_request).unwrap();
-    assert!(marker.marker_written());
+    let setup_json = run_shardloom_json(&[
+        "vortex-staged-workspace-setup",
+        workspace_id,
+        workspace_path_str,
+        "create-if-missing",
+    ]);
+    assert_common_safety_flags(&setup_json);
+    assert_json_field_false(&setup_json, "marker_written");
+    assert_json_field_false(&setup_json, "manifest_written");
+    assert!(workspace_path.exists());
 
-    let file_ref = VortexStagedManifestFileRef::default_for_workspace(workspace_path.clone());
-    let draft_content = VortexStagedManifestDraftContent::new(
-        "shardloom_staged_manifest_draft=true\noutput_data_written=false\n",
-    )
-    .unwrap();
-    let manifest_plan = plan_vortex_staged_manifest_file(
-        VortexStagedManifestFileRequest::new(file_ref.clone(), draft_content.clone())
-            .draft_ready(true)
-            .workspace_known(true)
-            .marker_written(true)
-            .local_workspace(true),
-    )
-    .unwrap();
-    assert!(
-        manifest_plan
-            .to_human_text()
-            .contains("output data written: false")
-    );
-
-    let draft_path = workspace_path_buf.join(file_ref.file_name().as_str());
-    let manifest_write = write_vortex_staged_manifest_file(
-        shardloom_vortex::VortexStagedManifestFileWriteRequest::new(file_ref, draft_content)
-            .file_plan_ready(true)
-            .workspace_known(true)
-            .feature_gate_enabled(true)
-            .allow_overwrite(true),
-    )
-    .unwrap();
-    assert!(manifest_write.draft_file_written());
-
-    let target_uri = DatasetUri::new("file://tmp/staged-smoke-target.vortex").unwrap();
-    let commit_intent = plan_vortex_commit_intent(
-        VortexCommitIntentRequest::new(target_uri.clone())
-            .commit_requested(true)
-            .staged_manifest_draft_written(true)
-            .manifest_finalization_available(true)
-            .commit_protocol_available(true)
-            .schema_known(true)
-            .schema_compatible(true)
-            .delete_semantics_known(true)
-            .tombstone_semantics_known(true)
-            .recovery_ready(true)
-            .retry_gate_open(true)
-            .cancellation_gate_open(true)
-            .feature_gate_enabled(true),
-    )
-    .unwrap();
-    assert_eq!(commit_intent.status, VortexCommitIntentStatus::CommitReady);
-    assert!(!commit_intent.has_errors());
-    assert!(
-        commit_intent
-            .to_human_text()
-            .contains("manifest committed: false")
-    );
-
-    let commit_protocol = plan_vortex_commit_protocol(
-        VortexCommitProtocolRequest::new(
-            target_uri,
-            VortexCommitProtocolState::AwaitingCommitMarker,
-            VortexCommitProtocolTransition::MarkCommitReady,
-        )
-        .commit_intent_ready(true)
-        .draft_manifest_ready(true)
-        .manifest_finalization_available(true)
-        .commit_marker_available(true)
-        .recovery_ready(true)
-        .feature_gate_enabled(true),
-    )
-    .unwrap();
-    assert_eq!(
-        commit_protocol.status,
-        VortexCommitProtocolStatus::TransitionAllowed
-    );
-    assert!(commit_protocol.transition_allowed());
-    assert_eq!(
-        commit_protocol.next_state(),
-        VortexCommitProtocolState::CommitReady
-    );
-    assert!(!commit_protocol.has_errors());
-    assert!(
-        commit_protocol
-            .to_human_text()
-            .contains("commit marker written: false")
-    );
-
-    assert!(workspace_path_buf.exists());
+    let marker_write_json = run_shardloom_json(&[
+        "vortex-staged-marker-write",
+        workspace_id,
+        workspace_path_str,
+        "allow-overwrite",
+    ]);
+    assert_common_safety_flags(&marker_write_json);
+    assert_json_field_false(&marker_write_json, "workspace_created");
+    assert_json_field_false(&marker_write_json, "manifest_written");
+    assert_json_field_false(&marker_write_json, "upstream_vortex_write_called");
     assert!(marker_path.exists());
-    assert!(draft_path.exists());
-    assert!(!workspace_path_buf.join(".shardloom-output-data").exists());
+
+    let manifest_plan_json = run_shardloom_json(&[
+        "vortex-staged-manifest-file-plan",
+        workspace_path_str,
+        "draft-ready,workspace-known,marker-written,local-workspace",
+    ]);
+    assert_common_safety_flags(&manifest_plan_json);
+    assert!(manifest_plan_json.contains("\"key\":\"manifest_file_written\",\"value\":\"false\""));
+    assert!(manifest_plan_json.contains("\"key\":\"commit_performed\",\"value\":\"false\""));
     assert!(
-        !workspace_path_buf
-            .join(".shardloom-committed-manifest")
-            .exists()
+        manifest_plan_json.contains("\"key\":\"upstream_vortex_write_called\",\"value\":\"false\"")
     );
-    let commit_marker_path = workspace_path_buf.join(".shardloom-commit-marker");
+
+    let manifest_write_json = run_shardloom_json(&[
+        "vortex-staged-manifest-file-write",
+        workspace_path_str,
+        "file-plan-ready,workspace-known,feature-gate-enabled",
+        "allow-overwrite",
+    ]);
+    assert_common_safety_flags(&manifest_write_json);
+    assert_json_field_true(&manifest_write_json, "draft_file_written");
+    assert!(manifest_write_json.contains("\"key\":\"commit_performed\",\"value\":\"false\""));
+    assert!(
+        manifest_write_json
+            .contains("\"key\":\"upstream_vortex_write_called\",\"value\":\"false\"")
+    );
+    assert!(draft_path.exists());
+
+    let commit_intent_json = run_shardloom_json(&[
+        "vortex-commit-intent-plan",
+        target_uri,
+        "commit-requested,staged-manifest-draft-written,manifest-finalization-available,commit-protocol-available,schema-known,schema-compatible,delete-semantics-known,tombstone-semantics-known,recovery-ready,retry-gate-open,cancellation-gate-open,feature-gate-enabled",
+    ]);
+    assert_common_safety_flags(&commit_intent_json);
+    assert_json_field_false(&commit_intent_json, "manifest_finalized");
+    assert_json_field_false(&commit_intent_json, "manifest_committed");
+    assert_json_field_false(&commit_intent_json, "recovery_action_executed");
+    assert_json_field_false(&commit_intent_json, "commit_execution_allowed");
+
+    let commit_protocol_json = run_shardloom_json(&[
+        "vortex-commit-protocol-plan",
+        target_uri,
+        "awaiting-commit-marker",
+        "mark-commit-ready",
+        "commit-intent-ready,draft-manifest-ready,manifest-finalization-available,commit-marker-available,recovery-ready,feature-gate-enabled",
+    ]);
+    assert_common_safety_flags(&commit_protocol_json);
+    assert_json_field_false(&commit_protocol_json, "manifest_finalized");
+    assert_json_field_false(&commit_protocol_json, "manifest_committed");
+    assert_json_field_false(&commit_protocol_json, "commit_marker_written");
+    assert_json_field_false(&commit_protocol_json, "commit_execution_allowed");
+    assert_json_field_false(&commit_protocol_json, "recovery_action_executed");
+
+    let commit_marker_plan_json = run_shardloom_json(&[
+        "vortex-commit-marker-plan",
+        workspace_path_str,
+        "commit-protocol-ready,manifest-finalization-available,local-workspace,feature-gate-enabled",
+    ]);
+    assert_common_safety_flags(&commit_marker_plan_json);
+    assert_json_field_false(&commit_marker_plan_json, "manifest_finalized");
+    assert_json_field_false(&commit_marker_plan_json, "manifest_committed");
+    assert_json_field_false(&commit_marker_plan_json, "commit_marker_written");
+    assert_json_field_false(&commit_marker_plan_json, "recovery_action_executed");
     assert!(!commit_marker_path.exists());
 
-    let commit_marker_ref = VortexCommitMarkerFileRef::default_for_workspace(workspace_path);
-    let commit_marker_content = VortexCommitMarkerContent::new(
-        "shardloom_commit_marker=true\nmanifest_finalized=false\noutput_data_written=false\n",
-    )
-    .unwrap();
-    let commit_marker_write = write_vortex_commit_marker(
-        VortexCommitMarkerWriteRequest::new(commit_marker_ref, commit_marker_content.clone())
-            .marker_plan_ready(true)
-            .feature_gate_ready(true),
-    )
-    .unwrap();
-    assert!(commit_marker_write.commit_marker_written());
-    assert_eq!(
-        fs::read_to_string(&commit_marker_path).unwrap(),
-        commit_marker_content.as_str()
-    );
+    let commit_marker_write_json = run_shardloom_json(&[
+        "vortex-commit-marker-write",
+        workspace_path_str,
+        "commit-protocol-ready,manifest-finalization-available,local-workspace,feature-gate-enabled",
+        "allow-overwrite",
+    ]);
+    assert_common_safety_flags(&commit_marker_write_json);
+    assert_json_field_false(&commit_marker_write_json, "manifest_finalized");
+    assert_json_field_false(&commit_marker_write_json, "manifest_committed");
+    assert_json_field_true(&commit_marker_write_json, "commit_marker_written");
+    assert_json_field_false(&commit_marker_write_json, "recovery_action_executed");
+    assert_json_field_false(&commit_marker_write_json, "upstream_vortex_write_called");
+
+    assert!(workspace_path.exists());
+    assert!(marker_path.exists());
+    assert!(draft_path.exists());
+    assert!(commit_marker_path.exists());
+    assert!(!workspace_path.join(".shardloom-output-data").exists());
     assert!(
-        !workspace_path_buf
+        !workspace_path
             .join(".shardloom-committed-manifest")
             .exists()
     );
-    assert!(!workspace_path_buf.join(".shardloom-output-data").exists());
+    assert!(
+        !workspace_path
+            .join(".shardloom-manifest-finalized")
+            .exists()
+    );
 
-    fs::remove_file(commit_marker_path).unwrap();
-    fs::remove_file(draft_path).unwrap();
-    fs::remove_file(marker_path).unwrap();
-    fs::remove_dir(workspace_path_buf).unwrap();
+    remove_if_exists(&commit_marker_path);
+    remove_if_exists(&draft_path);
+    remove_if_exists(&marker_path);
+    fs::remove_dir(&workspace_path).unwrap();
 }

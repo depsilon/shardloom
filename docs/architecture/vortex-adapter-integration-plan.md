@@ -580,3 +580,9 @@ No spill data movement is implemented in this phase.
 - Upstream Vortex write/read APIs remain feature-gated and isolated.
 - Arrow conversion remains explicit, not default.
 - No fallback engines.
+
+
+## Commit marker smoke test integration
+
+- The staged write-readiness smoke test now verifies the complete local staged chain through commit marker artifact creation using the `ShardLoom` `CLI`.
+- It verifies no manifest finalization, no manifest commit, no output payload writes, no upstream `Vortex` write API calls, no object-store IO, and no fallback execution.
