@@ -315,6 +315,11 @@ impl VortexEncodedReadBoundaryReport {
             || !request.has_signal(VortexEncodedReadBoundarySignal::UpstreamFooterAvailable)
         {
             VortexEncodedReadBoundaryStatus::BlockedByMissingApiSurface
+        } else if !request.has_signal(VortexEncodedReadBoundarySignal::FeatureGateEnabled) {
+            VortexEncodedReadBoundaryStatus::FeatureDisabled
+        } else if !request.has_signal(VortexEncodedReadBoundarySignal::UpstreamScanSurfaceDeferred)
+        {
+            VortexEncodedReadBoundaryStatus::BlockedByScanExecutionRisk
         } else {
             VortexEncodedReadBoundaryStatus::BoundaryReady
         };
@@ -679,11 +684,37 @@ mod tests {
                 .upstream_open_options_available(true)
                 .upstream_footer_available(true)
                 .upstream_metadata_surface_available(true)
-                .upstream_scan_surface_deferred(true),
+                .upstream_scan_surface_deferred(true)
+                .feature_gate_enabled(true),
         )
         .expect("ok");
         assert_eq!(out.status, VortexEncodedReadBoundaryStatus::BoundaryReady);
         assert!(!out.allows_read_execution());
+    }
+    #[test]
+    fn from_request_missing_feature_gate_is_feature_disabled() {
+        let out = VortexEncodedReadBoundaryReport::from_request(
+            VortexEncodedReadBoundaryRequest::new(uri())
+                .upstream_open_options_available(true)
+                .upstream_footer_available(true)
+                .upstream_scan_surface_deferred(true),
+        )
+        .expect("ok");
+        assert_eq!(out.status, VortexEncodedReadBoundaryStatus::FeatureDisabled);
+    }
+    #[test]
+    fn from_request_missing_scan_deferred_blocks() {
+        let out = VortexEncodedReadBoundaryReport::from_request(
+            VortexEncodedReadBoundaryRequest::new(uri())
+                .upstream_open_options_available(true)
+                .upstream_footer_available(true)
+                .feature_gate_enabled(true),
+        )
+        .expect("ok");
+        assert_eq!(
+            out.status,
+            VortexEncodedReadBoundaryStatus::BlockedByScanExecutionRisk
+        );
     }
     #[test]
     fn report_effect_flags_false_and_side_effect_free() {

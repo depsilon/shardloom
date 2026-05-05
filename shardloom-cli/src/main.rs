@@ -42,35 +42,36 @@ use shardloom_vortex::{
     VortexCommitMarkerFileName, VortexCommitMarkerFileRef, VortexCommitMarkerRequest,
     VortexCommitMarkerSignal, VortexCommitMarkerWriteOption, VortexCommitProtocolReport,
     VortexCommitProtocolRequest, VortexCommitProtocolSignal, VortexCommitProtocolState,
-    VortexCommitProtocolTransition, VortexDTypeMappingReport, VortexEncodedReadReadinessStatus,
-    VortexEncodingLayoutMappingReport, VortexExecutionReadinessStatus, VortexFileRef,
-    VortexFinalizedManifestArtifactWriteOption, VortexFinalizedManifestContent,
-    VortexFinalizedManifestFileName, VortexFinalizedManifestFileRef,
-    VortexManifestFinalizationRequest, VortexManifestFinalizationSignal, VortexMetadataOpenRequest,
-    VortexMetadataProbeReport, VortexOutputPayloadContentDescriptor, VortexOutputPayloadFileName,
-    VortexOutputPayloadFileRef, VortexOutputPayloadReport, VortexOutputPayloadRequest,
-    VortexOutputPayloadSignal, VortexReadPlan, VortexStagedManifestDraftContent,
-    VortexStagedManifestFileEffect, VortexStagedManifestFileRef, VortexStagedManifestFileReport,
-    VortexStagedManifestFileRequest, VortexStagedManifestFileSignal,
-    VortexStagedManifestFileWriteEffect, VortexStagedManifestFileWriteOption,
-    VortexStagedManifestFileWriteRequest, VortexStagedManifestFileWriteSignal,
-    VortexStagedMarkerOption, VortexStagedMarkerRequest, VortexStagedWorkspaceId,
-    VortexStagedWorkspacePath, VortexStagedWorkspaceSetupOption, VortexStagedWorkspaceSetupRequest,
-    VortexStatisticsMappingReport, VortexWriteIntentReport, VortexWriteIntentRequest,
-    VortexWriteIntentSignal, VortexWriteOptions, VortexWritePlan, build_vortex_runtime_task_graph,
-    commit_marker_write_request_from_plan, evaluate_vortex_encoded_read_readiness,
-    evaluate_vortex_execution_readiness, evaluate_vortex_query_primitive,
-    execute_vortex_bounded_local_query, execute_vortex_encoded_read_contract,
-    execute_vortex_encoded_read_spike, execute_vortex_local_query_primitive,
-    execute_vortex_metadata_only, finalized_manifest_artifact_write_request_from_plan,
-    metadata_planning_is_side_effect_free, metadata_pruning_is_side_effect_free,
-    metadata_summary_is_plan_only, open_vortex_metadata_only,
+    VortexCommitProtocolTransition, VortexDTypeMappingReport, VortexEncodedReadBoundaryReport,
+    VortexEncodedReadBoundaryRequest, VortexEncodedReadBoundarySignal,
+    VortexEncodedReadReadinessStatus, VortexEncodingLayoutMappingReport,
+    VortexExecutionReadinessStatus, VortexFileRef, VortexFinalizedManifestArtifactWriteOption,
+    VortexFinalizedManifestContent, VortexFinalizedManifestFileName,
+    VortexFinalizedManifestFileRef, VortexManifestFinalizationRequest,
+    VortexManifestFinalizationSignal, VortexMetadataOpenRequest, VortexMetadataProbeReport,
+    VortexOutputPayloadContentDescriptor, VortexOutputPayloadFileName, VortexOutputPayloadFileRef,
+    VortexOutputPayloadReport, VortexOutputPayloadRequest, VortexOutputPayloadSignal,
+    VortexReadPlan, VortexStagedManifestDraftContent, VortexStagedManifestFileEffect,
+    VortexStagedManifestFileRef, VortexStagedManifestFileReport, VortexStagedManifestFileRequest,
+    VortexStagedManifestFileSignal, VortexStagedManifestFileWriteEffect,
+    VortexStagedManifestFileWriteOption, VortexStagedManifestFileWriteRequest,
+    VortexStagedManifestFileWriteSignal, VortexStagedMarkerOption, VortexStagedMarkerRequest,
+    VortexStagedWorkspaceId, VortexStagedWorkspacePath, VortexStagedWorkspaceSetupOption,
+    VortexStagedWorkspaceSetupRequest, VortexStatisticsMappingReport, VortexWriteIntentReport,
+    VortexWriteIntentRequest, VortexWriteIntentSignal, VortexWriteOptions, VortexWritePlan,
+    build_vortex_runtime_task_graph, commit_marker_write_request_from_plan,
+    evaluate_vortex_encoded_read_readiness, evaluate_vortex_execution_readiness,
+    evaluate_vortex_query_primitive, execute_vortex_bounded_local_query,
+    execute_vortex_encoded_read_contract, execute_vortex_encoded_read_spike,
+    execute_vortex_local_query_primitive, execute_vortex_metadata_only,
+    finalized_manifest_artifact_write_request_from_plan, metadata_planning_is_side_effect_free,
+    metadata_pruning_is_side_effect_free, metadata_summary_is_plan_only, open_vortex_metadata_only,
     output_payload_artifact_write_request_from_plan, parse_vortex_local_engine_primitive,
     plan_from_vortex_metadata_summary, plan_native_vortex_universal_input,
     plan_vortex_commit_intent, plan_vortex_commit_marker, plan_vortex_commit_protocol,
-    plan_vortex_encoded_read_probe, plan_vortex_manifest_finalization, plan_vortex_memory_safety,
-    plan_vortex_metadata_pruning, plan_vortex_output_payload,
-    plan_vortex_read_from_universal_input, plan_vortex_scheduler_queue,
+    plan_vortex_encoded_read_boundary, plan_vortex_encoded_read_probe,
+    plan_vortex_manifest_finalization, plan_vortex_memory_safety, plan_vortex_metadata_pruning,
+    plan_vortex_output_payload, plan_vortex_read_from_universal_input, plan_vortex_scheduler_queue,
     plan_vortex_staged_manifest_file, plan_vortex_write_intent, probe_vortex_metadata_only,
     run_vortex_local_engine, setup_vortex_staged_workspace, size_vortex_runtime_task_graph,
     summarize_vortex_metadata_probe, vortex_encoded_read_executor_feature_enabled,
@@ -94,7 +95,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -140,6 +141,111 @@ fn parse_vortex_output_payload_signals(
         }
     }
     Ok(signals)
+}
+
+fn parse_vortex_encoded_read_boundary_signals(
+    signals_raw: &str,
+) -> Result<Vec<VortexEncodedReadBoundarySignal>, ShardLoomError> {
+    if signals_raw.trim().is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "encoded read boundary signals must not be empty".to_string(),
+        ));
+    }
+    let mut signals = Vec::new();
+    for token in signals_raw.split(',') {
+        let token = token.trim();
+        if token.is_empty() {
+            return Err(ShardLoomError::InvalidOperation(
+                "encoded read boundary signals must not contain empty tokens".to_string(),
+            ));
+        }
+        let signal = match token {
+            "upstream-open-options-available" => {
+                VortexEncodedReadBoundarySignal::UpstreamOpenOptionsAvailable
+            }
+            "upstream-footer-available" => VortexEncodedReadBoundarySignal::UpstreamFooterAvailable,
+            "upstream-metadata-surface-available" => {
+                VortexEncodedReadBoundarySignal::UpstreamMetadataSurfaceAvailable
+            }
+            "upstream-scan-surface-deferred" => {
+                VortexEncodedReadBoundarySignal::UpstreamScanSurfaceDeferred
+            }
+            "local-path-only" => VortexEncodedReadBoundarySignal::LocalPathOnly,
+            "object-store-target" => VortexEncodedReadBoundarySignal::ObjectStoreTarget,
+            "decode-risk" => VortexEncodedReadBoundarySignal::DecodeRisk,
+            "materialization-risk" => VortexEncodedReadBoundarySignal::MaterializationRisk,
+            "arrow-default-risk" => VortexEncodedReadBoundarySignal::ArrowDefaultRisk,
+            "write-risk" => VortexEncodedReadBoundarySignal::WriteRisk,
+            "feature-gate-enabled" => VortexEncodedReadBoundarySignal::FeatureGateEnabled,
+            _ => {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "unknown encoded read boundary signal token: {token}"
+                )));
+            }
+        };
+        if !signals.contains(&signal) {
+            signals.push(signal);
+        }
+    }
+    Ok(signals)
+}
+
+fn vortex_encoded_read_boundary_fields(
+    report: &VortexEncodedReadBoundaryReport,
+) -> Vec<(String, String)> {
+    vec![
+        (
+            "fallback_execution_allowed".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "mode".to_string(),
+            "vortex_encoded_read_boundary".to_string(),
+        ),
+        (
+            "upstream_open_options_available".to_string(),
+            report.upstream_open_options_available().to_string(),
+        ),
+        (
+            "upstream_footer_available".to_string(),
+            report.upstream_footer_available().to_string(),
+        ),
+        (
+            "upstream_metadata_surface_available".to_string(),
+            report.upstream_metadata_surface_available().to_string(),
+        ),
+        (
+            "upstream_scan_surface_deferred".to_string(),
+            report.upstream_scan_surface_deferred().to_string(),
+        ),
+        (
+            "local_path_only".to_string(),
+            report.local_path_only().to_string(),
+        ),
+        (
+            "object_store_target".to_string(),
+            report.object_store_target().to_string(),
+        ),
+        ("decode_risk".to_string(), report.decode_risk().to_string()),
+        (
+            "materialization_risk".to_string(),
+            report.materialization_risk().to_string(),
+        ),
+        (
+            "arrow_default_risk".to_string(),
+            report.arrow_default_risk().to_string(),
+        ),
+        ("write_risk".to_string(), report.write_risk().to_string()),
+        ("data_read".to_string(), "false".to_string()),
+        ("array_decoded".to_string(), "false".to_string()),
+        ("values_materialized".to_string(), "false".to_string()),
+        ("arrow_converted".to_string(), "false".to_string()),
+        ("object_store_io".to_string(), "false".to_string()),
+        ("data_written".to_string(), "false".to_string()),
+        ("upstream_scan_called".to_string(), "false".to_string()),
+        ("read_execution_allowed".to_string(), "false".to_string()),
+        ("execution".to_string(), "not_performed".to_string()),
+    ]
 }
 fn parse_vortex_output_payload_artifact_write_options(
     options_raw: &str,
@@ -6263,6 +6369,72 @@ fn run(args: Vec<String>) -> ExitCode {
                 ExitCode::SUCCESS
             }
         }
+        Some("vortex-encoded-read-boundary") => {
+            let command = "vortex-encoded-read-boundary";
+            let Some(target_uri) = args.next() else {
+                eprintln!("usage: shardloom {command} <target_uri> <signals>");
+                return ExitCode::from(2);
+            };
+            let Some(signals_raw) = args.next() else {
+                eprintln!("usage: shardloom {command} <target_uri> <signals>");
+                return ExitCode::from(2);
+            };
+            let target_uri = match DatasetUri::new(target_uri) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        command,
+                        format,
+                        "vortex encoded-read boundary failed",
+                        &error,
+                    );
+                }
+            };
+            let signals = match parse_vortex_encoded_read_boundary_signals(&signals_raw) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        command,
+                        format,
+                        "vortex encoded-read boundary failed",
+                        &error,
+                    );
+                }
+            };
+            let mut request = VortexEncodedReadBoundaryRequest::new(target_uri);
+            for signal in signals {
+                request.add_signal(signal);
+            }
+            let report = match plan_vortex_encoded_read_boundary(request) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        command,
+                        format,
+                        "vortex encoded-read boundary failed",
+                        &error,
+                    );
+                }
+            };
+            emit(
+                command,
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "vortex encoded-read boundary report".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                vortex_encoded_read_boundary_fields(&report),
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
         Some("vortex-encoded-read-readiness") => {
             let command = "vortex-encoded-read-readiness";
             let Some(dataset_uri) = args.next() else {
@@ -8701,6 +8873,88 @@ mod tests {
             "commit-requested,object-store-target".to_string(),
         ]);
         assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_encoded_read_boundary_ready_signals_returns_success() {
+        let code = run(vec![
+            "vortex-encoded-read-boundary".to_string(),
+            "file:///tmp/example.vortex".to_string(),
+            "upstream-open-options-available,upstream-footer-available,upstream-metadata-surface-available,upstream-scan-surface-deferred,local-path-only,feature-gate-enabled".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_encoded_read_boundary_missing_target_uri_returns_non_zero() {
+        let code = run(vec!["vortex-encoded-read-boundary".to_string()]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_encoded_read_boundary_missing_signals_returns_non_zero() {
+        let code = run(vec![
+            "vortex-encoded-read-boundary".to_string(),
+            "file:///tmp/example.vortex".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_encoded_read_boundary_unknown_signal_returns_non_zero() {
+        let code = run(vec![
+            "vortex-encoded-read-boundary".to_string(),
+            "file:///tmp/example.vortex".to_string(),
+            "upstream-open-options-available,unknown".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_encoded_read_boundary_blocking_signals_return_non_zero() {
+        for signals in [
+            "upstream-open-options-available,upstream-footer-available,object-store-target,feature-gate-enabled",
+            "upstream-open-options-available,upstream-footer-available,decode-risk",
+            "upstream-open-options-available,upstream-footer-available,materialization-risk",
+            "upstream-open-options-available,upstream-footer-available,arrow-default-risk",
+        ] {
+            let code = run(vec![
+                "vortex-encoded-read-boundary".to_string(),
+                "file:///tmp/example.vortex".to_string(),
+                signals.to_string(),
+            ]);
+            assert_ne!(code, ExitCode::SUCCESS);
+        }
+    }
+
+    #[test]
+    fn parse_vortex_encoded_read_boundary_signals_dedup_and_trim() {
+        let parsed = parse_vortex_encoded_read_boundary_signals(
+            " upstream-open-options-available , upstream-footer-available , upstream-footer-available ",
+        )
+        .expect("parse signals");
+        assert_eq!(parsed.len(), 2);
+    }
+
+    #[test]
+    fn vortex_encoded_read_boundary_fields_include_required_no_exec_flags() {
+        let mut request = VortexEncodedReadBoundaryRequest::new(
+            DatasetUri::new("file:///tmp/example.vortex").expect("uri"),
+        );
+        request.add_signal(VortexEncodedReadBoundarySignal::UpstreamOpenOptionsAvailable);
+        request.add_signal(VortexEncodedReadBoundarySignal::UpstreamFooterAvailable);
+        let report = plan_vortex_encoded_read_boundary(request).expect("report");
+        let fields = vortex_encoded_read_boundary_fields(&report);
+        assert!(fields.contains(&(
+            "fallback_execution_allowed".to_string(),
+            "false".to_string(),
+        )));
+        assert!(fields.contains(&("data_read".to_string(), "false".to_string())));
+        assert!(fields.contains(&("array_decoded".to_string(), "false".to_string())));
+        assert!(fields.contains(&("values_materialized".to_string(), "false".to_string(),)));
+        assert!(fields.contains(&("arrow_converted".to_string(), "false".to_string())));
+        assert!(fields.contains(&("object_store_io".to_string(), "false".to_string())));
+        assert!(fields.contains(&("upstream_scan_called".to_string(), "false".to_string(),)));
     }
     #[test]
     fn vortex_commit_protocol_plan_validate_intent_ready_returns_success() {

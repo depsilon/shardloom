@@ -581,6 +581,14 @@ No spill data movement is implemented in this phase.
 - Arrow conversion remains explicit, not default.
 - No fallback engines.
 
+## Encoded read boundary `CLI` (CG-1.1b)
+
+- `shardloom vortex-encoded-read-boundary <target_uri> <signals>` is report-only and side-effect-free.
+- It builds a `VortexEncodedReadBoundaryRequest` from `DatasetUri` plus explicit boundary signals and returns a `VortexEncodedReadBoundaryReport`.
+- Boundary signals model upstream open/options/footer/metadata surfaces.
+- Upstream scan/read-start surfaces remain deferred and are represented as boundary inputs only.
+- The command performs no data reads, no decode, no materialization, no `Arrow` conversion, no object-store IO, and no fallback execution.
+
 ## Commit marker smoke test integration
 
 - The staged write-readiness smoke test now verifies the complete local staged chain through commit marker artifact creation using the `ShardLoom` `CLI`.
