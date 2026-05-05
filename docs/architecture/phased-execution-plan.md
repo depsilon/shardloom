@@ -31,10 +31,17 @@
    - encoded-first selection vectors
    - decode only when explicitly allowed
 3. Actual output payload write path
-   - local output payload artifact
-   - native Vortex output fidelity
+   - local output payload artifact path complete (readiness/scaffolding only)
+   - real Vortex output payload path planned
+   - native Vortex output fidelity required for CG-3 completion
    - no committed state until commit protocol
    - no object-store writes initially
+   - completion rule: CG-3 remains incomplete until ShardLoom can produce a real Vortex-native output payload for at least one supported workload through a feature-gated, no-fallback execution path
+   - local placeholder artifacts are readiness artifacts only and must not be counted as actual payload-write completion
+   - the real path must be ShardLoom-owned and write either native Vortex payloads or explicitly approved native Vortex-compatible output
+   - the real path must not call Spark/DataFusion/Polars/DuckDB/Velox as fallback
+   - the real path must not use Arrow conversion as the default execution path
+   - competitive claims still require CG-5 correctness and CG-6 benchmark evidence
 4. Commit protocol execution
    - local-first
    - feature-gated

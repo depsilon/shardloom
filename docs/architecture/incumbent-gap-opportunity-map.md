@@ -263,3 +263,9 @@ Phase 12 begins native `Vortex` write/commit value propositions with safe write-
 
 
 - CG-3 update: Phase 12C.4 extends staged smoke coverage to include local placeholder output payload artifact planning and writing (`vortex-output-payload-plan`, `vortex-output-payload-artifact-write`) under feature gating. Real `Vortex` payload writing, correctness expansion, and benchmark claims remain future work.
+
+## Competitive gate clarification
+
+- Placeholder output payload artifacts are not competitive output and do not complete CG-3.
+- Real payload writes plus correctness (CG-5) and benchmarks (CG-6) remain required before competitive claims.
+- External engines remain baseline/comparison oracles only and are never runtime fallback.

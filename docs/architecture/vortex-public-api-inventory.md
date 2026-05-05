@@ -29,7 +29,7 @@ This document records upstream `vortex` public APIs inspected for ShardLoom adap
 - Public API names discovered: not confirmed yet.
 - Use now: no.
 - Stability: not confirmed yet.
-- Adapter support: deferred.
+- Adapter support: deferred (real payload write path remains future, feature-gated, and explicitly approved).
 - Risks: coupling to internal array APIs.
 
 ### Encoding APIs
@@ -530,3 +530,10 @@ This update does not introduce scans, decode, materialization, writes, object-st
 
 - Output payload artifact writing is `ShardLoom`-native and does not use upstream `Vortex` write APIs.
 - Upstream `Vortex` write APIs for real payload writes remain deferred.
+
+
+## CG-3 clarification
+
+- Local placeholder artifact write paths are not real Vortex payload write paths.
+- Upstream Vortex write APIs remain deferred in current phases.
+- A future real payload write path must be feature-gated and explicitly approved before CG-3 can be treated as complete.

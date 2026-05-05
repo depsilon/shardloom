@@ -49,6 +49,15 @@ Competitive success gates (CG) are roadmap gates, not canonical phase-ID aliases
 
 Spark, DataFusion, Polars, DuckDB, Velox, and vortex-datafusion may be used only as external baselines for correctness/differential checks and benchmarks. They must never execute ShardLoom runtime paths as fallback engines.
 
+
+## CG-3 completion clarification
+
+- Placeholder/local output payload artifacts are scaffolding and readiness evidence only.
+- CG-3 is not complete until at least one real executable Vortex-native output payload write path exists for a supported workload.
+- The real CG-3 path must be feature-gated, ShardLoom-owned, and no-fallback.
+- Arrow conversion must not become the default execution path for CG-3 completion.
+- Competitive claims remain disallowed until CG-5 correctness and CG-6 benchmarks are satisfied.
+
 ## Success criteria
 
 - Competitive gates CG-1 through CG-18 remain visible and complete in planning artifacts.
