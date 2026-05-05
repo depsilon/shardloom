@@ -263,6 +263,7 @@ Phase 12 begins native `Vortex` write/commit value propositions with safe write-
 
 
 - CG-3 update: Phase 12C.4 extends staged smoke coverage to include local placeholder output payload artifact planning and writing (`vortex-output-payload-plan`, `vortex-output-payload-artifact-write`) under feature gating. Real `Vortex` payload writing, correctness expansion, and benchmark claims remain future work.
+- CG-1.1b now exposes encoded-read boundary modeling through `CLI` integration, but remains non-executing and report-only until CG-1.2 real encoded read fixtures.
 
 ## Competitive gate clarification
 

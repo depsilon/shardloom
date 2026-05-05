@@ -1057,12 +1057,16 @@ Entry criteria for the next implementation phase:
 - feature-gated local encoded read fixture
 - no broad row materialization
 - no Arrow-default conversion
+- CG-1.1a encoded read boundary core contract: complete
+- CG-1.1b encoded read boundary `CLI`/docs integration: current
+- CG-1.2 actual encoded read fixture: planned
 
 ### CG-2 — Real query primitive execution over actual Vortex data
 - count
 - filtered count
 - projection
 - predicate/filter primitive
+- CG-2.1 initial real query primitive execution: planned
 
 ### CG-3 — Actual output payload write path
 - local placeholder artifact path complete

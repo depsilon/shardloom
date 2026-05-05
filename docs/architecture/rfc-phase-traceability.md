@@ -138,6 +138,9 @@ Status categories:
 
 Competitive gate coverage:
 - CG-1: encoded read boundary and real encoded reads
+  - CG-1.1a encoded read boundary core contract: complete
+  - CG-1.1b encoded read boundary `CLI`/docs integration: current
+  - CG-1.2 actual encoded read fixture: planned
 - CG-2: real query primitive execution over Vortex data
 - CG-3: output payload write path (placeholder artifact phases support readiness only; completion requires real executable Vortex payload writes with evidence)
 - CG-4: commit protocol execution
@@ -188,4 +191,5 @@ No fallback execution.
 
 - Phase 12C placeholder output payload artifact work supports CG-3 readiness only; it does not complete CG-3.
 - CG-3 completion requires a real Vortex output payload write implementation plus evidence.
+- RFC 0026 supports CG-1.1 encoded read boundary sequencing.
 - Competitive claims still require CG-5 correctness and CG-6 benchmarks before any “beats Spark/Polars/DataFusion” statement.

@@ -495,6 +495,8 @@ This update does not introduce scans, decode, materialization, writes, object-st
 
 - Upstream Vortex write/read APIs must remain feature-gated.
 - No upstream API should be called if it implies row materialization, Arrow conversion, object-store IO, or write execution without explicit feature gate.
+- The encoded-read boundary `CLI` can model open/options/footer/metadata boundary surfaces through `VortexEncodedReadBoundaryRequest`.
+- Scan/data traversal APIs remain deferred until CG-1.2+ and must stay feature-gated.
 
 ## Competitive Engine Track API alignment
 
