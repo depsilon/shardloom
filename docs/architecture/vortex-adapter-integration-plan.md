@@ -629,3 +629,7 @@ The local commit execution gate is report-only in this phase. It requires commit
 - It does not call upstream `Vortex` write APIs.
 - It does not perform object-store operations.
 - Local output payload artifact writing remains Phase 12C.2.
+
+## Feature-gated local output payload artifact
+
+Output payload artifact writing is feature-gated. In this phase it writes only a local placeholder output payload artifact and is not a real `Vortex` payload. It does not call upstream `Vortex` write APIs, does not write manifests, does not commit manifests, and does not perform object-store IO. Real native `Vortex` output payload writing remains future work.
