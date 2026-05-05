@@ -587,6 +587,9 @@ fn derive_status(request: &VortexCommitMarkerRequest) -> VortexCommitMarkerStatu
     {
         return VortexCommitMarkerStatus::BlockedByManifestFinalization;
     }
+    if !request.has_signal(VortexCommitMarkerSignal::FeatureGateEnabled) {
+        return VortexCommitMarkerStatus::BlockedByFeatureGate;
+    }
     VortexCommitMarkerStatus::MarkerReady
 }
 
@@ -615,11 +618,15 @@ pub fn commit_marker_request_from_protocol_report(
         .with_protocol_summary(protocol.to_human_text())
         .manifest_finalization_available(protocol.manifest_finalization_available())
         .object_store_target(protocol.object_store_target());
+    let waiting_for_commit_marker = protocol.status
+        == VortexCommitProtocolStatus::BlockedByCommitMarker
+        && protocol.request.transition.requires_commit_marker();
     let ready = protocol.next_state() == VortexCommitProtocolState::CommitReady
+        || waiting_for_commit_marker
         || (protocol.status == VortexCommitProtocolStatus::TransitionAllowed
             && protocol.request.transition == VortexCommitProtocolTransition::MarkCommitReady);
     request = request.commit_protocol_ready(ready);
-    request = request.commit_protocol_blocked(protocol.has_errors());
+    request = request.commit_protocol_blocked(protocol.has_errors() && !waiting_for_commit_marker);
     if workspace_path_string.starts_with('/') || workspace_path_string.starts_with('.') {
         request = request.local_workspace(true);
     }
@@ -703,6 +710,14 @@ mod tests {
                 .manifest_finalization_available(true),
         )
         .unwrap();
+        assert_eq!(rep.status, VortexCommitMarkerStatus::BlockedByFeatureGate);
+        let rep = VortexCommitMarkerReport::from_request(
+            base_req()
+                .commit_protocol_ready(true)
+                .manifest_finalization_available(true)
+                .feature_gate_enabled(true),
+        )
+        .unwrap();
         assert_eq!(rep.status, VortexCommitMarkerStatus::MarkerReady);
         assert!(!rep.allows_marker_write());
         assert!(!rep.commit_marker_written());
@@ -725,7 +740,8 @@ mod tests {
     fn helper_and_protocol_mapping() {
         let req = base_req()
             .commit_protocol_ready(true)
-            .manifest_finalization_available(true);
+            .manifest_finalization_available(true)
+            .feature_gate_enabled(true);
         let _ = plan_vortex_commit_marker(req).unwrap();
         let uri = DatasetUri::new("file://tmp/a").unwrap();
         let protocol = plan_vortex_commit_protocol(
@@ -759,6 +775,32 @@ mod tests {
         )
         .unwrap();
         assert!(mapped2.has_signal(VortexCommitMarkerSignal::CommitProtocolBlocked));
+        let waiting = plan_vortex_commit_protocol(
+            VortexCommitProtocolRequest::new(
+                DatasetUri::new("file://tmp/b").unwrap(),
+                VortexCommitProtocolState::AwaitingCommitMarker,
+                VortexCommitProtocolTransition::PrepareCommitMarker,
+            )
+            .commit_intent_ready(true)
+            .recovery_ready(true)
+            .manifest_finalization_available(true),
+        )
+        .unwrap();
+        assert_eq!(
+            waiting.status,
+            VortexCommitProtocolStatus::BlockedByCommitMarker
+        );
+        let mapped_waiting = commit_marker_request_from_protocol_report(
+            VortexStagedWorkspacePath::new("/tmp/w").unwrap(),
+            &waiting,
+        )
+        .unwrap();
+        assert!(mapped_waiting.has_signal(VortexCommitMarkerSignal::CommitProtocolReady));
+        assert!(!mapped_waiting.has_signal(VortexCommitMarkerSignal::CommitProtocolBlocked));
+        assert_eq!(
+            plan_vortex_commit_marker(mapped_waiting).unwrap().status,
+            VortexCommitMarkerStatus::BlockedByFeatureGate
+        );
         let rep = plan_vortex_commit_marker(mapped).unwrap();
         assert!(!rep.commit_marker_written());
     }
