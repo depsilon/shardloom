@@ -25,6 +25,7 @@ pub mod commit_protocol;
 pub mod encoded_read_api;
 pub mod encoded_read_boundary;
 pub mod encoded_read_executor;
+pub mod encoded_read_fixture;
 pub mod encoded_read_probe;
 pub mod encoded_read_readiness;
 pub mod execution_readiness;
@@ -84,6 +85,14 @@ pub use encoded_read_boundary::{
     VortexEncodedReadBoundarySignal, VortexEncodedReadBoundaryStatus,
     plan_vortex_encoded_read_boundary, vortex_encoded_read_boundary_is_side_effect_free,
 };
+pub use encoded_read_fixture::{
+    VortexEncodedReadFixtureEffect, VortexEncodedReadFixtureMode, VortexEncodedReadFixtureRef,
+    VortexEncodedReadFixtureReport, VortexEncodedReadFixtureRequest,
+    VortexEncodedReadFixtureSignal, VortexEncodedReadFixtureStatus,
+    encoded_read_fixture_request_from_boundary_report, plan_vortex_encoded_read_fixture,
+    vortex_encoded_read_fixture_is_side_effect_free,
+};
+
 pub use encoded_read_executor::{
     VortexEncodedReadExecutionDecision, VortexEncodedReadExecutionDecisionKind,
     VortexEncodedReadExecutionInput, VortexEncodedReadExecutionMode,
