@@ -3738,7 +3738,10 @@ fn run(args: Vec<String>) -> ExitCode {
                     ),
                     (
                         "checksum".to_string(),
-                        write_report.checksum.unwrap_or_default().to_string(),
+                        write_report
+                            .checksum
+                            .map(|checksum| checksum.to_string())
+                            .unwrap_or_else(|| "none".to_string()),
                     ),
                     (
                         "execution".to_string(),
@@ -7687,6 +7690,14 @@ mod tests {
         handle.join().expect("join test thread");
     }
 
+    fn run_with_larger_stack(test_name: &str, args: Vec<String>) -> ExitCode {
+        let (sender, receiver) = std::sync::mpsc::channel();
+        run_test_with_larger_stack(test_name, move || {
+            let _ = sender.send(run(args));
+        });
+        receiver.recv().expect("receive test exit code")
+    }
+
     #[test]
     fn explain_unsupported_returns_non_zero() {
         let code = run(vec!["explain".to_string(), "demo-op".to_string()]);
@@ -8766,42 +8777,40 @@ mod tests {
 
     #[test]
     fn cancellation_gate_plan_missing_signals_returns_non_zero() {
-        let code = run(vec!["cancellation-gate-plan".to_string()]);
+        let code = run_with_larger_stack(
+            "cancellation-gate-plan-missing-signals",
+            vec!["cancellation-gate-plan".to_string()],
+        );
         assert_ne!(code, ExitCode::SUCCESS);
     }
 
     #[test]
     fn cancellation_gate_plan_whitespace_only_signals_returns_non_zero() {
-        let code = run(vec![
-            "cancellation-gate-plan".to_string(),
-            "   ".to_string(),
-        ]);
+        let code = run_with_larger_stack(
+            "cancellation-gate-plan-whitespace-only-signals",
+            vec!["cancellation-gate-plan".to_string(), "   ".to_string()],
+        );
         assert_ne!(code, ExitCode::SUCCESS);
     }
 
     #[test]
     fn cancellation_gate_plan_unknown_signal_returns_non_zero() {
-        let code = run(vec![
-            "cancellation-gate-plan".to_string(),
-            "unknown".to_string(),
-        ]);
+        let code = run_with_larger_stack(
+            "cancellation-gate-plan-unknown-signal",
+            vec!["cancellation-gate-plan".to_string(), "unknown".to_string()],
+        );
         assert_ne!(code, ExitCode::SUCCESS);
     }
 
     #[test]
     fn cancellation_gate_plan_requested_returns_success() {
-        let code = std::thread::Builder::new()
-            .name("cancellation_gate_plan_requested_returns_success".to_string())
-            .stack_size(8 * 1024 * 1024)
-            .spawn(|| {
-                run(vec![
-                    "cancellation-gate-plan".to_string(),
-                    "cancellation-requested".to_string(),
-                ])
-            })
-            .expect("spawn cancellation gate test")
-            .join()
-            .expect("join cancellation gate test");
+        let code = run_with_larger_stack(
+            "cancellation-gate-plan-requested",
+            vec![
+                "cancellation-gate-plan".to_string(),
+                "cancellation-requested".to_string(),
+            ],
+        );
         assert_eq!(code, ExitCode::SUCCESS);
     }
 
