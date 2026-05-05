@@ -23,6 +23,7 @@ pub mod commit_intent;
 pub mod commit_marker;
 pub mod commit_protocol;
 pub mod encoded_read_api;
+pub mod encoded_read_boundary;
 pub mod encoded_read_executor;
 pub mod encoded_read_probe;
 pub mod encoded_read_readiness;
@@ -76,6 +77,12 @@ pub use encoded_read_api::{
     VortexEncodedReadApiBoundaryStatus, VortexEncodedReadApiItem, VortexEncodedReadApiRisk,
     VortexEncodedReadApiStatus, vortex_encoded_read_api_allows_future_probe,
     vortex_encoded_read_public_api_boundary,
+};
+pub use encoded_read_boundary::{
+    VortexEncodedReadBoundaryEffect, VortexEncodedReadBoundaryMode,
+    VortexEncodedReadBoundaryReport, VortexEncodedReadBoundaryRequest,
+    VortexEncodedReadBoundarySignal, VortexEncodedReadBoundaryStatus,
+    plan_vortex_encoded_read_boundary, vortex_encoded_read_boundary_is_side_effect_free,
 };
 pub use encoded_read_executor::{
     VortexEncodedReadExecutionDecision, VortexEncodedReadExecutionDecisionKind,
