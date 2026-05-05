@@ -268,4 +268,4 @@ Phase 12 begins native `Vortex` write/commit value propositions with safe write-
 - Real `Vortex` payload writing, correctness evidence, and benchmarks remain future work.
 
 
-- CG-3 update: Phase 12C.3b exposes a CLI path for local placeholder output payload artifact writes (`vortex-output-payload-artifact-write`) under feature gating. Real `Vortex` payload writing, correctness expansion, and benchmark claims remain future work.
+- CG-3 update: Phase 12C.4 extends staged smoke coverage to include local placeholder output payload artifact planning and writing (`vortex-output-payload-plan`, `vortex-output-payload-artifact-write`) under feature gating. Real `Vortex` payload writing, correctness expansion, and benchmark claims remain future work.

@@ -518,7 +518,7 @@ This update does not introduce scans, decode, materialization, writes, object-st
 
 - Local commit execution gate is `ShardLoom`-native and report-only in Phase 12B.6.
 - Upstream `Vortex` write APIs remain deferred from this gate.
-- Output payload plan CLI is `ShardLoom`-native in Phase 12C.3a (complete) and remains report-only. Output payload artifact write CLI is `ShardLoom`-native in Phase 12C.3b (current), while real upstream `Vortex` write APIs remain deferred.
+- Output payload plan CLI is `ShardLoom`-native in Phase 12C.3a (complete) and remains report-only. Output payload artifact write CLI is `ShardLoom`-native in Phase 12C.3b (complete). Phase 12C.4 keeps the staged smoke test `ShardLoom`-native while real upstream `Vortex` write APIs remain deferred.
 
 
 - Output payload contract is `ShardLoom`-native and report-only.

@@ -8,8 +8,8 @@ use std::{
 };
 
 use shardloom_vortex::{
-    VortexCommitMarkerFileRef, VortexStagedManifestFileRef, VortexStagedMarkerRequest,
-    VortexStagedWorkspaceId, VortexStagedWorkspacePath,
+    VortexCommitMarkerFileRef, VortexOutputPayloadFileName, VortexStagedManifestFileRef,
+    VortexStagedMarkerRequest, VortexStagedWorkspaceId, VortexStagedWorkspacePath,
 };
 
 fn unique_workspace_path() -> PathBuf {
@@ -50,8 +50,7 @@ fn assert_json_field(output: &str, key: &str, value: &str) {
     let pair_pattern = format!("\"key\":\"{key}\",\"value\":\"{value}\"");
     assert!(
         output.contains(&pair_pattern),
-        "expected JSON output to contain key/value pair {key:?}={value:?}; output:
-{output}"
+        "expected JSON output to contain key/value pair {key:?}={value:?}; output:\n{output}"
     );
 }
 
@@ -95,10 +94,14 @@ fn staged_write_readiness_local_smoke_test() {
             .as_str(),
     );
     let commit_marker_path = workspace_path.join(
-        VortexCommitMarkerFileRef::default_for_workspace(workspace_path_ref)
+        VortexCommitMarkerFileRef::default_for_workspace(workspace_path_ref.clone())
             .file_name()
             .as_str(),
     );
+    let finalized_manifest_candidate_path =
+        workspace_path.join("_shardloom_finalized_manifest.json");
+    let output_payload_artifact_path =
+        workspace_path.join(VortexOutputPayloadFileName::default_payload().as_str());
 
     let setup_json = run_shardloom_json(&[
         "vortex-staged-workspace-setup",
@@ -129,11 +132,9 @@ fn staged_write_readiness_local_smoke_test() {
         "draft-ready,workspace-known,marker-written,local-workspace",
     ]);
     assert_common_safety_flags(&manifest_plan_json);
-    assert!(manifest_plan_json.contains("\"key\":\"manifest_file_written\",\"value\":\"false\""));
-    assert!(manifest_plan_json.contains("\"key\":\"commit_performed\",\"value\":\"false\""));
-    assert!(
-        manifest_plan_json.contains("\"key\":\"upstream_vortex_write_called\",\"value\":\"false\"")
-    );
+    assert_json_field_false(&manifest_plan_json, "manifest_file_written");
+    assert_json_field_false(&manifest_plan_json, "commit_performed");
+    assert_json_field_false(&manifest_plan_json, "upstream_vortex_write_called");
 
     let manifest_write_json = run_shardloom_json(&[
         "vortex-staged-manifest-file-write",
@@ -143,11 +144,8 @@ fn staged_write_readiness_local_smoke_test() {
     ]);
     assert_common_safety_flags(&manifest_write_json);
     assert_json_field_true(&manifest_write_json, "draft_file_written");
-    assert!(manifest_write_json.contains("\"key\":\"commit_performed\",\"value\":\"false\""));
-    assert!(
-        manifest_write_json
-            .contains("\"key\":\"upstream_vortex_write_called\",\"value\":\"false\"")
-    );
+    assert_json_field_false(&manifest_write_json, "commit_performed");
+    assert_json_field_false(&manifest_write_json, "upstream_vortex_write_called");
     assert!(draft_path.exists());
 
     let commit_intent_json = run_shardloom_json(&[
@@ -200,11 +198,89 @@ fn staged_write_readiness_local_smoke_test() {
     assert_json_field_false(&commit_marker_write_json, "recovery_action_executed");
     assert_json_field_false(&commit_marker_write_json, "upstream_vortex_write_called");
 
+    let finalization_plan_json = run_shardloom_json(&[
+        "vortex-manifest-finalization-plan",
+        target_uri,
+        workspace_path_str,
+        "draft-manifest-written,commit-marker-written,commit-protocol-ready,schema-known,schema-compatible,delete-semantics-known,tombstone-semantics-known,local-workspace,feature-gate-enabled",
+    ]);
+    assert_common_safety_flags(&finalization_plan_json);
+    assert_json_field_false(&finalization_plan_json, "finalized_manifest_written");
+    assert_json_field_false(&finalization_plan_json, "manifest_committed");
+    assert_json_field_false(&finalization_plan_json, "upstream_vortex_write_called");
+
+    let finalization_write_json = run_shardloom_json(&[
+        "vortex-finalized-manifest-artifact-write",
+        target_uri,
+        workspace_path_str,
+        "draft-manifest-written,commit-marker-written,commit-protocol-ready,schema-known,schema-compatible,delete-semantics-known,tombstone-semantics-known,local-workspace,feature-gate-enabled",
+        "allow-overwrite",
+    ]);
+    assert_common_safety_flags(&finalization_write_json);
+    assert_json_field_true(
+        &finalization_write_json,
+        "finalized_manifest_artifact_written",
+    );
+    assert_json_field_true(&finalization_write_json, "finalized_manifest_written");
+    assert_json_field_false(&finalization_write_json, "manifest_committed");
+    assert_json_field_false(&finalization_write_json, "upstream_vortex_write_called");
+    assert!(finalized_manifest_candidate_path.exists());
+
+    let output_payload_plan_json = run_shardloom_json(&[
+        "vortex-output-payload-plan",
+        target_uri,
+        workspace_path_str,
+        "write-intent-ready,staged-output-ready,finalized-manifest-ready,payload-content-available,local-workspace,feature-gate-enabled",
+    ]);
+    assert_json_field_false(&output_payload_plan_json, "fallback_execution_allowed");
+    assert_json_field_false(&output_payload_plan_json, "output_payload_written");
+    assert_json_field_false(&output_payload_plan_json, "vortex_file_written");
+    assert_json_field_false(&output_payload_plan_json, "manifest_written");
+    assert_json_field_false(&output_payload_plan_json, "manifest_committed");
+    assert_json_field_false(&output_payload_plan_json, "object_store_io");
+    assert_json_field_false(&output_payload_plan_json, "upstream_vortex_write_called");
+    assert_json_field_false(&output_payload_plan_json, "recovery_action_executed");
+    assert_json_field(&output_payload_plan_json, "execution", "not_performed");
+    assert!(!output_payload_artifact_path.exists());
+
+    let output_payload_write_json = run_shardloom_json(&[
+        "vortex-output-payload-artifact-write",
+        target_uri,
+        workspace_path_str,
+        "write-intent-ready,staged-output-ready,finalized-manifest-ready,payload-content-available,local-workspace,feature-gate-enabled",
+        "allow-overwrite",
+    ]);
+    assert_json_field_true(
+        &output_payload_write_json,
+        "output_payload_artifact_written",
+    );
+    assert_json_field_true(&output_payload_write_json, "output_payload_written");
+    assert_json_field_false(&output_payload_write_json, "vortex_file_written");
+    assert_json_field_false(&output_payload_write_json, "manifest_written");
+    assert_json_field_false(&output_payload_write_json, "manifest_committed");
+    assert_json_field_false(&output_payload_write_json, "object_store_io");
+    assert_json_field_false(&output_payload_write_json, "upstream_vortex_write_called");
+    assert_json_field_false(&output_payload_write_json, "recovery_action_executed");
+    assert_json_field_false(&output_payload_write_json, "fallback_execution_allowed");
+    assert_json_field(
+        &output_payload_write_json,
+        "execution",
+        "output_payload_artifact_write_or_not_performed",
+    );
+
     assert!(workspace_path.exists());
     assert!(marker_path.exists());
     assert!(draft_path.exists());
     assert!(commit_marker_path.exists());
-    assert!(!workspace_path.join(".shardloom-output-data").exists());
+    assert!(finalized_manifest_candidate_path.exists());
+    assert!(output_payload_artifact_path.exists());
+
+    let payload_content = fs::read_to_string(&output_payload_artifact_path).unwrap();
+    assert!(payload_content.contains("shardloom_output_payload_placeholder=true"));
+    assert!(payload_content.contains("real_vortex_payload=false"));
+    assert!(payload_content.contains("upstream_vortex_write_called=false"));
+    assert!(payload_content.contains("fallback_execution_allowed=false"));
+
     assert!(
         !workspace_path
             .join(".shardloom-committed-manifest")
@@ -212,10 +288,13 @@ fn staged_write_readiness_local_smoke_test() {
     );
     assert!(
         !workspace_path
-            .join(".shardloom-manifest-finalized")
+            .join(".shardloom-manifest-committed")
             .exists()
     );
+    assert!(!workspace_path.join(".shardloom-output-data").exists());
 
+    remove_if_exists(&output_payload_artifact_path);
+    remove_if_exists(&finalized_manifest_candidate_path);
     remove_if_exists(&commit_marker_path);
     remove_if_exists(&draft_path);
     remove_if_exists(&marker_path);

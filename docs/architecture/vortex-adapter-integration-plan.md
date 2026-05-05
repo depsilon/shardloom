@@ -644,3 +644,10 @@ Output payload artifact write CLI remains deferred to Phase 12C.3b, and upstream
 ### Output payload artifact write CLI (Phase 12C.3b)
 
 `shardloom vortex-output-payload-artifact-write` wraps planning plus placeholder artifact write request generation and execution. Default builds remain feature-disabled/report-only and do not write artifacts. Feature-enabled builds write only the exact local placeholder output payload artifact, never real `Vortex` payloads, manifests, or committed manifests. Upstream `Vortex` write APIs remain unused in this phase.
+
+
+### Staged smoke test with output payload artifact (Phase 12C.4)
+
+The staged write-readiness smoke chain now includes `vortex-output-payload-plan` and `vortex-output-payload-artifact-write` after finalized-manifest candidate artifact write. Coverage remains CLI-driven and `ShardLoom`-native.
+
+The output payload artifact remains a local placeholder contract artifact, not a real `Vortex` payload and not committed dataset output. Upstream `Vortex` write APIs remain unused. Manifest writes, committed-manifest writes, commit execution, and object-store IO remain disabled in this phase.
