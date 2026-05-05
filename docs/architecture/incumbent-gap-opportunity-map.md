@@ -255,3 +255,7 @@ Phase 12 begins native `Vortex` write/commit value propositions with safe write-
 
 - Phase 12B now closes local staged commit-marker readiness.
 - Remaining competitive gaps before write claims are manifest finalization, actual output payload writes, real encoded reads, correctness, and benchmarks.
+
+
+- Phase 12B now includes a local commit execution gate contract, but it intentionally blocks on missing output payload readiness.
+- This keeps CG-3 (output payload write path) and CG-4 (commit protocol execution) explicit and deferred.

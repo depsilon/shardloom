@@ -4,6 +4,8 @@ use std::{
     hash::{Hash, Hasher},
 };
 
+#[cfg(feature = "vortex-staged-output-fs")]
+use shardloom_core::UriScheme;
 use shardloom_core::{
     DatasetUri, Diagnostic, DiagnosticCode, DiagnosticSeverity, FallbackStatus, Result,
     ShardLoomError,
@@ -1079,7 +1081,7 @@ pub fn write_vortex_finalized_manifest_artifact(
     }
     #[cfg(feature = "vortex-staged-output-fs")]
     {
-        use std::{fs, path::PathBuf};
+        use std::fs;
         if !request.finalization_plan_feature_gate_ready {
             return Ok(VortexFinalizedManifestArtifactWriteReport::blocked(
                 request,
@@ -1087,15 +1089,26 @@ pub fn write_vortex_finalized_manifest_artifact(
                 "feature gate readiness is required",
             ));
         }
-        let path = PathBuf::from(request.finalized_manifest_ref.path_string());
-        let pstr = path.to_string_lossy();
-        if pstr.contains("://") {
+        if request.finalization_plan_summary.is_none() {
+            return Ok(VortexFinalizedManifestArtifactWriteReport::blocked(
+                request,
+                VortexFinalizedManifestArtifactWriteStatus::BlockedByFinalizationPlan,
+                "finalization plan must be ready before finalized-manifest candidate write",
+            ));
+        }
+        let workspace_uri =
+            DatasetUri::new(request.finalized_manifest_ref.workspace_path().as_str())?;
+        if !matches!(
+            workspace_uri.scheme(),
+            UriScheme::LocalPath | UriScheme::File
+        ) {
             return Ok(VortexFinalizedManifestArtifactWriteReport::blocked(
                 request,
                 VortexFinalizedManifestArtifactWriteStatus::BlockedByObjectStoreTarget,
                 "object-store-like finalized manifest target is blocked",
             ));
         }
+        let path = finalized_manifest_artifact_local_path(&request.finalized_manifest_ref)?;
         let Some(parent) = path.parent() else {
             return Ok(VortexFinalizedManifestArtifactWriteReport::blocked(
                 request,
@@ -1139,6 +1152,31 @@ pub fn write_vortex_finalized_manifest_artifact(
             ),
         )
     }
+}
+
+#[cfg(feature = "vortex-staged-output-fs")]
+fn finalized_manifest_artifact_local_path(
+    finalized_manifest_ref: &VortexFinalizedManifestFileRef,
+) -> Result<std::path::PathBuf> {
+    let workspace_raw = finalized_manifest_ref.workspace_path().as_str();
+    let workspace = match DatasetUri::new(workspace_raw.to_string())?.scheme() {
+        UriScheme::LocalPath => std::path::PathBuf::from(workspace_raw),
+        UriScheme::File => {
+            if let Some(local) = workspace_raw.strip_prefix("file:///") {
+                std::path::PathBuf::from(format!("/{local}"))
+            } else {
+                return Err(ShardLoomError::InvalidOperation(
+                    "workspace file URI must use file:/// absolute local path".to_string(),
+                ));
+            }
+        }
+        _ => {
+            return Err(ShardLoomError::InvalidOperation(
+                "finalized-manifest artifact path looks like object-store target".to_string(),
+            ));
+        }
+    };
+    Ok(workspace.join(finalized_manifest_ref.file_name().as_str()))
 }
 
 #[must_use]
@@ -1610,36 +1648,56 @@ mod tests {
             .unwrap();
         assert_eq!(
             rep.status,
+            VortexFinalizedManifestArtifactWriteStatus::BlockedByFinalizationPlan
+        );
+        let ready = base
+            .clone()
+            .feature_gate_ready(true)
+            .with_finalization_plan_summary("finalization_ready");
+        let rep = write_vortex_finalized_manifest_artifact(ready.clone()).unwrap();
+        assert_eq!(
+            rep.status,
             VortexFinalizedManifestArtifactWriteStatus::BlockedByMissingWorkspace
         );
         fs::create_dir_all(&workspace).unwrap();
-        let rep = write_vortex_finalized_manifest_artifact(base.clone().feature_gate_ready(true))
-            .unwrap();
+        let rep = write_vortex_finalized_manifest_artifact(ready.clone()).unwrap();
         assert!(rep.finalized_manifest_artifact_written());
         assert!(file_path.exists());
         assert_eq!(fs::read_to_string(&file_path).unwrap(), "manifest=1");
-        let rep = write_vortex_finalized_manifest_artifact(base.clone().feature_gate_ready(true))
-            .unwrap();
+        let rep = write_vortex_finalized_manifest_artifact(ready.clone()).unwrap();
         assert_eq!(
             rep.status,
             VortexFinalizedManifestArtifactWriteStatus::BlockedByExistingFinalizedManifest
         );
-        let rep = write_vortex_finalized_manifest_artifact(
-            base.clone().feature_gate_ready(true).allow_overwrite(true),
-        )
-        .unwrap();
+        let rep =
+            write_vortex_finalized_manifest_artifact(ready.clone().allow_overwrite(true)).unwrap();
         assert!(rep.finalized_manifest_artifact_written());
         let obj_ws = VortexStagedWorkspacePath::new("s3://bucket/prefix").unwrap();
         let obj_req = VortexFinalizedManifestArtifactWriteRequest::new(
             VortexFinalizedManifestFileRef::default_for_workspace(obj_ws),
             VortexFinalizedManifestContent::new("x").unwrap(),
         )
-        .feature_gate_ready(true);
+        .feature_gate_ready(true)
+        .with_finalization_plan_summary("finalization_ready");
         let object_store_report = write_vortex_finalized_manifest_artifact(obj_req).unwrap();
         assert_eq!(
             object_store_report.status,
             VortexFinalizedManifestArtifactWriteStatus::BlockedByObjectStoreTarget
         );
+        let file_uri_ws = VortexStagedWorkspacePath::new(workspace.to_str().unwrap())
+            .unwrap()
+            .as_str()
+            .to_string();
+        let file_uri_ws = VortexStagedWorkspacePath::new(format!("file://{file_uri_ws}")).unwrap();
+        let file_uri_req = VortexFinalizedManifestArtifactWriteRequest::new(
+            VortexFinalizedManifestFileRef::default_for_workspace(file_uri_ws),
+            VortexFinalizedManifestContent::new("manifest=2").unwrap(),
+        )
+        .feature_gate_ready(true)
+        .with_finalization_plan_summary("finalization_ready")
+        .allow_overwrite(true);
+        let file_uri_report = write_vortex_finalized_manifest_artifact(file_uri_req).unwrap();
+        assert!(file_uri_report.finalized_manifest_artifact_written());
         fs::remove_file(&file_path).unwrap();
         fs::remove_dir(&workspace).unwrap();
         fs::remove_dir(&root).unwrap();

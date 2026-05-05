@@ -612,3 +612,8 @@ In Phase 12B.5a, manifest finalization is `ShardLoom`-native and report-only. Th
 - It does not call upstream `Vortex` write APIs.
 - It does not perform object-store IO.
 - Commit execution remains future work.
+
+
+## Local commit execution gate
+
+The local commit execution gate is report-only in this phase. It requires commit protocol readiness, commit marker readiness, manifest finalization readiness, finalized-manifest candidate artifact readiness, output payload readiness, and feature-gate readiness. It explicitly blocks today because output payload readiness is not implemented until Phase 12C. It does not execute commit, does not commit manifests, does not write output data, does not call upstream `Vortex` write APIs, and does not perform object-store operations.

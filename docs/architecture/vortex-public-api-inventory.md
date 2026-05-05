@@ -514,3 +514,8 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - Finalized-manifest candidate writing is `ShardLoom`-native.
 - Upstream `Vortex` write APIs remain deferred.
 - Candidate artifact writes do not imply committed manifest state.
+
+
+- Local commit execution gate is `ShardLoom`-native and report-only in Phase 12B.6.
+- Upstream `Vortex` write APIs remain deferred from this gate.
+- Output payload write APIs remain future Phase 12C / CG-3 work.

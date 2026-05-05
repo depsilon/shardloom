@@ -18,6 +18,7 @@ pub use adapter::{
 };
 
 pub mod bounded_execution;
+pub mod commit_execution_gate;
 pub mod commit_intent;
 pub mod commit_marker;
 pub mod commit_protocol;
@@ -179,6 +180,14 @@ pub use commit_protocol::{
     VortexCommitProtocolStatus, VortexCommitProtocolTransition,
     commit_protocol_request_from_commit_intent, plan_vortex_commit_protocol,
     plan_vortex_commit_protocol_from_commit_intent, vortex_commit_protocol_is_side_effect_free,
+};
+
+pub use commit_execution_gate::{
+    VortexLocalCommitExecutionGateEffect, VortexLocalCommitExecutionGateMode,
+    VortexLocalCommitExecutionGateReport, VortexLocalCommitExecutionGateRequest,
+    VortexLocalCommitExecutionGateSignal, VortexLocalCommitExecutionGateStatus,
+    local_commit_execution_gate_request_from_reports, plan_vortex_local_commit_execution_gate,
+    vortex_local_commit_execution_gate_is_side_effect_free,
 };
 
 pub use commit_intent::{
