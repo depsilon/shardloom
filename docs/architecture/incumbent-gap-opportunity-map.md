@@ -250,3 +250,8 @@ Phase 12 begins native `Vortex` write/commit value propositions with safe write-
 - Treat Arrow as an interoperability boundary, not internal default execution.
 - Preserve Vortex-native fidelity and metadata richness end-to-end.
 - Measure and report decode/materialization/work avoided with reproducible benchmarks.
+
+## Phase 12B closeout status
+
+- Phase 12B now closes local staged commit-marker readiness.
+- Remaining competitive gaps before write claims are manifest finalization, actual output payload writes, real encoded reads, correctness, and benchmarks.

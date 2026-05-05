@@ -4,8 +4,8 @@
 
 - Production-grade engine completion estimate: approximately 37–38%.
 - Architecture/control-plane completion estimate: approximately 97%.
-- Current checkpoint: Phase 12B.3c.3 — staged write-readiness smoke test includes the commit marker artifact.
-- Immediate focus: validate the full staged local write-readiness chain through explicit `vortex-commit-marker-write` while keeping manifest finalization, manifest commit, output-data writes, upstream `Vortex` write API calls, object-store writes, and fallback execution disabled.
+- Current checkpoint: Phase 12B.4 — commit protocol closeout before manifest finalization.
+- Immediate focus: keep the full staged local write-readiness chain safe and feature-gated while manifest finalization and commit execution remain report-only/deferred.
 
 
 ## Competitive engine target
@@ -971,8 +971,9 @@ Must include:
 - Phase 12B.3b complete: feature-gated local commit marker file write, no manifest finalization.
 - Phase 12B.3c.1 complete: commit marker planning `CLI`/docs integration.
 - Phase 12B.3c.2 complete: commit marker write `CLI` (feature-gated local-only path).
-- Phase 12B.3c.3 current: staged write-readiness smoke test includes the commit marker artifact.
-- Phase 12B.4 planned: manifest finalization contract remains deferred (closeout after staged-artifact-only validation).
+- Phase 12B.3c.3 complete: staged write-readiness smoke test includes the commit marker artifact.
+- Phase 12B.4 current: commit protocol closeout before manifest finalization.
+- Next planned phase: manifest finalization report-only contract.
 
 Phase 12B.2a.4 note:
 - First local staged write-readiness smoke test exercises staged workspace setup, staged marker write, staged manifest draft-file write, commit intent planning, and commit protocol planning.
@@ -1006,6 +1007,29 @@ Phase 12B.2a.4 note:
 - Object-store writes remain disabled.
 - Commit protocol is not implemented yet.
 - Fallback execution remains disabled.
+
+### Phase 12B closeout criteria before manifest finalization
+
+- Commit intent planning is complete and report-only.
+- Commit protocol state machine is complete and report-only.
+- Commit protocol CLI is complete and report-only.
+- Commit marker planning is complete.
+- Commit marker write is feature-gated and local-only.
+- Staged write-readiness smoke test includes commit marker artifact.
+- Staged manifest draft files are not committed manifests.
+- Commit markers do not finalize manifests.
+- Output payload writes remain disabled.
+- Upstream Vortex write APIs remain unused.
+- Object-store writes remain disabled.
+- Fallback execution remains disabled.
+
+Entry criteria for the next implementation phase:
+
+- Manifest finalization must start with report-only contract.
+- Manifest finalization must distinguish draft, finalized, and committed states.
+- Manifest finalization must not write output payloads.
+- Manifest finalization must not call upstream Vortex write APIs unless explicitly feature-gated and approved later.
+- Commit execution remains deferred until finalization contract is stable.
 
 
 ## Competitive Engine Track (CG)

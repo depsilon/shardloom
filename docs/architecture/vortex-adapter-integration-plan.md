@@ -586,3 +586,14 @@ No spill data movement is implemented in this phase.
 
 - The staged write-readiness smoke test now verifies the complete local staged chain through commit marker artifact creation using the `ShardLoom` `CLI`.
 - It verifies no manifest finalization, no manifest commit, no output payload writes, no upstream `Vortex` write API calls, no object-store IO, and no fallback execution.
+
+## Commit protocol closeout before manifest finalization
+
+- The staged chain now reaches commit marker artifact creation.
+- This still does not finalize manifests.
+- This still does not commit manifests.
+- This still does not write output data.
+- This still does not call upstream Vortex write APIs.
+- This still does not object-store.
+- Manifest finalization must begin report-only.
+
