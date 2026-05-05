@@ -533,6 +533,19 @@ No spill data movement is implemented in this phase.
 - It does not perform object-store IO.
 
 
+
+## Feature-gated local commit marker
+
+- Commit marker writing is feature-gated by `vortex-staged-output-fs`.
+- It writes only the exact local commit marker artifact represented by the marker file reference.
+- It requires the marker planning feature-gate readiness signal; readiness is not guessed.
+- It does not finalize manifests.
+- It does not commit manifests.
+- It does not write output data.
+- It does not call upstream `Vortex` write APIs.
+- It does not perform object-store IO.
+- Recovery and idempotency semantics remain future work.
+
 ## Competitive execution path (Competitive Engine Track: CG-1..CG-11)
 
 - Staged write-readiness is only the control-plane foundation.

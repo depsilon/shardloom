@@ -151,8 +151,11 @@ pub use commit_marker::{
     VortexCommitMarkerContent, VortexCommitMarkerEffect, VortexCommitMarkerFileName,
     VortexCommitMarkerFileRef, VortexCommitMarkerMode, VortexCommitMarkerReport,
     VortexCommitMarkerRequest, VortexCommitMarkerSignal, VortexCommitMarkerStatus,
-    commit_marker_request_from_protocol_report, plan_vortex_commit_marker,
-    vortex_commit_marker_is_side_effect_free,
+    VortexCommitMarkerWriteMode, VortexCommitMarkerWriteOption, VortexCommitMarkerWriteReport,
+    VortexCommitMarkerWriteRequest, VortexCommitMarkerWriteSignal, VortexCommitMarkerWriteStatus,
+    commit_marker_request_from_protocol_report, commit_marker_write_request_from_plan,
+    plan_vortex_commit_marker, vortex_commit_marker_is_side_effect_free,
+    vortex_commit_marker_write_is_side_effect_free, write_vortex_commit_marker,
 };
 
 pub use commit_protocol::{

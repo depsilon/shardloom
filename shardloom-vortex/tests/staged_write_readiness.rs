@@ -7,12 +7,14 @@ use std::{
 
 use shardloom_core::DatasetUri;
 use shardloom_vortex::{
-    VortexCommitIntentRequest, VortexCommitIntentStatus, VortexCommitProtocolRequest,
+    VortexCommitIntentRequest, VortexCommitIntentStatus, VortexCommitMarkerContent,
+    VortexCommitMarkerFileRef, VortexCommitMarkerWriteRequest, VortexCommitProtocolRequest,
     VortexCommitProtocolState, VortexCommitProtocolStatus, VortexCommitProtocolTransition,
     VortexStagedManifestDraftContent, VortexStagedManifestFileRef, VortexStagedManifestFileRequest,
     VortexStagedWorkspaceId, VortexStagedWorkspacePath, VortexStagedWorkspaceSetupRequest,
     plan_vortex_commit_intent, plan_vortex_commit_protocol, plan_vortex_staged_manifest_file,
-    setup_vortex_staged_workspace, write_vortex_staged_manifest_file, write_vortex_staged_marker,
+    setup_vortex_staged_workspace, write_vortex_commit_marker, write_vortex_staged_manifest_file,
+    write_vortex_staged_marker,
 };
 
 fn unique_workspace_path() -> std::path::PathBuf {
@@ -143,8 +145,33 @@ fn staged_write_readiness_local_smoke_test() {
             .join(".shardloom-committed-manifest")
             .exists()
     );
-    assert!(!workspace_path_buf.join(".shardloom-commit-marker").exists());
+    let commit_marker_path = workspace_path_buf.join(".shardloom-commit-marker");
+    assert!(!commit_marker_path.exists());
 
+    let commit_marker_ref = VortexCommitMarkerFileRef::default_for_workspace(workspace_path);
+    let commit_marker_content = VortexCommitMarkerContent::new(
+        "shardloom_commit_marker=true\nmanifest_finalized=false\noutput_data_written=false\n",
+    )
+    .unwrap();
+    let commit_marker_write = write_vortex_commit_marker(
+        VortexCommitMarkerWriteRequest::new(commit_marker_ref, commit_marker_content.clone())
+            .marker_plan_ready(true)
+            .feature_gate_ready(true),
+    )
+    .unwrap();
+    assert!(commit_marker_write.commit_marker_written());
+    assert_eq!(
+        fs::read_to_string(&commit_marker_path).unwrap(),
+        commit_marker_content.as_str()
+    );
+    assert!(
+        !workspace_path_buf
+            .join(".shardloom-committed-manifest")
+            .exists()
+    );
+    assert!(!workspace_path_buf.join(".shardloom-output-data").exists());
+
+    fs::remove_file(commit_marker_path).unwrap();
     fs::remove_file(draft_path).unwrap();
     fs::remove_file(marker_path).unwrap();
     fs::remove_dir(workspace_path_buf).unwrap();
