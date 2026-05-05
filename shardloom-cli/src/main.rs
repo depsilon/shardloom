@@ -47,7 +47,9 @@ use shardloom_vortex::{
     VortexFinalizedManifestArtifactWriteOption, VortexFinalizedManifestContent,
     VortexFinalizedManifestFileName, VortexFinalizedManifestFileRef,
     VortexManifestFinalizationRequest, VortexManifestFinalizationSignal, VortexMetadataOpenRequest,
-    VortexMetadataProbeReport, VortexReadPlan, VortexStagedManifestDraftContent,
+    VortexMetadataProbeReport, VortexOutputPayloadContentDescriptor, VortexOutputPayloadFileName,
+    VortexOutputPayloadFileRef, VortexOutputPayloadReport, VortexOutputPayloadRequest,
+    VortexOutputPayloadSignal, VortexReadPlan, VortexStagedManifestDraftContent,
     VortexStagedManifestFileEffect, VortexStagedManifestFileRef, VortexStagedManifestFileReport,
     VortexStagedManifestFileRequest, VortexStagedManifestFileSignal,
     VortexStagedManifestFileWriteEffect, VortexStagedManifestFileWriteOption,
@@ -66,15 +68,15 @@ use shardloom_vortex::{
     plan_from_vortex_metadata_summary, plan_native_vortex_universal_input,
     plan_vortex_commit_intent, plan_vortex_commit_marker, plan_vortex_commit_protocol,
     plan_vortex_encoded_read_probe, plan_vortex_manifest_finalization, plan_vortex_memory_safety,
-    plan_vortex_metadata_pruning, plan_vortex_read_from_universal_input,
-    plan_vortex_scheduler_queue, plan_vortex_staged_manifest_file, plan_vortex_write_intent,
-    probe_vortex_metadata_only, run_vortex_local_engine, setup_vortex_staged_workspace,
-    size_vortex_runtime_task_graph, summarize_vortex_metadata_probe,
-    vortex_encoded_read_executor_feature_enabled, vortex_encoded_read_public_api_boundary,
-    vortex_encoded_read_spike_feature_enabled, vortex_file_io_feature_enabled,
-    vortex_metadata_executor_feature_enabled, write_vortex_commit_marker,
-    write_vortex_finalized_manifest_artifact, write_vortex_staged_manifest_file,
-    write_vortex_staged_marker,
+    plan_vortex_metadata_pruning, plan_vortex_output_payload,
+    plan_vortex_read_from_universal_input, plan_vortex_scheduler_queue,
+    plan_vortex_staged_manifest_file, plan_vortex_write_intent, probe_vortex_metadata_only,
+    run_vortex_local_engine, setup_vortex_staged_workspace, size_vortex_runtime_task_graph,
+    summarize_vortex_metadata_probe, vortex_encoded_read_executor_feature_enabled,
+    vortex_encoded_read_public_api_boundary, vortex_encoded_read_spike_feature_enabled,
+    vortex_file_io_feature_enabled, vortex_metadata_executor_feature_enabled,
+    write_vortex_commit_marker, write_vortex_finalized_manifest_artifact,
+    write_vortex_staged_manifest_file, write_vortex_staged_marker,
 };
 
 fn main() -> ExitCode {
@@ -90,9 +92,52 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
+}
+fn parse_vortex_output_payload_signals(
+    signals_raw: &str,
+) -> Result<Vec<VortexOutputPayloadSignal>, ShardLoomError> {
+    if signals_raw.trim().is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "output payload signals must not be empty".to_string(),
+        ));
+    }
+    let mut signals = Vec::new();
+    for token in signals_raw.split(',') {
+        let token = token.trim();
+        if token.is_empty() {
+            return Err(ShardLoomError::InvalidOperation(
+                "output payload signals must not contain empty tokens".to_string(),
+            ));
+        }
+        let signal = match token {
+            "write-intent-ready" => VortexOutputPayloadSignal::WriteIntentReady,
+            "write-intent-blocked" => VortexOutputPayloadSignal::WriteIntentBlocked,
+            "staged-output-ready" => VortexOutputPayloadSignal::StagedOutputReady,
+            "staged-output-blocked" => VortexOutputPayloadSignal::StagedOutputBlocked,
+            "finalized-manifest-ready" => VortexOutputPayloadSignal::FinalizedManifestReady,
+            "finalized-manifest-missing" => VortexOutputPayloadSignal::FinalizedManifestMissing,
+            "payload-content-available" => VortexOutputPayloadSignal::PayloadContentAvailable,
+            "payload-content-missing" => VortexOutputPayloadSignal::PayloadContentMissing,
+            "local-workspace" => VortexOutputPayloadSignal::LocalWorkspace,
+            "object-store-target" => VortexOutputPayloadSignal::ObjectStoreTarget,
+            "upstream-vortex-write-required" => {
+                VortexOutputPayloadSignal::UpstreamVortexWriteRequired
+            }
+            "feature-gate-enabled" => VortexOutputPayloadSignal::FeatureGateEnabled,
+            _ => {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "unknown output payload signal token: {token}"
+                )));
+            }
+        };
+        if !signals.contains(&signal) {
+            signals.push(signal);
+        }
+    }
+    Ok(signals)
 }
 fn parse_vortex_commit_marker_write_options(
     options_raw: &str,
@@ -3776,6 +3821,172 @@ fn run(args: Vec<String>) -> ExitCode {
                         "finalization_execution_allowed".to_string(),
                         "false".to_string(),
                     ),
+                    ("execution".to_string(), "not_performed".to_string()),
+                ],
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
+        Some("vortex-output-payload-plan") => {
+            let Some(target_uri_raw) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-output-payload-plan <target_uri> <workspace_path> <signals>"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(workspace_path_raw) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-output-payload-plan <target_uri> <workspace_path> <signals>"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(signals_raw) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-output-payload-plan <target_uri> <workspace_path> <signals>"
+                );
+                return ExitCode::from(2);
+            };
+            let target_uri = match DatasetUri::new(target_uri_raw) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-output-payload-plan",
+                        format,
+                        "invalid dataset uri",
+                        &error,
+                    );
+                }
+            };
+            let workspace_path = match VortexStagedWorkspacePath::new(workspace_path_raw) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-output-payload-plan",
+                        format,
+                        "invalid workspace path",
+                        &error,
+                    );
+                }
+            };
+            let signals = match parse_vortex_output_payload_signals(&signals_raw) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-output-payload-plan",
+                        format,
+                        "invalid output payload signals",
+                        &error,
+                    );
+                }
+            };
+            let payload_name = VortexOutputPayloadFileName::default_payload();
+            let payload_ref = VortexOutputPayloadFileRef::default_for_workspace(workspace_path);
+            let payload_content = match VortexOutputPayloadContentDescriptor::synthetic_placeholder(
+                payload_name.as_str(),
+            ) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-output-payload-plan",
+                        format,
+                        "invalid output payload content",
+                        &error,
+                    );
+                }
+            };
+            let mut request =
+                VortexOutputPayloadRequest::new(target_uri, payload_ref, payload_content);
+            for signal in signals {
+                request.add_signal(signal, true);
+            }
+            let report: VortexOutputPayloadReport = match plan_vortex_output_payload(request) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-output-payload-plan",
+                        format,
+                        "output payload planning failed",
+                        &error,
+                    );
+                }
+            };
+            let text = match report.to_human_text() {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-output-payload-plan",
+                        format,
+                        "failed to render output payload report",
+                        &error,
+                    );
+                }
+            };
+            emit(
+                "vortex-output-payload-plan",
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "vortex output payload plan".to_string(),
+                text,
+                report.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("mode".to_string(), "vortex_output_payload_plan".to_string()),
+                    (
+                        "write_intent_ready".to_string(),
+                        report.write_intent_ready().to_string(),
+                    ),
+                    (
+                        "staged_output_ready".to_string(),
+                        report.staged_output_ready().to_string(),
+                    ),
+                    (
+                        "finalized_manifest_ready".to_string(),
+                        report.finalized_manifest_ready().to_string(),
+                    ),
+                    (
+                        "payload_content_available".to_string(),
+                        report.payload_content_available().to_string(),
+                    ),
+                    (
+                        "local_workspace".to_string(),
+                        report.local_workspace().to_string(),
+                    ),
+                    (
+                        "object_store_target".to_string(),
+                        report.object_store_target().to_string(),
+                    ),
+                    (
+                        "upstream_vortex_write_required".to_string(),
+                        report.upstream_vortex_write_required().to_string(),
+                    ),
+                    (
+                        "feature_gate_enabled".to_string(),
+                        report
+                            .request
+                            .has_signal(VortexOutputPayloadSignal::FeatureGateEnabled)
+                            .to_string(),
+                    ),
+                    ("output_payload_written".to_string(), "false".to_string()),
+                    ("vortex_file_written".to_string(), "false".to_string()),
+                    ("manifest_written".to_string(), "false".to_string()),
+                    ("manifest_committed".to_string(), "false".to_string()),
+                    ("object_store_io".to_string(), "false".to_string()),
+                    (
+                        "upstream_vortex_write_called".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("recovery_action_executed".to_string(), "false".to_string()),
+                    ("payload_write_allowed".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
                 ],
             );
@@ -8290,6 +8501,65 @@ mod tests {
             "commit-intent-ready".to_string(),
         ]);
         assert_ne!(code, ExitCode::SUCCESS);
+    }
+    #[test]
+    fn vortex_output_payload_plan_ready_returns_success() {
+        let code = run(vec![
+            "vortex-output-payload-plan".to_string(),
+            "file://tmp/out.vortex".to_string(),
+            "/tmp/stage".to_string(),
+            "write-intent-ready,staged-output-ready,finalized-manifest-ready,payload-content-available,local-workspace,feature-gate-enabled".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+    #[test]
+    fn vortex_output_payload_plan_missing_args_return_non_zero() {
+        assert_ne!(
+            run(vec!["vortex-output-payload-plan".to_string()]),
+            ExitCode::SUCCESS
+        );
+        assert_ne!(
+            run(vec![
+                "vortex-output-payload-plan".to_string(),
+                "file://tmp/out.vortex".to_string()
+            ]),
+            ExitCode::SUCCESS
+        );
+        assert_ne!(
+            run(vec![
+                "vortex-output-payload-plan".to_string(),
+                "file://tmp/out.vortex".to_string(),
+                "/tmp/stage".to_string()
+            ]),
+            ExitCode::SUCCESS
+        );
+    }
+    #[test]
+    fn vortex_output_payload_plan_unknown_signal_returns_non_zero() {
+        let code = run(vec![
+            "vortex-output-payload-plan".to_string(),
+            "file://tmp/out.vortex".to_string(),
+            "/tmp/stage".to_string(),
+            "write-intent-ready,unknown".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+    #[test]
+    fn vortex_output_payload_plan_blocking_signals_return_non_zero() {
+        let object_store_code = run(vec![
+            "vortex-output-payload-plan".to_string(),
+            "s3://bucket/out.vortex".to_string(),
+            "s3://bucket/stage".to_string(),
+            "write-intent-ready,staged-output-ready,finalized-manifest-ready,object-store-target,feature-gate-enabled".to_string(),
+        ]);
+        assert_ne!(object_store_code, ExitCode::SUCCESS);
+        let upstream_required_code = run(vec![
+            "vortex-output-payload-plan".to_string(),
+            "file://tmp/out.vortex".to_string(),
+            "/tmp/stage".to_string(),
+            "write-intent-ready,staged-output-ready,finalized-manifest-ready,payload-content-available,local-workspace,upstream-vortex-write-required,feature-gate-enabled".to_string(),
+        ]);
+        assert_ne!(upstream_required_code, ExitCode::SUCCESS);
     }
     #[test]
     fn vortex_commit_marker_plan_ready_returns_success() {
