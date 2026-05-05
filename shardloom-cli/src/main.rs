@@ -7521,7 +7521,7 @@ mod tests {
     fn run_test_with_larger_stack(test_name: &str, test_fn: impl FnOnce() + Send + 'static) {
         let handle = std::thread::Builder::new()
             .name(test_name.to_string())
-            .stack_size(2 * 1024 * 1024)
+            .stack_size(16 * 1024 * 1024)
             .spawn(test_fn)
             .expect("spawn test thread");
         handle.join().expect("join test thread");
