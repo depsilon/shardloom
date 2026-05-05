@@ -1058,8 +1058,9 @@ Entry criteria for the next implementation phase:
 - no broad row materialization
 - no Arrow-default conversion
 - CG-1.1a encoded read boundary core contract: complete
-- CG-1.1b encoded read boundary `CLI`/docs integration: current
-- CG-1.2 actual encoded read fixture: planned
+- CG-1.1b encoded read boundary `CLI`/docs integration: complete
+- CG-1.2a feature-gated local encoded-read fixture contract: current
+- CG-1.2b feature-gated local metadata/footer probe: planned
 
 ### CG-2 — Real query primitive execution over actual Vortex data
 - count
