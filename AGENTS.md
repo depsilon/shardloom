@@ -359,8 +359,9 @@ Before proposing next implementation work:
 ## Competitive engine roadmap
 
 When proposing next work:
-- include the competitive engine success gates in phase checklists
+- do not create duplicate phase IDs (keep canonical implementation phases separate from CG-* competitive gates)
+- include both the current implementation phase and relevant CG-* competitive gates in phase checklists
 - do not introduce Spark/DataFusion/Polars/DuckDB/Velox/vortex-datafusion as fallback
 - external baselines are allowed only for correctness/benchmark references
-- do not make superiority claims until correctness and benchmark gates pass
+- do not make superiority claims until CG-5 and CG-6 are satisfied
 - preserve Vortex-native, no-fallback, explicit-side-effect contracts

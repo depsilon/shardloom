@@ -125,6 +125,20 @@ Status categories:
 
 ## Competitive roadmap traceability additions
 
-- Traceability now includes: actual encoded read, query primitive execution over real data, output payload writes, commit execution, correctness/differential harness, benchmark harness, streaming/parallel adaptive execution, and object-store/distributed execution.
-- Spark/Polars/DataFusion are future external baseline references only.
-- No fallback execution remains mandatory across all of these tracks.
+- CG-1 through CG-11 are **Competitive Engine Track** gates used for competitive-readiness traceability.
+- CG gates are not aliases for canonical implementation phase IDs (for example, they are distinct from Phase 13A/13B/14A/14B roadmap phases).
+- Spark/Polars/DataFusion (and other external engines) are allowed only as future external correctness/benchmark baselines.
+- External engines are never runtime fallback or delegation targets.
+
+Competitive gate coverage:
+- CG-1: encoded read boundary and real encoded reads
+- CG-2: real query primitive execution over Vortex data
+- CG-3: output payload write path
+- CG-4: commit protocol execution
+- CG-5: correctness/differential harness
+- CG-6: benchmark harness
+- CG-7: physical operators/kernels
+- CG-8: streaming/parallel/adaptive execution
+- CG-9: lakehouse/table intelligence
+- CG-10: object-store/distributed execution
+- CG-11: Python/API surface later

@@ -1003,26 +1003,9 @@ Phase 12B.2a.4 note:
 - Fallback execution remains disabled.
 
 
-### Phase 12C — Actual local output payload write path
+## Competitive Engine Track (CG)
 
-- output payload write contract
-- feature-gated synthetic output payload write
-- feature-gated local Vortex output payload write if upstream public APIs are safe
-- output payload + staged manifest alignment
-- output payload smoke test
-- no object-store writes yet
-
-### Phase 12D — Commit protocol execution, local-first
-
-- feature-gated local commit marker execution
-- manifest finalization contract
-- feature-gated local manifest finalization
-- idempotent commit record
-- rollback / ambiguous commit report
-- local write+commit smoke test
-- no object-store commits yet
-
-### Phase 13A — Real encoded read path
+### CG-1 — Real encoded read path
 
 - feature-gated local encoded read API boundary
 - byte-range / segment / chunk read descriptor
@@ -1031,7 +1014,7 @@ Phase 12B.2a.4 note:
 - no Arrow-default conversion
 - first local Vortex encoded-read fixture
 
-### Phase 13B — Real query primitive execution over actual Vortex data
+### CG-2 — Real query primitive execution over actual Vortex data
 
 - actual count over Vortex data
 - actual filtered count
@@ -1041,16 +1024,26 @@ Phase 12B.2a.4 note:
 - decode only when explicitly allowed
 - no fallback engines
 
-### Phase 13C — Physical operators and expression/kernel layer
+### CG-3 — Actual output payload write path
 
-- filter kernel
-- projection kernel
-- count/aggregate kernel
-- metadata/encoded/hybrid execution levels
-- expression evaluation over encoded segments
-- kernel capability reports
+- output payload write contract
+- feature-gated synthetic output payload write
+- feature-gated local Vortex output payload write if upstream public APIs are safe
+- output payload + staged manifest alignment
+- output payload smoke test
+- no object-store writes initially
 
-### Phase 13D — Correctness and differential harness
+### CG-4 — Commit protocol execution
+
+- feature-gated local commit marker execution
+- manifest finalization contract
+- feature-gated local manifest finalization
+- idempotent commit record
+- rollback / ambiguous commit report
+- local write+commit smoke test
+- no object-store commits until later
+
+### CG-5 — Correctness and differential harness
 
 - golden Vortex fixtures
 - edge-case fixtures
@@ -1059,7 +1052,7 @@ Phase 12B.2a.4 note:
 - equivalence tests
 - no silent unsupported success
 
-### Phase 13E — Benchmark harness
+### CG-6 — Benchmark harness
 
 - work avoided
 - bytes avoided
@@ -1072,7 +1065,16 @@ Phase 12B.2a.4 note:
 - write/commit latency
 - selected Spark/Polars/DataFusion comparisons
 
-### Phase 14 — Streaming, parallelism, and adaptive execution
+### CG-7 — Physical operator/kernel layer
+
+- filter kernel
+- projection kernel
+- count/aggregate kernel
+- metadata/encoded/hybrid execution levels
+- expression evaluation over encoded segments
+- kernel capability reports
+
+### CG-8 — Streaming, parallelism, and adaptive execution
 
 - streaming encoded batches
 - bounded parallel local execution
@@ -1082,7 +1084,7 @@ Phase 12B.2a.4 note:
 - memory/spill-aware scheduler
 - multi-file execution
 
-### Phase 15 — Lakehouse/table intelligence
+### CG-9 — Lakehouse/table intelligence
 
 - schema evolution
 - partition evolution
@@ -1091,7 +1093,7 @@ Phase 12B.2a.4 note:
 - layout health
 - compaction planning
 
-### Phase 16 — Object-store and distributed execution
+### CG-10 — Object-store and distributed execution
 
 - object-store read planning
 - byte-range coalescing
@@ -1099,3 +1101,10 @@ Phase 12B.2a.4 note:
 - distributed scheduling
 - checkpoint/retry/idempotency
 - distributed benchmark comparisons
+
+### CG-11 — Python/API surface later
+
+- thin Python wrapper over CLI JSON first
+- Foundry-friendly later
+- no PyO3/maturin unless explicitly approved
+- no Spark fallback

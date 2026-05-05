@@ -223,8 +223,8 @@ Phase 12 begins native `Vortex` write/commit value propositions with safe write-
 
 - The product goal is to beat Spark, Polars, DataFusion, and Arrow-adjacent execution stacks for Vortex-native lakehouse workloads.
 - ShardLoom’s wedge is Vortex-native fidelity, less decode/materialization, explicit memory/spill/recovery behavior, safer staged writes/commits, deterministic diagnostics, and measured performance wins.
-- Baseline engines may be used only as external correctness/benchmark references, not runtime dependencies or fallback engines.
-- Superiority claims require correctness and benchmark gates.
+- Baseline engines may be used only as external correctness/benchmark references, not runtime dependencies, fallback engines, or runtime delegation targets.
+- Superiority claims require CG-5 (correctness/differential) and CG-6 (benchmark) gates.
 - The architecture is promising, but performance claims must wait for real encoded reads, real query execution, real output payload writes, correctness, and benchmarks.
 
 ### Spark gaps ShardLoom targets

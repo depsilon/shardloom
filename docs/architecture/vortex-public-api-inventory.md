@@ -485,3 +485,13 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - manifest/output metadata boundary
 - stats/layout/encoding APIs for work-avoidance metrics
 - no upstream API should be called if it implies row materialization, Arrow conversion, object-store IO, or write execution without explicit feature gate
+
+
+## Competitive Engine Track API alignment
+
+- CG-1: encoded read API boundary remains explicit and isolated in `shardloom-vortex`.
+- CG-2: query primitive execution APIs must remain Vortex-native and no-fallback.
+- CG-3: output payload write APIs stay feature-gated and explicit.
+- CG-4: commit protocol execution APIs remain deterministic and side-effect gated.
+- CG-6: benchmark metrics/report APIs must support reproducible competitive claims.
+- CG-10: object-store/distributed APIs remain future, explicit, and no-fallback.
