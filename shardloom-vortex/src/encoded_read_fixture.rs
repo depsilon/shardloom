@@ -580,12 +580,16 @@ pub fn encoded_read_fixture_request_from_boundary_report(
     let mut request = VortexEncodedReadFixtureRequest::with_fixture_ref(target_uri, fixture_ref)
         .fixture_ref_provided(true)
         .with_boundary_summary(boundary.to_human_text());
-    if boundary.status == crate::VortexEncodedReadBoundaryStatus::BoundaryReady
-        && !boundary.has_errors()
-    {
+    if matches!(
+        boundary.status,
+        crate::VortexEncodedReadBoundaryStatus::BoundaryReady
+            | crate::VortexEncodedReadBoundaryStatus::BlockedByScanExecutionRisk
+    ) {
         request.add_signal(VortexEncodedReadFixtureSignal::BoundaryReady);
     }
-    if boundary.has_errors() {
+    if boundary.has_errors()
+        && boundary.status != crate::VortexEncodedReadBoundaryStatus::BlockedByScanExecutionRisk
+    {
         request.add_signal(VortexEncodedReadFixtureSignal::BoundaryBlocked);
     }
     if boundary.local_path_only() {
@@ -605,6 +609,15 @@ pub fn encoded_read_fixture_request_from_boundary_report(
     }
     if boundary.write_risk() {
         request.add_signal(VortexEncodedReadFixtureSignal::WriteRisk);
+    }
+    if boundary.status == crate::VortexEncodedReadBoundaryStatus::BlockedByScanExecutionRisk {
+        request.add_signal(VortexEncodedReadFixtureSignal::ScanExecutionRisk);
+    }
+    if boundary
+        .request
+        .has_signal(crate::VortexEncodedReadBoundarySignal::FeatureGateEnabled)
+    {
+        request.add_signal(VortexEncodedReadFixtureSignal::FeatureGateEnabled);
     }
     request
 }
@@ -794,6 +807,7 @@ mod tests {
             &b_ready,
         );
         assert!(req.has_signal(VortexEncodedReadFixtureSignal::BoundaryReady));
+        assert!(req.has_signal(VortexEncodedReadFixtureSignal::FeatureGateEnabled));
         let b_block = crate::VortexEncodedReadBoundaryReport::from_request(
             crate::VortexEncodedReadBoundaryRequest::new(uri()).decode_risk(true),
         )
@@ -804,5 +818,58 @@ mod tests {
             &b_block,
         );
         assert!(req2.has_signal(VortexEncodedReadFixtureSignal::BoundaryBlocked));
+    }
+
+    #[test]
+    fn request_from_boundary_maps_scan_risk() {
+        let boundary = crate::VortexEncodedReadBoundaryReport::from_request(
+            crate::VortexEncodedReadBoundaryRequest::new(uri())
+                .upstream_open_options_available(true)
+                .upstream_footer_available(true)
+                .feature_gate_enabled(true),
+        )
+        .expect("ok");
+        assert_eq!(
+            boundary.status,
+            crate::VortexEncodedReadBoundaryStatus::BlockedByScanExecutionRisk
+        );
+
+        let req = encoded_read_fixture_request_from_boundary_report(
+            uri(),
+            VortexEncodedReadFixtureRef::new("/tmp/x.vortex").expect("ok"),
+            &boundary,
+        );
+        assert!(req.has_signal(VortexEncodedReadFixtureSignal::ScanExecutionRisk));
+
+        let report = VortexEncodedReadFixtureReport::from_request(req).expect("ok");
+        assert_eq!(
+            report.status,
+            VortexEncodedReadFixtureStatus::BlockedByScanExecutionRisk
+        );
+    }
+
+    #[test]
+    fn request_from_boundary_ready_can_reach_fixture_ready() {
+        let boundary = crate::VortexEncodedReadBoundaryReport::from_request(
+            crate::VortexEncodedReadBoundaryRequest::new(uri())
+                .upstream_open_options_available(true)
+                .upstream_footer_available(true)
+                .upstream_scan_surface_deferred(true)
+                .local_path_only(true)
+                .feature_gate_enabled(true),
+        )
+        .expect("ok");
+        assert_eq!(
+            boundary.status,
+            crate::VortexEncodedReadBoundaryStatus::BoundaryReady
+        );
+
+        let req = encoded_read_fixture_request_from_boundary_report(
+            uri(),
+            VortexEncodedReadFixtureRef::new("/tmp/x.vortex").expect("ok"),
+            &boundary,
+        );
+        let report = VortexEncodedReadFixtureReport::from_request(req).expect("ok");
+        assert_eq!(report.status, VortexEncodedReadFixtureStatus::FixtureReady);
     }
 }
