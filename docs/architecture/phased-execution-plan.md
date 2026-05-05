@@ -4,8 +4,8 @@
 
 - Production-grade engine completion estimate: approximately 37–38%.
 - Architecture/control-plane completion estimate: approximately 97%.
-- Current checkpoint: Phase 12B.3c.1 — commit marker planning `CLI`/docs integration.
-- Immediate focus: expose report-only commit marker planning through `vortex-commit-marker-plan` while keeping commit marker file writes, manifest finalization, committed manifests, output-data writes, upstream `Vortex` write API calls, object-store writes, and fallback execution disabled.
+- Current checkpoint: Phase 12B.3c.2 — commit marker write `CLI`/docs integration.
+- Immediate focus: expose `vortex-commit-marker-write` as a feature-gated local marker writer while keeping manifest finalization, committed manifests, output-data writes, upstream `Vortex` write API calls, object-store writes, and fallback execution disabled.
 
 
 ## Competitive engine target
@@ -969,8 +969,9 @@ Must include:
 - Phase 12B.3a complete: commit marker core contract (report-only, no filesystem writes).
 - Phase 12B.3a.1b complete: competitive roadmap identifier normalization and commit-marker feature-gate readiness requirement.
 - Phase 12B.3b complete: feature-gated local commit marker file write, no manifest finalization.
-- Phase 12B.3c.1 current: commit marker planning `CLI`/docs integration.
-- Phase 12B.3c.2 planned: commit marker write `CLI` (feature-gated local-only path).
+- Phase 12B.3c.1 complete: commit marker planning `CLI`/docs integration.
+- Phase 12B.3c.2 current: commit marker write `CLI` (feature-gated local-only path).
+- Phase 12B.3c.3 planned: commit marker write validation/closeout before manifest finalization.
 - Phase 12B.4 planned: manifest finalization contract remains deferred.
 
 Phase 12B.2a.4 note:

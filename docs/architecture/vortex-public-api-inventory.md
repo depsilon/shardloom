@@ -462,6 +462,7 @@ This update does not introduce scans, decode, materialization, writes, object-st
 ## Phase 12B commit planning CLI wrappers
 
 - `vortex-commit-marker-plan`, `vortex-commit-intent-plan`, and `vortex-commit-protocol-plan` are `ShardLoom`-native report-only `CLI` wrappers over commit planning reports.
+- `vortex-commit-marker-write` is a `ShardLoom`-native `CLI` wrapper over the feature-gated local commit marker write helper.
 - They provide stable text/JSON output fields for readiness validation.
 - They do not execute commits, finalize manifests, write commit markers, write output payloads, or perform object-store IO.
 - Upstream `Vortex` write API calls remain deferred.
