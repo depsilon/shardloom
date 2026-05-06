@@ -439,6 +439,11 @@ impl VortexEncodedReadFixtureReport {
     pub fn object_store_target(&self) -> bool {
         self.request
             .has_signal(VortexEncodedReadFixtureSignal::ObjectStoreTarget)
+            || self
+                .request
+                .fixture_ref
+                .as_ref()
+                .is_some_and(VortexEncodedReadFixtureRef::is_object_store_like)
     }
     #[must_use]
     pub fn scan_execution_risk(&self) -> bool {
@@ -776,6 +781,8 @@ mod tests {
             report.status,
             VortexEncodedReadFixtureStatus::BlockedByObjectStoreTarget
         );
+        assert!(report.object_store_target());
+        assert!(report.to_human_text().contains("object-store target: true"));
         assert!(!report.metadata_opened());
         assert!(!report.footer_inspected());
         assert!(!report.encoded_data_read());
@@ -807,6 +814,8 @@ mod tests {
                 report.status,
                 VortexEncodedReadFixtureStatus::BlockedByObjectStoreTarget
             );
+            assert!(report.object_store_target());
+            assert!(report.to_human_text().contains("object-store target: true"));
         }
     }
 
