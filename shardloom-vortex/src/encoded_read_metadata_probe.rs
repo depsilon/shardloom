@@ -432,6 +432,7 @@ impl VortexEncodedReadMetadataProbeReport {
     pub fn object_store_target(&self) -> bool {
         self.request
             .has_signal(VortexEncodedReadMetadataProbeSignal::ObjectStoreTarget)
+            || self.request.fixture_ref.is_object_store_like()
     }
     #[must_use]
     pub fn scan_execution_risk(&self) -> bool {
@@ -520,6 +521,7 @@ impl VortexEncodedReadMetadataProbeReport {
         let mut o = String::new();
         let _ = writeln!(o, "status: {}", self.status.as_str());
         let _ = writeln!(o, "mode: {}", self.mode.as_str());
+        let _ = writeln!(o, "object-store target: {}", self.object_store_target());
         let _ = writeln!(o, "metadata opened: {}", self.metadata_opened());
         let _ = writeln!(o, "footer inspected: {}", self.footer_inspected());
         let _ = writeln!(
@@ -626,6 +628,37 @@ mod tests {
         assert!(!report.values_materialized());
         assert!(!report.arrow_converted());
         assert!(!report.object_store_io());
+        assert!(!report.upstream_scan_called());
+        assert!(!report.fallback_execution_allowed());
+        assert!(report.is_side_effect_free());
+    }
+
+    #[test]
+    fn object_store_fixture_ref_without_signal_is_consistent() {
+        let request = VortexEncodedReadMetadataProbeRequest::new(
+            DatasetUri::new("file:///tmp/data.vortex").expect("valid dataset uri"),
+            VortexEncodedReadFixtureRef::new("s3://bucket/data.vortex").expect("valid fixture ref"),
+        )
+        .fixture_ready(true)
+        .fixture_ref_provided(true)
+        .feature_gate_enabled(true);
+        let report =
+            VortexEncodedReadMetadataProbeReport::from_request(request).expect("report builds");
+        assert_eq!(
+            report.status,
+            VortexEncodedReadMetadataProbeStatus::BlockedByObjectStoreTarget
+        );
+        assert!(report.object_store_target());
+        assert!(report.to_human_text().contains("object-store target: true"));
+        assert!(!report.metadata_opened());
+        assert!(!report.footer_inspected());
+        assert!(!report.encoded_data_read());
+        assert!(!report.row_read());
+        assert!(!report.array_decoded());
+        assert!(!report.values_materialized());
+        assert!(!report.arrow_converted());
+        assert!(!report.object_store_io());
+        assert!(!report.data_written());
         assert!(!report.upstream_scan_called());
         assert!(!report.fallback_execution_allowed());
         assert!(report.is_side_effect_free());
