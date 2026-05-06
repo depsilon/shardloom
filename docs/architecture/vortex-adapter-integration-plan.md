@@ -707,3 +707,13 @@ The output payload artifact remains a local placeholder contract artifact, not a
 - CG-1.2d.6 adds caller-provided `VortexSession` contract acceptance under `vortex-file-io` via `VortexMetadataAsyncInvocationInput` and a session-bearing invocation helper that stays `blocked_by_unsupported_api_surface` when boundary-ready.
 - Compile-only probe confirms method-item reference to `VortexOpenOptions::open_path`; this identifies the local-path open surface without opening files, awaiting futures, or performing metadata/footer IO.
 - Remaining blocker: production invocation still requires explicit approved async execution harness and IO policy; therefore no open/footer invocation is performed in this phase.
+
+## Test-only async metadata/footer harness policy
+
+- Test-only async execution is allowed only in feature-gated tests.
+- It must not affect production/default runtime behavior.
+- It must not add fallback execution.
+- It must not call scan/read-start/decode/materialization/`Arrow`/object-store/write APIs.
+- A dev-dependency executor is allowed only when already present in `Cargo.lock` through the `Vortex` feature graph and when adding it introduces no new lockfile packages.
+- A checked-in local `.vortex` fixture is allowed only with explicit provenance and only for metadata/footer open tests.
+- Fixture generation using `Vortex` write APIs is not allowed in this phase.

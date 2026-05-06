@@ -235,3 +235,13 @@ No fallback execution.
 
 - CG-1.2d.6 (complete): caller-provided `VortexSession` invocation contract is added under `vortex-file-io` and open-method compile probing now includes `VortexOpenOptions::open_path` method-item reference; production invocation remains deterministically blocked by unsupported API surface until approved async execution/IO harness policy is defined.
 - CG-1 through CG-18 remain active Competitive Engine Track gates; this update is CG-1.2d scope only and does not change other gate statuses.
+
+## Test-only async metadata/footer harness policy
+
+- Test-only async execution is allowed only in feature-gated tests.
+- It must not affect production/default runtime behavior.
+- It must not add fallback execution.
+- It must not call scan/read-start/decode/materialization/`Arrow`/object-store/write APIs.
+- A dev-dependency executor is allowed only when already present in `Cargo.lock` through the `Vortex` feature graph and when adding it introduces no new lockfile packages.
+- A checked-in local `.vortex` fixture is allowed only with explicit provenance and only for metadata/footer open tests.
+- Fixture generation using `Vortex` write APIs is not allowed in this phase.
