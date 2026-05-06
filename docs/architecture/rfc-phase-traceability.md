@@ -231,7 +231,7 @@ No fallback execution.
 - Actual public upstream `Vortex` metadata/footer invocation remains blocked by compile-unclear API shape; deterministic `blocked_by_unsupported_api_surface` diagnostics now record: `vortex::session::Session` not found, `VortexOpenOptions::new()` unavailable, and `OpenOptionsSessionExt` not usable in a compile-passing invocation path yet.
 
 
-- CG-1.2d.5 (current): method-shape compile probes confirm public method items for `OpenOptionsSessionExt`, `VortexOpenOptions`, and `VortexFile::footer` without invocation; metadata/footer invocation remains deferred and deterministically blocked without runtime/executor wiring.
+- CG-1.2d.5 (complete): method-shape compile probes confirm public method items for `OpenOptionsSessionExt`, `VortexOpenOptions`, and `VortexFile::footer` without invocation; metadata/footer invocation remains deferred and deterministically blocked without runtime/executor wiring.
 
-- CG-1.2d.6 (current): caller-provided `VortexSession` invocation contract is added under `vortex-file-io` and open-method compile probing now includes `VortexOpenOptions::open_path` method-item reference; production invocation remains deterministically blocked by unsupported API surface until approved async execution/IO harness policy is defined.
+- CG-1.2d.6 (complete): caller-provided `VortexSession` invocation contract is added under `vortex-file-io` and open-method compile probing now includes `VortexOpenOptions::open_path` method-item reference; production invocation remains deterministically blocked by unsupported API surface until approved async execution/IO harness policy is defined.
 - CG-1 through CG-18 remain active Competitive Engine Track gates; this update is CG-1.2d scope only and does not change other gate statuses.
