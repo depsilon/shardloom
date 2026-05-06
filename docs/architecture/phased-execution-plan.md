@@ -57,10 +57,23 @@
 - focused CLI contract tests for usage/help and naming semantics
 - backlog-only note for future command registry/generated help
 
-### R3.3 — Diagnostics normalization backlog (current)
+### R3.3 — Diagnostics normalization backlog (complete)
 - docs/audit-only diagnostics normalization backlog inventory
 - no runtime behavior changes
 - no fallback execution
+
+### R3.3a — CLI missing/unknown argument diagnostic helpers (current)
+- add tiny helper functions for missing/unknown argument diagnostics
+- add focused tests for InvalidInput category/code and fallback disabled fields
+- no broad diagnostics migration
+
+### R3.3b — Unknown signal diagnostic normalization (planned)
+- normalize unknown signal parse errors through shared helpers
+- preserve compatibility and no-fallback guarantees
+
+### R3.3c — Output envelope command-status derivation audit (planned)
+- audit status derivation consistency for command envelopes
+- keep runtime behavior unchanged except targeted diagnostics normalization
 
 ### R3.4 — Targeted cleanup PR sequence (planned)
 - execute small, scoped cleanup PRs from the R3.1 inventory

@@ -910,6 +910,14 @@ fn parse_vortex_finalized_manifest_artifact_write_options(
     Ok(options)
 }
 
+fn cli_missing_arg_error(command: &str, arg: &str) -> ShardLoomError {
+    ShardLoomError::InvalidOperation(format!("{command} missing required argument: <{arg}>"))
+}
+
+fn cli_unknown_arg_error(command: &str, value: &str) -> ShardLoomError {
+    ShardLoomError::InvalidOperation(format!("{command} unknown argument/value: {value}"))
+}
+
 fn parse_output_format(args: Vec<String>) -> Result<(Vec<String>, OutputFormat), String> {
     let mut filtered = Vec::with_capacity(args.len());
     let mut format = OutputFormat::Text;
@@ -6572,8 +6580,12 @@ fn run(args: Vec<String>) -> ExitCode {
                 return ExitCode::from(2);
             };
             let Some(fixture_ref_raw) = args.next() else {
-                eprintln!("usage: shardloom {command} <target_uri> <fixture_ref> <signals>");
-                return ExitCode::from(2);
+                return emit_error(
+                    command,
+                    format,
+                    "vortex encoded read metadata probe failed",
+                    &cli_missing_arg_error(command, "fixture_ref"),
+                );
             };
             let Some(signals_raw) = args.next() else {
                 eprintln!("usage: shardloom {command} <target_uri> <fixture_ref> <signals>");
@@ -8938,7 +8950,12 @@ fn run(args: Vec<String>) -> ExitCode {
                 ExitCode::SUCCESS
             }
         }
-        _ => {
+        Some(command) => {
+            eprintln!("{}", cli_usage_line());
+            let error = cli_unknown_arg_error("shardloom", command);
+            emit_error("cli", format, "unknown command", &error)
+        }
+        None => {
             eprintln!("{}", cli_usage_line());
             ExitCode::from(2)
         }
@@ -8948,6 +8965,7 @@ fn run(args: Vec<String>) -> ExitCode {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use shardloom_core::{DiagnosticCategory, DiagnosticCode};
     fn run_test_with_larger_stack(test_name: &str, test_fn: impl FnOnce() + Send + 'static) {
         let handle = std::thread::Builder::new()
             .name(test_name.to_string())
@@ -10177,6 +10195,50 @@ mod tests {
         let usage = cli_usage_line();
         assert!(usage.starts_with("usage: shardloom "));
         assert!(!usage.contains("shardloom-cli"));
+    }
+
+    #[test]
+    fn cli_missing_arg_error_maps_to_invalid_input_diagnostic() {
+        let error = cli_missing_arg_error("vortex-encoded-read-metadata-probe", "fixture_ref");
+        let diagnostic = error.to_diagnostic();
+        assert_eq!(diagnostic.code, DiagnosticCode::InvalidInput);
+        assert_eq!(diagnostic.category, DiagnosticCategory::InvalidInput);
+        assert!(!diagnostic.fallback.attempted);
+        assert!(!diagnostic.fallback.allowed);
+        assert!(
+            diagnostic
+                .reason
+                .as_deref()
+                .is_some_and(|reason| reason.contains("vortex-encoded-read-metadata-probe"))
+        );
+        assert!(
+            diagnostic
+                .reason
+                .as_deref()
+                .is_some_and(|reason| reason.contains("fixture_ref"))
+        );
+    }
+
+    #[test]
+    fn cli_unknown_arg_error_maps_to_invalid_input_diagnostic() {
+        let error = cli_unknown_arg_error("shardloom", "bad-command");
+        let diagnostic = error.to_diagnostic();
+        assert_eq!(diagnostic.code, DiagnosticCode::InvalidInput);
+        assert_eq!(diagnostic.category, DiagnosticCategory::InvalidInput);
+        assert!(!diagnostic.fallback.attempted);
+        assert!(!diagnostic.fallback.allowed);
+        assert!(
+            diagnostic
+                .reason
+                .as_deref()
+                .is_some_and(|reason| reason.contains("shardloom"))
+        );
+        assert!(
+            diagnostic
+                .reason
+                .as_deref()
+                .is_some_and(|reason| reason.contains("bad-command"))
+        );
     }
 
     #[test]
