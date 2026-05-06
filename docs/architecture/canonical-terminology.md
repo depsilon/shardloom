@@ -83,3 +83,14 @@ Discouraged terms:
 - "free execution" without benchmark/cost context
 - "zero-copy" when data is actually decoded
 - "native output" when target is compatibility export
+
+## Cleanup backlog terminology families
+
+R3.1 inventory keeps existing public type names stable while prioritizing mapping/helper cleanup.
+
+- **Materialization family** (`MaterializationPolicy`, `MaterializationRequirement`, `MaterializationBoundary`): keep distinct by layer; add mapping helpers where cross-layer rendering is needed.
+- **Execution/work family** (`ExecutionState`, `DataWorkLevel`): keep both; strengthen deterministic mapping helpers for agent/CLI/report consistency.
+- **Format/target family** (`DatasetFormat`, `OutputTargetKind`): keep separate input/output boundaries; add explicit mapping where interoperability summaries require it.
+- **Fidelity family** (`FidelityLevel`, `VortexOutputFidelity`): keep canonical + adapter-local split; improve explicit mapping helpers and report parity checks.
+- **Resource/memory family** (`ResourceBudget`, `MemoryBudget`, `BoundedMemoryPolicy`): keep policy boundaries explicit; avoid premature consolidation.
+- **Plan skeleton family** (`RuntimePlanSkeleton`, `StreamingPlanSkeleton`, `ScanPlanSkeleton`): keep separate contracts for now; evaluate shared field helpers in targeted cleanup PRs.

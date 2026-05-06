@@ -388,3 +388,10 @@ When proposing next work:
 - Do not use any of them as runtime fallback engines.
 - Keep Competitive Engine Track visible and complete in phase proposals.
 - Place active refactor/docs queue above CG implementation queue when docs are out of sync.
+
+## R3 cleanup sequencing guardrails
+
+- For R3 cleanup tasks, prioritize inventory/audit PRs first, then small targeted cleanup PRs.
+- Do not bundle CLI registry implementation, diagnostics normalization, terminology renames, and feature-footprint implementation into one PR.
+- Do not rename public types or commands without an explicit compatibility plan.
+- Keep CG implementation paused until R3.1 lands unless a user explicitly resumes CG implementation.
