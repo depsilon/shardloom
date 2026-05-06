@@ -231,4 +231,4 @@ No fallback execution.
 - Actual public upstream `Vortex` metadata/footer invocation remains blocked by compile-unclear API shape; deterministic `blocked_by_unsupported_api_surface` diagnostics now record: `vortex::session::Session` not found, `VortexOpenOptions::new()` unavailable, and `OpenOptionsSessionExt` not usable in a compile-passing invocation path yet.
 
 
-- CG-1.2d.4 (current): compile-probe validation confirms public symbol names, but metadata/footer invocation remains deferred without runtime/executor wiring.
+- CG-1.2d.5 (current): method-shape compile probes confirm public method items for `OpenOptionsSessionExt`, `VortexOpenOptions`, and `VortexFile::footer` without invocation; metadata/footer invocation remains deferred and deterministically blocked without runtime/executor wiring.

@@ -573,4 +573,8 @@ This update does not introduce scans, decode, materialization, writes, object-st
 ## CG-1.2d.4 update (API compile probe)
 - Added feature-gated compile probe that confirms public `Vortex` symbols compile in `shardloom-vortex`: `vortex::file::VortexOpenOptions`, `vortex::file::OpenOptionsSessionExt`, `vortex::file::VortexFile`, and `vortex::session::VortexSession`.
 - Production async invocation remains deterministically blocked in this phase; no metadata/footer IO is executed.
-- No runtime/executor dependency was added, and no scan/read-start, decode, materialization, `Arrow` conversion, object-store IO, writes, or fallback execution were introduced.
+
+## CG-1.2d.5 update (method-shape compile probe)
+- Added feature-gated method-item probes that compile-check the following public method shapes without invocation: `<VortexSession as OpenOptionsSessionExt>::open_options(&self) -> VortexOpenOptions`, `VortexOpenOptions::with_initial_read_size(self, usize) -> VortexOpenOptions`, `VortexOpenOptions::with_some_file_size(self, Option<u64>) -> VortexOpenOptions`, and `VortexFile::footer(&self) -> &Footer`.
+- Remaining blocker: production path still lacks an approved compile-safe no-IO constructor policy for deterministic async invocation wiring in `ShardLoom`; invocation remains blocked by unsupported API surface.
+- No runtime/executor dependency was added and no file open, metadata/footer IO, scan/read-start, decode/materialization, `Arrow` conversion, object-store IO, writes, or fallback execution was introduced.
