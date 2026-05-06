@@ -10173,6 +10173,43 @@ mod tests {
     }
 
     #[test]
+    fn cli_usage_line_uses_shardloom_not_crate_name() {
+        let usage = cli_usage_line();
+        assert!(usage.starts_with("usage: shardloom "));
+        assert!(!usage.contains("shardloom-cli"));
+    }
+
+    #[test]
+    fn unknown_command_usage_text_uses_shardloom() {
+        let usage = cli_usage_line();
+        assert!(usage.contains("usage: shardloom "));
+        assert!(!usage.contains("usage: shardloom-cli "));
+    }
+
+    #[test]
+    fn cli_usage_lists_plan_probe_and_write_command_families() {
+        let usage = cli_usage_line();
+        assert!(usage.contains("|release-plan|"));
+        assert!(usage.contains("|vortex-encoded-read-metadata-probe|"));
+        assert!(usage.contains("|vortex-output-payload-artifact-write|"));
+    }
+
+    #[test]
+    fn cli_usage_preserves_specific_probe_and_artifact_write_names() {
+        let usage = cli_usage_line();
+        assert!(usage.contains("vortex-encoded-read-metadata-probe"));
+        assert!(usage.contains("vortex-output-payload-artifact-write"));
+    }
+
+    #[test]
+    fn cli_usage_execute_command_names_are_explicitly_scoped() {
+        let usage = cli_usage_line();
+        let execute_commands = usage.matches("-execute").count();
+        assert_eq!(execute_commands, 2);
+        assert!(usage.contains("vortex-encoded-read-execute"));
+        assert!(usage.contains("vortex-metadata-execute"));
+    }
+    #[test]
     fn cli_contract_name_is_shardloom() {
         assert_eq!(cli_command_name(), "shardloom");
     }

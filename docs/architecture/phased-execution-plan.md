@@ -43,7 +43,7 @@
 - expanded RFC-level systems-learning contract mapping
 - fixed traceability formatting defects
 
-### R3.1 — Repo cleanup backlog inventory and terminology/CLI audit (current)
+### R3.1 — Repo cleanup backlog inventory and terminology/CLI audit (complete)
 - establish concrete prioritized cleanup inventory
 - audit CLI usage/name consistency backlog
 - audit diagnostics normalization backlog
@@ -52,7 +52,12 @@
 - audit traceability/docs drift and cross-crate invariant test backlog
 - source of truth: `docs/architecture/repo-cleanup-backlog.md`
 
-### R3.2 — Targeted cleanup PR sequence (planned)
+### R3.2 — CLI usage/name consistency cleanup (current)
+- compatibility-preserving CLI usage/help naming pass
+- focused CLI contract tests for usage/help and naming semantics
+- backlog-only note for future command registry/generated help
+
+### R3.3 — Targeted cleanup PR sequence (planned)
 - execute small, scoped cleanup PRs from the R3.1 inventory
 - preserve compatibility and no-fallback guardrails
 - avoid bundling broad CLI/diagnostics/terminology/feature-footprint refactors
