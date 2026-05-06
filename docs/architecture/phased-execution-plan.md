@@ -75,20 +75,29 @@
 - audit status derivation consistency for command envelopes
 - keep runtime behavior unchanged except targeted diagnostics normalization
 
-### R3.4 — terminology consolidation backlog (current)
+### R3.4 — terminology consolidation backlog (complete)
 - docs/audit-only terminology family inventory and mapping backlog
 - no public type renames
 - no runtime behavior changes
 - no fallback execution
 
-### R3.5 — feature-footprint/doctor centralization plan (planned)
+### R3.5 — feature-footprint/doctor centralization plan (current)
 - execute small, scoped cleanup PRs from the R3.1 inventory
 - preserve compatibility and no-fallback guardrails
 - avoid bundling broad CLI/diagnostics/terminology/feature-footprint refactors
 
 ### R4 — Resume CG implementation (planned)
+- keep CG implementation paused until R3.5 lands unless user explicitly resumes CG
+
 - CG-1.2d actual feature-gated local metadata/footer IO only if feature/toolchain validates
 - CG-2.1 real count primitive over actual Vortex data
+
+### R3 closeout decision
+
+Options:
+- Resume CG implementation at CG-1.2d if feature/toolchain validates.
+- Continue cleanup with R3.5a feature-footprint report core contract.
+- Continue cleanup with R3.5d no-fallback dependency invariant tests.
 
 ## Competitive engine target
 

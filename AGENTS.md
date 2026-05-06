@@ -175,6 +175,9 @@ Important principles:
 - Capability discovery should be deterministic and machine-readable.
 - Effectful operations must not run during explain, estimate, doctor, or capabilities.
 - No Spark or DataFusion fallback is allowed.
+- Feature-footprint/doctor work should centralize status reporting before changing behavior.
+- Do not implement filesystem/network probing in doctor/capabilities without an explicit phase.
+- Do not treat external baseline availability as fallback execution availability.
 
 ## Streaming, zero-copy, and zero-decode
 
