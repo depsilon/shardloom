@@ -541,4 +541,4 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - A future real payload write path must be feature-gated and explicitly approved before CG-3 can be treated as complete.
 
 
-- CG-1.2b adds metadata/footer probe contracts only; scan/data traversal remains deferred.
+- CG-1.2b adds metadata/footer probe contracts only; default report construction does not inspect local file existence and scan/data traversal remains deferred.

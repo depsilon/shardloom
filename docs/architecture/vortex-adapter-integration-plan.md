@@ -670,5 +670,7 @@ The output payload artifact remains a local placeholder contract artifact, not a
 ## CG-1.2b metadata/footer probe
 
 - Feature-gated and local-only metadata/footer probing for encoded-read fixtures.
+- Default build path is report-only and performs no local filesystem existence inspection.
+- Local metadata/footer IO and local file existence checks remain deferred to a validated feature path.
 - Metadata/footer only: no scan/read-start APIs, no encoded data traversal, no row reads.
 - No decode, no materialization, no `Arrow` conversion, no object-store IO, no fallback execution.
