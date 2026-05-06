@@ -37,6 +37,7 @@ pub mod execution_readiness;
 pub mod file_io;
 pub mod manifest_finalization;
 pub mod memory_bridge;
+pub mod metadata_async_boundary;
 pub mod metadata_executor;
 pub mod metadata_planning;
 pub mod metadata_pruning;
@@ -141,6 +142,14 @@ pub use metadata_executor::{
     VortexMetadataExecutionStatus, VortexMetadataExecutorFeatureStatus,
     execute_vortex_metadata_only, vortex_metadata_execution_is_side_effect_free,
     vortex_metadata_executor_feature_enabled,
+};
+
+pub use metadata_async_boundary::{
+    VortexMetadataAsyncBoundaryEffect, VortexMetadataAsyncBoundaryMode,
+    VortexMetadataAsyncBoundaryReport, VortexMetadataAsyncBoundaryRequest,
+    VortexMetadataAsyncBoundarySignal, VortexMetadataAsyncBoundaryStatus,
+    metadata_async_boundary_request_from_metadata_probe_report,
+    plan_vortex_metadata_async_boundary, vortex_metadata_async_boundary_is_side_effect_free,
 };
 
 pub use memory_bridge::{

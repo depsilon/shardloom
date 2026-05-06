@@ -150,7 +150,7 @@ Competitive gate coverage:
   - CG-1.2b metadata probe fixture/report integration: complete
   - CG-1.2b.1 metadata probe stability/contract closeout: complete
   - CG-1.2c metadata probe `CLI`/docs integration: complete
-  - CG-1.2d feature-gated local metadata/footer IO execution path: current (feature/toolchain validated; async-session API boundary still blocks completion)
+  - CG-1.2d.2 deterministic async/session boundary contract: current (report-only; no runtime/executor added; metadata/footer invocation deferred to CG-1.2d.3)
     - primary RFC: RFC 0026
     - secondary RFCs: RFC 0012, RFC 0016, RFC 0025, RFC 0027, RFC 0029
     - constraints: no scan/read-start, decode, materialization, Arrow conversion, object-store IO, or fallback
