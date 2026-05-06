@@ -1346,3 +1346,13 @@ Entry criteria for the next implementation phase:
 - CG-1.2d.6 (complete): adds feature-gated caller-provided `VortexSession` invocation input contract (`VortexMetadataAsyncInvocationInput`) and a session-accepting async invocation entrypoint that remains deterministically blocked unless boundary-ready and safe invocation is approved.
 - CG-1.2d.6 compile probes now reference `VortexOpenOptions::open_path` method item shape without calling it; production metadata/footer invocation remains deferred because invoking open/footer would perform IO and require an approved async runtime/execution harness. CG-1.2d.7 remains current and blocked: no approved direct async executor/harness is available in `shardloom-vortex`, and no repository-local `.vortex` fixture is present for metadata/footer open execution.
 - No runtime/executor dependency added; no file open, metadata/footer IO, scan/read-start, decode/materialization, `Arrow` conversion, object-store IO, writes, or fallback execution.
+
+## Test-only async metadata/footer harness policy
+
+- Test-only async execution is allowed only in feature-gated tests.
+- It must not affect production/default runtime behavior.
+- It must not add fallback execution.
+- It must not call scan/read-start/decode/materialization/`Arrow`/object-store/write APIs.
+- A dev-dependency executor is allowed only when already present in `Cargo.lock` through the `Vortex` feature graph and when adding it introduces no new lockfile packages.
+- A checked-in local `.vortex` fixture is allowed only with explicit provenance and only for metadata/footer open tests.
+- Fixture generation using `Vortex` write APIs is not allowed in this phase.

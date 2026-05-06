@@ -585,3 +585,13 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - Added compile probe reference for `VortexOpenOptions::open_path` method item to identify local-path open surface without invocation.
 - Production metadata/footer invocation remains blocked pending approved async runtime/IO harness and explicit invocation policy.
 - No runtime/executor dependency, file open, metadata/footer IO, scan/read-start, decode/materialization, `Arrow` conversion, object-store IO, writes, or fallback execution was added.
+
+## Test-only async metadata/footer harness policy
+
+- Test-only async execution is allowed only in feature-gated tests.
+- It must not affect production/default runtime behavior.
+- It must not add fallback execution.
+- It must not call scan/read-start/decode/materialization/`Arrow`/object-store/write APIs.
+- A dev-dependency executor is allowed only when already present in `Cargo.lock` through the `Vortex` feature graph and when adding it introduces no new lockfile packages.
+- A checked-in local `.vortex` fixture is allowed only with explicit provenance and only for metadata/footer open tests.
+- Fixture generation using `Vortex` write APIs is not allowed in this phase.

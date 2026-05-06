@@ -61,7 +61,13 @@ pub fn vortex_metadata_async_public_api_compile_probe_summary() -> &'static str 
         open_path_method,
     );
 
-    "confirmed public symbols: `vortex::file::VortexOpenOptions`, `vortex::file::OpenOptionsSessionExt`, `vortex::file::VortexFile`, `vortex::session::VortexSession`; confirmed method shape probes: `<VortexSession as OpenOptionsSessionExt>::open_options(&self) -> VortexOpenOptions`, `VortexOpenOptions::with_initial_read_size(self, usize) -> VortexOpenOptions`, `VortexOpenOptions::with_some_file_size(self, Option<u64>) -> VortexOpenOptions`, `VortexFile::footer(&self) -> &Footer`, `VortexOpenOptions::open_path(self, impl AsRef<Path>) -> impl Future<Output = VortexResult<VortexFile>>`; caller-provided `VortexSession` accepted by `ShardLoom` contract; invocation remains deferred because `shardloom-vortex` has no approved direct async executor/test harness and no verified local `.vortex` fixture path for safe metadata/footer open execution in this phase"
+    "confirmed public symbols: `vortex::file::VortexOpenOptions`, `vortex::file::OpenOptionsSessionExt`, `vortex::file::VortexFile`, `vortex::session::VortexSession`; confirmed method shape probes: `<VortexSession as OpenOptionsSessionExt>::open_options(&self) -> VortexOpenOptions`, `VortexOpenOptions::with_initial_read_size(self, usize) -> VortexOpenOptions`, `VortexOpenOptions::with_some_file_size(self, Option<u64>) -> VortexOpenOptions`, `VortexFile::footer(&self) -> &Footer`, `VortexOpenOptions::open_path(self, impl AsRef<Path>) -> impl Future<Output = VortexResult<VortexFile>>`; caller-provided `VortexSession` accepted by `ShardLoom` contract; invocation remains deferred because opening performs IO and requires approved async execution policy; `shardloom-vortex` does not start a runtime/executor in production"
+}
+
+#[cfg(feature = "vortex-file-io")]
+#[must_use]
+pub fn vortex_metadata_async_harness_blocker_summary() -> &'static str {
+    "harness/test-environment blocker: no approved direct async executor/test harness was found and no repository-local `.vortex` fixture was found for metadata/footer-only harness execution; this does not describe every `BoundaryReady` invocation"
 }
 
 #[cfg(feature = "vortex-file-io")]
@@ -835,7 +841,7 @@ pub async fn invoke_vortex_metadata_footer_probe_async(
         diagnostics: vec![Diagnostic::unsupported(
             DiagnosticCode::NotImplemented,
             "metadata/footer async invocation blocked",
-            vortex_metadata_async_public_api_compile_probe_summary(),
+            "caller-provided `VortexSession`/async boundary is accepted; production `open_path`/`footer` invocation remains deferred because no approved async execution/IO harness policy is available and `ShardLoom` does not start a runtime/executor in production; no file open/metadata/footer IO occurs",
             None,
         )],
     })
