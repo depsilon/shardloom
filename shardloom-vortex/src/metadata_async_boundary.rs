@@ -785,6 +785,22 @@ pub async fn invoke_vortex_metadata_footer_probe_async(
 pub async fn invoke_vortex_metadata_footer_probe_async(
     boundary: VortexMetadataAsyncBoundaryReport,
 ) -> Result<VortexMetadataAsyncInvocationReport> {
+    if !boundary.boundary_ready() {
+        return Ok(VortexMetadataAsyncInvocationReport {
+            status: VortexMetadataAsyncInvocationStatus::BlockedByBoundary,
+            boundary_report: boundary,
+            effects_performed: Vec::new(),
+            metadata_summary: None,
+            footer_summary: None,
+            diagnostics: vec![Diagnostic::unsupported(
+                DiagnosticCode::NotImplemented,
+                "metadata/footer async boundary blocked",
+                "`VortexMetadataAsyncBoundaryReport` is not `BoundaryReady`",
+                None,
+            )],
+        });
+    }
+
     Ok(VortexMetadataAsyncInvocationReport {
         status: VortexMetadataAsyncInvocationStatus::BlockedByUnsupportedApiSurface,
         boundary_report: boundary,
@@ -828,6 +844,7 @@ pub fn metadata_async_boundary_request_from_metadata_probe_report(
         metadata_probe.status,
         VortexEncodedReadMetadataProbeStatus::BlockedByMissingLocalFile
             | VortexEncodedReadMetadataProbeStatus::BlockedByMissingFixtureRef
+            | VortexEncodedReadMetadataProbeStatus::BlockedByFixture
             | VortexEncodedReadMetadataProbeStatus::BlockedByObjectStoreTarget
             | VortexEncodedReadMetadataProbeStatus::BlockedByScanExecutionRisk
             | VortexEncodedReadMetadataProbeStatus::BlockedByDecodeRisk
@@ -879,7 +896,10 @@ pub fn vortex_metadata_async_boundary_is_side_effect_free(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{VortexEncodedReadMetadataProbeRequest, probe_vortex_encoded_read_metadata};
+    use crate::{
+        VortexEncodedReadMetadataProbeMode, VortexEncodedReadMetadataProbeRequest,
+        probe_vortex_encoded_read_metadata,
+    };
     fn mk_req() -> VortexMetadataAsyncBoundaryRequest {
         VortexMetadataAsyncBoundaryRequest::new(
             DatasetUri::new("file:///tmp/a.vortex").unwrap(),
@@ -981,5 +1001,27 @@ mod tests {
         );
         assert!(!req.has_signal(VortexMetadataAsyncBoundarySignal::RuntimeBoundaryApproved));
         assert!(!req.has_signal(VortexMetadataAsyncBoundarySignal::AsyncSessionAllowed));
+    }
+
+    #[test]
+    fn helper_preserves_fixture_blocked_status() {
+        let mp = VortexEncodedReadMetadataProbeReport {
+            status: VortexEncodedReadMetadataProbeStatus::BlockedByFixture,
+            mode: VortexEncodedReadMetadataProbeMode::ReportOnly,
+            request: VortexEncodedReadMetadataProbeRequest::new(
+                DatasetUri::new("file:///tmp/a.vortex").unwrap(),
+                VortexEncodedReadFixtureRef::new("/tmp/a.vortex").unwrap(),
+            ),
+            effects_performed: Vec::new(),
+            metadata_summary: None,
+            footer_summary: None,
+            diagnostics: Vec::new(),
+        };
+        let req = metadata_async_boundary_request_from_metadata_probe_report(
+            DatasetUri::new("file:///tmp/a.vortex").unwrap(),
+            VortexEncodedReadFixtureRef::new("/tmp/a.vortex").unwrap(),
+            &mp,
+        );
+        assert!(!req.has_signal(VortexMetadataAsyncBoundarySignal::LocalFixtureReady));
     }
 }
