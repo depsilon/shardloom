@@ -233,7 +233,7 @@ No fallback execution.
 
 - CG-1.2d.5 (complete): method-shape compile probes confirm public method items for `OpenOptionsSessionExt`, `VortexOpenOptions`, and `VortexFile::footer` without invocation; metadata/footer invocation remains deferred and deterministically blocked without runtime/executor wiring.
 
-- CG-1.2d.6 (complete): caller-provided `VortexSession` invocation contract is added under `vortex-file-io` and open-method compile probing now includes `VortexOpenOptions::open_path` method-item reference; production invocation remains deterministically blocked by unsupported API surface until approved async execution/IO harness policy is defined.
+- CG-1.2d.6 (complete): caller-provided `VortexSession` invocation contract is added under `vortex-file-io` and open-method compile probing now includes `VortexOpenOptions::open_path` method-item reference; production invocation remains deterministically blocked; CG-1.2d.8 confirms test harness ingredient limits (no local `.vortex` fixture and no confirmed no-IO `Footer` construction route), so metadata/footer execution stays open/paused without production runtime changes.
 - CG-1 through CG-18 remain active Competitive Engine Track gates; this update is CG-1.2d scope only and does not change other gate statuses.
 
 ## Test-only async metadata/footer harness policy
