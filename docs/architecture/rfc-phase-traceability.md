@@ -254,3 +254,10 @@ No fallback execution.
 - CG-2.1 actual count execution remains blocked until both metadata/footer readiness and an approved encoded data path exist.
 - No scan/read-start, encoded data reads, row reads, decode/materialization, `Arrow` conversion, object-store `IO`, writes, or fallback execution are introduced.
 - CG-1 through CG-18 remain visible and active competitive gates.
+
+## CG-2.0b helper-correctness traceability update
+- CG-2.0b closes helper correctness gaps for invocation-derived query primitive requests by preserving boundary blockers/signals and preventing misclassification as `feature_disabled` when a stronger blocker exists.
+- `VortexQueryPrimitiveReport::has_errors` now treats report diagnostics with `Error`/`Fatal` severity as errors in addition to status/request diagnostics.
+- This remains report-only readiness planning and introduces no execution side effects.
+- CLI query primitive planning command is deferred to CG-2.0c.
+- CG-2.1 execution remains blocked pending metadata/footer and encoded data path readiness.

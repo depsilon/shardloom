@@ -604,3 +604,10 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - CG-2.1 actual count execution remains blocked until both metadata/footer readiness and an approved encoded data path exist.
 - No scan/read-start, encoded data reads, row reads, decode/materialization, `Arrow` conversion, object-store `IO`, writes, or fallback execution are introduced.
 - CG-1 through CG-18 remain visible and active competitive gates.
+
+## CG-2.0b query primitive helper correctness update
+- Metadata async invocation to query primitive request propagation now preserves boundary feature-gate/object-store/risk signals and no longer drops blockers from `boundary_report`.
+- Query primitive error detection now includes report diagnostic severity (`Error`/`Fatal`) in addition to status/request checks.
+- No upstream Vortex scan/read-start or write APIs are called by this update.
+- No encoded data reads, row reads, decode/materialization, Arrow conversion, object-store IO, writes, or fallback execution are introduced.
+- Optional CLI command for direct query primitive planning is deferred to CG-2.0c.

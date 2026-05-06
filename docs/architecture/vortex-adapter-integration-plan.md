@@ -726,3 +726,10 @@ The output payload artifact remains a local placeholder contract artifact, not a
 - CG-2.1 actual count execution remains blocked until both metadata/footer readiness and an approved encoded data path exist.
 - No scan/read-start, encoded data reads, row reads, decode/materialization, `Arrow` conversion, object-store `IO`, writes, or fallback execution are introduced.
 - CG-1 through CG-18 remain visible and active competitive gates.
+
+## CG-2.0b query primitive helper correctness
+- Invocation-to-query-primitive helpers now preserve boundary risk and gate signals from metadata async boundary reports.
+- Boundary blockers are preserved deterministically in query primitive readiness status computation.
+- Metadata footer readiness is effect-driven and not inferred from boundary readiness.
+- This update is report-only and does not perform scan/read-start, encoded reads, row reads, decode/materialization, Arrow conversion, object-store IO, writes, or fallback execution.
+- CLI surface for direct query primitive plan command is deferred to CG-2.0c.
