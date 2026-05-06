@@ -692,3 +692,11 @@ The output payload artifact remains a local placeholder contract artifact, not a
 - CG-1.2d.2 adds a deterministic `VortexMetadataAsyncBoundaryReport`/`VortexMetadataAsyncBoundaryRequest` contract only; no runtime, executor, scan/read-start, decode/materialization, `Arrow` conversion, object-store `IO`, writes, or fallback execution.
 - Therefore `BlockedByUnsupportedApiSurface` remains the deterministic outcome for existing local fixtures.
 - Default build remains no-IO; no scan/read-start, decode, materialization, Arrow conversion, object-store IO, writes, or fallback.
+
+
+### CG-1.2d.3 update
+- Added feature-gated async metadata/footer invocation surface for caller-provided async context only.
+- No runtime/executor dependency was added by `ShardLoom`.
+- Sync `VortexEncodedReadMetadataProbeReport::from_request` path remains report-only/no-IO.
+- Async surface preserves no scan/read-start, no encoded-data reads, no decode/materialization, no `Arrow` conversion, no object-store IO, no writes, and no fallback execution.
+- Actual public upstream `Vortex` metadata/footer invocation remains blocked by compile-unclear API shape; deterministic `blocked_by_unsupported_api_surface` diagnostics now record: `vortex::session::Session` not found, `VortexOpenOptions::new()` unavailable, and `OpenOptionsSessionExt` not usable in a compile-passing invocation path yet.

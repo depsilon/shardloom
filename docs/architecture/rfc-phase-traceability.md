@@ -221,3 +221,11 @@ No fallback execution.
 | R3.5 | Feature-footprint/doctor centralization plan | RFC 0012, RFC 0018, RFC 0024, RFC 0025, RFC 0030 | docs/audit only; feature-footprint report implementation deferred; doctor/capabilities behavior unchanged; no runtime behavior; no fallback execution. |
 | R3.5a | `FeatureFootprintReport` core contract | RFC 0012, RFC 0018, RFC 0024, RFC 0025, RFC 0030 | core report contract only; no probing; no `doctor`/`capabilities` behavior change; no dependency scanning; no runtime behavior; no fallback execution. |
 | R3.5d | no-fallback dependency invariant tests | RFC 0024, RFC 0025, RFC 0030 | manifest/lockfile invariant tests only; no docs scan for conceptual references; no runtime behavior; no fallback execution. |
+
+
+### CG-1.2d.3 update
+- Added feature-gated async metadata/footer invocation surface for caller-provided async context only.
+- No runtime/executor dependency was added by `ShardLoom`.
+- Sync `VortexEncodedReadMetadataProbeReport::from_request` path remains report-only/no-IO.
+- Async surface preserves no scan/read-start, no encoded-data reads, no decode/materialization, no `Arrow` conversion, no object-store IO, no writes, and no fallback execution.
+- Actual public upstream `Vortex` metadata/footer invocation remains blocked by compile-unclear API shape; deterministic `blocked_by_unsupported_api_surface` diagnostics now record: `vortex::session::Session` not found, `VortexOpenOptions::new()` unavailable, and `OpenOptionsSessionExt` not usable in a compile-passing invocation path yet.

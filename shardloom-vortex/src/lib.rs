@@ -148,6 +148,8 @@ pub use metadata_async_boundary::{
     VortexMetadataAsyncBoundaryEffect, VortexMetadataAsyncBoundaryMode,
     VortexMetadataAsyncBoundaryReport, VortexMetadataAsyncBoundaryRequest,
     VortexMetadataAsyncBoundarySignal, VortexMetadataAsyncBoundaryStatus,
+    VortexMetadataAsyncInvocationEffect, VortexMetadataAsyncInvocationReport,
+    VortexMetadataAsyncInvocationStatus, invoke_vortex_metadata_footer_probe_async,
     metadata_async_boundary_request_from_metadata_probe_report,
     plan_vortex_metadata_async_boundary, vortex_metadata_async_boundary_is_side_effect_free,
 };
