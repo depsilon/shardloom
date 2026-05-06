@@ -52,12 +52,17 @@
 - audit traceability/docs drift and cross-crate invariant test backlog
 - source of truth: `docs/architecture/repo-cleanup-backlog.md`
 
-### R3.2 — CLI usage/name consistency cleanup (current)
+### R3.2 — CLI usage/name consistency cleanup (complete)
 - compatibility-preserving CLI usage/help naming pass
 - focused CLI contract tests for usage/help and naming semantics
 - backlog-only note for future command registry/generated help
 
-### R3.3 — Targeted cleanup PR sequence (planned)
+### R3.3 — Diagnostics normalization backlog (current)
+- docs/audit-only diagnostics normalization backlog inventory
+- no runtime behavior changes
+- no fallback execution
+
+### R3.4 — Targeted cleanup PR sequence (planned)
 - execute small, scoped cleanup PRs from the R3.1 inventory
 - preserve compatibility and no-fallback guardrails
 - avoid bundling broad CLI/diagnostics/terminology/feature-footprint refactors
