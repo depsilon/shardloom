@@ -245,3 +245,12 @@ No fallback execution.
 - A dev-dependency executor is allowed only when already present in `Cargo.lock` through the `Vortex` feature graph and when adding it introduces no new lockfile packages.
 - A checked-in local `.vortex` fixture is allowed only with explicit provenance and only for metadata/footer open tests.
 - Fixture generation using `Vortex` write APIs is not allowed in this phase.
+
+
+## CG-2.0 query primitive boundary update
+- CG-1.2 metadata/footer execution remains paused/blocked after CG-1.2d.8 due to missing repository-local `.vortex` fixture and no confirmed public no-IO `Footer` route.
+- CG-2.0 is current and adds a report-only, feature-gated `Vortex` query primitive readiness boundary for count, filtered count, projection, and predicate/filter primitives.
+- This boundary does not execute query primitives and remains side-effect-free.
+- CG-2.1 actual count execution remains blocked until both metadata/footer readiness and an approved encoded data path exist.
+- No scan/read-start, encoded data reads, row reads, decode/materialization, `Arrow` conversion, object-store `IO`, writes, or fallback execution are introduced.
+- CG-1 through CG-18 remain visible and active competitive gates.

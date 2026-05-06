@@ -44,6 +44,7 @@ pub mod metadata_pruning;
 pub mod metadata_summary;
 pub mod output_payload;
 pub mod query_primitive;
+pub mod query_primitives;
 pub mod query_trace;
 pub mod read_planning;
 pub mod runtime_bridge;
@@ -169,6 +170,16 @@ pub use query_primitive::{
     VortexQueryPrimitiveResult, VortexQueryPrimitiveStatus, VortexQueryPrimitiveValue,
     evaluate_vortex_count_all_from_summary, evaluate_vortex_query_primitive,
 };
+pub use query_primitives::{
+    VortexQueryPrimitiveEffect, VortexQueryPrimitiveKind as VortexQueryPrimitiveBoundaryKind,
+    VortexQueryPrimitiveMode as VortexQueryPrimitiveBoundaryMode, VortexQueryPrimitiveReport,
+    VortexQueryPrimitiveRequest as VortexQueryPrimitiveBoundaryRequest, VortexQueryPrimitiveSignal,
+    VortexQueryPrimitiveStatus as VortexQueryPrimitiveBoundaryStatus, plan_vortex_query_primitive,
+    query_primitive_request_from_metadata_async_boundary,
+    query_primitive_request_from_metadata_async_invocation,
+    vortex_query_primitive_is_side_effect_free,
+};
+
 pub use query_trace::{
     VortexQueryDecisionKind, VortexQueryDecisionTrace, VortexQueryDecisionTraceEntry,
     VortexQueryPrimitiveAnalysisReport, VortexWorkAvoidedMetric, VortexWorkAvoidedMetricKind,
