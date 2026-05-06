@@ -86,17 +86,18 @@
 - preserve compatibility and no-fallback guardrails
 - avoid bundling broad CLI/diagnostics/terminology/feature-footprint refactors
 
-### R3.5a — FeatureFootprintReport core contract (current)
+### R3.5a — FeatureFootprintReport core contract (complete)
 - core contract in `shardloom-core`
 - no probing
 - no doctor/capabilities behavior change
 
-### R3.5d — no-fallback dependency invariant tests (planned)
+### R3.5d — no-fallback dependency invariant tests (current)
 - dependency-graph invariant checks
 - no runtime behavior change
 
 ### R4 — Resume CG implementation (planned)
-- keep CG implementation paused until R3.5 lands unless user explicitly resumes CG
+- keep CG implementation paused until R3.5d lands unless user explicitly resumes CG
+- default recommendation after R3.5d: resume CG-1.2d unless user continues cleanup
 
 - CG-1.2d actual feature-gated local metadata/footer IO only if feature/toolchain validates
 - CG-2.1 real count primitive over actual Vortex data
@@ -104,8 +105,8 @@
 ### R3 closeout decision
 
 Options:
-- After R3.5a and/or R3.5d, user may resume CG implementation at CG-1.2d if feature/toolchain validates.
-- Continue cleanup with R3.5d no-fallback dependency invariant tests.
+- After R3.5d lands, default recommendation is resume CG implementation at CG-1.2d if feature/toolchain validates.
+- Continue cleanup with R3.5b/R3.5c if user wants doctor/capability alignment before CG.
 - Keep R4 planned until explicit user resume decision.
 
 ## Competitive engine target

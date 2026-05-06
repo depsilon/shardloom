@@ -153,3 +153,11 @@ Scope note:
 - Next possible follow-up:
   - R3.5d no-fallback dependency invariant tests, or
   - R4 resume CG implementation if user chooses.
+
+## R3.5d invariant status
+
+- no-fallback dependency invariant tests added.
+- tests inspect manifests and Cargo.lock, not docs.
+- external systems remain conceptual references or external baselines only.
+- Arrow transitive packages are not treated as fallback engines.
+- no runtime behavior changed.
