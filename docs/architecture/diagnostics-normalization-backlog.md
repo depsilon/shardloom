@@ -105,3 +105,12 @@ Do not implement helpers in this PR.
   - output envelope command-status derivation audit remains out of scope.
 - Next recommended PR:
   - R3.3b unknown signal diagnostic normalization.
+
+
+### R3.3b helper status
+
+- Added `cli_unknown_signal_error(command, signal_family, token)` to normalize unknown-signal parse failures to InvalidInput diagnostics.
+- Migrated `parse_vortex_encoded_read_boundary_signals` and `parse_vortex_encoded_read_metadata_probe_signals` unknown-token branches to the helper.
+- Broad signal parser migration remains deferred.
+- Next recommended PR:
+  - R3.3c output envelope command-status derivation audit.

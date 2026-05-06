@@ -180,9 +180,11 @@ fn parse_vortex_encoded_read_boundary_signals(
             "write-risk" => VortexEncodedReadBoundarySignal::WriteRisk,
             "feature-gate-enabled" => VortexEncodedReadBoundarySignal::FeatureGateEnabled,
             _ => {
-                return Err(ShardLoomError::InvalidOperation(format!(
-                    "unknown encoded read boundary signal token: {token}"
-                )));
+                return Err(cli_unknown_signal_error(
+                    "vortex-encoded-read-boundary",
+                    "encoded-read-boundary",
+                    token,
+                ));
             }
         };
         if !signals.contains(&signal) {
@@ -221,9 +223,11 @@ fn parse_vortex_encoded_read_metadata_probe_signals(
             "write-risk" => VortexEncodedReadMetadataProbeSignal::WriteRisk,
             "feature-gate-enabled" => VortexEncodedReadMetadataProbeSignal::FeatureGateEnabled,
             _ => {
-                return Err(ShardLoomError::InvalidOperation(format!(
-                    "unknown encoded read metadata probe signal token: {token}"
-                )));
+                return Err(cli_unknown_signal_error(
+                    "vortex-encoded-read-metadata-probe",
+                    "encoded-read-metadata-probe",
+                    token,
+                ));
             }
         };
         if !signals.contains(&signal) {
@@ -916,6 +920,10 @@ fn cli_missing_arg_error(command: &str, arg: &str) -> ShardLoomError {
 
 fn cli_unknown_arg_error(command: &str, value: &str) -> ShardLoomError {
     ShardLoomError::InvalidOperation(format!("{command} unknown argument/value: {value}"))
+}
+
+fn cli_unknown_signal_error(command: &str, signal_family: &str, token: &str) -> ShardLoomError {
+    ShardLoomError::InvalidOperation(format!("{command} unknown {signal_family} signal: {token}"))
 }
 
 fn parse_output_format(args: Vec<String>) -> Result<(Vec<String>, OutputFormat), String> {
@@ -9158,6 +9166,17 @@ mod tests {
     }
 
     #[test]
+    fn parse_vortex_encoded_read_boundary_signals_unknown_token_maps_to_invalid_input() {
+        let err = parse_vortex_encoded_read_boundary_signals("bad-token").unwrap_err();
+        let diagnostic = err.to_diagnostic();
+
+        assert_eq!(diagnostic.code, DiagnosticCode::InvalidInput);
+        assert_eq!(diagnostic.category, DiagnosticCategory::InvalidInput);
+        assert!(!diagnostic.fallback.attempted);
+        assert!(!diagnostic.fallback.allowed);
+    }
+
+    #[test]
     fn parse_vortex_encoded_read_boundary_signals_dedup_and_trim() {
         let parsed = parse_vortex_encoded_read_boundary_signals(
             " upstream-open-options-available , upstream-footer-available , upstream-footer-available ",
@@ -9245,6 +9264,18 @@ mod tests {
             assert_ne!(code, ExitCode::SUCCESS);
         }
     }
+
+    #[test]
+    fn parse_vortex_encoded_read_metadata_probe_signals_unknown_token_maps_to_invalid_input() {
+        let err = parse_vortex_encoded_read_metadata_probe_signals("bad-token").unwrap_err();
+        let diagnostic = err.to_diagnostic();
+
+        assert_eq!(diagnostic.code, DiagnosticCode::InvalidInput);
+        assert_eq!(diagnostic.category, DiagnosticCategory::InvalidInput);
+        assert!(!diagnostic.fallback.attempted);
+        assert!(!diagnostic.fallback.allowed);
+    }
+
     #[test]
     fn parse_vortex_encoded_read_metadata_probe_signals_dedup_and_trim() {
         let parsed = parse_vortex_encoded_read_metadata_probe_signals(
@@ -10216,6 +10247,39 @@ mod tests {
                 .reason
                 .as_deref()
                 .is_some_and(|reason| reason.contains("fixture_ref"))
+        );
+    }
+
+    #[test]
+    fn cli_unknown_signal_error_maps_to_invalid_input_diagnostic() {
+        let error = cli_unknown_signal_error(
+            "vortex-encoded-read-boundary",
+            "encoded-read-boundary",
+            "bad-token",
+        );
+        let diagnostic = error.to_diagnostic();
+
+        assert_eq!(diagnostic.code, DiagnosticCode::InvalidInput);
+        assert_eq!(diagnostic.category, DiagnosticCategory::InvalidInput);
+        assert!(!diagnostic.fallback.attempted);
+        assert!(!diagnostic.fallback.allowed);
+        assert!(
+            diagnostic
+                .reason
+                .as_deref()
+                .is_some_and(|reason| reason.contains("vortex-encoded-read-boundary"))
+        );
+        assert!(
+            diagnostic
+                .reason
+                .as_deref()
+                .is_some_and(|reason| reason.contains("encoded-read-boundary"))
+        );
+        assert!(
+            diagnostic
+                .reason
+                .as_deref()
+                .is_some_and(|reason| reason.contains("bad-token"))
         );
     }
 
