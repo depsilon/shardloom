@@ -544,3 +544,11 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - CG-1.2b adds metadata/footer probe contracts only; default report construction does not inspect local file existence and scan/data traversal remains deferred.
 
 - CG-1.2c exposes the metadata probe contract through CLI only; default path does not inspect local files and does not perform metadata/footer IO.
+
+
+## CG-1.2d blocker clarification
+
+- Re-validated public symbols: `VortexOpenOptions`, `OpenOptionsSessionExt`, `VortexFile::footer`.
+- Current blocker: these metadata/footer paths require async/session invocation semantics.
+- This phase intentionally avoids introducing a runtime boundary (`tokio`/executor wiring) for probe-only metadata/footer calls.
+- Result: `MetadataProbeCompleted` remains unreachable in this phase; deterministic `BlockedByUnsupportedApiSurface` is preserved for existing local files under `vortex-file-io`.
