@@ -106,6 +106,10 @@ Phase/epic ownership:
 - Deeper implementation in later modular extensibility phases.
 - Primary epic owner: Epic E (EffectBudgetReport), with Epic F support.
 
+## CG-1 encoded read progress note
+
+- CG-1.2c exposes the encoded-read metadata probe contract through CLI/docs, but does not perform real metadata/footer reads yet.
+
 ## ShardLoom differentiators
 
 - Vortex-native input and output.
