@@ -4,9 +4,51 @@
 
 - Production-grade engine completion estimate: approximately 37–38%.
 - Architecture/control-plane completion estimate: approximately 97%.
-- Current checkpoint: Phase 12C.4 — staged smoke test includes output payload artifact.
-- Immediate focus: keep the full staged local write-readiness chain safe and feature-gated while manifest finalization and commit execution remain report-only/deferred.
+- CG implementation paused for roadmap/docs/refactor synchronization.
+- Last completed CG implementation: CG-1.2c metadata probe CLI/docs integration.
+- Next implementation after docs sync: CG-1.2d actual feature-gated local metadata/footer IO, if feature/toolchain validates; otherwise continue to contract-level planning.
 
+
+
+## Immediate refactor/docs queue before continuing CG implementation
+
+### R0 — Roadmap/docs synchronization
+- update current status to CG-1.2c/CG-1.2d boundary
+- ensure Competitive Engine Track CG-1 through CG-18 is complete and current
+- remove stale Phase 12C.4 current wording
+- remove duplicate/stale Phase 12 rows
+- align traceability with PRs 169–174
+- keep Foundry only under CG-18 optional deployment/comparison
+
+### R1 — Systems learning map
+- add systems-learning-map.md
+- incorporate Trino/Dask/Ray/DuckDB/Calcite/Acero/Substrait lessons
+- no new deps
+- no fallback engines
+
+### R2 — Native contract vocabulary amendments
+- PushdownProof / PushdownGuarantee
+- RuntimeFilterLifecycle
+- LoweringTrace
+- TaskGranularityPolicy
+- IntermediateArtifactRef taxonomy
+- ResourceVector / PlacementHint
+- RecoveryStrategy distinction
+- OperatorProfile / planned-vs-actual profile
+- PipelineBreakerKind
+- PlanPortabilityReport
+- system introspection virtual datasets
+
+### R3 — Existing repo cleanup backlog
+- traceability doc dedupe/stale-row cleanup
+- CLI usage/name consistency audit
+- diagnostics normalization backlog
+- terminology consolidation backlog
+- feature-footprint/doctor centralization backlog
+
+### R4 — Resume CG implementation
+- CG-1.2d actual feature-gated local metadata/footer IO only if feature/toolchain validates
+- CG-2.1 real count primitive over actual Vortex data
 
 ## Competitive engine target
 
@@ -19,6 +61,12 @@
 ## Competitive engine success gates
 
 1. Real encoded read path
+   - CG-1.1a complete
+   - CG-1.1b complete
+   - CG-1.2a complete
+   - CG-1.2b complete
+   - CG-1.2c complete
+   - CG-1.2d planned
    - feature-gated local encoded read API boundary
    - segment/chunk/byte-range descriptors
    - no broad row materialization
@@ -31,6 +79,7 @@
    - encoded-first selection vectors
    - decode only when explicitly allowed
 3. Actual output payload write path
+   - CG-3 placeholder artifact path complete but real Vortex payload path incomplete.
    - local output payload artifact path complete (readiness/scaffolding only)
    - real Vortex output payload path planned
    - native Vortex output fidelity required for CG-3 completion
