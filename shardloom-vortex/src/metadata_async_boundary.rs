@@ -67,7 +67,7 @@ pub fn vortex_metadata_async_public_api_compile_probe_summary() -> &'static str 
 #[cfg(feature = "vortex-file-io")]
 #[must_use]
 pub fn vortex_metadata_async_harness_blocker_summary() -> &'static str {
-    "harness/test-environment blocker: no approved direct async executor/test harness was found and no repository-local `.vortex` fixture was found for metadata/footer-only harness execution; this does not describe every `BoundaryReady` invocation"
+    "harness/test-environment blocker: `futures-executor` is present transitively via the `vortex-file-io` graph, but no repository-local `.vortex` fixture was found and no public no-IO `Footer` construction route is yet confirmed for metadata/footer-only harness execution; this does not describe every `BoundaryReady` invocation"
 }
 
 #[cfg(feature = "vortex-file-io")]
