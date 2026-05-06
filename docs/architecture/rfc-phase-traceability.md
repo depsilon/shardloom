@@ -218,3 +218,4 @@ No fallback execution.
 | R3.3b | Unknown signal diagnostic normalization | RFC 0012, RFC 0024, RFC 0030 | Narrow helper/parser cleanup only; no broad diagnostics migration; no runtime behavior change; no fallback execution. |
 | R3.3c | Output envelope command-status derivation audit | RFC 0012, RFC 0024, RFC 0030 | Output-envelope audit/tests only; no broad diagnostics migration; no runtime behavior change; no fallback execution. |
 | R3.4 | Terminology consolidation backlog | RFC 0012, RFC 0013, RFC 0014, RFC 0016, RFC 0022, RFC 0024 | docs/audit only; mapping-helper backlog only; no public type renames; no runtime behavior; no fallback execution. |
+| R3.5 | Feature-footprint/doctor centralization plan | RFC 0012, RFC 0018, RFC 0024, RFC 0025, RFC 0030 | docs/audit only; feature-footprint report implementation deferred; doctor/capabilities behavior unchanged; no runtime behavior; no fallback execution. |

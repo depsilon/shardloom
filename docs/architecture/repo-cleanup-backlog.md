@@ -71,7 +71,7 @@ Do not refactor diagnostics in this PR.
 - next recommended diagnostics PRs:
   - R3.3a CLI missing/unknown argument diagnostic helpers (**complete**)
   - R3.3b unknown signal diagnostic normalization (**complete**)
-  - R3.3c output envelope command-status derivation audit (**current**)
+  - R3.3c output envelope command-status derivation audit (**complete**)
 
 ## P3 — Terminology consolidation
 
@@ -133,6 +133,15 @@ Backlog items:
 - Doctor/capabilities should eventually expose the same normalized fields.
 
 Do not implement `FeatureFootprintReport` in this PR.
+
+### R3.5 audit result
+
+- feature-footprint/doctor centralization plan document added
+- report implementation deferred
+- doctor/capabilities behavior unchanged
+- next recommended step:
+  - R4 resume CG implementation, or R3.5a feature-footprint report core contract if user wants to continue cleanup
+
 
 ## P5 — Cross-crate invariant tests
 
