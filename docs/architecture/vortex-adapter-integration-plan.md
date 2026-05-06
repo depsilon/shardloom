@@ -669,6 +669,14 @@ The output payload artifact remains a local placeholder contract artifact, not a
 
 ## CG-1.2b metadata/footer probe
 
+## CG-1.2c metadata probe CLI/docs integration
+
+- `shardloom vortex-encoded-read-metadata-probe <target_uri> <fixture_ref> <signals>` exposes the `VortexEncodedReadMetadataProbeRequest` / `VortexEncodedReadMetadataProbeReport` contract via CLI.
+- Default CLI behavior remains report-only/no-IO and performs no local filesystem inspection.
+- Actual local metadata/footer IO remains deferred to a later validated feature-gated path.
+- The command does not perform scan/read-start, decode, materialization, `Arrow` conversion, object-store IO, or fallback execution.
+
+
 - Feature-gated and local-only metadata/footer probing for encoded-read fixtures.
 - Default build path is report-only and performs no local filesystem existence inspection.
 - Local metadata/footer IO and local file existence checks remain deferred to a validated feature path.

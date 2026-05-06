@@ -43,43 +43,45 @@ use shardloom_vortex::{
     VortexCommitMarkerSignal, VortexCommitMarkerWriteOption, VortexCommitProtocolReport,
     VortexCommitProtocolRequest, VortexCommitProtocolSignal, VortexCommitProtocolState,
     VortexCommitProtocolTransition, VortexDTypeMappingReport, VortexEncodedReadBoundaryReport,
-    VortexEncodedReadBoundaryRequest, VortexEncodedReadBoundarySignal,
-    VortexEncodedReadReadinessStatus, VortexEncodingLayoutMappingReport,
-    VortexExecutionReadinessStatus, VortexFileRef, VortexFinalizedManifestArtifactWriteOption,
-    VortexFinalizedManifestContent, VortexFinalizedManifestFileName,
-    VortexFinalizedManifestFileRef, VortexManifestFinalizationRequest,
-    VortexManifestFinalizationSignal, VortexMetadataOpenRequest, VortexMetadataProbeReport,
-    VortexOutputPayloadContentDescriptor, VortexOutputPayloadFileName, VortexOutputPayloadFileRef,
-    VortexOutputPayloadReport, VortexOutputPayloadRequest, VortexOutputPayloadSignal,
-    VortexReadPlan, VortexStagedManifestDraftContent, VortexStagedManifestFileEffect,
-    VortexStagedManifestFileRef, VortexStagedManifestFileReport, VortexStagedManifestFileRequest,
-    VortexStagedManifestFileSignal, VortexStagedManifestFileWriteEffect,
-    VortexStagedManifestFileWriteOption, VortexStagedManifestFileWriteRequest,
-    VortexStagedManifestFileWriteSignal, VortexStagedMarkerOption, VortexStagedMarkerRequest,
-    VortexStagedWorkspaceId, VortexStagedWorkspacePath, VortexStagedWorkspaceSetupOption,
-    VortexStagedWorkspaceSetupRequest, VortexStatisticsMappingReport, VortexWriteIntentReport,
-    VortexWriteIntentRequest, VortexWriteIntentSignal, VortexWriteOptions, VortexWritePlan,
-    build_vortex_runtime_task_graph, commit_marker_write_request_from_plan,
-    evaluate_vortex_encoded_read_readiness, evaluate_vortex_execution_readiness,
-    evaluate_vortex_query_primitive, execute_vortex_bounded_local_query,
-    execute_vortex_encoded_read_contract, execute_vortex_encoded_read_spike,
-    execute_vortex_local_query_primitive, execute_vortex_metadata_only,
-    finalized_manifest_artifact_write_request_from_plan, metadata_planning_is_side_effect_free,
-    metadata_pruning_is_side_effect_free, metadata_summary_is_plan_only, open_vortex_metadata_only,
+    VortexEncodedReadBoundaryRequest, VortexEncodedReadBoundarySignal, VortexEncodedReadFixtureRef,
+    VortexEncodedReadMetadataProbeReport, VortexEncodedReadMetadataProbeRequest,
+    VortexEncodedReadMetadataProbeSignal, VortexEncodedReadReadinessStatus,
+    VortexEncodingLayoutMappingReport, VortexExecutionReadinessStatus, VortexFileRef,
+    VortexFinalizedManifestArtifactWriteOption, VortexFinalizedManifestContent,
+    VortexFinalizedManifestFileName, VortexFinalizedManifestFileRef,
+    VortexManifestFinalizationRequest, VortexManifestFinalizationSignal, VortexMetadataOpenRequest,
+    VortexMetadataProbeReport, VortexOutputPayloadContentDescriptor, VortexOutputPayloadFileName,
+    VortexOutputPayloadFileRef, VortexOutputPayloadReport, VortexOutputPayloadRequest,
+    VortexOutputPayloadSignal, VortexReadPlan, VortexStagedManifestDraftContent,
+    VortexStagedManifestFileEffect, VortexStagedManifestFileRef, VortexStagedManifestFileReport,
+    VortexStagedManifestFileRequest, VortexStagedManifestFileSignal,
+    VortexStagedManifestFileWriteEffect, VortexStagedManifestFileWriteOption,
+    VortexStagedManifestFileWriteRequest, VortexStagedManifestFileWriteSignal,
+    VortexStagedMarkerOption, VortexStagedMarkerRequest, VortexStagedWorkspaceId,
+    VortexStagedWorkspacePath, VortexStagedWorkspaceSetupOption, VortexStagedWorkspaceSetupRequest,
+    VortexStatisticsMappingReport, VortexWriteIntentReport, VortexWriteIntentRequest,
+    VortexWriteIntentSignal, VortexWriteOptions, VortexWritePlan, build_vortex_runtime_task_graph,
+    commit_marker_write_request_from_plan, evaluate_vortex_encoded_read_readiness,
+    evaluate_vortex_execution_readiness, evaluate_vortex_query_primitive,
+    execute_vortex_bounded_local_query, execute_vortex_encoded_read_contract,
+    execute_vortex_encoded_read_spike, execute_vortex_local_query_primitive,
+    execute_vortex_metadata_only, finalized_manifest_artifact_write_request_from_plan,
+    metadata_planning_is_side_effect_free, metadata_pruning_is_side_effect_free,
+    metadata_summary_is_plan_only, open_vortex_metadata_only,
     output_payload_artifact_write_request_from_plan, parse_vortex_local_engine_primitive,
     plan_from_vortex_metadata_summary, plan_native_vortex_universal_input,
     plan_vortex_commit_intent, plan_vortex_commit_marker, plan_vortex_commit_protocol,
     plan_vortex_encoded_read_boundary, plan_vortex_encoded_read_probe,
     plan_vortex_manifest_finalization, plan_vortex_memory_safety, plan_vortex_metadata_pruning,
     plan_vortex_output_payload, plan_vortex_read_from_universal_input, plan_vortex_scheduler_queue,
-    plan_vortex_staged_manifest_file, plan_vortex_write_intent, probe_vortex_metadata_only,
-    run_vortex_local_engine, setup_vortex_staged_workspace, size_vortex_runtime_task_graph,
-    summarize_vortex_metadata_probe, vortex_encoded_read_executor_feature_enabled,
-    vortex_encoded_read_public_api_boundary, vortex_encoded_read_spike_feature_enabled,
-    vortex_file_io_feature_enabled, vortex_metadata_executor_feature_enabled,
-    write_vortex_commit_marker, write_vortex_finalized_manifest_artifact,
-    write_vortex_output_payload_artifact, write_vortex_staged_manifest_file,
-    write_vortex_staged_marker,
+    plan_vortex_staged_manifest_file, plan_vortex_write_intent, probe_vortex_encoded_read_metadata,
+    probe_vortex_metadata_only, run_vortex_local_engine, setup_vortex_staged_workspace,
+    size_vortex_runtime_task_graph, summarize_vortex_metadata_probe,
+    vortex_encoded_read_executor_feature_enabled, vortex_encoded_read_public_api_boundary,
+    vortex_encoded_read_spike_feature_enabled, vortex_file_io_feature_enabled,
+    vortex_metadata_executor_feature_enabled, write_vortex_commit_marker,
+    write_vortex_finalized_manifest_artifact, write_vortex_output_payload_artifact,
+    write_vortex_staged_manifest_file, write_vortex_staged_marker,
 };
 
 fn main() -> ExitCode {
@@ -95,7 +97,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -190,6 +192,47 @@ fn parse_vortex_encoded_read_boundary_signals(
     Ok(signals)
 }
 
+fn parse_vortex_encoded_read_metadata_probe_signals(
+    signals_raw: &str,
+) -> Result<Vec<VortexEncodedReadMetadataProbeSignal>, ShardLoomError> {
+    if signals_raw.trim().is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "encoded read metadata probe signals must not be empty".to_string(),
+        ));
+    }
+    let mut signals = Vec::new();
+    for token in signals_raw.split(',') {
+        let token = token.trim();
+        if token.is_empty() {
+            return Err(ShardLoomError::InvalidOperation(
+                "encoded read metadata probe signals must not contain empty tokens".to_string(),
+            ));
+        }
+        let signal = match token {
+            "fixture-ready" => VortexEncodedReadMetadataProbeSignal::FixtureReady,
+            "fixture-blocked" => VortexEncodedReadMetadataProbeSignal::FixtureBlocked,
+            "fixture-ref-provided" => VortexEncodedReadMetadataProbeSignal::FixtureRefProvided,
+            "local-path-only" => VortexEncodedReadMetadataProbeSignal::LocalPathOnly,
+            "object-store-target" => VortexEncodedReadMetadataProbeSignal::ObjectStoreTarget,
+            "scan-execution-risk" => VortexEncodedReadMetadataProbeSignal::ScanExecutionRisk,
+            "decode-risk" => VortexEncodedReadMetadataProbeSignal::DecodeRisk,
+            "materialization-risk" => VortexEncodedReadMetadataProbeSignal::MaterializationRisk,
+            "arrow-default-risk" => VortexEncodedReadMetadataProbeSignal::ArrowDefaultRisk,
+            "write-risk" => VortexEncodedReadMetadataProbeSignal::WriteRisk,
+            "feature-gate-enabled" => VortexEncodedReadMetadataProbeSignal::FeatureGateEnabled,
+            _ => {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "unknown encoded read metadata probe signal token: {token}"
+                )));
+            }
+        };
+        if !signals.contains(&signal) {
+            signals.push(signal);
+        }
+    }
+    Ok(signals)
+}
+
 fn vortex_encoded_read_boundary_fields(
     report: &VortexEncodedReadBoundaryReport,
 ) -> Vec<(String, String)> {
@@ -244,6 +287,93 @@ fn vortex_encoded_read_boundary_fields(
         ("data_written".to_string(), "false".to_string()),
         ("upstream_scan_called".to_string(), "false".to_string()),
         ("read_execution_allowed".to_string(), "false".to_string()),
+        ("execution".to_string(), "not_performed".to_string()),
+    ]
+}
+
+fn vortex_encoded_read_metadata_probe_fields(
+    report: &VortexEncodedReadMetadataProbeReport,
+) -> Vec<(String, String)> {
+    vec![
+        (
+            "fallback_execution_allowed".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "mode".to_string(),
+            "vortex_encoded_read_metadata_probe".to_string(),
+        ),
+        (
+            "fixture_ready".to_string(),
+            report.fixture_ready().to_string(),
+        ),
+        (
+            "fixture_ref_provided".to_string(),
+            report.fixture_ref_provided().to_string(),
+        ),
+        (
+            "local_path_only".to_string(),
+            report.local_path_only().to_string(),
+        ),
+        (
+            "object_store_target".to_string(),
+            report.object_store_target().to_string(),
+        ),
+        (
+            "scan_execution_risk".to_string(),
+            report.scan_execution_risk().to_string(),
+        ),
+        ("decode_risk".to_string(), report.decode_risk().to_string()),
+        (
+            "materialization_risk".to_string(),
+            report.materialization_risk().to_string(),
+        ),
+        (
+            "arrow_default_risk".to_string(),
+            report.arrow_default_risk().to_string(),
+        ),
+        ("write_risk".to_string(), report.write_risk().to_string()),
+        (
+            "metadata_opened".to_string(),
+            report.metadata_opened().to_string(),
+        ),
+        (
+            "footer_inspected".to_string(),
+            report.footer_inspected().to_string(),
+        ),
+        (
+            "encoded_data_read".to_string(),
+            report.encoded_data_read().to_string(),
+        ),
+        ("row_read".to_string(), report.row_read().to_string()),
+        (
+            "array_decoded".to_string(),
+            report.array_decoded().to_string(),
+        ),
+        (
+            "values_materialized".to_string(),
+            report.values_materialized().to_string(),
+        ),
+        (
+            "arrow_converted".to_string(),
+            report.arrow_converted().to_string(),
+        ),
+        (
+            "object_store_io".to_string(),
+            report.object_store_io().to_string(),
+        ),
+        (
+            "data_written".to_string(),
+            report.data_written().to_string(),
+        ),
+        (
+            "upstream_scan_called".to_string(),
+            report.upstream_scan_called().to_string(),
+        ),
+        (
+            "metadata_probe_completed".to_string(),
+            report.metadata_probe_completed().to_string(),
+        ),
         ("execution".to_string(), "not_performed".to_string()),
     ]
 }
@@ -6435,6 +6565,88 @@ fn run(args: Vec<String>) -> ExitCode {
                 ExitCode::SUCCESS
             }
         }
+        Some("vortex-encoded-read-metadata-probe") => {
+            let command = "vortex-encoded-read-metadata-probe";
+            let Some(target_uri) = args.next() else {
+                eprintln!("usage: shardloom {command} <target_uri> <fixture_ref> <signals>");
+                return ExitCode::from(2);
+            };
+            let Some(fixture_ref_raw) = args.next() else {
+                eprintln!("usage: shardloom {command} <target_uri> <fixture_ref> <signals>");
+                return ExitCode::from(2);
+            };
+            let Some(signals_raw) = args.next() else {
+                eprintln!("usage: shardloom {command} <target_uri> <fixture_ref> <signals>");
+                return ExitCode::from(2);
+            };
+            let target_uri = match DatasetUri::new(target_uri) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        command,
+                        format,
+                        "vortex encoded-read metadata probe failed",
+                        &error,
+                    );
+                }
+            };
+            let fixture_ref = match VortexEncodedReadFixtureRef::new(fixture_ref_raw) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        command,
+                        format,
+                        "vortex encoded-read metadata probe failed",
+                        &error,
+                    );
+                }
+            };
+            let signals = match parse_vortex_encoded_read_metadata_probe_signals(&signals_raw) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        command,
+                        format,
+                        "vortex encoded-read metadata probe failed",
+                        &error,
+                    );
+                }
+            };
+            let mut request = VortexEncodedReadMetadataProbeRequest::new(target_uri, fixture_ref)
+                .fixture_ref_provided(true);
+            for signal in signals {
+                request.add_signal(signal);
+            }
+            let report = match probe_vortex_encoded_read_metadata(request) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        command,
+                        format,
+                        "vortex encoded-read metadata probe failed",
+                        &error,
+                    );
+                }
+            };
+            emit(
+                command,
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "vortex encoded-read metadata probe report".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                vortex_encoded_read_metadata_probe_fields(&report),
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
         Some("vortex-encoded-read-readiness") => {
             let command = "vortex-encoded-read-readiness";
             let Some(dataset_uri) = args.next() else {
@@ -8952,6 +9164,93 @@ mod tests {
         assert!(fields.contains(&("data_read".to_string(), "false".to_string())));
         assert!(fields.contains(&("array_decoded".to_string(), "false".to_string())));
         assert!(fields.contains(&("values_materialized".to_string(), "false".to_string(),)));
+        assert!(fields.contains(&("arrow_converted".to_string(), "false".to_string())));
+        assert!(fields.contains(&("object_store_io".to_string(), "false".to_string())));
+        assert!(fields.contains(&("upstream_scan_called".to_string(), "false".to_string(),)));
+    }
+    #[test]
+    fn vortex_encoded_read_metadata_probe_ready_local_returns_non_zero() {
+        let code = run(vec![
+            "vortex-encoded-read-metadata-probe".to_string(),
+            "file:///tmp/example.vortex".to_string(),
+            "/tmp/example.vortex".to_string(),
+            "fixture-ready,fixture-ref-provided,local-path-only,feature-gate-enabled".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+    #[test]
+    fn vortex_encoded_read_metadata_probe_missing_args_return_non_zero() {
+        assert_ne!(
+            run(vec!["vortex-encoded-read-metadata-probe".to_string()]),
+            ExitCode::SUCCESS
+        );
+        assert_ne!(
+            run(vec![
+                "vortex-encoded-read-metadata-probe".to_string(),
+                "file:///tmp/example.vortex".to_string()
+            ]),
+            ExitCode::SUCCESS
+        );
+        assert_ne!(
+            run(vec![
+                "vortex-encoded-read-metadata-probe".to_string(),
+                "file:///tmp/example.vortex".to_string(),
+                "/tmp/example.vortex".to_string(),
+            ]),
+            ExitCode::SUCCESS
+        );
+    }
+    #[test]
+    fn vortex_encoded_read_metadata_probe_unknown_signal_returns_non_zero() {
+        let code = run(vec![
+            "vortex-encoded-read-metadata-probe".to_string(),
+            "file:///tmp/example.vortex".to_string(),
+            "/tmp/example.vortex".to_string(),
+            "fixture-ready,unknown".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+    #[test]
+    fn vortex_encoded_read_metadata_probe_blocking_signals_return_non_zero() {
+        for signals in [
+            "fixture-ready,fixture-ref-provided,object-store-target,feature-gate-enabled",
+            "fixture-ready,fixture-ref-provided,local-path-only,decode-risk",
+            "fixture-ready,fixture-ref-provided,local-path-only,materialization-risk",
+            "fixture-ready,fixture-ref-provided,local-path-only,arrow-default-risk",
+        ] {
+            let code = run(vec![
+                "vortex-encoded-read-metadata-probe".to_string(),
+                "file:///tmp/example.vortex".to_string(),
+                "/tmp/example.vortex".to_string(),
+                signals.to_string(),
+            ]);
+            assert_ne!(code, ExitCode::SUCCESS);
+        }
+    }
+    #[test]
+    fn parse_vortex_encoded_read_metadata_probe_signals_dedup_and_trim() {
+        let parsed = parse_vortex_encoded_read_metadata_probe_signals(
+            " fixture-ready , fixture-ref-provided , fixture-ref-provided ",
+        )
+        .expect("parse signals");
+        assert_eq!(parsed.len(), 2);
+    }
+    #[test]
+    fn vortex_encoded_read_metadata_probe_fields_include_required_no_exec_flags() {
+        let request = VortexEncodedReadMetadataProbeRequest::new(
+            DatasetUri::new("file:///tmp/example.vortex").expect("uri"),
+            VortexEncodedReadFixtureRef::new("/tmp/example.vortex").expect("fixture"),
+        );
+        let report = probe_vortex_encoded_read_metadata(request).expect("report");
+        let fields = vortex_encoded_read_metadata_probe_fields(&report);
+        assert!(fields.contains(&(
+            "fallback_execution_allowed".to_string(),
+            "false".to_string(),
+        )));
+        assert!(fields.contains(&("metadata_opened".to_string(), "false".to_string())));
+        assert!(fields.contains(&("footer_inspected".to_string(), "false".to_string())));
+        assert!(fields.contains(&("encoded_data_read".to_string(), "false".to_string())));
+        assert!(fields.contains(&("row_read".to_string(), "false".to_string())));
         assert!(fields.contains(&("arrow_converted".to_string(), "false".to_string())));
         assert!(fields.contains(&("object_store_io".to_string(), "false".to_string())));
         assert!(fields.contains(&("upstream_scan_called".to_string(), "false".to_string(),)));

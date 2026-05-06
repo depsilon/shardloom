@@ -542,3 +542,5 @@ This update does not introduce scans, decode, materialization, writes, object-st
 
 
 - CG-1.2b adds metadata/footer probe contracts only; default report construction does not inspect local file existence and scan/data traversal remains deferred.
+
+- CG-1.2c exposes the metadata probe contract through CLI only; default path does not inspect local files and does not perform metadata/footer IO.
