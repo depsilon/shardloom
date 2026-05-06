@@ -484,3 +484,18 @@ Future implementation PRs should verify:
 - What aggregate strategy should be implemented first?
 - How should adaptive plan changes be represented in explain output?
 - How should optimizer metrics feed benchmark reports?
+
+
+### Future optimizer decision kinds
+
+- PrunedByMetadata
+- PushedDownExactly
+- PushedDownWithResidual
+- RejectedPushdown
+- FusedTasks
+- SplitSkewedTask
+- BuiltRuntimeFilter
+- AppliedRuntimeFilter
+- ChoseDecode
+- ChoseEncodedKernel
+- RefusedDistributedExecution

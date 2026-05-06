@@ -234,3 +234,9 @@ Unsupported plan behavior must fail explicitly with deterministic diagnostics an
 - What minimum redaction policy is required for exported agent-readable plans?
 - How should adaptive runtime updates map back to stable node ids across retries?
 - What subset of Substrait-like constructs should be considered for first interoperability experiments?
+
+
+### Plan portability reporting
+
+- PlanPortabilityReport should capture import/export validation status, residual unsupported constructs, and metadata-loss boundaries.
+- Substrait-like export/import is for validation and interoperability only, not external execution.

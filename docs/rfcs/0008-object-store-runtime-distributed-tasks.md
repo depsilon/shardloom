@@ -304,3 +304,14 @@ Future implementation PRs should verify:
 - What spill format should be used?
 - How should runtime diagnostics be exposed?
 - How should task graphs integrate with RFC 0004 snapshots and RFC 0007 translation?
+
+
+### Future runtime vocabulary
+
+- SplitSource
+- TaskLease
+- PlacementHint
+- IntermediateArtifactRef
+- ExchangeSpoolPolicy
+- TaskGranularityPolicy
+- RecoveryStrategy

@@ -11,6 +11,7 @@ RFCs are ShardLoom's source-of-truth design documents, but they are not automati
 - Do targeted RFC checks at phase boundaries.
 - If implementation diverges from an RFC, either update the RFC, add an ADR/RFC amendment, or document the deviation.
 - No fallback execution remains a global invariant.
+- `docs/architecture/systems-learning-map.md` is conceptual reference material only and does not authorize dependencies or runtime fallback execution.
 
 ## Phase-to-RFC matrix
 
@@ -193,3 +194,5 @@ No fallback execution.
 - CG-3 completion requires a real Vortex output payload write implementation plus evidence.
 - RFC 0026 supports CG-1.1 encoded read boundary sequencing.
 - Competitive claims still require CG-5 correctness and CG-6 benchmarks before any “beats Spark/Polars/DataFusion” statement.
+
+| Competitive Gate CG-1.2d — feature-gated local metadata/footer IO | RFC 0025 Competitive Engine Track; RFC 0026 Encoded-Native Reads | RFC 0012 Diagnostics | feature/toolchain validation gate; explicit no-fallback diagnostics; local-first IO only | Planned after docs/refactor synchronization. |

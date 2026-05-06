@@ -40,3 +40,9 @@ This RFC defines implementation contracts for:
 
 - No fallback/delegation to external engines.
 - No mandatory Foundry dependency.
+
+
+### Additional CG-18 reporting direction
+
+- Foundry remains an optional example under universal import/deployment, not the primary engine target.
+- Add an external baseline report dataset concept for stable, machine-readable cross-engine comparisons.

@@ -274,3 +274,19 @@ Phase 12 begins native `Vortex` write/commit value propositions with safe write-
 - Placeholder output payload artifacts are not competitive output and do not complete CG-3.
 - Real payload writes plus correctness (CG-5) and benchmarks (CG-6) remain required before competitive claims.
 - External engines remain baseline/comparison oracles only and are never runtime fallback.
+
+
+## Systems learning map and universal engine target
+
+- Trino/Dask/Ray/DuckDB/Calcite/Acero/Substrait are conceptual references only.
+- ShardLoom borrows invariants and contracts, not dependencies.
+- No superiority claims before CG-5 and CG-6.
+- New near-term gaps:
+  - PushdownProof
+  - LoweringTrace
+  - TaskGranularityPolicy
+  - OperatorProfile
+  - RuntimeFilterLifecycle
+  - PlanPortabilityReport
+  - IntermediateArtifactRef
+  - ResourceVector/PlacementHint

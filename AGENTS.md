@@ -379,3 +379,12 @@ When proposing next work:
 - Do not mark CG-3 complete from placeholder output payload artifacts alone.
 - In responses/checklists, explicitly distinguish placeholder artifact path status from real Vortex output payload path status.
 - Competitive claims require CG-5 correctness and CG-6 benchmark evidence.
+
+
+## Systems-learning-map guardrails
+
+- Keep systems-learning-map lessons conceptual unless a later RFC explicitly approves implementation.
+- Do not add Trino/Dask/Ray/DuckDB/Calcite/Acero/Substrait dependencies.
+- Do not use any of them as runtime fallback engines.
+- Keep Competitive Engine Track visible and complete in phase proposals.
+- Place active refactor/docs queue above CG implementation queue when docs are out of sync.

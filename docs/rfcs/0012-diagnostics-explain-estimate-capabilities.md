@@ -565,3 +565,14 @@ Future implementation PRs should verify:
 - How should diagnostics be versioned?
 - How much internal plan detail should be public?
 - Should JSON output be schema-versioned from the beginning?
+
+
+### Future report schemas
+
+- PushdownProofReport
+- LoweringTraceReport
+- TaskGranularityReport
+- PlannedVsActualOperatorProfile
+- RuntimeFilterReport
+- PortabilityReport
+- SystemIntrospectionReport
