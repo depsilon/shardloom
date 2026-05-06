@@ -12,7 +12,7 @@
 
 ## Immediate refactor/docs queue before continuing CG implementation
 
-### R0 — Roadmap/docs synchronization
+### R0 — Roadmap/docs synchronization (complete)
 - update current status to CG-1.2c/CG-1.2d boundary
 - ensure Competitive Engine Track CG-1 through CG-18 is complete and current
 - remove stale Phase 12C.4 current wording
@@ -20,13 +20,13 @@
 - align traceability with PRs 169–174
 - keep Foundry only under CG-18 optional deployment/comparison
 
-### R1 — Systems learning map
+### R1 — Systems learning map (complete)
 - add systems-learning-map.md
 - incorporate Trino/Dask/Ray/DuckDB/Calcite/Acero/Substrait lessons
 - no new deps
 - no fallback engines
 
-### R2 — Native contract vocabulary amendments
+### R2 — Native contract vocabulary amendments (complete)
 - PushdownProof / PushdownGuarantee
 - RuntimeFilterLifecycle
 - LoweringTrace
@@ -39,14 +39,25 @@
 - PlanPortabilityReport
 - system introspection virtual datasets
 
-### R3 — Existing repo cleanup backlog
-- traceability doc dedupe/stale-row cleanup
-- CLI usage/name consistency audit
-- diagnostics normalization backlog
-- terminology consolidation backlog
-- feature-footprint/doctor centralization backlog
+### R2.1 — RFC-level systems-learning contracts and traceability formatting (complete)
+- expanded RFC-level systems-learning contract mapping
+- fixed traceability formatting defects
 
-### R4 — Resume CG implementation
+### R3.1 — Repo cleanup backlog inventory and terminology/CLI audit (current)
+- establish concrete prioritized cleanup inventory
+- audit CLI usage/name consistency backlog
+- audit diagnostics normalization backlog
+- audit terminology consolidation backlog
+- audit feature-footprint/doctor centralization backlog
+- audit traceability/docs drift and cross-crate invariant test backlog
+- source of truth: `docs/architecture/repo-cleanup-backlog.md`
+
+### R3.2 — Targeted cleanup PR sequence (planned)
+- execute small, scoped cleanup PRs from the R3.1 inventory
+- preserve compatibility and no-fallback guardrails
+- avoid bundling broad CLI/diagnostics/terminology/feature-footprint refactors
+
+### R4 — Resume CG implementation (planned)
 - CG-1.2d actual feature-gated local metadata/footer IO only if feature/toolchain validates
 - CG-2.1 real count primitive over actual Vortex data
 
