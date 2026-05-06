@@ -153,6 +153,10 @@ pub use metadata_async_boundary::{
     metadata_async_boundary_request_from_metadata_probe_report,
     plan_vortex_metadata_async_boundary, vortex_metadata_async_boundary_is_side_effect_free,
 };
+#[cfg(feature = "vortex-file-io")]
+pub use metadata_async_boundary::{
+    VortexMetadataAsyncInvocationInput, invoke_vortex_metadata_footer_probe_with_session_async,
+};
 
 pub use memory_bridge::{
     VortexMemoryBridgeInput, VortexMemoryBridgeMode, VortexMemoryBridgeReport,

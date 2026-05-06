@@ -578,3 +578,10 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - Added feature-gated method-item probes that compile-check the following public method shapes without invocation: `<VortexSession as OpenOptionsSessionExt>::open_options(&self) -> VortexOpenOptions`, `VortexOpenOptions::with_initial_read_size(self, usize) -> VortexOpenOptions`, `VortexOpenOptions::with_some_file_size(self, Option<u64>) -> VortexOpenOptions`, and `VortexFile::footer(&self) -> &Footer`.
 - Remaining blocker: production path still lacks an approved compile-safe no-IO constructor policy for deterministic async invocation wiring in `ShardLoom`; invocation remains blocked by unsupported API surface.
 - No runtime/executor dependency was added and no file open, metadata/footer IO, scan/read-start, decode/materialization, `Arrow` conversion, object-store IO, writes, or fallback execution was introduced.
+
+## CG-1.2d.6 update (caller-provided session contract + open method probe)
+- CG-1.2d.5 confirmed symbols/methods remain valid: `VortexOpenOptions`, `OpenOptionsSessionExt`, `VortexFile`, `VortexSession`, `open_options`, `with_initial_read_size`, `with_some_file_size`, and `footer`.
+- Added caller-provided `VortexSession` invocation contract (`VortexMetadataAsyncInvocationInput<'a> { boundary, session }`) behind `vortex-file-io`; construction is contract-only and performs no IO.
+- Added compile probe reference for `VortexOpenOptions::open_path` method item to identify local-path open surface without invocation.
+- Production metadata/footer invocation remains blocked pending approved async runtime/IO harness and explicit invocation policy.
+- No runtime/executor dependency, file open, metadata/footer IO, scan/read-start, decode/materialization, `Arrow` conversion, object-store IO, writes, or fallback execution was added.

@@ -1342,3 +1342,7 @@ Entry criteria for the next implementation phase:
 
 
 - CG-1.2d.5 (current): method-shape compile probes additionally confirm `<VortexSession as OpenOptionsSessionExt>::open_options`, `VortexOpenOptions::with_initial_read_size`, `VortexOpenOptions::with_some_file_size`, and `VortexFile::footer`; production async metadata/footer invocation remains blocked with deterministic `blocked_by_unsupported_api_surface`, and no runtime/executor, file open, metadata/footer IO, scan/read-start, decode/materialization, `Arrow` conversion, object-store IO, writes, or fallback execution is added.
+
+- CG-1.2d.6 (current): adds feature-gated caller-provided `VortexSession` invocation input contract (`VortexMetadataAsyncInvocationInput`) and a session-accepting async invocation entrypoint that remains deterministically blocked unless boundary-ready and safe invocation is approved.
+- CG-1.2d.6 compile probes now reference `VortexOpenOptions::open_path` method item shape without calling it; production metadata/footer invocation remains deferred because invoking open/footer would perform IO and require an approved async runtime/execution harness.
+- No runtime/executor dependency added; no file open, metadata/footer IO, scan/read-start, decode/materialization, `Arrow` conversion, object-store IO, writes, or fallback execution.

@@ -703,3 +703,7 @@ The output payload artifact remains a local placeholder contract artifact, not a
 
 
 - CG-1.2d.5 extends compile probes to method-shape references: `<VortexSession as OpenOptionsSessionExt>::open_options`, `VortexOpenOptions::with_initial_read_size`, `VortexOpenOptions::with_some_file_size`, and `VortexFile::footer` all compile as public items under `vortex-file-io`; production invocation remains deterministically blocked with no runtime/executor, no file open, no metadata/footer IO, no scan/read-start, no decode/materialization, no `Arrow` conversion, no object-store IO, no writes, and no fallback.
+
+- CG-1.2d.6 adds caller-provided `VortexSession` contract acceptance under `vortex-file-io` via `VortexMetadataAsyncInvocationInput` and a session-bearing invocation helper that stays `blocked_by_unsupported_api_surface` when boundary-ready.
+- Compile-only probe confirms method-item reference to `VortexOpenOptions::open_path`; this identifies the local-path open surface without opening files, awaiting futures, or performing metadata/footer IO.
+- Remaining blocker: production invocation still requires explicit approved async execution harness and IO policy; therefore no open/footer invocation is performed in this phase.
