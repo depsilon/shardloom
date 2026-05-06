@@ -1365,3 +1365,11 @@ Entry criteria for the next implementation phase:
 - CG-2.1 actual count execution remains blocked until both metadata/footer readiness and an approved encoded data path exist.
 - No scan/read-start, encoded data reads, row reads, decode/materialization, `Arrow` conversion, object-store `IO`, writes, or fallback execution are introduced.
 - CG-1 through CG-18 remain visible and active competitive gates.
+
+## CG-2.0b helper-correctness update
+- CG-2.0 helper correctness is complete: invocation-derived query primitive requests now preserve boundary feature-gate/object-store/scan/decode/materialization/Arrow/write signals from metadata async boundary reports.
+- Metadata footer readiness is only marked when metadata/footer open was actually observed in invocation effects; it is not inferred from boundary readiness.
+- CG-2.0b remains report-only/readiness-only and does not execute query primitives.
+- CLI query primitive planning integration is deferred to CG-2.0c to keep this PR focused and small.
+- CG-2.1 actual count execution remains blocked until metadata/footer and encoded-data path readiness are both available.
+- No scan/read-start, encoded-data reads, row reads, decode/materialization, Arrow conversion, object-store IO, writes, or fallback execution were added.

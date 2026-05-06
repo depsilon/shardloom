@@ -3,6 +3,8 @@ use std::fmt::Write as _;
 use shardloom_core::{
     DatasetUri, Diagnostic, DiagnosticCode, DiagnosticSeverity, Result, ShardLoomError,
 };
+#[cfg(test)]
+use shardloom_core::{DiagnosticCategory, FallbackStatus};
 
 use crate::{VortexMetadataAsyncBoundaryReport, VortexMetadataAsyncInvocationReport};
 
@@ -375,7 +377,14 @@ impl VortexQueryPrimitiveReport {
     }
     #[must_use]
     pub fn has_errors(&self) -> bool {
-        self.status.is_error() || self.request.has_errors()
+        self.status.is_error()
+            || self.request.has_errors()
+            || self.diagnostics.iter().any(|d| {
+                matches!(
+                    d.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
     }
     #[must_use]
     pub const fn primitive_ready(&self) -> bool {
@@ -528,27 +537,7 @@ pub fn query_primitive_request_from_metadata_async_boundary(
 ) -> VortexQueryPrimitiveRequest {
     let mut req = VortexQueryPrimitiveRequest::new(target_uri, primitive)
         .with_upstream_summary(boundary.to_human_text());
-    if boundary.feature_gate_enabled() {
-        req.add_signal(VortexQueryPrimitiveSignal::FeatureGateEnabled);
-    }
-    if boundary.object_store_target() {
-        req.add_signal(VortexQueryPrimitiveSignal::ObjectStoreTarget);
-    }
-    if boundary.scan_execution_risk() {
-        req.add_signal(VortexQueryPrimitiveSignal::ScanExecutionRisk);
-    }
-    if boundary.decode_risk() {
-        req.add_signal(VortexQueryPrimitiveSignal::DecodeRisk);
-    }
-    if boundary.materialization_risk() {
-        req.add_signal(VortexQueryPrimitiveSignal::MaterializationRisk);
-    }
-    if boundary.arrow_default_risk() {
-        req.add_signal(VortexQueryPrimitiveSignal::ArrowDefaultRisk);
-    }
-    if boundary.write_risk() {
-        req.add_signal(VortexQueryPrimitiveSignal::WriteRisk);
-    }
+    copy_boundary_signals_into_request(boundary, &mut req);
     req
 }
 
@@ -560,29 +549,12 @@ pub fn query_primitive_request_from_metadata_async_invocation(
 ) -> VortexQueryPrimitiveRequest {
     let mut req = VortexQueryPrimitiveRequest::new(target_uri, primitive)
         .with_upstream_summary(invocation.to_human_text());
-    if invocation.boundary_report.feature_gate_enabled() {
-        req.add_signal(VortexQueryPrimitiveSignal::FeatureGateEnabled);
-    }
+    copy_boundary_signals_into_request(&invocation.boundary_report, &mut req);
     if invocation.metadata_footer_opened() {
         req.add_signal(VortexQueryPrimitiveSignal::MetadataFooterReady);
     }
     if invocation.boundary_report.object_store_target() || invocation.object_store_io() {
         req.add_signal(VortexQueryPrimitiveSignal::ObjectStoreTarget);
-    }
-    if invocation.boundary_report.scan_execution_risk() {
-        req.add_signal(VortexQueryPrimitiveSignal::ScanExecutionRisk);
-    }
-    if invocation.boundary_report.decode_risk() {
-        req.add_signal(VortexQueryPrimitiveSignal::DecodeRisk);
-    }
-    if invocation.boundary_report.materialization_risk() {
-        req.add_signal(VortexQueryPrimitiveSignal::MaterializationRisk);
-    }
-    if invocation.boundary_report.arrow_default_risk() {
-        req.add_signal(VortexQueryPrimitiveSignal::ArrowDefaultRisk);
-    }
-    if invocation.boundary_report.write_risk() {
-        req.add_signal(VortexQueryPrimitiveSignal::WriteRisk);
     }
     if !invocation.boundary_report.boundary_ready() {
         req.add_signal(VortexQueryPrimitiveSignal::FallbackPolicyBlocked);
@@ -590,7 +562,33 @@ pub fn query_primitive_request_from_metadata_async_invocation(
     req
 }
 
-/// # Errors
+fn copy_boundary_signals_into_request(
+    boundary: &VortexMetadataAsyncBoundaryReport,
+    request: &mut VortexQueryPrimitiveRequest,
+) {
+    if boundary.feature_gate_enabled() {
+        request.add_signal(VortexQueryPrimitiveSignal::FeatureGateEnabled);
+    }
+    if boundary.object_store_target() {
+        request.add_signal(VortexQueryPrimitiveSignal::ObjectStoreTarget);
+    }
+    if boundary.scan_execution_risk() {
+        request.add_signal(VortexQueryPrimitiveSignal::ScanExecutionRisk);
+    }
+    if boundary.decode_risk() {
+        request.add_signal(VortexQueryPrimitiveSignal::DecodeRisk);
+    }
+    if boundary.materialization_risk() {
+        request.add_signal(VortexQueryPrimitiveSignal::MaterializationRisk);
+    }
+    if boundary.arrow_default_risk() {
+        request.add_signal(VortexQueryPrimitiveSignal::ArrowDefaultRisk);
+    }
+    if boundary.write_risk() {
+        request.add_signal(VortexQueryPrimitiveSignal::WriteRisk);
+    }
+}
+
 /// # Errors
 /// Returns an error if `VortexQueryPrimitiveReport::from_request` fails.
 pub fn plan_vortex_query_primitive(
@@ -729,5 +727,106 @@ mod tests {
         assert!(req.has_signal(VortexQueryPrimitiveSignal::ArrowDefaultRisk));
         assert!(req.has_signal(VortexQueryPrimitiveSignal::WriteRisk));
         assert!(req.has_signal(VortexQueryPrimitiveSignal::FallbackPolicyBlocked));
+        assert!(!req.has_signal(VortexQueryPrimitiveSignal::EncodedDataPathReady));
+        assert!(!req.has_signal(VortexQueryPrimitiveSignal::PredicateProvided));
+        assert!(!req.has_signal(VortexQueryPrimitiveSignal::ProjectionProvided));
+        assert!(!req.has_signal(VortexQueryPrimitiveSignal::MetadataFooterReady));
+    }
+
+    #[test]
+    fn invocation_request_marks_metadata_footer_only_when_opened() {
+        let boundary = VortexMetadataAsyncBoundaryReport::from_request(
+            crate::VortexMetadataAsyncBoundaryRequest::new(
+                uri(),
+                crate::VortexEncodedReadFixtureRef::new("/tmp/a.vortex").unwrap(),
+            )
+            .feature_gate_enabled(true)
+            .local_fixture_ready(true)
+            .runtime_boundary_approved(true)
+            .async_session_allowed(true)
+            .metadata_footer_only_intent(true),
+        )
+        .unwrap();
+        let invocation = VortexMetadataAsyncInvocationReport {
+            status: crate::VortexMetadataAsyncInvocationStatus::BoundaryReady,
+            boundary_report: boundary.clone(),
+            effects_performed: Vec::new(),
+            metadata_summary: None,
+            footer_summary: None,
+            diagnostics: Vec::new(),
+        };
+        let req = query_primitive_request_from_metadata_async_invocation(
+            uri(),
+            VortexQueryPrimitiveKind::Count,
+            &invocation,
+        );
+        assert!(!req.has_signal(VortexQueryPrimitiveSignal::MetadataFooterReady));
+        let opened_invocation = VortexMetadataAsyncInvocationReport {
+            effects_performed: vec![crate::VortexMetadataAsyncInvocationEffect::MetadataOpened],
+            status: crate::VortexMetadataAsyncInvocationStatus::MetadataFooterOpened,
+            ..invocation
+        };
+        let opened_req = query_primitive_request_from_metadata_async_invocation(
+            uri(),
+            VortexQueryPrimitiveKind::Count,
+            &opened_invocation,
+        );
+        assert!(opened_req.has_signal(VortexQueryPrimitiveSignal::MetadataFooterReady));
+    }
+
+    #[test]
+    fn blocked_boundary_stays_blocked_for_original_blocker() {
+        let boundary = VortexMetadataAsyncBoundaryReport::from_request(
+            crate::VortexMetadataAsyncBoundaryRequest::new(
+                uri(),
+                crate::VortexEncodedReadFixtureRef::new("/tmp/a.vortex").unwrap(),
+            )
+            .feature_gate_enabled(true)
+            .object_store_target(true),
+        )
+        .unwrap();
+        let invocation = VortexMetadataAsyncInvocationReport {
+            status: crate::VortexMetadataAsyncInvocationStatus::BlockedByBoundary,
+            boundary_report: boundary,
+            effects_performed: Vec::new(),
+            metadata_summary: None,
+            footer_summary: None,
+            diagnostics: Vec::new(),
+        };
+        let req = query_primitive_request_from_metadata_async_invocation(
+            uri(),
+            VortexQueryPrimitiveKind::Count,
+            &invocation,
+        );
+        let report = plan_vortex_query_primitive(req).unwrap();
+        assert_eq!(
+            report.status,
+            VortexQueryPrimitiveStatus::BlockedByObjectStoreTarget
+        );
+    }
+
+    #[test]
+    fn has_errors_includes_report_diagnostics() {
+        let request = VortexQueryPrimitiveRequest::new(uri(), VortexQueryPrimitiveKind::Count)
+            .feature_gate_enabled(true)
+            .metadata_footer_ready(true)
+            .encoded_data_path_ready(true);
+        let mut report = plan_vortex_query_primitive(request).unwrap();
+        assert!(!report.has_errors());
+        report.diagnostics.push(Diagnostic::new(
+            DiagnosticCode::InvalidInput,
+            DiagnosticSeverity::Warning,
+            DiagnosticCategory::InvalidInput,
+            "warn",
+            None,
+            None,
+            None,
+            FallbackStatus::disabled_by_policy(),
+        ));
+        assert!(!report.has_errors());
+        report
+            .diagnostics
+            .push(Diagnostic::no_fallback_execution("err"));
+        assert!(report.has_errors());
     }
 }
