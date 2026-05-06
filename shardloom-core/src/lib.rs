@@ -12,6 +12,7 @@ pub mod diagnostics;
 pub mod encoded;
 pub mod expression;
 pub mod extension;
+pub mod feature_footprint;
 pub mod input;
 pub mod manifest;
 pub mod observability;
@@ -50,6 +51,11 @@ pub use extension::{
     ExtensionLifecycleState, ExtensionManifest, ExtensionPermission, ExtensionProvenance,
     ExtensionRegistrySnapshot, ExtensionVersion, PluginAbiRequirement, PluginAbiStatus,
     SandboxPolicy, SandboxPolicyKind, UdfRuntimeKind,
+};
+
+pub use feature_footprint::{
+    ExternalBaselineAvailability, FeatureFootprintGate, FeatureFootprintGateStatus,
+    FeatureFootprintReport,
 };
 
 pub use expression::{

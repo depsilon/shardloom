@@ -136,11 +136,13 @@ Do not implement `FeatureFootprintReport` in this PR.
 
 ### R3.5 audit result
 
-- feature-footprint/doctor centralization plan document added
-- report implementation deferred
+- feature-footprint/doctor centralization plan document added (**complete**)
+- R3.5a feature-footprint report core contract (**current**)
 - doctor/capabilities behavior unchanged
+- audit queue produced concrete follow-ups while keeping future candidates listed
 - next recommended step:
-  - R4 resume CG implementation, or R3.5a feature-footprint report core contract if user wants to continue cleanup
+  - R3.5d no-fallback dependency invariant tests (planned), or
+  - R4 resume CG implementation if the user explicitly chooses
 
 
 ## P5 — Cross-crate invariant tests
@@ -168,3 +170,17 @@ Candidates (deferred until targeted follow-up PRs):
 - Traceability matrix validator.
 - RFC acceptance checker.
 - Systems-learning contract implementation tracker.
+
+
+### R3 backlog cleanup status
+
+- R3.1 complete
+- R3.2 complete
+- R3.3 complete
+- R3.3a complete
+- R3.3b complete
+- R3.3c complete
+- R3.4 complete
+- R3.5 complete
+- R3.5a current
+- R3.5d planned
