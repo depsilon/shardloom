@@ -64,7 +64,10 @@
    - CG-1.1a complete
    - CG-1.1b complete
    - CG-1.2a complete
+   - CG-1.2a.1 complete
+   - CG-1.2a.2 complete
    - CG-1.2b complete
+   - CG-1.2b.1 complete
    - CG-1.2c complete
    - CG-1.2d planned
    - feature-gated local encoded read API boundary
@@ -146,6 +149,29 @@
    - Foundry-friendly later
    - no PyO3/maturin unless explicitly approved
    - no Spark fallback
+12. Plan portability / semantic IR
+   - native-first plan portability reports
+   - explicit unsupported/lossy/residual construct reporting
+   - no import/export execution side effects
+13. Encoded-native compressed execution
+   - encoding-aware execution path selection
+   - decode-avoided proof/report requirements
+14. Runtime-adaptive optimizer and execution memory
+   - adaptive decisions with deterministic diagnostics
+   - bounded-memory-safe adaptation boundaries
+15. CPU operator specialization
+   - commodity CPU vectorized specialization is first-class
+   - no external engine fallback for specialization
+16. Evidence-first execution certificates
+   - plan/input/output evidence artifacts for reproducibility
+   - deterministic, machine-readable certificate surfaces
+17. Stateful result reuse / incremental execution
+   - typed cache/reuse boundaries
+   - explicit invalidation and correctness proof signals
+18. Universal import/deployment/baseline harness
+   - universal runner contracts and portability checks
+   - external baseline harnesses are comparison-only
+   - Foundry optional deployment/comparison example only
 
 ## Cross-cutting epic legend
 

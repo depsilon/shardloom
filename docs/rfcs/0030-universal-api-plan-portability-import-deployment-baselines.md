@@ -36,6 +36,52 @@ This RFC defines implementation contracts for:
 - Stable comparison report dataset.
 - No runtime fallback.
 
+
+### Universal CLI JSON runner contract
+
+Required fields:
+- `command`
+- `schema_version`
+- `exit_code`
+- `status`
+- `diagnostics`
+- `fallback_execution_allowed=false`
+- `side_effects`
+- `output_artifacts`
+- `metrics`
+
+### ExternalBaselineRun
+
+Required fields:
+- `baseline_engine`
+- `engine_version`
+- `workload_id`
+- `fixture_id`
+- `command_or_transform`
+- `result_status`
+- `correctness_result`
+- `runtime_ms`
+- `memory_peak_bytes`
+- `bytes_read`
+- `bytes_written`
+- `notes`
+
+### ComparisonReportDataset
+
+Required fields:
+- `workload_id`
+- `shardloom_result`
+- `external_baseline_results`
+- `correctness_passed`
+- `benchmark_claim_allowed`
+- `diagnostics`
+
+Clarifications:
+- Foundry is an optional example only.
+- Baseline runners are external harnesses only.
+- Baseline results never drive ShardLoom runtime fallback.
+- Superiority claims require CG-5 correctness and CG-6 benchmark evidence.
+
 ## Non-goals
 
 - No fallback/delegation to external engines.

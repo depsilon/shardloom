@@ -308,10 +308,89 @@ Future implementation PRs should verify:
 
 ### Future runtime vocabulary
 
-- SplitSource
-- TaskLease
-- PlacementHint
-- IntermediateArtifactRef
-- ExchangeSpoolPolicy
-- TaskGranularityPolicy
-- RecoveryStrategy
+The following runtime vocabulary is conceptual contract direction only and does not authorize distributed execution in the current phase.
+
+#### SplitSource
+
+Allowed split-source kinds:
+- `local_file`
+- `object_store_range`
+- `manifest_segment`
+- `metadata_only`
+- `runtime_filter`
+- `intermediate_artifact`
+
+#### TaskLease
+
+Required fields:
+- `task_id`
+- `attempt_id`
+- `worker_id`
+- `lease_deadline`
+- `resource_vector`
+- `cancellation_token`
+- `idempotency_key`
+
+#### PlacementHint
+
+Required fields:
+- `locality`
+- `co_locate_with`
+- `avoid_node`
+- `memory_affinity`
+- `object_store_affinity`
+- `soft_or_hard`
+
+#### IntermediateArtifactRef
+
+Artifact kinds:
+- `exchange`
+- `spill`
+- `partial_sink`
+- `commit_staging`
+- `runtime_filter`
+- `profile_sample`
+
+Required fields:
+- `artifact_id`
+- `kind`
+- `recoverability`
+- `deterministic_recompute`
+- `content_addressed`
+- `cleanup_policy`
+
+#### ExchangeSpoolPolicy
+
+Include:
+- `disabled`
+- `local_only`
+- `object_store_deferred`
+- `content_addressed_required`
+- `cleanup_required`
+
+#### TaskGranularityPolicy
+
+Include:
+- `min_encoded_bytes_per_task`
+- `target_encoded_bytes_per_task`
+- `max_encoded_bytes_per_task`
+- `min_segments_per_task`
+- `max_segments_per_task`
+- `max_tasks_per_stage`
+- `allow_fusion`
+- `allow_fission`
+- `skew_split_threshold`
+
+#### RecoveryStrategy
+
+Recovery strategy kinds:
+- `retry_same_input`
+- `reconstruct_from_lineage`
+- `reuse_intermediate_artifact`
+- `abort_with_diagnostic`
+
+Clarifications:
+- None of these vocabulary additions authorize distributed execution yet.
+- This RFC section does not authorize adding Dask, Ray, or Trino dependencies.
+- No runtime fallback/delegation is permitted.
+

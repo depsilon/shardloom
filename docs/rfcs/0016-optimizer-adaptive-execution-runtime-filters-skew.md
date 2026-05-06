@@ -488,14 +488,30 @@ Future implementation PRs should verify:
 
 ### Future optimizer decision kinds
 
-- PrunedByMetadata
-- PushedDownExactly
-- PushedDownWithResidual
-- RejectedPushdown
-- FusedTasks
-- SplitSkewedTask
-- BuiltRuntimeFilter
-- AppliedRuntimeFilter
-- ChoseDecode
-- ChoseEncodedKernel
-- RefusedDistributedExecution
+#### OptimizerDecisionReport
+
+Required fields:
+- `decision_kind`
+- `rule_id`
+- `input_nodes`
+- `output_nodes`
+- `proof_basis`
+- `estimated_work_avoided`
+- `required_capabilities`
+- `residual_work`
+- `correctness_guarantee`
+- `diagnostics`
+
+Decision kinds:
+- `PrunedByMetadata`: A subtree was removed based on metadata/statistics proofs; report proof basis, avoided work, and correctness guarantee.
+- `PushedDownExactly`: A filter/projection/limit was pushed fully to a lower boundary with exact semantics; report rule/proof and zero residual work.
+- `PushedDownWithResidual`: A pushdown was partially accepted and residual work remains; report accepted scope and explicit residual work.
+- `RejectedPushdown`: A pushdown candidate was refused due to capability/safety/correctness constraints; report rejection diagnostics and required missing capabilities.
+- `FusedTasks`: Multiple tasks/operators were fused for efficiency under bounded-resource policy; report inputs/outputs and preserved correctness guarantees.
+- `SplitSkewedTask`: A task/operator was split to mitigate skew or memory pressure; report skew basis, resulting nodes, and residual risks.
+- `BuiltRuntimeFilter`: A runtime filter was constructed from a source side; report filter kind, correctness guarantee, and expected avoided work.
+- `AppliedRuntimeFilter`: A runtime filter was applied to target nodes/segments; report application boundary and measured/estimated work avoided.
+- `ChoseDecode`: The optimizer selected decode for a boundary that cannot remain encoded; report required capability gap and decode scope.
+- `ChoseEncodedKernel`: The optimizer selected encoded-native kernel execution; report required capabilities and expected decode/materialization avoided.
+- `RefusedDistributedExecution`: Distributed execution was explicitly refused; report refusal reason, safety basis, and resulting local-only residual work.
+
