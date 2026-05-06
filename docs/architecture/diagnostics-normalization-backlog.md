@@ -88,3 +88,20 @@ Do not implement helpers in this PR.
 - unsupported feature diagnostics never imply fallback
 - output envelope status matches highest severity diagnostic
 - diagnostics remain stable across text/json
+
+
+### R3.3a helper status
+
+- Added `cli_missing_arg_error(command, arg)` to build stable missing-required-argument invalid-input errors.
+- Added `cli_unknown_arg_error(command, value)` to build stable unknown-command/unknown-argument invalid-input errors.
+- Added focused CLI tests verifying `ShardLoomError::to_diagnostic()` normalization to:
+  - `DiagnosticCode::InvalidInput`
+  - `DiagnosticCategory::InvalidInput`
+  - `fallback.attempted=false`
+  - `fallback.allowed=false`
+- Deferred work:
+  - broad command-by-command CLI migration remains out of scope.
+  - unknown signal normalization remains out of scope.
+  - output envelope command-status derivation audit remains out of scope.
+- Next recommended PR:
+  - R3.3b unknown signal diagnostic normalization.
