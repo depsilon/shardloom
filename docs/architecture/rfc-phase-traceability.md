@@ -216,3 +216,4 @@ No fallback execution.
 | --- | --- | --- | --- |
 | R3.3a | CLI missing/unknown argument diagnostic helpers | RFC 0012, RFC 0024, RFC 0030 | Helper/test cleanup only; no broad diagnostics migration; no runtime behavior change; no fallback execution. |
 | R3.3b | Unknown signal diagnostic normalization | RFC 0012, RFC 0024, RFC 0030 | Narrow helper/parser cleanup only; no broad diagnostics migration; no runtime behavior change; no fallback execution. |
+| R3.3c | Output envelope command-status derivation audit | RFC 0012, RFC 0024, RFC 0030 | Output-envelope audit/tests only; no broad diagnostics migration; no runtime behavior change; no fallback execution. |
