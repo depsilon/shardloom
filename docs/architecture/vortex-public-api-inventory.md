@@ -552,3 +552,11 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - Current blocker: these metadata/footer paths require async/session invocation semantics.
 - This phase intentionally avoids introducing a runtime boundary (`tokio`/executor wiring) for probe-only metadata/footer calls.
 - Result: `MetadataProbeCompleted` remains unreachable in this phase; deterministic `BlockedByUnsupportedApiSurface` is preserved for existing local files under `vortex-file-io`.
+
+
+## CG-1.2d.2 deterministic async/session boundary contract
+
+- Adds report-only async/session boundary planning for local metadata/footer probes.
+- Keeps actual `VortexOpenOptions`/`OpenOptionsSessionExt`/`VortexFile::footer` invocation deferred to CG-1.2d.3.
+- No runtime/executor wiring is added.
+- No scan/read-start, encoded reads, row reads, decode/materialization, `Arrow` conversion, object-store IO, writes, or fallback execution are added.
