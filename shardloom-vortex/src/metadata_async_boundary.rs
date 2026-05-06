@@ -29,6 +29,13 @@ type VortexOpenOptionsWithSomeFileSizeMethodProbe =
     fn(VortexOpenOptionsCompileProbe, Option<u64>) -> VortexOpenOptionsCompileProbe;
 #[cfg(feature = "vortex-file-io")]
 type VortexFileFooterMethodProbe = fn(&VortexFileCompileProbe) -> &vortex::file::Footer;
+#[cfg(feature = "vortex-file-io")]
+fn open_path_method_item_probe(
+    options: VortexOpenOptionsCompileProbe,
+    path: &std::path::Path,
+) -> impl core::future::Future<Output = vortex::error::VortexResult<VortexFileCompileProbe>> {
+    options.open_path(path)
+}
 
 #[cfg(feature = "vortex-file-io")]
 #[must_use]
@@ -45,14 +52,23 @@ pub fn vortex_metadata_async_public_api_compile_probe_summary() -> &'static str 
     let with_some_file_size: VortexOpenOptionsWithSomeFileSizeMethodProbe =
         VortexOpenOptionsCompileProbe::with_some_file_size;
     let footer_method: VortexFileFooterMethodProbe = VortexFileCompileProbe::footer;
+    let open_path_method = open_path_method_item_probe;
     let _ = (
         session_open_options,
         with_initial_read_size,
         with_some_file_size,
         footer_method,
+        open_path_method,
     );
 
-    "confirmed public symbols: `vortex::file::VortexOpenOptions`, `vortex::file::OpenOptionsSessionExt`, `vortex::file::VortexFile`, `vortex::session::VortexSession`; confirmed method shape probes: `<VortexSession as OpenOptionsSessionExt>::open_options(&self) -> VortexOpenOptions`, `VortexOpenOptions::with_initial_read_size(self, usize) -> VortexOpenOptions`, `VortexOpenOptions::with_some_file_size(self, Option<u64>) -> VortexOpenOptions`, `VortexFile::footer(&self) -> &Footer`; unresolved for this phase: compile-safe no-IO `VortexSession`/`VortexOpenOptions` constructor policy for production path and non-IO metadata/footer async invocation remains deferred"
+    "confirmed public symbols: `vortex::file::VortexOpenOptions`, `vortex::file::OpenOptionsSessionExt`, `vortex::file::VortexFile`, `vortex::session::VortexSession`; confirmed method shape probes: `<VortexSession as OpenOptionsSessionExt>::open_options(&self) -> VortexOpenOptions`, `VortexOpenOptions::with_initial_read_size(self, usize) -> VortexOpenOptions`, `VortexOpenOptions::with_some_file_size(self, Option<u64>) -> VortexOpenOptions`, `VortexFile::footer(&self) -> &Footer`, `VortexOpenOptions::open_path(self, impl AsRef<Path>) -> impl Future<Output = VortexResult<VortexFile>>`; caller-provided `VortexSession` accepted by `ShardLoom` contract; invocation remains deferred because open/footer call would perform IO and require an approved async execution harness"
+}
+
+#[cfg(feature = "vortex-file-io")]
+#[derive(Debug, Clone)]
+pub struct VortexMetadataAsyncInvocationInput<'a> {
+    pub boundary: VortexMetadataAsyncBoundaryReport,
+    pub session: &'a vortex::session::VortexSession,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -825,6 +841,43 @@ pub async fn invoke_vortex_metadata_footer_probe_async(
     })
 }
 
+#[cfg(feature = "vortex-file-io")]
+/// # Errors
+/// Returns an error if deterministic report construction fails.
+pub async fn invoke_vortex_metadata_footer_probe_with_session_async(
+    input: VortexMetadataAsyncInvocationInput<'_>,
+) -> Result<VortexMetadataAsyncInvocationReport> {
+    if !input.boundary.boundary_ready() {
+        return Ok(VortexMetadataAsyncInvocationReport {
+            status: VortexMetadataAsyncInvocationStatus::BlockedByBoundary,
+            boundary_report: input.boundary,
+            effects_performed: Vec::new(),
+            metadata_summary: None,
+            footer_summary: None,
+            diagnostics: vec![Diagnostic::unsupported(
+                DiagnosticCode::NotImplemented,
+                "metadata/footer async boundary blocked",
+                "`VortexMetadataAsyncBoundaryReport` is not `BoundaryReady`",
+                None,
+            )],
+        });
+    }
+    let _ = input.session;
+    Ok(VortexMetadataAsyncInvocationReport {
+        status: VortexMetadataAsyncInvocationStatus::BlockedByUnsupportedApiSurface,
+        boundary_report: input.boundary,
+        effects_performed: Vec::new(),
+        metadata_summary: None,
+        footer_summary: None,
+        diagnostics: vec![Diagnostic::unsupported(
+            DiagnosticCode::NotImplemented,
+            "metadata/footer async invocation blocked",
+            "caller-provided `VortexSession` is accepted by contract; `VortexOpenOptions` invocation remains deferred to avoid IO and async runtime coupling",
+            None,
+        )],
+    })
+}
+
 #[cfg(not(feature = "vortex-file-io"))]
 /// # Errors
 /// Returns an error if deterministic report construction fails.
@@ -1079,10 +1132,19 @@ mod tests {
         assert!(summary.contains("OpenOptionsSessionExt"));
         assert!(summary.contains("VortexFile"));
         assert!(summary.contains("VortexSession"));
+        assert!(summary.contains("caller-provided `VortexSession` accepted"));
         assert!(summary.contains("open_options"));
+        assert!(summary.contains("open_path"));
         assert!(summary.contains("with_initial_read_size"));
         assert!(summary.contains("with_some_file_size"));
         assert!(summary.contains("footer"));
-        assert!(summary.contains("non-IO metadata/footer async invocation remains deferred"));
+        assert!(summary.contains("invocation remains deferred"));
+    }
+
+    #[cfg(feature = "vortex-file-io")]
+    #[test]
+    fn session_invocation_input_type_compiles() {
+        let ty = core::any::type_name::<VortexMetadataAsyncInvocationInput<'static>>();
+        assert!(ty.contains("VortexMetadataAsyncInvocationInput"));
     }
 }
