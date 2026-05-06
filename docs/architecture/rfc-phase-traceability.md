@@ -208,4 +208,11 @@ No fallback execution.
 - Competitive claims still require CG-5 correctness and CG-6 benchmarks before any “beats Spark/Polars/DataFusion” statement.
 
 
-| R3.3a | CLI missing/unknown argument diagnostic helpers | RFC 0012, RFC 0024, RFC 0030 | helper/test cleanup only; no broad diagnostics migration; no runtime behavior change; no fallback execution |
+
+
+## R3 cleanup traceability
+
+| Cleanup phase | Scope | Primary RFCs | Notes |
+| --- | --- | --- | --- |
+| R3.3a | CLI missing/unknown argument diagnostic helpers | RFC 0012, RFC 0024, RFC 0030 | Helper/test cleanup only; no broad diagnostics migration; no runtime behavior change; no fallback execution. |
+| R3.3b | Unknown signal diagnostic normalization | RFC 0012, RFC 0024, RFC 0030 | Narrow helper/parser cleanup only; no broad diagnostics migration; no runtime behavior change; no fallback execution. |

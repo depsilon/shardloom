@@ -62,12 +62,12 @@
 - no runtime behavior changes
 - no fallback execution
 
-### R3.3a — CLI missing/unknown argument diagnostic helpers (current)
+### R3.3a — CLI missing/unknown argument diagnostic helpers (complete)
 - add tiny helper functions for missing/unknown argument diagnostics
 - add focused tests for InvalidInput category/code and fallback disabled fields
 - no broad diagnostics migration
 
-### R3.3b — Unknown signal diagnostic normalization (planned)
+### R3.3b — Unknown signal diagnostic normalization (current)
 - normalize unknown signal parse errors through shared helpers
 - preserve compatibility and no-fallback guarantees
 
