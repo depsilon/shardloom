@@ -356,13 +356,37 @@ impl VortexEncodedReadMetadataProbeReport {
         {
             return Ok(r);
         }
-        r.status = VortexEncodedReadMetadataProbeStatus::BlockedByUnsupportedApiSurface;
-        r.add_diagnostic(Diagnostic::not_implemented(
-            "vortex_encoded_read_metadata_probe",
-            "safe metadata/footer probe API is not enabled or not confirmed; default report path performs no local filesystem inspection",
-            "enable a validated metadata-only feature gate in a future phase; local file checks remain deferred",
-        ));
-        Ok(r)
+        #[cfg(feature = "vortex-file-io")]
+        {
+            let local_path = r.request.fixture_ref.as_str();
+            let path = std::path::Path::new(local_path);
+            if !path.exists() {
+                r.status = VortexEncodedReadMetadataProbeStatus::BlockedByMissingLocalFile;
+                r.add_diagnostic(Diagnostic::invalid_input(
+                    "vortex_encoded_read_metadata_probe",
+                    format!("local fixture path does not exist: {local_path}"),
+                    "provide an existing local fixture path for metadata/footer probe",
+                ));
+                return Ok(r);
+            }
+            r.status = VortexEncodedReadMetadataProbeStatus::BlockedByUnsupportedApiSurface;
+            r.add_diagnostic(Diagnostic::not_implemented(
+                "vortex_encoded_read_metadata_probe",
+                "validated metadata/footer-only upstream `Vortex` API invocation is not wired yet; probe remains blocked",
+                "wire `VortexOpenOptions` + `VortexFile::footer` metadata-only open in a follow-up while preserving no-scan/no-decode invariants",
+            ));
+            Ok(r)
+        }
+        #[cfg(not(feature = "vortex-file-io"))]
+        {
+            r.status = VortexEncodedReadMetadataProbeStatus::BlockedByUnsupportedApiSurface;
+            r.add_diagnostic(Diagnostic::not_implemented(
+                "vortex_encoded_read_metadata_probe",
+                "safe metadata/footer probe API is not enabled or not confirmed; default report path performs no local filesystem inspection",
+                "enable a validated metadata-only feature gate in a future phase; local file checks remain deferred",
+            ));
+            Ok(r)
+        }
     }
     #[must_use]
     pub fn feature_disabled(request: VortexEncodedReadMetadataProbeRequest) -> Self {
@@ -608,6 +632,7 @@ mod tests {
         .feature_gate_enabled(true)
     }
 
+    #[cfg(not(feature = "vortex-file-io"))]
     #[test]
     fn local_fixture_with_feature_gate_is_deferred_without_filesystem_probe() {
         let report = VortexEncodedReadMetadataProbeReport::from_request(local_ready_request(
@@ -682,5 +707,29 @@ mod tests {
         );
         assert!(report.object_store_target());
         assert!(report.is_side_effect_free());
+    }
+
+    #[cfg(feature = "vortex-file-io")]
+    #[test]
+    fn missing_local_fixture_path_blocks_with_missing_local_file() {
+        let report = VortexEncodedReadMetadataProbeReport::from_request(local_ready_request(
+            "/definitely/not/a/real/path.vortex",
+        ))
+        .expect("report builds");
+        assert_eq!(
+            report.status,
+            VortexEncodedReadMetadataProbeStatus::BlockedByMissingLocalFile
+        );
+        assert!(!report.metadata_opened());
+        assert!(!report.footer_inspected());
+        assert!(!report.encoded_data_read());
+        assert!(!report.row_read());
+        assert!(!report.array_decoded());
+        assert!(!report.values_materialized());
+        assert!(!report.arrow_converted());
+        assert!(!report.object_store_io());
+        assert!(!report.data_written());
+        assert!(!report.upstream_scan_called());
+        assert!(!report.fallback_execution_allowed());
     }
 }

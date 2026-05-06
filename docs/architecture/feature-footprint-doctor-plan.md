@@ -161,3 +161,9 @@ Scope note:
 - external systems remain conceptual references or external baselines only.
 - Arrow transitive packages are not treated as fallback engines.
 - no runtime behavior changed.
+
+
+## CG-1.2d note
+
+- CG-1.2d uses feature-specific validation before enabling local metadata/footer IO.
+- `FeatureFootprintReport` behavior remains unchanged in this phase.

@@ -192,4 +192,19 @@ Candidates (deferred until targeted follow-up PRs):
 - R3.4 complete
 - R3.5 complete
 - R3.5a complete
-- R3.5d current
+- R3.5d complete
+
+
+## R3 cleanup closeout status
+
+- R3.1 complete
+- R3.2 complete
+- R3.3 complete
+- R3.3a complete
+- R3.3b complete
+- R3.3c complete
+- R3.4 complete
+- R3.5 complete
+- R3.5a complete
+- R3.5d complete
+- R4/CG-1.2d current
