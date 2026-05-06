@@ -1,4 +1,4 @@
-use std::{fmt::Write as _, path::Path};
+use std::fmt::Write as _;
 
 use shardloom_core::{DatasetUri, Diagnostic, DiagnosticCode, DiagnosticSeverity, Result};
 
@@ -356,15 +356,11 @@ impl VortexEncodedReadMetadataProbeReport {
         {
             return Ok(r);
         }
-        if !Path::new(r.request.fixture_ref.as_str()).exists() {
-            r.status = VortexEncodedReadMetadataProbeStatus::BlockedByMissingLocalFile;
-            return Ok(r);
-        }
         r.status = VortexEncodedReadMetadataProbeStatus::BlockedByUnsupportedApiSurface;
         r.add_diagnostic(Diagnostic::not_implemented(
             "vortex_encoded_read_metadata_probe",
-            "safe metadata/footer probe API is not enabled or not confirmed",
-            "enable a validated metadata-only feature gate in a future phase",
+            "safe metadata/footer probe API is not enabled or not confirmed; default report path performs no local filesystem inspection",
+            "enable a validated metadata-only feature gate in a future phase; local file checks remain deferred",
         ));
         Ok(r)
     }
@@ -593,4 +589,65 @@ pub fn encoded_read_metadata_probe_request_from_fixture_report(
         r.add_signal(VortexEncodedReadMetadataProbeSignal::FeatureGateEnabled);
     }
     r
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn local_ready_request(path: &str) -> VortexEncodedReadMetadataProbeRequest {
+        VortexEncodedReadMetadataProbeRequest::new(
+            DatasetUri::new("file:///tmp/data.vortex").expect("valid dataset uri"),
+            VortexEncodedReadFixtureRef::new(path).expect("valid fixture ref"),
+        )
+        .fixture_ready(true)
+        .fixture_ref_provided(true)
+        .local_path_only(true)
+        .feature_gate_enabled(true)
+    }
+
+    #[test]
+    fn local_fixture_with_feature_gate_is_deferred_without_filesystem_probe() {
+        let report = VortexEncodedReadMetadataProbeReport::from_request(local_ready_request(
+            "/definitely/not/a/real/path.vortex",
+        ))
+        .expect("report builds");
+        assert_eq!(
+            report.status,
+            VortexEncodedReadMetadataProbeStatus::BlockedByUnsupportedApiSurface
+        );
+        assert!(report.local_path_only());
+        assert!(report.fixture_ref_provided());
+        assert!(!report.metadata_opened());
+        assert!(!report.footer_inspected());
+        assert!(!report.encoded_data_read());
+        assert!(!report.row_read());
+        assert!(!report.array_decoded());
+        assert!(!report.values_materialized());
+        assert!(!report.arrow_converted());
+        assert!(!report.object_store_io());
+        assert!(!report.upstream_scan_called());
+        assert!(!report.fallback_execution_allowed());
+        assert!(report.is_side_effect_free());
+    }
+
+    #[test]
+    fn object_store_fixture_ref_remains_blocked_with_object_store_target_signal() {
+        let request = VortexEncodedReadMetadataProbeRequest::new(
+            DatasetUri::new("file:///tmp/data.vortex").expect("valid dataset uri"),
+            VortexEncodedReadFixtureRef::new("s3://bucket/data.vortex").expect("valid fixture ref"),
+        )
+        .fixture_ready(true)
+        .fixture_ref_provided(true)
+        .object_store_target(true)
+        .feature_gate_enabled(true);
+        let report =
+            VortexEncodedReadMetadataProbeReport::from_request(request).expect("report builds");
+        assert_eq!(
+            report.status,
+            VortexEncodedReadMetadataProbeStatus::BlockedByObjectStoreTarget
+        );
+        assert!(report.object_store_target());
+        assert!(report.is_side_effect_free());
+    }
 }
