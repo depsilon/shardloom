@@ -97,18 +97,35 @@ fn manifest_has_forbidden_dependency(text: &str, name: &str) -> bool {
     let dep_table = format!("[dependencies.{name}]");
     let workspace_dep_table = format!("[workspace.dependencies.{name}]");
 
+    let mut in_runtime_dep_section = false;
     text.lines().any(|line| {
         let trimmed = line.trim();
-        trimmed.starts_with(&dep_line)
-            || trimmed.starts_with(&quoted_dep_line)
-            || trimmed == dep_table
-            || trimmed == workspace_dep_table
+        if trimmed.starts_with('[') && trimmed.ends_with(']') {
+            in_runtime_dep_section =
+                matches!(trimmed, "[dependencies]" | "[workspace.dependencies]");
+            return trimmed == dep_table || trimmed == workspace_dep_table;
+        }
+
+        in_runtime_dep_section
+            && (trimmed.starts_with(&dep_line) || trimmed.starts_with(&quoted_dep_line))
     })
 }
 
 fn lockfile_has_forbidden_package(text: &str, name: &str) -> bool {
-    let package_name_line = format!("name = \"{name}\"");
-    text.lines().any(|line| line.trim() == package_name_line)
+    let package_name_prefix = format!("name = \"{name}");
+    text.lines().any(|line| {
+        let trimmed = line.trim();
+        trimmed.starts_with(&package_name_prefix)
+            && trimmed.ends_with('"')
+            && matches!(
+                trimmed
+                    .as_bytes()
+                    .get(package_name_prefix.len())
+                    .copied()
+                    .map(char::from),
+                Some('"') | Some('-') | Some('_')
+            )
+    })
 }
 
 // Dependency invariant checks intentionally inspect only Cargo manifests and Cargo.lock.

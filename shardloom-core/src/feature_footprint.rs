@@ -219,6 +219,26 @@ impl ExternalBaselineAvailability {
         })
     }
 
+    /// Creates a no-probe baseline record with unknown availability.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShardLoomError::InvalidOperation`] when `baseline_engine` is empty.
+    pub fn unknown_external_only(baseline_engine: impl Into<String>) -> Result<Self> {
+        let baseline_engine = baseline_engine.into();
+        if baseline_engine.trim().is_empty() {
+            return Err(ShardLoomError::InvalidOperation(
+                "external baseline engine must not be empty".to_string(),
+            ));
+        }
+        Ok(Self {
+            baseline_engine,
+            available: false,
+            runtime_fallback_allowed: false,
+            notes: Some("availability unknown in no-probe contract; comparison only".to_string()),
+        })
+    }
+
     #[must_use]
     pub const fn is_runtime_fallback(&self) -> bool {
         self.runtime_fallback_allowed
@@ -318,10 +338,10 @@ impl FeatureFootprintReport {
             external_baseline_availability: vec![
                 ExternalBaselineAvailability::unavailable("spark")
                     .unwrap_or_else(|_| unreachable!("deterministic static baseline name")),
-                ExternalBaselineAvailability::available_external_only("datafusion")
+                ExternalBaselineAvailability::unknown_external_only("datafusion")
                     .unwrap_or_else(|_| unreachable!("deterministic static baseline name")),
             ],
-            fallback_engines_absent: true,
+            fallback_engines_absent: false,
             fallback_execution_allowed: false,
             diagnostics: Vec::new(),
         }
@@ -447,8 +467,8 @@ mod tests {
         assert!(!FeatureFootprintReport::contract_only().fallback_execution_allowed());
     }
     #[test]
-    fn contract_only_fallback_engines_absent_true() {
-        assert!(FeatureFootprintReport::contract_only().fallback_engines_absent);
+    fn contract_only_fallback_engines_absent_false_without_probe() {
+        assert!(!FeatureFootprintReport::contract_only().fallback_engines_absent);
     }
     #[test]
     fn contract_only_schema_version() {
