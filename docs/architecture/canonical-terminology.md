@@ -94,3 +94,16 @@ R3.1 inventory keeps existing public type names stable while prioritizing mappin
 - **Fidelity family** (`FidelityLevel`, `VortexOutputFidelity`): keep canonical + adapter-local split; improve explicit mapping helpers and report parity checks.
 - **Resource/memory family** (`ResourceBudget`, `MemoryBudget`, `BoundedMemoryPolicy`): keep policy boundaries explicit; avoid premature consolidation.
 - **Plan skeleton family** (`RuntimePlanSkeleton`, `StreamingPlanSkeleton`, `ScanPlanSkeleton`): keep separate contracts for now; evaluate shared field helpers in targeted cleanup PRs.
+
+## Terminology consolidation backlog
+
+The R3.4 audit keeps terminology families distinct while documenting mapping-helper-first follow-ups.
+
+- Materialization (`MaterializationPolicy`, `MaterializationRequirement`, `MaterializationBoundary`)
+- Execution/data-work (`ExecutionState`, `DataWorkLevel`)
+- Input/output/fidelity (`DatasetFormat`, `OutputTargetKind`, `FidelityLevel`, `VortexOutputFidelity`)
+- Resource/memory (`ResourceBudget`, `MemoryBudget`, `BoundedMemoryPolicy`)
+- Plan skeletons (`RuntimePlanSkeleton`, `StreamingPlanSkeleton`, `ScanPlanSkeleton`)
+- Status/report suffixes (`Plan`, `Request`, `Report`, `Status`, `Mode`, `Signal`, `Effect`, `Ref`, `Id`)
+
+See `docs/architecture/terminology-consolidation-backlog.md` for the full audit backlog and helper candidates.

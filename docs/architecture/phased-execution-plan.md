@@ -71,11 +71,17 @@
 - normalize unknown signal parse errors through shared helpers
 - preserve compatibility and no-fallback guarantees
 
-### R3.3c — Output envelope command-status derivation audit (current)
+### R3.3c — Output envelope command-status derivation audit (complete)
 - audit status derivation consistency for command envelopes
 - keep runtime behavior unchanged except targeted diagnostics normalization
 
-### R3.4 — Targeted cleanup PR sequence (planned)
+### R3.4 — terminology consolidation backlog (current)
+- docs/audit-only terminology family inventory and mapping backlog
+- no public type renames
+- no runtime behavior changes
+- no fallback execution
+
+### R3.5 — feature-footprint/doctor centralization plan (planned)
 - execute small, scoped cleanup PRs from the R3.1 inventory
 - preserve compatibility and no-fallback guardrails
 - avoid bundling broad CLI/diagnostics/terminology/feature-footprint refactors

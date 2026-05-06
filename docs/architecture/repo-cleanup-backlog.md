@@ -110,6 +110,14 @@ Audit of overlapping concepts and planned posture:
 
 Do not rename public types in this PR.
 
+### R3.4 audit result
+
+- terminology consolidation backlog document added
+- public type renames deferred
+- mapping-helper approach confirmed
+- next recommended cleanup:
+  - R3.5 feature-footprint/doctor centralization plan
+
 ## P4 — Feature-footprint/doctor centralization
 
 Backlog items:
