@@ -159,6 +159,15 @@ High-priority future invariant tests:
 
 Do not add broad new tests in this PR; keep this as backlog inventory.
 
+### R3.5d invariant result
+
+- no-fallback dependency invariant tests added
+- forbidden package names checked in manifests/lockfile
+- docs/conceptual references excluded from dependency scan
+- next possible step:
+  - R4 resume CG implementation, or
+  - R3.5b/R3.5c if user wants doctor/capability alignment before CG
+
 ## P6 — Future refactor candidates
 
 Candidates (deferred until targeted follow-up PRs):
@@ -182,5 +191,5 @@ Candidates (deferred until targeted follow-up PRs):
 - R3.3c complete
 - R3.4 complete
 - R3.5 complete
-- R3.5a current
-- R3.5d planned
+- R3.5a complete
+- R3.5d current
