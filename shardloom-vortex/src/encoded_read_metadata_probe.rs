@@ -372,8 +372,8 @@ impl VortexEncodedReadMetadataProbeReport {
             r.status = VortexEncodedReadMetadataProbeStatus::BlockedByUnsupportedApiSurface;
             r.add_diagnostic(Diagnostic::not_implemented(
                 "vortex_encoded_read_metadata_probe",
-                "validated metadata/footer-only upstream `Vortex` API invocation is not wired yet; probe remains blocked",
-                "wire `VortexOpenOptions` + `VortexFile::footer` metadata-only open in a follow-up while preserving no-scan/no-decode invariants",
+                "validated metadata/footer-only upstream `Vortex` API invocation remains blocked: `VortexOpenOptions`/`VortexFile::footer` are async-session driven and no approved sync runtime boundary exists in this phase",
+                "defer wiring until a deterministic, approved async-session boundary is introduced without scan/read-start/decode/materialization side effects",
             ));
             Ok(r)
         }

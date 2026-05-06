@@ -682,3 +682,12 @@ The output payload artifact remains a local placeholder contract artifact, not a
 - Local metadata/footer IO and local file existence checks remain deferred to a validated feature path.
 - Metadata/footer only: no scan/read-start APIs, no encoded data traversal, no row reads.
 - No decode, no materialization, no `Arrow` conversion, no object-store IO, no fallback execution.
+
+
+## CG-1.2d metadata/footer blocker update
+
+- `vortex-file-io` path now validates local fixture existence, but metadata/footer completion remains blocked in this phase.
+- Public `Vortex` metadata open/footer inspection is async-session oriented (`VortexOpenOptions` + `OpenOptionsSessionExt` + `VortexFile::footer`).
+- `ShardLoom` has no approved deterministic async runtime boundary for this path in CG-1.2d.
+- Therefore `BlockedByUnsupportedApiSurface` remains the deterministic outcome for existing local fixtures.
+- Default build remains no-IO; no scan/read-start, decode, materialization, Arrow conversion, object-store IO, writes, or fallback.

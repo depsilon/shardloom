@@ -128,7 +128,7 @@ Options:
    - CG-1.2b complete
    - CG-1.2b.1 complete
    - CG-1.2c complete
-   - CG-1.2d planned
+   - CG-1.2d current (API boundary blocker documented)
    - feature-gated local encoded read API boundary
    - segment/chunk/byte-range descriptors
    - no broad row materialization
