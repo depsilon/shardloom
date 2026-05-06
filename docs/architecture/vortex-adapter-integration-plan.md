@@ -702,4 +702,4 @@ The output payload artifact remains a local placeholder contract artifact, not a
 - Actual public upstream `Vortex` metadata/footer invocation remains blocked by compile-unclear API shape; deterministic `blocked_by_unsupported_api_surface` diagnostics now record: `vortex::session::Session` not found, `VortexOpenOptions::new()` unavailable, and `OpenOptionsSessionExt` not usable in a compile-passing invocation path yet.
 
 
-- CG-1.2d.4 adds compile-probe confirmation for public `Vortex` async/session symbols only; invocation remains report-only and blocked with deterministic diagnostics.
+- CG-1.2d.5 extends compile probes to method-shape references: `<VortexSession as OpenOptionsSessionExt>::open_options`, `VortexOpenOptions::with_initial_read_size`, `VortexOpenOptions::with_some_file_size`, and `VortexFile::footer` all compile as public items under `vortex-file-io`; production invocation remains deterministically blocked with no runtime/executor, no file open, no metadata/footer IO, no scan/read-start, no decode/materialization, no `Arrow` conversion, no object-store IO, no writes, and no fallback.

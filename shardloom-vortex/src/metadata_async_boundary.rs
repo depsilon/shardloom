@@ -18,6 +18,17 @@ type VortexSessionCompileProbe = vortex::session::VortexSession;
 
 #[cfg(feature = "vortex-file-io")]
 fn assert_open_options_session_ext_symbol<S: vortex::file::OpenOptionsSessionExt>() {}
+#[cfg(feature = "vortex-file-io")]
+type VortexSessionOpenOptionsMethodProbe =
+    fn(&VortexSessionCompileProbe) -> VortexOpenOptionsCompileProbe;
+#[cfg(feature = "vortex-file-io")]
+type VortexOpenOptionsWithInitialReadSizeMethodProbe =
+    fn(VortexOpenOptionsCompileProbe, usize) -> VortexOpenOptionsCompileProbe;
+#[cfg(feature = "vortex-file-io")]
+type VortexOpenOptionsWithSomeFileSizeMethodProbe =
+    fn(VortexOpenOptionsCompileProbe, Option<u64>) -> VortexOpenOptionsCompileProbe;
+#[cfg(feature = "vortex-file-io")]
+type VortexFileFooterMethodProbe = fn(&VortexFileCompileProbe) -> &vortex::file::Footer;
 
 #[cfg(feature = "vortex-file-io")]
 #[must_use]
@@ -26,7 +37,22 @@ pub fn vortex_metadata_async_public_api_compile_probe_summary() -> &'static str 
     let _ = core::any::type_name::<VortexFileCompileProbe>();
     let _ = core::any::type_name::<VortexSessionCompileProbe>();
     assert_open_options_session_ext_symbol::<VortexSessionCompileProbe>();
-    "confirmed public symbols: `vortex::file::VortexOpenOptions`, `vortex::file::OpenOptionsSessionExt`, `vortex::file::VortexFile`, `vortex::session::VortexSession`; unresolved for this phase: compile-safe no-IO `VortexOpenOptions` construction and metadata/footer invocation path remains deferred"
+
+    let session_open_options: VortexSessionOpenOptionsMethodProbe =
+        <VortexSessionCompileProbe as vortex::file::OpenOptionsSessionExt>::open_options;
+    let with_initial_read_size: VortexOpenOptionsWithInitialReadSizeMethodProbe =
+        VortexOpenOptionsCompileProbe::with_initial_read_size;
+    let with_some_file_size: VortexOpenOptionsWithSomeFileSizeMethodProbe =
+        VortexOpenOptionsCompileProbe::with_some_file_size;
+    let footer_method: VortexFileFooterMethodProbe = VortexFileCompileProbe::footer;
+    let _ = (
+        session_open_options,
+        with_initial_read_size,
+        with_some_file_size,
+        footer_method,
+    );
+
+    "confirmed public symbols: `vortex::file::VortexOpenOptions`, `vortex::file::OpenOptionsSessionExt`, `vortex::file::VortexFile`, `vortex::session::VortexSession`; confirmed method shape probes: `<VortexSession as OpenOptionsSessionExt>::open_options(&self) -> VortexOpenOptions`, `VortexOpenOptions::with_initial_read_size(self, usize) -> VortexOpenOptions`, `VortexOpenOptions::with_some_file_size(self, Option<u64>) -> VortexOpenOptions`, `VortexFile::footer(&self) -> &Footer`; unresolved for this phase: compile-safe no-IO `VortexSession`/`VortexOpenOptions` constructor policy for production path and non-IO metadata/footer async invocation remains deferred"
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1051,6 +1077,12 @@ mod tests {
         let summary = vortex_metadata_async_public_api_compile_probe_summary();
         assert!(summary.contains("VortexOpenOptions"));
         assert!(summary.contains("OpenOptionsSessionExt"));
+        assert!(summary.contains("VortexFile"));
         assert!(summary.contains("VortexSession"));
+        assert!(summary.contains("open_options"));
+        assert!(summary.contains("with_initial_read_size"));
+        assert!(summary.contains("with_some_file_size"));
+        assert!(summary.contains("footer"));
+        assert!(summary.contains("non-IO metadata/footer async invocation remains deferred"));
     }
 }
