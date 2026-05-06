@@ -140,8 +140,17 @@ Status categories:
 Competitive gate coverage:
 - CG-1: encoded read boundary and real encoded reads
   - CG-1.1a encoded read boundary core contract: complete
-  - CG-1.1b encoded read boundary `CLI`/docs integration: current
-  - CG-1.2 actual encoded read fixture: planned
+  - CG-1.1b encoded read boundary `CLI`/docs integration: complete
+  - CG-1.2a metadata/footer probe planning contract: complete
+  - CG-1.2a.1 encoded-read plan diagnostics/report fields: complete
+  - CG-1.2a.2 feature-gated readiness/report validation: complete
+  - CG-1.2b metadata probe fixture/report integration: complete
+  - CG-1.2b.1 metadata probe stability/contract closeout: complete
+  - CG-1.2c metadata probe `CLI`/docs integration: complete
+  - CG-1.2d feature-gated local metadata/footer IO execution path: planned (blocked unless feature/toolchain validates)
+    - primary RFC: RFC 0026
+    - secondary RFCs: RFC 0012, RFC 0016, RFC 0025, RFC 0027, RFC 0029
+    - constraints: no scan/read-start, decode, materialization, Arrow conversion, object-store IO, or fallback
 - CG-2: real query primitive execution over Vortex data
 - CG-3: output payload write path (placeholder artifact phases support readiness only; completion requires real executable Vortex payload writes with evidence)
 - CG-4: commit protocol execution
@@ -195,4 +204,3 @@ No fallback execution.
 - RFC 0026 supports CG-1.1 encoded read boundary sequencing.
 - Competitive claims still require CG-5 correctness and CG-6 benchmarks before any “beats Spark/Polars/DataFusion” statement.
 
-| Competitive Gate CG-1.2d — feature-gated local metadata/footer IO | RFC 0025 Competitive Engine Track; RFC 0026 Encoded-Native Reads | RFC 0012 Diagnostics | feature/toolchain validation gate; explicit no-fallback diagnostics; local-first IO only | Planned after docs/refactor synchronization. |

@@ -569,10 +569,107 @@ Future implementation PRs should verify:
 
 ### Future report schemas
 
-- PushdownProofReport
-- LoweringTraceReport
-- TaskGranularityReport
-- PlannedVsActualOperatorProfile
-- RuntimeFilterReport
-- PortabilityReport
-- SystemIntrospectionReport
+The following report schemas are RFC-level contract targets. They define required semantics and acceptance behavior, but they do **not** yet define final JSON schema bindings.
+
+#### PushdownProofReport
+
+Required fields:
+- `operation`
+- `accepted`
+- `guarantee` with enum values: `exact`, `exact_with_residual`, `conservative_may_include_false_positives`, `unsupported`
+- `proof_basis`
+- `residual_expression`
+- `metadata_loss`
+- `requires_decode`
+- `fallback_attempted=false`
+- `diagnostics`
+
+Acceptance criteria:
+- Unsupported pushdown must fail or continue with explicit ShardLoom-native residual behavior and must **not** become fallback execution.
+- Residual work must be explicit and machine-readable.
+- Exactness/guarantee class must be machine-readable.
+
+#### LoweringTraceReport
+
+Required fields:
+- `from_layer`
+- `to_layer`
+- `source_node`
+- `produced_nodes`
+- `lowering_rule`
+- `reason`
+- `lost_information`
+- `preserved_guarantees`
+- `diagnostics`
+
+#### TaskGranularityReport
+
+Required fields:
+- `min_encoded_bytes_per_task`
+- `target_encoded_bytes_per_task`
+- `max_encoded_bytes_per_task`
+- `segment_count_limits`
+- `coalesced_tasks`
+- `split_tasks`
+- `refused_distributed_execution_reason`
+- `diagnostics`
+
+#### PlannedVsActualOperatorProfile
+
+Required fields:
+- `node_id`
+- `operator`
+- `planned_rows`
+- `actual_rows`
+- `planned_encoded_bytes`
+- `actual_encoded_bytes`
+- `decoded_bytes`
+- `materialized_rows`
+- `wall_time_ms`
+- `memory_peak_bytes`
+- `spill_bytes`
+- `avoided_bytes`
+- `diagnostics`
+
+#### RuntimeFilterReport
+
+Required fields:
+- `lifecycle_state`
+- `source_node`
+- `target_node_or_segment`
+- `filter_kind`
+- `correctness_guarantee`
+- `false_positive_policy`
+- `estimated_selectivity`
+- `actual_work_avoided`
+- `diagnostics`
+
+Lifecycle states:
+- `planned`
+- `built`
+- `published`
+- `applied`
+- `rejected`
+- `expired`
+
+#### PortabilityReport
+
+Required fields:
+- `native_only_nodes`
+- `portable_nodes`
+- `lossy_nodes`
+- `unsupported_nodes`
+- `metadata_loss`
+- `fallback_attempted=false`
+- `diagnostics`
+
+#### SystemIntrospectionReport
+
+Required fields:
+- `virtual_dataset_name`
+- `capability_scope`
+- `query_safe`
+- `side_effect_free`
+- `schema_version`
+- `diagnostics`
+

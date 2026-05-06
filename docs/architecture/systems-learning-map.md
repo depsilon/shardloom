@@ -92,3 +92,12 @@ Arrow Acero/Substrait remain conceptual references only:
 - PipelineBreakerKind
 - PlanPortabilityReport
 - system introspection virtual datasets
+
+
+## Contract extraction status
+
+- mapped_to_rfc_0012
+- mapped_to_rfc_0008
+- mapped_to_rfc_0016
+- mapped_to_rfc_0022
+- mapped_to_rfc_0030

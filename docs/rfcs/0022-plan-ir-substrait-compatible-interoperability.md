@@ -238,5 +238,18 @@ Unsupported plan behavior must fail explicitly with deterministic diagnostics an
 
 ### Plan portability reporting
 
-- PlanPortabilityReport should capture import/export validation status, residual unsupported constructs, and metadata-loss boundaries.
+- PlanPortabilityReport should include:
+  - `native_only_nodes`
+  - `substrait_like_representable_nodes`
+  - `lossy_nodes`
+  - `unsupported_nodes`
+  - `residual_unsupported_constructs`
+  - `metadata_loss_boundaries`
+  - `encoded_semantics_loss`
+  - `fallback_attempted=false`
+  - `diagnostics`.
+- Export/import validation must be validation-only and must not execute plans.
+- Portable does not mean executable by an external engine.
+- Imported plans must pass ShardLoom capability checks before any execution path is considered.
+- Unsupported imported plans must fail deterministically with explicit diagnostics.
 - Substrait-like export/import is for validation and interoperability only, not external execution.
