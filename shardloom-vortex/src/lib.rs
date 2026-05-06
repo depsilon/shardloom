@@ -30,6 +30,7 @@ pub mod encoded_read_api;
 pub mod encoded_read_boundary;
 pub mod encoded_read_executor;
 pub mod encoded_read_fixture;
+pub mod encoded_read_metadata_probe;
 pub mod encoded_read_probe;
 pub mod encoded_read_readiness;
 pub mod execution_readiness;
@@ -95,6 +96,14 @@ pub use encoded_read_fixture::{
     VortexEncodedReadFixtureSignal, VortexEncodedReadFixtureStatus,
     encoded_read_fixture_request_from_boundary_report, plan_vortex_encoded_read_fixture,
     vortex_encoded_read_fixture_is_side_effect_free,
+};
+
+pub use encoded_read_metadata_probe::{
+    VortexEncodedReadMetadataProbeEffect, VortexEncodedReadMetadataProbeMode,
+    VortexEncodedReadMetadataProbeReport, VortexEncodedReadMetadataProbeRequest,
+    VortexEncodedReadMetadataProbeSignal, VortexEncodedReadMetadataProbeStatus,
+    encoded_read_metadata_probe_request_from_fixture_report, probe_vortex_encoded_read_metadata,
+    vortex_encoded_read_metadata_probe_is_side_effect_free,
 };
 
 pub use encoded_read_executor::{

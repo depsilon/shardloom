@@ -665,3 +665,10 @@ The output payload artifact remains a local placeholder contract artifact, not a
 - Local placeholder output payload artifact paths are readiness scaffolding only, not real Vortex payload paths.
 - Upstream Vortex write APIs remain deferred in this phase.
 - Any future real payload write path must be explicitly feature-gated and approved before implementation.
+
+
+## CG-1.2b metadata/footer probe
+
+- Feature-gated and local-only metadata/footer probing for encoded-read fixtures.
+- Metadata/footer only: no scan/read-start APIs, no encoded data traversal, no row reads.
+- No decode, no materialization, no `Arrow` conversion, no object-store IO, no fallback execution.

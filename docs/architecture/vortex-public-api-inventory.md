@@ -539,3 +539,6 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - Local placeholder artifact write paths are not real Vortex payload write paths.
 - Upstream Vortex write APIs remain deferred in current phases.
 - A future real payload write path must be feature-gated and explicitly approved before CG-3 can be treated as complete.
+
+
+- CG-1.2b adds metadata/footer probe contracts only; scan/data traversal remains deferred.
