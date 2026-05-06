@@ -64,6 +64,15 @@ Backlog items:
 
 Do not refactor diagnostics in this PR.
 
+### R3.3 audit result
+
+- diagnostics normalization backlog document added
+- broad migration deferred
+- next recommended diagnostics PRs:
+  - R3.3a CLI missing/unknown argument diagnostic helpers
+  - R3.3b unknown signal diagnostic normalization
+  - R3.3c output envelope command-status derivation audit
+
 ## P3 — Terminology consolidation
 
 Audit of overlapping concepts and planned posture:
