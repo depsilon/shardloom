@@ -9255,6 +9255,29 @@ mod tests {
         assert!(fields.contains(&("object_store_io".to_string(), "false".to_string())));
         assert!(fields.contains(&("upstream_scan_called".to_string(), "false".to_string(),)));
     }
+
+    #[test]
+    fn vortex_encoded_read_metadata_probe_s3_fixture_sets_object_store_target_field() {
+        let request = VortexEncodedReadMetadataProbeRequest::new(
+            DatasetUri::new("file:///tmp/example.vortex").expect("uri"),
+            VortexEncodedReadFixtureRef::new("s3://bucket/example.vortex").expect("fixture"),
+        )
+        .fixture_ready(true)
+        .fixture_ref_provided(true)
+        .feature_gate_enabled(true);
+        let report = probe_vortex_encoded_read_metadata(request).expect("report");
+        let fields = vortex_encoded_read_metadata_probe_fields(&report);
+        assert!(fields.contains(&("object_store_target".to_string(), "true".to_string())));
+        assert!(fields.contains(&("metadata_opened".to_string(), "false".to_string())));
+        assert!(fields.contains(&("footer_inspected".to_string(), "false".to_string())));
+        assert!(fields.contains(&("encoded_data_read".to_string(), "false".to_string())));
+        assert!(fields.contains(&("upstream_scan_called".to_string(), "false".to_string())));
+        assert!(fields.contains(&(
+            "fallback_execution_allowed".to_string(),
+            "false".to_string(),
+        )));
+    }
+
     #[test]
     fn vortex_commit_protocol_plan_validate_intent_ready_returns_success() {
         let code = run(vec!["vortex-commit-protocol-plan".to_string(),"file://tmp/out.vortex".to_string(),"not-started".to_string(),"validate-intent".to_string(),"commit-intent-ready,draft-manifest-ready,manifest-finalization-available,commit-marker-available,recovery-ready,feature-gate-enabled".to_string()]);
