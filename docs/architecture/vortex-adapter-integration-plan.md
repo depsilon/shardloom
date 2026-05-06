@@ -700,3 +700,6 @@ The output payload artifact remains a local placeholder contract artifact, not a
 - Sync `VortexEncodedReadMetadataProbeReport::from_request` path remains report-only/no-IO.
 - Async surface preserves no scan/read-start, no encoded-data reads, no decode/materialization, no `Arrow` conversion, no object-store IO, no writes, and no fallback execution.
 - Actual public upstream `Vortex` metadata/footer invocation remains blocked by compile-unclear API shape; deterministic `blocked_by_unsupported_api_surface` diagnostics now record: `vortex::session::Session` not found, `VortexOpenOptions::new()` unavailable, and `OpenOptionsSessionExt` not usable in a compile-passing invocation path yet.
+
+
+- CG-1.2d.4 adds compile-probe confirmation for public `Vortex` async/session symbols only; invocation remains report-only and blocked with deterministic diagnostics.

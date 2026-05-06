@@ -568,3 +568,9 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - Sync `VortexEncodedReadMetadataProbeReport::from_request` path remains report-only/no-IO.
 - Async surface preserves no scan/read-start, no encoded-data reads, no decode/materialization, no `Arrow` conversion, no object-store IO, no writes, and no fallback execution.
 - Actual public upstream `Vortex` metadata/footer invocation remains blocked by compile-unclear API shape; deterministic `blocked_by_unsupported_api_surface` diagnostics now record: `vortex::session::Session` not found, `VortexOpenOptions::new()` unavailable, and `OpenOptionsSessionExt` not usable in a compile-passing invocation path yet.
+
+
+## CG-1.2d.4 update (API compile probe)
+- Added feature-gated compile probe that confirms public `Vortex` symbols compile in `shardloom-vortex`: `vortex::file::VortexOpenOptions`, `vortex::file::OpenOptionsSessionExt`, `vortex::file::VortexFile`, and `vortex::session::VortexSession`.
+- Production async invocation remains deterministically blocked in this phase; no metadata/footer IO is executed.
+- No runtime/executor dependency was added, and no scan/read-start, decode, materialization, `Arrow` conversion, object-store IO, writes, or fallback execution were introduced.

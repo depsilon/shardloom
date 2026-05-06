@@ -9,6 +9,26 @@ use crate::{
     VortexEncodedReadMetadataProbeSignal, VortexEncodedReadMetadataProbeStatus,
 };
 
+#[cfg(feature = "vortex-file-io")]
+type VortexOpenOptionsCompileProbe = vortex::file::VortexOpenOptions;
+#[cfg(feature = "vortex-file-io")]
+type VortexFileCompileProbe = vortex::file::VortexFile;
+#[cfg(feature = "vortex-file-io")]
+type VortexSessionCompileProbe = vortex::session::VortexSession;
+
+#[cfg(feature = "vortex-file-io")]
+fn assert_open_options_session_ext_symbol<S: vortex::file::OpenOptionsSessionExt>() {}
+
+#[cfg(feature = "vortex-file-io")]
+#[must_use]
+pub fn vortex_metadata_async_public_api_compile_probe_summary() -> &'static str {
+    let _ = core::any::type_name::<VortexOpenOptionsCompileProbe>();
+    let _ = core::any::type_name::<VortexFileCompileProbe>();
+    let _ = core::any::type_name::<VortexSessionCompileProbe>();
+    assert_open_options_session_ext_symbol::<VortexSessionCompileProbe>();
+    "confirmed public symbols: `vortex::file::VortexOpenOptions`, `vortex::file::OpenOptionsSessionExt`, `vortex::file::VortexFile`, `vortex::session::VortexSession`; unresolved for this phase: compile-safe no-IO `VortexOpenOptions` construction and metadata/footer invocation path remains deferred"
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VortexMetadataAsyncBoundaryStatus {
     Planned,
@@ -773,7 +793,7 @@ pub async fn invoke_vortex_metadata_footer_probe_async(
         diagnostics: vec![Diagnostic::unsupported(
             DiagnosticCode::NotImplemented,
             "metadata/footer async invocation blocked",
-            "public `Vortex` async/session metadata/footer invocation is not compile-clear in this phase: `vortex::session::Session` not found; `VortexOpenOptions::new()` unavailable; `OpenOptionsSessionExt` not currently usable in compile-passing invocation code",
+            vortex_metadata_async_public_api_compile_probe_summary(),
             None,
         )],
     })
@@ -1023,5 +1043,14 @@ mod tests {
             &mp,
         );
         assert!(!req.has_signal(VortexMetadataAsyncBoundarySignal::LocalFixtureReady));
+    }
+
+    #[cfg(feature = "vortex-file-io")]
+    #[test]
+    fn compile_probe_helper_reports_confirmed_symbols() {
+        let summary = vortex_metadata_async_public_api_compile_probe_summary();
+        assert!(summary.contains("VortexOpenOptions"));
+        assert!(summary.contains("OpenOptionsSessionExt"));
+        assert!(summary.contains("VortexSession"));
     }
 }

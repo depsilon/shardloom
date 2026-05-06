@@ -1339,3 +1339,6 @@ Entry criteria for the next implementation phase:
 - Sync `VortexEncodedReadMetadataProbeReport::from_request` path remains report-only/no-IO.
 - Async surface preserves no scan/read-start, no encoded-data reads, no decode/materialization, no `Arrow` conversion, no object-store IO, no writes, and no fallback execution.
 - Actual public upstream `Vortex` metadata/footer invocation remains blocked by compile-unclear API shape; deterministic `blocked_by_unsupported_api_surface` diagnostics now record: `vortex::session::Session` not found, `VortexOpenOptions::new()` unavailable, and `OpenOptionsSessionExt` not usable in a compile-passing invocation path yet.
+
+
+- CG-1.2d.4 (current): compile-probe discovery confirms public `VortexOpenOptions`/`OpenOptionsSessionExt`/`VortexFile`/`VortexSession` symbols; production async metadata/footer invocation remains blocked and no runtime/executor dependency is added.
