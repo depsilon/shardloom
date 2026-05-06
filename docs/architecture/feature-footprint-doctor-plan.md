@@ -141,3 +141,15 @@ Scope note:
 - R3.5c optional CLI feature-footprint report, no filesystem/network
 - R3.5d dependency invariant tests for no fallback engines
 - R4 resume CG implementation, unless user keeps cleanup queue active
+
+
+## R3.5a implementation status
+
+- `FeatureFootprintReport` core contract implemented.
+- No probing.
+- No `doctor`/`capabilities` behavior change.
+- No CLI exposure yet.
+- No dependency scanning yet.
+- Next possible follow-up:
+  - R3.5d no-fallback dependency invariant tests, or
+  - R4 resume CG implementation if user chooses.

@@ -81,10 +81,19 @@
 - no runtime behavior changes
 - no fallback execution
 
-### R3.5 — feature-footprint/doctor centralization plan (current)
+### R3.5 — feature-footprint/doctor centralization plan (complete)
 - execute small, scoped cleanup PRs from the R3.1 inventory
 - preserve compatibility and no-fallback guardrails
 - avoid bundling broad CLI/diagnostics/terminology/feature-footprint refactors
+
+### R3.5a — FeatureFootprintReport core contract (current)
+- core contract in `shardloom-core`
+- no probing
+- no doctor/capabilities behavior change
+
+### R3.5d — no-fallback dependency invariant tests (planned)
+- dependency-graph invariant checks
+- no runtime behavior change
 
 ### R4 — Resume CG implementation (planned)
 - keep CG implementation paused until R3.5 lands unless user explicitly resumes CG
@@ -95,9 +104,9 @@
 ### R3 closeout decision
 
 Options:
-- Resume CG implementation at CG-1.2d if feature/toolchain validates.
-- Continue cleanup with R3.5a feature-footprint report core contract.
+- After R3.5a and/or R3.5d, user may resume CG implementation at CG-1.2d if feature/toolchain validates.
 - Continue cleanup with R3.5d no-fallback dependency invariant tests.
+- Keep R4 planned until explicit user resume decision.
 
 ## Competitive engine target
 
