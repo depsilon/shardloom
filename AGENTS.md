@@ -394,4 +394,6 @@ When proposing next work:
 - For R3 cleanup tasks, prioritize inventory/audit PRs first, then small targeted cleanup PRs.
 - Do not bundle CLI registry implementation, diagnostics normalization, terminology renames, and feature-footprint implementation into one PR.
 - Do not rename public types or commands without an explicit compatibility plan.
-- Keep CG implementation paused until R3.1 lands unless a user explicitly resumes CG implementation.
+- Keep CG implementation paused while the active R3 cleanup queue is current. After R3.1 lands, proceed to the next planned R3 cleanup item, starting with R3.2, unless the user explicitly overrides the docs/refactor queue and resumes CG implementation.
+- Do not skip from R3.1 directly to R4/CG work by default.
+- User override is allowed, but it must be explicit and should be reflected in the next phase prompt.
