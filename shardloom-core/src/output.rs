@@ -375,6 +375,146 @@ mod tests {
     }
 
     #[test]
+    fn from_diagnostic_unsupported_feature_sets_unsupported_status() {
+        let diagnostic =
+            Diagnostic::unsupported(DiagnosticCode::UnsupportedSql, "sql", "unsupported", None);
+        let envelope =
+            OutputEnvelope::from_diagnostic("scan-plan", "unsupported", "unsupported", diagnostic);
+        assert_eq!(envelope.status, CommandStatus::Unsupported);
+    }
+
+    #[test]
+    fn from_diagnostic_no_fallback_policy_sets_unsupported_status() {
+        let diagnostic = Diagnostic::new(
+            DiagnosticCode::NoFallbackExecution,
+            DiagnosticSeverity::Error,
+            crate::DiagnosticCategory::NoFallbackPolicy,
+            "fallback disabled",
+            None,
+            None,
+            None,
+            FallbackStatus::disabled_by_policy(),
+        );
+        let envelope = OutputEnvelope::from_diagnostic(
+            "scan-plan",
+            "fallback disabled",
+            "fallback disabled",
+            diagnostic,
+        );
+        assert_eq!(envelope.status, CommandStatus::Unsupported);
+    }
+
+    #[test]
+    fn from_diagnostic_error_severity_sets_error_status_for_supported_category() {
+        let diagnostic = Diagnostic::new(
+            DiagnosticCode::ConfigurationError,
+            DiagnosticSeverity::Error,
+            crate::DiagnosticCategory::Configuration,
+            "config error",
+            None,
+            None,
+            None,
+            FallbackStatus::disabled_by_policy(),
+        );
+        let envelope = OutputEnvelope::from_diagnostic("scan-plan", "config", "config", diagnostic);
+        assert_eq!(envelope.status, CommandStatus::Error);
+    }
+
+    #[test]
+    fn from_diagnostic_fatal_severity_sets_error_status_for_supported_category() {
+        let diagnostic = Diagnostic::new(
+            DiagnosticCode::NotImplemented,
+            DiagnosticSeverity::Fatal,
+            crate::DiagnosticCategory::Execution,
+            "execution failed",
+            None,
+            None,
+            None,
+            FallbackStatus::disabled_by_policy(),
+        );
+        let envelope = OutputEnvelope::from_diagnostic("scan-plan", "failed", "failed", diagnostic);
+        assert_eq!(envelope.status, CommandStatus::Error);
+    }
+
+    #[test]
+    fn from_diagnostic_warning_severity_sets_warning_status() {
+        let diagnostic = Diagnostic::new(
+            DiagnosticCode::MetadataLoss,
+            DiagnosticSeverity::Warning,
+            crate::DiagnosticCategory::MetadataLoss,
+            "metadata loss",
+            None,
+            None,
+            None,
+            FallbackStatus::disabled_by_policy(),
+        );
+        let envelope =
+            OutputEnvelope::from_diagnostic("scan-plan", "warning", "warning", diagnostic);
+        assert_eq!(envelope.status, CommandStatus::Warning);
+    }
+
+    #[test]
+    fn from_diagnostic_info_severity_sets_success_status() {
+        let diagnostic = Diagnostic::new(
+            DiagnosticCode::MissingStatistics,
+            DiagnosticSeverity::Info,
+            crate::DiagnosticCategory::Planning,
+            "planning",
+            None,
+            None,
+            None,
+            FallbackStatus::disabled_by_policy(),
+        );
+        let envelope = OutputEnvelope::from_diagnostic("scan-plan", "ok", "ok", diagnostic);
+        assert_eq!(envelope.status, CommandStatus::Success);
+    }
+
+    #[test]
+    fn from_error_invalid_operation_normalizes_invalid_input_and_fallback_disabled() {
+        let envelope = OutputEnvelope::from_error(
+            "scan-plan",
+            "bad input",
+            &ShardLoomError::InvalidOperation("bad".to_string()),
+        );
+        assert_eq!(envelope.status, CommandStatus::Error);
+        let diagnostic = &envelope.diagnostics[0];
+        assert_eq!(diagnostic.code, DiagnosticCode::InvalidInput);
+        assert_eq!(diagnostic.category, crate::DiagnosticCategory::InvalidInput);
+        assert!(!envelope.fallback.attempted);
+        assert!(!envelope.fallback.allowed);
+    }
+
+    #[test]
+    fn has_errors_true_for_unsupported_status_even_with_info_diagnostic() {
+        let envelope = OutputEnvelope::new(
+            "status",
+            CommandStatus::Unsupported,
+            "unsupported",
+            "unsupported",
+        )
+        .with_diagnostic(Diagnostic::new(
+            DiagnosticCode::MissingStatistics,
+            DiagnosticSeverity::Info,
+            crate::DiagnosticCategory::Planning,
+            "info",
+            None,
+            None,
+            None,
+            FallbackStatus::disabled_by_policy(),
+        ));
+        assert!(envelope.has_errors());
+    }
+
+    #[test]
+    fn to_json_includes_status_field() {
+        assert!(
+            OutputEnvelope::success("status", "ok", "ok")
+                .to_json()
+                .contains("\"status\"")
+        );
+    }
+
+    #[test]
     fn from_diagnostic_includes_diagnostic() {
         let diagnostic = Diagnostic::invalid_input("dataset_uri", "invalid", "fix");
         let envelope =

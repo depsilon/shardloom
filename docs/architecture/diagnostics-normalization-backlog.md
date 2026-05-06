@@ -114,3 +114,14 @@ Do not implement helpers in this PR.
 - Broad signal parser migration remains deferred.
 - Next recommended PR:
   - R3.3c output envelope command-status derivation audit.
+
+
+### R3.3c audit result
+
+- `OutputEnvelope::from_diagnostic` status derivation audited.
+- `OutputEnvelope::from_error` normalization audited.
+- `OutputEnvelope::has_errors` severity/status behavior audited.
+- Focused tests added.
+- No broad output-envelope redesign performed.
+- Next recommended cleanup:
+  - R3.4 terminology consolidation backlog.

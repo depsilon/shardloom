@@ -67,11 +67,11 @@
 - add focused tests for InvalidInput category/code and fallback disabled fields
 - no broad diagnostics migration
 
-### R3.3b — Unknown signal diagnostic normalization (current)
+### R3.3b — Unknown signal diagnostic normalization (complete)
 - normalize unknown signal parse errors through shared helpers
 - preserve compatibility and no-fallback guarantees
 
-### R3.3c — Output envelope command-status derivation audit (planned)
+### R3.3c — Output envelope command-status derivation audit (current)
 - audit status derivation consistency for command envelopes
 - keep runtime behavior unchanged except targeted diagnostics normalization
 
