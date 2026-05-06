@@ -560,3 +560,11 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - Keeps actual `VortexOpenOptions`/`OpenOptionsSessionExt`/`VortexFile::footer` invocation deferred to CG-1.2d.3.
 - No runtime/executor wiring is added.
 - No scan/read-start, encoded reads, row reads, decode/materialization, `Arrow` conversion, object-store IO, writes, or fallback execution are added.
+
+
+### CG-1.2d.3 update
+- Added feature-gated async metadata/footer invocation surface for caller-provided async context only.
+- No runtime/executor dependency was added by `ShardLoom`.
+- Sync `VortexEncodedReadMetadataProbeReport::from_request` path remains report-only/no-IO.
+- Async surface preserves no scan/read-start, no encoded-data reads, no decode/materialization, no `Arrow` conversion, no object-store IO, no writes, and no fallback execution.
+- Actual public upstream `Vortex` metadata/footer invocation remains blocked by compile-unclear API shape; deterministic `blocked_by_unsupported_api_surface` diagnostics now record: `vortex::session::Session` not found, `VortexOpenOptions::new()` unavailable, and `OpenOptionsSessionExt` not usable in a compile-passing invocation path yet.

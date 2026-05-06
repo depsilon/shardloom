@@ -1331,3 +1331,11 @@ Entry criteria for the next implementation phase:
 - CG-1 remains the next implementation path after this docs PR.
 - CG-18 is universal import/deployment/baseline harness, with Foundry only as an optional deployment/comparison example.
 - Competitive gates are success gates and do not replace canonical implementation phase IDs.
+
+
+### CG-1.2d.3 update
+- Added feature-gated async metadata/footer invocation surface for caller-provided async context only.
+- No runtime/executor dependency was added by `ShardLoom`.
+- Sync `VortexEncodedReadMetadataProbeReport::from_request` path remains report-only/no-IO.
+- Async surface preserves no scan/read-start, no encoded-data reads, no decode/materialization, no `Arrow` conversion, no object-store IO, no writes, and no fallback execution.
+- Actual public upstream `Vortex` metadata/footer invocation remains blocked by compile-unclear API shape; deterministic `blocked_by_unsupported_api_surface` diagnostics now record: `vortex::session::Session` not found, `VortexOpenOptions::new()` unavailable, and `OpenOptionsSessionExt` not usable in a compile-passing invocation path yet.

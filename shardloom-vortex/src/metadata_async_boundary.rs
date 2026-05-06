@@ -559,6 +559,247 @@ fn derive_status(r: &VortexMetadataAsyncBoundaryRequest) -> VortexMetadataAsyncB
     VortexMetadataAsyncBoundaryStatus::BoundaryReady
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexMetadataAsyncInvocationStatus {
+    BoundaryReady,
+    MetadataFooterOpened,
+    BlockedByBoundary,
+    BlockedByUnsupportedApiSurface,
+    Unsupported,
+}
+impl VortexMetadataAsyncInvocationStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::BoundaryReady => "boundary_ready",
+            Self::MetadataFooterOpened => "metadata_footer_opened",
+            Self::BlockedByBoundary => "blocked_by_boundary",
+            Self::BlockedByUnsupportedApiSurface => "blocked_by_unsupported_api_surface",
+            Self::Unsupported => "unsupported",
+        }
+    }
+    #[must_use]
+    pub const fn is_error(&self) -> bool {
+        !matches!(self, Self::BoundaryReady | Self::MetadataFooterOpened)
+    }
+    #[must_use]
+    pub const fn metadata_footer_opened(&self) -> bool {
+        matches!(self, Self::MetadataFooterOpened)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexMetadataAsyncInvocationEffect {
+    AsyncRuntimeStarted,
+    MetadataOpened,
+    FooterInspected,
+    EncodedDataRead,
+    RowRead,
+    ArrayDecoded,
+    ValuesMaterialized,
+    ArrowConverted,
+    ObjectStoreIo,
+    DataWritten,
+    UpstreamScanCalled,
+    FallbackExecution,
+}
+impl VortexMetadataAsyncInvocationEffect {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::AsyncRuntimeStarted => "async_runtime_started",
+            Self::MetadataOpened => "metadata_opened",
+            Self::FooterInspected => "footer_inspected",
+            Self::EncodedDataRead => "encoded_data_read",
+            Self::RowRead => "row_read",
+            Self::ArrayDecoded => "array_decoded",
+            Self::ValuesMaterialized => "values_materialized",
+            Self::ArrowConverted => "arrow_converted",
+            Self::ObjectStoreIo => "object_store_io",
+            Self::DataWritten => "data_written",
+            Self::UpstreamScanCalled => "upstream_scan_called",
+            Self::FallbackExecution => "fallback_execution",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VortexMetadataAsyncInvocationReport {
+    pub status: VortexMetadataAsyncInvocationStatus,
+    pub boundary_report: VortexMetadataAsyncBoundaryReport,
+    pub effects_performed: Vec<VortexMetadataAsyncInvocationEffect>,
+    pub metadata_summary: Option<String>,
+    pub footer_summary: Option<String>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl VortexMetadataAsyncInvocationReport {
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.status.is_error()
+            || self.diagnostics.iter().any(|d| {
+                matches!(
+                    d.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+    #[must_use]
+    pub fn metadata_opened(&self) -> bool {
+        self.effects_performed
+            .contains(&VortexMetadataAsyncInvocationEffect::MetadataOpened)
+    }
+    #[must_use]
+    pub fn footer_inspected(&self) -> bool {
+        self.effects_performed
+            .contains(&VortexMetadataAsyncInvocationEffect::FooterInspected)
+    }
+    #[must_use]
+    pub fn encoded_data_read(&self) -> bool {
+        self.effects_performed
+            .contains(&VortexMetadataAsyncInvocationEffect::EncodedDataRead)
+    }
+    #[must_use]
+    pub fn row_read(&self) -> bool {
+        self.effects_performed
+            .contains(&VortexMetadataAsyncInvocationEffect::RowRead)
+    }
+    #[must_use]
+    pub fn array_decoded(&self) -> bool {
+        self.effects_performed
+            .contains(&VortexMetadataAsyncInvocationEffect::ArrayDecoded)
+    }
+    #[must_use]
+    pub fn values_materialized(&self) -> bool {
+        self.effects_performed
+            .contains(&VortexMetadataAsyncInvocationEffect::ValuesMaterialized)
+    }
+    #[must_use]
+    pub fn arrow_converted(&self) -> bool {
+        self.effects_performed
+            .contains(&VortexMetadataAsyncInvocationEffect::ArrowConverted)
+    }
+    #[must_use]
+    pub fn object_store_io(&self) -> bool {
+        self.effects_performed
+            .contains(&VortexMetadataAsyncInvocationEffect::ObjectStoreIo)
+    }
+    #[must_use]
+    pub fn data_written(&self) -> bool {
+        self.effects_performed
+            .contains(&VortexMetadataAsyncInvocationEffect::DataWritten)
+    }
+    #[must_use]
+    pub fn upstream_scan_called(&self) -> bool {
+        self.effects_performed
+            .contains(&VortexMetadataAsyncInvocationEffect::UpstreamScanCalled)
+    }
+    #[must_use]
+    pub fn async_runtime_started(&self) -> bool {
+        self.effects_performed
+            .contains(&VortexMetadataAsyncInvocationEffect::AsyncRuntimeStarted)
+    }
+    #[must_use]
+    pub fn fallback_execution_allowed(&self) -> bool {
+        self.effects_performed
+            .contains(&VortexMetadataAsyncInvocationEffect::FallbackExecution)
+    }
+    #[must_use]
+    pub const fn metadata_footer_opened(&self) -> bool {
+        self.status.metadata_footer_opened()
+    }
+    #[must_use]
+    pub fn is_side_effect_free(&self) -> bool {
+        self.effects_performed.is_empty()
+            && !self.async_runtime_started()
+            && !self.metadata_opened()
+            && !self.footer_inspected()
+            && !self.encoded_data_read()
+            && !self.row_read()
+            && !self.array_decoded()
+            && !self.values_materialized()
+            && !self.arrow_converted()
+            && !self.object_store_io()
+            && !self.data_written()
+            && !self.upstream_scan_called()
+            && !self.fallback_execution_allowed()
+    }
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        let mut o = String::new();
+        let _ = writeln!(o, "status: {}", self.status.as_str());
+        let _ = writeln!(
+            o,
+            "metadata footer opened: {}",
+            self.metadata_footer_opened()
+        );
+        let _ = writeln!(o, "async runtime started: {}", self.async_runtime_started());
+        let _ = writeln!(
+            o,
+            "fallback execution allowed: {}",
+            self.fallback_execution_allowed()
+        );
+        o
+    }
+}
+
+#[cfg(feature = "vortex-file-io")]
+/// # Errors
+/// Returns an error if deterministic async invocation report construction fails.
+pub async fn invoke_vortex_metadata_footer_probe_async(
+    boundary: VortexMetadataAsyncBoundaryReport,
+) -> Result<VortexMetadataAsyncInvocationReport> {
+    if !boundary.boundary_ready() {
+        return Ok(VortexMetadataAsyncInvocationReport {
+            status: VortexMetadataAsyncInvocationStatus::BlockedByBoundary,
+            boundary_report: boundary,
+            effects_performed: Vec::new(),
+            metadata_summary: None,
+            footer_summary: None,
+            diagnostics: vec![Diagnostic::unsupported(
+                DiagnosticCode::NotImplemented,
+                "metadata/footer async boundary blocked",
+                "`VortexMetadataAsyncBoundaryReport` is not `BoundaryReady`",
+                None,
+            )],
+        });
+    }
+
+    Ok(VortexMetadataAsyncInvocationReport {
+        status: VortexMetadataAsyncInvocationStatus::BlockedByUnsupportedApiSurface,
+        boundary_report: boundary,
+        effects_performed: Vec::new(),
+        metadata_summary: None,
+        footer_summary: None,
+        diagnostics: vec![Diagnostic::unsupported(
+            DiagnosticCode::NotImplemented,
+            "metadata/footer async invocation blocked",
+            "public `Vortex` async/session metadata/footer invocation is not compile-clear in this phase: `vortex::session::Session` not found; `VortexOpenOptions::new()` unavailable; `OpenOptionsSessionExt` not currently usable in compile-passing invocation code",
+            None,
+        )],
+    })
+}
+
+#[cfg(not(feature = "vortex-file-io"))]
+/// # Errors
+/// Returns an error if deterministic report construction fails.
+pub async fn invoke_vortex_metadata_footer_probe_async(
+    boundary: VortexMetadataAsyncBoundaryReport,
+) -> Result<VortexMetadataAsyncInvocationReport> {
+    Ok(VortexMetadataAsyncInvocationReport {
+        status: VortexMetadataAsyncInvocationStatus::BlockedByUnsupportedApiSurface,
+        boundary_report: boundary,
+        effects_performed: Vec::new(),
+        metadata_summary: None,
+        footer_summary: None,
+        diagnostics: vec![Diagnostic::unsupported(
+            DiagnosticCode::NotImplemented,
+            "metadata/footer async invocation blocked",
+            "`vortex-file-io` feature not enabled",
+            None,
+        )],
+    })
+}
+
 #[must_use]
 pub fn metadata_async_boundary_request_from_metadata_probe_report(
     target_uri: DatasetUri,
@@ -672,6 +913,55 @@ mod tests {
             VortexMetadataAsyncBoundaryStatus::BlockedByRuntimeNotApproved
         );
     }
+    #[test]
+    fn async_invoke_future_construction_non_ready_is_lazy() {
+        let report = plan_vortex_metadata_async_boundary(mk_req()).unwrap();
+        let fut = invoke_vortex_metadata_footer_probe_async(report);
+        drop(fut);
+    }
+
+    #[test]
+    fn async_invoke_future_construction_ready_is_lazy() {
+        let report = plan_vortex_metadata_async_boundary(
+            mk_req()
+                .feature_gate_enabled(true)
+                .local_fixture_ready(true)
+                .runtime_boundary_approved(true)
+                .async_session_allowed(true)
+                .metadata_footer_only_intent(true),
+        )
+        .unwrap();
+        let fut = invoke_vortex_metadata_footer_probe_async(report);
+        drop(fut);
+    }
+
+    #[test]
+    fn invocation_helpers_stable() {
+        assert_eq!(
+            VortexMetadataAsyncInvocationStatus::BoundaryReady.as_str(),
+            "boundary_ready"
+        );
+        assert_eq!(
+            VortexMetadataAsyncInvocationEffect::FallbackExecution.as_str(),
+            "fallback_execution"
+        );
+        let report = VortexMetadataAsyncInvocationReport {
+            status: VortexMetadataAsyncInvocationStatus::BlockedByUnsupportedApiSurface,
+            boundary_report: plan_vortex_metadata_async_boundary(mk_req()).unwrap(),
+            effects_performed: Vec::new(),
+            metadata_summary: None,
+            footer_summary: None,
+            diagnostics: Vec::new(),
+        };
+        assert!(!report.fallback_execution_allowed());
+        assert!(!report.async_runtime_started());
+        assert!(
+            report
+                .to_human_text()
+                .contains("fallback execution allowed: false")
+        );
+    }
+
     #[test]
     fn helper_no_auto_approve() {
         let mp = probe_vortex_encoded_read_metadata(
