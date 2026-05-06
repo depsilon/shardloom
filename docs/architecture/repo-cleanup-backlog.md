@@ -42,6 +42,14 @@ Notes from this audit:
 - Current top-level usage banner already uses `shardloom` and is aligned with this requirement.
 - Command family size has grown enough that centralized registry generation is now a high-value cleanup candidate, but should land as a targeted follow-up PR rather than in this inventory PR.
 
+### R3.2 audit result
+
+- Usage/help banner status: user-facing usage remains `shardloom`; no `shardloom-cli` binary-facing drift identified.
+- Small text fixes made: none required for the top-level usage string in this pass.
+- Future registry cleanup candidates: centralizing command names, usage/help text, and JSON mode field ownership in a command registry/generated-help follow-up.
+- Command families that should remain behavior-distinguished: `*-plan`, `*-probe`, `*-write`, and explicitly-scoped `*-execute` commands.
+- This PR did not implement a command registry.
+
 Do not implement command registry in this PR.
 
 ## P2 — Diagnostics normalization
