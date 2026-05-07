@@ -105,6 +105,63 @@ Cross-level invariants:
 - S6 encoded-capable native path
 - S7 benchmarked and certified
 
+## SQL frontend sequencing contract
+SQL support must advance through explicit frontend stages before any construct can be represented as native execution capability.
+
+`SqlFrontendStage`:
+- `declared_only`: the construct appears in the roadmap but has no parser behavior.
+- `parse_only`: SQL text can be parsed into syntax structure only; no catalog, type, function, or execution semantics are implied.
+- `bound_validated`: names, types, functions, and semantic profile are validated against ShardLoom capability contracts.
+- `native_logical_plan`: the construct lowers into ShardLoom-native logical plan IR with unsupported residuals rejected.
+- `native_physical_plan`: the construct has a planned native physical representation with materialization boundaries declared.
+- `native_execution_ready`: the construct can execute through ShardLoom-native runtime paths without external engine delegation.
+- `encoded_capable`: the construct can preserve encoded or selection-vector-aware execution when inputs support it.
+- `benchmarked_certified`: correctness, semantic conformance, and benchmark evidence satisfy the relevant claim level.
+
+`SqlFrontendReport` fields:
+- `sql_input_ref`
+- `parser_status`
+- `binder_status`
+- `semantic_profile`
+- `catalog_resolution_status`
+- `function_resolution_status`
+- `operator_lowering_status`
+- `unsupported_constructs`
+- `unsupported_reasons`
+- `rewrite_suggestions`
+- `materialization_boundaries`
+- `capability_report_ref`
+- `sql_coverage_snapshot_ref`
+- `diagnostics`
+- `parser_dependency_status`
+- `runtime_execution=false` unless an explicit later execution phase enables native execution
+- `fallback_attempted=false`
+
+Stage boundaries:
+- `parse_only` must not be reported as support for execution, planning, binding, or semantic conformance.
+- `bound_validated` must fail closed when catalog, function, type, or semantic-profile requirements are unknown.
+- `native_logical_plan` must reject unsupported SQL residuals instead of carrying them to fallback execution.
+- `native_physical_plan` must declare decode/materialization, ordering, partitioning, memory, spill, and sink requirements.
+- `native_execution_ready` requires ShardLoom-native runtime support. External engines remain baselines or test oracles only.
+- `benchmarked_certified` requires correctness, semantic conformance, benchmark evidence, comparison reports, and `fallback_attempted=false`.
+- Any stage transition must be reflected in deterministic SQL coverage snapshot output before broader capability claims are updated.
+
+Parser dependency policy:
+- No parser dependency is approved by this RFC section.
+- A future parser dependency requires license/provenance review, dependency-footprint review, and an RFC or dependency approval pass.
+- Parser libraries may only build syntax/frontend structures; they must not add execution, optimization, catalog, adapter, or fallback behavior.
+- Parser failures and unsupported constructs must emit deterministic diagnostics rather than attempting fallback execution.
+
+Unsupported SQL diagnostics must include:
+- `feature`
+- `stage`
+- `semantic_profile`
+- `reason`
+- `unsupported_construct`
+- `rewrite_suggestion`
+- `capability_report_ref`
+- `fallback_attempted=false`
+
 ## SQL surface minimum roadmap
 - `SELECT`
 - `WITH / CTE`
