@@ -113,12 +113,20 @@ Future commands:
 
 Checklist:
 
-- [ ] Decide whether these are subcommands under existing `capabilities` or separate commands.
-- [ ] Define stable JSON fields before text output.
-- [ ] Include unsupported reasons and next-step hints.
-- [ ] Include `fallback_execution_allowed=false`.
-- [ ] Include effect-safe behavior: no filesystem, network, catalog, or adapter probing by default.
+- [x] Decide whether these are subcommands under existing `capabilities` or separate commands.
+- [x] Define stable JSON fields before text output.
+- [x] Include unsupported reasons and next-step hints.
+- [x] Include `fallback_execution_allowed=false`.
+- [x] Include effect-safe behavior: no filesystem, network, catalog, or adapter probing by default.
 - [ ] Link output shape to `FeatureFootprintReport` where appropriate.
+
+R5.4.2 outcome:
+
+- Scoped capability discovery uses existing `shardloom capabilities <scope>` commands instead of adding separate top-level commands.
+- Implemented scopes: `sql`, `functions`, `operators`, `adapters`, `semantic-profiles`, `migration`, and `certification`.
+- Existing `shardloom capabilities` remains the engine-level capability summary.
+- JSON output uses stable output-envelope fields including `scope`, `schema_version`, `fallback_execution_allowed=false`, `fallback_attempted=false`, and side-effect/probe flags.
+- Discovery is report-only and does not parse SQL, execute runtime work, probe adapters, inspect catalogs, read files, perform network I/O, or infer capability from external baseline availability.
 
 Acceptance:
 
@@ -256,8 +264,8 @@ Recommended order:
 
 1. Add core report contracts only. **Complete in R5.4.1.**
 2. Add side-effect-free capability report generation with empty/planned matrices. **Foundation report available in R5.4.1; CLI discovery remains next.**
-3. Add CLI capability discovery for report-only surfaces.
-4. Add snapshot tests for generated empty/planned matrices.
+3. Add CLI capability discovery for report-only surfaces. **Complete in R5.4.2.**
+4. Add snapshot tests for generated empty/planned matrices. **Next.**
 5. Add SQL/operator/function/adapter coverage entries incrementally as real implementation appears.
 
 Do not start with a parser, adapter runtime, or kernel implementation before the report contracts and capability discovery surfaces exist.

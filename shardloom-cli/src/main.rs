@@ -6,15 +6,15 @@
 use std::process::ExitCode;
 
 use shardloom_core::{
-    CatalogKind, CatalogRef, ChangeSet, ColumnRef, CommandStatus, ComparisonOp,
-    CorrectnessValidationPlan, DatasetManifest, DatasetRef, DatasetUri, ExtensionId,
-    ExtensionInspectionReport, ExtensionLicenseKind, ExtensionManifest, ExtensionProvenance,
-    ExtensionRegistrySnapshot, ExtensionVersion, IncrementalPlanSkeleton,
-    InputAdapterRegistrySnapshot, KernelRegistrySnapshot, ManifestId, ObservabilityPlan,
-    OutputEnvelope, OutputFormat, OutputTarget, PredicateExpr, RedactionPolicy, ReleasePlan,
-    RuntimeObservabilityReport, SchemaDefinition, SchemaId, SchemaVersion, SecurityPlan,
-    ShardLoomError, SnapshotId, SnapshotRef, StatValue, TableCompatibilityPlan, TableFormatKind,
-    TranslationPlan, UdfRuntimeKind, WriteIntent,
+    CapabilityCertificationReport, CapabilityCertificationStatus, CatalogKind, CatalogRef,
+    ChangeSet, ColumnRef, CommandStatus, ComparisonOp, CorrectnessValidationPlan, DatasetManifest,
+    DatasetRef, DatasetUri, ExtensionId, ExtensionInspectionReport, ExtensionLicenseKind,
+    ExtensionManifest, ExtensionProvenance, ExtensionRegistrySnapshot, ExtensionVersion,
+    IncrementalPlanSkeleton, InputAdapterRegistrySnapshot, KernelRegistrySnapshot, ManifestId,
+    ObservabilityPlan, OutputEnvelope, OutputFormat, OutputTarget, PredicateExpr, RedactionPolicy,
+    ReleasePlan, RuntimeObservabilityReport, SchemaDefinition, SchemaId, SchemaVersion,
+    SecurityPlan, ShardLoomError, SnapshotId, SnapshotRef, StatValue, TableCompatibilityPlan,
+    TableFormatKind, TranslationPlan, UdfRuntimeKind, WriteIntent,
 };
 use shardloom_exec::{
     AdaptiveSizer, AdaptiveSizingPolicy, AttemptId, ByteSize, CancellationReason,
@@ -89,10 +89,32 @@ use shardloom_vortex::{
 
 fn main() -> ExitCode {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
-    run(args)
+    run_with_cli_stack(args)
 }
 
 const CLI_COMMAND_NAME: &str = "shardloom";
+const CLI_STACK_SIZE: usize = 16 * 1024 * 1024;
+
+fn run_with_cli_stack(args: Vec<String>) -> ExitCode {
+    let handle = match std::thread::Builder::new()
+        .name("shardloom-cli".to_string())
+        .stack_size(CLI_STACK_SIZE)
+        .spawn(move || run(args))
+    {
+        Ok(handle) => handle,
+        Err(error) => {
+            eprintln!("failed to start shardloom CLI worker thread: {error}");
+            return ExitCode::from(1);
+        }
+    };
+
+    if let Ok(code) = handle.join() {
+        code
+    } else {
+        eprintln!("shardloom CLI worker thread panicked");
+        ExitCode::from(1)
+    }
+}
 
 fn cli_command_name() -> &'static str {
     CLI_COMMAND_NAME
@@ -100,7 +122,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-count-readiness-plan|vortex-filtered-count-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-count-readiness-plan|vortex-filtered-count-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -994,6 +1016,416 @@ fn emit_error(
         OutputFormat::Json => println!("{}", envelope.to_json()),
     }
     ExitCode::from(2)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CapabilityDiscoveryScope {
+    Engine,
+    Sql,
+    Functions,
+    Operators,
+    Adapters,
+    SemanticProfiles,
+    Migration,
+    Certification,
+}
+
+impl CapabilityDiscoveryScope {
+    fn parse(value: Option<&str>) -> Result<Self, ShardLoomError> {
+        match value {
+            None => Ok(Self::Engine),
+            Some("sql") => Ok(Self::Sql),
+            Some("functions") => Ok(Self::Functions),
+            Some("operators") => Ok(Self::Operators),
+            Some("adapters") => Ok(Self::Adapters),
+            Some("semantic-profiles") => Ok(Self::SemanticProfiles),
+            Some("migration") => Ok(Self::Migration),
+            Some("certification") => Ok(Self::Certification),
+            Some(value) => Err(cli_unknown_arg_error("capabilities", value)),
+        }
+    }
+
+    #[must_use]
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Engine => "engine",
+            Self::Sql => "sql",
+            Self::Functions => "functions",
+            Self::Operators => "operators",
+            Self::Adapters => "adapters",
+            Self::SemanticProfiles => "semantic_profiles",
+            Self::Migration => "migration",
+            Self::Certification => "certification",
+        }
+    }
+}
+
+fn count_certification_status<I>(statuses: I, status: CapabilityCertificationStatus) -> usize
+where
+    I: Iterator<Item = CapabilityCertificationStatus>,
+{
+    statuses
+        .filter(|entry_status| *entry_status == status)
+        .count()
+}
+
+fn certification_common_fields(
+    report: &CapabilityCertificationReport,
+    scope: CapabilityDiscoveryScope,
+) -> Vec<(String, String)> {
+    vec![
+        ("scope".to_string(), scope.as_str().to_string()),
+        (
+            "schema_version".to_string(),
+            report.schema_version.to_string(),
+        ),
+        (
+            "fallback_execution_allowed".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "fallback_attempted".to_string(),
+            report.fallback_attempted().to_string(),
+        ),
+        ("side_effect_free".to_string(), "true".to_string()),
+        ("filesystem_probe".to_string(), "false".to_string()),
+        ("network_probe".to_string(), "false".to_string()),
+        ("catalog_probe".to_string(), "false".to_string()),
+        ("adapter_probe".to_string(), "false".to_string()),
+        ("parser_executed".to_string(), "false".to_string()),
+        ("runtime_execution".to_string(), "false".to_string()),
+    ]
+}
+
+fn certification_fields(
+    report: &CapabilityCertificationReport,
+    scope: CapabilityDiscoveryScope,
+) -> Vec<(String, String)> {
+    let mut fields = certification_common_fields(report, scope);
+    match scope {
+        CapabilityDiscoveryScope::Engine => {}
+        CapabilityDiscoveryScope::Sql => append_sql_certification_fields(report, &mut fields),
+        CapabilityDiscoveryScope::Functions => {
+            append_function_certification_fields(report, &mut fields);
+        }
+        CapabilityDiscoveryScope::Operators => {
+            append_operator_certification_fields(report, &mut fields);
+        }
+        CapabilityDiscoveryScope::Adapters => {
+            append_adapter_certification_fields(report, &mut fields);
+        }
+        CapabilityDiscoveryScope::SemanticProfiles => {
+            append_semantic_profile_certification_fields(report, &mut fields);
+        }
+        CapabilityDiscoveryScope::Migration => {
+            append_migration_certification_fields(report, &mut fields);
+        }
+        CapabilityDiscoveryScope::Certification => {
+            append_full_certification_fields(report, &mut fields);
+        }
+    }
+    fields
+}
+
+fn push_field(fields: &mut Vec<(String, String)>, key: &str, value: &str) {
+    fields.push((key.to_string(), value.to_string()));
+}
+
+fn push_count_field(fields: &mut Vec<(String, String)>, key: &str, value: usize) {
+    fields.push((key.to_string(), value.to_string()));
+}
+
+fn append_sql_certification_fields(
+    report: &CapabilityCertificationReport,
+    fields: &mut Vec<(String, String)>,
+) {
+    push_count_field(
+        fields,
+        "sql_feature_count",
+        report.sql_coverage.entries.len(),
+    );
+    push_count_field(
+        fields,
+        "planned_count",
+        count_certification_status(
+            report.sql_coverage.entries.iter().map(|entry| entry.status),
+            CapabilityCertificationStatus::Planned,
+        ),
+    );
+    push_count_field(
+        fields,
+        "certified_count",
+        count_certification_status(
+            report.sql_coverage.entries.iter().map(|entry| entry.status),
+            CapabilityCertificationStatus::Certified,
+        ),
+    );
+}
+
+fn append_function_certification_fields(
+    report: &CapabilityCertificationReport,
+    fields: &mut Vec<(String, String)>,
+) {
+    push_count_field(
+        fields,
+        "function_group_count",
+        report.function_coverage.entries.len(),
+    );
+    push_count_field(
+        fields,
+        "planned_count",
+        count_certification_status(
+            report
+                .function_coverage
+                .entries
+                .iter()
+                .map(|entry| entry.status),
+            CapabilityCertificationStatus::Planned,
+        ),
+    );
+}
+
+fn append_operator_certification_fields(
+    report: &CapabilityCertificationReport,
+    fields: &mut Vec<(String, String)>,
+) {
+    push_count_field(
+        fields,
+        "operator_family_count",
+        report.operator_coverage.entries.len(),
+    );
+    push_count_field(
+        fields,
+        "production_certified_count",
+        report
+            .operator_coverage
+            .entries
+            .iter()
+            .filter(|entry| entry.status.can_satisfy_production_claim())
+            .count(),
+    );
+}
+
+fn append_adapter_certification_fields(
+    report: &CapabilityCertificationReport,
+    fields: &mut Vec<(String, String)>,
+) {
+    push_count_field(
+        fields,
+        "adapter_entry_count",
+        report.adapter_certification.entries.len(),
+    );
+    push_count_field(
+        fields,
+        "read_supported_count",
+        report
+            .adapter_certification
+            .entries
+            .iter()
+            .filter(|entry| entry.read_supported)
+            .count(),
+    );
+}
+
+fn append_semantic_profile_certification_fields(
+    report: &CapabilityCertificationReport,
+    fields: &mut Vec<(String, String)>,
+) {
+    push_count_field(
+        fields,
+        "semantic_profile_count",
+        report.semantic_profiles.len(),
+    );
+    push_count_field(
+        fields,
+        "dimensions_declared_count",
+        report
+            .semantic_profiles
+            .iter()
+            .filter(|entry| entry.dimensions_declared)
+            .count(),
+    );
+}
+
+fn append_migration_certification_fields(
+    report: &CapabilityCertificationReport,
+    fields: &mut Vec<(String, String)>,
+) {
+    push_count_field(
+        fields,
+        "migration_report_count",
+        report.migration_reports.len(),
+    );
+    push_count_field(
+        fields,
+        "supported_construct_count",
+        report
+            .migration_reports
+            .iter()
+            .map(|entry| entry.supported_constructs.len())
+            .sum::<usize>(),
+    );
+}
+
+fn append_full_certification_fields(
+    report: &CapabilityCertificationReport,
+    fields: &mut Vec<(String, String)>,
+) {
+    push_count_field(
+        fields,
+        "sql_feature_count",
+        report.sql_coverage.entries.len(),
+    );
+    push_count_field(
+        fields,
+        "operator_family_count",
+        report.operator_coverage.entries.len(),
+    );
+    push_count_field(
+        fields,
+        "function_group_count",
+        report.function_coverage.entries.len(),
+    );
+    push_count_field(
+        fields,
+        "adapter_entry_count",
+        report.adapter_certification.entries.len(),
+    );
+    push_field(
+        fields,
+        "best_choice_claim",
+        if report.can_publish_best_choice_claim() {
+            "certified"
+        } else {
+            "not_certified"
+        },
+    );
+}
+
+fn certification_text(
+    report: &CapabilityCertificationReport,
+    scope: CapabilityDiscoveryScope,
+) -> String {
+    match scope {
+        CapabilityDiscoveryScope::Engine => unreachable!("engine scope uses EngineCapabilities"),
+        CapabilityDiscoveryScope::Sql => format!(
+            "{}\nsql coverage entries:\n{}",
+            certification_summary_header(report, scope),
+            report
+                .sql_coverage
+                .entries
+                .iter()
+                .map(|entry| format!(
+                    "  - {} [{} / {}]",
+                    entry.feature.as_str(),
+                    entry.status.as_str(),
+                    entry.tier.as_str()
+                ))
+                .collect::<Vec<_>>()
+                .join("\n")
+        ),
+        CapabilityDiscoveryScope::Functions => format!(
+            "{}\nfunction coverage groups:\n{}",
+            certification_summary_header(report, scope),
+            report
+                .function_coverage
+                .entries
+                .iter()
+                .map(|entry| {
+                    format!("  - {} [{}]", entry.group.as_str(), entry.status.as_str())
+                })
+                .collect::<Vec<_>>()
+                .join("\n")
+        ),
+        CapabilityDiscoveryScope::Operators => format!(
+            "{}\noperator coverage families:\n{}",
+            certification_summary_header(report, scope),
+            report
+                .operator_coverage
+                .entries
+                .iter()
+                .map(|entry| {
+                    format!("  - {} [{}]", entry.family.as_str(), entry.status.as_str())
+                })
+                .collect::<Vec<_>>()
+                .join("\n")
+        ),
+        CapabilityDiscoveryScope::Adapters => format!(
+            "{}\nadapter certification entries:\n{}",
+            certification_summary_header(report, scope),
+            report
+                .adapter_certification
+                .entries
+                .iter()
+                .map(|entry| {
+                    format!(
+                        "  - {} [{} / {}]",
+                        entry.adapter_id,
+                        entry.status.as_str(),
+                        entry.maturity.as_str()
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("\n")
+        ),
+        CapabilityDiscoveryScope::SemanticProfiles => format!(
+            "{}\nsemantic profiles:\n{}",
+            certification_summary_header(report, scope),
+            report
+                .semantic_profiles
+                .iter()
+                .map(|entry| {
+                    format!("  - {} [{}]", entry.profile.as_str(), entry.status.as_str())
+                })
+                .collect::<Vec<_>>()
+                .join("\n")
+        ),
+        CapabilityDiscoveryScope::Migration => format!(
+            "{}\nmigration reports:\n{}",
+            certification_summary_header(report, scope),
+            report
+                .migration_reports
+                .iter()
+                .map(|entry| {
+                    format!(
+                        "  - {} [{}]",
+                        entry.report_kind.as_str(),
+                        entry.status.as_str()
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("\n")
+        ),
+        CapabilityDiscoveryScope::Certification => report.to_human_text(),
+    }
+}
+
+fn certification_summary_header(
+    report: &CapabilityCertificationReport,
+    scope: CapabilityDiscoveryScope,
+) -> String {
+    format!(
+        "capability discovery: {}\nschema_version: {}\nfallback execution: disabled\nfallback_attempted: {}\nside effects: none\nstatus: planned/report-only",
+        scope.as_str(),
+        report.schema_version,
+        report.fallback_attempted()
+    )
+}
+
+fn emit_capability_certification(
+    scope: CapabilityDiscoveryScope,
+    format: OutputFormat,
+    report: &CapabilityCertificationReport,
+) {
+    emit(
+        "capabilities",
+        format,
+        CommandStatus::Success,
+        format!("capability discovery: {}", scope.as_str()),
+        certification_text(report, scope),
+        report.diagnostics.clone(),
+        certification_fields(report, scope),
+    );
 }
 
 fn readiness_is_blocked(status: VortexExecutionReadinessStatus) -> bool {
@@ -2823,6 +3255,30 @@ fn run(args: Vec<String>) -> ExitCode {
             }
         }
         Some("capabilities") => {
+            let scope = match CapabilityDiscoveryScope::parse(args.next().as_deref()) {
+                Ok(scope) => scope,
+                Err(error) => {
+                    return emit_error(
+                        "capabilities",
+                        format,
+                        "capability discovery failed",
+                        &error,
+                    );
+                }
+            };
+            if let Some(extra) = args.next() {
+                return emit_error(
+                    "capabilities",
+                    format,
+                    "capability discovery failed",
+                    &cli_unknown_arg_error("capabilities", &extra),
+                );
+            }
+            if scope != CapabilityDiscoveryScope::Engine {
+                let report = CapabilityCertificationReport::contract_only();
+                emit_capability_certification(scope, format, &report);
+                return ExitCode::SUCCESS;
+            }
             let capabilities = shardloom_core::EngineCapabilities::current();
             emit(
                 "capabilities",
@@ -11354,6 +11810,77 @@ mod tests {
                 );
             }
         });
+    }
+
+    #[test]
+    fn capabilities_certification_scope_dispatches_report_only() {
+        let code = run(vec![
+            "capabilities".to_string(),
+            "certification".to_string(),
+            "--format".to_string(),
+            "json".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn capabilities_sql_scope_dispatches_report_only() {
+        let code = run(vec!["capabilities".to_string(), "sql".to_string()]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn capabilities_unknown_scope_returns_non_zero() {
+        let code = run(vec!["capabilities".to_string(), "unknown".to_string()]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn capabilities_extra_arg_returns_non_zero() {
+        let code = run(vec![
+            "capabilities".to_string(),
+            "sql".to_string(),
+            "extra".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn capabilities_usage_lists_certification_scopes() {
+        let usage = cli_usage_line();
+        assert!(usage.contains("capabilities [sql|functions|operators|adapters"));
+        assert!(usage.contains("semantic-profiles|migration|certification"));
+    }
+
+    #[test]
+    fn certification_discovery_fields_are_side_effect_free() {
+        let report = CapabilityCertificationReport::contract_only();
+        let fields = certification_fields(&report, CapabilityDiscoveryScope::Certification);
+        assert!(
+            fields
+                .iter()
+                .any(|(key, value)| { key == "fallback_execution_allowed" && value == "false" })
+        );
+        assert!(
+            fields
+                .iter()
+                .any(|(key, value)| key == "side_effect_free" && value == "true")
+        );
+        assert!(
+            fields
+                .iter()
+                .any(|(key, value)| key == "parser_executed" && value == "false")
+        );
+        assert!(
+            fields
+                .iter()
+                .any(|(key, value)| key == "adapter_probe" && value == "false")
+        );
+        assert!(
+            fields
+                .iter()
+                .any(|(key, value)| key == "runtime_execution" && value == "false")
+        );
     }
 
     #[test]

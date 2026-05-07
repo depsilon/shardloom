@@ -10,22 +10,21 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [x] Session label: R5.4.1 core capability matrix contracts
-  - Current cleanup/implementation step: Add `shardloom-core` report-only CG-20 certification contracts before CLI discovery, SQL parsing, adapter runtime, or execution work.
+- [x] Session label: R5.4.2 capability discovery surface
+  - Current cleanup/implementation step: Expose CG-20 report-only certification surfaces through deterministic `shardloom capabilities <scope>` CLI discovery.
   - Primary files:
     - `docs/architecture/capability-certification-sequencing.md`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
     - `shardloom-core/src/certification.rs`
-    - `shardloom-core/src/lib.rs`
-    - `shardloom-contract-tests/tests/no_fallback_invariants.rs`
-  - Scope: Core report contracts and invariant tests only.
-  - Explicitly not included: Runtime behavior, SQL parser, SQL execution, DataFrame API, adapter runtime, function registry, operator kernels, dependencies, filesystem/network probing, fallback execution, superiority claims.
+    - `shardloom-cli/src/main.rs`
+  - Scope: CLI discovery over existing report-only certification contracts.
+  - Explicitly not included: Runtime behavior, SQL parser, SQL execution, DataFrame API, adapter runtime, function registry, operator kernels, dependencies, filesystem/network/catalog probing, fallback execution, superiority claims.
   - Validation required:
     - `cargo fmt --all -- --check`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: Core report-only certification contracts landed in `shardloom-core`; focused tests and full workspace validation passed locally with toolchain `1.91.1`.
+  - Completion notes: Scoped capability discovery landed under `shardloom capabilities`; focused CLI tests and full Rust validation passed locally with toolchain `1.91.1`.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -78,7 +77,7 @@
   - Blockers:
     - None known.
 
-- [ ] Follow-up: R5.4.2 capability discovery surface
+- [x] Follow-up: R5.4.2 capability discovery surface
   - Why: Expose the planned CG-20 certification report through deterministic, side-effect-free capability discovery before adding feature implementation.
   - Files:
     - `shardloom-cli/src/main.rs`
@@ -90,6 +89,19 @@
     - Command execution performs no filesystem, network, catalog, adapter, parser, or runtime probing.
     - Planned entries remain planned, not supported.
     - `fallback_attempted=false` and fallback disabled remain explicit.
+  - Blockers:
+    - None known.
+
+- [ ] Follow-up: R5.4.2a capability certification snapshot tests
+  - Why: Lock the generated empty/planned matrices and CLI discovery fields before filling in real SQL/operator/function/adapter coverage.
+  - Files:
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-core/src/certification.rs`
+    - `shardloom-contract-tests/tests/`
+  - Acceptance:
+    - Snapshot-style contract tests cover generated planned matrices.
+    - Snapshot-style contract tests cover capability discovery field names.
+    - Tests do not execute external engines or probe filesystem/network/catalog/adapter state.
   - Blockers:
     - None known.
 
@@ -142,6 +154,12 @@
   - Local validation status:
     - focused `shardloom-core` certification tests passed
     - focused no-fallback invariant test passed
+    - full Rust validation passed with toolchain `1.91.1`
+- [x] R5.4.2 Capability discovery surface
+  - Why: expose CG-20 planned certification surfaces through deterministic CLI discovery before feature implementation.
+  - Acceptance: report-only scoped `capabilities` CLI surfaces with no parser, runtime, adapter, dependency, external probing, or fallback behavior.
+  - Local validation status:
+    - focused CLI capability discovery tests passed
     - full Rust validation passed with toolchain `1.91.1`
 
 ## Implementation Phase Queue

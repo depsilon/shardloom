@@ -378,3 +378,13 @@ No fallback execution.
 - Primary RFC linkage: RFC 0032.
 - Related RFCs: RFC 0011, RFC 0012, RFC 0015, RFC 0021, RFC 0022, RFC 0023, RFC 0029, RFC 0030, and RFC 0031.
 - This phase adds no SQL parser, SQL execution, adapter runtime, function registry, operator kernel, dependency, external probing, or fallback behavior.
+
+## R5.4.2 capability discovery surface
+
+- `shardloom-cli/src/main.rs` exposes report-only CG-20 discovery through `shardloom capabilities <scope>`.
+- Implemented scopes: `sql`, `functions`, `operators`, `adapters`, `semantic-profiles`, `migration`, and `certification`.
+- `shardloom capabilities` without a scope remains the existing engine-level capability summary.
+- Discovery output includes stable output-envelope fields for scope, schema version, fallback-disabled status, fallback-attempted status, and side-effect/probe flags.
+- Primary RFC linkage: RFC 0032.
+- Related RFCs: RFC 0011, RFC 0012, RFC 0015, RFC 0021, RFC 0022, RFC 0023, RFC 0029, RFC 0030, and RFC 0031.
+- This phase adds no SQL parser, SQL execution, adapter runtime, function registry, operator kernel, dependency, filesystem/network/catalog probing, external-engine probing, or fallback behavior.
