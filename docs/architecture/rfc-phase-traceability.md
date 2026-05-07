@@ -369,3 +369,12 @@ No fallback execution.
 - Primary RFC linkage: RFC 0032.
 - Related RFCs: RFC 0011, RFC 0012, RFC 0015, RFC 0021, RFC 0022, RFC 0023, RFC 0029, RFC 0030, and RFC 0031.
 - This phase adds no runtime/parser/adapter/dependency/fallback behavior.
+
+## R5.4.1 core capability matrix contracts
+
+- `shardloom-core/src/certification.rs` adds report-only CG-20 contract shapes for SQL coverage, operator coverage, function coverage, adapter certification, semantic profiles, migration compatibility, and best-choice scorecards.
+- `CapabilityCertificationReport::contract_only()` emits planned foundation matrices with `fallback_attempted=false`.
+- `test_reference_only` evidence is modeled as non-production certification evidence and cannot satisfy production claim helpers.
+- Primary RFC linkage: RFC 0032.
+- Related RFCs: RFC 0011, RFC 0012, RFC 0015, RFC 0021, RFC 0022, RFC 0023, RFC 0029, RFC 0030, and RFC 0031.
+- This phase adds no SQL parser, SQL execution, adapter runtime, function registry, operator kernel, dependency, external probing, or fallback behavior.

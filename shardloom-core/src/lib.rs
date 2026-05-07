@@ -6,6 +6,7 @@
 
 pub mod benchmark;
 pub mod capabilities;
+pub mod certification;
 pub mod correctness;
 pub mod dataset;
 pub mod diagnostics;
@@ -27,6 +28,16 @@ pub use benchmark::{
     CorrectnessValidationMode, MetricValue, WorkloadClass,
 };
 pub use capabilities::{Capability, CapabilityStatus, EngineCapabilities};
+pub use certification::{
+    AdapterCertificationEntry, AdapterCertificationMatrix, AdapterMaturityLevel,
+    BestChoiceScorecard, BestChoiceScorecardEntry, CapabilityCertificationEntry,
+    CapabilityCertificationReport, CapabilityCertificationStatus, CapabilityCertificationSurface,
+    FunctionCoverageEntry, FunctionCoverageGroup, FunctionCoverageMatrix,
+    MigrationCompatibilityEntry, MigrationReportKind, OperatorCertificationStatus,
+    OperatorCoverageEntry, OperatorCoverageMatrix, OperatorFamily, OperatorMemoryCertification,
+    ScorecardDimension, SemanticProfileEntry, SemanticProfileName, SourcePushdownExactness,
+    SqlCoverageEntry, SqlCoverageMatrix, SqlCoverageTier, SqlFeatureGroup,
+};
 pub use correctness::{
     CorrectnessFixture, CorrectnessPlanStatus, CorrectnessValidationPlan,
     CorrectnessValidationReport, DiagnosticExpectation, DifferentialBaseline, EdgeCase,
