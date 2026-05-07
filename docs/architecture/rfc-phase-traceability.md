@@ -446,3 +446,14 @@ No fallback execution.
 - Primary RFC linkage: RFC 0032.
 - Related RFCs: RFC 0011, RFC 0012, RFC 0015, RFC 0016, RFC 0021, RFC 0022, RFC 0029, RFC 0030, and RFC 0031.
 - This phase adds no SQL parser, SQL execution, migration analyzer runtime, compatibility execution mode, adapter runtime, external-engine dependency, external-engine probing, benchmark claim, or fallback behavior.
+
+## R5.4.7 workload constitution and scorecard sequencing
+
+- RFC 0032 now defines `WorkloadConstitution` fields for workload categories, query patterns, data source profiles, sink target profiles, semantic profiles, SQL/operator/function/adapter requirements, API surfaces, scale shape, objectives, budgets, fixtures, benchmarks, migration sources, evidence refs, diagnostics, and fallback status.
+- RFC 0032 now defines `WorkloadCategoryEvidence` entries tying each category to required coverage, correctness tests, benchmark scenarios, native I/O certificates, unsupported budgets, materialization budgets, evidence status, and diagnostics.
+- RFC 0032 now defines `BestChoiceScorecard` fields, dimension statuses, dimension entries, optional/deferred weighting rules, mandatory dimension behavior, and claim publication requirements.
+- RFC 0032 now defines `BestDefaultCertificationDossier` fields, minimum evidence floor, disqualifiers, and publication decisions for best-default-engine claims.
+- Best-default certification remains workload-scoped and blocked by missing correctness, benchmark, semantic, adapter, native I/O, memory/spill, observability, migration, deployment, dependency-policy, or no-fallback evidence.
+- Primary RFC linkage: RFC 0032.
+- Related RFCs: RFC 0010, RFC 0011, RFC 0012, RFC 0013, RFC 0014, RFC 0015, RFC 0016, RFC 0021, RFC 0023, RFC 0029, RFC 0030, and RFC 0031.
+- This phase adds no SQL parser, SQL execution, benchmark implementation, certification runtime, migration analyzer runtime, compatibility execution mode, adapter runtime, external-engine dependency, external-engine probing, superiority claim, or fallback behavior.

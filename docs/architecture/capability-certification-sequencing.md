@@ -272,11 +272,20 @@ Goal: scope best-default-engine certification to declared workloads.
 
 Checklist:
 
-- [ ] Define workload constitution record shape.
-- [ ] Define workload categories and required coverage evidence.
-- [ ] Define scorecard dimension weights as optional/deferred.
-- [ ] Define scorecard dimensions for correctness, performance, cost, memory safety, SQL coverage, function coverage, operator coverage, adapter coverage, API usability, observability, migration ease, deployment ease, and no-fallback integrity.
-- [ ] Define claim-level requirements for scorecard publication.
+- [x] Define workload constitution record shape.
+- [x] Define workload categories and required coverage evidence.
+- [x] Define scorecard dimension weights as optional/deferred.
+- [x] Define scorecard dimensions for correctness, performance, cost, memory safety, SQL coverage, function coverage, operator coverage, adapter coverage, API usability, observability, migration ease, deployment ease, and no-fallback integrity.
+- [x] Define claim-level requirements for scorecard publication.
+
+R5.4.7 outcome:
+
+- RFC 0032 now defines `WorkloadConstitution` fields that scope certification to declared workload categories, source/sink profiles, semantic profiles, SQL/operator/function/adapter requirements, scale shape, objectives, budgets, fixtures, benchmarks, migration sources, and evidence refs.
+- RFC 0032 now defines `WorkloadCategoryEvidence` entries tying each category to required coverage, correctness tests, benchmark scenarios, native I/O certificates, unsupported budgets, materialization budgets, and evidence status.
+- RFC 0032 now defines `BestChoiceScorecard` fields, scorecard dimension statuses, dimension evidence entries, optional/deferred weighting rules, mandatory dimension behavior, and claim publication gates.
+- RFC 0032 now defines a `BestDefaultCertificationDossier` evidence bundle and disqualifiers for best-default claims.
+- Best-default certification remains workload-scoped, evidence-backed, and blocked by missing correctness, benchmark, adapter, native I/O, semantic, observability, or no-fallback evidence.
+- No benchmark implementation, certification runtime, external engine dependency, or fallback behavior is added.
 
 Acceptance:
 
