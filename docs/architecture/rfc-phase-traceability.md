@@ -422,3 +422,15 @@ No fallback execution.
 - Primary RFC linkage: RFC 0032.
 - Related RFCs: RFC 0011, RFC 0012, RFC 0015, RFC 0021, RFC 0022, RFC 0023, RFC 0029, RFC 0030, and RFC 0031.
 - This phase adds no SQL parser, SQL execution, adapter runtime, function registry, operator kernel, dependency, filesystem/network/catalog probing, external-engine probing, or fallback behavior.
+
+## R5.4.5 adapter certification sequencing
+
+- RFC 0032 now maps adapter maturity A0-A7 to evidence requirements from declared-only through benchmarked/certified.
+- RFC 0032 defines adapter pushdown and residual-expression boundaries for exact, exact-with-residual, conservative false-positive, unsupported, and unsafe-rejected behavior.
+- RFC 0032 expands adapter certification with source/sink report refs, fidelity report refs, native I/O certificate refs, metadata/statistics/fidelity loss, commit/recovery semantics, side effects, and diagnostics.
+- RFC 0031 now links source capability, sink requirement, adapter fidelity, and native I/O certificate evidence to adapter certification.
+- External source pushdown is proof-backed source behavior, not hidden fallback execution.
+- Adapter certification remains workload/path scoped and cannot be inferred from external baseline availability.
+- Primary RFC linkage: RFC 0031 and RFC 0032.
+- Related RFCs: RFC 0008, RFC 0012, RFC 0013, RFC 0015, RFC 0016, RFC 0018, RFC 0021, RFC 0022, RFC 0029, and RFC 0030.
+- This phase adds no SQL parser, SQL execution, adapter runtime, object-store IO, file-format dependency, catalog dependency, external-engine probing, or fallback behavior.

@@ -426,6 +426,25 @@ Each profile must define:
 - A6 commit/recovery support
 - A7 benchmarked/certified
 
+### Adapter maturity evidence
+Adapter maturity levels must represent evidence, not aspirations.
+
+- A0 `declared_only`: adapter identity, source/sink kind, and non-goals are documented. No read, write, pushdown, commit, streaming, or object-store behavior is implied.
+- A1 `capability_discovery`: adapter can emit a deterministic capability report without probing external systems by default.
+- A2 `schema_metadata_discovery`: adapter can describe schema and metadata availability with explicit diagnostics and no hidden data reads.
+- A3 `read_support`: adapter can produce a `NativeWorkStream` or source envelope with declared representation state and no fallback execution.
+- A4 `pushdown_support`: adapter can emit `SourcePushdownReport` with exactness, proof basis, residual expression, and unsafe-rejection reasons.
+- A5 `write_support`: adapter can consume a `NativeResultStream` with explicit sink requirements, materialization boundaries, and metadata/fidelity reporting.
+- A6 `commit_recovery_support`: adapter can describe commit, idempotency, rollback/recovery, cleanup, and side-effect boundaries.
+- A7 `benchmarked_certified`: correctness, semantic, fidelity, benchmark, and native I/O certificate evidence exists for the declared workload profile.
+
+Maturity invariants:
+- Higher maturity must not be inferred from a lower-level report.
+- A3 read support does not imply pushdown support.
+- A5 write support does not imply table commit/recovery support.
+- A7 benchmarked/certified is workload-scoped and cannot be used for undeclared source/sink paths.
+- `fallback_attempted=false` is required at every maturity level.
+
 ### AdapterCertificationReport fields
 - `adapter_id`
 - `adapter_version`
@@ -449,12 +468,71 @@ Each profile must define:
 - `benchmark_status`
 - `fallback_attempted=false`
 
+Additional certification fields:
+- `maturity_level`
+- `source_capability_report_ref`
+- `source_pushdown_report_ref`
+- `sink_requirement_report_ref`
+- `adapter_fidelity_report_ref`
+- `native_io_certificate_refs`
+- `residual_expression`
+- `metadata_preserved`
+- `statistics_preserved`
+- `fidelity_loss`
+- `commit_semantics`
+- `recovery_semantics`
+- `side_effects`
+- `diagnostics`
+
 ### Source pushdown statuses
 - `exact`
 - `exact_with_residual`
 - `conservative_may_include_false_positives`
 - `unsupported`
 - `unsafe_rejected`
+
+### Adapter pushdown and fidelity boundaries
+Pushdown is source behavior with proof, not fallback execution. An adapter may use source-native capabilities only when the accepted operation, guarantee, and residual expression are visible in `SourcePushdownReport`.
+
+Rules:
+- `exact`: source-side filtering/projection is semantically equivalent for the declared semantic profile.
+- `exact_with_residual`: accepted source operations are exact, and a residual expression must still run natively in ShardLoom.
+- `conservative_may_include_false_positives`: source-side filtering may include extra rows but must not exclude valid rows; native residual execution is required.
+- `unsupported`: no pushdown is applied, and native planning must either proceed without pushdown or fail explicitly.
+- `unsafe_rejected`: requested pushdown is rejected because semantics, ordering, side effects, or metadata are unsafe.
+
+Residual expression reporting:
+- Residuals must be typed and tied to the semantic profile used for source pushdown.
+- Residuals must not be executed by an external engine as a hidden fallback.
+- Residuals must appear in explain/diagnostic/certificate surfaces before execution is certified.
+
+Metadata and fidelity reporting:
+- `metadata_loss` must distinguish dropped schema metadata, statistics, ordering, partitioning, nullability, field identity, layout hints, and source-specific physical metadata.
+- `fidelity_loss` must distinguish representation loss, semantic loss risk, precision/coercion risk, commit semantic loss, and sink compatibility loss.
+- Encoded preservation must distinguish `vortex_encoded`, `foreign_encoded`, `selection_vector_encoded`, partial decode, decoded columnar, and row materialization.
+- Materialization required by a sink or adapter must emit a `MaterializationBoundaryReport` through CG-19 certificate evidence.
+
+Read/write/commit/streaming/object-store fields:
+- `read_supported` means the adapter can produce native envelopes for declared source paths.
+- `write_supported` means the adapter can consume native result envelopes for declared sink paths.
+- `commit_supported` means the adapter can describe side effects, idempotency, recovery, cleanup, and commit visibility.
+- `streaming_supported` means the adapter can participate in bounded streaming with backpressure semantics.
+- `object_store_range_supported` means byte/range planning is supported with request-budget and retry semantics.
+
+### External source pushdown rules
+External systems may provide data, metadata, and proof-backed pushdown. They must not execute ShardLoom residual plans as fallback.
+
+Allowed:
+- source metadata discovery with explicit capability reports
+- exact or conservative source-side pushdown with proof
+- external table/catalog metadata import
+- sink writes when explicitly planned and certified
+
+Disallowed:
+- delegating unsupported ShardLoom operators to Spark, DataFusion, DuckDB, Polars, Velox, Trino, Dask, Ray, Calcite, or another engine
+- hiding remote SQL/query execution behind an adapter without `SourcePushdownReport`
+- treating external baseline availability as adapter maturity
+- reporting adapter certification without native I/O certificate coverage for each source/sink path
 
 ## Common adapters roadmap
 

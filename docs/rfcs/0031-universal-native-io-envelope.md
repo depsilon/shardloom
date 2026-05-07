@@ -186,13 +186,19 @@ Required fields:
 Required fields:
 - `source_kind`
 - `adapter_id`
+- `adapter_maturity_level`
 - `schema_discovery_status`
+- `metadata_discovery_status`
 - `statistics_availability`
 - `pushdown_capabilities`
 - `encoded_representation_preserved`
 - `range_read_capability`
 - `streaming_capability`
 - `object_store_capability`
+- `read_supported`
+- `write_supported`
+- `commit_supported`
+- `diagnostics`
 - `fallback_attempted=false`
 
 ### SourcePushdownReport
@@ -204,7 +210,16 @@ Required fields:
 - `residual_expression`
 - `conservative_false_positive_policy`
 - `unsafe_rejected_reason`
+- `semantic_profile`
+- `residual_required`
 - `fallback_attempted=false`
+
+Pushdown boundaries:
+- `accepted_operations` must name only operations the source can apply with the declared `guarantee`.
+- `residual_expression` must be present whenever `guarantee` is not fully exact for the whole predicate/projection.
+- Conservative pushdown may include false positives but must not exclude valid rows.
+- Unsafe source behavior must be rejected instead of delegated or retried through another execution engine.
+- Pushdown proof is source capability evidence; it is not fallback execution.
 
 ## Sink requirements
 
@@ -221,6 +236,16 @@ Required fields:
 - `supports_streaming`
 - `max_chunk_size`
 - `backpressure_policy`
+- `commit_requirement`
+- `side_effect_boundary`
+- `metadata_loss_policy`
+- `fidelity_loss_policy`
+
+Sink boundaries:
+- Sinks that require decoded columnar data or materialized rows must force an explicit `MaterializationBoundaryReport`.
+- Compatibility sinks must report metadata/fidelity loss instead of silently dropping physical information.
+- Commit-capable sinks must declare idempotency, recovery, cleanup, and visibility semantics before certification.
+- Vortex sinks remain the highest-fidelity native path when their requirements can preserve encoded representation.
 
 ## Adapter fidelity
 
@@ -235,7 +260,18 @@ Required fields:
 - `materialization_required`
 - `fidelity_loss`
 - `metadata_loss`
+- `statistics_loss`
+- `ordering_loss`
+- `partitioning_loss`
+- `semantic_loss_risk`
+- `commit_semantic_loss`
 - `fallback_attempted=false`
+
+Fidelity boundaries:
+- Fidelity loss must distinguish metadata loss from representation loss and semantic-risk loss.
+- Foreign encoded preservation should be reported separately from Vortex-native encoded preservation.
+- An adapter that reads or writes data but drops statistics, ordering, partitioning, field identity, or layout hints must report that loss.
+- Adapter fidelity reports feed `NativeIoCertificate` evidence and cannot be replaced by a run-level summary.
 
 ## Materialization boundary
 
@@ -267,6 +303,12 @@ Required fields:
 - `side_effects`
 - `diagnostics`
 - `fallback_attempted=false`
+
+Certificate-to-adapter alignment:
+- Each adapter source/sink path must reference the matching source capability, source pushdown, sink requirement, and adapter fidelity evidence.
+- Multi-source and multi-sink flows require one certificate per path, plus an optional run-level summary.
+- Adapter certification cannot claim read, write, pushdown, streaming, object-store-range, commit, or benchmark maturity without matching certificate evidence.
+- Certificate evidence must remain explicit even when the source or sink is local and side-effect-free.
 
 ## Acceptance criteria
 - CG-19 cannot complete until every source/sink path emits a `NativeIoCertificate`.

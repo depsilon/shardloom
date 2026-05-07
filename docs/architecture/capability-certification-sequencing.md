@@ -207,15 +207,25 @@ Goal: make common adapters useful and certifiable without turning them into fall
 
 Checklist:
 
-- [ ] Define adapter maturity levels A0-A7.
-- [ ] Define source capability reports.
-- [ ] Define sink requirement reports.
-- [ ] Define pushdown exactness statuses.
-- [ ] Define residual expression reporting.
-- [ ] Define metadata and fidelity loss reporting.
-- [ ] Define encoded-representation preservation reporting.
-- [ ] Define read/write/commit/streaming/object-store-range support fields.
-- [ ] Define external source pushdown as proof-backed source behavior, not hidden execution.
+- [x] Define adapter maturity levels A0-A7.
+- [x] Define source capability reports.
+- [x] Define sink requirement reports.
+- [x] Define pushdown exactness statuses.
+- [x] Define residual expression reporting.
+- [x] Define metadata and fidelity loss reporting.
+- [x] Define encoded-representation preservation reporting.
+- [x] Define read/write/commit/streaming/object-store-range support fields.
+- [x] Define external source pushdown as proof-backed source behavior, not hidden execution.
+
+R5.4.5 outcome:
+
+- RFC 0032 now maps adapter maturity A0-A7 to evidence requirements from declared-only through benchmarked/certified.
+- RFC 0032 now states that adapter maturity is workload/path scoped and cannot be inferred from lower-level reports.
+- RFC 0032 now defines adapter pushdown and residual-expression boundaries, including exact, exact-with-residual, conservative false-positive, unsupported, and unsafe-rejected behavior.
+- RFC 0032 now expands adapter certification with source/sink report refs, fidelity report refs, native I/O certificate refs, metadata/statistics/fidelity loss, commit/recovery semantics, side effects, and diagnostics.
+- RFC 0031 now links source capability, sink requirement, adapter fidelity, and native I/O certificate evidence to adapter certification.
+- External source pushdown is explicitly proof-backed source behavior, not hidden fallback execution.
+- No adapter runtime, object-store IO, file-format dependency, catalog dependency, execution behavior, or fallback behavior is added.
 
 Acceptance:
 
