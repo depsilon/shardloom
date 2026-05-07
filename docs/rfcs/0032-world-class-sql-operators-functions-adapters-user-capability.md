@@ -415,6 +415,55 @@ Each profile must define:
 - `aggregate empty-input behavior`
 - `window frame defaults`
 
+### Semantic profile report fields
+`SemanticProfileReport` records profile coverage and evidence before a query, migration report, or compatibility claim relies on those semantics.
+
+Required fields:
+- `profile_id`
+- `profile_version`
+- `profile_status`
+- `dimension_statuses`
+- `evidence_basis`
+- `baseline_system`
+- `baseline_version`
+- `compatibility_scope`
+- `sql_constructs_covered`
+- `function_groups_covered`
+- `operator_families_covered`
+- `adapter_paths_covered`
+- `known_differences`
+- `unsupported_semantics`
+- `requires_rewrite`
+- `test_status`
+- `differential_baseline_refs`
+- `diagnostics`
+- `fallback_attempted=false`
+
+`SemanticDimensionStatus` values:
+- `undefined`
+- `documented`
+- `test_reference_only`
+- `native_defined`
+- `compatibility_mapped`
+- `differential_tested`
+- `certified`
+
+Profile-specific evidence:
+- `ShardLoomNative` defines ShardLoom's default semantics and must document every dimension before production certification.
+- `AnsiStrict` maps dimensions to the chosen ANSI SQL interpretation and must report unsupported or intentionally divergent behavior.
+- `SparkCompatible` records Spark SQL semantic deltas as migration evidence only; it is not permission to execute through Spark.
+- `DataFusionCompatible` records DataFusion semantic deltas as migration evidence only; it is not permission to execute through DataFusion.
+- `PostgresLike` records Postgres-style SQL behavior where useful for user expectations and compatibility analysis.
+
+Semantic profile boundaries:
+- A compatibility profile is a semantics contract, not an execution mode.
+- External engines are comparison baselines, fixture sources, or migration references only.
+- Missing or `undefined` dimensions block compatibility certification for affected constructs.
+- Query planning must surface semantic differences before certified execution when the requested profile differs from `ShardLoomNative`.
+- Function, operator, adapter, and SQL coverage reports must reference the semantic profile used for certification.
+- Semantic compatibility does not imply benchmark, superiority, or production certification by itself.
+- `fallback_attempted=false` remains required for every profile report.
+
 ## Adapter ecosystem and certification
 `AdapterCertificationReport` maturity levels:
 - A0 declared only
@@ -609,6 +658,132 @@ Migration reports must include:
 - `expected performance/cost delta estimate` (gain only when evidence-backed)
 - `Vortex conversion payback`
 - `fallback_attempted=false`
+
+### MigrationCompatibilityReport fields
+`MigrationCompatibilityReport` is report-only evidence for moving a declared workload toward ShardLoom-native execution.
+
+Required fields:
+- `report_id`
+- `source_system`
+- `source_version`
+- `target_semantic_profile`
+- `workload_ref`
+- `workload_constitution_ref`
+- `sql_constructs`
+- `operator_families`
+- `function_groups`
+- `adapter_paths`
+- `supported_constructs`
+- `unsupported_constructs`
+- `semantic_differences`
+- `function_differences`
+- `adapter_differences`
+- `materialization_requirements`
+- `rewrite_suggestions`
+- `capability_report_refs`
+- `semantic_profile_report_refs`
+- `adapter_certification_report_refs`
+- `native_io_certificate_refs`
+- `expected_performance_cost_delta`
+- `vortex_conversion_payback`
+- `risk_level`
+- `evidence_label`
+- `diagnostics`
+- `fallback_attempted=false`
+
+`ConstructMigrationStatus` values:
+- `supported_native`
+- `supported_with_rewrite`
+- `supported_with_materialization`
+- `supported_with_semantic_difference`
+- `requires_adapter`
+- `requires_future_phase`
+- `unsupported`
+- `unsafe_rejected`
+
+Supported construct entries must include:
+- `construct`
+- `construct_kind`
+- `source_semantics`
+- `target_semantics`
+- `status`
+- `semantic_profile`
+- `required_operator_status`
+- `required_function_status`
+- `required_adapter_maturity`
+- `materialization_requirement`
+- `evidence_label`
+- `diagnostics`
+
+Unsupported construct entries must include:
+- `construct`
+- `construct_kind`
+- `unsupported_reason`
+- `blocking_capability`
+- `semantic_risk`
+- `rewrite_available`
+- `rewrite_suggestion_refs`
+- `requires_future_phase`
+- `diagnostics`
+
+Difference reports must distinguish:
+- `semantic_difference`: nulls, casts, timestamps, decimals, NaN, collation, case sensitivity, overflow, aggregate empty input, and window frame defaults.
+- `function_difference`: missing function, alias mismatch, type coercion difference, null behavior difference, determinism/volatility difference, effect boundary, or materialization requirement.
+- `adapter_difference`: missing source/sink, weaker pushdown, metadata loss, fidelity loss, commit semantic loss, object-store range limitation, or streaming limitation.
+
+`RewriteSuggestion` entries must include:
+- `suggestion_id`
+- `original_construct`
+- `replacement_construct`
+- `required_semantic_profile`
+- `required_adapter_maturity`
+- `materialization_requirement`
+- `behavior_change_risk`
+- `validation_required`
+- `confidence`
+- `diagnostics`
+
+Performance/cost delta estimate fields:
+- `estimate_status`
+- `evidence_label`
+- `baseline_refs`
+- `benchmark_refs`
+- `workload_assumptions`
+- `uncertainty`
+- `expected_runtime_delta`
+- `expected_cost_delta`
+- `memory_delta`
+- `object_store_request_delta`
+- `diagnostics`
+
+`estimate_status` values:
+- `not_estimated`
+- `evidence_insufficient`
+- `modeled`
+- `benchmark_backed`
+- `measured`
+
+Vortex conversion payback fields:
+- `candidate_source`
+- `conversion_scope`
+- `conversion_cost_estimate`
+- `storage_delta`
+- `metadata_pruning_benefit`
+- `encoded_execution_benefit`
+- `repeat_count_payback_threshold`
+- `incremental_refresh_payback`
+- `payback_uncertainty`
+- `recommendation`
+- `diagnostics`
+
+Migration boundaries:
+- Migration analyzers do not execute migrated workloads.
+- Migration analyzers do not add compatibility execution modes.
+- External engines must not be invoked as runtime fallbacks.
+- External benchmark or differential evidence must be labeled as evidence, not execution availability.
+- Expected gains must be expressed as deltas with uncertainty unless benchmark-backed evidence exists.
+- Unsupported constructs must produce actionable diagnostics or rewrite suggestions when possible.
+- `fallback_attempted=false` is mandatory in every migration report.
 
 ## Join/window/shuffle blockers
 CG-20 cannot complete without native support plans for:

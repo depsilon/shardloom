@@ -434,3 +434,15 @@ No fallback execution.
 - Primary RFC linkage: RFC 0031 and RFC 0032.
 - Related RFCs: RFC 0008, RFC 0012, RFC 0013, RFC 0015, RFC 0016, RFC 0018, RFC 0021, RFC 0022, RFC 0029, and RFC 0030.
 - This phase adds no SQL parser, SQL execution, adapter runtime, object-store IO, file-format dependency, catalog dependency, external-engine probing, or fallback behavior.
+
+## R5.4.6 semantic profile and migration sequencing
+
+- RFC 0032 now defines `SemanticProfileReport` fields, semantic dimension statuses, profile-specific evidence, and compatibility-profile boundaries.
+- RFC 0032 states that Spark-compatible, DataFusion-compatible, Postgres-like, ANSI-strict, and ShardLoom-native profiles are semantics contracts, not execution modes.
+- RFC 0032 now defines `MigrationCompatibilityReport` fields for supported constructs, unsupported constructs, semantic differences, function differences, adapter differences, materialization requirements, rewrite suggestions, evidence labels, diagnostics, and fallback status.
+- RFC 0032 now defines performance/cost delta estimate fields with evidence labels and uncertainty, and blocks unsupported gain claims.
+- RFC 0032 now defines Vortex conversion payback fields for source conversion scope, cost, benefit, uncertainty, and recommendation.
+- External engines remain comparison, fixture, and migration baselines only.
+- Primary RFC linkage: RFC 0032.
+- Related RFCs: RFC 0011, RFC 0012, RFC 0015, RFC 0016, RFC 0021, RFC 0022, RFC 0029, RFC 0030, and RFC 0031.
+- This phase adds no SQL parser, SQL execution, migration analyzer runtime, compatibility execution mode, adapter runtime, external-engine dependency, external-engine probing, benchmark claim, or fallback behavior.
