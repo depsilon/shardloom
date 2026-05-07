@@ -1398,9 +1398,9 @@ Entry criteria for the next implementation phase:
 - Count planning distinguishes metadata-footer candidates from encoded-data-path candidates.
 - Count execution remains blocked until real metadata/footer or encoded-data-path readiness exists.
 - No scan/read-start, encoded-data reads, row reads, decode, materialization, `Arrow` conversion, object-store IO, writes, or fallback execution are introduced.
-- CG-2.1b is reserved for optional `CLI` surfacing.
+- CG-2.1b `CLI` surfacing is complete via `shardloom vortex-count-readiness-plan <candidate_source> <dataset_uri> [flags] [--format text|json]`.
 - CG-2.1a semantic hardening is complete: `VortexCountCandidateSource::Unknown` cannot be readiness-complete and deterministically returns `blocked_by_unsupported_primitive` when feature-gated count/query-primitive-ready signals are present.
 - `VortexCountReadinessReport` error detection is severity-aware across status, request diagnostics, and report diagnostics.
 - Count readiness remains report-only and does not execute count.
-- CG-2.1b `CLI` surfacing is next/deferred.
+- `CLI` output remains report-only/readiness-only and never executes count.
 - No scan/read-start, encoded-data read, row read, decode, materialization, `Arrow` conversion, object-store `IO`, writes, or fallback execution are introduced.
