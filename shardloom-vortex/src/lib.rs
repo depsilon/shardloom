@@ -36,6 +36,7 @@ pub mod encoded_read_probe;
 pub mod encoded_read_readiness;
 pub mod execution_readiness;
 pub mod file_io;
+pub mod filtered_count_readiness;
 pub mod manifest_finalization;
 pub mod memory_bridge;
 pub mod metadata_async_boundary;
@@ -53,6 +54,8 @@ pub mod scheduler_bridge;
 pub mod staged_manifest;
 pub mod staged_output;
 pub mod write_intent;
+
+pub use filtered_count_readiness::*;
 
 pub use file_io::{
     VortexFileIoFeatureStatus, VortexMetadataOpenMode, VortexMetadataOpenReport,

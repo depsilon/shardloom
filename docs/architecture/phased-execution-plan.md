@@ -1404,3 +1404,14 @@ Entry criteria for the next implementation phase:
 - Count readiness remains report-only and does not execute count.
 - `CLI` output remains report-only/readiness-only and never executes count.
 - No scan/read-start, encoded-data read, row read, decode, materialization, `Arrow` conversion, object-store `IO`, writes, or fallback execution are introduced.
+
+
+## CG-2.2a filtered-count readiness core contract
+- CG-2.1, CG-2.1a, and CG-2.1b are complete.
+- CG-2.2a adds `VortexFilteredCountReadinessRequest` and `VortexFilteredCountReadinessReport` planning/reporting only.
+- Distinguishes `VortexFilteredCountCandidateSource::MetadataPredicateProof` vs `::EncodedPredicatePath`.
+- Metadata-proof filtered count remains blocked until a dedicated predicate-proof contract is introduced.
+- Filtered-count execution is not implemented.
+- No scan/read-start, predicate evaluation, encoded-data read, row read, decode, materialization, `Arrow` conversion, object-store IO, writes, or fallback execution are added.
+- CG-2.2b CLI integration remains next/deferred.
+- Keep CG-1 through CG-18 visible and current.
