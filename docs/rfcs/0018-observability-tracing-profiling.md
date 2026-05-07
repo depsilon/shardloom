@@ -476,3 +476,23 @@ Future implementation PRs should verify:
 - When should OpenTelemetry-style integration be considered?
 - How should observability schemas be versioned?
 - How should redaction be configured?
+
+## Systems-learning observability vocabulary (R5.1)
+
+Add conceptual observability/reporting vocabulary:
+- `OperatorProfile`
+- `PlannedVsActualOperatorProfile`
+
+`system.*` virtual diagnostic surfaces:
+- `system.capabilities`
+- `system.features`
+- `system.inputs`
+- `system.plans`
+- `system.runs`
+- `system.tasks`
+- `system.memory`
+- `system.spill`
+- `system.effects`
+- `system.decision_trace`
+- `system.work_avoided`
+

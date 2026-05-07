@@ -515,3 +515,25 @@ Decision kinds:
 - `ChoseEncodedKernel`: The optimizer selected encoded-native kernel execution; report required capabilities and expected decode/materialization avoided.
 - `RefusedDistributedExecution`: Distributed execution was explicitly refused; report refusal reason, safety basis, and resulting local-only residual work.
 
+## Systems-learning optimizer vocabulary (R5.1)
+
+`OptimizerDecisionKind` conceptual variants:
+- `PrunedByMetadata`
+- `PushedDownExactly`
+- `PushedDownWithResidual`
+- `RejectedPushdown`
+- `FusedTasks`
+- `SplitSkewedTask`
+- `BuiltRuntimeFilter`
+- `AppliedRuntimeFilter`
+- `RejectedRuntimeFilter`
+- `ChoseEncodedKernel`
+- `ChoseDecode`
+- `RefusedDistributedExecution`
+
+Additional conceptual terms:
+- `RuntimeFilterLifecycle`
+- `PushdownGuarantee`
+- `ProofBasis`
+- split/coalesce/fuse decision reporting
+

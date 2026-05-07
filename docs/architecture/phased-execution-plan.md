@@ -1430,3 +1430,22 @@ Entry criteria for the next implementation phase:
 - The contract remains report-only: no scan/read-start, no projection application, no encoded-data reads, no row reads, no decode, no materialization, no `Arrow` conversion, no object-store `IO`, no writes, and no fallback execution.
 - Keep CG-1 through CG-18 visible and current.
 
+## R5 — Systems-learning contract pass
+
+- PR #214 / CG-2.3a projection readiness semantic hardening: complete.
+- R5.1 systems learning map and RFC contract vocabulary pass: complete.
+- CG-2.3b projection CLI: deferred until R5.1 landed.
+- Added docs/RFC vocabulary contracts for:
+  - `PushdownProof`
+  - `LoweringTrace`
+  - `TaskGranularityPolicy`
+  - `RuntimeFilterLifecycle`
+  - `IntermediateArtifactRef`
+  - `PlanPortabilityReport`
+  - SQL frontend boundary vocabulary
+- Scope is docs/RFC only.
+- No dependencies were added.
+- No execution paths were added.
+- No fallback execution was added.
+- CG-1 through CG-18 remain visible and unchanged in competitive gate coverage.
+

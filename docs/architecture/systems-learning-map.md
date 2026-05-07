@@ -2,102 +2,132 @@
 
 ## Purpose
 
-This document captures lessons from mature systems as conceptual pressure tests for ShardLoom-native contracts.
+This document captures conceptual lessons from mature systems and translates them into ShardLoom-native contracts.
+These lessons are pressure tests for ShardLoom-native architecture and diagnostics.
+They are not dependency targets, and they are not fallback execution targets.
 
-- These systems are conceptual references, not dependencies.
-- They are not fallback engines.
-- ShardLoom remains Vortex-native and no-fallback.
-- External engines can be used later only as correctness/benchmark baselines.
+## Non-goals
+
+- No Trino dependency.
+- No Dask dependency.
+- No Ray dependency.
+- No DuckDB dependency.
+- No Calcite dependency.
+- No Arrow Acero/Substrait dependency.
+- No external engine execution.
+- No fallback execution.
+- No SQL parser implementation in this phase.
+- No distributed execution in this phase.
 
 ## Trino lessons
 
-- Connector capabilities should map to explicit capability checks and deterministic unsupported diagnostics.
-- Split/task/driver/operator lifecycle concepts can inform native runtime stage boundaries.
-- PushdownProof should explain exactly what was pushed down and what remained residual.
-- DynamicFilter lifecycle should be explicit from plan-time intent through runtime application.
-- IntermediateArtifactRef taxonomy should classify temporary artifacts by lifecycle, ownership, and cleanup class.
-- System introspection datasets should expose machine-readable runtime/planning surfaces.
+Conceptual lessons:
+- Connector capability boundaries should be explicit.
+- Pushdown acceptance and residual responsibilities must be diagnosable.
+- Split/task lifecycle should be first-class.
+- Runtime dynamic filtering lifecycle should be visible.
+- System introspection surfaces should be queryable.
+- Intermediate exchange/spooling semantics should be explicit.
 
-Trino remains a conceptual reference only:
-- no Trino dependency
-- no Trino execution
-- no SQL delegation
+ShardLoom-native vocabulary:
+- `PushdownProof`
+- `PushdownGuarantee`
+- `ProofBasis`
+- `RuntimeFilterLifecycle`
+- `SplitSource`
+- `TaskLease`
+- `IntermediateArtifactRef`
+- `system.*` virtual diagnostics surfaces
 
 ## Dask lessons
 
-- Distinguish high-level graph intent from low-level task graph execution detail.
-- Preserve lowering provenance from logical graph decisions into task graph nodes.
-- Define task granularity policy explicitly, not implicitly.
-- Separate scheduler contracts from planning contracts.
-- Keep optional external scheduler seams as future concepts only.
+Conceptual lessons:
+- Keep graph layering explicit.
+- Distinguish high-level graph intent from low-level task graph execution shape.
+- Preserve lowering provenance.
+- Keep scheduler policy distinct from plan semantics.
+- Make task granularity policy explicit and auditable.
 
-Dask remains a conceptual reference only:
-- no Dask dependency
-- no Dask scheduler execution
+ShardLoom-native vocabulary:
+- `LoweringTrace`
+- `LoweringRuleId`
+- `PlanGuarantee`
+- `InformationLoss`
+- `TaskGranularityPolicy`
+- fuse/split/coalesce decision records
 
 ## Ray lessons
 
-- Resource vectors should make CPU/memory/IO constraints explicit per task class.
-- Placement/locality hints should be explicit inputs to scheduling choices.
-- Distinguish lineage reconstruction from retry strategy semantics.
-- Distributed object/reconstruction concepts can inform future CG-10 design inputs.
+Conceptual lessons:
+- Resource vectors should be explicit inputs to scheduling decisions.
+- Placement hints should be visible and overridable by policy.
+- Object-like references should preserve lineage.
+- Recovery should distinguish retry, reconstruct, and reuse.
 
-Ray remains a conceptual reference only:
-- no Ray dependency
-- no Ray scheduler execution
+ShardLoom-native vocabulary:
+- `ResourceVector`
+- `PlacementHint`
+- `RecoveryStrategy`
+- `LineageRef`
+- `ReconstructFromLineage`
 
 ## DuckDB lessons
 
-- Operator-level vectorized profiles should be first-class diagnostics.
-- Planned-vs-actual execution profile should be deterministic and machine-readable.
-- Pipeline breaker classification should be explicit and queryable.
-- Explain/analyze clarity should be preserved for both humans and agents.
+Conceptual lessons:
+- Vectorized execution ergonomics must remain developer-visible.
+- Operator profile outputs should be easy to read and compare.
+- Planned versus actual cardinality should be explicit.
+- Pipeline breakers should be explicit diagnostics boundaries.
 
-DuckDB remains a conceptual reference only:
-- no DuckDB dependency
-- DuckDB may be benchmark baseline only
+ShardLoom-native vocabulary:
+- `OperatorProfile`
+- `PlannedVsActualOperatorProfile`
+- `PipelineBreakerKind`
+- bytes read/avoided
+- decode/materialization avoided
 
 ## Calcite lessons
 
-- Keep SQL parse/bind/validate/plan boundaries explicit.
-- Treat SQL as a frontend, not the execution brain.
-- Unsupported SQL must produce explicit deterministic diagnostics.
-- No delegated SQL execution is allowed.
+Conceptual lessons:
+- SQL frontend parsing/binding/validation must be explicit boundaries.
+- Relational algebra boundary should be well-defined.
+- Adapters are capability surfaces, not hidden execution delegation.
+- Planner rules should be diagnosable with stable identifiers.
 
-Calcite remains a conceptual reference only:
-- no Calcite/parser dependency in this PR
+ShardLoom-native vocabulary:
+- SQL frontend boundary
+- parse/bind/validate-only phase
+- ShardLoom Plan IR owns semantics
+- unsupported SQL diagnostics
 
 ## Arrow Acero/Substrait lessons
 
-- Execution graph portability should be expressed as plan portability contracts.
-- Validation without execution should remain possible for imported/exported plans.
-- Portability and metadata-loss reporting should be explicit.
-- Arrow boundaries should remain explicit interop boundaries.
+Conceptual lessons:
+- Operator graph portability is useful but must preserve native semantics.
+- Validation without execution is essential.
+- Export/import must report loss boundaries explicitly.
 
-Arrow Acero/Substrait remain conceptual references only:
-- no Arrow-default execution
-- no Acero/Substrait dependency in this PR
+ShardLoom-native vocabulary:
+- `PlanPortabilityReport`
+- native-only nodes
+- representable nodes
+- lossy nodes
+- unsupported nodes
+- portability diagnostics
 
-## ShardLoom-native contracts to add later
+## Placement in ShardLoom phases
 
-- PushdownProof
-- RuntimeFilterLifecycle
-- LoweringTrace
-- TaskGranularityPolicy
-- IntermediateArtifactRef
-- ResourceVector
-- PlacementHint
-- RecoveryStrategy
-- OperatorProfile
-- PipelineBreakerKind
-- PlanPortabilityReport
-- system introspection virtual datasets
+- now/docs-only: systems-learning-map, pushdown proof vocabulary, lowering provenance vocabulary, task granularity vocabulary
+- near phase: diagnostics report schemas, capability report extensions, explain/estimate additions
+- before real execution: task lifecycle, resource vector, operator profile, runtime filter lifecycle
+- before distributed/object-store execution: split source, task lease, placement hints, intermediate artifact refs, recovery strategy
+- before SQL UX: SQL frontend RFC, bind/validate/unsupported diagnostics, tiny SQL subset
 
+## Guardrails
 
-## Contract extraction status
-
-- mapped_to_rfc_0012
-- mapped_to_rfc_0008
-- mapped_to_rfc_0016
-- mapped_to_rfc_0022
-- mapped_to_rfc_0030
+- No fallback engines.
+- No default Arrow conversion.
+- No external execution delegation.
+- No new dependencies.
+- Vortex remains native first-class input and output.
+- ShardLoom owns runtime, optimizer, diagnostics, and policy.
