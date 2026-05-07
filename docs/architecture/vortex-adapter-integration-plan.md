@@ -796,6 +796,14 @@ CG-2.1c metadata-footer `CountAll` execution is wired; non-metadata execution re
 - Current upstream public data-access paths remain blocked for actual encoded `CountAll` because they require scan/data-read or array-stream/evaluation surfaces that are not yet approved as no-decode/no-materialization safe.
 - This is still report/API-gate scope only: no scan/read-start invocation, encoded-data traversal, row read, decode/materialization, `Arrow` conversion, object-store IO, write, or fallback execution is introduced.
 
+## CG-2.1e.2 exact Vortex data-access API classification
+
+- The Vortex adapter boundary now names the exact public upstream data-access-adjacent surfaces that future adapter work must handle: `VortexFile::layout_reader`, `LayoutReader::row_count`, `VortexFile::scan`, `ScanBuilder::into_array_stream`, `ScanBuilder::into_array_iter`, `LayoutReader::projection_evaluation`, `LayoutReader::filter_evaluation`, and `VortexFile::data_source`.
+- A feature-gated compile probe keeps these symbol paths tied to the pinned Vortex public API without invoking them.
+- `LayoutReader::row_count` is metadata-like layout access; it can inform planning but is not an encoded execution path.
+- Scan, stream, layout-evaluation, and data-source surfaces remain blocked or deferred for actual count execution until adapter-level no-decode/no-materialization behavior is approved.
+- This remains classification-only: no scan/read-start invocation, array stream/evaluation call, encoded-data traversal, row read, decode/materialization, `Arrow` conversion, object-store IO, write, or fallback execution is introduced.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.

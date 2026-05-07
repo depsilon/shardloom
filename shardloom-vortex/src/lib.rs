@@ -85,6 +85,8 @@ pub use adaptive_sizing::{
     VortexAdaptiveSizingStatus, VortexSegmentSizingInput, VortexSizingEstimateSource,
     size_vortex_runtime_task_graph, vortex_adaptive_sizing_is_side_effect_free,
 };
+#[cfg(feature = "vortex-file-io")]
+pub use encoded_read_api::vortex_encoded_read_public_api_compile_probe_summary;
 pub use encoded_read_api::{
     VortexEncodedReadApiArea, VortexEncodedReadApiBoundaryReport,
     VortexEncodedReadApiBoundaryStatus, VortexEncodedReadApiItem, VortexEncodedReadApiRisk,

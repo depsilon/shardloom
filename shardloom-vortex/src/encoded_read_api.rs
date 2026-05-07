@@ -4,6 +4,93 @@ use std::fmt::Write as _;
 
 use shardloom_core::{Diagnostic, DiagnosticSeverity, Result, ShardLoomError};
 
+#[cfg(feature = "vortex-file-io")]
+type VortexLayoutReaderRefCompileProbe = std::sync::Arc<dyn vortex::layout::LayoutReader>;
+#[cfg(feature = "vortex-file-io")]
+type VortexFileLayoutReaderMethodProbe =
+    fn(&vortex::file::VortexFile) -> vortex::error::VortexResult<VortexLayoutReaderRefCompileProbe>;
+#[cfg(feature = "vortex-file-io")]
+type VortexFileScanMethodProbe = fn(
+    &vortex::file::VortexFile,
+) -> vortex::error::VortexResult<
+    vortex::layout::scan::scan_builder::ScanBuilder<vortex::array::ArrayRef>,
+>;
+#[cfg(feature = "vortex-file-io")]
+type VortexFileDataSourceMethodProbe =
+    fn(&vortex::file::VortexFile) -> vortex::error::VortexResult<vortex::scan::DataSourceRef>;
+
+#[cfg(feature = "vortex-file-io")]
+fn scan_builder_into_array_stream_method_item_probe(
+    builder: vortex::layout::scan::scan_builder::ScanBuilder<vortex::array::ArrayRef>,
+) -> vortex::error::VortexResult<impl vortex::array::stream::ArrayStream + Send + 'static> {
+    builder.into_array_stream()
+}
+
+#[cfg(feature = "vortex-file-io")]
+fn scan_builder_into_array_iter_method_item_probe<B: vortex::io::runtime::BlockingRuntime>(
+    builder: vortex::layout::scan::scan_builder::ScanBuilder<vortex::array::ArrayRef>,
+    runtime: &B,
+) -> vortex::error::VortexResult<impl vortex::array::iter::ArrayIterator + 'static> {
+    builder.into_array_iter(runtime)
+}
+
+#[cfg(feature = "vortex-file-io")]
+fn layout_reader_row_count_method_item_probe(reader: &dyn vortex::layout::LayoutReader) -> u64 {
+    reader.row_count()
+}
+
+#[cfg(feature = "vortex-file-io")]
+fn layout_reader_projection_evaluation_method_item_probe(
+    reader: &dyn vortex::layout::LayoutReader,
+    row_range: &std::ops::Range<u64>,
+    expr: &vortex::expr::Expression,
+    mask: vortex::array::MaskFuture,
+) -> vortex::error::VortexResult<vortex::layout::ArrayFuture> {
+    reader.projection_evaluation(row_range, expr, mask)
+}
+
+#[cfg(feature = "vortex-file-io")]
+fn layout_reader_filter_evaluation_method_item_probe(
+    reader: &dyn vortex::layout::LayoutReader,
+    row_range: &std::ops::Range<u64>,
+    expr: &vortex::expr::Expression,
+    mask: vortex::array::MaskFuture,
+) -> vortex::error::VortexResult<vortex::array::MaskFuture> {
+    reader.filter_evaluation(row_range, expr, mask)
+}
+
+#[cfg(feature = "vortex-file-io")]
+/// Returns a compile-checked inventory of public upstream Vortex data-access-adjacent symbols.
+///
+/// This function intentionally references method items without invoking them. It is a version
+/// compatibility probe for `ShardLoom`'s encoded-read boundary, not an execution path.
+#[must_use]
+pub fn vortex_encoded_read_public_api_compile_probe_summary() -> &'static str {
+    let layout_reader_method: VortexFileLayoutReaderMethodProbe =
+        vortex::file::VortexFile::layout_reader;
+    let scan_method: VortexFileScanMethodProbe = vortex::file::VortexFile::scan;
+    let data_source_method: VortexFileDataSourceMethodProbe = vortex::file::VortexFile::data_source;
+    let scan_builder_stream_method = scan_builder_into_array_stream_method_item_probe;
+    let scan_builder_iter_method = scan_builder_into_array_iter_method_item_probe::<
+        vortex::io::runtime::single::SingleThreadRuntime,
+    >;
+    let layout_row_count_method = layout_reader_row_count_method_item_probe;
+    let layout_projection_method = layout_reader_projection_evaluation_method_item_probe;
+    let layout_filter_method = layout_reader_filter_evaluation_method_item_probe;
+    let _ = (
+        layout_reader_method,
+        scan_method,
+        data_source_method,
+        scan_builder_stream_method,
+        scan_builder_iter_method,
+        layout_row_count_method,
+        layout_projection_method,
+        layout_filter_method,
+    );
+
+    "confirmed public encoded-read-adjacent symbols: `VortexFile::layout_reader`, `LayoutReader::row_count`, `VortexFile::scan`, `ScanBuilder::into_array_stream`, `ScanBuilder::into_array_iter`, `LayoutReader::projection_evaluation`, `LayoutReader::filter_evaluation`, and `VortexFile::data_source`; scan and array stream/evaluation surfaces remain classified as not execution-usable by ShardLoom until no-decode/no-materialization behavior is approved"
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VortexEncodedReadApiArea {
     FileOpen,
@@ -413,9 +500,8 @@ impl VortexEncodedReadApiBoundaryReport {
     }
 }
 
-pub fn vortex_encoded_read_public_api_boundary() -> VortexEncodedReadApiBoundaryReport {
-    let mut report = VortexEncodedReadApiBoundaryReport::default_deferred();
-    let candidates = [
+fn vortex_encoded_read_metadata_api_items() -> [Result<VortexEncodedReadApiItem>; 4] {
+    [
         VortexEncodedReadApiItem::new(
             VortexEncodedReadApiArea::FileOpen,
             "VortexOpenOptions",
@@ -436,7 +522,86 @@ pub fn vortex_encoded_read_public_api_boundary() -> VortexEncodedReadApiBoundary
             VortexEncodedReadApiArea::DType,
             "row_count/dtype metadata surfaces",
             VortexEncodedReadApiStatus::ConfirmedPublicButDeferred,
-        ),
+        )
+        .map(|item| {
+            item.with_notes(
+                "`VortexFile::row_count`, `VortexFile::dtype`, `Footer::row_count`, and `Footer::dtype` are metadata/layout surfaces, not encoded-data traversal.",
+            )
+        }),
+    ]
+}
+
+fn vortex_encoded_read_data_access_api_items() -> [Result<VortexEncodedReadApiItem>; 8] {
+    [
+        VortexEncodedReadApiItem::new(
+            VortexEncodedReadApiArea::Layout,
+            "VortexFile::layout_reader",
+            VortexEncodedReadApiStatus::ConfirmedPublicButDeferred,
+        )
+        .map(|item| {
+            item.with_notes(
+                "Constructs a layout reader from opened file metadata and segment source; not an approved data execution path by itself.",
+            )
+        }),
+        VortexEncodedReadApiItem::new(
+            VortexEncodedReadApiArea::Layout,
+            "LayoutReader::row_count",
+            VortexEncodedReadApiStatus::ConfirmedPublicButDeferred,
+        )
+        .map(|item| {
+            item.with_notes(
+                "Layout-level row-count access is metadata-like and does not prove encoded-data traversal.",
+            )
+        }),
+        VortexEncodedReadApiItem::new(
+            VortexEncodedReadApiArea::ScanSetup,
+            "VortexFile::scan",
+            VortexEncodedReadApiStatus::ConfirmedPublicButDeferred,
+        )
+        .map(|item| item.with_risk(VortexEncodedReadApiRisk::DataRead).with_notes(
+            "Creates upstream scan builder; ShardLoom keeps this deferred until scan semantics are approved for no-decode/no-materialization execution.",
+        )),
+        VortexEncodedReadApiItem::new(
+            VortexEncodedReadApiArea::DataRead,
+            "ScanBuilder::into_array_stream",
+            VortexEncodedReadApiStatus::ForbiddenForNow,
+        )
+        .map(|item| item.with_risk(VortexEncodedReadApiRisk::DataRead)),
+        VortexEncodedReadApiItem::new(
+            VortexEncodedReadApiArea::DataRead,
+            "ScanBuilder::into_array_iter",
+            VortexEncodedReadApiStatus::ForbiddenForNow,
+        )
+        .map(|item| item.with_risk(VortexEncodedReadApiRisk::DataRead)),
+        VortexEncodedReadApiItem::new(
+            VortexEncodedReadApiArea::EncodedArrayAccess,
+            "LayoutReader::projection_evaluation",
+            VortexEncodedReadApiStatus::ConfirmedPublicButDeferred,
+        )
+        .map(|item| item.with_risk(VortexEncodedReadApiRisk::Materialization).with_notes(
+            "Returns `ArrayFuture`; ShardLoom has not approved it as encoded-count execution because array materialization semantics are not yet bounded.",
+        )),
+        VortexEncodedReadApiItem::new(
+            VortexEncodedReadApiArea::EncodedArrayAccess,
+            "LayoutReader::filter_evaluation",
+            VortexEncodedReadApiStatus::ConfirmedPublicButDeferred,
+        )
+        .map(|item| item.with_risk(VortexEncodedReadApiRisk::DataRead).with_notes(
+            "Returns `MaskFuture`; ShardLoom has not approved it as encoded predicate/count execution because data-read semantics are not yet bounded.",
+        )),
+        VortexEncodedReadApiItem::new(
+            VortexEncodedReadApiArea::ScanSetup,
+            "VortexFile::data_source",
+            VortexEncodedReadApiStatus::ConfirmedPublicButDeferred,
+        )
+        .map(|item| item.with_risk(VortexEncodedReadApiRisk::DataRead).with_notes(
+            "Exposes upstream data-source scan integration; deferred as scan/data-read boundary, not fallback execution.",
+        )),
+    ]
+}
+
+fn vortex_encoded_read_blocking_api_items() -> [Result<VortexEncodedReadApiItem>; 2] {
+    [
         VortexEncodedReadApiItem::new(
             VortexEncodedReadApiArea::DataRead,
             "scan/start-read APIs",
@@ -449,8 +614,17 @@ pub fn vortex_encoded_read_public_api_boundary() -> VortexEncodedReadApiBoundary
             VortexEncodedReadApiStatus::ForbiddenForNow,
         )
         .map(|item| item.with_risk(VortexEncodedReadApiRisk::ArrowDefaultPath)),
-    ];
-    for item in candidates.into_iter().flatten() {
+    ]
+}
+
+pub fn vortex_encoded_read_public_api_boundary() -> VortexEncodedReadApiBoundaryReport {
+    let mut report = VortexEncodedReadApiBoundaryReport::default_deferred();
+    for item in vortex_encoded_read_metadata_api_items()
+        .into_iter()
+        .chain(vortex_encoded_read_data_access_api_items())
+        .chain(vortex_encoded_read_blocking_api_items())
+        .flatten()
+    {
         report.add_item(item);
     }
     report
@@ -465,6 +639,18 @@ pub fn vortex_encoded_read_api_allows_future_probe(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn item_named<'a>(
+        report: &'a VortexEncodedReadApiBoundaryReport,
+        name: &str,
+    ) -> &'a VortexEncodedReadApiItem {
+        report
+            .items
+            .iter()
+            .find(|item| item.name == name)
+            .unwrap_or_else(|| panic!("missing encoded-read API boundary item `{name}`"))
+    }
+
     #[test]
     fn area_forbidden() {
         assert!(VortexEncodedReadApiArea::DataRead.is_forbidden_for_now());
@@ -549,6 +735,101 @@ mod tests {
     fn boundary_does_not_allow_execution() {
         let r = vortex_encoded_read_public_api_boundary();
         assert_eq!(r.execution_usable_count, 0);
+    }
+    #[test]
+    fn boundary_lists_exact_vortex_data_access_surfaces() {
+        let r = vortex_encoded_read_public_api_boundary();
+        let layout_reader = item_named(&r, "VortexFile::layout_reader");
+        assert_eq!(layout_reader.area, VortexEncodedReadApiArea::Layout);
+        assert_eq!(
+            layout_reader.status,
+            VortexEncodedReadApiStatus::ConfirmedPublicButDeferred
+        );
+        assert_eq!(layout_reader.risk, VortexEncodedReadApiRisk::None);
+
+        let scan = item_named(&r, "VortexFile::scan");
+        assert_eq!(scan.area, VortexEncodedReadApiArea::ScanSetup);
+        assert_eq!(scan.risk, VortexEncodedReadApiRisk::DataRead);
+
+        let data_source = item_named(&r, "VortexFile::data_source");
+        assert_eq!(data_source.area, VortexEncodedReadApiArea::ScanSetup);
+        assert_eq!(data_source.risk, VortexEncodedReadApiRisk::DataRead);
+
+        let array_stream = item_named(&r, "ScanBuilder::into_array_stream");
+        assert_eq!(array_stream.area, VortexEncodedReadApiArea::DataRead);
+        assert_eq!(
+            array_stream.status,
+            VortexEncodedReadApiStatus::ForbiddenForNow
+        );
+
+        let projection = item_named(&r, "LayoutReader::projection_evaluation");
+        assert_eq!(
+            projection.area,
+            VortexEncodedReadApiArea::EncodedArrayAccess
+        );
+        assert_eq!(projection.risk, VortexEncodedReadApiRisk::Materialization);
+
+        let filter = item_named(&r, "LayoutReader::filter_evaluation");
+        assert_eq!(filter.area, VortexEncodedReadApiArea::EncodedArrayAccess);
+        assert_eq!(filter.risk, VortexEncodedReadApiRisk::DataRead);
+    }
+    #[test]
+    fn layout_row_count_is_metadata_like_not_execution_usable() {
+        let r = vortex_encoded_read_public_api_boundary();
+        let row_count = item_named(&r, "LayoutReader::row_count");
+        assert_eq!(row_count.area, VortexEncodedReadApiArea::Layout);
+        assert_eq!(
+            row_count.status,
+            VortexEncodedReadApiStatus::ConfirmedPublicButDeferred
+        );
+        assert_eq!(row_count.risk, VortexEncodedReadApiRisk::None);
+        assert!(!row_count.is_execution_usable());
+        assert!(!row_count.is_blocked());
+        assert!(
+            row_count
+                .notes
+                .as_deref()
+                .unwrap_or_default()
+                .contains("metadata-like")
+        );
+    }
+    #[test]
+    fn scan_stream_and_evaluation_surfaces_are_not_future_probe_ready() {
+        let r = vortex_encoded_read_public_api_boundary();
+        assert_eq!(r.execution_usable_count, 0);
+        assert!(!vortex_encoded_read_api_allows_future_probe(&r));
+        assert!(r.blocked_count >= 5);
+        for name in [
+            "VortexFile::scan",
+            "ScanBuilder::into_array_stream",
+            "ScanBuilder::into_array_iter",
+            "LayoutReader::projection_evaluation",
+            "LayoutReader::filter_evaluation",
+            "VortexFile::data_source",
+        ] {
+            assert!(
+                item_named(&r, name).is_blocked(),
+                "{name} must remain blocked"
+            );
+        }
+    }
+    #[cfg(feature = "vortex-file-io")]
+    #[test]
+    fn compile_probe_summary_lists_data_access_surfaces() {
+        let summary = vortex_encoded_read_public_api_compile_probe_summary();
+        for symbol in [
+            "VortexFile::layout_reader",
+            "LayoutReader::row_count",
+            "VortexFile::scan",
+            "ScanBuilder::into_array_stream",
+            "ScanBuilder::into_array_iter",
+            "LayoutReader::projection_evaluation",
+            "LayoutReader::filter_evaluation",
+            "VortexFile::data_source",
+        ] {
+            assert!(summary.contains(symbol), "missing `{symbol}`");
+        }
+        assert!(summary.contains("not execution-usable"));
     }
     #[test]
     fn probe_blocked_false() {

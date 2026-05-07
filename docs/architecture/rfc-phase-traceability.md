@@ -333,6 +333,15 @@ No fallback execution.
 - This pass does not execute encoded reads, call scan/read-start APIs, traverse encoded data, read rows, decode/materialize values, convert to `Arrow`, perform object-store IO or writes, or attempt fallback execution.
 - CG-2.1e actual encoded-data count execution remains planned and blocked until a safe public Vortex data path is approved.
 
+## CG-2.1e.2 exact Vortex data-access API classification
+
+- Primary RFC linkage: RFC 0005 Vortex-Native File IO and Output Contract, RFC 0012 Diagnostics/Capabilities, RFC 0013 Streaming/Zero-Copy Boundary, RFC 0015 Correctness/testing, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
+- The encoded-read API boundary now names the exact upstream public surfaces reviewed for the next execution decision: `VortexFile::layout_reader`, `LayoutReader::row_count`, `VortexFile::scan`, `ScanBuilder::into_array_stream`, `ScanBuilder::into_array_iter`, `LayoutReader::projection_evaluation`, `LayoutReader::filter_evaluation`, and `VortexFile::data_source`.
+- A feature-gated compile probe references the public Vortex method items without invoking them, preserving version compatibility evidence while keeping the default runtime side-effect-free.
+- `LayoutReader::row_count` is classified as metadata-like layout access and remains not execution-usable by itself.
+- Scan, array-stream, layout-evaluation, and data-source surfaces remain blocked or deferred until ShardLoom can prove no row reads, decode/materialization, `Arrow` conversion, object-store IO, writes, or fallback execution.
+- CG-2.1e actual encoded-data count execution remains planned and blocked until one of these public surfaces, or an upstream-supported alternative, is approved as no-decode/no-materialization safe for ShardLoom-native count execution.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.
