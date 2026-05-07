@@ -1388,3 +1388,14 @@ Entry criteria for the next implementation phase:
 - CG-1.2 metadata/footer execution remains paused after CG-1.2d.8 (no repository-local `.vortex` fixture, no confirmed public no-IO `Footer` route, and no proven `MetadataFooterOpened`/`MetadataProbeCompleted` path).
 - CG-2.1 actual execution remains blocked pending metadata/footer and encoded data path availability.
 - This closeout remains report-only: no scan/read-start calls, no decode, no materialization, no `Arrow` conversion, no object-store IO, no writes, and no fallback execution.
+
+
+## CG-2.1 count readiness planning update
+
+- CG-1.3 invariant contract tests are complete.
+- CG-2.0 / CG-2.0b / CG-2.0c / CG-2.0c.1 are complete.
+- CG-2.1 is current with a report-only `VortexCountReadinessRequest`/`VortexCountReadinessReport` planning contract.
+- Count planning distinguishes metadata-footer candidates from encoded-data-path candidates.
+- Count execution remains blocked until real metadata/footer or encoded-data-path readiness exists.
+- No scan/read-start, encoded-data reads, row reads, decode, materialization, `Arrow` conversion, object-store IO, writes, or fallback execution are introduced.
+- CG-2.1b is reserved for optional `CLI` surfacing.
