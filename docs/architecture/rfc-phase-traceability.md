@@ -267,3 +267,6 @@ No fallback execution.
 - Command constructs `VortexQueryPrimitiveRequest` and calls `plan_vortex_query_primitive` only; it does not execute query primitives.
 - Command does not call scan/read-start APIs, does not read encoded data or rows, does not decode/materialize/Arrow-convert, does not perform object-store IO, does not write output payloads, and does not allow fallback execution.
 - CG-2.1 actual count/query execution remains blocked until metadata/footer and encoded-data path readiness are both available.
+
+
+| CG-1.3 — encoded-read no-materialization / no-`Arrow` invariant closeout (complete for current contract surfaces) | RFC 0025 Competitive/no-fallback; RFC 0026 `Vortex` encoded-read/query-readiness boundaries | RFC 0015 Correctness/testing | Keep report-contract only; no metadata/footer IO execution; no scan/read-start; no decode/materialization/`Arrow` conversion; no object-store IO/writes; no fallback execution | Closes invariant gates for no broad row materialization and no `Arrow`-default conversion across current report surfaces; CG-1.2d.8 metadata/footer execution remains paused; CG-2.1 execution remains blocked pending metadata/footer and encoded data path readiness. |

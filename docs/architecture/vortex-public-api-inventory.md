@@ -617,3 +617,11 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - Command constructs `VortexQueryPrimitiveRequest` and calls `plan_vortex_query_primitive` only; it does not execute query primitives.
 - Command does not call scan/read-start APIs, does not read encoded data or rows, does not decode/materialize/Arrow-convert, does not perform object-store IO, does not write output payloads, and does not allow fallback execution.
 - CG-2.1 actual count/query execution remains blocked until metadata/footer and encoded-data path readiness are both available.
+
+
+## CG-1.3 invariant closeout status
+
+- Current encoded-read and query-readiness report contracts now include cross-surface invariant coverage for no row reads, no decode/materialization, no `Arrow` default conversion, and no fallback execution.
+- This is not metadata/footer IO execution and does not call scan/read-start APIs.
+- CG-1.2 metadata/footer execution remains paused after CG-1.2d.8 pending fixture/no-IO `Footer` route confirmation.
+- CG-2.1 actual execution remains blocked pending metadata/footer and encoded data path availability.

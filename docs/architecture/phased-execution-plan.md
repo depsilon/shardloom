@@ -1379,3 +1379,12 @@ Entry criteria for the next implementation phase:
 - Command constructs `VortexQueryPrimitiveRequest` and calls `plan_vortex_query_primitive` only; it does not execute query primitives.
 - Command does not call scan/read-start APIs, does not read encoded data or rows, does not decode/materialize/Arrow-convert, does not perform object-store IO, does not write output payloads, and does not allow fallback execution.
 - CG-2.1 actual count/query execution remains blocked until metadata/footer and encoded-data path readiness are both available.
+
+
+### CG-1.3 closeout update (contract/report invariants)
+- CG-1.3 is complete for current encoded-read and query-readiness contract/report surfaces.
+- Closed invariant gates: no broad row materialization; no `Arrow`-default conversion.
+- Coverage includes `VortexEncodedReadBoundaryReport`, `VortexEncodedReadFixtureReport`, `VortexEncodedReadMetadataProbeReport`, `VortexMetadataAsyncBoundaryReport`, `VortexMetadataAsyncInvocationReport`, and `VortexQueryPrimitiveReport`.
+- CG-1.2 metadata/footer execution remains paused after CG-1.2d.8 (no repository-local `.vortex` fixture, no confirmed public no-IO `Footer` route, and no proven `MetadataFooterOpened`/`MetadataProbeCompleted` path).
+- CG-2.1 actual execution remains blocked pending metadata/footer and encoded data path availability.
+- This closeout remains report-only: no scan/read-start calls, no decode, no materialization, no `Arrow` conversion, no object-store IO, no writes, and no fallback execution.
