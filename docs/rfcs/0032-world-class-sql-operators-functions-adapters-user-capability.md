@@ -237,6 +237,50 @@ Operator families:
 
 `test_reference_only` is correctness or benchmark evidence only. It is not a production execution tier and cannot satisfy production-capability certification without a native execution status such as `native_decoded`, `encoded_capable`, or stronger.
 
+### Operator certification transition rules
+Operator certification must advance monotonically through evidence-backed states. A higher status may be reported only for the declared workload profile, semantic profile, input representation states, and sink requirements covered by evidence.
+
+Transition meaning:
+- `unsupported`: no parser, planner, or native capability is promised.
+- `planned`: roadmap entry only; no execution or planning support is implied.
+- `parsed`: a frontend can recognize the construct, but no native plan support is implied.
+- `planned_native`: native plan and execution design exists, but no executable native path is certified.
+- `test_reference_only`: correctness or benchmark fixture evidence exists; this is never production execution support.
+- `native_decoded`: a ShardLoom-native decoded-columnar path exists and declares any decode/materialization boundary.
+- `encoded_capable`: the operator can preserve encoded or selection-vector-aware execution for the declared representation states.
+- `compressed_native`: the operator can work against compressed/native physical representation without normalizing to decoded Arrow.
+- `streaming_capable`: the operator declares streaming behavior, backpressure behavior, and bounded chunk semantics.
+- `spill_capable`: the operator declares memory reservation, spill trigger, spill format, cleanup, and deterministic OOM-safe failure behavior.
+- `distributed_capable`: the operator declares task partitioning, exchange/shuffle artifacts where required, retry/idempotency, and cleanup semantics.
+- `benchmarked`: reproducible benchmark evidence exists for the declared workload profile.
+- `production_certified`: correctness, semantic conformance, memory/spill safety, diagnostics, benchmark evidence, and no-fallback invariants are all satisfied.
+
+`OperatorCertificationReport` fields:
+- `operator_family`
+- `status`
+- `semantic_profile`
+- `supported_input_representation_states`
+- `output_representation_state`
+- `memory_certification`
+- `materialization_requirement`
+- `ordering_requirement`
+- `partitioning_requirement`
+- `correctness_status`
+- `semantic_conformance_status`
+- `benchmark_status`
+- `diagnostics_status`
+- `capability_report_ref`
+- `comparison_report_ref`
+- `fallback_attempted=false`
+
+Production certification boundaries:
+- `test_reference_only`, `native_decoded`, and `benchmarked` are insufficient by themselves for production certification.
+- Any transition to `native_decoded` must report the decode/materialization boundary.
+- Any transition to `encoded_capable` or stronger must name the representation states it preserves.
+- Any transition to `spill_capable` must include memory and cleanup semantics.
+- Any transition to `distributed_capable` must include exchange, retry/idempotency, and cleanup semantics.
+- Any superiority, best-choice, replacement, faster, or cheaper claim requires CG-5 correctness evidence, CG-6 benchmark evidence, and `fallback_attempted=false`.
+
 ## Memory/spill certification per operator
 Every operator declaration should include:
 - `streaming`
@@ -303,6 +347,51 @@ Each function record should include:
 - `compatibility notes`
 - `test status`
 - `benchmark status`
+
+### Function certification transition rules
+Function certification uses the shared `CapabilityCertificationStatus` vocabulary plus function metadata. A function group can be marked higher than `planned` only when every included function record has explicit metadata and evidence for the declared semantic profile.
+
+Function status meaning:
+- `unsupported`: the function or group is not available and should fail with deterministic diagnostics.
+- `planned`: roadmap entry only.
+- `partial`: some functions or signatures are available, but capability discovery must list gaps.
+- `test_reference_only`: reference fixtures or comparison evidence exist, but no production native implementation is certified.
+- `native`: ShardLoom-native implementation exists for declared signatures and semantic profile.
+- `certified`: correctness, semantic conformance, benchmark evidence where relevant, and no-fallback invariants are satisfied.
+- `blocked`: implementation is blocked by unresolved semantics, dependency policy, materialization risk, or effect-safety concerns.
+
+`FunctionCertificationReport` fields:
+- `name`
+- `aliases`
+- `group`
+- `status`
+- `input_types`
+- `output_type`
+- `null_behavior`
+- `determinism`
+- `volatility`
+- `effect_level`
+- `encoded_capability`
+- `selection_vector_support`
+- `streaming_support`
+- `spill_support`
+- `materialization_requirement`
+- `semantic_profile`
+- `correctness_status`
+- `semantic_conformance_status`
+- `benchmark_status`
+- `compatibility_notes`
+- `diagnostics`
+- `fallback_attempted=false`
+
+Function certification boundaries:
+- Function groups must not hide unsupported signatures behind a group-level support label.
+- `test_reference_only` cannot satisfy production certification.
+- `native` requires a ShardLoom-native implementation, not an external engine call.
+- `certified` requires correctness and semantic conformance; benchmark evidence is required before any performance or superiority claim.
+- Effectful functions must declare effect level, dry-run behavior, permissions, cost/timeout risks, and materialization requirements.
+- Any function requiring row materialization or decoded columnar input must report that requirement instead of silently normalizing execution.
+- Capability discovery must expose function aliases and semantic-profile differences before migration or compatibility claims are emitted.
 
 ## Semantic compatibility profiles
 `SemanticProfile` values:

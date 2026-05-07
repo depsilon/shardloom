@@ -10,8 +10,8 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [x] Session label: R5.4.3 SQL frontend sequencing
-  - Current cleanup/implementation step: Define SQL frontend stage boundaries before parser dependency, SQL runtime, or execution behavior.
+- [x] Session label: R5.4.4 operator and function certification sequencing
+  - Current cleanup/implementation step: Define operator/function certification transitions before native kernels, registries, or execution expansion.
   - Primary files:
     - `docs/architecture/capability-certification-sequencing.md`
     - `docs/architecture/phased-execution-plan.md`
@@ -23,7 +23,7 @@
     - `cargo fmt --all -- --check`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: RFC 0032 now defines SQL frontend stages, report fields, unsupported diagnostic requirements, and parser dependency approval boundaries.
+  - Completion notes: RFC 0032 now defines operator/function certification transitions, report fields, test-reference boundaries, and correctness/benchmark gates.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -117,7 +117,7 @@
   - Blockers:
     - None known.
 
-- [ ] Follow-up: R5.4.4 operator and function certification sequencing
+- [x] Follow-up: R5.4.4 operator and function certification sequencing
   - Why: Define operator/function status transitions and metadata obligations before native kernels, registries, or execution expansion.
   - Files:
     - `docs/architecture/capability-certification-sequencing.md`
@@ -127,6 +127,21 @@
     - Operator certification distinguishes test/reference, native decoded, encoded-capable, streaming, spill, distributed, benchmarked, and production-certified states.
     - Function certification defines metadata obligations for types, null behavior, determinism, volatility, effects, encoded capability, materialization, tests, and benchmarks.
     - No function registry, operator kernel, execution behavior, dependency, or fallback behavior is added.
+  - Blockers:
+    - None known.
+
+- [ ] Follow-up: R5.4.5 adapter certification sequencing
+  - Why: Define adapter maturity, pushdown, source/sink, fidelity, and no-fallback boundaries before adapter runtime work.
+  - Files:
+    - `docs/architecture/capability-certification-sequencing.md`
+    - `docs/rfcs/0031-universal-native-io-envelope.md`
+    - `docs/rfcs/0032-world-class-sql-operators-functions-adapters-user-capability.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Acceptance:
+    - Adapter maturity levels A0-A7 are mapped to source/sink capability evidence.
+    - Pushdown, residual, metadata/fidelity loss, encoded preservation, streaming, object-store-range, read/write/commit, and native I/O certificate boundaries are explicit.
+    - External source pushdown is proof-backed source behavior, not hidden fallback execution.
+    - No adapter runtime, object-store IO, file-format dependency, catalog dependency, execution behavior, or fallback behavior is added.
   - Blockers:
     - None known.
 
@@ -195,6 +210,11 @@
 - [x] R5.4.3 SQL frontend sequencing
   - Why: define parse/bind/lower stage boundaries before parser dependency or runtime behavior.
   - Acceptance: SQL frontend stages, report fields, unsupported diagnostic requirements, semantic profile boundaries, and parser dependency approval policy are documented.
+  - Local validation status:
+    - full Rust validation passed with toolchain `1.91.1`
+- [x] R5.4.4 Operator and function certification sequencing
+  - Why: define certification transitions before native kernels, registries, or execution expansion.
+  - Acceptance: operator/function transition rules, report fields, test-reference boundaries, materialization/fallback fields, and correctness/benchmark gates are documented.
   - Local validation status:
     - full Rust validation passed with toolchain `1.91.1`
 
