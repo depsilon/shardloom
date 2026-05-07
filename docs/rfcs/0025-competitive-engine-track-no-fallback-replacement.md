@@ -66,6 +66,24 @@ Spark, DataFusion, Polars, DuckDB, Velox, and vortex-datafusion may be used only
 - Execution posture remains Vortex-native and no-fallback.
 - External baseline usage remains explicit and non-runtime.
 - Superiority claims are disallowed until both CG-5 (correctness) and CG-6 (benchmarks) are satisfied.
+- Best-default-engine claims are disallowed until CG-20 emits a workload-scoped sufficiency report backed by CG-5 correctness, CG-6 benchmark, CG-16 certificate, CG-19 native I/O certificate, and CG-20 capability evidence.
+
+## Best-default evidence gate
+
+CG-20 is not complete from capability breadth alone. A final "best default" posture requires an explicit evidence bundle for each declared workload constitution.
+
+Required evidence before any best-default, best-choice, replacement, superiority, faster, cheaper, or world-class public claim:
+
+- `WorkloadConstitution` names the workload categories, required SQL features, operators, functions, adapters, semantic profiles, API surfaces, source/sink paths, scale shape, budgets, fixtures, benchmarks, and out-of-scope items.
+- `BestDefaultCertificationDossier` reports correctness, semantic conformance, benchmarks, operator/function/adapter certification, native I/O certificates, memory/spill safety, observability, migration, API ergonomics, deployment, dependency policy, and no-fallback integrity.
+- `WorldClassSufficiencyReport` records whether the CG-20 contract set is sufficient for the workload and lists blocking gaps when it is not.
+- CG-19 emits per-source/sink-path `NativeIoCertificate` evidence for every required adapter path.
+- CG-16 execution certificate evidence exists for every supported execution path in the workload.
+- External engines appear only as labeled correctness, migration, or benchmark baselines.
+- Unsupported, planned-only, or test-reference-only entries remain visible and cannot be counted as production support.
+- `fallback_attempted=false` is present across the evidence chain.
+
+If any required evidence is absent, the only allowed publication status is `not_certified` or `partial_for_workload` with explicit blockers and known limits.
 
 ## Risks
 
