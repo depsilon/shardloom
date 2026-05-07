@@ -10,21 +10,20 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [x] Session label: R5.4.5 adapter certification sequencing
-  - Current cleanup/implementation step: Define adapter maturity, pushdown, source/sink, fidelity, and no-fallback boundaries before adapter runtime work.
+- [x] Session label: R5.4.6 semantic profile and migration sequencing
+  - Current cleanup/implementation step: Define semantic profile and migration-report evidence before compatibility modes, migration analyzers, or external baseline comparisons expand.
   - Primary files:
     - `docs/architecture/capability-certification-sequencing.md`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-    - `docs/rfcs/0031-universal-native-io-envelope.md`
     - `docs/rfcs/0032-world-class-sql-operators-functions-adapters-user-capability.md`
   - Scope: Docs/RFC sequencing only.
-  - Explicitly not included: Runtime behavior, SQL parser, SQL execution, DataFrame API, adapter runtime, function registry, operator kernels, dependencies, filesystem/network/catalog probing, fallback execution, superiority claims.
+  - Explicitly not included: Runtime behavior, SQL parser, SQL execution, DataFrame API, migration analyzer runtime, compatibility execution mode, adapter runtime, function registry, operator kernels, dependencies, external engine probing, filesystem/network/catalog probing, fallback execution, superiority claims.
   - Validation required:
     - `cargo fmt --all -- --check`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: RFC 0031/0032 now define adapter maturity evidence, source/sink/pushdown/fidelity boundaries, native I/O certificate linkage, and external pushdown no-fallback rules.
+  - Completion notes: RFC 0032 now defines semantic profile evidence, migration report deltas, rewrite suggestions, performance/cost estimate boundaries, and Vortex conversion payback fields.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -146,7 +145,7 @@
   - Blockers:
     - None known.
 
-- [ ] Follow-up: R5.4.6 semantic profile and migration sequencing
+- [x] Follow-up: R5.4.6 semantic profile and migration sequencing
   - Why: Define semantic-profile and migration-report contracts before compatibility modes, migration analyzers, or external baseline comparisons expand.
   - Files:
     - `docs/architecture/capability-certification-sequencing.md`
@@ -157,6 +156,20 @@
     - Migration reports distinguish supported constructs, unsupported constructs, semantic differences, function differences, adapter differences, materialization requirements, rewrite suggestions, evidence labels, and Vortex conversion payback.
     - External engines remain comparison and migration baselines only.
     - No compatibility execution mode, migration analyzer runtime, external engine dependency, benchmark claim, or fallback behavior is added.
+  - Blockers:
+    - None known.
+
+- [ ] Follow-up: R5.4.7 workload constitution and scorecard sequencing
+  - Why: Scope best-default-engine certification to declared workloads and evidence-backed scorecard dimensions.
+  - Files:
+    - `docs/architecture/capability-certification-sequencing.md`
+    - `docs/rfcs/0032-world-class-sql-operators-functions-adapters-user-capability.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Acceptance:
+    - Workload constitution record shape, categories, evidence refs, and certification boundaries are documented.
+    - Scorecard dimensions distinguish certified, partially certified, not certified, and evidence-insufficient states.
+    - Claim-level scorecard publication requirements prevent unsupported superiority/default-engine claims.
+    - No benchmark implementation, certification runtime, external engine dependency, or fallback behavior is added.
   - Blockers:
     - None known.
 
@@ -235,6 +248,11 @@
 - [x] R5.4.5 Adapter certification sequencing
   - Why: define adapter maturity and source/sink/pushdown/fidelity boundaries before adapter runtime work.
   - Acceptance: adapter maturity A0-A7, source capability, sink requirement, pushdown exactness, residual, fidelity loss, encoded preservation, support fields, native I/O certificate linkage, and external source pushdown boundaries are documented.
+  - Local validation status:
+    - full Rust validation passed with toolchain `1.91.1`
+- [x] R5.4.6 Semantic profile and migration sequencing
+  - Why: define semantic-profile and migration-report evidence before compatibility modes, migration analyzers, or external baseline comparisons expand.
+  - Acceptance: semantic profile reports, dimension statuses, compatibility-profile boundaries, migration supported/unsupported construct fields, semantic/function/adapter differences, rewrite suggestions, evidence-labeled performance/cost deltas, and Vortex conversion payback fields are documented.
   - Local validation status:
     - full Rust validation passed with toolchain `1.91.1`
 

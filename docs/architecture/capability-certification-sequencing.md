@@ -239,16 +239,26 @@ Goal: make migration from incumbent engines measurable and explicit.
 
 Checklist:
 
-- [ ] Define semantic profile behavior dimensions.
-- [ ] Define Spark-compatible, DataFusion-compatible, Postgres-like, ANSI-strict, and ShardLoom-native profile status fields.
-- [ ] Define migration report fields for supported constructs.
-- [ ] Define migration report fields for unsupported constructs.
-- [ ] Define semantic-difference reporting.
-- [ ] Define function-difference reporting.
-- [ ] Define adapter-difference reporting.
-- [ ] Define rewrite suggestion shape.
-- [ ] Define performance/cost delta estimates with uncertainty and evidence labels.
-- [ ] Define Vortex conversion payback estimate shape.
+- [x] Define semantic profile behavior dimensions.
+- [x] Define Spark-compatible, DataFusion-compatible, Postgres-like, ANSI-strict, and ShardLoom-native profile status fields.
+- [x] Define migration report fields for supported constructs.
+- [x] Define migration report fields for unsupported constructs.
+- [x] Define semantic-difference reporting.
+- [x] Define function-difference reporting.
+- [x] Define adapter-difference reporting.
+- [x] Define rewrite suggestion shape.
+- [x] Define performance/cost delta estimates with uncertainty and evidence labels.
+- [x] Define Vortex conversion payback estimate shape.
+
+R5.4.6 outcome:
+
+- RFC 0032 now defines `SemanticProfileReport` fields, semantic dimension statuses, profile-specific evidence, and compatibility-profile boundaries.
+- Semantic compatibility profiles are report contracts, not execution modes.
+- Spark, DataFusion, and Postgres-like semantics remain comparison and migration baselines only.
+- RFC 0032 now defines `MigrationCompatibilityReport` fields for supported constructs, unsupported constructs, semantic differences, function differences, adapter differences, materialization requirements, rewrite suggestions, evidence labels, and diagnostics.
+- RFC 0032 now defines performance/cost delta estimate fields with evidence labels and uncertainty instead of unsupported gain claims.
+- RFC 0032 now defines Vortex conversion payback fields for source conversion scope, cost, benefit, uncertainty, and recommendation.
+- No compatibility execution mode, migration analyzer runtime, external engine dependency, benchmark claim, or fallback behavior is added.
 
 Acceptance:
 
