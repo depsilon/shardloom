@@ -7932,7 +7932,7 @@ fn run(args: Vec<String>) -> ExitCode {
                     "--fallback-policy-blocked" => {
                         request.add_signal(VortexQueryPrimitiveSignal::FallbackPolicyBlocked);
                     }
-                    "--format" | "json" | "text" => {}
+                    "--format" => {}
                     _ => {
                         return emit_error(
                             "vortex-query-primitive-plan",
@@ -10522,6 +10522,66 @@ mod tests {
             "--encoded-data-path-ready".to_string(),
         ]);
         assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_query_primitive_plan_bare_json_token_returns_non_zero() {
+        let code = run(vec![
+            "vortex-query-primitive-plan".to_string(),
+            "count".to_string(),
+            "file:///tmp/example.vortex".to_string(),
+            "json".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_query_primitive_plan_bare_text_token_returns_non_zero() {
+        let code = run(vec![
+            "vortex-query-primitive-plan".to_string(),
+            "count".to_string(),
+            "file:///tmp/example.vortex".to_string(),
+            "text".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_query_primitive_plan_global_format_json_succeeds() {
+        let code = run(vec![
+            "vortex-query-primitive-plan".to_string(),
+            "count".to_string(),
+            "file:///tmp/example.vortex".to_string(),
+            "--format".to_string(),
+            "json".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_query_primitive_plan_ready_flags_with_global_format_json_succeeds() {
+        let code = run(vec![
+            "vortex-query-primitive-plan".to_string(),
+            "count".to_string(),
+            "file:///tmp/example.vortex".to_string(),
+            "--feature-gate".to_string(),
+            "--metadata-footer-ready".to_string(),
+            "--encoded-data-path-ready".to_string(),
+            "--format".to_string(),
+            "json".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_query_primitive_plan_unknown_extra_token_returns_non_zero() {
+        let code = run(vec![
+            "vortex-query-primitive-plan".to_string(),
+            "count".to_string(),
+            "file:///tmp/example.vortex".to_string(),
+            "extra".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
     }
 
     #[test]
