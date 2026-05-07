@@ -119,3 +119,16 @@ See `docs/architecture/terminology-consolidation-backlog.md` for the full audit 
 - **portability loss**: explicit representational loss when mapping native plan semantics to an interchange form.
 - **intermediate artifact**: explicit typed runtime/planning artifact (spill, exchange, runtime-filter, staged-commit, profile sample) with stable identity.
 
+
+
+## R5.2 glossary additions
+
+- **capability supremacy surface**: The complete user-visible capability area used to evaluate best-default-engine status for declared workloads.
+- **universal native I/O envelope**: A ShardLoom-native contract that preserves representation state, pushdown evidence, and sink constraints without default decode.
+- **native work envelope**: A single unit of planned/executed work carrying representation, stats, boundaries, and diagnostics.
+- **foreign encoded**: Non-Vortex encoded representation preserved as encoded data when possible, without implying fallback execution.
+- **semantic profile**: A named semantics compatibility target (for example ShardLoomNative, SparkCompatible, DataFusionCompatible).
+- **compatibility baseline**: External engine or format behavior used for comparison and conformance checks, never runtime fallback.
+- **external baseline**: Non-ShardLoom comparison oracle used for correctness/benchmark evidence only.
+- **certification report**: Machine-readable evidence artifact describing tested capability level and conformance boundaries.
+- **best-choice scorecard**: Evidence-backed summary of why ShardLoom is or is not the best default for a declared workload constitution.

@@ -14,7 +14,7 @@
 
 ### R0 — Roadmap/docs synchronization (complete)
 - update current status to CG-1.2c/CG-1.2d boundary
-- ensure Competitive Engine Track CG-1 through CG-18 is complete and current
+- ensure Competitive Engine Track CG-1 through CG-20 is complete and current
 - remove stale Phase 12C.4 current wording
 - remove duplicate/stale Phase 12 rows
 - align traceability with PRs 169–174
@@ -1364,7 +1364,7 @@ Entry criteria for the next implementation phase:
 - This boundary does not execute query primitives and remains side-effect-free.
 - CG-2.1 actual count execution remains blocked until both metadata/footer readiness and an approved encoded data path exist.
 - No scan/read-start, encoded data reads, row reads, decode/materialization, `Arrow` conversion, object-store `IO`, writes, or fallback execution are introduced.
-- CG-1 through CG-18 remain visible and active competitive gates.
+- CG-1 through CG-20 remain visible and active competitive gates.
 
 ## CG-2.0b helper-correctness update
 - CG-2.0 helper correctness is complete: invocation-derived query primitive requests now preserve boundary feature-gate/object-store/scan/decode/materialization/Arrow/write signals from metadata async boundary reports.
@@ -1415,7 +1415,7 @@ Entry criteria for the next implementation phase:
 - Filtered-count execution is not implemented.
 - No scan/read-start, predicate evaluation, encoded-data read, row read, decode, materialization, `Arrow` conversion, object-store IO, writes, or fallback execution are added.
 - CG-2.2b CLI integration is complete via `shardloom vortex-filtered-count-readiness-plan <candidate_source> <dataset_uri> [flags] [--format text|json]`.
-- Keep CG-1 through CG-18 visible and current.
+- Keep CG-1 through CG-20 visible and current.
 - The command does not execute filtered count, does not evaluate predicates, does not call scan/read-start APIs, and performs no metadata/footer open, encoded-data read, row read, decode/materialization, `Arrow` conversion, object-store IO, writes, or fallback execution.
 - Filtered-count execution remains blocked until a real encoded predicate path or explicit metadata predicate proof execution capability exists; metadata-proof remains explicit and opt-in via `PredicateMetadataProofReady`.
 
@@ -1428,13 +1428,13 @@ Entry criteria for the next implementation phase:
   - metadata/schema projection remains explicit and requires `ProjectionSupported` plus `MetadataFooterReady`;
   - encoded-column projection candidates require `EncodedDataPathReady`.
 - The contract remains report-only: no scan/read-start, no projection application, no encoded-data reads, no row reads, no decode, no materialization, no `Arrow` conversion, no object-store `IO`, no writes, and no fallback execution.
-- Keep CG-1 through CG-18 visible and current.
+- Keep CG-1 through CG-20 visible and current.
 
 ## R5 — Systems-learning contract pass
 
 - PR #214 / CG-2.3a projection readiness semantic hardening: complete.
 - R5.1 systems learning map and RFC contract vocabulary pass: complete.
-- CG-2.3b projection CLI: deferred until R5.1 landed.
+- CG-2.3b projection CLI is temporarily deferred while CG-19/CG-20 roadmap revision lands.
 - Added docs/RFC vocabulary contracts for:
   - `PushdownProof`
   - `LoweringTrace`
@@ -1447,5 +1447,13 @@ Entry criteria for the next implementation phase:
 - No dependencies were added.
 - No execution paths were added.
 - No fallback execution was added.
-- CG-1 through CG-18 remain visible and unchanged in competitive gate coverage.
+- CG-1 through CG-20 remain visible and unchanged in competitive gate coverage.
 
+
+
+### R5.2 — Competitive Track extension to CG-19/CG-20 (complete)
+- extend Competitive Engine Track from CG-1..CG-18 to CG-1..CG-20
+- add CG-19 Universal Native I/O Envelope roadmap contract
+- add CG-20 World-Class SQL, Operator, Function, Adapter, and User Capability Surface roadmap contract
+- add RFC 0031 and RFC 0032 stubs
+- docs/RFC-only scope: no dependencies, no runtime behavior, no execution, no SQL parser, no adapter implementation, no fallback execution

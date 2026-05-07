@@ -134,7 +134,7 @@ Status categories:
 
 ## Competitive roadmap traceability additions
 
-- CG-1 through CG-18 are **Competitive Engine Track** success gates and roadmap tracks.
+- CG-1 through CG-20 are **Competitive Engine Track** success gates and roadmap tracks.
 - CG gates are not aliases for canonical implementation phase IDs (for example, they are distinct from Phase 12/13/14 implementation phases).
 - Spark/Polars/DataFusion (and other external engines) are future external baseline references only.
 - External engines are never runtime fallback or delegation targets.
@@ -195,7 +195,7 @@ No fallback execution.
 
 | RFC | Competitive gates covered |
 | --- | --- |
-| RFC 0025 | CG-1 through CG-18 |
+| RFC 0025 | CG-1 through CG-20 |
 | RFC 0026 | CG-1, CG-2, CG-13 |
 | RFC 0027 | CG-7, CG-8, CG-14, CG-15 |
 | RFC 0028 | CG-3, CG-4, CG-9, CG-10 |
@@ -234,7 +234,7 @@ No fallback execution.
 - CG-1.2d.5 (complete): method-shape compile probes confirm public method items for `OpenOptionsSessionExt`, `VortexOpenOptions`, and `VortexFile::footer` without invocation; metadata/footer invocation remains deferred and deterministically blocked without runtime/executor wiring.
 
 - CG-1.2d.6 (complete): caller-provided `VortexSession` invocation contract is added under `vortex-file-io` and open-method compile probing now includes `VortexOpenOptions::open_path` method-item reference; production invocation remains deterministically blocked; CG-1.2d.8 confirms test harness ingredient limits (no local `.vortex` fixture and no confirmed no-IO `Footer` construction route), so metadata/footer execution stays open/paused without production runtime changes.
-- CG-1 through CG-18 remain active Competitive Engine Track gates; this update is CG-1.2d scope only and does not change other gate statuses.
+- CG-1 through CG-20 remain active Competitive Engine Track gates; this update is CG-1.2d scope only and does not change other gate statuses.
 
 ## Test-only async metadata/footer harness policy
 
@@ -253,7 +253,7 @@ No fallback execution.
 - This boundary does not execute query primitives and remains side-effect-free.
 - CG-2.1 actual count execution remains blocked until both metadata/footer readiness and an approved encoded data path exist.
 - No scan/read-start, encoded data reads, row reads, decode/materialization, `Arrow` conversion, object-store `IO`, writes, or fallback execution are introduced.
-- CG-1 through CG-18 remain visible and active competitive gates.
+- CG-1 through CG-20 remain visible and active competitive gates.
 
 ## CG-2.0b helper-correctness traceability update
 - CG-2.0b closes helper correctness gaps for invocation-derived query primitive requests by preserving boundary blockers/signals and preventing misclassification as `feature_disabled` when a stronger blocker exists.
@@ -297,7 +297,7 @@ No fallback execution.
 - Filtered-count execution is not implemented.
 - No scan/read-start, predicate evaluation, encoded-data read, row read, decode, materialization, `Arrow` conversion, object-store IO, writes, or fallback execution are added.
 - CG-2.2b CLI integration is complete via `shardloom vortex-filtered-count-readiness-plan <candidate_source> <dataset_uri> [flags] [--format text|json]`.
-- Keep CG-1 through CG-18 visible and current.
+- Keep CG-1 through CG-20 visible and current.
 - The command does not execute filtered count, does not evaluate predicates, does not call scan/read-start APIs, and performs no metadata/footer open, encoded-data read, row read, decode/materialization, `Arrow` conversion, object-store IO, writes, or fallback execution.
 - Filtered-count execution remains blocked until a real encoded predicate path or explicit metadata predicate proof execution capability exists; metadata-proof remains explicit and opt-in via `PredicateMetadataProofReady`.
 
@@ -310,7 +310,7 @@ No fallback execution.
   - metadata/schema projection remains explicit and requires `ProjectionSupported` plus `MetadataFooterReady`;
   - encoded-column projection candidates require `EncodedDataPathReady`.
 - The contract remains report-only: no scan/read-start, no projection application, no encoded-data reads, no row reads, no decode, no materialization, no `Arrow` conversion, no object-store `IO`, no writes, and no fallback execution.
-- Keep CG-1 through CG-18 visible and current.
+- Keep CG-1 through CG-20 visible and current.
 
 ## R5 systems-learning vocabulary traceability
 
@@ -321,3 +321,11 @@ No fallback execution.
 - RFC 0022: `PlanPortabilityReport`, Substrait-like portability/loss boundary.
 - RFC 0011: SQL frontend parse/bind/validate boundary.
 
+
+
+## R5.2 additions (docs/RFC-only)
+
+| RFC | Competitive gate mapping | RFC linkage | Notes |
+| --- | --- | --- | --- |
+| RFC 0031 | CG-19 | RFC 0013; RFC 0008; RFC 0012; RFC 0016; RFC 0018 | docs/RFC-only in this pass; no runtime behavior or dependency changes. |
+| RFC 0032 | CG-20 | RFC 0011; RFC 0012; RFC 0015; RFC 0021; RFC 0022; RFC 0023; RFC 0029; RFC 0030 | docs/RFC-only in this pass; no runtime behavior or dependency changes. |
