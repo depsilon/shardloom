@@ -10,22 +10,23 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [x] Session label: R5.4.10 user-surface RFC hardening
-  - Current cleanup/implementation step: Deepen CG-20 API, BI/server, observability, deployment, extension, and security/governance certification surfaces before more implementation work.
+- [x] Session label: CG-1.2d.9 local metadata/footer invocation path
+  - Current cleanup/implementation step: Resume CG implementation with a narrow feature-gated local `Vortex` metadata/footer invocation path.
   - Primary files:
-    - `docs/rfcs/0032-world-class-sql-operators-functions-adapters-user-capability.md`
-    - `docs/architecture/capability-certification-sequencing.md`
+    - `shardloom-vortex/src/metadata_async_boundary.rs`
+    - `shardloom-vortex/tests/fixtures/metadata_footer_u64_20000.vortex`
+    - `shardloom-vortex/tests/fixtures/README.md`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-    - `docs/architecture/systems-learning-map.md`
-    - `docs/architecture/canonical-terminology.md`
-  - Scope: Docs/RFC sequencing only.
-  - Explicitly not included: Runtime behavior, SQL parser, SQL execution, API implementation, server implementation, UDF/plugin runtime, adapter runtime, dependencies, external engine probing, fallback execution, superiority claims.
+    - `docs/architecture/vortex-public-api-inventory.md`
+    - `docs/architecture/vortex-adapter-integration-plan.md`
+  - Scope: Feature-gated local metadata/footer open through the caller-provided async/session helper plus fixture provenance.
+  - Explicitly not included: Scan/read-start APIs, encoded-data traversal, row reads, decode/materialization, Arrow conversion, object-store IO, writes, fallback execution, SQL/API/adapter expansion, or superiority claims.
   - Validation required:
     - `cargo fmt --all -- --check`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: RFC 0032 now treats API/client/server surfaces, observability, deployment, extension safety, and security/governance as explicit CG-20 certification evidence instead of shallow roadmap placeholders.
+  - Completion notes: `vortex-file-io` builds can now open an approved local `.vortex` fixture through `invoke_vortex_metadata_footer_probe_with_session_async`, inspect `footer` metadata, and emit explicit metadata/footer effects without scan/read-start/encoded-data traversal/row/decode/write/fallback behavior.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -334,15 +335,16 @@
     - full Rust validation passed with toolchain `1.91.1`
 
 ## Implementation Phase Queue
-- [ ] R4 Resume CG implementation (planned)
+- [x] R4 Resume CG implementation
   - Why: Resume implementation once active docs/refactor queue is current or explicitly overridden.
   - Acceptance:
     - Maintain no-fallback, explicit diagnostics, and Vortex-native I/O posture.
-- [ ] CG-1.2d actual feature-gated local metadata/footer IO path (planned)
+- [x] CG-1.2d actual feature-gated local metadata/footer IO path
   - Why: progress real encoded-read readiness after docs alignment.
   - Acceptance:
     - Feature-gated only.
     - No runtime fallback/delegation.
+    - Local metadata/footer open is caller-session driven and does not call scan/read-start, decode/materialization, object-store IO, writes, or fallback execution.
 - [ ] CG-2.1 actual count primitive over actual Vortex data (planned)
   - Why: progress from report-only readiness to real primitive execution.
   - Acceptance:
@@ -359,7 +361,7 @@ Status legend:
   - [x] CG-1.1a encoded read boundary core contract
   - [x] CG-1.1b CLI/docs integration
   - [x] CG-1.2a/1.2b/1.2c planning, fixture, and metadata probe/report integration
-  - [~] CG-1.2d metadata/footer invocation execution remains deferred/blocked by approved-safe invocation constraints
+  - [x] CG-1.2d metadata/footer invocation path exists for feature-gated local fixtures with caller-provided async/session context
   - Required capabilities:
     - feature-gated local encoded read API boundary
     - segment/chunk/byte-range descriptors
@@ -375,7 +377,7 @@ Status legend:
     - filtered count
     - projection readiness
     - predicate/filter primitive readiness
-  - [~] CG-2.1+ actual primitive execution remains deferred
+  - [~] CG-2.1+ actual primitive execution remains deferred pending query wiring and encoded-data-path readiness
   - [x] CG-2.3b projection readiness CLI integration
   - Required capabilities for completion:
     - encoded-first selection vectors
@@ -516,8 +518,8 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-1.2b.1 metadata probe default no-IO / feature-gate stabilization
 - [x] CG-1.2c metadata/footer probe CLI/docs integration
 - [x] CG-1.3 no-broad-materialization/no-Arrow-default invariant closeout (report-contract scope)
-- [~] CG-1.2d metadata/footer invocation execution path remains deferred/blocked
-- [ ] CG-1 closeout requires approved-safe metadata/footer invocation evidence
+- [x] CG-1.2d metadata/footer invocation execution path for local fixtures
+- [ ] CG-1 closeout still requires an encoded data path beyond metadata/footer inspection
 
 ### CG-2 detailed checklist
 - [x] CG-2.0 query primitive readiness boundary (report-only)
@@ -531,7 +533,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.2b filtered-count readiness CLI integration
 - [x] CG-2.3a projection readiness semantic hardening
 - [x] CG-2.3b projection readiness CLI integration
-- [~] CG-2.1+ actual query primitive execution remains deferred
+- [~] CG-2.1+ actual query primitive execution remains deferred pending query wiring and encoded-data-path readiness
 - [ ] CG-2 closeout requires real count/filtered-count/projection execution over actual Vortex data
 
 ### CG-3 detailed checklist
@@ -691,8 +693,8 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
   - Note: Phase-12 placeholder artifacts are readiness-only and do not imply CG-3 completion.
 
 ## Deferred / Blocked Work
-- [~] CG-1.2 metadata/footer execution path remains blocked pending approved-safe invocation inputs and harness constraints.
-- [~] CG-2.1 actual execution remains blocked pending metadata/footer and encoded data path readiness.
+- [x] CG-1.2 metadata/footer execution path has a feature-gated local fixture invocation helper.
+- [~] CG-2.1 actual execution remains blocked pending query wiring and encoded data path readiness.
 - [~] CG-3 real Vortex payload writes remain deferred; placeholder artifact paths are not completion evidence.
 
 ## Guardrails
