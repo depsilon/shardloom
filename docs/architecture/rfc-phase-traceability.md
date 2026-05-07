@@ -488,3 +488,14 @@ No fallback execution.
 - Primary RFC linkage: RFC 0025, RFC 0031, and RFC 0032.
 - Related RFCs: RFC 0008, RFC 0012, RFC 0013, RFC 0015, RFC 0016, RFC 0018, RFC 0021, RFC 0023, RFC 0029, and RFC 0030.
 - This phase adds no SQL parser, SQL execution, benchmark implementation, certification runtime, migration analyzer runtime, compatibility execution mode, adapter runtime, dependency, external-engine probing, superiority claim, or fallback behavior.
+
+## R5.4.10 user-surface RFC hardening
+
+- RFC 0032 now defines `ApiSurfaceReport`, `ObservabilityCertificationReport`, `DeploymentReadinessReport`, `ExtensionCapabilityReport`, and `SecurityGovernanceReport` as CG-20 certification evidence surfaces.
+- Capability discovery now has explicit response fields and statuses for supported, partially supported, planned, disabled, feature/config gated, materialization gated, external-effect gated, dependency-review gated, unsupported, and unsafe-rejected entries.
+- API/client/server maturity now covers CLI JSON, Rust, Python, DataFrame/query builder, SQL file, config/job, agent, notebook, HTTP/gRPC, FlightSQL-like, JDBC/ODBC, and BI/dashboard surfaces without implying execution delegation.
+- Extension and UDF certification now covers runtime kind, type/null/effect metadata, sandboxing, permissions, credentials, resource limits, materialization boundaries, redaction/audit policy, license/provenance, and no-execution inspection behavior.
+- Observability, deployment, security/governance, and extension-safety evidence now feed workload constitutions, best-choice scorecards, best-default dossiers, and capability snapshots.
+- Primary RFC linkage: RFC 0032.
+- Related RFCs: RFC 0010, RFC 0011, RFC 0012, RFC 0018, RFC 0019, RFC 0023, RFC 0024, RFC 0030, and RFC 0031.
+- This phase adds no runtime behavior, SQL parser, SQL execution, API implementation, server implementation, UDF/plugin runtime, adapter runtime, dependency, external probing, superiority claim, or fallback behavior.

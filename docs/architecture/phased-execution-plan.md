@@ -10,21 +10,22 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [x] Session label: CG-2.3b projection readiness CLI integration
-  - Current cleanup/implementation step: Surface the existing projection-readiness contract through deterministic report-only CLI output.
+- [x] Session label: R5.4.10 user-surface RFC hardening
+  - Current cleanup/implementation step: Deepen CG-20 API, BI/server, observability, deployment, extension, and security/governance certification surfaces before more implementation work.
   - Primary files:
-    - `shardloom-cli/src/main.rs`
+    - `docs/rfcs/0032-world-class-sql-operators-functions-adapters-user-capability.md`
+    - `docs/architecture/capability-certification-sequencing.md`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-    - `docs/architecture/vortex-adapter-integration-plan.md`
-    - `docs/architecture/vortex-public-api-inventory.md`
-  - Scope: CLI/reporting integration for existing projection-readiness planning.
-  - Explicitly not included: Projection execution, scan/read-start APIs, encoded data reads, row reads, decode, materialization, Arrow conversion, object-store IO, writes, dependencies, external engine probing, fallback execution, superiority claims.
+    - `docs/architecture/systems-learning-map.md`
+    - `docs/architecture/canonical-terminology.md`
+  - Scope: Docs/RFC sequencing only.
+  - Explicitly not included: Runtime behavior, SQL parser, SQL execution, API implementation, server implementation, UDF/plugin runtime, adapter runtime, dependencies, external engine probing, fallback execution, superiority claims.
   - Validation required:
     - `cargo fmt --all -- --check`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: `shardloom vortex-projection-readiness-plan <candidate_source> <dataset_uri> [flags] [--format text|json]` emits report-only readiness fields for metadata-schema and encoded-column projection candidates.
+  - Completion notes: RFC 0032 now treats API/client/server surfaces, observability, deployment, extension safety, and security/governance as explicit CG-20 certification evidence instead of shallow roadmap placeholders.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -221,6 +222,25 @@
   - Blockers:
     - None known.
 
+- [x] Follow-up: R5.4.10 user-surface RFC hardening
+  - Why: SQL/operator/function/adapter details are deep enough for current planning, but best-default certification also needs explicit API, BI/server, observability, deployment, extension, and security/governance evidence.
+  - Files:
+    - `docs/rfcs/0032-world-class-sql-operators-functions-adapters-user-capability.md`
+    - `docs/architecture/capability-certification-sequencing.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/systems-learning-map.md`
+    - `docs/architecture/canonical-terminology.md`
+  - Acceptance:
+    - RFC 0032 has concrete field-level contracts for API surface maturity, observability certification, deployment readiness, extension capability, and security/governance reports.
+    - Capability discovery and scorecard/dossier evidence include these user-surface dimensions.
+    - Scope remains docs/RFC-only with no runtime behavior, dependencies, server/API implementation, UDF/plugin runtime, external probing, or fallback execution.
+  - Local validation status:
+    - docs hygiene scans passed for duplicate headings, hidden/bidi controls, claim-language review, and `git diff --check`
+    - full Rust validation passed with toolchain `1.91.1`
+  - Blockers:
+    - None known.
+
 ## Cleanup / Refactor Queue
 - [x] R0 Roadmap/docs synchronization
 - [x] R1 Systems learning map
@@ -303,6 +323,12 @@
 - [x] R5.4.9 RFC sufficiency hardening pass
   - Why: make the CG-19/CG-20 RFC set explicit enough to govern best-default-engine claims before implementation resumes.
   - Acceptance: best-default evidence gate, CG-19 sufficiency gates, `WorldClassSufficiencyReport`, disqualifiers, explicit deferrals, and no-fallback boundaries are documented.
+  - Local validation status:
+    - docs hygiene scans passed for duplicate headings, hidden/bidi controls, claim-language review, and `git diff --check`
+    - full Rust validation passed with toolchain `1.91.1`
+- [x] R5.4.10 User-surface RFC hardening
+  - Why: ensure CG-20 best-default certification includes last-mile user/product surfaces, not only SQL/operators/functions/adapters.
+  - Acceptance: API/client/server maturity, observability certification, deployment readiness, extension safety, security/governance controls, capability discovery statuses, scorecard dimensions, and dossier evidence are field-level RFC contracts.
   - Local validation status:
     - docs hygiene scans passed for duplicate headings, hidden/bidi controls, claim-language review, and `git diff --check`
     - full Rust validation passed with toolchain `1.91.1`

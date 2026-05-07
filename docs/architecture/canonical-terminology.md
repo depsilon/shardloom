@@ -145,3 +145,8 @@ See `docs/architecture/terminology-consolidation-backlog.md` for the full audit 
 - **migration compatibility report**: structured report mapping supported/unsupported constructs and semantic deltas for migration planning.
 - **source pushdown exactness**: the declared guarantee quality for source pushdown (exact, exact with residual, conservative, unsupported, unsafe rejected).
 - **native I/O certificate**: structured evidence object capturing source/sink capability, transitions, materialization boundaries, and no-fallback status.
+- **API surface certification**: evidence that a CLI, Rust, Python, DataFrame, notebook, server, BI, or agent surface exposes native capability safely and explicitly.
+- **observability certification**: evidence that explain, estimate, profile, metrics, certificates, and diagnostics reveal what ShardLoom did, avoided, or rejected.
+- **deployment readiness report**: structured evidence for packaging, configuration, resource limits, reproducibility, compatibility, and operational constraints.
+- **extension capability report**: structured UDF/plugin evidence for type metadata, effect level, sandboxing, permissions, materialization, and no-fallback behavior.
+- **security governance report**: structured evidence for credentials, permissions, external effects, destructive-operation policy, redaction, audit, and agent safety.
