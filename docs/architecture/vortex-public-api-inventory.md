@@ -646,9 +646,12 @@ This update does not introduce scans, decode, materialization, writes, object-st
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.
 - CG-2.2a adds `VortexFilteredCountReadinessRequest` and `VortexFilteredCountReadinessReport` planning/reporting only.
+- CG-2.2a.1 blocker precision helper update is complete: `filtered-count` + `PredicateProvided` maps to `EncodedPredicatePath` even when encoded-data-path readiness is missing; missing encoded-data-path reports `BlockedByMissingEncodedDataPath`; non-`filtered-count` primitives remain `Unknown`; metadata predicate-proof remains deferred to explicit proof contract.
 - Distinguishes `VortexFilteredCountCandidateSource::MetadataPredicateProof` vs `::EncodedPredicatePath`.
 - Metadata-proof filtered count remains blocked until a dedicated predicate-proof contract is introduced.
 - Filtered-count execution is not implemented.
 - No scan/read-start, predicate evaluation, encoded-data read, row read, decode, materialization, `Arrow` conversion, object-store IO, writes, or fallback execution are added.
-- CG-2.2b CLI integration remains next/deferred.
+- CG-2.2b CLI integration is complete via `shardloom vortex-filtered-count-readiness-plan <candidate_source> <dataset_uri> [flags] [--format text|json]`.
 - Keep CG-1 through CG-18 visible and current.
+- The command does not execute filtered count, does not evaluate predicates, does not call scan/read-start APIs, and performs no metadata/footer open, encoded-data read, row read, decode/materialization, `Arrow` conversion, object-store IO, writes, or fallback execution.
+- Filtered-count execution remains blocked until a real encoded predicate path or explicit metadata predicate proof execution capability exists; metadata-proof remains explicit and opt-in via `PredicateMetadataProofReady`.
