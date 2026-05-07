@@ -901,13 +901,16 @@ mod tests {
                 VortexQueryPrimitiveBoundaryKind::Count,
             )
             .feature_gate_enabled(true)
-            .metadata_footer_ready(true)
-            .encoded_data_path_ready(true),
+            .metadata_footer_ready(true),
         )
         .expect("q");
         let req = count_readiness_request_from_query_primitive_report(uri(), &q);
         assert!(req.has_signal(VortexCountReadinessSignal::QueryPrimitiveReady));
         assert!(req.has_signal(VortexCountReadinessSignal::CountPrimitive));
+        assert_eq!(
+            req.candidate_source,
+            VortexCountCandidateSource::MetadataFooter
+        );
         assert!(req.expected_count_summary.is_none());
     }
 }

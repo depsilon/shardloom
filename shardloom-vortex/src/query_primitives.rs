@@ -510,7 +510,9 @@ fn derive_status(r: &VortexQueryPrimitiveRequest) -> VortexQueryPrimitiveStatus 
     if !r.has_signal(VortexQueryPrimitiveSignal::MetadataFooterReady) {
         return VortexQueryPrimitiveStatus::BlockedByMissingMetadataFooter;
     }
-    if !r.has_signal(VortexQueryPrimitiveSignal::EncodedDataPathReady) {
+    if !r.primitive.can_be_metadata_only_candidate()
+        && !r.has_signal(VortexQueryPrimitiveSignal::EncodedDataPathReady)
+    {
         return VortexQueryPrimitiveStatus::BlockedByMissingEncodedDataPath;
     }
     if r.has_signal(VortexQueryPrimitiveSignal::PredicateUnsupported) {
@@ -638,10 +640,7 @@ mod tests {
                 .metadata_footer_ready(true),
         )
         .unwrap();
-        assert_eq!(
-            r.status,
-            VortexQueryPrimitiveStatus::BlockedByMissingEncodedDataPath
-        );
+        assert_eq!(r.status, VortexQueryPrimitiveStatus::PrimitiveReady);
     }
     #[test]
     fn predicate_projection_blocks() {
@@ -673,8 +672,7 @@ mod tests {
         let r = plan_vortex_query_primitive(
             VortexQueryPrimitiveRequest::new(uri(), VortexQueryPrimitiveKind::Count)
                 .feature_gate_enabled(true)
-                .metadata_footer_ready(true)
-                .encoded_data_path_ready(true),
+                .metadata_footer_ready(true),
         )
         .unwrap();
         assert!(r.primitive_ready());
@@ -712,6 +710,7 @@ mod tests {
             boundary_report: boundary,
             effects_performed: Vec::new(),
             metadata_summary: None,
+            metadata_summary_report: None,
             footer_summary: None,
             diagnostics: Vec::new(),
         };
@@ -752,6 +751,7 @@ mod tests {
             boundary_report: boundary.clone(),
             effects_performed: Vec::new(),
             metadata_summary: None,
+            metadata_summary_report: None,
             footer_summary: None,
             diagnostics: Vec::new(),
         };
@@ -790,6 +790,7 @@ mod tests {
             boundary_report: boundary,
             effects_performed: Vec::new(),
             metadata_summary: None,
+            metadata_summary_report: None,
             footer_summary: None,
             diagnostics: Vec::new(),
         };
