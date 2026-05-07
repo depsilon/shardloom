@@ -617,7 +617,7 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - CG-1.2d.9 clears the local fixture metadata/footer invocation blocker for the caller-session feature-gated path.
 - CG-2.0 is current and adds a report-only, feature-gated `Vortex` query primitive readiness boundary for count, filtered count, projection, and predicate/filter primitives.
 - This boundary does not execute query primitives and remains side-effect-free.
-- CG-2.1c clears the metadata-footer `CountAll` blocker; encoded-data count candidates remain blocked until an approved encoded data path exists.
+- CG-2.1c clears the metadata-footer `CountAll` blocker; CG-2.1d clears the encoded-data count candidate blocker while actual encoded execution remains deferred.
 - No scan/read-start, encoded data reads, row reads, decode/materialization, `Arrow` conversion, object-store `IO`, writes, or fallback execution are introduced.
 - CG-1 through CG-20 remain visible and active competitive gates.
 
@@ -648,7 +648,7 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - CG-2.0 / CG-2.0b / CG-2.0c / CG-2.0c.1 are complete.
 - CG-2.1 is current with a report-only `VortexCountReadinessRequest`/`VortexCountReadinessReport` planning contract.
 - Count planning distinguishes metadata-footer candidates from encoded-data-path candidates.
-- Metadata-footer `CountAll` execution is wired through CG-2.1c; encoded-data count candidates remain blocked until encoded-data-path readiness exists.
+- Metadata-footer `CountAll` execution is wired through CG-2.1c; encoded-data count candidates are approved/deferred through CG-2.1d while actual encoded execution remains deferred.
 - No scan/read-start, encoded-data reads, row reads, decode, materialization, `Arrow` conversion, object-store IO, writes, or fallback execution are introduced.
 - CG-2.1b `CLI` surfacing is complete via `shardloom vortex-count-readiness-plan <candidate_source> <dataset_uri> [flags] [--format text|json]`.
 - CG-2.1a semantic hardening is complete: `VortexCountCandidateSource::Unknown` cannot be readiness-complete and deterministically returns `blocked_by_unsupported_primitive` when feature-gated count/query-primitive-ready signals are present.
@@ -664,6 +664,13 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - `execute_vortex_count_all_from_metadata_footer_invocation` returns metadata-only local `CountAll` results from the typed footer summary.
 - The checked-in fixture path proves `Count(20000)` from actual `VortexFile::footer` metadata.
 - No scan/read-start, encoded data traversal, row reads, decode/materialization, `Arrow` conversion, object-store IO, writes, or fallback execution are introduced.
+
+## CG-2.1d encoded-data CountAll candidate bridge
+
+- `count_readiness_request_from_encoded_read_readiness_report` turns a side-effect-free future encoded-read readiness candidate into an encoded-data count candidate.
+- `execute_vortex_count_all_from_encoded_data_candidate` returns a deferred `NeedsEncodedRead` local execution report for approved encoded-data count candidates.
+- The helper rejects metadata-footer count readiness when the encoded-data helper is requested, preserving explicit candidate-source boundaries.
+- This remains candidate/defer scope only: no scan/read-start, encoded data traversal, row reads, decode/materialization, `Arrow` conversion, object-store IO, writes, or fallback execution are introduced.
 
 
 ## CG-2.2a filtered-count readiness core contract

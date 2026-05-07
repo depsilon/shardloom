@@ -240,8 +240,9 @@ pub use commit_marker::{
 pub use count_readiness::{
     VortexCountCandidateSource, VortexCountReadinessEffect, VortexCountReadinessMode,
     VortexCountReadinessReport, VortexCountReadinessRequest, VortexCountReadinessSignal,
-    VortexCountReadinessStatus, count_readiness_request_from_query_primitive_report,
-    plan_vortex_count_readiness, vortex_count_readiness_is_side_effect_free,
+    VortexCountReadinessStatus, count_readiness_request_from_encoded_read_readiness_report,
+    count_readiness_request_from_query_primitive_report, plan_vortex_count_readiness,
+    vortex_count_readiness_is_side_effect_free,
 };
 
 pub use commit_protocol::{
@@ -335,8 +336,9 @@ pub use local_engine::{
 pub use local_execution::{
     VortexLocalExecutionInput, VortexLocalExecutionMode, VortexLocalExecutionReport,
     VortexLocalExecutionStatus, VortexLocalExecutionStep, VortexLocalExecutionStepKind,
-    VortexLocalExecutionValue, execute_vortex_count_all_from_metadata_footer_invocation,
-    execute_vortex_local_query_primitive, vortex_local_execution_is_side_effect_free,
+    VortexLocalExecutionValue, execute_vortex_count_all_from_encoded_data_candidate,
+    execute_vortex_count_all_from_metadata_footer_invocation, execute_vortex_local_query_primitive,
+    vortex_local_execution_is_side_effect_free,
 };
 
 pub use metadata_summary::{
