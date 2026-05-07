@@ -45,6 +45,7 @@ pub mod metadata_planning;
 pub mod metadata_pruning;
 pub mod metadata_summary;
 pub mod output_payload;
+pub mod projection_readiness;
 pub mod query_primitive;
 pub mod query_primitives;
 pub mod query_trace;
@@ -169,6 +170,8 @@ pub use memory_bridge::{
     VortexTaskMemoryDecisionKind, plan_vortex_memory_safety, plan_vortex_memory_spill_reservation,
     vortex_memory_bridge_is_side_effect_free,
 };
+pub use projection_readiness::*;
+
 pub use query_primitive::{
     VortexQueryPrimitiveKind, VortexQueryPrimitiveMode, VortexQueryPrimitiveRequest,
     VortexQueryPrimitiveResult, VortexQueryPrimitiveStatus, VortexQueryPrimitiveValue,
