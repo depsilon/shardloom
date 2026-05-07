@@ -367,6 +367,7 @@ impl VortexCountReadinessReport {
     #[must_use]
     pub fn has_errors(&self) -> bool {
         self.status.is_error()
+            || self.request.has_errors()
             || self.diagnostics.iter().any(|d| {
                 matches!(
                     d.severity,
@@ -547,6 +548,9 @@ fn derive_status(r: &VortexCountReadinessRequest) -> VortexCountReadinessStatus 
     }
     if r.candidate_source.requires_encoded_data_path() && !r.has_signal(S::EncodedDataPathReady) {
         return VortexCountReadinessStatus::BlockedByMissingEncodedDataPath;
+    }
+    if matches!(r.candidate_source, VortexCountCandidateSource::Unknown) {
+        return VortexCountReadinessStatus::BlockedByUnsupportedPrimitive;
     }
     VortexCountReadinessStatus::CountReady
 }
@@ -794,6 +798,101 @@ mod tests {
             VortexCountReadinessStatus::BlockedByObjectStoreTarget
         );
     }
+    #[test]
+    fn report_has_errors_includes_request_and_report_diagnostics() {
+        let req =
+            VortexCountReadinessRequest::new(uri(), VortexCountCandidateSource::MetadataFooter)
+                .feature_gate_enabled(true)
+                .query_primitive_ready(true)
+                .count_primitive(true)
+                .metadata_footer_ready(true);
+        let mut report = plan_vortex_count_readiness(req).expect("report");
+        assert_eq!(report.status, VortexCountReadinessStatus::CountReady);
+        assert!(!report.has_errors());
+
+        report.request.add_diagnostic(Diagnostic::new(
+            DiagnosticCode::NotImplemented,
+            DiagnosticSeverity::Warning,
+            shardloom_core::DiagnosticCategory::UnsupportedFeature,
+            "warning diagnostic",
+            None,
+            None,
+            None,
+            shardloom_core::FallbackStatus::disabled_by_policy(),
+        ));
+        assert!(!report.has_errors());
+
+        report
+            .request
+            .add_diagnostic(Diagnostic::no_fallback_execution("error diagnostic"));
+        assert!(report.has_errors());
+
+        let req =
+            VortexCountReadinessRequest::new(uri(), VortexCountCandidateSource::MetadataFooter)
+                .feature_gate_enabled(true)
+                .query_primitive_ready(true)
+                .count_primitive(true)
+                .metadata_footer_ready(true);
+        let mut report = plan_vortex_count_readiness(req).expect("report");
+        report
+            .diagnostics
+            .push(Diagnostic::no_fallback_execution("fatal diagnostic"));
+        assert!(report.has_errors());
+    }
+
+    #[test]
+    fn unknown_candidate_source_is_never_count_ready() {
+        let report = plan_vortex_count_readiness(
+            VortexCountReadinessRequest::new(uri(), VortexCountCandidateSource::Unknown)
+                .feature_gate_enabled(true)
+                .query_primitive_ready(true)
+                .count_primitive(true),
+        )
+        .expect("report");
+        assert_eq!(
+            report.status,
+            VortexCountReadinessStatus::BlockedByUnsupportedPrimitive
+        );
+    }
+
+    #[test]
+    fn helper_unknown_candidate_from_non_ready_report_blocks_deterministically() {
+        let query_report = plan_vortex_query_primitive(VortexQueryPrimitiveBoundaryRequest::new(
+            uri(),
+            VortexQueryPrimitiveBoundaryKind::Projection,
+        ))
+        .expect("query report");
+        let request = count_readiness_request_from_query_primitive_report(uri(), &query_report);
+        assert_eq!(
+            request.candidate_source,
+            VortexCountCandidateSource::Unknown
+        );
+        let readiness = plan_vortex_count_readiness(request).expect("count report");
+        assert_eq!(
+            readiness.status,
+            VortexCountReadinessStatus::FeatureDisabled
+        );
+
+        let query_report = plan_vortex_query_primitive(
+            VortexQueryPrimitiveBoundaryRequest::new(
+                uri(),
+                VortexQueryPrimitiveBoundaryKind::Projection,
+            )
+            .feature_gate_enabled(true),
+        )
+        .expect("query report");
+        let request = count_readiness_request_from_query_primitive_report(uri(), &query_report);
+        assert_eq!(
+            request.candidate_source,
+            VortexCountCandidateSource::Unknown
+        );
+        let readiness = plan_vortex_count_readiness(request).expect("count report");
+        assert_eq!(
+            readiness.status,
+            VortexCountReadinessStatus::BlockedByUnsupportedPrimitive
+        );
+    }
+
     #[test]
     fn helper_from_ready_count_sets_signals() {
         let q = plan_vortex_query_primitive(
