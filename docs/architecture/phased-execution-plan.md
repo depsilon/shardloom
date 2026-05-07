@@ -10,20 +10,20 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [x] Session label: R5.4.7 workload constitution and scorecard sequencing
-  - Current cleanup/implementation step: Scope best-default-engine certification to declared workloads, evidence refs, mandatory dimensions, and publication gates.
+- [x] Session label: R5.4.8 CI and snapshot sequencing
+  - Current cleanup/implementation step: Define capability snapshot and drift-policy contracts before future CI gates expand.
   - Primary files:
     - `docs/architecture/capability-certification-sequencing.md`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
     - `docs/rfcs/0032-world-class-sql-operators-functions-adapters-user-capability.md`
   - Scope: Docs/RFC sequencing only.
-  - Explicitly not included: Runtime behavior, SQL parser, SQL execution, DataFrame API, benchmark implementation, certification runtime, migration analyzer runtime, compatibility execution mode, adapter runtime, function registry, operator kernels, dependencies, external engine probing, filesystem/network/catalog probing, fallback execution, superiority claims.
+  - Explicitly not included: Runtime behavior, SQL parser, SQL execution, DataFrame API, benchmark implementation, certification runtime, migration analyzer runtime, compatibility execution mode, adapter runtime, function registry, operator kernels, dependencies, new tests, external engine probing, filesystem/network/catalog probing, fallback execution, superiority claims.
   - Validation required:
     - `cargo fmt --all -- --check`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: RFC 0032 now defines workload constitution records, category evidence, scorecard dimensions, best-default certification dossier fields, disqualifiers, and publication gates.
+  - Completion notes: RFC 0032 now defines capability surface snapshots, drift policies, snapshot kinds, allowed/blocked changes, CI gate levels, and no-probe snapshot boundaries.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -173,13 +173,12 @@
   - Blockers:
     - None known.
 
-- [ ] Follow-up: R5.4.8 CI and snapshot sequencing
+- [x] Follow-up: R5.4.8 CI and snapshot sequencing
   - Why: Prevent capability report and best-default scorecard drift once the report contracts exist.
   - Files:
     - `docs/architecture/capability-certification-sequencing.md`
     - `docs/rfcs/0032-world-class-sql-operators-functions-adapters-user-capability.md`
     - `docs/architecture/rfc-phase-traceability.md`
-    - `shardloom-contract-tests/tests/`
   - Acceptance:
     - Future snapshot categories are documented for SQL, operators, functions, adapters, semantic profiles, migration compatibility, best-choice scorecards, diagnostics, and no-fallback invariants.
     - Snapshot checks remain report-only and do not execute external engines or probe filesystem/network/catalog state.
@@ -287,6 +286,11 @@
 - [x] R5.4.7 Workload constitution and scorecard sequencing
   - Why: scope best-default-engine certification to declared workloads and evidence-backed scorecard dimensions.
   - Acceptance: workload constitution fields, category evidence, scorecard dimensions, optional weighting rules, best-default certification dossier fields, disqualifiers, and publication gates are documented.
+  - Local validation status:
+    - full Rust validation passed with toolchain `1.91.1`
+- [x] R5.4.8 CI and snapshot sequencing
+  - Why: prevent capability report and best-default scorecard drift once report contracts exist.
+  - Acceptance: capability surface snapshot fields, snapshot kinds, drift-policy fields, allowed/blocked changes, CI gate levels, and no-probe snapshot boundaries are documented.
   - Local validation status:
     - full Rust validation passed with toolchain `1.91.1`
 
