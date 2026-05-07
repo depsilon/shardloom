@@ -222,7 +222,20 @@ pub enum VortexProjectionReadinessEffect {
 impl VortexProjectionReadinessEffect {
     #[must_use]
     pub const fn as_str(&self) -> &'static str {
-        ""
+        match self {
+            Self::ProjectionExecuted => "projection_executed",
+            Self::ProjectionApplied => "projection_applied",
+            Self::MetadataRead => "metadata_read",
+            Self::EncodedDataRead => "encoded_data_read",
+            Self::RowRead => "row_read",
+            Self::ArrayDecoded => "array_decoded",
+            Self::ValuesMaterialized => "values_materialized",
+            Self::ArrowConverted => "arrow_converted",
+            Self::ObjectStoreIo => "object_store_io",
+            Self::DataWritten => "data_written",
+            Self::UpstreamScanCalled => "upstream_scan_called",
+            Self::FallbackExecution => "fallback_execution",
+        }
     }
 }
 
@@ -422,6 +435,71 @@ impl VortexProjectionReadinessReport {
     pub const fn projection_ready(&self) -> bool {
         self.status.projection_ready()
     }
+    #[must_use]
+    pub fn feature_gate_enabled(&self) -> bool {
+        self.request
+            .has_signal(VortexProjectionReadinessSignal::FeatureGateEnabled)
+    }
+    #[must_use]
+    pub fn query_primitive_ready(&self) -> bool {
+        self.request
+            .has_signal(VortexProjectionReadinessSignal::QueryPrimitiveReady)
+    }
+    #[must_use]
+    pub fn metadata_footer_ready(&self) -> bool {
+        self.request
+            .has_signal(VortexProjectionReadinessSignal::MetadataFooterReady)
+    }
+    #[must_use]
+    pub fn encoded_data_path_ready(&self) -> bool {
+        self.request
+            .has_signal(VortexProjectionReadinessSignal::EncodedDataPathReady)
+    }
+    #[must_use]
+    pub fn projection_primitive(&self) -> bool {
+        self.request
+            .has_signal(VortexProjectionReadinessSignal::ProjectionPrimitive)
+    }
+    #[must_use]
+    pub fn projection_provided(&self) -> bool {
+        self.request
+            .has_signal(VortexProjectionReadinessSignal::ProjectionProvided)
+    }
+    #[must_use]
+    pub fn projection_supported(&self) -> bool {
+        self.request
+            .has_signal(VortexProjectionReadinessSignal::ProjectionSupported)
+    }
+    #[must_use]
+    pub fn object_store_target(&self) -> bool {
+        self.request
+            .has_signal(VortexProjectionReadinessSignal::ObjectStoreTarget)
+    }
+    #[must_use]
+    pub fn decode_risk(&self) -> bool {
+        self.request
+            .has_signal(VortexProjectionReadinessSignal::DecodeRisk)
+    }
+    #[must_use]
+    pub fn materialization_risk(&self) -> bool {
+        self.request
+            .has_signal(VortexProjectionReadinessSignal::MaterializationRisk)
+    }
+    #[must_use]
+    pub fn arrow_default_risk(&self) -> bool {
+        self.request
+            .has_signal(VortexProjectionReadinessSignal::ArrowDefaultRisk)
+    }
+    #[must_use]
+    pub fn write_risk(&self) -> bool {
+        self.request
+            .has_signal(VortexProjectionReadinessSignal::WriteRisk)
+    }
+    #[must_use]
+    pub fn scan_execution_risk(&self) -> bool {
+        self.request
+            .has_signal(VortexProjectionReadinessSignal::ScanExecutionRisk)
+    }
     fn effect(&self, e: VortexProjectionReadinessEffect) -> bool {
         self.effects_performed.contains(&e)
     }
@@ -434,6 +512,42 @@ impl VortexProjectionReadinessReport {
         self.effect(VortexProjectionReadinessEffect::ProjectionApplied)
     }
     #[must_use]
+    pub fn metadata_read(&self) -> bool {
+        self.effect(VortexProjectionReadinessEffect::MetadataRead)
+    }
+    #[must_use]
+    pub fn encoded_data_read(&self) -> bool {
+        self.effect(VortexProjectionReadinessEffect::EncodedDataRead)
+    }
+    #[must_use]
+    pub fn row_read(&self) -> bool {
+        self.effect(VortexProjectionReadinessEffect::RowRead)
+    }
+    #[must_use]
+    pub fn array_decoded(&self) -> bool {
+        self.effect(VortexProjectionReadinessEffect::ArrayDecoded)
+    }
+    #[must_use]
+    pub fn values_materialized(&self) -> bool {
+        self.effect(VortexProjectionReadinessEffect::ValuesMaterialized)
+    }
+    #[must_use]
+    pub fn arrow_converted(&self) -> bool {
+        self.effect(VortexProjectionReadinessEffect::ArrowConverted)
+    }
+    #[must_use]
+    pub fn object_store_io(&self) -> bool {
+        self.effect(VortexProjectionReadinessEffect::ObjectStoreIo)
+    }
+    #[must_use]
+    pub fn data_written(&self) -> bool {
+        self.effect(VortexProjectionReadinessEffect::DataWritten)
+    }
+    #[must_use]
+    pub fn upstream_scan_called(&self) -> bool {
+        self.effect(VortexProjectionReadinessEffect::UpstreamScanCalled)
+    }
+    #[must_use]
     pub fn fallback_execution_allowed(&self) -> bool {
         false
     }
@@ -441,17 +555,41 @@ impl VortexProjectionReadinessReport {
     pub fn is_side_effect_free(&self) -> bool {
         !self.projection_executed()
             && !self.projection_applied()
+            && !self.metadata_read()
+            && !self.encoded_data_read()
+            && !self.row_read()
+            && !self.array_decoded()
+            && !self.values_materialized()
+            && !self.arrow_converted()
+            && !self.object_store_io()
+            && !self.data_written()
+            && !self.upstream_scan_called()
             && !self.fallback_execution_allowed()
     }
     #[must_use]
     pub fn to_human_text(&self) -> String {
         let mut out = String::new();
         let _ = writeln!(&mut out, "status: {}", self.status.as_str());
+        let _ = writeln!(&mut out, "mode: {}", self.mode.as_str());
+        let _ = writeln!(&mut out, "projection_ready: {}", self.projection_ready());
         let _ = writeln!(
             &mut out,
             "projection_executed: {}",
             self.projection_executed()
         );
+        let _ = writeln!(
+            &mut out,
+            "projection_applied: {}",
+            self.projection_applied()
+        );
+        let _ = writeln!(&mut out, "encoded_data_read: {}", self.encoded_data_read());
+        let _ = writeln!(&mut out, "row_read: {}", self.row_read());
+        let _ = writeln!(
+            &mut out,
+            "values_materialized: {}",
+            self.values_materialized()
+        );
+        let _ = writeln!(&mut out, "arrow_converted: {}", self.arrow_converted());
         let _ = writeln!(
             &mut out,
             "fallback_execution_allowed: {}",
@@ -633,6 +771,179 @@ mod tests {
         assert_eq!(
             out.status,
             VortexProjectionReadinessStatus::BlockedByMissingEncodedDataPath
+        );
+    }
+
+    #[test]
+    fn effect_labels_are_stable() {
+        assert_eq!(
+            VortexProjectionReadinessEffect::ProjectionExecuted.as_str(),
+            "projection_executed"
+        );
+        assert_eq!(
+            VortexProjectionReadinessEffect::ProjectionApplied.as_str(),
+            "projection_applied"
+        );
+        assert_eq!(
+            VortexProjectionReadinessEffect::MetadataRead.as_str(),
+            "metadata_read"
+        );
+        assert_eq!(
+            VortexProjectionReadinessEffect::EncodedDataRead.as_str(),
+            "encoded_data_read"
+        );
+        assert_eq!(
+            VortexProjectionReadinessEffect::RowRead.as_str(),
+            "row_read"
+        );
+        assert_eq!(
+            VortexProjectionReadinessEffect::ArrayDecoded.as_str(),
+            "array_decoded"
+        );
+        assert_eq!(
+            VortexProjectionReadinessEffect::ValuesMaterialized.as_str(),
+            "values_materialized"
+        );
+        assert_eq!(
+            VortexProjectionReadinessEffect::ArrowConverted.as_str(),
+            "arrow_converted"
+        );
+        assert_eq!(
+            VortexProjectionReadinessEffect::ObjectStoreIo.as_str(),
+            "object_store_io"
+        );
+        assert_eq!(
+            VortexProjectionReadinessEffect::DataWritten.as_str(),
+            "data_written"
+        );
+        assert_eq!(
+            VortexProjectionReadinessEffect::UpstreamScanCalled.as_str(),
+            "upstream_scan_called"
+        );
+        assert_eq!(
+            VortexProjectionReadinessEffect::FallbackExecution.as_str(),
+            "fallback_execution"
+        );
+    }
+
+    #[test]
+    fn report_signal_helpers_reflect_request_signals() {
+        let report = plan_vortex_projection_readiness(
+            VortexProjectionReadinessRequest::new(
+                uri(),
+                VortexProjectionCandidateSource::MetadataSchemaProjection,
+            )
+            .feature_gate_enabled(true)
+            .query_primitive_ready(true)
+            .metadata_footer_ready(true)
+            .projection_primitive(true)
+            .projection_provided(true)
+            .projection_supported(true)
+            .object_store_target(true)
+            .decode_risk(true)
+            .materialization_risk(true)
+            .arrow_default_risk(true)
+            .write_risk(true)
+            .scan_execution_risk(true),
+        )
+        .expect("report");
+        assert!(report.feature_gate_enabled());
+        assert!(report.query_primitive_ready());
+        assert!(report.metadata_footer_ready());
+        assert!(!report.encoded_data_path_ready());
+        assert!(report.projection_primitive());
+        assert!(report.projection_provided());
+        assert!(report.projection_supported());
+        assert!(report.object_store_target());
+        assert!(report.decode_risk());
+        assert!(report.materialization_risk());
+        assert!(report.arrow_default_risk());
+        assert!(report.write_risk());
+        assert!(report.scan_execution_risk());
+    }
+
+    #[test]
+    fn effect_helpers_are_false_for_ready_projection() {
+        let report = plan_vortex_projection_readiness(
+            VortexProjectionReadinessRequest::new(
+                uri(),
+                VortexProjectionCandidateSource::EncodedColumnPath,
+            )
+            .feature_gate_enabled(true)
+            .query_primitive_ready(true)
+            .projection_primitive(true)
+            .projection_provided(true)
+            .encoded_data_path_ready(true),
+        )
+        .expect("report");
+        assert!(!report.projection_executed());
+        assert!(!report.projection_applied());
+        assert!(!report.metadata_read());
+        assert!(!report.encoded_data_read());
+        assert!(!report.row_read());
+        assert!(!report.array_decoded());
+        assert!(!report.values_materialized());
+        assert!(!report.arrow_converted());
+        assert!(!report.object_store_io());
+        assert!(!report.data_written());
+        assert!(!report.upstream_scan_called());
+        assert!(!report.fallback_execution_allowed());
+    }
+
+    #[test]
+    fn is_side_effect_free_checks_full_effect_set() {
+        let mut report = plan_vortex_projection_readiness(
+            VortexProjectionReadinessRequest::new(
+                uri(),
+                VortexProjectionCandidateSource::EncodedColumnPath,
+            )
+            .feature_gate_enabled(true)
+            .query_primitive_ready(true)
+            .projection_primitive(true)
+            .projection_provided(true)
+            .encoded_data_path_ready(true),
+        )
+        .expect("report");
+        assert!(report.is_side_effect_free());
+        report
+            .effects_performed
+            .push(VortexProjectionReadinessEffect::EncodedDataRead);
+        assert!(!report.is_side_effect_free());
+    }
+
+    #[test]
+    fn metadata_schema_projection_ready_requires_support_and_metadata() {
+        let ready = plan_vortex_projection_readiness(
+            VortexProjectionReadinessRequest::new(
+                uri(),
+                VortexProjectionCandidateSource::MetadataSchemaProjection,
+            )
+            .feature_gate_enabled(true)
+            .query_primitive_ready(true)
+            .projection_primitive(true)
+            .projection_provided(true)
+            .metadata_footer_ready(true)
+            .projection_supported(true),
+        )
+        .expect("report");
+        assert!(ready.projection_ready());
+    }
+
+    #[test]
+    fn helper_does_not_auto_mark_projection_supported() {
+        let mut req = crate::VortexQueryPrimitiveBoundaryRequest::new(
+            uri(),
+            crate::VortexQueryPrimitiveBoundaryKind::Projection,
+        )
+        .feature_gate_enabled(true)
+        .with_projection_summary("x");
+        req.add_signal(crate::VortexQueryPrimitiveSignal::ProjectionProvided);
+        req.add_signal(crate::VortexQueryPrimitiveSignal::EncodedDataPathReady);
+        let query_report = crate::plan_vortex_query_primitive(req).expect("query report");
+        let projection_request =
+            projection_readiness_request_from_query_primitive_report(uri(), &query_report);
+        assert!(
+            !projection_request.has_signal(VortexProjectionReadinessSignal::ProjectionSupported)
         );
     }
 }
