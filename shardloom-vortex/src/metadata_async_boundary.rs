@@ -633,6 +633,7 @@ pub enum VortexMetadataAsyncInvocationStatus {
     MetadataFooterOpened,
     BlockedByBoundary,
     BlockedByUnsupportedApiSurface,
+    MetadataFooterOpenFailed,
     Unsupported,
 }
 impl VortexMetadataAsyncInvocationStatus {
@@ -643,6 +644,7 @@ impl VortexMetadataAsyncInvocationStatus {
             Self::MetadataFooterOpened => "metadata_footer_opened",
             Self::BlockedByBoundary => "blocked_by_boundary",
             Self::BlockedByUnsupportedApiSurface => "blocked_by_unsupported_api_surface",
+            Self::MetadataFooterOpenFailed => "metadata_footer_open_failed",
             Self::Unsupported => "unsupported",
         }
     }
@@ -841,7 +843,7 @@ pub async fn invoke_vortex_metadata_footer_probe_async(
         diagnostics: vec![Diagnostic::unsupported(
             DiagnosticCode::NotImplemented,
             "metadata/footer async invocation blocked",
-            "caller-provided `VortexSession`/async boundary is accepted; production `open_path`/`footer` invocation remains deferred because no approved async execution/IO harness policy is available and `ShardLoom` does not start a runtime/executor in production; no file open/metadata/footer IO occurs",
+            "non-session metadata/footer invocation remains deferred; use the caller-session helper for the approved local fixture path because `ShardLoom` does not start a runtime/executor in production",
             None,
         )],
     })
@@ -853,6 +855,8 @@ pub async fn invoke_vortex_metadata_footer_probe_async(
 pub async fn invoke_vortex_metadata_footer_probe_with_session_async(
     input: VortexMetadataAsyncInvocationInput<'_>,
 ) -> Result<VortexMetadataAsyncInvocationReport> {
+    use vortex::file::OpenOptionsSessionExt as _;
+
     if !input.boundary.boundary_ready() {
         return Ok(VortexMetadataAsyncInvocationReport {
             status: VortexMetadataAsyncInvocationStatus::BlockedByBoundary,
@@ -868,20 +872,49 @@ pub async fn invoke_vortex_metadata_footer_probe_with_session_async(
             )],
         });
     }
-    let _ = input.session;
-    Ok(VortexMetadataAsyncInvocationReport {
-        status: VortexMetadataAsyncInvocationStatus::BlockedByUnsupportedApiSurface,
-        boundary_report: input.boundary,
-        effects_performed: Vec::new(),
-        metadata_summary: None,
-        footer_summary: None,
-        diagnostics: vec![Diagnostic::unsupported(
-            DiagnosticCode::NotImplemented,
-            "metadata/footer async invocation blocked",
-            "caller-provided `VortexSession` is accepted by contract; `VortexOpenOptions` invocation remains deferred to avoid IO and async runtime coupling",
-            None,
-        )],
-    })
+
+    let fixture_path = local_fixture_path(input.boundary.request.fixture_ref.as_str());
+    match input.session.open_options().open_path(&fixture_path).await {
+        Ok(file) => {
+            let footer = file.footer();
+            Ok(VortexMetadataAsyncInvocationReport {
+                status: VortexMetadataAsyncInvocationStatus::MetadataFooterOpened,
+                boundary_report: input.boundary,
+                effects_performed: vec![
+                    VortexMetadataAsyncInvocationEffect::MetadataOpened,
+                    VortexMetadataAsyncInvocationEffect::FooterInspected,
+                ],
+                metadata_summary: Some(format!(
+                    "row_count={} dtype={:?}",
+                    file.row_count(),
+                    file.dtype()
+                )),
+                footer_summary: Some(format!(
+                    "row_count={} dtype={:?} segment_count={} statistics_available={} approx_footer_bytes={}",
+                    footer.row_count(),
+                    footer.dtype(),
+                    footer.segment_map().len(),
+                    footer.statistics().is_some(),
+                    footer
+                        .approx_byte_size()
+                        .map_or_else(|| "unknown".to_string(), |value| value.to_string())
+                )),
+                diagnostics: Vec::new(),
+            })
+        }
+        Err(error) => Ok(VortexMetadataAsyncInvocationReport {
+            status: VortexMetadataAsyncInvocationStatus::MetadataFooterOpenFailed,
+            boundary_report: input.boundary,
+            effects_performed: Vec::new(),
+            metadata_summary: None,
+            footer_summary: None,
+            diagnostics: vec![Diagnostic::invalid_input(
+                "metadata/footer async invocation failed",
+                format!("failed to open local Vortex metadata/footer: {error}"),
+                "provide an existing local `.vortex` fixture and a caller-driven async/session boundary",
+            )],
+        }),
+    }
 }
 
 #[cfg(not(feature = "vortex-file-io"))]
@@ -981,6 +1014,12 @@ pub fn metadata_async_boundary_request_from_metadata_probe_report(
         req.add_signal(VortexMetadataAsyncBoundarySignal::MetadataFooterOnlyIntent);
     }
     req
+}
+
+#[cfg(feature = "vortex-file-io")]
+fn local_fixture_path(path: &str) -> std::path::PathBuf {
+    path.strip_prefix("file://")
+        .map_or_else(|| std::path::PathBuf::from(path), std::path::PathBuf::from)
 }
 
 /// # Errors
@@ -1152,5 +1191,136 @@ mod tests {
     fn session_invocation_input_type_compiles() {
         let ty = core::any::type_name::<VortexMetadataAsyncInvocationInput<'static>>();
         assert!(ty.contains("VortexMetadataAsyncInvocationInput"));
+    }
+
+    #[cfg(feature = "vortex-file-io")]
+    #[test]
+    fn session_invocation_opens_checked_in_metadata_footer_fixture() {
+        use vortex::VortexSessionDefault as _;
+        use vortex::io::runtime::BlockingRuntime as _;
+        use vortex::io::runtime::single::SingleThreadRuntime;
+        use vortex::io::session::RuntimeSessionExt as _;
+        use vortex::session::VortexSession;
+
+        let fixture_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
+            .join("metadata_footer_u64_20000.vortex");
+        let fixture = VortexEncodedReadFixtureRef::new(fixture_path.to_string_lossy().to_string())
+            .expect("fixture ref");
+        let boundary = plan_vortex_metadata_async_boundary(
+            VortexMetadataAsyncBoundaryRequest::new(
+                DatasetUri::new(fixture_path.to_string_lossy().to_string()).expect("uri"),
+                fixture,
+            )
+            .feature_gate_enabled(true)
+            .local_fixture_ready(true)
+            .runtime_boundary_approved(true)
+            .async_session_allowed(true)
+            .metadata_footer_only_intent(true),
+        )
+        .expect("boundary");
+        assert!(boundary.boundary_ready());
+
+        let runtime = SingleThreadRuntime::default();
+        let session = VortexSession::default().with_handle(runtime.handle());
+        let report = runtime
+            .block_on(invoke_vortex_metadata_footer_probe_with_session_async(
+                VortexMetadataAsyncInvocationInput {
+                    boundary,
+                    session: &session,
+                },
+            ))
+            .expect("invocation report");
+
+        assert_eq!(
+            report.status,
+            VortexMetadataAsyncInvocationStatus::MetadataFooterOpened
+        );
+        assert!(report.metadata_footer_opened());
+        assert!(report.metadata_opened());
+        assert!(report.footer_inspected());
+        assert!(!report.encoded_data_read());
+        assert!(!report.row_read());
+        assert!(!report.array_decoded());
+        assert!(!report.values_materialized());
+        assert!(!report.arrow_converted());
+        assert!(!report.object_store_io());
+        assert!(!report.data_written());
+        assert!(!report.upstream_scan_called());
+        assert!(!report.fallback_execution_allowed());
+        assert!(
+            report
+                .metadata_summary
+                .as_deref()
+                .is_some_and(|summary| summary.contains("row_count=20000"))
+        );
+        assert!(
+            report
+                .footer_summary
+                .as_deref()
+                .is_some_and(|summary| summary.contains("statistics_available="))
+        );
+    }
+
+    #[cfg(feature = "vortex-file-io")]
+    #[test]
+    fn session_invocation_reports_open_failure_for_missing_local_fixture() {
+        use vortex::VortexSessionDefault as _;
+        use vortex::io::runtime::BlockingRuntime as _;
+        use vortex::io::runtime::single::SingleThreadRuntime;
+        use vortex::io::session::RuntimeSessionExt as _;
+        use vortex::session::VortexSession;
+
+        let missing_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
+            .join("missing_metadata_footer.vortex");
+        assert!(!missing_path.exists());
+        let fixture = VortexEncodedReadFixtureRef::new(missing_path.to_string_lossy().to_string())
+            .expect("fixture ref");
+        let boundary = plan_vortex_metadata_async_boundary(
+            VortexMetadataAsyncBoundaryRequest::new(
+                DatasetUri::new(missing_path.to_string_lossy().to_string()).expect("uri"),
+                fixture,
+            )
+            .feature_gate_enabled(true)
+            .local_fixture_ready(true)
+            .runtime_boundary_approved(true)
+            .async_session_allowed(true)
+            .metadata_footer_only_intent(true),
+        )
+        .expect("boundary");
+        assert!(boundary.boundary_ready());
+
+        let runtime = SingleThreadRuntime::default();
+        let session = VortexSession::default().with_handle(runtime.handle());
+        let report = runtime
+            .block_on(invoke_vortex_metadata_footer_probe_with_session_async(
+                VortexMetadataAsyncInvocationInput {
+                    boundary,
+                    session: &session,
+                },
+            ))
+            .expect("invocation report");
+
+        assert_eq!(
+            report.status,
+            VortexMetadataAsyncInvocationStatus::MetadataFooterOpenFailed
+        );
+        assert!(report.has_errors());
+        assert!(!report.metadata_footer_opened());
+        assert!(!report.metadata_opened());
+        assert!(!report.footer_inspected());
+        assert!(!report.encoded_data_read());
+        assert!(!report.row_read());
+        assert!(!report.array_decoded());
+        assert!(!report.values_materialized());
+        assert!(!report.arrow_converted());
+        assert!(!report.object_store_io());
+        assert!(!report.data_written());
+        assert!(!report.upstream_scan_called());
+        assert!(!report.fallback_execution_allowed());
+        assert!(!report.diagnostics.is_empty());
     }
 }

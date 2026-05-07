@@ -686,11 +686,11 @@ The output payload artifact remains a local placeholder contract artifact, not a
 
 ## CG-1.2d metadata/footer blocker update
 
-- `vortex-file-io` path now validates local fixture existence, but metadata/footer completion remains blocked in this phase.
+- `vortex-file-io` path validates local fixture existence.
 - Public `Vortex` metadata open/footer inspection is async-session oriented (`VortexOpenOptions` + `OpenOptionsSessionExt` + `VortexFile::footer`).
-- `ShardLoom` has no approved deterministic async runtime boundary for this path in CG-1.2d.
+- `ShardLoom` now has an approved caller-provided async/session boundary for the narrow local fixture metadata/footer path.
 - CG-1.2d.2 adds a deterministic `VortexMetadataAsyncBoundaryReport`/`VortexMetadataAsyncBoundaryRequest` contract only; no runtime, executor, scan/read-start, decode/materialization, `Arrow` conversion, object-store `IO`, writes, or fallback execution.
-- Therefore `BlockedByUnsupportedApiSurface` remains the deterministic outcome for existing local fixtures.
+- CG-1.2d.9 adds the first feature-gated local fixture invocation path through the session-bearing helper.
 - Default build remains no-IO; no scan/read-start, decode, materialization, Arrow conversion, object-store IO, writes, or fallback.
 
 
@@ -699,14 +699,14 @@ The output payload artifact remains a local placeholder contract artifact, not a
 - No runtime/executor dependency was added by `ShardLoom`.
 - Sync `VortexEncodedReadMetadataProbeReport::from_request` path remains report-only/no-IO.
 - Async surface preserves no scan/read-start, no encoded-data reads, no decode/materialization, no `Arrow` conversion, no object-store IO, no writes, and no fallback execution.
-- Actual public upstream `Vortex` metadata/footer invocation remains blocked by compile-unclear API shape; deterministic `blocked_by_unsupported_api_surface` diagnostics now record: `vortex::session::Session` not found, `VortexOpenOptions::new()` unavailable, and `OpenOptionsSessionExt` not usable in a compile-passing invocation path yet.
+- At this phase, actual public upstream `Vortex` metadata/footer invocation remained blocked by compile-unclear API shape; CG-1.2d.9 supersedes that blocker for the approved local fixture path.
 
 
-- CG-1.2d.5 extends compile probes to method-shape references: `<VortexSession as OpenOptionsSessionExt>::open_options`, `VortexOpenOptions::with_initial_read_size`, `VortexOpenOptions::with_some_file_size`, and `VortexFile::footer` all compile as public items under `vortex-file-io`; production invocation remains deterministically blocked with no runtime/executor, no file open, no metadata/footer IO, no scan/read-start, no decode/materialization, no `Arrow` conversion, no object-store IO, no writes, and no fallback.
+- CG-1.2d.5 extends compile probes to method-shape references: `<VortexSession as OpenOptionsSessionExt>::open_options`, `VortexOpenOptions::with_initial_read_size`, `VortexOpenOptions::with_some_file_size`, and `VortexFile::footer` all compile as public items under `vortex-file-io`; invocation remained deterministically blocked in that phase with no runtime/executor, no file open, no metadata/footer IO, no scan/read-start, no decode/materialization, no `Arrow` conversion, no object-store IO, no writes, and no fallback.
 
-- CG-1.2d.6 adds caller-provided `VortexSession` contract acceptance under `vortex-file-io` via `VortexMetadataAsyncInvocationInput` and a session-bearing invocation helper that stays `blocked_by_unsupported_api_surface` when boundary-ready.
+- CG-1.2d.6 adds caller-provided `VortexSession` contract acceptance under `vortex-file-io` via `VortexMetadataAsyncInvocationInput` and a session-bearing invocation helper.
 - Compile-only probe confirms method-item reference to `VortexOpenOptions::open_path`; this identifies the local-path open surface without opening files, awaiting futures, or performing metadata/footer IO.
-- Remaining blocker: production invocation still requires explicit approved async execution harness and IO policy; therefore no open/footer invocation is performed in this phase.
+- At this phase, invocation still required explicit approved async execution harness and IO policy; CG-1.2d.9 adds the approved local fixture invocation path.
 
 ## Test-only async metadata/footer harness policy
 
@@ -718,12 +718,21 @@ The output payload artifact remains a local placeholder contract artifact, not a
 - A checked-in local `.vortex` fixture is allowed only with explicit provenance and only for metadata/footer open tests.
 - Fixture generation using `Vortex` write APIs is not allowed in this phase.
 
+## CG-1.2d.9 local metadata/footer invocation path
+
+- Adds a checked-in local `.vortex` fixture with provenance for metadata/footer open validation.
+- Uses the feature-gated caller-session async helper to invoke `VortexOpenOptions` + `OpenOptionsSessionExt::open_path` + `VortexFile::footer`.
+- Successful fixture invocation produces `MetadataFooterOpened` and records only `metadata_opened` and `footer_inspected` effects.
+- Open failures produce deterministic `metadata_footer_open_failed` diagnostics.
+- Default/sync paths remain report-only/no-IO, and non-session async helpers remain deferred.
+- No scan/read-start, encoded data traversal, row reads, decode/materialization, `Arrow` conversion, object-store IO, writes, or fallback execution are introduced.
+
 
 ## CG-2.0 query primitive boundary update
-- CG-1.2 metadata/footer execution remains paused/blocked after CG-1.2d.8 due to missing repository-local `.vortex` fixture and no confirmed public no-IO `Footer` route.
+- CG-1.2d.9 clears the local fixture metadata/footer invocation blocker for the feature-gated caller-session path.
 - CG-2.0 is current and adds a report-only, feature-gated `Vortex` query primitive readiness boundary for count, filtered count, projection, and predicate/filter primitives.
 - This boundary does not execute query primitives and remains side-effect-free.
-- CG-2.1 actual count execution remains blocked until both metadata/footer readiness and an approved encoded data path exist.
+- CG-2.1 actual count execution remains blocked until query wiring consumes metadata/footer readiness safely or an approved encoded data path exists.
 - No scan/read-start, encoded data reads, row reads, decode/materialization, `Arrow` conversion, object-store `IO`, writes, or fallback execution are introduced.
 - CG-1 through CG-20 remain visible and active competitive gates.
 
@@ -738,16 +747,16 @@ The output payload artifact remains a local placeholder contract artifact, not a
 - Adds `shardloom vortex-query-primitive-plan <primitive> <dataset_uri> [flags] [--format text|json]` as a report-only/readiness-only planning command.
 - Command constructs `VortexQueryPrimitiveRequest` and calls `plan_vortex_query_primitive` only; it does not execute query primitives.
 - Command does not call scan/read-start APIs, does not read encoded data or rows, does not decode/materialize/Arrow-convert, does not perform object-store IO, does not write output payloads, and does not allow fallback execution.
-- CG-2.1 actual count/query execution remains blocked until metadata/footer and encoded-data path readiness are both available.
+- CG-2.1 actual count/query execution remains blocked until query wiring consumes metadata/footer readiness safely and encoded-data readiness exists for non-metadata candidates.
 
 
 ## CG-1.3 invariant closeout note
 
 `ShardLoom` closes CG-1.3 for current contract/report surfaces only. The closeout proves no row reads, no array decode, no value materialization, no `Arrow` conversion, and fallback disabled across encoded-read/query-readiness reports.
 
-CG-1.2 metadata/footer execution remains paused after CG-1.2d.8 pending a repository-local fixture or confirmed no-IO `Footer` construction route.
+CG-1.2d.9 provides the repository-local fixture path for metadata/footer invocation through the caller-session feature-gated helper.
 
-CG-2.1 actual execution remains blocked until both metadata/footer and encoded data path readiness are available.
+CG-2.1 actual execution remains blocked until query wiring consumes metadata/footer readiness safely or encoded data path readiness is available.
 
 
 ## CG-2.1 count readiness planning update
@@ -756,7 +765,7 @@ CG-2.1 actual execution remains blocked until both metadata/footer and encoded d
 - CG-2.0 / CG-2.0b / CG-2.0c / CG-2.0c.1 are complete.
 - CG-2.1 is current with a report-only `VortexCountReadinessRequest`/`VortexCountReadinessReport` planning contract.
 - Count planning distinguishes metadata-footer candidates from encoded-data-path candidates.
-- Count execution remains blocked until real metadata/footer or encoded-data-path readiness exists.
+- Count execution remains blocked until query wiring consumes metadata/footer readiness safely or encoded-data-path readiness exists.
 - No scan/read-start, encoded-data reads, row reads, decode, materialization, `Arrow` conversion, object-store IO, writes, or fallback execution are introduced.
 - CG-2.1b `CLI` surfacing is complete via `shardloom vortex-count-readiness-plan <candidate_source> <dataset_uri> [flags] [--format text|json]`.
 - CG-2.1a semantic hardening is complete: `VortexCountCandidateSource::Unknown` cannot be readiness-complete and deterministically returns `blocked_by_unsupported_primitive` when feature-gated count/query-primitive-ready signals are present.
