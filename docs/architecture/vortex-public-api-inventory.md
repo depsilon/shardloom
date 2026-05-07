@@ -304,14 +304,14 @@ This contract does not call upstream Vortex scan execution. It consumes `ShardLo
 
 This update adds a `ShardLoom` contract-only boundary for future `Vortex` encoded-read work.
 
-Confirmed public upstream API surfaces from the current review include `VortexOpenOptions`, `OpenOptionsSessionExt`, and `VortexFile::footer` plus related metadata (`row_count`/`dtype`) surfaces.
+Confirmed public upstream API surfaces from the current review include `VortexOpenOptions`, `OpenOptionsSessionExt`, and `VortexFile::footer` plus related metadata (`row_count`/`dtype`) surfaces. The CG-2.1e.2 classification also compile-checks exact public data-access-adjacent symbols: `VortexFile::layout_reader`, `LayoutReader::row_count`, `VortexFile::scan`, `ScanBuilder::into_array_stream`, `ScanBuilder::into_array_iter`, `LayoutReader::projection_evaluation`, `LayoutReader::filter_evaluation`, and `VortexFile::data_source`.
 
 Contract-usable now:
 - `VortexOpenOptions` + `OpenOptionsSessionExt::open_path` + `VortexFile::footer` in the feature-gated local metadata/footer fixture path.
 - `row_count`/`dtype` metadata summaries in the same local fixture path.
 
 Deferred contract surfaces:
-- Scan/read-start, encoded data traversal, object-store, and write surfaces remain deferred while encoded-read execution remains blocked by default.
+- `VortexFile::scan`, `ScanBuilder::into_array_stream`, `ScanBuilder::into_array_iter`, `LayoutReader::projection_evaluation`, `LayoutReader::filter_evaluation`, `VortexFile::data_source`, object-store, and write surfaces remain deferred or forbidden while encoded-read execution remains blocked by default.
 
 APIs that would start data reads:
 - Scan/start-read APIs are explicitly classified under data-read and marked forbidden for now.
@@ -679,6 +679,14 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - Public API blockers from the probe are translated into count-readiness blockers before any execution helper is allowed to see `EncodedDataPathReady`.
 - This pass intentionally performs no scan/read-start invocation, no encoded data traversal, no row reads, no decode/materialization, no `Arrow` conversion, no object-store IO, no writes, and no fallback execution.
 - CG-2.1e actual encoded-data count execution remains blocked until the public Vortex data path is approved as no-decode/no-materialization safe.
+
+## CG-2.1e.2 exact Vortex data-access API classification
+
+- The encoded-read public API boundary now lists exact reviewed Vortex surfaces instead of only generic scan/read-start placeholders.
+- Compile-checked symbols include `VortexFile::layout_reader`, `LayoutReader::row_count`, `VortexFile::scan`, `ScanBuilder::into_array_stream`, `LayoutReader::projection_evaluation`, `LayoutReader::filter_evaluation`, and `VortexFile::data_source`.
+- `LayoutReader::row_count` is metadata-like layout access and does not prove encoded-data traversal.
+- `VortexFile::scan`, `ScanBuilder::into_array_stream`, `ScanBuilder::into_array_iter`, `LayoutReader::projection_evaluation`, `LayoutReader::filter_evaluation`, and `VortexFile::data_source` remain blocked or deferred for execution because their no-decode/no-materialization semantics are not yet approved for ShardLoom-native count.
+- Execution usability remains zero; no scan/read-start, array stream/evaluation call, encoded-data traversal, row read, decode/materialization, `Arrow` conversion, object-store IO, write, or fallback execution is introduced.
 
 
 ## CG-2.2a filtered-count readiness core contract

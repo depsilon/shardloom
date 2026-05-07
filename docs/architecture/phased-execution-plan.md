@@ -10,22 +10,22 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [x] Session label: CG-2.1e.1 encoded-data count API-gated blocker
-  - Current cleanup/implementation step: Gate encoded-data `CountAll` readiness through the encoded-read probe so public API blockers remain explicit before actual execution.
+- [x] Session label: CG-2.1e.2 exact Vortex data-access API classification
+  - Current cleanup/implementation step: Classify the exact upstream Vortex public data-access-adjacent APIs before approving any encoded-data `CountAll` execution path.
   - Primary files:
-    - `shardloom-vortex/src/count_readiness.rs`
+    - `shardloom-vortex/src/encoded_read_api.rs`
     - `shardloom-vortex/src/lib.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
     - `docs/architecture/vortex-public-api-inventory.md`
     - `docs/architecture/vortex-adapter-integration-plan.md`
-  - Scope: Report-only/API-gated encoded-data count readiness; actual encoded count execution remains deferred until a safe public Vortex data path is approved.
-  - Explicitly not included: Scan/read-start API invocation, encoded-data traversal, row reads, actual encoded count execution, filtered count execution, projection execution, decode/materialization, Arrow conversion, object-store IO, writes, fallback execution, SQL/API/adapter expansion, or superiority claims.
+  - Scope: Compile-checked/API-inventory classification for `VortexFile::layout_reader`, `LayoutReader::row_count`, `VortexFile::scan`, `ScanBuilder::into_array_stream`, `ScanBuilder::into_array_iter`, `LayoutReader::projection_evaluation`, `LayoutReader::filter_evaluation`, and `VortexFile::data_source`.
+  - Explicitly not included: Calling scan/read-start APIs, calling array-stream/evaluation APIs, encoded-data traversal, row reads, actual encoded count execution, filtered count execution, projection execution, decode/materialization, Arrow conversion, object-store IO, writes, fallback execution, SQL/API/adapter expansion, or superiority claims.
   - Validation required:
     - `cargo fmt --all -- --check`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: Encoded-data count readiness can now consume `VortexEncodedReadProbeReport`; blocked public scan/data-read/Arrow-risk API surfaces prevent `EncodedDataPathReady` from being emitted and produce deterministic count-readiness blockers without executing data access.
+  - Completion notes: Exact public Vortex data-access-adjacent symbols are now listed in the encoded-read API boundary; layout row-count remains metadata-like and scan/array-stream/evaluation/data-source APIs remain blocked or deferred with execution usability fixed at zero.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -360,6 +360,13 @@
     - Count readiness can consume `VortexEncodedReadProbeReport`.
     - Public scan/data-read/decode/materialization/Arrow/object-store/write blockers are reflected as count-readiness blockers.
     - No scan/read-start invocation, encoded-data traversal, row read, decode/materialization, Arrow conversion, object-store IO, write, or fallback execution is added.
+- [x] CG-2.1e.2 exact Vortex data-access API classification
+  - Why: replace generic scan/read-start blocker language with compile-checked public Vortex surface names before considering an execution path.
+  - Acceptance:
+    - The encoded-read public API boundary lists the exact `VortexFile`, `LayoutReader`, and `ScanBuilder` surfaces reviewed.
+    - `LayoutReader::row_count` is classified as metadata-like and not execution-usable.
+    - Scan, array-stream, evaluation, and data-source surfaces remain blocked or deferred with deterministic risks.
+    - No scan/read-start invocation, encoded-data traversal, row read, decode/materialization, Arrow conversion, object-store IO, write, or fallback execution is added.
 - [ ] CG-2.1e encoded-data count execution path (planned)
   - Why: turn the approved encoded-data count candidate into actual native encoded execution after the public Vortex data path is approved.
   - Acceptance:
@@ -395,6 +402,7 @@ Status legend:
   - [x] CG-2.1c metadata-footer `CountAll` execution bridge over checked-in Vortex fixture metadata
   - [x] CG-2.1d encoded-data `CountAll` candidate bridge to deferred local execution
   - [x] CG-2.1e.1 encoded-data `CountAll` API-gated blocker through encoded-read probe
+  - [x] CG-2.1e.2 exact Vortex data-access API classification
   - [~] CG-2.1+ non-metadata primitive execution remains deferred pending actual encoded-data execution
   - [x] CG-2.3b projection readiness CLI integration
   - Required capabilities for completion:
@@ -549,6 +557,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1c metadata-footer `CountAll` execution bridge over actual Vortex fixture metadata
 - [x] CG-2.1d encoded-data `CountAll` candidate bridge to deferred local execution
 - [x] CG-2.1e.1 encoded-data `CountAll` API-gated blocker through encoded-read probe
+- [x] CG-2.1e.2 exact Vortex data-access API classification
 - [x] CG-2.2a filtered-count readiness core contract
 - [x] CG-2.2a.1 filtered-count blocker precision hardening
 - [x] CG-2.2b filtered-count readiness CLI integration
@@ -718,6 +727,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1 metadata-footer count execution bridge consumes the local fixture footer summary.
 - [x] CG-2.1d encoded-data count candidate bridge can defer approved count candidates to `NeedsEncodedRead`.
 - [x] CG-2.1e.1 encoded-data count readiness is now gated by the encoded-read probe and preserves public API blockers.
+- [x] CG-2.1e.2 exact Vortex data-access API classification keeps scan/stream/evaluation surfaces blocked for execution.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [~] CG-3 real Vortex payload writes remain deferred; placeholder artifact paths are not completion evidence.
 
