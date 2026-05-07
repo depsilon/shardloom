@@ -87,11 +87,15 @@ Required fields:
 
 #### metadata_only
 - Meaning: answerability/proof boundary from metadata only.
-- Allowed transitions: `pruned`, `unsupported`.
+- Allowed transitions: `pruned`, `vortex_encoded`, `foreign_encoded`, `unsupported`.
 - Forbidden assumptions: no data bytes imply no semantic loss.
 - Implies decode: no.
 - Implies row materialization: no.
 - Can remain encoded: yes.
+- Clarification: `metadata_only` is a proof/answerability boundary, not an execution terminal state.
+- If metadata is sufficient, planner flow may transition to `pruned` or return a metadata-only result.
+- If metadata is insufficient but the source remains supported, planning may continue to `vortex_encoded` or `foreign_encoded`.
+- `unsupported` is reserved for capability-proof failure, not merely for metadata insufficiency.
 
 #### pruned
 - Meaning: work eliminated by statistics/metadata proof.
@@ -167,6 +171,8 @@ Required fields:
 
 ### Explicit transition examples
 - `metadata_only -> pruned`
+- `metadata_only -> vortex_encoded`
+- `metadata_only -> foreign_encoded`
 - `vortex_encoded -> selection_vector_encoded`
 - `foreign_encoded -> partially_decoded`
 - `partially_decoded -> decoded_columnar`

@@ -1,3 +1,9 @@
+## R5.3.1 RFC consistency fixes (docs-only)
+
+- RFC 0031 transition semantics corrected so metadata-first planning can continue from `metadata_only` into encoded states when metadata is insufficient.
+- RFC 0032 claim evidence semantics corrected to distinguish emitted evidence fields from progressively required-pass fields.
+- Docs-only update; no runtime behavior, dependency, parser, execution, adapter, or fallback changes.
+
 # RFC Phase Traceability
 
 ## Purpose
