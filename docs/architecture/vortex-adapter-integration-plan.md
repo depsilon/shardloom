@@ -789,6 +789,13 @@ CG-2.1c metadata-footer `CountAll` execution is wired; non-metadata execution re
 - The bridge is still planning/defer only and does not execute scans, read encoded data or rows, decode, materialize, convert to `Arrow`, perform object-store IO, write data, or attempt fallback execution.
 - Adapter work remains deferred until the native encoded data path is approved; this PR only preserves the candidate boundary needed by later adapter/source paths.
 
+## CG-2.1e.1 encoded-data CountAll API gate
+
+- Encoded-read probe output now gates encoded-data count readiness before any encoded count execution can be considered.
+- `VortexEncodedReadProbeReport` blockers are translated into count-readiness blockers so scan/data-read/decode/materialization/Arrow/object-store/write risks remain visible at the count primitive boundary.
+- Current upstream public data-access paths remain blocked for actual encoded `CountAll` because they require scan/data-read or array-stream/evaluation surfaces that are not yet approved as no-decode/no-materialization safe.
+- This is still report/API-gate scope only: no scan/read-start invocation, encoded-data traversal, row read, decode/materialization, `Arrow` conversion, object-store IO, write, or fallback execution is introduced.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.

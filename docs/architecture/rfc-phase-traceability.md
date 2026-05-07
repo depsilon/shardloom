@@ -324,6 +324,15 @@ No fallback execution.
 - This bridge does not execute the encoded read, does not call scan/read-start APIs, does not traverse encoded data, does not read rows, does not decode/materialize values, does not convert to `Arrow`, does not perform object-store IO or writes, and does not attempt fallback execution.
 - CG-2 closeout still requires actual native encoded count execution plus filtered-count and projection execution over real Vortex data.
 
+## CG-2.1e.1 encoded-data CountAll API-gated blocker
+
+- Primary RFC linkage: RFC 0005 Vortex-Native File IO and Output Contract, RFC 0012 Diagnostics/Capabilities, RFC 0013 Streaming/Zero-Copy Boundary, RFC 0015 Correctness/testing, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
+- `count_readiness_request_from_encoded_read_probe_report` consumes `VortexEncodedReadProbeReport` so encoded-data count readiness is gated by the public encoded-read API boundary, not only scheduler/readiness candidates.
+- Current upstream public surfaces for data access remain blocked for actual count execution because they route through scan/data-read or array-stream/evaluation APIs that are not yet approved under ShardLoom's no-decode/no-materialization boundary.
+- API boundary blockers propagate into count readiness as deterministic object-store, scan-execution, decode, materialization, Arrow-default, or write blockers.
+- This pass does not execute encoded reads, call scan/read-start APIs, traverse encoded data, read rows, decode/materialize values, convert to `Arrow`, perform object-store IO or writes, or attempt fallback execution.
+- CG-2.1e actual encoded-data count execution remains planned and blocked until a safe public Vortex data path is approved.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.
