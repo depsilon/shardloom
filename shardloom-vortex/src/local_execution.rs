@@ -494,6 +494,25 @@ pub fn execute_vortex_local_query_primitive(
     VortexLocalExecutionReport::from_input(input)
 }
 
+/// Executes `CountAll` using the typed metadata summary carried by a metadata/footer invocation.
+///
+/// This bridge does not call scan/read-start APIs, read encoded data or rows,
+/// decode/materialize values, convert to `Arrow`, perform object-store IO,
+/// write data, or permit fallback execution.
+///
+/// # Errors
+/// Returns an error if primitive evaluation or analysis construction fails.
+pub fn execute_vortex_count_all_from_metadata_footer_invocation(
+    invocation: &crate::VortexMetadataAsyncInvocationReport,
+) -> Result<VortexLocalExecutionReport> {
+    execute_vortex_local_query_primitive(
+        VortexQueryPrimitiveRequest::count_all(
+            invocation.boundary_report.request.target_uri.clone(),
+        ),
+        invocation.metadata_summary_report.clone(),
+    )
+}
+
 pub fn vortex_local_execution_is_side_effect_free(report: &VortexLocalExecutionReport) -> bool {
     report.is_side_effect_free()
 }
@@ -605,5 +624,73 @@ mod tests {
     fn helper_exec_no_io() {
         let r = execute_vortex_local_query_primitive(count_request(), None).expect("ok");
         assert!(vortex_local_execution_is_side_effect_free(&r));
+    }
+
+    #[cfg(feature = "vortex-file-io")]
+    #[test]
+    fn metadata_footer_invocation_executes_count_all_from_fixture_footer() {
+        use vortex::VortexSessionDefault as _;
+        use vortex::io::runtime::BlockingRuntime as _;
+        use vortex::io::runtime::single::SingleThreadRuntime;
+        use vortex::io::session::RuntimeSessionExt as _;
+        use vortex::session::VortexSession;
+
+        let fixture_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
+            .join("metadata_footer_u64_20000.vortex");
+        let target_uri = DatasetUri::new(fixture_path.to_string_lossy().to_string()).expect("uri");
+        let fixture =
+            crate::VortexEncodedReadFixtureRef::new(fixture_path.to_string_lossy().to_string())
+                .expect("fixture ref");
+        let boundary = crate::plan_vortex_metadata_async_boundary(
+            crate::VortexMetadataAsyncBoundaryRequest::new(target_uri, fixture)
+                .feature_gate_enabled(true)
+                .local_fixture_ready(true)
+                .runtime_boundary_approved(true)
+                .async_session_allowed(true)
+                .metadata_footer_only_intent(true),
+        )
+        .expect("boundary");
+        assert!(boundary.boundary_ready());
+
+        let runtime = SingleThreadRuntime::default();
+        let session = VortexSession::default().with_handle(runtime.handle());
+        let invocation = runtime
+            .block_on(
+                crate::invoke_vortex_metadata_footer_probe_with_session_async(
+                    crate::VortexMetadataAsyncInvocationInput {
+                        boundary,
+                        session: &session,
+                    },
+                ),
+            )
+            .expect("invocation");
+
+        let report = execute_vortex_count_all_from_metadata_footer_invocation(&invocation)
+            .expect("local execution");
+
+        assert_eq!(report.status, VortexLocalExecutionStatus::MetadataExecuted);
+        assert_eq!(
+            report.value,
+            VortexLocalExecutionValue::QueryPrimitive(VortexQueryPrimitiveValue::Count(20000))
+        );
+        assert!(report.value.is_known());
+        assert!(report.is_side_effect_free());
+        assert!(!report.tasks_executed);
+        assert!(!report.data_read);
+        assert!(!report.data_decoded);
+        assert!(!report.data_materialized);
+        assert!(!report.object_store_io);
+        assert!(!report.write_io);
+        assert!(!report.fallback_execution_allowed);
+        assert_eq!(
+            report
+                .input
+                .metadata_summary
+                .as_ref()
+                .and_then(|summary| summary.summary.row_count),
+            Some(20000)
+        );
     }
 }

@@ -335,8 +335,8 @@ pub use local_engine::{
 pub use local_execution::{
     VortexLocalExecutionInput, VortexLocalExecutionMode, VortexLocalExecutionReport,
     VortexLocalExecutionStatus, VortexLocalExecutionStep, VortexLocalExecutionStepKind,
-    VortexLocalExecutionValue, execute_vortex_local_query_primitive,
-    vortex_local_execution_is_side_effect_free,
+    VortexLocalExecutionValue, execute_vortex_count_all_from_metadata_footer_invocation,
+    execute_vortex_local_query_primitive, vortex_local_execution_is_side_effect_free,
 };
 
 pub use metadata_summary::{

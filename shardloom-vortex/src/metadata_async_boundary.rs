@@ -7,7 +7,10 @@ use shardloom_core::{
 use crate::{
     VortexEncodedReadFixtureRef, VortexEncodedReadMetadataProbeReport,
     VortexEncodedReadMetadataProbeSignal, VortexEncodedReadMetadataProbeStatus,
+    VortexMetadataSummaryReport,
 };
+#[cfg(feature = "vortex-file-io")]
+use crate::{VortexFileMetadataSummary, VortexMetadataAvailability, VortexMetadataSummaryStatus};
 
 #[cfg(feature = "vortex-file-io")]
 type VortexOpenOptionsCompileProbe = vortex::file::VortexOpenOptions;
@@ -61,13 +64,13 @@ pub fn vortex_metadata_async_public_api_compile_probe_summary() -> &'static str 
         open_path_method,
     );
 
-    "confirmed public symbols: `vortex::file::VortexOpenOptions`, `vortex::file::OpenOptionsSessionExt`, `vortex::file::VortexFile`, `vortex::session::VortexSession`; confirmed method shape probes: `<VortexSession as OpenOptionsSessionExt>::open_options(&self) -> VortexOpenOptions`, `VortexOpenOptions::with_initial_read_size(self, usize) -> VortexOpenOptions`, `VortexOpenOptions::with_some_file_size(self, Option<u64>) -> VortexOpenOptions`, `VortexFile::footer(&self) -> &Footer`, `VortexOpenOptions::open_path(self, impl AsRef<Path>) -> impl Future<Output = VortexResult<VortexFile>>`; caller-provided `VortexSession` accepted by `ShardLoom` contract; invocation remains deferred because opening performs IO and requires approved async execution policy; `shardloom-vortex` does not start a runtime/executor in production"
+    "confirmed public symbols: `vortex::file::VortexOpenOptions`, `vortex::file::OpenOptionsSessionExt`, `vortex::file::VortexFile`, `vortex::session::VortexSession`; confirmed method shape probes: `<VortexSession as OpenOptionsSessionExt>::open_options(&self) -> VortexOpenOptions`, `VortexOpenOptions::with_initial_read_size(self, usize) -> VortexOpenOptions`, `VortexOpenOptions::with_some_file_size(self, Option<u64>) -> VortexOpenOptions`, `VortexFile::footer(&self) -> &Footer`, `VortexOpenOptions::open_path(self, impl AsRef<Path>) -> impl Future<Output = VortexResult<VortexFile>>`; caller-provided `VortexSession` accepted by `ShardLoom` contract; the approved invocation path is feature-gated, local fixture only, and uses caller-owned async/session context; `shardloom-vortex` does not start a runtime/executor in production"
 }
 
 #[cfg(feature = "vortex-file-io")]
 #[must_use]
 pub fn vortex_metadata_async_harness_blocker_summary() -> &'static str {
-    "harness/test-environment blocker: `futures-executor` is present transitively via the `vortex-file-io` graph, but no repository-local `.vortex` fixture was found and no public no-IO `Footer` construction route is yet confirmed for metadata/footer-only harness execution; this does not describe every `BoundaryReady` invocation"
+    "harness policy: feature-gated tests may use the checked-in local `.vortex` fixture and caller-owned async/session context for metadata/footer-only invocation; scan/read-start, encoded data traversal, row reads, decode/materialization, Arrow conversion, object-store IO, writes, and fallback execution remain out of scope"
 }
 
 #[cfg(feature = "vortex-file-io")]
@@ -693,12 +696,13 @@ impl VortexMetadataAsyncInvocationEffect {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct VortexMetadataAsyncInvocationReport {
     pub status: VortexMetadataAsyncInvocationStatus,
     pub boundary_report: VortexMetadataAsyncBoundaryReport,
     pub effects_performed: Vec<VortexMetadataAsyncInvocationEffect>,
     pub metadata_summary: Option<String>,
+    pub metadata_summary_report: Option<VortexMetadataSummaryReport>,
     pub footer_summary: Option<String>,
     pub diagnostics: Vec<Diagnostic>,
 }
@@ -824,6 +828,7 @@ pub async fn invoke_vortex_metadata_footer_probe_async(
             boundary_report: boundary,
             effects_performed: Vec::new(),
             metadata_summary: None,
+            metadata_summary_report: None,
             footer_summary: None,
             diagnostics: vec![Diagnostic::unsupported(
                 DiagnosticCode::NotImplemented,
@@ -839,6 +844,7 @@ pub async fn invoke_vortex_metadata_footer_probe_async(
         boundary_report: boundary,
         effects_performed: Vec::new(),
         metadata_summary: None,
+        metadata_summary_report: None,
         footer_summary: None,
         diagnostics: vec![Diagnostic::unsupported(
             DiagnosticCode::NotImplemented,
@@ -863,6 +869,7 @@ pub async fn invoke_vortex_metadata_footer_probe_with_session_async(
             boundary_report: input.boundary,
             effects_performed: Vec::new(),
             metadata_summary: None,
+            metadata_summary_report: None,
             footer_summary: None,
             diagnostics: vec![Diagnostic::unsupported(
                 DiagnosticCode::NotImplemented,
@@ -877,6 +884,8 @@ pub async fn invoke_vortex_metadata_footer_probe_with_session_async(
     match input.session.open_options().open_path(&fixture_path).await {
         Ok(file) => {
             let footer = file.footer();
+            let metadata_summary_report =
+                opened_footer_metadata_summary(&input.boundary.request.target_uri, &file, footer);
             Ok(VortexMetadataAsyncInvocationReport {
                 status: VortexMetadataAsyncInvocationStatus::MetadataFooterOpened,
                 boundary_report: input.boundary,
@@ -889,6 +898,7 @@ pub async fn invoke_vortex_metadata_footer_probe_with_session_async(
                     file.row_count(),
                     file.dtype()
                 )),
+                metadata_summary_report: Some(metadata_summary_report),
                 footer_summary: Some(format!(
                     "row_count={} dtype={:?} segment_count={} statistics_available={} approx_footer_bytes={}",
                     footer.row_count(),
@@ -907,6 +917,7 @@ pub async fn invoke_vortex_metadata_footer_probe_with_session_async(
             boundary_report: input.boundary,
             effects_performed: Vec::new(),
             metadata_summary: None,
+            metadata_summary_report: None,
             footer_summary: None,
             diagnostics: vec![Diagnostic::invalid_input(
                 "metadata/footer async invocation failed",
@@ -929,6 +940,7 @@ pub async fn invoke_vortex_metadata_footer_probe_async(
             boundary_report: boundary,
             effects_performed: Vec::new(),
             metadata_summary: None,
+            metadata_summary_report: None,
             footer_summary: None,
             diagnostics: vec![Diagnostic::unsupported(
                 DiagnosticCode::NotImplemented,
@@ -944,6 +956,7 @@ pub async fn invoke_vortex_metadata_footer_probe_async(
         boundary_report: boundary,
         effects_performed: Vec::new(),
         metadata_summary: None,
+        metadata_summary_report: None,
         footer_summary: None,
         diagnostics: vec![Diagnostic::unsupported(
             DiagnosticCode::NotImplemented,
@@ -1020,6 +1033,41 @@ pub fn metadata_async_boundary_request_from_metadata_probe_report(
 fn local_fixture_path(path: &str) -> std::path::PathBuf {
     path.strip_prefix("file://")
         .map_or_else(|| std::path::PathBuf::from(path), std::path::PathBuf::from)
+}
+
+#[cfg(feature = "vortex-file-io")]
+fn opened_footer_metadata_summary(
+    target_uri: &DatasetUri,
+    file: &vortex::file::VortexFile,
+    footer: &vortex::file::Footer,
+) -> VortexMetadataSummaryReport {
+    let statistics_available = if footer.statistics().is_some() {
+        VortexMetadataAvailability::Available
+    } else {
+        VortexMetadataAvailability::Unavailable
+    };
+    let encoding_layout_available = if footer.segment_map().is_empty() {
+        VortexMetadataAvailability::Unknown
+    } else {
+        VortexMetadataAvailability::PartiallyAvailable
+    };
+    VortexMetadataSummaryReport {
+        status: VortexMetadataSummaryStatus::Summarized,
+        summary: VortexFileMetadataSummary {
+            uri: Some(target_uri.clone()),
+            metadata_available: VortexMetadataAvailability::Available,
+            schema_available: VortexMetadataAvailability::Available,
+            statistics_available,
+            encoding_layout_available,
+            row_count: Some(file.row_count()),
+            segments: Vec::new(),
+            data_materialized: false,
+            object_store_io: false,
+            write_io: false,
+            fallback_execution_allowed: false,
+        },
+        diagnostics: Vec::new(),
+    }
 }
 
 /// # Errors
@@ -1114,6 +1162,7 @@ mod tests {
             boundary_report: plan_vortex_metadata_async_boundary(mk_req()).unwrap(),
             effects_performed: Vec::new(),
             metadata_summary: None,
+            metadata_summary_report: None,
             footer_summary: None,
             diagnostics: Vec::new(),
         };
@@ -1254,6 +1303,19 @@ mod tests {
                 .metadata_summary
                 .as_deref()
                 .is_some_and(|summary| summary.contains("row_count=20000"))
+        );
+        assert_eq!(
+            report
+                .metadata_summary_report
+                .as_ref()
+                .and_then(|summary| summary.summary.row_count),
+            Some(20000)
+        );
+        assert!(
+            report
+                .metadata_summary_report
+                .as_ref()
+                .is_some_and(crate::metadata_summary_is_plan_only)
         );
         assert!(
             report

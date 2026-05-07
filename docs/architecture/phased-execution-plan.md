@@ -10,23 +10,26 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [x] Session label: CG-1.2d.9 local metadata/footer invocation path
-  - Current cleanup/implementation step: Resume CG implementation with a narrow feature-gated local `Vortex` metadata/footer invocation path.
+- [x] Session label: CG-2.1c metadata-footer count bridge
+  - Current cleanup/implementation step: Wire the feature-gated local metadata/footer invocation into typed metadata summary and metadata-only `CountAll` execution over the checked-in `.vortex` fixture.
   - Primary files:
     - `shardloom-vortex/src/metadata_async_boundary.rs`
-    - `shardloom-vortex/tests/fixtures/metadata_footer_u64_20000.vortex`
-    - `shardloom-vortex/tests/fixtures/README.md`
+    - `shardloom-vortex/src/query_primitives.rs`
+    - `shardloom-vortex/src/count_readiness.rs`
+    - `shardloom-vortex/src/local_execution.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `shardloom-contract-tests/tests/plan_only_invariants.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
     - `docs/architecture/vortex-public-api-inventory.md`
     - `docs/architecture/vortex-adapter-integration-plan.md`
-  - Scope: Feature-gated local metadata/footer open through the caller-provided async/session helper plus fixture provenance.
-  - Explicitly not included: Scan/read-start APIs, encoded-data traversal, row reads, decode/materialization, Arrow conversion, object-store IO, writes, fallback execution, SQL/API/adapter expansion, or superiority claims.
+  - Scope: Typed metadata summary from the local footer invocation plus metadata-only `CountAll` local execution using that summary.
+  - Explicitly not included: Scan/read-start APIs, encoded-data traversal, row reads, filtered count execution, projection execution, decode/materialization, Arrow conversion, object-store IO, writes, fallback execution, SQL/API/adapter expansion, or superiority claims.
   - Validation required:
     - `cargo fmt --all -- --check`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: `vortex-file-io` builds can now open an approved local `.vortex` fixture through `invoke_vortex_metadata_footer_probe_with_session_async`, inspect `footer` metadata, and emit explicit metadata/footer effects without scan/read-start/encoded-data traversal/row/decode/write/fallback behavior.
+  - Completion notes: `vortex-file-io` builds can now carry a typed metadata summary from the approved local footer invocation into `execute_vortex_count_all_from_metadata_footer_invocation` and return `Count(20000)` from the checked-in fixture without scan/read-start/encoded-data traversal/row/decode/write/fallback behavior.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -345,10 +348,15 @@
     - Feature-gated only.
     - No runtime fallback/delegation.
     - Local metadata/footer open is caller-session driven and does not call scan/read-start, decode/materialization, object-store IO, writes, or fallback execution.
-- [ ] CG-2.1 actual count primitive over actual Vortex data (planned)
+- [x] CG-2.1c metadata-footer `CountAll` primitive over actual Vortex fixture metadata
   - Why: progress from report-only readiness to real primitive execution.
   - Acceptance:
     - Explicit gating and deterministic unsupported diagnostics where not ready.
+    - Count result comes from typed metadata/footer summary, not scan/read-start or encoded data traversal.
+- [ ] CG-2.1d encoded-data count candidate path (planned)
+  - Why: progress non-metadata count candidates after metadata-footer count is wired.
+  - Acceptance:
+    - Explicit encoded-data boundary approval before any encoded data traversal.
 
 ## Competitive Engine Gates CG-1 through CG-20
 
@@ -377,7 +385,8 @@ Status legend:
     - filtered count
     - projection readiness
     - predicate/filter primitive readiness
-  - [~] CG-2.1+ actual primitive execution remains deferred pending query wiring and encoded-data-path readiness
+  - [x] CG-2.1c metadata-footer `CountAll` execution bridge over checked-in Vortex fixture metadata
+  - [~] CG-2.1+ non-metadata primitive execution remains deferred pending encoded-data-path readiness
   - [x] CG-2.3b projection readiness CLI integration
   - Required capabilities for completion:
     - encoded-first selection vectors
@@ -528,12 +537,13 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1 count readiness planning contract (report-only)
 - [x] CG-2.1a count readiness semantic hardening
 - [x] CG-2.1b count readiness CLI integration
+- [x] CG-2.1c metadata-footer `CountAll` execution bridge over actual Vortex fixture metadata
 - [x] CG-2.2a filtered-count readiness core contract
 - [x] CG-2.2a.1 filtered-count blocker precision hardening
 - [x] CG-2.2b filtered-count readiness CLI integration
 - [x] CG-2.3a projection readiness semantic hardening
 - [x] CG-2.3b projection readiness CLI integration
-- [~] CG-2.1+ actual query primitive execution remains deferred pending query wiring and encoded-data-path readiness
+- [~] CG-2.1+ non-metadata query primitive execution remains deferred pending encoded-data-path readiness
 - [ ] CG-2 closeout requires real count/filtered-count/projection execution over actual Vortex data
 
 ### CG-3 detailed checklist
@@ -694,7 +704,8 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 
 ## Deferred / Blocked Work
 - [x] CG-1.2 metadata/footer execution path has a feature-gated local fixture invocation helper.
-- [~] CG-2.1 actual execution remains blocked pending query wiring and encoded data path readiness.
+- [x] CG-2.1 metadata-footer count execution bridge consumes the local fixture footer summary.
+- [~] CG-2.1+ non-metadata execution remains blocked pending encoded data path readiness.
 - [~] CG-3 real Vortex payload writes remain deferred; placeholder artifact paths are not completion evidence.
 
 ## Guardrails

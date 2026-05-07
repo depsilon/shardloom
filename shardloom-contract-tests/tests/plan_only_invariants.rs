@@ -183,6 +183,7 @@ fn query_readiness_surfaces_do_not_materialize_or_arrow_convert() {
         boundary_report: boundary.clone(),
         effects_performed: vec![],
         metadata_summary: None,
+        metadata_summary_report: None,
         footer_summary: None,
         diagnostics: vec![],
     };
