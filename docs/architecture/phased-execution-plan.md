@@ -1434,7 +1434,7 @@ Entry criteria for the next implementation phase:
 
 - PR #214 / CG-2.3a projection readiness semantic hardening: complete.
 - R5.1 systems learning map and RFC contract vocabulary pass: complete.
-- CG-2.3b projection CLI is temporarily deferred while CG-19/CG-20 roadmap revision lands.
+- CG-2.3b projection CLI defer-until-R5.1 condition is cleared; the remaining deferral is phase-priority based (R5 docs/RFC queue first) rather than blocked by R5.1.
 - Added docs/RFC vocabulary contracts for:
   - `PushdownProof`
   - `LoweringTrace`
@@ -1451,9 +1451,16 @@ Entry criteria for the next implementation phase:
 
 
 
-### R5.2 — Competitive Track extension to CG-19/CG-20 (complete)
+### R5.2 (complete) — Competitive Track extension to CG-19/CG-20 (complete)
 - extend Competitive Engine Track from CG-1..CG-18 to CG-1..CG-20
 - add CG-19 Universal Native I/O Envelope roadmap contract
 - add CG-20 World-Class SQL, Operator, Function, Adapter, and User Capability Surface roadmap contract
 - add RFC 0031 and RFC 0032 stubs
 - docs/RFC-only scope: no dependencies, no runtime behavior, no execution, no SQL parser, no adapter implementation, no fallback execution
+
+
+### R5.3 — capability coverage and certification deepening (current)
+- Deepen RFC 0031 and RFC 0032 contract detail only.
+- Keep this pass docs/RFC-only.
+- No runtime behavior, parser, adapter implementation, dependency additions, or fallback paths added.
+- CG-2.3b projection CLI defer-until-RFC-0031/0032 condition is now satisfied by R5.3; status remains deferred by sequencing priority (resume after current docs/refactor queue or explicit override).

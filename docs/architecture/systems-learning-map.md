@@ -147,3 +147,10 @@ ShardLoom-native vocabulary:
   - migration analyzers
   - capability discovery
 - No Spark/DataFusion dependency and no execution delegation are permitted.
+
+
+## R5.3 capability-baseline clarifications
+- Spark and DataFusion are capability baselines for comparison and learning only, not runtime fallback engines.
+- CG-20 covers capability breadth across SQL, operators, functions, adapters, semantics, migration, and user-facing certification; it is not SQL-only.
+- Adapter certification and migration reports are the native ShardLoom translation of capability lessons.
+- External engines remain conceptual/baseline-only references.

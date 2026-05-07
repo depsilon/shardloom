@@ -329,3 +329,10 @@ No fallback execution.
 | --- | --- | --- | --- |
 | RFC 0031 | CG-19 | RFC 0013; RFC 0008; RFC 0012; RFC 0016; RFC 0018 | docs/RFC-only in this pass; no runtime behavior or dependency changes. |
 | RFC 0032 | CG-20 | RFC 0011; RFC 0012; RFC 0015; RFC 0021; RFC 0022; RFC 0023; RFC 0029; RFC 0030 | docs/RFC-only in this pass; no runtime behavior or dependency changes. |
+
+
+## R5.3 — capability coverage and certification deepening
+- Scope: docs/RFC-only deepening pass.
+- RFC 0031 deeper contracts map primarily to CG-19, with related trace links to RFC 0008, RFC 0012, RFC 0013, RFC 0016, and RFC 0018.
+- RFC 0032 deeper contracts map primarily to CG-20, with related trace links to RFC 0011, RFC 0012, RFC 0015, RFC 0021, RFC 0022, RFC 0023, RFC 0029, and RFC 0030.
+- This phase adds no runtime/parser/adapter/dependency/fallback behavior.
