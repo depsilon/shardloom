@@ -733,3 +733,9 @@ The output payload artifact remains a local placeholder contract artifact, not a
 - Metadata footer readiness is effect-driven and not inferred from boundary readiness.
 - This update is report-only and does not perform scan/read-start, encoded reads, row reads, decode/materialization, Arrow conversion, object-store IO, writes, or fallback execution.
 - CLI surface for direct query primitive plan command is deferred to CG-2.0c.
+
+## CG-2.0c query primitive plan CLI integration
+- Adds `shardloom vortex-query-primitive-plan <primitive> <dataset_uri> [flags] [--format text|json]` as a report-only/readiness-only planning command.
+- Command constructs `VortexQueryPrimitiveRequest` and calls `plan_vortex_query_primitive` only; it does not execute query primitives.
+- Command does not call scan/read-start APIs, does not read encoded data or rows, does not decode/materialize/Arrow-convert, does not perform object-store IO, does not write output payloads, and does not allow fallback execution.
+- CG-2.1 actual count/query execution remains blocked until metadata/footer and encoded-data path readiness are both available.

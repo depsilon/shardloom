@@ -52,31 +52,31 @@ use shardloom_vortex::{
     VortexManifestFinalizationRequest, VortexManifestFinalizationSignal, VortexMetadataOpenRequest,
     VortexMetadataProbeReport, VortexOutputPayloadContentDescriptor, VortexOutputPayloadFileName,
     VortexOutputPayloadFileRef, VortexOutputPayloadReport, VortexOutputPayloadRequest,
-    VortexOutputPayloadSignal, VortexReadPlan, VortexStagedManifestDraftContent,
-    VortexStagedManifestFileEffect, VortexStagedManifestFileRef, VortexStagedManifestFileReport,
-    VortexStagedManifestFileRequest, VortexStagedManifestFileSignal,
-    VortexStagedManifestFileWriteEffect, VortexStagedManifestFileWriteOption,
-    VortexStagedManifestFileWriteRequest, VortexStagedManifestFileWriteSignal,
-    VortexStagedMarkerOption, VortexStagedMarkerRequest, VortexStagedWorkspaceId,
-    VortexStagedWorkspacePath, VortexStagedWorkspaceSetupOption, VortexStagedWorkspaceSetupRequest,
-    VortexStatisticsMappingReport, VortexWriteIntentReport, VortexWriteIntentRequest,
-    VortexWriteIntentSignal, VortexWriteOptions, VortexWritePlan, build_vortex_runtime_task_graph,
-    commit_marker_write_request_from_plan, evaluate_vortex_encoded_read_readiness,
-    evaluate_vortex_execution_readiness, evaluate_vortex_query_primitive,
-    execute_vortex_bounded_local_query, execute_vortex_encoded_read_contract,
-    execute_vortex_encoded_read_spike, execute_vortex_local_query_primitive,
-    execute_vortex_metadata_only, finalized_manifest_artifact_write_request_from_plan,
-    metadata_planning_is_side_effect_free, metadata_pruning_is_side_effect_free,
-    metadata_summary_is_plan_only, open_vortex_metadata_only,
+    VortexOutputPayloadSignal, VortexQueryPrimitiveSignal, VortexReadPlan,
+    VortexStagedManifestDraftContent, VortexStagedManifestFileEffect, VortexStagedManifestFileRef,
+    VortexStagedManifestFileReport, VortexStagedManifestFileRequest,
+    VortexStagedManifestFileSignal, VortexStagedManifestFileWriteEffect,
+    VortexStagedManifestFileWriteOption, VortexStagedManifestFileWriteRequest,
+    VortexStagedManifestFileWriteSignal, VortexStagedMarkerOption, VortexStagedMarkerRequest,
+    VortexStagedWorkspaceId, VortexStagedWorkspacePath, VortexStagedWorkspaceSetupOption,
+    VortexStagedWorkspaceSetupRequest, VortexStatisticsMappingReport, VortexWriteIntentReport,
+    VortexWriteIntentRequest, VortexWriteIntentSignal, VortexWriteOptions, VortexWritePlan,
+    build_vortex_runtime_task_graph, commit_marker_write_request_from_plan,
+    evaluate_vortex_encoded_read_readiness, evaluate_vortex_execution_readiness,
+    evaluate_vortex_query_primitive, execute_vortex_bounded_local_query,
+    execute_vortex_encoded_read_contract, execute_vortex_encoded_read_spike,
+    execute_vortex_local_query_primitive, execute_vortex_metadata_only,
+    finalized_manifest_artifact_write_request_from_plan, metadata_planning_is_side_effect_free,
+    metadata_pruning_is_side_effect_free, metadata_summary_is_plan_only, open_vortex_metadata_only,
     output_payload_artifact_write_request_from_plan, parse_vortex_local_engine_primitive,
     plan_from_vortex_metadata_summary, plan_native_vortex_universal_input,
     plan_vortex_commit_intent, plan_vortex_commit_marker, plan_vortex_commit_protocol,
     plan_vortex_encoded_read_boundary, plan_vortex_encoded_read_probe,
     plan_vortex_manifest_finalization, plan_vortex_memory_safety, plan_vortex_metadata_pruning,
-    plan_vortex_output_payload, plan_vortex_read_from_universal_input, plan_vortex_scheduler_queue,
-    plan_vortex_staged_manifest_file, plan_vortex_write_intent, probe_vortex_encoded_read_metadata,
-    probe_vortex_metadata_only, run_vortex_local_engine, setup_vortex_staged_workspace,
-    size_vortex_runtime_task_graph, summarize_vortex_metadata_probe,
+    plan_vortex_output_payload, plan_vortex_query_primitive, plan_vortex_read_from_universal_input,
+    plan_vortex_scheduler_queue, plan_vortex_staged_manifest_file, plan_vortex_write_intent,
+    probe_vortex_encoded_read_metadata, probe_vortex_metadata_only, run_vortex_local_engine,
+    setup_vortex_staged_workspace, size_vortex_runtime_task_graph, summarize_vortex_metadata_probe,
     vortex_encoded_read_executor_feature_enabled, vortex_encoded_read_public_api_boundary,
     vortex_encoded_read_spike_feature_enabled, vortex_file_io_feature_enabled,
     vortex_metadata_executor_feature_enabled, write_vortex_commit_marker,
@@ -97,7 +97,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -7841,6 +7841,186 @@ fn run(args: Vec<String>) -> ExitCode {
                 ExitCode::SUCCESS
             }
         }
+        Some("vortex-query-primitive-plan") => {
+            let Some(primitive_arg) = args.next() else {
+                return emit_error(
+                    "vortex-query-primitive-plan",
+                    format,
+                    "missing primitive",
+                    &ShardLoomError::InvalidOperation(
+                        "missing required argument: <primitive>".to_string(),
+                    ),
+                );
+            };
+            let Some(uri_arg) = args.next() else {
+                return emit_error(
+                    "vortex-query-primitive-plan",
+                    format,
+                    "missing dataset uri",
+                    &ShardLoomError::InvalidOperation(
+                        "missing required argument: <dataset_uri>".to_string(),
+                    ),
+                );
+            };
+            let primitive = match primitive_arg.as_str() {
+                "count" => shardloom_vortex::VortexQueryPrimitiveBoundaryKind::Count,
+                "filtered-count" | "filtered_count" => {
+                    shardloom_vortex::VortexQueryPrimitiveBoundaryKind::FilteredCount
+                }
+                "projection" => shardloom_vortex::VortexQueryPrimitiveBoundaryKind::Projection,
+                "predicate-filter" | "predicate_filter" => {
+                    shardloom_vortex::VortexQueryPrimitiveBoundaryKind::PredicateFilter
+                }
+                _ => {
+                    return emit_error(
+                        "vortex-query-primitive-plan",
+                        format,
+                        "invalid primitive",
+                        &ShardLoomError::InvalidOperation(format!(
+                            "invalid primitive: {primitive_arg}"
+                        )),
+                    );
+                }
+            };
+            let uri = match DatasetUri::new(uri_arg) {
+                Ok(uri) => uri,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-query-primitive-plan",
+                        format,
+                        "invalid dataset uri",
+                        &error,
+                    );
+                }
+            };
+            let mut request =
+                shardloom_vortex::VortexQueryPrimitiveBoundaryRequest::new(uri, primitive);
+            for token in args {
+                match token.as_str() {
+                    "--feature-gate" => {
+                        request.add_signal(VortexQueryPrimitiveSignal::FeatureGateEnabled);
+                    }
+                    "--metadata-footer-ready" => {
+                        request.add_signal(VortexQueryPrimitiveSignal::MetadataFooterReady);
+                    }
+                    "--encoded-data-path-ready" => {
+                        request.add_signal(VortexQueryPrimitiveSignal::EncodedDataPathReady);
+                    }
+                    "--predicate-provided" => {
+                        request.add_signal(VortexQueryPrimitiveSignal::PredicateProvided);
+                    }
+                    "--projection-provided" => {
+                        request.add_signal(VortexQueryPrimitiveSignal::ProjectionProvided);
+                    }
+                    "--predicate-unsupported" => {
+                        request.add_signal(VortexQueryPrimitiveSignal::PredicateUnsupported);
+                    }
+                    "--object-store-target" => {
+                        request.add_signal(VortexQueryPrimitiveSignal::ObjectStoreTarget);
+                    }
+                    "--decode-risk" => request.add_signal(VortexQueryPrimitiveSignal::DecodeRisk),
+                    "--materialization-risk" => {
+                        request.add_signal(VortexQueryPrimitiveSignal::MaterializationRisk);
+                    }
+                    "--arrow-default-risk" => {
+                        request.add_signal(VortexQueryPrimitiveSignal::ArrowDefaultRisk);
+                    }
+                    "--write-risk" => request.add_signal(VortexQueryPrimitiveSignal::WriteRisk),
+                    "--scan-execution-risk" => {
+                        request.add_signal(VortexQueryPrimitiveSignal::ScanExecutionRisk);
+                    }
+                    "--fallback-policy-blocked" => {
+                        request.add_signal(VortexQueryPrimitiveSignal::FallbackPolicyBlocked);
+                    }
+                    "--format" | "json" | "text" => {}
+                    _ => {
+                        return emit_error(
+                            "vortex-query-primitive-plan",
+                            format,
+                            "unknown option",
+                            &ShardLoomError::InvalidOperation(format!("unknown option: {token}")),
+                        );
+                    }
+                }
+            }
+            let report = match plan_vortex_query_primitive(request) {
+                Ok(report) => report,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-query-primitive-plan",
+                        format,
+                        "query primitive planning failed",
+                        &error,
+                    );
+                }
+            };
+            emit(
+                "vortex-query-primitive-plan",
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "vortex query primitive planning report".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                vec![
+                    (
+                        "primitive".to_string(),
+                        report.request.primitive.as_str().to_string(),
+                    ),
+                    ("query_executed".to_string(), "false".to_string()),
+                    (
+                        "primitive_ready".to_string(),
+                        report.status.primitive_ready().to_string(),
+                    ),
+                    (
+                        "feature_gate_enabled".to_string(),
+                        report
+                            .request
+                            .signals
+                            .contains(&VortexQueryPrimitiveSignal::FeatureGateEnabled)
+                            .to_string(),
+                    ),
+                    (
+                        "metadata_footer_ready".to_string(),
+                        report
+                            .request
+                            .signals
+                            .contains(&VortexQueryPrimitiveSignal::MetadataFooterReady)
+                            .to_string(),
+                    ),
+                    (
+                        "encoded_data_path_ready".to_string(),
+                        report
+                            .request
+                            .signals
+                            .contains(&VortexQueryPrimitiveSignal::EncodedDataPathReady)
+                            .to_string(),
+                    ),
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    ("encoded_data_read".to_string(), "false".to_string()),
+                    ("row_read".to_string(), "false".to_string()),
+                    ("array_decoded".to_string(), "false".to_string()),
+                    ("values_materialized".to_string(), "false".to_string()),
+                    ("arrow_converted".to_string(), "false".to_string()),
+                    ("object_store_io".to_string(), "false".to_string()),
+                    ("data_written".to_string(), "false".to_string()),
+                    ("upstream_scan_called".to_string(), "false".to_string()),
+                    ("status".to_string(), report.status.as_str().to_string()),
+                    ("mode".to_string(), report.mode.as_str().to_string()),
+                ],
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
 
         Some("vortex-count") => {
             let Some(uri_arg) = args.next() else {
@@ -10316,8 +10496,32 @@ mod tests {
     fn cli_usage_lists_plan_probe_and_write_command_families() {
         let usage = cli_usage_line();
         assert!(usage.contains("|release-plan|"));
+        assert!(usage.contains("|vortex-query-primitive-plan|"));
         assert!(usage.contains("|vortex-encoded-read-metadata-probe|"));
         assert!(usage.contains("|vortex-output-payload-artifact-write|"));
+    }
+
+    #[test]
+    fn vortex_query_primitive_plan_unknown_primitive_returns_non_zero() {
+        let code = run(vec![
+            "vortex-query-primitive-plan".to_string(),
+            "bogus".to_string(),
+            "file:///tmp/example.vortex".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_query_primitive_plan_count_ready_flags_return_success_report_only() {
+        let code = run(vec![
+            "vortex-query-primitive-plan".to_string(),
+            "count".to_string(),
+            "file:///tmp/example.vortex".to_string(),
+            "--feature-gate".to_string(),
+            "--metadata-footer-ready".to_string(),
+            "--encoded-data-path-ready".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
     }
 
     #[test]
