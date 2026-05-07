@@ -655,3 +655,15 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - Keep CG-1 through CG-18 visible and current.
 - The command does not execute filtered count, does not evaluate predicates, does not call scan/read-start APIs, and performs no metadata/footer open, encoded-data read, row read, decode/materialization, `Arrow` conversion, object-store IO, writes, or fallback execution.
 - Filtered-count execution remains blocked until a real encoded predicate path or explicit metadata predicate proof execution capability exists; metadata-proof remains explicit and opt-in via `PredicateMetadataProofReady`.
+
+## CG-2.3a projection readiness semantic hardening
+
+- CG-2.2, CG-2.2a.1, and CG-2.2b are complete.
+- CG-2.3 is current in CG-2.3a semantic hardening; CG-2.3b `CLI` is next/deferred.
+- `ShardLoom` now provides projection-readiness planning/reporting contracts (`VortexProjectionReadinessRequest` and `VortexProjectionReadinessReport`) without projection execution.
+- Projection-readiness distinguishes metadata/schema projection candidates from encoded-column projection candidates:
+  - metadata/schema projection remains explicit and requires `ProjectionSupported` plus `MetadataFooterReady`;
+  - encoded-column projection candidates require `EncodedDataPathReady`.
+- The contract remains report-only: no scan/read-start, no projection application, no encoded-data reads, no row reads, no decode, no materialization, no `Arrow` conversion, no object-store `IO`, no writes, and no fallback execution.
+- Keep CG-1 through CG-18 visible and current.
+
