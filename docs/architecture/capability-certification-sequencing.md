@@ -352,6 +352,34 @@ Acceptance:
 - Missing evidence downgrades publication to `not_certified` or `partial_for_workload`.
 - External engines remain baseline evidence only, never runtime execution.
 
+## R5.4.10 User-surface RFC hardening
+
+Goal: make the final CG-20 RFC detailed enough to cover the user-facing surfaces that determine whether ShardLoom can become the best default engine choice, not only a strong SQL/operator/adapter implementation.
+
+Checklist:
+
+- [x] Define API/client/server surface families and maturity levels.
+- [x] Define `ApiSurfaceReport` fields for CLI, Rust, Python, DataFrame/query builder, agent, notebook, BI, and service surfaces.
+- [x] Define capability discovery response fields and statuses that expose support, partial support, planned work, feature/config requirements, materialization, external effects, dependency review, unsupported, and unsafe-rejected states.
+- [x] Define `ExtensionCapabilityReport` fields for UDF/plugin runtime kind, metadata, effects, sandboxing, permissions, resource limits, materialization, license/provenance, diagnostics, and no-fallback behavior.
+- [x] Define `ObservabilityCertificationReport` fields for explain, estimate, profile/analyze, operator/kernel profile, certificate visibility, work-avoided/decode/materialization metrics, redaction, and agent-readable output.
+- [x] Define `DeploymentReadinessReport` fields for packaging, configuration, resource limits, object-store posture, server posture, reproducibility, compatibility, license/provenance, security scans, and runbooks.
+- [x] Define `SecurityGovernanceReport` fields for credentials, permissions, external effects, destructive operations, redaction, audit, data classification, plugin sandboxing, adapter secret boundaries, and agent safety.
+- [x] Add these user-surface dimensions to workload constitutions, scorecards, best-default dossiers, and capability-snapshot kinds.
+
+R5.4.10 outcome:
+
+- RFC 0032 no longer leaves API/BI/server access, UDF/plugin safety, observability, deployment, and security/governance as shallow roadmap placeholders.
+- CG-20 best-default certification requires evidence for user-facing surfaces as well as SQL, operators, functions, adapters, semantics, migration, correctness, benchmarks, and native I/O.
+- Capability discovery remains deterministic and no-probe by default, with explicit status values for planned, disabled, feature/config-gated, materialization-gated, effect-gated, dependency-review-gated, unsupported, and unsafe-rejected entries.
+- No API implementation, server implementation, UDF/plugin runtime, SQL parser, adapter runtime, dependency, external probing, or fallback behavior is added.
+
+Acceptance:
+
+- Best-default certification cannot ignore API ergonomics, observability, deployment, security/governance, or extension safety.
+- User-surface reports remain workload-scoped, evidence-backed, and no-fallback.
+- Docs stay aligned with RFC 0010, RFC 0011, RFC 0018, RFC 0019, RFC 0023, RFC 0024, RFC 0030, and RFC 0032.
+
 ## First implementation batches after R5.4
 
 Recommended order:
@@ -365,6 +393,7 @@ Recommended order:
 7. Sequence adapter certification. **Complete in R5.4.5.**
 8. Sequence semantic profile and migration reporting. **Complete in R5.4.6.**
 9. Sequence workload constitution, scorecards, and sufficiency evidence. **Complete in R5.4.7 through R5.4.9.**
-10. Add SQL/operator/function/adapter coverage entries incrementally as real implementation appears.
+10. Harden user-surface certification for API, BI/server, observability, deployment, extension safety, and security/governance. **Complete in R5.4.10.**
+11. Add SQL/operator/function/adapter/API/observability/deployment coverage entries incrementally as real implementation appears.
 
 Do not start with a parser, adapter runtime, or kernel implementation before the report contracts and capability discovery surfaces exist.

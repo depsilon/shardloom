@@ -154,3 +154,15 @@ ShardLoom-native vocabulary:
 - CG-20 covers capability breadth across SQL, operators, functions, adapters, semantics, migration, and user-facing certification; it is not SQL-only.
 - Adapter certification and migration reports are the native ShardLoom translation of capability lessons.
 - External engines remain conceptual/baseline-only references.
+
+## R5.4.10 user-surface lessons
+
+- Mature engines are selected through product surfaces as much as kernels: API ergonomics, notebook access, BI/server access, observability, deployment posture, security/governance, and extension safety all affect default-engine adoption.
+- ShardLoom translates those lessons into native certification reports rather than hidden integration shortcuts:
+  - `ApiSurfaceReport`
+  - `ObservabilityCertificationReport`
+  - `DeploymentReadinessReport`
+  - `ExtensionCapabilityReport`
+  - `SecurityGovernanceReport`
+- Client/server, notebook, BI, UDF/plugin, and external-effect surfaces must expose capability checks and diagnostics before execution.
+- External systems can be sources, sinks, baselines, or effect boundaries, but not fallback execution engines.

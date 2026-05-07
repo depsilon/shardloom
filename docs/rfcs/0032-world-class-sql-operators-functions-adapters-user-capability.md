@@ -38,6 +38,11 @@ Contract names:
 - `BestChoiceScorecard`
 - `WorkloadConstitution`
 - `WorldClassSufficiencyReport`
+- `ApiSurfaceReport`
+- `ObservabilityCertificationReport`
+- `DeploymentReadinessReport`
+- `ExtensionCapabilityReport`
+- `SecurityGovernanceReport`
 
 ## World-class sufficiency gate
 CG-20 is complete only when the capability surface can prove that ShardLoom is the best default option for a declared workload constitution. The proof must be explicit, machine-readable, workload-scoped, and reversible to `not_certified` when evidence drifts.
@@ -55,6 +60,8 @@ CG-20 is complete only when the capability surface can prove that ShardLoom is t
 - `api_surface_status`
 - `observability_surface_status`
 - `deployment_surface_status`
+- `extension_surface_status`
+- `security_governance_status`
 - `native_io_certificate_coverage`
 - `execution_certificate_coverage`
 - `correctness_evidence_status`
@@ -82,7 +89,7 @@ Required sufficiency decisions:
 - `best_default_certified`: correctness-backed, benchmark-backed, adapter-certified, native-I/O-certified, migration-documented, no-fallback-certified, and approved for the declared workload only.
 
 Sufficiency invariants:
-- No single subsystem can satisfy CG-20 by itself. SQL breadth, operator breadth, function breadth, adapters, semantics, migration, API ergonomics, observability, deployment posture, correctness, benchmarks, native I/O certificates, execution certificates, and no-fallback integrity must all be represented.
+- No single subsystem can satisfy CG-20 by itself. SQL breadth, operator breadth, function breadth, adapters, semantics, migration, API ergonomics, observability, deployment posture, extension safety, security/governance, correctness, benchmarks, native I/O certificates, execution certificates, and no-fallback integrity must all be represented.
 - Planned, parsed-only, test-reference-only, migration-analysis-only, or benchmark-label-only entries cannot count as production support.
 - Optional workload categories must be explicitly marked optional or out of scope before they can be excluded from a sufficiency decision.
 - Missing evidence downgrades the publication decision instead of weakening required fields.
@@ -95,14 +102,14 @@ Disqualifiers:
 - Missing CG-16 execution certificate evidence for a supported execution path.
 - Missing CG-19 native I/O certificate evidence for a required source/sink path.
 - Any hidden fallback, delegated execution, or external engine runtime dependency.
-- Planned-only SQL/operator/function/adapter/API entries presented as supported.
+- Planned-only SQL/operator/function/adapter/API/observability/deployment/extension/security entries presented as supported.
 - Unsupported constructs without deterministic diagnostics and rewrite guidance where possible.
 - Unreported materialization, metadata loss, fidelity loss, semantic difference, memory spill gap, or object-store limitation.
 - Snapshot drift that changes support status without matching RFC, correctness, benchmark, dependency, and migration evidence.
 
 Explicit deferrals:
-- This RFC does not approve a SQL parser dependency, adapter runtime dependency, object-store client dependency, catalog dependency, benchmark runner, external baseline invocation, or execution implementation.
-- Future parser, adapter, object-store, catalog, benchmark, and client/server dependencies require their own dependency, license, provenance, no-fallback, and capability-snapshot review.
+- This RFC does not approve a SQL parser dependency, adapter runtime dependency, object-store client dependency, catalog dependency, benchmark runner, client/server dependency, UDF/plugin runtime dependency, external baseline invocation, or execution implementation.
+- Future parser, adapter, object-store, catalog, benchmark, client/server, UDF/plugin, and external-effect dependencies require their own dependency, license, provenance, no-fallback, and capability-snapshot review.
 - CG-20 sufficiency may define required fields before their implementation exists; unimplemented fields must report `not_certified`, `planned`, `unsupported`, or `evidence_insufficient`.
 
 ## Competitive claim ladder
@@ -900,6 +907,11 @@ Required fields:
 - `required_function_groups`
 - `required_adapter_paths`
 - `required_api_surfaces`
+- `required_observability_surfaces`
+- `required_deployment_profiles`
+- `required_security_governance_controls`
+- `required_extension_surfaces`
+- `user_journeys`
 - `scale_shape`
 - `latency_objective`
 - `cost_objective`
@@ -924,6 +936,10 @@ Required fields:
 - `required_function_groups`
 - `required_adapter_paths`
 - `required_semantic_profiles`
+- `required_api_surfaces`
+- `required_observability_surfaces`
+- `required_deployment_profiles`
+- `required_security_governance_controls`
 - `required_memory_spill_properties`
 - `required_source_sink_paths`
 - `required_correctness_tests`
@@ -936,7 +952,7 @@ Required fields:
 
 Workload constitution boundaries:
 - Certification is valid only for the declared workload constitution and version.
-- Adding a category, data source, sink target, semantic profile, operator family, function group, or API surface requires refreshed evidence.
+- Adding a category, data source, sink target, semantic profile, operator family, function group, API surface, observability surface, deployment profile, extension surface, or security/governance control requires refreshed evidence.
 - Missing category evidence must produce `not_certified` or `evidence_insufficient`, not a partial best-default claim.
 - Unsupported and materialization budgets must be explicit; hidden fallback cannot reduce unsupported rate.
 - Workload constitutions may reference Spark, DataFusion, DuckDB, Polars, or other incumbent workloads as migration sources, but not as runtime execution paths.
@@ -952,12 +968,266 @@ Future commands:
 - `shardloom capabilities adapters`
 - `shardloom capabilities semantic-profiles`
 - `shardloom capabilities migration`
+- `shardloom capabilities certification`
+- `shardloom capabilities api-surfaces`
+- `shardloom capabilities observability`
+- `shardloom capabilities deployment`
+- `shardloom capabilities extensions`
+- `shardloom capabilities security-governance`
+
+Capability discovery response fields:
+- `scope`
+- `schema_version`
+- `engine_version`
+- `workload_constitution_ref`
+- `semantic_profile`
+- `entries`
+- `summary_counts`
+- `unsupported_reasons`
+- `next_step_hints`
+- `materialization_requirements`
+- `external_effect_requirements`
+- `required_feature_flags`
+- `required_config_refs`
+- `side_effects`
+- `filesystem_probe=false`
+- `network_probe=false`
+- `catalog_probe=false`
+- `adapter_probe=false`
+- `external_engine_invoked=false`
+- `fallback_attempted=false`
+
+Capability entry statuses:
+- `supported`
+- `partially_supported`
+- `planned`
+- `disabled`
+- `requires_feature`
+- `requires_config`
+- `requires_materialization`
+- `requires_external_effect_permission`
+- `requires_dependency_review`
+- `unsupported`
+- `unsafe_rejected`
+
+Capability discovery boundaries:
+- Discovery must not parse arbitrary SQL, open files, inspect catalogs, call object stores, probe adapters, invoke external engines, or run benchmark workloads by default.
+- Planned entries must remain visible as planned and must not be promoted by documentation wording.
+- Unsupported entries must include a stable reason and an actionable next step when a safe rewrite or configuration path exists.
+- Any entry requiring materialization, external effects, credentials, writes, or network access must say so before execution.
+- Machine-readable fields are part of the user contract and require snapshot coverage once implemented.
 
 ## User API and BI/server access roadmap
-Roadmap includes CLI/API/BI surfaces as explicit capability layers with no implicit execution delegation.
+Roadmap includes CLI/API/BI surfaces as explicit capability layers with no implicit execution delegation. A best-default engine must be easy to call, embed, inspect, automate, and connect to common user workflows without hiding ShardLoom-native execution boundaries.
+
+API surface families:
+- `cli_json_runner`
+- `rust_api`
+- `python_api`
+- `dataframe_api`
+- `query_builder_api`
+- `sql_file_runner`
+- `config_job_runner`
+- `agent_plan_api`
+- `notebook_surface`
+- `http_query_service`
+- `grpc_query_service`
+- `flight_sql_like_service`
+- `jdbc_odbc_bridge`
+- `bi_dashboard_connector`
+
+`ApiSurfaceMaturity` values:
+- `U0_declared`: surface is documented only.
+- `U1_discoverable`: surface appears in capability discovery with unsupported/planned diagnostics.
+- `U2_dry_run_explain_estimate`: surface can expose plan, explain, estimate, and unsupported diagnostics without execution side effects.
+- `U3_native_local_execution`: surface can execute supported local native plans without external delegation.
+- `U4_write_commit_gated`: surface can plan and execute supported writes or commits only with explicit safety gates.
+- `U5_streaming_profiled`: surface exposes streaming/profile/analyze behavior with bounded-memory reporting.
+- `U6_client_server_ready`: surface has authentication, session, cancellation, resource, and protocol boundaries for multi-client use.
+- `U7_workload_certified`: surface is certified for the declared workload constitution with correctness, benchmark, observability, and no-fallback evidence.
+
+`ApiSurfaceReport` fields:
+- `surface_id`
+- `surface_kind`
+- `maturity`
+- `supported_workload_constitution_refs`
+- `supported_input_modes`
+- `supported_output_modes`
+- `supports_dry_run`
+- `supports_explain`
+- `supports_estimate`
+- `supports_profile`
+- `supports_capability_discovery`
+- `supports_cancellation`
+- `supports_idempotency_keys`
+- `supports_streaming`
+- `supports_write_safety_gates`
+- `native_vortex_output_selectable`
+- `compatibility_output_diagnostics`
+- `machine_readable_output`
+- `schema_version`
+- `stability_policy`
+- `unsupported_surface_diagnostics`
+- `security_governance_report_ref`
+- `observability_report_ref`
+- `deployment_readiness_report_ref`
+- `fallback_attempted=false`
+
+API usability acceptance boundaries:
+- Simple read/filter/project/write and explain/estimate flows must not require advanced Vortex internals.
+- Advanced controls for materialization, output fidelity, memory, object-store budgets, semantic profiles, and diagnostics must remain explicit and inspectable.
+- Python and notebook surfaces must not hide materialization or external effects behind familiar APIs.
+- BI/server/client bridges must translate protocol requests into ShardLoom-native capability checks before planning.
+- A JDBC/ODBC or FlightSQL-like bridge must not imply DataFusion, Arrow Acero, Spark, or another external execution engine.
+- Every public API surface must emit deterministic unsupported diagnostics and `fallback_attempted=false`.
 
 ## UDF/plugin strategy
-UDF/plugin extensibility must remain typed, explicit about effects/determinism/materialization requirements, and constrained by no-fallback policy.
+UDF/plugin extensibility must remain typed, explicit about effects/determinism/materialization requirements, and constrained by no-fallback policy. Extension capability is part of CG-20 because real workloads need custom logic, but extensions must not weaken correctness, observability, or security.
+
+Extension surface families:
+- SQL-defined scalar UDFs.
+- Rust-native scalar UDFs.
+- Rust-native aggregate UDFs.
+- Rust-native table functions.
+- WASM scalar UDFs.
+- WASM aggregate UDFs later.
+- Python UDFs as explicit materialization/effect boundaries.
+- External service UDFs as explicit `ExternalRead`, `ExternalWrite`, or `ModelCall` effects.
+- Observability exporters.
+- Adapter plugins.
+
+`ExtensionCapabilityReport` fields:
+- `extension_id`
+- `extension_kind`
+- `runtime_kind`
+- `maturity`
+- `function_metadata_refs`
+- `type_signature`
+- `null_behavior`
+- `determinism`
+- `volatility`
+- `effect_level`
+- `permission_requirements`
+- `credential_ref_requirements`
+- `sandbox_policy`
+- `resource_limits`
+- `batch_behavior`
+- `streaming_support`
+- `encoded_capability`
+- `selection_vector_support`
+- `materialization_requirement`
+- `failure_behavior`
+- `timeout_policy`
+- `retry_policy`
+- `idempotency_policy`
+- `redaction_policy`
+- `audit_event_policy`
+- `license_provenance_status`
+- `compatibility_notes`
+- `diagnostics`
+- `fallback_attempted=false`
+
+Extension certification boundaries:
+- Pure deterministic UDFs may become native only after type, null, semantic-profile, correctness, and diagnostics evidence exists.
+- Python, external service, LLM, API, embedding, and vector operations require explicit materialization/effect boundaries unless a later native encoded path is certified.
+- Effectful extensions must not run during capability discovery, explain, estimate, dry run, or snapshot tests.
+- Extension inspection must not execute extension code.
+- Missing sandbox, permission, credential, license, or effect metadata blocks certification.
+- Extension behavior must be reflected in function/operator/API capability reports before a workload can be certified.
+
+## Observability certification
+Observability is a CG-20 certification dimension, not an optional debugging add-on. Users must be able to prove what ShardLoom did, what it avoided, what it could not do, and why no fallback happened.
+
+`ObservabilityCertificationReport` fields:
+- `report_id`
+- `workload_constitution_ref`
+- `explain_coverage`
+- `estimate_coverage`
+- `profile_analyze_coverage`
+- `operator_profile_coverage`
+- `kernel_profile_coverage`
+- `native_io_certificate_visibility`
+- `execution_certificate_visibility`
+- `work_avoided_metrics`
+- `decode_materialization_metrics`
+- `memory_spill_metrics`
+- `object_store_metrics`
+- `adapter_fidelity_metrics`
+- `semantic_difference_visibility`
+- `unsupported_diagnostic_quality`
+- `redaction_policy_status`
+- `agent_readable_output_status`
+- `schema_version`
+- `diagnostics`
+- `fallback_attempted=false`
+
+Observability acceptance boundaries:
+- Explain/estimate/profile surfaces must be side-effect-safe unless an explicit execution phase is requested.
+- Reports must distinguish planned work from executed work.
+- Work avoided, decode avoided, materialization avoided, segments pruned, bytes read, bytes decoded, rows scanned, rows materialized, object-store requests, memory, and spill must be visible where relevant.
+- Missing observability for a mandatory workload category blocks best-default certification.
+- Redaction must protect secrets, credentials, raw sensitive values, prompts, API payloads, and PII unless explicitly allowed by policy.
+
+## Deployment and operational readiness
+Deployment readiness is part of "best default" certification because production users need reproducible installs, safe configuration, resource controls, and operational diagnostics.
+
+`DeploymentReadinessReport` fields:
+- `report_id`
+- `deployment_profile`
+- `package_surface`
+- `platform_targets`
+- `configuration_surface`
+- `resource_limit_surface`
+- `object_store_posture`
+- `local_filesystem_posture`
+- `server_mode_posture`
+- `baseline_harness_posture`
+- `reproducibility_status`
+- `upgrade_compatibility_status`
+- `api_schema_compatibility_status`
+- `diagnostic_schema_compatibility_status`
+- `license_provenance_status`
+- `security_scan_status`
+- `operational_runbook_status`
+- `known_limits`
+- `diagnostics`
+- `fallback_attempted=false`
+
+Deployment boundaries:
+- A deployment profile can be certified only for declared package, OS, hardware, object-store, authentication, and workload assumptions.
+- Container, server, and client packages must not bundle fallback engines or imply external execution availability.
+- Baseline harnesses remain external comparison tools and must not be included as runtime dependencies.
+- Object-store and catalog credentials must be represented by references/handles, not raw values in plans, diagnostics, or reports.
+- Upgrade and schema compatibility drift must be visible before release-gated claims.
+
+## Security and governance certification
+Security, governance, and agent safety must be explicit for adapters, effects, server/client surfaces, and production deployment.
+
+`SecurityGovernanceReport` fields:
+- `report_id`
+- `workload_constitution_ref`
+- `credential_handling_status`
+- `permission_model_status`
+- `effect_approval_policy`
+- `external_write_policy`
+- `destructive_operation_policy`
+- `redaction_policy`
+- `audit_event_policy`
+- `data_classification_policy`
+- `tenant_isolation_policy`
+- `plugin_sandbox_status`
+- `adapter_secret_boundary_status`
+- `diagnostic_safety_status`
+- `agent_safety_status`
+- `known_limits`
+- `diagnostics`
+- `fallback_attempted=false`
+
+Security and governance boundaries:
+- Plans, diagnostics, certificates, traces, and scorecards must not contain raw secrets.
+- External reads, external writes, model calls, API calls, and destructive operations require explicit permission and dry-run-safe validation.
+- Agent-facing APIs must expose denied/unsupported decisions deterministically instead of silently reducing scope.
+- Security/governance gaps block certification for workloads that require the affected controls.
 
 ## Correctness and semantic conformance
 All capability claims require correctness and semantic conformance evidence before benchmarked superiority claims.
@@ -1003,6 +1273,8 @@ Scorecard dimensions:
 - observability
 - migration ease
 - deployment ease
+- security and governance
+- extension safety
 - no-fallback integrity
 
 `ScorecardDimensionEvidenceStatus` values:
@@ -1037,6 +1309,8 @@ Dimension evidence requirements:
 - `observability`: requires diagnostic, explain, estimate, profile, and certificate report coverage for the workload.
 - `migration ease`: requires migration compatibility reports and rewrite suggestions for declared migration sources.
 - `deployment ease`: requires deployment/import/baseline evidence for the declared environment profile.
+- `security and governance`: requires credential, permission, redaction, audit, external-effect, and agent-safety controls for the workload.
+- `extension safety`: requires typed metadata, sandbox/effect policy, materialization boundaries, license/provenance status, and unsupported diagnostics for required UDF/plugin surfaces.
 - `no-fallback integrity`: requires no-fallback dependency, diagnostic, and execution certificate invariants.
 
 Dimension weights:
@@ -1047,7 +1321,7 @@ Dimension weights:
 
 Claim publication requirements:
 - A scorecard may always publish `not_certified` with blocking gaps.
-- A best-default-engine claim requires the declared workload constitution, mandatory dimensions, correctness evidence, benchmark evidence, semantic conformance, adapter/native I/O certificate evidence, and no-fallback integrity to be certified.
+- A best-default-engine claim requires the declared workload constitution, mandatory dimensions, correctness evidence, benchmark evidence, semantic conformance, adapter/native I/O certificate evidence, API/observability/deployment/security/extension evidence where required, and no-fallback integrity to be certified.
 - Any mandatory dimension with `blocked`, `not_certified`, or `evidence_insufficient` blocks best-default publication.
 - Performance or superiority wording is blocked unless benchmark evidence exists for the declared workload.
 - Unsupported-rate and materialization-budget thresholds must pass for the declared workload.
@@ -1075,6 +1349,8 @@ Required fields:
 - `migration_evidence`
 - `api_ergonomics_evidence`
 - `deployment_evidence`
+- `security_governance_evidence`
+- `extension_safety_evidence`
 - `dependency_policy_evidence`
 - `no_fallback_evidence`
 - `known_limits`
@@ -1091,21 +1367,25 @@ Minimum evidence floor for a world-class claim:
 - Function evidence covers aliases, type signatures, null behavior, determinism, volatility, effect level, encoded capability, materialization requirements, semantic profile, tests, and benchmark status for required functions.
 - Adapter evidence covers schema/metadata discovery, pushdown exactness, residuals, metadata loss, fidelity loss, encoded preservation, source/sink paths, commit semantics, streaming, object-store range behavior, and per-path native I/O certificates.
 - Migration evidence covers supported constructs, unsupported constructs, semantic deltas, function deltas, adapter deltas, rewrite suggestions, materialization requirements, uncertainty, and Vortex conversion payback.
-- Observability evidence covers diagnostics, explain, estimate, profile/analyze, capabilities, certificates, and actionable unsupported-feature reporting.
-- API evidence covers CLI, Rust API, Python/API roadmap status, BI/server access status, machine-readable output, and user-visible unsupported diagnostics.
-- Deployment evidence covers local execution, object-store posture, import/export posture, configuration, reproducibility, and operational constraints for the declared environment.
+- Observability evidence covers diagnostics, explain, estimate, profile/analyze, capabilities, certificates, work-avoided/decode/materialization metrics, redaction, and actionable unsupported-feature reporting.
+- API evidence covers CLI, Rust API, Python/API roadmap status, DataFrame/query builder status, BI/server access status, machine-readable output, cancellation/idempotency where relevant, and user-visible unsupported diagnostics.
+- Deployment evidence covers local execution, object-store posture, import/export posture, configuration, resource limits, packaging, reproducibility, upgrade/API-schema compatibility, and operational constraints for the declared environment.
+- Security/governance evidence covers credential references, permission gates, external-effect approval, destructive-operation policy, redaction, audit, plugin sandboxing, tenant/isolation assumptions, and agent-safe denial diagnostics.
+- Extension evidence covers UDF/plugin metadata, sandbox policy, effect level, materialization boundaries, resource limits, license/provenance, and no-execution inspection behavior.
 - No-fallback evidence covers dependency invariants, plan/certificate fallback fields, unsupported diagnostics, and external baseline separation.
 
 Disqualifiers for a best-default claim:
 - Missing CG-5 correctness evidence for the declared workload.
 - Missing CG-6 benchmark evidence for any performance, superiority, cost, or best-default statement.
 - Any hidden fallback, delegated execution, or external engine runtime dependency.
-- Planned-only SQL, operator, function, adapter, semantic-profile, or migration entries presented as supported.
+- Planned-only SQL, operator, function, adapter, semantic-profile, migration, API, observability, deployment, extension, or security/governance entries presented as supported.
 - A mandatory workload category without certified coverage evidence.
 - A required source/sink path without native I/O certificate evidence.
 - Unreported materialization, metadata loss, fidelity loss, or semantic divergence.
 - Unbounded memory or OOM behavior for required large-state operators.
 - Unsupported constructs without deterministic diagnostics.
+- API, BI, notebook, server, UDF, plugin, or effectful surfaces that hide materialization, credentials, external calls, destructive operations, or unsupported behavior.
+- Missing redaction, permission, audit, or credential-boundary evidence for workloads that require governed execution.
 - Scorecard publication without evidence refs and explicit known limits.
 
 Publication decisions:
@@ -1153,6 +1433,11 @@ Snapshot kinds:
 - `best_choice_scorecard`
 - `best_default_dossier`
 - `world_class_sufficiency`
+- `api_surface`
+- `observability_certification`
+- `deployment_readiness`
+- `extension_capability`
+- `security_governance`
 - `feature_footprint`
 - `no_fallback_invariants`
 
