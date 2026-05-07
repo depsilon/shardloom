@@ -492,6 +492,8 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - CG-16 execution certificate metadata
 - CG-17 cache/reuse invalidation metadata
 - CG-18 universal runner/comparison output
+- CG-19 universal native I/O envelope evidence
+- CG-20 SQL/operator/function/adapter/user capability evidence
 
 - Upstream Vortex write/read APIs must remain feature-gated.
 - No upstream API should be called if it implies row materialization, Arrow conversion, object-store IO, or write execution without explicit feature gate.
@@ -603,7 +605,7 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - This boundary does not execute query primitives and remains side-effect-free.
 - CG-2.1 actual count execution remains blocked until both metadata/footer readiness and an approved encoded data path exist.
 - No scan/read-start, encoded data reads, row reads, decode/materialization, `Arrow` conversion, object-store `IO`, writes, or fallback execution are introduced.
-- CG-1 through CG-18 remain visible and active competitive gates.
+- CG-1 through CG-20 remain visible and active competitive gates.
 
 ## CG-2.0b query primitive helper correctness update
 - Metadata async invocation to query primitive request propagation now preserves boundary feature-gate/object-store/risk signals and no longer drops blockers from `boundary_report`.
@@ -652,7 +654,7 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - Filtered-count execution is not implemented.
 - No scan/read-start, predicate evaluation, encoded-data read, row read, decode, materialization, `Arrow` conversion, object-store IO, writes, or fallback execution are added.
 - CG-2.2b CLI integration is complete via `shardloom vortex-filtered-count-readiness-plan <candidate_source> <dataset_uri> [flags] [--format text|json]`.
-- Keep CG-1 through CG-18 visible and current.
+- Keep CG-1 through CG-20 visible and current.
 - The command does not execute filtered count, does not evaluate predicates, does not call scan/read-start APIs, and performs no metadata/footer open, encoded-data read, row read, decode/materialization, `Arrow` conversion, object-store IO, writes, or fallback execution.
 - Filtered-count execution remains blocked until a real encoded predicate path or explicit metadata predicate proof execution capability exists; metadata-proof remains explicit and opt-in via `PredicateMetadataProofReady`.
 
@@ -665,5 +667,5 @@ This update does not introduce scans, decode, materialization, writes, object-st
   - metadata/schema projection remains explicit and requires `ProjectionSupported` plus `MetadataFooterReady`;
   - encoded-column projection candidates require `EncodedDataPathReady`.
 - The contract remains report-only: no scan/read-start, no projection application, no encoded-data reads, no row reads, no decode, no materialization, no `Arrow` conversion, no object-store `IO`, no writes, and no fallback execution.
-- Keep CG-1 through CG-18 visible and current.
+- Keep CG-1 through CG-20 visible and current.
 

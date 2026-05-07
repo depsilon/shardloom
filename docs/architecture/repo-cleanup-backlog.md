@@ -20,7 +20,7 @@ Backlog items:
 
 - Ensure `phased-execution-plan.md` current status always matches the last merged CG/doc PR.
 - Ensure `rfc-phase-traceability.md` has valid Markdown table structure for all matrix rows.
-- Keep CG-1 through CG-18 visible in phase proposals.
+- Keep CG-1 through CG-20 visible in phase proposals.
 - Ensure Foundry remains under CG-18 optional deployment/comparison.
 - Ensure `systems-learning-map.md` remains conceptual only.
 - Keep hidden/bidi Unicode scan in docs PRs.
@@ -179,6 +179,7 @@ Candidates (deferred until targeted follow-up PRs):
 - Traceability matrix validator.
 - RFC acceptance checker.
 - Systems-learning contract implementation tracker.
+- Capability certification sequencing tracker for CG-20.
 
 
 ### R3 backlog cleanup status

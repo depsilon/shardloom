@@ -1963,10 +1963,11 @@ mod tests {
     #[test]
     fn spill_payload_fs_ref_path_string_is_deterministic() {
         let fs_ref = sample_fs_ref();
-        assert_eq!(
-            fs_ref.path_string(),
-            "relative/workspace/payload-fs-1.spill".to_string()
-        );
+        let expected = Path::new("relative/workspace")
+            .join("payload-fs-1.spill")
+            .to_string_lossy()
+            .into_owned();
+        assert_eq!(fs_ref.path_string(), expected);
     }
 
     #[test]

@@ -1,9 +1,3 @@
-## R5.3.1 RFC consistency fixes (docs-only)
-
-- RFC 0031 transition semantics corrected so metadata-first planning can continue from `metadata_only` into encoded states when metadata is insufficient.
-- RFC 0032 claim evidence semantics corrected to distinguish emitted evidence fields from progressively required-pass fields.
-- Docs-only update; no runtime behavior, dependency, parser, execution, adapter, or fallback changes.
-
 # RFC Phase Traceability
 
 ## Purpose
@@ -94,6 +88,14 @@ Status categories:
 | RFC 0022 | Deferred | Ongoing (interop track) | Plan interoperability direction is documented; implementation remains intentionally staged. |
 | RFC 0023 | Deferred | Ongoing (extension track) | Extension/plugin ABI and sandboxing are documented but not a near-term core phase focus. |
 | RFC 0024 | Partially implemented | 10D, 12A, 12B, Ongoing | Release/API compatibility policy exists; continues as a cross-phase enforcement concern. |
+| RFC 0025 | Planned | CG-1 through CG-20, Ongoing | Competitive Engine Track policy is documented; implementation remains gate-specific and evidence-gated. |
+| RFC 0026 | Partially implemented | CG-1, CG-2, CG-13 | Encoded-read and query-primitive readiness contracts exist; real execution remains gated. |
+| RFC 0027 | Planned | CG-7, CG-8, CG-14, CG-15 | CPU/vectorized/runtime adaptivity scope remains future implementation. |
+| RFC 0028 | Partially implemented | CG-3, CG-4, CG-9, CG-10 | Output/commit readiness contracts exist; real payload and commit execution remain incomplete. |
+| RFC 0029 | Planned | CG-5, CG-6, CG-16, CG-17 | Correctness, benchmark, certificate, and reuse evidence remain future gate work. |
+| RFC 0030 | Planned | CG-11, CG-12, CG-18 | API, portability, deployment, and baseline harness work remains staged. |
+| RFC 0031 | Planned | CG-19 | Universal Native I/O Envelope is RFC-level only; implementation pending. |
+| RFC 0032 | Planned | CG-20 | Capability certification surface is RFC-level only; implementation pending. |
 
 ## Drift policy
 
@@ -177,6 +179,8 @@ Competitive gate coverage:
 - CG-16: evidence-first execution certificates
 - CG-17: stateful result reuse / incremental execution
 - CG-18: universal import/deployment/baseline harness
+- CG-19: universal native I/O envelope
+- CG-20: world-class SQL/operator/function/adapter/user capability surface
 
 | Phase 12B.5a — manifest finalization core contract (complete) | RFC 0017 Fault Tolerance, Cancellation, and Recovery; RFC 0012 Diagnostics, Explain, Estimate, and Capabilities | RFC 0004 Native Dataset Manifest, Snapshot, Incremental | report-only finalization contract distinguishing staged draft manifest, finalized manifest candidate, and committed manifest; requires draft/marker/protocol/schema/delete/tombstone readiness signals; no finalized manifest writes; no committed manifest writes; no output payload writes; no object-store IO; no upstream `Vortex` write API calls; no fallback execution | Complete. Finalized manifest file writing and manifest commit remain deferred. |
 
@@ -187,10 +191,8 @@ Competitive gate coverage:
 | Phase 12C.2 — feature-gated local output payload artifact (complete) | RFC 0017 Fault Tolerance, Cancellation, and Recovery | RFC 0004 Native Dataset Manifest, Snapshot, Incremental | feature-gated local payload artifact writing only after 12C.1 readiness contracts; commit execution remains deferred | Complete. |
 
 | Phase 12C.3a — output payload plan CLI (complete) | RFC 0012 Diagnostics, Explain, Estimate, and Capabilities | RFC 0004 Native Dataset Manifest, Snapshot, Incremental | CLI report-only output payload readiness planning; no artifact writes; no real `Vortex` payload writes; upstream `Vortex` write APIs remain deferred | Complete. |
-| Phase 12C.3b — output payload artifact write CLI (planned) | RFC 0012 Diagnostics, Explain, Estimate, and Capabilities | RFC 0004 Native Dataset Manifest, Snapshot, Incremental | CLI wiring for feature-gated artifact write path; real upstream `Vortex` payload writes remain deferred | Planned. |
-
-| Phase 12C.3b — output payload artifact write CLI (complete) | RFC 0012 Diagnostics, Explain, Estimate, and Capabilities | RFC 0004 Native Dataset Manifest, Snapshot, Incremental | CLI for local placeholder output payload artifact writes; default build remains feature-disabled/report-only; no real upstream `Vortex` payload writes; no manifest writes/commit execution/object-store IO | Current phase. |
-| Phase 12C.4 — staged smoke test includes output payload artifact (current) | RFC 0015 Correctness, Semantics, Differential Testing, and Fuzzing | RFC 0004 Native Dataset Manifest, Snapshot, Incremental | Extends staged CLI-driven write-readiness smoke coverage with output payload plan and placeholder artifact write; verifies no real `Vortex` payload writes, no upstream `Vortex` write API calls, no manifest/commit writes, no object-store IO, fallback disabled; this is CG-3 readiness evidence only and does not complete CG-3 | Current phase. |
+| Phase 12C.3b — output payload artifact write CLI (complete) | RFC 0012 Diagnostics, Explain, Estimate, and Capabilities | RFC 0004 Native Dataset Manifest, Snapshot, Incremental | CLI for local placeholder output payload artifact writes; default build remains feature-disabled/report-only; no real upstream `Vortex` payload writes; no manifest writes/commit execution/object-store IO | Complete readiness-only milestone. |
+| Phase 12C.4 — staged smoke test includes output payload artifact (complete readiness-only) | RFC 0015 Correctness, Semantics, Differential Testing, and Fuzzing | RFC 0004 Native Dataset Manifest, Snapshot, Incremental | Extends staged CLI-driven write-readiness smoke coverage with output payload plan and placeholder artifact write; verifies no real `Vortex` payload writes, no upstream `Vortex` write API calls, no manifest/commit writes, no object-store IO, fallback disabled; this is CG-3 readiness evidence only and does not complete CG-3 | Complete readiness-only milestone; not the current implementation phase. |
 
 
 ## Competitive Engine Track RFC mappings
@@ -207,6 +209,8 @@ No fallback execution.
 | RFC 0028 | CG-3, CG-4, CG-9, CG-10 |
 | RFC 0029 | CG-5, CG-6, CG-16, CG-17 |
 | RFC 0030 | CG-11, CG-12, CG-18 |
+| RFC 0031 | CG-19 |
+| RFC 0032 | CG-20 |
 
 - Phase 12C placeholder output payload artifact work supports CG-3 readiness only; it does not complete CG-3.
 - CG-3 completion requires a real Vortex output payload write implementation plus evidence.
@@ -341,4 +345,27 @@ No fallback execution.
 - Scope: docs/RFC-only deepening pass.
 - RFC 0031 deeper contracts map primarily to CG-19, with related trace links to RFC 0008, RFC 0012, RFC 0013, RFC 0016, and RFC 0018.
 - RFC 0032 deeper contracts map primarily to CG-20, with related trace links to RFC 0011, RFC 0012, RFC 0015, RFC 0021, RFC 0022, RFC 0023, RFC 0029, and RFC 0030.
+- This phase adds no runtime/parser/adapter/dependency/fallback behavior.
+
+## R5.3.1 RFC consistency fixes (docs-only)
+
+- RFC 0031 transition semantics corrected so metadata-first planning can continue from `metadata_only` into encoded states when metadata is insufficient.
+- RFC 0032 claim evidence semantics corrected to distinguish emitted evidence fields from progressively required-pass fields.
+- Docs-only update; no runtime behavior, dependency, parser, execution, adapter, or fallback changes.
+
+## R5.3.2 docs-wide CG-19/CG-20 consistency pass (docs-only)
+
+- RFC 0025 keeps CG-19 and CG-20 inside the primary Competitive Engine Track list.
+- RFC 0031 requires per-source/sink-path `NativeIoCertificate` evidence instead of a single run-level certificate.
+- RFC 0032 uses neutral claim-stage labels until correctness and benchmark evidence authorize superiority or best-default claims.
+- RFC 0032 treats decoded reference behavior as test-only/reference evidence unless a native execution tier is explicitly certified.
+- Downstream architecture docs keep CG-1 through CG-20 visible.
+- This phase adds no runtime/parser/adapter/dependency/fallback behavior.
+
+## R5.4 capability certification sequencing (docs-only)
+
+- `docs/architecture/capability-certification-sequencing.md` splits CG-20 into implementation-ready batches before code or dependency work.
+- Sequencing maps SQL coverage, operator coverage, function coverage, adapter certification, semantic profiles, migration compatibility, workload constitution, scorecards, and CI snapshots to explicit acceptance boundaries.
+- Primary RFC linkage: RFC 0032.
+- Related RFCs: RFC 0011, RFC 0012, RFC 0015, RFC 0021, RFC 0022, RFC 0023, RFC 0029, RFC 0030, and RFC 0031.
 - This phase adds no runtime/parser/adapter/dependency/fallback behavior.
