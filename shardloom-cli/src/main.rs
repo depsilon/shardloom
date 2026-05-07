@@ -54,32 +54,34 @@ use shardloom_vortex::{
     VortexManifestFinalizationRequest, VortexManifestFinalizationSignal, VortexMetadataOpenRequest,
     VortexMetadataProbeReport, VortexOutputPayloadContentDescriptor, VortexOutputPayloadFileName,
     VortexOutputPayloadFileRef, VortexOutputPayloadReport, VortexOutputPayloadRequest,
-    VortexOutputPayloadSignal, VortexQueryPrimitiveSignal, VortexReadPlan,
-    VortexStagedManifestDraftContent, VortexStagedManifestFileEffect, VortexStagedManifestFileRef,
-    VortexStagedManifestFileReport, VortexStagedManifestFileRequest,
-    VortexStagedManifestFileSignal, VortexStagedManifestFileWriteEffect,
-    VortexStagedManifestFileWriteOption, VortexStagedManifestFileWriteRequest,
-    VortexStagedManifestFileWriteSignal, VortexStagedMarkerOption, VortexStagedMarkerRequest,
-    VortexStagedWorkspaceId, VortexStagedWorkspacePath, VortexStagedWorkspaceSetupOption,
-    VortexStagedWorkspaceSetupRequest, VortexStatisticsMappingReport, VortexWriteIntentReport,
-    VortexWriteIntentRequest, VortexWriteIntentSignal, VortexWriteOptions, VortexWritePlan,
-    build_vortex_runtime_task_graph, commit_marker_write_request_from_plan,
-    evaluate_vortex_encoded_read_readiness, evaluate_vortex_execution_readiness,
-    evaluate_vortex_query_primitive, execute_vortex_bounded_local_query,
-    execute_vortex_encoded_read_contract, execute_vortex_encoded_read_spike,
-    execute_vortex_local_query_primitive, execute_vortex_metadata_only,
-    finalized_manifest_artifact_write_request_from_plan, metadata_planning_is_side_effect_free,
-    metadata_pruning_is_side_effect_free, metadata_summary_is_plan_only, open_vortex_metadata_only,
+    VortexOutputPayloadSignal, VortexProjectionCandidateSource, VortexProjectionReadinessSignal,
+    VortexQueryPrimitiveSignal, VortexReadPlan, VortexStagedManifestDraftContent,
+    VortexStagedManifestFileEffect, VortexStagedManifestFileRef, VortexStagedManifestFileReport,
+    VortexStagedManifestFileRequest, VortexStagedManifestFileSignal,
+    VortexStagedManifestFileWriteEffect, VortexStagedManifestFileWriteOption,
+    VortexStagedManifestFileWriteRequest, VortexStagedManifestFileWriteSignal,
+    VortexStagedMarkerOption, VortexStagedMarkerRequest, VortexStagedWorkspaceId,
+    VortexStagedWorkspacePath, VortexStagedWorkspaceSetupOption, VortexStagedWorkspaceSetupRequest,
+    VortexStatisticsMappingReport, VortexWriteIntentReport, VortexWriteIntentRequest,
+    VortexWriteIntentSignal, VortexWriteOptions, VortexWritePlan, build_vortex_runtime_task_graph,
+    commit_marker_write_request_from_plan, evaluate_vortex_encoded_read_readiness,
+    evaluate_vortex_execution_readiness, evaluate_vortex_query_primitive,
+    execute_vortex_bounded_local_query, execute_vortex_encoded_read_contract,
+    execute_vortex_encoded_read_spike, execute_vortex_local_query_primitive,
+    execute_vortex_metadata_only, finalized_manifest_artifact_write_request_from_plan,
+    metadata_planning_is_side_effect_free, metadata_pruning_is_side_effect_free,
+    metadata_summary_is_plan_only, open_vortex_metadata_only,
     output_payload_artifact_write_request_from_plan, parse_vortex_local_engine_primitive,
     plan_from_vortex_metadata_summary, plan_native_vortex_universal_input,
     plan_vortex_commit_intent, plan_vortex_commit_marker, plan_vortex_commit_protocol,
     plan_vortex_count_readiness, plan_vortex_encoded_read_boundary, plan_vortex_encoded_read_probe,
     plan_vortex_filtered_count_readiness, plan_vortex_manifest_finalization,
     plan_vortex_memory_safety, plan_vortex_metadata_pruning, plan_vortex_output_payload,
-    plan_vortex_query_primitive, plan_vortex_read_from_universal_input,
-    plan_vortex_scheduler_queue, plan_vortex_staged_manifest_file, plan_vortex_write_intent,
-    probe_vortex_encoded_read_metadata, probe_vortex_metadata_only, run_vortex_local_engine,
-    setup_vortex_staged_workspace, size_vortex_runtime_task_graph, summarize_vortex_metadata_probe,
+    plan_vortex_projection_readiness, plan_vortex_query_primitive,
+    plan_vortex_read_from_universal_input, plan_vortex_scheduler_queue,
+    plan_vortex_staged_manifest_file, plan_vortex_write_intent, probe_vortex_encoded_read_metadata,
+    probe_vortex_metadata_only, run_vortex_local_engine, setup_vortex_staged_workspace,
+    size_vortex_runtime_task_graph, summarize_vortex_metadata_probe,
     vortex_encoded_read_executor_feature_enabled, vortex_encoded_read_public_api_boundary,
     vortex_encoded_read_spike_feature_enabled, vortex_file_io_feature_enabled,
     vortex_metadata_executor_feature_enabled, write_vortex_commit_marker,
@@ -122,7 +124,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-count-readiness-plan|vortex-filtered-count-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-count-readiness-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -1757,6 +1759,93 @@ fn parse_vortex_primitive_request(
     } else {
         Err(ShardLoomError::InvalidOperation("invalid primitive; expected count, count-where:<predicate>, project:<columns>, filter:<predicate>".to_string()))
     }
+}
+
+fn vortex_projection_readiness_fields(
+    report: &shardloom_vortex::VortexProjectionReadinessReport,
+) -> Vec<(String, String)> {
+    vec![
+        (
+            "candidate_source".to_string(),
+            report.request.candidate_source.as_str().to_string(),
+        ),
+        ("status".to_string(), report.status.as_str().to_string()),
+        ("mode".to_string(), report.mode.as_str().to_string()),
+        (
+            "projection_ready".to_string(),
+            report.projection_ready().to_string(),
+        ),
+        (
+            "projection_executed".to_string(),
+            report.projection_executed().to_string(),
+        ),
+        (
+            "projection_applied".to_string(),
+            report.projection_applied().to_string(),
+        ),
+        (
+            "feature_gate_enabled".to_string(),
+            report
+                .request
+                .has_signal(VortexProjectionReadinessSignal::FeatureGateEnabled)
+                .to_string(),
+        ),
+        (
+            "query_primitive_ready".to_string(),
+            report
+                .request
+                .has_signal(VortexProjectionReadinessSignal::QueryPrimitiveReady)
+                .to_string(),
+        ),
+        (
+            "metadata_footer_ready".to_string(),
+            report
+                .request
+                .has_signal(VortexProjectionReadinessSignal::MetadataFooterReady)
+                .to_string(),
+        ),
+        (
+            "encoded_data_path_ready".to_string(),
+            report
+                .request
+                .has_signal(VortexProjectionReadinessSignal::EncodedDataPathReady)
+                .to_string(),
+        ),
+        (
+            "projection_primitive".to_string(),
+            report
+                .request
+                .has_signal(VortexProjectionReadinessSignal::ProjectionPrimitive)
+                .to_string(),
+        ),
+        (
+            "projection_provided".to_string(),
+            report
+                .request
+                .has_signal(VortexProjectionReadinessSignal::ProjectionProvided)
+                .to_string(),
+        ),
+        (
+            "projection_supported".to_string(),
+            report
+                .request
+                .has_signal(VortexProjectionReadinessSignal::ProjectionSupported)
+                .to_string(),
+        ),
+        (
+            "fallback_execution_allowed".to_string(),
+            "false".to_string(),
+        ),
+        ("metadata_read".to_string(), "false".to_string()),
+        ("encoded_data_read".to_string(), "false".to_string()),
+        ("row_read".to_string(), "false".to_string()),
+        ("array_decoded".to_string(), "false".to_string()),
+        ("values_materialized".to_string(), "false".to_string()),
+        ("arrow_converted".to_string(), "false".to_string()),
+        ("object_store_io".to_string(), "false".to_string()),
+        ("data_written".to_string(), "false".to_string()),
+        ("upstream_scan_called".to_string(), "false".to_string()),
+    ]
 }
 
 #[allow(clippy::too_many_lines)]
@@ -8882,6 +8971,147 @@ fn run(args: Vec<String>) -> ExitCode {
             }
         }
 
+        Some("vortex-projection-readiness-plan") => {
+            let Some(source_arg) = args.next() else {
+                return emit_error(
+                    "vortex-projection-readiness-plan",
+                    format,
+                    "missing candidate source",
+                    &ShardLoomError::InvalidOperation(
+                        "missing required argument: <candidate_source>".to_string(),
+                    ),
+                );
+            };
+            let Some(uri_arg) = args.next() else {
+                return emit_error(
+                    "vortex-projection-readiness-plan",
+                    format,
+                    "missing dataset uri",
+                    &ShardLoomError::InvalidOperation(
+                        "missing required argument: <dataset_uri>".to_string(),
+                    ),
+                );
+            };
+            let candidate_source = match source_arg.as_str() {
+                "metadata-schema-projection" | "metadata_schema_projection" => {
+                    VortexProjectionCandidateSource::MetadataSchemaProjection
+                }
+                "encoded-column-path" | "encoded_column_path" => {
+                    VortexProjectionCandidateSource::EncodedColumnPath
+                }
+                "unknown" => VortexProjectionCandidateSource::Unknown,
+                _ => {
+                    return emit_error(
+                        "vortex-projection-readiness-plan",
+                        format,
+                        "invalid candidate source",
+                        &ShardLoomError::InvalidOperation(format!(
+                            "invalid candidate source: {source_arg}"
+                        )),
+                    );
+                }
+            };
+            let uri = match DatasetUri::new(uri_arg) {
+                Ok(uri) => uri,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-projection-readiness-plan",
+                        format,
+                        "invalid dataset uri",
+                        &error,
+                    );
+                }
+            };
+            let mut request =
+                shardloom_vortex::VortexProjectionReadinessRequest::new(uri, candidate_source);
+            for token in args {
+                match token.as_str() {
+                    "--feature-gate" => {
+                        request.add_signal(VortexProjectionReadinessSignal::FeatureGateEnabled);
+                    }
+                    "--query-primitive-ready" => {
+                        request.add_signal(VortexProjectionReadinessSignal::QueryPrimitiveReady);
+                    }
+                    "--metadata-footer-ready" => {
+                        request.add_signal(VortexProjectionReadinessSignal::MetadataFooterReady);
+                    }
+                    "--encoded-data-path-ready" => {
+                        request.add_signal(VortexProjectionReadinessSignal::EncodedDataPathReady);
+                    }
+                    "--projection-primitive" => {
+                        request.add_signal(VortexProjectionReadinessSignal::ProjectionPrimitive);
+                    }
+                    "--projection-provided" => {
+                        request.add_signal(VortexProjectionReadinessSignal::ProjectionProvided);
+                    }
+                    "--projection-supported" => {
+                        request.add_signal(VortexProjectionReadinessSignal::ProjectionSupported);
+                    }
+                    "--projection-unsupported" => {
+                        request.add_signal(VortexProjectionReadinessSignal::ProjectionUnsupported);
+                    }
+                    "--object-store-target" => {
+                        request.add_signal(VortexProjectionReadinessSignal::ObjectStoreTarget);
+                    }
+                    "--decode-risk" => {
+                        request.add_signal(VortexProjectionReadinessSignal::DecodeRisk);
+                    }
+                    "--materialization-risk" => {
+                        request.add_signal(VortexProjectionReadinessSignal::MaterializationRisk);
+                    }
+                    "--arrow-default-risk" => {
+                        request.add_signal(VortexProjectionReadinessSignal::ArrowDefaultRisk);
+                    }
+                    "--write-risk" => {
+                        request.add_signal(VortexProjectionReadinessSignal::WriteRisk);
+                    }
+                    "--scan-execution-risk" => {
+                        request.add_signal(VortexProjectionReadinessSignal::ScanExecutionRisk);
+                    }
+                    "--fallback-policy-blocked" => {
+                        request.add_signal(VortexProjectionReadinessSignal::FallbackPolicyBlocked);
+                    }
+                    _ => {
+                        return emit_error(
+                            "vortex-projection-readiness-plan",
+                            format,
+                            "unknown option",
+                            &ShardLoomError::InvalidOperation(format!("unknown option: {token}")),
+                        );
+                    }
+                }
+            }
+            let report = match plan_vortex_projection_readiness(request) {
+                Ok(report) => report,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-projection-readiness-plan",
+                        format,
+                        "projection readiness planning failed",
+                        &error,
+                    );
+                }
+            };
+            emit(
+                "vortex-projection-readiness-plan",
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "vortex projection readiness planning report".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                vortex_projection_readiness_fields(&report),
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
+
         Some("vortex-count") => {
             let Some(uri_arg) = args.next() else {
                 eprintln!("usage: shardloom vortex-count <dataset_uri>");
@@ -10706,6 +10936,10 @@ mod tests {
         assert!(cli_usage_line().contains("vortex-filtered-count-readiness-plan"));
     }
     #[test]
+    fn usage_includes_vortex_projection_readiness_plan() {
+        assert!(cli_usage_line().contains("vortex-projection-readiness-plan"));
+    }
+    #[test]
     fn vortex_count_readiness_plan_missing_candidate_source_returns_non_zero() {
         assert_ne!(
             run(vec!["vortex-count-readiness-plan".to_string()]),
@@ -11020,6 +11254,201 @@ mod tests {
                 "--predicate-provided".to_string(),
                 "--encoded-data-path-ready".to_string(),
                 "--predicate-unsupported".to_string(),
+            ]),
+            ExitCode::SUCCESS
+        );
+    }
+    #[test]
+    fn vortex_projection_readiness_plan_missing_candidate_source_returns_non_zero() {
+        assert_ne!(
+            run(vec!["vortex-projection-readiness-plan".to_string()]),
+            ExitCode::SUCCESS
+        );
+    }
+    #[test]
+    fn vortex_projection_readiness_plan_missing_dataset_uri_returns_non_zero() {
+        assert_ne!(
+            run(vec![
+                "vortex-projection-readiness-plan".to_string(),
+                "metadata-schema-projection".to_string(),
+            ]),
+            ExitCode::SUCCESS
+        );
+    }
+    #[test]
+    fn vortex_projection_readiness_plan_invalid_candidate_source_returns_non_zero() {
+        assert_ne!(
+            run(vec![
+                "vortex-projection-readiness-plan".to_string(),
+                "bad-source".to_string(),
+                "file://tmp/in.vortex".to_string(),
+            ]),
+            ExitCode::SUCCESS
+        );
+    }
+    #[test]
+    fn vortex_projection_readiness_plan_unknown_extra_token_returns_non_zero() {
+        assert_ne!(
+            run(vec![
+                "vortex-projection-readiness-plan".to_string(),
+                "encoded-column-path".to_string(),
+                "file://tmp/in.vortex".to_string(),
+                "--nope".to_string(),
+            ]),
+            ExitCode::SUCCESS
+        );
+    }
+    #[test]
+    fn vortex_projection_readiness_plan_bare_json_text_tokens_return_non_zero() {
+        assert_ne!(
+            run(vec![
+                "vortex-projection-readiness-plan".to_string(),
+                "encoded-column-path".to_string(),
+                "file://tmp/in.vortex".to_string(),
+                "json".to_string(),
+            ]),
+            ExitCode::SUCCESS
+        );
+        assert_ne!(
+            run(vec![
+                "vortex-projection-readiness-plan".to_string(),
+                "encoded-column-path".to_string(),
+                "file://tmp/in.vortex".to_string(),
+                "text".to_string(),
+            ]),
+            ExitCode::SUCCESS
+        );
+    }
+    #[test]
+    fn vortex_projection_readiness_plan_global_format_json_succeeds() {
+        assert_eq!(
+            run(vec![
+                "vortex-projection-readiness-plan".to_string(),
+                "metadata-schema-projection".to_string(),
+                "file://tmp/in.vortex".to_string(),
+                "--feature-gate".to_string(),
+                "--query-primitive-ready".to_string(),
+                "--projection-primitive".to_string(),
+                "--projection-provided".to_string(),
+                "--projection-supported".to_string(),
+                "--metadata-footer-ready".to_string(),
+                "--format".to_string(),
+                "json".to_string(),
+            ]),
+            ExitCode::SUCCESS
+        );
+    }
+    #[test]
+    fn vortex_projection_readiness_fields_remain_report_only() {
+        let report = plan_vortex_projection_readiness(
+            shardloom_vortex::VortexProjectionReadinessRequest::new(
+                DatasetUri::new("file://tmp/in.vortex").expect("uri"),
+                VortexProjectionCandidateSource::EncodedColumnPath,
+            )
+            .feature_gate_enabled(true)
+            .query_primitive_ready(true)
+            .projection_primitive(true)
+            .projection_provided(true)
+            .encoded_data_path_ready(true),
+        )
+        .expect("report");
+        let fields = vortex_projection_readiness_fields(&report);
+        for (key, value) in [
+            ("projection_executed", "false"),
+            ("projection_applied", "false"),
+            ("metadata_read", "false"),
+            ("encoded_data_read", "false"),
+            ("row_read", "false"),
+            ("array_decoded", "false"),
+            ("values_materialized", "false"),
+            ("arrow_converted", "false"),
+            ("object_store_io", "false"),
+            ("data_written", "false"),
+            ("upstream_scan_called", "false"),
+            ("fallback_execution_allowed", "false"),
+        ] {
+            assert!(fields.contains(&(key.to_string(), value.to_string())));
+        }
+    }
+    #[test]
+    fn vortex_projection_readiness_plan_metadata_schema_ready_succeeds() {
+        assert_eq!(
+            run(vec![
+                "vortex-projection-readiness-plan".to_string(),
+                "metadata-schema-projection".to_string(),
+                "file://tmp/in.vortex".to_string(),
+                "--feature-gate".to_string(),
+                "--query-primitive-ready".to_string(),
+                "--projection-primitive".to_string(),
+                "--projection-provided".to_string(),
+                "--projection-supported".to_string(),
+                "--metadata-footer-ready".to_string(),
+            ]),
+            ExitCode::SUCCESS
+        );
+    }
+    #[test]
+    fn vortex_projection_readiness_plan_encoded_column_path_ready_succeeds() {
+        assert_eq!(
+            run(vec![
+                "vortex-projection-readiness-plan".to_string(),
+                "encoded-column-path".to_string(),
+                "file://tmp/in.vortex".to_string(),
+                "--feature-gate".to_string(),
+                "--query-primitive-ready".to_string(),
+                "--projection-primitive".to_string(),
+                "--projection-provided".to_string(),
+                "--encoded-data-path-ready".to_string(),
+            ]),
+            ExitCode::SUCCESS
+        );
+    }
+    #[test]
+    fn vortex_projection_readiness_plan_unknown_source_with_ready_signals_is_non_zero() {
+        assert_ne!(
+            run(vec![
+                "vortex-projection-readiness-plan".to_string(),
+                "unknown".to_string(),
+                "file://tmp/in.vortex".to_string(),
+                "--feature-gate".to_string(),
+                "--query-primitive-ready".to_string(),
+                "--projection-primitive".to_string(),
+                "--projection-provided".to_string(),
+                "--projection-supported".to_string(),
+                "--metadata-footer-ready".to_string(),
+                "--encoded-data-path-ready".to_string(),
+            ]),
+            ExitCode::SUCCESS
+        );
+    }
+    #[test]
+    fn vortex_projection_readiness_plan_missing_encoded_data_path_returns_non_zero() {
+        assert_ne!(
+            run(vec![
+                "vortex-projection-readiness-plan".to_string(),
+                "encoded-column-path".to_string(),
+                "file://tmp/in.vortex".to_string(),
+                "--feature-gate".to_string(),
+                "--query-primitive-ready".to_string(),
+                "--projection-primitive".to_string(),
+                "--projection-provided".to_string(),
+            ]),
+            ExitCode::SUCCESS
+        );
+    }
+    #[test]
+    fn vortex_projection_readiness_plan_projection_unsupported_returns_non_zero() {
+        assert_ne!(
+            run(vec![
+                "vortex-projection-readiness-plan".to_string(),
+                "metadata-schema-projection".to_string(),
+                "file://tmp/in.vortex".to_string(),
+                "--feature-gate".to_string(),
+                "--query-primitive-ready".to_string(),
+                "--projection-primitive".to_string(),
+                "--projection-provided".to_string(),
+                "--metadata-footer-ready".to_string(),
+                "--projection-unsupported".to_string(),
             ]),
             ExitCode::SUCCESS
         );

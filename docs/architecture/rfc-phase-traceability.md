@@ -314,13 +314,23 @@ No fallback execution.
 ## CG-2.3a projection readiness semantic hardening
 
 - CG-2.2, CG-2.2a.1, and CG-2.2b are complete.
-- CG-2.3 is current in CG-2.3a semantic hardening; CG-2.3b `CLI` is next/deferred.
+- CG-2.3a semantic hardening is complete.
 - `ShardLoom` now provides projection-readiness planning/reporting contracts (`VortexProjectionReadinessRequest` and `VortexProjectionReadinessReport`) without projection execution.
 - Projection-readiness distinguishes metadata/schema projection candidates from encoded-column projection candidates:
   - metadata/schema projection remains explicit and requires `ProjectionSupported` plus `MetadataFooterReady`;
   - encoded-column projection candidates require `EncodedDataPathReady`.
 - The contract remains report-only: no scan/read-start, no projection application, no encoded-data reads, no row reads, no decode, no materialization, no `Arrow` conversion, no object-store `IO`, no writes, and no fallback execution.
 - Keep CG-1 through CG-20 visible and current.
+
+## CG-2.3b projection readiness CLI integration
+
+- `ShardLoom` now exposes projection-readiness planning through `shardloom vortex-projection-readiness-plan <candidate_source> <dataset_uri> [flags] [--format text|json]`.
+- Candidate sources are `metadata-schema-projection`, `encoded-column-path`, and `unknown`.
+- CLI flags surface existing readiness signals, including feature-gate, query-primitive readiness, metadata/footer readiness, encoded-data-path readiness, projection primitive/provided/supported/unsupported, object-store target, decode/materialization/Arrow/write/scan risks, and fallback-policy blocking.
+- The command emits deterministic text/JSON fields for status, mode, projection readiness, candidate source, readiness signals, no-op effect fields, and `fallback_execution_allowed=false`.
+- Focused CLI tests cover missing/invalid arguments, unknown options, bare `json`/`text` rejection, metadata-schema readiness, encoded-column readiness, unknown-source blocking, missing encoded path blocking, unsupported projection blocking, JSON output dispatch, and report-only field invariants.
+- The command does not execute projection, apply projection, call scan/read-start APIs, read metadata/footer or encoded data, read rows, decode, materialize, convert to `Arrow`, perform object-store `IO`, write data, call upstream scans, or attempt fallback execution.
+- CG-2.1+ actual primitive execution remains deferred until real metadata/footer and encoded-data execution paths are approved.
 
 ## R5 systems-learning vocabulary traceability
 
