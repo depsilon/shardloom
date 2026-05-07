@@ -47,15 +47,21 @@ Goal: decide which crate or future crate owns each CG-20 contract before adding 
 
 Checklist:
 
-- [ ] Map `SqlCoverageMatrix` to a future SQL frontend owner.
-- [ ] Map `OperatorCoverageMatrix` to plan/exec/kernel owners.
-- [ ] Map `FunctionCoverageMatrix` to function/kernel owners.
-- [ ] Map `AdapterCertificationReport` to adapter/native I/O owners.
-- [ ] Map `SemanticProfile` to SQL/plan/function owners.
-- [ ] Map `MigrationCompatibilityReport` to plan portability and migration owners.
-- [ ] Map `BestChoiceScorecard` to capability/certification owners.
-- [ ] Document which contracts belong in `shardloom-core` first.
-- [ ] Document which contracts should wait for future crates.
+- [x] Map `SqlCoverageMatrix` to a future SQL frontend owner.
+- [x] Map `OperatorCoverageMatrix` to plan/exec/kernel owners.
+- [x] Map `FunctionCoverageMatrix` to function/kernel owners.
+- [x] Map `AdapterCertificationReport` to adapter/native I/O owners.
+- [x] Map `SemanticProfile` to SQL/plan/function owners.
+- [x] Map `MigrationCompatibilityReport` to plan portability and migration owners.
+- [x] Map `BestChoiceScorecard` to capability/certification owners.
+- [x] Document which contracts belong in `shardloom-core` first.
+- [x] Document which contracts should wait for future crates.
+
+R5.4.1 outcome:
+
+- `shardloom-core` owns the first report-only contract shapes because they are cross-cutting, side-effect-free, and needed by CLI/API/reporting surfaces.
+- Future SQL/frontend, plan/exec/kernel, adapter/native I/O, and migration crates own population of those reports as real capabilities land.
+- No new crate is added solely for naming clarity.
 
 Acceptance:
 
@@ -69,15 +75,21 @@ Goal: define machine-readable report shapes before feature implementation.
 
 Checklist:
 
-- [ ] Define SQL coverage matrix fields.
-- [ ] Define operator coverage matrix fields.
-- [ ] Define function coverage matrix fields.
-- [ ] Define adapter certification matrix fields.
-- [ ] Define semantic profile matrix fields.
-- [ ] Define migration compatibility matrix fields.
-- [ ] Define best-choice scorecard fields.
-- [ ] Define evidence status vocabulary shared across matrices.
-- [ ] Define `fallback_attempted=false` invariants across every matrix.
+- [x] Define SQL coverage matrix fields.
+- [x] Define operator coverage matrix fields.
+- [x] Define function coverage matrix fields.
+- [x] Define adapter certification matrix fields.
+- [x] Define semantic profile matrix fields.
+- [x] Define migration compatibility matrix fields.
+- [x] Define best-choice scorecard fields.
+- [x] Define evidence status vocabulary shared across matrices.
+- [x] Define `fallback_attempted=false` invariants across every matrix.
+
+R5.4.1 outcome:
+
+- `CapabilityCertificationStatus` provides the shared `unsupported`, `planned`, `partial`, `test_reference_only`, `native`, `certified`, and `blocked` vocabulary.
+- `CapabilityCertificationReport::contract_only()` returns planned foundation matrices with `fallback_attempted=false`.
+- `SqlCoverageTier` and `OperatorCertificationStatus` keep test/reference evidence from satisfying production certification.
 
 Acceptance:
 
@@ -242,8 +254,8 @@ Acceptance:
 
 Recommended order:
 
-1. Add core report contracts only.
-2. Add side-effect-free capability report generation with empty/planned matrices.
+1. Add core report contracts only. **Complete in R5.4.1.**
+2. Add side-effect-free capability report generation with empty/planned matrices. **Foundation report available in R5.4.1; CLI discovery remains next.**
 3. Add CLI capability discovery for report-only surfaces.
 4. Add snapshot tests for generated empty/planned matrices.
 5. Add SQL/operator/function/adapter coverage entries incrementally as real implementation appears.

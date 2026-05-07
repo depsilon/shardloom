@@ -10,26 +10,22 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [ ] Session label: R5.3.2/R5.4 CG-19/CG-20 consistency and sequencing pass
-  - Current cleanup/implementation step: Align RFC and architecture docs after the CG-19/CG-20 capability-roadmap expansion, then add CG-20 capability-certification sequencing.
+- [x] Session label: R5.4.1 core capability matrix contracts
+  - Current cleanup/implementation step: Add `shardloom-core` report-only CG-20 certification contracts before CLI discovery, SQL parsing, adapter runtime, or execution work.
   - Primary files:
-    - `AGENTS.md`
     - `docs/architecture/capability-certification-sequencing.md`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-    - `docs/architecture/repo-cleanup-backlog.md`
-    - `docs/architecture/vortex-adapter-integration-plan.md`
-    - `docs/architecture/vortex-public-api-inventory.md`
-    - `docs/rfcs/0025-competitive-engine-track-no-fallback-replacement.md`
-    - `docs/rfcs/0031-universal-native-io-envelope.md`
-    - `docs/rfcs/0032-world-class-sql-operators-functions-adapters-user-capability.md`
-  - Scope: Docs-only roadmap, RFC, and traceability consistency.
-  - Explicitly not included: Runtime behavior, Rust code, dependencies, SQL/parser/operator/adapter implementation, fallback execution.
+    - `shardloom-core/src/certification.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-contract-tests/tests/no_fallback_invariants.rs`
+  - Scope: Core report contracts and invariant tests only.
+  - Explicitly not included: Runtime behavior, SQL parser, SQL execution, DataFrame API, adapter runtime, function registry, operator kernels, dependencies, filesystem/network probing, fallback execution, superiority claims.
   - Validation required:
     - `cargo fmt --all -- --check`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: Docs checks and Rust validation passed locally after installing Rustup, toolchain `1.91.1`, and Visual Studio Build Tools.
+  - Completion notes: Core report-only certification contracts landed in `shardloom-core`; focused tests and full workspace validation passed locally with toolchain `1.91.1`.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -61,6 +57,39 @@
   - Acceptance:
     - SQL/operator/function/adapter/semantic/migration/certification work is split into explicit docs-only batches.
     - No runtime behavior, dependency, parser, adapter, or fallback changes.
+  - Blockers:
+    - None known.
+
+- [x] Follow-up: R5.4.1 core capability matrix contracts
+  - Why: Establish machine-readable report shapes before capability discovery, parser, adapter, or operator work.
+  - Files:
+    - `shardloom-core/src/certification.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-contract-tests/tests/no_fallback_invariants.rs`
+    - `docs/architecture/capability-certification-sequencing.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Acceptance:
+    - SQL/operator/function/adapter/semantic/migration/scorecard matrices have core contract shapes.
+    - Planned entries are not supported or certified.
+    - `test_reference_only` cannot satisfy production certification.
+    - `fallback_attempted=false` invariants are represented in contracts and tests.
+    - No parser/runtime/adapter/dependency/fallback behavior is added.
+  - Blockers:
+    - None known.
+
+- [ ] Follow-up: R5.4.2 capability discovery surface
+  - Why: Expose the planned CG-20 certification report through deterministic, side-effect-free capability discovery before adding feature implementation.
+  - Files:
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-core/src/certification.rs`
+    - `shardloom-contract-tests/tests/`
+    - `docs/architecture/capability-certification-sequencing.md`
+  - Acceptance:
+    - CLI discovery emits report-only text/JSON for capability certification.
+    - Command execution performs no filesystem, network, catalog, adapter, parser, or runtime probing.
+    - Planned entries remain planned, not supported.
+    - `fallback_attempted=false` and fallback disabled remain explicit.
   - Blockers:
     - None known.
 
@@ -107,6 +136,13 @@
 - [x] R5.4 Capability certification sequencing
   - Why: convert CG-20 from broad RFC surface into a batchable implementation roadmap before adding code or dependencies.
   - Acceptance: docs-only sequencing for SQL/operator/function/adapter/semantic/migration/certification surfaces with no parser, adapter, runtime, or fallback implementation.
+- [x] R5.4.1 Core capability matrix contracts
+  - Why: add core report-only certification contracts before CLI discovery and feature expansion.
+  - Acceptance: report-only core contracts and no-fallback invariants with no parser, runtime, adapter, dependency, or fallback behavior.
+  - Local validation status:
+    - focused `shardloom-core` certification tests passed
+    - focused no-fallback invariant test passed
+    - full Rust validation passed with toolchain `1.91.1`
 
 ## Implementation Phase Queue
 - [ ] R4 Resume CG implementation (planned)

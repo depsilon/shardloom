@@ -2,8 +2,9 @@ use std::fs;
 use std::path::PathBuf;
 
 use shardloom_core::{
-    BaselineEngine, CorrectnessValidationPlan, Diagnostic, DiagnosticCode, DifferentialBaseline,
-    EngineCapabilities, NoFallbackReleaseCheck, OutputEnvelope, ReleasePlan,
+    BaselineEngine, CapabilityCertificationReport, CorrectnessValidationPlan, Diagnostic,
+    DiagnosticCode, DifferentialBaseline, EngineCapabilities, NoFallbackReleaseCheck,
+    OutputEnvelope, ReleasePlan,
 };
 
 const FORBIDDEN_FALLBACK_PACKAGES: [&str; 10] = [
@@ -38,6 +39,43 @@ fn fallback_execution_remains_disabled_everywhere() {
     let plan = ReleasePlan::default_foundation_plan();
     assert!(plan.no_fallback_check.is_clean());
     assert!(!plan.publish_allowed());
+
+    let certification = CapabilityCertificationReport::contract_only();
+    assert!(!certification.fallback_attempted());
+    assert!(!certification.can_publish_best_choice_claim());
+    assert!(!certification.sql_coverage.fallback_attempted);
+    assert!(!certification.operator_coverage.fallback_attempted);
+    assert!(!certification.function_coverage.fallback_attempted);
+    assert!(!certification.adapter_certification.fallback_attempted);
+    assert!(!certification.best_choice_scorecard.fallback_attempted);
+    assert!(
+        certification
+            .sql_coverage
+            .entries
+            .iter()
+            .all(|entry| !entry.fallback_attempted)
+    );
+    assert!(
+        certification
+            .operator_coverage
+            .entries
+            .iter()
+            .all(|entry| !entry.fallback_attempted)
+    );
+    assert!(
+        certification
+            .function_coverage
+            .entries
+            .iter()
+            .all(|entry| !entry.fallback_attempted)
+    );
+    assert!(
+        certification
+            .adapter_certification
+            .entries
+            .iter()
+            .all(|entry| !entry.fallback_attempted)
+    );
 }
 
 #[test]
