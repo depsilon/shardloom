@@ -394,3 +394,22 @@ Clarifications:
 - This RFC section does not authorize adding Dask, Ray, or Trino dependencies.
 - No runtime fallback/delegation is permitted.
 
+## Systems-learning conceptual runtime vocabulary (R5.1)
+
+Conceptual terms added for future runtime contracts:
+- `SplitSource`
+- `TaskLease`
+- `PlacementHint`
+- `IntermediateArtifactKind`
+- `IntermediateArtifactRef`
+- `ExchangeSpoolPolicy`
+- `RecoveryStrategy`
+- `TaskGranularityPolicy`
+
+Artifact taxonomy note:
+- spill, exchange, runtime filters, commit staging, and profile samples are distinct artifact classes.
+
+R5.1 scope note:
+- no object-store IO is implemented in this pass.
+- no distributed execution is implemented in this pass.
+

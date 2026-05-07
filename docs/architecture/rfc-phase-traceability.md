@@ -312,3 +312,12 @@ No fallback execution.
 - The contract remains report-only: no scan/read-start, no projection application, no encoded-data reads, no row reads, no decode, no materialization, no `Arrow` conversion, no object-store `IO`, no writes, and no fallback execution.
 - Keep CG-1 through CG-18 visible and current.
 
+## R5 systems-learning vocabulary traceability
+
+- RFC 0008: `SplitSource`, `TaskLease`, `PlacementHint`, `IntermediateArtifactRef`, `RecoveryStrategy`.
+- RFC 0012: `PushdownProofReport`, `LoweringTraceReport`, `TaskGranularityReport`, `RuntimeFilterReport`, `PlannedVsActualOperatorProfile`, `PlanPortabilityReport`.
+- RFC 0016: `OptimizerDecisionKind`, runtime filter lifecycle, pushdown proof, split/fuse/coalesce decisions.
+- RFC 0018: `OperatorProfile`, planned-vs-actual runtime reporting, `system.*` introspection surfaces.
+- RFC 0022: `PlanPortabilityReport`, Substrait-like portability/loss boundary.
+- RFC 0011: SQL frontend parse/bind/validate boundary.
+

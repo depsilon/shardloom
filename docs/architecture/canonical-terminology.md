@@ -107,3 +107,15 @@ The R3.4 audit keeps terminology families distinct while documenting mapping-hel
 - Status/report suffixes (`Plan`, `Request`, `Report`, `Status`, `Mode`, `Signal`, `Effect`, `Ref`, `Id`)
 
 See `docs/architecture/terminology-consolidation-backlog.md` for the full audit backlog and helper candidates.
+
+## R5.1 glossary additions
+
+- **fallback execution**: prohibited runtime delegation to an external engine.
+- **compatibility baseline**: non-native engine/output reference used for comparison or interoperability checks, never as runtime delegation.
+- **external baseline**: external system used only for correctness/benchmark reference, not execution fallback.
+- **pushdown proof**: structured evidence describing whether a predicate/projection was pushed exactly, with residual, or rejected.
+- **residual expression**: the remainder that must still run natively after partial pushdown.
+- **lowering provenance**: trace of high-level plan constructs lowered into lower-level task/operator forms.
+- **portability loss**: explicit representational loss when mapping native plan semantics to an interchange form.
+- **intermediate artifact**: explicit typed runtime/planning artifact (spill, exchange, runtime-filter, staged-commit, profile sample) with stable identity.
+

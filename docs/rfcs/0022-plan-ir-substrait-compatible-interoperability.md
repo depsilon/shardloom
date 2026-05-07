@@ -253,3 +253,18 @@ Unsupported plan behavior must fail explicitly with deterministic diagnostics an
 - Imported plans must pass ShardLoom capability checks before any execution path is considered.
 - Unsupported imported plans must fail deterministically with explicit diagnostics.
 - Substrait-like export/import is for validation and interoperability only, not external execution.
+
+## Systems-learning portability vocabulary (R5.1)
+
+Conceptual report vocabulary:
+- `PlanPortabilityReport`
+- native-only nodes
+- representable nodes
+- lossy nodes
+- unsupported nodes
+- portability diagnostics
+- validation-without-execution
+
+Scope note:
+- Substrait-like export remains optional/future and non-executing.
+

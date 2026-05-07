@@ -717,3 +717,22 @@ Future implementation PRs should verify:
 - Should embeddings be stored directly in Vortex-native outputs?
 - What is the first unstructured-data use case?
 - What safety controls are required before enabling external writes?
+
+## SQL frontend boundary vocabulary (R5.1)
+
+Conceptual SQL frontend boundary:
+- SQL text
+- parse
+- bind names/types/catalog refs
+- validate ShardLoom-supported subset
+- produce ShardLoom LogicalPlan
+- capability check
+- explain / estimate / execute later
+
+Non-goals in this pass:
+- no SQL execution delegation
+- no Calcite dependency
+- no DataFusion dependency
+- no broad SQL dialect
+- no parser dependency until explicitly approved
+

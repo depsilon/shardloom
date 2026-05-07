@@ -673,3 +673,18 @@ Required fields:
 - `schema_version`
 - `diagnostics`
 
+## Systems-learning conceptual report vocabulary (R5.1)
+
+This pass adds conceptual report-schema vocabulary only.
+No implementation is added.
+No execution behavior is added.
+No external engines are added.
+
+Conceptual report names:
+- `PushdownProofReport`
+- `LoweringTraceReport`
+- `TaskGranularityReport`
+- `RuntimeFilterReport`
+- `PlannedVsActualOperatorProfile`
+- `PlanPortabilityReport`
+
