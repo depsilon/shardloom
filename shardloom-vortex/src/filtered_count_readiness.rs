@@ -593,9 +593,6 @@ fn derive_status(r: &VortexFilteredCountReadinessRequest) -> VortexFilteredCount
     if !r.has_signal(S::FilteredCountPrimitive) {
         return VortexFilteredCountReadinessStatus::BlockedByUnsupportedPrimitive;
     }
-    if !r.has_signal(S::QueryPrimitiveReady) {
-        return VortexFilteredCountReadinessStatus::BlockedByUnsupportedPrimitive;
-    }
     if r.has_signal(S::PredicateUnsupported) {
         return VortexFilteredCountReadinessStatus::BlockedByUnsupportedPredicate;
     }
@@ -619,6 +616,9 @@ fn derive_status(r: &VortexFilteredCountReadinessRequest) -> VortexFilteredCount
         VortexFilteredCountCandidateSource::Unknown => {
             return VortexFilteredCountReadinessStatus::BlockedByUnsupportedPrimitive;
         }
+    }
+    if !r.has_signal(S::QueryPrimitiveReady) {
+        return VortexFilteredCountReadinessStatus::BlockedByUnsupportedPrimitive;
     }
     VortexFilteredCountReadinessStatus::FilteredCountReady
 }
@@ -646,7 +646,14 @@ pub fn filtered_count_readiness_request_from_query_primitive_report(
     target_uri: DatasetUri,
     query_report: &VortexQueryPrimitiveReport,
 ) -> VortexFilteredCountReadinessRequest {
-    let candidate_source = if query_report.encoded_data_path_ready() {
+    let is_filtered_count = matches!(
+        query_report.request.primitive,
+        VortexQueryPrimitiveBoundaryKind::FilteredCount
+    );
+    let has_predicate = query_report
+        .request
+        .has_signal(VortexQueryPrimitiveSignal::PredicateProvided);
+    let candidate_source = if is_filtered_count && has_predicate {
         VortexFilteredCountCandidateSource::EncodedPredicatePath
     } else {
         VortexFilteredCountCandidateSource::Unknown
@@ -674,10 +681,7 @@ pub fn filtered_count_readiness_request_from_query_primitive_report(
         .arrow_default_risk(query_report.arrow_default_risk())
         .write_risk(query_report.write_risk())
         .scan_execution_risk(query_report.scan_execution_risk());
-    if matches!(
-        query_report.request.primitive,
-        VortexQueryPrimitiveBoundaryKind::FilteredCount
-    ) {
+    if is_filtered_count {
         req = req.filtered_count_primitive(true);
     }
     if query_report.fallback_execution_allowed()
@@ -822,5 +826,65 @@ mod tests {
             req.candidate_source,
             VortexFilteredCountCandidateSource::EncodedPredicatePath
         );
+    }
+
+    #[test]
+    fn helper_preserves_missing_encoded_path_blocker_for_filtered_count() {
+        let q = plan_vortex_query_primitive(
+            VortexQueryPrimitiveBoundaryRequest::new(
+                uri(),
+                VortexQueryPrimitiveBoundaryKind::FilteredCount,
+            )
+            .feature_gate_enabled(true)
+            .metadata_footer_ready(true)
+            .predicate_provided(true),
+        )
+        .expect("q");
+        assert!(!q.encoded_data_path_ready());
+
+        let req = filtered_count_readiness_request_from_query_primitive_report(uri(), &q);
+        assert_eq!(
+            req.candidate_source,
+            VortexFilteredCountCandidateSource::EncodedPredicatePath
+        );
+        assert!(!req.has_signal(VortexFilteredCountReadinessSignal::PredicateMetadataProofReady));
+
+        let report = plan_vortex_filtered_count_readiness(req).expect("report");
+        assert_eq!(
+            report.status,
+            VortexFilteredCountReadinessStatus::BlockedByMissingEncodedDataPath
+        );
+        assert_ne!(
+            report.status,
+            VortexFilteredCountReadinessStatus::BlockedByUnsupportedPrimitive
+        );
+    }
+
+    #[test]
+    fn helper_keeps_non_filtered_count_as_unknown_candidate() {
+        let q = plan_vortex_query_primitive(
+            VortexQueryPrimitiveBoundaryRequest::new(
+                uri(),
+                VortexQueryPrimitiveBoundaryKind::Count,
+            )
+            .feature_gate_enabled(true)
+            .metadata_footer_ready(true)
+            .encoded_data_path_ready(true),
+        )
+        .expect("q");
+        let req = filtered_count_readiness_request_from_query_primitive_report(uri(), &q);
+        assert_eq!(
+            req.candidate_source,
+            VortexFilteredCountCandidateSource::Unknown
+        );
+        assert!(!req.has_signal(VortexFilteredCountReadinessSignal::FilteredCountPrimitive));
+        let report = plan_vortex_filtered_count_readiness(req).expect("report");
+        assert_eq!(
+            report.status,
+            VortexFilteredCountReadinessStatus::BlockedByUnsupportedPrimitive
+        );
+        assert!(!report.filtered_count_ready());
+        assert!(!report.predicate_evaluated());
+        assert!(!report.fallback_execution_allowed());
     }
 }
