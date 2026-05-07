@@ -261,3 +261,9 @@ No fallback execution.
 - This remains report-only readiness planning and introduces no execution side effects.
 - CLI query primitive planning command is deferred to CG-2.0c.
 - CG-2.1 execution remains blocked pending metadata/footer and encoded data path readiness.
+
+## CG-2.0c query primitive plan CLI integration
+- Adds `shardloom vortex-query-primitive-plan <primitive> <dataset_uri> [flags] [--format text|json]` as a report-only/readiness-only planning command.
+- Command constructs `VortexQueryPrimitiveRequest` and calls `plan_vortex_query_primitive` only; it does not execute query primitives.
+- Command does not call scan/read-start APIs, does not read encoded data or rows, does not decode/materialize/Arrow-convert, does not perform object-store IO, does not write output payloads, and does not allow fallback execution.
+- CG-2.1 actual count/query execution remains blocked until metadata/footer and encoded-data path readiness are both available.
