@@ -177,13 +177,24 @@ Goal: expand capability breadth without hiding execution maturity.
 
 Checklist:
 
-- [ ] Define operator-family certification statuses.
-- [ ] Define per-operator memory/spill flags.
-- [ ] Define function-family certification statuses.
-- [ ] Define function metadata fields for null behavior, determinism, volatility, effects, types, encoded capability, and materialization.
-- [ ] Define `test_reference_only` evidence boundaries.
-- [ ] Define native decoded, encoded-capable, compressed-native, streaming, spill, distributed, benchmarked, and production-certified transitions.
-- [ ] Link operator/function status to correctness and benchmark gates.
+- [x] Define operator-family certification statuses.
+- [x] Define per-operator memory/spill flags.
+- [x] Define function-family certification statuses.
+- [x] Define function metadata fields for null behavior, determinism, volatility, effects, types, encoded capability, and materialization.
+- [x] Define `test_reference_only` evidence boundaries.
+- [x] Define native decoded, encoded-capable, compressed-native, streaming, spill, distributed, benchmarked, and production-certified transitions.
+- [x] Link operator/function status to correctness and benchmark gates.
+
+R5.4.4 outcome:
+
+- RFC 0032 now defines operator certification transition meaning from `unsupported` through `production_certified`.
+- `OperatorCertificationReport` fields cover family, status, semantic profile, representation states, memory certification, materialization/order/partition requirements, correctness, semantic conformance, benchmark, diagnostics, report refs, and fallback status.
+- Operator production certification requires correctness, semantic conformance, memory/spill safety, diagnostics, benchmark evidence, and no-fallback invariants.
+- RFC 0032 now defines function certification status meaning using the shared `CapabilityCertificationStatus` vocabulary.
+- `FunctionCertificationReport` fields cover names, aliases, group, types, null behavior, determinism, volatility, effects, encoded/selection-vector/streaming/spill support, materialization, semantic profile, correctness, semantic conformance, benchmarks, diagnostics, and fallback status.
+- `test_reference_only` cannot satisfy production certification for operators or functions.
+- Performance or superiority claims remain blocked without CG-5 correctness evidence, CG-6 benchmark evidence, and `fallback_attempted=false`.
+- No function registry, operator kernel, execution behavior, dependency, or fallback behavior is added.
 
 Acceptance:
 
