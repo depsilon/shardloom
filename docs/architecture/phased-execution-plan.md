@@ -10,12 +10,13 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [x] Session label: R5.4.4 operator and function certification sequencing
-  - Current cleanup/implementation step: Define operator/function certification transitions before native kernels, registries, or execution expansion.
+- [x] Session label: R5.4.5 adapter certification sequencing
+  - Current cleanup/implementation step: Define adapter maturity, pushdown, source/sink, fidelity, and no-fallback boundaries before adapter runtime work.
   - Primary files:
     - `docs/architecture/capability-certification-sequencing.md`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/rfcs/0031-universal-native-io-envelope.md`
     - `docs/rfcs/0032-world-class-sql-operators-functions-adapters-user-capability.md`
   - Scope: Docs/RFC sequencing only.
   - Explicitly not included: Runtime behavior, SQL parser, SQL execution, DataFrame API, adapter runtime, function registry, operator kernels, dependencies, filesystem/network/catalog probing, fallback execution, superiority claims.
@@ -23,7 +24,7 @@
     - `cargo fmt --all -- --check`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: RFC 0032 now defines operator/function certification transitions, report fields, test-reference boundaries, and correctness/benchmark gates.
+  - Completion notes: RFC 0031/0032 now define adapter maturity evidence, source/sink/pushdown/fidelity boundaries, native I/O certificate linkage, and external pushdown no-fallback rules.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -130,7 +131,7 @@
   - Blockers:
     - None known.
 
-- [ ] Follow-up: R5.4.5 adapter certification sequencing
+- [x] Follow-up: R5.4.5 adapter certification sequencing
   - Why: Define adapter maturity, pushdown, source/sink, fidelity, and no-fallback boundaries before adapter runtime work.
   - Files:
     - `docs/architecture/capability-certification-sequencing.md`
@@ -142,6 +143,20 @@
     - Pushdown, residual, metadata/fidelity loss, encoded preservation, streaming, object-store-range, read/write/commit, and native I/O certificate boundaries are explicit.
     - External source pushdown is proof-backed source behavior, not hidden fallback execution.
     - No adapter runtime, object-store IO, file-format dependency, catalog dependency, execution behavior, or fallback behavior is added.
+  - Blockers:
+    - None known.
+
+- [ ] Follow-up: R5.4.6 semantic profile and migration sequencing
+  - Why: Define semantic-profile and migration-report contracts before compatibility modes, migration analyzers, or external baseline comparisons expand.
+  - Files:
+    - `docs/architecture/capability-certification-sequencing.md`
+    - `docs/rfcs/0032-world-class-sql-operators-functions-adapters-user-capability.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Acceptance:
+    - Semantic profile dimensions are tied to status/evidence fields.
+    - Migration reports distinguish supported constructs, unsupported constructs, semantic differences, function differences, adapter differences, materialization requirements, rewrite suggestions, evidence labels, and Vortex conversion payback.
+    - External engines remain comparison and migration baselines only.
+    - No compatibility execution mode, migration analyzer runtime, external engine dependency, benchmark claim, or fallback behavior is added.
   - Blockers:
     - None known.
 
@@ -215,6 +230,11 @@
 - [x] R5.4.4 Operator and function certification sequencing
   - Why: define certification transitions before native kernels, registries, or execution expansion.
   - Acceptance: operator/function transition rules, report fields, test-reference boundaries, materialization/fallback fields, and correctness/benchmark gates are documented.
+  - Local validation status:
+    - full Rust validation passed with toolchain `1.91.1`
+- [x] R5.4.5 Adapter certification sequencing
+  - Why: define adapter maturity and source/sink/pushdown/fidelity boundaries before adapter runtime work.
+  - Acceptance: adapter maturity A0-A7, source capability, sink requirement, pushdown exactness, residual, fidelity loss, encoded preservation, support fields, native I/O certificate linkage, and external source pushdown boundaries are documented.
   - Local validation status:
     - full Rust validation passed with toolchain `1.91.1`
 
