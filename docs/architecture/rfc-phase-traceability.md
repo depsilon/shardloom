@@ -388,3 +388,13 @@ No fallback execution.
 - Primary RFC linkage: RFC 0032.
 - Related RFCs: RFC 0011, RFC 0012, RFC 0015, RFC 0021, RFC 0022, RFC 0023, RFC 0029, RFC 0030, and RFC 0031.
 - This phase adds no SQL parser, SQL execution, adapter runtime, function registry, operator kernel, dependency, filesystem/network/catalog probing, external-engine probing, or fallback behavior.
+
+## R5.4.2a capability certification snapshot tests
+
+- `shardloom-contract-tests/tests/capability_certification_snapshots.rs` locks the planned CG-20 matrix names, schema versions, and unsupported/default statuses.
+- `shardloom-cli/tests/capability_discovery_snapshots.rs` locks scoped `shardloom capabilities <scope>` JSON field names and report-only probe flags.
+- Snapshot tests cover SQL, operator, function, adapter, semantic profile, migration, and best-choice scorecard surfaces.
+- Certification report output is checked against `FeatureFootprintReport` no-probe expectations where the contracts overlap.
+- Primary RFC linkage: RFC 0032.
+- Related RFCs: RFC 0011, RFC 0012, RFC 0015, RFC 0021, RFC 0022, RFC 0023, RFC 0029, RFC 0030, and RFC 0031.
+- This phase adds no SQL parser, SQL execution, adapter runtime, function registry, operator kernel, dependency, filesystem/network/catalog probing, external-engine probing, or fallback behavior.
