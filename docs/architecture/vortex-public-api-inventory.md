@@ -661,11 +661,19 @@ This update does not introduce scans, decode, materialization, writes, object-st
 ## CG-2.3a projection readiness semantic hardening
 
 - CG-2.2, CG-2.2a.1, and CG-2.2b are complete.
-- CG-2.3 is current in CG-2.3a semantic hardening; CG-2.3b `CLI` is next/deferred.
+- CG-2.3a semantic hardening is complete.
 - `ShardLoom` now provides projection-readiness planning/reporting contracts (`VortexProjectionReadinessRequest` and `VortexProjectionReadinessReport`) without projection execution.
 - Projection-readiness distinguishes metadata/schema projection candidates from encoded-column projection candidates:
   - metadata/schema projection remains explicit and requires `ProjectionSupported` plus `MetadataFooterReady`;
   - encoded-column projection candidates require `EncodedDataPathReady`.
 - The contract remains report-only: no scan/read-start, no projection application, no encoded-data reads, no row reads, no decode, no materialization, no `Arrow` conversion, no object-store `IO`, no writes, and no fallback execution.
 - Keep CG-1 through CG-20 visible and current.
+
+## CG-2.3b projection readiness CLI integration
+
+- CG-2.3b CLI integration is complete via `shardloom vortex-projection-readiness-plan <candidate_source> <dataset_uri> [flags] [--format text|json]`.
+- Candidate sources are `metadata-schema-projection`, `encoded-column-path`, and `unknown`.
+- The command emits report-only text/JSON fields for readiness status, planning mode, projection readiness, candidate source, readiness signals, no-op effect fields, and `fallback_execution_allowed=false`.
+- The command does not execute projection, apply projection, call scan/read-start APIs, read metadata/footer or encoded data, read rows, decode, materialize, convert to `Arrow`, perform object-store `IO`, write data, call upstream scans, or attempt fallback execution.
+- Projection execution remains blocked until a real encoded projection path or explicit metadata/schema projection execution capability exists.
 

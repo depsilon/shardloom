@@ -10,22 +10,21 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [x] Session label: R5.4.9 RFC sufficiency hardening pass
-  - Current cleanup/implementation step: Harden CG-19/CG-20 RFC evidence gates before returning to implementation work.
+- [x] Session label: CG-2.3b projection readiness CLI integration
+  - Current cleanup/implementation step: Surface the existing projection-readiness contract through deterministic report-only CLI output.
   - Primary files:
-    - `docs/architecture/capability-certification-sequencing.md`
+    - `shardloom-cli/src/main.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-    - `docs/rfcs/0025-competitive-engine-track-no-fallback-replacement.md`
-    - `docs/rfcs/0031-universal-native-io-envelope.md`
-    - `docs/rfcs/0032-world-class-sql-operators-functions-adapters-user-capability.md`
-  - Scope: Docs/RFC sequencing only.
-  - Explicitly not included: Runtime behavior, SQL parser, SQL execution, DataFrame API, benchmark implementation, certification runtime, migration analyzer runtime, compatibility execution mode, adapter runtime, function registry, operator kernels, dependencies, new tests, external engine probing, filesystem/network/catalog probing, fallback execution, superiority claims.
+    - `docs/architecture/vortex-adapter-integration-plan.md`
+    - `docs/architecture/vortex-public-api-inventory.md`
+  - Scope: CLI/reporting integration for existing projection-readiness planning.
+  - Explicitly not included: Projection execution, scan/read-start APIs, encoded data reads, row reads, decode, materialization, Arrow conversion, object-store IO, writes, dependencies, external engine probing, fallback execution, superiority claims.
   - Validation required:
     - `cargo fmt --all -- --check`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: RFC 0025 now has a canonical best-default evidence gate; RFC 0031 now has CG-19 sufficiency gates; RFC 0032 now has a `WorldClassSufficiencyReport` with decisions, invariants, disqualifiers, and explicit implementation deferrals.
+  - Completion notes: `shardloom vortex-projection-readiness-plan <candidate_source> <dataset_uri> [flags] [--format text|json]` emits report-only readiness fields for metadata-schema and encoded-column projection candidates.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -206,7 +205,7 @@
   - Blockers:
     - None known.
 
-- [ ] Follow-up: CG-2.3b projection readiness CLI integration
+- [x] Follow-up: CG-2.3b projection readiness CLI integration
   - Why: Core projection-readiness contract exists; CLI surfacing remains deferred.
   - Files:
     - `shardloom-cli/src/main.rs`
@@ -216,8 +215,11 @@
     - CLI emits report-only JSON/text.
     - No projection execution.
     - No scan/read-start, decode, materialization, Arrow conversion, writes, object-store IO, or fallback execution.
+  - Local validation status:
+    - focused `shardloom-cli` projection-readiness tests passed
+    - full Rust validation passed with toolchain `1.91.1`
   - Blockers:
-    - Sequenced behind active docs/refactor queue unless explicitly overridden.
+    - None known.
 
 ## Cleanup / Refactor Queue
 - [x] R0 Roadmap/docs synchronization
@@ -348,7 +350,7 @@ Status legend:
     - projection readiness
     - predicate/filter primitive readiness
   - [~] CG-2.1+ actual primitive execution remains deferred
-  - [~] CG-2.3b projection readiness CLI integration deferred by queue sequencing
+  - [x] CG-2.3b projection readiness CLI integration
   - Required capabilities for completion:
     - encoded-first selection vectors
     - decode only when explicitly allowed
@@ -502,7 +504,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.2a.1 filtered-count blocker precision hardening
 - [x] CG-2.2b filtered-count readiness CLI integration
 - [x] CG-2.3a projection readiness semantic hardening
-- [~] CG-2.3b projection readiness CLI integration deferred by queue sequencing
+- [x] CG-2.3b projection readiness CLI integration
 - [~] CG-2.1+ actual query primitive execution remains deferred
 - [ ] CG-2 closeout requires real count/filtered-count/projection execution over actual Vortex data
 
@@ -666,7 +668,6 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [~] CG-1.2 metadata/footer execution path remains blocked pending approved-safe invocation inputs and harness constraints.
 - [~] CG-2.1 actual execution remains blocked pending metadata/footer and encoded data path readiness.
 - [~] CG-3 real Vortex payload writes remain deferred; placeholder artifact paths are not completion evidence.
-- [~] CG-2.3b projection CLI integration deferred by queue sequencing (not capability claim).
 
 ## Guardrails
 - No Spark/DataFusion/Polars/DuckDB/Velox/vortex-datafusion fallback execution or delegation.
