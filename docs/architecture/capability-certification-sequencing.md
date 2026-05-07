@@ -146,14 +146,24 @@ Goal: keep SQL as a frontend into ShardLoom-native planning.
 
 Checklist:
 
-- [ ] Define parse-only stage.
-- [ ] Define bind/validate stage.
-- [ ] Define native logical-plan lowering stage.
-- [ ] Define native physical-plan lowering stage.
-- [ ] Define unsupported SQL diagnostics.
-- [ ] Define semantic profile selection.
-- [ ] Define SQL coverage snapshot output.
-- [ ] Define dependency approval policy before adding any parser dependency.
+- [x] Define parse-only stage.
+- [x] Define bind/validate stage.
+- [x] Define native logical-plan lowering stage.
+- [x] Define native physical-plan lowering stage.
+- [x] Define unsupported SQL diagnostics.
+- [x] Define semantic profile selection.
+- [x] Define SQL coverage snapshot output.
+- [x] Define dependency approval policy before adding any parser dependency.
+
+R5.4.3 outcome:
+
+- RFC 0032 now defines `SqlFrontendStage` from `declared_only` through `benchmarked_certified`.
+- `SqlFrontendReport` records parser, binder, semantic-profile, catalog, function, operator-lowering, unsupported-construct, materialization, SQL coverage snapshot, diagnostic, dependency, runtime, and fallback fields.
+- Parse-only capability is explicitly not execution support.
+- Bind/validate must fail closed when catalog, type, function, or semantic-profile requirements are unknown.
+- Native logical and physical lowering must reject unsupported residuals and declare materialization/order/partition/memory/spill/sink requirements.
+- Parser dependency approval remains deferred to a later dependency/RFC pass.
+- No SQL parser, SQL execution, adapter runtime, dependency, or fallback behavior is added.
 
 Acceptance:
 

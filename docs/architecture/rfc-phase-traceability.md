@@ -398,3 +398,15 @@ No fallback execution.
 - Primary RFC linkage: RFC 0032.
 - Related RFCs: RFC 0011, RFC 0012, RFC 0015, RFC 0021, RFC 0022, RFC 0023, RFC 0029, RFC 0030, and RFC 0031.
 - This phase adds no SQL parser, SQL execution, adapter runtime, function registry, operator kernel, dependency, filesystem/network/catalog probing, external-engine probing, or fallback behavior.
+
+## R5.4.3 SQL frontend sequencing
+
+- RFC 0032 now defines the SQL frontend stage ladder from `declared_only` through `benchmarked_certified`.
+- `SqlFrontendReport` records parser, binder, semantic-profile, catalog, function, lowering, unsupported-construct, materialization, SQL coverage snapshot, diagnostics, dependency, runtime, and fallback fields.
+- Parse-only status is explicitly not execution support, planning support, binding support, or semantic conformance.
+- Native logical lowering must reject unsupported residuals instead of carrying them toward fallback execution.
+- Native physical lowering must declare decode/materialization, ordering, partitioning, memory, spill, and sink requirements.
+- Parser dependency approval remains deferred to an explicit dependency/RFC pass.
+- Primary RFC linkage: RFC 0032.
+- Related RFCs: RFC 0011, RFC 0012, RFC 0015, RFC 0021, RFC 0022, RFC 0029, RFC 0030, and RFC 0031.
+- This phase adds no SQL parser, SQL execution, adapter runtime, function registry, operator kernel, dependency, filesystem/network/catalog probing, external-engine probing, or fallback behavior.

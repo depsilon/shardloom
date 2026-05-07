@@ -10,22 +10,20 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [x] Session label: R5.4.2a capability certification snapshot tests
-  - Current cleanup/implementation step: Lock CG-20 planned certification matrices and scoped capability-discovery JSON fields before expanding real coverage.
+- [x] Session label: R5.4.3 SQL frontend sequencing
+  - Current cleanup/implementation step: Define SQL frontend stage boundaries before parser dependency, SQL runtime, or execution behavior.
   - Primary files:
     - `docs/architecture/capability-certification-sequencing.md`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-    - `shardloom-core/src/certification.rs`
-    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
-    - `shardloom-contract-tests/tests/capability_certification_snapshots.rs`
-  - Scope: Snapshot-style tests over existing report-only certification contracts and capability-discovery fields.
+    - `docs/rfcs/0032-world-class-sql-operators-functions-adapters-user-capability.md`
+  - Scope: Docs/RFC sequencing only.
   - Explicitly not included: Runtime behavior, SQL parser, SQL execution, DataFrame API, adapter runtime, function registry, operator kernels, dependencies, filesystem/network/catalog probing, fallback execution, superiority claims.
   - Validation required:
     - `cargo fmt --all -- --check`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: Snapshot tests now cover generated planned matrices, no-probe certification defaults, FeatureFootprint alignment, and scoped capability-discovery field names.
+  - Completion notes: RFC 0032 now defines SQL frontend stages, report fields, unsupported diagnostic requirements, and parser dependency approval boundaries.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -106,7 +104,7 @@
   - Blockers:
     - None known.
 
-- [ ] Follow-up: R5.4.3 SQL frontend sequencing
+- [x] Follow-up: R5.4.3 SQL frontend sequencing
   - Why: Define SQL parse/bind/lower stages and unsupported diagnostics before adding any parser dependency or SQL runtime behavior.
   - Files:
     - `docs/architecture/capability-certification-sequencing.md`
@@ -116,6 +114,19 @@
     - SQL remains a frontend into ShardLoom-native planning.
     - Parser dependency decisions remain deferred to an explicit dependency/RFC pass.
     - No SQL parser, SQL execution, runtime behavior, adapter runtime, dependency, or fallback behavior is added.
+  - Blockers:
+    - None known.
+
+- [ ] Follow-up: R5.4.4 operator and function certification sequencing
+  - Why: Define operator/function status transitions and metadata obligations before native kernels, registries, or execution expansion.
+  - Files:
+    - `docs/architecture/capability-certification-sequencing.md`
+    - `docs/rfcs/0032-world-class-sql-operators-functions-adapters-user-capability.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Acceptance:
+    - Operator certification distinguishes test/reference, native decoded, encoded-capable, streaming, spill, distributed, benchmarked, and production-certified states.
+    - Function certification defines metadata obligations for types, null behavior, determinism, volatility, effects, encoded capability, materialization, tests, and benchmarks.
+    - No function registry, operator kernel, execution behavior, dependency, or fallback behavior is added.
   - Blockers:
     - None known.
 
@@ -181,6 +192,11 @@
   - Local validation status:
     - focused core certification snapshot tests passed
     - focused CLI discovery snapshot tests passed
+- [x] R5.4.3 SQL frontend sequencing
+  - Why: define parse/bind/lower stage boundaries before parser dependency or runtime behavior.
+  - Acceptance: SQL frontend stages, report fields, unsupported diagnostic requirements, semantic profile boundaries, and parser dependency approval policy are documented.
+  - Local validation status:
+    - full Rust validation passed with toolchain `1.91.1`
 
 ## Implementation Phase Queue
 - [ ] R4 Resume CG implementation (planned)
