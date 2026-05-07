@@ -101,9 +101,9 @@ Then read the relevant detailed Vortex skills:
 - Arrow compatibility and decoded reference boundaries: `docs/skills/vortex/vortex-arrow-interop.md`
 - Upstream Vortex dependency/version behavior: `docs/skills/vortex/vortex-versioning-upstream.md`
 
-## Current phase
+## Phase source of truth
 
-ShardLoom is in early architecture and skeleton setup.
+ShardLoom's active implementation and cleanup queue is tracked in `docs/architecture/phased-execution-plan.md`.
 
 Do not overbuild.
 
@@ -334,6 +334,7 @@ Rules:
 Before adding engine behavior, read:
 - docs/architecture/phased-execution-plan.md
 - docs/architecture/incumbent-gap-opportunity-map.md
+- docs/architecture/capability-certification-sequencing.md when work touches CG-20 SQL/operator/function/adapter/user capability surfaces
 
 Rules:
 - Keep work aligned to the current phase.
@@ -369,7 +370,7 @@ When proposing next work:
 - do not make superiority claims until CG-5 and CG-6 are satisfied
 - preserve Vortex-native, no-fallback, explicit-side-effect contracts
 - keep the Competitive Engine Track visible in phase proposals
-- do not reduce or omit CG-1 through CG-18
+- do not reduce or omit CG-1 through CG-20
 - Foundry belongs under CG-18 as an optional deployment/comparison target, not as the primary engine target
 - external engines are baselines only
 - no runtime fallback/delegation

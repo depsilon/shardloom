@@ -1,13 +1,13 @@
 # RFC 0032: World-Class SQL, Operator, Function, Adapter, and User Capability Surface
 
 ## Summary
-This RFC defines CG-20 as the final capability-supremacy gate for ShardLoom. It expands competitive scope beyond narrow Vortex acceleration into user-visible capability breadth and certified workload fitness.
+This RFC defines CG-20 as the final user-capability certification gate for ShardLoom. It expands competitive scope beyond narrow Vortex acceleration into user-visible capability breadth and certified workload fitness.
 
 ## Motivation
 Real users choose engines for end-to-end capability: SQL/function/operator breadth, adapters, semantics, APIs, migration ergonomics, diagnostics, and certification confidence.
 
 ## Goals
-- Define capability-supremacy contracts for SQL/operators/functions/adapters/user surfaces.
+- Define capability-certification contracts for SQL/operators/functions/adapters/user surfaces.
 - Define maturity ladders and conformance scorecards.
 - Preserve no-fallback execution constraints.
 
@@ -20,9 +20,9 @@ Real users choose engines for end-to-end capability: SQL/function/operator bread
 - no broad dependency additions
 
 ## CG-20 definition
-CG-20 is the final capability-supremacy gate validating that ShardLoom is the best default engine for declared workload constitutions, not only a fast subset executor.
+CG-20 is the final user-capability gate that defines evidence required before ShardLoom can be certified as the best default engine for declared workload constitutions. It is not only a fast subset-executor gate.
 
-## Capability supremacy surface
+## Capability certification surface
 Contract names:
 - `CompetitiveClaimLevel`
 - `SqlCoverageMatrix`
@@ -41,12 +41,12 @@ Contract names:
 ## Competitive claim ladder
 `CompetitiveClaimLevel`:
 - L0 planning only
-- L1 Vortex-native metadata/filter/project/count superiority
-- L2 local analytical SQL superiority for supported operators
-- L3 adapter-certified superiority across Vortex/Parquet/Arrow/local/object-store
-- L4 lakehouse pipeline superiority over Spark-style jobs
-- L5 broad user-capability parity with DataFusion local SQL
-- L6 broad user-capability parity with Spark analytical SQL/pipeline workflows
+- L1 Vortex-native metadata/filter/project/count capability candidate
+- L2 local analytical SQL capability candidate for supported operators
+- L3 adapter-certified capability candidate across Vortex/Parquet/Arrow/local/object-store
+- L4 lakehouse pipeline capability candidate for Spark-style jobs
+- L5 broad user-capability parity candidate with DataFusion local SQL
+- L6 broad user-capability parity candidate with Spark analytical SQL/pipeline workflows
 - L7 best-default-engine certification for declared workload constitution
 
 ### Required evidence for each L0-L7 claim
@@ -78,7 +78,7 @@ Progressive requirements:
   - correctness required
   - semantic conformance required
   - unsupported-rate budget required
-  - benchmark may be `deferred` until CG-6 when no superiority claim is made
+  - benchmark may be `deferred` until CG-6 only when no performance, comparison, superiority, or best-default claim is emitted
 - L3-L4:
   - adapter certification required
   - comparison reporting required
@@ -92,7 +92,7 @@ Progressive requirements:
 Cross-level invariants:
 - `fallback_attempted=false` is required at every level.
 - Claim fields must be emitted even when not applicable so automation can distinguish `not_applicable` from missing data.
-- Superiority claims remain disallowed until correctness and benchmark gates are satisfied.
+- Any output label or public claim containing superiority, best, beat, faster, cheaper, or replacement language requires CG-5 correctness evidence, CG-6 benchmark evidence, and `benchmark=required_passed`.
 
 ## SQL coverage tiers
 `SqlCoverageMatrix` tiers:
@@ -101,7 +101,7 @@ Cross-level invariants:
 - S2 bound/validated
 - S3 native logical plan
 - S4 native physical plan
-- S5 executable decoded reference path
+- S5 native decoded execution path, or decoded reference evidence marked `test_only`
 - S6 encoded-capable native path
 - S7 benchmarked and certified
 
@@ -168,7 +168,7 @@ Operator families:
 - `planned`
 - `parsed`
 - `planned_native`
-- `decoded_reference`
+- `test_reference_only`
 - `native_decoded`
 - `encoded_capable`
 - `compressed_native`
@@ -177,6 +177,8 @@ Operator families:
 - `distributed_capable`
 - `benchmarked`
 - `production_certified`
+
+`test_reference_only` is correctness or benchmark evidence only. It is not a production execution tier and cannot satisfy production-capability certification without a native execution status such as `native_decoded`, `encoded_capable`, or stronger.
 
 ## Memory/spill certification per operator
 Every operator declaration should include:
@@ -368,6 +370,9 @@ Define:
 - `DuckDBPolarsMigrationReport`
 - `SqlCompatibilityReport`
 - `PlanPortabilityReport`
+- `MigrationCompatibilityReport`
+
+`MigrationCompatibilityReport` compares a declared workload constitution against supported SQL/operators/functions/adapters and reports explicit deltas.
 
 Migration reports must include:
 - `supported constructs`
@@ -377,7 +382,7 @@ Migration reports must include:
 - `adapter differences`
 - `materialization requirements`
 - `rewrite suggestions`
-- `expected performance/cost gain`
+- `expected performance/cost delta estimate` (gain only when evidence-backed)
 - `Vortex conversion payback`
 - `fallback_attempted=false`
 
@@ -422,9 +427,6 @@ Future commands:
 - `shardloom capabilities adapters`
 - `shardloom capabilities semantic-profiles`
 - `shardloom capabilities migration`
-
-## Migration analyzers
-`MigrationCompatibilityReport` compares declared workload constitution against supported SQL/operators/functions/adapters and reports explicit deltas.
 
 ## User API and BI/server access roadmap
 Roadmap includes CLI/API/BI surfaces as explicit capability layers with no implicit execution delegation.

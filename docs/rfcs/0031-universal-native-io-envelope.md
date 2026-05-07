@@ -66,8 +66,9 @@ Required fields:
 - `stream_id`: stable result stream identifier.
 - `sink_requirement_report`: sink constraints and required representation.
 - `result_envelopes`: output `NativeWorkEnvelope`-compatible payload units.
-- `materialization_boundary_report`: one or more `MaterializationBoundaryReport` entries.
-- `native_io_certificate`: final `NativeIoCertificate` for run/report scope.
+- `materialization_boundary_reports`: one or more `MaterializationBoundaryReport` entries.
+- `native_io_certificates`: one `NativeIoCertificate` per source/sink path represented in the result stream.
+- `native_io_certificate_summary`: optional aggregate certificate summary for the full run/report scope.
 - `diagnostics`: stable output diagnostics.
 
 ## RepresentationState
@@ -255,6 +256,8 @@ Required fields:
 ### NativeIoCertificate
 Required fields:
 - `certificate_id`
+- `path_id`
+- `certificate_scope`
 - `source_capability_report`
 - `source_pushdown_report`
 - `representation_transitions`
@@ -267,6 +270,7 @@ Required fields:
 
 ## Acceptance criteria
 - CG-19 cannot complete until every source/sink path emits a `NativeIoCertificate`.
+- A run-level certificate summary cannot replace per-path certificates.
 - Universal I/O must preserve `vortex_encoded` or `foreign_encoded` state whenever possible.
 - Universal I/O must not silently normalize to decoded Arrow.
 - All transitions to `decoded_columnar` or `materialized_rows` must include a `MaterializationBoundaryReport`.

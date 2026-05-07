@@ -10,29 +10,56 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [ ] Session label: Roadmap cleanup to checklist-first maintenance format
-  - Current cleanup/implementation step: Restructure this file into actionable queues and explicit status buckets.
+- [ ] Session label: R5.3.2/R5.4 CG-19/CG-20 consistency and sequencing pass
+  - Current cleanup/implementation step: Align RFC and architecture docs after the CG-19/CG-20 capability-roadmap expansion, then add CG-20 capability-certification sequencing.
   - Primary files:
+    - `AGENTS.md`
+    - `docs/architecture/capability-certification-sequencing.md`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
     - `docs/architecture/repo-cleanup-backlog.md`
-  - Scope: Docs-only roadmap structure and status hygiene.
+    - `docs/architecture/vortex-adapter-integration-plan.md`
+    - `docs/architecture/vortex-public-api-inventory.md`
+    - `docs/rfcs/0025-competitive-engine-track-no-fallback-replacement.md`
+    - `docs/rfcs/0031-universal-native-io-envelope.md`
+    - `docs/rfcs/0032-world-class-sql-operators-functions-adapters-user-capability.md`
+  - Scope: Docs-only roadmap, RFC, and traceability consistency.
   - Explicitly not included: Runtime behavior, Rust code, dependencies, SQL/parser/operator/adapter implementation, fallback execution.
   - Validation required:
     - `cargo fmt --all -- --check`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: _Fill in when this checklist item is completed._
+  - Completion notes: Docs checks and Rust validation passed locally after installing Rustup, toolchain `1.91.1`, and Visual Studio Build Tools.
 
 ## Current Queue
-- [ ] Next immediate step: R5.3.1 RFC consistency fixes closeout
-  - Why: Keep RFC 0031/0032 semantics coherent before additional queue movement.
+- [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
+  - Why: Keep CG-19/CG-20 canonical across RFCs, phase docs, agent instructions, and Vortex planning docs before additional queue movement.
   - Files:
+    - `AGENTS.md`
+    - `docs/rfcs/0025-competitive-engine-track-no-fallback-replacement.md`
     - `docs/rfcs/0031-universal-native-io-envelope.md`
     - `docs/rfcs/0032-world-class-sql-operators-functions-adapters-user-capability.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/repo-cleanup-backlog.md`
+    - `docs/architecture/vortex-adapter-integration-plan.md`
+    - `docs/architecture/vortex-public-api-inventory.md`
+  - Acceptance:
+    - CG-1 through CG-20 are the canonical competitive gate range everywhere this pass touches.
+    - RFC 0032 claim stages do not make superiority or best-default claims before CG-5/CG-6 evidence.
+    - RFC 0031 result-stream certificate fields satisfy per-source/sink-path certificate requirements.
+    - No runtime behavior, dependency, parser, adapter, or fallback changes.
+  - Blockers:
+    - None known.
+
+- [x] Follow-up: R5.4 capability certification sequencing
+  - Why: Convert CG-20's broad RFC surface into a batchable roadmap before implementation starts.
+  - Files:
+    - `docs/architecture/capability-certification-sequencing.md`
+    - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
   - Acceptance:
-    - Metadata-only transition and claim-evidence semantics remain internally consistent.
+    - SQL/operator/function/adapter/semantic/migration/certification work is split into explicit docs-only batches.
     - No runtime behavior, dependency, parser, adapter, or fallback changes.
   - Blockers:
     - None known.
@@ -68,9 +95,18 @@
 - [x] R5.1 Systems-learning contract pass
 - [x] R5.2 Competitive track extension to CG-19/CG-20
 - [x] R5.3 RFC 0031/0032 deepening
-- [ ] R5.3.1 RFC consistency fixes
+- [x] R5.3.1 RFC consistency fixes
   - Why: finalize docs-only consistency pass before resuming queue priorities.
   - Acceptance: docs-only consistency updates with no new implementation claims.
+- [x] R5.3.2 Docs-wide CG-19/CG-20 consistency pass
+  - Why: eliminate remaining CG-18-range drift, evidence-claim wording drift, and RFC 0031/0032 contract inconsistencies.
+  - Acceptance: docs-only consistency updates with no new implementation claims.
+  - Local validation status:
+    - docs scans passed for duplicate headings, hidden/bidi controls, stale CG-18-range drift, decoded-reference drift, and `git diff --check`
+    - Rust validation passed with toolchain `1.91.1`
+- [x] R5.4 Capability certification sequencing
+  - Why: convert CG-20 from broad RFC surface into a batchable implementation roadmap before adding code or dependencies.
+  - Acceptance: docs-only sequencing for SQL/operator/function/adapter/semantic/migration/certification surfaces with no parser, adapter, runtime, or fallback implementation.
 
 ## Implementation Phase Queue
 - [ ] R4 Resume CG implementation (planned)
@@ -238,7 +274,7 @@ Status legend:
   - [x] RFC 0032 contract deepening complete
   - [~] implementation pending
   - Scope:
-    - capability supremacy surface across SQL/operators/functions/adapters/semantic profiles and migration/certification reporting
+    - capability certification surface across SQL/operators/functions/adapters/semantic profiles and migration/certification reporting
 
 
 ## Competitive Engine Gate Detailed Checklist Ledger
@@ -389,7 +425,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 ### CG-20 detailed checklist
 - [x] RFC 0032 contract deepening complete
 - [~] implementation pending
-- [ ] capability supremacy surface implementation across SQL/operators/functions/adapters/semantic profiles/migration reporting
+- [ ] capability certification surface implementation across SQL/operators/functions/adapters/semantic profiles/migration reporting
 
 ### CG attribution and evidence notes
 - [ ] When moving any detailed item to complete, link the implementing PR/commit and validating tests in the completion note.

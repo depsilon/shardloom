@@ -38,6 +38,8 @@ Competitive success gates (CG) are roadmap gates, not canonical phase-ID aliases
 16. CG-16: evidence-first execution certificates.
 17. CG-17: stateful result reuse / incremental execution.
 18. CG-18: universal import/deployment/baseline harness.
+19. CG-19: universal native I/O envelope.
+20. CG-20: world-class SQL, operator, function, adapter, and user capability surface.
 
 ## No-fallback policy
 
@@ -80,17 +82,17 @@ Spark, DataFusion, Polars, DuckDB, Velox, and vortex-datafusion may be used only
 - Preserve CG-18 as universal import/deployment/baseline harness with Foundry only as optional deployment/comparison example.
 
 
-## Additional competitive gates
+## Final competitive gate clarifications
 
 ### CG-19 — Universal Native I/O Envelope
 Define and adopt ShardLoom-native universal I/O contracts that preserve encoded representation, statistics, selection vectors, pushdown proof, materialization state, and sink requirements without defaulting to decoded Arrow batches.
 
 ### CG-20 — World-Class SQL, Operator, Function, Adapter, and User Capability Surface
-Define and validate a full capability-supremacy surface across SQL, operators, functions, adapters, semantic compatibility, migration tooling, and user capability discovery.
+Define and validate a full capability-certification surface across SQL, operators, functions, adapters, semantic compatibility, migration tooling, and user capability discovery.
 
-CG-20 is the final capability-supremacy gate. It is broader than SQL support alone.
+CG-20 is the final user-capability gate. It is broader than SQL support alone.
 
-ShardLoom's competitive goal is to become the best default analytical engine for declared workloads, not merely a narrow Vortex accelerator.
+ShardLoom's competitive target is best-default-engine certification for declared workloads, not merely a narrow Vortex accelerator. That certification target must remain evidence-gated and workload-scoped.
 
 No-fallback policy remains unchanged: ShardLoom must not delegate runtime execution to Spark, DataFusion, DuckDB, Polars, Velox, or other external engines.
 

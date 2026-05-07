@@ -123,7 +123,8 @@ See `docs/architecture/terminology-consolidation-backlog.md` for the full audit 
 
 ## R5.2 glossary additions
 
-- **capability supremacy surface**: The complete user-visible capability area used to evaluate best-default-engine status for declared workloads.
+- **capability certification surface**: the complete user-visible capability area used to evaluate evidence-backed best-default-engine certification for declared workloads.
+- **capability supremacy surface**: older shorthand for capability certification surface; prefer the evidence-gated term in new docs.
 - **universal native I/O envelope**: A ShardLoom-native contract that preserves representation state, pushdown evidence, and sink constraints without default decode.
 - **native work envelope**: A single unit of planned/executed work carrying representation, stats, boundaries, and diagnostics.
 - **foreign encoded**: Non-Vortex encoded representation preserved as encoded data when possible, without implying fallback execution.
