@@ -636,3 +636,8 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - Count execution remains blocked until real metadata/footer or encoded-data-path readiness exists.
 - No scan/read-start, encoded-data reads, row reads, decode, materialization, `Arrow` conversion, object-store IO, writes, or fallback execution are introduced.
 - CG-2.1b is reserved for optional `CLI` surfacing.
+- CG-2.1a semantic hardening is complete: `VortexCountCandidateSource::Unknown` cannot be readiness-complete and deterministically returns `blocked_by_unsupported_primitive` when feature-gated count/query-primitive-ready signals are present.
+- `VortexCountReadinessReport` error detection is severity-aware across status, request diagnostics, and report diagnostics.
+- Count readiness remains report-only and does not execute count.
+- CG-2.1b `CLI` surfacing is next/deferred.
+- No scan/read-start, encoded-data read, row read, decode, materialization, `Arrow` conversion, object-store `IO`, writes, or fallback execution are introduced.
