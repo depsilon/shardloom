@@ -26,6 +26,7 @@ pub mod commit_execution_gate;
 pub mod commit_intent;
 pub mod commit_marker;
 pub mod commit_protocol;
+pub mod count_readiness;
 pub mod encoded_read_api;
 pub mod encoded_read_boundary;
 pub mod encoded_read_executor;
@@ -228,6 +229,13 @@ pub use commit_marker::{
     commit_marker_request_from_protocol_report, commit_marker_write_request_from_plan,
     plan_vortex_commit_marker, vortex_commit_marker_is_side_effect_free,
     vortex_commit_marker_write_is_side_effect_free, write_vortex_commit_marker,
+};
+
+pub use count_readiness::{
+    VortexCountCandidateSource, VortexCountReadinessEffect, VortexCountReadinessMode,
+    VortexCountReadinessReport, VortexCountReadinessRequest, VortexCountReadinessSignal,
+    VortexCountReadinessStatus, count_readiness_request_from_query_primitive_report,
+    plan_vortex_count_readiness, vortex_count_readiness_is_side_effect_free,
 };
 
 pub use commit_protocol::{

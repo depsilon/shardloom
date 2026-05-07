@@ -625,3 +625,14 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - This is not metadata/footer IO execution and does not call scan/read-start APIs.
 - CG-1.2 metadata/footer execution remains paused after CG-1.2d.8 pending fixture/no-IO `Footer` route confirmation.
 - CG-2.1 actual execution remains blocked pending metadata/footer and encoded data path availability.
+
+
+## CG-2.1 count readiness planning update
+
+- CG-1.3 invariant contract tests are complete.
+- CG-2.0 / CG-2.0b / CG-2.0c / CG-2.0c.1 are complete.
+- CG-2.1 is current with a report-only `VortexCountReadinessRequest`/`VortexCountReadinessReport` planning contract.
+- Count planning distinguishes metadata-footer candidates from encoded-data-path candidates.
+- Count execution remains blocked until real metadata/footer or encoded-data-path readiness exists.
+- No scan/read-start, encoded-data reads, row reads, decode, materialization, `Arrow` conversion, object-store IO, writes, or fallback execution are introduced.
+- CG-2.1b is reserved for optional `CLI` surfacing.

@@ -270,3 +270,14 @@ No fallback execution.
 
 
 | CG-1.3 — encoded-read no-materialization / no-`Arrow` invariant closeout (complete for current contract surfaces) | RFC 0025 Competitive/no-fallback; RFC 0026 `Vortex` encoded-read/query-readiness boundaries | RFC 0015 Correctness/testing | Keep report-contract only; no metadata/footer IO execution; no scan/read-start; no decode/materialization/`Arrow` conversion; no object-store IO/writes; no fallback execution | Closes invariant gates for no broad row materialization and no `Arrow`-default conversion across current report surfaces; CG-1.2d.8 metadata/footer execution remains paused; CG-2.1 execution remains blocked pending metadata/footer and encoded data path readiness. |
+
+
+## CG-2.1 count readiness planning update
+
+- CG-1.3 invariant contract tests are complete.
+- CG-2.0 / CG-2.0b / CG-2.0c / CG-2.0c.1 are complete.
+- CG-2.1 is current with a report-only `VortexCountReadinessRequest`/`VortexCountReadinessReport` planning contract.
+- Count planning distinguishes metadata-footer candidates from encoded-data-path candidates.
+- Count execution remains blocked until real metadata/footer or encoded-data-path readiness exists.
+- No scan/read-start, encoded-data reads, row reads, decode, materialization, `Arrow` conversion, object-store IO, writes, or fallback execution are introduced.
+- CG-2.1b is reserved for optional `CLI` surfacing.
