@@ -297,7 +297,7 @@ No fallback execution.
 - CG-2.0 / CG-2.0b / CG-2.0c / CG-2.0c.1 are complete.
 - CG-2.1 is current with a report-only `VortexCountReadinessRequest`/`VortexCountReadinessReport` planning contract.
 - Count planning distinguishes metadata-footer candidates from encoded-data-path candidates.
-- Metadata-footer `CountAll` execution is now wired through CG-2.1c; encoded-data count candidates remain blocked until an encoded-data-path candidate is approved.
+- Metadata-footer `CountAll` execution is now wired through CG-2.1c; encoded-data count candidates can be approved and deferred through CG-2.1d.
 - No scan/read-start, encoded-data reads, row reads, decode, materialization, `Arrow` conversion, object-store IO, writes, or fallback execution are introduced.
 - CG-2.1b `CLI` surfacing is complete via `shardloom vortex-count-readiness-plan <candidate_source> <dataset_uri> [flags] [--format text|json]`.
 - CG-2.1a semantic hardening is complete: `VortexCountCandidateSource::Unknown` cannot be readiness-complete and deterministically returns `blocked_by_unsupported_primitive` when feature-gated count/query-primitive-ready signals are present.
@@ -315,6 +315,14 @@ No fallback execution.
 - The checked-in `metadata_footer_u64_20000.vortex` fixture proves `Count(20000)` from actual Vortex footer metadata.
 - This does not call scan/read-start APIs, traverse encoded data, read rows, decode/materialize values, convert to `Arrow`, perform object-store IO, write data, or attempt fallback execution.
 - CG-2 closeout still requires non-metadata count, filtered-count, projection, and encoded-data execution paths.
+
+## CG-2.1d encoded-data CountAll candidate bridge
+
+- Primary RFC linkage: RFC 0005 Vortex-Native File IO and Output Contract, RFC 0012 Diagnostics/Capabilities, RFC 0013 Streaming/Zero-Copy Boundary, RFC 0015 Correctness/testing, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
+- `count_readiness_request_from_encoded_read_readiness_report` can promote a side-effect-free `VortexEncodedReadReadinessReport` with future encoded-read candidates into a `VortexCountCandidateSource::EncodedDataPath` request.
+- `execute_vortex_count_all_from_encoded_data_candidate` accepts only count-ready encoded-data candidates and returns a deferred `NeedsEncodedRead` local execution report.
+- This bridge does not execute the encoded read, does not call scan/read-start APIs, does not traverse encoded data, does not read rows, does not decode/materialize values, does not convert to `Arrow`, does not perform object-store IO or writes, and does not attempt fallback execution.
+- CG-2 closeout still requires actual native encoded count execution plus filtered-count and projection execution over real Vortex data.
 
 
 ## CG-2.2a filtered-count readiness core contract

@@ -6,9 +6,11 @@ use std::fmt::Write as _;
 use shardloom_core::{Diagnostic, DiagnosticCode, DiagnosticSeverity, Result};
 
 use crate::{
-    VortexMetadataSummaryReport, VortexQueryPrimitiveAnalysisReport, VortexQueryPrimitiveRequest,
-    VortexQueryPrimitiveResult, VortexQueryPrimitiveStatus, VortexQueryPrimitiveValue,
-    analyze_vortex_query_primitive_result, evaluate_vortex_query_primitive,
+    VortexCountCandidateSource, VortexCountReadinessReport, VortexCountReadinessStatus,
+    VortexMetadataSummaryReport, VortexQueryPrimitiveAnalysisReport, VortexQueryPrimitiveKind,
+    VortexQueryPrimitiveRequest, VortexQueryPrimitiveResult, VortexQueryPrimitiveStatus,
+    VortexQueryPrimitiveValue, analyze_vortex_query_primitive_result,
+    evaluate_vortex_query_primitive,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -263,6 +265,15 @@ impl VortexLocalExecutionReport {
     /// Returns an error if query primitive evaluation or analysis fails.
     pub fn from_input(input: VortexLocalExecutionInput) -> Result<Self> {
         let Some(summary) = input.metadata_summary.clone() else {
+            if input.allow_encoded_read && input.request.kind == VortexQueryPrimitiveKind::CountAll
+            {
+                let result = VortexQueryPrimitiveResult::needs_encoded_read(
+                    input.request.clone(),
+                    "metadata summary is unavailable and an encoded-data count candidate is approved",
+                );
+                let analysis = analyze_vortex_query_primitive_result(result.clone());
+                return Ok(Self::needs_encoded_read(input, result, analysis));
+            }
             return Ok(Self::missing_metadata(
                 input,
                 "metadata summary was not provided",
@@ -513,6 +524,34 @@ pub fn execute_vortex_count_all_from_metadata_footer_invocation(
     )
 }
 
+/// Plans `CountAll` through an approved encoded-data candidate without reading encoded data.
+///
+/// The returned report is a deferred `NeedsEncodedRead` result. It does not call
+/// scan/read-start APIs, traverse encoded data, read rows, decode/materialize
+/// values, convert to `Arrow`, perform object-store IO, write data, or permit
+/// fallback execution.
+///
+/// # Errors
+/// Returns an error if primitive analysis construction fails.
+pub fn execute_vortex_count_all_from_encoded_data_candidate(
+    readiness: &VortexCountReadinessReport,
+) -> Result<VortexLocalExecutionReport> {
+    let request = VortexQueryPrimitiveRequest::count_all(readiness.request.target_uri.clone());
+    let input = VortexLocalExecutionInput::new(request).allow_encoded_read(true);
+    if readiness.status == VortexCountReadinessStatus::CountReady
+        && readiness.request.candidate_source == VortexCountCandidateSource::EncodedDataPath
+        && readiness.encoded_data_path_ready()
+        && !readiness.has_errors()
+    {
+        return VortexLocalExecutionReport::from_input(input);
+    }
+    Ok(VortexLocalExecutionReport::unsupported(
+        input,
+        "vortex_count_encoded_candidate",
+        "encoded-data count candidate is not ready",
+    ))
+}
+
 pub fn vortex_local_execution_is_side_effect_free(report: &VortexLocalExecutionReport) -> bool {
     report.is_side_effect_free()
 }
@@ -520,10 +559,16 @@ pub fn vortex_local_execution_is_side_effect_free(report: &VortexLocalExecutionR
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{VortexFileMetadataSummary, VortexMetadataSummaryStatus};
+    use crate::{
+        VortexCountCandidateSource, VortexCountReadinessRequest, VortexFileMetadataSummary,
+        VortexMetadataSummaryStatus, plan_vortex_count_readiness,
+    };
     use shardloom_core::DatasetUri;
+    fn uri() -> DatasetUri {
+        DatasetUri::new("file://tmp/a.vortex").expect("uri")
+    }
     fn count_request() -> VortexQueryPrimitiveRequest {
-        VortexQueryPrimitiveRequest::count_all(DatasetUri::new("file://tmp/a.vortex").expect("uri"))
+        VortexQueryPrimitiveRequest::count_all(uri())
     }
     fn count_summary(rows: u64) -> VortexMetadataSummaryReport {
         VortexMetadataSummaryReport {
@@ -624,6 +669,67 @@ mod tests {
     fn helper_exec_no_io() {
         let r = execute_vortex_local_query_primitive(count_request(), None).expect("ok");
         assert!(vortex_local_execution_is_side_effect_free(&r));
+    }
+
+    #[test]
+    fn encoded_data_candidate_defers_count_without_reading() {
+        let readiness = plan_vortex_count_readiness(
+            VortexCountReadinessRequest::new(uri(), VortexCountCandidateSource::EncodedDataPath)
+                .feature_gate_enabled(true)
+                .query_primitive_ready(true)
+                .count_primitive(true)
+                .encoded_data_path_ready(true),
+        )
+        .expect("readiness");
+
+        let report =
+            execute_vortex_count_all_from_encoded_data_candidate(&readiness).expect("execution");
+
+        assert_eq!(report.status, VortexLocalExecutionStatus::NeedsEncodedRead);
+        assert_eq!(report.mode, VortexLocalExecutionMode::PlanOnly);
+        assert_eq!(report.value, VortexLocalExecutionValue::Deferred);
+        assert!(report.input.allow_encoded_read);
+        assert!(report.is_side_effect_free());
+        assert!(!report.tasks_executed);
+        assert!(!report.data_read);
+        assert!(!report.data_decoded);
+        assert!(!report.data_materialized);
+        assert!(!report.object_store_io);
+        assert!(!report.write_io);
+        assert!(!report.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn encoded_data_candidate_helper_rejects_metadata_source() {
+        let readiness = plan_vortex_count_readiness(
+            VortexCountReadinessRequest::new(uri(), VortexCountCandidateSource::MetadataFooter)
+                .feature_gate_enabled(true)
+                .query_primitive_ready(true)
+                .count_primitive(true)
+                .metadata_footer_ready(true),
+        )
+        .expect("readiness");
+
+        let report =
+            execute_vortex_count_all_from_encoded_data_candidate(&readiness).expect("execution");
+
+        assert_eq!(report.status, VortexLocalExecutionStatus::Unsupported);
+        assert!(report.has_errors());
+        assert!(report.is_side_effect_free());
+        assert!(!report.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn allow_encoded_read_without_count_candidate_does_not_widen_other_primitives() {
+        let request =
+            VortexQueryPrimitiveRequest::project(uri(), shardloom_plan::ProjectionRequest::all());
+        let report = VortexLocalExecutionReport::from_input(
+            VortexLocalExecutionInput::new(request).allow_encoded_read(true),
+        )
+        .expect("report");
+
+        assert_eq!(report.status, VortexLocalExecutionStatus::MissingMetadata);
+        assert!(report.is_side_effect_free());
     }
 
     #[cfg(feature = "vortex-file-io")]

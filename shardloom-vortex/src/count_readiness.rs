@@ -5,8 +5,8 @@ use shardloom_core::{
 };
 
 use crate::{
-    VortexQueryPrimitiveBoundaryKind, VortexQueryPrimitiveBoundaryStatus,
-    VortexQueryPrimitiveReport, VortexQueryPrimitiveSignal,
+    VortexEncodedReadReadinessReport, VortexQueryPrimitiveBoundaryKind,
+    VortexQueryPrimitiveBoundaryStatus, VortexQueryPrimitiveReport, VortexQueryPrimitiveSignal,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -618,6 +618,44 @@ pub fn count_readiness_request_from_query_primitive_report(
     )
 }
 
+#[must_use]
+pub fn count_readiness_request_from_encoded_read_readiness_report(
+    target_uri: DatasetUri,
+    query_report: &VortexQueryPrimitiveReport,
+    encoded_readiness_report: &VortexEncodedReadReadinessReport,
+) -> VortexCountReadinessRequest {
+    let encoded_path_ready = encoded_readiness_report.status.allows_future_encoded_read()
+        && encoded_readiness_report.future_encoded_read_candidate_count > 0
+        && encoded_readiness_report.is_side_effect_free()
+        && !encoded_readiness_report.has_errors();
+
+    let mut req = count_readiness_request_from_query_primitive_report(target_uri, query_report);
+    if encoded_path_ready {
+        req.candidate_source = VortexCountCandidateSource::EncodedDataPath;
+        req = req.encoded_data_path_ready(true);
+    }
+    if encoded_readiness_report.decode_blocked_count > 0 {
+        req = req.decode_risk(true);
+    }
+    if encoded_readiness_report.materialization_blocked_count > 0 {
+        req = req.materialization_risk(true);
+    }
+    if encoded_readiness_report.object_store_blocked_count > 0 {
+        req = req.object_store_target(true);
+    }
+    if encoded_readiness_report.write_blocked_count > 0 {
+        req = req.write_risk(true);
+    }
+    let encoded_summary = encoded_readiness_report.to_human_text();
+    req.upstream_summary = Some(match req.upstream_summary.take() {
+        Some(existing) => format!("{existing}\n\n{encoded_summary}"),
+        None => encoded_summary,
+    });
+    req.diagnostics
+        .extend(encoded_readiness_report.diagnostics.clone());
+    req
+}
+
 /// # Errors
 /// Returns any deterministic planning failure while building `VortexCountReadinessReport`.
 pub fn plan_vortex_count_readiness(
@@ -636,11 +674,32 @@ pub fn vortex_count_readiness_is_side_effect_free(report: &VortexCountReadinessR
 mod tests {
     use super::*;
     use crate::{
-        VortexQueryPrimitiveBoundaryKind, VortexQueryPrimitiveBoundaryRequest,
-        plan_vortex_query_primitive,
+        VortexMemoryBridgeInput, VortexMemoryBridgeReport, VortexQueryPrimitiveBoundaryKind,
+        VortexQueryPrimitiveBoundaryRequest, VortexSchedulerBridgeInput,
+        VortexTaskSchedulingDecision, plan_vortex_query_primitive,
     };
+    use shardloom_exec::MemoryBudget;
     fn uri() -> DatasetUri {
         DatasetUri::new("file://tmp/c.vortex").expect("uri")
+    }
+    fn empty_scheduler_report() -> crate::VortexSchedulerBridgeReport {
+        let memory = VortexMemoryBridgeReport::from_input(VortexMemoryBridgeInput::new(
+            MemoryBudget::from_gib(1).expect("memory budget"),
+        ))
+        .expect("memory report");
+        crate::VortexSchedulerBridgeReport::from_input(VortexSchedulerBridgeInput::new(memory))
+            .expect("scheduler report")
+    }
+    fn ready_count_query_report() -> VortexQueryPrimitiveReport {
+        plan_vortex_query_primitive(
+            VortexQueryPrimitiveBoundaryRequest::new(
+                uri(),
+                VortexQueryPrimitiveBoundaryKind::Count,
+            )
+            .feature_gate_enabled(true)
+            .metadata_footer_ready(true),
+        )
+        .expect("query report")
     }
     #[test]
     fn source_labels_and_requirements_are_stable() {
@@ -895,15 +954,7 @@ mod tests {
 
     #[test]
     fn helper_from_ready_count_sets_signals() {
-        let q = plan_vortex_query_primitive(
-            VortexQueryPrimitiveBoundaryRequest::new(
-                uri(),
-                VortexQueryPrimitiveBoundaryKind::Count,
-            )
-            .feature_gate_enabled(true)
-            .metadata_footer_ready(true),
-        )
-        .expect("q");
+        let q = ready_count_query_report();
         let req = count_readiness_request_from_query_primitive_report(uri(), &q);
         assert!(req.has_signal(VortexCountReadinessSignal::QueryPrimitiveReady));
         assert!(req.has_signal(VortexCountReadinessSignal::CountPrimitive));
@@ -912,5 +963,41 @@ mod tests {
             VortexCountCandidateSource::MetadataFooter
         );
         assert!(req.expected_count_summary.is_none());
+    }
+
+    #[test]
+    fn helper_from_encoded_read_readiness_prefers_encoded_candidate_when_ready() {
+        let mut scheduler = empty_scheduler_report();
+        scheduler
+            .decisions
+            .push(VortexTaskSchedulingDecision::schedule_now(
+                None,
+                "approved encoded count candidate",
+            ));
+        let encoded =
+            VortexEncodedReadReadinessReport::from_scheduler_report(scheduler).expect("encoded");
+        assert!(encoded.status.allows_future_encoded_read());
+
+        let req = count_readiness_request_from_encoded_read_readiness_report(
+            uri(),
+            &ready_count_query_report(),
+            &encoded,
+        );
+        assert_eq!(
+            req.candidate_source,
+            VortexCountCandidateSource::EncodedDataPath
+        );
+        assert!(req.has_signal(VortexCountReadinessSignal::EncodedDataPathReady));
+        assert!(req.has_signal(VortexCountReadinessSignal::QueryPrimitiveReady));
+        assert!(
+            req.upstream_summary
+                .as_deref()
+                .is_some_and(|s| s.contains("future encoded-read candidate count: 1"))
+        );
+
+        let report = plan_vortex_count_readiness(req).expect("count readiness");
+        assert_eq!(report.status, VortexCountReadinessStatus::CountReady);
+        assert_eq!(report.mode, VortexCountReadinessMode::EncodedCountPlanning);
+        assert!(report.is_side_effect_free());
     }
 }
