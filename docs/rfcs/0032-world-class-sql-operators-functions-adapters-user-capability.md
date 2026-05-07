@@ -1047,6 +1047,92 @@ Publication decisions:
 - `best_default_candidate`: certified for the workload and benchmark-backed against declared baselines, but public wording must include scope and limitations.
 - `best_default_certified`: benchmark-backed, correctness-backed, adapter-certified, migration-documented, no-fallback-certified, and approved for the declared workload constitution only.
 
+## CI and snapshot drift gates
+Capability contracts must not drift silently as SQL, operator, function, adapter, migration, and scorecard surfaces grow.
+
+`CapabilitySurfaceSnapshot` fields:
+- `snapshot_id`
+- `schema_version`
+- `engine_version`
+- `snapshot_kind`
+- `scope`
+- `field_keys`
+- `entry_keys`
+- `status_counts`
+- `certified_counts`
+- `planned_counts`
+- `unsupported_counts`
+- `fallback_attempted`
+- `filesystem_probe`
+- `network_probe`
+- `catalog_probe`
+- `adapter_probe`
+- `parser_executed`
+- `runtime_execution`
+- `external_engine_invoked`
+- `diagnostics`
+
+Snapshot kinds:
+- `diagnostic_schema`
+- `capability_discovery_fields`
+- `sql_coverage`
+- `operator_coverage`
+- `function_coverage`
+- `adapter_certification`
+- `semantic_profiles`
+- `migration_compatibility`
+- `workload_constitution`
+- `best_choice_scorecard`
+- `best_default_dossier`
+- `feature_footprint`
+- `no_fallback_invariants`
+
+`CapabilityDriftPolicy` fields:
+- `policy_id`
+- `snapshot_kind`
+- `allowed_changes`
+- `blocked_changes`
+- `requires_rfc_update`
+- `requires_snapshot_update`
+- `requires_correctness_evidence`
+- `requires_benchmark_evidence`
+- `requires_dependency_review`
+- `requires_security_review`
+- `requires_user_migration_note`
+- `diagnostics`
+
+Allowed snapshot changes:
+- adding planned entries with status `planned` or `unsupported`
+- adding diagnostics for newly documented unsupported behavior
+- adding fields behind a schema-version bump
+- adding certified entries only with matching correctness, semantic, adapter, native I/O, and benchmark evidence where applicable
+
+Blocked snapshot changes:
+- changing planned entries to supported without evidence refs
+- removing no-fallback fields
+- changing fallback flags away from false
+- adding external engine execution availability
+- dropping diagnostics fields
+- dropping unsupported reasons
+- changing schema versions without snapshot updates
+- changing field names without user/API migration notes
+- publishing best-default scorecard changes without workload constitution refs
+
+CI gate levels:
+- `docs_only`: validates docs hygiene, hidden/bidi controls, duplicate headings, and no forbidden dependency/runtime changes.
+- `report_only`: validates capability discovery and certification snapshots without parser/runtime/adapter probing.
+- `correctness_gated`: requires correctness fixtures and no-fallback invariants before support status changes.
+- `benchmark_gated`: requires reproducible benchmark evidence before performance, superiority, cost, or best-default claims.
+- `release_gated`: requires API/diagnostic compatibility, migration notes, dependency review, and publication decision checks.
+
+Snapshot execution boundaries:
+- Snapshot tests must be deterministic and side-effect-free.
+- Snapshot tests must not execute SQL, adapters, file readers, object-store IO, network calls, catalog discovery, external engines, or benchmark runners.
+- Snapshot tests may instantiate report-only contract objects and run local CLI capability discovery with explicit no-probe fields.
+- Benchmark gates are separate from snapshot gates.
+- External baselines may appear as evidence labels only after explicit benchmark/correctness phases.
+- Every snapshot surface must keep `fallback_attempted=false`.
+
 ## Dependency policy distinction
 Spark/DataFusion and other engines remain external baselines for comparison, not runtime dependencies or fallback paths.
 

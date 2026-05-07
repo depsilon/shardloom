@@ -299,15 +299,26 @@ Goal: prevent capability surface drift once contracts exist.
 
 Future checks:
 
-- [ ] no-fallback dependency invariant.
-- [ ] diagnostic schema snapshot.
-- [ ] SQL coverage snapshot.
-- [ ] operator coverage snapshot.
-- [ ] function coverage snapshot.
-- [ ] adapter certification snapshot.
-- [ ] semantic profile snapshot.
-- [ ] migration compatibility snapshot.
-- [ ] best-choice scorecard snapshot.
+- [x] no-fallback dependency invariant.
+- [x] diagnostic schema snapshot.
+- [x] SQL coverage snapshot.
+- [x] operator coverage snapshot.
+- [x] function coverage snapshot.
+- [x] adapter certification snapshot.
+- [x] semantic profile snapshot.
+- [x] migration compatibility snapshot.
+- [x] workload constitution snapshot.
+- [x] best-choice scorecard snapshot.
+- [x] best-default dossier snapshot.
+
+R5.4.8 outcome:
+
+- RFC 0032 now defines `CapabilitySurfaceSnapshot` fields for schema versions, field keys, entry keys, status counts, certification counts, no-probe flags, external-engine invocation flags, diagnostics, and fallback status.
+- RFC 0032 now defines snapshot kinds for diagnostics, capability discovery, SQL, operators, functions, adapters, semantic profiles, migration compatibility, workload constitutions, scorecards, best-default dossiers, feature footprint, and no-fallback invariants.
+- RFC 0032 now defines `CapabilityDriftPolicy` fields and allowed/blocked snapshot changes.
+- RFC 0032 now separates docs-only, report-only, correctness-gated, benchmark-gated, and release-gated CI levels.
+- Snapshot execution remains deterministic, side-effect-free, report-only, no-probe, and no-fallback.
+- No new tests, benchmark gates, runtime behavior, dependency, external engine probing, or fallback behavior are added in this docs-only sequencing pass.
 
 Acceptance:
 
