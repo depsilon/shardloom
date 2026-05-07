@@ -50,22 +50,49 @@ Contract names:
 - L7 best-default-engine certification for declared workload constitution
 
 ### Required evidence for each L0-L7 claim
-Every level must declare:
-- `correctness_passed`
-- `semantic_conformance_passed`
-- `benchmark_passed`
-- `adapter_certification_passed`
-- `fallback_attempted=false`
-- `unsupported_rate` threshold
-- `performance regression budget`
-- `capability report emitted`
-- `comparison report emitted`
+Every level must emit a claim evidence record with fields:
+- `correctness`
+- `semantic_conformance`
+- `benchmark`
+- `adapter_certification`
+- `fallback_attempted`
+- `unsupported_rate`
+- `performance_regression_budget`
+- `capability_report`
+- `comparison_report`
+
+Each evidence field must carry one of:
+- `required_passed`
+- `required_failed`
+- `not_applicable`
+- `deferred`
+- `not_run`
 
 Progressive requirements:
-- L0: correctness and capability reporting required; benchmark/comparison optional but explicit.
-- L1-L2: correctness + semantic conformance + unsupported-rate budget required.
-- L3-L4: adapter certification and comparison reporting required.
-- L5-L7: benchmark evidence, regression budget adherence, and full comparison reporting required.
+- L0:
+  - correctness required
+  - capability report required
+  - benchmark/comparison may be `not_applicable` or `deferred`
+  - adapter certification may be `not_applicable`
+- L1-L2:
+  - correctness required
+  - semantic conformance required
+  - unsupported-rate budget required
+  - benchmark may be `deferred` until CG-6 when no superiority claim is made
+- L3-L4:
+  - adapter certification required
+  - comparison reporting required
+  - benchmark required for superiority claims
+- L5-L7:
+  - benchmark evidence required
+  - performance regression budget required
+  - full comparison reporting required
+  - adapter certification required where adapters are part of workload constitution
+
+Cross-level invariants:
+- `fallback_attempted=false` is required at every level.
+- Claim fields must be emitted even when not applicable so automation can distinguish `not_applicable` from missing data.
+- Superiority claims remain disallowed until correctness and benchmark gates are satisfied.
 
 ## SQL coverage tiers
 `SqlCoverageMatrix` tiers:

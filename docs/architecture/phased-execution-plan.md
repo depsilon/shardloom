@@ -95,6 +95,16 @@
 - dependency-graph invariant checks
 - no runtime behavior change
 
+### R5.3 — RFC 0031/0032 deepening (complete)
+- substantive deepening for universal native I/O envelope and capability-supremacy surface
+
+### R5.3.1 — RFC consistency fixes (current)
+- fixes RFC 0031 metadata-only transition consistency
+- fixes RFC 0032 claim-evidence emitted-vs-required semantics
+- CG-2.3b projection readiness CLI remains deferred until R5.3.1 lands
+- docs-only changes
+- no dependencies, runtime behavior, execution, SQL parser, adapter implementation, or fallback execution added
+
 ### R4 — Resume CG implementation (planned)
 - keep CG implementation paused until R3.5d lands unless user explicitly resumes CG
 - default recommendation after R3.5d: resume CG-1.2d unless user continues cleanup
