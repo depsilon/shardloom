@@ -10,23 +10,22 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [x] Session label: CG-2.1d encoded-data count candidate path
-  - Current cleanup/implementation step: Bridge approved encoded-read readiness into count readiness and deferred local `CountAll` execution planning.
+- [x] Session label: CG-2.1e.1 encoded-data count API-gated blocker
+  - Current cleanup/implementation step: Gate encoded-data `CountAll` readiness through the encoded-read probe so public API blockers remain explicit before actual execution.
   - Primary files:
     - `shardloom-vortex/src/count_readiness.rs`
-    - `shardloom-vortex/src/local_execution.rs`
     - `shardloom-vortex/src/lib.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
     - `docs/architecture/vortex-public-api-inventory.md`
     - `docs/architecture/vortex-adapter-integration-plan.md`
-  - Scope: Report-only encoded-data count candidate approval and deferred `NeedsEncodedRead` local execution result.
-  - Explicitly not included: Scan/read-start APIs, encoded-data traversal, row reads, actual encoded count execution, filtered count execution, projection execution, decode/materialization, Arrow conversion, object-store IO, writes, fallback execution, SQL/API/adapter expansion, or superiority claims.
+  - Scope: Report-only/API-gated encoded-data count readiness; actual encoded count execution remains deferred until a safe public Vortex data path is approved.
+  - Explicitly not included: Scan/read-start API invocation, encoded-data traversal, row reads, actual encoded count execution, filtered count execution, projection execution, decode/materialization, Arrow conversion, object-store IO, writes, fallback execution, SQL/API/adapter expansion, or superiority claims.
   - Validation required:
     - `cargo fmt --all -- --check`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: Count readiness can prefer `EncodedDataPath` when encoded-read readiness reports a side-effect-free future candidate, and local execution can return a deferred `NeedsEncodedRead` count report without reading encoded data or crossing forbidden boundaries.
+  - Completion notes: Encoded-data count readiness can now consume `VortexEncodedReadProbeReport`; blocked public scan/data-read/Arrow-risk API surfaces prevent `EncodedDataPathReady` from being emitted and produce deterministic count-readiness blockers without executing data access.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -355,6 +354,12 @@
   - Acceptance:
     - Explicit encoded-data boundary approval before any encoded data traversal.
     - Local execution reports `NeedsEncodedRead` for approved encoded-data count candidates without executing the read.
+- [x] CG-2.1e.1 encoded-data count API-gated blocker
+  - Why: prevent approved future encoded-read candidates from being treated as executable count paths until the public Vortex data API is safe under ShardLoom's no-decode/no-materialization boundary.
+  - Acceptance:
+    - Count readiness can consume `VortexEncodedReadProbeReport`.
+    - Public scan/data-read/decode/materialization/Arrow/object-store/write blockers are reflected as count-readiness blockers.
+    - No scan/read-start invocation, encoded-data traversal, row read, decode/materialization, Arrow conversion, object-store IO, write, or fallback execution is added.
 - [ ] CG-2.1e encoded-data count execution path (planned)
   - Why: turn the approved encoded-data count candidate into actual native encoded execution after the public Vortex data path is approved.
   - Acceptance:
@@ -389,6 +394,7 @@ Status legend:
     - predicate/filter primitive readiness
   - [x] CG-2.1c metadata-footer `CountAll` execution bridge over checked-in Vortex fixture metadata
   - [x] CG-2.1d encoded-data `CountAll` candidate bridge to deferred local execution
+  - [x] CG-2.1e.1 encoded-data `CountAll` API-gated blocker through encoded-read probe
   - [~] CG-2.1+ non-metadata primitive execution remains deferred pending actual encoded-data execution
   - [x] CG-2.3b projection readiness CLI integration
   - Required capabilities for completion:
@@ -542,6 +548,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1b count readiness CLI integration
 - [x] CG-2.1c metadata-footer `CountAll` execution bridge over actual Vortex fixture metadata
 - [x] CG-2.1d encoded-data `CountAll` candidate bridge to deferred local execution
+- [x] CG-2.1e.1 encoded-data `CountAll` API-gated blocker through encoded-read probe
 - [x] CG-2.2a filtered-count readiness core contract
 - [x] CG-2.2a.1 filtered-count blocker precision hardening
 - [x] CG-2.2b filtered-count readiness CLI integration
@@ -710,6 +717,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-1.2 metadata/footer execution path has a feature-gated local fixture invocation helper.
 - [x] CG-2.1 metadata-footer count execution bridge consumes the local fixture footer summary.
 - [x] CG-2.1d encoded-data count candidate bridge can defer approved count candidates to `NeedsEncodedRead`.
+- [x] CG-2.1e.1 encoded-data count readiness is now gated by the encoded-read probe and preserves public API blockers.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [~] CG-3 real Vortex payload writes remain deferred; placeholder artifact paths are not completion evidence.
 

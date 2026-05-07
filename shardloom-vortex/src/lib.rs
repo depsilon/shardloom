@@ -240,7 +240,8 @@ pub use commit_marker::{
 pub use count_readiness::{
     VortexCountCandidateSource, VortexCountReadinessEffect, VortexCountReadinessMode,
     VortexCountReadinessReport, VortexCountReadinessRequest, VortexCountReadinessSignal,
-    VortexCountReadinessStatus, count_readiness_request_from_encoded_read_readiness_report,
+    VortexCountReadinessStatus, count_readiness_request_from_encoded_read_probe_report,
+    count_readiness_request_from_encoded_read_readiness_report,
     count_readiness_request_from_query_primitive_report, plan_vortex_count_readiness,
     vortex_count_readiness_is_side_effect_free,
 };

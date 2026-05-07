@@ -672,6 +672,14 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - The helper rejects metadata-footer count readiness when the encoded-data helper is requested, preserving explicit candidate-source boundaries.
 - This remains candidate/defer scope only: no scan/read-start, encoded data traversal, row reads, decode/materialization, `Arrow` conversion, object-store IO, writes, or fallback execution are introduced.
 
+## CG-2.1e.1 encoded-data CountAll API gate
+
+- `count_readiness_request_from_encoded_read_probe_report` now gates encoded-data count readiness through `VortexEncodedReadProbeReport`.
+- The current public API boundary still reports scan/data-read and Arrow-default risks for actual data access, so encoded-data `CountAll` cannot yet become executable from scheduler/readiness candidates alone.
+- Public API blockers from the probe are translated into count-readiness blockers before any execution helper is allowed to see `EncodedDataPathReady`.
+- This pass intentionally performs no scan/read-start invocation, no encoded data traversal, no row reads, no decode/materialization, no `Arrow` conversion, no object-store IO, no writes, and no fallback execution.
+- CG-2.1e actual encoded-data count execution remains blocked until the public Vortex data path is approved as no-decode/no-materialization safe.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.
