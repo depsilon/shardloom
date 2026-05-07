@@ -3,27 +3,27 @@
 ## How to maintain this file
 - One active session checklist should be updated per PR/session.
 - Detailed phase history should stay below the active queue.
-- Do not duplicate “current” status in multiple places.
+- Do not duplicate "current" status in multiple places.
 - Do not use stale percentage estimates.
 - CG-1 through CG-20 remain competitive gates, not replacement phase IDs.
 - External engines are baselines only, never fallback execution.
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [x] Session label: R5.4.6 semantic profile and migration sequencing
-  - Current cleanup/implementation step: Define semantic profile and migration-report evidence before compatibility modes, migration analyzers, or external baseline comparisons expand.
+- [x] Session label: R5.4.7 workload constitution and scorecard sequencing
+  - Current cleanup/implementation step: Scope best-default-engine certification to declared workloads, evidence refs, mandatory dimensions, and publication gates.
   - Primary files:
     - `docs/architecture/capability-certification-sequencing.md`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
     - `docs/rfcs/0032-world-class-sql-operators-functions-adapters-user-capability.md`
   - Scope: Docs/RFC sequencing only.
-  - Explicitly not included: Runtime behavior, SQL parser, SQL execution, DataFrame API, migration analyzer runtime, compatibility execution mode, adapter runtime, function registry, operator kernels, dependencies, external engine probing, filesystem/network/catalog probing, fallback execution, superiority claims.
+  - Explicitly not included: Runtime behavior, SQL parser, SQL execution, DataFrame API, benchmark implementation, certification runtime, migration analyzer runtime, compatibility execution mode, adapter runtime, function registry, operator kernels, dependencies, external engine probing, filesystem/network/catalog probing, fallback execution, superiority claims.
   - Validation required:
     - `cargo fmt --all -- --check`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: RFC 0032 now defines semantic profile evidence, migration report deltas, rewrite suggestions, performance/cost estimate boundaries, and Vortex conversion payback fields.
+  - Completion notes: RFC 0032 now defines workload constitution records, category evidence, scorecard dimensions, best-default certification dossier fields, disqualifiers, and publication gates.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -159,7 +159,7 @@
   - Blockers:
     - None known.
 
-- [ ] Follow-up: R5.4.7 workload constitution and scorecard sequencing
+- [x] Follow-up: R5.4.7 workload constitution and scorecard sequencing
   - Why: Scope best-default-engine certification to declared workloads and evidence-backed scorecard dimensions.
   - Files:
     - `docs/architecture/capability-certification-sequencing.md`
@@ -170,6 +170,35 @@
     - Scorecard dimensions distinguish certified, partially certified, not certified, and evidence-insufficient states.
     - Claim-level scorecard publication requirements prevent unsupported superiority/default-engine claims.
     - No benchmark implementation, certification runtime, external engine dependency, or fallback behavior is added.
+  - Blockers:
+    - None known.
+
+- [ ] Follow-up: R5.4.8 CI and snapshot sequencing
+  - Why: Prevent capability report and best-default scorecard drift once the report contracts exist.
+  - Files:
+    - `docs/architecture/capability-certification-sequencing.md`
+    - `docs/rfcs/0032-world-class-sql-operators-functions-adapters-user-capability.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `shardloom-contract-tests/tests/`
+  - Acceptance:
+    - Future snapshot categories are documented for SQL, operators, functions, adapters, semantic profiles, migration compatibility, best-choice scorecards, diagnostics, and no-fallback invariants.
+    - Snapshot checks remain report-only and do not execute external engines or probe filesystem/network/catalog state.
+    - Benchmark gates remain separate from docs-only/report-only work.
+  - Blockers:
+    - None known.
+
+- [ ] Follow-up: R5.4.9 RFC sufficiency hardening pass
+  - Why: Re-read the CG-19/CG-20 RFC set against the best-default-engine bar before moving back into implementation.
+  - Files:
+    - `docs/rfcs/0025-competitive-engine-track-no-fallback-replacement.md`
+    - `docs/rfcs/0031-universal-native-io-envelope.md`
+    - `docs/rfcs/0032-world-class-sql-operators-functions-adapters-user-capability.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Acceptance:
+    - Missing best-default evidence contracts, acceptance criteria, disqualifiers, and no-fallback boundaries are added or explicitly deferred.
+    - Superiority, performance, migration, adapter, and compatibility language remains evidence-scoped.
+    - No runtime behavior, dependency, benchmark implementation, external engine probing, or fallback behavior is added.
   - Blockers:
     - None known.
 
@@ -253,6 +282,11 @@
 - [x] R5.4.6 Semantic profile and migration sequencing
   - Why: define semantic-profile and migration-report evidence before compatibility modes, migration analyzers, or external baseline comparisons expand.
   - Acceptance: semantic profile reports, dimension statuses, compatibility-profile boundaries, migration supported/unsupported construct fields, semantic/function/adapter differences, rewrite suggestions, evidence-labeled performance/cost deltas, and Vortex conversion payback fields are documented.
+  - Local validation status:
+    - full Rust validation passed with toolchain `1.91.1`
+- [x] R5.4.7 Workload constitution and scorecard sequencing
+  - Why: scope best-default-engine certification to declared workloads and evidence-backed scorecard dimensions.
+  - Acceptance: workload constitution fields, category evidence, scorecard dimensions, optional weighting rules, best-default certification dossier fields, disqualifiers, and publication gates are documented.
   - Local validation status:
     - full Rust validation passed with toolchain `1.91.1`
 

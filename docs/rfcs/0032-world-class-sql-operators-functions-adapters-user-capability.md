@@ -816,6 +816,65 @@ CG-20 cannot complete without native support plans for:
 - BI/dashboard query patterns
 - notebook/dataframe patterns
 
+### WorkloadConstitution fields
+`WorkloadConstitution` scopes certification to a declared workload instead of allowing broad unqualified claims.
+
+Required fields:
+- `constitution_id`
+- `workload_name`
+- `workload_version`
+- `workload_categories`
+- `query_patterns`
+- `data_source_profiles`
+- `sink_target_profiles`
+- `semantic_profiles`
+- `required_sql_features`
+- `required_operator_families`
+- `required_function_groups`
+- `required_adapter_paths`
+- `required_api_surfaces`
+- `scale_shape`
+- `latency_objective`
+- `cost_objective`
+- `memory_spill_objective`
+- `object_store_profile`
+- `freshness_incremental_profile`
+- `correctness_fixture_refs`
+- `benchmark_scenario_refs`
+- `migration_source_refs`
+- `certification_scope`
+- `out_of_scope`
+- `unsupported_budget`
+- `materialization_budget`
+- `evidence_refs`
+- `diagnostics`
+- `fallback_attempted=false`
+
+`WorkloadCategoryEvidence` entries must include:
+- `category`
+- `required_sql_features`
+- `required_operator_families`
+- `required_function_groups`
+- `required_adapter_paths`
+- `required_semantic_profiles`
+- `required_memory_spill_properties`
+- `required_source_sink_paths`
+- `required_correctness_tests`
+- `required_benchmark_scenarios`
+- `required_native_io_certificates`
+- `unsupported_budget`
+- `materialization_budget`
+- `evidence_status`
+- `diagnostics`
+
+Workload constitution boundaries:
+- Certification is valid only for the declared workload constitution and version.
+- Adding a category, data source, sink target, semantic profile, operator family, function group, or API surface requires refreshed evidence.
+- Missing category evidence must produce `not_certified` or `evidence_insufficient`, not a partial best-default claim.
+- Unsupported and materialization budgets must be explicit; hidden fallback cannot reduce unsupported rate.
+- Workload constitutions may reference Spark, DataFusion, DuckDB, Polars, or other incumbent workloads as migration sources, but not as runtime execution paths.
+- `fallback_attempted=false` is mandatory.
+
 ## Capability discovery UX
 Capability discovery must remain deterministic and machine-readable, exposing exact coverage tiers, semantic profiles, and unsupported reasons.
 
@@ -839,6 +898,31 @@ All capability claims require correctness and semantic conformance evidence befo
 ## Feature footprint / best-choice scorecard
 `BestChoiceScorecard` summarizes capability coverage, semantic fit, migration friction, and evidence-backed suitability by workload constitution.
 
+### BestChoiceScorecard fields
+Required fields:
+- `scorecard_id`
+- `workload_constitution_ref`
+- `scorecard_version`
+- `claim_level`
+- `dimension_entries`
+- `dimension_weights`
+- `mandatory_dimensions`
+- `unsupported_rate`
+- `performance_regression_budget`
+- `correctness_report_refs`
+- `semantic_profile_report_refs`
+- `sql_coverage_report_refs`
+- `operator_coverage_report_refs`
+- `function_coverage_report_refs`
+- `adapter_certification_report_refs`
+- `migration_report_refs`
+- `native_io_certificate_refs`
+- `benchmark_refs`
+- `open_blockers`
+- `claim_publication_status`
+- `diagnostics`
+- `fallback_attempted=false`
+
 Scorecard dimensions:
 - correctness
 - performance
@@ -853,6 +937,115 @@ Scorecard dimensions:
 - migration ease
 - deployment ease
 - no-fallback integrity
+
+`ScorecardDimensionEvidenceStatus` values:
+- `not_certified`
+- `evidence_insufficient`
+- `partially_certified`
+- `certified`
+- `blocked`
+
+Scorecard dimension entries must include:
+- `dimension`
+- `status`
+- `evidence_label`
+- `evidence_refs`
+- `blocking_gaps`
+- `unsupported_rate`
+- `materialization_rate`
+- `risk_level`
+- `diagnostics`
+- `fallback_attempted=false`
+
+Dimension evidence requirements:
+- `correctness`: requires CG-5 correctness evidence for the declared workload fixtures.
+- `performance`: requires CG-6 reproducible benchmark evidence before any performance, superiority, or best-default claim.
+- `cost`: requires an evidence-labeled cost or resource estimate tied to the workload constitution.
+- `memory safety`: requires memory, spill, and OOM-safety evidence for required operators and workload scale.
+- `SQL coverage`: requires SQL coverage entries for every required SQL feature.
+- `function coverage`: requires function certification entries for every required function group and signature class.
+- `operator coverage`: requires operator certification entries for every required operator family.
+- `adapter coverage`: requires adapter certification and native I/O certificate evidence for required source/sink paths.
+- `API usability`: requires declared CLI/API/client surfaces and diagnostics for unsupported surfaces.
+- `observability`: requires diagnostic, explain, estimate, profile, and certificate report coverage for the workload.
+- `migration ease`: requires migration compatibility reports and rewrite suggestions for declared migration sources.
+- `deployment ease`: requires deployment/import/baseline evidence for the declared environment profile.
+- `no-fallback integrity`: requires no-fallback dependency, diagnostic, and execution certificate invariants.
+
+Dimension weights:
+- `dimension_weights` are optional and deferred until scorecard implementation.
+- Missing weights mean the scorecard is an unweighted evidence summary.
+- If weights are provided, they must be explicit, workload-scoped, and must not hide a blocked mandatory dimension.
+- Weights cannot turn missing correctness, benchmark, or no-fallback evidence into a publishable claim.
+
+Claim publication requirements:
+- A scorecard may always publish `not_certified` with blocking gaps.
+- A best-default-engine claim requires the declared workload constitution, mandatory dimensions, correctness evidence, benchmark evidence, semantic conformance, adapter/native I/O certificate evidence, and no-fallback integrity to be certified.
+- Any mandatory dimension with `blocked`, `not_certified`, or `evidence_insufficient` blocks best-default publication.
+- Performance or superiority wording is blocked unless benchmark evidence exists for the declared workload.
+- Unsupported-rate and materialization-budget thresholds must pass for the declared workload.
+- Open correctness, semantic, adapter-fidelity, or no-fallback blockers prevent publication.
+- Claim publication must cite evidence refs and report `fallback_attempted=false`.
+
+### BestDefaultCertificationDossier
+`BestDefaultCertificationDossier` is the evidence bundle required before ShardLoom can be presented as the best default option for a declared workload.
+
+Required fields:
+- `dossier_id`
+- `workload_constitution_ref`
+- `claim_level`
+- `scorecard_ref`
+- `correctness_evidence`
+- `semantic_conformance_evidence`
+- `benchmark_evidence`
+- `operator_certification_evidence`
+- `function_certification_evidence`
+- `adapter_certification_evidence`
+- `native_io_certificate_evidence`
+- `memory_spill_evidence`
+- `observability_evidence`
+- `migration_evidence`
+- `api_ergonomics_evidence`
+- `deployment_evidence`
+- `dependency_policy_evidence`
+- `no_fallback_evidence`
+- `known_limits`
+- `blocking_gaps`
+- `publication_decision`
+- `diagnostics`
+- `fallback_attempted=false`
+
+Minimum evidence floor for a world-class claim:
+- Correctness fixtures cover empty, single-row, all-null, mixed-null, low-cardinality, high-cardinality, duplicate, sorted, unsorted, invalid-schema, unsupported-encoding, temporal, decimal, string, nested, and ordering-sensitive cases where they apply to the workload.
+- Benchmarks identify dataset shape, scale, schema, storage format, compression, engine versions, hardware, OS, runtime configuration, cache state, metrics, reproduction steps, and correctness validation.
+- Metrics include wall time, CPU time where available, bytes read, bytes decoded, rows scanned, rows materialized, allocations, peak memory, output bytes, object-store requests where relevant, work avoided, decode avoided, and materialization avoided.
+- Operator evidence covers native status, encoded capability, streaming, bounded memory, spill, shuffle, ordering, partitioning, and OOM behavior for every required operator family.
+- Function evidence covers aliases, type signatures, null behavior, determinism, volatility, effect level, encoded capability, materialization requirements, semantic profile, tests, and benchmark status for required functions.
+- Adapter evidence covers schema/metadata discovery, pushdown exactness, residuals, metadata loss, fidelity loss, encoded preservation, source/sink paths, commit semantics, streaming, object-store range behavior, and per-path native I/O certificates.
+- Migration evidence covers supported constructs, unsupported constructs, semantic deltas, function deltas, adapter deltas, rewrite suggestions, materialization requirements, uncertainty, and Vortex conversion payback.
+- Observability evidence covers diagnostics, explain, estimate, profile/analyze, capabilities, certificates, and actionable unsupported-feature reporting.
+- API evidence covers CLI, Rust API, Python/API roadmap status, BI/server access status, machine-readable output, and user-visible unsupported diagnostics.
+- Deployment evidence covers local execution, object-store posture, import/export posture, configuration, reproducibility, and operational constraints for the declared environment.
+- No-fallback evidence covers dependency invariants, plan/certificate fallback fields, unsupported diagnostics, and external baseline separation.
+
+Disqualifiers for a best-default claim:
+- Missing CG-5 correctness evidence for the declared workload.
+- Missing CG-6 benchmark evidence for any performance, superiority, cost, or best-default statement.
+- Any hidden fallback, delegated execution, or external engine runtime dependency.
+- Planned-only SQL, operator, function, adapter, semantic-profile, or migration entries presented as supported.
+- A mandatory workload category without certified coverage evidence.
+- A required source/sink path without native I/O certificate evidence.
+- Unreported materialization, metadata loss, fidelity loss, or semantic divergence.
+- Unbounded memory or OOM behavior for required large-state operators.
+- Unsupported constructs without deterministic diagnostics.
+- Scorecard publication without evidence refs and explicit known limits.
+
+Publication decisions:
+- `not_certified`: evidence is missing or blockers exist; publish gaps only.
+- `partial_for_workload`: some workload categories are certified, but at least one mandatory category, dimension, or path is not.
+- `certified_for_workload`: all mandatory workload categories and scorecard dimensions are certified for the declared constitution.
+- `best_default_candidate`: certified for the workload and benchmark-backed against declared baselines, but public wording must include scope and limitations.
+- `best_default_certified`: benchmark-backed, correctness-backed, adapter-certified, migration-documented, no-fallback-certified, and approved for the declared workload constitution only.
 
 ## Dependency policy distinction
 Spark/DataFusion and other engines remain external baselines for comparison, not runtime dependencies or fallback paths.
