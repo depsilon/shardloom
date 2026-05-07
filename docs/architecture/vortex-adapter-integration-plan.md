@@ -739,3 +739,12 @@ The output payload artifact remains a local placeholder contract artifact, not a
 - Command constructs `VortexQueryPrimitiveRequest` and calls `plan_vortex_query_primitive` only; it does not execute query primitives.
 - Command does not call scan/read-start APIs, does not read encoded data or rows, does not decode/materialize/Arrow-convert, does not perform object-store IO, does not write output payloads, and does not allow fallback execution.
 - CG-2.1 actual count/query execution remains blocked until metadata/footer and encoded-data path readiness are both available.
+
+
+## CG-1.3 invariant closeout note
+
+`ShardLoom` closes CG-1.3 for current contract/report surfaces only. The closeout proves no row reads, no array decode, no value materialization, no `Arrow` conversion, and fallback disabled across encoded-read/query-readiness reports.
+
+CG-1.2 metadata/footer execution remains paused after CG-1.2d.8 pending a repository-local fixture or confirmed no-IO `Footer` construction route.
+
+CG-2.1 actual execution remains blocked until both metadata/footer and encoded data path readiness are available.

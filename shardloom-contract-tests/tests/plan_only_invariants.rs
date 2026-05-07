@@ -74,3 +74,151 @@ fn plan_only_types_do_not_imply_execution_or_side_effects() {
     assert!(!release.published);
     assert_eq!(release.artifacts_published, 0);
 }
+
+#[test]
+fn encoded_read_surfaces_do_not_materialize_or_arrow_convert() {
+    let target_uri = DatasetUri::new("file://tmp/cg13.vortex").expect("uri");
+
+    let boundary = shardloom_vortex::plan_vortex_encoded_read_boundary(
+        shardloom_vortex::VortexEncodedReadBoundaryRequest::new(target_uri.clone())
+            .upstream_open_options_available(true)
+            .upstream_footer_available(true)
+            .upstream_metadata_surface_available(true)
+            .upstream_scan_surface_deferred(true)
+            .local_path_only(true)
+            .feature_gate_enabled(true),
+    )
+    .expect("boundary");
+    assert!(!boundary.data_read());
+    assert!(!boundary.array_decoded());
+    assert!(!boundary.values_materialized());
+    assert!(!boundary.arrow_converted());
+    assert!(!boundary.object_store_io());
+    assert!(!boundary.data_written());
+    assert!(!boundary.upstream_scan_called());
+    assert!(!boundary.fallback_execution_allowed());
+    assert!(boundary.is_side_effect_free());
+
+    let fixture_ref = shardloom_vortex::VortexEncodedReadFixtureRef::new("fixtures/missing.vortex")
+        .expect("fixture ref");
+    let fixture = shardloom_vortex::plan_vortex_encoded_read_fixture(
+        shardloom_vortex::encoded_read_fixture_request_from_boundary_report(
+            target_uri.clone(),
+            fixture_ref,
+            &boundary,
+        ),
+    )
+    .expect("fixture");
+    assert!(!fixture.encoded_data_read());
+    assert!(!fixture.row_read());
+    assert!(!fixture.array_decoded());
+    assert!(!fixture.values_materialized());
+    assert!(!fixture.arrow_converted());
+    assert!(!fixture.object_store_io());
+    assert!(!fixture.data_written());
+    assert!(!fixture.upstream_scan_called());
+    assert!(!fixture.fallback_execution_allowed());
+    assert!(fixture.is_side_effect_free());
+
+    let probe = shardloom_vortex::probe_vortex_encoded_read_metadata(
+        shardloom_vortex::encoded_read_metadata_probe_request_from_fixture_report(
+            target_uri.clone(),
+            shardloom_vortex::VortexEncodedReadFixtureRef::new("fixtures/missing.vortex")
+                .expect("fixture ref"),
+            &fixture,
+        ),
+    )
+    .expect("probe");
+    assert!(!probe.encoded_data_read());
+    assert!(!probe.row_read());
+    assert!(!probe.array_decoded());
+    assert!(!probe.values_materialized());
+    assert!(!probe.arrow_converted());
+    assert!(!probe.object_store_io());
+    assert!(!probe.data_written());
+    assert!(!probe.upstream_scan_called());
+    assert!(!probe.fallback_execution_allowed());
+    assert!(probe.is_side_effect_free());
+}
+
+#[test]
+fn query_readiness_surfaces_do_not_materialize_or_arrow_convert() {
+    let target_uri = DatasetUri::new("file://tmp/cg13q.vortex").expect("uri");
+
+    let probe_report = shardloom_vortex::probe_vortex_encoded_read_metadata(
+        shardloom_vortex::VortexEncodedReadMetadataProbeRequest::new(
+            target_uri.clone(),
+            shardloom_vortex::VortexEncodedReadFixtureRef::new("fixtures/missing.vortex")
+                .expect("fixture ref"),
+        )
+        .fixture_ready(true)
+        .fixture_ref_provided(true)
+        .local_path_only(true)
+        .feature_gate_enabled(true),
+    )
+    .expect("probe report");
+
+    let boundary = shardloom_vortex::plan_vortex_metadata_async_boundary(
+        shardloom_vortex::metadata_async_boundary_request_from_metadata_probe_report(
+            target_uri.clone(),
+            shardloom_vortex::VortexEncodedReadFixtureRef::new("fixtures/missing.vortex")
+                .expect("fixture ref"),
+            &probe_report,
+        ),
+    )
+    .expect("metadata async boundary");
+    assert!(!boundary.encoded_data_read());
+    assert!(!boundary.row_read());
+    assert!(!boundary.array_decoded());
+    assert!(!boundary.values_materialized());
+    assert!(!boundary.arrow_converted());
+    assert!(!boundary.object_store_io());
+    assert!(!boundary.data_written());
+    assert!(!boundary.upstream_scan_called());
+    assert!(!boundary.fallback_execution_allowed());
+    assert!(boundary.is_side_effect_free());
+
+    let invocation = shardloom_vortex::VortexMetadataAsyncInvocationReport {
+        status: shardloom_vortex::VortexMetadataAsyncInvocationStatus::BlockedByBoundary,
+        boundary_report: boundary.clone(),
+        effects_performed: vec![],
+        metadata_summary: None,
+        footer_summary: None,
+        diagnostics: vec![],
+    };
+    assert!(!invocation.metadata_opened());
+    assert!(!invocation.footer_inspected());
+    assert!(!invocation.async_runtime_started());
+    assert!(!invocation.metadata_footer_opened());
+    assert!(!invocation.encoded_data_read());
+    assert!(!invocation.row_read());
+    assert!(!invocation.array_decoded());
+    assert!(!invocation.values_materialized());
+    assert!(!invocation.arrow_converted());
+    assert!(!invocation.object_store_io());
+    assert!(!invocation.data_written());
+    assert!(!invocation.upstream_scan_called());
+    assert!(!invocation.fallback_execution_allowed());
+    assert!(invocation.is_side_effect_free());
+
+    let primitive = shardloom_vortex::plan_vortex_query_primitive(
+        shardloom_vortex::query_primitive_request_from_metadata_async_invocation(
+            target_uri,
+            shardloom_vortex::VortexQueryPrimitiveBoundaryKind::Count,
+            &invocation,
+        )
+        .encoded_data_path_ready(false),
+    )
+    .expect("query primitive");
+    assert!(!primitive.query_executed());
+    assert!(!primitive.encoded_data_read());
+    assert!(!primitive.row_read());
+    assert!(!primitive.array_decoded());
+    assert!(!primitive.values_materialized());
+    assert!(!primitive.arrow_converted());
+    assert!(!primitive.object_store_io());
+    assert!(!primitive.data_written());
+    assert!(!primitive.upstream_scan_called());
+    assert!(!primitive.fallback_execution_allowed());
+    assert!(primitive.is_side_effect_free());
+}
