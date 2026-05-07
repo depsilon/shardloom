@@ -10,21 +10,22 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [x] Session label: R5.4.2 capability discovery surface
-  - Current cleanup/implementation step: Expose CG-20 report-only certification surfaces through deterministic `shardloom capabilities <scope>` CLI discovery.
+- [x] Session label: R5.4.2a capability certification snapshot tests
+  - Current cleanup/implementation step: Lock CG-20 planned certification matrices and scoped capability-discovery JSON fields before expanding real coverage.
   - Primary files:
     - `docs/architecture/capability-certification-sequencing.md`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
     - `shardloom-core/src/certification.rs`
-    - `shardloom-cli/src/main.rs`
-  - Scope: CLI discovery over existing report-only certification contracts.
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `shardloom-contract-tests/tests/capability_certification_snapshots.rs`
+  - Scope: Snapshot-style tests over existing report-only certification contracts and capability-discovery fields.
   - Explicitly not included: Runtime behavior, SQL parser, SQL execution, DataFrame API, adapter runtime, function registry, operator kernels, dependencies, filesystem/network/catalog probing, fallback execution, superiority claims.
   - Validation required:
     - `cargo fmt --all -- --check`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: Scoped capability discovery landed under `shardloom capabilities`; focused CLI tests and full Rust validation passed locally with toolchain `1.91.1`.
+  - Completion notes: Snapshot tests now cover generated planned matrices, no-probe certification defaults, FeatureFootprint alignment, and scoped capability-discovery field names.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -92,7 +93,7 @@
   - Blockers:
     - None known.
 
-- [ ] Follow-up: R5.4.2a capability certification snapshot tests
+- [x] Follow-up: R5.4.2a capability certification snapshot tests
   - Why: Lock the generated empty/planned matrices and CLI discovery fields before filling in real SQL/operator/function/adapter coverage.
   - Files:
     - `shardloom-cli/src/main.rs`
@@ -102,6 +103,19 @@
     - Snapshot-style contract tests cover generated planned matrices.
     - Snapshot-style contract tests cover capability discovery field names.
     - Tests do not execute external engines or probe filesystem/network/catalog/adapter state.
+  - Blockers:
+    - None known.
+
+- [ ] Follow-up: R5.4.3 SQL frontend sequencing
+  - Why: Define SQL parse/bind/lower stages and unsupported diagnostics before adding any parser dependency or SQL runtime behavior.
+  - Files:
+    - `docs/architecture/capability-certification-sequencing.md`
+    - `docs/rfcs/0032-world-class-sql-operators-functions-adapters-user-capability.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Acceptance:
+    - SQL remains a frontend into ShardLoom-native planning.
+    - Parser dependency decisions remain deferred to an explicit dependency/RFC pass.
+    - No SQL parser, SQL execution, runtime behavior, adapter runtime, dependency, or fallback behavior is added.
   - Blockers:
     - None known.
 
@@ -161,6 +175,12 @@
   - Local validation status:
     - focused CLI capability discovery tests passed
     - full Rust validation passed with toolchain `1.91.1`
+- [x] R5.4.2a Capability certification snapshot tests
+  - Why: lock generated planned matrices and CLI discovery field names before capability coverage expands.
+  - Acceptance: snapshot-style tests cover planned matrices, no-probe defaults, FeatureFootprint alignment, scoped field keys, and report-only discovery invariants.
+  - Local validation status:
+    - focused core certification snapshot tests passed
+    - focused CLI discovery snapshot tests passed
 
 ## Implementation Phase Queue
 - [ ] R4 Resume CG implementation (planned)

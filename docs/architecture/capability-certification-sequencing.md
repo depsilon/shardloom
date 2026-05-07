@@ -118,7 +118,7 @@ Checklist:
 - [x] Include unsupported reasons and next-step hints.
 - [x] Include `fallback_execution_allowed=false`.
 - [x] Include effect-safe behavior: no filesystem, network, catalog, or adapter probing by default.
-- [ ] Link output shape to `FeatureFootprintReport` where appropriate.
+- [x] Link output shape to `FeatureFootprintReport` where appropriate.
 
 R5.4.2 outcome:
 
@@ -132,6 +132,13 @@ Acceptance:
 
 - Capability commands are safe, side-effect-free, and deterministic.
 - Capability discovery does not infer runtime availability from external baseline availability.
+
+R5.4.2a outcome:
+
+- Snapshot-style contract tests lock the planned SQL/operator/function/adapter/semantic/migration/scorecard matrices.
+- Snapshot-style CLI tests lock the `shardloom capabilities <scope>` JSON field names for `sql`, `functions`, `operators`, `adapters`, `semantic-profiles`, `migration`, and `certification`.
+- Certification and `FeatureFootprintReport` no-probe contracts are checked together for engine-version alignment, fallback-disabled state, empty diagnostics, and absence of generated timestamps.
+- Tests do not execute external engines, probe filesystem/network/catalog/adapter state, or imply support for planned capabilities.
 
 ## R5.4.3 SQL frontend sequencing
 
@@ -265,7 +272,8 @@ Recommended order:
 1. Add core report contracts only. **Complete in R5.4.1.**
 2. Add side-effect-free capability report generation with empty/planned matrices. **Foundation report available in R5.4.1; CLI discovery remains next.**
 3. Add CLI capability discovery for report-only surfaces. **Complete in R5.4.2.**
-4. Add snapshot tests for generated empty/planned matrices. **Next.**
-5. Add SQL/operator/function/adapter coverage entries incrementally as real implementation appears.
+4. Add snapshot tests for generated empty/planned matrices. **Complete in R5.4.2a.**
+5. Sequence SQL frontend stages before parser/runtime work. **Next: R5.4.3.**
+6. Add SQL/operator/function/adapter coverage entries incrementally as real implementation appears.
 
 Do not start with a parser, adapter runtime, or kernel implementation before the report contracts and capability discovery surfaces exist.
