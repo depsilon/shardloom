@@ -461,10 +461,20 @@ No fallback execution.
 ## R5.4.8 CI and snapshot sequencing
 
 - RFC 0032 now defines `CapabilitySurfaceSnapshot` fields for schema versions, field keys, entry keys, status counts, certification counts, no-probe flags, external-engine invocation flags, diagnostics, and fallback status.
-- RFC 0032 now defines snapshot kinds for diagnostics, capability discovery, SQL, operators, functions, adapters, semantic profiles, migration compatibility, workload constitutions, scorecards, best-default dossiers, feature footprint, and no-fallback invariants.
+- RFC 0032 now defines snapshot kinds for diagnostics, capability discovery, SQL, operators, functions, adapters, semantic profiles, migration compatibility, workload constitutions, scorecards, best-default dossiers, world-class sufficiency, feature footprint, and no-fallback invariants.
 - RFC 0032 now defines `CapabilityDriftPolicy` fields plus allowed and blocked snapshot changes.
 - RFC 0032 separates docs-only, report-only, correctness-gated, benchmark-gated, and release-gated CI levels.
 - Snapshot execution remains deterministic, side-effect-free, report-only, no-probe, and no-fallback.
 - Primary RFC linkage: RFC 0032.
 - Related RFCs: RFC 0012, RFC 0015, RFC 0024, RFC 0025, RFC 0029, RFC 0030, and RFC 0031.
 - This phase adds no SQL parser, SQL execution, benchmark implementation, certification runtime, migration analyzer runtime, compatibility execution mode, adapter runtime, new tests, external-engine dependency, external-engine probing, superiority claim, or fallback behavior.
+
+## R5.4.9 RFC sufficiency hardening pass
+
+- RFC 0025 now defines the canonical best-default evidence gate for CG-20 claims.
+- RFC 0031 now defines CG-19 sufficiency gates and disqualifiers for per-source/sink-path native I/O certificate evidence.
+- RFC 0032 now defines `WorldClassSufficiencyReport` fields, sufficiency decisions, invariants, disqualifiers, and explicit implementation deferrals.
+- Best-default and world-class claims now require workload-scoped links across `WorkloadConstitution`, `BestChoiceScorecard`, `BestDefaultCertificationDossier`, `WorldClassSufficiencyReport`, CG-5 correctness, CG-6 benchmark, CG-16 execution certificate, CG-19 native I/O certificate, capability snapshots, dependency policy, and no-fallback evidence.
+- Primary RFC linkage: RFC 0025, RFC 0031, and RFC 0032.
+- Related RFCs: RFC 0008, RFC 0012, RFC 0013, RFC 0015, RFC 0016, RFC 0018, RFC 0021, RFC 0023, RFC 0029, and RFC 0030.
+- This phase adds no SQL parser, SQL execution, benchmark implementation, certification runtime, migration analyzer runtime, compatibility execution mode, adapter runtime, dependency, external-engine probing, superiority claim, or fallback behavior.

@@ -294,6 +294,9 @@ Required fields:
 - `certificate_id`
 - `path_id`
 - `certificate_scope`
+- `workload_constitution_ref`
+- `source_path_ref`
+- `sink_path_ref`
 - `source_capability_report`
 - `source_pushdown_report`
 - `representation_transitions`
@@ -301,6 +304,9 @@ Required fields:
 - `adapter_fidelity_report`
 - `materialization_boundaries`
 - `side_effects`
+- `evidence_refs`
+- `known_limits`
+- `certificate_decision`
 - `diagnostics`
 - `fallback_attempted=false`
 
@@ -309,6 +315,8 @@ Certificate-to-adapter alignment:
 - Multi-source and multi-sink flows require one certificate per path, plus an optional run-level summary.
 - Adapter certification cannot claim read, write, pushdown, streaming, object-store-range, commit, or benchmark maturity without matching certificate evidence.
 - Certificate evidence must remain explicit even when the source or sink is local and side-effect-free.
+- `certificate_decision` must be one of `not_certified`, `partial_for_path`, `certified_for_path`, or `blocked`.
+- `known_limits` must include unsupported pushdown, representation loss, metadata loss, materialization, commit/recovery gaps, object-store limitations, and semantic risks when present.
 
 ## Acceptance criteria
 - CG-19 cannot complete until every source/sink path emits a `NativeIoCertificate`.
@@ -316,6 +324,29 @@ Certificate-to-adapter alignment:
 - Universal I/O must preserve `vortex_encoded` or `foreign_encoded` state whenever possible.
 - Universal I/O must not silently normalize to decoded Arrow.
 - All transitions to `decoded_columnar` or `materialized_rows` must include a `MaterializationBoundaryReport`.
+
+## CG-19 sufficiency gates
+
+CG-19 is a prerequisite evidence surface for CG-20 best-default certification. It must prove that broad adapters and sinks do not erase the native execution contract.
+
+CG-19 cannot be marked sufficient for a workload unless:
+
+- Every required source/sink path has a certificate with source capability, pushdown, sink requirement, adapter fidelity, materialization boundary, side-effect, diagnostics, and no-fallback evidence.
+- Multi-source and multi-sink plans preserve per-path evidence instead of collapsing the run into a single summary.
+- Foreign encoded representations are preserved or explicitly reported as partially decoded, decoded columnar, or materialized rows with reason and cost fields.
+- Source pushdown is exact, exact-with-residual, conservative, unsupported, or unsafe-rejected with proof; hidden remote execution is not accepted.
+- Sinks that require decoded columnar batches, rows, ordering, partitioning, or commit behavior declare those requirements before planning is certified.
+- Metadata, statistics, ordering, partitioning, field identity, and layout-hint loss are reported before any adapter path can count as certified.
+- Object-store/range-read, streaming/backpressure, retry/idempotency, commit/recovery, and cleanup semantics are declared where the workload requires them.
+- Any unsupported path fails explicitly with deterministic diagnostics and `fallback_attempted=false`.
+
+Disqualifiers:
+
+- A decoded Arrow normalization step is used as the implicit universal path.
+- A transition to `decoded_columnar` or `materialized_rows` lacks a materialization boundary.
+- A source or adapter executes unsupported residual ShardLoom logic as fallback.
+- Adapter certification refers only to run-level summaries and omits per-path certificates.
+- A certificate omits known fidelity, metadata, representation, commit, or semantic losses.
 
 ## Relationship to RFC 0013
 This RFC complements RFC 0013 by formalizing I/O envelope contracts that support streaming and zero-decode priorities.

@@ -37,6 +37,73 @@ Contract names:
 - `MigrationCompatibilityReport`
 - `BestChoiceScorecard`
 - `WorkloadConstitution`
+- `WorldClassSufficiencyReport`
+
+## World-class sufficiency gate
+CG-20 is complete only when the capability surface can prove that ShardLoom is the best default option for a declared workload constitution. The proof must be explicit, machine-readable, workload-scoped, and reversible to `not_certified` when evidence drifts.
+
+`WorldClassSufficiencyReport` fields:
+- `report_id`
+- `workload_constitution_ref`
+- `claim_level`
+- `sql_surface_status`
+- `operator_surface_status`
+- `function_surface_status`
+- `adapter_surface_status`
+- `semantic_profile_status`
+- `migration_surface_status`
+- `api_surface_status`
+- `observability_surface_status`
+- `deployment_surface_status`
+- `native_io_certificate_coverage`
+- `execution_certificate_coverage`
+- `correctness_evidence_status`
+- `semantic_conformance_status`
+- `benchmark_evidence_status`
+- `memory_spill_status`
+- `unsupported_rate`
+- `materialization_rate`
+- `performance_regression_budget_status`
+- `scorecard_ref`
+- `best_default_dossier_ref`
+- `capability_snapshot_refs`
+- `external_baseline_refs`
+- `known_limits`
+- `blocking_gaps`
+- `publication_decision`
+- `diagnostics`
+- `fallback_attempted=false`
+
+Required sufficiency decisions:
+- `not_certified`: required evidence is missing, stale, planned-only, or blocked.
+- `partial_for_workload`: at least one optional or scoped workload area is certified, but one or more mandatory dimensions, categories, or source/sink paths are not.
+- `sufficient_for_workload`: all mandatory workload requirements have certified evidence, but public language must remain workload-scoped.
+- `best_default_candidate`: sufficient for the workload and benchmark-backed against declared baselines, but pending release/publication approval.
+- `best_default_certified`: correctness-backed, benchmark-backed, adapter-certified, native-I/O-certified, migration-documented, no-fallback-certified, and approved for the declared workload only.
+
+Sufficiency invariants:
+- No single subsystem can satisfy CG-20 by itself. SQL breadth, operator breadth, function breadth, adapters, semantics, migration, API ergonomics, observability, deployment posture, correctness, benchmarks, native I/O certificates, execution certificates, and no-fallback integrity must all be represented.
+- Planned, parsed-only, test-reference-only, migration-analysis-only, or benchmark-label-only entries cannot count as production support.
+- Optional workload categories must be explicitly marked optional or out of scope before they can be excluded from a sufficiency decision.
+- Missing evidence downgrades the publication decision instead of weakening required fields.
+- External engines may appear in `external_baseline_refs`, but never as execution availability.
+- Public "best", "world-class", "superiority", "replacement", "faster", or "cheaper" language must be derived from the sufficiency decision and cite the declared workload scope.
+
+Disqualifiers:
+- Missing CG-5 correctness evidence for any mandatory workload category.
+- Missing CG-6 benchmark evidence for any performance, cost, superiority, replacement, or best-default statement.
+- Missing CG-16 execution certificate evidence for a supported execution path.
+- Missing CG-19 native I/O certificate evidence for a required source/sink path.
+- Any hidden fallback, delegated execution, or external engine runtime dependency.
+- Planned-only SQL/operator/function/adapter/API entries presented as supported.
+- Unsupported constructs without deterministic diagnostics and rewrite guidance where possible.
+- Unreported materialization, metadata loss, fidelity loss, semantic difference, memory spill gap, or object-store limitation.
+- Snapshot drift that changes support status without matching RFC, correctness, benchmark, dependency, and migration evidence.
+
+Explicit deferrals:
+- This RFC does not approve a SQL parser dependency, adapter runtime dependency, object-store client dependency, catalog dependency, benchmark runner, external baseline invocation, or execution implementation.
+- Future parser, adapter, object-store, catalog, benchmark, and client/server dependencies require their own dependency, license, provenance, no-fallback, and capability-snapshot review.
+- CG-20 sufficiency may define required fields before their implementation exists; unimplemented fields must report `not_certified`, `planned`, `unsupported`, or `evidence_insufficient`.
 
 ## Competitive claim ladder
 `CompetitiveClaimLevel`:
@@ -995,6 +1062,7 @@ Required fields:
 - `workload_constitution_ref`
 - `claim_level`
 - `scorecard_ref`
+- `world_class_sufficiency_report_ref`
 - `correctness_evidence`
 - `semantic_conformance_evidence`
 - `benchmark_evidence`
@@ -1084,6 +1152,7 @@ Snapshot kinds:
 - `workload_constitution`
 - `best_choice_scorecard`
 - `best_default_dossier`
+- `world_class_sufficiency`
 - `feature_footprint`
 - `no_fallback_invariants`
 
@@ -1117,6 +1186,7 @@ Blocked snapshot changes:
 - changing schema versions without snapshot updates
 - changing field names without user/API migration notes
 - publishing best-default scorecard changes without workload constitution refs
+- publishing world-class sufficiency changes without matching dossier, scorecard, certificate, correctness, benchmark, and no-fallback evidence
 
 CI gate levels:
 - `docs_only`: validates docs hygiene, hidden/bidi controls, duplicate headings, and no forbidden dependency/runtime changes.

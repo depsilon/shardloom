@@ -10,12 +10,14 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [x] Session label: R5.4.8 CI and snapshot sequencing
-  - Current cleanup/implementation step: Define capability snapshot and drift-policy contracts before future CI gates expand.
+- [x] Session label: R5.4.9 RFC sufficiency hardening pass
+  - Current cleanup/implementation step: Harden CG-19/CG-20 RFC evidence gates before returning to implementation work.
   - Primary files:
     - `docs/architecture/capability-certification-sequencing.md`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/rfcs/0025-competitive-engine-track-no-fallback-replacement.md`
+    - `docs/rfcs/0031-universal-native-io-envelope.md`
     - `docs/rfcs/0032-world-class-sql-operators-functions-adapters-user-capability.md`
   - Scope: Docs/RFC sequencing only.
   - Explicitly not included: Runtime behavior, SQL parser, SQL execution, DataFrame API, benchmark implementation, certification runtime, migration analyzer runtime, compatibility execution mode, adapter runtime, function registry, operator kernels, dependencies, new tests, external engine probing, filesystem/network/catalog probing, fallback execution, superiority claims.
@@ -23,7 +25,7 @@
     - `cargo fmt --all -- --check`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: RFC 0032 now defines capability surface snapshots, drift policies, snapshot kinds, allowed/blocked changes, CI gate levels, and no-probe snapshot boundaries.
+  - Completion notes: RFC 0025 now has a canonical best-default evidence gate; RFC 0031 now has CG-19 sufficiency gates; RFC 0032 now has a `WorldClassSufficiencyReport` with decisions, invariants, disqualifiers, and explicit implementation deferrals.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -180,13 +182,13 @@
     - `docs/rfcs/0032-world-class-sql-operators-functions-adapters-user-capability.md`
     - `docs/architecture/rfc-phase-traceability.md`
   - Acceptance:
-    - Future snapshot categories are documented for SQL, operators, functions, adapters, semantic profiles, migration compatibility, best-choice scorecards, diagnostics, and no-fallback invariants.
+    - Future snapshot categories are documented for SQL, operators, functions, adapters, semantic profiles, migration compatibility, best-choice scorecards, world-class sufficiency, diagnostics, and no-fallback invariants.
     - Snapshot checks remain report-only and do not execute external engines or probe filesystem/network/catalog state.
     - Benchmark gates remain separate from docs-only/report-only work.
   - Blockers:
     - None known.
 
-- [ ] Follow-up: R5.4.9 RFC sufficiency hardening pass
+- [x] Follow-up: R5.4.9 RFC sufficiency hardening pass
   - Why: Re-read the CG-19/CG-20 RFC set against the best-default-engine bar before moving back into implementation.
   - Files:
     - `docs/rfcs/0025-competitive-engine-track-no-fallback-replacement.md`
@@ -198,6 +200,9 @@
     - Missing best-default evidence contracts, acceptance criteria, disqualifiers, and no-fallback boundaries are added or explicitly deferred.
     - Superiority, performance, migration, adapter, and compatibility language remains evidence-scoped.
     - No runtime behavior, dependency, benchmark implementation, external engine probing, or fallback behavior is added.
+  - Local validation status:
+    - docs hygiene scans passed for duplicate headings, hidden/bidi controls, claim-language review, and `git diff --check`
+    - full Rust validation passed with toolchain `1.91.1`
   - Blockers:
     - None known.
 
@@ -292,6 +297,12 @@
   - Why: prevent capability report and best-default scorecard drift once report contracts exist.
   - Acceptance: capability surface snapshot fields, snapshot kinds, drift-policy fields, allowed/blocked changes, CI gate levels, and no-probe snapshot boundaries are documented.
   - Local validation status:
+    - full Rust validation passed with toolchain `1.91.1`
+- [x] R5.4.9 RFC sufficiency hardening pass
+  - Why: make the CG-19/CG-20 RFC set explicit enough to govern best-default-engine claims before implementation resumes.
+  - Acceptance: best-default evidence gate, CG-19 sufficiency gates, `WorldClassSufficiencyReport`, disqualifiers, explicit deferrals, and no-fallback boundaries are documented.
+  - Local validation status:
+    - docs hygiene scans passed for duplicate headings, hidden/bidi controls, claim-language review, and `git diff --check`
     - full Rust validation passed with toolchain `1.91.1`
 
 ## Implementation Phase Queue
@@ -605,11 +616,13 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 
 ### CG-19 detailed checklist
 - [x] RFC 0031 contract deepening complete
+- [x] CG-19 sufficiency gates and per-path certificate disqualifiers documented
 - [~] implementation pending
 - [ ] preserve representation state, pushdown evidence, materialization boundaries, and sink constraints without default decode
 
 ### CG-20 detailed checklist
 - [x] RFC 0032 contract deepening complete
+- [x] World-class sufficiency report, best-default dossier linkage, and claim disqualifiers documented
 - [~] implementation pending
 - [ ] capability certification surface implementation across SQL/operators/functions/adapters/semantic profiles/migration reporting
 

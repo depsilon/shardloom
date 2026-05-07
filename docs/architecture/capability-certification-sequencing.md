@@ -310,11 +310,12 @@ Future checks:
 - [x] workload constitution snapshot.
 - [x] best-choice scorecard snapshot.
 - [x] best-default dossier snapshot.
+- [x] world-class sufficiency snapshot.
 
 R5.4.8 outcome:
 
 - RFC 0032 now defines `CapabilitySurfaceSnapshot` fields for schema versions, field keys, entry keys, status counts, certification counts, no-probe flags, external-engine invocation flags, diagnostics, and fallback status.
-- RFC 0032 now defines snapshot kinds for diagnostics, capability discovery, SQL, operators, functions, adapters, semantic profiles, migration compatibility, workload constitutions, scorecards, best-default dossiers, feature footprint, and no-fallback invariants.
+- RFC 0032 now defines snapshot kinds for diagnostics, capability discovery, SQL, operators, functions, adapters, semantic profiles, migration compatibility, workload constitutions, scorecards, best-default dossiers, world-class sufficiency, feature footprint, and no-fallback invariants.
 - RFC 0032 now defines `CapabilityDriftPolicy` fields and allowed/blocked snapshot changes.
 - RFC 0032 now separates docs-only, report-only, correctness-gated, benchmark-gated, and release-gated CI levels.
 - Snapshot execution remains deterministic, side-effect-free, report-only, no-probe, and no-fallback.
@@ -326,6 +327,31 @@ Acceptance:
 - Snapshot checks do not execute external engines.
 - Benchmark gates remain separate from docs-only and report-only work.
 
+## R5.4.9 RFC sufficiency hardening
+
+Goal: make the CG-19/CG-20 RFC set explicit enough to govern best-default-engine claims without relying on scattered prose.
+
+Checklist:
+
+- [x] Add a canonical best-default evidence gate to RFC 0025.
+- [x] Add CG-19 per-path native I/O certificate sufficiency gates and disqualifiers to RFC 0031.
+- [x] Add `WorldClassSufficiencyReport` fields, decisions, invariants, disqualifiers, and explicit deferrals to RFC 0032.
+- [x] Tie world-class sufficiency to workload constitutions, best-choice scorecards, best-default dossiers, CG-16 execution certificates, CG-19 native I/O certificates, CG-5 correctness, CG-6 benchmarks, snapshots, and no-fallback evidence.
+
+R5.4.9 outcome:
+
+- RFC 0025 now blocks best-default, best-choice, replacement, superiority, faster, cheaper, and world-class claims without a workload-scoped evidence chain.
+- RFC 0031 now defines native I/O certificate fields and sufficiency gates for source/sink paths, representation preservation, pushdown proof, sink requirements, fidelity loss, materialization, object-store/streaming/commit semantics, and no-fallback boundaries.
+- RFC 0032 now defines `WorldClassSufficiencyReport` as the final CG-20 sufficiency decision surface and records explicit deferrals for parser, adapter, object-store, catalog, benchmark, baseline, and execution work.
+- Capability sufficiency remains docs/RFC-only in this pass.
+- No runtime behavior, SQL parser, SQL execution, adapter runtime, benchmark implementation, dependency, external-engine probing, or fallback behavior is added.
+
+Acceptance:
+
+- "Best" and "world-class" language is evidence-scoped and workload-scoped.
+- Missing evidence downgrades publication to `not_certified` or `partial_for_workload`.
+- External engines remain baseline evidence only, never runtime execution.
+
 ## First implementation batches after R5.4
 
 Recommended order:
@@ -334,7 +360,11 @@ Recommended order:
 2. Add side-effect-free capability report generation with empty/planned matrices. **Foundation report available in R5.4.1; CLI discovery remains next.**
 3. Add CLI capability discovery for report-only surfaces. **Complete in R5.4.2.**
 4. Add snapshot tests for generated empty/planned matrices. **Complete in R5.4.2a.**
-5. Sequence SQL frontend stages before parser/runtime work. **Next: R5.4.3.**
-6. Add SQL/operator/function/adapter coverage entries incrementally as real implementation appears.
+5. Sequence SQL frontend stages before parser/runtime work. **Complete in R5.4.3.**
+6. Sequence operator/function certification. **Complete in R5.4.4.**
+7. Sequence adapter certification. **Complete in R5.4.5.**
+8. Sequence semantic profile and migration reporting. **Complete in R5.4.6.**
+9. Sequence workload constitution, scorecards, and sufficiency evidence. **Complete in R5.4.7 through R5.4.9.**
+10. Add SQL/operator/function/adapter coverage entries incrementally as real implementation appears.
 
 Do not start with a parser, adapter runtime, or kernel implementation before the report contracts and capability discovery surfaces exist.
