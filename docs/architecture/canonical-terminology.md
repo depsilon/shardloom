@@ -132,3 +132,15 @@ See `docs/architecture/terminology-consolidation-backlog.md` for the full audit 
 - **external baseline**: Non-ShardLoom comparison oracle used for correctness/benchmark evidence only.
 - **certification report**: Machine-readable evidence artifact describing tested capability level and conformance boundaries.
 - **best-choice scorecard**: Evidence-backed summary of why ShardLoom is or is not the best default for a declared workload constitution.
+
+
+## Additional capability-certification terms
+- **workload constitution**: the declared workload categories used to scope claims and certification.
+- **operator certification**: status evidence that an operator family meets correctness, semantics, and performance gates for a claim level.
+- **function certification**: status evidence that a function definition meets semantic and execution-contract requirements for a claim level.
+- **SQL coverage tier**: staged status level (for example S0-S7) describing SQL capability maturity.
+- **adapter maturity level**: staged adapter certification level (for example A0-A7) for discovery/read/write/commit and evidence depth.
+- **semantic compatibility profile**: named semantic mode (for example ShardLoomNative, SparkCompatible) with explicit behavior dimensions.
+- **migration compatibility report**: structured report mapping supported/unsupported constructs and semantic deltas for migration planning.
+- **source pushdown exactness**: the declared guarantee quality for source pushdown (exact, exact with residual, conservative, unsupported, unsafe rejected).
+- **native I/O certificate**: structured evidence object capturing source/sink capability, transitions, materialization boundaries, and no-fallback status.
