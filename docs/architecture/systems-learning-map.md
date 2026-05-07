@@ -131,3 +131,19 @@ ShardLoom-native vocabulary:
 - No new dependencies.
 - Vortex remains native first-class input and output.
 - ShardLoom owns runtime, optimizer, diagnostics, and policy.
+
+
+## Spark and DataFusion capability lessons
+
+- Spark and DataFusion are capability baselines, not fallback engines.
+- Spark lesson: broad platform capability across SQL, APIs, deployment, monitoring, and streaming/lakehouse workflows.
+- DataFusion lesson: extensible local SQL/DataFrame query engine capability with operator/function/adapters and Arrow-oriented ecosystem habits.
+- ShardLoom-native translation should be tracked via:
+  - SQL coverage matrix
+  - operator coverage matrix
+  - function coverage matrix
+  - adapter certification
+  - semantic profiles
+  - migration analyzers
+  - capability discovery
+- No Spark/DataFusion dependency and no execution delegation are permitted.

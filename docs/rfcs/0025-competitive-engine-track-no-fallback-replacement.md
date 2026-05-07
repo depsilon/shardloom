@@ -60,7 +60,7 @@ Spark, DataFusion, Polars, DuckDB, Velox, and vortex-datafusion may be used only
 
 ## Success criteria
 
-- Competitive gates CG-1 through CG-18 remain visible and complete in planning artifacts.
+- Competitive gates CG-1 through CG-20 remain visible and complete in planning artifacts.
 - Execution posture remains Vortex-native and no-fallback.
 - External baseline usage remains explicit and non-runtime.
 - Superiority claims are disallowed until both CG-5 (correctness) and CG-6 (benchmarks) are satisfied.
@@ -74,7 +74,24 @@ Spark, DataFusion, Polars, DuckDB, Velox, and vortex-datafusion may be used only
 
 ## Validation requirements
 
-- Keep this RFC and downstream architecture docs consistent on CG-1 through CG-18.
+- Keep this RFC and downstream architecture docs consistent on CG-1 through CG-20.
 - Preserve explicit no-fallback wording.
 - Preserve external engines as baseline-only wording.
 - Preserve CG-18 as universal import/deployment/baseline harness with Foundry only as optional deployment/comparison example.
+
+
+## Additional competitive gates
+
+### CG-19 — Universal Native I/O Envelope
+Define and adopt ShardLoom-native universal I/O contracts that preserve encoded representation, statistics, selection vectors, pushdown proof, materialization state, and sink requirements without defaulting to decoded Arrow batches.
+
+### CG-20 — World-Class SQL, Operator, Function, Adapter, and User Capability Surface
+Define and validate a full capability-supremacy surface across SQL, operators, functions, adapters, semantic compatibility, migration tooling, and user capability discovery.
+
+CG-20 is the final capability-supremacy gate. It is broader than SQL support alone.
+
+ShardLoom's competitive goal is to become the best default analytical engine for declared workloads, not merely a narrow Vortex accelerator.
+
+No-fallback policy remains unchanged: ShardLoom must not delegate runtime execution to Spark, DataFusion, DuckDB, Polars, Velox, or other external engines.
+
+No superiority claims are allowed before correctness and benchmark gates are satisfied (CG-5 and CG-6).
