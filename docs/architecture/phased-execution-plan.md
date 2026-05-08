@@ -10,20 +10,21 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [x] Session label: CG-7.13 metadata physical kernel CLI surfacing
-  - Current cleanup/implementation step: Expose evidence-gated metadata-only physical kernel reports through a deterministic CLI command for humans and agents.
+- [x] Session label: CG-7.14 metadata kernel capability discovery
+  - Current cleanup/implementation step: Surface metadata-only physical kernel report availability and evidence requirements through capability discovery and kernel registry snapshots.
   - Primary files:
     - `shardloom-cli/src/main.rs`
-    - `shardloom-vortex/src/metadata_physical_kernel.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `shardloom-cli/tests/kernel_registry_snapshots.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-  - Scope: `shardloom vortex-metadata-physical-kernel-plan`, explicit correctness/benchmark/memory/fallback evidence flags, side-effect fields, and deterministic blocked diagnostics.
+  - Scope: `shardloom capabilities operators` and `shardloom kernel-registry` metadata-physical-kernel fields for supported metadata primitives, contextual-only status, evidence requirements, and no runtime/fallback/IO effects.
   - Explicitly not included: Encoded-data traversal, scan/read-start APIs, row reads, decode/materialization, Arrow conversion, object-store IO, writes, spill IO, external baseline execution, fallback execution, benchmarks, SQL/API/adapter expansion, or superiority claims.
   - Validation required:
     - `cargo fmt --all -- --check`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: `vortex-metadata-physical-kernel-plan` reports metadata-only count/filter kernel readiness and remains non-zero until explicit evidence is supplied.
+  - Completion notes: Capability discovery exposes metadata physical kernel report availability without marking global kernel registry slots present or enabling execution.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -536,6 +537,7 @@ Status legend:
   - [x] CG-7.11 metadata bridge admission evidence
   - [x] CG-7.12 metadata-only physical kernel report
   - [x] CG-7.13 metadata physical kernel CLI surfacing
+  - [x] CG-7.14 metadata kernel capability discovery
   - Scope:
     - filter/projection/count-aggregate kernels
     - metadata/encoded/hybrid execution levels
@@ -730,6 +732,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-7.11 metadata bridge admission evidence
 - [x] CG-7.12 metadata-only physical kernel report
 - [x] CG-7.13 metadata physical kernel CLI surfacing
+- [x] CG-7.14 metadata kernel capability discovery
 - [ ] filter kernel
 - [ ] projection kernel
 - [ ] count/aggregate kernel
@@ -880,6 +883,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-7.11 metadata bridge admission evidence lets already metadata-answered bridges reach native planning or production certificate states only when explicit correctness, memory-safety, benchmark, and no-fallback evidence is supplied.
 - [x] CG-7.12 metadata-only physical kernel report evaluates certificate-gated metadata count/filter physical kernel reports over already metadata-answered primitive results without data reads, decode, materialization, IO, or fallback execution.
 - [x] CG-7.13 metadata physical kernel CLI surfacing exposes the report through `vortex-metadata-physical-kernel-plan` with explicit evidence flags and side-effect/no-fallback fields.
+- [x] CG-7.14 metadata kernel capability discovery surfaces contextual metadata physical kernel availability and evidence requirements in `capabilities operators` and `kernel-registry` without treating those contextual reports as global runtime kernels.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [~] CG-3 real Vortex payload writes remain deferred; placeholder artifact paths are not completion evidence.
 

@@ -1568,6 +1568,56 @@ fn append_operator_certification_fields(
         "physical_operator_fallback_level_count",
         execution_profiles.fallback_allowed_count(),
     );
+    append_metadata_physical_kernel_discovery_fields(fields);
+}
+
+fn append_metadata_physical_kernel_discovery_fields(fields: &mut Vec<(String, String)>) {
+    push_field(
+        fields,
+        "metadata_physical_kernel_schema_version",
+        "shardloom.vortex_metadata_physical_kernel.v1",
+    );
+    push_field(
+        fields,
+        "metadata_physical_kernel_supported_primitives",
+        "count_all,count_where,filter_predicate",
+    );
+    push_field(fields, "metadata_physical_kernel_contextual_only", "true");
+    push_field(
+        fields,
+        "metadata_physical_kernel_requires_correctness_evidence",
+        "true",
+    );
+    push_field(
+        fields,
+        "metadata_physical_kernel_requires_memory_safety_evidence",
+        "true",
+    );
+    push_field(
+        fields,
+        "metadata_physical_kernel_requires_benchmark_for_production",
+        "true",
+    );
+    push_field(fields, "metadata_physical_kernel_data_read", "false");
+    push_field(fields, "metadata_physical_kernel_data_decoded", "false");
+    push_field(
+        fields,
+        "metadata_physical_kernel_data_materialized",
+        "false",
+    );
+    push_field(fields, "metadata_physical_kernel_object_store_io", "false");
+    push_field(fields, "metadata_physical_kernel_write_io", "false");
+    push_field(fields, "metadata_physical_kernel_spill_io", "false");
+    push_field(
+        fields,
+        "metadata_physical_kernel_runtime_execution",
+        "false",
+    );
+    push_field(
+        fields,
+        "metadata_physical_kernel_fallback_execution_allowed",
+        "false",
+    );
 }
 
 fn append_adapter_certification_fields(
@@ -4234,6 +4284,38 @@ fn run(args: Vec<String>) -> ExitCode {
                     (
                         "physical_kernel_fallback_execution_allowed".to_string(),
                         physical_plan.fallback_execution_allowed().to_string(),
+                    ),
+                    (
+                        "metadata_physical_kernel_schema_version".to_string(),
+                        "shardloom.vortex_metadata_physical_kernel.v1".to_string(),
+                    ),
+                    (
+                        "metadata_physical_kernel_supported_primitives".to_string(),
+                        "count_all,count_where,filter_predicate".to_string(),
+                    ),
+                    (
+                        "metadata_physical_kernel_contextual_only".to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "metadata_physical_kernel_requires_correctness_evidence".to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "metadata_physical_kernel_requires_memory_safety_evidence".to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "metadata_physical_kernel_requires_benchmark_for_production".to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "metadata_physical_kernel_runtime_execution".to_string(),
+                        "false".to_string(),
+                    ),
+                    (
+                        "metadata_physical_kernel_fallback_execution_allowed".to_string(),
+                        "false".to_string(),
                     ),
                     ("write_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
