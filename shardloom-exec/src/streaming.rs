@@ -7,7 +7,7 @@ use crate::ByteSize;
 use shardloom_core::{
     DatasetRef, Diagnostic, DiagnosticCategory, DiagnosticCode, DiagnosticSeverity, ExecutionState,
     FallbackStatus, FidelityLevel, MaterializationRequirement, OutputTarget, OutputTargetKind,
-    Result, ShardLoomError,
+    Result, ShardLoomError, UriScheme,
 };
 use std::collections::HashSet;
 
@@ -600,6 +600,17 @@ impl StreamingSource {
     pub fn vortex_dataset(dataset: DatasetRef) -> Self {
         Self {
             kind: StreamingSourceKind::VortexSegment,
+            dataset: Some(dataset),
+            capability: StreamingCapability::Streaming,
+            zero_decode: ZeroDecodeStatus::Preserved,
+            estimated_chunks: None,
+            diagnostics: vec![],
+        }
+    }
+    #[must_use]
+    pub fn object_store_byte_range(dataset: DatasetRef) -> Self {
+        Self {
+            kind: StreamingSourceKind::ObjectStoreByteRange,
             dataset: Some(dataset),
             capability: StreamingCapability::Streaming,
             zero_decode: ZeroDecodeStatus::Preserved,
@@ -1353,6 +1364,470 @@ impl StreamingPlanSkeleton {
     }
 }
 
+/// Encoded representation planned for a streaming batch.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EncodedBatchRepresentation {
+    MetadataOnly,
+    VortexEncoded,
+    ForeignEncoded,
+    SelectionVectorEncoded,
+    PartiallyDecoded,
+    DecodedColumnar,
+    MaterializedRows,
+    Unsupported,
+}
+impl EncodedBatchRepresentation {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::MetadataOnly => "metadata_only",
+            Self::VortexEncoded => "vortex_encoded",
+            Self::ForeignEncoded => "foreign_encoded",
+            Self::SelectionVectorEncoded => "selection_vector_encoded",
+            Self::PartiallyDecoded => "partially_decoded",
+            Self::DecodedColumnar => "decoded_columnar",
+            Self::MaterializedRows => "materialized_rows",
+            Self::Unsupported => "unsupported",
+        }
+    }
+    #[must_use]
+    pub const fn can_remain_encoded(&self) -> bool {
+        matches!(
+            self,
+            Self::MetadataOnly
+                | Self::VortexEncoded
+                | Self::ForeignEncoded
+                | Self::SelectionVectorEncoded
+        )
+    }
+}
+
+/// Planning status for encoded streaming batches.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EncodedStreamingBatchPlanStatus {
+    Planned,
+    RequiresMaterialization,
+    BlockedByMissingMemoryBudget,
+    BlockedByObjectStoreIo,
+    Unsupported,
+}
+impl EncodedStreamingBatchPlanStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Planned => "planned",
+            Self::RequiresMaterialization => "requires_materialization",
+            Self::BlockedByMissingMemoryBudget => "blocked_by_missing_memory_budget",
+            Self::BlockedByObjectStoreIo => "blocked_by_object_store_io",
+            Self::Unsupported => "unsupported",
+        }
+    }
+    #[must_use]
+    pub const fn is_error(&self) -> bool {
+        matches!(
+            self,
+            Self::BlockedByMissingMemoryBudget | Self::BlockedByObjectStoreIo | Self::Unsupported
+        )
+    }
+}
+
+/// Input for encoded streaming-batch planning.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EncodedStreamingBatchPlanInput {
+    pub source: StreamingSource,
+    pub operators: Vec<StreamingOperator>,
+    pub sink: StreamingSink,
+    pub memory: BoundedMemoryPolicy,
+    pub max_parallelism: usize,
+    pub estimated_batch_bytes: Option<ByteSize>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl EncodedStreamingBatchPlanInput {
+    /// Creates an encoded streaming-batch planning input.
+    ///
+    /// # Errors
+    /// Returns `ShardLoomError::InvalidOperation` when `max_parallelism == 0`.
+    pub fn new(
+        source: StreamingSource,
+        sink: StreamingSink,
+        memory: BoundedMemoryPolicy,
+        max_parallelism: usize,
+    ) -> Result<Self> {
+        if max_parallelism == 0 {
+            return Err(ShardLoomError::InvalidOperation(
+                "max_parallelism must be greater than zero".to_string(),
+            ));
+        }
+        Ok(Self {
+            source,
+            operators: vec![],
+            sink,
+            memory,
+            max_parallelism,
+            estimated_batch_bytes: None,
+            diagnostics: vec![],
+        })
+    }
+
+    /// Builds a planning input for a Vortex dataset and output target.
+    ///
+    /// # Errors
+    /// Returns errors from `Self::new`.
+    pub fn for_vortex_to_target(
+        dataset: DatasetRef,
+        target: OutputTarget,
+        memory: BoundedMemoryPolicy,
+        max_parallelism: usize,
+    ) -> Result<Self> {
+        let source = if !dataset.is_native_vortex() {
+            StreamingSource::unsupported(
+                "encoded streaming batch source",
+                format!(
+                    "format {} is not a Vortex-native encoded source in this phase",
+                    dataset.format.as_str()
+                ),
+            )
+        } else if matches!(
+            dataset.uri.scheme(),
+            UriScheme::S3 | UriScheme::Gcs | UriScheme::Adls
+        ) {
+            StreamingSource::object_store_byte_range(dataset)
+        } else {
+            StreamingSource::vortex_dataset(dataset)
+        };
+        let sink = if target.is_native_vortex() {
+            StreamingSink::vortex_native(target)
+        } else {
+            StreamingSink::compatibility(target)
+        };
+        Self::new(source, sink, memory, max_parallelism)
+    }
+
+    #[must_use]
+    pub const fn with_estimated_batch_bytes(mut self, value: ByteSize) -> Self {
+        self.estimated_batch_bytes = Some(value);
+        self
+    }
+
+    pub fn add_operator(&mut self, operator: StreamingOperator) {
+        self.operators.push(operator);
+    }
+
+    pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.source.has_errors()
+            || self.sink.has_errors()
+            || self.operators.iter().any(StreamingOperator::has_errors)
+            || self.diagnostics.iter().any(|d| {
+                matches!(
+                    d.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+}
+
+/// Report for encoded streaming-batch planning.
+#[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct EncodedStreamingBatchPlanReport {
+    pub status: EncodedStreamingBatchPlanStatus,
+    pub mode: StreamingMode,
+    pub input: EncodedStreamingBatchPlanInput,
+    pub representation: EncodedBatchRepresentation,
+    pub zero_decode: ZeroDecodeStatus,
+    pub selection_vector_preserved: bool,
+    pub encoded_representation_preserved: bool,
+    pub estimated_batch_count: Option<u64>,
+    pub estimated_batch_bytes: Option<ByteSize>,
+    pub backpressure: BackpressurePolicy,
+    pub bounded_parallelism: bool,
+    pub bounded_memory: bool,
+    pub backpressure_bounded: bool,
+    pub materialization_boundary: MaterializationBoundary,
+    pub streams_executed: bool,
+    pub tasks_executed: bool,
+    pub data_read: bool,
+    pub data_decoded: bool,
+    pub data_materialized: bool,
+    pub row_read: bool,
+    pub arrow_converted: bool,
+    pub object_store_io: bool,
+    pub write_io: bool,
+    pub spill_io_performed: bool,
+    pub fallback_execution_allowed: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl EncodedStreamingBatchPlanReport {
+    /// Builds a side-effect-free encoded streaming-batch planning report.
+    ///
+    /// # Errors
+    /// Returns errors from bounded backpressure policy validation.
+    pub fn from_input(input: EncodedStreamingBatchPlanInput) -> Result<Self> {
+        let mut out = Self::new_plan_only(input);
+        if out.input.has_errors() {
+            out.mark_unsupported();
+            return Ok(out);
+        }
+        out.apply_memory_backpressure()?;
+        if out.status.is_error()
+            || out.block_object_store_if_needed()
+            || out.apply_sink_materialization()
+        {
+            return Ok(out);
+        }
+        out.apply_operator_boundaries();
+        out.refresh_encoded_preservation();
+        Ok(out)
+    }
+
+    fn new_plan_only(input: EncodedStreamingBatchPlanInput) -> Self {
+        Self {
+            status: EncodedStreamingBatchPlanStatus::Planned,
+            mode: StreamingMode::PlanOnly,
+            representation: representation_for_source(&input.source),
+            zero_decode: input.source.zero_decode,
+            selection_vector_preserved: false,
+            encoded_representation_preserved: false,
+            estimated_batch_count: input.source.estimated_chunks,
+            estimated_batch_bytes: input.estimated_batch_bytes,
+            backpressure: BackpressurePolicy::disabled(),
+            bounded_parallelism: input.max_parallelism > 0,
+            bounded_memory: input.memory.required && input.memory.max_memory_bytes.is_some(),
+            backpressure_bounded: false,
+            materialization_boundary: MaterializationBoundary::none(),
+            streams_executed: false,
+            tasks_executed: false,
+            data_read: false,
+            data_decoded: false,
+            data_materialized: false,
+            row_read: false,
+            arrow_converted: false,
+            object_store_io: false,
+            write_io: false,
+            spill_io_performed: false,
+            fallback_execution_allowed: false,
+            diagnostics: {
+                let mut diagnostics = input.diagnostics.clone();
+                diagnostics.extend(collect_streaming_input_diagnostics(
+                    &input.source,
+                    &input.operators,
+                    &input.sink,
+                ));
+                diagnostics
+            },
+            input,
+        }
+    }
+
+    fn mark_unsupported(&mut self) {
+        self.status = EncodedStreamingBatchPlanStatus::Unsupported;
+        self.representation = EncodedBatchRepresentation::Unsupported;
+        self.zero_decode = ZeroDecodeStatus::Unsupported;
+    }
+
+    fn apply_memory_backpressure(&mut self) -> Result<()> {
+        if !self.input.memory.required {
+            return Ok(());
+        }
+        let Some(max_buffered_bytes) = self.input.memory.max_memory_bytes else {
+            self.block_missing_memory_budget(
+                "encoded streaming-batch planning requires max_memory_bytes",
+                "provide a bounded memory policy before streaming batch execution is enabled",
+            );
+            return Ok(());
+        };
+        if max_buffered_bytes.as_bytes() == 0 {
+            self.block_missing_memory_budget(
+                "encoded streaming-batch planning requires a non-zero memory budget",
+                "provide memory_gb greater than zero",
+            );
+            return Ok(());
+        }
+        self.backpressure =
+            BackpressurePolicy::bounded(self.input.max_parallelism, max_buffered_bytes)?;
+        self.backpressure_bounded = self.backpressure.is_bounded();
+        Ok(())
+    }
+
+    fn block_missing_memory_budget(&mut self, message: &str, next_step: &str) {
+        self.status = EncodedStreamingBatchPlanStatus::BlockedByMissingMemoryBudget;
+        self.diagnostics.push(Diagnostic::invalid_input(
+            "streaming_batch.memory_budget",
+            message,
+            next_step,
+        ));
+    }
+
+    fn block_object_store_if_needed(&mut self) -> bool {
+        if self.input.source.kind != StreamingSourceKind::ObjectStoreByteRange {
+            return false;
+        }
+        self.status = EncodedStreamingBatchPlanStatus::BlockedByObjectStoreIo;
+        self.diagnostics.push(unsupported_streaming_diagnostic(
+            "encoded streaming batch object-store source",
+            "object-store byte-range streaming is not implemented in this phase",
+        ));
+        true
+    }
+
+    fn apply_sink_materialization(&mut self) -> bool {
+        if !self.input.sink.requirement.requires_materialization {
+            return false;
+        }
+        self.status = EncodedStreamingBatchPlanStatus::RequiresMaterialization;
+        self.representation = EncodedBatchRepresentation::MaterializedRows;
+        self.zero_decode = ZeroDecodeStatus::FullDecodeRequired;
+        self.materialization_boundary = MaterializationBoundary::required(
+            "sink requires materialization",
+            DataWorkLevel::FullMaterialization,
+        );
+        true
+    }
+
+    fn apply_operator_boundaries(&mut self) {
+        for operator in &self.input.operators {
+            if let Some((representation, zero_decode, data_work_level)) =
+                materializing_operator_boundary(operator)
+            {
+                self.status = EncodedStreamingBatchPlanStatus::RequiresMaterialization;
+                self.representation = representation;
+                self.zero_decode = zero_decode;
+                self.materialization_boundary = MaterializationBoundary::required(
+                    "operator requires materialization",
+                    data_work_level,
+                );
+                return;
+            }
+            if operator.kind == StreamingOperatorKind::EncodedPredicate {
+                self.representation = EncodedBatchRepresentation::SelectionVectorEncoded;
+                self.selection_vector_preserved = true;
+            }
+        }
+    }
+
+    fn refresh_encoded_preservation(&mut self) {
+        self.encoded_representation_preserved = self.representation.can_remain_encoded();
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.status.is_error()
+            || self.input.has_errors()
+            || self.diagnostics.iter().any(|d| {
+                matches!(
+                    d.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    #[must_use]
+    pub const fn is_side_effect_free(&self) -> bool {
+        !self.streams_executed
+            && !self.tasks_executed
+            && !self.data_read
+            && !self.data_decoded
+            && !self.data_materialized
+            && !self.row_read
+            && !self.arrow_converted
+            && !self.object_store_io
+            && !self.write_io
+            && !self.spill_io_performed
+            && !self.fallback_execution_allowed
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "encoded streaming-batch status: {}\nmode: {}\nsource kind: {}\nsink kind: {}\nrepresentation: {}\nzero decode: {}\nencoded representation preserved: {}\nselection vector preserved: {}\nbounded parallelism: {}\nbounded memory: {}\nbackpressure bounded: {}\nestimated batch count: {}\nestimated batch bytes: {}\nmaterialization boundary: {}\nstreams executed: false\ntasks executed: false\ndata read: false\ndata decoded: false\ndata materialized: false\nrow read: false\nArrow converted: false\nobject-store IO: false\nwrite IO: false\nspill IO performed: false\nfallback execution: disabled",
+            self.status.as_str(),
+            self.mode.as_str(),
+            self.input.source.kind.as_str(),
+            self.input.sink.kind.as_str(),
+            self.representation.as_str(),
+            self.zero_decode.as_str(),
+            self.encoded_representation_preserved,
+            self.selection_vector_preserved,
+            self.bounded_parallelism,
+            self.bounded_memory,
+            self.backpressure_bounded,
+            self.estimated_batch_count
+                .map_or("unknown".to_string(), |value| value.to_string()),
+            self.estimated_batch_bytes
+                .map_or("unknown".to_string(), |value| value.as_bytes().to_string()),
+            self.materialization_boundary.summary(),
+        )
+    }
+}
+
+/// Plans encoded streaming batches without executing streams or reading data.
+///
+/// # Errors
+/// Returns errors from bounded backpressure policy validation.
+pub fn plan_encoded_streaming_batches(
+    input: EncodedStreamingBatchPlanInput,
+) -> Result<EncodedStreamingBatchPlanReport> {
+    EncodedStreamingBatchPlanReport::from_input(input)
+}
+
+fn representation_for_source(source: &StreamingSource) -> EncodedBatchRepresentation {
+    match source.kind {
+        StreamingSourceKind::MetadataOnlyPseudoChunk => EncodedBatchRepresentation::MetadataOnly,
+        StreamingSourceKind::VortexSegment
+        | StreamingSourceKind::VortexSplit
+        | StreamingSourceKind::ManifestSegmentGroup
+        | StreamingSourceKind::ObjectStoreByteRange => EncodedBatchRepresentation::VortexEncoded,
+        StreamingSourceKind::ExternalRead | StreamingSourceKind::ArrowLikeBoundary => {
+            EncodedBatchRepresentation::ForeignEncoded
+        }
+        StreamingSourceKind::Unsupported => EncodedBatchRepresentation::Unsupported,
+    }
+}
+
+fn materializing_operator_boundary(
+    operator: &StreamingOperator,
+) -> Option<(EncodedBatchRepresentation, ZeroDecodeStatus, DataWorkLevel)> {
+    if !operator.materialization.requires_materialization() {
+        return None;
+    }
+    let representation = match operator.data_work_level {
+        DataWorkLevel::PartialDecode | DataWorkLevel::LateMaterialization => {
+            EncodedBatchRepresentation::PartiallyDecoded
+        }
+        DataWorkLevel::FullMaterialization => EncodedBatchRepresentation::MaterializedRows,
+        _ => EncodedBatchRepresentation::DecodedColumnar,
+    };
+    let zero_decode = if matches!(representation, EncodedBatchRepresentation::PartiallyDecoded) {
+        ZeroDecodeStatus::PartialDecodeRequired
+    } else {
+        ZeroDecodeStatus::FullDecodeRequired
+    };
+    Some((representation, zero_decode, operator.data_work_level))
+}
+
+fn collect_streaming_input_diagnostics(
+    source: &StreamingSource,
+    operators: &[StreamingOperator],
+    sink: &StreamingSink,
+) -> Vec<Diagnostic> {
+    source
+        .diagnostics
+        .iter()
+        .chain(
+            operators
+                .iter()
+                .flat_map(|operator| operator.diagnostics.iter()),
+        )
+        .chain(sink.diagnostics.iter())
+        .cloned()
+        .collect()
+}
+
 fn unsupported_streaming_diagnostic(
     feature: impl Into<String>,
     reason: impl Into<String>,
@@ -1487,6 +1962,15 @@ mod tests {
         );
     }
     #[test]
+    fn encoded_batch_representation_labels_are_stable() {
+        assert_eq!(
+            EncodedBatchRepresentation::VortexEncoded.as_str(),
+            "vortex_encoded"
+        );
+        assert!(EncodedBatchRepresentation::VortexEncoded.can_remain_encoded());
+        assert!(!EncodedBatchRepresentation::MaterializedRows.can_remain_encoded());
+    }
+    #[test]
     fn source_vortex_preserves_zero_decode() {
         assert_eq!(
             StreamingSource::vortex_dataset(ds()).zero_decode,
@@ -1565,6 +2049,109 @@ mod tests {
     fn materialization_required_required() {
         assert!(
             MaterializationBoundary::required("x", DataWorkLevel::FullMaterialization).required
+        );
+    }
+    #[test]
+    fn encoded_streaming_batch_plan_preserves_vortex_encoded_representation() {
+        let input = EncodedStreamingBatchPlanInput::for_vortex_to_target(
+            ds(),
+            vortex_target(),
+            BoundedMemoryPolicy::required(ByteSize::from_mib(64)),
+            2,
+        )
+        .unwrap()
+        .with_estimated_batch_bytes(ByteSize::from_mib(8));
+        let report = plan_encoded_streaming_batches(input).expect("report");
+        assert_eq!(report.status, EncodedStreamingBatchPlanStatus::Planned);
+        assert_eq!(
+            report.representation,
+            EncodedBatchRepresentation::VortexEncoded
+        );
+        assert_eq!(report.zero_decode, ZeroDecodeStatus::Preserved);
+        assert!(report.encoded_representation_preserved);
+        assert!(report.bounded_parallelism);
+        assert!(report.bounded_memory);
+        assert!(report.backpressure_bounded);
+        assert_eq!(report.estimated_batch_bytes, Some(ByteSize::from_mib(8)));
+        assert!(report.is_side_effect_free());
+        assert!(!report.fallback_execution_allowed);
+    }
+    #[test]
+    fn encoded_streaming_batch_plan_tracks_selection_vector_encoded_operator() {
+        let mut input = EncodedStreamingBatchPlanInput::for_vortex_to_target(
+            ds(),
+            vortex_target(),
+            BoundedMemoryPolicy::required(ByteSize::from_mib(64)),
+            2,
+        )
+        .unwrap();
+        input.add_operator(StreamingOperator::encoded_predicate());
+        let report = plan_encoded_streaming_batches(input).expect("report");
+        assert_eq!(
+            report.representation,
+            EncodedBatchRepresentation::SelectionVectorEncoded
+        );
+        assert!(report.selection_vector_preserved);
+        assert!(report.encoded_representation_preserved);
+        assert!(report.is_side_effect_free());
+    }
+    #[test]
+    fn encoded_streaming_batch_plan_reports_compatibility_materialization() {
+        let input = EncodedStreamingBatchPlanInput::for_vortex_to_target(
+            ds(),
+            parquet_target(),
+            BoundedMemoryPolicy::required(ByteSize::from_mib(64)),
+            2,
+        )
+        .unwrap();
+        let report = plan_encoded_streaming_batches(input).expect("report");
+        assert_eq!(
+            report.status,
+            EncodedStreamingBatchPlanStatus::RequiresMaterialization
+        );
+        assert_eq!(
+            report.representation,
+            EncodedBatchRepresentation::MaterializedRows
+        );
+        assert_eq!(report.zero_decode, ZeroDecodeStatus::FullDecodeRequired);
+        assert!(report.materialization_boundary.required);
+        assert!(!report.has_errors());
+        assert!(report.is_side_effect_free());
+    }
+    #[test]
+    fn encoded_streaming_batch_plan_blocks_object_store_source_without_io() {
+        let dataset =
+            DatasetRef::from_uri(DatasetUri::new("s3://bucket/input.vortex").unwrap()).unwrap();
+        let input = EncodedStreamingBatchPlanInput::for_vortex_to_target(
+            dataset,
+            vortex_target(),
+            BoundedMemoryPolicy::required(ByteSize::from_mib(64)),
+            2,
+        )
+        .unwrap();
+        let report = plan_encoded_streaming_batches(input).expect("report");
+        assert_eq!(
+            report.status,
+            EncodedStreamingBatchPlanStatus::BlockedByObjectStoreIo
+        );
+        assert_eq!(
+            report.input.source.kind,
+            StreamingSourceKind::ObjectStoreByteRange
+        );
+        assert!(report.has_errors());
+        assert!(!report.object_store_io);
+        assert!(report.is_side_effect_free());
+    }
+    #[test]
+    fn encoded_streaming_batch_plan_rejects_zero_parallelism() {
+        assert!(
+            EncodedStreamingBatchPlanInput::for_vortex_to_target(
+                ds(),
+                vortex_target(),
+                BoundedMemoryPolicy::required(ByteSize::from_mib(64)),
+                0
+            )
+            .is_err()
         );
     }
     #[test]

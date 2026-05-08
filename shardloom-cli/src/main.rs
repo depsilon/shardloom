@@ -22,9 +22,10 @@ use shardloom_core::{
 use shardloom_exec::{
     AdaptiveSizer, AdaptiveSizingPolicy, AttemptId, BackpressurePlanInput, BackpressurePlanReport,
     BoundedMemoryPolicy, ByteSize, CancellationReason, CancellationRequest, CancellationScope,
-    DynamicSizingFeedbackInput, DynamicSizingFeedbackReport, MemoryBudget, MemoryOwner,
-    MemoryPoolPlan, OomSafetyPlan, OperatorMemoryClass, ParallelismLimit, ParallelismPlan,
-    RecoveryPlan, RetryPlan, RuntimePlanSkeleton, ShardLoomCancellationExecutionGateReport,
+    DynamicSizingFeedbackInput, DynamicSizingFeedbackReport, EncodedStreamingBatchPlanInput,
+    EncodedStreamingBatchPlanReport, MemoryBudget, MemoryOwner, MemoryPoolPlan, OomSafetyPlan,
+    OperatorMemoryClass, ParallelismLimit, ParallelismPlan, RecoveryPlan, RetryPlan,
+    RuntimePlanSkeleton, ShardLoomCancellationExecutionGateReport,
     ShardLoomCancellationExecutionGateRequest, ShardLoomCancellationExecutionGateSignal,
     ShardLoomCleanupExecutionRequest, ShardLoomRetryExecutionGateReport,
     ShardLoomRetryExecutionGateRequest, ShardLoomRetryExecutionGateSignal, SizeEstimate,
@@ -33,9 +34,9 @@ use shardloom_exec::{
     SpillPayloadRoundTripRequest, SpillPayloadWriteRequest, SpillPlan, SpillPolicy,
     SpillReservationIntegrationRequest, SpillWorkspaceId, SpillWorkspacePath,
     StreamingPlanSkeleton, SyntheticSpillPayload, TaskAttemptRecord, plan_backpressure,
-    plan_cancellation_execution_gate, plan_dynamic_sizing_feedback, plan_retry_execution_gate,
-    plan_spill_lifecycle, plan_spill_reservation_integration, roundtrip_spill_payload,
-    spill_payload_fs_feature_enabled,
+    plan_cancellation_execution_gate, plan_dynamic_sizing_feedback, plan_encoded_streaming_batches,
+    plan_retry_execution_gate, plan_spill_lifecycle, plan_spill_reservation_integration,
+    roundtrip_spill_payload, spill_payload_fs_feature_enabled,
 };
 use shardloom_plan::{
     EstimateReport, ExplainReport, NativePlanDocument, OptimizerPhase, OptimizerPlanSkeleton,
@@ -157,7 +158,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|streaming-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -565,6 +566,108 @@ fn streaming_plan_fields(plan: &StreamingPlanSkeleton) -> Vec<(String, String)> 
             "false".to_string(),
         ),
     ]
+}
+
+fn encoded_streaming_batch_plan_fields(
+    report: &EncodedStreamingBatchPlanReport,
+    memory_gb: u64,
+    estimated_batch_mib: Option<u64>,
+) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    push_field(&mut fields, "fallback_execution_allowed", "false");
+    push_field(&mut fields, "mode", "streaming_batch_plan");
+    push_field(
+        &mut fields,
+        "encoded_streaming_batch_status",
+        report.status.as_str(),
+    );
+    push_field(&mut fields, "streaming_mode", report.mode.as_str());
+    push_field(
+        &mut fields,
+        "source_kind",
+        report.input.source.kind.as_str(),
+    );
+    push_field(
+        &mut fields,
+        "source_capability",
+        report.input.source.capability.as_str(),
+    );
+    push_field(&mut fields, "sink_kind", report.input.sink.kind.as_str());
+    push_field(
+        &mut fields,
+        "sink_capability",
+        report.input.sink.capability.as_str(),
+    );
+    push_field(
+        &mut fields,
+        "representation",
+        report.representation.as_str(),
+    );
+    push_field(&mut fields, "zero_decode", report.zero_decode.as_str());
+    push_bool_field(
+        &mut fields,
+        "encoded_representation_preserved",
+        report.encoded_representation_preserved,
+    );
+    push_bool_field(
+        &mut fields,
+        "selection_vector_preserved",
+        report.selection_vector_preserved,
+    );
+    push_bool_field(
+        &mut fields,
+        "bounded_parallelism",
+        report.bounded_parallelism,
+    );
+    push_count_field(&mut fields, "max_parallelism", report.input.max_parallelism);
+    push_bool_field(&mut fields, "bounded_memory", report.bounded_memory);
+    push_field(&mut fields, "memory_gb", &memory_gb.to_string());
+    push_bool_field(
+        &mut fields,
+        "backpressure_bounded",
+        report.backpressure_bounded,
+    );
+    push_bool_field(
+        &mut fields,
+        "materialization_required",
+        report.materialization_boundary.required,
+    );
+    push_field(
+        &mut fields,
+        "materialization_boundary",
+        report.materialization_boundary.canonical_label(),
+    );
+    push_field(
+        &mut fields,
+        "estimated_batch_count",
+        &report
+            .estimated_batch_count
+            .map_or("unknown".to_string(), |value| value.to_string()),
+    );
+    push_field(
+        &mut fields,
+        "estimated_batch_mib",
+        &estimated_batch_mib.map_or("unknown".to_string(), |value| value.to_string()),
+    );
+    push_field(
+        &mut fields,
+        "estimated_batch_bytes",
+        &report
+            .estimated_batch_bytes
+            .map_or("unknown".to_string(), |value| value.as_bytes().to_string()),
+    );
+    push_bool_field(&mut fields, "streams_executed", report.streams_executed);
+    push_bool_field(&mut fields, "tasks_executed", report.tasks_executed);
+    push_bool_field(&mut fields, "data_read", report.data_read);
+    push_bool_field(&mut fields, "data_decoded", report.data_decoded);
+    push_bool_field(&mut fields, "data_materialized", report.data_materialized);
+    push_bool_field(&mut fields, "row_read", report.row_read);
+    push_bool_field(&mut fields, "arrow_converted", report.arrow_converted);
+    push_bool_field(&mut fields, "object_store_io", report.object_store_io);
+    push_bool_field(&mut fields, "write_io", report.write_io);
+    push_bool_field(&mut fields, "spill_io_performed", report.spill_io_performed);
+    push_field(&mut fields, "execution", "not_performed");
+    fields
 }
 
 fn parse_vortex_output_payload_artifact_write_options(
@@ -10399,6 +10502,165 @@ fn run(args: Vec<String>) -> ExitCode {
                 ExitCode::SUCCESS
             }
         }
+        Some("streaming-batch-plan") => {
+            let Some(dataset_uri) = args.next() else {
+                eprintln!(
+                    "usage: shardloom streaming-batch-plan <dataset_uri> <target_uri> <memory_gb> <max_parallelism> [batch_mib]"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(target_uri) = args.next() else {
+                eprintln!(
+                    "usage: shardloom streaming-batch-plan <dataset_uri> <target_uri> <memory_gb> <max_parallelism> [batch_mib]"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(memory_gb_text) = args.next() else {
+                eprintln!(
+                    "usage: shardloom streaming-batch-plan <dataset_uri> <target_uri> <memory_gb> <max_parallelism> [batch_mib]"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(max_parallelism_text) = args.next() else {
+                eprintln!(
+                    "usage: shardloom streaming-batch-plan <dataset_uri> <target_uri> <memory_gb> <max_parallelism> [batch_mib]"
+                );
+                return ExitCode::from(2);
+            };
+            let batch_mib = match args.next() {
+                Some(value) => match value.parse::<u64>() {
+                    Ok(parsed) if parsed > 0 => Some(parsed),
+                    _ => {
+                        return emit_error(
+                            "streaming-batch-plan",
+                            format,
+                            "encoded streaming-batch planning failed",
+                            &ShardLoomError::InvalidOperation(
+                                "batch_mib must be a positive integer".to_string(),
+                            ),
+                        );
+                    }
+                },
+                None => None,
+            };
+            if let Some(extra) = args.next() {
+                return emit_error(
+                    "streaming-batch-plan",
+                    format,
+                    "encoded streaming-batch planning failed",
+                    &cli_unknown_arg_error("streaming-batch-plan", &extra),
+                );
+            }
+            let dataset_uri = match DatasetUri::new(dataset_uri) {
+                Ok(uri) => uri,
+                Err(error) => {
+                    return emit_error(
+                        "streaming-batch-plan",
+                        format,
+                        "invalid dataset uri",
+                        &ShardLoomError::InvalidOperation(format!("invalid dataset uri: {error}")),
+                    );
+                }
+            };
+            let dataset_ref = match DatasetRef::from_uri(dataset_uri) {
+                Ok(dataset_ref) => dataset_ref,
+                Err(error) => {
+                    return emit_error(
+                        "streaming-batch-plan",
+                        format,
+                        "failed to create dataset reference",
+                        &error,
+                    );
+                }
+            };
+            let target_uri = match DatasetUri::new(target_uri) {
+                Ok(uri) => uri,
+                Err(error) => {
+                    return emit_error(
+                        "streaming-batch-plan",
+                        format,
+                        "invalid target uri",
+                        &ShardLoomError::InvalidOperation(format!("invalid target uri: {error}")),
+                    );
+                }
+            };
+            let output_target = OutputTarget::from_uri(target_uri);
+            let memory_gb: u64 = match memory_gb_text.parse() {
+                Ok(value) if value > 0 => value,
+                _ => {
+                    return emit_error(
+                        "streaming-batch-plan",
+                        format,
+                        "encoded streaming-batch planning failed",
+                        &ShardLoomError::InvalidOperation(
+                            "memory_gb must be a positive integer".to_string(),
+                        ),
+                    );
+                }
+            };
+            let max_parallelism: usize = match max_parallelism_text.parse() {
+                Ok(value) if value > 0 => value,
+                _ => {
+                    return emit_error(
+                        "streaming-batch-plan",
+                        format,
+                        "encoded streaming-batch planning failed",
+                        &ShardLoomError::InvalidOperation(
+                            "max_parallelism must be a positive integer".to_string(),
+                        ),
+                    );
+                }
+            };
+            let memory = BoundedMemoryPolicy::required(ByteSize::from_gib(memory_gb));
+            let mut input = match EncodedStreamingBatchPlanInput::for_vortex_to_target(
+                dataset_ref,
+                output_target,
+                memory,
+                max_parallelism,
+            ) {
+                Ok(input) => input,
+                Err(error) => {
+                    return emit_error(
+                        "streaming-batch-plan",
+                        format,
+                        "encoded streaming-batch planning failed",
+                        &error,
+                    );
+                }
+            };
+            if let Some(batch_mib) = batch_mib {
+                input = input.with_estimated_batch_bytes(ByteSize::from_mib(batch_mib));
+            }
+            let report = match plan_encoded_streaming_batches(input) {
+                Ok(report) => report,
+                Err(error) => {
+                    return emit_error(
+                        "streaming-batch-plan",
+                        format,
+                        "encoded streaming-batch planning failed",
+                        &error,
+                    );
+                }
+            };
+            emit(
+                "streaming-batch-plan",
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "encoded streaming-batch plan".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                encoded_streaming_batch_plan_fields(&report, memory_gb, batch_mib),
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
         Some("backpressure-plan") => {
             let Some(memory_gb_text) = args.next() else {
                 eprintln!(
@@ -15848,6 +16110,10 @@ mod tests {
         assert!(cli_usage_line().contains("streaming-plan"));
     }
     #[test]
+    fn usage_includes_streaming_batch_plan() {
+        assert!(cli_usage_line().contains("streaming-batch-plan"));
+    }
+    #[test]
     fn usage_includes_backpressure_plan() {
         assert!(cli_usage_line().contains("backpressure-plan"));
     }
@@ -16776,6 +17042,18 @@ mod tests {
             "streaming-plan".to_string(),
             "file://tmp/test.vortex".to_string(),
             "file://tmp/out.vortex".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn streaming_batch_plan_with_vortex_target_returns_success() {
+        let code = run(vec![
+            "streaming-batch-plan".to_string(),
+            "file://tmp/test.vortex".to_string(),
+            "file://tmp/out.vortex".to_string(),
+            "8".to_string(),
+            "2".to_string(),
         ]);
         assert_eq!(code, ExitCode::SUCCESS);
     }

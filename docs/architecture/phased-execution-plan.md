@@ -39,27 +39,27 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-8.4 dynamic sizing feedback planning surface
+- [x] Session label: CG-8.5 encoded streaming-batch planning surface
   - Primary files:
-    - `shardloom-exec/src/sizing.rs`
+    - `shardloom-exec/src/streaming.rs`
     - `shardloom-exec/src/lib.rs`
     - `shardloom-cli/src/main.rs`
-    - `shardloom-cli/tests/sizing_feedback_plan_snapshots.rs`
+    - `shardloom-cli/tests/streaming_batch_plan_snapshots.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-  - Scope: Add a side-effect-free dynamic sizing feedback report and CLI surface that recommends target-task-byte changes from observed planning signals without applying feedback or executing work.
+  - Scope: Add a side-effect-free encoded streaming-batch planning report and CLI surface that records batch representation, zero-decode status, bounded memory/backpressure, materialization boundaries, and explicit no-IO/no-fallback evidence without executing streams.
   - Checklist:
-    - [x] Add `DynamicSizingFeedbackInput`, `DynamicSizingFeedbackReport`, status/mode, signal classification, recommended policy derivation, and side-effect flags.
-    - [x] Export dynamic sizing feedback planning contracts from `shardloom-exec`.
-    - [x] Add `sizing-feedback-plan` CLI JSON surface.
-    - [x] Add focused unit and CLI snapshot tests for reduced, increased, mixed, stable, and rejected feedback plans.
+    - [x] Add `EncodedStreamingBatchPlanInput`, `EncodedStreamingBatchPlanReport`, status, representation, bounded-memory/backpressure, materialization-boundary, and side-effect fields.
+    - [x] Export encoded streaming-batch planning contracts from `shardloom-exec`.
+    - [x] Add `streaming-batch-plan` CLI JSON surface.
+    - [x] Add focused unit and CLI snapshot tests for native Vortex batches, compatibility materialization boundaries, object-store blockers, and rejected parallelism.
     - [x] Update phase and RFC traceability docs.
     - [x] Run full required validation.
   - Local validation status:
-    - focused `dynamic_feedback` exec tests passed
-    - `sizing_feedback_plan_snapshots` integration tests passed
+    - focused `encoded_streaming_batch` exec tests passed
+    - `streaming_batch_plan_snapshots` integration tests passed
     - full Rust validation passed with toolchain `1.91.1`
-  - Explicitly not included: stream execution, task execution, read-start APIs, row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, feedback application/execution, benchmarks, production/superiority claims, fallback execution, or CG-8 closeout.
+  - Explicitly not included: stream execution, task execution, read-start APIs, row reads, encoded data reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, dynamic sizing feedback application/execution, benchmarks, production/superiority claims, fallback execution, or CG-8 closeout.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -728,6 +728,13 @@ Supporting docs:
     - `sizing-feedback-plan --format json` emits stable fields for target-reduced, target-increased, mixed-signal, no-feedback, and rejected plans.
     - Unknown feedback signals fail explicitly without fallback.
     - Feedback remains advisory only; streams, tasks, reads, materialization, object-store IO, writes, spill IO, feedback application, benchmark claims, superiority claims, and fallback behavior remain disabled.
+- [x] CG-8.5 encoded streaming-batch planning surface
+  - Why: make encoded streaming-batch representation and bounded batch planning visible before any stream runtime, read-start API, or encoded data read path is enabled.
+  - Acceptance:
+    - `EncodedStreamingBatchPlanReport` records source/sink kind, representation state, zero-decode status, bounded parallelism, bounded memory, backpressure, materialization boundaries, and side-effect flags.
+    - `streaming-batch-plan --format json` emits stable fields for native Vortex encoded batches, compatibility materialization boundaries, object-store source blockers, and rejected parallelism.
+    - Object-store byte-range sources fail explicitly until object-store streaming IO lands.
+    - Streams, tasks, encoded data reads, row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, benchmark claims, superiority claims, and fallback behavior remain disabled.
 
 ## Competitive Engine Gates CG-1 through CG-20
 
@@ -876,8 +883,10 @@ Status legend:
   - [x] CG-8.2 adaptive sizing, memory, scheduler, and bounded execution evidence surface
   - [x] CG-8.3 bounded backpressure planning surface
   - [x] CG-8.4 dynamic sizing feedback planning surface
+  - [x] CG-8.5 encoded streaming-batch planning surface
   - Scope:
-    - streaming encoded batches
+    - encoded streaming-batch planning surface
+    - streaming encoded batch runtime execution
     - bounded parallel local execution
     - adaptive split/coalesce
     - backpressure and memory/spill-aware scheduling
@@ -1114,7 +1123,8 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-8.2 adaptive sizing, memory, scheduler, and bounded execution evidence surface
 - [x] CG-8.3 bounded backpressure planning surface
 - [x] CG-8.4 dynamic sizing feedback planning surface
-- [ ] streaming encoded batches
+- [x] CG-8.5 encoded streaming-batch planning surface
+- [ ] streaming encoded batch runtime execution
 - [ ] bounded parallel local execution
 - [x] adaptive split/coalesce planning surface
 - [x] dynamic sizing feedback planning surface
@@ -1306,6 +1316,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-8.2 adaptive sizing, memory, scheduler, and bounded execution evidence surface exposes JSON fields and snapshots for split/coalesce policy, memory/spill gates, bounded queue batches, and bounded local execution guards without enabling new runtime execution.
 - [x] CG-8.3 bounded backpressure planning surface adds report/CLI evidence for bounded max in-flight chunks and buffered bytes while keeping streams, tasks, IO, spill, and fallback disabled.
 - [x] CG-8.4 dynamic sizing feedback planning surface adds report/CLI evidence for target-task-byte feedback recommendations while keeping feedback application, streams, tasks, IO, spill, and fallback disabled.
+- [x] CG-8.5 encoded streaming-batch planning surface adds report/CLI evidence for Vortex encoded batch representation, compatibility materialization boundaries, object-store blockers, bounded memory/backpressure, and no-IO/no-fallback side-effect fields without enabling stream runtime execution.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind `vortex-write`; placeholder artifact paths remain readiness-only.
 - [~] CG-3 broader output payload shapes remain deferred.
