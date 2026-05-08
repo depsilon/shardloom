@@ -17,8 +17,8 @@ use shardloom_core::{
     ExtensionManifest, ExtensionProvenance, ExtensionRegistrySnapshot, ExtensionVersion, FieldId,
     FieldName, FieldPath, FileDescriptor, FileRole, IncrementalPlanSkeleton,
     InputAdapterRegistrySnapshot, KernelRegistrySnapshot, LayoutHealthPolicy, LayoutHealthReport,
-    LayoutKind, LogicalDType, ManifestId, ManifestSegment, Nullability, ObservabilityPlan,
-    OperatorMemoryCertification, OutputEnvelope, OutputFormat, OutputTarget,
+    LayoutKind, LogicalDType, ManifestId, ManifestSegment, NativeIoEnvelopeReport, Nullability,
+    ObservabilityPlan, OperatorMemoryCertification, OutputEnvelope, OutputFormat, OutputTarget,
     PartitionEvolutionCompatibilityReport, PartitionField, PartitionSpec, PartitionTransform,
     PhysicalKernelRegistryPlan, PhysicalOperatorExecutionLevel,
     PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorKind, PhysicalOperatorPlan,
@@ -32,7 +32,7 @@ use shardloom_core::{
     evaluate_delete_tombstone_compatibility, evaluate_layout_health,
     evaluate_partition_evolution_compatibility, evaluate_schema_evolution_compatibility,
     plan_cpu_operator_specialization, plan_execution_certificate_evidence_surface,
-    plan_stateful_reuse, plan_universal_harness,
+    plan_native_io_envelope, plan_stateful_reuse, plan_universal_harness,
 };
 use shardloom_exec::{
     AdaptiveSizer, AdaptiveSizingPolicy, AttemptId, BackpressurePlanInput, BackpressurePlanReport,
@@ -184,7 +184,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|layout-health-plan|compaction-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|correctness-plan|execution-certificate-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|layout-health-plan|compaction-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|correctness-plan|execution-certificate-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -3903,6 +3903,138 @@ fn append_universal_harness_side_effect_fields(
     push_bool_field(fields, "read_io", report.read_io);
     push_bool_field(fields, "write_io", report.write_io);
     push_bool_field(fields, "external_publish", report.external_publish);
+    push_bool_field(
+        fields,
+        "fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(fields, "fallback_attempted", report.fallback_attempted);
+    push_bool_field(
+        fields,
+        "production_claim_allowed",
+        report.production_claim_allowed,
+    );
+    push_bool_field(fields, "side_effect_free", report.is_side_effect_free());
+    push_count_field(fields, "diagnostic_count", report.diagnostics.len());
+}
+
+fn native_io_envelope_fields(report: &NativeIoEnvelopeReport) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    append_native_io_envelope_identity_fields(&mut fields, report);
+    append_native_io_envelope_requirement_fields(&mut fields, report);
+    append_native_io_envelope_side_effect_fields(&mut fields, report);
+    fields
+}
+
+fn append_native_io_envelope_identity_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &NativeIoEnvelopeReport,
+) {
+    push_field(fields, "mode", "native_io_envelope_plan");
+    push_field(fields, "execution", "not_performed");
+    push_field(fields, "plan_only", "true");
+    push_field(fields, "schema_version", report.schema_version);
+    push_field(fields, "report_id", &report.report_id);
+    push_field(fields, "native_io_envelope_status", report.status.as_str());
+    push_count_field(fields, "contract_count", report.contract_count());
+    push_count_field(
+        fields,
+        "representation_state_count",
+        report.representation_state_count(),
+    );
+    push_count_field(
+        fields,
+        "transition_example_count",
+        report.transition_example_count(),
+    );
+    push_count_field(
+        fields,
+        "certificate_path_requirement_count",
+        report.certificate_path_requirement_count(),
+    );
+    push_field(fields, "contract_kind_order", &report.contract_kind_order());
+    push_field(
+        fields,
+        "representation_state_order",
+        &report.representation_state_order(),
+    );
+    push_field(
+        fields,
+        "transition_example_order",
+        &report.transition_example_order(),
+    );
+    push_field(
+        fields,
+        "certificate_path_order",
+        &report.certificate_path_order(),
+    );
+}
+
+fn append_native_io_envelope_requirement_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &NativeIoEnvelopeReport,
+) {
+    push_bool_field(
+        fields,
+        "per_path_certificate_required",
+        report.per_path_certificate_required,
+    );
+    push_bool_field(
+        fields,
+        "aggregate_certificate_not_sufficient",
+        report.aggregate_certificate_not_sufficient,
+    );
+    push_bool_field(
+        fields,
+        "preserve_encoded_or_foreign_encoded_when_possible",
+        report.preserve_encoded_or_foreign_encoded_when_possible,
+    );
+    push_bool_field(
+        fields,
+        "decoded_arrow_normalization_allowed",
+        report.decoded_arrow_normalization_allowed,
+    );
+    push_bool_field(
+        fields,
+        "materialization_boundary_required_for_decoded_columnar",
+        report.materialization_boundary_required_for_decoded_columnar,
+    );
+    push_bool_field(
+        fields,
+        "materialization_boundary_required_for_rows",
+        report.materialization_boundary_required_for_rows,
+    );
+    push_bool_field(
+        fields,
+        "source_pushdown_proof_required",
+        report.source_pushdown_proof_required,
+    );
+    push_bool_field(
+        fields,
+        "sink_requirement_propagation_required",
+        report.sink_requirement_propagation_required,
+    );
+    push_bool_field(
+        fields,
+        "adapter_fidelity_report_required",
+        report.adapter_fidelity_report_required,
+    );
+}
+
+fn append_native_io_envelope_side_effect_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &NativeIoEnvelopeReport,
+) {
+    push_bool_field(fields, "runtime_execution", report.runtime_execution);
+    push_bool_field(fields, "adapter_probe", report.adapter_probe);
+    push_bool_field(fields, "data_read", report.data_read);
+    push_bool_field(fields, "data_decoded", report.data_decoded);
+    push_bool_field(fields, "data_materialized", report.data_materialized);
+    push_bool_field(fields, "row_read", report.row_read);
+    push_bool_field(fields, "arrow_converted", report.arrow_converted);
+    push_bool_field(fields, "object_store_io", report.object_store_io);
+    push_bool_field(fields, "write_io", report.write_io);
+    push_bool_field(fields, "spill_io_performed", report.spill_io_performed);
     push_bool_field(
         fields,
         "fallback_execution_allowed",
@@ -11818,6 +11950,28 @@ fn run(args: Vec<String>) -> ExitCode {
                 ExitCode::SUCCESS
             }
         }
+        Some("native-io-envelope-plan") => {
+            let command = "native-io-envelope-plan";
+            let report = plan_native_io_envelope();
+            emit(
+                command,
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "native I/O envelope plan".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                native_io_envelope_fields(&report),
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
         Some("vortex-write-intent-plan") => {
             let Some(target_uri) = args.next() else {
                 eprintln!("usage: shardloom vortex-write-intent-plan <target_uri> <signals>");
@@ -19144,6 +19298,12 @@ mod tests {
     }
 
     #[test]
+    fn native_io_envelope_plan_returns_success() {
+        let code = run(vec!["native-io-envelope-plan".to_string()]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
     fn layout_health_plan_healthy_returns_success() {
         let code = run(vec![
             "layout-health-plan".to_string(),
@@ -20281,6 +20441,10 @@ mod tests {
     #[test]
     fn usage_includes_universal_harness_plan() {
         assert!(cli_usage_line().contains("universal-harness-plan"));
+    }
+    #[test]
+    fn usage_includes_native_io_envelope_plan() {
+        assert!(cli_usage_line().contains("native-io-envelope-plan"));
     }
     #[test]
     fn parse_sizing_feedback_signals_rejects_unknown_and_empty() {

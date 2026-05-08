@@ -18,6 +18,7 @@ pub mod extension;
 pub mod feature_footprint;
 pub mod input;
 pub mod manifest;
+pub mod native_io;
 pub mod observability;
 pub mod operator;
 pub mod output;
@@ -113,6 +114,11 @@ pub use manifest::{
     LayoutHealthStatus, ManifestSegment, ManifestVersion, SegmentChange, SegmentChangeKind,
     SnapshotRef, WriteIntent, WriteIntentStatus, evaluate_cdc_incremental_planning,
     evaluate_compaction_planning, evaluate_layout_health,
+};
+pub use native_io::{
+    NativeIoCertificatePathRequirement, NativeIoContractKind, NativeIoContractSurface,
+    NativeIoEnvelopeReport, NativeIoEnvelopeStatus, NativeIoTransitionExample, RepresentationState,
+    RepresentationStateContract, plan_native_io_envelope,
 };
 pub use observability::{
     KernelProfile, MetricCategory, MetricKind, MetricSample, MetricUnit, ObservabilityMetricValue,
