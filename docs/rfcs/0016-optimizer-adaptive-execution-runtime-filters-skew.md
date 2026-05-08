@@ -233,6 +233,61 @@ files, and empty manifests. Compaction recommendations are planning evidence onl
 rewrite, clustering, delete/tombstone application, manifest update, and commit behavior remain
 separate gated work.
 
+### Compaction planning report
+
+Compaction planning is the report-only continuation of layout-health evidence. It may group
+declared small-file and small-segment candidates into future maintenance recommendations, but
+it must not read table metadata, inspect files, write compacted files, update manifests,
+commit, contact object stores, or execute compaction.
+
+The CG-9 compaction evidence surface is `CompactionPlanningReport`.
+
+Required fields:
+
+- `layout_health`.
+- `policy`.
+- `status`.
+- `actions`.
+- `diagnostics`.
+- `file_count`.
+- `segment_count`.
+- `candidate_file_count`.
+- `candidate_segment_count`.
+- `candidate_count`.
+- `blocked_candidate_count`.
+- `estimated_compaction_group_count`.
+- `missing_statistics_segment_count`.
+- `missing_byte_range_segment_count`.
+- `non_native_data_file_count`.
+- `requires_statistics_refresh`.
+- `requires_byte_range_index`.
+- `requires_layout_review`.
+- `requires_native_input_review`.
+- `compaction_recommended`.
+- `recommendation_emitted`.
+- `can_plan_without_io=true`.
+- `data_read=false`.
+- `write_io=false`.
+- `catalog_io=false`.
+- `object_store_io=false`.
+- `compaction_execution_allowed=false`.
+- `fallback_execution_allowed=false`.
+
+`CompactionPlanningStatus` should identify at least:
+
+- `not_needed`.
+- `planning_ready`.
+- `blocked_by_metadata`.
+- `blocked_by_layout_review`.
+- `unsupported`.
+
+Compaction planning may emit future actions such as `merge_small_files`,
+`merge_small_segments`, `refresh_statistics`, `build_byte_range_index`,
+`review_mixed_formats`, `review_mixed_encodings`, `review_mixed_layouts`, and
+`review_non_native_data_files`. These are recommendations only. They are not executable
+tasks, write intents, commit intents, or object-store operations until later gated phases
+authorize native maintenance execution.
+
 ## Plan states
 
 ShardLoom should make plan states explicit.

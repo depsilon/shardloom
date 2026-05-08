@@ -270,6 +270,30 @@ This dependency keeps maintenance intelligence evidence-first: table compatibili
 decide semantic safety, layout health decides physical-maintenance risk, and future compaction
 planning decides whether a rewrite is allowed.
 
+### Compaction planning compatibility dependency
+
+Compaction planning depends on layout-health evidence and declared manifest metadata. It may
+emit future maintenance recommendations for small files and small segments, but it must not
+produce executable compaction tasks, write files, update manifests, apply delete/tombstone
+semantics, or commit table changes.
+
+Required dependency rules:
+
+- Compaction planning must consume layout-health evidence before recommending any rewrite.
+- Missing statistics or byte ranges must block recommendation emission behind metadata
+  refresh/index requirements.
+- Mixed formats, mixed encodings, mixed layouts, and non-native data files must block
+  recommendations behind layout or adapter-fidelity review.
+- Recommendation groups are planning evidence only; they are not write intents, commit
+  intents, catalog updates, or object-store operations.
+- Compaction planning must not read catalogs, table metadata, data files, delete files, or
+  object stores.
+- Compaction planning must not run fallback execution.
+
+This dependency keeps compaction conservative until write-side payloads, manifest finalization,
+commit protocol, delete/tombstone semantics, adapter fidelity, and object-store execution have
+their own native evidence.
+
 ### Catalog integration contract
 
 Catalog adapters should expose:

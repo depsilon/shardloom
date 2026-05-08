@@ -648,7 +648,7 @@ fn layout_health_non_native_data_files(manifest: &DatasetManifest) -> usize {
         .files
         .iter()
         .filter(|file| {
-            file.role == FileRole::NativeVortexData && !file.format.is_native_vortex()
+            (file.role == FileRole::NativeVortexData && !file.format.is_native_vortex())
                 || file.role == FileRole::CompatibilityOutput
         })
         .count()
@@ -714,6 +714,348 @@ fn unique_segment_layout_count(manifest: &DatasetManifest) -> usize {
         .map(|segment| segment.segment.layout.layout.as_str().to_string())
         .collect::<BTreeSet<_>>()
         .len()
+}
+
+/// Heuristic thresholds for report-only compaction planning.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompactionPlanningPolicy {
+    pub max_candidates_per_group: usize,
+    pub target_file_size_bytes: u64,
+    pub target_segment_row_count: u64,
+    pub require_native_vortex_inputs: bool,
+    pub allow_mixed_layout_groups: bool,
+}
+
+impl Default for CompactionPlanningPolicy {
+    fn default() -> Self {
+        Self {
+            max_candidates_per_group: 8,
+            target_file_size_bytes: 128 * 1024 * 1024,
+            target_segment_row_count: 64_000,
+            require_native_vortex_inputs: true,
+            allow_mixed_layout_groups: false,
+        }
+    }
+}
+
+/// Overall status for report-only compaction planning.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CompactionPlanningStatus {
+    NotNeeded,
+    PlanningReady,
+    BlockedByMetadata,
+    BlockedByLayoutReview,
+    Unsupported,
+}
+
+impl CompactionPlanningStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::NotNeeded => "not_needed",
+            Self::PlanningReady => "planning_ready",
+            Self::BlockedByMetadata => "blocked_by_metadata",
+            Self::BlockedByLayoutReview => "blocked_by_layout_review",
+            Self::Unsupported => "unsupported",
+        }
+    }
+}
+
+/// Machine-readable action family for future compaction work.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CompactionPlanningActionKind {
+    MergeSmallFiles,
+    MergeSmallSegments,
+    RefreshStatistics,
+    BuildByteRangeIndex,
+    ReviewMixedFormats,
+    ReviewMixedEncodings,
+    ReviewMixedLayouts,
+    ReviewNonNativeDataFiles,
+    Unsupported,
+}
+
+impl CompactionPlanningActionKind {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::MergeSmallFiles => "merge_small_files",
+            Self::MergeSmallSegments => "merge_small_segments",
+            Self::RefreshStatistics => "refresh_statistics",
+            Self::BuildByteRangeIndex => "build_byte_range_index",
+            Self::ReviewMixedFormats => "review_mixed_formats",
+            Self::ReviewMixedEncodings => "review_mixed_encodings",
+            Self::ReviewMixedLayouts => "review_mixed_layouts",
+            Self::ReviewNonNativeDataFiles => "review_non_native_data_files",
+            Self::Unsupported => "unsupported",
+        }
+    }
+}
+
+/// Report-only compaction planning action.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CompactionPlanningAction {
+    pub kind: CompactionPlanningActionKind,
+    pub affected_count: usize,
+    pub message: String,
+}
+
+impl CompactionPlanningAction {
+    #[must_use]
+    pub fn new(
+        kind: CompactionPlanningActionKind,
+        affected_count: usize,
+        message: impl Into<String>,
+    ) -> Self {
+        Self {
+            kind,
+            affected_count,
+            message: message.into(),
+        }
+    }
+}
+
+/// Machine-readable CG-9 compaction planning evidence.
+///
+/// This report derives recommendations from declared manifest and layout-health metadata only.
+/// It does not read table metadata, inspect data files, write compaction outputs, contact object
+/// stores or catalogs, execute maintenance, or attempt fallback execution.
+#[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct CompactionPlanningReport {
+    pub layout_health: LayoutHealthReport,
+    pub policy: CompactionPlanningPolicy,
+    pub status: CompactionPlanningStatus,
+    pub actions: Vec<CompactionPlanningAction>,
+    pub diagnostics: Vec<Diagnostic>,
+    pub file_count: usize,
+    pub segment_count: usize,
+    pub candidate_file_count: usize,
+    pub candidate_segment_count: usize,
+    pub candidate_count: usize,
+    pub blocked_candidate_count: usize,
+    pub estimated_compaction_group_count: usize,
+    pub missing_statistics_segment_count: usize,
+    pub missing_byte_range_segment_count: usize,
+    pub non_native_data_file_count: usize,
+    pub requires_statistics_refresh: bool,
+    pub requires_byte_range_index: bool,
+    pub requires_layout_review: bool,
+    pub requires_native_input_review: bool,
+    pub compaction_recommended: bool,
+    pub recommendation_emitted: bool,
+    pub can_plan_without_io: bool,
+    pub data_read: bool,
+    pub write_io: bool,
+    pub catalog_io: bool,
+    pub object_store_io: bool,
+    pub compaction_execution_allowed: bool,
+    pub fallback_execution_allowed: bool,
+}
+
+impl CompactionPlanningReport {
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.fallback_execution_allowed
+            || self.compaction_execution_allowed
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    #[must_use]
+    pub fn side_effect_free(&self) -> bool {
+        !self.data_read
+            && !self.write_io
+            && !self.catalog_io
+            && !self.object_store_io
+            && !self.compaction_execution_allowed
+            && !self.fallback_execution_allowed
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "compaction_plan(status={}, candidates={}, candidate_files={}, candidate_segments={}, estimated_groups={}, data_read=false, write_io=false, catalog_io=false, object_store_io=false, compaction_execution=false, fallback_execution=disabled)",
+            self.status.as_str(),
+            self.candidate_count,
+            self.candidate_file_count,
+            self.candidate_segment_count,
+            self.estimated_compaction_group_count
+        )
+    }
+}
+
+/// Plans future compaction recommendations without performing table, file, object-store, or catalog IO.
+#[must_use]
+pub fn evaluate_compaction_planning(
+    manifest: DatasetManifest,
+    layout_policy: LayoutHealthPolicy,
+    policy: CompactionPlanningPolicy,
+) -> CompactionPlanningReport {
+    let layout_health = evaluate_layout_health(manifest, layout_policy);
+    let status = compaction_planning_status(&layout_health, policy);
+    let actions = compaction_planning_actions(&layout_health, status);
+    let candidate_count = layout_health.compaction_candidate_count;
+    let estimated_compaction_group_count =
+        estimated_compaction_group_count(candidate_count, status, policy);
+    let recommendation_emitted =
+        status == CompactionPlanningStatus::PlanningReady && candidate_count > 0;
+
+    CompactionPlanningReport {
+        file_count: layout_health.file_count,
+        segment_count: layout_health.segment_count,
+        candidate_file_count: layout_health.small_file_count,
+        candidate_segment_count: layout_health.small_segment_count,
+        candidate_count,
+        blocked_candidate_count: if recommendation_emitted {
+            0
+        } else {
+            candidate_count
+        },
+        estimated_compaction_group_count,
+        missing_statistics_segment_count: layout_health.missing_statistics_segment_count,
+        missing_byte_range_segment_count: layout_health.missing_byte_range_segment_count,
+        non_native_data_file_count: layout_health.non_native_data_file_count,
+        requires_statistics_refresh: layout_health.requires_statistics_refresh,
+        requires_byte_range_index: layout_health.requires_byte_range_index,
+        requires_layout_review: layout_health.requires_layout_review,
+        requires_native_input_review: policy.require_native_vortex_inputs
+            && layout_health.non_native_data_file_count > 0,
+        compaction_recommended: layout_health.recommends_compaction,
+        recommendation_emitted,
+        can_plan_without_io: true,
+        data_read: false,
+        write_io: false,
+        catalog_io: false,
+        object_store_io: false,
+        compaction_execution_allowed: false,
+        fallback_execution_allowed: false,
+        diagnostics: layout_health.diagnostics.clone(),
+        layout_health,
+        policy,
+        status,
+        actions,
+    }
+}
+
+fn compaction_planning_status(
+    layout_health: &LayoutHealthReport,
+    policy: CompactionPlanningPolicy,
+) -> CompactionPlanningStatus {
+    if layout_health.status == LayoutHealthStatus::Unsupported {
+        CompactionPlanningStatus::Unsupported
+    } else if layout_health.requires_layout_review
+        && (!policy.allow_mixed_layout_groups
+            || (policy.require_native_vortex_inputs
+                && layout_health.non_native_data_file_count > 0))
+    {
+        CompactionPlanningStatus::BlockedByLayoutReview
+    } else if layout_health.requires_statistics_refresh || layout_health.requires_byte_range_index {
+        CompactionPlanningStatus::BlockedByMetadata
+    } else if layout_health.recommends_compaction {
+        CompactionPlanningStatus::PlanningReady
+    } else {
+        CompactionPlanningStatus::NotNeeded
+    }
+}
+
+fn estimated_compaction_group_count(
+    candidate_count: usize,
+    status: CompactionPlanningStatus,
+    policy: CompactionPlanningPolicy,
+) -> usize {
+    if status != CompactionPlanningStatus::PlanningReady || candidate_count == 0 {
+        0
+    } else {
+        candidate_count.div_ceil(policy.max_candidates_per_group.max(1))
+    }
+}
+
+fn compaction_planning_actions(
+    layout_health: &LayoutHealthReport,
+    status: CompactionPlanningStatus,
+) -> Vec<CompactionPlanningAction> {
+    let mut actions = Vec::new();
+    push_compaction_action(
+        &mut actions,
+        status == CompactionPlanningStatus::Unsupported,
+        CompactionPlanningActionKind::Unsupported,
+        1,
+        "compaction planning requires declared segment metadata",
+    );
+    push_compaction_action(
+        &mut actions,
+        layout_health.small_file_count > 0,
+        CompactionPlanningActionKind::MergeSmallFiles,
+        layout_health.small_file_count,
+        "small files are future compaction candidates",
+    );
+    push_compaction_action(
+        &mut actions,
+        layout_health.small_segment_count > 0,
+        CompactionPlanningActionKind::MergeSmallSegments,
+        layout_health.small_segment_count,
+        "small segments are future compaction candidates",
+    );
+    push_compaction_action(
+        &mut actions,
+        layout_health.requires_statistics_refresh,
+        CompactionPlanningActionKind::RefreshStatistics,
+        layout_health.missing_statistics_segment_count,
+        "statistics must be refreshed before safe compaction grouping",
+    );
+    push_compaction_action(
+        &mut actions,
+        layout_health.requires_byte_range_index,
+        CompactionPlanningActionKind::BuildByteRangeIndex,
+        layout_health.missing_byte_range_segment_count,
+        "byte-range evidence is needed before object-store-aware compaction planning",
+    );
+    push_compaction_action(
+        &mut actions,
+        layout_health.unique_format_count > 1,
+        CompactionPlanningActionKind::ReviewMixedFormats,
+        layout_health.unique_format_count,
+        "mixed file formats require adapter fidelity review before compaction",
+    );
+    push_compaction_action(
+        &mut actions,
+        layout_health.unique_encoding_count > 1,
+        CompactionPlanningActionKind::ReviewMixedEncodings,
+        layout_health.unique_encoding_count,
+        "mixed encodings require native kernel review before compaction",
+    );
+    push_compaction_action(
+        &mut actions,
+        layout_health.unique_layout_count > 1,
+        CompactionPlanningActionKind::ReviewMixedLayouts,
+        layout_health.unique_layout_count,
+        "mixed layouts require native layout review before compaction",
+    );
+    push_compaction_action(
+        &mut actions,
+        layout_health.non_native_data_file_count > 0,
+        CompactionPlanningActionKind::ReviewNonNativeDataFiles,
+        layout_health.non_native_data_file_count,
+        "non-native data files require adapter fidelity evidence before compaction",
+    );
+    actions
+}
+
+fn push_compaction_action(
+    actions: &mut Vec<CompactionPlanningAction>,
+    present: bool,
+    kind: CompactionPlanningActionKind,
+    affected_count: usize,
+    message: &'static str,
+) {
+    if present {
+        actions.push(CompactionPlanningAction::new(kind, affected_count, message));
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1799,6 +2141,146 @@ mod tests {
         assert_eq!(report.status, LayoutHealthStatus::Unsupported);
         assert!(report.has_errors());
         assert!(!report.fallback_execution_allowed);
+    }
+    #[test]
+    fn compaction_planning_healthy_manifest_is_not_needed() {
+        let mut manifest = mk_layout_manifest();
+        let file = FileDescriptor::from_uri(
+            DatasetUri::new("file://x/a.vortex").unwrap(),
+            FileRole::NativeVortexData,
+        )
+        .with_size_bytes(64 * 1024 * 1024);
+        manifest.add_file(file.clone());
+        manifest.add_segment(ManifestSegment::new(
+            mk_layout_seg("s1", Some(64_000), Some(8 * 1024 * 1024), true),
+            file,
+        ));
+
+        let report = evaluate_compaction_planning(
+            manifest,
+            LayoutHealthPolicy::default(),
+            CompactionPlanningPolicy::default(),
+        );
+
+        assert_eq!(report.status, CompactionPlanningStatus::NotNeeded);
+        assert_eq!(report.candidate_count, 0);
+        assert_eq!(report.estimated_compaction_group_count, 0);
+        assert!(report.side_effect_free());
+        assert!(!report.has_errors());
+    }
+    #[test]
+    fn compaction_planning_recommends_groups_for_small_candidates() {
+        let mut manifest = mk_layout_manifest();
+        let file = FileDescriptor::from_uri(
+            DatasetUri::new("file://x/small.vortex").unwrap(),
+            FileRole::NativeVortexData,
+        )
+        .with_size_bytes(1024);
+        manifest.add_file(file.clone());
+        manifest.add_segment(ManifestSegment::new(
+            mk_layout_seg("s1", Some(10), Some(512), true),
+            file,
+        ));
+
+        let report = evaluate_compaction_planning(
+            manifest,
+            LayoutHealthPolicy::default(),
+            CompactionPlanningPolicy::default(),
+        );
+
+        assert_eq!(report.status, CompactionPlanningStatus::PlanningReady);
+        assert_eq!(report.candidate_file_count, 1);
+        assert_eq!(report.candidate_segment_count, 1);
+        assert_eq!(report.candidate_count, 2);
+        assert_eq!(report.estimated_compaction_group_count, 1);
+        assert!(report.recommendation_emitted);
+        assert!(!report.compaction_execution_allowed);
+        assert!(
+            report
+                .actions
+                .iter()
+                .any(|action| { action.kind == CompactionPlanningActionKind::MergeSmallFiles })
+        );
+    }
+    #[test]
+    fn compaction_planning_blocks_on_missing_metadata_without_io() {
+        let mut manifest = mk_layout_manifest();
+        let file = FileDescriptor::from_uri(
+            DatasetUri::new("file://x/a.vortex").unwrap(),
+            FileRole::NativeVortexData,
+        )
+        .with_size_bytes(64 * 1024 * 1024);
+        manifest.add_file(file.clone());
+        manifest.add_segment(ManifestSegment::new(
+            mk_layout_seg("s1", None, Some(8 * 1024 * 1024), false),
+            file,
+        ));
+
+        let report = evaluate_compaction_planning(
+            manifest,
+            LayoutHealthPolicy::default(),
+            CompactionPlanningPolicy::default(),
+        );
+
+        assert_eq!(report.status, CompactionPlanningStatus::BlockedByMetadata);
+        assert!(report.requires_statistics_refresh);
+        assert!(report.requires_byte_range_index);
+        assert!(!report.recommendation_emitted);
+        assert!(report.side_effect_free());
+        assert!(!report.has_errors());
+    }
+    #[test]
+    fn compaction_planning_blocks_mixed_layout_review() {
+        let mut manifest = mk_layout_manifest();
+        let vortex_file = FileDescriptor::from_uri(
+            DatasetUri::new("file://x/a.vortex").unwrap(),
+            FileRole::NativeVortexData,
+        )
+        .with_size_bytes(64 * 1024 * 1024);
+        let parquet_file = FileDescriptor::new(
+            DatasetUri::new("file://x/a.parquet").unwrap(),
+            DatasetFormat::Parquet,
+            FileRole::NativeVortexData,
+        )
+        .with_size_bytes(64 * 1024 * 1024);
+        manifest.add_file(vortex_file.clone());
+        manifest.add_file(parquet_file.clone());
+        manifest.add_segment(ManifestSegment::new(
+            mk_layout_seg("s1", Some(64_000), Some(8 * 1024 * 1024), true),
+            vortex_file,
+        ));
+        manifest.add_segment(ManifestSegment::new(
+            mk_layout_seg("s2", Some(64_000), Some(8 * 1024 * 1024), true),
+            parquet_file,
+        ));
+
+        let report = evaluate_compaction_planning(
+            manifest,
+            LayoutHealthPolicy::default(),
+            CompactionPlanningPolicy::default(),
+        );
+
+        assert_eq!(
+            report.status,
+            CompactionPlanningStatus::BlockedByLayoutReview
+        );
+        assert!(report.requires_layout_review);
+        assert!(report.requires_native_input_review);
+        assert!(report.actions.iter().any(|action| {
+            action.kind == CompactionPlanningActionKind::ReviewNonNativeDataFiles
+        }));
+    }
+    #[test]
+    fn compaction_planning_empty_manifest_is_unsupported() {
+        let report = evaluate_compaction_planning(
+            mk_layout_manifest(),
+            LayoutHealthPolicy::default(),
+            CompactionPlanningPolicy::default(),
+        );
+
+        assert_eq!(report.status, CompactionPlanningStatus::Unsupported);
+        assert!(report.has_errors());
+        assert!(report.side_effect_free());
     }
     #[test]
     fn dataset_manifest_native_vortex_file_count_works() {

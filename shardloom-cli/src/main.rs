@@ -8,24 +8,25 @@ use std::process::ExitCode;
 use shardloom_core::{
     BenchmarkEvidenceState, BenchmarkFallbackState, ByteRange, CapabilityCertificationReport,
     CapabilityCertificationStatus, CatalogKind, CatalogRef, CdcEventKind, CdcEventSummary,
-    CdcIncrementalPlanningReport, ChangeSet, ColumnRef, CommandStatus, ComparisonOp,
-    CorrectnessFixture, CorrectnessValidationPlan, DatasetFormat, DatasetManifest, DatasetRef,
-    DatasetUri, DeleteModel, DeleteTombstoneCompatibilityReport, Diagnostic, EncodedSegment,
-    EncodingKind, ExecutionCertificate, ExtensionId, ExtensionInspectionReport,
-    ExtensionLicenseKind, ExtensionManifest, ExtensionProvenance, ExtensionRegistrySnapshot,
-    ExtensionVersion, FieldId, FieldName, FieldPath, FileDescriptor, FileRole,
-    IncrementalPlanSkeleton, InputAdapterRegistrySnapshot, KernelRegistrySnapshot,
-    LayoutHealthPolicy, LayoutHealthReport, LayoutKind, LogicalDType, ManifestId, ManifestSegment,
-    Nullability, ObservabilityPlan, OperatorMemoryCertification, OutputEnvelope, OutputFormat,
-    OutputTarget, PartitionEvolutionCompatibilityReport, PartitionField, PartitionSpec,
-    PartitionTransform, PhysicalKernelRegistryPlan, PhysicalOperatorExecutionLevel,
+    CdcIncrementalPlanningReport, ChangeSet, ColumnRef, CommandStatus, CompactionPlanningPolicy,
+    CompactionPlanningReport, ComparisonOp, CorrectnessFixture, CorrectnessValidationPlan,
+    DatasetFormat, DatasetManifest, DatasetRef, DatasetUri, DeleteModel,
+    DeleteTombstoneCompatibilityReport, Diagnostic, EncodedSegment, EncodingKind,
+    ExecutionCertificate, ExtensionId, ExtensionInspectionReport, ExtensionLicenseKind,
+    ExtensionManifest, ExtensionProvenance, ExtensionRegistrySnapshot, ExtensionVersion, FieldId,
+    FieldName, FieldPath, FileDescriptor, FileRole, IncrementalPlanSkeleton,
+    InputAdapterRegistrySnapshot, KernelRegistrySnapshot, LayoutHealthPolicy, LayoutHealthReport,
+    LayoutKind, LogicalDType, ManifestId, ManifestSegment, Nullability, ObservabilityPlan,
+    OperatorMemoryCertification, OutputEnvelope, OutputFormat, OutputTarget,
+    PartitionEvolutionCompatibilityReport, PartitionField, PartitionSpec, PartitionTransform,
+    PhysicalKernelRegistryPlan, PhysicalOperatorExecutionLevel,
     PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorPlan, PredicateExpr, RedactionPolicy,
     ReleasePlan, RuntimeObservabilityReport, SchemaDefinition, SchemaEvolutionCompatibilityReport,
     SchemaEvolutionPolicy, SchemaField, SchemaId, SchemaVersion, SecurityPlan, SegmentChange,
     SegmentChangeKind, SegmentId, SegmentLayout, SegmentStats, ShardLoomError, SnapshotId,
     SnapshotRef, StatValue, TableCompatibilityPlan, TableCompatibilityReport, TableFormatKind,
     TranslationPlan, UdfRuntimeKind, WriteIntent, evaluate_cdc_incremental_planning,
-    evaluate_delete_tombstone_compatibility, evaluate_layout_health,
+    evaluate_compaction_planning, evaluate_delete_tombstone_compatibility, evaluate_layout_health,
     evaluate_partition_evolution_compatibility, evaluate_schema_evolution_compatibility,
 };
 use shardloom_exec::{
@@ -169,7 +170,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|layout-health-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|layout-health-plan|compaction-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -6717,6 +6718,155 @@ fn append_layout_health_side_effect_fields(
     );
 }
 
+fn emit_compaction_plan(format: OutputFormat, scenario: &str) -> ExitCode {
+    let manifest = match layout_health_fixture(scenario) {
+        Ok(manifest) => manifest,
+        Err(error) => {
+            return emit_error(
+                "compaction-plan",
+                format,
+                "compaction planning failed",
+                &error,
+            );
+        }
+    };
+    let report = evaluate_compaction_planning(
+        manifest,
+        LayoutHealthPolicy::default(),
+        CompactionPlanningPolicy::default(),
+    );
+    let status = if report.has_errors() {
+        CommandStatus::Unsupported
+    } else {
+        CommandStatus::Success
+    };
+    emit(
+        "compaction-plan",
+        format,
+        status,
+        "compaction planning report".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        compaction_plan_output_fields(&report, scenario),
+    );
+    if report.has_errors() {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+fn compaction_plan_output_fields(
+    report: &CompactionPlanningReport,
+    scenario: &str,
+) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    push_field(&mut fields, "fallback_execution_allowed", "false");
+    push_field(&mut fields, "mode", "compaction_plan");
+    push_field(&mut fields, "scenario", scenario);
+    push_field(&mut fields, "compaction_status", report.status.as_str());
+    append_compaction_count_fields(&mut fields, report);
+    append_compaction_requirement_fields(&mut fields, report);
+    append_compaction_side_effect_fields(&mut fields, report);
+    push_field(&mut fields, "execution", "not_performed");
+    push_field(&mut fields, "plan_only", "true");
+    fields
+}
+
+fn append_compaction_count_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &CompactionPlanningReport,
+) {
+    push_count_field(fields, "file_count", report.file_count);
+    push_count_field(fields, "segment_count", report.segment_count);
+    push_count_field(fields, "candidate_file_count", report.candidate_file_count);
+    push_count_field(
+        fields,
+        "candidate_segment_count",
+        report.candidate_segment_count,
+    );
+    push_count_field(fields, "candidate_count", report.candidate_count);
+    push_count_field(
+        fields,
+        "blocked_candidate_count",
+        report.blocked_candidate_count,
+    );
+    push_count_field(
+        fields,
+        "estimated_compaction_group_count",
+        report.estimated_compaction_group_count,
+    );
+    push_count_field(
+        fields,
+        "missing_statistics_segment_count",
+        report.missing_statistics_segment_count,
+    );
+    push_count_field(
+        fields,
+        "missing_byte_range_segment_count",
+        report.missing_byte_range_segment_count,
+    );
+    push_count_field(
+        fields,
+        "non_native_data_file_count",
+        report.non_native_data_file_count,
+    );
+    push_count_field(fields, "action_count", report.actions.len());
+}
+
+fn append_compaction_requirement_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &CompactionPlanningReport,
+) {
+    push_bool_field(
+        fields,
+        "requires_statistics_refresh",
+        report.requires_statistics_refresh,
+    );
+    push_bool_field(
+        fields,
+        "requires_byte_range_index",
+        report.requires_byte_range_index,
+    );
+    push_bool_field(
+        fields,
+        "requires_layout_review",
+        report.requires_layout_review,
+    );
+    push_bool_field(
+        fields,
+        "requires_native_input_review",
+        report.requires_native_input_review,
+    );
+    push_bool_field(
+        fields,
+        "compaction_recommended",
+        report.compaction_recommended,
+    );
+    push_bool_field(
+        fields,
+        "recommendation_emitted",
+        report.recommendation_emitted,
+    );
+    push_bool_field(fields, "can_plan_without_io", report.can_plan_without_io);
+}
+
+fn append_compaction_side_effect_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &CompactionPlanningReport,
+) {
+    push_bool_field(fields, "side_effect_free", report.side_effect_free());
+    push_bool_field(fields, "data_read", report.data_read);
+    push_bool_field(fields, "write_io", report.write_io);
+    push_bool_field(fields, "catalog_io", report.catalog_io);
+    push_bool_field(fields, "object_store_io", report.object_store_io);
+    push_bool_field(
+        fields,
+        "compaction_execution_allowed",
+        report.compaction_execution_allowed,
+    );
+}
+
 fn layout_health_fixture(scenario: &str) -> Result<DatasetManifest, ShardLoomError> {
     let mut manifest = layout_health_base_manifest()?;
     match scenario {
@@ -9592,6 +9742,18 @@ fn run(args: Vec<String>) -> ExitCode {
                 );
             }
             emit_layout_health_plan(format, &scenario)
+        }
+        Some("compaction-plan") => {
+            let scenario = args.next().unwrap_or_else(|| "healthy".to_string());
+            if let Some(extra) = args.next() {
+                return emit_error(
+                    "compaction-plan",
+                    format,
+                    "compaction planning failed",
+                    &cli_unknown_arg_error("compaction-plan", &extra),
+                );
+            }
+            emit_compaction_plan(format, &scenario)
         }
         Some("incremental-plan") => {
             let Some(snapshot_id) = args.next() else {
@@ -16881,6 +17043,21 @@ mod tests {
     }
 
     #[test]
+    fn compaction_plan_small_files_returns_success() {
+        let code = run(vec![
+            "compaction-plan".to_string(),
+            "small-files".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn compaction_plan_empty_returns_non_zero() {
+        let code = run(vec!["compaction-plan".to_string(), "empty".to_string()]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
     fn incremental_plan_cdc_append_only_returns_success() {
         let code = run(vec![
             "incremental-plan".to_string(),
@@ -17810,6 +17987,10 @@ mod tests {
     #[test]
     fn usage_includes_layout_health_plan() {
         assert!(cli_usage_line().contains("layout-health-plan"));
+    }
+    #[test]
+    fn usage_includes_compaction_plan() {
+        assert!(cli_usage_line().contains("compaction-plan"));
     }
     #[test]
     fn parse_sizing_feedback_signals_rejects_unknown_and_empty() {
