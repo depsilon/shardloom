@@ -8,9 +8,9 @@ use std::process::ExitCode;
 use shardloom_core::{
     BenchmarkEvidenceState, BenchmarkFallbackState, ByteRange, CapabilityCertificationReport,
     CapabilityCertificationStatus, CatalogKind, CatalogRef, CdcEventKind, CdcEventSummary,
-    CdcIncrementalPlanningReport, ChangeSet, ColumnRef, CommandStatus, CompactionPlanningPolicy,
-    CompactionPlanningReport, ComparisonOp, CorrectnessFixture, CorrectnessValidationPlan,
-    DatasetFormat, DatasetManifest, DatasetRef, DatasetUri, DeleteModel,
+    CdcIncrementalPlanningReport, ChangeSet, CliApiJsonProtocolReport, ColumnRef, CommandStatus,
+    CompactionPlanningPolicy, CompactionPlanningReport, ComparisonOp, CorrectnessFixture,
+    CorrectnessValidationPlan, DatasetFormat, DatasetManifest, DatasetRef, DatasetUri, DeleteModel,
     DeleteTombstoneCompatibilityReport, Diagnostic, EncodedSegment, EncodingKind,
     ExecutionCertificate, ExtensionId, ExtensionInspectionReport, ExtensionLicenseKind,
     ExtensionManifest, ExtensionProvenance, ExtensionRegistrySnapshot, ExtensionVersion, FieldId,
@@ -2758,6 +2758,91 @@ fn certification_fields(
             append_full_certification_fields(report, &mut fields);
         }
     }
+    fields
+}
+
+fn api_protocol_fields(report: &CliApiJsonProtocolReport) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    push_field(&mut fields, "mode", "api_compat_plan");
+    push_field(&mut fields, "publish_allowed", "false");
+    push_field(&mut fields, "published", "false");
+    push_field(&mut fields, "execution", "not_performed");
+    push_field(&mut fields, "plan_only", "true");
+    push_field(&mut fields, "schema_version", report.schema_version);
+    push_field(&mut fields, "protocol_id", report.protocol_id);
+    push_field(&mut fields, "protocol_stability", report.protocol_stability);
+    push_field(
+        &mut fields,
+        "output_envelope_schema_version",
+        report.output_envelope_schema_version,
+    );
+    push_field(
+        &mut fields,
+        "required_envelope_fields",
+        &report.required_envelope_fields.join(","),
+    );
+    push_field(
+        &mut fields,
+        "required_fallback_fields",
+        &report.required_fallback_fields.join(","),
+    );
+    push_field(
+        &mut fields,
+        "required_diagnostic_fields",
+        &report.required_diagnostic_fields.join(","),
+    );
+    push_field(
+        &mut fields,
+        "required_field_entry_fields",
+        &report.required_field_entry_fields.join(","),
+    );
+    push_field(
+        &mut fields,
+        "command_status_values",
+        &report.command_status_values.join(","),
+    );
+    push_field(
+        &mut fields,
+        "output_formats",
+        &report.output_formats.join(","),
+    );
+    push_field(
+        &mut fields,
+        "thin_python_wrapper_boundary",
+        report.thin_python_wrapper_boundary,
+    );
+    push_bool_field(
+        &mut fields,
+        "pyo3_maturin_allowed",
+        report.pyo3_maturin_allowed,
+    );
+    push_bool_field(&mut fields, "foundry_required", report.foundry_required);
+    push_bool_field(
+        &mut fields,
+        "dataframe_api_implemented",
+        report.dataframe_api_implemented,
+    );
+    push_bool_field(&mut fields, "side_effect_free", report.side_effect_free);
+    push_bool_field(&mut fields, "filesystem_probe", report.filesystem_probe);
+    push_bool_field(&mut fields, "network_probe", report.network_probe);
+    push_bool_field(&mut fields, "catalog_probe", report.catalog_probe);
+    push_bool_field(&mut fields, "adapter_probe", report.adapter_probe);
+    push_bool_field(&mut fields, "parser_executed", report.parser_executed);
+    push_bool_field(&mut fields, "runtime_execution", report.runtime_execution);
+    push_bool_field(&mut fields, "write_io", report.write_io);
+    push_field(&mut fields, "external_publish", "not_performed");
+    push_bool_field(
+        &mut fields,
+        "external_publish_performed",
+        report.external_publish,
+    );
+    push_bool_field(
+        &mut fields,
+        "fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(&mut fields, "fallback_attempted", report.fallback_attempted);
+    push_count_field(&mut fields, "diagnostic_count", report.diagnostics.len());
     fields
 }
 
@@ -8639,26 +8724,17 @@ fn run(args: Vec<String>) -> ExitCode {
         }
         Some("api-compat-plan") => {
             let plan = ReleasePlan::default_foundation_plan();
+            let protocol = CliApiJsonProtocolReport::contract_only();
+            let mut diagnostics = plan.diagnostics.clone();
+            diagnostics.extend(protocol.diagnostics.clone());
             emit(
                 "api-compat-plan",
                 format,
-                CommandStatus::Success,
-                "api compatibility plan skeleton".to_string(),
-                plan.to_human_text(),
-                plan.diagnostics.clone(),
-                vec![
-                    (
-                        "fallback_execution_allowed".to_string(),
-                        "false".to_string(),
-                    ),
-                    ("mode".to_string(), "api_compat_plan".to_string()),
-                    ("publish_allowed".to_string(), "false".to_string()),
-                    ("published".to_string(), "false".to_string()),
-                    ("write_io".to_string(), "false".to_string()),
-                    ("execution".to_string(), "not_performed".to_string()),
-                    ("plan_only".to_string(), "true".to_string()),
-                    ("external_publish".to_string(), "not_performed".to_string()),
-                ],
+                protocol.status(),
+                "api compatibility and cli json protocol foundation".to_string(),
+                format!("{}\n\n{}", plan.to_human_text(), protocol.to_human_text()),
+                diagnostics,
+                api_protocol_fields(&protocol),
             );
             ExitCode::SUCCESS
         }

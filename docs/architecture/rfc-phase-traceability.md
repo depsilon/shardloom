@@ -55,6 +55,7 @@ Status words in historical sections below describe evidence recorded at the time
 | Phase 14A — Object-store read planning | RFC 0008 Object-Store Runtime and Distributed Task Model | RFC 0017 Recovery; RFC 0014 Memory/Spill/OOM; RFC 0018 Observability | CG-10.1 object-store range planning and CG-10.2 request coalescing evidence complete for declared S3/GCS/ADLS byte ranges; metadata before reads; byte ranges before full files; request budgets; retry/backpressure policy; no object-store IO or writes yet; no fallback execution | Enable object-store read planning with bounded, diagnosable request behavior before distributed execution. |
 | Phase 14A.3 — Object-store commit protocol planning evidence | RFC 0008 Object-Store Runtime and Distributed Task Model | RFC 0017 Recovery; RFC 0004 Manifest/Snapshot/Incremental; RFC 0028 Output Payloads/Commit/Lakehouse | CG-10.3 object-store commit protocol planning evidence records declared staging, manifest pointer, commit record, idempotency, cleanup, atomicity, object-store target, diagnostics, no-IO/no-write/no-fallback fields; commit execution, provider probes, recovery cleanup, and distributed coordination remain deferred | Define object-store commit readiness before object-store writes or distributed commit behavior. |
 | Phase 14B — Distributed execution planning | RFC 0008 Object-Store Runtime and Distributed Task Model | RFC 0017 Recovery; RFC 0016 Optimizer/Adaptive; RFC 0018 Observability | CG-10.4 object-store distributed scheduling planning and CG-10.5 checkpoint/retry/idempotency planning evidence record task-shape grouping, task budgets, retry policy, checkpoint plan, idempotency keys, attempt records, cleanup policy, no coordinator/worker/task execution, no checkpoint writes, and no fallback; bounded distributed runtime remains planned | Distributed planning must preserve bounded resources and explicit retry/recovery semantics before runtime execution. |
+| CG-11.1 — stable CLI/API JSON protocol foundation | RFC 0030 Universal API, Plan Portability, Import/Deployment, and External Baselines | RFC 0010 Developer Experience; RFC 0012 Diagnostics; RFC 0024 Release/API Compatibility | `CliApiJsonProtocolReport` records `OutputEnvelope` schema keys, command statuses, fallback fields, diagnostic fields, thin Python wrapper boundary, no PyO3/maturin, no Foundry requirement, no parser/runtime/probe/write/publish side effects, and no fallback execution | Establishes a stable report-only CLI JSON protocol surface for future clients before a Python package, native bindings, DataFrame API, or server/API runtime exists. |
 | Ongoing — Expression and kernel engine | RFC 0021 Expression Engine and Kernel Registry | RFC 0015 Correctness, Semantics, Differential Testing, Fuzzing; RFC 0023 Extension/Plugin ABI and Sandboxing | metadata kernel; encoded kernel; partial-decode kernel; decoded reference kernel only as explicit reference/test path; deterministic kernel selection; effect boundaries; no hidden fallback | Keep kernel selection deterministic and no-fallback while preserving explicit reference-only decoded paths. |
 | Ongoing — Release/API/agent stability | RFC 0024 Release Engineering, API Compatibility, Packaging | RFC 0012 Diagnostics; RFC 0018 Observability; RFC 0019 Security | CLI compatibility; JSON output compatibility; diagnostic schema stability; feature footprint; benchmark claim evidence; no fallback release check | Treat compatibility and diagnostics as continuous contracts, verified at every phase boundary. |
 
@@ -98,7 +99,7 @@ Status categories:
 | RFC 0027 | Planned | CG-7, CG-8, CG-14, CG-15 | CPU/vectorized/runtime adaptivity scope remains future implementation. |
 | RFC 0028 | Partially implemented | CG-3, CG-4, CG-9, CG-10 | Output/commit readiness contracts exist; first native count-result payload path is complete; first local committed-manifest execution path is complete; local committed-manifest recovery diagnostics and first local rollback cleanup path are complete; broader payloads, generalized recovery, table/catalog commits, and object-store commits remain incomplete. |
 | RFC 0029 | Planned | CG-5, CG-6, CG-16, CG-17 | Correctness, benchmark, certificate, and reuse evidence remain future gate work. |
-| RFC 0030 | Planned | CG-11, CG-12, CG-18 | API, portability, deployment, and baseline harness work remains staged. |
+| RFC 0030 | Partially implemented | CG-11, CG-12, CG-18 | CG-11.1 stable CLI/API JSON protocol foundation exists through `CliApiJsonProtocolReport` and `api-compat-plan` fields; thin Python wrapper implementation, plan portability, deployment/import, and baseline harness work remain staged. |
 | RFC 0031 | Planned | CG-19 | Universal Native I/O Envelope is RFC-level only; implementation pending. |
 | RFC 0032 | Planned | CG-20 | Capability certification surface is RFC-level only; implementation pending. |
 
@@ -177,6 +178,10 @@ Competitive gate coverage:
 - CG-9: lakehouse/table intelligence
 - CG-10: object-store/distributed execution
 - CG-11: Python/API foundation surface later
+  - CG-11.1 stable CLI/API JSON protocol foundation: complete
+    - primary RFC: RFC 0030
+    - secondary RFCs: RFC 0010, RFC 0012, RFC 0024
+    - constraints: no Python package, PyO3/maturin, DataFrame API, parser/runtime execution, filesystem/network/catalog/adapter probing, writes, package publication, or fallback
 - CG-12: plan portability / semantic IR
 - CG-13: encoded-native compressed execution
 - CG-14: runtime-adaptive optimizer and execution memory
