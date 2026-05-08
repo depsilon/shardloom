@@ -9,19 +9,19 @@ use shardloom_core::{
     BenchmarkEvidenceState, BenchmarkFallbackState, CapabilityCertificationReport,
     CapabilityCertificationStatus, CatalogKind, CatalogRef, ChangeSet, ColumnRef, CommandStatus,
     ComparisonOp, CorrectnessFixture, CorrectnessValidationPlan, DatasetManifest, DatasetRef,
-    DatasetUri, ExecutionCertificate, ExtensionId, ExtensionInspectionReport, ExtensionLicenseKind,
-    ExtensionManifest, ExtensionProvenance, ExtensionRegistrySnapshot, ExtensionVersion, FieldId,
-    FieldName, FieldPath, IncrementalPlanSkeleton, InputAdapterRegistrySnapshot,
-    KernelRegistrySnapshot, LogicalDType, ManifestId, Nullability, ObservabilityPlan,
-    OperatorMemoryCertification, OutputEnvelope, OutputFormat, OutputTarget,
-    PartitionEvolutionCompatibilityReport, PartitionField, PartitionSpec, PartitionTransform,
-    PhysicalKernelRegistryPlan, PhysicalOperatorExecutionLevel,
+    DatasetUri, DeleteModel, DeleteTombstoneCompatibilityReport, ExecutionCertificate, ExtensionId,
+    ExtensionInspectionReport, ExtensionLicenseKind, ExtensionManifest, ExtensionProvenance,
+    ExtensionRegistrySnapshot, ExtensionVersion, FieldId, FieldName, FieldPath,
+    IncrementalPlanSkeleton, InputAdapterRegistrySnapshot, KernelRegistrySnapshot, LogicalDType,
+    ManifestId, Nullability, ObservabilityPlan, OperatorMemoryCertification, OutputEnvelope,
+    OutputFormat, OutputTarget, PartitionEvolutionCompatibilityReport, PartitionField,
+    PartitionSpec, PartitionTransform, PhysicalKernelRegistryPlan, PhysicalOperatorExecutionLevel,
     PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorPlan, PredicateExpr, RedactionPolicy,
     ReleasePlan, RuntimeObservabilityReport, SchemaDefinition, SchemaEvolutionCompatibilityReport,
     SchemaEvolutionPolicy, SchemaField, SchemaId, SchemaVersion, SecurityPlan, ShardLoomError,
     SnapshotId, SnapshotRef, StatValue, TableCompatibilityPlan, TableFormatKind, TranslationPlan,
-    UdfRuntimeKind, WriteIntent, evaluate_partition_evolution_compatibility,
-    evaluate_schema_evolution_compatibility,
+    UdfRuntimeKind, WriteIntent, evaluate_delete_tombstone_compatibility,
+    evaluate_partition_evolution_compatibility, evaluate_schema_evolution_compatibility,
 };
 use shardloom_exec::{
     AdaptiveSizer, AdaptiveSizingPolicy, AttemptId, BackpressurePlanInput, BackpressurePlanReport,
@@ -164,7 +164,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -1711,6 +1711,18 @@ fn handle_table_compat_plan(
             }
             emit_partition_evolution_plan(format, &scenario)
         }
+        Some("delete-semantics") => {
+            let scenario = args.next().unwrap_or_else(|| "file-level".to_string());
+            if let Some(extra) = args.next() {
+                return emit_error(
+                    "table-compat-plan",
+                    format,
+                    "delete/tombstone plan failed",
+                    &cli_unknown_arg_error("table-compat-plan delete-semantics", &extra),
+                );
+            }
+            emit_delete_tombstone_plan(format, &scenario)
+        }
         maybe_format => emit_table_compat_plan(format, maybe_format),
     }
 }
@@ -1881,6 +1893,164 @@ fn partition_evolution_output_fields(
             "compatibility_targets_not_fallback_engines".to_string(),
         ),
     ]
+}
+
+fn emit_delete_tombstone_plan(format: OutputFormat, scenario: &str) -> ExitCode {
+    let (source_model, target_model) = match delete_tombstone_fixture(scenario) {
+        Ok(models) => models,
+        Err(error) => {
+            return emit_error(
+                "table-compat-plan",
+                format,
+                "delete/tombstone plan failed",
+                &error,
+            );
+        }
+    };
+    let report = evaluate_delete_tombstone_compatibility(source_model, target_model);
+    let status = if report.has_errors() {
+        CommandStatus::Unsupported
+    } else {
+        CommandStatus::Success
+    };
+    emit(
+        "table-compat-plan",
+        format,
+        status,
+        "delete/tombstone compatibility report".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        delete_tombstone_output_fields(&report, scenario),
+    );
+    if report.has_errors() {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+fn delete_tombstone_output_fields(
+    report: &DeleteTombstoneCompatibilityReport,
+    scenario: &str,
+) -> Vec<(String, String)> {
+    vec![
+        (
+            "fallback_execution_allowed".to_string(),
+            "false".to_string(),
+        ),
+        ("mode".to_string(), "delete_tombstone_plan".to_string()),
+        ("scenario".to_string(), scenario.to_string()),
+        (
+            "delete_tombstone_report_emitted".to_string(),
+            "true".to_string(),
+        ),
+        (
+            "compatibility_level".to_string(),
+            report.level.as_str().to_string(),
+        ),
+        (
+            "source_delete_model".to_string(),
+            report.source_model.as_str().to_string(),
+        ),
+        (
+            "target_delete_model".to_string(),
+            report.target_model.as_str().to_string(),
+        ),
+        (
+            "delete_semantics_preserved".to_string(),
+            report.delete_semantics_preserved.to_string(),
+        ),
+        (
+            "tombstone_semantics_preserved".to_string(),
+            report.tombstone_semantics_preserved.to_string(),
+        ),
+        (
+            "requires_explicit_delete_handling".to_string(),
+            report.requires_explicit_delete_handling.to_string(),
+        ),
+        (
+            "requires_file_delete_filter".to_string(),
+            report.requires_file_delete_filter.to_string(),
+        ),
+        (
+            "requires_tombstone_filter".to_string(),
+            report.requires_tombstone_filter.to_string(),
+        ),
+        (
+            "requires_row_identity".to_string(),
+            report.requires_row_identity.to_string(),
+        ),
+        (
+            "requires_position_identity".to_string(),
+            report.requires_position_identity.to_string(),
+        ),
+        (
+            "requires_equality_predicate".to_string(),
+            report.requires_equality_predicate.to_string(),
+        ),
+        (
+            "requires_external_table_metadata".to_string(),
+            report.requires_external_table_metadata.to_string(),
+        ),
+        (
+            "metadata_loss_reported".to_string(),
+            report.metadata_loss_reported.to_string(),
+        ),
+        (
+            "unsupported_model_count".to_string(),
+            report.unsupported_model_count.to_string(),
+        ),
+        (
+            "unsafe_change_count".to_string(),
+            report.unsafe_change_count.to_string(),
+        ),
+        (
+            "read_supported".to_string(),
+            report.read_supported.to_string(),
+        ),
+        (
+            "write_supported".to_string(),
+            report.write_supported.to_string(),
+        ),
+        ("data_read".to_string(), report.data_read.to_string()),
+        ("write_io".to_string(), report.write_io.to_string()),
+        ("catalog_io".to_string(), report.catalog_io.to_string()),
+        (
+            "object_store_io".to_string(),
+            report.object_store_io.to_string(),
+        ),
+        ("execution".to_string(), "not_performed".to_string()),
+        ("plan_only".to_string(), "true".to_string()),
+        (
+            "table_formats_are".to_string(),
+            "compatibility_targets_not_fallback_engines".to_string(),
+        ),
+    ]
+}
+
+fn delete_tombstone_fixture(scenario: &str) -> Result<(DeleteModel, DeleteModel), ShardLoomError> {
+    match scenario {
+        "none" => Ok((DeleteModel::None, DeleteModel::None)),
+        "file-level" => Ok((DeleteModel::FileLevelDelete, DeleteModel::FileLevelDelete)),
+        "none-to-file-level" => Ok((DeleteModel::None, DeleteModel::FileLevelDelete)),
+        "file-to-none" => Ok((DeleteModel::FileLevelDelete, DeleteModel::None)),
+        "segment-tombstone" => Ok((
+            DeleteModel::SegmentLevelTombstone,
+            DeleteModel::SegmentLevelTombstone,
+        )),
+        "row-level" => Ok((DeleteModel::RowLevelDelete, DeleteModel::RowLevelDelete)),
+        "position-delete" => Ok((DeleteModel::PositionDelete, DeleteModel::PositionDelete)),
+        "equality-delete" => Ok((DeleteModel::EqualityDelete, DeleteModel::EqualityDelete)),
+        "external-table-metadata" => Ok((
+            DeleteModel::ExternalTableMetadata,
+            DeleteModel::ExternalTableMetadata,
+        )),
+        "unknown" => Ok((DeleteModel::Unknown, DeleteModel::Unknown)),
+        value => Err(cli_unknown_arg_error(
+            "table-compat-plan delete-semantics",
+            value,
+        )),
+    }
 }
 
 fn partition_evolution_fixture(
@@ -17808,6 +17978,26 @@ mod tests {
             "table-compat-plan".to_string(),
             "partition-evolution".to_string(),
             "unknown-transform".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn table_compat_plan_delete_semantics_file_level_returns_success() {
+        let code = run(vec![
+            "table-compat-plan".to_string(),
+            "delete-semantics".to_string(),
+            "file-level".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn table_compat_plan_delete_semantics_equality_delete_returns_non_zero() {
+        let code = run(vec![
+            "table-compat-plan".to_string(),
+            "delete-semantics".to_string(),
+            "equality-delete".to_string(),
         ]);
         assert_ne!(code, ExitCode::SUCCESS);
     }

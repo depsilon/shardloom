@@ -141,6 +141,56 @@ Known add/drop/transform/reorder changes may be report-compatible only when they
 surface partition routing, metadata rewrite, or repartition requirements. Unknown transforms
 are rejected until a native rule can preserve semantics.
 
+### Delete and tombstone compatibility report
+
+`DeleteTombstoneCompatibilityReport` compares declared delete/tombstone models and emits
+deterministic compatibility evidence before catalog access, table metadata IO, delete-file
+application, tombstone filtering, reads, writes, or object-store behavior are introduced.
+
+Required fields:
+
+- `source_model`.
+- `target_model`.
+- `level`.
+- `diagnostics`.
+- `delete_semantics_preserved`.
+- `tombstone_semantics_preserved`.
+- `requires_explicit_delete_handling`.
+- `requires_file_delete_filter`.
+- `requires_tombstone_filter`.
+- `requires_row_identity`.
+- `requires_position_identity`.
+- `requires_equality_predicate`.
+- `requires_external_table_metadata`.
+- `metadata_loss_reported`.
+- `unsupported_model_count`.
+- `unsafe_change_count`.
+- `read_supported`.
+- `write_supported`.
+- `data_read=false`.
+- `write_io=false`.
+- `catalog_io=false`.
+- `object_store_io=false`.
+- `fallback_execution_allowed=false`.
+
+Initial support is intentionally narrow:
+
+- `none` is exact.
+- `file_level_delete` is initially compatible when the target preserves or adds explicit
+  file-level delete semantics.
+- Dropping declared file-level delete semantics is rejected until a native metadata-loss
+  and rewrite rule exists.
+- `segment_level_tombstone` requires a native tombstone-filter rule.
+- `row_level_delete` requires a native row-identity rule.
+- `position_delete` requires a native position-identity rule.
+- `equality_delete` requires a native equality-predicate rule.
+- `external_table_metadata` requires explicit external table metadata routing.
+- `unknown` is rejected.
+
+The evaluator must not treat external delete files, tombstones, row-level deletes, position
+deletes, or equality deletes as fallback execution. They are compatibility signals that must
+either route into native ShardLoom handling or fail with deterministic diagnostics.
+
 ### Catalog integration contract
 
 Catalog adapters should expose:
