@@ -36,26 +36,28 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-3.1 native count output payload write
+- [x] Session label: CG-4.1 local committed-manifest execution
   - Primary files:
-    - `shardloom-vortex/src/output_payload.rs`
+    - `shardloom-vortex/src/commit_protocol.rs`
     - `shardloom-vortex/src/lib.rs`
     - `shardloom-cli/src/main.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
     - `docs/architecture/vortex-public-api-inventory.md`
     - `docs/architecture/vortex-adapter-integration-plan.md`
-  - Scope: Add the first real, feature-gated local native `Vortex` output payload write path for a supported `CountAll` result.
+  - Scope: Add the first feature-gated local commit execution path by copying a finalized-manifest candidate into a committed-manifest artifact.
   - Checklist:
-    - [x] Add a `NativeVortexPayload` count-result descriptor and native count output payload write request/report.
-    - [x] Render a one-row `u64` count result through the upstream `Vortex` writer only behind `vortex-write`.
-    - [x] Require a ready output-payload plan, feature-gate readiness, local workspace target, native payload content, and a known count result before writing.
-    - [x] Surface `shardloom vortex-native-count-payload-write` with text/JSON side-effect evidence.
-    - [x] Prove default builds remain report-only/feature-disabled and feature-enabled builds write a real local `.vortex` payload.
-    - [x] Record phase-plan, traceability, Vortex API inventory, and adapter-boundary docs.
+    - [x] Add local commit execution request/report/status fields and side-effect evidence.
+    - [x] Require commit protocol readiness, finalized-manifest artifact, commit marker artifact, output payload artifact, local workspace, and feature-gate readiness before committing.
+    - [x] Write only `_shardloom_committed_manifest.json` behind `vortex-staged-output-fs`.
+    - [x] Treat identical existing committed manifest as idempotent `already_committed`.
+    - [x] Treat differing existing committed manifest as ambiguous/blocked.
+    - [x] Surface `shardloom vortex-local-commit-execute` with text/JSON side-effect evidence.
+    - [x] Prove default builds remain report-only/feature-disabled and feature-enabled builds write only the committed-manifest artifact.
+    - [x] Fold in user-requested CG-20 expansion for common data/ETL, Python wrapper/API, universal adapters, UDFs, and unstructured/media capability evidence.
     - [x] Run focused default and feature-gated Vortex/CLI tests.
     - [x] Run full required validation.
-  - Explicitly not included: generalized encoded-data count execution, adapters, non-local sources, object-store IO, encoded predicates, projection execution, row reads, requested decode/materialization, Arrow conversion, manifest writes, manifest commits, commit execution, spill IO, external baseline execution, fallback execution, benchmarks, public command/signal renames, CG-1 closeout, or CG-2 closeout.
+  - Explicitly not included: object-store commit, table/catalog transaction commit, output payload writing, generalized output writes, upstream `Vortex` commit APIs, rollback execution, recovery manager, retry execution, distributed commit, spill IO, external baseline execution, fallback execution, benchmarks, public command/signal renames, CG-4 closeout, or later CG closeout.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -301,6 +303,21 @@ Supporting docs:
   - Blockers:
     - None known.
 
+- [x] Follow-up: R5.4.12 Common data/ETL and Python/media surface expansion
+  - Why: CG-20 must cover world-class common data/ETL adoption, not only SQL/operator/function/adapter breadth.
+  - Files:
+    - `docs/rfcs/0032-world-class-sql-operators-functions-adapters-user-capability.md`
+    - `docs/architecture/capability-certification-sequencing.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/canonical-terminology.md`
+  - Acceptance:
+    - CG-20 explicitly covers common data/ETL, Python wrapper/API, UDF enrichment, universal adapters, and unstructured/media capability evidence.
+    - Python wrapper ownership starts as a thin stable CLI/API JSON surface, not a hidden execution engine.
+    - Unstructured/media sources are modeled as typed references, metadata, extracted fields, chunks, manifests, and explicit effectful extraction boundaries.
+    - Scope remains docs/RFC-only with no parser, Python package, adapter runtime, media runtime, OCR/LLM/embedding dependency, execution behavior, external probing, or fallback execution.
+  - Blockers:
+    - None known.
+
 ## Cleanup / Refactor Ledger
 - [x] R0 Roadmap/docs synchronization
 - [x] R1 Systems learning map
@@ -398,6 +415,9 @@ Supporting docs:
   - Local validation status:
     - docs hygiene scans passed for stale current-status wording, hidden/bidi controls, and `git diff --check`
     - full Rust validation passed with toolchain `1.91.1`
+- [x] R5.4.12 Common data/ETL and Python/media surface expansion
+  - Why: make CG-20 broad enough for common data/ETL, Python, UDF, universal adapter, and unstructured/media adoption.
+  - Acceptance: RFC/sequencing docs cover ETL reports, Python wrapper reports, unstructured/media reports, adapter roadmap expansion, workload/scorecard/dossier evidence, and no-fallback boundaries.
 
 ## Implementation Phase Queue
 - [x] R4 Resume CG implementation
@@ -648,14 +668,17 @@ Status legend:
   - Guardrails:
     - placeholder artifacts do **not** count as completion
     - count-result payload completion does not imply generalized writes
-    - no committed state until CG-4 commit protocol requirements are satisfied
+    - CG-3 payload writes do not by themselves create committed state; committed-manifest state is owned by CG-4
     - no object-store writes initially
 
-- [ ] CG-4 — Commit protocol execution (**planned**)
+- [ ] CG-4 — Commit protocol execution (**current; first local committed-manifest path complete**)
   - [x] report-only planning/state-machine and marker/finalization readiness contracts
-  - [~] real commit execution remains deferred
+  - [x] first feature-gated local committed-manifest execution path
+  - [x] idempotent identical committed-manifest detection
+  - [x] ambiguous differing committed-manifest diagnostic
+  - [~] broader table/catalog/object-store commit execution remains deferred
   - Required capabilities for completion:
-    - local-first idempotent commit execution
+    - local-first idempotent commit execution across supported paths
     - recoverable rollback/ambiguous-commit diagnostics
     - deterministic commit-state transitions
 
@@ -779,9 +802,10 @@ Status legend:
 
 - [ ] CG-20 — World-Class SQL/operator/function/adapter/user capability surface (**planned**)
   - [x] RFC 0032 contract deepening complete
+  - [x] common data/ETL, Python wrapper/API, UDF, universal adapter, and unstructured/media evidence scope documented
   - [~] implementation pending
   - Scope:
-    - capability certification surface across SQL/operators/functions/adapters/semantic profiles and migration/certification reporting
+    - capability certification surface across SQL/operators/functions/adapters/semantic profiles, migration, Python/API, UDF/plugin, common ETL, unstructured/media, and certification reporting
 
 
 ## Competitive Engine Gate Detailed Checklist Ledger
@@ -862,13 +886,14 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] commit marker planning and local marker artifact boundaries
 - [x] finalized-manifest candidate contract/artifact boundaries
 - [x] local commit execution gate (report-only)
-- [ ] local-first commit execution
-- [ ] feature-gated commit execution path
-- [ ] idempotent commit behavior
-- [ ] recoverable commit behavior
-- [ ] rollback/ambiguous commit reports
-- [ ] no object-store commit until later phases
-- [~] real commit execution remains deferred
+- [x] local-first committed-manifest execution
+- [x] feature-gated local commit execution path behind `vortex-staged-output-fs`
+- [x] idempotent identical already-committed behavior
+- [~] recoverable commit behavior remains deferred
+- [x] ambiguous differing committed-manifest report
+- [~] rollback execution/reporting remains deferred
+- [x] no object-store commit until later phases
+- [~] broader table/catalog/object-store commit execution remains deferred
 
 ### CG-5 detailed checklist
 - [x] CG-5.1 metadata query primitive correctness fixtures
@@ -986,8 +1011,12 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 ### CG-20 detailed checklist
 - [x] RFC 0032 contract deepening complete
 - [x] World-class sufficiency report, best-default dossier linkage, and claim disqualifiers documented
+- [x] common data/ETL capability evidence documented
+- [x] Python wrapper/API ownership documented under CG-20
+- [x] universal adapter roadmap expanded for common data and ETL sources/sinks
+- [x] unstructured/media capability boundaries documented
 - [~] implementation pending
-- [ ] capability certification surface implementation across SQL/operators/functions/adapters/semantic profiles/migration reporting
+- [ ] capability certification surface implementation across SQL/operators/functions/adapters/semantic profiles/migration/Python/API/ETL/unstructured-media reporting
 
 ### CG attribution and evidence notes
 - [ ] When moving any detailed item to complete, link the implementing PR/commit and validating tests in the completion note.
@@ -1024,7 +1053,8 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] Phase 11A/11B (planning-focused milestones listed in traceability)
 - [x] Phase 12A/12B/12C planning-and-readiness milestones listed in traceability
   - Note: Phase-12 placeholder artifacts are readiness-only and do not imply CG-3 completion.
-  - Note: CG-3.1 adds the first real local native Vortex count-result payload path; commit execution, generalized payload writes, and object-store writes remain separate work.
+  - Note: CG-3.1 adds the first real local native Vortex count-result payload path.
+  - Note: CG-4.1 adds the first feature-gated local committed-manifest execution path; generalized commit/recovery and object-store writes remain separate work.
 
 ## Deferred / Blocked Work
 - [x] CG-1.2 metadata/footer execution path has a feature-gated local fixture invocation helper.

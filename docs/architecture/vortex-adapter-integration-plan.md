@@ -627,7 +627,21 @@ In Phase 12B.5a, manifest finalization is `ShardLoom`-native and report-only. Th
 
 ## Local commit execution gate
 
-The local commit execution gate is report-only in this phase. It requires commit protocol readiness, commit marker readiness, manifest finalization readiness, finalized-manifest candidate artifact readiness, output payload readiness, and feature-gate readiness. It explicitly blocks today because output payload readiness is not implemented until Phase 12C. It does not execute commit, does not commit manifests, does not write output data, does not call upstream `Vortex` write APIs, and does not perform object-store operations.
+The Phase 12B.6 local commit execution gate is complete as a report-only readiness boundary. It requires commit protocol readiness, commit marker readiness, manifest finalization readiness, finalized-manifest candidate artifact readiness, output payload readiness, and feature-gate readiness. It does not execute commit, commit manifests, write output data, call upstream `Vortex` write APIs, or perform object-store operations.
+
+## Feature-gated local committed-manifest execution
+
+Phase 12D.1 / CG-4.1 adds the first local commit execution path behind `vortex-staged-output-fs`.
+
+- It writes only `_shardloom_committed_manifest.json` in the local staged workspace.
+- It requires existing finalized-manifest, commit-marker, and output-payload artifacts plus explicit ready signals.
+- It treats an identical existing committed manifest as idempotent `already_committed`.
+- It treats a differing existing committed manifest as an ambiguous/blocked commit.
+- It does not write output payload data.
+- It does not call upstream `Vortex` commit or write APIs.
+- It does not perform object-store IO.
+- It does not execute rollback/recovery actions.
+- It does not enable fallback execution.
 
 
 ## Output payload write contract

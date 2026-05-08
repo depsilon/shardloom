@@ -18,6 +18,9 @@ This sequencing covers:
 - Adapter certification reporting.
 - Semantic profile reporting.
 - Migration compatibility reporting.
+- Common data/ETL capability reporting.
+- Python wrapper/API certification.
+- Unstructured media capability reporting.
 - Workload constitution and best-choice scorecards.
 - Capability discovery and CI snapshot direction.
 
@@ -26,7 +29,10 @@ This sequencing covers:
 - No SQL parser implementation.
 - No SQL execution implementation.
 - No DataFrame API implementation.
+- No Python wrapper implementation.
 - No adapter runtime implementation.
+- No unstructured media runtime implementation.
+- No OCR, LLM, embedding, vector, image, audio, or video dependency additions.
 - No function registry implementation.
 - No operator/kernel implementation.
 - No dependency additions.
@@ -382,6 +388,34 @@ Acceptance:
 - User-surface reports remain workload-scoped, evidence-backed, and no-fallback.
 - Docs stay aligned with RFC 0010, RFC 0011, RFC 0018, RFC 0019, RFC 0023, RFC 0024, RFC 0030, and RFC 0032.
 
+## R5.4.12 Common data/ETL and Python/media surface expansion
+
+Goal: make CG-20 broad enough for world-class common analytical and ETL adoption, including Python-first workflows, UDF enrichment, universal adapters, and unstructured/media data handling.
+
+Checklist:
+
+- [x] Define common data/ETL coverage beyond SQL clauses.
+- [x] Define `DataEtlCapabilityReport` fields for ingestion, transformation, cleaning, incremental processing, writes/exports, partition/layout behavior, bounded streaming, memory/spill, and pipeline observability.
+- [x] Define Python wrapper/API ownership under CG-20 with a thin CLI/API JSON wrapper first.
+- [x] Define `PythonSurfaceReport` fields for wrapper mode, protocol versions, DataFrame/query-builder status, notebook support, materialization/export boundaries, UDF boundaries, packaging, diagnostics, and no-fallback behavior.
+- [x] Expand universal adapter roadmap to relational/warehouse sources, partitioned datasets, compressed wrappers, and unstructured/media source references.
+- [x] Define unstructured/media capability boundaries for typed references, extracted text/chunks/metadata, extractor provenance, redaction, effect permissions, and materialization cost.
+- [x] Add ETL/Python/unstructured-media dimensions to workload constitutions, scorecards, best-default dossiers, sufficiency status, and disqualifiers.
+
+R5.4.12 outcome:
+
+- RFC 0032 now treats SQL as one part of common data/ETL support, not the whole CG-20 surface.
+- Python wrapper/API work is explicitly owned by CG-20 user capability, starting with a thin stable JSON client and preserving no-fallback/materialization diagnostics.
+- UDFs, Python UDFs, unstructured media extraction, OCR/LLM/embedding/vector paths, and external APIs remain explicit effectful/materialization boundaries until later certified native paths exist.
+- Universal adapters include tabular files, table/lakehouse metadata, object stores, catalogs, relational/warehouse sources, client/server bridges, Python/notebook surfaces, and unstructured/media references.
+- No parser, Python package, adapter runtime, media runtime, OCR/LLM/embedding dependency, execution behavior, external probing, or fallback behavior is added.
+
+Acceptance:
+
+- Best-default certification cannot ignore ETL, Python, unstructured/media, or universal-adapter evidence when those surfaces are in scope for the workload constitution.
+- Python and unstructured/media surfaces do not hide materialization, external effects, credentials, or unsupported behavior.
+- Adapter and source pushdown rules continue to distinguish proof-backed source behavior from fallback execution.
+
 ## First implementation batches after R5.4
 
 Recommended order:
@@ -396,6 +430,7 @@ Recommended order:
 - [x] Sequence semantic profile and migration reporting. Complete in R5.4.6.
 - [x] Sequence workload constitution, scorecards, and sufficiency evidence. Complete in R5.4.7 through R5.4.9.
 - [x] Harden user-surface certification for API, BI/server, observability, deployment, extension safety, and security/governance. Complete in R5.4.10.
+- [x] Expand common data/ETL, Python wrapper, universal adapter, and unstructured/media coverage. Complete in R5.4.12.
 - [ ] Add SQL/operator/function/adapter/API/observability/deployment coverage entries incrementally as real implementation appears.
 
 Do not start with a parser, adapter runtime, or kernel implementation before the report contracts and capability discovery surfaces exist.

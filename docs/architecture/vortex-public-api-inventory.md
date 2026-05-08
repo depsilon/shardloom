@@ -543,7 +543,9 @@ This update does not introduce scans, decode, materialization, writes, object-st
 
 
 - Local commit execution gate is `ShardLoom`-native and report-only in Phase 12B.6.
-- Upstream `Vortex` write APIs remain deferred from this gate.
+- Phase 12D.1 / CG-4.1 local committed-manifest execution is `ShardLoom`-native and feature-gated behind `vortex-staged-output-fs`.
+- It copies the local finalized-manifest candidate to `_shardloom_committed_manifest.json`; no upstream `Vortex` commit/write API is called.
+- Upstream `Vortex` commit/write APIs remain deferred from this gate.
 - Output payload plan CLI is `ShardLoom`-native in Phase 12C.3a (complete) and remains report-only. Output payload artifact write CLI is `ShardLoom`-native in Phase 12C.3b (complete). Phase 12C.4 keeps the staged smoke test `ShardLoom`-native while real upstream `Vortex` write APIs remain deferred. CG-3.1 introduces the first feature-gated upstream `Vortex` write call for a local one-row `CountAll` payload only.
 
 
