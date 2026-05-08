@@ -147,6 +147,21 @@ Supporting docs:
   - Blockers:
     - None known.
 
+- [x] Follow-up: R5.4.2b user-surface capability discovery
+  - Why: CG-20 user surfaces for common ETL, Python, DataFrame/notebook, UDFs, universal adapters, unstructured/media, API, observability, deployment, extension, and security/governance need deterministic discovery before implementation work.
+  - Files:
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Acceptance:
+    - `shardloom capabilities <scope>` exposes report-only CG-20 user-surface scopes for `data-etl`, `python`, `dataframe`, `notebook`, `udfs`, `universal-adapters`, `event-api-saas-adapters`, `unstructured-media`, `api-surfaces`, `observability`, `deployment`, `extensions`, and `security-governance`.
+    - Each scope maps to its `WorldClassSufficiencyReport` dimension and reports status, required evidence gates, surface components, production-claim blocking, and best-default publication blocking.
+    - Snapshot tests lock field order, scope names, report-only no-probe/no-runtime flags, and selected dimension mappings.
+    - Scope remains report-only with no SQL parser, Python package, DataFrame runtime, notebook runtime, UDF/plugin runtime, adapter runtime, media extraction, filesystem/network/catalog/adapter probing, data reads, object-store IO, writes, external-engine execution, superiority claim, best-default publication, or fallback execution.
+  - Blockers:
+    - Real user-surface implementation and certification remain open CG-20 work.
+
 - [x] Follow-up: R5.4.3 SQL frontend sequencing
   - Why: Define SQL parse/bind/lower stages and unsupported diagnostics before adding any parser dependency or SQL runtime behavior.
   - Files:
@@ -469,6 +484,9 @@ Supporting docs:
   - Local validation status:
     - focused core certification snapshot tests passed
     - focused CLI discovery snapshot tests passed
+- [x] R5.4.2b User-surface capability discovery
+  - Why: expose CG-20 broad user-surface dimensions through stable CLI discovery before implementing Python, ETL, UDF, adapter, media, API/server, observability, deployment, extension, or security/governance behavior.
+  - Acceptance: report-only `capabilities` scopes map to `WorldClassSufficiencyReport` dimensions and expose evidence requirements, surface components, no-probe/no-runtime fields, and claim-publication blockers.
 - [x] R5.4.3 SQL frontend sequencing
   - Why: define parse/bind/lower stage boundaries before parser dependency or runtime behavior.
   - Acceptance: SQL frontend stages, report fields, unsupported diagnostic requirements, semantic profile boundaries, and parser dependency approval policy are documented.
@@ -1519,6 +1537,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] event/API/SaaS adapter categories documented as explicit effect/source-pushdown surfaces
 - [x] unstructured/media capability boundaries documented
 - [x] CG-20.1 report-only `WorldClassSufficiencyReport` foundation and `world-class-sufficiency-plan` CLI surface
+- [x] CG-20.2 report-only user-surface capability discovery for common ETL, Python, DataFrame/notebook, UDFs, universal/event/API adapters, unstructured/media, API, observability, deployment, extension, and security/governance scopes
 - [~] implementation pending
 - [ ] capability certification surface implementation across real SQL/operators/functions/adapters/semantic profiles/migration/Python/API/DataFrame/notebook/UDF/ETL/universal-adapter/unstructured-media certification evidence
 
@@ -1656,6 +1675,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-12.4 native plan import/export serialization adds deterministic `shardloom.native_plan.v1` in-memory serialization for native plan documents, `plan-export native` payload emission, and `plan-import native <payload>` validation without file IO, external format parsers, imported-plan execution, external engines, or fallback behavior.
 - [x] CG-18.1 universal harness report adds `UniversalHarnessReport` and `universal-harness-plan` surfacing for CLI JSON runner fields, import/deployment surfaces, optional Foundry examples, external-only Spark/DataFusion/Polars baseline requirements, comparison dataset requirements, portability-check requirements, and no-import/no-deployment/no-baseline-execution/no-probe/no-publish/no-fallback side-effect fields.
 - [x] CG-19.1 native I/O envelope report adds `NativeIoEnvelopeReport` and `native-io-envelope-plan` surfacing for RFC 0031 contract surfaces, representation state contracts, transition examples, per-source/sink-path certificate requirements, no-default-decoded-Arrow requirements, materialization boundary requirements, and no-runtime/no-probe/no-read/no-decode/no-materialization/no-write/no-fallback side-effect fields.
+- [x] CG-20.2 user-surface capability discovery adds report-only `capabilities` scopes for common ETL, Python, DataFrame/notebook, UDFs, universal/event/API adapters, unstructured/media, API, observability, deployment, extension, and security/governance surfaces with `WorldClassSufficiencyReport` dimension evidence gates and no parser/runtime/probe/read/write/external-engine/fallback behavior.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind `vortex-write`; placeholder artifact paths remain readiness-only.
 - [~] CG-3 broader output payload shapes remain deferred.

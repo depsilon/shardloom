@@ -190,7 +190,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|layout-health-plan|compaction-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|correctness-plan|execution-certificate-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|layout-health-plan|compaction-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|correctness-plan|execution-certificate-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -3321,6 +3321,19 @@ enum CapabilityDiscoveryScope {
     SemanticProfiles,
     Migration,
     Certification,
+    DataEtl,
+    Python,
+    DataFrame,
+    Notebook,
+    Udfs,
+    UniversalAdapters,
+    EventApiSaasAdapters,
+    UnstructuredMedia,
+    ApiSurfaces,
+    Observability,
+    Deployment,
+    Extensions,
+    SecurityGovernance,
 }
 
 impl CapabilityDiscoveryScope {
@@ -3334,6 +3347,19 @@ impl CapabilityDiscoveryScope {
             Some("semantic-profiles") => Ok(Self::SemanticProfiles),
             Some("migration") => Ok(Self::Migration),
             Some("certification") => Ok(Self::Certification),
+            Some("data-etl") => Ok(Self::DataEtl),
+            Some("python") => Ok(Self::Python),
+            Some("dataframe") => Ok(Self::DataFrame),
+            Some("notebook") => Ok(Self::Notebook),
+            Some("udfs") => Ok(Self::Udfs),
+            Some("universal-adapters") => Ok(Self::UniversalAdapters),
+            Some("event-api-saas-adapters") => Ok(Self::EventApiSaasAdapters),
+            Some("unstructured-media") => Ok(Self::UnstructuredMedia),
+            Some("api-surfaces") => Ok(Self::ApiSurfaces),
+            Some("observability") => Ok(Self::Observability),
+            Some("deployment") => Ok(Self::Deployment),
+            Some("extensions") => Ok(Self::Extensions),
+            Some("security-governance") => Ok(Self::SecurityGovernance),
             Some(value) => Err(cli_unknown_arg_error("capabilities", value)),
         }
     }
@@ -3349,6 +3375,45 @@ impl CapabilityDiscoveryScope {
             Self::SemanticProfiles => "semantic_profiles",
             Self::Migration => "migration",
             Self::Certification => "certification",
+            Self::DataEtl => "data_etl",
+            Self::Python => "python",
+            Self::DataFrame => "dataframe",
+            Self::Notebook => "notebook",
+            Self::Udfs => "udfs",
+            Self::UniversalAdapters => "universal_adapters",
+            Self::EventApiSaasAdapters => "event_api_saas_adapters",
+            Self::UnstructuredMedia => "unstructured_media",
+            Self::ApiSurfaces => "api_surfaces",
+            Self::Observability => "observability",
+            Self::Deployment => "deployment",
+            Self::Extensions => "extensions",
+            Self::SecurityGovernance => "security_governance",
+        }
+    }
+
+    #[must_use]
+    const fn world_class_dimension(self) -> Option<WorldClassSufficiencyDimensionKind> {
+        match self {
+            Self::DataEtl => Some(WorldClassSufficiencyDimensionKind::DataEtlSurface),
+            Self::Python => Some(WorldClassSufficiencyDimensionKind::PythonSurface),
+            Self::DataFrame => Some(WorldClassSufficiencyDimensionKind::DataFrameQueryBuilder),
+            Self::Notebook => Some(WorldClassSufficiencyDimensionKind::NotebookExperience),
+            Self::Udfs => Some(WorldClassSufficiencyDimensionKind::UdfPlugin),
+            Self::UniversalAdapters => {
+                Some(WorldClassSufficiencyDimensionKind::UniversalAdapterCatalog)
+            }
+            Self::EventApiSaasAdapters => {
+                Some(WorldClassSufficiencyDimensionKind::EventApiSaasAdapters)
+            }
+            Self::UnstructuredMedia => Some(WorldClassSufficiencyDimensionKind::UnstructuredMedia),
+            Self::ApiSurfaces => Some(WorldClassSufficiencyDimensionKind::ApiSurface),
+            Self::Observability => Some(WorldClassSufficiencyDimensionKind::ObservabilitySurface),
+            Self::Deployment => Some(WorldClassSufficiencyDimensionKind::DeploymentSurface),
+            Self::Extensions => Some(WorldClassSufficiencyDimensionKind::ExtensionSurface),
+            Self::SecurityGovernance => {
+                Some(WorldClassSufficiencyDimensionKind::SecurityGovernance)
+            }
+            _ => None,
         }
     }
 }
@@ -3396,7 +3461,20 @@ fn certification_fields(
 ) -> Vec<(String, String)> {
     let mut fields = certification_common_fields(report, scope);
     match scope {
-        CapabilityDiscoveryScope::Engine => {}
+        CapabilityDiscoveryScope::Engine
+        | CapabilityDiscoveryScope::DataEtl
+        | CapabilityDiscoveryScope::Python
+        | CapabilityDiscoveryScope::DataFrame
+        | CapabilityDiscoveryScope::Notebook
+        | CapabilityDiscoveryScope::Udfs
+        | CapabilityDiscoveryScope::UniversalAdapters
+        | CapabilityDiscoveryScope::EventApiSaasAdapters
+        | CapabilityDiscoveryScope::UnstructuredMedia
+        | CapabilityDiscoveryScope::ApiSurfaces
+        | CapabilityDiscoveryScope::Observability
+        | CapabilityDiscoveryScope::Deployment
+        | CapabilityDiscoveryScope::Extensions
+        | CapabilityDiscoveryScope::SecurityGovernance => {}
         CapabilityDiscoveryScope::Sql => append_sql_certification_fields(report, &mut fields),
         CapabilityDiscoveryScope::Functions => {
             append_function_certification_fields(report, &mut fields);
@@ -6190,104 +6268,155 @@ fn certification_text(
 ) -> String {
     match scope {
         CapabilityDiscoveryScope::Engine => unreachable!("engine scope uses EngineCapabilities"),
-        CapabilityDiscoveryScope::Sql => format!(
-            "{}\nsql coverage entries:\n{}",
-            certification_summary_header(report, scope),
-            report
-                .sql_coverage
-                .entries
-                .iter()
-                .map(|entry| format!(
-                    "  - {} [{} / {}]",
-                    entry.feature.as_str(),
-                    entry.status.as_str(),
-                    entry.tier.as_str()
-                ))
-                .collect::<Vec<_>>()
-                .join("\n")
-        ),
-        CapabilityDiscoveryScope::Functions => format!(
-            "{}\nfunction coverage groups:\n{}",
-            certification_summary_header(report, scope),
-            report
-                .function_coverage
-                .entries
-                .iter()
-                .map(|entry| {
-                    format!("  - {} [{}]", entry.group.as_str(), entry.status.as_str())
-                })
-                .collect::<Vec<_>>()
-                .join("\n")
-        ),
-        CapabilityDiscoveryScope::Operators => {
-            let physical_plan = PhysicalOperatorPlan::cg7_foundation();
-            let execution_profiles = PhysicalOperatorExecutionProfileMatrix::cg7_foundation();
-            let encoded_count_local_guard = vortex_encoded_count_local_guard_discovery_report();
-            format!(
-                "{}\noperator coverage families:\n{}\n{}\n{}\n{}",
-                certification_summary_header(report, scope),
-                report
-                    .operator_coverage
-                    .entries
-                    .iter()
-                    .map(|entry| {
-                        format!("  - {} [{}]", entry.family.as_str(), entry.status.as_str())
-                    })
-                    .collect::<Vec<_>>()
-                    .join("\n"),
-                physical_plan.to_human_text(),
-                execution_profiles.to_human_text(),
-                encoded_count_local_guard.to_human_text()
-            )
+        CapabilityDiscoveryScope::Sql => sql_certification_text(report, scope),
+        CapabilityDiscoveryScope::Functions => function_certification_text(report, scope),
+        CapabilityDiscoveryScope::Operators => operator_certification_text(report, scope),
+        CapabilityDiscoveryScope::Adapters => adapter_certification_text(report, scope),
+        CapabilityDiscoveryScope::SemanticProfiles => {
+            semantic_profile_certification_text(report, scope)
         }
-        CapabilityDiscoveryScope::Adapters => format!(
-            "{}\nadapter certification entries:\n{}",
-            certification_summary_header(report, scope),
-            report
-                .adapter_certification
-                .entries
-                .iter()
-                .map(|entry| {
-                    format!(
-                        "  - {} [{} / {}]",
-                        entry.adapter_id,
-                        entry.status.as_str(),
-                        entry.maturity.as_str()
-                    )
-                })
-                .collect::<Vec<_>>()
-                .join("\n")
-        ),
-        CapabilityDiscoveryScope::SemanticProfiles => format!(
-            "{}\nsemantic profiles:\n{}",
-            certification_summary_header(report, scope),
-            report
-                .semantic_profiles
-                .iter()
-                .map(|entry| {
-                    format!("  - {} [{}]", entry.profile.as_str(), entry.status.as_str())
-                })
-                .collect::<Vec<_>>()
-                .join("\n")
-        ),
-        CapabilityDiscoveryScope::Migration => format!(
-            "{}\nmigration reports:\n{}",
-            certification_summary_header(report, scope),
-            report
-                .migration_reports
-                .iter()
-                .map(|entry| {
-                    format!(
-                        "  - {} [{}]",
-                        entry.report_kind.as_str(),
-                        entry.status.as_str()
-                    )
-                })
-                .collect::<Vec<_>>()
-                .join("\n")
-        ),
+        CapabilityDiscoveryScope::Migration => migration_certification_text(report, scope),
         CapabilityDiscoveryScope::Certification => report.to_human_text(),
+        CapabilityDiscoveryScope::DataEtl
+        | CapabilityDiscoveryScope::Python
+        | CapabilityDiscoveryScope::DataFrame
+        | CapabilityDiscoveryScope::Notebook
+        | CapabilityDiscoveryScope::Udfs
+        | CapabilityDiscoveryScope::UniversalAdapters
+        | CapabilityDiscoveryScope::EventApiSaasAdapters
+        | CapabilityDiscoveryScope::UnstructuredMedia
+        | CapabilityDiscoveryScope::ApiSurfaces
+        | CapabilityDiscoveryScope::Observability
+        | CapabilityDiscoveryScope::Deployment
+        | CapabilityDiscoveryScope::Extensions
+        | CapabilityDiscoveryScope::SecurityGovernance => {
+            unreachable!("world-class user-surface scopes use WorldClassSufficiencyReport")
+        }
     }
+}
+
+fn sql_certification_text(
+    report: &CapabilityCertificationReport,
+    scope: CapabilityDiscoveryScope,
+) -> String {
+    format!(
+        "{}\nsql coverage entries:\n{}",
+        certification_summary_header(report, scope),
+        report
+            .sql_coverage
+            .entries
+            .iter()
+            .map(|entry| format!(
+                "  - {} [{} / {}]",
+                entry.feature.as_str(),
+                entry.status.as_str(),
+                entry.tier.as_str()
+            ))
+            .collect::<Vec<_>>()
+            .join("\n")
+    )
+}
+
+fn function_certification_text(
+    report: &CapabilityCertificationReport,
+    scope: CapabilityDiscoveryScope,
+) -> String {
+    format!(
+        "{}\nfunction coverage groups:\n{}",
+        certification_summary_header(report, scope),
+        report
+            .function_coverage
+            .entries
+            .iter()
+            .map(|entry| format!("  - {} [{}]", entry.group.as_str(), entry.status.as_str()))
+            .collect::<Vec<_>>()
+            .join("\n")
+    )
+}
+
+fn operator_certification_text(
+    report: &CapabilityCertificationReport,
+    scope: CapabilityDiscoveryScope,
+) -> String {
+    let physical_plan = PhysicalOperatorPlan::cg7_foundation();
+    let execution_profiles = PhysicalOperatorExecutionProfileMatrix::cg7_foundation();
+    let encoded_count_local_guard = vortex_encoded_count_local_guard_discovery_report();
+    format!(
+        "{}\noperator coverage families:\n{}\n{}\n{}\n{}",
+        certification_summary_header(report, scope),
+        report
+            .operator_coverage
+            .entries
+            .iter()
+            .map(|entry| format!("  - {} [{}]", entry.family.as_str(), entry.status.as_str()))
+            .collect::<Vec<_>>()
+            .join("\n"),
+        physical_plan.to_human_text(),
+        execution_profiles.to_human_text(),
+        encoded_count_local_guard.to_human_text()
+    )
+}
+
+fn adapter_certification_text(
+    report: &CapabilityCertificationReport,
+    scope: CapabilityDiscoveryScope,
+) -> String {
+    format!(
+        "{}\nadapter certification entries:\n{}",
+        certification_summary_header(report, scope),
+        report
+            .adapter_certification
+            .entries
+            .iter()
+            .map(|entry| {
+                format!(
+                    "  - {} [{} / {}]",
+                    entry.adapter_id,
+                    entry.status.as_str(),
+                    entry.maturity.as_str()
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    )
+}
+
+fn semantic_profile_certification_text(
+    report: &CapabilityCertificationReport,
+    scope: CapabilityDiscoveryScope,
+) -> String {
+    format!(
+        "{}\nsemantic profiles:\n{}",
+        certification_summary_header(report, scope),
+        report
+            .semantic_profiles
+            .iter()
+            .map(|entry| format!("  - {} [{}]", entry.profile.as_str(), entry.status.as_str()))
+            .collect::<Vec<_>>()
+            .join("\n")
+    )
+}
+
+fn migration_certification_text(
+    report: &CapabilityCertificationReport,
+    scope: CapabilityDiscoveryScope,
+) -> String {
+    format!(
+        "{}\nmigration reports:\n{}",
+        certification_summary_header(report, scope),
+        report
+            .migration_reports
+            .iter()
+            .map(|entry| {
+                format!(
+                    "  - {} [{}]",
+                    entry.report_kind.as_str(),
+                    entry.status.as_str()
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    )
 }
 
 fn certification_summary_header(
@@ -6315,6 +6444,189 @@ fn emit_capability_certification(
         certification_text(report, scope),
         report.diagnostics.clone(),
         certification_fields(report, scope),
+    );
+}
+
+fn world_class_surface_components(scope: CapabilityDiscoveryScope) -> &'static str {
+    match scope {
+        CapabilityDiscoveryScope::DataEtl => {
+            "ingestion,schema_contracts,data_quality,cleaning,transformation,enrichment,incremental_state,writes_exports,lineage_observability,governance"
+        }
+        CapabilityDiscoveryScope::Python => {
+            "thin_cli_json_wrapper,python_api,diagnostics,materialization_boundaries,python_udf_boundaries,packaging"
+        }
+        CapabilityDiscoveryScope::DataFrame => {
+            "dataframe_query_builder,expressions,lazy_plans,explain,materialization_boundaries"
+        }
+        CapabilityDiscoveryScope::Notebook => {
+            "notebook_helpers,rich_diagnostics,explain_estimate_profile,display_materialization_boundaries"
+        }
+        CapabilityDiscoveryScope::Udfs => {
+            "sql_udf,rust_udf,wasm_udf,python_udf,external_service_udf,sandboxing,effects"
+        }
+        CapabilityDiscoveryScope::UniversalAdapters => {
+            "tabular_files,lakehouse_tables,object_stores,catalogs,relational_warehouses,events_apis_saas,python_notebook,unstructured_media"
+        }
+        CapabilityDiscoveryScope::EventApiSaasAdapters => {
+            "event_streams,rest_apis,saas_exports,webhooks,rate_limits,credentials,effect_boundaries"
+        }
+        CapabilityDiscoveryScope::UnstructuredMedia => {
+            "document_refs,media_refs,text_extraction,chunk_manifests,provenance,redaction,effect_permissions"
+        }
+        CapabilityDiscoveryScope::ApiSurfaces => {
+            "cli_json,rust_api,python_api,query_builder,http_grpc,flightsql_like,jdbc_odbc"
+        }
+        CapabilityDiscoveryScope::Observability => {
+            "explain,estimate,profile,diagnostics,certificates,lineage,metrics"
+        }
+        CapabilityDiscoveryScope::Deployment => {
+            "cli_local,server,container,foundry,cloud_storage,catalog_config,release_packaging"
+        }
+        CapabilityDiscoveryScope::Extensions => {
+            "plugin_manifest,udf_registry,wasm_runtime,python_boundary,permissions,sandboxing"
+        }
+        CapabilityDiscoveryScope::SecurityGovernance => {
+            "credential_boundaries,redaction,audit,tenant_isolation,policy,provenance"
+        }
+        _ => unreachable!("non-world-class capability scope has no user-surface components"),
+    }
+}
+
+fn world_class_surface_fields(
+    scope: CapabilityDiscoveryScope,
+    report: &WorldClassSufficiencyReport,
+) -> Vec<(String, String)> {
+    let kind = scope
+        .world_class_dimension()
+        .expect("world-class surface scope has dimension");
+    let dimension = report
+        .dimensions
+        .iter()
+        .find(|dimension| dimension.kind == kind)
+        .expect("world-class sufficiency report includes all dimensions");
+    vec![
+        ("scope".to_string(), scope.as_str().to_string()),
+        (
+            "schema_version".to_string(),
+            report.schema_version.to_string(),
+        ),
+        (
+            "fallback_execution_allowed".to_string(),
+            report.fallback_execution_allowed.to_string(),
+        ),
+        (
+            "fallback_attempted".to_string(),
+            report.fallback_attempted.to_string(),
+        ),
+        (
+            "side_effect_free".to_string(),
+            report.is_side_effect_free().to_string(),
+        ),
+        (
+            "filesystem_probe".to_string(),
+            report.filesystem_probe.to_string(),
+        ),
+        (
+            "network_probe".to_string(),
+            report.network_probe.to_string(),
+        ),
+        (
+            "catalog_probe".to_string(),
+            report.catalog_probe.to_string(),
+        ),
+        (
+            "adapter_probe".to_string(),
+            report.adapter_probe.to_string(),
+        ),
+        (
+            "parser_executed".to_string(),
+            report.parser_executed.to_string(),
+        ),
+        (
+            "runtime_execution".to_string(),
+            report.runtime_execution.to_string(),
+        ),
+        ("dimension".to_string(), dimension.kind.as_str().to_string()),
+        (
+            "dimension_status".to_string(),
+            dimension.status.as_str().to_string(),
+        ),
+        ("required".to_string(), dimension.required.to_string()),
+        (
+            "correctness_evidence_required".to_string(),
+            dimension.correctness_evidence_required.to_string(),
+        ),
+        (
+            "semantic_conformance_required".to_string(),
+            dimension.semantic_conformance_required.to_string(),
+        ),
+        (
+            "benchmark_evidence_required".to_string(),
+            dimension.benchmark_evidence_required.to_string(),
+        ),
+        (
+            "adapter_certification_required".to_string(),
+            dimension.adapter_certification_required.to_string(),
+        ),
+        (
+            "native_io_certificate_required".to_string(),
+            dimension.native_io_certificate_required.to_string(),
+        ),
+        (
+            "execution_certificate_required".to_string(),
+            dimension.execution_certificate_required.to_string(),
+        ),
+        (
+            "capability_snapshot_required".to_string(),
+            dimension.capability_snapshot_required.to_string(),
+        ),
+        (
+            "surface_components".to_string(),
+            world_class_surface_components(scope).to_string(),
+        ),
+        (
+            "production_claim_allowed".to_string(),
+            report.production_claim_allowed.to_string(),
+        ),
+        (
+            "best_default_publication_allowed".to_string(),
+            report.can_publish_best_default_claim().to_string(),
+        ),
+    ]
+}
+
+fn world_class_surface_text(
+    scope: CapabilityDiscoveryScope,
+    report: &WorldClassSufficiencyReport,
+) -> String {
+    let kind = scope
+        .world_class_dimension()
+        .expect("world-class surface scope has dimension");
+    let dimension_status = report.status_for(kind).as_str();
+    format!(
+        "capability discovery: {}\nschema_version: {}\nfallback execution: disabled\nfallback_attempted: {}\nside effects: none\ndimension: {}\ndimension_status: {}\nsurface_components: {}\nstatus: planned/report-only",
+        scope.as_str(),
+        report.schema_version,
+        report.fallback_attempted,
+        kind.as_str(),
+        dimension_status,
+        world_class_surface_components(scope)
+    )
+}
+
+fn emit_world_class_surface_capability(
+    scope: CapabilityDiscoveryScope,
+    format: OutputFormat,
+    report: &WorldClassSufficiencyReport,
+) {
+    emit(
+        "capabilities",
+        format,
+        CommandStatus::Success,
+        format!("capability discovery: {}", scope.as_str()),
+        world_class_surface_text(scope, report),
+        report.diagnostics.clone(),
+        world_class_surface_fields(scope, report),
     );
 }
 
@@ -11109,6 +11421,11 @@ fn run(args: Vec<String>) -> ExitCode {
                     "capability discovery failed",
                     &cli_unknown_arg_error("capabilities", &extra),
                 );
+            }
+            if scope.world_class_dimension().is_some() {
+                let report = plan_world_class_sufficiency();
+                emit_world_class_surface_capability(scope, format, &report);
+                return ExitCode::SUCCESS;
             }
             if scope != CapabilityDiscoveryScope::Engine {
                 let report = CapabilityCertificationReport::contract_only();
@@ -23153,6 +23470,10 @@ mod tests {
         let usage = cli_usage_line();
         assert!(usage.contains("capabilities [sql|functions|operators|adapters"));
         assert!(usage.contains("semantic-profiles|migration|certification"));
+        assert!(usage.contains("data-etl|python|dataframe|notebook|udfs"));
+        assert!(usage.contains("universal-adapters|event-api-saas-adapters"));
+        assert!(usage.contains("unstructured-media|api-surfaces|observability"));
+        assert!(usage.contains("deployment|extensions|security-governance"));
     }
 
     #[test]

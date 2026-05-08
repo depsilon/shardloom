@@ -116,9 +116,18 @@ Future commands:
 - `shardloom capabilities operators`
 - `shardloom capabilities adapters`
 - `shardloom capabilities universal-adapters`
+- `shardloom capabilities event-api-saas-adapters`
 - `shardloom capabilities data-etl`
 - `shardloom capabilities python`
+- `shardloom capabilities dataframe`
+- `shardloom capabilities notebook`
+- `shardloom capabilities udfs`
 - `shardloom capabilities unstructured-media`
+- `shardloom capabilities api-surfaces`
+- `shardloom capabilities observability`
+- `shardloom capabilities deployment`
+- `shardloom capabilities extensions`
+- `shardloom capabilities security-governance`
 - `shardloom capabilities semantic-profiles`
 - `shardloom capabilities migration`
 - `shardloom capabilities certification`
@@ -135,8 +144,8 @@ Checklist:
 R5.4.2 outcome:
 
 - Scoped capability discovery uses existing `shardloom capabilities <scope>` commands instead of adding separate top-level commands.
-- Implemented scopes: `sql`, `functions`, `operators`, `adapters`, `semantic-profiles`, `migration`, and `certification`.
-- Additional CG-20 user-surface scopes such as `data-etl`, `python`, `unstructured-media`, `universal-adapters`, `api-surfaces`, `observability`, `deployment`, `extensions`, and `security-governance` remain planned until report-only contracts and snapshot coverage are added.
+- Implemented certification scopes: `sql`, `functions`, `operators`, `adapters`, `semantic-profiles`, `migration`, and `certification`.
+- Implemented user-surface scopes: `data-etl`, `python`, `dataframe`, `notebook`, `udfs`, `universal-adapters`, `event-api-saas-adapters`, `unstructured-media`, `api-surfaces`, `observability`, `deployment`, `extensions`, and `security-governance`.
 - Existing `shardloom capabilities` remains the engine-level capability summary.
 - JSON output uses stable output-envelope fields including `scope`, `schema_version`, `fallback_execution_allowed=false`, `fallback_attempted=false`, and side-effect/probe flags.
 - Discovery is report-only and does not parse SQL, execute runtime work, probe adapters, inspect catalogs, read files, perform network I/O, or infer capability from external baseline availability.
@@ -152,6 +161,13 @@ R5.4.2a outcome:
 - Snapshot-style CLI tests lock the `shardloom capabilities <scope>` JSON field names for `sql`, `functions`, `operators`, `adapters`, `semantic-profiles`, `migration`, and `certification`.
 - Certification and `FeatureFootprintReport` no-probe contracts are checked together for engine-version alignment, fallback-disabled state, empty diagnostics, and absence of generated timestamps.
 - Tests do not execute external engines, probe filesystem/network/catalog/adapter state, or imply support for planned capabilities.
+
+R5.4.2b outcome:
+
+- User-surface capability discovery maps broad CG-20 scopes to `WorldClassSufficiencyReport` dimensions.
+- Each user-surface scope emits evidence requirements, surface component labels, no-probe/no-runtime flags, and production/best-default claim blockers.
+- Snapshot-style CLI tests lock user-surface field keys, scope names, report-only flags, and representative dimension mappings.
+- User-surface discovery remains evidence-only; it does not implement Python, DataFrame, notebook, UDF, ETL, adapter, media, API/server, deployment, extension, security, parser, runtime, probe, or fallback behavior.
 
 ## R5.4.3 SQL frontend sequencing
 

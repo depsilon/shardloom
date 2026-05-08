@@ -279,6 +279,49 @@ const CERTIFICATION_FIELD_KEYS: [&str; 16] = [
     "best_choice_claim",
 ];
 
+const WORLD_CLASS_SURFACE_FIELD_KEYS: [&str; 24] = [
+    "scope",
+    "schema_version",
+    "fallback_execution_allowed",
+    "fallback_attempted",
+    "side_effect_free",
+    "filesystem_probe",
+    "network_probe",
+    "catalog_probe",
+    "adapter_probe",
+    "parser_executed",
+    "runtime_execution",
+    "dimension",
+    "dimension_status",
+    "required",
+    "correctness_evidence_required",
+    "semantic_conformance_required",
+    "benchmark_evidence_required",
+    "adapter_certification_required",
+    "native_io_certificate_required",
+    "execution_certificate_required",
+    "capability_snapshot_required",
+    "surface_components",
+    "production_claim_allowed",
+    "best_default_publication_allowed",
+];
+
+const WORLD_CLASS_SURFACE_SCOPES: [&str; 13] = [
+    "data-etl",
+    "python",
+    "dataframe",
+    "notebook",
+    "udfs",
+    "universal-adapters",
+    "event-api-saas-adapters",
+    "unstructured-media",
+    "api-surfaces",
+    "observability",
+    "deployment",
+    "extensions",
+    "security-governance",
+];
+
 #[test]
 fn capability_discovery_json_field_keys_are_stable() {
     for (scope, expected_keys) in [
@@ -294,6 +337,15 @@ fn capability_discovery_json_field_keys_are_stable() {
         let keys = field_keys(&output);
         assert_eq!(keys.as_slice(), expected_keys, "scope={scope}");
     }
+    for scope in WORLD_CLASS_SURFACE_SCOPES {
+        let output = run_capabilities_scope(scope);
+        let keys = field_keys(&output);
+        assert_eq!(
+            keys.as_slice(),
+            WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice(),
+            "scope={scope}"
+        );
+    }
 }
 
 #[test]
@@ -306,6 +358,19 @@ fn capability_discovery_json_fields_remain_report_only() {
         "semantic-profiles",
         "migration",
         "certification",
+        "data-etl",
+        "python",
+        "dataframe",
+        "notebook",
+        "udfs",
+        "universal-adapters",
+        "event-api-saas-adapters",
+        "unstructured-media",
+        "api-surfaces",
+        "observability",
+        "deployment",
+        "extensions",
+        "security-governance",
     ] {
         let output = run_capabilities_scope(scope);
         for key in REPORT_ONLY_BOOL_FIELD_KEYS {
@@ -332,6 +397,19 @@ fn capability_discovery_scope_values_are_stable() {
         ("semantic-profiles", "semantic_profiles"),
         ("migration", "migration"),
         ("certification", "certification"),
+        ("data-etl", "data_etl"),
+        ("python", "python"),
+        ("dataframe", "dataframe"),
+        ("notebook", "notebook"),
+        ("udfs", "udfs"),
+        ("universal-adapters", "universal_adapters"),
+        ("event-api-saas-adapters", "event_api_saas_adapters"),
+        ("unstructured-media", "unstructured_media"),
+        ("api-surfaces", "api_surfaces"),
+        ("observability", "observability"),
+        ("deployment", "deployment"),
+        ("extensions", "extensions"),
+        ("security-governance", "security_governance"),
     ] {
         let output = run_capabilities_scope(scope);
         assert!(
@@ -340,6 +418,58 @@ fn capability_discovery_scope_values_are_stable() {
             )),
             "scope={scope}"
         );
+    }
+}
+
+#[test]
+fn cg20_user_surface_capabilities_expose_evidence_gates() {
+    for (scope, dimension, components, native_io_required, adapter_required) in [
+        (
+            "data-etl",
+            "data_etl_surface",
+            "ingestion,schema_contracts,data_quality,cleaning,transformation,enrichment,incremental_state,writes_exports,lineage_observability,governance",
+            true,
+            false,
+        ),
+        (
+            "python",
+            "python_surface",
+            "thin_cli_json_wrapper,python_api,diagnostics,materialization_boundaries,python_udf_boundaries,packaging",
+            false,
+            false,
+        ),
+        (
+            "universal-adapters",
+            "universal_adapter_catalog",
+            "tabular_files,lakehouse_tables,object_stores,catalogs,relational_warehouses,events_apis_saas,python_notebook,unstructured_media",
+            false,
+            true,
+        ),
+        (
+            "unstructured-media",
+            "unstructured_media",
+            "document_refs,media_refs,text_extraction,chunk_manifests,provenance,redaction,effect_permissions",
+            true,
+            false,
+        ),
+    ] {
+        let output = run_capabilities_scope(scope);
+        assert!(output.contains(&string_field_pair("dimension", dimension)));
+        assert!(output.contains(&string_field_pair(
+            "dimension_status",
+            "evidence_insufficient"
+        )));
+        assert!(output.contains(&string_field_pair("surface_components", components)));
+        assert!(output.contains(&field_pair(
+            "native_io_certificate_required",
+            native_io_required
+        )));
+        assert!(output.contains(&field_pair(
+            "adapter_certification_required",
+            adapter_required
+        )));
+        assert!(output.contains(&field_pair("production_claim_allowed", false)));
+        assert!(output.contains(&field_pair("best_default_publication_allowed", false)));
     }
 }
 
@@ -838,5 +968,9 @@ fn field_keys(output: &str) -> Vec<&str> {
 }
 
 fn field_pair(key: &str, value: bool) -> String {
+    format!("{{\"key\":\"{key}\",\"value\":\"{value}\"}}")
+}
+
+fn string_field_pair(key: &str, value: &str) -> String {
     format!("{{\"key\":\"{key}\",\"value\":\"{value}\"}}")
 }
