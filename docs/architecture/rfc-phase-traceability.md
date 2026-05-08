@@ -452,6 +452,14 @@ No fallback execution.
 - `shardloom-contract-tests/tests/benchmark_evidence_manifest.rs` verifies required metric coverage and correctness validation mode presence before any claim can rely on the benchmark plan.
 - This pass adds no benchmark runner, external baseline invocation, query execution behavior, superiority claim, dependency, parser, adapter runtime, object-store IO, write behavior, or fallback execution.
 
+## CG-6.2 benchmark claim gate
+
+- Primary RFC linkage: RFC 0029 Correctness/Benchmarks/Execution Certificates, RFC 0015 Correctness/Semantics/Differential Testing, RFC 0025 Competitive/no-fallback, and RFC 0032 claim publication requirements.
+- `BenchmarkClaimGate` blocks performance, superiority, cost, replacement, or best-default publication unless correctness evidence, benchmark evidence, required metrics, comparison reports, and no-fallback evidence are all present.
+- `BenchmarkPlan::claim_gate` returns `evidence_missing` for the current report-only foundation plan because no benchmark runner or comparison report exists yet.
+- `shardloom-contract-tests/tests/benchmark_evidence_manifest.rs` verifies every publication input is required and fallback attempts block claims.
+- This pass adds no benchmark runner, external baseline invocation, query execution behavior, superiority claim, dependency, parser, adapter runtime, object-store IO, write behavior, or fallback execution.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.

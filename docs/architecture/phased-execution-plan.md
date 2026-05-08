@@ -10,20 +10,21 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [x] Session label: CG-6.1 benchmark evidence manifest
-  - Current cleanup/implementation step: Expand report-only benchmark metric coverage and verify the foundation plan covers required CG-6 evidence categories before any benchmark execution exists.
+- [x] Session label: CG-6.2 benchmark claim gate
+  - Current cleanup/implementation step: Add a report-only claim gate that blocks performance/superiority publication until correctness evidence, benchmark evidence, required metrics, comparison reports, and no-fallback status are all present.
   - Primary files:
     - `shardloom-core/src/benchmark.rs`
+    - `shardloom-core/src/lib.rs`
     - `shardloom-contract-tests/tests/benchmark_evidence_manifest.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-  - Scope: Benchmark-plan metadata, required metric coverage, correctness-gated scenarios, comparison-only baselines, and no-fallback benchmark planning.
+  - Scope: Benchmark claim publication metadata, required evidence gating, comparison-report gating, and no-fallback benchmark planning.
   - Explicitly not included: New query execution, encoded-data traversal, scan/read-start APIs, row reads, decode/materialization, Arrow conversion, object-store IO, writes, external baseline execution, fallback execution, benchmarks, SQL/API/adapter expansion, or superiority claims.
   - Validation required:
     - `cargo fmt --all -- --check`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: The benchmark foundation plan now declares startup/runtime/write latency, memory, bytes read/written/decoded/avoided, materialization avoided, segments pruned/answered, object-store request, spill, and work-avoided metric categories as report-only evidence requirements.
+  - Completion notes: `BenchmarkClaimGate` keeps performance and superiority publication blocked until correctness, benchmark, metric, comparison-report, and no-fallback evidence are all present.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -510,6 +511,7 @@ Status legend:
 
 - [ ] CG-6 — Benchmarks (**planned**)
   - [x] CG-6.1 benchmark evidence manifest
+  - [x] CG-6.2 benchmark claim gate
   - Expected evidence:
     - runtime latency and startup latency
     - peak memory and spill-required/avoided reporting
@@ -683,6 +685,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 
 ### CG-6 detailed checklist
 - [x] CG-6.1 benchmark evidence manifest
+- [x] CG-6.2 benchmark claim gate
 - [ ] runtime benchmarks
 - [ ] peak-memory benchmarks
 - [ ] bytes read/written benchmarks
@@ -829,6 +832,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-5.3 correctness fixture manifest declares initial golden fixture/reference output and required edge-case fixture families without execution.
 - [x] CG-5.4 external baseline oracle policy declares comparison-only baselines and blocks runtime fallback.
 - [x] CG-6.1 benchmark evidence manifest covers required metric categories without running benchmarks.
+- [x] CG-6.2 benchmark claim gate blocks publication without correctness, benchmark, comparison, metric, and no-fallback evidence.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [~] CG-3 real Vortex payload writes remain deferred; placeholder artifact paths are not completion evidence.
 

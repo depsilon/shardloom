@@ -24,7 +24,8 @@ pub mod security;
 pub mod translation;
 
 pub use benchmark::{
-    BaselineEngine, BenchmarkMetric, BenchmarkPlan, BenchmarkResult, BenchmarkScenario,
+    BaselineEngine, BenchmarkClaimGate, BenchmarkClaimStatus, BenchmarkEvidenceState,
+    BenchmarkFallbackState, BenchmarkMetric, BenchmarkPlan, BenchmarkResult, BenchmarkScenario,
     CorrectnessValidationMode, MetricValue, WorkloadClass,
 };
 pub use capabilities::{Capability, CapabilityStatus, EngineCapabilities};
