@@ -110,7 +110,8 @@ use shardloom_vortex::{
     vortex_encoded_read_local_scan_count_api_boundary, vortex_encoded_read_public_api_boundary,
     vortex_encoded_read_spike_feature_enabled, vortex_file_io_feature_enabled,
     vortex_local_commit_execution_feature_enabled, vortex_metadata_executor_feature_enabled,
-    vortex_native_output_payload_write_feature_enabled, write_vortex_commit_marker,
+    vortex_native_output_payload_write_feature_enabled,
+    vortex_selection_vector_filter_kernel_discovery_report, write_vortex_commit_marker,
     write_vortex_finalized_manifest_artifact, write_vortex_native_count_output_payload,
     write_vortex_output_payload_artifact, write_vortex_staged_manifest_file,
     write_vortex_staged_marker,
@@ -1735,6 +1736,8 @@ fn append_operator_certification_fields(
     append_encoded_count_physical_kernel_discovery_fields(fields);
     append_encoded_count_kernel_admission_discovery_fields(fields);
     append_encoded_predicate_evaluation_discovery_fields(fields);
+    append_selection_vector_filter_kernel_discovery_fields(fields);
+    append_selection_vector_filter_kernel_admission_discovery_fields(fields);
     append_encoded_count_local_guard_discovery_fields(fields);
 }
 
@@ -2173,6 +2176,135 @@ fn append_encoded_predicate_evaluation_discovery_fields(fields: &mut Vec<(String
         fields,
         "encoded_predicate_evaluation_fallback_execution_allowed",
         report.fallback_execution_allowed,
+    );
+}
+
+fn append_selection_vector_filter_kernel_discovery_fields(fields: &mut Vec<(String, String)>) {
+    let report = vortex_selection_vector_filter_kernel_discovery_report();
+    push_field(
+        fields,
+        "selection_vector_filter_kernel_schema_version",
+        report.schema_version,
+    );
+    push_field(
+        fields,
+        "selection_vector_filter_kernel_id",
+        report.kernel_report_id,
+    );
+    push_field(
+        fields,
+        "selection_vector_filter_kernel_operator_kind",
+        report.operator_kind.as_str(),
+    );
+    push_field(
+        fields,
+        "selection_vector_filter_kernel_kernel_kind",
+        report.kernel_kind.as_str(),
+    );
+    push_field(
+        fields,
+        "selection_vector_filter_kernel_execution_level",
+        report.execution_level.as_str(),
+    );
+    push_bool_field(
+        fields,
+        "selection_vector_filter_kernel_contextual_only",
+        report.contextual_only,
+    );
+    push_bool_field(
+        fields,
+        "selection_vector_filter_kernel_requires_encoded_predicate_evaluation",
+        report.requires_encoded_predicate_evaluation,
+    );
+    push_bool_field(
+        fields,
+        "selection_vector_filter_kernel_requires_selection_vectors",
+        report.requires_selection_vectors,
+    );
+    push_bool_field(
+        fields,
+        "selection_vector_filter_kernel_requires_correctness_evidence",
+        report.requires_correctness_evidence,
+    );
+    push_bool_field(
+        fields,
+        "selection_vector_filter_kernel_requires_memory_safety_evidence",
+        report.requires_memory_safety_evidence,
+    );
+    push_bool_field(
+        fields,
+        "selection_vector_filter_kernel_requires_benchmark_for_production",
+        report.requires_benchmark_for_production,
+    );
+    push_bool_field(
+        fields,
+        "selection_vector_filter_kernel_discovery_reads_data",
+        report.discovery_reads_data,
+    );
+    push_bool_field(
+        fields,
+        "selection_vector_filter_kernel_runtime_execution",
+        report.runtime_execution_allowed_by_discovery,
+    );
+    push_bool_field(
+        fields,
+        "selection_vector_filter_kernel_fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+}
+
+fn append_selection_vector_filter_kernel_admission_discovery_fields(
+    fields: &mut Vec<(String, String)>,
+) {
+    push_field(
+        fields,
+        "selection_vector_filter_kernel_admission_schema_version",
+        "shardloom.vortex_selection_vector_filter_kernel_admission.v1",
+    );
+    push_bool_field(
+        fields,
+        "selection_vector_filter_kernel_admission_contextual_only",
+        true,
+    );
+    push_field(
+        fields,
+        "selection_vector_filter_kernel_admission_operator_kind",
+        "filter",
+    );
+    push_field(
+        fields,
+        "selection_vector_filter_kernel_admission_required_kernel_kind",
+        "encoded",
+    );
+    push_bool_field(
+        fields,
+        "selection_vector_filter_kernel_admission_requires_filter_kernel_evidence",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "selection_vector_filter_kernel_admission_requires_correctness_evidence",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "selection_vector_filter_kernel_admission_requires_memory_safety_evidence",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "selection_vector_filter_kernel_admission_requires_benchmark_for_production",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "selection_vector_filter_kernel_admission_runtime_execution",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "selection_vector_filter_kernel_admission_fallback_execution_allowed",
+        false,
     );
 }
 
@@ -6508,6 +6640,112 @@ fn run(args: Vec<String>) -> ExitCode {
                     ),
                     (
                         "encoded_predicate_evaluation_fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    (
+                        "selection_vector_filter_kernel_schema_version".to_string(),
+                        "shardloom.vortex_selection_vector_filter_kernel.v1".to_string(),
+                    ),
+                    (
+                        "selection_vector_filter_kernel_id".to_string(),
+                        "vortex.query-primitive.filter_predicate.selection-vector-filter-kernel"
+                            .to_string(),
+                    ),
+                    (
+                        "selection_vector_filter_kernel_operator_kind".to_string(),
+                        "filter".to_string(),
+                    ),
+                    (
+                        "selection_vector_filter_kernel_kernel_kind".to_string(),
+                        "encoded".to_string(),
+                    ),
+                    (
+                        "selection_vector_filter_kernel_execution_level".to_string(),
+                        "encoded_native".to_string(),
+                    ),
+                    (
+                        "selection_vector_filter_kernel_contextual_only".to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "selection_vector_filter_kernel_requires_encoded_predicate_evaluation"
+                            .to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "selection_vector_filter_kernel_requires_selection_vectors".to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "selection_vector_filter_kernel_requires_correctness_evidence".to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "selection_vector_filter_kernel_requires_memory_safety_evidence"
+                            .to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "selection_vector_filter_kernel_requires_benchmark_for_production"
+                            .to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "selection_vector_filter_kernel_discovery_reads_data".to_string(),
+                        "false".to_string(),
+                    ),
+                    (
+                        "selection_vector_filter_kernel_runtime_execution".to_string(),
+                        "false".to_string(),
+                    ),
+                    (
+                        "selection_vector_filter_kernel_fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    (
+                        "selection_vector_filter_kernel_admission_schema_version".to_string(),
+                        "shardloom.vortex_selection_vector_filter_kernel_admission.v1"
+                            .to_string(),
+                    ),
+                    (
+                        "selection_vector_filter_kernel_admission_contextual_only".to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "selection_vector_filter_kernel_admission_operator_kind".to_string(),
+                        "filter".to_string(),
+                    ),
+                    (
+                        "selection_vector_filter_kernel_admission_required_kernel_kind".to_string(),
+                        "encoded".to_string(),
+                    ),
+                    (
+                        "selection_vector_filter_kernel_admission_requires_filter_kernel_evidence"
+                            .to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "selection_vector_filter_kernel_admission_requires_correctness_evidence"
+                            .to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "selection_vector_filter_kernel_admission_requires_memory_safety_evidence"
+                            .to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "selection_vector_filter_kernel_admission_requires_benchmark_for_production"
+                            .to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "selection_vector_filter_kernel_admission_runtime_execution".to_string(),
+                        "false".to_string(),
+                    ),
+                    (
+                        "selection_vector_filter_kernel_admission_fallback_execution_allowed"
+                            .to_string(),
                         "false".to_string(),
                     ),
                     ("write_io".to_string(), "false".to_string()),

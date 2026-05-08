@@ -1055,3 +1055,13 @@ No fallback execution.
 - Primary RFC linkage: RFC 0012, RFC 0015, RFC 0021, RFC 0025, and RFC 0029.
 - Related RFCs: RFC 0013, RFC 0016, RFC 0027, RFC 0031, and RFC 0032.
 - This phase adds no scan/read-start path, broad encoded-data execution, broad filter execution, projection execution, aggregate execution, row reads, requested decode/materialization, Arrow conversion, parser, SQL execution, adapter runtime, object-store IO, writes, spill IO, benchmark claim, production/superiority claim, broad operator-kernel closeout, CG closeout, or fallback behavior.
+
+## CG-7.23 selection-vector filter kernel evidence
+
+- `shardloom-vortex` now evaluates contextual selection-vector filter-kernel evidence from successful encoded predicate evaluation reports.
+- Safe reports can mark the encoded filter kernel slot registry-ready, while benchmark evidence remains required before production certification or any superiority claim.
+- Inconclusive predicates remain blocked as `needs_encoded_values` and do not decode, materialize, convert to Arrow, execute fallback, or claim broad filter execution.
+- `capabilities operators` and `kernel-registry` expose selection-vector filter-kernel discovery and admission fields.
+- Primary RFC linkage: RFC 0012, RFC 0015, RFC 0021, RFC 0025, and RFC 0029.
+- Related RFCs: RFC 0013, RFC 0016, RFC 0027, RFC 0031, and RFC 0032.
+- This phase adds no scan/read-start path, generalized encoded-data execution, encoded-value predicate execution, broad filter execution, projection execution, aggregate execution, row reads, requested decode/materialization, Arrow conversion, parser, SQL execution, adapter runtime, object-store IO, writes, spill IO, benchmark claim, production/superiority claim, broad operator-kernel closeout, CG closeout, or fallback behavior.
