@@ -1,7 +1,8 @@
 //! Native-first Plan IR and interoperability metadata skeleton.
 //!
-//! This module defines domain types only. It does not parse, serialize, import,
-//! export, or execute plans.
+//! This module defines native plan domain types and side-effect-free native
+//! serialization helpers. It does not execute plans, touch files, or delegate to
+//! external engines.
 
 use shardloom_core::{
     Diagnostic, DiagnosticCode, DiagnosticSeverity, EffectLevel, FidelityLevel,
@@ -586,6 +587,8 @@ impl PlanPortabilityDirection {
 pub enum PlanPortabilityStatus {
     NativeSkeleton,
     ValidationOnly,
+    Imported,
+    Serialized,
     NotImplemented,
     Unsupported,
 }
@@ -595,6 +598,8 @@ impl PlanPortabilityStatus {
         match self {
             Self::NativeSkeleton => "native_skeleton",
             Self::ValidationOnly => "validation_only",
+            Self::Imported => "imported",
+            Self::Serialized => "serialized",
             Self::NotImplemented => "not_implemented",
             Self::Unsupported => "unsupported",
         }
@@ -610,8 +615,9 @@ impl PlanPortabilityStatus {
 ///
 /// The report records whether native plan constructs are native-only,
 /// Substrait-like representable, lossy, unsupported, or residual. It is
-/// validation metadata only: it never parses, imports, exports, executes, probes
-/// storage, writes output, or delegates to an external engine.
+/// validation metadata only: native serialization is in-memory and
+/// side-effect-free, and the report never executes plans, probes storage, writes
+/// output, or delegates to an external engine.
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct PlanPortabilityReport {
@@ -688,6 +694,7 @@ impl PlanPortabilityReport {
             ),
             PlanPortabilityDirection::ImportValidation,
             match request.status {
+                PlanImportStatus::Imported => PlanPortabilityStatus::Imported,
                 PlanImportStatus::Unsupported => PlanPortabilityStatus::Unsupported,
                 PlanImportStatus::NotImplemented => PlanPortabilityStatus::NotImplemented,
                 PlanImportStatus::Planned | PlanImportStatus::RequiresValidation => {
@@ -706,8 +713,25 @@ impl PlanPortabilityReport {
             "native_capability_check_required".to_string(),
             "diagnostics".to_string(),
         ];
+        if request.format == PlanInteropFormat::ShardLoomNative {
+            report
+                .supported_constructs
+                .insert(2, "native_plan_serialization".to_string());
+        }
         report.validation_required = true;
         report.capability_check_required = true;
+        report.import_export_serialization_performed =
+            request.serialization_performed || request.imported_document.is_some();
+        if let Some(document) = &request.imported_document {
+            report.native_plan_schema_version = document.schema_version.clone();
+            for node in &document.nodes {
+                report.record_node(node);
+            }
+            report
+                .diagnostics
+                .extend(document.validation.diagnostics.clone());
+            report.diagnostics.extend(document.diagnostics.clone());
+        }
         if matches!(
             request.status,
             PlanImportStatus::Unsupported | PlanImportStatus::NotImplemented
@@ -732,6 +756,7 @@ impl PlanPortabilityReport {
             format!("portability-export-{}", request.format.as_str()),
             PlanPortabilityDirection::ExportValidation,
             match request.status {
+                PlanExportStatus::Serialized => PlanPortabilityStatus::Serialized,
                 PlanExportStatus::Unsupported => PlanPortabilityStatus::Unsupported,
                 PlanExportStatus::NotImplemented => PlanPortabilityStatus::NotImplemented,
                 PlanExportStatus::Planned => PlanPortabilityStatus::ValidationOnly,
@@ -745,9 +770,15 @@ impl PlanPortabilityReport {
             "diagnostics".to_string(),
             "redaction_policy_required".to_string(),
         ];
+        if request.format == PlanInteropFormat::ShardLoomNative {
+            report
+                .supported_constructs
+                .insert(2, "native_plan_serialization".to_string());
+        }
         report.validation_required = true;
         report.capability_check_required = true;
         report.redaction_required = true;
+        report.import_export_serialization_performed = request.serialized_document.is_some();
         if matches!(
             request.status,
             PlanExportStatus::Unsupported | PlanExportStatus::NotImplemented
@@ -865,7 +896,6 @@ impl PlanPortabilityReport {
     pub fn has_errors(&self) -> bool {
         self.status.is_error()
             || self.parser_executed
-            || self.import_export_serialization_performed
             || self.runtime_execution
             || self.external_engine_execution
             || self.filesystem_probe
@@ -888,7 +918,7 @@ impl PlanPortabilityReport {
     #[must_use]
     pub fn to_human_text(&self) -> String {
         format!(
-            "plan portability report\nschema_version: {}\nreport_id: {}\ndirection: {}\nstatus: {}\ninterop_format: {}\nnative_plan_schema_version: {}\nnative_first: {}\nvalidation_only: {}\nvalidation_required: {}\ncapability_check_required: {}\nsupported_constructs: {}\nnative_only_nodes: {}\nsubstrait_like_representable_nodes: {}\nlossy_nodes: {}\nunsupported_nodes: {}\nresidual_unsupported_constructs: {}\nmetadata_loss_boundaries: {}\nruntime execution: disabled\nexternal engine execution: disabled\nimport/export serialization: disabled\nfallback execution: disabled",
+            "plan portability report\nschema_version: {}\nreport_id: {}\ndirection: {}\nstatus: {}\ninterop_format: {}\nnative_plan_schema_version: {}\nnative_first: {}\nvalidation_only: {}\nvalidation_required: {}\ncapability_check_required: {}\nsupported_constructs: {}\nnative_only_nodes: {}\nsubstrait_like_representable_nodes: {}\nlossy_nodes: {}\nunsupported_nodes: {}\nresidual_unsupported_constructs: {}\nmetadata_loss_boundaries: {}\nruntime execution: disabled\nexternal engine execution: disabled\nimport/export serialization performed: {}\nfallback execution: disabled",
             self.schema_version,
             self.report_id,
             self.direction.as_str(),
@@ -906,6 +936,7 @@ impl PlanPortabilityReport {
             format_list(&self.unsupported_nodes),
             format_list(&self.residual_unsupported_constructs),
             format_list(&self.metadata_loss_boundaries),
+            self.import_export_serialization_performed,
         )
     }
 }
@@ -922,6 +953,7 @@ fn format_list(values: &[String]) -> String {
 pub enum PlanImportStatus {
     Planned,
     RequiresValidation,
+    Imported,
     Unsupported,
     NotImplemented,
 }
@@ -931,6 +963,7 @@ impl PlanImportStatus {
         match self {
             Self::Planned => "planned",
             Self::RequiresValidation => "requires_validation",
+            Self::Imported => "imported",
             Self::Unsupported => "unsupported",
             Self::NotImplemented => "not_implemented",
         }
@@ -939,7 +972,11 @@ impl PlanImportStatus {
     pub const fn requires_validation(&self) -> bool {
         matches!(
             self,
-            Self::Planned | Self::RequiresValidation | Self::Unsupported | Self::NotImplemented
+            Self::Planned
+                | Self::RequiresValidation
+                | Self::Imported
+                | Self::Unsupported
+                | Self::NotImplemented
         )
     }
 }
@@ -950,6 +987,8 @@ pub struct PlanImportRequest {
     pub schema_version: Option<PlanSchemaVersion>,
     pub source_label: String,
     pub status: PlanImportStatus,
+    pub imported_document: Option<NativePlanDocument>,
+    pub serialization_performed: bool,
     pub diagnostics: Vec<Diagnostic>,
 }
 impl PlanImportRequest {
@@ -969,6 +1008,8 @@ impl PlanImportRequest {
             schema_version: None,
             source_label,
             status: PlanImportStatus::Planned,
+            imported_document: None,
+            serialization_performed: false,
             diagnostics: Vec::new(),
         })
     }
@@ -977,6 +1018,21 @@ impl PlanImportRequest {
         self.schema_version = Some(schema_version);
         self.status = PlanImportStatus::RequiresValidation;
         self
+    }
+    /// Imports a ShardLoom-native serialized plan payload without filesystem IO.
+    ///
+    /// # Errors
+    /// Returns [`ShardLoomError::InvalidOperation`] when the payload is empty or
+    /// not a valid ShardLoom-native plan serialization.
+    pub fn from_native_serialized(payload: impl Into<String>) -> Result<Self> {
+        let payload = payload.into();
+        let document = NativePlanDocument::from_native_serialized(&payload)?;
+        let mut s = Self::new(PlanInteropFormat::ShardLoomNative, document.id.as_str())?;
+        s.schema_version = Some(document.schema_version.clone());
+        s.status = PlanImportStatus::Imported;
+        s.serialization_performed = true;
+        s.imported_document = Some(document);
+        Ok(s)
     }
     /// Creates a not-implemented import request with deterministic no-fallback diagnostics.
     ///
@@ -1044,6 +1100,7 @@ impl PlanImportRequest {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PlanExportStatus {
     Planned,
+    Serialized,
     Unsupported,
     NotImplemented,
 }
@@ -1052,6 +1109,7 @@ impl PlanExportStatus {
     pub const fn as_str(&self) -> &'static str {
         match self {
             Self::Planned => "planned",
+            Self::Serialized => "serialized",
             Self::Unsupported => "unsupported",
             Self::NotImplemented => "not_implemented",
         }
@@ -1069,6 +1127,7 @@ pub struct PlanExportRequest {
     pub include_estimates: bool,
     pub include_secrets: bool,
     pub status: PlanExportStatus,
+    pub serialized_document: Option<String>,
     pub diagnostics: Vec<Diagnostic>,
 }
 impl PlanExportRequest {
@@ -1080,6 +1139,7 @@ impl PlanExportRequest {
             include_estimates: false,
             include_secrets: false,
             status: PlanExportStatus::Planned,
+            serialized_document: None,
             diagnostics: Vec::new(),
         }
     }
@@ -1106,12 +1166,19 @@ impl PlanExportRequest {
         self
     }
     #[must_use]
+    pub fn serialized_native(document: &NativePlanDocument) -> Self {
+        let mut s = Self::new(PlanInteropFormat::ShardLoomNative);
+        s.status = PlanExportStatus::Serialized;
+        s.serialized_document = Some(document.to_native_serialized());
+        s
+    }
+    #[must_use]
     pub fn not_implemented(format: PlanInteropFormat) -> Self {
         let mut s = Self::new(format);
         s.status = PlanExportStatus::NotImplemented;
         s.add_diagnostic(Diagnostic::not_implemented(
             "plan_export",
-            "Plan export is metadata-only skeleton and real serialization is not implemented.",
+            "Plan export for the requested format is not implemented.",
             "Use native explain/report flows until export is implemented.",
         ));
         s
@@ -1238,6 +1305,278 @@ impl NativePlanDocument {
             self.summary(),
             self.validation.summary()
         )
+    }
+
+    #[must_use]
+    pub fn to_native_serialized(&self) -> String {
+        let mut lines = vec![
+            "shardloom.native_plan.v1".to_string(),
+            format!("id={}", encode_plan_token(self.id.as_str())),
+            format!(
+                "schema_name={}",
+                encode_plan_token(&self.schema_version.name)
+            ),
+            format!("schema_version={}", self.schema_version.version),
+            format!("layer={}", self.layer.as_str()),
+        ];
+        for node in &self.nodes {
+            let capabilities = node
+                .capabilities
+                .iter()
+                .map(|capability| {
+                    format!(
+                        "{}:{}:{}",
+                        capability.kind.as_str(),
+                        u8::from(capability.required),
+                        encode_plan_token(&capability.reason)
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(",");
+            let boundaries = node
+                .boundaries
+                .iter()
+                .map(PlanBoundaryKind::as_str)
+                .collect::<Vec<_>>()
+                .join(",");
+            lines.push(format!(
+                "node={}|{}|{}|{}|{}|{}",
+                encode_plan_token(node.id.as_str()),
+                node.layer.as_str(),
+                node.kind.as_str(),
+                encode_plan_token(&node.label),
+                capabilities,
+                boundaries
+            ));
+        }
+        lines.join("\n")
+    }
+
+    /// Parses a ShardLoom-native serialized plan payload without IO or execution.
+    ///
+    /// # Errors
+    /// Returns [`ShardLoomError::InvalidOperation`] when the payload is empty,
+    /// malformed, or contains unknown native plan enum values.
+    pub fn from_native_serialized(payload: &str) -> Result<Self> {
+        if payload.trim().is_empty() {
+            return Err(ShardLoomError::InvalidOperation(
+                "native plan serialization payload must not be empty".to_string(),
+            ));
+        }
+
+        let mut lines = payload.lines();
+        if lines.next() != Some("shardloom.native_plan.v1") {
+            return Err(ShardLoomError::InvalidOperation(
+                "native plan serialization must start with shardloom.native_plan.v1".to_string(),
+            ));
+        }
+
+        let mut id = None;
+        let mut schema_name = None;
+        let mut schema_version = None;
+        let mut layer = None;
+        let mut nodes = Vec::new();
+
+        for line in lines {
+            if let Some(value) = line.strip_prefix("id=") {
+                id = Some(decode_plan_token(value));
+            } else if let Some(value) = line.strip_prefix("schema_name=") {
+                schema_name = Some(decode_plan_token(value));
+            } else if let Some(value) = line.strip_prefix("schema_version=") {
+                schema_version = Some(value.parse::<u32>().map_err(|error| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "invalid native plan schema version: {error}"
+                    ))
+                })?);
+            } else if let Some(value) = line.strip_prefix("layer=") {
+                layer = Some(parse_plan_layer(value)?);
+            } else if let Some(value) = line.strip_prefix("node=") {
+                nodes.push(parse_serialized_native_plan_node(value)?);
+            } else if !line.trim().is_empty() {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "unknown native plan serialization line: {line}"
+                )));
+            }
+        }
+
+        let mut document = Self::new(
+            PlanId::new(id.ok_or_else(|| {
+                ShardLoomError::InvalidOperation("native plan serialization missing id".to_string())
+            })?)?,
+            layer.ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "native plan serialization missing layer".to_string(),
+                )
+            })?,
+        );
+        document.schema_version = PlanSchemaVersion::new(
+            schema_name.ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "native plan serialization missing schema_name".to_string(),
+                )
+            })?,
+            schema_version.ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "native plan serialization missing schema_version".to_string(),
+                )
+            })?,
+        )?;
+        document.nodes = nodes;
+        document.validate_skeleton();
+        Ok(document)
+    }
+}
+
+fn encode_plan_token(value: &str) -> String {
+    value
+        .replace('%', "%25")
+        .replace('\n', "%0A")
+        .replace('\r', "%0D")
+        .replace('|', "%7C")
+        .replace(',', "%2C")
+        .replace(':', "%3A")
+        .replace('=', "%3D")
+}
+
+fn decode_plan_token(value: &str) -> String {
+    value
+        .replace("%0A", "\n")
+        .replace("%0D", "\r")
+        .replace("%7C", "|")
+        .replace("%2C", ",")
+        .replace("%3A", ":")
+        .replace("%3D", "=")
+        .replace("%25", "%")
+}
+
+fn parse_serialized_native_plan_node(value: &str) -> Result<NativePlanNode> {
+    let parts = value.split('|').collect::<Vec<_>>();
+    if parts.len() != 6 {
+        return Err(ShardLoomError::InvalidOperation(
+            "native plan node serialization must have six fields".to_string(),
+        ));
+    }
+    let mut node = NativePlanNode::new(
+        crate::PlanNodeId::new(decode_plan_token(parts[0]))?,
+        parse_plan_layer(parts[1])?,
+        parse_native_plan_node_kind(parts[2])?,
+        decode_plan_token(parts[3]),
+    );
+    if !parts[4].is_empty() {
+        for capability in parts[4].split(',') {
+            let fields = capability.splitn(3, ':').collect::<Vec<_>>();
+            if fields.len() != 3 {
+                return Err(ShardLoomError::InvalidOperation(
+                    "native plan capability serialization must have three fields".to_string(),
+                ));
+            }
+            let required = match fields[1] {
+                "1" => true,
+                "0" => false,
+                other => {
+                    return Err(ShardLoomError::InvalidOperation(format!(
+                        "invalid native plan capability required flag: {other}"
+                    )));
+                }
+            };
+            node.add_capability(PlanCapabilityRequirement {
+                kind: parse_plan_capability_kind(fields[0])?,
+                required,
+                reason: decode_plan_token(fields[2]),
+            });
+        }
+    }
+    if !parts[5].is_empty() {
+        for boundary in parts[5].split(',') {
+            node.add_boundary(parse_plan_boundary_kind(boundary)?);
+        }
+    }
+    Ok(node)
+}
+
+fn parse_plan_layer(value: &str) -> Result<PlanLayer> {
+    match value {
+        "user_intent" => Ok(PlanLayer::UserIntent),
+        "logical" => Ok(PlanLayer::Logical),
+        "optimized_logical" => Ok(PlanLayer::OptimizedLogical),
+        "physical" => Ok(PlanLayer::Physical),
+        "encoded_physical" => Ok(PlanLayer::EncodedPhysical),
+        "streaming" => Ok(PlanLayer::Streaming),
+        "runtime_task_graph" => Ok(PlanLayer::RuntimeTaskGraph),
+        "adaptive_runtime" => Ok(PlanLayer::AdaptiveRuntime),
+        "executed_report" => Ok(PlanLayer::ExecutedReport),
+        "unsupported" => Ok(PlanLayer::Unsupported),
+        other => Err(ShardLoomError::InvalidOperation(format!(
+            "unknown native plan layer: {other}"
+        ))),
+    }
+}
+
+fn parse_native_plan_node_kind(value: &str) -> Result<NativePlanNodeKind> {
+    match value {
+        "scan" => Ok(NativePlanNodeKind::Scan),
+        "filter" => Ok(NativePlanNodeKind::Filter),
+        "projection" => Ok(NativePlanNodeKind::Projection),
+        "aggregate" => Ok(NativePlanNodeKind::Aggregate),
+        "join" => Ok(NativePlanNodeKind::Join),
+        "sort" => Ok(NativePlanNodeKind::Sort),
+        "limit" => Ok(NativePlanNodeKind::Limit),
+        "udf" => Ok(NativePlanNodeKind::Udf),
+        "external_read" => Ok(NativePlanNodeKind::ExternalRead),
+        "external_write" => Ok(NativePlanNodeKind::ExternalWrite),
+        "model_call" => Ok(NativePlanNodeKind::ModelCall),
+        "embedding_generation" => Ok(NativePlanNodeKind::EmbeddingGeneration),
+        "vector_search" => Ok(NativePlanNodeKind::VectorSearch),
+        "translation" => Ok(NativePlanNodeKind::Translation),
+        "write" => Ok(NativePlanNodeKind::Write),
+        "commit" => Ok(NativePlanNodeKind::Commit),
+        "unsupported" => Ok(NativePlanNodeKind::Unsupported),
+        other => Err(ShardLoomError::InvalidOperation(format!(
+            "unknown native plan node kind: {other}"
+        ))),
+    }
+}
+
+fn parse_plan_boundary_kind(value: &str) -> Result<PlanBoundaryKind> {
+    match value {
+        "native_vortex_input" => Ok(PlanBoundaryKind::NativeVortexInput),
+        "native_vortex_output" => Ok(PlanBoundaryKind::NativeVortexOutput),
+        "compatibility_output" => Ok(PlanBoundaryKind::CompatibilityOutput),
+        "effect" => Ok(PlanBoundaryKind::Effect),
+        "translation" => Ok(PlanBoundaryKind::Translation),
+        "materialization" => Ok(PlanBoundaryKind::Materialization),
+        "zero_decode" => Ok(PlanBoundaryKind::ZeroDecode),
+        "zero_copy_boundary" => Ok(PlanBoundaryKind::ZeroCopyInterop),
+        "spill" => Ok(PlanBoundaryKind::Spill),
+        "shuffle" => Ok(PlanBoundaryKind::Shuffle),
+        "distributed" => Ok(PlanBoundaryKind::Distributed),
+        "unsupported" => Ok(PlanBoundaryKind::Unsupported),
+        other => Err(ShardLoomError::InvalidOperation(format!(
+            "unknown native plan boundary kind: {other}"
+        ))),
+    }
+}
+
+fn parse_plan_capability_kind(value: &str) -> Result<PlanCapabilityKind> {
+    match value {
+        "vortex_native_input" => Ok(PlanCapabilityKind::VortexNativeInput),
+        "vortex_native_output" => Ok(PlanCapabilityKind::VortexNativeOutput),
+        "statistics" => Ok(PlanCapabilityKind::Statistics),
+        "byte_ranges" => Ok(PlanCapabilityKind::ByteRanges),
+        "encoded_kernel" => Ok(PlanCapabilityKind::EncodedKernel),
+        "partial_decode" => Ok(PlanCapabilityKind::PartialDecode),
+        "materialization" => Ok(PlanCapabilityKind::Materialization),
+        "streaming" => Ok(PlanCapabilityKind::Streaming),
+        "spill_support" => Ok(PlanCapabilityKind::SpillSupport),
+        "object_store_access" => Ok(PlanCapabilityKind::ObjectStoreAccess),
+        "external_credentials" => Ok(PlanCapabilityKind::ExternalCredentials),
+        "explicit_effect_enablement" => Ok(PlanCapabilityKind::ExplicitEffectEnablement),
+        "compatibility_output" => Ok(PlanCapabilityKind::CompatibilityOutput),
+        "native_execution" => Ok(PlanCapabilityKind::NativeExecution),
+        "unsupported" => Ok(PlanCapabilityKind::Unsupported),
+        other => Err(ShardLoomError::InvalidOperation(format!(
+            "unknown native plan capability kind: {other}"
+        ))),
     }
 }
 
@@ -1398,6 +1737,73 @@ mod tests {
         assert!(!report.fallback_attempted);
     }
     #[test]
+    fn native_plan_serialization_roundtrips_without_side_effects() {
+        let mut document =
+            NativePlanDocument::new(PlanId::new("roundtrip").expect("id"), PlanLayer::Logical);
+        let mut scan = NativePlanNode::new(
+            PlanNodeId::new("scan_0").expect("node id"),
+            PlanLayer::Logical,
+            NativePlanNodeKind::Scan,
+            "scan | encoded",
+        );
+        scan.add_capability(PlanCapabilityRequirement::required(
+            PlanCapabilityKind::VortexNativeInput,
+            "preserve native capability: no fallback",
+        ));
+        scan.add_boundary(PlanBoundaryKind::NativeVortexInput);
+        document.add_node(scan);
+        document.validate_skeleton();
+
+        let serialized = document.to_native_serialized();
+        let imported =
+            NativePlanDocument::from_native_serialized(&serialized).expect("roundtrip import");
+
+        assert_eq!(imported.id.as_str(), "roundtrip");
+        assert_eq!(imported.node_count(), 1);
+        assert_eq!(imported.nodes[0].label, "scan | encoded");
+        assert_eq!(imported.nodes[0].capabilities.len(), 1);
+        assert_eq!(
+            imported.nodes[0].capabilities[0].kind,
+            PlanCapabilityKind::VortexNativeInput
+        );
+        assert_eq!(
+            imported.nodes[0].boundaries,
+            vec![PlanBoundaryKind::NativeVortexInput]
+        );
+        assert_eq!(imported.validation.status, PlanValidationStatus::Valid);
+    }
+    #[test]
+    fn native_plan_serialization_rejects_unknown_prefix() {
+        assert!(NativePlanDocument::from_native_serialized("other\nid=x").is_err());
+    }
+    #[test]
+    fn native_import_request_records_imported_document() {
+        let mut document =
+            NativePlanDocument::new(PlanId::new("imported").expect("id"), PlanLayer::Logical);
+        document.add_node(NativePlanNode::new(
+            PlanNodeId::new("scan_0").expect("node id"),
+            PlanLayer::Logical,
+            NativePlanNodeKind::Scan,
+            "scan",
+        ));
+        document.validate_skeleton();
+
+        let request = PlanImportRequest::from_native_serialized(document.to_native_serialized())
+            .expect("import request");
+        let report = PlanPortabilityReport::for_import_request(&request);
+
+        assert_eq!(request.status, PlanImportStatus::Imported);
+        assert!(request.imported_document.is_some());
+        assert!(request.serialization_performed);
+        assert_eq!(report.status, PlanPortabilityStatus::Imported);
+        assert!(report.import_export_serialization_performed);
+        assert_eq!(
+            report.substrait_like_representable_nodes,
+            vec!["scan_0:scan".to_string()]
+        );
+        assert!(!report.has_errors());
+    }
+    #[test]
     fn portability_report_classifies_native_nodes_and_boundaries() {
         let mut document = NativePlanDocument::empty(PlanId::new("p").expect("id"));
         let mut scan = NativePlanNode::new(
@@ -1463,6 +1869,32 @@ mod tests {
         assert!(!report.read_io);
         assert!(!report.write_io);
         assert!(!report.fallback_attempted);
+    }
+    #[test]
+    fn native_export_request_records_serialized_document() {
+        let mut document =
+            NativePlanDocument::new(PlanId::new("exported").expect("id"), PlanLayer::Logical);
+        document.add_node(NativePlanNode::new(
+            PlanNodeId::new("scan_0").expect("node id"),
+            PlanLayer::Logical,
+            NativePlanNodeKind::Scan,
+            "scan",
+        ));
+        document.validate_skeleton();
+
+        let request = PlanExportRequest::serialized_native(&document);
+        let report = PlanPortabilityReport::for_export_request(&request);
+
+        assert_eq!(request.status, PlanExportStatus::Serialized);
+        assert!(
+            request
+                .serialized_document
+                .as_deref()
+                .is_some_and(|payload| payload.starts_with("shardloom.native_plan.v1"))
+        );
+        assert_eq!(report.status, PlanPortabilityStatus::Serialized);
+        assert!(report.import_export_serialization_performed);
+        assert!(!report.has_errors());
     }
     #[test]
     fn empty_doc_zero_nodes() {

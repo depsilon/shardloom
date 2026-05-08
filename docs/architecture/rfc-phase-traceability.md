@@ -103,7 +103,7 @@ Status categories:
 | RFC 0027 | Partially implemented | CG-7, CG-8, CG-14, CG-15 | CG-14.1 adaptive optimizer/memory decision evidence and CG-15.1 CPU specialization report evidence exist; runtime adaptivity, CPU probing, SIMD dispatch, and specialized kernel execution remain planned. |
 | RFC 0028 | Partially implemented | CG-3, CG-4, CG-9, CG-10 | Output/commit readiness contracts exist; first native count-result payload path is complete; first local committed-manifest execution path is complete; local committed-manifest recovery diagnostics and first local rollback cleanup path are complete; broader payloads, generalized recovery, table/catalog commits, and object-store commits remain incomplete. |
 | RFC 0029 | Partially implemented | CG-5, CG-6, CG-16, CG-17 | CG-16.1 local encoded count certificate, CG-16.2 execution-certificate evidence surface, and CG-17.1 stateful reuse boundary report exist; broader correctness, benchmark, certificate, cache read/write/replay, and incremental execution evidence remain future gate work. |
-| RFC 0030 | Partially implemented | CG-11, CG-12, CG-18 | CG-11.1 stable CLI/API JSON protocol foundation and CG-11.2 thin Python wrapper foundation exist through `CliApiJsonProtocolReport`, `PythonWrapperFoundationReport`, `api-compat-plan`, and `python-wrapper-plan`; CG-12.1 plan portability report foundation exists through `PlanPortabilityReport`, `plan-ir`, `plan-import`, and `plan-export`; CG-18.1 universal harness report exists through `UniversalHarnessReport` and `universal-harness-plan`; real plan serialization/import/export, deployment/import, baseline runner execution, and comparison dataset materialization remain staged. |
+| RFC 0030 | Partially implemented | CG-11, CG-12, CG-18 | CG-11.1 stable CLI/API JSON protocol foundation and CG-11.2 thin Python wrapper foundation exist through `CliApiJsonProtocolReport`, `PythonWrapperFoundationReport`, `api-compat-plan`, and `python-wrapper-plan`; CG-12.1 plan portability report foundation and CG-12.4 native plan serialization exist through `PlanPortabilityReport`, `NativePlanDocument`, `plan-ir`, `plan-import native`, and `plan-export native`; CG-18.1 universal harness report exists through `UniversalHarnessReport` and `universal-harness-plan`; imported-plan execution, non-native format parsers/exporters, deployment/import, baseline runner execution, and comparison dataset materialization remain staged. |
 | RFC 0031 | Partially implemented | CG-19 | CG-19.1 native I/O envelope report exists through `NativeIoEnvelopeReport` and `native-io-envelope-plan`; source/sink runtime certificate emission, adapter runtime, reads, decode/materialization, writes, object-store I/O, and fallback remain absent. |
 | RFC 0032 | Partially implemented | CG-20 | CG-20.1 world-class sufficiency reporting exists through `WorldClassSufficiencyReport` and `world-class-sufficiency-plan`; real SQL, operators, functions, adapters, semantic conformance, migration analyzers, Python/API, DataFrame/notebook, UDF, ETL, universal-adapter, unstructured/media, correctness, benchmark, and best-default certification evidence remain staged. |
 
@@ -191,6 +191,10 @@ Competitive gate coverage:
     - secondary RFCs: RFC 0010, RFC 0012, RFC 0032
     - constraints: subprocess CLI JSON contract only; no Python package, native bindings, DataFrame/notebook/Python UDF runtime, parser/runtime execution, probes, writes, package publication, or fallback
 - CG-12: plan portability / semantic IR
+  - CG-12.4 native plan import/export serialization: complete
+    - primary RFC: RFC 0030
+    - secondary RFCs: RFC 0010, RFC 0012, RFC 0022, RFC 0024
+    - constraints: in-memory ShardLoom-native serialization only; no file IO, external format parser, imported-plan execution, external engine execution, dependency, or fallback
 - CG-13: encoded-native compressed execution
   - CG-13.1 encoded path selection report foundation: complete
     - primary RFC: RFC 0026
@@ -683,6 +687,15 @@ No fallback execution.
 - `benchmark-plan` now emits stable JSON/text fields for scenario names, workload classes, correctness-validation modes, metric-family coverage, baseline engine order, expected result slots, claim-gate evidence state, and comparison-only/no-fallback boundaries.
 - `shardloom-cli/tests/benchmark_plan_snapshots.rs` and `shardloom-contract-tests/tests/benchmark_evidence_manifest.rs` verify the inventory fields without executing benchmarks or invoking external baselines.
 - This pass adds no benchmark runner, external baseline invocation, query execution behavior, performance/superiority/best-default claim, dependency, parser, adapter runtime, object-store IO, write behavior, or fallback execution.
+
+## CG-12.4 native plan import/export serialization
+
+- Primary RFC linkage: RFC 0030 Universal API/Plan Portability/Import/Deployment/Baselines, RFC 0022 Plan IR interoperability, RFC 0010 Developer Experience, RFC 0012 Diagnostics, and RFC 0024 release/API compatibility.
+- `NativePlanDocument` now serializes to and imports from a deterministic `shardloom.native_plan.v1` payload with plan ID, schema version, layer, node kind, capability, and boundary fields.
+- `plan-export native` emits a serialized native plan payload and reports `portability_status=serialized` while keeping runtime execution, external engine execution, file IO, probes, writes, and fallback disabled.
+- `plan-import native <payload>` validates the native payload and reports `portability_status=imported`, imported plan ID, and imported node count without executing the imported plan.
+- Non-native formats remain unsupported/validation-only until explicit parsers/exporters are approved.
+- This pass adds no imported-plan execution gate, SQL parser, external format parser, filesystem/network/catalog/adapter probing, object-store IO, write IO, dependency, external engine execution, or fallback execution.
 
 ## CG-7.1 physical operator/kernel contract foundation
 

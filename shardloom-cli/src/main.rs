@@ -59,16 +59,17 @@ use shardloom_exec::{
 };
 use shardloom_plan::{
     AdaptiveOptimizerMemoryReport, EstimateReport, ExplainReport, NativePlanDocument,
-    ObjectStoreCheckpointRetryInput, ObjectStoreCheckpointRetryReport,
-    ObjectStoreCommitProtocolInput, ObjectStoreCommitProtocolReport,
-    ObjectStoreDistributedSchedulingPolicy, ObjectStoreDistributedSchedulingReport,
-    ObjectStoreRangePlanningPolicy, ObjectStoreRangePlanningReport,
-    ObjectStoreRequestCoalescingReport, OptimizerPhase, OptimizerPlanSkeleton, PlanExportRequest,
-    PlanId, PlanImportRequest, PlanInteropFormat, PlanPortabilityReport, ProjectionRequest,
-    ScanPlanSkeleton, ScanRequest, plan_adaptive_optimizer_memory,
-    plan_object_store_checkpoint_retry, plan_object_store_commit_protocol,
-    plan_object_store_distributed_scheduling, plan_object_store_ranges,
-    plan_object_store_request_coalescing, plan_universal_input_source,
+    NativePlanNode, NativePlanNodeKind, ObjectStoreCheckpointRetryInput,
+    ObjectStoreCheckpointRetryReport, ObjectStoreCommitProtocolInput,
+    ObjectStoreCommitProtocolReport, ObjectStoreDistributedSchedulingPolicy,
+    ObjectStoreDistributedSchedulingReport, ObjectStoreRangePlanningPolicy,
+    ObjectStoreRangePlanningReport, ObjectStoreRequestCoalescingReport, OptimizerPhase,
+    OptimizerPlanSkeleton, PlanBoundaryKind, PlanCapabilityKind, PlanCapabilityRequirement,
+    PlanExportRequest, PlanId, PlanImportRequest, PlanInteropFormat, PlanLayer, PlanNodeId,
+    PlanPortabilityReport, ProjectionRequest, ScanPlanSkeleton, ScanRequest,
+    plan_adaptive_optimizer_memory, plan_object_store_checkpoint_retry,
+    plan_object_store_commit_protocol, plan_object_store_distributed_scheduling,
+    plan_object_store_ranges, plan_object_store_request_coalescing, plan_universal_input_source,
 };
 use shardloom_vortex::{
     VortexAdapterCapabilityReport, VortexAdapterReadiness, VortexAdaptiveSizingReport,
@@ -3696,6 +3697,27 @@ fn plan_portability_fields(report: &PlanPortabilityReport, mode: &str) -> Vec<(S
     push_bool_field(&mut fields, "fallback_attempted", report.fallback_attempted);
     push_count_field(&mut fields, "diagnostic_count", report.diagnostics.len());
     fields
+}
+
+fn native_plan_export_document() -> Result<NativePlanDocument, ShardLoomError> {
+    let mut document = NativePlanDocument::new(
+        PlanId::new("plan-export-native-skeleton")?,
+        PlanLayer::Logical,
+    );
+    let mut scan = NativePlanNode::new(
+        PlanNodeId::new("scan_0")?,
+        PlanLayer::Logical,
+        NativePlanNodeKind::Scan,
+        "native Vortex scan placeholder",
+    );
+    scan.add_capability(PlanCapabilityRequirement::required(
+        PlanCapabilityKind::VortexNativeInput,
+        "native serialization preserves ShardLoom plan capability requirements",
+    ));
+    scan.add_boundary(PlanBoundaryKind::NativeVortexInput);
+    document.add_node(scan);
+    document.validate_skeleton();
+    Ok(document)
 }
 
 fn push_field(fields: &mut Vec<(String, String)>, key: &str, value: &str) {
@@ -11339,23 +11361,50 @@ fn run(args: Vec<String>) -> ExitCode {
                 return ExitCode::from(2);
             };
             let format_kind = parse_plan_interop_format(&format_raw);
-            let request = match PlanImportRequest::not_implemented(format_kind, source_label) {
-                Ok(v) => v,
-                Err(error) => {
-                    return emit_error("plan-import", format, "invalid import request", &error);
+            let request = if format_kind == PlanInteropFormat::ShardLoomNative {
+                match PlanImportRequest::from_native_serialized(source_label) {
+                    Ok(v) => v,
+                    Err(error) => {
+                        return emit_error("plan-import", format, "invalid import request", &error);
+                    }
+                }
+            } else {
+                match PlanImportRequest::not_implemented(format_kind, source_label) {
+                    Ok(v) => v,
+                    Err(error) => {
+                        return emit_error("plan-import", format, "invalid import request", &error);
+                    }
                 }
             };
             let report = PlanPortabilityReport::for_import_request(&request);
+            let mut fields = plan_portability_fields(&report, "plan_import");
+            if let Some(document) = &request.imported_document {
+                push_field(&mut fields, "imported_plan_id", document.id.as_str());
+                push_count_field(
+                    &mut fields,
+                    "imported_plan_node_count",
+                    document.node_count(),
+                );
+            }
+            let command_status = if report.has_errors() {
+                CommandStatus::Unsupported
+            } else {
+                CommandStatus::Success
+            };
             emit(
                 "plan-import",
                 format,
-                CommandStatus::Unsupported,
-                "plan import skeleton".to_string(),
+                command_status,
+                "plan import".to_string(),
                 format!("{}\n\n{}", request.summary(), report.to_human_text()),
                 report.diagnostics.clone(),
-                plan_portability_fields(&report, "plan_import"),
+                fields,
             );
-            ExitCode::from(1)
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
         }
         Some("plan-export") => {
             let Some(format_raw) = args.next() else {
@@ -11363,18 +11412,49 @@ fn run(args: Vec<String>) -> ExitCode {
                 return ExitCode::from(2);
             };
             let format_kind = parse_plan_interop_format(&format_raw);
-            let request = PlanExportRequest::not_implemented(format_kind);
+            let mut serialized_plan = None;
+            let mut serialized_plan_node_count = None;
+            let request = if format_kind == PlanInteropFormat::ShardLoomNative {
+                let document = match native_plan_export_document() {
+                    Ok(document) => document,
+                    Err(error) => {
+                        return emit_error("plan-export", format, "invalid native plan", &error);
+                    }
+                };
+                serialized_plan_node_count = Some(document.node_count());
+                let request = PlanExportRequest::serialized_native(&document);
+                serialized_plan.clone_from(&request.serialized_document);
+                request
+            } else {
+                PlanExportRequest::not_implemented(format_kind)
+            };
             let report = PlanPortabilityReport::for_export_request(&request);
+            let mut fields = plan_portability_fields(&report, "plan_export");
+            if let Some(serialized_plan) = &serialized_plan {
+                push_field(&mut fields, "serialized_plan", serialized_plan);
+            }
+            if let Some(node_count) = serialized_plan_node_count {
+                push_count_field(&mut fields, "serialized_plan_node_count", node_count);
+            }
+            let command_status = if report.has_errors() {
+                CommandStatus::Unsupported
+            } else {
+                CommandStatus::Success
+            };
             emit(
                 "plan-export",
                 format,
-                CommandStatus::Unsupported,
-                "plan export skeleton".to_string(),
+                command_status,
+                "plan export".to_string(),
                 format!("{}\n\n{}", request.summary(), report.to_human_text()),
                 report.diagnostics.clone(),
-                plan_portability_fields(&report, "plan_export"),
+                fields,
             );
-            ExitCode::from(1)
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
         }
         Some("memory-plan") => {
             let Some(memory_gb) = args.next() else {
@@ -22474,9 +22554,15 @@ mod tests {
     }
 
     #[test]
-    fn plan_export_returns_non_zero_for_not_implemented() {
-        let code = run(vec!["plan-export".to_string(), "native".to_string()]);
+    fn plan_export_json_like_returns_non_zero_for_not_implemented() {
+        let code = run(vec!["plan-export".to_string(), "json-like".to_string()]);
         assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn plan_export_native_returns_success() {
+        let code = run(vec!["plan-export".to_string(), "native".to_string()]);
+        assert_eq!(code, ExitCode::SUCCESS);
     }
 
     #[test]
