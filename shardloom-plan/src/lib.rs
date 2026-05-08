@@ -22,15 +22,17 @@ pub use input_planning::{
     plan_universal_input_source, universal_input_planning_is_side_effect_free,
 };
 pub use object_store::{
-    ObjectStoreCommitProtocolInput, ObjectStoreCommitProtocolReport,
-    ObjectStoreCommitProtocolStatus, ObjectStoreDistributedSchedulingPolicy,
-    ObjectStoreDistributedSchedulingReport, ObjectStoreDistributedSchedulingStatus,
-    ObjectStoreDistributedTaskPlan, ObjectStoreRangePlanningPolicy, ObjectStoreRangePlanningReport,
-    ObjectStoreRangePlanningStatus, ObjectStoreRangeRequest, ObjectStoreRequestCoalescingDecision,
+    ObjectStoreCheckpointRetryInput, ObjectStoreCheckpointRetryReport,
+    ObjectStoreCheckpointRetryStatus, ObjectStoreCommitProtocolInput,
+    ObjectStoreCommitProtocolReport, ObjectStoreCommitProtocolStatus,
+    ObjectStoreDistributedSchedulingPolicy, ObjectStoreDistributedSchedulingReport,
+    ObjectStoreDistributedSchedulingStatus, ObjectStoreDistributedTaskPlan,
+    ObjectStoreRangePlanningPolicy, ObjectStoreRangePlanningReport, ObjectStoreRangePlanningStatus,
+    ObjectStoreRangeRequest, ObjectStoreRequestCoalescingDecision,
     ObjectStoreRequestCoalescingDecisionKind, ObjectStoreRequestCoalescingReport,
-    ObjectStoreRequestCoalescingStatus, plan_object_store_commit_protocol,
-    plan_object_store_distributed_scheduling, plan_object_store_ranges,
-    plan_object_store_request_coalescing,
+    ObjectStoreRequestCoalescingStatus, plan_object_store_checkpoint_retry,
+    plan_object_store_commit_protocol, plan_object_store_distributed_scheduling,
+    plan_object_store_ranges, plan_object_store_request_coalescing,
 };
 pub use optimizer::{
     AdaptiveDecisionKind, AdaptiveExecutionDecision, AdaptiveTrigger, AdaptiveTriggerKind,

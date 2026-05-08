@@ -425,6 +425,165 @@ impl ObjectStoreDistributedSchedulingReport {
     }
 }
 
+/// Report-only input for object-store checkpoint/retry/idempotency readiness.
+#[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct ObjectStoreCheckpointRetryInput {
+    pub scheduling_report: ObjectStoreDistributedSchedulingReport,
+    pub retry_policy_declared: bool,
+    pub checkpoint_plan_declared: bool,
+    pub idempotency_keys_declared: bool,
+    pub attempt_record_declared: bool,
+    pub cleanup_policy_declared: bool,
+}
+
+impl ObjectStoreCheckpointRetryInput {
+    #[must_use]
+    pub fn new(scheduling_report: ObjectStoreDistributedSchedulingReport) -> Self {
+        Self {
+            scheduling_report,
+            retry_policy_declared: false,
+            checkpoint_plan_declared: false,
+            idempotency_keys_declared: false,
+            attempt_record_declared: false,
+            cleanup_policy_declared: false,
+        }
+    }
+
+    #[must_use]
+    pub fn with_retry_policy(mut self, value: bool) -> Self {
+        self.retry_policy_declared = value;
+        self
+    }
+
+    #[must_use]
+    pub fn with_checkpoint_plan(mut self, value: bool) -> Self {
+        self.checkpoint_plan_declared = value;
+        self
+    }
+
+    #[must_use]
+    pub fn with_idempotency_keys(mut self, value: bool) -> Self {
+        self.idempotency_keys_declared = value;
+        self
+    }
+
+    #[must_use]
+    pub fn with_attempt_record(mut self, value: bool) -> Self {
+        self.attempt_record_declared = value;
+        self
+    }
+
+    #[must_use]
+    pub fn with_cleanup_policy(mut self, value: bool) -> Self {
+        self.cleanup_policy_declared = value;
+        self
+    }
+}
+
+/// Object-store checkpoint/retry/idempotency readiness status.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ObjectStoreCheckpointRetryStatus {
+    Ready,
+    BlockedByScheduling,
+    BlockedMissingRetryPolicy,
+    BlockedMissingCheckpointPlan,
+    BlockedMissingIdempotency,
+    BlockedMissingAttemptRecord,
+    BlockedMissingCleanupPolicy,
+}
+
+impl ObjectStoreCheckpointRetryStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Ready => "ready",
+            Self::BlockedByScheduling => "blocked_by_scheduling",
+            Self::BlockedMissingRetryPolicy => "blocked_missing_retry_policy",
+            Self::BlockedMissingCheckpointPlan => "blocked_missing_checkpoint_plan",
+            Self::BlockedMissingIdempotency => "blocked_missing_idempotency",
+            Self::BlockedMissingAttemptRecord => "blocked_missing_attempt_record",
+            Self::BlockedMissingCleanupPolicy => "blocked_missing_cleanup_policy",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_error(&self) -> bool {
+        !matches!(self, Self::Ready)
+    }
+}
+
+/// Machine-readable CG-10 checkpoint/retry/idempotency planning evidence.
+#[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct ObjectStoreCheckpointRetryReport {
+    pub input: ObjectStoreCheckpointRetryInput,
+    pub status: ObjectStoreCheckpointRetryStatus,
+    pub diagnostics: Vec<Diagnostic>,
+    pub task_count: usize,
+    pub retryable_task_count: usize,
+    pub planned_checkpoint_record_count: usize,
+    pub planned_attempt_record_count: usize,
+    pub requires_retry_policy: bool,
+    pub requires_checkpoint_plan: bool,
+    pub requires_idempotency_keys: bool,
+    pub requires_attempt_records: bool,
+    pub requires_cleanup_policy: bool,
+    pub retry_execution_allowed: bool,
+    pub checkpoint_write_allowed: bool,
+    pub cleanup_execution_allowed: bool,
+    pub coordinator_started: bool,
+    pub worker_started: bool,
+    pub object_store_io: bool,
+    pub write_io: bool,
+    pub fallback_execution_allowed: bool,
+}
+
+impl ObjectStoreCheckpointRetryReport {
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.status.is_error()
+            || self.retry_execution_allowed
+            || self.checkpoint_write_allowed
+            || self.cleanup_execution_allowed
+            || self.coordinator_started
+            || self.worker_started
+            || self.object_store_io
+            || self.write_io
+            || self.fallback_execution_allowed
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    #[must_use]
+    pub const fn side_effect_free(&self) -> bool {
+        !self.retry_execution_allowed
+            && !self.checkpoint_write_allowed
+            && !self.cleanup_execution_allowed
+            && !self.coordinator_started
+            && !self.worker_started
+            && !self.object_store_io
+            && !self.write_io
+            && !self.fallback_execution_allowed
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "object_store_checkpoint_retry(status={}, tasks={}, retryable_tasks={}, checkpoint_records={}, attempt_records={}, retry_execution=false, checkpoint_write=false, cleanup_execution=false, object_store_io=false, write_io=false, fallback_execution=disabled)",
+            self.status.as_str(),
+            self.task_count,
+            self.retryable_task_count,
+            self.planned_checkpoint_record_count,
+            self.planned_attempt_record_count
+        )
+    }
+}
+
 /// Report-only object-store commit protocol input.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(clippy::struct_excessive_bools)]
@@ -978,6 +1137,139 @@ fn object_store_scheduling_error(
     )
 }
 
+/// Plans object-store checkpoint/retry/idempotency readiness without executing retries or writes.
+#[must_use]
+pub fn plan_object_store_checkpoint_retry(
+    input: ObjectStoreCheckpointRetryInput,
+) -> ObjectStoreCheckpointRetryReport {
+    let status = object_store_checkpoint_retry_status(&input);
+    let task_count = input.scheduling_report.planned_task_count;
+    let ready = status == ObjectStoreCheckpointRetryStatus::Ready;
+    let diagnostics = object_store_checkpoint_retry_diagnostics(&input, status);
+
+    ObjectStoreCheckpointRetryReport {
+        task_count,
+        retryable_task_count: if ready { task_count } else { 0 },
+        planned_checkpoint_record_count: if ready { task_count } else { 0 },
+        planned_attempt_record_count: if ready { task_count } else { 0 },
+        requires_retry_policy: !input.retry_policy_declared,
+        requires_checkpoint_plan: !input.checkpoint_plan_declared,
+        requires_idempotency_keys: !input.idempotency_keys_declared,
+        requires_attempt_records: !input.attempt_record_declared,
+        requires_cleanup_policy: !input.cleanup_policy_declared,
+        retry_execution_allowed: false,
+        checkpoint_write_allowed: false,
+        cleanup_execution_allowed: false,
+        coordinator_started: false,
+        worker_started: false,
+        object_store_io: false,
+        write_io: false,
+        fallback_execution_allowed: false,
+        input,
+        status,
+        diagnostics,
+    }
+}
+
+fn object_store_checkpoint_retry_status(
+    input: &ObjectStoreCheckpointRetryInput,
+) -> ObjectStoreCheckpointRetryStatus {
+    if input.scheduling_report.has_errors() {
+        ObjectStoreCheckpointRetryStatus::BlockedByScheduling
+    } else if !input.retry_policy_declared {
+        ObjectStoreCheckpointRetryStatus::BlockedMissingRetryPolicy
+    } else if !input.checkpoint_plan_declared {
+        ObjectStoreCheckpointRetryStatus::BlockedMissingCheckpointPlan
+    } else if !input.idempotency_keys_declared {
+        ObjectStoreCheckpointRetryStatus::BlockedMissingIdempotency
+    } else if !input.attempt_record_declared {
+        ObjectStoreCheckpointRetryStatus::BlockedMissingAttemptRecord
+    } else if !input.cleanup_policy_declared {
+        ObjectStoreCheckpointRetryStatus::BlockedMissingCleanupPolicy
+    } else {
+        ObjectStoreCheckpointRetryStatus::Ready
+    }
+}
+
+fn object_store_checkpoint_retry_diagnostics(
+    input: &ObjectStoreCheckpointRetryInput,
+    status: ObjectStoreCheckpointRetryStatus,
+) -> Vec<Diagnostic> {
+    match status {
+        ObjectStoreCheckpointRetryStatus::Ready => Vec::new(),
+        ObjectStoreCheckpointRetryStatus::BlockedByScheduling => {
+            if input.scheduling_report.diagnostics.is_empty() {
+                vec![object_store_checkpoint_retry_error(
+                    DiagnosticCode::ObjectStoreUnsupported,
+                    "scheduling_report",
+                    "object-store checkpoint/retry planning requires successful scheduling evidence",
+                    "Fix distributed scheduling blockers before planning checkpoint/retry readiness.",
+                )]
+            } else {
+                input.scheduling_report.diagnostics.clone()
+            }
+        }
+        ObjectStoreCheckpointRetryStatus::BlockedMissingRetryPolicy => {
+            vec![object_store_checkpoint_retry_error(
+                DiagnosticCode::ObjectStoreUnsupported,
+                "retry_policy",
+                "object-store checkpoint/retry planning requires a declared retry policy",
+                "Declare retry limits and retryable failure classes before distributed execution.",
+            )]
+        }
+        ObjectStoreCheckpointRetryStatus::BlockedMissingCheckpointPlan => {
+            vec![object_store_checkpoint_retry_error(
+                DiagnosticCode::ObjectStoreUnsupported,
+                "checkpoint_plan",
+                "object-store checkpoint/retry planning requires a checkpoint plan",
+                "Declare checkpoint record identity and storage behavior before distributed execution.",
+            )]
+        }
+        ObjectStoreCheckpointRetryStatus::BlockedMissingIdempotency => {
+            vec![object_store_checkpoint_retry_error(
+                DiagnosticCode::ObjectStoreUnsupported,
+                "idempotency_keys",
+                "object-store checkpoint/retry planning requires task idempotency keys",
+                "Declare stable task idempotency keys before distributed execution.",
+            )]
+        }
+        ObjectStoreCheckpointRetryStatus::BlockedMissingAttemptRecord => {
+            vec![object_store_checkpoint_retry_error(
+                DiagnosticCode::ObjectStoreUnsupported,
+                "attempt_record",
+                "object-store checkpoint/retry planning requires attempt record evidence",
+                "Declare attempt record identity before distributed execution.",
+            )]
+        }
+        ObjectStoreCheckpointRetryStatus::BlockedMissingCleanupPolicy => {
+            vec![object_store_checkpoint_retry_error(
+                DiagnosticCode::ObjectStoreUnsupported,
+                "cleanup_policy",
+                "object-store checkpoint/retry planning requires cleanup policy evidence",
+                "Declare cleanup behavior for failed attempts before distributed execution.",
+            )]
+        }
+    }
+}
+
+fn object_store_checkpoint_retry_error(
+    code: DiagnosticCode,
+    feature: impl Into<String>,
+    message: impl Into<String>,
+    suggested_next_step: impl Into<String>,
+) -> Diagnostic {
+    Diagnostic::new(
+        code,
+        DiagnosticSeverity::Error,
+        DiagnosticCategory::ObjectStore,
+        message,
+        Some(feature.into()),
+        Some("Object-store checkpoint/retry planning is report-only and did not execute retries, write checkpoints, or contact storage.".to_string()),
+        Some(suggested_next_step.into()),
+        FallbackStatus::disabled_by_policy(),
+    )
+}
+
 fn object_store_request_coalescing_status(
     uncoalesced: &ObjectStoreRangePlanningReport,
     coalesced: &ObjectStoreRangePlanningReport,
@@ -1479,6 +1771,78 @@ mod tests {
             ObjectStoreDistributedSchedulingStatus::BlockedTaskBudget
         );
         assert_eq!(report.planned_task_count, 0);
+        assert!(report.has_errors());
+        assert!(report.side_effect_free());
+    }
+
+    fn ready_checkpoint_retry_input() -> ObjectStoreCheckpointRetryInput {
+        ObjectStoreCheckpointRetryInput::new(distributed_scheduling_report(
+            vec![ByteRange::new(0, 1024), ByteRange::new(8192, 1024)],
+            ObjectStoreDistributedSchedulingPolicy {
+                max_requests_per_task: 1,
+                max_task_count: 4,
+            },
+        ))
+        .with_retry_policy(true)
+        .with_checkpoint_plan(true)
+        .with_idempotency_keys(true)
+        .with_attempt_record(true)
+        .with_cleanup_policy(true)
+    }
+
+    #[test]
+    fn checkpoint_retry_ready_is_report_only() {
+        let report = plan_object_store_checkpoint_retry(ready_checkpoint_retry_input());
+
+        assert_eq!(report.status, ObjectStoreCheckpointRetryStatus::Ready);
+        assert_eq!(report.task_count, 2);
+        assert_eq!(report.retryable_task_count, 2);
+        assert_eq!(report.planned_checkpoint_record_count, 2);
+        assert_eq!(report.planned_attempt_record_count, 2);
+        assert!(report.side_effect_free());
+        assert!(!report.has_errors());
+    }
+
+    #[test]
+    fn checkpoint_retry_blocks_when_scheduling_blocks() {
+        let scheduling_report = distributed_scheduling_report(
+            vec![
+                ByteRange::new(0, 1024),
+                ByteRange::new(8192, 1024),
+                ByteRange::new(16_384, 1024),
+            ],
+            ObjectStoreDistributedSchedulingPolicy {
+                max_requests_per_task: 1,
+                max_task_count: 2,
+            },
+        );
+        let report = plan_object_store_checkpoint_retry(
+            ObjectStoreCheckpointRetryInput::new(scheduling_report)
+                .with_retry_policy(true)
+                .with_checkpoint_plan(true)
+                .with_idempotency_keys(true)
+                .with_attempt_record(true)
+                .with_cleanup_policy(true),
+        );
+
+        assert_eq!(
+            report.status,
+            ObjectStoreCheckpointRetryStatus::BlockedByScheduling
+        );
+        assert!(report.has_errors());
+        assert!(report.side_effect_free());
+    }
+
+    #[test]
+    fn checkpoint_retry_blocks_missing_idempotency() {
+        let input = ready_checkpoint_retry_input().with_idempotency_keys(false);
+        let report = plan_object_store_checkpoint_retry(input);
+
+        assert_eq!(
+            report.status,
+            ObjectStoreCheckpointRetryStatus::BlockedMissingIdempotency
+        );
+        assert!(report.requires_idempotency_keys);
         assert!(report.has_errors());
         assert!(report.side_effect_free());
     }
