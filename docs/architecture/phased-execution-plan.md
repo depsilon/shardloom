@@ -45,30 +45,31 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-13.1 encoded execution path selection report foundation
+- [x] Session label: CG-14.1 adaptive optimizer and memory decision report foundation
   - Primary files:
-    - `shardloom-vortex/src/encoded_path_selection.rs`
-    - `shardloom-vortex/src/lib.rs`
+    - `shardloom-plan/src/optimizer.rs`
+    - `shardloom-plan/src/lib.rs`
     - `shardloom-cli/src/main.rs`
-    - `shardloom-cli/tests/encoded_path_selection_snapshots.rs`
+    - `shardloom-cli/tests/adaptive_optimizer_memory_snapshots.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-    - `docs/rfcs/0026-encoded-native-reads-query-primitives-compressed-execution.md`
-  - Scope: Add a report-only CG-13 path-selection contract that composes existing count, filter, projection, and execution-profile evidence into an agent-readable encoded-native candidate report without implementing generalized encoded execution, scans, decoding, materialization, Arrow conversion, object-store IO, writes, spill IO, external engine execution, superiority claims, or fallback execution.
+    - `docs/rfcs/0016-optimizer-adaptive-execution-runtime-filters-skew.md`
+    - `docs/rfcs/0014-memory-management-spill-oom-safety.md`
+  - Scope: Add a report-only CG-14 adaptive optimizer/memory decision contract that records conservative runtime-filter gates, dynamic-pruning proof requirements, bounded-memory/spill-policy requirements, adaptive decision candidates, skew signal representation, and no-fallback side-effect boundaries without applying runtime adaptation or executing optimizer rewrites.
   - Checklist:
-    - [x] Add `VortexEncodedExecutionPathSelectionReport` for count/filter/project encoded-native candidate selection.
-    - [x] Surface `vortex-encoded-path-selection-plan --format json` with decode/materialization avoided fields.
-    - [x] Keep path selection report-only with no data reads, decode, materialization, Arrow conversion, object-store IO, writes, spill IO, runtime execution, external engine execution, or fallback.
+    - [x] Add `AdaptiveOptimizerMemoryReport` for runtime-filter, dynamic-pruning, adaptive, skew, and memory/spill decision evidence.
+    - [x] Surface `optimizer-adaptive-memory-plan --format json` with deterministic decision, boundary, and side-effect fields.
+    - [x] Keep adaptive optimization report-only with no optimizer execution, runtime adaptation, runtime filter build/apply, plan rewrite, data reads, decode, materialization, Arrow conversion, object-store IO, writes, spill IO, external engine execution, or fallback.
     - [x] Add focused unit and CLI JSON snapshot coverage.
-    - [x] Update phase plan, RFC traceability, and RFC 0026.
+    - [x] Update phase plan, RFC traceability, RFC 0016, and RFC 0014.
     - [x] Run full required validation.
   - Local validation status:
-    - focused `shardloom-vortex` `encoded_path_selection` tests passed
-    - focused `shardloom-cli` `encoded_path_selection_snapshots` tests passed
-    - focused Clippy for `shardloom-vortex` and `shardloom-cli` passed with toolchain `1.91.1`
+    - focused `shardloom-plan` `adaptive_optimizer_memory` tests passed
+    - focused `shardloom-cli` `adaptive_optimizer_memory_snapshots` tests passed
+    - focused Clippy for `shardloom-plan` and `shardloom-cli` passed with toolchain `1.91.1`
     - full Rust validation passed with toolchain `1.91.1`
     - docs hygiene scans passed for `git diff --check` and hidden/bidi controls
-  - Explicitly not included: generalized encoded-data execution, direct broad count/filter/project execution, new kernels, parser work, SQL execution, adapters, scan/read-start APIs, filesystem probing, network probing, catalog probing, object-store IO, row reads, decode/materialization, Arrow conversion, writes, spill IO, package publication, benchmark claims, superiority claims, or fallback execution.
+  - Explicitly not included: real optimizer execution, cost-model execution, runtime adaptation application, runtime-filter construction/application, dynamic pruning execution, plan rewrites, join/aggregate/skew execution, memory allocator/reservation runtime, spill execution, parser work, SQL execution, adapters, object-store IO, row reads, decode/materialization, Arrow conversion, writes, package publication, benchmark claims, superiority claims, or fallback execution.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -1109,10 +1110,12 @@ Status legend:
     - generalized direct encoded count/filter/project execution remains deferred
 
 - [ ] CG-14 — Runtime-adaptive optimizer and execution memory (**planned**)
+  - [x] CG-14.1 adaptive optimizer and memory decision report foundation
   - Scope:
-    - adaptive decisions with deterministic diagnostics
+    - adaptive decisions with deterministic diagnostics through `optimizer-adaptive-memory-plan`
     - conservative runtime filters and pruning
     - bounded-memory-safe adaptation boundaries
+    - runtime adaptation, filter application, plan rewrite, and spill execution remain deferred
 
 - [ ] CG-15 — CPU operator specialization (**planned**)
   - Scope:
@@ -1364,8 +1367,12 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [ ] broad compressed-kernel correctness and benchmark certification
 
 ### CG-14 detailed checklist
-- [ ] adaptive decisions with deterministic diagnostics
-- [ ] bounded-memory-safe adaptation boundaries
+- [x] CG-14.1 adaptive decisions with deterministic diagnostics
+- [x] CG-14.2 bounded-memory-safe adaptation boundaries
+- [x] CG-14.3 conservative runtime-filter and dynamic-pruning proof gates
+- [ ] runtime adaptation application
+- [ ] runtime filter construction/application
+- [ ] spill-aware adaptive execution
 
 ### CG-15 detailed checklist
 - [ ] commodity CPU vectorized specialization is first-class

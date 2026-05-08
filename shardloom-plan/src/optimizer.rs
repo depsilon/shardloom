@@ -185,6 +185,22 @@ impl OptimizerRuleDecision {
         }
     }
     #[must_use]
+    pub fn deferred(
+        rule_id: OptimizerRuleId,
+        phase: OptimizerPhase,
+        kind: OptimizerRuleKind,
+        reason: impl Into<String>,
+    ) -> Self {
+        Self {
+            rule_id,
+            phase,
+            kind,
+            status: OptimizerRuleStatus::Deferred,
+            reason: reason.into(),
+            diagnostics: Vec::new(),
+        }
+    }
+    #[must_use]
     pub fn unsupported(
         rule_id: OptimizerRuleId,
         phase: OptimizerPhase,
@@ -1050,6 +1066,267 @@ impl OptimizerPlanSkeleton {
     }
 }
 
+const ADAPTIVE_MEMORY_SCHEMA_VERSION: &str = "shardloom.adaptive_optimizer_memory.v1";
+const ADAPTIVE_MEMORY_REPORT_ID: &str = "cg14.adaptive-optimizer-memory";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AdaptiveOptimizerMemoryStatus {
+    ReportOnlyPlanned,
+    BlockedByUnsafeRuntimeFilter,
+    BlockedByMemoryBoundary,
+    Unsupported,
+}
+
+impl AdaptiveOptimizerMemoryStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::ReportOnlyPlanned => "report_only_planned",
+            Self::BlockedByUnsafeRuntimeFilter => "blocked_by_unsafe_runtime_filter",
+            Self::BlockedByMemoryBoundary => "blocked_by_memory_boundary",
+            Self::Unsupported => "unsupported",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_error(&self) -> bool {
+        !matches!(self, Self::ReportOnlyPlanned)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct AdaptiveOptimizerMemoryReport {
+    pub schema_version: &'static str,
+    pub report_id: String,
+    pub status: AdaptiveOptimizerMemoryStatus,
+    pub optimizer_phase: OptimizerPhase,
+    pub rule_decisions: Vec<OptimizerRuleDecision>,
+    pub runtime_filters: Vec<RuntimeFilter>,
+    pub dynamic_pruning_decision: DynamicPruningDecision,
+    pub adaptive_decisions: Vec<AdaptiveExecutionDecision>,
+    pub skew_signals: Vec<SkewSignal>,
+    pub conservative_runtime_filter_required: bool,
+    pub dynamic_pruning_requires_proof: bool,
+    pub memory_budget_required: bool,
+    pub bounded_memory_required: bool,
+    pub spill_policy_required: bool,
+    pub deterministic_oom_boundary: bool,
+    pub sink_requirement_boundary_required: bool,
+    pub runtime_fact_required_before_adaptation: bool,
+    pub optimizer_execution: bool,
+    pub runtime_adaptation_applied: bool,
+    pub runtime_filter_built: bool,
+    pub runtime_filter_applied: bool,
+    pub plan_rewritten: bool,
+    pub data_read: bool,
+    pub data_decoded: bool,
+    pub data_materialized: bool,
+    pub row_read: bool,
+    pub arrow_converted: bool,
+    pub object_store_io: bool,
+    pub write_io: bool,
+    pub spill_io_performed: bool,
+    pub external_engine_execution: bool,
+    pub fallback_execution_allowed: bool,
+    pub fallback_attempted: bool,
+    pub production_claim_allowed: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl AdaptiveOptimizerMemoryReport {
+    #[must_use]
+    pub fn cg14_foundation() -> Self {
+        let rule_decisions = vec![
+            OptimizerRuleDecision::deferred(
+                static_rule_id("cg14.runtime_filter.conservative_gate"),
+                OptimizerPhase::RuntimeAdaptive,
+                OptimizerRuleKind::RuntimeFilterPushdown,
+                "Runtime filters require conservative proof before they can be built or applied.",
+            ),
+            OptimizerRuleDecision::deferred(
+                static_rule_id("cg14.dynamic_pruning.proof_gate"),
+                OptimizerPhase::RuntimeAdaptive,
+                OptimizerRuleKind::DynamicPruning,
+                "Dynamic pruning requires runtime proof and deterministic diagnostics.",
+            ),
+            OptimizerRuleDecision::deferred(
+                static_rule_id("cg14.memory_spill.boundary_gate"),
+                OptimizerPhase::RuntimeAdaptive,
+                OptimizerRuleKind::MemorySpillAwarePlanning,
+                "Memory pressure can choose only bounded native adaptations until spill execution is implemented.",
+            ),
+        ];
+        let runtime_filters = vec![RuntimeFilter::planned(
+            RuntimeFilterKind::Range,
+            "Conservative range runtime filter candidate; no filter is built or applied in report-only mode.",
+        )];
+        let adaptive_decisions = vec![
+            AdaptiveExecutionDecision::new(
+                AdaptiveTrigger::new(
+                    AdaptiveTriggerKind::MemoryPressure,
+                    "memory pressure fact would be required at runtime",
+                ),
+                AdaptiveDecisionKind::ReduceParallelism,
+                "Candidate adaptation only; no plan rewrite or execution occurs.",
+            ),
+            AdaptiveExecutionDecision::new(
+                AdaptiveTrigger::new(
+                    AdaptiveTriggerKind::RuntimeFilterAvailable,
+                    "runtime filter availability would require a conservative proof",
+                ),
+                AdaptiveDecisionKind::ApplyRuntimeFilter,
+                "Candidate adaptation only; runtime filter application remains disabled.",
+            ),
+        ];
+        let skew_signals = vec![SkewSignal::new(
+            SkewSignalKind::SegmentRowCount,
+            SkewSeverity::Unknown,
+            "Skew detection is represented as a future runtime fact, not measured here.",
+        )];
+
+        Self {
+            schema_version: ADAPTIVE_MEMORY_SCHEMA_VERSION,
+            report_id: ADAPTIVE_MEMORY_REPORT_ID.to_string(),
+            status: AdaptiveOptimizerMemoryStatus::ReportOnlyPlanned,
+            optimizer_phase: OptimizerPhase::RuntimeAdaptive,
+            rule_decisions,
+            runtime_filters,
+            dynamic_pruning_decision: DynamicPruningDecision::Candidate {
+                reason: "Dynamic pruning is candidate-only until runtime proof exists.".to_string(),
+            },
+            adaptive_decisions,
+            skew_signals,
+            conservative_runtime_filter_required: true,
+            dynamic_pruning_requires_proof: true,
+            memory_budget_required: true,
+            bounded_memory_required: true,
+            spill_policy_required: true,
+            deterministic_oom_boundary: true,
+            sink_requirement_boundary_required: true,
+            runtime_fact_required_before_adaptation: true,
+            optimizer_execution: false,
+            runtime_adaptation_applied: false,
+            runtime_filter_built: false,
+            runtime_filter_applied: false,
+            plan_rewritten: false,
+            data_read: false,
+            data_decoded: false,
+            data_materialized: false,
+            row_read: false,
+            arrow_converted: false,
+            object_store_io: false,
+            write_io: false,
+            spill_io_performed: false,
+            external_engine_execution: false,
+            fallback_execution_allowed: false,
+            fallback_attempted: false,
+            production_claim_allowed: false,
+            diagnostics: Vec::new(),
+        }
+    }
+
+    #[must_use]
+    pub fn rule_decision_count(&self) -> usize {
+        self.rule_decisions.len()
+    }
+
+    #[must_use]
+    pub fn runtime_filter_count(&self) -> usize {
+        self.runtime_filters.len()
+    }
+
+    #[must_use]
+    pub fn adaptive_decision_count(&self) -> usize {
+        self.adaptive_decisions.len()
+    }
+
+    #[must_use]
+    pub fn skew_signal_count(&self) -> usize {
+        self.skew_signals.len()
+    }
+
+    #[must_use]
+    pub fn deferred_rule_count(&self) -> usize {
+        self.rule_decisions
+            .iter()
+            .filter(|decision| decision.status == OptimizerRuleStatus::Deferred)
+            .count()
+    }
+
+    #[must_use]
+    pub fn conservative_runtime_filter_count(&self) -> usize {
+        self.runtime_filters
+            .iter()
+            .filter(|filter| filter.conservative)
+            .count()
+    }
+
+    #[must_use]
+    pub const fn is_side_effect_free(&self) -> bool {
+        !self.optimizer_execution
+            && !self.runtime_adaptation_applied
+            && !self.runtime_filter_built
+            && !self.runtime_filter_applied
+            && !self.plan_rewritten
+            && !self.data_read
+            && !self.data_decoded
+            && !self.data_materialized
+            && !self.row_read
+            && !self.arrow_converted
+            && !self.object_store_io
+            && !self.write_io
+            && !self.spill_io_performed
+            && !self.external_engine_execution
+            && !self.fallback_execution_allowed
+            && !self.fallback_attempted
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.status.is_error()
+            || self
+                .rule_decisions
+                .iter()
+                .any(OptimizerRuleDecision::has_errors)
+            || self.runtime_filters.iter().any(RuntimeFilter::has_errors)
+            || self
+                .adaptive_decisions
+                .iter()
+                .any(AdaptiveExecutionDecision::has_errors)
+            || self.diagnostics.iter().any(|d| {
+                matches!(
+                    d.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "adaptive optimizer memory plan\nschema_version: {}\nreport: {}\nstatus: {}\nphase: {}\nrules: {}\nruntime filters: {}\nadaptive decisions: {}\nside-effect-free: {}\nfallback execution: disabled",
+            self.schema_version,
+            self.report_id,
+            self.status.as_str(),
+            self.optimizer_phase.as_str(),
+            self.rule_decision_count(),
+            self.runtime_filter_count(),
+            self.adaptive_decision_count(),
+            self.is_side_effect_free(),
+        )
+    }
+}
+
+#[must_use]
+pub fn plan_adaptive_optimizer_memory() -> AdaptiveOptimizerMemoryReport {
+    AdaptiveOptimizerMemoryReport::cg14_foundation()
+}
+
+fn static_rule_id(value: &str) -> OptimizerRuleId {
+    OptimizerRuleId::new(value).expect("static optimizer rule id is valid")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1075,6 +1352,10 @@ mod tests {
     #[test]
     fn unsupported_rule_status_is_error() {
         assert!(OptimizerRuleStatus::Unsupported.is_error());
+    }
+    #[test]
+    fn deferred_rule_status_is_not_error() {
+        assert!(!OptimizerRuleStatus::Deferred.is_error());
     }
     #[test]
     fn rule_unsupported_has_fallback_false() {
@@ -1167,5 +1448,28 @@ mod tests {
                 .to_human_text()
                 .contains("fallback execution: disabled")
         );
+    }
+    #[test]
+    fn adaptive_optimizer_memory_foundation_is_report_only() {
+        let report = AdaptiveOptimizerMemoryReport::cg14_foundation();
+        assert_eq!(
+            report.status,
+            AdaptiveOptimizerMemoryStatus::ReportOnlyPlanned
+        );
+        assert_eq!(report.rule_decision_count(), 3);
+        assert_eq!(report.deferred_rule_count(), 3);
+        assert_eq!(report.runtime_filter_count(), 1);
+        assert_eq!(report.conservative_runtime_filter_count(), 1);
+        assert_eq!(report.adaptive_decision_count(), 2);
+        assert_eq!(report.skew_signal_count(), 1);
+        assert!(report.is_side_effect_free());
+        assert!(!report.has_errors());
+        assert!(!report.runtime_adaptation_applied);
+        assert!(!report.runtime_filter_built);
+        assert!(!report.runtime_filter_applied);
+        assert!(!report.plan_rewritten);
+        assert!(!report.fallback_execution_allowed);
+        assert!(!report.fallback_attempted);
+        assert!(!report.production_claim_allowed);
     }
 }

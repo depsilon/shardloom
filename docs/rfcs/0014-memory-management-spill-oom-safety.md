@@ -464,6 +464,28 @@ The planner should combine:
 - Operator memory class.
 - Sink requirements.
 
+### CG-14.1 adaptive memory boundary evidence
+
+The first CG-14 memory/optimizer integration is report-only. It records the
+bounded-memory and spill-policy requirements that runtime adaptation must obey,
+but it does not allocate, reserve, spill, execute operators, or rewrite a plan.
+
+`AdaptiveOptimizerMemoryReport` must require:
+- memory budget declaration.
+- bounded-memory declaration.
+- spill policy declaration.
+- deterministic OOM boundary.
+- sink requirement boundary.
+- runtime facts before adaptation.
+- `spill_io_performed=false`.
+- `runtime_adaptation_applied=false`.
+- `fallback_attempted=false`.
+
+The report may identify candidate adaptations such as reduced parallelism,
+runtime-filter application, dynamic pruning, or skew handling, but all such
+decisions remain evidence until later execution phases add native runtime
+behavior and correctness checks.
+
 ## Interaction with streaming
 
 Streaming reduces peak memory, but not all operators are streaming.
