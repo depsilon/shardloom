@@ -647,10 +647,7 @@ fn layout_health_non_native_data_files(manifest: &DatasetManifest) -> usize {
     manifest
         .files
         .iter()
-        .filter(|file| {
-            (file.role == FileRole::NativeVortexData && !file.format.is_native_vortex())
-                || file.role == FileRole::CompatibilityOutput
-        })
+        .filter(|file| is_layout_health_data_file(file) && !file.format.is_native_vortex())
         .count()
 }
 
@@ -659,8 +656,10 @@ fn layout_health_small_file_count(manifest: &DatasetManifest, policy: LayoutHeal
         .files
         .iter()
         .filter(|file| {
-            file.size_bytes
-                .is_some_and(|size| size > 0 && size < policy.small_file_threshold_bytes)
+            is_layout_health_data_file(file)
+                && file
+                    .size_bytes
+                    .is_some_and(|size| size > 0 && size < policy.small_file_threshold_bytes)
         })
         .count()
 }
@@ -693,9 +692,14 @@ fn unique_file_format_count(manifest: &DatasetManifest) -> usize {
     manifest
         .files
         .iter()
+        .filter(|file| is_layout_health_data_file(file))
         .map(|file| file.format.as_str().to_string())
         .collect::<BTreeSet<_>>()
         .len()
+}
+
+fn is_layout_health_data_file(file: &FileDescriptor) -> bool {
+    file.role == FileRole::NativeVortexData
 }
 
 fn unique_segment_encoding_count(manifest: &DatasetManifest) -> usize {
@@ -946,12 +950,17 @@ fn compaction_planning_status(
     layout_health: &LayoutHealthReport,
     policy: CompactionPlanningPolicy,
 ) -> CompactionPlanningStatus {
+    let mixed_format_or_encoding_blocked =
+        layout_health.unique_format_count > 1 || layout_health.unique_encoding_count > 1;
+    let mixed_layout_blocked =
+        layout_health.unique_layout_count > 1 && !policy.allow_mixed_layout_groups;
+    let non_native_blocked =
+        policy.require_native_vortex_inputs && layout_health.non_native_data_file_count > 0;
+
     if layout_health.status == LayoutHealthStatus::Unsupported {
         CompactionPlanningStatus::Unsupported
     } else if layout_health.requires_layout_review
-        && (!policy.allow_mixed_layout_groups
-            || (policy.require_native_vortex_inputs
-                && layout_health.non_native_data_file_count > 0))
+        && (mixed_format_or_encoding_blocked || mixed_layout_blocked || non_native_blocked)
     {
         CompactionPlanningStatus::BlockedByLayoutReview
     } else if layout_health.requires_statistics_refresh || layout_health.requires_byte_range_index {
@@ -1508,7 +1517,10 @@ pub fn evaluate_cdc_incremental_planning(
     let unsupported_change_count =
         requirements.len() + counts.unknown_events + counts.unknown_segment_changes;
     let diagnostics = cdc_incremental_diagnostics(&requirements, counts);
-    let status = if unsupported_change_count > 0 || diagnostics_are_errors(&diagnostics) {
+    let status = if unsupported_change_count > 0
+        || incremental_plan.has_errors()
+        || diagnostics_are_errors(&diagnostics)
+    {
         CdcIncrementalPlanningStatus::Unsupported
     } else {
         cdc_status_from_incremental_decision(&incremental_plan.decision)
@@ -2134,6 +2146,37 @@ mod tests {
         assert!(report.side_effect_free());
         assert!(!report.has_errors());
     }
+
+    #[test]
+    fn layout_health_ignores_compatibility_outputs_for_data_file_counts() {
+        let mut manifest = mk_layout_manifest();
+        let data_file = FileDescriptor::from_uri(
+            DatasetUri::new("file://x/a.vortex").unwrap(),
+            FileRole::NativeVortexData,
+        )
+        .with_size_bytes(64 * 1024 * 1024);
+        let compatibility_output = FileDescriptor::new(
+            DatasetUri::new("file://x/a.parquet").unwrap(),
+            DatasetFormat::Parquet,
+            FileRole::CompatibilityOutput,
+        )
+        .with_size_bytes(1024);
+        manifest.add_file(data_file.clone());
+        manifest.add_file(compatibility_output);
+        manifest.add_segment(ManifestSegment::new(
+            mk_layout_seg("s1", Some(64_000), Some(8 * 1024 * 1024), true),
+            data_file,
+        ));
+
+        let report = evaluate_layout_health(manifest, LayoutHealthPolicy::default());
+
+        assert_eq!(report.status, LayoutHealthStatus::Healthy);
+        assert_eq!(report.non_native_data_file_count, 0);
+        assert_eq!(report.small_file_count, 0);
+        assert_eq!(report.unique_format_count, 1);
+        assert!(!report.requires_layout_review);
+    }
+
     #[test]
     fn layout_health_empty_manifest_is_unsupported() {
         let report = evaluate_layout_health(mk_layout_manifest(), LayoutHealthPolicy::default());
@@ -2270,6 +2313,45 @@ mod tests {
             action.kind == CompactionPlanningActionKind::ReviewNonNativeDataFiles
         }));
     }
+
+    #[test]
+    fn compaction_planning_blocks_mixed_encodings_even_when_layout_groups_allowed() {
+        let mut manifest = mk_layout_manifest();
+        let file = FileDescriptor::from_uri(
+            DatasetUri::new("file://x/a.vortex").unwrap(),
+            FileRole::NativeVortexData,
+        )
+        .with_size_bytes(64 * 1024 * 1024);
+        let mut dictionary_segment = mk_layout_seg("s2", Some(64_000), Some(8 * 1024 * 1024), true);
+        dictionary_segment.layout.encoding = EncodingKind::Dictionary;
+        manifest.add_file(file.clone());
+        manifest.add_segment(ManifestSegment::new(
+            mk_layout_seg("s1", Some(64_000), Some(8 * 1024 * 1024), true),
+            file.clone(),
+        ));
+        manifest.add_segment(ManifestSegment::new(dictionary_segment, file));
+
+        let report = evaluate_compaction_planning(
+            manifest,
+            LayoutHealthPolicy::default(),
+            CompactionPlanningPolicy {
+                allow_mixed_layout_groups: true,
+                ..CompactionPlanningPolicy::default()
+            },
+        );
+
+        assert_eq!(
+            report.status,
+            CompactionPlanningStatus::BlockedByLayoutReview
+        );
+        assert!(report.requires_layout_review);
+        assert!(
+            report.actions.iter().any(|action| {
+                action.kind == CompactionPlanningActionKind::ReviewMixedEncodings
+            })
+        );
+    }
+
     #[test]
     fn compaction_planning_empty_manifest_is_unsupported() {
         let report = evaluate_compaction_planning(
@@ -2387,6 +2469,26 @@ mod tests {
         assert!(report.side_effect_free());
         assert!(!report.has_errors());
     }
+
+    #[test]
+    fn cdc_incremental_status_respects_incremental_plan_errors() {
+        let mut cs = ChangeSet::between(
+            SnapshotId::new("s1").unwrap(),
+            SnapshotId::new("s2").unwrap(),
+        );
+        cs.add_diagnostic(Diagnostic::invalid_input(
+            "change_set",
+            "change-set diagnostics must block CDC planning",
+            "Fix change-set diagnostics before planning CDC reuse.",
+        ));
+
+        let report = evaluate_cdc_incremental_planning(cs, Vec::new());
+
+        assert_eq!(report.status, CdcIncrementalPlanningStatus::Unsupported);
+        assert!(report.incremental_plan.has_errors());
+        assert!(report.has_errors());
+    }
+
     #[test]
     fn cdc_incremental_delete_requires_native_delete_handling() {
         let mut cs = ChangeSet::between(

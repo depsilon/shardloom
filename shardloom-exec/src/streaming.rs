@@ -1571,17 +1571,20 @@ impl EncodedStreamingBatchPlanReport {
         let mut out = Self::new_plan_only(input);
         if out.input.has_errors() {
             out.mark_unsupported();
+            out.refresh_preservation_flags();
             return Ok(out);
         }
         out.apply_memory_backpressure()?;
-        if out.status.is_error()
-            || out.block_object_store_if_needed()
-            || out.apply_sink_materialization()
-        {
+        if out.status.is_error() {
+            out.refresh_preservation_flags();
+            return Ok(out);
+        }
+        if out.block_object_store_if_needed() || out.apply_sink_materialization() {
+            out.refresh_preservation_flags();
             return Ok(out);
         }
         out.apply_operator_boundaries();
-        out.refresh_encoded_preservation();
+        out.refresh_preservation_flags();
         Ok(out)
     }
 
@@ -1710,8 +1713,11 @@ impl EncodedStreamingBatchPlanReport {
         }
     }
 
-    fn refresh_encoded_preservation(&mut self) {
+    fn refresh_preservation_flags(&mut self) {
         self.encoded_representation_preserved = self.representation.can_remain_encoded();
+        self.selection_vector_preserved = self.representation
+            == EncodedBatchRepresentation::SelectionVectorEncoded
+            && !self.materialization_boundary.required;
     }
 
     #[must_use]
@@ -2118,6 +2124,81 @@ mod tests {
         assert!(!report.has_errors());
         assert!(report.is_side_effect_free());
     }
+
+    #[test]
+    fn encoded_streaming_batch_plan_refreshes_preservation_for_sink_materialization() {
+        let mut input = EncodedStreamingBatchPlanInput::for_vortex_to_target(
+            ds(),
+            parquet_target(),
+            BoundedMemoryPolicy::required(ByteSize::from_mib(64)),
+            2,
+        )
+        .unwrap();
+        input.add_operator(StreamingOperator::encoded_predicate());
+
+        let report = plan_encoded_streaming_batches(input).expect("report");
+
+        assert_eq!(
+            report.status,
+            EncodedStreamingBatchPlanStatus::RequiresMaterialization
+        );
+        assert_eq!(
+            report.representation,
+            EncodedBatchRepresentation::MaterializedRows
+        );
+        assert!(!report.encoded_representation_preserved);
+        assert!(!report.selection_vector_preserved);
+        assert!(report.materialization_boundary.required);
+    }
+
+    #[test]
+    fn encoded_streaming_batch_plan_refreshes_preservation_for_operator_materialization() {
+        let mut input = EncodedStreamingBatchPlanInput::for_vortex_to_target(
+            ds(),
+            vortex_target(),
+            BoundedMemoryPolicy::required(ByteSize::from_mib(64)),
+            2,
+        )
+        .unwrap();
+        input.add_operator(StreamingOperator::encoded_predicate());
+        input.add_operator(StreamingOperator::requires_materialization(
+            StreamingOperatorKind::AggregateFinal,
+            "final aggregate materialization",
+        ));
+
+        let report = plan_encoded_streaming_batches(input).expect("report");
+
+        assert_eq!(
+            report.status,
+            EncodedStreamingBatchPlanStatus::RequiresMaterialization
+        );
+        assert!(!report.encoded_representation_preserved);
+        assert!(!report.selection_vector_preserved);
+        assert!(report.materialization_boundary.required);
+    }
+
+    #[test]
+    fn encoded_streaming_batch_plan_refreshes_preservation_for_object_store_blocker() {
+        let dataset =
+            DatasetRef::from_uri(DatasetUri::new("s3://bucket/input.vortex").unwrap()).unwrap();
+        let input = EncodedStreamingBatchPlanInput::for_vortex_to_target(
+            dataset,
+            vortex_target(),
+            BoundedMemoryPolicy::required(ByteSize::from_mib(64)),
+            2,
+        )
+        .unwrap();
+
+        let report = plan_encoded_streaming_batches(input).expect("report");
+
+        assert_eq!(
+            report.status,
+            EncodedStreamingBatchPlanStatus::BlockedByObjectStoreIo
+        );
+        assert!(report.encoded_representation_preserved);
+        assert!(!report.selection_vector_preserved);
+    }
+
     #[test]
     fn encoded_streaming_batch_plan_blocks_object_store_source_without_io() {
         let dataset =

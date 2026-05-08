@@ -8153,17 +8153,18 @@ fn append_object_store_range_side_effect_fields(
 }
 
 fn emit_object_store_coalesce_plan(format: OutputFormat, scenario: &str) -> ExitCode {
-    let manifest = match object_store_range_fixture(scenario) {
-        Ok(manifest) => manifest,
-        Err(error) => {
-            return emit_error(
-                "object-store-coalesce-plan",
-                format,
-                "object-store request coalescing failed",
-                &error,
-            );
-        }
-    };
+    let manifest =
+        match object_store_range_fixture_for_command("object-store-coalesce-plan", scenario) {
+            Ok(manifest) => manifest,
+            Err(error) => {
+                return emit_error(
+                    "object-store-coalesce-plan",
+                    format,
+                    "object-store request coalescing failed",
+                    &error,
+                );
+            }
+        };
     let report =
         plan_object_store_request_coalescing(manifest, ObjectStoreRangePlanningPolicy::default());
     let status = if report.has_errors() {
@@ -8721,6 +8722,13 @@ fn object_store_commit_fixture(
 }
 
 fn object_store_range_fixture(scenario: &str) -> Result<DatasetManifest, ShardLoomError> {
+    object_store_range_fixture_for_command("object-store-range-plan", scenario)
+}
+
+fn object_store_range_fixture_for_command(
+    command: &str,
+    scenario: &str,
+) -> Result<DatasetManifest, ShardLoomError> {
     match scenario {
         "s3-ranges" => object_store_range_manifest(
             "s3://bucket/table.vortex",
@@ -8739,7 +8747,7 @@ fn object_store_range_fixture(scenario: &str) -> Result<DatasetManifest, ShardLo
             vec![ByteRange::new(0, 32 * 1024 * 1024)],
         ),
         "empty" => Ok(object_store_range_base_manifest()?),
-        value => Err(cli_unknown_arg_error("object-store-range-plan", value)),
+        value => Err(cli_unknown_arg_error(command, value)),
     }
 }
 
@@ -11727,16 +11735,24 @@ fn run(args: Vec<String>) -> ExitCode {
                 return ExitCode::from(2);
             };
             if snapshot_id == "cdc" {
-                let scenario = args.next().unwrap_or_else(|| "append-only".to_string());
-                if let Some(extra) = args.next() {
-                    return emit_error(
-                        "incremental-plan",
-                        format,
-                        "CDC incremental plan failed",
-                        &cli_unknown_arg_error("incremental-plan cdc", &extra),
-                    );
+                if let Some(scenario) = args.next() {
+                    if let Some(extra) = args.next() {
+                        return emit_error(
+                            "incremental-plan",
+                            format,
+                            "CDC incremental plan failed",
+                            &cli_unknown_arg_error("incremental-plan cdc", &extra),
+                        );
+                    }
+                    return emit_cdc_incremental_plan(format, &scenario);
                 }
-                return emit_cdc_incremental_plan(format, &scenario);
+            } else if let Some(extra) = args.next() {
+                return emit_error(
+                    "incremental-plan",
+                    format,
+                    "incremental plan failed",
+                    &cli_unknown_arg_error("incremental-plan", &extra),
+                );
             }
             let snapshot_id = match SnapshotId::new(snapshot_id) {
                 Ok(snapshot) => snapshot,
@@ -19110,6 +19126,12 @@ mod tests {
     }
 
     #[test]
+    fn incremental_plan_cdc_snapshot_id_returns_success_without_scenario() {
+        let code = run(vec!["incremental-plan".to_string(), "cdc".to_string()]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
     fn stateful_reuse_plan_returns_success() {
         let code = run(vec!["stateful-reuse-plan".to_string()]);
         assert_eq!(code, ExitCode::SUCCESS);
@@ -19185,6 +19207,18 @@ mod tests {
             "missing-ranges".to_string(),
         ]);
         assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn object_store_coalesce_unknown_scenario_uses_coalesce_command_name() {
+        let error = object_store_range_fixture_for_command("object-store-coalesce-plan", "unknown")
+            .expect_err("unknown scenario");
+
+        assert!(
+            error
+                .message()
+                .contains("object-store-coalesce-plan unknown argument/value: unknown")
+        );
     }
 
     #[test]
