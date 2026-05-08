@@ -12,10 +12,10 @@ use shardloom_core::{
     ExtensionManifest, ExtensionProvenance, ExtensionRegistrySnapshot, ExtensionVersion,
     IncrementalPlanSkeleton, InputAdapterRegistrySnapshot, KernelRegistrySnapshot, ManifestId,
     ObservabilityPlan, OutputEnvelope, OutputFormat, OutputTarget, PhysicalKernelRegistryPlan,
-    PhysicalOperatorPlan, PredicateExpr, RedactionPolicy, ReleasePlan, RuntimeObservabilityReport,
-    SchemaDefinition, SchemaId, SchemaVersion, SecurityPlan, ShardLoomError, SnapshotId,
-    SnapshotRef, StatValue, TableCompatibilityPlan, TableFormatKind, TranslationPlan,
-    UdfRuntimeKind, WriteIntent,
+    PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorPlan, PredicateExpr, RedactionPolicy,
+    ReleasePlan, RuntimeObservabilityReport, SchemaDefinition, SchemaId, SchemaVersion,
+    SecurityPlan, ShardLoomError, SnapshotId, SnapshotRef, StatValue, TableCompatibilityPlan,
+    TableFormatKind, TranslationPlan, UdfRuntimeKind, WriteIntent,
 };
 use shardloom_exec::{
     AdaptiveSizer, AdaptiveSizingPolicy, AttemptId, ByteSize, CancellationReason,
@@ -1250,6 +1250,7 @@ fn append_operator_certification_fields(
     fields: &mut Vec<(String, String)>,
 ) {
     let physical_plan = PhysicalOperatorPlan::cg7_foundation();
+    let execution_profiles = PhysicalOperatorExecutionProfileMatrix::cg7_foundation();
     push_count_field(
         fields,
         "operator_family_count",
@@ -1301,6 +1302,36 @@ fn append_operator_certification_fields(
         },
     );
     push_field(fields, "physical_operator_runtime_execution", "false");
+    push_field(
+        fields,
+        "physical_operator_execution_profile_schema_version",
+        execution_profiles.schema_version,
+    );
+    push_count_field(
+        fields,
+        "physical_operator_execution_profile_count",
+        execution_profiles.profile_count(),
+    );
+    push_count_field(
+        fields,
+        "physical_operator_reference_only_level_count",
+        execution_profiles.reference_only_allowed_count(),
+    );
+    push_count_field(
+        fields,
+        "physical_operator_row_materialization_level_count",
+        execution_profiles.row_materialization_allowed_count(),
+    );
+    push_count_field(
+        fields,
+        "physical_operator_arrow_conversion_level_count",
+        execution_profiles.arrow_conversion_allowed_count(),
+    );
+    push_count_field(
+        fields,
+        "physical_operator_fallback_level_count",
+        execution_profiles.fallback_allowed_count(),
+    );
 }
 
 fn append_adapter_certification_fields(
@@ -1436,8 +1467,9 @@ fn certification_text(
         ),
         CapabilityDiscoveryScope::Operators => {
             let physical_plan = PhysicalOperatorPlan::cg7_foundation();
+            let execution_profiles = PhysicalOperatorExecutionProfileMatrix::cg7_foundation();
             format!(
-                "{}\noperator coverage families:\n{}\n{}",
+                "{}\noperator coverage families:\n{}\n{}\n{}",
                 certification_summary_header(report, scope),
                 report
                     .operator_coverage
@@ -1448,7 +1480,8 @@ fn certification_text(
                     })
                     .collect::<Vec<_>>()
                     .join("\n"),
-                physical_plan.to_human_text()
+                physical_plan.to_human_text(),
+                execution_profiles.to_human_text()
             )
         }
         CapabilityDiscoveryScope::Adapters => format!(

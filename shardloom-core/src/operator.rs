@@ -718,3 +718,172 @@ impl PhysicalKernelAdmissionReport {
         )
     }
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PhysicalOperatorExecutionProfile {
+    pub profile_id: String,
+    pub operator_kind: PhysicalOperatorKind,
+    pub preferred_level: PhysicalOperatorExecutionLevel,
+    pub allowed_levels: Vec<PhysicalOperatorExecutionLevel>,
+    pub required_kernel_kinds: Vec<KernelKind>,
+    pub row_materialization_allowed: bool,
+    pub arrow_conversion_allowed: bool,
+    pub fallback_execution_allowed: bool,
+}
+
+impl PhysicalOperatorExecutionProfile {
+    #[must_use]
+    pub fn cg7_foundation(operator_kind: PhysicalOperatorKind) -> Self {
+        let (preferred_level, allowed_levels, required_kernel_kinds) = match operator_kind {
+            PhysicalOperatorKind::Filter
+            | PhysicalOperatorKind::Project
+            | PhysicalOperatorKind::CountAggregate => (
+                PhysicalOperatorExecutionLevel::EncodedNative,
+                vec![
+                    PhysicalOperatorExecutionLevel::MetadataOnly,
+                    PhysicalOperatorExecutionLevel::EncodedNative,
+                    PhysicalOperatorExecutionLevel::HybridNative,
+                    PhysicalOperatorExecutionLevel::NativeDecoded,
+                ],
+                vec![KernelKind::Metadata, KernelKind::Encoded],
+            ),
+            _ => (
+                PhysicalOperatorExecutionLevel::Unsupported,
+                vec![PhysicalOperatorExecutionLevel::Unsupported],
+                vec![KernelKind::Unsupported],
+            ),
+        };
+        Self {
+            profile_id: format!("cg7.execution.{}", operator_kind.as_str()),
+            operator_kind,
+            preferred_level,
+            allowed_levels,
+            required_kernel_kinds,
+            row_materialization_allowed: false,
+            arrow_conversion_allowed: false,
+            fallback_execution_allowed: false,
+        }
+    }
+
+    #[must_use]
+    pub fn allows_level(&self, level: PhysicalOperatorExecutionLevel) -> bool {
+        self.allowed_levels.contains(&level)
+    }
+
+    #[must_use]
+    pub fn allows_reference_only(&self) -> bool {
+        self.allowed_levels
+            .contains(&PhysicalOperatorExecutionLevel::TestReferenceOnly)
+    }
+
+    #[must_use]
+    pub fn allows_unsupported(&self) -> bool {
+        self.allowed_levels
+            .contains(&PhysicalOperatorExecutionLevel::Unsupported)
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "{} [{} preferred={} levels={} fallback={}]",
+            self.profile_id,
+            self.operator_kind.as_str(),
+            self.preferred_level.as_str(),
+            self.allowed_levels.len(),
+            self.fallback_execution_allowed
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PhysicalOperatorExecutionProfileMatrix {
+    pub schema_version: &'static str,
+    pub matrix_id: String,
+    pub profiles: Vec<PhysicalOperatorExecutionProfile>,
+}
+
+impl PhysicalOperatorExecutionProfileMatrix {
+    #[must_use]
+    pub fn cg7_foundation() -> Self {
+        Self {
+            schema_version: "shardloom.physical_operator_execution_profiles.v1",
+            matrix_id: "cg7-foundation-execution-profile-matrix".to_string(),
+            profiles: vec![
+                PhysicalOperatorExecutionProfile::cg7_foundation(PhysicalOperatorKind::Filter),
+                PhysicalOperatorExecutionProfile::cg7_foundation(PhysicalOperatorKind::Project),
+                PhysicalOperatorExecutionProfile::cg7_foundation(
+                    PhysicalOperatorKind::CountAggregate,
+                ),
+            ],
+        }
+    }
+
+    #[must_use]
+    pub fn profile_count(&self) -> usize {
+        self.profiles.len()
+    }
+
+    #[must_use]
+    pub fn reference_only_allowed_count(&self) -> usize {
+        self.profiles
+            .iter()
+            .filter(|profile| profile.allows_reference_only())
+            .count()
+    }
+
+    #[must_use]
+    pub fn unsupported_allowed_count(&self) -> usize {
+        self.profiles
+            .iter()
+            .filter(|profile| profile.allows_unsupported())
+            .count()
+    }
+
+    #[must_use]
+    pub fn row_materialization_allowed_count(&self) -> usize {
+        self.profiles
+            .iter()
+            .filter(|profile| profile.row_materialization_allowed)
+            .count()
+    }
+
+    #[must_use]
+    pub fn arrow_conversion_allowed_count(&self) -> usize {
+        self.profiles
+            .iter()
+            .filter(|profile| profile.arrow_conversion_allowed)
+            .count()
+    }
+
+    #[must_use]
+    pub fn fallback_allowed_count(&self) -> usize {
+        self.profiles
+            .iter()
+            .filter(|profile| profile.fallback_execution_allowed)
+            .count()
+    }
+
+    #[must_use]
+    pub fn profile_for(
+        &self,
+        operator_kind: PhysicalOperatorKind,
+    ) -> Option<&PhysicalOperatorExecutionProfile> {
+        self.profiles
+            .iter()
+            .find(|profile| profile.operator_kind == operator_kind)
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "physical operator execution profiles\nschema_version: {}\nmatrix: {}\nprofiles: {}\nreference-only allowed: {}\nrow materialization allowed: {}\narrow conversion allowed: {}\nfallback allowed: {}",
+            self.schema_version,
+            self.matrix_id,
+            self.profile_count(),
+            self.reference_only_allowed_count(),
+            self.row_materialization_allowed_count(),
+            self.arrow_conversion_allowed_count(),
+            self.fallback_allowed_count(),
+        )
+    }
+}
