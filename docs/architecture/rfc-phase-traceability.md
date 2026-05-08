@@ -1034,3 +1034,13 @@ No fallback execution.
 - Primary RFC linkage: RFC 0012, RFC 0021, RFC 0025, and RFC 0029.
 - Related RFCs: RFC 0013, RFC 0015, RFC 0016, RFC 0027, RFC 0031, and RFC 0032.
 - This phase adds no new runtime path, generalized encoded-data execution, encoded aggregate execution, count execution beyond existing metadata/local paths, row reads, requested decode/materialization, Arrow conversion, parser, SQL execution, adapter runtime, object-store IO, writes, spill IO, benchmark claim, production/superiority claim, broad count/aggregate closeout, CG closeout, or fallback behavior.
+
+## CG-7.21 execution-level coverage discovery
+
+- `PhysicalOperatorExecutionProfileMatrix` now exposes stable counts for distinct native execution levels and per-level operator profile support.
+- `capabilities operators` and `kernel-registry` surface metadata-only, encoded-native, hybrid-native, and native-decoded execution-level counts for the CG-7 operator profile set.
+- Reference-only execution remains rejected, and row materialization, Arrow conversion, runtime execution, and fallback execution remain disabled in discovery output.
+- This closes the CG-7 metadata/encoded/hybrid execution-level checklist item as a coverage/discovery contract only; broad filter, projection, count/aggregate, and expression-evaluation kernels remain open.
+- Primary RFC linkage: RFC 0012, RFC 0021, RFC 0025, and RFC 0029.
+- Related RFCs: RFC 0013, RFC 0015, RFC 0016, RFC 0027, RFC 0031, and RFC 0032.
+- This phase adds no new runtime path, generalized encoded-data execution, filter execution, projection execution, aggregate execution, row reads, requested decode/materialization, Arrow conversion, parser, SQL execution, adapter runtime, object-store IO, writes, spill IO, benchmark claim, production/superiority claim, broad operator-kernel closeout, CG closeout, or fallback behavior.

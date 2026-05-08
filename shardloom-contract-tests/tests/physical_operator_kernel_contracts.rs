@@ -277,6 +277,23 @@ fn physical_operator_execution_profiles_declare_native_levels_without_materializ
         "shardloom.physical_operator_execution_profiles.v1"
     );
     assert_eq!(matrix.profile_count(), 3);
+    assert_eq!(matrix.native_execution_level_count(), 4);
+    assert_eq!(
+        matrix.allowed_level_count(PhysicalOperatorExecutionLevel::MetadataOnly),
+        3
+    );
+    assert_eq!(
+        matrix.allowed_level_count(PhysicalOperatorExecutionLevel::EncodedNative),
+        3
+    );
+    assert_eq!(
+        matrix.allowed_level_count(PhysicalOperatorExecutionLevel::HybridNative),
+        3
+    );
+    assert_eq!(
+        matrix.allowed_level_count(PhysicalOperatorExecutionLevel::NativeDecoded),
+        3
+    );
     assert_eq!(matrix.reference_only_allowed_count(), 0);
     assert_eq!(matrix.unsupported_allowed_count(), 0);
     assert_eq!(matrix.row_materialization_allowed_count(), 0);

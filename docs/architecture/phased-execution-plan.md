@@ -39,33 +39,27 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-7.20 metadata count aggregate kernel admission bridge
+- [x] Session label: CG-7.21 execution-level coverage discovery
   - Primary files:
-    - `shardloom-vortex/src/metadata_physical_kernel.rs`
-    - `shardloom-vortex/src/lib.rs`
+    - `shardloom-core/src/operator.rs`
     - `shardloom-cli/src/main.rs`
     - `shardloom-cli/tests/capability_discovery_snapshots.rs`
     - `shardloom-cli/tests/kernel_registry_snapshots.rs`
+    - `shardloom-contract-tests/tests/physical_operator_kernel_contracts.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-    - `docs/architecture/systems-learning-map.md`
-    - `docs/rfcs/0031-universal-native-io-envelope.md`
-  - Scope: Admit metadata-only `CountAll` and metadata-proof `CountWhere` physical-kernel evidence into the CG-7 count-aggregate metadata-kernel slot while keeping encoded aggregate execution, production claims, broad count/aggregate closeout, and CG-7 closeout blocked.
+  - Scope: Surface CG-7 metadata-only, encoded-native, hybrid-native, and native-decoded execution-level coverage as stable discovery evidence while keeping runtime execution, kernel registration, broad filter/project/count closure, and CG-7 closeout blocked.
   - Checklist:
-    - [x] Add a Vortex metadata count kernel admission report.
-    - [x] Require safe metadata-only count evidence plus correctness and memory evidence before the metadata slot can be marked present.
-    - [x] Keep benchmark evidence missing so production/superiority claims remain blocked.
-    - [x] Surface admission discovery in `vortex-metadata-physical-kernel-plan`, `capabilities operators`, and `kernel-registry` without runtime probing.
-    - [x] Refresh RFC 0031 wording to keep Universal Native I/O aligned with Vortex Scan API source/sink/split/range-I/O lessons while treating upstream APIs as design references, not fallback execution.
-    - [x] Refresh systems-learning map with Vortex blog lessons for lazy operators, IO/write surfaces, GPU/device paths, nested/list support, wide-table work, and benchmark visibility.
+    - [x] Add profile-matrix helpers for allowed execution-level counts.
+    - [x] Expose metadata-only, encoded-native, hybrid-native, and native-decoded profile counts in `capabilities operators`.
+    - [x] Expose the same execution-level counts in `kernel-registry`.
+    - [x] Keep reference-only, row materialization, Arrow conversion, runtime execution, and fallback counts at zero.
     - [x] Run focused and full required validation.
   - Local validation status:
-    - focused Vortex metadata count admission tests passed
-    - metadata physical kernel count CLI test passed
+    - focused execution-profile contract test passed
     - operator capability and kernel-registry snapshot tests passed
-    - metadata count admission CLI smoke passed
     - full Rust validation passed with toolchain `1.91.1`
-  - Explicitly not included: new scan/read-start paths, generalized encoded-data execution, encoded aggregate execution, count execution beyond existing metadata/local paths, row reads, requested decode/materialization, Arrow conversion, parser, SQL execution, adapter runtime, object-store IO, writes, spill IO, benchmarks, production/superiority claims, fallback execution, broad count/aggregate closeout, CG-7 closeout, or CG-2 closeout.
+  - Explicitly not included: new scan/read-start paths, generalized encoded-data execution, filter execution, projection execution, aggregate execution, row reads, requested decode/materialization, Arrow conversion, parser, SQL execution, adapter runtime, object-store IO, writes, spill IO, benchmarks, production/superiority claims, fallback execution, broad filter/project/count closeout, CG-7 closeout, or CG-2 closeout.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -665,6 +659,13 @@ Supporting docs:
     - Benchmark evidence remains missing, so production certification and superiority claims remain blocked.
     - Admission discovery is visible through `vortex-metadata-physical-kernel-plan`, capability output, and kernel-registry output without runtime probing.
     - No global kernel registration, generalized count execution, encoded aggregate execution, benchmark claim, superiority claim, or fallback behavior is added.
+- [x] CG-7.21 execution-level coverage discovery
+  - Why: make the already-defined metadata-only, encoded-native, hybrid-native, and native-decoded CG-7 execution-level contract visible to humans, agents, and snapshots before broad kernel execution work continues.
+  - Acceptance:
+    - Execution-profile helpers count native execution levels and per-level operator profile support.
+    - `capabilities operators` and `kernel-registry` expose metadata-only, encoded-native, hybrid-native, and native-decoded level counts without runtime probing.
+    - Reference-only, row-materialization, Arrow-conversion, runtime-execution, and fallback counts remain zero.
+    - No kernel registration, filter execution, projection execution, aggregate execution, benchmark claim, superiority claim, or fallback behavior is added.
 
 ## Competitive Engine Gates CG-1 through CG-20
 
@@ -798,6 +799,7 @@ Status legend:
   - [x] CG-7.18 metadata filter kernel admission bridge
   - [x] CG-7.19 metadata projection kernel admission bridge
   - [x] CG-7.20 metadata count aggregate kernel admission bridge
+  - [x] CG-7.21 execution-level coverage discovery
   - Scope:
     - filter/projection/count-aggregate kernels
     - metadata/encoded/hybrid execution levels
@@ -1026,10 +1028,11 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-7.18 metadata filter kernel admission bridge
 - [x] CG-7.19 metadata projection kernel admission bridge
 - [x] CG-7.20 metadata count aggregate kernel admission bridge
+- [x] CG-7.21 execution-level coverage discovery
 - [ ] filter kernel
 - [ ] projection kernel
 - [ ] count/aggregate kernel
-- [ ] metadata/encoded/hybrid execution levels
+- [x] metadata/encoded/hybrid execution levels
 - [ ] expression evaluation over encoded segments
 
 ### CG-8 detailed checklist
@@ -1215,6 +1218,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-7.18 metadata filter kernel admission bridge lets safe metadata-only filter physical-kernel evidence mark the filter metadata slot registry-ready while benchmark-gating production certification.
 - [x] CG-7.19 metadata projection kernel admission bridge lets safe metadata-schema projection readiness mark the project metadata slot registry-ready while benchmark-gating production certification.
 - [x] CG-7.20 metadata count aggregate kernel admission bridge lets safe metadata-only `CountAll` and metadata-proof `CountWhere` physical-kernel evidence mark the count-aggregate metadata slot registry-ready while benchmark-gating production certification.
+- [x] CG-7.21 execution-level coverage discovery surfaces metadata-only, encoded-native, hybrid-native, and native-decoded execution-level profile counts through capability and kernel-registry output without enabling runtime execution.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind `vortex-write`; placeholder artifact paths remain readiness-only.
 - [~] CG-3 broader output payload shapes remain deferred.
