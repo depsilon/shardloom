@@ -74,7 +74,8 @@ use shardloom_vortex::{
     output_payload_artifact_write_request_from_plan, parse_vortex_local_engine_primitive,
     plan_from_vortex_metadata_summary, plan_native_vortex_universal_input,
     plan_vortex_commit_intent, plan_vortex_commit_marker, plan_vortex_commit_protocol,
-    plan_vortex_count_readiness, plan_vortex_encoded_read_boundary, plan_vortex_encoded_read_probe,
+    plan_vortex_count_readiness, plan_vortex_encoded_count_data_path_approval,
+    plan_vortex_encoded_read_boundary, plan_vortex_encoded_read_probe,
     plan_vortex_filtered_count_readiness, plan_vortex_manifest_finalization,
     plan_vortex_memory_safety, plan_vortex_metadata_pruning, plan_vortex_output_payload,
     plan_vortex_projection_readiness, plan_vortex_query_primitive,
@@ -124,7 +125,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-count-readiness-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -8753,6 +8754,210 @@ fn run(args: Vec<String>) -> ExitCode {
                 ExitCode::SUCCESS
             }
         }
+        Some("vortex-encoded-count-approval-plan") => {
+            let command = "vortex-encoded-count-approval-plan";
+            let Some(source_arg) = args.next() else {
+                return emit_error(
+                    command,
+                    format,
+                    "missing candidate source",
+                    &ShardLoomError::InvalidOperation(
+                        "missing required argument: <candidate_source>".to_string(),
+                    ),
+                );
+            };
+            let Some(uri_arg) = args.next() else {
+                return emit_error(
+                    command,
+                    format,
+                    "missing dataset uri",
+                    &ShardLoomError::InvalidOperation(
+                        "missing required argument: <dataset_uri>".to_string(),
+                    ),
+                );
+            };
+            let candidate_source = match source_arg.as_str() {
+                "metadata-footer" | "metadata_footer" => VortexCountCandidateSource::MetadataFooter,
+                "encoded-data-path" | "encoded_data_path" => {
+                    VortexCountCandidateSource::EncodedDataPath
+                }
+                "unknown" => VortexCountCandidateSource::Unknown,
+                _ => {
+                    return emit_error(
+                        command,
+                        format,
+                        "invalid candidate source",
+                        &ShardLoomError::InvalidOperation(format!(
+                            "invalid candidate source: {source_arg}"
+                        )),
+                    );
+                }
+            };
+            let uri = match DatasetUri::new(uri_arg) {
+                Ok(uri) => uri,
+                Err(error) => {
+                    return emit_error(command, format, "invalid dataset uri", &error);
+                }
+            };
+            let mut request =
+                shardloom_vortex::VortexCountReadinessRequest::new(uri, candidate_source);
+            for token in args {
+                match token.as_str() {
+                    "--feature-gate" => {
+                        request.add_signal(VortexCountReadinessSignal::FeatureGateEnabled);
+                    }
+                    "--query-primitive-ready" => {
+                        request.add_signal(VortexCountReadinessSignal::QueryPrimitiveReady);
+                    }
+                    "--metadata-footer-ready" => {
+                        request.add_signal(VortexCountReadinessSignal::MetadataFooterReady);
+                    }
+                    "--encoded-data-path-ready" => {
+                        request.add_signal(VortexCountReadinessSignal::EncodedDataPathReady);
+                    }
+                    "--count-primitive" => {
+                        request.add_signal(VortexCountReadinessSignal::CountPrimitive);
+                    }
+                    "--filtered-count-requested" => {
+                        request.add_signal(VortexCountReadinessSignal::FilteredCountRequested);
+                    }
+                    "--predicate-provided" => {
+                        request.add_signal(VortexCountReadinessSignal::PredicateProvided);
+                    }
+                    "--object-store-target" => {
+                        request.add_signal(VortexCountReadinessSignal::ObjectStoreTarget);
+                    }
+                    "--decode-risk" => request.add_signal(VortexCountReadinessSignal::DecodeRisk),
+                    "--materialization-risk" => {
+                        request.add_signal(VortexCountReadinessSignal::MaterializationRisk);
+                    }
+                    "--arrow-default-risk" => {
+                        request.add_signal(VortexCountReadinessSignal::ArrowDefaultRisk);
+                    }
+                    "--write-risk" => request.add_signal(VortexCountReadinessSignal::WriteRisk),
+                    "--scan-execution-risk" => {
+                        request.add_signal(VortexCountReadinessSignal::ScanExecutionRisk);
+                    }
+                    "--fallback-policy-blocked" => {
+                        request.add_signal(VortexCountReadinessSignal::FallbackPolicyBlocked);
+                    }
+                    _ => {
+                        return emit_error(
+                            command,
+                            format,
+                            "unknown option",
+                            &ShardLoomError::InvalidOperation(format!("unknown option: {token}")),
+                        );
+                    }
+                }
+            }
+            let count_report = match plan_vortex_count_readiness(request) {
+                Ok(report) => report,
+                Err(error) => {
+                    return emit_error(command, format, "count readiness planning failed", &error);
+                }
+            };
+            let report = match plan_vortex_encoded_count_data_path_approval(
+                count_report,
+                vortex_encoded_read_public_api_boundary(),
+            ) {
+                Ok(report) => report,
+                Err(error) => {
+                    return emit_error(
+                        command,
+                        format,
+                        "encoded count approval planning failed",
+                        &error,
+                    );
+                }
+            };
+            emit(
+                command,
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "vortex encoded count approval planning report".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                vec![
+                    (
+                        "candidate_source".to_string(),
+                        report
+                            .input
+                            .count_readiness_report
+                            .request
+                            .candidate_source
+                            .as_str()
+                            .to_string(),
+                    ),
+                    ("status".to_string(), report.status.as_str().to_string()),
+                    ("mode".to_string(), report.mode.as_str().to_string()),
+                    ("approved".to_string(), report.approved().to_string()),
+                    (
+                        "metadata_count_surface_ready".to_string(),
+                        report.metadata_count_surface_ready.to_string(),
+                    ),
+                    (
+                        "execution_usable_data_path_count".to_string(),
+                        report.execution_usable_data_path_count.to_string(),
+                    ),
+                    (
+                        "api_boundary_blocker_count".to_string(),
+                        report.api_boundary_blockers.len().to_string(),
+                    ),
+                    (
+                        "encoded_data_path_ready".to_string(),
+                        report
+                            .input
+                            .count_readiness_report
+                            .encoded_data_path_ready()
+                            .to_string(),
+                    ),
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        report.fallback_execution_allowed.to_string(),
+                    ),
+                    (
+                        "count_executed".to_string(),
+                        report.count_executed.to_string(),
+                    ),
+                    (
+                        "encoded_data_read".to_string(),
+                        report.encoded_data_read.to_string(),
+                    ),
+                    ("row_read".to_string(), report.row_read.to_string()),
+                    (
+                        "array_decoded".to_string(),
+                        report.array_decoded.to_string(),
+                    ),
+                    (
+                        "values_materialized".to_string(),
+                        report.values_materialized.to_string(),
+                    ),
+                    (
+                        "arrow_converted".to_string(),
+                        report.arrow_converted.to_string(),
+                    ),
+                    (
+                        "object_store_io".to_string(),
+                        report.object_store_io.to_string(),
+                    ),
+                    ("data_written".to_string(), report.data_written.to_string()),
+                    (
+                        "upstream_scan_called".to_string(),
+                        report.upstream_scan_called.to_string(),
+                    ),
+                ],
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
         Some("vortex-filtered-count-readiness-plan") => {
             let Some(source_arg) = args.next() else {
                 return emit_error(
@@ -10932,6 +11137,10 @@ mod tests {
         assert!(cli_usage_line().contains("vortex-count-readiness-plan"));
     }
     #[test]
+    fn usage_includes_vortex_encoded_count_approval_plan() {
+        assert!(cli_usage_line().contains("vortex-encoded-count-approval-plan"));
+    }
+    #[test]
     fn usage_includes_vortex_filtered_count_readiness_plan() {
         assert!(cli_usage_line().contains("vortex-filtered-count-readiness-plan"));
     }
@@ -11075,6 +11284,56 @@ mod tests {
                 "--count-primitive".to_string(),
                 "--metadata-footer-ready".to_string(),
                 "--filtered-count-requested".to_string(),
+            ]),
+            ExitCode::SUCCESS
+        );
+    }
+    #[test]
+    fn vortex_encoded_count_approval_plan_missing_candidate_source_returns_non_zero() {
+        assert_ne!(
+            run(vec!["vortex-encoded-count-approval-plan".to_string()]),
+            ExitCode::SUCCESS
+        );
+    }
+    #[test]
+    fn vortex_encoded_count_approval_plan_invalid_candidate_source_returns_non_zero() {
+        assert_ne!(
+            run(vec![
+                "vortex-encoded-count-approval-plan".to_string(),
+                "bad-source".to_string(),
+                "file://tmp/in.vortex".to_string(),
+            ]),
+            ExitCode::SUCCESS
+        );
+    }
+    #[test]
+    fn vortex_encoded_count_approval_plan_current_api_boundary_blocks_ready_count() {
+        assert_ne!(
+            run(vec![
+                "vortex-encoded-count-approval-plan".to_string(),
+                "encoded-data-path".to_string(),
+                "file://tmp/in.vortex".to_string(),
+                "--feature-gate".to_string(),
+                "--query-primitive-ready".to_string(),
+                "--count-primitive".to_string(),
+                "--encoded-data-path-ready".to_string(),
+            ]),
+            ExitCode::SUCCESS
+        );
+    }
+    #[test]
+    fn vortex_encoded_count_approval_plan_json_current_api_boundary_blocks_ready_count() {
+        assert_ne!(
+            run(vec![
+                "vortex-encoded-count-approval-plan".to_string(),
+                "encoded-data-path".to_string(),
+                "file://tmp/in.vortex".to_string(),
+                "--feature-gate".to_string(),
+                "--query-primitive-ready".to_string(),
+                "--count-primitive".to_string(),
+                "--encoded-data-path-ready".to_string(),
+                "--format".to_string(),
+                "json".to_string(),
             ]),
             ExitCode::SUCCESS
         );

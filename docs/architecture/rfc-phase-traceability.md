@@ -374,6 +374,13 @@ No fallback execution.
 - This pass makes the remaining blocker explicit before actual encoded-data count execution work.
 - This pass does not call scan/read-start APIs, array stream/evaluation APIs, traverse encoded data, read rows, decode/materialize, convert to `Arrow`, perform object-store IO, write, or attempt fallback execution.
 
+## CG-2.1e.7 encoded-count approval CLI surfacing
+
+- Primary RFC linkage: RFC 0005 Vortex-Native File IO and Output Contract, RFC 0012 Diagnostics/Capabilities, RFC 0013 Streaming/Zero-Copy Boundary, RFC 0015 Correctness/testing, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
+- `shardloom vortex-encoded-count-approval-plan` now surfaces `VortexEncodedCountDataPathApprovalReport` in text/JSON CLI envelopes.
+- The command is report-only: current public API blockers remain visible and ready encoded-data count inputs return deterministic unsupported/non-zero status until an execution-usable data path exists.
+- This pass does not call scan/read-start APIs, array stream/evaluation APIs, traverse encoded data, read rows, decode/materialize, convert to `Arrow`, perform object-store IO, write, or attempt fallback execution.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.
