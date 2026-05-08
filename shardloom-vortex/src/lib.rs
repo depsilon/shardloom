@@ -182,6 +182,7 @@ pub use physical_operator_bridge::{
     physical_operator_plan_for_vortex_query_primitive_result,
     plan_vortex_query_primitive_physical_operators,
     plan_vortex_query_primitive_result_physical_operators,
+    plan_vortex_query_primitive_result_physical_operators_with_evidence,
 };
 
 pub use query_primitive::{
