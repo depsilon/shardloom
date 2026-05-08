@@ -126,15 +126,16 @@ pub use release::{
     ReleasePlan, ReleaseReadinessStatus, ReleaseReport, SchemaCompatibilityPlan, SchemaStability,
 };
 pub use schema::{
-    CatalogKind, CatalogRef, DeleteModel, FieldId, FieldName, FieldPath, PartitionEvolutionChange,
+    CatalogKind, CatalogRef, DeleteModel, DeleteTombstoneCompatibilityLevel,
+    DeleteTombstoneCompatibilityReport, FieldId, FieldName, FieldPath, PartitionEvolutionChange,
     PartitionEvolutionChangeKind, PartitionEvolutionCompatibilityLevel,
     PartitionEvolutionCompatibilityReport, PartitionField, PartitionSpec, PartitionTransform,
     SchemaChange, SchemaChangeKind, SchemaCompatibilityLevel, SchemaCompatibilityReport,
     SchemaDefinition, SchemaEvolutionCompatibilityReport, SchemaEvolutionPolicy,
     SchemaEvolutionPolicyKind, SchemaField, SchemaId, SchemaVersion, TableCompatibilityPlan,
     TableCompatibilityReport, TableCompatibilityStatus, TableFeature, TableFeatureKind,
-    TableFeatureStatus, TableFormatKind, evaluate_partition_evolution_compatibility,
-    evaluate_schema_evolution_compatibility,
+    TableFeatureStatus, TableFormatKind, evaluate_delete_tombstone_compatibility,
+    evaluate_partition_evolution_compatibility, evaluate_schema_evolution_compatibility,
 };
 
 pub use security::{

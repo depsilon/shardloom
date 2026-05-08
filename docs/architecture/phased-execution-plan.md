@@ -45,7 +45,7 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-9.2 partition evolution compatibility evidence
+- [x] Session label: CG-9.3 delete/tombstone compatibility evidence
   - Primary files:
     - `shardloom-core/src/schema.rs`
     - `shardloom-core/src/lib.rs`
@@ -53,23 +53,23 @@ Supporting docs:
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
     - `docs/rfcs/0020-schema-evolution-catalog-table-compatibility.md`
-  - Scope: Add typed CG-9 partition-evolution compatibility evidence for partition field additions, drops, transform changes, reorders, unknown transforms, routing requirements, metadata rewrites, and repartition requirements without catalog access, table metadata IO, data reads, writes, object-store IO, or fallback execution.
+  - Scope: Add typed CG-9 delete/tombstone compatibility evidence for declared delete models, file-level deletes, segment tombstones, row/position/equality deletes, external table metadata requirements, metadata-loss rejection, and deterministic unsupported diagnostics without catalog access, table metadata IO, data reads, writes, object-store IO, delete execution, tombstone filtering, or fallback execution.
   - Checklist:
-    - [x] Add `PartitionEvolutionCompatibilityReport` and evaluator in core.
-    - [x] Detect add, drop, transform-change, reorder, and unknown-transform transitions.
-    - [x] Surface partition routing, metadata rewrite, and repartition requirements.
-    - [x] Surface no-IO/no-fallback partition-evolution evidence through `table-compat-plan partition-evolution`.
-    - [x] Add focused success/failure tests for safe and unsafe partition transitions.
+    - [x] Add `DeleteTombstoneCompatibilityReport` and evaluator in core.
+    - [x] Distinguish initially compatible `none`/`file_level_delete` paths from native-rule blockers.
+    - [x] Surface tombstone-filter, row-identity, position-identity, equality-predicate, external-metadata, and metadata-loss requirements.
+    - [x] Surface no-IO/no-fallback delete/tombstone evidence through `table-compat-plan delete-semantics`.
+    - [x] Add focused success/failure tests for compatible and unsupported delete/tombstone models.
     - [x] Update phase, RFC traceability, and RFC 0020 docs.
     - [x] Run full required validation.
   - Local validation status:
-    - focused `shardloom-core` partition-evolution tests passed
-    - focused `shardloom-cli` table-compat partition-evolution tests passed
+    - focused `shardloom-core` delete/tombstone tests passed
+    - focused `shardloom-cli` table-compat delete/tombstone tests passed
     - focused Clippy for `shardloom-core` and `shardloom-cli` passed with toolchain `1.91.1`
     - full Rust validation passed with toolchain `1.91.1`
     - docs hygiene scans passed for `git diff --check` and hidden/bidi controls
-    - CLI JSON smoke check passed for `table-compat-plan partition-evolution add-field --format json`
-  - Explicitly not included: catalog access, table metadata reads, object-store IO, data reads, writes, commits, external table-format implementation, delete/tombstone execution, CDC execution, layout-health execution, compaction execution, parser work, SQL execution, adapter runtime, benchmark claims, superiority claims, or fallback execution.
+    - CLI JSON smoke check passed for `table-compat-plan delete-semantics file-level --format json`
+  - Explicitly not included: catalog access, table metadata reads, object-store IO, data reads, writes, commits, external table-format implementation, delete-file application, tombstone filtering, row-delete execution, position-delete execution, equality-delete execution, CDC execution, layout-health execution, compaction execution, parser work, SQL execution, adapter runtime, benchmark claims, superiority claims, or fallback execution.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -809,6 +809,14 @@ Supporting docs:
     - Unknown partition transforms are rejected deterministically with no fallback attempted.
     - `table-compat-plan partition-evolution` surfaces stable partition-evolution report fields for representative safe and unsafe transitions.
     - No catalog access, table metadata IO, data reads, writes, object-store IO, delete/tombstone execution, CDC execution, compaction, benchmark claim, superiority claim, or fallback behavior is added.
+- [x] CG-9.3 delete/tombstone compatibility evidence
+  - Why: add typed delete/tombstone semantics evidence before catalog/table metadata integration or delete-file/tombstone execution.
+  - Acceptance:
+    - `DeleteTombstoneCompatibilityReport` records source/target delete model, compatibility level, preservation flags, native handling requirements, metadata-loss reporting, unsupported/unsafe counts, read/write support, and no-IO/no-fallback evidence.
+    - The evaluator treats `none` and `file_level_delete` as the only initially compatible models.
+    - Segment tombstones, row-level deletes, position deletes, equality deletes, external table metadata, model transitions with metadata loss, and unknown models are blocked behind explicit native rules.
+    - `table-compat-plan delete-semantics` surfaces stable delete/tombstone report fields for representative compatible and unsupported models.
+    - No catalog access, table metadata IO, data reads, writes, object-store IO, delete-file application, tombstone filtering, row/position/equality-delete execution, CDC execution, compaction, benchmark claim, superiority claim, or fallback behavior is added.
 
 ## Competitive Engine Gates CG-1 through CG-20
 
@@ -970,9 +978,10 @@ Status legend:
 - [ ] CG-9 — Lakehouse/table intelligence (**planned**)
   - [x] CG-9.1 schema evolution compatibility evidence
   - [x] CG-9.2 partition evolution compatibility evidence
+  - [x] CG-9.3 delete/tombstone compatibility evidence
   - Scope:
     - schema evolution and partition evolution
-    - delete/tombstone semantics
+    - delete/tombstone semantics and native handling requirements
     - CDC/incremental planning
     - layout-health and compaction planning
 
@@ -1217,7 +1226,8 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [ ] broader schema evolution catalog/table metadata integration
 - [x] CG-9.2 partition evolution compatibility evidence
 - [ ] broader partition evolution catalog/table metadata integration
-- [ ] delete/tombstone semantics
+- [x] CG-9.3 delete/tombstone compatibility evidence
+- [ ] broader delete/tombstone catalog/table metadata integration
 - [ ] CDC/incremental planning
 - [ ] layout health
 - [ ] compaction planning
@@ -1403,6 +1413,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-8.7 approved local encoded streaming-batch runtime evidence exposes the approved local encoded `CountAll` scan as executed streaming batches with source-match, bounded-memory/backpressure, batch-count, row-count, no-decode/no-materialization/no-row/no-Arrow/no-object-store/no-write/no-spill/no-fallback evidence while broader streaming runtime remains deferred.
 - [x] CG-9.1 schema evolution compatibility evidence adds a typed no-IO/no-fallback report for schema add/drop/rename/type/nullability/identity/metadata changes, field-id rename safety, metadata-loss diagnostics, and `schema-plan evolution` surfacing while broader catalog/table integration remains deferred.
 - [x] CG-9.2 partition evolution compatibility evidence adds a typed no-IO/no-fallback report for partition field add/drop/transform/reorder/unknown-transform changes, partition routing, metadata rewrite, repartition requirements, and `table-compat-plan partition-evolution` surfacing while broader catalog/table integration remains deferred.
+- [x] CG-9.3 delete/tombstone compatibility evidence adds a typed no-IO/no-fallback report for declared delete models, file-level deletes, segment tombstones, row/position/equality deletes, external table metadata requirements, metadata-loss rejection, and `table-compat-plan delete-semantics` surfacing while broader catalog/table integration and delete execution remain deferred.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind `vortex-write`; placeholder artifact paths remain readiness-only.
 - [~] CG-3 broader output payload shapes remain deferred.

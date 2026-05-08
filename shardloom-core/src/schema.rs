@@ -1826,6 +1826,241 @@ impl DeleteModel {
         !self.is_supported_initially()
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DeleteTombstoneCompatibilityLevel {
+    Exact,
+    FileLevelCompatible,
+    RequiresTombstoneFilter,
+    RequiresRowIdentity,
+    RequiresPositionIdentity,
+    RequiresEqualityPredicate,
+    RequiresExternalTableMetadata,
+    Incompatible,
+    Unknown,
+}
+impl DeleteTombstoneCompatibilityLevel {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Exact => "exact",
+            Self::FileLevelCompatible => "file_level_compatible",
+            Self::RequiresTombstoneFilter => "requires_tombstone_filter",
+            Self::RequiresRowIdentity => "requires_row_identity",
+            Self::RequiresPositionIdentity => "requires_position_identity",
+            Self::RequiresEqualityPredicate => "requires_equality_predicate",
+            Self::RequiresExternalTableMetadata => "requires_external_table_metadata",
+            Self::Incompatible => "incompatible",
+            Self::Unknown => "unknown",
+        }
+    }
+
+    #[must_use]
+    pub const fn allows_read(&self) -> bool {
+        matches!(self, Self::Exact | Self::FileLevelCompatible)
+    }
+
+    #[must_use]
+    pub const fn allows_write(&self) -> bool {
+        matches!(self, Self::Exact | Self::FileLevelCompatible)
+    }
+}
+
+/// Machine-readable CG-9 delete/tombstone compatibility evidence.
+///
+/// This report compares declared delete/tombstone models only. It does not read table metadata,
+/// apply delete files, filter tombstones, write data, contact a catalog, or attempt fallback execution.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct DeleteTombstoneCompatibilityReport {
+    pub source_model: DeleteModel,
+    pub target_model: DeleteModel,
+    pub level: DeleteTombstoneCompatibilityLevel,
+    pub diagnostics: Vec<Diagnostic>,
+    pub delete_semantics_preserved: bool,
+    pub tombstone_semantics_preserved: bool,
+    pub requires_explicit_delete_handling: bool,
+    pub requires_file_delete_filter: bool,
+    pub requires_tombstone_filter: bool,
+    pub requires_row_identity: bool,
+    pub requires_position_identity: bool,
+    pub requires_equality_predicate: bool,
+    pub requires_external_table_metadata: bool,
+    pub metadata_loss_reported: bool,
+    pub unsupported_model_count: usize,
+    pub unsafe_change_count: usize,
+    pub read_supported: bool,
+    pub write_supported: bool,
+    pub data_read: bool,
+    pub write_io: bool,
+    pub catalog_io: bool,
+    pub object_store_io: bool,
+    pub fallback_execution_allowed: bool,
+}
+
+impl DeleteTombstoneCompatibilityReport {
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.unsafe_change_count > 0
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "delete_tombstone_compatibility(level={}, source_model={}, target_model={}, unsafe_changes={}, read_supported={}, write_supported={}, data_read=false, write_io=false, catalog_io=false, object_store_io=false, fallback_execution=disabled)",
+            self.level.as_str(),
+            self.source_model.as_str(),
+            self.target_model.as_str(),
+            self.unsafe_change_count,
+            self.read_supported,
+            self.write_supported
+        )
+    }
+}
+
+/// Evaluates declared delete/tombstone semantics without performing table metadata or data I/O.
+#[must_use]
+pub fn evaluate_delete_tombstone_compatibility(
+    source_model: DeleteModel,
+    target_model: DeleteModel,
+) -> DeleteTombstoneCompatibilityReport {
+    let mut diagnostics = Vec::new();
+    let requires_explicit_delete_handling =
+        source_model.requires_explicit_handling() || target_model.requires_explicit_handling();
+    let requires_file_delete_filter = source_model == DeleteModel::FileLevelDelete
+        || target_model == DeleteModel::FileLevelDelete;
+    let requires_tombstone_filter = source_model == DeleteModel::SegmentLevelTombstone
+        || target_model == DeleteModel::SegmentLevelTombstone;
+    let requires_row_identity =
+        source_model == DeleteModel::RowLevelDelete || target_model == DeleteModel::RowLevelDelete;
+    let requires_position_identity =
+        source_model == DeleteModel::PositionDelete || target_model == DeleteModel::PositionDelete;
+    let requires_equality_predicate =
+        source_model == DeleteModel::EqualityDelete || target_model == DeleteModel::EqualityDelete;
+    let requires_external_table_metadata = source_model == DeleteModel::ExternalTableMetadata
+        || target_model == DeleteModel::ExternalTableMetadata;
+    let unsupported_model_count = [source_model, target_model]
+        .iter()
+        .filter(|model| model.requires_explicit_handling())
+        .count();
+    let metadata_loss_reported = source_model != target_model && source_model != DeleteModel::None;
+    let source_or_target_unknown =
+        source_model == DeleteModel::Unknown || target_model == DeleteModel::Unknown;
+
+    let level = if source_or_target_unknown {
+        diagnostics.push(delete_tombstone_unsupported_diagnostic(
+            "delete_tombstone_unknown_model",
+            "delete/tombstone compatibility cannot be proven for an unknown delete model",
+        ));
+        DeleteTombstoneCompatibilityLevel::Incompatible
+    } else if source_model.is_supported_initially() && target_model.is_supported_initially() {
+        if source_model == target_model {
+            DeleteTombstoneCompatibilityLevel::Exact
+        } else if source_model == DeleteModel::None && target_model == DeleteModel::FileLevelDelete
+        {
+            DeleteTombstoneCompatibilityLevel::FileLevelCompatible
+        } else {
+            diagnostics.push(delete_tombstone_unsupported_diagnostic(
+                "delete_tombstone_metadata_loss",
+                "dropping declared file-level delete semantics requires an explicit metadata-loss rule",
+            ));
+            DeleteTombstoneCompatibilityLevel::Incompatible
+        }
+    } else if source_model == target_model {
+        let level = delete_tombstone_required_level(source_model);
+        diagnostics.push(delete_tombstone_unsupported_diagnostic(
+            source_model.as_str(),
+            format!(
+                "delete model {} requires a native delete/tombstone rule before table compatibility can be certified",
+                source_model.as_str()
+            ),
+        ));
+        level
+    } else {
+        diagnostics.push(delete_tombstone_unsupported_diagnostic(
+            "delete_tombstone_model_transition",
+            format!(
+                "delete model transition from {} to {} requires an explicit native translation rule",
+                source_model.as_str(),
+                target_model.as_str()
+            ),
+        ));
+        DeleteTombstoneCompatibilityLevel::Incompatible
+    };
+
+    let unsafe_change_count = usize::from(source_or_target_unknown)
+        + usize::from(requires_explicit_delete_handling)
+        + usize::from(metadata_loss_reported);
+    let read_supported = level.allows_read() && diagnostics_are_not_errors(&diagnostics);
+    let write_supported = level.allows_write() && diagnostics_are_not_errors(&diagnostics);
+
+    DeleteTombstoneCompatibilityReport {
+        source_model,
+        target_model,
+        level,
+        diagnostics,
+        delete_semantics_preserved: source_model == target_model,
+        tombstone_semantics_preserved: source_model == DeleteModel::SegmentLevelTombstone
+            && target_model == DeleteModel::SegmentLevelTombstone,
+        requires_explicit_delete_handling,
+        requires_file_delete_filter,
+        requires_tombstone_filter,
+        requires_row_identity,
+        requires_position_identity,
+        requires_equality_predicate,
+        requires_external_table_metadata,
+        metadata_loss_reported,
+        unsupported_model_count,
+        unsafe_change_count,
+        read_supported,
+        write_supported,
+        data_read: false,
+        write_io: false,
+        catalog_io: false,
+        object_store_io: false,
+        fallback_execution_allowed: false,
+    }
+}
+
+const fn delete_tombstone_required_level(model: DeleteModel) -> DeleteTombstoneCompatibilityLevel {
+    match model {
+        DeleteModel::SegmentLevelTombstone => {
+            DeleteTombstoneCompatibilityLevel::RequiresTombstoneFilter
+        }
+        DeleteModel::RowLevelDelete => DeleteTombstoneCompatibilityLevel::RequiresRowIdentity,
+        DeleteModel::PositionDelete => DeleteTombstoneCompatibilityLevel::RequiresPositionIdentity,
+        DeleteModel::EqualityDelete => DeleteTombstoneCompatibilityLevel::RequiresEqualityPredicate,
+        DeleteModel::ExternalTableMetadata => {
+            DeleteTombstoneCompatibilityLevel::RequiresExternalTableMetadata
+        }
+        DeleteModel::None | DeleteModel::FileLevelDelete => {
+            DeleteTombstoneCompatibilityLevel::Exact
+        }
+        DeleteModel::Unknown => DeleteTombstoneCompatibilityLevel::Unknown,
+    }
+}
+
+fn delete_tombstone_unsupported_diagnostic(
+    feature: impl Into<String>,
+    message: impl Into<String>,
+) -> Diagnostic {
+    Diagnostic::unsupported(
+        DiagnosticCode::NotImplemented,
+        feature,
+        message,
+        Some(
+            "Add a native delete/tombstone compatibility rule before enabling this table path."
+                .to_string(),
+        ),
+    )
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TableCompatibilityStatus {
     Planned,
@@ -2287,6 +2522,101 @@ mod tests {
     #[test]
     fn delete_model_equality_delete_requires_explicit_handling() {
         assert!(DeleteModel::EqualityDelete.requires_explicit_handling());
+    }
+    #[test]
+    fn delete_tombstone_none_is_exact_and_side_effect_free() {
+        let report = evaluate_delete_tombstone_compatibility(DeleteModel::None, DeleteModel::None);
+
+        assert_eq!(report.level, DeleteTombstoneCompatibilityLevel::Exact);
+        assert!(report.delete_semantics_preserved);
+        assert!(!report.requires_explicit_delete_handling);
+        assert!(report.read_supported);
+        assert!(report.write_supported);
+        assert!(!report.data_read);
+        assert!(!report.write_io);
+        assert!(!report.catalog_io);
+        assert!(!report.object_store_io);
+        assert!(!report.fallback_execution_allowed);
+    }
+    #[test]
+    fn delete_tombstone_file_level_is_initially_compatible() {
+        let report = evaluate_delete_tombstone_compatibility(
+            DeleteModel::None,
+            DeleteModel::FileLevelDelete,
+        );
+
+        assert_eq!(
+            report.level,
+            DeleteTombstoneCompatibilityLevel::FileLevelCompatible
+        );
+        assert!(report.requires_file_delete_filter);
+        assert_eq!(report.unsafe_change_count, 0);
+        assert!(report.read_supported);
+        assert!(report.write_supported);
+    }
+    #[test]
+    fn delete_tombstone_segment_tombstone_requires_native_filter() {
+        let report = evaluate_delete_tombstone_compatibility(
+            DeleteModel::SegmentLevelTombstone,
+            DeleteModel::SegmentLevelTombstone,
+        );
+
+        assert_eq!(
+            report.level,
+            DeleteTombstoneCompatibilityLevel::RequiresTombstoneFilter
+        );
+        assert!(report.tombstone_semantics_preserved);
+        assert!(report.requires_explicit_delete_handling);
+        assert!(report.requires_tombstone_filter);
+        assert!(!report.read_supported);
+        assert!(!report.write_supported);
+        assert!(report.has_errors());
+        assert_eq!(report.diagnostics[0].code, DiagnosticCode::NotImplemented);
+        assert!(!report.diagnostics[0].fallback.attempted);
+    }
+    #[test]
+    fn delete_tombstone_equality_delete_requires_native_predicate_rule() {
+        let report = evaluate_delete_tombstone_compatibility(
+            DeleteModel::EqualityDelete,
+            DeleteModel::EqualityDelete,
+        );
+
+        assert_eq!(
+            report.level,
+            DeleteTombstoneCompatibilityLevel::RequiresEqualityPredicate
+        );
+        assert!(report.requires_equality_predicate);
+        assert_eq!(report.unsupported_model_count, 2);
+        assert!(report.has_errors());
+    }
+    #[test]
+    fn delete_tombstone_model_transition_reports_metadata_loss() {
+        let report = evaluate_delete_tombstone_compatibility(
+            DeleteModel::FileLevelDelete,
+            DeleteModel::None,
+        );
+
+        assert_eq!(
+            report.level,
+            DeleteTombstoneCompatibilityLevel::Incompatible
+        );
+        assert!(report.metadata_loss_reported);
+        assert_eq!(report.unsafe_change_count, 1);
+        assert!(report.has_errors());
+    }
+    #[test]
+    fn delete_tombstone_unknown_model_is_rejected() {
+        let report =
+            evaluate_delete_tombstone_compatibility(DeleteModel::Unknown, DeleteModel::Unknown);
+
+        assert_eq!(
+            report.level,
+            DeleteTombstoneCompatibilityLevel::Incompatible
+        );
+        assert!(report.requires_explicit_delete_handling);
+        assert!(report.has_errors());
+        assert_eq!(report.diagnostics[0].code, DiagnosticCode::NotImplemented);
+        assert!(!report.diagnostics[0].fallback.attempted);
     }
     #[test]
     fn table_compatibility_plan_native_vortex_has_native_format() {
