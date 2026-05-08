@@ -7,7 +7,8 @@ use shardloom_core::{Diagnostic, DiagnosticCode, DiagnosticSeverity, Result};
 
 use crate::{
     VortexCountCandidateSource, VortexCountReadinessReport, VortexCountReadinessStatus,
-    VortexEncodedCountDataPathApprovalReport, VortexMetadataSummaryReport,
+    VortexEncodedCountDataPathApprovalReport, VortexFilteredCountCandidateSource,
+    VortexFilteredCountReadinessReport, VortexMetadataSummaryReport,
     VortexQueryPrimitiveAnalysisReport, VortexQueryPrimitiveKind, VortexQueryPrimitiveRequest,
     VortexQueryPrimitiveResult, VortexQueryPrimitiveStatus, VortexQueryPrimitiveValue,
     analyze_vortex_query_primitive_result, evaluate_vortex_query_primitive,
@@ -658,6 +659,41 @@ pub fn execute_vortex_count_all_from_encoded_count_data_path_approval(
     ))
 }
 
+/// Executes metadata-proven `CountWhere` through the filtered-count readiness guard.
+///
+/// This path accepts only metadata predicate proof candidates. It may return a
+/// metadata-only count result when segment metadata proves the predicate, or a
+/// deferred `NeedsPredicateEvaluation` plan when metadata is inconclusive. It
+/// does not read encoded data, read rows, decode/materialize values, convert to
+/// `Arrow`, perform object-store IO, write data, or permit fallback execution.
+///
+/// # Errors
+/// Returns an error if primitive analysis construction fails.
+pub fn execute_vortex_count_where_from_filtered_count_metadata_proof(
+    readiness: &VortexFilteredCountReadinessReport,
+    request: VortexQueryPrimitiveRequest,
+    metadata_summary: VortexMetadataSummaryReport,
+) -> Result<VortexLocalExecutionReport> {
+    let target_matches = request.source_uri.as_ref() == Some(&readiness.request.target_uri);
+    let is_count_where = request.kind == VortexQueryPrimitiveKind::CountWhere;
+    let input = VortexLocalExecutionInput::new(request).with_metadata_summary(metadata_summary);
+    if readiness.filtered_count_ready()
+        && readiness.request.candidate_source
+            == VortexFilteredCountCandidateSource::MetadataPredicateProof
+        && readiness.is_side_effect_free()
+        && !readiness.has_errors()
+        && is_count_where
+        && target_matches
+    {
+        return VortexLocalExecutionReport::from_input(input);
+    }
+    Ok(VortexLocalExecutionReport::unsupported(
+        input,
+        "vortex_filtered_count_metadata_proof",
+        "filtered-count metadata proof readiness is not approved for this CountWhere request",
+    ))
+}
+
 pub fn vortex_local_execution_is_side_effect_free(report: &VortexLocalExecutionReport) -> bool {
     report.is_side_effect_free()
 }
@@ -674,12 +710,15 @@ mod tests {
         VortexCountCandidateSource, VortexCountReadinessRequest,
         VortexEncodedCountDataPathApprovalInput, VortexEncodedReadApiBoundaryReport,
         VortexEncodedReadApiBoundaryStatus, VortexFileMetadataSummary,
+        VortexFilteredCountCandidateSource, VortexFilteredCountReadinessRequest,
         VortexLayoutReaderDriverApprovalInput, VortexMetadataSummaryStatus,
-        plan_vortex_count_readiness, plan_vortex_encoded_count_data_path_approval,
+        VortexSegmentMetadataSummary, plan_vortex_count_readiness,
+        plan_vortex_encoded_count_data_path_approval,
         plan_vortex_encoded_count_data_path_approval_with_layout_driver,
-        plan_vortex_layout_reader_driver_approval, vortex_encoded_read_public_api_boundary,
+        plan_vortex_filtered_count_readiness, plan_vortex_layout_reader_driver_approval,
+        vortex_encoded_read_public_api_boundary,
     };
-    use shardloom_core::DatasetUri;
+    use shardloom_core::{DatasetUri, PredicateExpr};
     fn uri() -> DatasetUri {
         DatasetUri::new("file://tmp/a.vortex").expect("uri")
     }
@@ -693,6 +732,16 @@ mod tests {
                 row_count: Some(rows),
                 ..VortexFileMetadataSummary::empty()
             },
+            diagnostics: vec![],
+        }
+    }
+    fn segmented_count_summary(rows: u64) -> VortexMetadataSummaryReport {
+        let mut summary = VortexFileMetadataSummary::empty();
+        summary.row_count = Some(rows);
+        summary.add_segment(VortexSegmentMetadataSummary::unknown().with_row_count(rows));
+        VortexMetadataSummaryReport {
+            status: VortexMetadataSummaryStatus::Summarized,
+            summary,
             diagnostics: vec![],
         }
     }
@@ -726,6 +775,35 @@ mod tests {
                 .fallback_forbidden(true),
         )
         .expect("layout driver approval")
+    }
+    fn filtered_count_metadata_proof_ready_report() -> VortexFilteredCountReadinessReport {
+        plan_vortex_filtered_count_readiness(
+            VortexFilteredCountReadinessRequest::new(
+                uri(),
+                VortexFilteredCountCandidateSource::MetadataPredicateProof,
+            )
+            .feature_gate_enabled(true)
+            .query_primitive_ready(true)
+            .metadata_footer_ready(true)
+            .filtered_count_primitive(true)
+            .predicate_provided(true)
+            .predicate_metadata_proof_ready(true),
+        )
+        .expect("filtered count readiness")
+    }
+    fn filtered_count_encoded_predicate_ready_report() -> VortexFilteredCountReadinessReport {
+        plan_vortex_filtered_count_readiness(
+            VortexFilteredCountReadinessRequest::new(
+                uri(),
+                VortexFilteredCountCandidateSource::EncodedPredicatePath,
+            )
+            .feature_gate_enabled(true)
+            .query_primitive_ready(true)
+            .encoded_data_path_ready(true)
+            .filtered_count_primitive(true)
+            .predicate_provided(true),
+        )
+        .expect("filtered count readiness")
     }
     #[test]
     fn status_checks() {
@@ -965,6 +1043,49 @@ mod tests {
             report.accepted_approval_sources_text(),
             "execution_usable_public_api_boundary,layout_row_count_approval"
         );
+    }
+
+    #[test]
+    fn filtered_count_metadata_proof_guard_executes_metadata_count_where() {
+        let request = VortexQueryPrimitiveRequest::count_where(uri(), PredicateExpr::AlwaysTrue);
+        let report = execute_vortex_count_where_from_filtered_count_metadata_proof(
+            &filtered_count_metadata_proof_ready_report(),
+            request,
+            segmented_count_summary(12),
+        )
+        .expect("execution");
+
+        assert_eq!(report.status, VortexLocalExecutionStatus::MetadataExecuted);
+        assert_eq!(report.mode, VortexLocalExecutionMode::MetadataOnly);
+        assert!(report.value.is_known());
+        match report.value {
+            VortexLocalExecutionValue::QueryPrimitive(VortexQueryPrimitiveValue::Count(v)) => {
+                assert_eq!(v, 12);
+            }
+            other => panic!("expected count result, got {}", other.summary()),
+        }
+        assert!(report.is_side_effect_free());
+        assert!(!report.data_read);
+        assert!(!report.data_decoded);
+        assert!(!report.data_materialized);
+        assert!(!report.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn filtered_count_metadata_proof_guard_rejects_encoded_predicate_candidate() {
+        let request = VortexQueryPrimitiveRequest::count_where(uri(), PredicateExpr::AlwaysTrue);
+        let report = execute_vortex_count_where_from_filtered_count_metadata_proof(
+            &filtered_count_encoded_predicate_ready_report(),
+            request,
+            segmented_count_summary(12),
+        )
+        .expect("execution");
+
+        assert_eq!(report.status, VortexLocalExecutionStatus::Unsupported);
+        assert!(report.has_errors());
+        assert!(report.is_side_effect_free());
+        assert!(!report.data_read);
+        assert!(!report.fallback_execution_allowed);
     }
 
     #[test]
