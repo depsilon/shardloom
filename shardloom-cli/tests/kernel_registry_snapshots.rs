@@ -1,6 +1,6 @@
 use std::process::Command;
 
-const KERNEL_REGISTRY_FIELD_KEYS: [&str; 32] = [
+const KERNEL_REGISTRY_FIELD_KEYS: [&str; 42] = [
     "fallback_execution_allowed",
     "mode",
     "status",
@@ -30,6 +30,16 @@ const KERNEL_REGISTRY_FIELD_KEYS: [&str; 32] = [
     "encoded_count_physical_kernel_requires_execution_certificate",
     "encoded_count_physical_kernel_runtime_execution",
     "encoded_count_physical_kernel_fallback_execution_allowed",
+    "encoded_count_kernel_admission_schema_version",
+    "encoded_count_kernel_admission_contextual_only",
+    "encoded_count_kernel_admission_operator_kind",
+    "encoded_count_kernel_admission_required_kernel_kind",
+    "encoded_count_kernel_admission_requires_physical_kernel_evidence",
+    "encoded_count_kernel_admission_requires_correctness_evidence",
+    "encoded_count_kernel_admission_requires_memory_safety_evidence",
+    "encoded_count_kernel_admission_requires_benchmark_for_production",
+    "encoded_count_kernel_admission_runtime_execution",
+    "encoded_count_kernel_admission_fallback_execution_allowed",
     "write_io",
     "execution",
     "plan_only",
@@ -111,8 +121,42 @@ fn kernel_registry_json_fields_include_physical_kernel_blockers() {
     assert!(output.contains(
         "{\"key\":\"encoded_count_physical_kernel_fallback_execution_allowed\",\"value\":\"false\"}"
     ));
+    assert_encoded_count_kernel_admission_fields(&output);
     assert!(output.contains("\"allowed\":false"));
     assert!(output.contains("\"attempted\":false"));
+}
+
+fn assert_encoded_count_kernel_admission_fields(output: &str) {
+    assert!(output.contains(
+        "{\"key\":\"encoded_count_kernel_admission_schema_version\",\"value\":\"shardloom.vortex_encoded_count_kernel_admission.v1\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_count_kernel_admission_contextual_only\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_count_kernel_admission_operator_kind\",\"value\":\"count_aggregate\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_count_kernel_admission_required_kernel_kind\",\"value\":\"encoded\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_count_kernel_admission_requires_physical_kernel_evidence\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_count_kernel_admission_requires_correctness_evidence\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_count_kernel_admission_requires_memory_safety_evidence\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_count_kernel_admission_requires_benchmark_for_production\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_count_kernel_admission_runtime_execution\",\"value\":\"false\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_count_kernel_admission_fallback_execution_allowed\",\"value\":\"false\"}"
+    ));
 }
 
 fn run_kernel_registry_json() -> String {

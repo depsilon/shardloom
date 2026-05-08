@@ -39,25 +39,28 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-7.16 local encoded `CountAll` CLI evidence surfacing
+- [x] Session label: CG-7.17 encoded count aggregate kernel admission bridge
   - Primary files:
+    - `shardloom-vortex/src/encoded_count_physical_kernel.rs`
+    - `shardloom-vortex/src/lib.rs`
     - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `shardloom-cli/tests/kernel_registry_snapshots.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-  - Scope: Surface the CG-16 execution certificate and CG-7.15 contextual encoded-count physical-kernel evidence through the stable explicit local encoded `CountAll` CLI path when the checked-in correctness fixture matches the executed local target.
+  - Scope: Admit certified local encoded `CountAll` physical-kernel evidence into the count-aggregate encoded kernel slot as registry-ready evidence while keeping production claims benchmark-blocked and broad count/aggregate closeout open.
   - Checklist:
-    - [x] Keep arbitrary local `.vortex` count execution usable without fixture certification.
-    - [x] Match certification only to the repository's local encoded count correctness fixture source ref.
-    - [x] Add stable JSON/text fields for fixture match, execution certificate status, no-fallback evidence, and encoded physical-kernel evidence.
-    - [x] Keep production/superiority claims disabled.
-    - [x] Add focused CLI tests for fixture matching and non-matching targets.
+    - [x] Add a Vortex encoded count kernel admission report.
+    - [x] Require safe encoded count physical-kernel evidence before the encoded slot can be marked present.
+    - [x] Keep benchmark evidence missing so production/superiority claims remain blocked.
+    - [x] Surface admission discovery in `capabilities operators` and `kernel-registry` without runtime probing.
+    - [x] Surface admission evidence in `vortex-count --execute-local-encoded-count` when fixture certification is available.
     - [x] Run focused and full required validation.
   - Local validation status:
-    - focused CLI fixture-matching tests passed
+    - focused Vortex/CLI admission tests passed
     - feature-enabled local encoded count CLI smoke passed
-    - focused CLI clippy passed with and without the Vortex encoded-read spike feature
     - full Rust validation passed with toolchain `1.91.1`
-  - Explicitly not included: new scan/read-start paths, generalized encoded-data execution, filtered-count execution, projection execution, parser, SQL execution, adapter runtime, object-store IO, writes, spill IO, benchmarks, production/superiority claims, fallback execution, CG-7 closeout, or CG-2 closeout.
+  - Explicitly not included: new scan/read-start paths, generalized encoded-data execution, filtered-count execution, projection execution, parser, SQL execution, adapter runtime, object-store IO, writes, spill IO, benchmarks, production/superiority claims, fallback execution, broad count/aggregate kernel closeout, CG-7 closeout, or CG-2 closeout.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -629,6 +632,13 @@ Supporting docs:
     - Stable command fields report fixture match status, execution certificate status, encoded physical-kernel status, no-fallback evidence, unsafe-effect flags, and production-claim-disabled status.
     - Arbitrary local `.vortex` count execution remains usable without over-certifying non-fixture targets.
     - No new execution path, benchmark claim, superiority claim, or fallback behavior is added.
+- [x] CG-7.17 encoded count aggregate kernel admission bridge
+  - Why: connect certified local encoded `CountAll` kernel evidence to the CG-7 admission gate without claiming broad count/aggregate completion.
+  - Acceptance:
+    - Safe encoded count physical-kernel evidence can mark the count-aggregate encoded kernel slot registry-ready.
+    - Benchmark evidence remains missing, so production certification and superiority claims remain blocked.
+    - Admission discovery is visible through capability and kernel-registry outputs without runtime probing.
+    - No global kernel registration, new execution path, benchmark claim, superiority claim, or fallback behavior is added.
 
 ## Competitive Engine Gates CG-1 through CG-20
 
@@ -758,6 +768,7 @@ Status legend:
   - [x] CG-7.14 metadata kernel capability discovery
   - [x] CG-7.15 local encoded `CountAll` physical kernel evidence
   - [x] CG-7.16 local encoded `CountAll` CLI evidence surfacing
+  - [x] CG-7.17 encoded count aggregate kernel admission bridge
   - Scope:
     - filter/projection/count-aggregate kernels
     - metadata/encoded/hybrid execution levels
@@ -982,6 +993,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-7.14 metadata kernel capability discovery
 - [x] CG-7.15 local encoded `CountAll` physical kernel evidence
 - [x] CG-7.16 local encoded `CountAll` CLI evidence surfacing
+- [x] CG-7.17 encoded count aggregate kernel admission bridge
 - [ ] filter kernel
 - [ ] projection kernel
 - [ ] count/aggregate kernel
@@ -1166,6 +1178,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-7.14 metadata kernel capability discovery surfaces contextual metadata physical kernel availability and evidence requirements in `capabilities operators` and `kernel-registry` without treating those contextual reports as global runtime kernels.
 - [x] CG-7.15 local encoded `CountAll` physical kernel evidence verifies the approved local encoded count path against correctness evidence, a CG-16 execution certificate, and encoded-native physical-kernel evidence.
 - [x] CG-7.16 local encoded `CountAll` CLI evidence surfacing emits the fixture match, execution certificate, and encoded physical-kernel evidence through `vortex-count --execute-local-encoded-count` without over-certifying arbitrary local targets.
+- [x] CG-7.17 encoded count aggregate kernel admission bridge lets safe encoded count physical-kernel evidence mark the count-aggregate encoded slot registry-ready while benchmark-gating production certification.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind `vortex-write`; placeholder artifact paths remain readiness-only.
 - [~] CG-3 broader output payload shapes remain deferred.

@@ -1,8 +1,11 @@
 use std::fmt::Write as _;
 
 use shardloom_core::{
-    Diagnostic, DiagnosticCode, ExecutionCertificate, ExpectedOutcome, KernelKind,
-    PhysicalOperatorExecutionLevel, PhysicalOperatorKind,
+    BenchmarkEvidenceState, BenchmarkFallbackState, Diagnostic, DiagnosticCode,
+    ExecutionCertificate, ExpectedOutcome, KernelKind, OperatorMemoryCertification,
+    PhysicalKernelAdmissionReport, PhysicalKernelAdmissionStatus, PhysicalKernelRequirement,
+    PhysicalKernelSlot, PhysicalOperatorContract, PhysicalOperatorExecutionLevel,
+    PhysicalOperatorKind,
 };
 
 use crate::{
@@ -13,7 +16,10 @@ use crate::{
 };
 
 const SCHEMA_VERSION: &str = "shardloom.vortex_encoded_count_physical_kernel.v1";
+const ADMISSION_SCHEMA_VERSION: &str = "shardloom.vortex_encoded_count_kernel_admission.v1";
 const EXECUTION_KIND: &str = "vortex.local_encoded_count";
+const KERNEL_REPORT_ID: &str = "vortex.query-primitive.count_all.encoded-count-physical-kernel";
+const COUNT_OPERATOR_ID: &str = "vortex.query_primitive.count_all.count_aggregate";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VortexEncodedCountPhysicalKernelStatus {
@@ -69,7 +75,7 @@ impl VortexEncodedCountPhysicalKernelDiscoveryReport {
     pub const fn report_only() -> Self {
         Self {
             schema_version: SCHEMA_VERSION,
-            kernel_report_id: "vortex.query-primitive.count_all.encoded-count-physical-kernel",
+            kernel_report_id: KERNEL_REPORT_ID,
             supported_primitive: VortexQueryPrimitiveKind::CountAll,
             operator_kind: PhysicalOperatorKind::CountAggregate,
             kernel_kind: KernelKind::Encoded,
@@ -149,8 +155,7 @@ impl VortexEncodedCountPhysicalKernelReport {
     ) -> Self {
         Self {
             schema_version: SCHEMA_VERSION,
-            kernel_report_id: "vortex.query-primitive.count_all.encoded-count-physical-kernel"
-                .to_string(),
+            kernel_report_id: KERNEL_REPORT_ID.to_string(),
             primitive_kind: VortexQueryPrimitiveKind::CountAll,
             operator_kind: PhysicalOperatorKind::CountAggregate,
             kernel_kind: KernelKind::Encoded,
@@ -192,8 +197,7 @@ impl VortexEncodedCountPhysicalKernelReport {
         diagnostics.push(diagnostic);
         Self {
             schema_version: SCHEMA_VERSION,
-            kernel_report_id: "vortex.query-primitive.count_all.encoded-count-physical-kernel"
-                .to_string(),
+            kernel_report_id: KERNEL_REPORT_ID.to_string(),
             primitive_kind: VortexQueryPrimitiveKind::CountAll,
             operator_kind: PhysicalOperatorKind::CountAggregate,
             kernel_kind: KernelKind::Encoded,
@@ -283,6 +287,93 @@ impl VortexEncodedCountPhysicalKernelReport {
             self.production_claim_allowed
         );
         text
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexEncodedCountKernelAdmissionReport {
+    pub schema_version: &'static str,
+    pub admission_id: String,
+    pub physical_kernel_report_id: String,
+    pub slot_id: String,
+    pub operator_kind: PhysicalOperatorKind,
+    pub required_kernel_kind: KernelKind,
+    pub candidate_kernel_kind: KernelKind,
+    pub correctness_evidence: BenchmarkEvidenceState,
+    pub benchmark_evidence: BenchmarkEvidenceState,
+    pub memory: OperatorMemoryCertification,
+    pub fallback: BenchmarkFallbackState,
+    pub status: PhysicalKernelAdmissionStatus,
+    pub slot_marked_present: bool,
+    pub production_claim_allowed: bool,
+    pub runtime_execution_allowed: bool,
+    pub fallback_execution_allowed: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl VortexEncodedCountKernelAdmissionReport {
+    #[must_use]
+    pub fn from_admission(
+        physical_kernel: &VortexEncodedCountPhysicalKernelReport,
+        admission: PhysicalKernelAdmissionReport,
+    ) -> Self {
+        let mut diagnostics = physical_kernel.diagnostics.clone();
+        diagnostics.extend(admission.diagnostics.clone());
+        let slot_marked_present = admission.can_mark_kernel_present();
+        let production_claim_allowed = admission.can_satisfy_production_claim();
+        Self {
+            schema_version: ADMISSION_SCHEMA_VERSION,
+            admission_id: format!("{}.admission", physical_kernel.kernel_report_id),
+            physical_kernel_report_id: physical_kernel.kernel_report_id.clone(),
+            slot_id: admission.slot_id,
+            operator_kind: admission.operator_kind,
+            required_kernel_kind: admission.required_kernel_kind,
+            candidate_kernel_kind: admission.candidate_kernel_kind,
+            correctness_evidence: admission.correctness_evidence,
+            benchmark_evidence: admission.benchmark_evidence,
+            memory: admission.memory,
+            fallback: admission.fallback,
+            status: admission.status,
+            slot_marked_present,
+            production_claim_allowed,
+            runtime_execution_allowed: false,
+            fallback_execution_allowed: false,
+            diagnostics,
+        }
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        !self.status.can_enter_registry()
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    shardloom_core::DiagnosticSeverity::Error
+                        | shardloom_core::DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    #[must_use]
+    pub const fn is_side_effect_free(&self) -> bool {
+        !self.runtime_execution_allowed && !self.fallback_execution_allowed
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "encoded count kernel admission\nschema_version: {}\nadmission: {}\nslot: {}\noperator: {}\nrequired kernel: {}\ncandidate kernel: {}\nstatus: {}\nslot marked present: {}\nproduction claim allowed: {}\nruntime execution: disabled\nfallback execution: disabled",
+            self.schema_version,
+            self.admission_id,
+            self.slot_id,
+            self.operator_kind.as_str(),
+            self.required_kernel_kind.as_str(),
+            self.candidate_kernel_kind.as_str(),
+            self.status.as_str(),
+            self.slot_marked_present,
+            self.production_claim_allowed
+        )
     }
 }
 
@@ -376,6 +467,74 @@ pub fn evaluate_vortex_local_encoded_count_physical_kernel(
 pub const fn vortex_encoded_count_physical_kernel_discovery_report()
 -> VortexEncodedCountPhysicalKernelDiscoveryReport {
     VortexEncodedCountPhysicalKernelDiscoveryReport::report_only()
+}
+
+/// Admits the contextual encoded `CountAll` kernel evidence into the CG-7
+/// count-aggregate encoded kernel slot.
+///
+/// This is still an evidence bridge. It does not register a global runtime
+/// kernel, execute data, claim production readiness, or close the broader
+/// count/aggregate kernel checklist.
+///
+/// # Errors
+/// Returns an error only if the static count-aggregate operator contract cannot
+/// be built.
+pub fn admit_vortex_encoded_count_kernel(
+    physical_kernel: &VortexEncodedCountPhysicalKernelReport,
+) -> shardloom_core::Result<VortexEncodedCountKernelAdmissionReport> {
+    let slot = encoded_count_kernel_slot()?;
+    let safe_evidence = physical_kernel.is_safe_native_kernel_evidence();
+    let admission = PhysicalKernelAdmissionReport::evaluate(
+        &slot,
+        KernelKind::Encoded,
+        if safe_evidence {
+            BenchmarkEvidenceState::Present
+        } else {
+            BenchmarkEvidenceState::Missing
+        },
+        BenchmarkEvidenceState::Missing,
+        if safe_evidence {
+            safe_encoded_count_memory()
+        } else {
+            OperatorMemoryCertification::unsupported()
+        },
+        if physical_kernel.fallback_attempted {
+            BenchmarkFallbackState::Attempted
+        } else {
+            BenchmarkFallbackState::NotAttempted
+        },
+    );
+    Ok(VortexEncodedCountKernelAdmissionReport::from_admission(
+        physical_kernel,
+        admission,
+    ))
+}
+
+fn encoded_count_kernel_slot() -> shardloom_core::Result<PhysicalKernelSlot> {
+    let operator = PhysicalOperatorContract::new(
+        COUNT_OPERATOR_ID,
+        PhysicalOperatorKind::CountAggregate,
+        PhysicalOperatorExecutionLevel::EncodedNative,
+        vec![
+            PhysicalKernelRequirement::missing(KernelKind::Metadata),
+            PhysicalKernelRequirement::missing(KernelKind::Encoded),
+        ],
+    )?;
+    Ok(PhysicalKernelSlot::from_requirement(
+        &operator,
+        PhysicalKernelRequirement::missing(KernelKind::Encoded),
+    ))
+}
+
+const fn safe_encoded_count_memory() -> OperatorMemoryCertification {
+    OperatorMemoryCertification {
+        streaming: true,
+        bounded_memory: true,
+        spillable: false,
+        requires_full_materialization: false,
+        requires_shuffle: false,
+        oom_safe: true,
+    }
 }
 
 fn matching_count(
@@ -613,6 +772,77 @@ mod tests {
         assert!(!report.production_claim_allowed);
         assert!(report.is_safe_native_kernel_evidence());
         assert!(!report.has_errors());
+    }
+
+    #[test]
+    fn safe_encoded_count_kernel_admits_encoded_slot_without_production_claim() {
+        let encoded = encoded_report(42);
+        let local = local_report(42);
+        let certificate = certificate(42);
+        let physical_kernel =
+            evaluate_vortex_local_encoded_count_physical_kernel(&encoded, &local, &certificate);
+
+        let admission =
+            admit_vortex_encoded_count_kernel(&physical_kernel).expect("admission report");
+
+        assert_eq!(admission.schema_version, ADMISSION_SCHEMA_VERSION);
+        assert_eq!(
+            admission.status,
+            PhysicalKernelAdmissionStatus::RegistryReady
+        );
+        assert_eq!(
+            admission.operator_kind,
+            PhysicalOperatorKind::CountAggregate
+        );
+        assert_eq!(admission.required_kernel_kind, KernelKind::Encoded);
+        assert_eq!(admission.candidate_kernel_kind, KernelKind::Encoded);
+        assert_eq!(
+            admission.correctness_evidence,
+            BenchmarkEvidenceState::Present
+        );
+        assert_eq!(
+            admission.benchmark_evidence,
+            BenchmarkEvidenceState::Missing
+        );
+        assert!(admission.memory.streaming);
+        assert!(admission.memory.bounded_memory);
+        assert!(admission.memory.oom_safe);
+        assert!(!admission.memory.requires_full_materialization);
+        assert!(admission.slot_marked_present);
+        assert!(!admission.production_claim_allowed);
+        assert!(admission.is_side_effect_free());
+        assert!(!admission.has_errors());
+        assert!(!admission.fallback_execution_allowed);
+        assert!(
+            admission
+                .to_human_text()
+                .contains("fallback execution: disabled")
+        );
+    }
+
+    #[test]
+    fn blocked_physical_kernel_cannot_admit_encoded_slot() {
+        let encoded = encoded_report(42);
+        let local = local_report(42);
+        let certificate = certificate(43);
+        let physical_kernel =
+            evaluate_vortex_local_encoded_count_physical_kernel(&encoded, &local, &certificate);
+
+        let admission =
+            admit_vortex_encoded_count_kernel(&physical_kernel).expect("admission report");
+
+        assert_eq!(
+            admission.status,
+            PhysicalKernelAdmissionStatus::BlockedMissingCorrectness
+        );
+        assert_eq!(
+            admission.correctness_evidence,
+            BenchmarkEvidenceState::Missing
+        );
+        assert!(!admission.slot_marked_present);
+        assert!(!admission.production_claim_allowed);
+        assert!(admission.has_errors());
+        assert!(!admission.fallback_execution_allowed);
     }
 
     #[test]
