@@ -105,7 +105,7 @@ Status categories:
 | RFC 0029 | Partially implemented | CG-5, CG-6, CG-16, CG-17 | CG-16.1 local encoded count certificate, CG-16.2 execution-certificate evidence surface, and CG-17.1 stateful reuse boundary report exist; broader correctness, benchmark, certificate, cache read/write/replay, and incremental execution evidence remain future gate work. |
 | RFC 0030 | Partially implemented | CG-11, CG-12, CG-18 | CG-11.1 stable CLI/API JSON protocol foundation and CG-11.2 thin Python wrapper foundation exist through `CliApiJsonProtocolReport`, `PythonWrapperFoundationReport`, `api-compat-plan`, and `python-wrapper-plan`; CG-12.1 plan portability report foundation exists through `PlanPortabilityReport`, `plan-ir`, `plan-import`, and `plan-export`; CG-18.1 universal harness report exists through `UniversalHarnessReport` and `universal-harness-plan`; real plan serialization/import/export, deployment/import, baseline runner execution, and comparison dataset materialization remain staged. |
 | RFC 0031 | Partially implemented | CG-19 | CG-19.1 native I/O envelope report exists through `NativeIoEnvelopeReport` and `native-io-envelope-plan`; source/sink runtime certificate emission, adapter runtime, reads, decode/materialization, writes, object-store I/O, and fallback remain absent. |
-| RFC 0032 | Planned | CG-20 | Capability certification surface is RFC-level only; implementation pending. |
+| RFC 0032 | Partially implemented | CG-20 | CG-20.1 world-class sufficiency reporting exists through `WorldClassSufficiencyReport` and `world-class-sufficiency-plan`; real SQL, operators, functions, adapters, semantic conformance, migration analyzers, Python/API, DataFrame/notebook, UDF, ETL, universal-adapter, unstructured/media, correctness, benchmark, and best-default certification evidence remain staged. |
 
 ## Drift policy
 
@@ -1022,6 +1022,16 @@ No fallback execution.
 - Primary RFC linkage: RFC 0032.
 - Related RFCs: RFC 0010, RFC 0011, RFC 0012, RFC 0013, RFC 0018, RFC 0019, RFC 0023, RFC 0030, and RFC 0031.
 - This phase adds no runtime behavior, parser, SQL execution, Python package, adapter runtime, media runtime, OCR/LLM/embedding dependency, external probing, superiority claim, or fallback behavior.
+
+## CG-20.1 world-class sufficiency report foundation
+
+- `shardloom-core/src/certification.rs` adds `WorldClassSufficiencyReport`, `WorldClassSufficiencyDecision`, `WorldClassSufficiencyStatus`, and `WorldClassSufficiencyDimensionKind`.
+- The report turns RFC 0032's best-default sufficiency fields into required dimensions for SQL, operators, functions, adapters, semantic profiles, migration, common data/ETL, Python/API, DataFrame/query builder, notebook, UDF/plugin, universal adapters, event/API/SaaS adapters, unstructured/media, observability, deployment, extension safety, security/governance, native I/O certificates, execution certificates, correctness, semantic conformance, benchmarks, memory/spill, capability snapshots, scorecards, dossiers, and no-fallback integrity.
+- `world-class-sufficiency-plan` exposes deterministic JSON/text fields for dimension counts, dimension order, key evidence statuses, certificate coverage, rates, blocking gaps, baseline references, publication decision, and no-fallback/no-side-effect evidence.
+- All required dimensions default to `evidence_insufficient`; best-default publication remains `not_certified` and not allowed.
+- Primary RFC linkage: RFC 0032.
+- Related RFCs: RFC 0010, RFC 0011, RFC 0012, RFC 0013, RFC 0015, RFC 0016, RFC 0018, RFC 0019, RFC 0021, RFC 0022, RFC 0023, RFC 0029, RFC 0030, and RFC 0031.
+- This phase adds no SQL parser, SQL execution, DataFrame runtime, Python package, UDF runtime, adapter runtime, function registry implementation, operator kernels, source/sink runtime certificate emission, filesystem/network/catalog/adapter probing, data reads, decode/materialization, row reads, Arrow conversion, object-store IO, writes, spill IO, package publication, performance claim, superiority claim, best-default publication, or fallback behavior.
 
 ## R5.4.13 README roadmap source-of-truth cleanup
 
