@@ -45,30 +45,32 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-9.4 table compatibility evidence aggregation
+- [x] Session label: CG-9.5 CDC incremental planning evidence
   - Primary files:
-    - `shardloom-core/src/schema.rs`
+    - `shardloom-core/src/manifest.rs`
     - `shardloom-core/src/lib.rs`
     - `shardloom-cli/src/main.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/rfcs/0004-native-dataset-manifest-snapshot-incremental.md`
     - `docs/rfcs/0020-schema-evolution-catalog-table-compatibility.md`
     - `docs/architecture/canonical-terminology.md`
-  - Scope: Aggregate CG-9 schema-evolution, partition-evolution, and delete/tombstone compatibility evidence into `TableCompatibilityReport` and `table-compat-plan aggregate` without catalog access, table metadata IO, data reads, writes, object-store IO, delete execution, tombstone filtering, or fallback execution.
+  - Scope: Add no-IO/no-fallback CDC incremental planning evidence over declared `ChangeSet` and CDC summaries without catalog access, table metadata IO, data reads, writes, object-store IO, delete execution, tombstone filtering, CDC execution, or fallback execution.
   - Checklist:
-    - [x] Extend `TableCompatibilityReport` with schema-evolution, partition-evolution, and delete/tombstone report slots.
-    - [x] Propagate nested report errors, read/write support, side-effect flags, diagnostics, and fallback-disabled evidence.
-    - [x] Surface no-IO/no-fallback aggregate evidence through `table-compat-plan aggregate`.
-    - [x] Add focused success/failure tests for compatible and blocked aggregate table evidence.
-    - [x] Update phase, RFC traceability, and RFC 0020 docs.
+    - [x] Add `CdcEventSummary` and `CdcIncrementalPlanningReport` contracts.
+    - [x] Evaluate append-only and metadata-only CDC as plan-only routes when snapshot-pair evidence exists.
+    - [x] Reject updates, deletes, tombstones, schema changes, partition changes, unknown events, and missing snapshot pairs until native evidence exists.
+    - [x] Surface no-IO/no-fallback evidence through `incremental-plan cdc`.
+    - [x] Add focused success/failure tests for CDC incremental planning.
+    - [x] Update phase, RFC traceability, RFC 0004, RFC 0020, and terminology docs.
     - [x] Run full required validation.
   - Local validation status:
-    - focused `shardloom-core` table-compatibility aggregation tests passed
-    - focused `shardloom-cli` table-compat aggregation tests passed
+    - focused `shardloom-core` CDC incremental tests passed
+    - focused `shardloom-cli` CDC incremental tests passed
     - focused Clippy for `shardloom-core` and `shardloom-cli` passed with toolchain `1.91.1`
     - full Rust validation passed with toolchain `1.91.1`
     - docs hygiene scans passed for `git diff --check` and hidden/bidi controls
-    - CLI JSON smoke check passed for `table-compat-plan aggregate compatible --format json`
+    - CLI JSON smoke check passed for `incremental-plan cdc append-only --format json`
   - Explicitly not included: catalog access, table metadata reads, object-store IO, data reads, writes, commits, external table-format implementation, delete-file application, tombstone filtering, row-delete execution, position-delete execution, equality-delete execution, CDC execution, layout-health execution, compaction execution, parser work, SQL execution, adapter runtime, benchmark claims, superiority claims, or fallback execution.
 
 ## R5 Detailed Completed Ledger
@@ -825,6 +827,14 @@ Supporting docs:
     - Aggregate side-effect flags remain false unless a nested report explicitly reports IO or fallback allowance.
     - `table-compat-plan aggregate` surfaces stable report fields for compatible, schema-blocked, partition-blocked, and delete-blocked scenarios.
     - No catalog access, table metadata IO, data reads, writes, object-store IO, delete-file application, tombstone filtering, CDC execution, compaction, benchmark claim, superiority claim, or fallback behavior is added.
+- [x] CG-9.5 CDC incremental planning evidence
+  - Why: add typed CDC/change-set routing evidence before catalog/table metadata integration, CDC execution, or stateful incremental execution expands.
+  - Acceptance:
+    - `CdcIncrementalPlanningReport` records change-set, incremental-plan, CDC event, status, count, requirement, diagnostic, side-effect, and no-fallback fields.
+    - Append-only and metadata-only declared CDC summaries can be routed as plan-only evidence when a source/target snapshot pair exists.
+    - Updates, deletes, tombstones, schema changes, partition changes, unknown events, and missing snapshot pairs are rejected until native evidence exists.
+    - `incremental-plan cdc` surfaces stable report fields for representative append-only and unsupported scenarios.
+    - No catalog access, table metadata IO, data reads, writes, object-store IO, delete-file application, tombstone filtering, CDC execution, compaction, benchmark claim, superiority claim, or fallback behavior is added.
 
 ## Competitive Engine Gates CG-1 through CG-20
 
@@ -988,6 +998,7 @@ Status legend:
   - [x] CG-9.2 partition evolution compatibility evidence
   - [x] CG-9.3 delete/tombstone compatibility evidence
   - [x] CG-9.4 table compatibility evidence aggregation
+  - [x] CG-9.5 CDC incremental planning evidence
   - Scope:
     - schema evolution and partition evolution
     - delete/tombstone semantics and native handling requirements
@@ -1236,10 +1247,11 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-9.2 partition evolution compatibility evidence
 - [x] CG-9.3 delete/tombstone compatibility evidence
 - [x] CG-9.4 table compatibility evidence aggregation
+- [x] CG-9.5 CDC incremental planning evidence
 - [ ] broader schema evolution catalog/table metadata integration
 - [ ] broader partition evolution catalog/table metadata integration
 - [ ] broader delete/tombstone catalog/table metadata integration
-- [ ] CDC/incremental planning
+- [ ] broader CDC/incremental execution
 - [ ] layout health
 - [ ] compaction planning
 
@@ -1426,6 +1438,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-9.2 partition evolution compatibility evidence adds a typed no-IO/no-fallback report for partition field add/drop/transform/reorder/unknown-transform changes, partition routing, metadata rewrite, repartition requirements, and `table-compat-plan partition-evolution` surfacing while broader catalog/table integration remains deferred.
 - [x] CG-9.3 delete/tombstone compatibility evidence adds a typed no-IO/no-fallback report for declared delete models, file-level deletes, segment tombstones, row/position/equality deletes, external table metadata requirements, metadata-loss rejection, and `table-compat-plan delete-semantics` surfacing while broader catalog/table integration and delete execution remain deferred.
 - [x] CG-9.4 table compatibility evidence aggregation folds schema-evolution, partition-evolution, and delete/tombstone reports into `TableCompatibilityReport` and `table-compat-plan aggregate` while keeping catalog access, table metadata reads, IO, writes, and fallback disabled.
+- [x] CG-9.5 CDC incremental planning evidence adds `CdcIncrementalPlanningReport` and `incremental-plan cdc` surfacing for append-only/metadata-only plan routing and unsupported update/delete/tombstone/schema/partition/unknown cases while keeping catalog access, table metadata reads, IO, writes, CDC execution, and fallback disabled.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind `vortex-write`; placeholder artifact paths remain readiness-only.
 - [~] CG-3 broader output payload shapes remain deferred.

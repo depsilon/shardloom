@@ -224,6 +224,29 @@ Aggregation does not make unsupported nested behavior supported. If schema, part
 delete/tombstone evidence rejects a path, the table compatibility report must reject the
 aggregate path with deterministic diagnostics and no fallback execution.
 
+### CDC incremental compatibility dependency
+
+CDC incremental planning depends on the same compatibility evidence instead of bypassing it.
+Append-only or metadata-only changes may be routed from `ChangeSet` evidence into
+`CdcIncrementalPlanningReport` without catalog access or data reads, but schema, partition,
+delete, tombstone, update, and unknown changes require native compatibility evidence before
+future incremental execution can be certified.
+
+Required dependency rules:
+
+- CDC update and delete summaries require a native row-identity rule.
+- CDC delete and tombstone summaries require native delete/tombstone handling.
+- CDC schema-change summaries require attached schema compatibility evidence.
+- CDC partition-change summaries require attached partition compatibility evidence.
+- Unknown CDC events or segment changes must be rejected.
+- CDC planning must not read catalogs, table metadata, data files, delete files, or object
+  stores.
+- CDC planning must not run fallback execution.
+
+This dependency keeps incremental lakehouse intelligence conservative: compatibility reports
+decide whether a table change is safe, and CDC planning only routes safe declared changes into
+future native incremental execution.
+
 ### Catalog integration contract
 
 Catalog adapters should expose:

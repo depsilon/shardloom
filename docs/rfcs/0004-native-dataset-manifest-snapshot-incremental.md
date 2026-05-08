@@ -268,6 +268,79 @@ A changed-segment planner should prefer:
 
 Changed-segment planning must be conservative. Incorrect reuse is a correctness bug.
 
+### CDC incremental planning evidence
+
+CDC and incremental workload planning should be represented as explicit evidence before
+any CDC execution, table metadata reads, data reads, writes, catalog access, object-store
+IO, or fallback execution is allowed.
+
+The CG-9 CDC evidence surface is `CdcIncrementalPlanningReport`.
+
+Required fields:
+
+- `change_set`.
+- `incremental_plan`.
+- `cdc_events`.
+- `status`.
+- `diagnostics`.
+- `insert_count`.
+- `update_count`.
+- `delete_count`.
+- `tombstone_count`.
+- `schema_change_count`.
+- `partition_change_count`.
+- `metadata_only_count`.
+- `unknown_event_count`.
+- `changed_segment_count`.
+- `metadata_only_segment_count`.
+- `unknown_segment_change_count`.
+- `requires_snapshot_pair`.
+- `requires_row_identity`.
+- `requires_delete_handling`.
+- `requires_schema_compatibility`.
+- `requires_partition_compatibility`.
+- `can_reuse_unchanged_segments`.
+- `can_execute_changed_segments_only`.
+- `requires_partial_recompute`.
+- `requires_full_recompute`.
+- `unsupported_change_count`.
+- `data_read=false`.
+- `write_io=false`.
+- `catalog_io=false`.
+- `object_store_io=false`.
+- `fallback_execution_allowed=false`.
+
+`CdcEventSummary` should identify at least:
+
+- `insert`.
+- `update`.
+- `delete`.
+- `tombstone`.
+- `schema_change`.
+- `partition_change`.
+- `metadata_only`.
+- `unknown`.
+
+`CdcIncrementalPlanningStatus` should identify at least:
+
+- `reuse_unchanged_segments`.
+- `execute_changed_segments_only`.
+- `partial_recompute_required`.
+- `full_recompute_required`.
+- `unsupported`.
+
+The initial planner may certify append-only and metadata-only CDC summaries when a snapshot
+pair and changed-segment evidence are present. Updates and deletes must remain unsupported
+until native row identity and delete/tombstone handling exist. Schema-change and
+partition-change CDC summaries must remain unsupported until attached schema and partition
+compatibility evidence proves the transition is safe. Unknown CDC events or segment changes
+must fail deterministically.
+
+CDC incremental evidence does not apply CDC events, filter deleted rows, inspect external
+delete files, read table metadata, transcode files, recompute data, or execute a query. It
+only records whether a declared change summary is safe to route into future native
+incremental execution.
+
 ### Native Vortex output
 
 For ShardLoom-native writes, Vortex is the preferred output.

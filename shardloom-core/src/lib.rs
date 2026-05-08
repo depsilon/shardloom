@@ -94,9 +94,11 @@ pub use input::{
 };
 
 pub use manifest::{
+    CdcEventKind, CdcEventSummary, CdcIncrementalPlanningReport, CdcIncrementalPlanningStatus,
     ChangeSet, CommitRecord, CommitStatus, DatasetManifest, FileDescriptor, FileRole,
     IncrementalPlanSkeleton, IncrementalPlanningDecision, ManifestSegment, ManifestVersion,
     SegmentChange, SegmentChangeKind, SnapshotRef, WriteIntent, WriteIntentStatus,
+    evaluate_cdc_incremental_planning,
 };
 pub use observability::{
     KernelProfile, MetricCategory, MetricKind, MetricSample, MetricUnit, ObservabilityMetricValue,

@@ -7,22 +7,24 @@ use std::process::ExitCode;
 
 use shardloom_core::{
     BenchmarkEvidenceState, BenchmarkFallbackState, CapabilityCertificationReport,
-    CapabilityCertificationStatus, CatalogKind, CatalogRef, ChangeSet, ColumnRef, CommandStatus,
-    ComparisonOp, CorrectnessFixture, CorrectnessValidationPlan, DatasetManifest, DatasetRef,
-    DatasetUri, DeleteModel, DeleteTombstoneCompatibilityReport, Diagnostic, ExecutionCertificate,
-    ExtensionId, ExtensionInspectionReport, ExtensionLicenseKind, ExtensionManifest,
-    ExtensionProvenance, ExtensionRegistrySnapshot, ExtensionVersion, FieldId, FieldName,
-    FieldPath, IncrementalPlanSkeleton, InputAdapterRegistrySnapshot, KernelRegistrySnapshot,
-    LogicalDType, ManifestId, Nullability, ObservabilityPlan, OperatorMemoryCertification,
-    OutputEnvelope, OutputFormat, OutputTarget, PartitionEvolutionCompatibilityReport,
-    PartitionField, PartitionSpec, PartitionTransform, PhysicalKernelRegistryPlan,
-    PhysicalOperatorExecutionLevel, PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorPlan,
-    PredicateExpr, RedactionPolicy, ReleasePlan, RuntimeObservabilityReport, SchemaDefinition,
-    SchemaEvolutionCompatibilityReport, SchemaEvolutionPolicy, SchemaField, SchemaId,
-    SchemaVersion, SecurityPlan, ShardLoomError, SnapshotId, SnapshotRef, StatValue,
+    CapabilityCertificationStatus, CatalogKind, CatalogRef, CdcEventKind, CdcEventSummary,
+    CdcIncrementalPlanningReport, ChangeSet, ColumnRef, CommandStatus, ComparisonOp,
+    CorrectnessFixture, CorrectnessValidationPlan, DatasetManifest, DatasetRef, DatasetUri,
+    DeleteModel, DeleteTombstoneCompatibilityReport, Diagnostic, ExecutionCertificate, ExtensionId,
+    ExtensionInspectionReport, ExtensionLicenseKind, ExtensionManifest, ExtensionProvenance,
+    ExtensionRegistrySnapshot, ExtensionVersion, FieldId, FieldName, FieldPath,
+    IncrementalPlanSkeleton, InputAdapterRegistrySnapshot, KernelRegistrySnapshot, LogicalDType,
+    ManifestId, Nullability, ObservabilityPlan, OperatorMemoryCertification, OutputEnvelope,
+    OutputFormat, OutputTarget, PartitionEvolutionCompatibilityReport, PartitionField,
+    PartitionSpec, PartitionTransform, PhysicalKernelRegistryPlan, PhysicalOperatorExecutionLevel,
+    PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorPlan, PredicateExpr, RedactionPolicy,
+    ReleasePlan, RuntimeObservabilityReport, SchemaDefinition, SchemaEvolutionCompatibilityReport,
+    SchemaEvolutionPolicy, SchemaField, SchemaId, SchemaVersion, SecurityPlan, SegmentChange,
+    SegmentChangeKind, SegmentId, ShardLoomError, SnapshotId, SnapshotRef, StatValue,
     TableCompatibilityPlan, TableCompatibilityReport, TableFormatKind, TranslationPlan,
-    UdfRuntimeKind, WriteIntent, evaluate_delete_tombstone_compatibility,
-    evaluate_partition_evolution_compatibility, evaluate_schema_evolution_compatibility,
+    UdfRuntimeKind, WriteIntent, evaluate_cdc_incremental_planning,
+    evaluate_delete_tombstone_compatibility, evaluate_partition_evolution_compatibility,
+    evaluate_schema_evolution_compatibility,
 };
 use shardloom_exec::{
     AdaptiveSizer, AdaptiveSizingPolicy, AttemptId, BackpressurePlanInput, BackpressurePlanReport,
@@ -6577,6 +6579,260 @@ fn append_encoded_count_kernel_admission_fields(
     );
 }
 
+fn emit_cdc_incremental_plan(format: OutputFormat, scenario: &str) -> ExitCode {
+    let (change_set, cdc_events) = match cdc_incremental_fixture(scenario) {
+        Ok(parts) => parts,
+        Err(error) => {
+            return emit_error(
+                "incremental-plan",
+                format,
+                "CDC incremental plan failed",
+                &error,
+            );
+        }
+    };
+    let report = evaluate_cdc_incremental_planning(change_set, cdc_events);
+    let status = if report.has_errors() {
+        CommandStatus::Unsupported
+    } else {
+        CommandStatus::Success
+    };
+    emit(
+        "incremental-plan",
+        format,
+        status,
+        "CDC incremental planning report".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        cdc_incremental_output_fields(&report, scenario),
+    );
+    if report.has_errors() {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+fn cdc_incremental_output_fields(
+    report: &CdcIncrementalPlanningReport,
+    scenario: &str,
+) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    push_field(&mut fields, "fallback_execution_allowed", "false");
+    push_field(&mut fields, "mode", "cdc_incremental_plan");
+    push_field(&mut fields, "scenario", scenario);
+    push_field(&mut fields, "cdc_status", report.status.as_str());
+    append_cdc_incremental_count_fields(&mut fields, report);
+    append_cdc_incremental_requirement_fields(&mut fields, report);
+    append_cdc_incremental_side_effect_fields(&mut fields, report);
+    push_field(&mut fields, "execution", "not_performed");
+    push_field(&mut fields, "plan_only", "true");
+    fields
+}
+
+fn append_cdc_incremental_count_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &CdcIncrementalPlanningReport,
+) {
+    push_count_field(
+        fields,
+        "changed_segment_count",
+        report.changed_segment_count,
+    );
+    push_count_field(
+        fields,
+        "metadata_only_segment_count",
+        report.metadata_only_segment_count,
+    );
+    push_count_field(
+        fields,
+        "unknown_segment_change_count",
+        report.unknown_segment_change_count,
+    );
+    push_count_field(fields, "insert_count", report.insert_count);
+    push_count_field(fields, "update_count", report.update_count);
+    push_count_field(fields, "delete_count", report.delete_count);
+    push_count_field(fields, "tombstone_count", report.tombstone_count);
+    push_count_field(fields, "schema_change_count", report.schema_change_count);
+    push_count_field(
+        fields,
+        "partition_change_count",
+        report.partition_change_count,
+    );
+    push_count_field(fields, "metadata_only_count", report.metadata_only_count);
+    push_count_field(fields, "unknown_event_count", report.unknown_event_count);
+    push_count_field(
+        fields,
+        "unsupported_change_count",
+        report.unsupported_change_count,
+    );
+}
+
+fn append_cdc_incremental_requirement_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &CdcIncrementalPlanningReport,
+) {
+    push_bool_field(
+        fields,
+        "requires_snapshot_pair",
+        report.requires_snapshot_pair,
+    );
+    push_bool_field(
+        fields,
+        "requires_row_identity",
+        report.requires_row_identity,
+    );
+    push_bool_field(
+        fields,
+        "requires_delete_handling",
+        report.requires_delete_handling,
+    );
+    push_bool_field(
+        fields,
+        "requires_schema_compatibility",
+        report.requires_schema_compatibility,
+    );
+    push_bool_field(
+        fields,
+        "requires_partition_compatibility",
+        report.requires_partition_compatibility,
+    );
+    push_bool_field(
+        fields,
+        "can_reuse_unchanged_segments",
+        report.can_reuse_unchanged_segments,
+    );
+    push_bool_field(
+        fields,
+        "can_execute_changed_segments_only",
+        report.can_execute_changed_segments_only,
+    );
+    push_bool_field(
+        fields,
+        "requires_partial_recompute",
+        report.requires_partial_recompute,
+    );
+    push_bool_field(
+        fields,
+        "requires_full_recompute",
+        report.requires_full_recompute,
+    );
+}
+
+fn append_cdc_incremental_side_effect_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &CdcIncrementalPlanningReport,
+) {
+    push_bool_field(fields, "side_effect_free", report.side_effect_free());
+    push_bool_field(fields, "data_read", report.data_read);
+    push_bool_field(fields, "write_io", report.write_io);
+    push_bool_field(fields, "catalog_io", report.catalog_io);
+    push_bool_field(fields, "object_store_io", report.object_store_io);
+}
+
+fn cdc_incremental_fixture(
+    scenario: &str,
+) -> Result<(ChangeSet, Vec<CdcEventSummary>), ShardLoomError> {
+    match scenario {
+        "append-only" => {
+            let mut change_set = cdc_change_set_between()?;
+            change_set.add_change(SegmentChange::new(
+                SegmentChangeKind::Added,
+                SegmentId::new("segment-added")?,
+            ));
+            Ok((
+                change_set,
+                vec![CdcEventSummary::new(CdcEventKind::Insert, 10)],
+            ))
+        }
+        "metadata-only" => {
+            let mut change_set = cdc_change_set_between()?;
+            change_set.add_change(SegmentChange::new(
+                SegmentChangeKind::MetadataOnly,
+                SegmentId::new("segment-metadata")?,
+            ));
+            Ok((
+                change_set,
+                vec![CdcEventSummary::new(CdcEventKind::MetadataOnly, 1)],
+            ))
+        }
+        "delete" => {
+            let mut change_set = cdc_change_set_between()?;
+            change_set.add_change(SegmentChange::new(
+                SegmentChangeKind::Removed,
+                SegmentId::new("segment-removed")?,
+            ));
+            Ok((
+                change_set,
+                vec![CdcEventSummary::new(CdcEventKind::Delete, 1)],
+            ))
+        }
+        "upsert" => {
+            let mut change_set = cdc_change_set_between()?;
+            change_set.add_change(SegmentChange::new(
+                SegmentChangeKind::Replaced,
+                SegmentId::new("segment-replaced")?,
+            ));
+            Ok((
+                change_set,
+                vec![CdcEventSummary::new(CdcEventKind::Update, 4)],
+            ))
+        }
+        "schema-change" => {
+            let mut change_set = cdc_change_set_between()?;
+            change_set.add_change(SegmentChange::new(
+                SegmentChangeKind::MetadataOnly,
+                SegmentId::new("segment-schema")?,
+            ));
+            Ok((
+                change_set,
+                vec![CdcEventSummary::new(CdcEventKind::SchemaChange, 1)],
+            ))
+        }
+        "partition-change" => {
+            let mut change_set = cdc_change_set_between()?;
+            change_set.add_change(SegmentChange::new(
+                SegmentChangeKind::MetadataOnly,
+                SegmentId::new("segment-partition")?,
+            ));
+            Ok((
+                change_set,
+                vec![CdcEventSummary::new(CdcEventKind::PartitionChange, 1)],
+            ))
+        }
+        "missing-from-snapshot" => {
+            let mut change_set = ChangeSet::new(SnapshotId::new("snapshot-current")?);
+            change_set.add_change(SegmentChange::new(
+                SegmentChangeKind::Added,
+                SegmentId::new("segment-added")?,
+            ));
+            Ok((
+                change_set,
+                vec![CdcEventSummary::new(CdcEventKind::Insert, 1)],
+            ))
+        }
+        "unknown" => {
+            let mut change_set = cdc_change_set_between()?;
+            change_set.add_change(SegmentChange::new(
+                SegmentChangeKind::Unknown,
+                SegmentId::new("segment-unknown")?,
+            ));
+            Ok((
+                change_set,
+                vec![CdcEventSummary::new(CdcEventKind::Unknown, 1)],
+            ))
+        }
+        value => Err(cli_unknown_arg_error("incremental-plan cdc", value)),
+    }
+}
+
+fn cdc_change_set_between() -> Result<ChangeSet, ShardLoomError> {
+    Ok(ChangeSet::between(
+        SnapshotId::new("snapshot-previous")?,
+        SnapshotId::new("snapshot-current")?,
+    ))
+}
+
 #[allow(clippy::too_many_lines)]
 fn run(args: Vec<String>) -> ExitCode {
     let requested_format = detect_requested_output_format(&args);
@@ -9067,9 +9323,21 @@ fn run(args: Vec<String>) -> ExitCode {
         }
         Some("incremental-plan") => {
             let Some(snapshot_id) = args.next() else {
-                eprintln!("usage: shardloom incremental-plan <snapshot_id>");
+                eprintln!("usage: shardloom incremental-plan <snapshot_id>|cdc <scenario>");
                 return ExitCode::from(2);
             };
+            if snapshot_id == "cdc" {
+                let scenario = args.next().unwrap_or_else(|| "append-only".to_string());
+                if let Some(extra) = args.next() {
+                    return emit_error(
+                        "incremental-plan",
+                        format,
+                        "CDC incremental plan failed",
+                        &cli_unknown_arg_error("incremental-plan cdc", &extra),
+                    );
+                }
+                return emit_cdc_incremental_plan(format, &scenario);
+            }
             let snapshot_id = match SnapshotId::new(snapshot_id) {
                 Ok(snapshot) => snapshot,
                 Err(error) => {
@@ -16324,6 +16592,27 @@ mod tests {
         let code = run(vec!["incremental-plan".to_string(), "snap-1".to_string()]);
         assert_eq!(code, ExitCode::SUCCESS);
     }
+
+    #[test]
+    fn incremental_plan_cdc_append_only_returns_success() {
+        let code = run(vec![
+            "incremental-plan".to_string(),
+            "cdc".to_string(),
+            "append-only".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn incremental_plan_cdc_delete_returns_non_zero() {
+        let code = run(vec![
+            "incremental-plan".to_string(),
+            "cdc".to_string(),
+            "delete".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
     #[test]
     fn vortex_write_intent_plan_missing_target_returns_non_zero() {
         let code = run(vec!["vortex-write-intent-plan".to_string()]);
