@@ -97,6 +97,57 @@ Acceptance:
   execution, parser execution, adapter probing, filesystem/network probing,
   external publication, or fallback execution.
 
+### CG-11 thin Python wrapper foundation
+
+The first Python-wrapper milestone is still report-only. It defines the allowed
+client boundary for a future wrapper before a Python package exists.
+
+Required report fields:
+- `schema_version`
+- `wrapper_id`
+- `wrapper_status`
+- `transport_protocol_id`
+- `output_envelope_schema_version`
+- `invocation_model`
+- `initial_command_scope`
+- `required_client_behaviors`
+- `package_status=not_created`
+- `native_binding_status=not_created`
+- `pyo3_maturin_allowed=false`
+- `python_package_created=false`
+- `native_extension_required=false`
+- `dataframe_api_implemented=false`
+- `notebook_api_implemented=false`
+- `python_udf_runtime_implemented=false`
+- `materialization_boundary_reporting_required=true`
+- `diagnostics_passthrough_required=true`
+- `side_effect_free=true`
+- `filesystem_probe=false`
+- `network_probe=false`
+- `catalog_probe=false`
+- `adapter_probe=false`
+- `parser_executed=false`
+- `runtime_execution=false`
+- `write_io=false`
+- `external_publish=not_performed`
+- `external_publish_performed=false`
+- `fallback_execution_allowed=false`
+- `fallback_attempted=false`
+- `diagnostics`
+
+Acceptance:
+- `python-wrapper-plan --format json` emits the wrapper foundation contract.
+- The wrapper foundation starts as a CLI JSON subprocess/client over
+  `shardloom ... --format json`.
+- The future wrapper must preserve `OutputEnvelope` diagnostics, fallback status,
+  and materialization-boundary fields instead of translating them into lossy
+  Python exceptions only.
+- Mature Python API, DataFrame/query-builder, notebook behavior, Python UDF,
+  packaging, and distribution certification remain CG-20 work.
+- CG-11 does not create a Python package, add PyO3/maturin, add a native
+  extension, invoke Python, execute runtime work, run a parser, probe adapters,
+  read files, contact networks, publish packages, or attempt fallback execution.
+
 ### ExternalBaselineRun
 
 Required fields:

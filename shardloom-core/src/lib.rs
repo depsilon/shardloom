@@ -121,7 +121,10 @@ pub use operator::{
     PhysicalOperatorReadinessStatus,
 };
 
-pub use output::{CliApiJsonProtocolReport, CommandStatus, OutputEnvelope, OutputFormat};
+pub use output::{
+    CliApiJsonProtocolReport, CommandStatus, OutputEnvelope, OutputFormat,
+    PythonWrapperFoundationReport,
+};
 
 pub use release::{
     ApiStabilityTier, ChecklistStatus, DependencyLicenseClass, DependencyReview,

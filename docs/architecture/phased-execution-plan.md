@@ -45,32 +45,33 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-11.1 stable CLI/API JSON protocol foundation
+- [x] Session label: CG-11.2 thin Python wrapper foundation
   - Primary files:
     - `shardloom-core/src/output.rs`
     - `shardloom-core/src/lib.rs`
     - `shardloom-cli/src/main.rs`
-    - `shardloom-cli/tests/api_protocol_snapshots.rs`
+    - `shardloom-cli/tests/python_wrapper_snapshots.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
     - `docs/rfcs/0030-universal-api-plan-portability-import-deployment-baselines.md`
-  - Scope: Add report-only CLI/API JSON protocol evidence for future clients and a thin Python wrapper boundary without adding Python packaging, PyO3/maturin, parser execution, runtime execution, probes, writes, publication, or fallback execution.
+  - Scope: Add report-only thin Python wrapper foundation evidence over the stable CLI JSON protocol without creating a Python package, adding PyO3/maturin, invoking Python, running a parser, executing runtime work, probing hosts/adapters, writing files, publishing packages, or fallback execution.
   - Checklist:
-    - [x] Add `CliApiJsonProtocolReport` contract for `OutputEnvelope` schema, fallback, diagnostics, fields, statuses, and formats.
-    - [x] Surface protocol fields through `api-compat-plan --format json`.
-    - [x] Preserve thin Python wrapper as CLI JSON subprocess boundary only.
-    - [x] Record no PyO3/maturin, no Foundry requirement, no DataFrame API implementation, no probes, no parser/runtime execution, no writes, no external publish, and no fallback.
+    - [x] Add `PythonWrapperFoundationReport` contract for wrapper identity, transport protocol, command scope, required client behaviors, and deferred mature Python surfaces.
+    - [x] Surface wrapper fields through `python-wrapper-plan --format json`.
+    - [x] Preserve the first wrapper boundary as subprocess CLI JSON only.
+    - [x] Record no Python package, no PyO3/maturin, no native extension, no DataFrame/notebook/Python UDF implementation, no probes, no parser/runtime execution, no writes, no external publish, and no fallback.
     - [x] Add focused CLI JSON snapshot coverage.
     - [x] Update phase plan, RFC traceability, and RFC 0030.
     - [x] Run full required validation.
   - Local validation status:
-    - focused `shardloom-core` CLI/API protocol tests passed
-    - focused `shardloom-cli` `api_protocol_snapshots` tests passed
-    - `api-compat-plan --format json` smoke check passed
+    - focused `shardloom-core` Python wrapper foundation tests passed
+    - focused `shardloom-cli` `python_wrapper_snapshots` tests passed
+    - focused `shardloom-cli` `python_wrapper` unit filter passed
+    - `python-wrapper-plan --format json` smoke check passed
     - focused Clippy for `shardloom-core` and `shardloom-cli` passed with toolchain `1.91.1`
     - full Rust validation passed with toolchain `1.91.1`
     - docs hygiene scans passed for `git diff --check` and hidden/bidi controls
-  - Explicitly not included: Python package implementation, PyO3/maturin, DataFrame API, Foundry integration, parser work, SQL execution, adapter probing, filesystem probing, network probing, runtime execution, write IO, package publication, benchmark claims, superiority claims, or fallback execution.
+  - Explicitly not included: Python package implementation, PyO3/maturin, native extension, DataFrame API, notebook API, Python UDF runtime, Foundry integration, parser work, SQL execution, adapter probing, filesystem probing, network probing, runtime execution, write IO, package publication, benchmark claims, superiority claims, or fallback execution.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -1083,6 +1084,7 @@ Status legend:
 
 - [ ] CG-11 — Python/API foundation surface later (**planned**)
   - [x] CG-11.1 stable CLI/API JSON protocol foundation
+  - [x] CG-11.2 thin Python wrapper foundation
   - Scope:
     - API/protocol foundation for stable CLI JSON and future clients
     - thin Python wrapper foundation over stable CLI JSON first
@@ -1338,7 +1340,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 
 ### CG-11 detailed checklist
 - [x] CG-11.1 stable CLI/API JSON protocol foundation
-- [ ] thin Python wrapper foundation over CLI JSON first
+- [x] CG-11.2 thin Python wrapper foundation over CLI JSON first
 - [~] Foundry-friendly later
 - [x] no PyO3/maturin unless explicitly approved
 - [x] no Spark fallback
@@ -1521,6 +1523,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-10.4 object-store distributed scheduling planning evidence adds `ObjectStoreDistributedSchedulingReport` and `object-store-schedule-plan` surfacing for task-shape grouping over coalesced requests, task-budget blockers, checkpoint/retry/idempotency requirements, no coordinator/worker/task execution, no object-store IO, and no fallback.
 - [x] CG-10.5 object-store checkpoint/retry/idempotency planning evidence adds `ObjectStoreCheckpointRetryReport` and `object-store-checkpoint-retry-plan` surfacing for retry policy, checkpoint plan, idempotency keys, attempt records, cleanup policy, scheduling blockers, no retry execution, no checkpoint writes, no cleanup execution, and no fallback.
 - [x] CG-11.1 stable CLI/API JSON protocol foundation adds `CliApiJsonProtocolReport` and `api-compat-plan` fields for `OutputEnvelope` schema keys, command statuses, fallback and diagnostic keys, thin Python wrapper boundary, no PyO3/maturin, no parser/runtime/probe/write/publish side effects, and no fallback.
+- [x] CG-11.2 thin Python wrapper foundation adds `PythonWrapperFoundationReport` and `python-wrapper-plan` fields for a future subprocess CLI JSON client, required diagnostics/fallback/materialization passthrough behavior, deferred package/native binding/DataFrame/notebook/Python UDF surfaces, no probes, no runtime/parser execution, no writes, no publish, and no fallback.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind `vortex-write`; placeholder artifact paths remain readiness-only.
 - [~] CG-3 broader output payload shapes remain deferred.
