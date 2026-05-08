@@ -20,14 +20,14 @@ use shardloom_core::{
     OperatorMemoryCertification, OutputEnvelope, OutputFormat, OutputTarget,
     PartitionEvolutionCompatibilityReport, PartitionField, PartitionSpec, PartitionTransform,
     PhysicalKernelRegistryPlan, PhysicalOperatorExecutionLevel,
-    PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorPlan, PredicateExpr,
-    PythonWrapperFoundationReport, RedactionPolicy, ReleasePlan, RuntimeObservabilityReport,
-    SchemaDefinition, SchemaEvolutionCompatibilityReport, SchemaEvolutionPolicy, SchemaField,
-    SchemaId, SchemaVersion, SecurityPlan, SegmentChange, SegmentChangeKind, SegmentId,
-    SegmentLayout, SegmentStats, ShardLoomError, SnapshotId, SnapshotRef, StatValue,
-    TableCompatibilityPlan, TableCompatibilityReport, TableFormatKind, TranslationPlan,
-    UdfRuntimeKind, WriteIntent, evaluate_cdc_incremental_planning, evaluate_compaction_planning,
-    evaluate_delete_tombstone_compatibility, evaluate_layout_health,
+    PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorKind, PhysicalOperatorPlan,
+    PredicateExpr, PythonWrapperFoundationReport, RedactionPolicy, ReleasePlan,
+    RuntimeObservabilityReport, SchemaDefinition, SchemaEvolutionCompatibilityReport,
+    SchemaEvolutionPolicy, SchemaField, SchemaId, SchemaVersion, SecurityPlan, SegmentChange,
+    SegmentChangeKind, SegmentId, SegmentLayout, SegmentStats, ShardLoomError, SnapshotId,
+    SnapshotRef, StatValue, TableCompatibilityPlan, TableCompatibilityReport, TableFormatKind,
+    TranslationPlan, UdfRuntimeKind, WriteIntent, evaluate_cdc_incremental_planning,
+    evaluate_compaction_planning, evaluate_delete_tombstone_compatibility, evaluate_layout_health,
     evaluate_partition_evolution_compatibility, evaluate_schema_evolution_compatibility,
 };
 use shardloom_exec::{
@@ -71,8 +71,9 @@ use shardloom_vortex::{
     VortexCommitProtocolSignal, VortexCommitProtocolState, VortexCommitProtocolTransition,
     VortexCountCandidateSource, VortexCountReadinessRequest, VortexCountReadinessSignal,
     VortexDTypeMappingReport, VortexEncodedCountKernelAdmissionReport,
-    VortexEncodedCountPhysicalKernelReport, VortexEncodedReadBoundaryReport,
-    VortexEncodedReadBoundaryRequest, VortexEncodedReadBoundarySignal, VortexEncodedReadFixtureRef,
+    VortexEncodedCountPhysicalKernelReport, VortexEncodedExecutionPathSelectionReport,
+    VortexEncodedReadBoundaryReport, VortexEncodedReadBoundaryRequest,
+    VortexEncodedReadBoundarySignal, VortexEncodedReadFixtureRef,
     VortexEncodedReadMetadataProbeReport, VortexEncodedReadMetadataProbeRequest,
     VortexEncodedReadMetadataProbeSignal, VortexEncodedReadReadinessStatus,
     VortexEncodingLayoutMappingReport, VortexExecutionReadinessStatus, VortexFileRef,
@@ -119,11 +120,11 @@ use shardloom_vortex::{
     plan_vortex_commit_protocol, plan_vortex_count_readiness,
     plan_vortex_encoded_count_data_path_approval,
     plan_vortex_encoded_count_data_path_approval_with_layout_driver,
-    plan_vortex_encoded_read_boundary, plan_vortex_encoded_read_probe,
-    plan_vortex_filtered_count_readiness, plan_vortex_layout_reader_driver_approval,
-    plan_vortex_local_commit_recovery, plan_vortex_manifest_finalization,
-    plan_vortex_memory_safety, plan_vortex_metadata_pruning, plan_vortex_output_payload,
-    plan_vortex_projection_readiness, plan_vortex_query_primitive,
+    plan_vortex_encoded_execution_path_selection, plan_vortex_encoded_read_boundary,
+    plan_vortex_encoded_read_probe, plan_vortex_filtered_count_readiness,
+    plan_vortex_layout_reader_driver_approval, plan_vortex_local_commit_recovery,
+    plan_vortex_manifest_finalization, plan_vortex_memory_safety, plan_vortex_metadata_pruning,
+    plan_vortex_output_payload, plan_vortex_projection_readiness, plan_vortex_query_primitive,
     plan_vortex_query_primitive_result_physical_operators_with_evidence,
     plan_vortex_read_from_universal_input, plan_vortex_scheduler_queue,
     plan_vortex_staged_manifest_file, plan_vortex_write_intent, probe_vortex_encoded_read_metadata,
@@ -178,7 +179,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|layout-health-plan|compaction-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|layout-health-plan|compaction-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -515,6 +516,186 @@ fn vortex_encoded_read_metadata_probe_fields(
             report.metadata_probe_completed().to_string(),
         ),
         ("execution".to_string(), "not_performed".to_string()),
+    ]
+}
+
+fn vortex_encoded_path_selection_fields(
+    report: &VortexEncodedExecutionPathSelectionReport,
+) -> Vec<(String, String)> {
+    let mut fields = vortex_encoded_path_selection_identity_fields(report);
+    fields.extend(vortex_encoded_path_selection_candidate_fields(report));
+    fields.extend(vortex_encoded_path_selection_discovery_fields(report));
+    fields.extend(vortex_encoded_path_selection_side_effect_fields(report));
+    fields
+}
+
+fn vortex_encoded_path_selection_identity_fields(
+    report: &VortexEncodedExecutionPathSelectionReport,
+) -> Vec<(String, String)> {
+    vec![
+        (
+            "mode".to_string(),
+            "vortex_encoded_path_selection_plan".to_string(),
+        ),
+        ("execution".to_string(), "not_performed".to_string()),
+        ("plan_only".to_string(), "true".to_string()),
+        (
+            "schema_version".to_string(),
+            report.schema_version.to_string(),
+        ),
+        ("report_id".to_string(), report.report_id.clone()),
+        (
+            "profile_matrix_id".to_string(),
+            report.profile_matrix_id.clone(),
+        ),
+        (
+            "selection_status".to_string(),
+            report.status.as_str().to_string(),
+        ),
+        ("entry_count".to_string(), report.entry_count().to_string()),
+        (
+            "operator_order".to_string(),
+            report.operator_order().join(","),
+        ),
+        (
+            "selected_execution_levels".to_string(),
+            report.selected_execution_levels().join(","),
+        ),
+        (
+            "evidence_sources".to_string(),
+            report.evidence_sources().join(","),
+        ),
+    ]
+}
+
+fn vortex_encoded_path_selection_candidate_fields(
+    report: &VortexEncodedExecutionPathSelectionReport,
+) -> Vec<(String, String)> {
+    vec![
+        (
+            "direct_count_candidate_present".to_string(),
+            report
+                .has_operator(PhysicalOperatorKind::CountAggregate)
+                .to_string(),
+        ),
+        (
+            "direct_filter_candidate_present".to_string(),
+            report
+                .has_operator(PhysicalOperatorKind::Filter)
+                .to_string(),
+        ),
+        (
+            "direct_project_candidate_present".to_string(),
+            report
+                .has_operator(PhysicalOperatorKind::Project)
+                .to_string(),
+        ),
+        (
+            "metadata_only_candidate_count".to_string(),
+            report.metadata_only_candidate_count().to_string(),
+        ),
+        (
+            "encoded_native_candidate_count".to_string(),
+            report.encoded_native_candidate_count().to_string(),
+        ),
+        (
+            "hybrid_native_candidate_count".to_string(),
+            report.hybrid_native_candidate_count().to_string(),
+        ),
+        (
+            "native_decoded_candidate_count".to_string(),
+            report.native_decoded_candidate_count().to_string(),
+        ),
+        (
+            "decode_avoided_candidate_count".to_string(),
+            report.decode_avoided_candidate_count().to_string(),
+        ),
+        (
+            "materialization_avoided_candidate_count".to_string(),
+            report.materialization_avoided_candidate_count().to_string(),
+        ),
+        (
+            "selection_vector_preserved_count".to_string(),
+            report.selection_vector_preserved_count().to_string(),
+        ),
+    ]
+}
+
+fn vortex_encoded_path_selection_discovery_fields(
+    report: &VortexEncodedExecutionPathSelectionReport,
+) -> Vec<(String, String)> {
+    vec![
+        (
+            "encoded_count_discovery_present".to_string(),
+            report.encoded_count_discovery_present.to_string(),
+        ),
+        (
+            "encoded_predicate_discovery_present".to_string(),
+            report.encoded_predicate_discovery_present.to_string(),
+        ),
+        (
+            "selection_vector_filter_discovery_present".to_string(),
+            report.selection_vector_filter_discovery_present.to_string(),
+        ),
+        (
+            "encoded_projection_evidence_present".to_string(),
+            report.encoded_projection_evidence_present.to_string(),
+        ),
+    ]
+}
+
+fn vortex_encoded_path_selection_side_effect_fields(
+    report: &VortexEncodedExecutionPathSelectionReport,
+) -> Vec<(String, String)> {
+    vec![
+        ("data_read".to_string(), report.data_read.to_string()),
+        ("data_decoded".to_string(), report.data_decoded.to_string()),
+        (
+            "data_materialized".to_string(),
+            report.data_materialized.to_string(),
+        ),
+        ("row_read".to_string(), report.row_read.to_string()),
+        (
+            "arrow_converted".to_string(),
+            report.arrow_converted.to_string(),
+        ),
+        (
+            "object_store_io".to_string(),
+            report.object_store_io.to_string(),
+        ),
+        ("write_io".to_string(), report.write_io.to_string()),
+        (
+            "spill_io_performed".to_string(),
+            report.spill_io_performed.to_string(),
+        ),
+        (
+            "runtime_execution_allowed".to_string(),
+            report.runtime_execution_allowed.to_string(),
+        ),
+        (
+            "external_engine_execution".to_string(),
+            report.external_engine_execution.to_string(),
+        ),
+        (
+            "fallback_execution_allowed".to_string(),
+            report.fallback_execution_allowed.to_string(),
+        ),
+        (
+            "fallback_attempted".to_string(),
+            report.fallback_attempted.to_string(),
+        ),
+        (
+            "production_claim_allowed".to_string(),
+            report.production_claim_allowed.to_string(),
+        ),
+        (
+            "side_effect_free".to_string(),
+            report.is_side_effect_free().to_string(),
+        ),
+        (
+            "diagnostic_count".to_string(),
+            report.diagnostics.len().to_string(),
+        ),
     ]
 }
 
@@ -14539,6 +14720,28 @@ fn run(args: Vec<String>) -> ExitCode {
             }
         }
 
+        Some("vortex-encoded-path-selection-plan") => {
+            let command = "vortex-encoded-path-selection-plan";
+            let report = plan_vortex_encoded_execution_path_selection();
+            emit(
+                command,
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "vortex encoded path selection plan".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                vortex_encoded_path_selection_fields(&report),
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
         Some("vortex-encoded-read-api") => {
             let command = "vortex-encoded-read-api";
             let report = vortex_encoded_read_public_api_boundary();
@@ -19159,6 +19362,15 @@ mod tests {
     #[test]
     fn usage_includes_vortex_metadata_physical_kernel_plan() {
         assert!(cli_usage_line().contains("vortex-metadata-physical-kernel-plan"));
+    }
+    #[test]
+    fn usage_includes_vortex_encoded_path_selection_plan() {
+        assert!(cli_usage_line().contains("vortex-encoded-path-selection-plan"));
+    }
+    #[test]
+    fn vortex_encoded_path_selection_plan_returns_success() {
+        let code = run(vec!["vortex-encoded-path-selection-plan".to_string()]);
+        assert_eq!(code, ExitCode::SUCCESS);
     }
     #[test]
     fn usage_includes_streaming_plan() {

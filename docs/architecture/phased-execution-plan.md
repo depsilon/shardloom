@@ -45,34 +45,30 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-12.1 native-first plan portability report foundation
+- [x] Session label: CG-13.1 encoded execution path selection report foundation
   - Primary files:
-    - `shardloom-plan/src/plan_ir.rs`
-    - `shardloom-plan/src/lib.rs`
+    - `shardloom-vortex/src/encoded_path_selection.rs`
+    - `shardloom-vortex/src/lib.rs`
     - `shardloom-cli/src/main.rs`
-    - `shardloom-cli/tests/plan_portability_snapshots.rs`
+    - `shardloom-cli/tests/encoded_path_selection_snapshots.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-    - `docs/rfcs/0022-plan-ir-substrait-compatible-interoperability.md`
-    - `docs/rfcs/0030-universal-api-plan-portability-import-deployment-baselines.md`
-  - Scope: Add report-only native-first plan portability evidence for existing plan commands without implementing real plan serialization/import/export, parser execution, runtime execution, host probing, read/write IO, external engine execution, or fallback execution.
+    - `docs/rfcs/0026-encoded-native-reads-query-primitives-compressed-execution.md`
+  - Scope: Add a report-only CG-13 path-selection contract that composes existing count, filter, projection, and execution-profile evidence into an agent-readable encoded-native candidate report without implementing generalized encoded execution, scans, decoding, materialization, Arrow conversion, object-store IO, writes, spill IO, external engine execution, superiority claims, or fallback execution.
   - Checklist:
-    - [x] Add `PlanPortabilityReport` contract for native-first direction, interop format, construct buckets, loss boundaries, residual unsupported constructs, side-effect fields, and no-fallback status.
-    - [x] Surface portability fields through `plan-ir --format json`, `plan-import --format json`, and `plan-export --format json`.
-    - [x] Keep import/export validation-only with no parser execution, serialization, runtime execution, external engine execution, probing, reads, writes, or fallback.
-    - [x] Add focused CLI JSON snapshot coverage.
-    - [x] Update phase plan, RFC traceability, RFC 0022, and RFC 0030.
+    - [x] Add `VortexEncodedExecutionPathSelectionReport` for count/filter/project encoded-native candidate selection.
+    - [x] Surface `vortex-encoded-path-selection-plan --format json` with decode/materialization avoided fields.
+    - [x] Keep path selection report-only with no data reads, decode, materialization, Arrow conversion, object-store IO, writes, spill IO, runtime execution, external engine execution, or fallback.
+    - [x] Add focused unit and CLI JSON snapshot coverage.
+    - [x] Update phase plan, RFC traceability, and RFC 0026.
     - [x] Run full required validation.
   - Local validation status:
-    - focused `shardloom-plan` `plan_ir` tests passed
-    - focused `shardloom-cli` `plan_portability_snapshots` tests passed
-    - `plan-ir --format json` smoke check passed
-    - `plan-import substrait-like fixture --format json` smoke check emitted expected unsupported/no-side-effect report
-    - `plan-export json-like --format json` smoke check emitted expected unsupported/no-side-effect report
-    - focused Clippy for `shardloom-plan` and `shardloom-cli` passed with toolchain `1.91.1`
+    - focused `shardloom-vortex` `encoded_path_selection` tests passed
+    - focused `shardloom-cli` `encoded_path_selection_snapshots` tests passed
+    - focused Clippy for `shardloom-vortex` and `shardloom-cli` passed with toolchain `1.91.1`
     - full Rust validation passed with toolchain `1.91.1`
     - docs hygiene scans passed for `git diff --check` and hidden/bidi controls
-  - Explicitly not included: real plan serialization, real plan import/export, external plan execution, parser work, SQL execution, adapter probing, filesystem probing, network probing, catalog probing, runtime execution, read IO, write IO, package publication, benchmark claims, superiority claims, or fallback execution.
+  - Explicitly not included: generalized encoded-data execution, direct broad count/filter/project execution, new kernels, parser work, SQL execution, adapters, scan/read-start APIs, filesystem probing, network probing, catalog probing, object-store IO, row reads, decode/materialization, Arrow conversion, writes, spill IO, package publication, benchmark claims, superiority claims, or fallback execution.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -1104,10 +1100,13 @@ Status legend:
     - real plan serialization/import/export remains deferred
 
 - [ ] CG-13 — Encoded-native compressed execution (**planned**)
+  - [x] CG-13.1 encoded execution path selection report foundation
+  - [x] CG-13.2 decode/materialization avoided proof fields in path-selection output
   - Scope:
-    - encoding-aware execution-path selection
+    - encoding-aware execution-path selection through `vortex-encoded-path-selection-plan`
     - direct count/filter/project over encoded segments
     - decode-avoided proof/report requirements
+    - generalized direct encoded count/filter/project execution remains deferred
 
 - [ ] CG-14 — Runtime-adaptive optimizer and execution memory (**planned**)
   - Scope:
@@ -1359,8 +1358,10 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [ ] capability-checked imported-plan execution gate
 
 ### CG-13 detailed checklist
-- [ ] encoding-aware execution path selection
-- [ ] decode-avoided proof/report requirements
+- [x] CG-13.1 encoding-aware execution path selection report
+- [x] CG-13.2 decode/materialization avoided proof/report requirements
+- [ ] generalized direct count/filter/project encoded execution
+- [ ] broad compressed-kernel correctness and benchmark certification
 
 ### CG-14 detailed checklist
 - [ ] adaptive decisions with deterministic diagnostics
