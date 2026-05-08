@@ -107,17 +107,25 @@ impl CorrectnessValidationMode {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BenchmarkMetric {
     WallTimeMillis,
+    StartupLatencyMillis,
+    QueryRuntimeMillis,
+    WriteCommitLatencyMillis,
     CpuTimeMillis,
     PeakMemoryBytes,
     Allocations,
     BytesRead,
     BytesDecoded,
+    BytesDecodeAvoided,
     BytesWritten,
     RowsScanned,
     RowsMaterialized,
+    RowsMaterializationAvoided,
     SegmentsConsidered,
     SegmentsPruned,
     SegmentsMetadataAnswered,
+    WorkAvoidedUnits,
+    SpillRequiredBytes,
+    SpillAvoidedBytes,
     ObjectStoreRequests,
     OutputFiles,
     OutputBytes,
@@ -129,17 +137,25 @@ impl BenchmarkMetric {
     pub const fn as_str(&self) -> &'static str {
         match self {
             Self::WallTimeMillis => "wall_time_millis",
+            Self::StartupLatencyMillis => "startup_latency_millis",
+            Self::QueryRuntimeMillis => "query_runtime_millis",
+            Self::WriteCommitLatencyMillis => "write_commit_latency_millis",
             Self::CpuTimeMillis => "cpu_time_millis",
             Self::PeakMemoryBytes => "peak_memory_bytes",
             Self::Allocations => "allocations",
             Self::BytesRead => "bytes_read",
             Self::BytesDecoded => "bytes_decoded",
+            Self::BytesDecodeAvoided => "bytes_decode_avoided",
             Self::BytesWritten => "bytes_written",
             Self::RowsScanned => "rows_scanned",
             Self::RowsMaterialized => "rows_materialized",
+            Self::RowsMaterializationAvoided => "rows_materialization_avoided",
             Self::SegmentsConsidered => "segments_considered",
             Self::SegmentsPruned => "segments_pruned",
             Self::SegmentsMetadataAnswered => "segments_metadata_answered",
+            Self::WorkAvoidedUnits => "work_avoided_units",
+            Self::SpillRequiredBytes => "spill_required_bytes",
+            Self::SpillAvoidedBytes => "spill_avoided_bytes",
             Self::ObjectStoreRequests => "object_store_requests",
             Self::OutputFiles => "output_files",
             Self::OutputBytes => "output_bytes",
@@ -213,11 +229,20 @@ impl BenchmarkScenario {
     }
 
     pub fn add_baseline(&mut self, baseline: BaselineEngine) {
-        self.baselines.push(baseline);
+        if !self.baselines.contains(&baseline) {
+            self.baselines.push(baseline);
+        }
     }
 
     pub fn add_required_metric(&mut self, metric: BenchmarkMetric) {
-        self.required_metrics.push(metric);
+        if !self.required_metrics.contains(&metric) {
+            self.required_metrics.push(metric);
+        }
+    }
+
+    #[must_use]
+    pub fn requires_metric(&self, metric: BenchmarkMetric) -> bool {
+        self.required_metrics.contains(&metric)
     }
 
     #[must_use]
@@ -339,8 +364,18 @@ impl BenchmarkPlan {
         scenario.correctness_validation = CorrectnessValidationMode::ExpectedOutput;
         scenario.add_baseline(BaselineEngine::ShardLoom);
         scenario.add_baseline(BaselineEngine::DataFusion);
+        scenario.add_required_metric(BenchmarkMetric::StartupLatencyMillis);
         scenario.add_required_metric(BenchmarkMetric::WallTimeMillis);
+        scenario.add_required_metric(BenchmarkMetric::QueryRuntimeMillis);
+        scenario.add_required_metric(BenchmarkMetric::PeakMemoryBytes);
+        scenario.add_required_metric(BenchmarkMetric::BytesRead);
         scenario.add_required_metric(BenchmarkMetric::BytesDecoded);
+        scenario.add_required_metric(BenchmarkMetric::BytesDecodeAvoided);
+        scenario.add_required_metric(BenchmarkMetric::RowsMaterializationAvoided);
+        scenario.add_required_metric(BenchmarkMetric::SegmentsPruned);
+        scenario.add_required_metric(BenchmarkMetric::WorkAvoidedUnits);
+        scenario.add_required_metric(BenchmarkMetric::SpillRequiredBytes);
+        scenario.add_required_metric(BenchmarkMetric::SpillAvoidedBytes);
         plan.add_scenario(scenario);
 
         let mut scenario = BenchmarkScenario::new(
@@ -351,7 +386,11 @@ impl BenchmarkPlan {
         scenario.correctness_validation = CorrectnessValidationMode::ExpectedOutput;
         scenario.add_baseline(BaselineEngine::ShardLoom);
         scenario.add_baseline(BaselineEngine::Spark);
+        scenario.add_required_metric(BenchmarkMetric::QueryRuntimeMillis);
+        scenario.add_required_metric(BenchmarkMetric::PeakMemoryBytes);
         scenario.add_required_metric(BenchmarkMetric::BytesRead);
+        scenario.add_required_metric(BenchmarkMetric::SegmentsConsidered);
+        scenario.add_required_metric(BenchmarkMetric::SegmentsPruned);
         scenario.add_required_metric(BenchmarkMetric::ObjectStoreRequests);
         plan.add_scenario(scenario);
 
@@ -364,6 +403,8 @@ impl BenchmarkPlan {
         scenario.add_baseline(BaselineEngine::ShardLoom);
         scenario.add_baseline(BaselineEngine::Polars);
         scenario.add_required_metric(BenchmarkMetric::RowsMaterialized);
+        scenario.add_required_metric(BenchmarkMetric::RowsMaterializationAvoided);
+        scenario.add_required_metric(BenchmarkMetric::WorkAvoidedUnits);
         scenario.add_required_metric(BenchmarkMetric::CostProxy);
         plan.add_scenario(scenario);
 
@@ -375,6 +416,8 @@ impl BenchmarkPlan {
         scenario.correctness_validation = CorrectnessValidationMode::ExpectedOutput;
         scenario.add_baseline(BaselineEngine::ShardLoom);
         scenario.add_baseline(BaselineEngine::VortexIntegration);
+        scenario.add_required_metric(BenchmarkMetric::WriteCommitLatencyMillis);
+        scenario.add_required_metric(BenchmarkMetric::BytesWritten);
         scenario.add_required_metric(BenchmarkMetric::OutputFiles);
         scenario.add_required_metric(BenchmarkMetric::OutputBytes);
         plan.add_scenario(scenario);
@@ -391,6 +434,34 @@ impl BenchmarkPlan {
         plan.add_scenario(scenario);
 
         plan
+    }
+
+    #[must_use]
+    pub fn required_metrics(&self) -> Vec<BenchmarkMetric> {
+        let mut metrics = Vec::new();
+        for scenario in &self.scenarios {
+            for metric in &scenario.required_metrics {
+                if !metrics.contains(metric) {
+                    metrics.push(*metric);
+                }
+            }
+        }
+        metrics
+    }
+
+    #[must_use]
+    pub fn covers_metric(&self, metric: BenchmarkMetric) -> bool {
+        self.scenarios
+            .iter()
+            .any(|scenario| scenario.requires_metric(metric))
+    }
+
+    #[must_use]
+    pub fn baselines_are_fallback_free(&self) -> bool {
+        self.scenarios
+            .iter()
+            .flat_map(|scenario| scenario.baselines.iter())
+            .all(|baseline| !baseline.is_fallback_allowed())
     }
 
     #[must_use]
