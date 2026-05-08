@@ -24,10 +24,12 @@ pub mod security;
 pub mod translation;
 
 pub use benchmark::{
-    BaselineEngine, BenchmarkClaimGate, BenchmarkClaimStatus, BenchmarkComparisonReport,
-    BenchmarkComparisonStatus, BenchmarkEvidenceState, BenchmarkFallbackState, BenchmarkMetric,
-    BenchmarkMetricGap, BenchmarkPlan, BenchmarkResult, BenchmarkResultGap, BenchmarkScenario,
-    CorrectnessValidationMode, MetricValue, WorkloadClass,
+    BaselineEngine, BenchmarkCacheState, BenchmarkClaimGate, BenchmarkClaimStatus,
+    BenchmarkComparisonReport, BenchmarkComparisonStatus, BenchmarkDatasetProfile,
+    BenchmarkEngineVersion, BenchmarkEvidenceState, BenchmarkFallbackState, BenchmarkMetric,
+    BenchmarkMetricGap, BenchmarkPlan, BenchmarkReproducibilityStatus, BenchmarkResult,
+    BenchmarkResultGap, BenchmarkRunManifest, BenchmarkScenario, CorrectnessValidationMode,
+    MetricValue, WorkloadClass,
 };
 pub use capabilities::{Capability, CapabilityStatus, EngineCapabilities};
 pub use certification::{

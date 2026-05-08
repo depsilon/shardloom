@@ -1,8 +1,9 @@
 use shardloom_core::{
-    BaselineEngine, BenchmarkClaimGate, BenchmarkClaimStatus, BenchmarkComparisonReport,
-    BenchmarkComparisonStatus, BenchmarkEvidenceState, BenchmarkFallbackState, BenchmarkMetric,
-    BenchmarkPlan, BenchmarkResult, BenchmarkScenario, CorrectnessValidationMode, MetricValue,
-    WorkloadClass,
+    BaselineEngine, BenchmarkCacheState, BenchmarkClaimGate, BenchmarkClaimStatus,
+    BenchmarkComparisonReport, BenchmarkComparisonStatus, BenchmarkEngineVersion,
+    BenchmarkEvidenceState, BenchmarkFallbackState, BenchmarkMetric, BenchmarkPlan,
+    BenchmarkReproducibilityStatus, BenchmarkResult, BenchmarkRunManifest, BenchmarkScenario,
+    CorrectnessValidationMode, MetricValue, WorkloadClass,
 };
 
 #[test]
@@ -195,6 +196,74 @@ fn complete_benchmark_comparison_report_becomes_ready_for_claim_review() {
             .to_human_text()
             .contains("fallback execution: enabled")
     );
+}
+
+#[test]
+fn benchmark_run_manifest_defaults_to_incomplete_reproducibility() {
+    let plan = BenchmarkPlan::default_foundation_plan();
+    let manifest = BenchmarkRunManifest::from_plan(&plan);
+
+    assert_eq!(manifest.status, BenchmarkReproducibilityStatus::Incomplete);
+    assert_eq!(manifest.scenario_count, plan.scenarios.len());
+    assert_eq!(manifest.required_metrics, plan.required_metrics());
+    assert_eq!(manifest.missing_engine_versions, plan.baseline_engines());
+    assert!(!manifest.fallback_execution_allowed());
+    assert!(!manifest.required_metadata_present(&plan));
+    assert!(!manifest.diagnostics.is_empty());
+    assert!(
+        manifest
+            .to_human_text()
+            .contains("reproducibility status: incomplete")
+    );
+}
+
+#[test]
+fn benchmark_run_manifest_requires_environment_dataset_versions_and_steps() {
+    let mut plan = one_scenario_benchmark_plan();
+    plan.scenarios[0].dataset_name = Some("metadata-footer-u64".to_string());
+    plan.scenarios[0].dataset_scale = Some("20k_rows".to_string());
+    plan.scenarios[0].storage_format = Some("vortex".to_string());
+    plan.scenarios[0].add_required_metric(BenchmarkMetric::WallTimeMillis);
+
+    let mut manifest = BenchmarkRunManifest::from_plan(&plan);
+    manifest.dataset_profiles[0].schema_profile = Some("single u64 column".to_string());
+    manifest.dataset_profiles[0].compression = Some("fixture default".to_string());
+    manifest.hardware_profile = Some("local-ci-x64".to_string());
+    manifest.operating_system_profile = Some("windows-latest".to_string());
+    manifest.runtime_configuration = Some("release=false; toolchain=1.91.1".to_string());
+    manifest.cache_state = BenchmarkCacheState::Cold;
+    manifest.correctness_evidence = BenchmarkEvidenceState::Present;
+    manifest.add_reproduction_step("build workspace");
+    manifest.add_reproduction_step("run approved benchmark harness");
+    manifest.add_engine_version(
+        BenchmarkEngineVersion::new(BaselineEngine::ShardLoom, "0.1.0").expect("valid"),
+    );
+    manifest.add_engine_version(
+        BenchmarkEngineVersion::new(BaselineEngine::DataFusion, "comparison-only").expect("valid"),
+    );
+    manifest.refresh_against_plan(&plan);
+
+    assert_eq!(
+        manifest.status,
+        BenchmarkReproducibilityStatus::Reproducible
+    );
+    assert!(manifest.required_metadata_present(&plan));
+    assert!(manifest.missing_engine_versions.is_empty());
+    assert!(manifest.diagnostics.is_empty());
+    assert!(
+        manifest
+            .to_human_text()
+            .contains("reproducibility status: reproducible")
+    );
+}
+
+#[test]
+fn benchmark_engine_version_labels_are_comparison_only() {
+    let version =
+        BenchmarkEngineVersion::new(BaselineEngine::Spark, "comparison-only").expect("valid");
+
+    assert!(!version.fallback_execution_allowed());
+    assert!(BenchmarkEngineVersion::new(BaselineEngine::Spark, " ").is_err());
 }
 
 fn one_scenario_benchmark_plan() -> BenchmarkPlan {

@@ -468,6 +468,14 @@ No fallback execution.
 - `shardloom-contract-tests/tests/benchmark_evidence_manifest.rs` verifies missing results and unknown required metrics block claim readiness, and complete synthetic evidence can only reach claim-review readiness through explicit report fields.
 - This pass adds no benchmark runner, external baseline invocation, query execution behavior, superiority claim, dependency, parser, adapter runtime, object-store IO, write behavior, or fallback execution.
 
+## CG-6.4 benchmark reproducibility manifest
+
+- Primary RFC linkage: RFC 0029 reproducible benchmark evidence requirements, RFC 0015 correctness-before-performance requirements, RFC 0025 competitive/no-fallback guardrails, and RFC 0032 benchmark evidence floor for best-default claims.
+- `BenchmarkRunManifest` records dataset shape, schema, storage format, compression, engine versions, hardware profile, operating-system profile, runtime configuration, cache state, required metrics, reproduction steps, correctness evidence state, and no-fallback state.
+- The current foundation plan remains `incomplete` because no approved benchmark runner has produced complete reproducibility metadata or benchmark results.
+- `shardloom-contract-tests/tests/benchmark_evidence_manifest.rs` verifies incomplete default manifests, complete synthetic reproducibility metadata, and comparison-only engine-version labels.
+- This pass adds no benchmark runner, external baseline invocation, query execution behavior, superiority claim, dependency, parser, adapter runtime, object-store IO, write behavior, or fallback execution.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.
