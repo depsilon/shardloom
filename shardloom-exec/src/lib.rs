@@ -78,9 +78,11 @@ pub use recovery::{
 };
 
 pub use sizing::{
-    AdaptiveSizer, AdaptiveSizingPolicy, ByteSize, CoalescingPolicy, ParallelismLimit,
-    ParallelismPlan, SizeEstimate, SizingInput, SizingPlan, TaskSizingDecision,
-    TaskSizingDecisionKind, TaskSizingMode,
+    AdaptiveSizer, AdaptiveSizingPolicy, ByteSize, CoalescingPolicy, DynamicSizingFeedbackInput,
+    DynamicSizingFeedbackMode, DynamicSizingFeedbackReport, DynamicSizingFeedbackStatus,
+    ParallelismLimit, ParallelismPlan, SizeEstimate, SizingFeedbackSignal,
+    SizingFeedbackSignalKind, SizingInput, SizingPlan, TaskSizingDecision, TaskSizingDecisionKind,
+    TaskSizingMode, plan_dynamic_sizing_feedback,
 };
 
 pub use streaming::{

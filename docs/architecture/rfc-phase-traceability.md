@@ -1115,3 +1115,12 @@ No fallback execution.
 - Primary RFC linkage: RFC 0013, RFC 0014, RFC 0016, RFC 0018, RFC 0025, and RFC 0027.
 - Related RFCs: RFC 0008, RFC 0017, RFC 0031, and RFC 0032.
 - This phase adds no stream execution, task execution, read-start API, row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, dynamic sizing feedback execution, benchmark claim, production/superiority claim, CG-8 closeout, or fallback behavior.
+
+## CG-8.4 dynamic sizing feedback planning surface
+
+- `DynamicSizingFeedbackInput` and `DynamicSizingFeedbackReport` now model advisory feedback signals for target-task-byte adjustment with status/mode, signal counts, current/recommended policy, side-effect flags, diagnostics, and fallback status.
+- `plan_dynamic_sizing_feedback` treats memory-pressure and too-large-task signals as safer target-reduction evidence, too-small-task and object-store-throttling signals as target-increase evidence, mixed signals as safer reduction, and no signals as no feedback.
+- `sizing-feedback-plan --format json` exposes stable fields for feedback status/mode, signal counts, current/recommended target bytes, unchanged execution effects, and fallback-disabled evidence.
+- Primary RFC linkage: RFC 0013, RFC 0014, RFC 0016, RFC 0018, RFC 0025, and RFC 0027.
+- Related RFCs: RFC 0008, RFC 0017, RFC 0031, and RFC 0032.
+- This phase adds no stream execution, task execution, feedback application, read-start API, row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, benchmark claim, production/superiority claim, CG-8 closeout, or fallback behavior.
