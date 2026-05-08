@@ -828,6 +828,14 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - `shardloom vortex-encoded-read-spike ... --execute-local-count` now surfaces the bridged local execution fields for auditability.
 - This inventory update does not approve broader scan/read-start use, adapters, object-store targets, encoded predicates, projections, row reads, requested decode/materialization, Arrow conversion, writes, spill IO, external baselines, or fallback execution.
 
+## CG-2.1e.22 stable explicit local encoded count command
+
+- `shardloom vortex-count <dataset_uri>` remains metadata-only by default.
+- `shardloom vortex-count <dataset_uri> --execute-local-encoded-count <memory_gb> <max_parallelism>` now exposes the approved local `.vortex` `CountAll` scan/count path without routing users through the spike command.
+- The stable command uses the same narrow public API boundary: `OpenOptionsSessionExt::open_path`, `VortexFile::scan`, and `ScanBuilder::into_array_iter` for local array-length counting only.
+- It preserves target/source-match evidence, arrays-read and rows-counted evidence, no row reads, no requested decode/materialization, no Arrow conversion, no object-store IO, no writes, no spill IO, no external effects, and no fallback execution.
+- Broader scan/read-start use, adapters, non-local sources, object-store targets, encoded predicates, projections, benchmarks, external baselines, and CG closeout remain out of scope.
+
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.
 - CG-2.2a adds `VortexFilteredCountReadinessRequest` and `VortexFilteredCountReadinessReport` planning/reporting only.

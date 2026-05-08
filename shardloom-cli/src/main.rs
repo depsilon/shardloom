@@ -2894,6 +2894,61 @@ fn parse_vortex_spike_args(
     Ok((uri, memory_gb, max_parallelism, execute_local_count))
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum VortexCountExecutionRequest {
+    MetadataOnly,
+    LocalEncodedCount {
+        memory_gb: u64,
+        max_parallelism: usize,
+    },
+}
+
+fn parse_vortex_count_args(
+    mut args: std::vec::IntoIter<String>,
+) -> std::result::Result<(DatasetUri, VortexCountExecutionRequest), ExitCode> {
+    let Some(dataset_uri) = args.next() else {
+        eprintln!(
+            "usage: shardloom vortex-count <dataset_uri> [--execute-local-encoded-count <memory_gb> <max_parallelism>]"
+        );
+        return Err(ExitCode::from(2));
+    };
+    let uri = DatasetUri::new(dataset_uri).map_err(|_| ExitCode::from(2))?;
+    let Some(option) = args.next() else {
+        return Ok((uri, VortexCountExecutionRequest::MetadataOnly));
+    };
+    if option != "--execute-local-encoded-count" {
+        eprintln!("unknown option for shardloom vortex-count: {option}");
+        return Err(ExitCode::from(2));
+    }
+    let Some(memory_gb_text) = args.next() else {
+        eprintln!(
+            "usage: shardloom vortex-count <dataset_uri> --execute-local-encoded-count <memory_gb> <max_parallelism>"
+        );
+        return Err(ExitCode::from(2));
+    };
+    let Some(max_parallelism_text) = args.next() else {
+        eprintln!(
+            "usage: shardloom vortex-count <dataset_uri> --execute-local-encoded-count <memory_gb> <max_parallelism>"
+        );
+        return Err(ExitCode::from(2));
+    };
+    if let Some(extra) = args.next() {
+        eprintln!("unknown extra argument for shardloom vortex-count: {extra}");
+        return Err(ExitCode::from(2));
+    }
+    let memory_gb = memory_gb_text.parse().map_err(|_| ExitCode::from(2))?;
+    let max_parallelism = max_parallelism_text
+        .parse()
+        .map_err(|_| ExitCode::from(2))?;
+    Ok((
+        uri,
+        VortexCountExecutionRequest::LocalEncodedCount {
+            memory_gb,
+            max_parallelism,
+        },
+    ))
+}
+
 fn run_vortex_encoded_read_spike(
     uri: DatasetUri,
     memory_gb: u64,
@@ -2928,21 +2983,8 @@ fn run_vortex_encoded_read_spike(
     }
     let readiness_report = evaluate_vortex_encoded_read_readiness(scheduler_report)?;
     let (report, local_execution_report) = if execute_local_count {
-        let count_report = plan_vortex_count_readiness(
-            VortexCountReadinessRequest::new(uri, VortexCountCandidateSource::EncodedDataPath)
-                .feature_gate_enabled(true)
-                .query_primitive_ready(true)
-                .count_primitive(true)
-                .encoded_data_path_ready(true),
-        )?;
-        let approval = plan_vortex_encoded_count_data_path_approval(
-            count_report,
-            vortex_encoded_read_local_scan_count_api_boundary(),
-        )?;
-        let report =
-            execute_vortex_count_all_from_approved_local_scan(&approval, &readiness_report)?;
-        let local_execution_report =
-            execute_vortex_count_all_from_approved_local_scan_result(&approval, &report)?;
+        let (report, local_execution_report) =
+            run_vortex_approved_local_encoded_count_from_readiness(uri, &readiness_report)?;
         (report, Some(local_execution_report))
     } else {
         let api = vortex_encoded_read_public_api_boundary();
@@ -2959,6 +3001,296 @@ fn run_vortex_encoded_read_spike(
         report,
         local_execution_report,
     ))
+}
+
+fn build_vortex_encoded_count_readiness(
+    uri: DatasetUri,
+    memory_gb: u64,
+    max_parallelism: usize,
+) -> shardloom_core::Result<shardloom_vortex::VortexEncodedReadReadinessReport> {
+    let source = shardloom_core::UniversalInputSource::from_dataset_uri(uri)?;
+    let input_plan = plan_native_vortex_universal_input(source)?;
+    let read_report = plan_vortex_read_from_universal_input(input_plan)?;
+    let runtime_report = build_vortex_runtime_task_graph(read_report)?;
+    let sizing_report = size_vortex_runtime_task_graph(
+        runtime_report,
+        AdaptiveSizingPolicy::memory_limited(ByteSize::from_gib(memory_gb)),
+    )?;
+    let budget = MemoryBudget::from_gib(memory_gb)?;
+    let memory_report = plan_vortex_memory_safety(sizing_report, budget)?;
+    let mut scheduler_report = plan_vortex_scheduler_queue(memory_report, max_parallelism)?;
+    if scheduler_report.scheduled_task_count == 0 {
+        scheduler_report
+            .decisions
+            .push(VortexTaskSchedulingDecision::schedule_now(
+                None,
+                "approved local encoded count execution",
+            ));
+        scheduler_report.recompute_counts();
+    }
+    evaluate_vortex_encoded_read_readiness(scheduler_report)
+}
+
+fn run_vortex_approved_local_encoded_count_from_readiness(
+    uri: DatasetUri,
+    readiness_report: &shardloom_vortex::VortexEncodedReadReadinessReport,
+) -> shardloom_core::Result<(
+    shardloom_vortex::VortexEncodedReadExecutionReport,
+    VortexLocalExecutionReport,
+)> {
+    let count_report = plan_vortex_count_readiness(
+        VortexCountReadinessRequest::new(uri, VortexCountCandidateSource::EncodedDataPath)
+            .feature_gate_enabled(true)
+            .query_primitive_ready(true)
+            .count_primitive(true)
+            .encoded_data_path_ready(true),
+    )?;
+    let approval = plan_vortex_encoded_count_data_path_approval(
+        count_report,
+        vortex_encoded_read_local_scan_count_api_boundary(),
+    )?;
+    let report = execute_vortex_count_all_from_approved_local_scan(&approval, readiness_report)?;
+    let local_execution_report =
+        execute_vortex_count_all_from_approved_local_scan_result(&approval, &report)?;
+    Ok((report, local_execution_report))
+}
+
+fn run_vortex_approved_local_encoded_count(
+    uri: DatasetUri,
+    memory_gb: u64,
+    max_parallelism: usize,
+) -> shardloom_core::Result<(
+    shardloom_vortex::VortexEncodedReadExecutionReport,
+    VortexLocalExecutionReport,
+)> {
+    let readiness_report =
+        build_vortex_encoded_count_readiness(uri.clone(), memory_gb, max_parallelism)?;
+    run_vortex_approved_local_encoded_count_from_readiness(uri, &readiness_report)
+}
+
+fn handle_vortex_count(args: std::vec::IntoIter<String>, format: OutputFormat) -> ExitCode {
+    let (uri, execution_request) = match parse_vortex_count_args(args) {
+        Ok(parsed) => parsed,
+        Err(code) => return code,
+    };
+    match execution_request {
+        VortexCountExecutionRequest::MetadataOnly => handle_vortex_count_metadata(uri, format),
+        VortexCountExecutionRequest::LocalEncodedCount {
+            memory_gb,
+            max_parallelism,
+        } => handle_vortex_count_local_encoded(uri, memory_gb, max_parallelism, format),
+    }
+}
+
+fn handle_vortex_count_metadata(uri: DatasetUri, format: OutputFormat) -> ExitCode {
+    let request = shardloom_vortex::VortexQueryPrimitiveRequest::count_all(uri.clone());
+    let open = open_vortex_metadata_only(VortexMetadataOpenRequest::metadata_only(uri));
+    let summary = if let Ok(report) = open {
+        if let Some(summary) = report.metadata_summary {
+            summary
+        } else if report.has_errors() {
+            let mut degraded =
+                summarize_vortex_metadata_probe(&VortexMetadataProbeReport::deferred_api_unclear());
+            degraded.diagnostics.extend(report.diagnostics.clone());
+            degraded
+        } else {
+            summarize_vortex_metadata_probe(&VortexMetadataProbeReport::deferred_api_unclear())
+        }
+    } else {
+        summarize_vortex_metadata_probe(&VortexMetadataProbeReport::deferred_api_unclear())
+    };
+    let result = match evaluate_vortex_query_primitive(request, &summary) {
+        Ok(result) => result,
+        Err(error) => {
+            return emit_error("vortex-count", format, "vortex count failed", &error);
+        }
+    };
+    let count = match result.value {
+        shardloom_vortex::VortexQueryPrimitiveValue::Count(v) => Some(v),
+        _ => None,
+    };
+    let status = if result.has_errors() || count.is_none() {
+        CommandStatus::Unsupported
+    } else {
+        CommandStatus::Success
+    };
+    emit(
+        "vortex-count",
+        format,
+        status,
+        "vortex count primitive".to_string(),
+        result.to_human_text(),
+        result.diagnostics.clone(),
+        vec![
+            (
+                "fallback_execution_allowed".to_string(),
+                "false".to_string(),
+            ),
+            ("mode".to_string(), "vortex_count".to_string()),
+            ("primitive".to_string(), "count_all".to_string()),
+            (
+                "explicit_local_encoded_count_requested".to_string(),
+                "false".to_string(),
+            ),
+            ("data_read".to_string(), "false".to_string()),
+            ("data_decoded".to_string(), "false".to_string()),
+            ("data_materialized".to_string(), "false".to_string()),
+            ("object_store_io".to_string(), "false".to_string()),
+            ("write_io".to_string(), "false".to_string()),
+            ("spill_io_performed".to_string(), "false".to_string()),
+            (
+                "execution".to_string(),
+                "metadata_only_or_not_performed".to_string(),
+            ),
+            ("result_known".to_string(), count.is_some().to_string()),
+            (
+                "count".to_string(),
+                count.map_or_else(|| "unknown".to_string(), |v| v.to_string()),
+            ),
+        ],
+    );
+    if result.has_errors() || count.is_none() {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+fn handle_vortex_count_local_encoded(
+    uri: DatasetUri,
+    memory_gb: u64,
+    max_parallelism: usize,
+    format: OutputFormat,
+) -> ExitCode {
+    let (encoded_report, local_report) =
+        match run_vortex_approved_local_encoded_count(uri, memory_gb, max_parallelism) {
+            Ok(reports) => reports,
+            Err(error) => {
+                return emit_error("vortex-count", format, "vortex count failed", &error);
+            }
+        };
+    let local_execution_failed = local_report.has_errors();
+    let mut diagnostics = encoded_report.diagnostics.clone();
+    diagnostics.extend(local_report.diagnostics.clone());
+    let human_text = format!(
+        "{}\n\n{}",
+        encoded_report.to_human_text(),
+        local_report.to_human_text()
+    );
+    let fields = vortex_count_local_encoded_fields(
+        memory_gb,
+        max_parallelism,
+        &encoded_report,
+        &local_report,
+    );
+    emit(
+        "vortex-count",
+        format,
+        if encoded_report.has_errors() || local_execution_failed {
+            CommandStatus::Unsupported
+        } else {
+            CommandStatus::Success
+        },
+        "vortex local encoded count execution".to_string(),
+        human_text,
+        diagnostics,
+        fields,
+    );
+    if encoded_report.has_errors() || local_execution_failed {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+fn vortex_count_local_encoded_fields(
+    memory_gb: u64,
+    max_parallelism: usize,
+    encoded_report: &shardloom_vortex::VortexEncodedReadExecutionReport,
+    local_report: &VortexLocalExecutionReport,
+) -> Vec<(String, String)> {
+    let mut fields = Vec::new();
+    push_bool_field(&mut fields, "fallback_execution_allowed", false);
+    push_field(&mut fields, "mode", "vortex_count");
+    push_field(&mut fields, "primitive", "count_all");
+    push_bool_field(&mut fields, "explicit_local_encoded_count_requested", true);
+    push_field(&mut fields, "feature_gate", "vortex-encoded-read-spike");
+    push_bool_field(
+        &mut fields,
+        "feature_enabled",
+        vortex_encoded_read_spike_feature_enabled(),
+    );
+    push_bool_field(
+        &mut fields,
+        "encoded_read_attempted",
+        encoded_report.upstream_scan_called,
+    );
+    push_bool_field(&mut fields, "data_read", encoded_report.data_read);
+    push_bool_field(&mut fields, "data_decoded", encoded_report.data_decoded);
+    push_bool_field(
+        &mut fields,
+        "data_materialized",
+        encoded_report.data_materialized,
+    );
+    push_bool_field(
+        &mut fields,
+        "object_store_io",
+        encoded_report.object_store_io,
+    );
+    push_bool_field(&mut fields, "write_io", encoded_report.write_io);
+    push_bool_field(
+        &mut fields,
+        "spill_io_performed",
+        encoded_report.spill_io_performed,
+    );
+    push_bool_field(
+        &mut fields,
+        "external_effects_executed",
+        encoded_report.external_effects_executed,
+    );
+    push_field(&mut fields, "execution", encoded_report.status.as_str());
+    fields.push(("memory_gb".to_string(), memory_gb.to_string()));
+    push_count_field(&mut fields, "max_parallelism", max_parallelism);
+    push_count_field(
+        &mut fields,
+        "arrays_read_count",
+        encoded_report.arrays_read_count,
+    );
+    fields.push((
+        "rows_counted".to_string(),
+        encoded_report.rows_counted.to_string(),
+    ));
+    fields.push((
+        "result_known".to_string(),
+        encoded_report.count_result.is_some().to_string(),
+    ));
+    fields.push((
+        "count".to_string(),
+        encoded_report
+            .count_result
+            .map_or_else(|| "unknown".to_string(), |count| count.to_string()),
+    ));
+    fields.push((
+        "local_scan_target_uri".to_string(),
+        encoded_report
+            .local_scan_target_uri
+            .as_ref()
+            .map_or_else(|| "none".to_string(), |uri| uri.as_str().to_string()),
+    ));
+    fields.push((
+        "local_scan_readiness_source_uri".to_string(),
+        encoded_report
+            .local_scan_readiness_source_uri
+            .as_ref()
+            .map_or_else(|| "none".to_string(), |uri| uri.as_str().to_string()),
+    ));
+    push_bool_field(
+        &mut fields,
+        "local_scan_source_uri_matches_target",
+        encoded_report.local_scan_source_uri_matches_target,
+    );
+    append_vortex_encoded_read_spike_local_execution_fields(&mut fields, local_report);
+    fields
 }
 
 #[allow(clippy::too_many_lines)]
@@ -11011,88 +11343,7 @@ fn run(args: Vec<String>) -> ExitCode {
             }
         }
 
-        Some("vortex-count") => {
-            let Some(uri_arg) = args.next() else {
-                eprintln!("usage: shardloom vortex-count <dataset_uri>");
-                return ExitCode::from(2);
-            };
-            let uri = match DatasetUri::new(uri_arg) {
-                Ok(uri) => uri,
-                Err(error) => {
-                    return emit_error("vortex-count", format, "vortex count failed", &error);
-                }
-            };
-            let request = shardloom_vortex::VortexQueryPrimitiveRequest::count_all(uri.clone());
-            let open = open_vortex_metadata_only(VortexMetadataOpenRequest::metadata_only(uri));
-            let summary = if let Ok(report) = open {
-                if let Some(summary) = report.metadata_summary {
-                    summary
-                } else if report.has_errors() {
-                    let mut degraded = summarize_vortex_metadata_probe(
-                        &VortexMetadataProbeReport::deferred_api_unclear(),
-                    );
-                    degraded.diagnostics.extend(report.diagnostics.clone());
-                    degraded
-                } else {
-                    summarize_vortex_metadata_probe(
-                        &VortexMetadataProbeReport::deferred_api_unclear(),
-                    )
-                }
-            } else {
-                summarize_vortex_metadata_probe(&VortexMetadataProbeReport::deferred_api_unclear())
-            };
-            let result = match evaluate_vortex_query_primitive(request, &summary) {
-                Ok(result) => result,
-                Err(error) => {
-                    return emit_error("vortex-count", format, "vortex count failed", &error);
-                }
-            };
-            let count = match result.value {
-                shardloom_vortex::VortexQueryPrimitiveValue::Count(v) => Some(v),
-                _ => None,
-            };
-            let status = if result.has_errors() || count.is_none() {
-                CommandStatus::Unsupported
-            } else {
-                CommandStatus::Success
-            };
-            emit(
-                "vortex-count",
-                format,
-                status,
-                "vortex count primitive".to_string(),
-                result.to_human_text(),
-                result.diagnostics.clone(),
-                vec![
-                    (
-                        "fallback_execution_allowed".to_string(),
-                        "false".to_string(),
-                    ),
-                    ("mode".to_string(), "vortex_count".to_string()),
-                    ("primitive".to_string(), "count_all".to_string()),
-                    ("data_read".to_string(), "false".to_string()),
-                    ("data_decoded".to_string(), "false".to_string()),
-                    ("data_materialized".to_string(), "false".to_string()),
-                    ("object_store_io".to_string(), "false".to_string()),
-                    ("write_io".to_string(), "false".to_string()),
-                    ("spill_io_performed".to_string(), "false".to_string()),
-                    (
-                        "execution".to_string(),
-                        "metadata_only_or_not_performed".to_string(),
-                    ),
-                    ("result_known".to_string(), count.is_some().to_string()),
-                    (
-                        "count".to_string(),
-                        count.map_or_else(|| "unknown".to_string(), |v| v.to_string()),
-                    ),
-                ],
-            );
-            if result.has_errors() || count.is_none() {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            }
-        }
+        Some("vortex-count") => handle_vortex_count(args, format),
         Some("vortex-count-where") => {
             let Some(uri_arg) = args.next() else {
                 eprintln!("usage: shardloom vortex-count-where <dataset_uri> <predicate>");
@@ -14514,6 +14765,38 @@ mod tests {
     }
 
     #[test]
+    fn vortex_count_parse_local_encoded_count_flag() {
+        let parsed = parse_vortex_count_args(
+            vec![
+                "file:///tmp/example.vortex".to_string(),
+                "--execute-local-encoded-count".to_string(),
+                "1".to_string(),
+                "2".to_string(),
+            ]
+            .into_iter(),
+        )
+        .expect("parse");
+        assert_eq!(parsed.0.as_str(), "file:///tmp/example.vortex");
+        assert_eq!(
+            parsed.1,
+            VortexCountExecutionRequest::LocalEncodedCount {
+                memory_gb: 1,
+                max_parallelism: 2
+            }
+        );
+    }
+
+    #[test]
+    fn vortex_count_unknown_option_returns_non_zero() {
+        let code = run(vec![
+            "vortex-count".to_string(),
+            "file:///tmp/example.vortex".to_string(),
+            "--bogus".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
     fn vortex_encoded_read_spike_execute_local_count_bridges_when_feature_enabled() {
         if !vortex_encoded_read_spike_feature_enabled() {
             return;
@@ -14532,6 +14815,32 @@ mod tests {
             "1".to_string(),
             "2".to_string(),
             "--execute-local-count".to_string(),
+            "--format".to_string(),
+            "json".to_string(),
+        ]);
+
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_count_local_encoded_count_bridges_when_feature_enabled() {
+        if !vortex_encoded_read_spike_feature_enabled() {
+            return;
+        }
+        let fixture_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("workspace crate parent")
+            .join("shardloom-vortex")
+            .join("tests")
+            .join("fixtures")
+            .join("metadata_footer_u64_20000.vortex");
+
+        let code = run(vec![
+            "vortex-count".to_string(),
+            fixture_path.to_string_lossy().to_string(),
+            "--execute-local-encoded-count".to_string(),
+            "1".to_string(),
+            "2".to_string(),
             "--format".to_string(),
             "json".to_string(),
         ]);

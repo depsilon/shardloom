@@ -972,6 +972,13 @@ CG-2.1c metadata-footer `CountAll` execution is wired; non-metadata execution re
 - Capability discovery names the approved local scan result bridge while remaining report-only; discovery does not probe adapters, filesystems, catalogs, object stores, or runtime inputs.
 - This does not make adapters, non-local sources, object stores, encoded predicates, projections, writes, benchmarks, external baselines, or fallback execution in scope.
 
+## CG-2.1e.22 stable explicit local encoded count command
+
+- The approved local scan/count path is now reachable through `shardloom vortex-count <dataset_uri> --execute-local-encoded-count <memory_gb> <max_parallelism>`.
+- Default `shardloom vortex-count <dataset_uri>` remains metadata-only and does not read data.
+- The stable command still uses local `.vortex` input only, encoded-read readiness, encoded-count approval, source/target match evidence, and the approved local scan result bridge before returning a known count value.
+- This does not make adapters, non-local sources, object stores, encoded predicates, projections, writes, benchmarks, external baselines, or fallback execution in scope.
+
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.
 - CG-2.2a adds `VortexFilteredCountReadinessRequest` and `VortexFilteredCountReadinessReport` planning/reporting only.
