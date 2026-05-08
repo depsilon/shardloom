@@ -877,6 +877,13 @@ CG-2.1c metadata-footer `CountAll` execution is wired; non-metadata execution re
 - The report also records no row read, no requested decode/materialization, no `Arrow` conversion, no object-store IO, no writes, no spill IO, and no fallback execution.
 - This does not make the broad adapter API execution-usable: non-fixture sources, object stores, encoded predicates, projections, writes, benchmarks, and external baselines remain out of scope.
 
+## CG-2.1e.16 approval-gated local fixture scan/count
+
+- The local fixture scan/count helper now requires an approved `VortexEncodedCountDataPathApprovalReport`.
+- Blocked approval reports return before `VortexFile::scan` or `ScanBuilder::into_array_iter` is called.
+- The approved path still requires encoded-read readiness, caller-owned `VortexSession`, caller-owned blocking runtime, and local `.vortex` scope.
+- This preserves the existing adapter approval chain as execution starts; broad scan/read-start approval, non-fixture adapters, object stores, predicates, projections, writes, benchmarks, external baselines, and fallback remain out of scope.
+
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.
 - CG-2.2a adds `VortexFilteredCountReadinessRequest` and `VortexFilteredCountReadinessReport` planning/reporting only.

@@ -10,24 +10,23 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [x] Session label: CG-1.4/CG-2.1e.15 feature-gated local fixture scan/count
-  - Current cleanup/implementation step: Add the first narrow local fixture Vortex array scan/count proof after the encoded-read validation repair.
+- [x] Session label: CG-2.1e.16 approval-gated local fixture scan/count
+  - Current cleanup/implementation step: Tie the local fixture Vortex array scan/count proof to the existing encoded-count approval report.
   - Primary files:
     - `shardloom-vortex/src/encoded_read_executor.rs`
-    - `shardloom-vortex/src/lib.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
     - `docs/architecture/vortex-adapter-integration-plan.md`
     - `docs/architecture/vortex-public-api-inventory.md`
-  - Scope: Feature-gated local `.vortex` fixture scan with caller-owned `VortexSession` and blocking runtime, using `ArrayRef::len()` to produce a `CountAll` result.
-  - Explicitly included: report fields for `data_read=true`, `upstream_scan_called=true`, array count, row count, and count result.
+  - Scope: Feature-gated local `.vortex` fixture scan/count now requires `VortexEncodedCountDataPathApprovalReport::approved()` plus encoded-read readiness before `VortexFile::scan` is reachable.
+  - Explicitly included: approval-blocked reports that do not scan, and approved local fixture reports that preserve array count, row count, count result, `data_read=true`, and `upstream_scan_called=true`.
   - Explicitly not included: General scan API approval, encoded predicate evaluation, filtered-count execution, projection execution, row reads, decode/materialization requests, Arrow conversion, object-store IO, writes, spill IO, external baseline execution, fallback execution, benchmarks, SQL/API/adapter expansion, or superiority claims.
   - Validation required:
     - `cargo fmt --all -- --check`
     - `cargo test -p shardloom-vortex --features vortex-encoded-read-spike`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: A checked-in local Vortex fixture now has a feature-gated scan/count proof path that counts scanned Vortex arrays without row reads, Arrow conversion, writes, object-store IO, spill IO, or fallback execution. The general public scan API boundary remains conservative.
+  - Completion notes: The checked-in local Vortex fixture scan/count proof is now approval-gated; blocked approval reports return before scan, while approved local fixture reports count scanned Vortex arrays without row reads, Arrow conversion, writes, object-store IO, spill IO, or fallback execution.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -461,6 +460,14 @@
     - Records `data_read=true` and `upstream_scan_called=true`.
     - Records no row read, no requested decode/materialization, no Arrow conversion, no object-store IO, no writes, no spill IO, and no fallback execution.
     - General scan/read-start and adapter execution remain unapproved outside this local fixture path.
+- [x] CG-2.1e.16 approval-gated local fixture scan/count
+  - Why: keep the encoded-count approval report as the mandatory guard before any local fixture scan/count execution is reachable.
+  - Acceptance:
+    - `execute_vortex_count_all_from_local_scan_with_session` requires an approved `VortexEncodedCountDataPathApprovalReport`.
+    - Current public API-boundary approval blockers return before any scan is called.
+    - Approved local fixture reports still require encoded-read readiness, caller-owned `VortexSession`, caller-owned blocking runtime, and local `.vortex` target.
+    - Approved reports may record `data_read=true` and `upstream_scan_called=true` only after the approval guard passes.
+    - No row read, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, external baseline invocation, or fallback execution is added.
 - [ ] CG-2.1e generalized encoded-data count execution path (planned)
   - Why: turn the local fixture scan/count proof into a generalized native count path only after the public Vortex data path and representation guarantees are approved.
   - Acceptance:
@@ -512,6 +519,7 @@ Status legend:
   - [x] CG-2.1e.13 layout-approved local count guard
   - [x] CG-2.1e.14 encoded-count local guard capability discovery
   - [x] CG-2.1e.15 local fixture Vortex array scan/count proof
+  - [x] CG-2.1e.16 approval-gated local fixture scan/count
   - [~] CG-2.1+ generalized non-metadata primitive execution remains deferred pending broader encoded-data execution guarantees
   - [x] CG-2.2c filtered-count metadata proof local guard
   - [x] CG-2.2d filtered-count metadata proof report
@@ -706,6 +714,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.13 layout-approved local count guard
 - [x] CG-2.1e.14 encoded-count local guard capability discovery
 - [x] CG-2.1e.15 local fixture Vortex array scan/count proof
+- [x] CG-2.1e.16 approval-gated local fixture scan/count
 - [x] CG-2.2a filtered-count readiness core contract
 - [x] CG-2.2a.1 filtered-count blocker precision hardening
 - [x] CG-2.2b filtered-count readiness CLI integration
@@ -913,6 +922,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.13 layout-approved local count guard feeds the approved report into local execution as deferred `NeedsEncodedRead` planning while preserving no-read/no-decode/no-fallback effects.
 - [x] CG-2.1e.14 encoded-count local guard capability discovery exposes the deferred guard in `capabilities operators` with static no-read/no-decode/no-fallback evidence.
 - [x] CG-2.1e.15 local fixture Vortex array scan/count proof produces `CountAll` from scanned `ArrayRef::len()` values under `vortex-encoded-read-spike` while preserving no row reads, no Arrow conversion, no object-store IO, no writes, no spill IO, and no fallback.
+- [x] CG-2.1e.16 approval-gated local fixture scan/count requires approved encoded-count data-path approval before any local fixture scan is called.
 - [x] CG-2.2c filtered-count metadata proof local guard admits only metadata-proof `CountWhere` requests into metadata-only local execution and rejects encoded predicate candidates without fallback.
 - [x] CG-2.2d filtered-count metadata proof report classifies proof-ready, encoded-predicate-needed, missing-metadata, and unsupported filtered counts without IO or fallback.
 - [x] CG-5.1 metadata query primitive correctness fixtures cover supported metadata answers and deferred unsupported paths without side effects.

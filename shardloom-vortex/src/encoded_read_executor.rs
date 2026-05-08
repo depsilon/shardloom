@@ -13,6 +13,8 @@ use shardloom_core::{DatasetUri, UriScheme};
 use shardloom_core::{Diagnostic, DiagnosticCode, DiagnosticSeverity, Result, SegmentId};
 use shardloom_exec::TaskId;
 
+#[cfg(feature = "vortex-encoded-read-spike")]
+use crate::VortexEncodedCountDataPathApprovalReport;
 use crate::{
     VortexEncodedReadApiBoundaryStatus, VortexEncodedReadCandidateKind,
     VortexEncodedReadReadinessReport,
@@ -1009,19 +1011,32 @@ fn local_vortex_scan_path(
     Some(path)
 }
 
+#[cfg(feature = "vortex-encoded-read-spike")]
+fn block_local_fixture_scan_for_approval(
+    report: &mut VortexEncodedReadExecutionReport,
+    reason: impl Into<String>,
+) {
+    report.status = VortexEncodedReadExecutionStatus::BlockedByReadiness;
+    report.mode = VortexEncodedReadExecutionMode::EncodedReadContractOnly;
+    report.add_diagnostic(Diagnostic::unsupported(
+        DiagnosticCode::NotImplemented,
+        "vortex_local_fixture_scan_count",
+        reason,
+        Some("Fallback attempted: false".to_string()),
+    ));
+}
+
 /// Executes a feature-gated local fixture `CountAll` by scanning Vortex arrays
 /// and summing their lengths.
 ///
-/// This is intentionally narrower than the general encoded-read API boundary:
-/// it accepts only a caller-owned `VortexSession`, caller-owned blocking runtime,
-/// local `.vortex` target, and readiness report already approved for future
-/// encoded reads. It does not read rows, request `Arrow` conversion, write data,
-/// perform object-store IO or spill IO, or permit fallback execution.
+/// This private helper is intentionally narrower than the general encoded-read
+/// API boundary. The public entry point below adds the encoded-count approval
+/// gate before this scan path is reachable.
 ///
 /// # Errors
 /// Returns an error only if deterministic report construction fails.
 #[cfg(feature = "vortex-encoded-read-spike")]
-pub fn execute_vortex_count_all_from_local_scan_with_session<B>(
+fn execute_vortex_count_all_from_local_scan_readiness_with_session<B>(
     readiness_report: VortexEncodedReadReadinessReport,
     target_uri: &DatasetUri,
     runtime: &B,
@@ -1049,14 +1064,10 @@ where
         || report.blocked_count > 0
         || report.input.has_errors()
     {
-        report.status = VortexEncodedReadExecutionStatus::BlockedByReadiness;
-        report.mode = VortexEncodedReadExecutionMode::EncodedReadContractOnly;
-        report.add_diagnostic(Diagnostic::unsupported(
-            DiagnosticCode::NotImplemented,
-            "vortex_local_fixture_scan_count",
+        block_local_fixture_scan_for_approval(
+            &mut report,
             "local fixture scan/count requires a readiness report approved for future encoded read",
-            Some("Fallback attempted: false".to_string()),
-        ));
+        );
         return Ok(report);
     }
     let Some(path) = local_vortex_scan_path(target_uri, &mut report) else {
@@ -1165,6 +1176,54 @@ where
     Ok(report)
 }
 
+/// Executes an approval-gated local fixture `CountAll` by scanning Vortex arrays
+/// and summing their lengths.
+///
+/// This path requires the existing encoded-count data-path approval report plus
+/// encoded-read readiness. It stays local-fixture-only and does not read rows,
+/// request decode/materialization, convert to `Arrow`, touch object stores,
+/// write data, spill, invoke external baselines, or allow fallback execution.
+///
+/// # Errors
+/// Returns an error only if deterministic report construction fails.
+#[cfg(feature = "vortex-encoded-read-spike")]
+pub fn execute_vortex_count_all_from_local_scan_with_session<B>(
+    approval_report: &VortexEncodedCountDataPathApprovalReport,
+    readiness_report: VortexEncodedReadReadinessReport,
+    runtime: &B,
+    session: &vortex::session::VortexSession,
+) -> Result<VortexEncodedReadExecutionReport>
+where
+    B: vortex::io::runtime::BlockingRuntime,
+{
+    let target_uri = &approval_report
+        .input
+        .count_readiness_report
+        .request
+        .target_uri;
+    let mut report = VortexEncodedReadExecutionReport::from_input(
+        VortexEncodedReadExecutionInput::new(readiness_report.clone())
+            .allow_encoded_read_execution(true),
+    )?;
+    if !approval_report.approved()
+        || approval_report.has_errors()
+        || !approval_report.is_side_effect_free()
+        || approval_report.fallback_execution_allowed
+    {
+        block_local_fixture_scan_for_approval(
+            &mut report,
+            "local fixture scan/count requires an approved encoded-count data-path approval report",
+        );
+        return Ok(report);
+    }
+    execute_vortex_count_all_from_local_scan_readiness_with_session(
+        readiness_report,
+        target_uri,
+        runtime,
+        session,
+    )
+}
+
 pub fn vortex_encoded_read_execution_is_side_effect_free(
     report: &VortexEncodedReadExecutionReport,
 ) -> bool {
@@ -1198,6 +1257,63 @@ mod tests {
             ));
         scheduler.recompute_counts();
         VortexEncodedReadReadinessReport::from_scheduler_report(scheduler).expect("readiness")
+    }
+
+    #[cfg(feature = "vortex-encoded-read-spike")]
+    fn approved_encoded_count_path_for_uri(
+        target_uri: shardloom_core::DatasetUri,
+    ) -> VortexEncodedCountDataPathApprovalReport {
+        use crate::{
+            VortexCountCandidateSource, VortexCountReadinessRequest,
+            VortexEncodedCountDataPathApprovalInput, VortexEncodedReadApiBoundaryReport,
+            VortexEncodedReadApiBoundaryStatus, plan_vortex_count_readiness,
+        };
+
+        let readiness = plan_vortex_count_readiness(
+            VortexCountReadinessRequest::new(
+                target_uri,
+                VortexCountCandidateSource::EncodedDataPath,
+            )
+            .feature_gate_enabled(true)
+            .query_primitive_ready(true)
+            .count_primitive(true)
+            .encoded_data_path_ready(true),
+        )
+        .expect("count readiness");
+        let mut api = VortexEncodedReadApiBoundaryReport::default_deferred();
+        api.status = VortexEncodedReadApiBoundaryStatus::ContractReady;
+        api.execution_usable_count = 1;
+        VortexEncodedCountDataPathApprovalReport::from_input(
+            VortexEncodedCountDataPathApprovalInput::new(readiness, api),
+        )
+        .expect("approval")
+    }
+
+    #[cfg(feature = "vortex-encoded-read-spike")]
+    fn blocked_encoded_count_path_for_uri(
+        target_uri: shardloom_core::DatasetUri,
+    ) -> VortexEncodedCountDataPathApprovalReport {
+        use crate::{
+            VortexCountCandidateSource, VortexCountReadinessRequest, plan_vortex_count_readiness,
+            plan_vortex_encoded_count_data_path_approval, vortex_encoded_read_public_api_boundary,
+        };
+
+        let readiness = plan_vortex_count_readiness(
+            VortexCountReadinessRequest::new(
+                target_uri,
+                VortexCountCandidateSource::EncodedDataPath,
+            )
+            .feature_gate_enabled(true)
+            .query_primitive_ready(true)
+            .count_primitive(true)
+            .encoded_data_path_ready(true),
+        )
+        .expect("count readiness");
+        plan_vortex_encoded_count_data_path_approval(
+            readiness,
+            vortex_encoded_read_public_api_boundary(),
+        )
+        .expect("approval")
     }
 
     #[test]
@@ -1251,12 +1367,13 @@ mod tests {
             .join("fixtures")
             .join("metadata_footer_u64_20000.vortex");
         let target_uri = DatasetUri::new(fixture_path.to_string_lossy().to_string()).expect("uri");
+        let approval = approved_encoded_count_path_for_uri(target_uri);
         let runtime = SingleThreadRuntime::default();
         let session = VortexSession::default().with_handle(runtime.handle());
 
         let report = execute_vortex_count_all_from_local_scan_with_session(
+            &approval,
             ready_readiness(),
-            &target_uri,
             &runtime,
             &session,
         )
@@ -1299,12 +1416,13 @@ mod tests {
         use vortex::session::VortexSession;
 
         let target_uri = DatasetUri::new("s3://bucket/data.vortex").expect("uri");
+        let approval = approved_encoded_count_path_for_uri(target_uri);
         let runtime = SingleThreadRuntime::default();
         let session = VortexSession::default().with_handle(runtime.handle());
 
         let report = execute_vortex_count_all_from_local_scan_with_session(
+            &approval,
             ready_readiness(),
-            &target_uri,
             &runtime,
             &session,
         )
@@ -1317,6 +1435,44 @@ mod tests {
         assert!(!report.data_read);
         assert!(!report.upstream_scan_called);
         assert!(!report.object_store_io);
+        assert!(!report.fallback_execution_allowed);
+        assert!(report.has_errors());
+    }
+
+    #[cfg(feature = "vortex-encoded-read-spike")]
+    #[test]
+    fn local_fixture_scan_requires_encoded_count_approval() {
+        use shardloom_core::DatasetUri;
+        use vortex::VortexSessionDefault as _;
+        use vortex::io::runtime::BlockingRuntime as _;
+        use vortex::io::runtime::single::SingleThreadRuntime;
+        use vortex::io::session::RuntimeSessionExt as _;
+        use vortex::session::VortexSession;
+
+        let fixture_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
+            .join("metadata_footer_u64_20000.vortex");
+        let target_uri = DatasetUri::new(fixture_path.to_string_lossy().to_string()).expect("uri");
+        let approval = blocked_encoded_count_path_for_uri(target_uri);
+        assert!(!approval.approved());
+        let runtime = SingleThreadRuntime::default();
+        let session = VortexSession::default().with_handle(runtime.handle());
+
+        let report = execute_vortex_count_all_from_local_scan_with_session(
+            &approval,
+            ready_readiness(),
+            &runtime,
+            &session,
+        )
+        .expect("approval block report");
+
+        assert_eq!(
+            report.status,
+            VortexEncodedReadExecutionStatus::BlockedByReadiness
+        );
+        assert!(!report.data_read);
+        assert!(!report.upstream_scan_called);
         assert!(!report.fallback_execution_allowed);
         assert!(report.has_errors());
     }
