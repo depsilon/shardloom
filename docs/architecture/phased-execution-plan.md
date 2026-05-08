@@ -45,7 +45,7 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-10.1 object-store range planning evidence
+- [x] Session label: CG-10.2 object-store request coalescing evidence
   - Primary files:
     - `shardloom-plan/src/object_store.rs`
     - `shardloom-plan/src/lib.rs`
@@ -54,22 +54,22 @@ Supporting docs:
     - `docs/architecture/rfc-phase-traceability.md`
     - `docs/rfcs/0008-object-store-runtime-distributed-tasks.md`
     - `docs/architecture/canonical-terminology.md`
-  - Scope: Add no-IO/no-fallback object-store range planning evidence over declared manifest segment byte ranges without reading object storage, reading files, materializing data, writing, retrying requests, or fallback execution.
+  - Scope: Add no-IO/no-fallback object-store request coalescing evidence over declared range-planning metadata without executing object-store requests, reading files, retrying requests, writing, distributed scheduling, or fallback execution.
   - Checklist:
-    - [x] Add `ObjectStoreRangePlanningPolicy`, `ObjectStoreRangeRequest`, and `ObjectStoreRangePlanningReport` contracts.
-    - [x] Plan request shapes from declared S3/GCS/ADLS segment byte ranges without object-store IO.
-    - [x] Block empty manifests, local/non-object-store inputs, missing byte ranges, invalid ranges, and oversized ranges with deterministic diagnostics.
-    - [x] Surface no-IO/no-fallback evidence through `object-store-range-plan`.
-    - [x] Add focused success/failure tests for object-store range planning.
+    - [x] Add `ObjectStoreRequestCoalescingDecision` and `ObjectStoreRequestCoalescingReport` contracts.
+    - [x] Compare uncoalesced and coalesced request-shape plans without object-store IO.
+    - [x] Block coalescing when range planning is blocked by missing/invalid/oversized/non-object-store evidence.
+    - [x] Surface no-IO/no-fallback evidence through `object-store-coalesce-plan`.
+    - [x] Add focused success/failure tests for request coalescing.
     - [x] Update phase, RFC traceability, RFC 0008, and terminology docs.
     - [x] Run full required validation.
   - Local validation status:
-    - focused `shardloom-plan` object-store range tests passed
-    - focused `shardloom-cli` object-store-range-plan tests passed
+    - focused `shardloom-plan` request-coalescing tests passed
+    - focused `shardloom-cli` object-store-coalesce-plan tests passed
     - focused Clippy for `shardloom-plan` and `shardloom-cli` passed with toolchain `1.91.1`
     - full Rust validation passed with toolchain `1.91.1`
     - docs hygiene scans passed for `git diff --check` and hidden/bidi controls
-    - CLI JSON smoke check passed for `object-store-range-plan s3-ranges --format json`
+    - CLI JSON smoke check passed for `object-store-coalesce-plan s3-ranges --format json`
   - Explicitly not included: object-store IO, file IO, data reads, row reads, decode/materialization, Arrow conversion, request execution, retry execution, network probing, writes, commits, distributed execution, parser work, SQL execution, adapter runtime, benchmark claims, superiority claims, or fallback execution.
 
 ## R5 Detailed Completed Ledger
@@ -861,6 +861,15 @@ Supporting docs:
     - `object-store-range-plan` surfaces stable report fields for s3-ranges, missing-ranges, local-file, invalid-range, oversized-range, and empty scenarios.
     - Planned ranges remain request-shape evidence only and do not execute reads, retries, network probing, or full-file reads.
     - No object-store IO, file IO, data reads, writes, distributed execution, benchmark claim, superiority claim, or fallback behavior is added.
+- [x] CG-10.2 object-store request coalescing evidence
+  - Why: make object-store request reduction explicit before request execution, retry policy, or distributed scheduling expands.
+  - Acceptance:
+    - `ObjectStoreRequestCoalescingReport` records uncoalesced and coalesced range reports, decision, status, request-reduction counts, estimated byte counts, side-effect, object-store-IO-disabled, and no-fallback fields.
+    - The planner compares uncoalesced and coalesced request-shape plans without executing reads or contacting storage.
+    - Coalescing is blocked when range planning is blocked by missing byte ranges, invalid ranges, oversized ranges, or non-object-store input evidence.
+    - `object-store-coalesce-plan` surfaces stable report fields for s3-ranges and blocked scenarios.
+    - Request coalescing remains planning evidence only and does not execute reads, retries, network probing, or full-file reads.
+    - No object-store IO, file IO, data reads, writes, distributed execution, benchmark claim, superiority claim, or fallback behavior is added.
 
 ## Competitive Engine Gates CG-1 through CG-20
 
@@ -1036,6 +1045,7 @@ Status legend:
 
 - [ ] CG-10 — Object-store/distributed execution (**planned**)
   - [x] CG-10.1 object-store range planning evidence
+  - [x] CG-10.2 object-store request coalescing evidence
   - Scope:
     - object-store range planning and request coalescing
     - object-store commit protocol
@@ -1288,7 +1298,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 
 ### CG-10 detailed checklist
 - [x] CG-10.1 object-store range planning evidence
-- [ ] request coalescing
+- [x] CG-10.2 object-store request coalescing evidence
 - [ ] object-store commit protocol
 - [ ] distributed scheduling
 - [ ] checkpoint/retry/idempotency
@@ -1473,6 +1483,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-9.6 layout health planning evidence adds `LayoutHealthReport` and `layout-health-plan` surfacing for small files/segments, missing stats/byte ranges, mixed formats/layouts/encodings, and compaction recommendations while keeping layout-reader construction, catalog access, table metadata reads, IO, writes, compaction execution, and fallback disabled.
 - [x] CG-9.7 compaction planning evidence adds `CompactionPlanningReport` and `compaction-plan` surfacing for future small-file/small-segment maintenance recommendations, metadata/layout blockers, and estimated report-only groups while keeping layout-reader construction, catalog access, table metadata reads, IO, writes, compaction execution, and fallback disabled.
 - [x] CG-10.1 object-store range planning evidence adds `ObjectStoreRangePlanningReport` and `object-store-range-plan` surfacing for declared S3/GCS/ADLS byte ranges, request-shape counts, coalesced range evidence, missing/invalid/oversized range blockers, no full-file-read permission, no object-store IO, and no fallback.
+- [x] CG-10.2 object-store request coalescing evidence adds `ObjectStoreRequestCoalescingReport` and `object-store-coalesce-plan` surfacing for uncoalesced/coalesced request-shape comparison, request reduction, range-planning blockers, no object-store IO, and no fallback.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind `vortex-write`; placeholder artifact paths remain readiness-only.
 - [~] CG-3 broader output payload shapes remain deferred.

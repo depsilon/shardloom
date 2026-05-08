@@ -156,6 +156,137 @@ impl ObjectStoreRangePlanningReport {
     }
 }
 
+/// Request coalescing status derived from object-store range planning evidence.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ObjectStoreRequestCoalescingStatus {
+    Planned,
+    NoCoalescingNeeded,
+    BlockedByRangePlanning,
+}
+
+impl ObjectStoreRequestCoalescingStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Planned => "planned",
+            Self::NoCoalescingNeeded => "no_coalescing_needed",
+            Self::BlockedByRangePlanning => "blocked_by_range_planning",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_error(&self) -> bool {
+        matches!(self, Self::BlockedByRangePlanning)
+    }
+}
+
+/// Request coalescing decision family.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ObjectStoreRequestCoalescingDecisionKind {
+    CoalesceAdjacentRanges,
+    KeepSeparate,
+    Blocked,
+}
+
+impl ObjectStoreRequestCoalescingDecisionKind {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::CoalesceAdjacentRanges => "coalesce_adjacent_ranges",
+            Self::KeepSeparate => "keep_separate",
+            Self::Blocked => "blocked",
+        }
+    }
+}
+
+/// Report-only coalescing decision.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ObjectStoreRequestCoalescingDecision {
+    pub kind: ObjectStoreRequestCoalescingDecisionKind,
+    pub input_request_count: usize,
+    pub output_request_count: usize,
+    pub coalesced_range_count: usize,
+    pub reason: String,
+}
+
+impl ObjectStoreRequestCoalescingDecision {
+    #[must_use]
+    pub fn new(
+        kind: ObjectStoreRequestCoalescingDecisionKind,
+        input_request_count: usize,
+        output_request_count: usize,
+        coalesced_range_count: usize,
+        reason: impl Into<String>,
+    ) -> Self {
+        Self {
+            kind,
+            input_request_count,
+            output_request_count,
+            coalesced_range_count,
+            reason: reason.into(),
+        }
+    }
+}
+
+/// Machine-readable CG-10 request coalescing evidence.
+#[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct ObjectStoreRequestCoalescingReport {
+    pub uncoalesced_range_report: ObjectStoreRangePlanningReport,
+    pub coalesced_range_report: ObjectStoreRangePlanningReport,
+    pub status: ObjectStoreRequestCoalescingStatus,
+    pub decisions: Vec<ObjectStoreRequestCoalescingDecision>,
+    pub diagnostics: Vec<Diagnostic>,
+    pub input_request_count: usize,
+    pub output_request_count: usize,
+    pub request_reduction_count: usize,
+    pub input_range_count: usize,
+    pub coalesced_range_count: usize,
+    pub estimated_request_bytes_before: u64,
+    pub estimated_request_bytes_after: u64,
+    pub coalescing_applied: bool,
+    pub can_plan_without_io: bool,
+    pub data_read: bool,
+    pub object_store_io: bool,
+    pub write_io: bool,
+    pub fallback_execution_allowed: bool,
+}
+
+impl ObjectStoreRequestCoalescingReport {
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.status.is_error()
+            || self.fallback_execution_allowed
+            || self.object_store_io
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    #[must_use]
+    pub const fn side_effect_free(&self) -> bool {
+        !self.data_read
+            && !self.object_store_io
+            && !self.write_io
+            && !self.fallback_execution_allowed
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "object_store_request_coalescing(status={}, input_requests={}, output_requests={}, request_reduction={}, coalesced_ranges={}, data_read=false, object_store_io=false, write_io=false, fallback_execution=disabled)",
+            self.status.as_str(),
+            self.input_request_count,
+            self.output_request_count,
+            self.request_reduction_count,
+            self.coalesced_range_count
+        )
+    }
+}
+
 /// Plans object-store byte-range request shapes from declared manifest metadata only.
 #[must_use]
 pub fn plan_object_store_ranges(
@@ -206,6 +337,112 @@ pub fn plan_object_store_ranges(
         status,
         requests,
         diagnostics,
+    }
+}
+
+/// Plans request coalescing from object-store byte-range request-shape evidence only.
+#[must_use]
+pub fn plan_object_store_request_coalescing(
+    manifest: DatasetManifest,
+    policy: ObjectStoreRangePlanningPolicy,
+) -> ObjectStoreRequestCoalescingReport {
+    let uncoalesced_policy = ObjectStoreRangePlanningPolicy {
+        coalesce_adjacent_ranges: false,
+        ..policy
+    };
+    let coalesced_policy = ObjectStoreRangePlanningPolicy {
+        coalesce_adjacent_ranges: true,
+        ..policy
+    };
+    let uncoalesced_range_report = plan_object_store_ranges(manifest.clone(), uncoalesced_policy);
+    let coalesced_range_report = plan_object_store_ranges(manifest, coalesced_policy);
+    let status =
+        object_store_request_coalescing_status(&uncoalesced_range_report, &coalesced_range_report);
+    let input_request_count = uncoalesced_range_report.planned_request_count;
+    let output_request_count = coalesced_range_report.planned_request_count;
+    let request_reduction_count = input_request_count.saturating_sub(output_request_count);
+    let coalesced_range_count = coalesced_range_report.coalesced_range_count;
+    let decisions = object_store_request_coalescing_decisions(
+        status,
+        input_request_count,
+        output_request_count,
+        coalesced_range_count,
+    );
+    let diagnostics = if status.is_error() {
+        coalesced_range_report.diagnostics.clone()
+    } else {
+        Vec::new()
+    };
+
+    ObjectStoreRequestCoalescingReport {
+        input_range_count: uncoalesced_range_report.planned_range_count,
+        estimated_request_bytes_before: uncoalesced_range_report.estimated_request_bytes,
+        estimated_request_bytes_after: coalesced_range_report.estimated_request_bytes,
+        coalescing_applied: status == ObjectStoreRequestCoalescingStatus::Planned,
+        can_plan_without_io: true,
+        data_read: false,
+        object_store_io: false,
+        write_io: false,
+        fallback_execution_allowed: false,
+        uncoalesced_range_report,
+        coalesced_range_report,
+        status,
+        decisions,
+        diagnostics,
+        input_request_count,
+        output_request_count,
+        request_reduction_count,
+        coalesced_range_count,
+    }
+}
+
+fn object_store_request_coalescing_status(
+    uncoalesced: &ObjectStoreRangePlanningReport,
+    coalesced: &ObjectStoreRangePlanningReport,
+) -> ObjectStoreRequestCoalescingStatus {
+    if uncoalesced.has_errors() || coalesced.has_errors() {
+        ObjectStoreRequestCoalescingStatus::BlockedByRangePlanning
+    } else if uncoalesced.planned_request_count > coalesced.planned_request_count {
+        ObjectStoreRequestCoalescingStatus::Planned
+    } else {
+        ObjectStoreRequestCoalescingStatus::NoCoalescingNeeded
+    }
+}
+
+fn object_store_request_coalescing_decisions(
+    status: ObjectStoreRequestCoalescingStatus,
+    input_request_count: usize,
+    output_request_count: usize,
+    coalesced_range_count: usize,
+) -> Vec<ObjectStoreRequestCoalescingDecision> {
+    match status {
+        ObjectStoreRequestCoalescingStatus::Planned => {
+            vec![ObjectStoreRequestCoalescingDecision::new(
+                ObjectStoreRequestCoalescingDecisionKind::CoalesceAdjacentRanges,
+                input_request_count,
+                output_request_count,
+                coalesced_range_count,
+                "adjacent byte ranges fit within the request coalescing policy",
+            )]
+        }
+        ObjectStoreRequestCoalescingStatus::NoCoalescingNeeded => {
+            vec![ObjectStoreRequestCoalescingDecision::new(
+                ObjectStoreRequestCoalescingDecisionKind::KeepSeparate,
+                input_request_count,
+                output_request_count,
+                0,
+                "declared ranges are already separated by policy or only one request is needed",
+            )]
+        }
+        ObjectStoreRequestCoalescingStatus::BlockedByRangePlanning => {
+            vec![ObjectStoreRequestCoalescingDecision::new(
+                ObjectStoreRequestCoalescingDecisionKind::Blocked,
+                input_request_count,
+                output_request_count,
+                0,
+                "range planning must succeed before request coalescing can be planned",
+            )]
+        }
     }
 }
 
@@ -541,5 +778,42 @@ mod tests {
         );
         assert_eq!(report.invalid_range_count, 1);
         assert!(report.has_errors());
+    }
+
+    #[test]
+    fn request_coalescing_reduces_adjacent_requests_without_io() {
+        let report = plan_object_store_request_coalescing(
+            manifest_with_uri(
+                "s3://bucket/table.vortex",
+                vec![ByteRange::new(0, 1024), ByteRange::new(2048, 1024)],
+            ),
+            ObjectStoreRangePlanningPolicy {
+                max_coalesce_gap_bytes: 2048,
+                ..ObjectStoreRangePlanningPolicy::default()
+            },
+        );
+
+        assert_eq!(report.status, ObjectStoreRequestCoalescingStatus::Planned);
+        assert_eq!(report.input_request_count, 2);
+        assert_eq!(report.output_request_count, 1);
+        assert_eq!(report.request_reduction_count, 1);
+        assert!(report.coalescing_applied);
+        assert!(report.side_effect_free());
+        assert!(!report.has_errors());
+    }
+
+    #[test]
+    fn request_coalescing_blocks_when_range_planning_blocks() {
+        let report = plan_object_store_request_coalescing(
+            manifest_with_uri("s3://bucket/table.vortex", Vec::new()),
+            ObjectStoreRangePlanningPolicy::default(),
+        );
+
+        assert_eq!(
+            report.status,
+            ObjectStoreRequestCoalescingStatus::BlockedByRangePlanning
+        );
+        assert!(report.has_errors());
+        assert!(report.side_effect_free());
     }
 }
