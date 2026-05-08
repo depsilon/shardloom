@@ -74,6 +74,11 @@ pub enum EdgeCase {
     UnsortedInput,
     MissingStatistics,
     ApproximateStatistics,
+    DictionaryEncoded,
+    SparseValidity,
+    RunLengthEncoded,
+    TemporalValues,
+    NestedStructList,
     UnsupportedEncoding,
     UnsupportedDType,
     UnsupportedPlanShape,
@@ -94,6 +99,11 @@ impl EdgeCase {
             Self::UnsortedInput => "unsorted_input",
             Self::MissingStatistics => "missing_statistics",
             Self::ApproximateStatistics => "approximate_statistics",
+            Self::DictionaryEncoded => "dictionary_encoded",
+            Self::SparseValidity => "sparse_validity",
+            Self::RunLengthEncoded => "run_length_encoded",
+            Self::TemporalValues => "temporal_values",
+            Self::NestedStructList => "nested_struct_list",
             Self::UnsupportedEncoding => "unsupported_encoding",
             Self::UnsupportedDType => "unsupported_dtype",
             Self::UnsupportedPlanShape => "unsupported_plan_shape",
@@ -207,6 +217,7 @@ impl FixtureFormat {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ExpectedOutcome {
     Rows { row_count: Option<u64> },
+    MetadataRowCount { row_count: u64 },
     Diagnostic { code: DiagnosticCode },
     Unsupported { feature: String },
     MetadataOnly,
@@ -217,6 +228,9 @@ impl ExpectedOutcome {
     pub fn summary(&self) -> String {
         match self {
             Self::Rows { row_count } => format!("rows expected: {:?}", row_count),
+            Self::MetadataRowCount { row_count } => {
+                format!("metadata row count expected: {row_count}")
+            }
             Self::Diagnostic { code } => format!("diagnostic expected: {}", code.as_str()),
             Self::Unsupported { feature } => format!("unsupported: {feature}"),
             Self::MetadataOnly => "metadata-only expectation".to_string(),
@@ -310,6 +324,8 @@ pub struct CorrectnessFixture {
     pub semantic_areas: Vec<SemanticArea>,
     pub edge_cases: Vec<EdgeCase>,
     pub expected: ExpectedOutcome,
+    pub source_ref: Option<String>,
+    pub reference_roles: Vec<ReferenceRole>,
     pub diagnostics: Vec<Diagnostic>,
 }
 impl CorrectnessFixture {
@@ -320,6 +336,8 @@ impl CorrectnessFixture {
             semantic_areas: vec![],
             edge_cases: vec![],
             expected: ExpectedOutcome::NotYetDefined,
+            source_ref: None,
+            reference_roles: vec![],
             diagnostics: vec![],
         }
     }
@@ -337,6 +355,18 @@ impl CorrectnessFixture {
         self.expected = expected;
         self
     }
+    pub fn with_source_ref(mut self, source_ref: impl Into<String>) -> Self {
+        let source_ref = source_ref.into();
+        if !source_ref.trim().is_empty() {
+            self.source_ref = Some(source_ref);
+        }
+        self
+    }
+    pub fn add_reference_role(&mut self, role: ReferenceRole) {
+        if !self.reference_roles.contains(&role) {
+            self.reference_roles.push(role);
+        }
+    }
     pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
         self.diagnostics.push(diagnostic);
     }
@@ -345,6 +375,14 @@ impl CorrectnessFixture {
     }
     pub fn covers_edge_case(&self, edge_case: EdgeCase) -> bool {
         self.edge_cases.contains(&edge_case)
+    }
+    pub fn has_reference_role(&self, role: ReferenceRole) -> bool {
+        self.reference_roles.contains(&role)
+    }
+    pub fn reference_roles_are_test_only(&self) -> bool {
+        self.reference_roles
+            .iter()
+            .all(|role| !role.is_production_execution())
     }
     pub fn has_errors(&self) -> bool {
         self.diagnostics.iter().any(|d| {
@@ -363,6 +401,33 @@ impl CorrectnessFixture {
             self.edge_cases.len()
         )
     }
+}
+
+fn generated_fixture(
+    id: &str,
+    area: SemanticArea,
+    edge: EdgeCase,
+    expected: ExpectedOutcome,
+) -> CorrectnessFixture {
+    let mut fixture =
+        CorrectnessFixture::new(FixtureId::new(id).expect("valid"), FixtureFormat::Generated)
+            .with_expected(expected);
+    fixture.add_semantic_area(area);
+    fixture.add_edge_case(edge);
+    fixture
+}
+
+fn vortex_metadata_footer_fixture() -> CorrectnessFixture {
+    let mut fixture = CorrectnessFixture::new(
+        FixtureId::new("vortex-metadata-footer-u64-20000").expect("valid"),
+        FixtureFormat::ShardLoomNative,
+    )
+    .with_source_ref("shardloom-vortex/tests/fixtures/metadata_footer_u64_20000.vortex")
+    .with_expected(ExpectedOutcome::MetadataRowCount { row_count: 20000 });
+    fixture.add_semantic_area(SemanticArea::MetadataOnly);
+    fixture.add_edge_case(EdgeCase::NoNulls);
+    fixture.add_reference_role(ReferenceRole::GoldenFixture);
+    fixture
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -419,62 +484,87 @@ impl CorrectnessValidationPlan {
             CorrectnessValidationMode::NotYetDefined,
         )
         .expect("valid");
-        let mut add = |id: &str, area: SemanticArea, edge: EdgeCase, expected: ExpectedOutcome| {
-            let mut f = CorrectnessFixture::new(
-                FixtureId::new(id).expect("valid"),
-                FixtureFormat::Generated,
-            )
-            .with_expected(expected);
-            f.add_semantic_area(area);
-            f.add_edge_case(edge);
-            plan.add_fixture(f);
-        };
-        add(
-            "null-semantics",
-            SemanticArea::Nulls,
-            EdgeCase::AllNull,
-            ExpectedOutcome::NotYetDefined,
-        );
-        add(
-            "metadata-only-correctness",
-            SemanticArea::MetadataOnly,
-            EdgeCase::MissingStatistics,
-            ExpectedOutcome::MetadataOnly,
-        );
-        add(
-            "pruning-correctness",
-            SemanticArea::Pruning,
-            EdgeCase::ApproximateStatistics,
-            ExpectedOutcome::NotYetDefined,
-        );
-        add(
-            "encoded-vs-decoded-reference",
-            SemanticArea::EncodedExecution,
-            EdgeCase::UnsupportedEncoding,
-            ExpectedOutcome::NotYetDefined,
-        );
-        add(
-            "translation-metadata-loss",
-            SemanticArea::Translation,
-            EdgeCase::MetadataLoss,
-            ExpectedOutcome::Diagnostic {
-                code: DiagnosticCode::MetadataLoss,
-            },
-        );
-        add(
-            "unsupported-diagnostics",
-            SemanticArea::UnsupportedDiagnostics,
-            EdgeCase::UnsupportedPlanShape,
-            ExpectedOutcome::Unsupported {
-                feature: "unsupported plan shape".to_string(),
-            },
-        );
-        add(
-            "plan-only-no-side-effects",
-            SemanticArea::ExternalEffects,
-            EdgeCase::EmptyInput,
-            ExpectedOutcome::NoSideEffects,
-        );
+        plan.add_fixture(vortex_metadata_footer_fixture());
+        for fixture in [
+            generated_fixture(
+                "null-semantics",
+                SemanticArea::Nulls,
+                EdgeCase::AllNull,
+                ExpectedOutcome::NotYetDefined,
+            ),
+            generated_fixture(
+                "metadata-only-correctness",
+                SemanticArea::MetadataOnly,
+                EdgeCase::MissingStatistics,
+                ExpectedOutcome::MetadataOnly,
+            ),
+            generated_fixture(
+                "pruning-correctness",
+                SemanticArea::Pruning,
+                EdgeCase::ApproximateStatistics,
+                ExpectedOutcome::NotYetDefined,
+            ),
+            generated_fixture(
+                "encoded-vs-decoded-reference",
+                SemanticArea::EncodedExecution,
+                EdgeCase::UnsupportedEncoding,
+                ExpectedOutcome::NotYetDefined,
+            ),
+            generated_fixture(
+                "translation-metadata-loss",
+                SemanticArea::Translation,
+                EdgeCase::MetadataLoss,
+                ExpectedOutcome::Diagnostic {
+                    code: DiagnosticCode::MetadataLoss,
+                },
+            ),
+            generated_fixture(
+                "unsupported-diagnostics",
+                SemanticArea::UnsupportedDiagnostics,
+                EdgeCase::UnsupportedPlanShape,
+                ExpectedOutcome::Unsupported {
+                    feature: "unsupported plan shape".to_string(),
+                },
+            ),
+            generated_fixture(
+                "plan-only-no-side-effects",
+                SemanticArea::ExternalEffects,
+                EdgeCase::EmptyInput,
+                ExpectedOutcome::NoSideEffects,
+            ),
+            generated_fixture(
+                "nested-data-edge-corpus",
+                SemanticArea::NestedData,
+                EdgeCase::NestedStructList,
+                ExpectedOutcome::NotYetDefined,
+            ),
+            generated_fixture(
+                "dictionary-encoded-edge-corpus",
+                SemanticArea::EncodedExecution,
+                EdgeCase::DictionaryEncoded,
+                ExpectedOutcome::NotYetDefined,
+            ),
+            generated_fixture(
+                "sparse-validity-edge-corpus",
+                SemanticArea::SelectionVectors,
+                EdgeCase::SparseValidity,
+                ExpectedOutcome::NotYetDefined,
+            ),
+            generated_fixture(
+                "run-length-edge-corpus",
+                SemanticArea::EncodedExecution,
+                EdgeCase::RunLengthEncoded,
+                ExpectedOutcome::NotYetDefined,
+            ),
+            generated_fixture(
+                "temporal-semantics",
+                SemanticArea::Temporal,
+                EdgeCase::TemporalValues,
+                ExpectedOutcome::NotYetDefined,
+            ),
+        ] {
+            plan.add_fixture(fixture);
+        }
         plan
     }
     pub fn add_fixture(&mut self, fixture: CorrectnessFixture) {

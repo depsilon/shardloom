@@ -428,6 +428,14 @@ No fallback execution.
 - Every fixture asserts no task execution, data read, decode/materialization, object-store IO, write IO, spill IO, or fallback execution.
 - This pass adds no new query execution behavior, external baseline execution, benchmark claim, dependency, parser, adapter runtime, object-store IO, write behavior, or fallback execution.
 
+## CG-5.3 correctness fixture manifest contract
+
+- Primary RFC linkage: RFC 0015 Correctness/Semantics/Differential Testing, RFC 0029 Correctness/Benchmarks/Execution Certificates, RFC 0012 Diagnostics/Capabilities, and RFC 0025 Competitive/no-fallback.
+- `shardloom-core/src/correctness.rs` adds manifest fields for fixture source references, test-only reference roles, metadata row-count reference outputs, and explicit edge-case fixture families.
+- `CorrectnessValidationPlan::default_foundation_plan` declares the checked-in `metadata_footer_u64_20000.vortex` fixture with `ExpectedOutcome::MetadataRowCount { row_count: 20000 }` and marks golden/reference roles as non-production execution.
+- `shardloom-contract-tests/tests/correctness_fixture_manifest.rs` verifies the fixture is checked in, the row-count reference output does not require execution, null/nested/dictionary/sparse/run-length/temporal fixture families are tracked, and reference roles cannot become production fallback.
+- This pass adds no query execution behavior, external baseline invocation, benchmark claim, dependency, parser, adapter runtime, object-store IO, write behavior, or fallback execution.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.

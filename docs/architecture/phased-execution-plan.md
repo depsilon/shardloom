@@ -10,20 +10,21 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [x] Session label: CG-5.2 metadata query primitive edge and diagnostic fixtures
-  - Current cleanup/implementation step: Add cross-crate fixtures for missing metadata, unsupported primitive, metadata-pruned filter, projection-metadata miss, and no-fallback diagnostic invariants.
+- [x] Session label: CG-5.3 correctness fixture manifest contract
+  - Current cleanup/implementation step: Add core correctness manifest fields, declare the checked-in Vortex golden fixture with a metadata row-count reference output, and track required edge-case fixture families.
   - Primary files:
-    - `shardloom-contract-tests/tests/query_primitive_correctness.rs`
-    - `shardloom-vortex/src/query_primitive.rs`
+    - `shardloom-core/src/correctness.rs`
+    - `shardloom-contract-tests/tests/correctness_fixture_manifest.rs`
+    - `shardloom-vortex/tests/fixtures/README.md`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-  - Scope: Contract tests and diagnostic-text correction for existing metadata-only/missing/deferred/unsupported query primitive paths and no-fallback/no-side-effect behavior.
+  - Scope: Metadata-only correctness planning contracts, fixture manifest coverage, reference-output metadata, and test-only reference-role invariants.
   - Explicitly not included: New query execution, encoded-data traversal, scan/read-start APIs, row reads, decode/materialization, Arrow conversion, object-store IO, writes, external baseline execution, fallback execution, benchmarks, SQL/API/adapter expansion, or superiority claims.
   - Validation required:
     - `cargo fmt --all -- --check`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: Metadata query primitive edge fixtures cover missing metadata, metadata-proven true without row counts, metadata-pruned filters, projection metadata misses, unsupported primitives, local missing-summary blocking, and no data-read/decode/materialization/object-store/write/fallback effects.
+  - Completion notes: The correctness foundation plan now declares the checked-in Vortex metadata fixture, its metadata row-count reference output, and null/nested/dictionary/sparse/run-length/temporal fixture-family placeholders as test-only evidence with fallback disabled.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -500,6 +501,7 @@ Status legend:
 - [ ] CG-5 — Correctness/differential tests (**planned**)
   - [x] CG-5.1 metadata query primitive correctness fixtures
   - [x] CG-5.2 metadata query primitive edge and diagnostic fixtures
+  - [x] CG-5.3 correctness fixture manifest contract
   - Expected evidence:
     - golden Vortex fixtures
     - decoded reference outputs
@@ -672,9 +674,10 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 ### CG-5 detailed checklist
 - [x] CG-5.1 metadata query primitive correctness fixtures
 - [x] CG-5.2 metadata query primitive edge and diagnostic fixtures
-- [ ] golden Vortex fixtures
-- [ ] reference outputs
-- [ ] null/nested/dictionary/sparse/run-length/temporal edge-case coverage
+- [~] golden Vortex fixtures
+- [~] reference outputs
+- [~] null/nested/dictionary/sparse/run-length/temporal edge-case coverage
+- [x] CG-5.3 correctness fixture manifest contract
 - [ ] Spark/Polars/DataFusion external baselines only, never fallback
 
 ### CG-6 detailed checklist
@@ -821,6 +824,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.11 layout-driver approval CLI exposes the report-only boundary with deterministic signals and no side effects.
 - [x] CG-5.1 metadata query primitive correctness fixtures cover supported metadata answers and deferred unsupported paths without side effects.
 - [x] CG-5.2 metadata query primitive edge and diagnostic fixtures cover missing/unsupported metadata primitive paths without side effects.
+- [x] CG-5.3 correctness fixture manifest declares initial golden fixture/reference output and required edge-case fixture families without execution.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [~] CG-3 real Vortex payload writes remain deferred; placeholder artifact paths are not completion evidence.
 
