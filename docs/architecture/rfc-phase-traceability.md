@@ -451,6 +451,14 @@ No fallback execution.
 - Approved reports still require encoded-read readiness, caller-owned session/runtime, and local `.vortex` scope.
 - This keeps the CG-2.1e approval chain authoritative as execution begins: no row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, external baselines, or fallback execution are added.
 
+## CG-2.1e.17 local fixture scan target consistency
+
+- Primary RFC linkage: RFC 0012 Diagnostics/Capabilities, RFC 0013 Streaming/Zero-Copy Boundary, RFC 0015 Correctness/testing, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
+- The local fixture scan/count helper now derives source URI evidence from the encoded-read readiness planning chain before scan.
+- Approval target URI and encoded-read readiness source URI must match exactly before `VortexFile::scan` or `ScanBuilder::into_array_iter` is called.
+- Missing readiness source URI evidence or a target mismatch returns a blocked report with `data_read=false`, `upstream_scan_called=false`, and `fallback_execution_allowed=false`.
+- This prevents cross-target evidence reuse while keeping the local fixture exception narrow: no row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, external baselines, or fallback execution are added.
+
 ## CG-5.1 metadata query primitive correctness fixtures
 
 - Primary RFC linkage: RFC 0015 Correctness/Semantics/Differential Testing, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.

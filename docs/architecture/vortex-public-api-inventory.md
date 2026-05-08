@@ -771,6 +771,13 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - Approved local fixture scan/count remains a narrow exception to the static broad API boundary, not a general adapter/source approval.
 - This inventory update keeps non-fixture sources, object stores, encoded predicates, projections, writes, external baselines, and superiority claims out of scope.
 
+## CG-2.1e.17 local fixture scan target consistency
+
+- The feature-gated local fixture helper now requires approval target URI and encoded-read readiness source URI evidence to match before it can invoke `VortexFile::scan` or `ScanBuilder::into_array_iter`.
+- Missing readiness source URI evidence or mismatched target evidence blocks before scan and keeps `data_read=false`, `upstream_scan_called=false`, and fallback disabled.
+- The local fixture exception remains exact-source, approval-gated evidence only, not a general public scan/read-start approval.
+- This inventory update keeps non-fixture sources, object stores, encoded predicates, projections, writes, external baselines, and superiority claims out of scope.
+
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.
 - CG-2.2a adds `VortexFilteredCountReadinessRequest` and `VortexFilteredCountReadinessReport` planning/reporting only.

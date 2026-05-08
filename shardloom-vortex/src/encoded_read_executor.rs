@@ -1026,6 +1026,59 @@ fn block_local_fixture_scan_for_approval(
     ));
 }
 
+#[cfg(feature = "vortex-encoded-read-spike")]
+fn read_planning_source_uri(report: &crate::VortexReadPlanningReport) -> Option<&DatasetUri> {
+    report
+        .input
+        .universal_input_plan
+        .as_ref()
+        .and_then(|plan| plan.source.uri.as_ref())
+}
+
+#[cfg(feature = "vortex-encoded-read-spike")]
+fn runtime_bridge_source_uri(report: &crate::VortexRuntimeBridgeReport) -> Option<&DatasetUri> {
+    read_planning_source_uri(&report.input.read_planning_report)
+}
+
+#[cfg(feature = "vortex-encoded-read-spike")]
+fn adaptive_sizing_source_uri(report: &crate::VortexAdaptiveSizingReport) -> Option<&DatasetUri> {
+    report
+        .input
+        .runtime_bridge_report
+        .as_ref()
+        .and_then(runtime_bridge_source_uri)
+        .or_else(|| {
+            report
+                .input
+                .read_planning_report
+                .as_ref()
+                .and_then(read_planning_source_uri)
+        })
+}
+
+#[cfg(feature = "vortex-encoded-read-spike")]
+fn memory_bridge_source_uri(report: &crate::VortexMemoryBridgeReport) -> Option<&DatasetUri> {
+    report
+        .input
+        .adaptive_sizing_report
+        .as_ref()
+        .and_then(adaptive_sizing_source_uri)
+        .or_else(|| {
+            report
+                .input
+                .runtime_bridge_report
+                .as_ref()
+                .and_then(runtime_bridge_source_uri)
+        })
+}
+
+#[cfg(feature = "vortex-encoded-read-spike")]
+fn encoded_read_readiness_source_uri(
+    report: &VortexEncodedReadReadinessReport,
+) -> Option<&DatasetUri> {
+    memory_bridge_source_uri(&report.input.scheduler_report.input.memory_bridge_report)
+}
+
 /// Executes a feature-gated local fixture `CountAll` by scanning Vortex arrays
 /// and summing their lengths.
 ///
@@ -1180,9 +1233,10 @@ where
 /// and summing their lengths.
 ///
 /// This path requires the existing encoded-count data-path approval report plus
-/// encoded-read readiness. It stays local-fixture-only and does not read rows,
-/// request decode/materialization, convert to `Arrow`, touch object stores,
-/// write data, spill, invoke external baselines, or allow fallback execution.
+/// encoded-read readiness for the same source URI. It stays local-fixture-only
+/// and does not read rows, request decode/materialization, convert to `Arrow`,
+/// touch object stores, write data, spill, invoke external baselines, or allow
+/// fallback execution.
 ///
 /// # Errors
 /// Returns an error only if deterministic report construction fails.
@@ -1216,6 +1270,24 @@ where
         );
         return Ok(report);
     }
+    let Some(readiness_target_uri) = encoded_read_readiness_source_uri(&readiness_report) else {
+        block_local_fixture_scan_for_approval(
+            &mut report,
+            "local fixture scan/count requires encoded-read readiness source URI evidence",
+        );
+        return Ok(report);
+    };
+    if readiness_target_uri != target_uri {
+        block_local_fixture_scan_for_approval(
+            &mut report,
+            format!(
+                "local fixture scan/count approval target URI '{}' does not match encoded-read readiness source URI '{}'",
+                target_uri.as_str(),
+                readiness_target_uri.as_str()
+            ),
+        );
+        return Ok(report);
+    }
     execute_vortex_count_all_from_local_scan_readiness_with_session(
         readiness_report,
         target_uri,
@@ -1235,20 +1307,36 @@ mod tests {
     use super::*;
 
     #[cfg(feature = "vortex-encoded-read-spike")]
-    fn ready_readiness() -> VortexEncodedReadReadinessReport {
+    fn ready_readiness_for_uri(
+        target_uri: shardloom_core::DatasetUri,
+    ) -> VortexEncodedReadReadinessReport {
         use crate::{
-            VortexMemoryBridgeInput, VortexMemoryBridgeReport, VortexSchedulerBridgeInput,
-            VortexTaskSchedulingDecision,
+            VortexSchedulerBridgeInput, VortexTaskSchedulingDecision,
+            build_vortex_runtime_task_graph, plan_native_vortex_universal_input,
+            plan_vortex_memory_safety, plan_vortex_read_from_universal_input,
+            size_vortex_runtime_task_graph,
         };
-        use shardloom_exec::MemoryBudget;
+        use shardloom_core::UniversalInputSource;
+        use shardloom_exec::{AdaptiveSizingPolicy, ByteSize, MemoryBudget};
 
-        let memory = VortexMemoryBridgeReport::from_input(VortexMemoryBridgeInput::new(
+        let source = UniversalInputSource::from_dataset_uri(target_uri).expect("source");
+        let input_plan = plan_native_vortex_universal_input(source).expect("input plan");
+        let read_report = plan_vortex_read_from_universal_input(input_plan).expect("read plan");
+        let runtime_report = build_vortex_runtime_task_graph(read_report).expect("runtime bridge");
+        let sizing_report = size_vortex_runtime_task_graph(
+            runtime_report,
+            AdaptiveSizingPolicy::memory_limited(ByteSize::from_gib(1)),
+        )
+        .expect("sizing");
+        let memory = plan_vortex_memory_safety(
+            sizing_report,
             MemoryBudget::from_gib(1).expect("memory budget"),
-        ))
+        )
         .expect("memory bridge");
         let mut scheduler =
             crate::VortexSchedulerBridgeReport::from_input(VortexSchedulerBridgeInput::new(memory))
                 .expect("scheduler bridge");
+        scheduler.decisions.clear();
         scheduler
             .decisions
             .push(VortexTaskSchedulingDecision::schedule_now(
@@ -1367,13 +1455,13 @@ mod tests {
             .join("fixtures")
             .join("metadata_footer_u64_20000.vortex");
         let target_uri = DatasetUri::new(fixture_path.to_string_lossy().to_string()).expect("uri");
-        let approval = approved_encoded_count_path_for_uri(target_uri);
+        let approval = approved_encoded_count_path_for_uri(target_uri.clone());
         let runtime = SingleThreadRuntime::default();
         let session = VortexSession::default().with_handle(runtime.handle());
 
         let report = execute_vortex_count_all_from_local_scan_with_session(
             &approval,
-            ready_readiness(),
+            ready_readiness_for_uri(target_uri),
             &runtime,
             &session,
         )
@@ -1416,13 +1504,13 @@ mod tests {
         use vortex::session::VortexSession;
 
         let target_uri = DatasetUri::new("s3://bucket/data.vortex").expect("uri");
-        let approval = approved_encoded_count_path_for_uri(target_uri);
+        let approval = approved_encoded_count_path_for_uri(target_uri.clone());
         let runtime = SingleThreadRuntime::default();
         let session = VortexSession::default().with_handle(runtime.handle());
 
         let report = execute_vortex_count_all_from_local_scan_with_session(
             &approval,
-            ready_readiness(),
+            ready_readiness_for_uri(target_uri),
             &runtime,
             &session,
         )
@@ -1454,14 +1542,14 @@ mod tests {
             .join("fixtures")
             .join("metadata_footer_u64_20000.vortex");
         let target_uri = DatasetUri::new(fixture_path.to_string_lossy().to_string()).expect("uri");
-        let approval = blocked_encoded_count_path_for_uri(target_uri);
+        let approval = blocked_encoded_count_path_for_uri(target_uri.clone());
         assert!(!approval.approved());
         let runtime = SingleThreadRuntime::default();
         let session = VortexSession::default().with_handle(runtime.handle());
 
         let report = execute_vortex_count_all_from_local_scan_with_session(
             &approval,
-            ready_readiness(),
+            ready_readiness_for_uri(target_uri),
             &runtime,
             &session,
         )
@@ -1475,5 +1563,52 @@ mod tests {
         assert!(!report.upstream_scan_called);
         assert!(!report.fallback_execution_allowed);
         assert!(report.has_errors());
+    }
+
+    #[cfg(feature = "vortex-encoded-read-spike")]
+    #[test]
+    fn local_fixture_scan_requires_matching_approval_and_readiness_target() {
+        use shardloom_core::DatasetUri;
+        use vortex::VortexSessionDefault as _;
+        use vortex::io::runtime::BlockingRuntime as _;
+        use vortex::io::runtime::single::SingleThreadRuntime;
+        use vortex::io::session::RuntimeSessionExt as _;
+        use vortex::session::VortexSession;
+
+        let fixture_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
+            .join("metadata_footer_u64_20000.vortex");
+        let readiness_uri =
+            DatasetUri::new(fixture_path.to_string_lossy().to_string()).expect("readiness uri");
+        let approval_uri =
+            DatasetUri::new(format!("file://{}", fixture_path.display())).expect("approval uri");
+        let approval = approved_encoded_count_path_for_uri(approval_uri);
+        assert!(approval.approved());
+        let runtime = SingleThreadRuntime::default();
+        let session = VortexSession::default().with_handle(runtime.handle());
+
+        let report = execute_vortex_count_all_from_local_scan_with_session(
+            &approval,
+            ready_readiness_for_uri(readiness_uri),
+            &runtime,
+            &session,
+        )
+        .expect("target mismatch report");
+
+        assert_eq!(
+            report.status,
+            VortexEncodedReadExecutionStatus::BlockedByReadiness
+        );
+        assert!(!report.data_read);
+        assert!(!report.upstream_scan_called);
+        assert!(!report.fallback_execution_allowed);
+        assert!(report.has_errors());
+        assert!(
+            report
+                .diagnostics
+                .iter()
+                .any(|d| d.message.contains("does not match encoded-read readiness"))
+        );
     }
 }
