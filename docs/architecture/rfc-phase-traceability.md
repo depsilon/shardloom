@@ -581,6 +581,15 @@ No fallback execution.
 - Any attempted fallback evidence blocks admission and keeps runtime execution and fallback execution disabled.
 - This pass adds no new query execution behavior, kernel implementation, encoded-data traversal, scan/read-start API calls, row reads, decode/materialization, Arrow conversion, object-store IO, write behavior, external baseline invocation, or fallback execution.
 
+## CG-7.12 metadata-only physical kernel report
+
+- Primary RFC linkage: RFC 0021 metadata kernel requirements, RFC 0026 metadata/query primitive bridge, RFC 0027 physical operator/kernel roadmap, RFC 0012 deterministic diagnostics, RFC 0025 no-fallback guardrails, RFC 0029 evidence gating, and RFC 0032 operator certification requirements.
+- `evaluate_vortex_metadata_physical_kernels` consumes an already metadata-answered Vortex primitive result plus a matching physical-operator bridge report.
+- Metadata-only count/filter kernel reports require the bridge certificate to be ready for native planning; the default missing-evidence bridge remains blocked.
+- Metadata `CountAll`/`CountWhere` reports surface count-aggregate and filter/count-aggregate operator coverage; metadata `FilterPredicate` reports surface filter operator coverage.
+- Blocked reports remain deterministic, side-effect-free, and fallback-disabled.
+- This pass adds no encoded-data traversal, scan/read-start API calls, row reads, decode/materialization, Arrow conversion, object-store IO, write behavior, spill IO, external baseline invocation, or fallback execution.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.

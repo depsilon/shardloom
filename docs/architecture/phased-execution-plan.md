@@ -10,20 +10,21 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [x] Session label: CG-7.11 metadata bridge admission evidence
-  - Current cleanup/implementation step: Let metadata-answered Vortex query primitive result bridges accept explicit correctness, memory-safety, benchmark, and no-fallback admission evidence for physical planning certificates.
+- [x] Session label: CG-7.12 metadata-only physical kernel report
+  - Current cleanup/implementation step: Let evidence-ready metadata-answered Vortex primitive bridges evaluate metadata-only physical kernel reports without IO or fallback execution.
   - Primary files:
+    - `shardloom-vortex/src/metadata_physical_kernel.rs`
     - `shardloom-vortex/src/physical_operator_bridge.rs`
     - `shardloom-vortex/src/lib.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-  - Scope: Evidence-aware metadata-result physical planning certificates, native-planning readiness without production claims when benchmarks are missing, production certification only when benchmark evidence is present, and no-runtime/no-fallback flags.
-  - Explicitly not included: New query execution, kernel implementation, encoded-data traversal, scan/read-start APIs, row reads, decode/materialization, Arrow conversion, object-store IO, writes, external baseline execution, fallback execution, benchmarks, SQL/API/adapter expansion, or superiority claims.
+  - Scope: Metadata-only count/filter physical kernel reporting over already metadata-answered primitive results, certificate gating, side-effect flags, and deterministic blocked diagnostics.
+  - Explicitly not included: Encoded-data traversal, scan/read-start APIs, row reads, decode/materialization, Arrow conversion, object-store IO, writes, spill IO, external baseline execution, fallback execution, benchmarks, SQL/API/adapter expansion, or superiority claims.
   - Validation required:
     - `cargo fmt --all -- --check`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: `plan_vortex_query_primitive_result_physical_operators_with_evidence` lets callers supply admission evidence for already metadata-answered count/filter primitives while the default result bridge remains conservative and execution remains disabled.
+  - Completion notes: `evaluate_vortex_metadata_physical_kernels` evaluates metadata-only count/filter kernel reports only when the bridge certificate can plan native; blocked reports remain side-effect-free and fallback-disabled.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -534,6 +535,7 @@ Status legend:
   - [x] CG-7.9 execution-level kernel requirements
   - [x] CG-7.10 metadata-result physical operator bridge
   - [x] CG-7.11 metadata bridge admission evidence
+  - [x] CG-7.12 metadata-only physical kernel report
   - Scope:
     - filter/projection/count-aggregate kernels
     - metadata/encoded/hybrid execution levels
@@ -726,6 +728,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-7.9 execution-level kernel requirements
 - [x] CG-7.10 metadata-result physical operator bridge
 - [x] CG-7.11 metadata bridge admission evidence
+- [x] CG-7.12 metadata-only physical kernel report
 - [ ] filter kernel
 - [ ] projection kernel
 - [ ] count/aggregate kernel
@@ -874,6 +877,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-7.9 execution-level kernel requirements separate metadata-only, encoded-native, hybrid-native, and native-decoded kernel blockers.
 - [x] CG-7.10 metadata-result physical operator bridge maps existing metadata answers to metadata-only physical operator readiness while keeping admission evidence separate.
 - [x] CG-7.11 metadata bridge admission evidence lets already metadata-answered bridges reach native planning or production certificate states only when explicit correctness, memory-safety, benchmark, and no-fallback evidence is supplied.
+- [x] CG-7.12 metadata-only physical kernel report evaluates certificate-gated metadata count/filter physical kernel reports over already metadata-answered primitive results without data reads, decode, materialization, IO, or fallback execution.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [~] CG-3 real Vortex payload writes remain deferred; placeholder artifact paths are not completion evidence.
 
