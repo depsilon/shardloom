@@ -291,6 +291,7 @@ impl PhysicalOperatorContract {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PhysicalOperatorPlan {
+    pub schema_version: &'static str,
     pub plan_id: String,
     pub operators: Vec<PhysicalOperatorContract>,
     pub diagnostics: Vec<Diagnostic>,
@@ -300,6 +301,7 @@ impl PhysicalOperatorPlan {
     #[must_use]
     pub fn cg7_foundation() -> Self {
         let mut plan = Self {
+            schema_version: "shardloom.physical_operator_plan.v1",
             plan_id: "cg7.1-physical-operator-foundation".to_string(),
             operators: vec![
                 PhysicalOperatorContract::planned_foundation(PhysicalOperatorKind::Filter),
@@ -335,6 +337,29 @@ impl PhysicalOperatorPlan {
     }
 
     #[must_use]
+    pub fn readiness_count(&self, status: PhysicalOperatorReadinessStatus) -> usize {
+        self.operators
+            .iter()
+            .filter(|operator| operator.readiness_status == status)
+            .count()
+    }
+
+    #[must_use]
+    pub fn ready_for_native_planning_count(&self) -> usize {
+        self.readiness_count(PhysicalOperatorReadinessStatus::ReadyForNativePlanning)
+    }
+
+    #[must_use]
+    pub fn missing_kernel_count(&self) -> usize {
+        self.readiness_count(PhysicalOperatorReadinessStatus::MissingKernel)
+    }
+
+    #[must_use]
+    pub fn unsupported_count(&self) -> usize {
+        self.readiness_count(PhysicalOperatorReadinessStatus::Unsupported)
+    }
+
+    #[must_use]
     pub const fn fallback_execution_allowed(&self) -> bool {
         false
     }
@@ -342,9 +367,13 @@ impl PhysicalOperatorPlan {
     #[must_use]
     pub fn to_human_text(&self) -> String {
         format!(
-            "physical operator plan\nplan: {}\noperators: {}\nall ready: {}\nfallback execution: disabled",
+            "physical operator plan\nschema_version: {}\nplan: {}\noperators: {}\nready: {}\nmissing kernels: {}\nunsupported: {}\nall ready: {}\nfallback execution: disabled",
+            self.schema_version,
             self.plan_id,
             self.operators.len(),
+            self.ready_for_native_planning_count(),
+            self.missing_kernel_count(),
+            self.unsupported_count(),
             self.all_ready_for_native_planning(),
         )
     }

@@ -45,7 +45,7 @@ const FUNCTION_FIELD_KEYS: [&str; 13] = [
     "planned_count",
 ];
 
-const OPERATOR_FIELD_KEYS: [&str; 13] = [
+const OPERATOR_FIELD_KEYS: [&str; 21] = [
     "scope",
     "schema_version",
     "fallback_execution_allowed",
@@ -59,6 +59,14 @@ const OPERATOR_FIELD_KEYS: [&str; 13] = [
     "runtime_execution",
     "operator_family_count",
     "production_certified_count",
+    "physical_operator_schema_version",
+    "physical_operator_plan_id",
+    "physical_operator_count",
+    "physical_operator_ready_count",
+    "physical_operator_missing_kernel_count",
+    "physical_operator_unsupported_count",
+    "physical_operator_fallback_execution_allowed",
+    "physical_operator_runtime_execution",
 ];
 
 const ADAPTER_FIELD_KEYS: [&str; 13] = [
@@ -190,6 +198,29 @@ fn capability_discovery_scope_values_are_stable() {
             "scope={scope}"
         );
     }
+}
+
+#[test]
+fn operator_capability_discovery_includes_physical_plan_blockers() {
+    let output = run_capabilities_scope("operators");
+
+    assert!(output.contains(
+        "{\"key\":\"physical_operator_schema_version\",\"value\":\"shardloom.physical_operator_plan.v1\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"physical_operator_plan_id\",\"value\":\"cg7.1-physical-operator-foundation\"}"
+    ));
+    assert!(output.contains("{\"key\":\"physical_operator_count\",\"value\":\"3\"}"));
+    assert!(output.contains("{\"key\":\"physical_operator_ready_count\",\"value\":\"0\"}"));
+    assert!(
+        output.contains("{\"key\":\"physical_operator_missing_kernel_count\",\"value\":\"3\"}")
+    );
+    assert!(output.contains(
+        "{\"key\":\"physical_operator_fallback_execution_allowed\",\"value\":\"false\"}"
+    ));
+    assert!(
+        output.contains("{\"key\":\"physical_operator_runtime_execution\",\"value\":\"false\"}")
+    );
 }
 
 fn run_capabilities_scope(scope: &str) -> String {

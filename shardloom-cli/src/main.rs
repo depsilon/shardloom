@@ -11,10 +11,10 @@ use shardloom_core::{
     DatasetRef, DatasetUri, ExtensionId, ExtensionInspectionReport, ExtensionLicenseKind,
     ExtensionManifest, ExtensionProvenance, ExtensionRegistrySnapshot, ExtensionVersion,
     IncrementalPlanSkeleton, InputAdapterRegistrySnapshot, KernelRegistrySnapshot, ManifestId,
-    ObservabilityPlan, OutputEnvelope, OutputFormat, OutputTarget, PredicateExpr, RedactionPolicy,
-    ReleasePlan, RuntimeObservabilityReport, SchemaDefinition, SchemaId, SchemaVersion,
-    SecurityPlan, ShardLoomError, SnapshotId, SnapshotRef, StatValue, TableCompatibilityPlan,
-    TableFormatKind, TranslationPlan, UdfRuntimeKind, WriteIntent,
+    ObservabilityPlan, OutputEnvelope, OutputFormat, OutputTarget, PhysicalOperatorPlan,
+    PredicateExpr, RedactionPolicy, ReleasePlan, RuntimeObservabilityReport, SchemaDefinition,
+    SchemaId, SchemaVersion, SecurityPlan, ShardLoomError, SnapshotId, SnapshotRef, StatValue,
+    TableCompatibilityPlan, TableFormatKind, TranslationPlan, UdfRuntimeKind, WriteIntent,
 };
 use shardloom_exec::{
     AdaptiveSizer, AdaptiveSizingPolicy, AttemptId, ByteSize, CancellationReason,
@@ -1248,6 +1248,7 @@ fn append_operator_certification_fields(
     report: &CapabilityCertificationReport,
     fields: &mut Vec<(String, String)>,
 ) {
+    let physical_plan = PhysicalOperatorPlan::cg7_foundation();
     push_count_field(
         fields,
         "operator_family_count",
@@ -1263,6 +1264,42 @@ fn append_operator_certification_fields(
             .filter(|entry| entry.status.can_satisfy_production_claim())
             .count(),
     );
+    push_field(
+        fields,
+        "physical_operator_schema_version",
+        physical_plan.schema_version,
+    );
+    push_field(fields, "physical_operator_plan_id", &physical_plan.plan_id);
+    push_count_field(
+        fields,
+        "physical_operator_count",
+        physical_plan.operators.len(),
+    );
+    push_count_field(
+        fields,
+        "physical_operator_ready_count",
+        physical_plan.ready_for_native_planning_count(),
+    );
+    push_count_field(
+        fields,
+        "physical_operator_missing_kernel_count",
+        physical_plan.missing_kernel_count(),
+    );
+    push_count_field(
+        fields,
+        "physical_operator_unsupported_count",
+        physical_plan.unsupported_count(),
+    );
+    push_field(
+        fields,
+        "physical_operator_fallback_execution_allowed",
+        if physical_plan.fallback_execution_allowed() {
+            "true"
+        } else {
+            "false"
+        },
+    );
+    push_field(fields, "physical_operator_runtime_execution", "false");
 }
 
 fn append_adapter_certification_fields(
@@ -1396,19 +1433,23 @@ fn certification_text(
                 .collect::<Vec<_>>()
                 .join("\n")
         ),
-        CapabilityDiscoveryScope::Operators => format!(
-            "{}\noperator coverage families:\n{}",
-            certification_summary_header(report, scope),
-            report
-                .operator_coverage
-                .entries
-                .iter()
-                .map(|entry| {
-                    format!("  - {} [{}]", entry.family.as_str(), entry.status.as_str())
-                })
-                .collect::<Vec<_>>()
-                .join("\n")
-        ),
+        CapabilityDiscoveryScope::Operators => {
+            let physical_plan = PhysicalOperatorPlan::cg7_foundation();
+            format!(
+                "{}\noperator coverage families:\n{}\n{}",
+                certification_summary_header(report, scope),
+                report
+                    .operator_coverage
+                    .entries
+                    .iter()
+                    .map(|entry| {
+                        format!("  - {} [{}]", entry.family.as_str(), entry.status.as_str())
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+                physical_plan.to_human_text()
+            )
+        }
         CapabilityDiscoveryScope::Adapters => format!(
             "{}\nadapter certification entries:\n{}",
             certification_summary_header(report, scope),
