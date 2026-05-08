@@ -45,7 +45,7 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-10.2 object-store request coalescing evidence
+- [x] Session label: CG-10.3 object-store commit protocol planning evidence
   - Primary files:
     - `shardloom-plan/src/object_store.rs`
     - `shardloom-plan/src/lib.rs`
@@ -54,23 +54,23 @@ Supporting docs:
     - `docs/architecture/rfc-phase-traceability.md`
     - `docs/rfcs/0008-object-store-runtime-distributed-tasks.md`
     - `docs/architecture/canonical-terminology.md`
-  - Scope: Add no-IO/no-fallback object-store request coalescing evidence over declared range-planning metadata without executing object-store requests, reading files, retrying requests, writing, distributed scheduling, or fallback execution.
+  - Scope: Add no-IO/no-fallback object-store commit protocol readiness evidence over declared commit-plan signals without executing commits, writing files, contacting object stores, probing providers, performing distributed scheduling, or fallback execution.
   - Checklist:
-    - [x] Add `ObjectStoreRequestCoalescingDecision` and `ObjectStoreRequestCoalescingReport` contracts.
-    - [x] Compare uncoalesced and coalesced request-shape plans without object-store IO.
-    - [x] Block coalescing when range planning is blocked by missing/invalid/oversized/non-object-store evidence.
-    - [x] Surface no-IO/no-fallback evidence through `object-store-coalesce-plan`.
-    - [x] Add focused success/failure tests for request coalescing.
+    - [x] Add `ObjectStoreCommitProtocolInput`, `ObjectStoreCommitProtocolStatus`, and `ObjectStoreCommitProtocolReport` contracts.
+    - [x] Require declared staging prefix, manifest pointer update, commit record, idempotency key, cleanup plan, and atomicity evidence before readiness.
+    - [x] Block non-object-store targets and missing commit-protocol evidence with deterministic diagnostics.
+    - [x] Surface no-IO/no-write/no-fallback evidence through `object-store-commit-plan`.
+    - [x] Add focused success/failure tests for commit protocol planning.
     - [x] Update phase, RFC traceability, RFC 0008, and terminology docs.
     - [x] Run full required validation.
   - Local validation status:
-    - focused `shardloom-plan` request-coalescing tests passed
-    - focused `shardloom-cli` object-store-coalesce-plan tests passed
+    - focused `shardloom-plan` commit protocol tests passed
+    - focused `shardloom-cli` object-store-commit-plan tests passed
     - focused Clippy for `shardloom-plan` and `shardloom-cli` passed with toolchain `1.91.1`
     - full Rust validation passed with toolchain `1.91.1`
     - docs hygiene scans passed for `git diff --check` and hidden/bidi controls
-    - CLI JSON smoke check passed for `object-store-coalesce-plan s3-ranges --format json`
-  - Explicitly not included: object-store IO, file IO, data reads, row reads, decode/materialization, Arrow conversion, request execution, retry execution, network probing, writes, commits, distributed execution, parser work, SQL execution, adapter runtime, benchmark claims, superiority claims, or fallback execution.
+    - CLI JSON smoke check passed for `object-store-commit-plan ready --format json`
+  - Explicitly not included: object-store IO, file IO, data reads, row reads, decode/materialization, Arrow conversion, request execution, retry execution, network probing, writes, commit execution, distributed execution, parser work, SQL execution, adapter runtime, benchmark claims, superiority claims, or fallback execution.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -870,6 +870,15 @@ Supporting docs:
     - `object-store-coalesce-plan` surfaces stable report fields for s3-ranges and blocked scenarios.
     - Request coalescing remains planning evidence only and does not execute reads, retries, network probing, or full-file reads.
     - No object-store IO, file IO, data reads, writes, distributed execution, benchmark claim, superiority claim, or fallback behavior is added.
+- [x] CG-10.3 object-store commit protocol planning evidence
+  - Why: define object-store commit readiness before object-store writes, provider probes, recovery execution, or distributed scheduling expands.
+  - Acceptance:
+    - `ObjectStoreCommitProtocolReport` records declared target, required commit-protocol evidence, status, diagnostics, no-IO/no-write side-effect flags, and no-fallback fields.
+    - The planner requires object-store targets plus declared staging prefix, manifest pointer update, commit record, idempotency key, cleanup plan, and atomicity evidence before readiness.
+    - Non-object-store targets and missing commit-protocol evidence are blocked with deterministic diagnostics.
+    - `object-store-commit-plan` surfaces stable report fields for ready, missing-staging, missing-idempotency, missing-atomicity, and local-file scenarios.
+    - Commit protocol readiness remains planning evidence only and does not execute commits, writes, provider probes, network calls, recovery actions, or cleanup.
+    - No object-store IO, file IO, data reads, writes, commit execution, distributed execution, benchmark claim, superiority claim, or fallback behavior is added.
 
 ## Competitive Engine Gates CG-1 through CG-20
 
@@ -1046,9 +1055,10 @@ Status legend:
 - [ ] CG-10 — Object-store/distributed execution (**planned**)
   - [x] CG-10.1 object-store range planning evidence
   - [x] CG-10.2 object-store request coalescing evidence
+  - [x] CG-10.3 object-store commit protocol planning evidence
   - Scope:
     - object-store range planning and request coalescing
-    - object-store commit protocol
+    - object-store commit protocol planning before commit execution
     - distributed scheduling with checkpoint/retry/idempotency
 
 - [ ] CG-11 — Python/API foundation surface later (**planned**)
@@ -1299,7 +1309,8 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 ### CG-10 detailed checklist
 - [x] CG-10.1 object-store range planning evidence
 - [x] CG-10.2 object-store request coalescing evidence
-- [ ] object-store commit protocol
+- [x] CG-10.3 object-store commit protocol planning evidence
+- [ ] broader object-store commit execution
 - [ ] distributed scheduling
 - [ ] checkpoint/retry/idempotency
 
@@ -1484,6 +1495,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-9.7 compaction planning evidence adds `CompactionPlanningReport` and `compaction-plan` surfacing for future small-file/small-segment maintenance recommendations, metadata/layout blockers, and estimated report-only groups while keeping layout-reader construction, catalog access, table metadata reads, IO, writes, compaction execution, and fallback disabled.
 - [x] CG-10.1 object-store range planning evidence adds `ObjectStoreRangePlanningReport` and `object-store-range-plan` surfacing for declared S3/GCS/ADLS byte ranges, request-shape counts, coalesced range evidence, missing/invalid/oversized range blockers, no full-file-read permission, no object-store IO, and no fallback.
 - [x] CG-10.2 object-store request coalescing evidence adds `ObjectStoreRequestCoalescingReport` and `object-store-coalesce-plan` surfacing for uncoalesced/coalesced request-shape comparison, request reduction, range-planning blockers, no object-store IO, and no fallback.
+- [x] CG-10.3 object-store commit protocol planning evidence adds `ObjectStoreCommitProtocolReport` and `object-store-commit-plan` surfacing for declared staging, manifest pointer, commit record, idempotency, cleanup, atomicity, non-object-store blockers, no commit execution, no object-store IO, and no fallback.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind `vortex-write`; placeholder artifact paths remain readiness-only.
 - [~] CG-3 broader output payload shapes remain deferred.

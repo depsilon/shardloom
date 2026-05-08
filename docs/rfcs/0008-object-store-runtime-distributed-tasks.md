@@ -184,6 +184,50 @@ Coalescing must be blocked whenever range planning is blocked by missing byte ra
 ranges, request-budget violations, or non-object-store inputs. Coalescing evidence is not a
 benchmark claim and must not be used as a cost/performance claim before CG-6 benchmark gates.
 
+### Object-store commit protocol planning report
+
+Object-store commit protocol planning is the report-only readiness bridge between future
+object-store output writes and a safe commit protocol. It may validate declared commit-plan
+evidence, but it must not write files, contact object stores, probe provider behavior, execute
+cleanup, run recovery, or commit manifests.
+
+The CG-10 commit protocol evidence surface is `ObjectStoreCommitProtocolReport`.
+
+Required fields:
+
+- `input`.
+- `status`.
+- `diagnostics`.
+- `object_store_target`.
+- `requires_staging_prefix`.
+- `requires_manifest_pointer_update`.
+- `requires_commit_record`.
+- `requires_idempotency_key`.
+- `requires_cleanup_plan`.
+- `requires_atomic_commit_evidence`.
+- `commit_execution_allowed=false`.
+- `can_plan_without_io=true`.
+- `object_store_io=false`.
+- `write_io=false`.
+- `fallback_execution_allowed=false`.
+
+`ObjectStoreCommitProtocolStatus` should identify at least:
+
+- `ready`.
+- `blocked_non_object_store`.
+- `blocked_missing_staging`.
+- `blocked_missing_manifest_pointer`.
+- `blocked_missing_commit_record`.
+- `blocked_missing_idempotency`.
+- `blocked_missing_cleanup`.
+- `blocked_atomicity`.
+
+The `requires_*` fields represent unmet readiness evidence in the current report, not blanket
+permission to perform the corresponding operation. A ready report means the declared evidence is
+coherent enough for a later implementation phase to consider commit execution; it does not execute
+the commit. Object-store commit execution, provider-specific atomicity, recovery cleanup, and
+distributed commit coordination remain separate gates.
+
 ## SegmentTask
 
 A SegmentTask is a unit of execution over one or more encoded segments.

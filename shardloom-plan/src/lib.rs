@@ -22,10 +22,12 @@ pub use input_planning::{
     plan_universal_input_source, universal_input_planning_is_side_effect_free,
 };
 pub use object_store::{
-    ObjectStoreRangePlanningPolicy, ObjectStoreRangePlanningReport, ObjectStoreRangePlanningStatus,
-    ObjectStoreRangeRequest, ObjectStoreRequestCoalescingDecision,
-    ObjectStoreRequestCoalescingDecisionKind, ObjectStoreRequestCoalescingReport,
-    ObjectStoreRequestCoalescingStatus, plan_object_store_ranges,
+    ObjectStoreCommitProtocolInput, ObjectStoreCommitProtocolReport,
+    ObjectStoreCommitProtocolStatus, ObjectStoreRangePlanningPolicy,
+    ObjectStoreRangePlanningReport, ObjectStoreRangePlanningStatus, ObjectStoreRangeRequest,
+    ObjectStoreRequestCoalescingDecision, ObjectStoreRequestCoalescingDecisionKind,
+    ObjectStoreRequestCoalescingReport, ObjectStoreRequestCoalescingStatus,
+    plan_object_store_commit_protocol, plan_object_store_ranges,
     plan_object_store_request_coalescing,
 };
 pub use optimizer::{
