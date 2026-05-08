@@ -45,29 +45,21 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-9.1 schema evolution compatibility evidence
+- [x] Session label: SubQ long-context technique transfer
   - Primary files:
-    - `shardloom-core/src/schema.rs`
-    - `shardloom-core/src/lib.rs`
-    - `shardloom-cli/src/main.rs`
+    - `docs/architecture/systems-learning-map.md`
+    - `docs/architecture/canonical-terminology.md`
     - `docs/architecture/phased-execution-plan.md`
-    - `docs/architecture/rfc-phase-traceability.md`
-  - Scope: Add typed CG-9 schema-evolution compatibility evidence for field identity, safe additions, projection/cast/default requirements, metadata-loss diagnostics, and unsafe-transition rejection without catalog access, data reads, writes, object-store IO, or fallback execution.
+  - Scope: Translate SubQ/SSA long-context lessons into ShardLoom-native architecture vocabulary and guardrails without adding model dependencies, model calls, runtime behavior, or benchmark claims.
   - Checklist:
-    - [x] Add `SchemaEvolutionCompatibilityReport` and evaluator in core.
-    - [x] Detect add, drop, rename, widening, narrowing, nullability, field-identity, and metadata changes.
-    - [x] Require stable field IDs for safe rename evidence.
-    - [x] Surface no-IO/no-fallback schema-evolution evidence through `schema-plan evolution`.
-    - [x] Add focused success/failure tests for safe and unsafe transitions.
-    - [x] Update phase and RFC traceability docs.
-    - [x] Run full required validation.
+    - [x] Review SubQ launch, SSA technical article, and product page.
+    - [x] Add technique-transfer lessons for functional context, evidence routing, structure preservation, and stateful certificate history.
+    - [x] Add concise canonical terminology for the reusable ShardLoom-native concepts.
+    - [x] Preserve source-status caveats because model card/technical report are still forthcoming.
+    - [x] Run docs hygiene validation.
   - Local validation status:
-    - focused `shardloom-core` schema-evolution tests passed
-    - focused `shardloom-cli` schema-plan evolution tests passed
-    - focused Clippy for `shardloom-core` and `shardloom-cli` passed with toolchain `1.91.1`
-    - full Rust validation passed with toolchain `1.91.1`
     - docs hygiene scans passed for `git diff --check` and hidden/bidi controls
-  - Explicitly not included: catalog access, table metadata reads, object-store IO, data reads, writes, commits, external table-format implementation, partition evolution, delete/tombstone execution, CDC execution, layout-health execution, compaction execution, parser work, SQL execution, adapter runtime, benchmark claims, superiority claims, or fallback execution.
+  - Explicitly not included: SubQ dependency, model/API integration, LLM calls, runtime behavior, benchmark evidence, claim certification, parser work, SQL execution, adapter runtime, external probing, or fallback execution.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -462,6 +454,11 @@ Supporting docs:
   - Local validation status:
     - docs hygiene scans passed for `git diff --check`, hidden/bidi controls, and claim-language review
     - full Rust validation passed with toolchain `1.91.1`
+- [x] R5.4.15 SubQ long-context technique transfer
+  - Why: preserve user-supplied long-context/SSA lessons as architecture reference material without turning them into dependencies or benchmark claims.
+  - Acceptance: systems-learning captures functional context, content-dependent evidence routing, structure preservation, multi-hop evidence, scaffolding, iteration economics, and agent-state lessons; canonical terminology defines reusable ShardLoom-native terms.
+  - Local validation status:
+    - docs hygiene scans passed for `git diff --check` and hidden/bidi controls
 
 ## Implementation Phase Queue
 - [x] R4 Resume CG implementation
