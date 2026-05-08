@@ -832,6 +832,13 @@ CG-2.1c metadata-footer `CountAll` execution is wired; non-metadata execution re
 - Future adapter/source execution work must make this report approved before introducing real encoded-data count traversal.
 - This remains report-only and does not call scan/read-start APIs, array stream/evaluation APIs, traverse encoded data, read rows, decode/materialize, convert to `Arrow`, perform object-store IO, write, or attempt fallback execution.
 
+## CG-2.1e.7 encoded-count approval CLI surfacing
+
+- The adapter approval boundary is now visible through `shardloom vortex-encoded-count-approval-plan`.
+- Adapter/source follow-up work can use the CLI output to verify whether current blockers are count readiness, public API boundary, missing execution-usable data paths, or fallback policy.
+- The command remains deterministic and report-only; it does not make adapter execution broader.
+- This remains report-only and does not call scan/read-start APIs, array stream/evaluation APIs, traverse encoded data, read rows, decode/materialize, convert to `Arrow`, perform object-store IO, write, or attempt fallback execution.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.

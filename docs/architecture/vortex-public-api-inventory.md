@@ -718,6 +718,13 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - Blocked or deferred surfaces remain visible by name, including scan, stream, layout-evaluation, data-source, and Arrow-default boundaries.
 - This remains report-only and introduces no scan/read-start invocation, array stream/evaluation call, encoded-data traversal, row read, decode/materialization, `Arrow` conversion, object-store IO, write, or fallback execution.
 
+## CG-2.1e.7 encoded-count approval CLI surfacing
+
+- `shardloom vortex-encoded-count-approval-plan` now exposes the encoded-count approval boundary from this inventory to text/JSON CLI output.
+- The command keeps current scan, stream, layout-evaluation, data-source, and Arrow-default blockers visible to users and agents.
+- Ready encoded-count inputs still return unsupported/non-zero while execution-usable data path count remains zero.
+- This remains report-only and introduces no scan/read-start invocation, array stream/evaluation call, encoded-data traversal, row read, decode/materialization, `Arrow` conversion, object-store IO, write, or fallback execution.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.
