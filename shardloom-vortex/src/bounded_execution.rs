@@ -118,7 +118,7 @@ impl VortexBoundedExecutionMode {
         false
     }
     pub const fn executes_tasks(&self) -> bool {
-        false
+        matches!(self, Self::MetadataOnly | Self::NoOp)
     }
 }
 
@@ -669,6 +669,7 @@ impl VortexBoundedExecutionReport {
             .filter(|d| d.kind == VortexBoundedExecutionDecisionKind::DeferEncodedRead)
             .count();
         self.blocked_task_count = self.decisions.iter().filter(|d| d.is_blocked()).count();
+        self.tasks_executed = self.metadata_tasks_completed > 0 || self.noop_tasks_completed > 0;
     }
     pub fn has_errors(&self) -> bool {
         self.status.is_error()
@@ -1293,6 +1294,27 @@ mod tests {
     use shardloom_exec::{
         SpillPayloadId, SpillPayloadPath, SpillPayloadRef, SpillWorkspaceId, SpillWorkspacePath,
     };
+    fn metadata_local_execution_report() -> VortexLocalExecutionReport {
+        let request = crate::VortexQueryPrimitiveRequest::count_all(
+            DatasetUri::new("file://tmp/metadata.vortex").expect("uri"),
+        );
+        let result = crate::VortexQueryPrimitiveResult::metadata_answered(
+            request.clone(),
+            crate::VortexQueryPrimitiveValue::Count(42),
+        );
+        let analysis = crate::analyze_vortex_query_primitive_result(result.clone());
+        crate::VortexLocalExecutionReport::metadata_executed(
+            crate::VortexLocalExecutionInput::new(request),
+            result,
+            analysis,
+        )
+    }
+    fn noop_local_execution_report() -> VortexLocalExecutionReport {
+        let mut report = metadata_local_execution_report();
+        report.status = VortexLocalExecutionStatus::NoOpCompleted;
+        report.mode = crate::VortexLocalExecutionMode::NoOp;
+        report
+    }
     fn sample_bounded() -> VortexBoundedExecutionReport {
         let req = crate::VortexQueryPrimitiveRequest::count_all(
             DatasetUri::new("file://tmp/test.vortex").expect("uri"),
@@ -1308,6 +1330,83 @@ mod tests {
             "test",
             "unsupported",
         )
+    }
+    #[test]
+    fn bounded_metadata_tasks_execute_without_data_work() {
+        let policy = VortexBoundedExecutionPolicy::new(MemoryBudget::from_gib(1).expect("budget"));
+        let report = execute_vortex_bounded_local_query(metadata_local_execution_report(), policy)
+            .expect("bounded report");
+
+        assert_eq!(
+            report.status,
+            VortexBoundedExecutionStatus::MetadataTasksCompleted
+        );
+        assert_eq!(report.mode, VortexBoundedExecutionMode::MetadataOnly);
+        assert!(report.status.completed_without_data_read());
+        assert!(report.mode.executes_tasks());
+        assert_eq!(report.metadata_tasks_completed, 1);
+        assert_eq!(report.noop_tasks_completed, 0);
+        assert!(report.tasks_executed);
+        assert!(!report.data_read);
+        assert!(!report.data_decoded);
+        assert!(!report.data_materialized);
+        assert!(!report.object_store_io);
+        assert!(!report.write_io);
+        assert!(!report.spill_io_performed);
+        assert!(!report.external_effects_executed);
+        assert!(!report.fallback_execution_allowed);
+        assert!(!report.is_side_effect_free());
+    }
+    #[test]
+    fn bounded_noop_tasks_execute_without_data_work() {
+        let policy = VortexBoundedExecutionPolicy::new(MemoryBudget::from_gib(1).expect("budget"));
+        let report = execute_vortex_bounded_local_query(noop_local_execution_report(), policy)
+            .expect("bounded report");
+
+        assert_eq!(
+            report.status,
+            VortexBoundedExecutionStatus::NoOpTasksCompleted
+        );
+        assert_eq!(report.mode, VortexBoundedExecutionMode::NoOp);
+        assert!(report.status.completed_without_data_read());
+        assert!(report.mode.executes_tasks());
+        assert_eq!(report.metadata_tasks_completed, 0);
+        assert_eq!(report.noop_tasks_completed, 1);
+        assert!(report.tasks_executed);
+        assert!(!report.data_read);
+        assert!(!report.data_decoded);
+        assert!(!report.data_materialized);
+        assert!(!report.object_store_io);
+        assert!(!report.write_io);
+        assert!(!report.spill_io_performed);
+        assert!(!report.external_effects_executed);
+        assert!(!report.fallback_execution_allowed);
+        assert!(!report.is_side_effect_free());
+    }
+    #[test]
+    fn bounded_policy_can_disable_metadata_task_execution() {
+        let policy = VortexBoundedExecutionPolicy::new(MemoryBudget::from_gib(1).expect("budget"))
+            .allow_metadata_tasks(false);
+        let report = execute_vortex_bounded_local_query(metadata_local_execution_report(), policy)
+            .expect("bounded report");
+
+        assert_eq!(
+            report.status,
+            VortexBoundedExecutionStatus::ReadyButNoExecutableTasks
+        );
+        assert_eq!(report.mode, VortexBoundedExecutionMode::ScheduledPlanOnly);
+        assert_eq!(report.metadata_tasks_completed, 0);
+        assert_eq!(report.noop_tasks_completed, 0);
+        assert!(!report.tasks_executed);
+        assert!(!report.data_read);
+        assert!(!report.data_decoded);
+        assert!(!report.data_materialized);
+        assert!(!report.object_store_io);
+        assert!(!report.write_io);
+        assert!(!report.spill_io_performed);
+        assert!(!report.external_effects_executed);
+        assert!(!report.fallback_execution_allowed);
+        assert!(report.is_side_effect_free());
     }
     #[test]
     fn spill_integration_status_checks() {

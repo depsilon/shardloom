@@ -301,6 +301,10 @@ impl VortexLocalEngineReport {
         let work_avoided_metrics = analysis_report
             .as_ref()
             .map_or(0, |r| r.work_avoided.metric_count());
+        let effects = VortexLocalEngineEffectSummary::from_reports(
+            local_execution_report.as_ref(),
+            bounded_execution_report.as_ref(),
+        );
         Ok(Self {
             status,
             mode,
@@ -316,15 +320,15 @@ impl VortexLocalEngineReport {
             task_count,
             decision_trace_entries,
             work_avoided_metrics,
-            tasks_executed: false,
-            data_read: false,
-            data_decoded: false,
-            data_materialized: false,
-            object_store_io: false,
-            write_io: false,
-            spill_io_performed: false,
-            external_effects_executed: false,
-            fallback_execution_allowed: false,
+            tasks_executed: effects.tasks_executed,
+            data_read: effects.data_read,
+            data_decoded: effects.data_decoded,
+            data_materialized: effects.data_materialized,
+            object_store_io: effects.object_store_io,
+            write_io: effects.write_io,
+            spill_io_performed: effects.spill_io_performed,
+            external_effects_executed: effects.external_effects_executed,
+            fallback_execution_allowed: effects.fallback_execution_allowed,
             diagnostics,
         })
     }
@@ -589,6 +593,45 @@ fn map_local_execution_status(status: VortexLocalExecutionStatus) -> VortexLocal
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+struct VortexLocalEngineEffectSummary {
+    tasks_executed: bool,
+    data_read: bool,
+    data_decoded: bool,
+    data_materialized: bool,
+    object_store_io: bool,
+    write_io: bool,
+    spill_io_performed: bool,
+    external_effects_executed: bool,
+    fallback_execution_allowed: bool,
+}
+impl VortexLocalEngineEffectSummary {
+    fn from_reports(
+        local: Option<&VortexLocalExecutionReport>,
+        bounded: Option<&VortexBoundedExecutionReport>,
+    ) -> Self {
+        Self {
+            tasks_executed: local.is_some_and(|r| r.tasks_executed)
+                || bounded.is_some_and(|r| r.tasks_executed),
+            data_read: local.is_some_and(|r| r.data_read) || bounded.is_some_and(|r| r.data_read),
+            data_decoded: local.is_some_and(|r| r.data_decoded)
+                || bounded.is_some_and(|r| r.data_decoded),
+            data_materialized: local.is_some_and(|r| r.data_materialized)
+                || bounded.is_some_and(|r| r.data_materialized),
+            object_store_io: local.is_some_and(|r| r.object_store_io)
+                || bounded.is_some_and(|r| r.object_store_io),
+            write_io: local.is_some_and(|r| r.write_io) || bounded.is_some_and(|r| r.write_io),
+            spill_io_performed: local.is_some_and(|r| r.spill_io_performed)
+                || bounded.is_some_and(|r| r.spill_io_performed),
+            external_effects_executed: local.is_some_and(|r| r.external_effects_executed)
+                || bounded.is_some_and(|r| r.external_effects_executed),
+            fallback_execution_allowed: local.is_some_and(|r| r.fallback_execution_allowed)
+                || bounded.is_some_and(|r| r.fallback_execution_allowed),
+        }
+    }
+}
+
 fn diagnostics_have_errors(diagnostics: &[Diagnostic]) -> bool {
     diagnostics.iter().any(|d| {
         matches!(
@@ -751,6 +794,21 @@ pub const fn vortex_local_engine_is_side_effect_free(report: &VortexLocalEngineR
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn metadata_local_execution_report() -> crate::VortexLocalExecutionReport {
+        let request = VortexQueryPrimitiveRequest::count_all(
+            DatasetUri::new("file://tmp/metadata.vortex").expect("uri"),
+        );
+        let result = VortexQueryPrimitiveResult::metadata_answered(
+            request.clone(),
+            crate::VortexQueryPrimitiveValue::Count(42),
+        );
+        let analysis = crate::analyze_vortex_query_primitive_result(result.clone());
+        crate::VortexLocalExecutionReport::metadata_executed(
+            crate::VortexLocalExecutionInput::new(request),
+            result,
+            analysis,
+        )
+    }
     #[test]
     fn parses_count() {
         assert_eq!(
@@ -820,6 +878,28 @@ mod tests {
     fn mode_side_effects_false() {
         let m = VortexLocalEngineMode::MetadataOnly;
         assert!(!m.reads_data() && !m.decodes_data() && !m.materializes_data() && !m.writes_data());
+    }
+    #[test]
+    fn effect_summary_propagates_bounded_metadata_task_execution() {
+        let local = metadata_local_execution_report();
+        let bounded = execute_vortex_bounded_local_query(
+            local.clone(),
+            VortexBoundedExecutionPolicy::new(
+                shardloom_exec::MemoryBudget::from_gib(1).expect("budget"),
+            ),
+        )
+        .expect("bounded report");
+        let effects = VortexLocalEngineEffectSummary::from_reports(Some(&local), Some(&bounded));
+
+        assert!(effects.tasks_executed);
+        assert!(!effects.data_read);
+        assert!(!effects.data_decoded);
+        assert!(!effects.data_materialized);
+        assert!(!effects.object_store_io);
+        assert!(!effects.write_io);
+        assert!(!effects.spill_io_performed);
+        assert!(!effects.external_effects_executed);
+        assert!(!effects.fallback_execution_allowed);
     }
     #[test]
     fn unsupported_report_has_errors() {
