@@ -2,210 +2,72 @@
 
 ## Purpose
 
-This document collects cleanup, refactor, and audit items needed before or alongside future Competitive Engine (CG) implementation. It is a prioritization and sequencing artifact only; it is **not** runtime authorization for execution behavior, IO behavior, or fallback behavior.
+This document inventories cleanup, refactor, and audit work that supports future Competitive Engine (CG) implementation. It is a supporting backlog only. Active status, active queue, and CG closeout decisions live in `docs/architecture/phased-execution-plan.md`.
 
-## Current cleanup priority
+This document does not authorize runtime behavior, IO behavior, dependency additions, or fallback execution.
 
-- **P0 — Documentation and traceability correctness**
-- **P1 — CLI usage/name consistency**
-- **P2 — Diagnostics normalization**
-- **P3 — Terminology consolidation**
-- **P4 — Feature-footprint/doctor centralization**
-- **P5 — Cross-crate invariant tests**
-- **P6 — Future refactor candidates**
+## How To Use
 
-## P0 — Documentation and traceability correctness
+- Promote actionable cleanup into `phased-execution-plan.md` before implementation.
+- Keep completed cleanup here as a historical ledger, not a second active queue.
+- Keep cleanup PRs narrow, reviewable, and no-fallback.
+- Preserve public commands and report schemas unless an explicit phase item says otherwise.
 
-Backlog items:
+## Backlog Checklist
 
-- Ensure `phased-execution-plan.md` current status always matches the last merged CG/doc PR.
-- Ensure `rfc-phase-traceability.md` has valid Markdown table structure for all matrix rows.
-- Keep CG-1 through CG-20 visible in phase proposals.
-- Ensure Foundry remains under CG-18 optional deployment/comparison.
-- Ensure `systems-learning-map.md` remains conceptual only.
-- Keep hidden/bidi Unicode scan in docs PRs.
+- [x] P0 - Documentation and traceability correctness
+  - Ensure `phased-execution-plan.md` matches merged CG/doc work.
+  - Keep `rfc-phase-traceability.md` Markdown tables valid.
+  - Keep CG-1 through CG-20 visible in planning artifacts.
+  - Keep Foundry under CG-18 optional deployment/comparison.
+  - Keep systems-learning references conceptual only.
+  - Keep hidden/bidi Unicode scans in docs PRs.
+- [x] P1 - CLI usage/name consistency
+  - User-facing usage should say `shardloom`, not `shardloom-cli`, unless naming the crate.
+  - Command names should distinguish plan/report/probe/write/execute.
+  - Future command registry can centralize names, usage text, and JSON mode fields.
+  - Commands should not imply execution unless they perform execution.
+- [x] P2 - Diagnostics normalization
+  - Route missing/unknown CLI arguments through stable invalid-input diagnostics where feasible.
+  - Preserve `fallback_execution_allowed=false`.
+  - Distinguish invalid input, unsupported feature, configuration, planning, execution, object-store, materialization, and no-fallback categories.
+- [x] P3 - Terminology consolidation
+  - Keep layer-specific public types stable.
+  - Prefer mapping helpers before type consolidation.
+  - Keep translation, compatibility output, and fallback execution distinct.
+- [x] P4 - Feature-footprint/doctor centralization
+  - Centralize feature/dependency/capability posture in `FeatureFootprintReport`.
+  - Keep doctor/capabilities alignment report-only and no-probe by default.
+  - Keep external baselines separate from runtime fallback availability.
+- [x] P5 - Cross-crate invariant tests
+  - Verify forbidden fallback engines are absent from manifests and lockfile.
+  - Keep docs/conceptual references out of dependency scans.
+- [ ] P6 - Future refactor candidates
+  - Command registry / generated help.
+  - Diagnostic code constants for all CLI errors.
+  - Centralized report field helpers.
+  - Traceability matrix validator.
+  - RFC acceptance checker.
+  - Systems-learning contract implementation tracker.
+  - Capability certification implementation tracker for CG-20.
 
-## P1 — CLI usage/name consistency
+## Completed Ledger
 
-Audit scope: `shardloom-cli/src/main.rs`.
+- [x] R3.1 cleanup backlog inventory.
+- [x] R3.2 CLI usage/name consistency audit.
+- [x] R3.3 diagnostics normalization backlog.
+- [x] R3.3a CLI missing/unknown argument diagnostic helpers.
+- [x] R3.3b unknown signal diagnostic normalization.
+- [x] R3.3c output envelope command-status derivation audit.
+- [x] R3.4 terminology consolidation backlog.
+- [x] R3.5 feature-footprint/doctor centralization plan.
+- [x] R3.5a feature-footprint report core contract.
+- [x] R3.5d no-fallback dependency invariant tests.
 
-Backlog items:
+## Guardrails
 
-- Usage/help banner should consistently say `shardloom`, not `shardloom-cli`, unless intentionally naming the crate.
-- Command names should distinguish plan/report/probe/write/execute.
-- A future command registry may centralize command names, usage text, and JSON mode fields.
-- All commands should eventually support stable `--format json`.
-- No command should imply execution unless it performs execution.
-
-Notes from this audit:
-
-- Current top-level usage banner already uses `shardloom` and is aligned with this requirement.
-- Command family size has grown enough that centralized registry generation is now a high-value cleanup candidate, but should land as a targeted follow-up PR rather than in this inventory PR.
-
-### R3.2 audit result
-
-- Usage/help banner status: user-facing usage remains `shardloom`; no `shardloom-cli` binary-facing drift identified.
-- Small text fixes made: none required for the top-level usage string in this pass.
-- Future registry cleanup candidates: centralizing command names, usage/help text, and JSON mode field ownership in a command registry/generated-help follow-up.
-- Command families that should remain behavior-distinguished: `*-plan`, `*-probe`, `*-write`, and explicitly-scoped `*-execute` commands.
-- This PR did not implement a command registry.
-
-Do not implement command registry in this PR.
-
-## P2 — Diagnostics normalization
-
-Backlog items:
-
-- Remaining user-visible parse/argument failures should route through stable diagnostic codes where feasible.
-- Avoid vague string-only errors in CLI outputs.
-- Preserve `fallback_execution_allowed=false`.
-- Diagnostics should distinguish invalid input, unsupported feature, configuration, planning, execution, object-store, materialization, and no-fallback policy.
-- Future report schemas from RFC 0012 should be implemented incrementally.
-
-Do not refactor diagnostics in this PR.
-
-### R3.3 audit result
-
-- diagnostics normalization backlog document added
-- broad migration deferred
-- next recommended diagnostics PRs:
-  - R3.3a CLI missing/unknown argument diagnostic helpers (**complete**)
-  - R3.3b unknown signal diagnostic normalization (**complete**)
-  - R3.3c output envelope command-status derivation audit (**complete**)
-
-## P3 — Terminology consolidation
-
-Audit of overlapping concepts and planned posture:
-
-- `MaterializationPolicy` — **keep**.
-  - Reason: planner/user intent at encoded execution layer is distinct from sink/runtime requirements.
-- `MaterializationRequirement` — **keep**.
-  - Reason: sink/output contract requirement, not equivalent to planner intent.
-- `MaterializationBoundary` — **keep**.
-  - Reason: runtime/streaming boundary point; separate concern from intent and requirement.
-- `ExecutionState` — **keep**.
-  - Reason: canonical execution status vocabulary for reports/diagnostics.
-- `DataWorkLevel` — **needs mapping helper**.
-  - Reason: work-ranking concept should map consistently into `ExecutionState` without collapsing layers.
-- `DatasetFormat` — **keep**.
-  - Reason: input/reference identity differs from output targeting.
-- `OutputTargetKind` — **keep**.
-  - Reason: output contract target should remain separate from input format classification.
-- `VortexOutputFidelity` — **needs mapping helper**.
-  - Reason: adapter-local fidelity should map predictably into canonical fidelity.
-- `FidelityLevel` — **keep**.
-  - Reason: cross-layer canonical fidelity vocabulary.
-- `ResourceBudget` — **keep**.
-  - Reason: task/runtime-level budget concept distinct from memory-pool policy.
-- `MemoryBudget` — **keep**.
-  - Reason: memory/spill/OOM budgeting layer.
-- `BoundedMemoryPolicy` — **keep**.
-  - Reason: streaming/runtime boundedness policy should remain explicit.
-- `RuntimePlanSkeleton` — **keep**.
-  - Reason: runtime planning contract root for execution-facing surfaces.
-- `StreamingPlanSkeleton` — **consolidate later**.
-  - Reason: keep separate now, but review for field harmonization with runtime/scan plan skeletons.
-- `ScanPlanSkeleton` — **consolidate later**.
-  - Reason: keep separate now, but review for shared plan/report field helpers.
-
-Do not rename public types in this PR.
-
-### R3.4 audit result
-
-- terminology consolidation backlog document added
-- public type renames deferred
-- mapping-helper approach confirmed
-- next recommended cleanup:
-  - R3.5 feature-footprint/doctor centralization plan
-
-## P4 — Feature-footprint/doctor centralization
-
-Backlog items:
-
-- Current feature posture is scattered across capability docs, Vortex feature gates, adapter readiness, output fields, and doctor/capabilities.
-- A future `FeatureFootprintReport` should centralize:
-  - compiled features
-  - enabled Vortex gates
-  - upstream dependency status
-  - object-store/write/spill gates
-  - fallback-engine absence
-  - external baseline availability
-- Doctor/capabilities should eventually expose the same normalized fields.
-
-Do not implement `FeatureFootprintReport` in this PR.
-
-### R3.5 audit result
-
-- feature-footprint/doctor centralization plan document added (**complete**)
-- R3.5a feature-footprint report core contract (**current**)
-- doctor/capabilities behavior unchanged
-- audit queue produced concrete follow-ups while keeping future candidates listed
-- next recommended step:
-  - R3.5d no-fallback dependency invariant tests (planned), or
-  - R4 resume CG implementation if the user explicitly chooses
-
-
-## P5 — Cross-crate invariant tests
-
-High-priority future invariant tests:
-
-- No fallback engines in dependency graph.
-- Translation fidelity ↔ Vortex fidelity mapping consistency.
-- CLI command list/help parity.
-- JSON field stability for encoded-read boundary/fixture/metadata probe.
-- Plan-only/no-side-effect invariants across scan/runtime/Vortex commands.
-- Placeholder payload artifacts never satisfy real payload write gate.
-- Systems-learning references do not become dependencies.
-
-Do not add broad new tests in this PR; keep this as backlog inventory.
-
-### R3.5d invariant result
-
-- no-fallback dependency invariant tests added
-- forbidden package names checked in manifests/lockfile
-- docs/conceptual references excluded from dependency scan
-- next possible step:
-  - R4 resume CG implementation, or
-  - R3.5b/R3.5c if user wants doctor/capability alignment before CG
-
-## P6 — Future refactor candidates
-
-Candidates (deferred until targeted follow-up PRs):
-
-- Command registry / generated help.
-- Diagnostic code constants for all CLI errors.
-- Centralized report field helpers.
-- Canonical feature footprint report.
-- Traceability matrix validator.
-- RFC acceptance checker.
-- Systems-learning contract implementation tracker.
-- Capability certification sequencing tracker for CG-20.
-
-
-### R3 backlog cleanup status
-
-- R3.1 complete
-- R3.2 complete
-- R3.3 complete
-- R3.3a complete
-- R3.3b complete
-- R3.3c complete
-- R3.4 complete
-- R3.5 complete
-- R3.5a complete
-- R3.5d complete
-
-
-## R3 cleanup closeout status
-
-- R3.1 complete
-- R3.2 complete
-- R3.3 complete
-- R3.3a complete
-- R3.3b complete
-- R3.3c complete
-- R3.4 complete
-- R3.5 complete
-- R3.5a complete
-- R3.5d complete
-- R4/CG-1.2d current
+- Do not rename public commands as part of cleanup unless the phase plan explicitly calls for it.
+- Do not add runtime behavior from this backlog alone.
+- Do not add dependencies from this backlog alone.
+- Do not infer CG completion from cleanup-only work.
+- Do not introduce fallback execution.

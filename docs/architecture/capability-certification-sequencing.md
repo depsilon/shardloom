@@ -6,6 +6,8 @@ This document turns CG-20 from a broad capability RFC into a batchable implement
 
 CG-20 is not permission to add SQL parsing, adapters, execution kernels, external dependencies, or fallback behavior in one pass. It is the certification structure that lets ShardLoom grow toward mature user capability while preserving Vortex-native, no-fallback execution.
 
+Active implementation status, active queue placement, and CG closeout decisions live in `docs/architecture/phased-execution-plan.md`. This document is the supporting sequencing ledger for CG-20 capability certification.
+
 ## Scope
 
 This sequencing covers:
@@ -384,16 +386,16 @@ Acceptance:
 
 Recommended order:
 
-1. Add core report contracts only. **Complete in R5.4.1.**
-2. Add side-effect-free capability report generation with empty/planned matrices. **Foundation report available in R5.4.1; CLI discovery remains next.**
-3. Add CLI capability discovery for report-only surfaces. **Complete in R5.4.2.**
-4. Add snapshot tests for generated empty/planned matrices. **Complete in R5.4.2a.**
-5. Sequence SQL frontend stages before parser/runtime work. **Complete in R5.4.3.**
-6. Sequence operator/function certification. **Complete in R5.4.4.**
-7. Sequence adapter certification. **Complete in R5.4.5.**
-8. Sequence semantic profile and migration reporting. **Complete in R5.4.6.**
-9. Sequence workload constitution, scorecards, and sufficiency evidence. **Complete in R5.4.7 through R5.4.9.**
-10. Harden user-surface certification for API, BI/server, observability, deployment, extension safety, and security/governance. **Complete in R5.4.10.**
-11. Add SQL/operator/function/adapter/API/observability/deployment coverage entries incrementally as real implementation appears.
+- [x] Add core report contracts only. Complete in R5.4.1.
+- [x] Add side-effect-free capability report generation with empty/planned matrices. Foundation report available in R5.4.1.
+- [x] Add CLI capability discovery for report-only surfaces. Complete in R5.4.2.
+- [x] Add snapshot tests for generated empty/planned matrices. Complete in R5.4.2a.
+- [x] Sequence SQL frontend stages before parser/runtime work. Complete in R5.4.3.
+- [x] Sequence operator/function certification. Complete in R5.4.4.
+- [x] Sequence adapter certification. Complete in R5.4.5.
+- [x] Sequence semantic profile and migration reporting. Complete in R5.4.6.
+- [x] Sequence workload constitution, scorecards, and sufficiency evidence. Complete in R5.4.7 through R5.4.9.
+- [x] Harden user-surface certification for API, BI/server, observability, deployment, extension safety, and security/governance. Complete in R5.4.10.
+- [ ] Add SQL/operator/function/adapter/API/observability/deployment coverage entries incrementally as real implementation appears.
 
 Do not start with a parser, adapter runtime, or kernel implementation before the report contracts and capability discovery surfaces exist.

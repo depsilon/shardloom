@@ -9,26 +9,61 @@
 - External engines are baselines only, never fallback execution.
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
+## Architecture Document Ownership
+- This file is the only mutable source of truth for active status, active queue, completed phase ledger, deferred work, and CG closeout state.
+- Supporting architecture docs may contain rationale, inventories, traceability, and historical ledgers, but they must not introduce a second "current" queue.
+- If a supporting doc discovers new work, add the actionable checklist item here before implementation begins.
+- If a supporting doc records completed history, keep it clearly labeled as a completed ledger or historical note.
+
+Supporting docs:
+- `docs/architecture/rfc-phase-traceability.md`
+  - Role: maps phases and CG work to governing RFCs.
+  - Status rule: may record traceability history, but this file owns current work state.
+- `docs/architecture/capability-certification-sequencing.md`
+  - Role: CG-20 sequencing ledger and implementation-order reference.
+  - Status rule: phase-plan checklist owns active CG-20 work items.
+- `docs/architecture/vortex-public-api-inventory.md`
+  - Role: Vortex public API evidence and adapter-boundary inventory.
+  - Status rule: API findings inform CG-1/CG-2/CG-3 queue items here.
+- `docs/architecture/vortex-adapter-integration-plan.md`
+  - Role: Vortex adapter rationale, boundaries, and historical integration notes.
+  - Status rule: adapter work is actionable only after represented in this phase plan.
+- `docs/architecture/repo-cleanup-backlog.md`, `diagnostics-normalization-backlog.md`, `terminology-consolidation-backlog.md`, and `feature-footprint-doctor-plan.md`
+  - Role: cleanup inventories and completed cleanup ledgers.
+  - Status rule: future cleanup must be promoted into this file as a concrete checklist item.
+- `docs/architecture/incumbent-gap-opportunity-map.md`, `systems-learning-map.md`, `lakehouse-value-prop-compatibility.md`, `universal-input-contract.md`, `spill-reservation-lifecycle-integration.md`, and `canonical-terminology.md`
+  - Role: reference maps and constraints.
+  - Status rule: they guide design decisions but do not mark CG completion.
+
 ## Active Session Checklist
-- [x] Session label: CG-2.1e.18 local fixture scan source evidence reporting
-  - Current cleanup/implementation step: Make the feature-gated local fixture scan/count proof expose machine-readable scan target and readiness source evidence.
+- [x] Session label: R5.4.11 architecture document ownership cleanup
+  - Current cleanup/implementation step: Close remaining R5 architecture-file cleanup before returning to CG implementation.
   - Primary files:
-    - `shardloom-vortex/src/encoded_read_executor.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-    - `docs/architecture/vortex-adapter-integration-plan.md`
+    - `docs/architecture/repo-cleanup-backlog.md`
+    - `docs/architecture/diagnostics-normalization-backlog.md`
+    - `docs/architecture/terminology-consolidation-backlog.md`
+    - `docs/architecture/feature-footprint-doctor-plan.md`
+    - `docs/architecture/capability-certification-sequencing.md`
+    - `docs/architecture/incumbent-gap-opportunity-map.md`
+    - `docs/architecture/systems-learning-map.md`
+    - `docs/architecture/universal-input-contract.md`
+    - `docs/architecture/spill-reservation-lifecycle-integration.md`
+    - `docs/architecture/lakehouse-value-prop-compatibility.md`
     - `docs/architecture/vortex-public-api-inventory.md`
-  - Scope: Feature-gated local `.vortex` fixture scan/count reports the local scan target URI, readiness source URI, and source/target match flag alongside existing approval/readiness gates.
-  - Explicitly included: source-evidence fields on success, target mismatch, object-store block, and approval-blocked reports.
-  - Explicitly not included: General scan API approval, encoded predicate evaluation, filtered-count execution, projection execution, row reads, decode/materialization requests, Arrow conversion, object-store IO, writes, spill IO, external baseline execution, fallback execution, benchmarks, SQL/API/adapter expansion, or superiority claims.
+    - `docs/architecture/vortex-adapter-integration-plan.md`
+    - `docs/architecture/canonical-terminology.md`
+  - Scope: Make `phased-execution-plan.md` the explicit active status source, convert cleanup/sequence docs to checklist ledgers where applicable, and keep conceptual/reference docs as structured maps rather than competing current-status plans.
+  - Explicitly included: architecture doc ownership rules, R5 closeout entry, supporting-doc role clarification, stale current-status removal, docs hygiene scans.
+  - Explicitly not included: Runtime behavior, Vortex IO expansion, SQL parser/runtime, adapter implementation, operator/function kernels, dependencies, object-store IO, writes, spill execution, external baseline execution, fallback execution, benchmarks, or CG closeout changes.
   - Validation required:
     - `cargo fmt --all -- --check`
-    - `cargo test -p shardloom-vortex --features vortex-encoded-read-spike`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: The checked-in local Vortex fixture scan/count proof now reports exact scan-target/readiness-source evidence while preserving approval and source-consistency gates. Blocked approval and target-mismatch reports return before scan, while approved matching local fixture reports count scanned Vortex arrays without row reads, Arrow conversion, writes, object-store IO, spill IO, or fallback execution.
+  - Completion notes: Architecture docs now identify phase-plan ownership for active status and avoid treating reference maps as CG completion evidence.
 
-## Current Queue
+## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
   - Why: Keep CG-19/CG-20 canonical across RFCs, phase docs, agent instructions, and Vortex planning docs before additional queue movement.
   - Files:
@@ -242,7 +277,37 @@
   - Blockers:
     - None known.
 
-## Cleanup / Refactor Queue
+- [x] Follow-up: R5.4.11 architecture document ownership cleanup
+  - Why: Close out remaining R5 planning cleanup before returning to CG implementation; the phase plan must be the definitive status source while companion architecture docs remain useful without competing active queues.
+  - Files:
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/repo-cleanup-backlog.md`
+    - `docs/architecture/diagnostics-normalization-backlog.md`
+    - `docs/architecture/terminology-consolidation-backlog.md`
+    - `docs/architecture/feature-footprint-doctor-plan.md`
+    - `docs/architecture/capability-certification-sequencing.md`
+    - `docs/architecture/incumbent-gap-opportunity-map.md`
+    - `docs/architecture/systems-learning-map.md`
+    - `docs/architecture/universal-input-contract.md`
+    - `docs/architecture/spill-reservation-lifecycle-integration.md`
+    - `docs/architecture/lakehouse-value-prop-compatibility.md`
+    - `docs/architecture/vortex-public-api-inventory.md`
+    - `docs/architecture/vortex-adapter-integration-plan.md`
+    - `docs/architecture/canonical-terminology.md`
+  - Acceptance:
+    - `phased-execution-plan.md` explicitly owns active status, active queue, completed ledger, deferred work, and CG closeout state.
+    - Cleanup/sequence docs use checklist or completed-ledger structure only where status tracking is meaningful.
+    - Conceptual/reference docs use structured maps and guardrails, not misleading completion checklists.
+    - Companion docs say they do not authorize runtime behavior or mark CG completion.
+    - No runtime behavior, dependency, parser, adapter, kernel, IO, benchmark, external-probing, or fallback behavior changes.
+  - Local validation status:
+    - docs hygiene scans passed for stale current-status wording, hidden/bidi controls, and `git diff --check`
+    - full Rust validation passed with toolchain `1.91.1`
+  - Blockers:
+    - None known.
+
+## Cleanup / Refactor Ledger
 - [x] R0 Roadmap/docs synchronization
 - [x] R1 Systems learning map
 - [x] R2 Native contract vocabulary amendments
@@ -332,6 +397,12 @@
   - Acceptance: API/client/server maturity, observability certification, deployment readiness, extension safety, security/governance controls, capability discovery statuses, scorecard dimensions, and dossier evidence are field-level RFC contracts.
   - Local validation status:
     - docs hygiene scans passed for duplicate headings, hidden/bidi controls, claim-language review, and `git diff --check`
+    - full Rust validation passed with toolchain `1.91.1`
+- [x] R5.4.11 Architecture document ownership cleanup
+  - Why: close remaining R5 architecture-plan cleanup before more CG implementation.
+  - Acceptance: phase plan owns status and queue; companion architecture docs are structured as reference maps, inventories, completed ledgers, or backlog checklists according to their purpose.
+  - Local validation status:
+    - docs hygiene scans passed for stale current-status wording, hidden/bidi controls, and `git diff --check`
     - full Rust validation passed with toolchain `1.91.1`
 
 ## Implementation Phase Queue

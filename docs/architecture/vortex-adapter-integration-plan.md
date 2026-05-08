@@ -4,6 +4,10 @@
 
 ShardLoom will integrate Vortex through a narrow adapter boundary so core crates stay ShardLoom-domain-first while Vortex-specific integration remains isolated.
 
+Active phase status, active queue placement, and CG closeout decisions live in `docs/architecture/phased-execution-plan.md`. This document is the Vortex adapter boundary and rationale ledger; it does not authorize new IO or execution behavior by itself.
+
+Status words in historical sections below describe evidence recorded at the time of the original phase note. They are not active queue state and do not override `phased-execution-plan.md`.
+
 ## Adapter principles
 
 - Vortex-specific upstream API usage stays in `shardloom-vortex`.
@@ -176,7 +180,7 @@ Actual execution remains out of scope in this phase.
 
 ## Metadata-only execution spike contract
 
-The current Vortex execution spike is contract-only.
+The recorded Vortex execution spike is contract-only.
 
 It validates the full Vortex planning/readiness/dry-run chain (`vortex-input-plan` -> `vortex-read-plan` -> `vortex-task-graph` -> `vortex-execution-readiness` -> `vortex-dry-run`) while remaining side-effect free.
 
@@ -307,7 +311,7 @@ The bounded local loop consumes metadata-only local execution results plus resou
 
 ## Local engine CLI/API surface
 - `vortex-run` wraps query primitives, local execution, bounded execution, `DecisionTrace`, and `WorkAvoidedReport`.
-- It is currently metadata/no-op/deferred only.
+- It is recorded as metadata/no-op/deferred only.
 - It does not execute encoded reads, scan rows, decode, materialize, write, object-store IO, spill IO, or fallback execution.
 
 ## Local engine diagnostic propagation
@@ -393,7 +397,7 @@ No spill data movement is implemented in this phase.
 - It does not perform object-store IO.
 ## Phase 12A.3a update
 - Phase 12A.2c.2 complete.
-- Phase 12A.3a current: staged manifest draft core contract (report-only, no filesystem).
+- Phase 12A.3a recorded-active: staged manifest draft core contract (report-only, no filesystem).
 - Phase 12A.3b planned: feature-gated local staged manifest draft file.
 - Phase 12A.3c planned: CLI/docs integration.
 - Actual output payload and file writes remain deferred.
@@ -730,7 +734,7 @@ The output payload artifact remains a local placeholder contract artifact, not a
 
 ## CG-2.0 query primitive boundary update
 - CG-1.2d.9 clears the local fixture metadata/footer invocation blocker for the feature-gated caller-session path.
-- CG-2.0 is current and adds a report-only, feature-gated `Vortex` query primitive readiness boundary for count, filtered count, projection, and predicate/filter primitives.
+- Historical evidence: CG-2.0 added a report-only, feature-gated `Vortex` query primitive readiness boundary for count, filtered count, projection, and predicate/filter primitives.
 - This boundary does not execute query primitives and remains side-effect-free.
 - CG-2.1c clears the metadata-footer `CountAll` blocker; CG-2.1d clears the encoded-data count candidate blocker while actual encoded execution remains deferred.
 - No scan/read-start, encoded data reads, row reads, decode/materialization, `Arrow` conversion, object-store `IO`, writes, or fallback execution are introduced.
@@ -750,9 +754,9 @@ The output payload artifact remains a local placeholder contract artifact, not a
 - CG-2.1+ actual non-metadata count/query execution remains blocked until encoded-data readiness exists for non-metadata candidates.
 
 
-## CG-1.3 invariant closeout note
+## CG-1.3 invariant evidence note
 
-`ShardLoom` closes CG-1.3 for current contract/report surfaces only. The closeout proves no row reads, no array decode, no value materialization, no `Arrow` conversion, and fallback disabled across encoded-read/query-readiness reports.
+`ShardLoom` records CG-1.3 evidence for recorded contract/report surfaces only. The evidence note proves no row reads, no array decode, no value materialization, no `Arrow` conversion, and fallback disabled across encoded-read/query-readiness reports.
 
 CG-1.2d.9 provides the repository-local fixture path for metadata/footer invocation through the caller-session feature-gated helper.
 
@@ -763,7 +767,7 @@ CG-2.1c metadata-footer `CountAll` execution is wired; non-metadata execution re
 
 - CG-1.3 invariant contract tests are complete.
 - CG-2.0 / CG-2.0b / CG-2.0c / CG-2.0c.1 are complete.
-- CG-2.1 is current with a report-only `VortexCountReadinessRequest`/`VortexCountReadinessReport` planning contract.
+- Historical evidence: CG-2.1 added a report-only `VortexCountReadinessRequest`/`VortexCountReadinessReport` planning contract.
 - Count planning distinguishes metadata-footer candidates from encoded-data-path candidates.
 - Metadata-footer `CountAll` execution is wired through CG-2.1c; encoded-data count candidates are approved/deferred through CG-2.1d while actual encoded execution remains deferred.
 - No scan/read-start, encoded-data reads, row reads, decode, materialization, `Arrow` conversion, object-store IO, writes, or fallback execution are introduced.
@@ -793,7 +797,7 @@ CG-2.1c metadata-footer `CountAll` execution is wired; non-metadata execution re
 
 - Encoded-read probe output now gates encoded-data count readiness before any encoded count execution can be considered.
 - `VortexEncodedReadProbeReport` blockers are translated into count-readiness blockers so scan/data-read/decode/materialization/Arrow/object-store/write risks remain visible at the count primitive boundary.
-- Current upstream public data-access paths remain blocked for actual encoded `CountAll` because they require scan/data-read or array-stream/evaluation surfaces that are not yet approved as no-decode/no-materialization safe.
+- Recorded upstream public data-access paths remain blocked for actual encoded `CountAll` because they require scan/data-read or array-stream/evaluation surfaces that are not yet approved as no-decode/no-materialization safe.
 - This is still report/API-gate scope only: no scan/read-start invocation, encoded-data traversal, row read, decode/materialization, `Arrow` conversion, object-store IO, write, or fallback execution is introduced.
 
 ## CG-2.1e.2 exact Vortex data-access API classification
@@ -828,21 +832,21 @@ CG-2.1c metadata-footer `CountAll` execution is wired; non-metadata execution re
 
 - Adapter work now has an explicit encoded-count approval report between count readiness and future execution work.
 - `VortexEncodedCountDataPathApprovalReport` confirms that metadata count evidence does not approve encoded-data traversal by itself.
-- Current adapter/API state remains blocked for encoded-data `CountAll`: no execution-usable data path is present, and scan/stream/layout-evaluation/data-source APIs remain blocked or deferred.
+- Recorded adapter/API state remains blocked for encoded-data `CountAll`: no execution-usable data path is present, and scan/stream/layout-evaluation/data-source APIs remain blocked or deferred.
 - Future adapter/source execution work must make this report approved before introducing real encoded-data count traversal.
 - This remains report-only and does not call scan/read-start APIs, array stream/evaluation APIs, traverse encoded data, read rows, decode/materialize, convert to `Arrow`, perform object-store IO, write, or attempt fallback execution.
 
 ## CG-2.1e.7 encoded-count approval CLI surfacing
 
 - The adapter approval boundary is now visible through `shardloom vortex-encoded-count-approval-plan`.
-- Adapter/source follow-up work can use the CLI output to verify whether current blockers are count readiness, public API boundary, missing execution-usable data paths, or fallback policy.
+- Adapter/source follow-up work can use the CLI output to verify whether recorded blockers are count readiness, public API boundary, missing execution-usable data paths, or fallback policy.
 - The command remains deterministic and report-only; it does not make adapter execution broader.
 - This remains report-only and does not call scan/read-start APIs, array stream/evaluation APIs, traverse encoded data, read rows, decode/materialize, convert to `Arrow`, perform object-store IO, write, or attempt fallback execution.
 
 ## CG-2.1e.8 encoded-count approval local guard
 
 - Local encoded-count planning now has an approval-report guard before future adapter/source execution can advance.
-- Current adapter/API blockers are rejected by the guard, keeping scan/stream/layout-evaluation/data-source work out of the execution path.
+- Recorded adapter/API blockers are rejected by the guard, keeping scan/stream/layout-evaluation/data-source work out of the execution path.
 - A future approved adapter boundary can only return deferred `NeedsEncodedRead` until actual encoded-data count execution is separately approved.
 - This remains report-only and does not call scan/read-start APIs, array stream/evaluation APIs, traverse encoded data, read rows, decode/materialize, convert to `Arrow`, perform object-store IO, write, or attempt fallback execution.
 
@@ -857,7 +861,7 @@ CG-2.1c metadata-footer `CountAll` execution is wired; non-metadata execution re
 
 - Adapter planning now has a report-only `VortexLayoutReaderDriverApprovalReport` gate before any future row-count-only layout reader path can be considered.
 - The gate requires local fixture scope, caller session, explicit runtime-driver permission, layout-row-count-only intent, and explicit no-scan/no-evaluation/no-read/no-decode/no-materialization/no-Arrow/no-object-store/no-write/no-fallback signals.
-- Current adapter work remains blocked by default because runtime-driver permission is not implicit from the Vortex public API inventory.
+- Recorded adapter work remains blocked by default because runtime-driver permission is not implicit from the Vortex public API inventory.
 - Even approved reports perform no construction, driver start, scan/evaluation, encoded-data traversal, row read, decode/materialization, `Arrow` conversion, object-store IO, write, or fallback execution.
 - This is a planning contract only and does not make any adapter execute counts through `LayoutReader`.
 
@@ -907,7 +911,7 @@ CG-2.1c metadata-footer `CountAll` execution is wired; non-metadata execution re
 - Encoded-predicate filtered-count execution is not implemented.
 - No scan/read-start, predicate evaluation, encoded-data read, row read, decode, materialization, `Arrow` conversion, object-store IO, writes, or fallback execution are added.
 - CG-2.2b CLI integration is complete via `shardloom vortex-filtered-count-readiness-plan <candidate_source> <dataset_uri> [flags] [--format text|json]`.
-- Keep CG-1 through CG-20 visible and current.
+- Keep CG-1 through CG-20 visible; active status remains in `phased-execution-plan.md`.
 - The command does not execute filtered count, does not evaluate predicates, does not call scan/read-start APIs, and performs no metadata/footer open, encoded-data read, row read, decode/materialization, `Arrow` conversion, object-store IO, writes, or fallback execution.
 - Encoded-predicate filtered-count execution remains blocked until a real encoded predicate path exists.
 
@@ -934,7 +938,7 @@ CG-2.1c metadata-footer `CountAll` execution is wired; non-metadata execution re
   - metadata/schema projection remains explicit and requires `ProjectionSupported` plus `MetadataFooterReady`;
   - encoded-column projection candidates require `EncodedDataPathReady`.
 - The contract remains report-only: no scan/read-start, no projection application, no encoded-data reads, no row reads, no decode, no materialization, no `Arrow` conversion, no object-store `IO`, no writes, and no fallback execution.
-- Keep CG-1 through CG-20 visible and current.
+- Keep CG-1 through CG-20 visible; active status remains in `phased-execution-plan.md`.
 
 ## CG-2.3b projection readiness CLI integration
 

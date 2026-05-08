@@ -1,148 +1,98 @@
-# Spill reservation lifecycle integration checklist
+# Spill Reservation Lifecycle Integration
 
-This document records the current planning-phase integration points for spill reservation lifecycle behavior.
+## Purpose
 
-## Integrated surfaces
+This document records memory/spill/recovery integration points that support future bounded execution. Active phase status lives in `docs/architecture/phased-execution-plan.md`; this document is a supporting checklist and completed ledger.
 
-- Spill reservation types are modeled through `MemoryReservation`, `MemoryReservationStatus`, and `MemoryPoolPlan` in `shardloom-exec`.
-- Spill lifecycle integration is modeled through `SpillLifecycleRequest` and `plan_spill_lifecycle`.
-- Memory integration is modeled through `MemoryBudget`, `OomSafetyPlan`, and memory pressure decisions.
-- Vortex memory bridge integration is modeled through `plan_vortex_memory_safety` and `VortexMemoryBridgeReport`.
-- Bounded execution integration is modeled through bounded Vortex local execution planning surfaces.
-- CLI integration is exposed via `spill-lifecycle` and `vortex-memory-plan` with explicit machine-readable integration fields.
+It does not authorize broad query-data spill, object-store spill, output dataset writes, retry execution, cancellation execution, or fallback execution.
 
-## Feature behavior
+## Integrated Surface Map
+
+- Memory reservation model
+  - `MemoryReservation`
+  - `MemoryReservationStatus`
+  - `MemoryPoolPlan`
+- Spill lifecycle planning
+  - `SpillLifecycleRequest`
+  - `plan_spill_lifecycle`
+- Memory and OOM planning
+  - `MemoryBudget`
+  - `OomSafetyPlan`
+  - memory pressure decisions
+- Vortex memory bridge planning
+  - `plan_vortex_memory_safety`
+  - `VortexMemoryBridgeReport`
+- Bounded local execution planning surfaces.
+- CLI integration through `spill-lifecycle` and `vortex-memory-plan`.
+
+## Behavior Map
 
 - Planning remains side-effect-free for memory/spill planning surfaces.
 - Unsupported behavior returns explicit deterministic diagnostics.
 - Fallback execution remains disabled by policy.
+- Synthetic spill payload roundtrip exists behind feature gating.
+- Exact synthetic payload cleanup exists behind feature gating.
+- Retry and cancellation gates exist as planning/report surfaces.
+- Real query-data spill remains deferred until authorized in `phased-execution-plan.md`.
+- Object-store spill remains deferred until authorized in `phased-execution-plan.md`.
+- Retry execution remains deferred until authorized in `phased-execution-plan.md`.
+- Cancellation execution remains deferred until authorized in `phased-execution-plan.md`.
+- Output commit cleanup remains deferred until authorized in `phased-execution-plan.md`.
 
-## Spill payload roundtrip CLI
+## Required Report Fields
 
-- `spill-payload-roundtrip` exposes the synthetic local payload roundtrip API.
-- Default build is feature-disabled/report-only when `spill-payload-fs` is not enabled.
-- Feature build under `spill-payload-fs` writes and reads only synthetic payloads.
-- Optional cleanup removes only the exact payload file created for the request.
-- No `Vortex`/query data spill is performed.
-- No object-store IO is performed.
-- No output dataset writes are performed.
-- No fallback execution is allowed.
+Future spill and bounded-execution reports should preserve:
 
-## All-phase epic retro
+- `reservation_required`
+- `reservation_status`
+- `payload_write_allowed`
+- `payload_written`
+- `payload_read`
+- `cleanup_performed`
+- `spill_data_is_synthetic`
+- `query_spill_data_written`
+- `fallback_execution_allowed=false`
 
-- Synthetic spill payload support is now plan/write/read/roundtrip/CLI complete.
-- It is still synthetic only.
-- It is not permission to spill Vortex/query data.
-- Phase 11A.3b must connect bounded execution to spill payload support through explicit reservation and feature gates.
-- Required next machine-readable fields:
-  - `reservation_required`
-  - `reservation_status`
-  - `payload_write_allowed`
-  - `payload_written`
-  - `payload_read`
-  - `cleanup_performed`
-  - `spill_data_is_synthetic`
-  - `fallback_execution_allowed=false`
+## Completed Ledger
+
+- [x] Synthetic spill payload planning/write/read/roundtrip/CLI.
+  - Synthetic payload support is not query or `Vortex` data spill.
+  - Default build remains feature-disabled/report-only when `spill-payload-fs` is not enabled.
+  - Feature build writes and reads only synthetic payloads.
+- [x] Bounded execution spill payload integration.
+  - `VortexBoundedSpillIntegrationReport` can model synthetic payload availability.
+  - Nested blocked/unsupported states cannot be advertised as available.
+  - Existing reservation blockers must not be downgraded.
+- [x] Recovery context for bounded spill integration.
+  - Task attempt and synthetic artifact cleanup context can be planned.
+  - Unknown artifacts block cleanup/retry planning.
+- [x] Exact synthetic payload cleanup execution.
+  - Cleanup is limited to one exact known synthetic payload file.
+  - Directories/workspaces are not deleted.
+  - Unknown artifacts block deterministically.
+- [x] Retry gate report and CLI integration.
+  - `retry-gate-plan` is planning/report-only.
+  - Cleanup completion derives only from actual cleanup execution state.
+- [x] Cancellation gate report and CLI integration.
+  - `cancellation-gate-plan` is planning/report-only.
+  - Cleanup completion derives only from actual cleanup execution state.
+- [x] Phase 11 recovery closeout.
+  - Synthetic spill path is complete through CLI and cleanup.
+  - Bounded spill integration exists.
+  - Retry/cancellation gates exist.
 
 ## Validation
 
-Run:
+For implementation changes touching this area, run:
 
 - `cargo fmt --all -- --check`
 - `cargo clippy --workspace --all-targets -- -D warnings`
 - `cargo test --workspace --all-targets`
 
+## Guardrails
 
-## Bounded execution spill payload integration
-
-- Bounded execution can now plan synthetic spill payload integration.
-- Synthetic payload support is not query/`Vortex` data spill.
-- Machine-readable fields include `reservation_required`, `reservation_status`, `payload_write_allowed`, `payload_written`, `payload_read`, `cleanup_performed`, `spill_data_is_synthetic`, `query_spill_data_written=false`, and `fallback_execution_allowed=false`.
-- Phase 11A.3b.1 fixes status propagation: nested `SpillPayloadRoundTripReport` states (feature-disabled, blocked, unsupported, or verification/error states) cannot be advertised as `PayloadRoundTripAvailable`.
-- Existing blockers from reservation planning must not be downgraded to `PayloadPlanReady`.
-- Synthetic spill support remains distinct from query/`Vortex` data spill.
-
-
-## Recovery context for bounded spill integration
-
-- Bounded spill integration can now produce recovery planning context for task attempts and synthetic artifacts.
-- Synthetic payload cleanup is planned only; cleanup is not executed in this phase.
-- Unknown artifacts block cleanup/retry planning until they are explicitly classified.
-- No object-store IO, output dataset write, or fallback execution behavior is introduced.
-
-## Retry and cancellation planning
-
-- Retry/cancellation behavior is planning-only in this phase.
-- Retry is blocked for unknown artifacts and external effects.
-- Retry can be allowed after cleanup when cleanup requirements are known.
-- Cancellation can be planned without executing cancellation.
-- No cleanup, retry, or cancellation execution is performed yet.
-
-## Exact synthetic payload cleanup execution
-
-- Cleanup execution is limited to exact known synthetic spill payload files.
-- Cleanup uses `SpillPayloadFsRef` to derive a single exact local target file path.
-- Unknown artifacts block cleanup deterministically.
-- Directories/workspaces are not deleted.
-- Object-store cleanup is unsupported.
-- Output commit cleanup is not implemented.
-- Retry/cancellation execution remains disabled.
-- No fallback execution is introduced.
-
-## Synthetic payload cleanup CLI
-
-- `cleanup-synthetic-payload` exposes exact synthetic payload cleanup execution.
-- Cleanup is keyed by `SpillPayloadFsRef` and only targets one validated synthetic payload file.
-- Default build remains feature-disabled/report-only for cleanup execution when `spill-payload-fs` is not enabled.
-- Feature build under `spill-payload-fs` deletes only the exact synthetic payload file.
-- Unknown artifacts block cleanup deterministically.
-- Directories/workspaces are not deleted.
-- Object-store cleanup is unsupported.
-- Output commit cleanup is not implemented.
-- Retry/cancellation execution remains disabled.
-- No fallback execution is introduced.
-
-## Retry gate report integration
-
-- Retry gate request construction can now derive gate signals from `ShardLoomRetryCancellationReport` and `ShardLoomCleanupExecutionReport`.
-- `CleanupCompleted` is only derived from actual cleanup execution state (`cleanup_executed() == true`), not from report presence alone.
-- Retry gate evaluation remains planning-only and does not execute retry, cleanup, or cancellation.
-
-## Cancellation gate report integration
-
-- Cancellation gate request construction can now derive gate signals from `ShardLoomRetryCancellationReport` and `ShardLoomCleanupExecutionReport`.
-- `CleanupCompleted` is only derived from actual cleanup execution state (`cleanup_executed() == true`), not from report presence alone.
-- Cancellation gate evaluation remains planning-only and does not execute cancellation.
-
-
-## Retry gate CLI
-
-- `retry-gate-plan` exposes the retry execution gate through explicit signal input and requires a `<signals>` argument.
-- Missing or whitespace-only `<signals>` is invalid input and returns a non-zero result.
-- The command is planning/report-only.
-- It does not execute retry.
-- It does not execute cleanup.
-- It does not execute cancellation.
-- It blocks retry when cleanup is required but incomplete, unknown artifacts exist, external effects are present, object-store/output recovery is required, or cancellation is requested.
-- No fallback execution is introduced.
-
-## Cancellation gate CLI
-
-- `cancellation-gate-plan` exposes the cancellation execution gate through explicit signal input.
-- It requires a `<signals>` argument.
-- It is planning/report-only.
-- It does not execute cancellation.
-- It does not execute retry.
-- It does not execute cleanup.
-- It blocks cancellation when cleanup is required but incomplete, unknown artifacts exist, external effects are present, object-store/output recovery is required, or retry is in progress.
-- No fallback execution is introduced.
-
-## Phase 11 recovery closeout
-
-- Synthetic spill payload path is complete through CLI and cleanup.
-- Bounded spill integration exists through `VortexBoundedSpillIntegrationReport`.
-- Retry/cancellation gates exist via `ShardLoomRetryExecutionGateReport` and `ShardLoomCancellationExecutionGateReport`.
-- Actual retry execution remains deferred.
-- Actual cancellation execution remains deferred.
-- Native output/write behavior remains Phase 12 work.
-- Synthetic spill support is not query/`Vortex` data spill.
+- Synthetic spill support is not query-data spill.
+- Do not perform object-store IO from these contracts.
+- Do not write output datasets from spill cleanup/recovery contracts.
+- Do not execute retry or cancellation until an explicit phase authorizes it.
+- Promote future implementation work into `phased-execution-plan.md` before changing behavior.
