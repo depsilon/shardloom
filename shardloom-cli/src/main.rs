@@ -90,6 +90,7 @@ use shardloom_vortex::{
     plan_vortex_staged_manifest_file, plan_vortex_write_intent, probe_vortex_encoded_read_metadata,
     probe_vortex_metadata_only, run_vortex_local_engine, setup_vortex_staged_workspace,
     size_vortex_runtime_task_graph, summarize_vortex_metadata_probe,
+    vortex_encoded_count_local_guard_discovery_report,
     vortex_encoded_read_executor_feature_enabled, vortex_encoded_read_public_api_boundary,
     vortex_encoded_read_spike_feature_enabled, vortex_file_io_feature_enabled,
     vortex_metadata_executor_feature_enabled, write_vortex_commit_marker,
@@ -1571,6 +1572,7 @@ fn append_operator_certification_fields(
         execution_profiles.fallback_allowed_count(),
     );
     append_metadata_physical_kernel_discovery_fields(fields);
+    append_encoded_count_local_guard_discovery_fields(fields);
 }
 
 fn append_metadata_physical_kernel_discovery_fields(fields: &mut Vec<(String, String)>) {
@@ -1619,6 +1621,95 @@ fn append_metadata_physical_kernel_discovery_fields(fields: &mut Vec<(String, St
         fields,
         "metadata_physical_kernel_fallback_execution_allowed",
         "false",
+    );
+}
+
+fn append_encoded_count_local_guard_discovery_fields(fields: &mut Vec<(String, String)>) {
+    let report = vortex_encoded_count_local_guard_discovery_report();
+    push_field(
+        fields,
+        "encoded_count_local_guard_schema_version",
+        report.schema_version,
+    );
+    push_field(fields, "encoded_count_local_guard_id", report.guard_id);
+    push_field(
+        fields,
+        "encoded_count_local_guard_accepted_approval_sources",
+        &report.accepted_approval_sources_text(),
+    );
+    push_field(
+        fields,
+        "encoded_count_local_guard_local_execution_status",
+        report.local_execution_status.as_str(),
+    );
+    push_field(
+        fields,
+        "encoded_count_local_guard_mode",
+        report.mode.as_str(),
+    );
+    push_field(
+        fields,
+        "encoded_count_local_guard_layout_row_count_path_accepted",
+        if report.layout_row_count_path_accepted {
+            "true"
+        } else {
+            "false"
+        },
+    );
+    push_field(
+        fields,
+        "encoded_count_local_guard_returns_count_result",
+        if report.returns_count_result {
+            "true"
+        } else {
+            "false"
+        },
+    );
+    push_field(
+        fields,
+        "encoded_count_local_guard_side_effect_free",
+        if report.is_side_effect_free() {
+            "true"
+        } else {
+            "false"
+        },
+    );
+    push_field(
+        fields,
+        "encoded_count_local_guard_data_read",
+        if report.data_read { "true" } else { "false" },
+    );
+    push_field(
+        fields,
+        "encoded_count_local_guard_data_decoded",
+        if report.data_decoded { "true" } else { "false" },
+    );
+    push_field(
+        fields,
+        "encoded_count_local_guard_data_materialized",
+        if report.data_materialized {
+            "true"
+        } else {
+            "false"
+        },
+    );
+    push_field(
+        fields,
+        "encoded_count_local_guard_runtime_execution",
+        if report.tasks_executed {
+            "true"
+        } else {
+            "false"
+        },
+    );
+    push_field(
+        fields,
+        "encoded_count_local_guard_fallback_execution_allowed",
+        if report.fallback_execution_allowed {
+            "true"
+        } else {
+            "false"
+        },
     );
 }
 
@@ -1756,8 +1847,9 @@ fn certification_text(
         CapabilityDiscoveryScope::Operators => {
             let physical_plan = PhysicalOperatorPlan::cg7_foundation();
             let execution_profiles = PhysicalOperatorExecutionProfileMatrix::cg7_foundation();
+            let encoded_count_local_guard = vortex_encoded_count_local_guard_discovery_report();
             format!(
-                "{}\noperator coverage families:\n{}\n{}\n{}",
+                "{}\noperator coverage families:\n{}\n{}\n{}\n{}",
                 certification_summary_header(report, scope),
                 report
                     .operator_coverage
@@ -1769,7 +1861,8 @@ fn certification_text(
                     .collect::<Vec<_>>()
                     .join("\n"),
                 physical_plan.to_human_text(),
-                execution_profiles.to_human_text()
+                execution_profiles.to_human_text(),
+                encoded_count_local_guard.to_human_text()
             )
         }
         CapabilityDiscoveryScope::Adapters => format!(

@@ -427,6 +427,13 @@ No fallback execution.
 - `shardloom vortex-encoded-count-approval-plan ... --layout-row-count-approved` now includes local execution status fields when approval is present, while preserving `data_read=false`.
 - This pass performs no actual encoded-data traversal, layout-reader construction, runtime-driver startup, scan/read-start invocation, row read, decode/materialization, Arrow conversion, object-store IO, write behavior, spill IO, external baseline invocation, or fallback execution.
 
+## CG-2.1e.14 encoded-count local guard capability discovery
+
+- Primary RFC linkage: RFC 0012 Diagnostics/Capabilities, RFC 0013 Streaming/Zero-Copy Boundary, RFC 0015 Correctness/testing, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
+- `VortexEncodedCountLocalGuardDiscoveryReport` records the static local guard contract for approved encoded-count paths without probing runtime inputs.
+- `shardloom capabilities operators --format json` emits accepted approval sources, deferred local execution status, plan-only mode, no count result, no data read, no decode/materialization, no runtime execution, and no fallback.
+- This pass performs no actual encoded-data traversal, layout-reader construction, runtime-driver startup, scan/read-start invocation, row read, decode/materialization, Arrow conversion, object-store IO, write behavior, spill IO, external baseline invocation, or fallback execution.
+
 ## CG-5.1 metadata query primitive correctness fixtures
 
 - Primary RFC linkage: RFC 0015 Correctness/Semantics/Differential Testing, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
