@@ -271,6 +271,147 @@ pub struct CliApiJsonProtocolReport {
     pub diagnostics: Vec<Diagnostic>,
 }
 
+/// Report-only CG-11 contract for the first thin Python wrapper boundary.
+///
+/// The foundation wrapper is a future client over the CLI JSON protocol, not a
+/// native Python binding, package publication, `DataFrame` implementation, UDF
+/// runtime, or hidden fallback execution path.
+#[allow(clippy::struct_excessive_bools)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PythonWrapperFoundationReport {
+    pub schema_version: &'static str,
+    pub wrapper_id: &'static str,
+    pub wrapper_status: &'static str,
+    pub transport_protocol_id: &'static str,
+    pub output_envelope_schema_version: &'static str,
+    pub invocation_model: &'static str,
+    pub initial_command_scope: Vec<&'static str>,
+    pub required_client_behaviors: Vec<&'static str>,
+    pub package_status: &'static str,
+    pub native_binding_status: &'static str,
+    pub pyo3_maturin_allowed: bool,
+    pub python_package_created: bool,
+    pub native_extension_required: bool,
+    pub dataframe_api_implemented: bool,
+    pub notebook_api_implemented: bool,
+    pub python_udf_runtime_implemented: bool,
+    pub materialization_boundary_reporting_required: bool,
+    pub diagnostics_passthrough_required: bool,
+    pub side_effect_free: bool,
+    pub filesystem_probe: bool,
+    pub network_probe: bool,
+    pub catalog_probe: bool,
+    pub adapter_probe: bool,
+    pub parser_executed: bool,
+    pub runtime_execution: bool,
+    pub write_io: bool,
+    pub external_publish: bool,
+    pub fallback_execution_allowed: bool,
+    pub fallback_attempted: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl PythonWrapperFoundationReport {
+    /// Builds the static Python wrapper foundation report without creating
+    /// Python files, invoking Python, probing the host, or executing runtime work.
+    #[must_use]
+    pub fn contract_only() -> Self {
+        Self {
+            schema_version: "shardloom.python_wrapper_foundation.v1",
+            wrapper_id: "shardloom_python_cli_json_client",
+            wrapper_status: "planned_foundation",
+            transport_protocol_id: "shardloom.cli_json.v1",
+            output_envelope_schema_version: "shardloom.output.v1",
+            invocation_model: "subprocess_cli_json",
+            initial_command_scope: vec![
+                "status",
+                "capabilities",
+                "api-compat-plan",
+                "python-wrapper-plan",
+            ],
+            required_client_behaviors: vec![
+                "invoke_shardloom_with_format_json",
+                "parse_output_envelope",
+                "preserve_diagnostics",
+                "preserve_fallback_status",
+                "surface_materialization_boundaries",
+                "do_not_retry_as_fallback_engine",
+            ],
+            package_status: "not_created",
+            native_binding_status: "not_created",
+            pyo3_maturin_allowed: false,
+            python_package_created: false,
+            native_extension_required: false,
+            dataframe_api_implemented: false,
+            notebook_api_implemented: false,
+            python_udf_runtime_implemented: false,
+            materialization_boundary_reporting_required: true,
+            diagnostics_passthrough_required: true,
+            side_effect_free: true,
+            filesystem_probe: false,
+            network_probe: false,
+            catalog_probe: false,
+            adapter_probe: false,
+            parser_executed: false,
+            runtime_execution: false,
+            write_io: false,
+            external_publish: false,
+            fallback_execution_allowed: false,
+            fallback_attempted: false,
+            diagnostics: Vec::new(),
+        }
+    }
+
+    #[must_use]
+    pub fn status(&self) -> CommandStatus {
+        if self.has_errors() {
+            CommandStatus::Error
+        } else {
+            CommandStatus::Success
+        }
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.python_package_created
+            || self.pyo3_maturin_allowed
+            || self.native_extension_required
+            || self.dataframe_api_implemented
+            || self.notebook_api_implemented
+            || self.python_udf_runtime_implemented
+            || self.runtime_execution
+            || self.write_io
+            || self.external_publish
+            || self.fallback_execution_allowed
+            || self.fallback_attempted
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "python wrapper foundation\nschema_version: {}\nwrapper_id: {}\nwrapper_status: {}\ntransport_protocol_id: {}\noutput_envelope_schema_version: {}\ninvocation_model: {}\ninitial command scope: {}\nrequired client behaviors: {}\npackage_status: {}\nnative_binding_status: {}\npyo3/maturin allowed: {}\npython package created: {}\nruntime execution: disabled\nwrite io: disabled\nfallback execution: disabled",
+            self.schema_version,
+            self.wrapper_id,
+            self.wrapper_status,
+            self.transport_protocol_id,
+            self.output_envelope_schema_version,
+            self.invocation_model,
+            self.initial_command_scope.join(", "),
+            self.required_client_behaviors.join(", "),
+            self.package_status,
+            self.native_binding_status,
+            self.pyo3_maturin_allowed,
+            self.python_package_created,
+        )
+    }
+}
+
 impl CliApiJsonProtocolReport {
     /// Builds the static protocol-foundation report without any probing.
     #[must_use]
@@ -718,5 +859,33 @@ mod tests {
         );
         assert!(!report.pyo3_maturin_allowed);
         assert!(!report.dataframe_api_implemented);
+    }
+
+    #[test]
+    fn python_wrapper_foundation_is_cli_json_only() {
+        let report = PythonWrapperFoundationReport::contract_only();
+        assert_eq!(report.transport_protocol_id, "shardloom.cli_json.v1");
+        assert_eq!(report.invocation_model, "subprocess_cli_json");
+        assert!(report.initial_command_scope.contains(&"api-compat-plan"));
+        assert!(
+            report
+                .required_client_behaviors
+                .contains(&"parse_output_envelope")
+        );
+        assert!(!report.python_package_created);
+        assert!(!report.pyo3_maturin_allowed);
+        assert!(!report.native_extension_required);
+        assert!(!report.has_errors());
+    }
+
+    #[test]
+    fn python_wrapper_foundation_defers_mature_python_surfaces() {
+        let report = PythonWrapperFoundationReport::contract_only();
+        assert!(!report.dataframe_api_implemented);
+        assert!(!report.notebook_api_implemented);
+        assert!(!report.python_udf_runtime_implemented);
+        assert!(!report.runtime_execution);
+        assert!(!report.write_io);
+        assert!(!report.fallback_execution_allowed);
     }
 }

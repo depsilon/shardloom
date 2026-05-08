@@ -20,13 +20,14 @@ use shardloom_core::{
     OperatorMemoryCertification, OutputEnvelope, OutputFormat, OutputTarget,
     PartitionEvolutionCompatibilityReport, PartitionField, PartitionSpec, PartitionTransform,
     PhysicalKernelRegistryPlan, PhysicalOperatorExecutionLevel,
-    PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorPlan, PredicateExpr, RedactionPolicy,
-    ReleasePlan, RuntimeObservabilityReport, SchemaDefinition, SchemaEvolutionCompatibilityReport,
-    SchemaEvolutionPolicy, SchemaField, SchemaId, SchemaVersion, SecurityPlan, SegmentChange,
-    SegmentChangeKind, SegmentId, SegmentLayout, SegmentStats, ShardLoomError, SnapshotId,
-    SnapshotRef, StatValue, TableCompatibilityPlan, TableCompatibilityReport, TableFormatKind,
-    TranslationPlan, UdfRuntimeKind, WriteIntent, evaluate_cdc_incremental_planning,
-    evaluate_compaction_planning, evaluate_delete_tombstone_compatibility, evaluate_layout_health,
+    PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorPlan, PredicateExpr,
+    PythonWrapperFoundationReport, RedactionPolicy, ReleasePlan, RuntimeObservabilityReport,
+    SchemaDefinition, SchemaEvolutionCompatibilityReport, SchemaEvolutionPolicy, SchemaField,
+    SchemaId, SchemaVersion, SecurityPlan, SegmentChange, SegmentChangeKind, SegmentId,
+    SegmentLayout, SegmentStats, ShardLoomError, SnapshotId, SnapshotRef, StatValue,
+    TableCompatibilityPlan, TableCompatibilityReport, TableFormatKind, TranslationPlan,
+    UdfRuntimeKind, WriteIntent, evaluate_cdc_incremental_planning, evaluate_compaction_planning,
+    evaluate_delete_tombstone_compatibility, evaluate_layout_health,
     evaluate_partition_evolution_compatibility, evaluate_schema_evolution_compatibility,
 };
 use shardloom_exec::{
@@ -176,7 +177,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|layout-health-plan|compaction-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|layout-health-plan|compaction-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -2821,6 +2822,103 @@ fn api_protocol_fields(report: &CliApiJsonProtocolReport) -> Vec<(String, String
         &mut fields,
         "dataframe_api_implemented",
         report.dataframe_api_implemented,
+    );
+    push_bool_field(&mut fields, "side_effect_free", report.side_effect_free);
+    push_bool_field(&mut fields, "filesystem_probe", report.filesystem_probe);
+    push_bool_field(&mut fields, "network_probe", report.network_probe);
+    push_bool_field(&mut fields, "catalog_probe", report.catalog_probe);
+    push_bool_field(&mut fields, "adapter_probe", report.adapter_probe);
+    push_bool_field(&mut fields, "parser_executed", report.parser_executed);
+    push_bool_field(&mut fields, "runtime_execution", report.runtime_execution);
+    push_bool_field(&mut fields, "write_io", report.write_io);
+    push_field(&mut fields, "external_publish", "not_performed");
+    push_bool_field(
+        &mut fields,
+        "external_publish_performed",
+        report.external_publish,
+    );
+    push_bool_field(
+        &mut fields,
+        "fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(&mut fields, "fallback_attempted", report.fallback_attempted);
+    push_count_field(&mut fields, "diagnostic_count", report.diagnostics.len());
+    fields
+}
+
+fn python_wrapper_fields(report: &PythonWrapperFoundationReport) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    push_field(&mut fields, "mode", "python_wrapper_plan");
+    push_field(&mut fields, "schema_version", report.schema_version);
+    push_field(&mut fields, "wrapper_id", report.wrapper_id);
+    push_field(&mut fields, "wrapper_status", report.wrapper_status);
+    push_field(
+        &mut fields,
+        "transport_protocol_id",
+        report.transport_protocol_id,
+    );
+    push_field(
+        &mut fields,
+        "output_envelope_schema_version",
+        report.output_envelope_schema_version,
+    );
+    push_field(&mut fields, "invocation_model", report.invocation_model);
+    push_field(
+        &mut fields,
+        "initial_command_scope",
+        &report.initial_command_scope.join(","),
+    );
+    push_field(
+        &mut fields,
+        "required_client_behaviors",
+        &report.required_client_behaviors.join(","),
+    );
+    push_field(&mut fields, "package_status", report.package_status);
+    push_field(
+        &mut fields,
+        "native_binding_status",
+        report.native_binding_status,
+    );
+    push_bool_field(
+        &mut fields,
+        "pyo3_maturin_allowed",
+        report.pyo3_maturin_allowed,
+    );
+    push_bool_field(
+        &mut fields,
+        "python_package_created",
+        report.python_package_created,
+    );
+    push_bool_field(
+        &mut fields,
+        "native_extension_required",
+        report.native_extension_required,
+    );
+    push_bool_field(
+        &mut fields,
+        "dataframe_api_implemented",
+        report.dataframe_api_implemented,
+    );
+    push_bool_field(
+        &mut fields,
+        "notebook_api_implemented",
+        report.notebook_api_implemented,
+    );
+    push_bool_field(
+        &mut fields,
+        "python_udf_runtime_implemented",
+        report.python_udf_runtime_implemented,
+    );
+    push_bool_field(
+        &mut fields,
+        "materialization_boundary_reporting_required",
+        report.materialization_boundary_reporting_required,
+    );
+    push_bool_field(
+        &mut fields,
+        "diagnostics_passthrough_required",
+        report.diagnostics_passthrough_required,
     );
     push_bool_field(&mut fields, "side_effect_free", report.side_effect_free);
     push_bool_field(&mut fields, "filesystem_probe", report.filesystem_probe);
@@ -8735,6 +8833,19 @@ fn run(args: Vec<String>) -> ExitCode {
                 format!("{}\n\n{}", plan.to_human_text(), protocol.to_human_text()),
                 diagnostics,
                 api_protocol_fields(&protocol),
+            );
+            ExitCode::SUCCESS
+        }
+        Some("python-wrapper-plan") => {
+            let report = PythonWrapperFoundationReport::contract_only();
+            emit(
+                "python-wrapper-plan",
+                format,
+                report.status(),
+                "python wrapper foundation".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                python_wrapper_fields(&report),
             );
             ExitCode::SUCCESS
         }
@@ -19975,6 +20086,12 @@ mod tests {
     }
 
     #[test]
+    fn python_wrapper_plan_returns_success() {
+        let code = run(vec!["python-wrapper-plan".to_string()]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
     fn security_plan_returns_success() {
         let code = run(vec!["security-plan".to_string()]);
         assert_eq!(code, ExitCode::SUCCESS);
@@ -20885,6 +21002,11 @@ mod tests {
         let usage = cli_usage_line();
         assert!(usage.contains("capabilities [sql|functions|operators|adapters"));
         assert!(usage.contains("semantic-profiles|migration|certification"));
+    }
+
+    #[test]
+    fn usage_includes_python_wrapper_plan() {
+        assert!(cli_usage_line().contains("python-wrapper-plan"));
     }
 
     #[test]
