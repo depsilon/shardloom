@@ -1232,7 +1232,8 @@ mod tests {
         assert!(summary.contains("with_initial_read_size"));
         assert!(summary.contains("with_some_file_size"));
         assert!(summary.contains("footer"));
-        assert!(summary.contains("invocation remains deferred"));
+        assert!(summary.contains("approved invocation path is feature-gated"));
+        assert!(summary.contains("caller-owned async/session context"));
     }
 
     #[cfg(feature = "vortex-file-io")]
