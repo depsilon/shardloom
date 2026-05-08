@@ -1,5 +1,5 @@
 use std::fmt::Write as _;
-#[cfg(feature = "vortex-staged-output-fs")]
+#[cfg(any(feature = "vortex-staged-output-fs", feature = "vortex-write"))]
 use std::{
     collections::hash_map::DefaultHasher,
     fs,
@@ -200,6 +200,95 @@ impl VortexOutputPayloadArtifactWriteStatus {
     #[must_use]
     pub const fn output_payload_artifact_written(self) -> bool {
         matches!(self, Self::OutputPayloadArtifactWritten)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexNativeOutputPayloadWriteStatus {
+    FeatureDisabled,
+    Planned,
+    NativeVortexPayloadWritten,
+    BlockedByPayloadPlan,
+    BlockedByObjectStoreTarget,
+    BlockedByMissingWorkspace,
+    BlockedByExistingOutputPayload,
+    BlockedByExistingNonDirectory,
+    BlockedByMissingNativePayload,
+    BlockedByFeatureGate,
+    Unsupported,
+}
+impl VortexNativeOutputPayloadWriteStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::FeatureDisabled => "feature_disabled",
+            Self::Planned => "planned",
+            Self::NativeVortexPayloadWritten => "native_vortex_payload_written",
+            Self::BlockedByPayloadPlan => "blocked_by_payload_plan",
+            Self::BlockedByObjectStoreTarget => "blocked_by_object_store_target",
+            Self::BlockedByMissingWorkspace => "blocked_by_missing_workspace",
+            Self::BlockedByExistingOutputPayload => "blocked_by_existing_output_payload",
+            Self::BlockedByExistingNonDirectory => "blocked_by_existing_non_directory",
+            Self::BlockedByMissingNativePayload => "blocked_by_missing_native_payload",
+            Self::BlockedByFeatureGate => "blocked_by_feature_gate",
+            Self::Unsupported => "unsupported",
+        }
+    }
+    #[must_use]
+    pub const fn is_error(self) -> bool {
+        !matches!(
+            self,
+            Self::FeatureDisabled | Self::Planned | Self::NativeVortexPayloadWritten
+        )
+    }
+    #[must_use]
+    pub const fn native_vortex_payload_written(self) -> bool {
+        matches!(self, Self::NativeVortexPayloadWritten)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexNativeOutputPayloadWriteMode {
+    ReportOnly,
+    LocalNativeVortexPayloadWrite,
+    Unsupported,
+}
+impl VortexNativeOutputPayloadWriteMode {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::ReportOnly => "report_only",
+            Self::LocalNativeVortexPayloadWrite => "local_native_vortex_payload_write",
+            Self::Unsupported => "unsupported",
+        }
+    }
+    #[must_use]
+    pub const fn writes_output_payload(self) -> bool {
+        matches!(self, Self::LocalNativeVortexPayloadWrite)
+    }
+    #[must_use]
+    pub const fn writes_vortex_file(self) -> bool {
+        matches!(self, Self::LocalNativeVortexPayloadWrite)
+    }
+    #[must_use]
+    pub const fn writes_manifest(self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn commits_manifest(self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn writes_object_store(self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn calls_upstream_vortex_write(self) -> bool {
+        matches!(self, Self::LocalNativeVortexPayloadWrite)
+    }
+    #[must_use]
+    pub const fn executes_recovery_action(self) -> bool {
+        false
     }
 }
 
@@ -408,6 +497,18 @@ impl VortexOutputPayloadContentDescriptor {
         Self::new(VortexOutputPayloadContentKind::NativeVortexPayload, summary)
     }
     /// # Errors
+    /// Returns an error when descriptor construction fails.
+    pub fn native_vortex_count_result(count_result: u64) -> Result<Self> {
+        let mut descriptor = Self::new(
+            VortexOutputPayloadContentKind::NativeVortexPayload,
+            format!("count_all_result={count_result}"),
+        )?;
+        descriptor.logical_rows = Some(1);
+        descriptor.estimated_bytes = Some(8);
+        descriptor.checksum = Some(count_result);
+        Ok(descriptor)
+    }
+    /// # Errors
     /// Returns an error when the summary is empty or whitespace.
     pub fn unknown(summary: impl Into<String>) -> Result<Self> {
         Self::new(VortexOutputPayloadContentKind::Unknown, summary)
@@ -427,6 +528,10 @@ impl VortexOutputPayloadContentDescriptor {
     #[must_use]
     pub const fn estimated_bytes(&self) -> Option<u64> {
         self.estimated_bytes
+    }
+    #[must_use]
+    pub const fn logical_rows(&self) -> Option<u64> {
+        self.logical_rows
     }
     #[must_use]
     pub const fn checksum(&self) -> Option<u64> {
@@ -925,7 +1030,6 @@ impl VortexOutputPayloadArtifactWriteRequest {
     #[must_use]
     pub fn from_payload_request(request: &VortexOutputPayloadRequest) -> Self {
         Self::new(request.payload_ref.clone(), request.payload_content.clone())
-            .with_payload_plan_summary(request.summary())
             .feature_gate_ready(request.has_signal(VortexOutputPayloadSignal::FeatureGateEnabled))
             .upstream_vortex_write_required(
                 request.has_signal(VortexOutputPayloadSignal::UpstreamVortexWriteRequired),
@@ -985,6 +1089,97 @@ impl VortexOutputPayloadArtifactWriteRequest {
             "payload_path={} feature_gate_ready={}",
             self.payload_ref.path_string(),
             self.payload_plan_feature_gate_ready
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct VortexNativeOutputPayloadWriteRequest {
+    pub payload_ref: VortexOutputPayloadFileRef,
+    pub payload_content: VortexOutputPayloadContentDescriptor,
+    pub count_result: Option<u64>,
+    pub options: Vec<VortexOutputPayloadArtifactWriteOption>,
+    pub payload_plan_summary: Option<String>,
+    pub payload_plan_feature_gate_ready: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl VortexNativeOutputPayloadWriteRequest {
+    #[must_use]
+    pub fn new(
+        payload_ref: VortexOutputPayloadFileRef,
+        payload_content: VortexOutputPayloadContentDescriptor,
+    ) -> Self {
+        Self {
+            payload_ref,
+            payload_content,
+            count_result: None,
+            options: Vec::new(),
+            payload_plan_summary: None,
+            payload_plan_feature_gate_ready: false,
+            diagnostics: Vec::new(),
+        }
+    }
+    #[must_use]
+    pub fn from_payload_request(request: &VortexOutputPayloadRequest) -> Self {
+        Self::new(request.payload_ref.clone(), request.payload_content.clone())
+            .feature_gate_ready(request.has_signal(VortexOutputPayloadSignal::FeatureGateEnabled))
+    }
+    #[must_use]
+    pub fn count_result(mut self, value: u64) -> Self {
+        self.count_result = Some(value);
+        self
+    }
+    #[must_use]
+    pub fn allow_overwrite(mut self, value: bool) -> Self {
+        self.set_option(
+            VortexOutputPayloadArtifactWriteOption::AllowOverwrite,
+            value,
+        );
+        self
+    }
+    #[must_use]
+    pub fn with_payload_plan_summary(mut self, value: impl Into<String>) -> Self {
+        self.payload_plan_summary = Some(value.into());
+        self
+    }
+    #[must_use]
+    pub fn feature_gate_ready(mut self, value: bool) -> Self {
+        self.payload_plan_feature_gate_ready = value;
+        self
+    }
+    fn set_option(&mut self, option: VortexOutputPayloadArtifactWriteOption, value: bool) {
+        if value {
+            if !self.options.contains(&option) {
+                self.options.push(option);
+            }
+        } else {
+            self.options.retain(|v| *v != option);
+        }
+    }
+    #[must_use]
+    pub fn has_option(&self, option: VortexOutputPayloadArtifactWriteOption) -> bool {
+        self.options.contains(&option)
+    }
+    pub fn add_diagnostic(&mut self, d: Diagnostic) {
+        self.diagnostics.push(d);
+    }
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.diagnostics.iter().any(|d| {
+            matches!(
+                d.severity,
+                DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+            )
+        })
+    }
+    #[must_use]
+    pub fn summary(&self) -> String {
+        format!(
+            "payload_path={} feature_gate_ready={} count_result={}",
+            self.payload_ref.path_string(),
+            self.payload_plan_feature_gate_ready,
+            self.count_result
+                .map_or_else(|| "unknown".to_string(), |v| v.to_string())
         )
     }
 }
@@ -1186,6 +1381,233 @@ impl VortexOutputPayloadArtifactWriteReport {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct VortexNativeOutputPayloadWriteReport {
+    pub status: VortexNativeOutputPayloadWriteStatus,
+    pub mode: VortexNativeOutputPayloadWriteMode,
+    pub request: VortexNativeOutputPayloadWriteRequest,
+    pub effects_performed: Vec<VortexOutputPayloadEffect>,
+    pub bytes_written: usize,
+    pub logical_rows_written: u64,
+    pub count_result_written: Option<u64>,
+    pub checksum: Option<u64>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl VortexNativeOutputPayloadWriteReport {
+    /// # Errors
+    /// Returns errors only when native payload rendering or local file persistence fails.
+    pub fn from_request(request: VortexNativeOutputPayloadWriteRequest) -> Result<Self> {
+        write_vortex_native_count_output_payload(request)
+    }
+    #[must_use]
+    pub fn feature_disabled(request: VortexNativeOutputPayloadWriteRequest) -> Self {
+        Self {
+            status: VortexNativeOutputPayloadWriteStatus::FeatureDisabled,
+            mode: VortexNativeOutputPayloadWriteMode::ReportOnly,
+            request,
+            effects_performed: Vec::new(),
+            bytes_written: 0,
+            logical_rows_written: 0,
+            count_result_written: None,
+            checksum: None,
+            diagnostics: Vec::new(),
+        }
+    }
+    #[must_use]
+    pub fn planned(request: VortexNativeOutputPayloadWriteRequest) -> Self {
+        Self {
+            status: VortexNativeOutputPayloadWriteStatus::Planned,
+            mode: VortexNativeOutputPayloadWriteMode::ReportOnly,
+            request,
+            effects_performed: Vec::new(),
+            bytes_written: 0,
+            logical_rows_written: 0,
+            count_result_written: None,
+            checksum: None,
+            diagnostics: Vec::new(),
+        }
+    }
+    #[must_use]
+    pub fn written(
+        request: VortexNativeOutputPayloadWriteRequest,
+        bytes_written: usize,
+        logical_rows_written: u64,
+        count_result_written: u64,
+        checksum: u64,
+    ) -> Self {
+        Self {
+            status: VortexNativeOutputPayloadWriteStatus::NativeVortexPayloadWritten,
+            mode: VortexNativeOutputPayloadWriteMode::LocalNativeVortexPayloadWrite,
+            request,
+            effects_performed: vec![
+                VortexOutputPayloadEffect::OutputPayloadWritten,
+                VortexOutputPayloadEffect::VortexFileWritten,
+                VortexOutputPayloadEffect::UpstreamVortexWriteCalled,
+            ],
+            bytes_written,
+            logical_rows_written,
+            count_result_written: Some(count_result_written),
+            checksum: Some(checksum),
+            diagnostics: Vec::new(),
+        }
+    }
+    #[must_use]
+    pub fn blocked(
+        request: VortexNativeOutputPayloadWriteRequest,
+        status: VortexNativeOutputPayloadWriteStatus,
+        reason: impl Into<String>,
+    ) -> Self {
+        let mut report = Self::planned(request);
+        report.status = status;
+        report.add_diagnostic(Diagnostic::invalid_input(
+            "native_output_payload_write",
+            reason.into(),
+            "provide a ready local native Vortex payload plan",
+        ));
+        report
+    }
+    #[must_use]
+    pub fn unsupported(
+        request: VortexNativeOutputPayloadWriteRequest,
+        feature: impl Into<String>,
+        reason: impl Into<String>,
+    ) -> Self {
+        let mut report = Self {
+            status: VortexNativeOutputPayloadWriteStatus::Unsupported,
+            mode: VortexNativeOutputPayloadWriteMode::Unsupported,
+            request,
+            effects_performed: Vec::new(),
+            bytes_written: 0,
+            logical_rows_written: 0,
+            count_result_written: None,
+            checksum: None,
+            diagnostics: Vec::new(),
+        };
+        report.add_diagnostic(Diagnostic::unsupported(
+            DiagnosticCode::NotImplemented,
+            feature,
+            reason,
+            None,
+        ));
+        report
+    }
+    pub fn add_diagnostic(&mut self, d: Diagnostic) {
+        self.diagnostics.push(d);
+    }
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.status.is_error()
+            || self.request.has_errors()
+            || self.diagnostics.iter().any(|d| {
+                matches!(
+                    d.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+    #[must_use]
+    pub fn native_vortex_payload_written(&self) -> bool {
+        self.status.native_vortex_payload_written()
+    }
+    #[must_use]
+    pub fn output_payload_written(&self) -> bool {
+        self.effects_performed
+            .contains(&VortexOutputPayloadEffect::OutputPayloadWritten)
+    }
+    #[must_use]
+    pub fn vortex_file_written(&self) -> bool {
+        self.effects_performed
+            .contains(&VortexOutputPayloadEffect::VortexFileWritten)
+    }
+    #[must_use]
+    pub fn manifest_written(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub fn manifest_committed(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub fn object_store_io(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub fn upstream_vortex_write_called(&self) -> bool {
+        self.effects_performed
+            .contains(&VortexOutputPayloadEffect::UpstreamVortexWriteCalled)
+    }
+    #[must_use]
+    pub fn recovery_action_executed(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub fn fallback_execution_allowed(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub fn is_side_effect_free(&self) -> bool {
+        !self.output_payload_written()
+            && !self.vortex_file_written()
+            && !self.upstream_vortex_write_called()
+            && !self.fallback_execution_allowed()
+    }
+    /// # Errors
+    /// Returns an error only if formatting into the output string fails unexpectedly.
+    pub fn to_human_text(&self) -> Result<String> {
+        let mut out = String::new();
+        for line in [
+            format!(
+                "native output payload write status: {}",
+                self.status.as_str()
+            ),
+            format!("mode: {}", self.mode.as_str()),
+            format!("payload path: {}", self.request.payload_ref.path_string()),
+            format!(
+                "content kind: {}",
+                self.request.payload_content.content_kind().as_str()
+            ),
+            format!("bytes written: {}", self.bytes_written),
+            format!("logical rows written: {}", self.logical_rows_written),
+            format!("count result written: {:?}", self.count_result_written),
+            format!("checksum: {:?}", self.checksum),
+            format!(
+                "feature gate ready: {}",
+                self.request.payload_plan_feature_gate_ready
+            ),
+            format!(
+                "native Vortex payload written: {}",
+                self.native_vortex_payload_written()
+            ),
+            format!("output payload written: {}", self.output_payload_written()),
+            format!("Vortex file written: {}", self.vortex_file_written()),
+            format!("manifest written: {}", self.manifest_written()),
+            format!("manifest committed: {}", self.manifest_committed()),
+            format!("object-store IO: {}", self.object_store_io()),
+            format!(
+                "upstream Vortex write called: {}",
+                self.upstream_vortex_write_called()
+            ),
+            format!(
+                "recovery action executed: {}",
+                self.recovery_action_executed()
+            ),
+            "fallback execution disabled".to_string(),
+        ] {
+            writeln!(&mut out, "{line}")
+                .map_err(|e| ShardLoomError::InvalidOperation(e.to_string()))?;
+        }
+        if !self.diagnostics.is_empty() {
+            writeln!(&mut out, "diagnostics:")
+                .map_err(|e| ShardLoomError::InvalidOperation(e.to_string()))?;
+            for diagnostic in &self.diagnostics {
+                writeln!(&mut out, "- {}", diagnostic.to_human_text())
+                    .map_err(|e| ShardLoomError::InvalidOperation(e.to_string()))?;
+            }
+        }
+        Ok(out)
+    }
+}
+
 /// # Errors
 /// Returns errors only if placeholder rendering fails unexpectedly.
 pub fn write_vortex_output_payload_artifact(
@@ -1283,9 +1705,190 @@ pub fn write_vortex_output_payload_artifact(
     }
 }
 
+/// # Errors
+/// Returns errors when native `Vortex` payload rendering or local file persistence fails.
+pub fn write_vortex_native_count_output_payload(
+    request: VortexNativeOutputPayloadWriteRequest,
+) -> Result<VortexNativeOutputPayloadWriteReport> {
+    #[cfg(not(feature = "vortex-write"))]
+    {
+        Ok(VortexNativeOutputPayloadWriteReport::feature_disabled(
+            request,
+        ))
+    }
+    #[cfg(feature = "vortex-write")]
+    {
+        if request.payload_plan_summary.is_none() {
+            return Ok(VortexNativeOutputPayloadWriteReport::blocked(
+                request,
+                VortexNativeOutputPayloadWriteStatus::BlockedByPayloadPlan,
+                "native output payload plan is not ready for write",
+            ));
+        }
+        if !request.payload_plan_feature_gate_ready {
+            return Ok(VortexNativeOutputPayloadWriteReport::blocked(
+                request,
+                VortexNativeOutputPayloadWriteStatus::BlockedByFeatureGate,
+                "native output payload feature gate readiness missing",
+            ));
+        }
+        if request.payload_content.content_kind()
+            != VortexOutputPayloadContentKind::NativeVortexPayload
+        {
+            return Ok(VortexNativeOutputPayloadWriteReport::blocked(
+                request,
+                VortexNativeOutputPayloadWriteStatus::BlockedByMissingNativePayload,
+                "native output payload write requires native Vortex payload content",
+            ));
+        }
+        let Some(count_result) = request.count_result else {
+            return Ok(VortexNativeOutputPayloadWriteReport::blocked(
+                request,
+                VortexNativeOutputPayloadWriteStatus::BlockedByMissingNativePayload,
+                "native count output payload write requires a known CountAll result",
+            ));
+        };
+        let payload_path = match local_payload_path_string(&request.payload_ref) {
+            Ok(path) => path,
+            Err(report) => return Ok(report.into_native_blocked_report(request)),
+        };
+        let path = Path::new(&payload_path);
+        let Some(parent) = path.parent() else {
+            return Ok(VortexNativeOutputPayloadWriteReport::blocked(
+                request,
+                VortexNativeOutputPayloadWriteStatus::BlockedByMissingWorkspace,
+                "workspace path is missing",
+            ));
+        };
+        if !parent.exists() {
+            return Ok(VortexNativeOutputPayloadWriteReport::blocked(
+                request,
+                VortexNativeOutputPayloadWriteStatus::BlockedByMissingWorkspace,
+                "workspace path does not exist",
+            ));
+        }
+        if !parent.is_dir() {
+            return Ok(VortexNativeOutputPayloadWriteReport::blocked(
+                request,
+                VortexNativeOutputPayloadWriteStatus::BlockedByExistingNonDirectory,
+                "workspace path exists and is not a directory",
+            ));
+        }
+        if path.exists()
+            && !request.has_option(VortexOutputPayloadArtifactWriteOption::AllowOverwrite)
+        {
+            return Ok(VortexNativeOutputPayloadWriteReport::blocked(
+                request,
+                VortexNativeOutputPayloadWriteStatus::BlockedByExistingOutputPayload,
+                "native output payload exists and overwrite is disabled",
+            ));
+        }
+        let bytes = native_count_vortex_payload_bytes(count_result)?;
+        fs::write(path, &bytes).map_err(|e| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to write native Vortex output payload: {e}"
+            ))
+        })?;
+        let mut hasher = DefaultHasher::new();
+        count_result.hash(&mut hasher);
+        bytes.len().hash(&mut hasher);
+        Ok(VortexNativeOutputPayloadWriteReport::written(
+            request,
+            bytes.len(),
+            1,
+            count_result,
+            hasher.finish(),
+        ))
+    }
+}
+
+#[must_use]
+pub const fn vortex_native_output_payload_write_feature_enabled() -> bool {
+    cfg!(feature = "vortex-write")
+}
+
+#[cfg(feature = "vortex-write")]
+fn native_count_vortex_payload_bytes(count_result: u64) -> Result<Vec<u8>> {
+    use vortex::VortexSessionDefault;
+    use vortex::array::IntoArray;
+    use vortex::array::arrays::PrimitiveArray;
+    use vortex::array::validity::Validity;
+    use vortex::buffer::buffer;
+    use vortex::file::WriteOptionsSessionExt;
+    use vortex::io::runtime::BlockingRuntime;
+    use vortex::io::runtime::single::SingleThreadRuntime;
+    use vortex::io::session::RuntimeSessionExt;
+    use vortex::session::VortexSession;
+
+    let runtime = SingleThreadRuntime::default();
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let array = PrimitiveArray::new(buffer![count_result], Validity::NonNullable);
+    let mut bytes = Vec::new();
+    let summary = runtime
+        .block_on(
+            session
+                .write_options()
+                .write(&mut bytes, array.into_array().to_array_stream()),
+        )
+        .map_err(|e| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to render native Vortex count payload: {e}"
+            ))
+        })?;
+    if summary.row_count() != 1 {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "native Vortex count payload wrote unexpected row count {}",
+            summary.row_count()
+        )));
+    }
+    Ok(bytes)
+}
+
+#[cfg(feature = "vortex-write")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LocalPayloadPathError {
+    ObjectStoreTarget,
+}
+#[cfg(feature = "vortex-write")]
+impl LocalPayloadPathError {
+    fn into_native_blocked_report(
+        self,
+        request: VortexNativeOutputPayloadWriteRequest,
+    ) -> VortexNativeOutputPayloadWriteReport {
+        match self {
+            Self::ObjectStoreTarget => VortexNativeOutputPayloadWriteReport::blocked(
+                request,
+                VortexNativeOutputPayloadWriteStatus::BlockedByObjectStoreTarget,
+                "object-store target is unsupported for local native output payload write",
+            ),
+        }
+    }
+}
+
+#[cfg(feature = "vortex-write")]
+fn local_payload_path_string(
+    payload_ref: &VortexOutputPayloadFileRef,
+) -> std::result::Result<String, LocalPayloadPathError> {
+    let path_string = payload_ref.path_string();
+    if let Some(rest) = path_string.strip_prefix("file://") {
+        Ok(rest.to_string())
+    } else if path_string.contains("://") {
+        Err(LocalPayloadPathError::ObjectStoreTarget)
+    } else {
+        Ok(path_string)
+    }
+}
+
 #[must_use]
 pub fn vortex_output_payload_artifact_write_is_side_effect_free(
     report: &VortexOutputPayloadArtifactWriteReport,
+) -> bool {
+    report.is_side_effect_free()
+}
+
+#[must_use]
+pub fn vortex_native_output_payload_write_is_side_effect_free(
+    report: &VortexNativeOutputPayloadWriteReport,
 ) -> bool {
     report.is_side_effect_free()
 }
@@ -1301,6 +1904,32 @@ pub fn output_payload_artifact_write_request_from_plan(
             .has_signal(VortexOutputPayloadSignal::FeatureGateEnabled),
     );
     request = request.upstream_vortex_write_required(plan.upstream_vortex_write_required());
+    if plan.status == VortexOutputPayloadStatus::PayloadReady {
+        request = request.with_payload_plan_summary(plan.request.summary());
+    }
+    if plan.has_errors() {
+        for d in &plan.request.diagnostics {
+            request.add_diagnostic(d.clone());
+        }
+        for d in &plan.diagnostics {
+            request.add_diagnostic(d.clone());
+        }
+    }
+    Ok(request)
+}
+
+/// # Errors
+/// Returns errors propagated by native write request construction.
+pub fn native_output_payload_write_request_from_plan(
+    plan: &VortexOutputPayloadReport,
+    count_result: u64,
+) -> Result<VortexNativeOutputPayloadWriteRequest> {
+    let mut request = VortexNativeOutputPayloadWriteRequest::from_payload_request(&plan.request)
+        .count_result(count_result);
+    request = request.feature_gate_ready(
+        plan.request
+            .has_signal(VortexOutputPayloadSignal::FeatureGateEnabled),
+    );
     if plan.status == VortexOutputPayloadStatus::PayloadReady {
         request = request.with_payload_plan_summary(plan.request.summary());
     }
@@ -1358,6 +1987,15 @@ mod tests {
                 .unwrap()
                 .has_payload_content()
         );
+        let count_payload = VortexOutputPayloadContentDescriptor::native_vortex_count_result(7)
+            .expect("count payload descriptor");
+        assert_eq!(
+            count_payload.content_kind(),
+            VortexOutputPayloadContentKind::NativeVortexPayload
+        );
+        assert_eq!(count_payload.logical_rows(), Some(1));
+        assert_eq!(count_payload.estimated_bytes(), Some(8));
+        assert!(count_payload.has_payload_content());
     }
     #[test]
     fn report_and_signals() {
@@ -1494,6 +2132,35 @@ mod tests {
         assert!(!req.has_signal(VortexOutputPayloadSignal::PayloadContentAvailable));
     }
 
+    #[test]
+    fn blocked_payload_plans_do_not_enable_write_requests() {
+        let blocked_plan = VortexOutputPayloadReport::from_request(
+            VortexOutputPayloadRequest::new(
+                sample_uri(),
+                VortexOutputPayloadFileRef::default_for_workspace(ws()),
+                VortexOutputPayloadContentDescriptor::native_vortex_count_result(3).unwrap(),
+            )
+            .feature_gate_enabled(true),
+        )
+        .unwrap();
+        assert_eq!(
+            blocked_plan.status,
+            VortexOutputPayloadStatus::BlockedByWriteIntent
+        );
+        assert!(
+            output_payload_artifact_write_request_from_plan(&blocked_plan)
+                .unwrap()
+                .payload_plan_summary
+                .is_none()
+        );
+        assert!(
+            native_output_payload_write_request_from_plan(&blocked_plan, 3)
+                .unwrap()
+                .payload_plan_summary
+                .is_none()
+        );
+    }
+
     #[cfg(not(feature = "vortex-staged-output-fs"))]
     #[test]
     fn artifact_write_feature_disabled_by_default() {
@@ -1528,6 +2195,34 @@ mod tests {
             req.allow_overwrite(true)
                 .has_option(VortexOutputPayloadArtifactWriteOption::AllowOverwrite)
         );
+    }
+
+    #[cfg(not(feature = "vortex-write"))]
+    #[test]
+    fn native_count_payload_write_feature_disabled_by_default() {
+        let request = VortexNativeOutputPayloadWriteRequest::new(
+            VortexOutputPayloadFileRef::default_for_workspace(ws()),
+            VortexOutputPayloadContentDescriptor::native_vortex_count_result(11).unwrap(),
+        )
+        .with_payload_plan_summary("payload_ready")
+        .feature_gate_ready(true)
+        .count_result(11);
+        let report = write_vortex_native_count_output_payload(request).unwrap();
+        assert_eq!(
+            report.status,
+            VortexNativeOutputPayloadWriteStatus::FeatureDisabled
+        );
+        assert!(!report.native_vortex_payload_written());
+        assert!(!report.output_payload_written());
+        assert!(!report.vortex_file_written());
+        assert!(!report.manifest_written());
+        assert!(!report.manifest_committed());
+        assert!(!report.object_store_io());
+        assert!(!report.upstream_vortex_write_called());
+        assert!(!report.fallback_execution_allowed());
+        assert!(report.is_side_effect_free());
+        assert!(!vortex_native_output_payload_write_feature_enabled());
+        assert!(report.to_human_text().unwrap().contains("bytes written: 0"));
     }
 
     #[cfg(feature = "vortex-staged-output-fs")]
@@ -1706,6 +2401,179 @@ mod tests {
             write_vortex_output_payload_artifact(file_uri_request)
                 .unwrap()
                 .output_payload_artifact_written()
+        );
+    }
+
+    #[cfg(feature = "vortex-write")]
+    struct NativePayloadWriteFixture {
+        root: std::path::PathBuf,
+        workspace_dir: std::path::PathBuf,
+        payload_ref: VortexOutputPayloadFileRef,
+        payload: VortexOutputPayloadContentDescriptor,
+    }
+
+    #[cfg(feature = "vortex-write")]
+    impl NativePayloadWriteFixture {
+        fn new() -> Self {
+            use std::time::{SystemTime, UNIX_EPOCH};
+            let unique = format!(
+                "shardloom-native-output-payload-test-{}",
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos()
+            );
+            let root = std::env::temp_dir().join(unique);
+            let workspace_dir = root.join("ws");
+            std::fs::create_dir_all(&workspace_dir).unwrap();
+            let workspace =
+                VortexStagedWorkspacePath::new(workspace_dir.to_string_lossy().to_string())
+                    .unwrap();
+            let payload_ref = VortexOutputPayloadFileRef::default_for_workspace(workspace);
+            let payload =
+                VortexOutputPayloadContentDescriptor::native_vortex_count_result(42).unwrap();
+            Self {
+                root,
+                workspace_dir,
+                payload_ref,
+                payload,
+            }
+        }
+
+        fn base_request(&self) -> VortexNativeOutputPayloadWriteRequest {
+            VortexNativeOutputPayloadWriteRequest::new(
+                self.payload_ref.clone(),
+                self.payload.clone(),
+            )
+            .count_result(42)
+        }
+
+        fn ready_plan(&self) -> VortexOutputPayloadReport {
+            let mut request = VortexOutputPayloadRequest::new(
+                sample_uri(),
+                self.payload_ref.clone(),
+                self.payload.clone(),
+            );
+            for signal in [
+                VortexOutputPayloadSignal::WriteIntentReady,
+                VortexOutputPayloadSignal::StagedOutputReady,
+                VortexOutputPayloadSignal::FinalizedManifestReady,
+                VortexOutputPayloadSignal::PayloadContentAvailable,
+                VortexOutputPayloadSignal::LocalWorkspace,
+                VortexOutputPayloadSignal::FeatureGateEnabled,
+            ] {
+                request.add_signal(signal, true);
+            }
+            plan_vortex_output_payload(request).unwrap()
+        }
+    }
+
+    #[cfg(feature = "vortex-write")]
+    impl Drop for NativePayloadWriteFixture {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_file(self.payload_ref.path_string());
+            let _ = std::fs::remove_dir(&self.workspace_dir);
+            let _ = std::fs::remove_dir(&self.root);
+        }
+    }
+
+    #[cfg(feature = "vortex-write")]
+    fn assert_native_vortex_file_has_one_row(path: &str) {
+        use vortex::VortexSessionDefault;
+        use vortex::file::OpenOptionsSessionExt;
+        use vortex::io::runtime::BlockingRuntime;
+        use vortex::io::runtime::single::SingleThreadRuntime;
+        use vortex::io::session::RuntimeSessionExt;
+        use vortex::session::VortexSession;
+
+        let bytes = std::fs::read(path).unwrap();
+        assert!(bytes.len() > 8);
+        let runtime = SingleThreadRuntime::default();
+        let session = VortexSession::default().with_handle(runtime.handle());
+        let file = session.open_options().open_buffer(bytes).unwrap();
+        assert_eq!(file.row_count(), 1);
+    }
+
+    #[cfg(feature = "vortex-write")]
+    #[test]
+    fn native_count_payload_write_writes_real_vortex_file() {
+        let fixture = NativePayloadWriteFixture::new();
+        let plan = fixture.ready_plan();
+        assert_eq!(plan.status, VortexOutputPayloadStatus::PayloadReady);
+        let write_request = native_output_payload_write_request_from_plan(&plan, 42).unwrap();
+        let report = write_vortex_native_count_output_payload(write_request).unwrap();
+        assert_eq!(
+            report.status,
+            VortexNativeOutputPayloadWriteStatus::NativeVortexPayloadWritten
+        );
+        assert!(report.native_vortex_payload_written());
+        assert!(report.output_payload_written());
+        assert!(report.vortex_file_written());
+        assert!(report.upstream_vortex_write_called());
+        assert!(!report.manifest_written());
+        assert!(!report.manifest_committed());
+        assert!(!report.object_store_io());
+        assert!(!report.recovery_action_executed());
+        assert!(!report.fallback_execution_allowed());
+        assert!(!report.is_side_effect_free());
+        assert_eq!(report.logical_rows_written, 1);
+        assert_eq!(report.count_result_written, Some(42));
+        assert!(report.bytes_written > 8);
+        assert!(vortex_native_output_payload_write_feature_enabled());
+        assert_native_vortex_file_has_one_row(&fixture.payload_ref.path_string());
+    }
+
+    #[cfg(feature = "vortex-write")]
+    #[test]
+    fn native_count_payload_write_blocks_unsupported_targets_and_payloads() {
+        let fixture = NativePayloadWriteFixture::new();
+        assert_eq!(
+            write_vortex_native_count_output_payload(fixture.base_request())
+                .unwrap()
+                .status,
+            VortexNativeOutputPayloadWriteStatus::BlockedByPayloadPlan
+        );
+        assert_eq!(
+            write_vortex_native_count_output_payload(
+                fixture
+                    .base_request()
+                    .with_payload_plan_summary("payload_ready")
+                    .feature_gate_ready(false)
+            )
+            .unwrap()
+            .status,
+            VortexNativeOutputPayloadWriteStatus::BlockedByFeatureGate
+        );
+        let object_workspace =
+            VortexStagedWorkspacePath::new("s3://bucket/stage".to_string()).unwrap();
+        assert_eq!(
+            write_vortex_native_count_output_payload(
+                VortexNativeOutputPayloadWriteRequest::new(
+                    VortexOutputPayloadFileRef::default_for_workspace(object_workspace),
+                    fixture.payload.clone()
+                )
+                .count_result(42)
+                .with_payload_plan_summary("payload_ready")
+                .feature_gate_ready(true)
+            )
+            .unwrap()
+            .status,
+            VortexNativeOutputPayloadWriteStatus::BlockedByObjectStoreTarget
+        );
+        assert_eq!(
+            write_vortex_native_count_output_payload(
+                VortexNativeOutputPayloadWriteRequest::new(
+                    fixture.payload_ref.clone(),
+                    VortexOutputPayloadContentDescriptor::synthetic_placeholder("placeholder")
+                        .unwrap()
+                )
+                .count_result(42)
+                .with_payload_plan_summary("payload_ready")
+                .feature_gate_ready(true)
+            )
+            .unwrap()
+            .status,
+            VortexNativeOutputPayloadWriteStatus::BlockedByMissingNativePayload
         );
     }
 }

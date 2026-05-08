@@ -56,12 +56,13 @@ use shardloom_vortex::{
     VortexLayoutReaderDriverApprovalInput, VortexLayoutReaderDriverApprovalSignal,
     VortexLocalExecutionReport, VortexManifestFinalizationRequest,
     VortexManifestFinalizationSignal, VortexMetadataOpenRequest, VortexMetadataProbeReport,
-    VortexOutputPayloadContentDescriptor, VortexOutputPayloadFileName, VortexOutputPayloadFileRef,
-    VortexOutputPayloadReport, VortexOutputPayloadRequest, VortexOutputPayloadSignal,
-    VortexProjectionCandidateSource, VortexProjectionReadinessSignal, VortexQueryPrimitiveRequest,
-    VortexQueryPrimitiveResult, VortexQueryPrimitiveSignal, VortexQueryPrimitiveValue,
-    VortexReadPlan, VortexStagedManifestDraftContent, VortexStagedManifestFileEffect,
-    VortexStagedManifestFileRef, VortexStagedManifestFileReport, VortexStagedManifestFileRequest,
+    VortexNativeOutputPayloadWriteReport, VortexOutputPayloadContentDescriptor,
+    VortexOutputPayloadFileName, VortexOutputPayloadFileRef, VortexOutputPayloadReport,
+    VortexOutputPayloadRequest, VortexOutputPayloadSignal, VortexProjectionCandidateSource,
+    VortexProjectionReadinessSignal, VortexQueryPrimitiveRequest, VortexQueryPrimitiveResult,
+    VortexQueryPrimitiveSignal, VortexQueryPrimitiveValue, VortexReadPlan,
+    VortexStagedManifestDraftContent, VortexStagedManifestFileEffect, VortexStagedManifestFileRef,
+    VortexStagedManifestFileReport, VortexStagedManifestFileRequest,
     VortexStagedManifestFileSignal, VortexStagedManifestFileWriteEffect,
     VortexStagedManifestFileWriteOption, VortexStagedManifestFileWriteRequest,
     VortexStagedManifestFileWriteSignal, VortexStagedMarkerOption, VortexStagedMarkerRequest,
@@ -77,7 +78,8 @@ use shardloom_vortex::{
     execute_vortex_encoded_read_contract, execute_vortex_encoded_read_spike,
     execute_vortex_local_query_primitive, execute_vortex_metadata_only,
     finalized_manifest_artifact_write_request_from_plan, metadata_planning_is_side_effect_free,
-    metadata_pruning_is_side_effect_free, metadata_summary_is_plan_only, open_vortex_metadata_only,
+    metadata_pruning_is_side_effect_free, metadata_summary_is_plan_only,
+    native_output_payload_write_request_from_plan, open_vortex_metadata_only,
     output_payload_artifact_write_request_from_plan, parse_vortex_local_engine_primitive,
     plan_from_vortex_metadata_summary, plan_native_vortex_universal_input,
     plan_vortex_commit_intent, plan_vortex_commit_marker, plan_vortex_commit_protocol,
@@ -96,8 +98,9 @@ use shardloom_vortex::{
     vortex_encoded_read_executor_feature_enabled,
     vortex_encoded_read_local_scan_count_api_boundary, vortex_encoded_read_public_api_boundary,
     vortex_encoded_read_spike_feature_enabled, vortex_file_io_feature_enabled,
-    vortex_metadata_executor_feature_enabled, write_vortex_commit_marker,
-    write_vortex_finalized_manifest_artifact, write_vortex_output_payload_artifact,
+    vortex_metadata_executor_feature_enabled, vortex_native_output_payload_write_feature_enabled,
+    write_vortex_commit_marker, write_vortex_finalized_manifest_artifact,
+    write_vortex_native_count_output_payload, write_vortex_output_payload_artifact,
     write_vortex_staged_manifest_file, write_vortex_staged_marker,
 };
 
@@ -136,7 +139,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -5941,6 +5944,250 @@ fn run(args: Vec<String>) -> ExitCode {
                     (
                         "execution".to_string(),
                         "output_payload_artifact_write_or_not_performed".to_string(),
+                    ),
+                ],
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
+
+        Some("vortex-native-count-payload-write") => {
+            let Some(target_uri_raw) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-native-count-payload-write <target_uri> <workspace_path> <count_result> <signals> <options>"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(workspace_path_raw) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-native-count-payload-write <target_uri> <workspace_path> <count_result> <signals> <options>"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(count_result_raw) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-native-count-payload-write <target_uri> <workspace_path> <count_result> <signals> <options>"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(signals_raw) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-native-count-payload-write <target_uri> <workspace_path> <count_result> <signals> <options>"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(options_raw) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-native-count-payload-write <target_uri> <workspace_path> <count_result> <signals> <options>"
+                );
+                return ExitCode::from(2);
+            };
+            let target_uri = match DatasetUri::new(target_uri_raw) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-native-count-payload-write",
+                        format,
+                        "invalid dataset uri",
+                        &error,
+                    );
+                }
+            };
+            let workspace_path = match VortexStagedWorkspacePath::new(workspace_path_raw) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-native-count-payload-write",
+                        format,
+                        "invalid workspace path",
+                        &error,
+                    );
+                }
+            };
+            let count_result = match count_result_raw.parse::<u64>() {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-native-count-payload-write",
+                        format,
+                        "invalid count result",
+                        &ShardLoomError::InvalidOperation(format!(
+                            "count_result must be an unsigned integer: {error}"
+                        )),
+                    );
+                }
+            };
+            let signals = match parse_vortex_output_payload_signals(&signals_raw) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-native-count-payload-write",
+                        format,
+                        "invalid output payload signals",
+                        &error,
+                    );
+                }
+            };
+            let allow_overwrite =
+                match parse_vortex_output_payload_artifact_write_options(&options_raw) {
+                    Ok(v) => v,
+                    Err(error) => {
+                        return emit_error(
+                            "vortex-native-count-payload-write",
+                            format,
+                            "invalid native output payload write options",
+                            &error,
+                        );
+                    }
+                };
+            let payload_ref = VortexOutputPayloadFileRef::default_for_workspace(workspace_path);
+            let payload_content =
+                match VortexOutputPayloadContentDescriptor::native_vortex_count_result(count_result)
+                {
+                    Ok(v) => v,
+                    Err(error) => {
+                        return emit_error(
+                            "vortex-native-count-payload-write",
+                            format,
+                            "invalid native output payload content",
+                            &error,
+                        );
+                    }
+                };
+            let mut request =
+                VortexOutputPayloadRequest::new(target_uri, payload_ref, payload_content);
+            for signal in signals {
+                request.add_signal(signal, true);
+            }
+            let plan = match plan_vortex_output_payload(request) {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-native-count-payload-write",
+                        format,
+                        "native output payload planning failed",
+                        &error,
+                    );
+                }
+            };
+            let mut write_request =
+                match native_output_payload_write_request_from_plan(&plan, count_result) {
+                    Ok(v) => v,
+                    Err(error) => {
+                        return emit_error(
+                            "vortex-native-count-payload-write",
+                            format,
+                            "native output payload write request conversion failed",
+                            &error,
+                        );
+                    }
+                };
+            write_request = write_request.allow_overwrite(allow_overwrite);
+            let report: VortexNativeOutputPayloadWriteReport =
+                match write_vortex_native_count_output_payload(write_request) {
+                    Ok(v) => v,
+                    Err(error) => {
+                        return emit_error(
+                            "vortex-native-count-payload-write",
+                            format,
+                            "native count output payload write failed",
+                            &error,
+                        );
+                    }
+                };
+            let text = match report.to_human_text() {
+                Ok(v) => v,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-native-count-payload-write",
+                        format,
+                        "failed to render native output payload write report",
+                        &error,
+                    );
+                }
+            };
+            emit(
+                "vortex-native-count-payload-write",
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "vortex native count output payload write".to_string(),
+                text,
+                report.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    (
+                        "mode".to_string(),
+                        "vortex_native_count_payload_write".to_string(),
+                    ),
+                    (
+                        "feature_enabled".to_string(),
+                        vortex_native_output_payload_write_feature_enabled().to_string(),
+                    ),
+                    (
+                        "native_vortex_payload_written".to_string(),
+                        report.native_vortex_payload_written().to_string(),
+                    ),
+                    (
+                        "output_payload_written".to_string(),
+                        report.output_payload_written().to_string(),
+                    ),
+                    (
+                        "vortex_file_written".to_string(),
+                        report.vortex_file_written().to_string(),
+                    ),
+                    (
+                        "manifest_written".to_string(),
+                        report.manifest_written().to_string(),
+                    ),
+                    (
+                        "manifest_committed".to_string(),
+                        report.manifest_committed().to_string(),
+                    ),
+                    (
+                        "object_store_io".to_string(),
+                        report.object_store_io().to_string(),
+                    ),
+                    (
+                        "upstream_vortex_write_called".to_string(),
+                        report.upstream_vortex_write_called().to_string(),
+                    ),
+                    (
+                        "recovery_action_executed".to_string(),
+                        report.recovery_action_executed().to_string(),
+                    ),
+                    (
+                        "bytes_written".to_string(),
+                        report.bytes_written.to_string(),
+                    ),
+                    (
+                        "logical_rows_written".to_string(),
+                        report.logical_rows_written.to_string(),
+                    ),
+                    (
+                        "count_result_written".to_string(),
+                        report
+                            .count_result_written
+                            .map_or_else(|| "none".to_string(), |v| v.to_string()),
+                    ),
+                    (
+                        "checksum".to_string(),
+                        report
+                            .checksum
+                            .map_or_else(|| "none".to_string(), |v| v.to_string()),
+                    ),
+                    (
+                        "execution".to_string(),
+                        "native_count_payload_write_or_not_performed".to_string(),
                     ),
                 ],
             );
@@ -11912,6 +12159,72 @@ mod tests {
     }
 
     #[test]
+    fn vortex_native_count_payload_write_ready_returns_success() {
+        let unique = format!(
+            "shardloom-cli-native-count-payload-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        );
+        let root = std::env::temp_dir().join(unique);
+        let workspace = root.join("stage");
+        std::fs::create_dir_all(&workspace).unwrap();
+        let code = run(vec![
+            "vortex-native-count-payload-write".to_string(),
+            "file://tmp/out.vortex".to_string(),
+            workspace.to_string_lossy().to_string(),
+            "42".to_string(),
+            "write-intent-ready,staged-output-ready,finalized-manifest-ready,payload-content-available,local-workspace,feature-gate-enabled".to_string(),
+            "none".to_string(),
+        ]);
+        let payload_path = workspace.join("_shardloom_output_payload.vortex");
+        assert_eq!(
+            payload_path.exists(),
+            vortex_native_output_payload_write_feature_enabled()
+        );
+        let _ = std::fs::remove_file(payload_path);
+        let _ = std::fs::remove_dir(&workspace);
+        let _ = std::fs::remove_dir(&root);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_native_count_payload_write_invalid_inputs_return_non_zero() {
+        assert_ne!(
+            run(vec!["vortex-native-count-payload-write".to_string()]),
+            ExitCode::SUCCESS
+        );
+        let invalid_count = run(vec![
+            "vortex-native-count-payload-write".to_string(),
+            "file://tmp/out.vortex".to_string(),
+            "/tmp/stage".to_string(),
+            "not-a-count".to_string(),
+            "write-intent-ready".to_string(),
+            "none".to_string(),
+        ]);
+        assert_ne!(invalid_count, ExitCode::SUCCESS);
+        let unknown_signal = run(vec![
+            "vortex-native-count-payload-write".to_string(),
+            "file://tmp/out.vortex".to_string(),
+            "/tmp/stage".to_string(),
+            "42".to_string(),
+            "write-intent-ready,unknown".to_string(),
+            "none".to_string(),
+        ]);
+        assert_ne!(unknown_signal, ExitCode::SUCCESS);
+        let unknown_option = run(vec![
+            "vortex-native-count-payload-write".to_string(),
+            "file://tmp/out.vortex".to_string(),
+            "/tmp/stage".to_string(),
+            "42".to_string(),
+            "write-intent-ready".to_string(),
+            "unknown".to_string(),
+        ]);
+        assert_ne!(unknown_option, ExitCode::SUCCESS);
+    }
+
+    #[test]
     fn vortex_commit_marker_plan_ready_returns_success() {
         let code = run(vec![
             "vortex-commit-marker-plan".to_string(),
@@ -13426,6 +13739,7 @@ mod tests {
         assert!(usage.contains("|vortex-query-primitive-plan|"));
         assert!(usage.contains("|vortex-encoded-read-metadata-probe|"));
         assert!(usage.contains("|vortex-output-payload-artifact-write|"));
+        assert!(usage.contains("|vortex-native-count-payload-write|"));
     }
 
     #[test]
@@ -13614,6 +13928,7 @@ mod tests {
         let usage = cli_usage_line();
         assert!(usage.contains("vortex-encoded-read-metadata-probe"));
         assert!(usage.contains("vortex-output-payload-artifact-write"));
+        assert!(usage.contains("vortex-native-count-payload-write"));
     }
 
     #[test]

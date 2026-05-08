@@ -36,27 +36,26 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-2.1e.21 approved local scan result bridge
+- [x] Session label: CG-3.1 native count output payload write
   - Primary files:
-    - `shardloom-vortex/src/local_execution.rs`
-    - `shardloom-vortex/src/local_engine.rs`
+    - `shardloom-vortex/src/output_payload.rs`
+    - `shardloom-vortex/src/lib.rs`
     - `shardloom-cli/src/main.rs`
-    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
     - `docs/architecture/vortex-public-api-inventory.md`
     - `docs/architecture/vortex-adapter-integration-plan.md`
-  - Scope: Bridge the already approved local `.vortex` scan/count execution report into the local query-primitive execution evidence surface.
+  - Scope: Add the first real, feature-gated local native `Vortex` output payload write path for a supported `CountAll` result.
   - Checklist:
-    - [x] Add `execute_vortex_count_all_from_approved_local_scan_result` as the local execution bridge from approved local scan result evidence to a known `CountAll` value.
-    - [x] Add local execution status/mode evidence for `local_encoded_count_executed`.
-    - [x] Require approved encoded-count data-path approval, enabled encoded-read executor evidence, matching local scan target/readiness source URI, known count result, and no decode/materialization/row/Arrow/object-store/write/spill/external/fallback effects.
-    - [x] Surface bridged local execution status, value, and side-effect fields from `shardloom vortex-encoded-read-spike ... --execute-local-count`.
-    - [x] Update operator capability discovery fields to name the approved local scan result bridge while keeping discovery report-only.
+    - [x] Add a `NativeVortexPayload` count-result descriptor and native count output payload write request/report.
+    - [x] Render a one-row `u64` count result through the upstream `Vortex` writer only behind `vortex-write`.
+    - [x] Require a ready output-payload plan, feature-gate readiness, local workspace target, native payload content, and a known count result before writing.
+    - [x] Surface `shardloom vortex-native-count-payload-write` with text/JSON side-effect evidence.
+    - [x] Prove default builds remain report-only/feature-disabled and feature-enabled builds write a real local `.vortex` payload.
     - [x] Record phase-plan, traceability, Vortex API inventory, and adapter-boundary docs.
-    - [x] Run focused feature-gated Vortex and CLI tests.
+    - [x] Run focused default and feature-gated Vortex/CLI tests.
     - [x] Run full required validation.
-  - Explicitly not included: generalized encoded-data count execution, adapters, non-local sources, object-store IO, encoded predicates, projection execution, row reads, decode/materialization, Arrow conversion, writes, spill IO, external baseline execution, fallback execution, benchmarks, public command/signal renames, CG-1 closeout, or CG-2 closeout.
+  - Explicitly not included: generalized encoded-data count execution, adapters, non-local sources, object-store IO, encoded predicates, projection execution, row reads, requested decode/materialization, Arrow conversion, manifest writes, manifest commits, commit execution, spill IO, external baseline execution, fallback execution, benchmarks, public command/signal renames, CG-1 closeout, or CG-2 closeout.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -588,7 +587,7 @@ Status legend:
 - **[ ] current/planned**
 - **[~] blocked/deferred**
 
-- [ ] CG-1 — Real encoded read path (**current**)
+- [ ] CG-1 — Real encoded read path (**partially complete; broader closeout deferred**)
   - [x] CG-1.1a encoded read boundary core contract
   - [x] CG-1.1b CLI/docs integration
   - [x] CG-1.2a/1.2b/1.2c planning, fixture, and metadata probe/report integration
@@ -603,7 +602,7 @@ Status legend:
     - no Arrow-default conversion
     - no fallback execution
 
-- [ ] CG-2 — Real query primitive execution over actual Vortex data (**current**)
+- [ ] CG-2 — Real query primitive execution over actual Vortex data (**partially complete; broader closeout deferred**)
   - [x] report-only readiness planning for:
     - count
     - filtered count
@@ -641,14 +640,15 @@ Status legend:
     - decode only when explicitly allowed
     - deterministic blocked diagnostics when metadata/footer or encoded-path readiness is missing
 
-- [ ] CG-3 — Actual output payload write path (**planned, incomplete**)
+- [x] CG-3 — Actual output payload write path (**complete for first supported local payload path**)
   - [x] placeholder/local artifact readiness path exists
-  - [~] real Vortex output payload path remains incomplete
+  - [x] first real local native `Vortex` output payload path exists for a known `CountAll` result behind `vortex-write`
   - Completion rule:
-    - CG-3 remains incomplete until ShardLoom can produce at least one real Vortex-native output payload for a supported workload through a feature-gated, no-fallback path.
+    - CG-3 closes on the first validated feature-gated native `Vortex` payload path for a supported workload.
   - Guardrails:
     - placeholder artifacts do **not** count as completion
-    - no committed state until commit protocol phase requirements are satisfied
+    - count-result payload completion does not imply generalized writes
+    - no committed state until CG-4 commit protocol requirements are satisfied
     - no object-store writes initially
 
 - [ ] CG-4 — Commit protocol execution (**planned**)
@@ -848,8 +848,13 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] output-payload plan CLI (report-only)
 - [x] output-payload artifact write CLI (placeholder/local scope)
 - [~] staged smoke evidence is readiness-only and does not complete CG-3
-- [~] real Vortex-native output payload write path incomplete
-- [ ] CG-3 closeout requires at least one real feature-gated Vortex payload write path
+- [x] CG-3.1 native count output payload descriptor/request/report
+- [x] CG-3.1 native count output payload write API behind `vortex-write`
+- [x] CG-3.1 native count output payload CLI via `shardloom vortex-native-count-payload-write`
+- [x] CG-3.1 feature-gated upstream `Vortex` write and round-trip row-count evidence
+- [x] CG-3 closeout for the first supported local payload path: full validation passed for feature-gated native count-result Vortex payload write
+- [~] generalized output payload writes remain deferred
+- [~] manifest commits and object-store output writes remain deferred to CG-4/CG-10
 
 ### CG-4 detailed checklist
 - [x] commit-intent core contract
@@ -1019,6 +1024,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] Phase 11A/11B (planning-focused milestones listed in traceability)
 - [x] Phase 12A/12B/12C planning-and-readiness milestones listed in traceability
   - Note: Phase-12 placeholder artifacts are readiness-only and do not imply CG-3 completion.
+  - Note: CG-3.1 adds the first real local native Vortex count-result payload path; commit execution, generalized payload writes, and object-store writes remain separate work.
 
 ## Deferred / Blocked Work
 - [x] CG-1.2 metadata/footer execution path has a feature-gated local fixture invocation helper.
@@ -1071,7 +1077,8 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-7.13 metadata physical kernel CLI surfacing exposes the report through `vortex-metadata-physical-kernel-plan` with explicit evidence flags and side-effect/no-fallback fields.
 - [x] CG-7.14 metadata kernel capability discovery surfaces contextual metadata physical kernel availability and evidence requirements in `capabilities operators` and `kernel-registry` without treating those contextual reports as global runtime kernels.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
-- [~] CG-3 real Vortex payload writes remain deferred; placeholder artifact paths are not completion evidence.
+- [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind `vortex-write`; placeholder artifact paths remain readiness-only.
+- [~] CG-3 broader output payload shapes remain deferred.
 
 ## Guardrails
 - No Spark/DataFusion/Polars/DuckDB/Velox/vortex-datafusion fallback execution or delegation.

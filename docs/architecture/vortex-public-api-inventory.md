@@ -544,7 +544,7 @@ This update does not introduce scans, decode, materialization, writes, object-st
 
 - Local commit execution gate is `ShardLoom`-native and report-only in Phase 12B.6.
 - Upstream `Vortex` write APIs remain deferred from this gate.
-- Output payload plan CLI is `ShardLoom`-native in Phase 12C.3a (complete) and remains report-only. Output payload artifact write CLI is `ShardLoom`-native in Phase 12C.3b (complete). Phase 12C.4 keeps the staged smoke test `ShardLoom`-native while real upstream `Vortex` write APIs remain deferred.
+- Output payload plan CLI is `ShardLoom`-native in Phase 12C.3a (complete) and remains report-only. Output payload artifact write CLI is `ShardLoom`-native in Phase 12C.3b (complete). Phase 12C.4 keeps the staged smoke test `ShardLoom`-native while real upstream `Vortex` write APIs remain deferred. CG-3.1 introduces the first feature-gated upstream `Vortex` write call for a local one-row `CountAll` payload only.
 
 
 - Output payload contract is `ShardLoom`-native and report-only.
@@ -552,14 +552,15 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - Object-store write APIs remain deferred.
 
 - Output payload artifact writing is `ShardLoom`-native and does not use upstream `Vortex` write APIs.
-- Upstream `Vortex` write APIs for real payload writes remain deferred.
+- Native count output payload writing uses upstream `VortexSessionDefault`, `SingleThreadRuntime`, `WriteOptionsSessionExt`, `PrimitiveArray`, `Validity`, and `buffer!` inside `shardloom-vortex` under `vortex-write`.
+- Upstream `Vortex` write APIs for broader payload writes remain deferred.
 
 
 ## CG-3 clarification
 
 - Local placeholder artifact write paths are not real Vortex payload write paths.
-- Upstream Vortex write APIs remain deferred in the recorded phases.
-- A future real payload write path must be feature-gated and explicitly approved before CG-3 can be treated as complete.
+- CG-3.1 approves a feature-gated local native Vortex count-result payload path only.
+- Broader payload shapes, manifest commits, and object-store writes remain deferred.
 
 
 - CG-1.2b adds metadata/footer probe contracts only; default report construction does not inspect local file existence and scan/data traversal remains deferred.
