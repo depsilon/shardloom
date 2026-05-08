@@ -95,11 +95,13 @@ pub use input::{
 
 pub use manifest::{
     CdcEventKind, CdcEventSummary, CdcIncrementalPlanningReport, CdcIncrementalPlanningStatus,
-    ChangeSet, CommitRecord, CommitStatus, DatasetManifest, FileDescriptor, FileRole,
-    IncrementalPlanSkeleton, IncrementalPlanningDecision, LayoutHealthIssue, LayoutHealthIssueKind,
-    LayoutHealthPolicy, LayoutHealthReport, LayoutHealthStatus, ManifestSegment, ManifestVersion,
-    SegmentChange, SegmentChangeKind, SnapshotRef, WriteIntent, WriteIntentStatus,
-    evaluate_cdc_incremental_planning, evaluate_layout_health,
+    ChangeSet, CommitRecord, CommitStatus, CompactionPlanningAction, CompactionPlanningActionKind,
+    CompactionPlanningPolicy, CompactionPlanningReport, CompactionPlanningStatus, DatasetManifest,
+    FileDescriptor, FileRole, IncrementalPlanSkeleton, IncrementalPlanningDecision,
+    LayoutHealthIssue, LayoutHealthIssueKind, LayoutHealthPolicy, LayoutHealthReport,
+    LayoutHealthStatus, ManifestSegment, ManifestVersion, SegmentChange, SegmentChangeKind,
+    SnapshotRef, WriteIntent, WriteIntentStatus, evaluate_cdc_incremental_planning,
+    evaluate_compaction_planning, evaluate_layout_health,
 };
 pub use observability::{
     KernelProfile, MetricCategory, MetricKind, MetricSample, MetricUnit, ObservabilityMetricValue,

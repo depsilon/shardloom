@@ -45,7 +45,7 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-9.6 layout health planning evidence
+- [x] Session label: CG-9.7 compaction planning evidence
   - Primary files:
     - `shardloom-core/src/manifest.rs`
     - `shardloom-core/src/lib.rs`
@@ -55,21 +55,22 @@ Supporting docs:
     - `docs/rfcs/0016-optimizer-adaptive-execution-runtime-filters-skew.md`
     - `docs/rfcs/0020-schema-evolution-catalog-table-compatibility.md`
     - `docs/architecture/canonical-terminology.md`
-  - Scope: Add no-IO/no-fallback layout-health planning evidence over declared manifest/file/segment metadata without constructing layout readers, catalog access, table metadata IO, data reads, writes, object-store IO, compaction execution, or fallback execution.
+  - Scope: Add no-IO/no-fallback compaction planning evidence over declared manifest/layout-health metadata without constructing layout readers, catalog access, table metadata IO, data reads, writes, object-store IO, compaction execution, or fallback execution.
   - Checklist:
-    - [x] Add `LayoutHealthPolicy`, `LayoutHealthIssue`, and `LayoutHealthReport` contracts.
-    - [x] Evaluate small files, small segments, missing statistics, missing byte ranges, mixed formats, mixed encodings, mixed layouts, and non-native data-file evidence.
-    - [x] Surface no-IO/no-fallback evidence through `layout-health-plan`.
-    - [x] Add focused success/failure tests for layout-health planning.
+    - [x] Add `CompactionPlanningPolicy`, `CompactionPlanningAction`, and `CompactionPlanningReport` contracts.
+    - [x] Derive future compaction recommendations from `LayoutHealthReport` without reads, writes, maintenance execution, or fallback.
+    - [x] Block missing metadata and mixed/non-native layout evidence behind explicit planning statuses.
+    - [x] Surface no-IO/no-fallback evidence through `compaction-plan`.
+    - [x] Add focused success/failure tests for compaction planning.
     - [x] Update phase, RFC traceability, RFC 0016, RFC 0020, and terminology docs.
     - [x] Run full required validation.
   - Local validation status:
-    - focused `shardloom-core` layout-health tests passed
-    - focused `shardloom-cli` layout-health tests passed
+    - focused `shardloom-core` compaction-planning tests passed
+    - focused `shardloom-cli` compaction-plan tests passed
     - focused Clippy for `shardloom-core` and `shardloom-cli` passed with toolchain `1.91.1`
     - full Rust validation passed with toolchain `1.91.1`
     - docs hygiene scans passed for `git diff --check` and hidden/bidi controls
-    - CLI JSON smoke check passed for `layout-health-plan small-files --format json`
+    - CLI JSON smoke check passed for `compaction-plan small-files --format json`
   - Explicitly not included: layout-reader construction, catalog access, table metadata reads, object-store IO, data reads, writes, commits, external table-format implementation, delete-file application, tombstone filtering, row-delete execution, position-delete execution, equality-delete execution, CDC execution, compaction execution, parser work, SQL execution, adapter runtime, benchmark claims, superiority claims, or fallback execution.
 
 ## R5 Detailed Completed Ledger
@@ -842,6 +843,16 @@ Supporting docs:
     - `layout-health-plan` surfaces stable report fields for healthy, small-file, missing-stats, mixed-layout, and empty-manifest scenarios.
     - Empty manifests are rejected; compaction recommendations remain planning evidence and do not execute writes or maintenance.
     - No layout-reader construction, catalog access, table metadata IO, data reads, writes, object-store IO, compaction execution, benchmark claim, superiority claim, or fallback behavior is added.
+- [x] CG-9.7 compaction planning evidence
+  - Why: convert layout-health recommendations into typed future maintenance evidence before table maintenance execution or catalog/table metadata integration expands.
+  - Acceptance:
+    - `CompactionPlanningReport` records layout-health input, policy, action, status, candidate, blocker, estimated group, diagnostic, side-effect, compaction-execution-disabled, and no-fallback fields.
+    - The evaluator emits future recommendations for declared small-file/small-segment candidates only when metadata and layout evidence is sufficient.
+    - Missing statistics or byte ranges block recommendation emission behind metadata refresh/index requirements.
+    - Mixed formats, mixed encodings, mixed layouts, and non-native data files block recommendation emission behind layout or adapter-fidelity review.
+    - `compaction-plan` surfaces stable report fields for healthy, small-file, missing-stats, mixed-layout, and empty-manifest scenarios.
+    - Empty manifests are rejected; recommendations remain planning evidence and do not execute writes or maintenance.
+    - No layout-reader construction, catalog access, table metadata IO, data reads, writes, object-store IO, compaction execution, benchmark claim, superiority claim, or fallback behavior is added.
 
 ## Competitive Engine Gates CG-1 through CG-20
 
@@ -1007,6 +1018,7 @@ Status legend:
   - [x] CG-9.4 table compatibility evidence aggregation
   - [x] CG-9.5 CDC incremental planning evidence
   - [x] CG-9.6 layout health planning evidence
+  - [x] CG-9.7 compaction planning evidence
   - Scope:
     - schema evolution and partition evolution
     - delete/tombstone semantics and native handling requirements
@@ -1257,12 +1269,13 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-9.4 table compatibility evidence aggregation
 - [x] CG-9.5 CDC incremental planning evidence
 - [x] CG-9.6 layout health planning evidence
+- [x] CG-9.7 compaction planning evidence
 - [ ] broader schema evolution catalog/table metadata integration
 - [ ] broader partition evolution catalog/table metadata integration
 - [ ] broader delete/tombstone catalog/table metadata integration
 - [ ] broader CDC/incremental execution
 - [ ] broader layout-health integration
-- [ ] compaction planning
+- [ ] broader compaction execution and catalog/table maintenance integration
 
 ### CG-10 detailed checklist
 - [ ] object-store range planning
@@ -1449,6 +1462,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-9.4 table compatibility evidence aggregation folds schema-evolution, partition-evolution, and delete/tombstone reports into `TableCompatibilityReport` and `table-compat-plan aggregate` while keeping catalog access, table metadata reads, IO, writes, and fallback disabled.
 - [x] CG-9.5 CDC incremental planning evidence adds `CdcIncrementalPlanningReport` and `incremental-plan cdc` surfacing for append-only/metadata-only plan routing and unsupported update/delete/tombstone/schema/partition/unknown cases while keeping catalog access, table metadata reads, IO, writes, CDC execution, and fallback disabled.
 - [x] CG-9.6 layout health planning evidence adds `LayoutHealthReport` and `layout-health-plan` surfacing for small files/segments, missing stats/byte ranges, mixed formats/layouts/encodings, and compaction recommendations while keeping layout-reader construction, catalog access, table metadata reads, IO, writes, compaction execution, and fallback disabled.
+- [x] CG-9.7 compaction planning evidence adds `CompactionPlanningReport` and `compaction-plan` surfacing for future small-file/small-segment maintenance recommendations, metadata/layout blockers, and estimated report-only groups while keeping layout-reader construction, catalog access, table metadata reads, IO, writes, compaction execution, and fallback disabled.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind `vortex-write`; placeholder artifact paths remain readiness-only.
 - [~] CG-3 broader output payload shapes remain deferred.
