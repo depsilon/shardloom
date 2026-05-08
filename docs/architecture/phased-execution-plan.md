@@ -45,30 +45,28 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-18.1 universal harness report
+- [x] Session label: CG-19.1 native I/O envelope report
   - Primary files:
-    - `shardloom-core/src/universal_harness.rs`
+    - `shardloom-core/src/native_io.rs`
     - `shardloom-core/src/lib.rs`
     - `shardloom-cli/src/main.rs`
-    - `shardloom-cli/tests/universal_harness_plan_snapshots.rs`
+    - `shardloom-cli/tests/native_io_envelope_plan_snapshots.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-    - `docs/rfcs/0030-universal-api-plan-portability-import-deployment-baselines.md`
-  - Scope: Add a report-only CG-18 universal import/deployment/baseline harness surface that ties the CLI JSON runner contract, package/import evidence, deployment profile evidence, optional Foundry examples, external baseline requirements, comparison report datasets, and portability checks together without importing, deploying, publishing, probing, running baselines, or executing runtime work.
+  - Scope: Add a report-only CG-19 universal native I/O envelope surface that turns RFC 0031 contracts into deterministic core and CLI evidence without probing adapters, reading data, decoding, materializing, converting to Arrow, executing object-store I/O, writing, spilling, or using fallback execution.
   - Checklist:
-    - [x] Add `UniversalHarnessReport` with universal runner, import/deployment, optional Foundry, external baseline, comparison dataset, and portability-check surfaces.
-    - [x] Surface `universal-harness-plan --format json` with harness surface counts, baseline counts, runner contract field order, requirement fields, and side-effect fields.
-    - [x] Keep the harness report-only with no package import, deployment, Foundry invocation, external baseline execution, runtime execution, probes, reads, writes, publishing, production claims, or fallback.
+    - [x] Add `NativeIoEnvelopeReport` with RFC 0031 contract surfaces, representation state contracts, transition examples, and per-source/sink-path certificate requirements.
+    - [x] Surface `native-io-envelope-plan --format json` with contract counts, representation state order, transition example order, certificate path order, requirement fields, and side-effect fields.
+    - [x] Keep the report-only boundary explicit: per-path certificates are required, aggregate-only certificates are insufficient, decoded Arrow normalization is disabled, and materialization boundaries are required for decoded/row transitions.
     - [x] Add focused unit and CLI JSON snapshot coverage.
-    - [x] Update phase plan, RFC traceability, and RFC 0030.
+    - [x] Update phase plan and RFC traceability.
     - [x] Run full required validation.
   - Local validation status:
-    - focused `shardloom-core` `universal_harness` tests passed
-    - focused `shardloom-cli` `universal_harness_plan_snapshots` tests passed
-    - focused Clippy for `shardloom-core` and `shardloom-cli` passed with toolchain `1.91.1`
+    - focused `shardloom-core` `native_io` tests passed
+    - focused `shardloom-cli` `native_io` and `native_io_envelope_plan_snapshots` tests passed
     - full Rust validation passed with toolchain `1.91.1`
     - docs hygiene scans passed for `git diff --check` and hidden/bidi controls
-  - Explicitly not included: package import, deployment execution, Foundry invocation, external baseline runner execution, plan import/export serialization, parser execution, filesystem/network/catalog/adapter probing, data reads, decode/materialization, Arrow conversion, writes, spill execution, package publication, performance claims, superiority claims, or fallback execution.
+  - Explicitly not included: adapter runtime, source/sink runtime emission, parser execution, filesystem/network/catalog/adapter probing, data reads, decode/materialization, row reads, Arrow conversion, object-store IO, writes, spill IO, package publication, performance claims, superiority claims, or fallback execution.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -1149,7 +1147,8 @@ Status legend:
 
 - [ ] CG-19 — Universal Native I/O Envelope (**planned**)
   - [x] RFC 0031 contract deepening complete
-  - [~] implementation pending
+  - [x] CG-19.1 native I/O envelope report
+  - [~] source/sink runtime certificate emission pending
   - Scope:
     - preserve representation state, pushdown evidence, materialization boundaries, and sink constraints without default decode
 
@@ -1411,8 +1410,9 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] RFC 0031 contract deepening complete
 - [x] CG-19 sufficiency gates and per-path certificate disqualifiers documented
 - [x] Vortex Scan API source/sink/split/range-I/O alignment note documented as a design reference, not fallback execution
-- [~] implementation pending
-- [ ] preserve representation state, pushdown evidence, materialization boundaries, and sink constraints without default decode
+- [x] CG-19.1 report-only native I/O envelope contract foundation implemented through `NativeIoEnvelopeReport` and `native-io-envelope-plan`
+- [~] source/sink runtime certificate emission pending
+- [x] representation state, pushdown proof, materialization boundary, sink requirement, adapter fidelity, per-path certificate, no-default-Arrow, and no-fallback report fields are exposed without reads, decode, materialization, IO, writes, or fallback
 
 ### CG-20 detailed checklist
 - [x] RFC 0032 contract deepening complete
@@ -1556,6 +1556,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-11.1 stable CLI/API JSON protocol foundation adds `CliApiJsonProtocolReport` and `api-compat-plan` fields for `OutputEnvelope` schema keys, command statuses, fallback and diagnostic keys, thin Python wrapper boundary, no PyO3/maturin, no parser/runtime/probe/write/publish side effects, and no fallback.
 - [x] CG-11.2 thin Python wrapper foundation adds `PythonWrapperFoundationReport` and `python-wrapper-plan` fields for a future subprocess CLI JSON client, required diagnostics/fallback/materialization passthrough behavior, deferred package/native binding/DataFrame/notebook/Python UDF surfaces, no probes, no runtime/parser execution, no writes, no publish, and no fallback.
 - [x] CG-18.1 universal harness report adds `UniversalHarnessReport` and `universal-harness-plan` surfacing for CLI JSON runner fields, import/deployment surfaces, optional Foundry examples, external-only Spark/DataFusion/Polars baseline requirements, comparison dataset requirements, portability-check requirements, and no-import/no-deployment/no-baseline-execution/no-probe/no-publish/no-fallback side-effect fields.
+- [x] CG-19.1 native I/O envelope report adds `NativeIoEnvelopeReport` and `native-io-envelope-plan` surfacing for RFC 0031 contract surfaces, representation state contracts, transition examples, per-source/sink-path certificate requirements, no-default-decoded-Arrow requirements, materialization boundary requirements, and no-runtime/no-probe/no-read/no-decode/no-materialization/no-write/no-fallback side-effect fields.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind `vortex-write`; placeholder artifact paths remain readiness-only.
 - [~] CG-3 broader output payload shapes remain deferred.
