@@ -45,21 +45,31 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: SubQ long-context technique transfer
+- [x] Session label: CG-9.2 partition evolution compatibility evidence
   - Primary files:
-    - `docs/architecture/systems-learning-map.md`
-    - `docs/architecture/canonical-terminology.md`
+    - `shardloom-core/src/schema.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/main.rs`
     - `docs/architecture/phased-execution-plan.md`
-  - Scope: Translate SubQ/SSA long-context lessons into ShardLoom-native architecture vocabulary and guardrails without adding model dependencies, model calls, runtime behavior, or benchmark claims.
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/rfcs/0020-schema-evolution-catalog-table-compatibility.md`
+  - Scope: Add typed CG-9 partition-evolution compatibility evidence for partition field additions, drops, transform changes, reorders, unknown transforms, routing requirements, metadata rewrites, and repartition requirements without catalog access, table metadata IO, data reads, writes, object-store IO, or fallback execution.
   - Checklist:
-    - [x] Review SubQ launch, SSA technical article, and product page.
-    - [x] Add technique-transfer lessons for functional context, evidence routing, structure preservation, and stateful certificate history.
-    - [x] Add concise canonical terminology for the reusable ShardLoom-native concepts.
-    - [x] Preserve source-status caveats because model card/technical report are still forthcoming.
-    - [x] Run docs hygiene validation.
+    - [x] Add `PartitionEvolutionCompatibilityReport` and evaluator in core.
+    - [x] Detect add, drop, transform-change, reorder, and unknown-transform transitions.
+    - [x] Surface partition routing, metadata rewrite, and repartition requirements.
+    - [x] Surface no-IO/no-fallback partition-evolution evidence through `table-compat-plan partition-evolution`.
+    - [x] Add focused success/failure tests for safe and unsafe partition transitions.
+    - [x] Update phase, RFC traceability, and RFC 0020 docs.
+    - [x] Run full required validation.
   - Local validation status:
+    - focused `shardloom-core` partition-evolution tests passed
+    - focused `shardloom-cli` table-compat partition-evolution tests passed
+    - focused Clippy for `shardloom-core` and `shardloom-cli` passed with toolchain `1.91.1`
+    - full Rust validation passed with toolchain `1.91.1`
     - docs hygiene scans passed for `git diff --check` and hidden/bidi controls
-  - Explicitly not included: SubQ dependency, model/API integration, LLM calls, runtime behavior, benchmark evidence, claim certification, parser work, SQL execution, adapter runtime, external probing, or fallback execution.
+    - CLI JSON smoke check passed for `table-compat-plan partition-evolution add-field --format json`
+  - Explicitly not included: catalog access, table metadata reads, object-store IO, data reads, writes, commits, external table-format implementation, delete/tombstone execution, CDC execution, layout-health execution, compaction execution, parser work, SQL execution, adapter runtime, benchmark claims, superiority claims, or fallback execution.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -791,6 +801,14 @@ Supporting docs:
     - Safe renames require stable field IDs; possible renames without field IDs are rejected with no fallback attempted.
     - `schema-plan evolution` surfaces stable schema-evolution report fields for representative safe and unsafe transitions.
     - No catalog access, table metadata IO, data reads, writes, object-store IO, partition evolution, delete/tombstone execution, CDC execution, compaction, benchmark claim, superiority claim, or fallback behavior is added.
+- [x] CG-9.2 partition evolution compatibility evidence
+  - Why: add typed partition-spec compatibility evidence before catalog/table metadata integration or write-side partition behavior.
+  - Acceptance:
+    - `PartitionEvolutionCompatibilityReport` records compatibility level, partition changes, preserved/added/dropped/transform/reorder/unsafe counts, routing requirements, metadata rewrite requirements, repartition requirements, read/write support, and no-IO/no-fallback evidence.
+    - The evaluator detects partition field add/drop, transform changes, reorders, and unknown transforms.
+    - Unknown partition transforms are rejected deterministically with no fallback attempted.
+    - `table-compat-plan partition-evolution` surfaces stable partition-evolution report fields for representative safe and unsafe transitions.
+    - No catalog access, table metadata IO, data reads, writes, object-store IO, delete/tombstone execution, CDC execution, compaction, benchmark claim, superiority claim, or fallback behavior is added.
 
 ## Competitive Engine Gates CG-1 through CG-20
 
@@ -951,6 +969,7 @@ Status legend:
 
 - [ ] CG-9 — Lakehouse/table intelligence (**planned**)
   - [x] CG-9.1 schema evolution compatibility evidence
+  - [x] CG-9.2 partition evolution compatibility evidence
   - Scope:
     - schema evolution and partition evolution
     - delete/tombstone semantics
@@ -1196,7 +1215,8 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 ### CG-9 detailed checklist
 - [x] CG-9.1 schema evolution compatibility evidence
 - [ ] broader schema evolution catalog/table metadata integration
-- [ ] partition evolution
+- [x] CG-9.2 partition evolution compatibility evidence
+- [ ] broader partition evolution catalog/table metadata integration
 - [ ] delete/tombstone semantics
 - [ ] CDC/incremental planning
 - [ ] layout health
@@ -1382,6 +1402,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-8.6 bounded metadata/no-op local task execution makes completed bounded metadata-only and no-op decisions report `tasks_executed=true` while preserving no data reads, decode, materialization, object-store IO, writes, spill IO, external effects, or fallback execution.
 - [x] CG-8.7 approved local encoded streaming-batch runtime evidence exposes the approved local encoded `CountAll` scan as executed streaming batches with source-match, bounded-memory/backpressure, batch-count, row-count, no-decode/no-materialization/no-row/no-Arrow/no-object-store/no-write/no-spill/no-fallback evidence while broader streaming runtime remains deferred.
 - [x] CG-9.1 schema evolution compatibility evidence adds a typed no-IO/no-fallback report for schema add/drop/rename/type/nullability/identity/metadata changes, field-id rename safety, metadata-loss diagnostics, and `schema-plan evolution` surfacing while broader catalog/table integration remains deferred.
+- [x] CG-9.2 partition evolution compatibility evidence adds a typed no-IO/no-fallback report for partition field add/drop/transform/reorder/unknown-transform changes, partition routing, metadata rewrite, repartition requirements, and `table-compat-plan partition-evolution` surfacing while broader catalog/table integration remains deferred.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind `vortex-write`; placeholder artifact paths remain readiness-only.
 - [~] CG-3 broader output payload shapes remain deferred.

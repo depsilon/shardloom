@@ -98,6 +98,49 @@ Safe rename evidence requires stable field IDs. A possible rename without stable
 identity is rejected even when the field shape looks compatible, because accepting it would
 make unsafe data movement indistinguishable from a real rename.
 
+### Partition evolution compatibility report
+
+`PartitionEvolutionCompatibilityReport` compares typed partition specs and emits deterministic
+compatibility evidence before catalog access, table metadata IO, reads, repartitioning, writes,
+or object-store behavior are introduced.
+
+Required fields:
+
+- `from_spec`.
+- `to_spec`.
+- `level`.
+- `changes`.
+- `diagnostics`.
+- `preserved_field_count`.
+- `added_field_count`.
+- `dropped_field_count`.
+- `transform_change_count`.
+- `reorder_count`.
+- `unsafe_change_count`.
+- `requires_partition_router`.
+- `requires_metadata_rewrite`.
+- `requires_repartition`.
+- `read_supported`.
+- `write_supported`.
+- `data_read=false`.
+- `write_io=false`.
+- `catalog_io=false`.
+- `object_store_io=false`.
+- `fallback_execution_allowed=false`.
+
+The evaluator should detect:
+
+- unchanged partition specs.
+- added partition fields.
+- dropped partition fields.
+- transform changes.
+- partition field reordering.
+- unknown or unsupported transforms.
+
+Known add/drop/transform/reorder changes may be report-compatible only when they explicitly
+surface partition routing, metadata rewrite, or repartition requirements. Unknown transforms
+are rejected until a native rule can preserve semantics.
+
 ### Catalog integration contract
 
 Catalog adapters should expose:

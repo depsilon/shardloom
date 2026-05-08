@@ -11,14 +11,16 @@ use shardloom_core::{
     ComparisonOp, CorrectnessFixture, CorrectnessValidationPlan, DatasetManifest, DatasetRef,
     DatasetUri, ExecutionCertificate, ExtensionId, ExtensionInspectionReport, ExtensionLicenseKind,
     ExtensionManifest, ExtensionProvenance, ExtensionRegistrySnapshot, ExtensionVersion, FieldId,
-    FieldName, IncrementalPlanSkeleton, InputAdapterRegistrySnapshot, KernelRegistrySnapshot,
-    LogicalDType, ManifestId, Nullability, ObservabilityPlan, OperatorMemoryCertification,
-    OutputEnvelope, OutputFormat, OutputTarget, PhysicalKernelRegistryPlan,
-    PhysicalOperatorExecutionLevel, PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorPlan,
-    PredicateExpr, RedactionPolicy, ReleasePlan, RuntimeObservabilityReport, SchemaDefinition,
-    SchemaEvolutionCompatibilityReport, SchemaEvolutionPolicy, SchemaField, SchemaId,
-    SchemaVersion, SecurityPlan, ShardLoomError, SnapshotId, SnapshotRef, StatValue,
-    TableCompatibilityPlan, TableFormatKind, TranslationPlan, UdfRuntimeKind, WriteIntent,
+    FieldName, FieldPath, IncrementalPlanSkeleton, InputAdapterRegistrySnapshot,
+    KernelRegistrySnapshot, LogicalDType, ManifestId, Nullability, ObservabilityPlan,
+    OperatorMemoryCertification, OutputEnvelope, OutputFormat, OutputTarget,
+    PartitionEvolutionCompatibilityReport, PartitionField, PartitionSpec, PartitionTransform,
+    PhysicalKernelRegistryPlan, PhysicalOperatorExecutionLevel,
+    PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorPlan, PredicateExpr, RedactionPolicy,
+    ReleasePlan, RuntimeObservabilityReport, SchemaDefinition, SchemaEvolutionCompatibilityReport,
+    SchemaEvolutionPolicy, SchemaField, SchemaId, SchemaVersion, SecurityPlan, ShardLoomError,
+    SnapshotId, SnapshotRef, StatValue, TableCompatibilityPlan, TableFormatKind, TranslationPlan,
+    UdfRuntimeKind, WriteIntent, evaluate_partition_evolution_compatibility,
     evaluate_schema_evolution_compatibility,
 };
 use shardloom_exec::{
@@ -1690,6 +1692,268 @@ fn schema_fixture_field(
     } else {
         Ok(field)
     }
+}
+
+fn handle_table_compat_plan(
+    mut args: std::vec::IntoIter<String>,
+    format: OutputFormat,
+) -> ExitCode {
+    match args.next().as_deref() {
+        Some("partition-evolution") => {
+            let scenario = args.next().unwrap_or_else(|| "add-field".to_string());
+            if let Some(extra) = args.next() {
+                return emit_error(
+                    "table-compat-plan",
+                    format,
+                    "partition evolution plan failed",
+                    &cli_unknown_arg_error("table-compat-plan partition-evolution", &extra),
+                );
+            }
+            emit_partition_evolution_plan(format, &scenario)
+        }
+        maybe_format => emit_table_compat_plan(format, maybe_format),
+    }
+}
+
+fn emit_table_compat_plan(format: OutputFormat, format_token: Option<&str>) -> ExitCode {
+    let format_kind = match format_token {
+        Some("vortex") => TableFormatKind::NativeVortexManifest,
+        Some("iceberg") => TableFormatKind::IcebergCompatible,
+        Some("delta") => TableFormatKind::DeltaCompatible,
+        Some("hive") => TableFormatKind::HiveStyle,
+        Some("external") => TableFormatKind::ExternalCatalogOnly,
+        Some(_) | None => TableFormatKind::Unknown,
+    };
+    let plan = if format_kind.is_native_vortex() {
+        TableCompatibilityPlan::native_vortex()
+    } else if format_kind.is_compatibility_target() {
+        TableCompatibilityPlan::compatibility_target(format_kind)
+    } else {
+        TableCompatibilityPlan::unsupported(
+            format_kind,
+            "table_compat_plan",
+            "Unknown table format is unsupported for compatibility planning.",
+        )
+    };
+    let status = if plan.has_errors() {
+        CommandStatus::Unsupported
+    } else {
+        CommandStatus::Success
+    };
+    emit(
+        "table-compat-plan",
+        format,
+        status,
+        "table compatibility plan skeleton".to_string(),
+        plan.to_human_text(),
+        plan.diagnostics.clone(),
+        vec![
+            (
+                "fallback_execution_allowed".to_string(),
+                "false".to_string(),
+            ),
+            ("mode".to_string(), "table_compat_plan".to_string()),
+            ("write_io".to_string(), "false".to_string()),
+            ("execution".to_string(), "not_performed".to_string()),
+            ("plan_only".to_string(), "true".to_string()),
+            (
+                "table_formats_are".to_string(),
+                "compatibility_targets_not_fallback_engines".to_string(),
+            ),
+        ],
+    );
+    if plan.has_errors() {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+fn emit_partition_evolution_plan(format: OutputFormat, scenario: &str) -> ExitCode {
+    let (from_spec, to_spec) = match partition_evolution_fixture(scenario) {
+        Ok(parts) => parts,
+        Err(error) => {
+            return emit_error(
+                "table-compat-plan",
+                format,
+                "partition evolution plan failed",
+                &error,
+            );
+        }
+    };
+    let report = evaluate_partition_evolution_compatibility(&from_spec, &to_spec);
+    let status = if report.has_errors() {
+        CommandStatus::Unsupported
+    } else {
+        CommandStatus::Success
+    };
+    emit(
+        "table-compat-plan",
+        format,
+        status,
+        "partition evolution compatibility report".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        partition_evolution_output_fields(&report, scenario),
+    );
+    if report.has_errors() {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+fn partition_evolution_output_fields(
+    report: &PartitionEvolutionCompatibilityReport,
+    scenario: &str,
+) -> Vec<(String, String)> {
+    vec![
+        (
+            "fallback_execution_allowed".to_string(),
+            "false".to_string(),
+        ),
+        ("mode".to_string(), "partition_evolution_plan".to_string()),
+        ("scenario".to_string(), scenario.to_string()),
+        (
+            "partition_evolution_report_emitted".to_string(),
+            "true".to_string(),
+        ),
+        (
+            "compatibility_level".to_string(),
+            report.level.as_str().to_string(),
+        ),
+        ("change_count".to_string(), report.changes.len().to_string()),
+        (
+            "preserved_field_count".to_string(),
+            report.preserved_field_count.to_string(),
+        ),
+        (
+            "added_field_count".to_string(),
+            report.added_field_count.to_string(),
+        ),
+        (
+            "dropped_field_count".to_string(),
+            report.dropped_field_count.to_string(),
+        ),
+        (
+            "transform_change_count".to_string(),
+            report.transform_change_count.to_string(),
+        ),
+        (
+            "reorder_count".to_string(),
+            report.reorder_count.to_string(),
+        ),
+        (
+            "unsafe_change_count".to_string(),
+            report.unsafe_change_count.to_string(),
+        ),
+        (
+            "requires_partition_router".to_string(),
+            report.requires_partition_router.to_string(),
+        ),
+        (
+            "requires_metadata_rewrite".to_string(),
+            report.requires_metadata_rewrite.to_string(),
+        ),
+        (
+            "requires_repartition".to_string(),
+            report.requires_repartition.to_string(),
+        ),
+        (
+            "read_supported".to_string(),
+            report.read_supported.to_string(),
+        ),
+        (
+            "write_supported".to_string(),
+            report.write_supported.to_string(),
+        ),
+        ("data_read".to_string(), report.data_read.to_string()),
+        ("write_io".to_string(), report.write_io.to_string()),
+        ("catalog_io".to_string(), report.catalog_io.to_string()),
+        (
+            "object_store_io".to_string(),
+            report.object_store_io.to_string(),
+        ),
+        ("execution".to_string(), "not_performed".to_string()),
+        ("plan_only".to_string(), "true".to_string()),
+        (
+            "table_formats_are".to_string(),
+            "compatibility_targets_not_fallback_engines".to_string(),
+        ),
+    ]
+}
+
+fn partition_evolution_fixture(
+    scenario: &str,
+) -> Result<(PartitionSpec, PartitionSpec), ShardLoomError> {
+    match scenario {
+        "same" => {
+            let spec = base_partition_spec()?;
+            Ok((spec.clone(), spec))
+        }
+        "add-field" => Ok((base_partition_spec()?, added_partition_field_spec()?)),
+        "change-transform" => Ok((base_partition_spec()?, changed_partition_transform_spec()?)),
+        "drop-field" => Ok((added_partition_field_spec()?, base_partition_spec()?)),
+        "reorder" => Ok((added_partition_field_spec()?, reordered_partition_spec()?)),
+        "unknown-transform" => Ok((base_partition_spec()?, unknown_partition_transform_spec()?)),
+        value => Err(cli_unknown_arg_error(
+            "table-compat-plan partition-evolution",
+            value,
+        )),
+    }
+}
+
+fn base_partition_spec() -> Result<PartitionSpec, ShardLoomError> {
+    Ok(partition_spec_from_fields(vec![partition_fixture_field(
+        "created_at",
+        PartitionTransform::Day,
+    )?]))
+}
+
+fn added_partition_field_spec() -> Result<PartitionSpec, ShardLoomError> {
+    Ok(partition_spec_from_fields(vec![
+        partition_fixture_field("created_at", PartitionTransform::Day)?,
+        partition_fixture_field("customer_id", PartitionTransform::Bucket { buckets: 16 })?,
+    ]))
+}
+
+fn changed_partition_transform_spec() -> Result<PartitionSpec, ShardLoomError> {
+    Ok(partition_spec_from_fields(vec![partition_fixture_field(
+        "created_at",
+        PartitionTransform::Month,
+    )?]))
+}
+
+fn reordered_partition_spec() -> Result<PartitionSpec, ShardLoomError> {
+    Ok(partition_spec_from_fields(vec![
+        partition_fixture_field("customer_id", PartitionTransform::Bucket { buckets: 16 })?,
+        partition_fixture_field("created_at", PartitionTransform::Day)?,
+    ]))
+}
+
+fn unknown_partition_transform_spec() -> Result<PartitionSpec, ShardLoomError> {
+    Ok(partition_spec_from_fields(vec![partition_fixture_field(
+        "created_at",
+        PartitionTransform::Unknown("vendor_specific".to_string()),
+    )?]))
+}
+
+fn partition_spec_from_fields(fields: Vec<PartitionField>) -> PartitionSpec {
+    let mut spec = PartitionSpec::empty();
+    for field in fields {
+        spec.add_field(field);
+    }
+    spec
+}
+
+fn partition_fixture_field(
+    source: &str,
+    transform: PartitionTransform,
+) -> Result<PartitionField, ShardLoomError> {
+    Ok(PartitionField::new(
+        FieldPath::from_dot_separated(source)?,
+        transform,
+    ))
 }
 
 #[must_use]
@@ -6972,59 +7236,7 @@ fn run(args: Vec<String>) -> ExitCode {
             );
             ExitCode::SUCCESS
         }
-        Some("table-compat-plan") => {
-            let format_kind = match args.next().as_deref() {
-                Some("vortex") => TableFormatKind::NativeVortexManifest,
-                Some("iceberg") => TableFormatKind::IcebergCompatible,
-                Some("delta") => TableFormatKind::DeltaCompatible,
-                Some("hive") => TableFormatKind::HiveStyle,
-                Some("external") => TableFormatKind::ExternalCatalogOnly,
-                Some(_) | None => TableFormatKind::Unknown,
-            };
-            let plan = if format_kind.is_native_vortex() {
-                TableCompatibilityPlan::native_vortex()
-            } else if format_kind.is_compatibility_target() {
-                TableCompatibilityPlan::compatibility_target(format_kind)
-            } else {
-                TableCompatibilityPlan::unsupported(
-                    format_kind,
-                    "table_compat_plan",
-                    "Unknown table format is unsupported for compatibility planning.",
-                )
-            };
-            let status = if plan.has_errors() {
-                CommandStatus::Unsupported
-            } else {
-                CommandStatus::Success
-            };
-            emit(
-                "table-compat-plan",
-                format,
-                status,
-                "table compatibility plan skeleton".to_string(),
-                plan.to_human_text(),
-                plan.diagnostics.clone(),
-                vec![
-                    (
-                        "fallback_execution_allowed".to_string(),
-                        "false".to_string(),
-                    ),
-                    ("mode".to_string(), "table_compat_plan".to_string()),
-                    ("write_io".to_string(), "false".to_string()),
-                    ("execution".to_string(), "not_performed".to_string()),
-                    ("plan_only".to_string(), "true".to_string()),
-                    (
-                        "table_formats_are".to_string(),
-                        "compatibility_targets_not_fallback_engines".to_string(),
-                    ),
-                ],
-            );
-            if plan.has_errors() {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            }
-        }
+        Some("table-compat-plan") => handle_table_compat_plan(args, format),
         Some("capabilities") => {
             let scope = match CapabilityDiscoveryScope::parse(args.next().as_deref()) {
                 Ok(scope) => scope,
@@ -17577,6 +17789,26 @@ mod tests {
     #[test]
     fn table_compat_plan_with_unknown_returns_non_zero() {
         let code = run(vec!["table-compat-plan".to_string(), "unknown".to_string()]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn table_compat_plan_partition_evolution_add_field_returns_success() {
+        let code = run(vec![
+            "table-compat-plan".to_string(),
+            "partition-evolution".to_string(),
+            "add-field".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn table_compat_plan_partition_evolution_unknown_transform_returns_non_zero() {
+        let code = run(vec![
+            "table-compat-plan".to_string(),
+            "partition-evolution".to_string(),
+            "unknown-transform".to_string(),
+        ]);
         assert_ne!(code, ExitCode::SUCCESS);
     }
 
