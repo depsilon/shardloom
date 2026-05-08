@@ -10,23 +10,22 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [x] Session label: CG-2.1e.9 layout-reader construction blocker hardening
-  - Current cleanup/implementation step: Preserve `VortexFile::layout_reader` as a named runtime-driver blocker for encoded-count approval while keeping `LayoutReader::row_count` metadata-like but not execution-usable.
+- [x] Session label: CG-2.1e.10 layout-driver approval boundary
+  - Current cleanup/implementation step: Add a report-only approval contract that must be satisfied before any future row-count-only `LayoutReader` construction can be considered.
   - Primary files:
-    - `shardloom-vortex/src/encoded_read_api.rs`
-    - `shardloom-vortex/src/count_readiness.rs`
-    - `shardloom-vortex/src/encoded_count_approval.rs`
+    - `shardloom-vortex/src/layout_driver_approval.rs`
+    - `shardloom-vortex/src/lib.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
     - `docs/architecture/vortex-public-api-inventory.md`
     - `docs/architecture/vortex-adapter-integration-plan.md`
-  - Scope: API-boundary classification and blocker propagation only; no Vortex layout reader is constructed and no actual encoded-data execution is added.
+  - Scope: Report-only local-driver approval boundary; no Vortex layout reader is constructed and no actual encoded-data execution is added.
   - Explicitly not included: Constructing `LayoutReader`, calling scan/read-start APIs, calling array-stream/evaluation APIs, encoded-data traversal, row reads, actual encoded count execution, filtered count execution, projection execution, decode/materialization, Arrow conversion, object-store IO, writes, fallback execution, SQL/API/adapter expansion, or superiority claims.
   - Validation required:
     - `cargo fmt --all -- --check`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: `VortexFile::layout_reader` remains deferred because it reaches `VortexFile::segment_source`, whose upstream contract may spawn an I/O driver; `LayoutReader::row_count` remains metadata-like but cannot approve encoded-count execution without a separate local-driver approval boundary.
+  - Completion notes: `VortexLayoutReaderDriverApprovalReport` is report-only and blocks current public API usage unless local fixture scope, caller session, runtime-driver permission, row-count-only intent, no scan/evaluation/data-read/decode/materialization/Arrow/object-store/write, and no-fallback signals are explicit.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -416,6 +415,13 @@
     - `LayoutReader::row_count` remains metadata-like, non-blocking by itself, and not execution-usable.
     - Count-readiness and encoded-count approval reports preserve `VortexFile::layout_reader` as a named API-boundary blocker while excluding metadata-only row-count surfaces from execution blockers.
     - No `LayoutReader` construction, scan/read-start invocation, encoded-data traversal, row read, decode/materialization, Arrow conversion, object-store IO, write, or fallback execution is added.
+- [x] CG-2.1e.10 layout-driver approval boundary
+  - Why: make the runtime-driver approval decision explicit before any future row-count-only layout reader path can be wired.
+  - Acceptance:
+    - `VortexLayoutReaderDriverApprovalReport` consumes the encoded-read API boundary report.
+    - Current public API boundary blocks without explicit runtime-driver approval.
+    - A synthetic approved report still performs no construction, scan, evaluation, data read, decode/materialization, Arrow conversion, object-store IO, write, or fallback execution.
+    - Approval requires local fixture scope, caller session, runtime-driver permission, layout-row-count-only intent, and explicit no-scan/no-evaluation/no-read/no-decode/no-materialization/no-Arrow/no-object-store/no-write/no-fallback signals.
 - [ ] CG-2.1e encoded-data count execution path (planned)
   - Why: turn the approved encoded-data count candidate into actual native encoded execution after the public Vortex data path is approved.
   - Acceptance:
@@ -459,6 +465,7 @@ Status legend:
   - [x] CG-2.1e.7 encoded-count approval CLI surfacing
   - [x] CG-2.1e.8 encoded-count approval local guard
   - [x] CG-2.1e.9 layout-reader construction blocker hardening
+  - [x] CG-2.1e.10 layout-driver approval boundary
   - [~] CG-2.1+ non-metadata primitive execution remains deferred pending actual encoded-data execution
   - [x] CG-2.3b projection readiness CLI integration
   - Required capabilities for completion:
@@ -621,6 +628,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.7 encoded-count approval CLI surfacing
 - [x] CG-2.1e.8 encoded-count approval local guard
 - [x] CG-2.1e.9 layout-reader construction blocker hardening
+- [x] CG-2.1e.10 layout-driver approval boundary
 - [x] CG-2.2a filtered-count readiness core contract
 - [x] CG-2.2a.1 filtered-count blocker precision hardening
 - [x] CG-2.2b filtered-count readiness CLI integration
@@ -798,6 +806,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.7 encoded-count approval CLI exposes the current blocker without execution.
 - [x] CG-2.1e.8 local encoded-count approval guard rejects current blockers before deferred execution planning.
 - [x] CG-2.1e.9 layout-reader construction remains blocked by runtime-driver risk; layout row count alone is not encoded-count execution evidence.
+- [x] CG-2.1e.10 layout-driver approval is explicit and report-only before any future row-count-only layout reader path.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [~] CG-3 real Vortex payload writes remain deferred; placeholder artifact paths are not completion evidence.
 

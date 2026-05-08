@@ -853,6 +853,14 @@ CG-2.1c metadata-footer `CountAll` execution is wired; non-metadata execution re
 - The named blocker is preserved through count-readiness and encoded-count approval so adapter work cannot accidentally widen into layout-reader construction.
 - This remains classification-only and does not construct `LayoutReader`, call scan/read-start APIs, array stream/evaluation APIs, traverse encoded data, read rows, decode/materialize, convert to `Arrow`, perform object-store IO, write, or attempt fallback execution.
 
+## CG-2.1e.10 layout-driver approval boundary
+
+- Adapter planning now has a report-only `VortexLayoutReaderDriverApprovalReport` gate before any future row-count-only layout reader path can be considered.
+- The gate requires local fixture scope, caller session, explicit runtime-driver permission, layout-row-count-only intent, and explicit no-scan/no-evaluation/no-read/no-decode/no-materialization/no-Arrow/no-object-store/no-write/no-fallback signals.
+- Current adapter work remains blocked by default because runtime-driver permission is not implicit from the Vortex public API inventory.
+- Even approved reports perform no construction, driver start, scan/evaluation, encoded-data traversal, row read, decode/materialization, `Arrow` conversion, object-store IO, write, or fallback execution.
+- This is a planning contract only and does not make any adapter execute counts through `LayoutReader`.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.

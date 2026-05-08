@@ -338,6 +338,12 @@ pub use bounded_execution::{
     vortex_bounded_execution_is_side_effect_free,
 };
 
+pub use layout_driver_approval::{
+    VortexLayoutReaderDriverApprovalInput, VortexLayoutReaderDriverApprovalMode,
+    VortexLayoutReaderDriverApprovalReport, VortexLayoutReaderDriverApprovalSignal,
+    VortexLayoutReaderDriverApprovalStatus, plan_vortex_layout_reader_driver_approval,
+    vortex_layout_reader_driver_approval_is_side_effect_free,
+};
 pub use local_engine::{
     VortexLocalEngineMode, VortexLocalEnginePrimitive, VortexLocalEngineReport,
     VortexLocalEngineRequest, VortexLocalEngineStatus, parse_vortex_local_engine_primitive,
@@ -361,6 +367,7 @@ pub use metadata_summary::{
 pub mod adapter;
 pub mod adaptive_sizing;
 pub mod input_bridge;
+pub mod layout_driver_approval;
 pub mod local_engine;
 pub mod local_execution;
 
