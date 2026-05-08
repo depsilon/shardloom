@@ -1,6 +1,6 @@
 use std::process::Command;
 
-const KERNEL_REGISTRY_FIELD_KEYS: [&str; 15] = [
+const KERNEL_REGISTRY_FIELD_KEYS: [&str; 23] = [
     "fallback_execution_allowed",
     "mode",
     "status",
@@ -13,6 +13,14 @@ const KERNEL_REGISTRY_FIELD_KEYS: [&str; 15] = [
     "physical_kernel_reference_only_rejected_count",
     "physical_kernel_runtime_execution_allowed",
     "physical_kernel_fallback_execution_allowed",
+    "metadata_physical_kernel_schema_version",
+    "metadata_physical_kernel_supported_primitives",
+    "metadata_physical_kernel_contextual_only",
+    "metadata_physical_kernel_requires_correctness_evidence",
+    "metadata_physical_kernel_requires_memory_safety_evidence",
+    "metadata_physical_kernel_requires_benchmark_for_production",
+    "metadata_physical_kernel_runtime_execution",
+    "metadata_physical_kernel_fallback_execution_allowed",
     "write_io",
     "execution",
     "plan_only",
@@ -44,6 +52,27 @@ fn kernel_registry_json_fields_include_physical_kernel_blockers() {
             "{\"key\":\"physical_kernel_fallback_execution_allowed\",\"value\":\"false\"}"
         )
     );
+    assert!(output.contains(
+        "{\"key\":\"metadata_physical_kernel_schema_version\",\"value\":\"shardloom.vortex_metadata_physical_kernel.v1\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"metadata_physical_kernel_supported_primitives\",\"value\":\"count_all,count_where,filter_predicate\"}"
+    ));
+    assert!(
+        output
+            .contains("{\"key\":\"metadata_physical_kernel_contextual_only\",\"value\":\"true\"}")
+    );
+    assert!(output.contains(
+        "{\"key\":\"metadata_physical_kernel_requires_correctness_evidence\",\"value\":\"true\"}"
+    ));
+    assert!(
+        output.contains(
+            "{\"key\":\"metadata_physical_kernel_runtime_execution\",\"value\":\"false\"}"
+        )
+    );
+    assert!(output.contains(
+        "{\"key\":\"metadata_physical_kernel_fallback_execution_allowed\",\"value\":\"false\"}"
+    ));
     assert!(output.contains("\"allowed\":false"));
     assert!(output.contains("\"attempted\":false"));
 }

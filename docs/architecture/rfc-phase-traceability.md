@@ -598,6 +598,14 @@ No fallback execution.
 - JSON/text output includes certificate status, metadata kernel count, evidence flags, data-read/decode/materialization/IO fields, side-effect-free status, and fallback-disabled status.
 - This pass adds no encoded-data traversal, scan/read-start API calls, row reads, decode/materialization, Arrow conversion, object-store IO, write behavior, spill IO, external baseline invocation, or fallback execution.
 
+## CG-7.14 metadata kernel capability discovery
+
+- Primary RFC linkage: RFC 0012 capability discovery, RFC 0021 kernel registry and metadata-kernel contracts, RFC 0025 no-fallback guardrails, RFC 0029 correctness/benchmark evidence, and RFC 0032 operator certification discovery.
+- `shardloom capabilities operators` now reports the metadata physical kernel report schema, supported metadata primitives, contextual-only status, correctness/memory/benchmark evidence requirements, and no runtime/fallback/IO effects.
+- `shardloom kernel-registry` reports the same metadata physical kernel discovery fields while preserving the global registry counts as missing until actual native kernel slots are implemented and admitted.
+- The discovery surface makes already metadata-answered count/filter capability visible to humans and agents without claiming encoded-native, hybrid, production-certified, or global runtime kernel readiness.
+- This pass adds no encoded-data traversal, scan/read-start API calls, row reads, decode/materialization, Arrow conversion, object-store IO, write behavior, spill IO, external baseline invocation, or fallback execution.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.

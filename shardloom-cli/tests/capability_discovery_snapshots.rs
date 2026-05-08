@@ -45,7 +45,7 @@ const FUNCTION_FIELD_KEYS: [&str; 13] = [
     "planned_count",
 ];
 
-const OPERATOR_FIELD_KEYS: [&str; 27] = [
+const OPERATOR_FIELD_KEYS: [&str; 41] = [
     "scope",
     "schema_version",
     "fallback_execution_allowed",
@@ -73,6 +73,20 @@ const OPERATOR_FIELD_KEYS: [&str; 27] = [
     "physical_operator_row_materialization_level_count",
     "physical_operator_arrow_conversion_level_count",
     "physical_operator_fallback_level_count",
+    "metadata_physical_kernel_schema_version",
+    "metadata_physical_kernel_supported_primitives",
+    "metadata_physical_kernel_contextual_only",
+    "metadata_physical_kernel_requires_correctness_evidence",
+    "metadata_physical_kernel_requires_memory_safety_evidence",
+    "metadata_physical_kernel_requires_benchmark_for_production",
+    "metadata_physical_kernel_data_read",
+    "metadata_physical_kernel_data_decoded",
+    "metadata_physical_kernel_data_materialized",
+    "metadata_physical_kernel_object_store_io",
+    "metadata_physical_kernel_write_io",
+    "metadata_physical_kernel_spill_io",
+    "metadata_physical_kernel_runtime_execution",
+    "metadata_physical_kernel_fallback_execution_allowed",
 ];
 
 const ADAPTER_FIELD_KEYS: [&str; 13] = [
@@ -240,6 +254,36 @@ fn operator_capability_discovery_includes_physical_plan_blockers() {
     assert!(
         output.contains("{\"key\":\"physical_operator_fallback_level_count\",\"value\":\"0\"}")
     );
+    assert!(output.contains(
+        "{\"key\":\"metadata_physical_kernel_schema_version\",\"value\":\"shardloom.vortex_metadata_physical_kernel.v1\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"metadata_physical_kernel_supported_primitives\",\"value\":\"count_all,count_where,filter_predicate\"}"
+    ));
+    assert!(
+        output
+            .contains("{\"key\":\"metadata_physical_kernel_contextual_only\",\"value\":\"true\"}")
+    );
+    assert!(output.contains(
+        "{\"key\":\"metadata_physical_kernel_requires_correctness_evidence\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"metadata_physical_kernel_requires_memory_safety_evidence\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"metadata_physical_kernel_requires_benchmark_for_production\",\"value\":\"true\"}"
+    ));
+    assert!(
+        output.contains("{\"key\":\"metadata_physical_kernel_data_read\",\"value\":\"false\"}")
+    );
+    assert!(
+        output.contains(
+            "{\"key\":\"metadata_physical_kernel_runtime_execution\",\"value\":\"false\"}"
+        )
+    );
+    assert!(output.contains(
+        "{\"key\":\"metadata_physical_kernel_fallback_execution_allowed\",\"value\":\"false\"}"
+    ));
 }
 
 fn run_capabilities_scope(scope: &str) -> String {
