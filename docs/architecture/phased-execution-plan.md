@@ -17,8 +17,8 @@
 
 Supporting docs:
 - `README.md`
-  - Role: project entry point and stable orientation.
-  - Status rule: points to this phase plan for active state; must not duplicate active status checklists.
+  - Role: project entry point, stable orientation, and compact core-concepts doorway.
+  - Status rule: points to this phase plan for active state; must not duplicate active status checklists or become the full glossary.
 - `docs/architecture/rfc-phase-traceability.md`
   - Role: maps phases and CG work to governing RFCs.
   - Status rule: may record traceability history, but this file owns current work state.
@@ -34,32 +34,34 @@ Supporting docs:
 - `docs/architecture/repo-cleanup-backlog.md`, `diagnostics-normalization-backlog.md`, `terminology-consolidation-backlog.md`, and `feature-footprint-doctor-plan.md`
   - Role: cleanup inventories and completed cleanup ledgers.
   - Status rule: future cleanup must be promoted into this file as a concrete checklist item.
-- `docs/architecture/incumbent-gap-opportunity-map.md`, `systems-learning-map.md`, `lakehouse-value-prop-compatibility.md`, `universal-input-contract.md`, `spill-reservation-lifecycle-integration.md`, and `canonical-terminology.md`
+- `docs/architecture/canonical-terminology.md`
+  - Role: authoritative glossary and concept index for ShardLoom vocabulary.
+  - Status rule: defines terms and links to governing RFCs, but does not mark active phase or CG completion.
+- `docs/architecture/systems-learning-map.md`
+  - Role: technique-transfer map from external systems and design references into ShardLoom-native contracts.
+  - Status rule: records lessons and guardrails only; it does not authorize dependencies, runtime behavior, or CG completion.
+- `docs/architecture/incumbent-gap-opportunity-map.md`, `lakehouse-value-prop-compatibility.md`, `universal-input-contract.md`, and `spill-reservation-lifecycle-integration.md`
   - Role: reference maps and constraints.
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-8.5 encoded streaming-batch planning surface
+- [x] Session label: R5.4.14 documentation concept-map structure
   - Primary files:
-    - `shardloom-exec/src/streaming.rs`
-    - `shardloom-exec/src/lib.rs`
-    - `shardloom-cli/src/main.rs`
-    - `shardloom-cli/tests/streaming_batch_plan_snapshots.rs`
+    - `README.md`
+    - `docs/architecture/canonical-terminology.md`
+    - `docs/architecture/systems-learning-map.md`
     - `docs/architecture/phased-execution-plan.md`
-    - `docs/architecture/rfc-phase-traceability.md`
-  - Scope: Add a side-effect-free encoded streaming-batch planning report and CLI surface that records batch representation, zero-decode status, bounded memory/backpressure, materialization boundaries, and explicit no-IO/no-fallback evidence without executing streams.
+  - Scope: Make the documentation structure explicit: README stays compact, canonical terminology owns ShardLoom vocabulary, systems-learning owns external technique transfer, RFCs own deep contracts, and the phase plan owns active status.
   - Checklist:
-    - [x] Add `EncodedStreamingBatchPlanInput`, `EncodedStreamingBatchPlanReport`, status, representation, bounded-memory/backpressure, materialization-boundary, and side-effect fields.
-    - [x] Export encoded streaming-batch planning contracts from `shardloom-exec`.
-    - [x] Add `streaming-batch-plan` CLI JSON surface.
-    - [x] Add focused unit and CLI snapshot tests for native Vortex batches, compatibility materialization boundaries, object-store blockers, and rejected parallelism.
-    - [x] Update phase and RFC traceability docs.
-    - [x] Run full required validation.
+    - [x] Add a compact README core-concepts doorway that links to canonical terminology.
+    - [x] Make canonical terminology the explicit glossary/index and link concept groups to governing RFCs.
+    - [x] Add Modal GPU Glossary technique-transfer lessons to the systems-learning map.
+    - [x] Update phase-plan architecture document ownership rules for README, canonical terminology, and systems-learning.
+    - [x] Run docs hygiene and required validation.
   - Local validation status:
-    - focused `encoded_streaming_batch` exec tests passed
-    - `streaming_batch_plan_snapshots` integration tests passed
+    - docs hygiene scans passed for `git diff --check`, hidden/bidi controls, and claim-language review
     - full Rust validation passed with toolchain `1.91.1`
-  - Explicitly not included: stream execution, task execution, read-start APIs, row reads, encoded data reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, dynamic sizing feedback application/execution, benchmarks, production/superiority claims, fallback execution, or CG-8 closeout.
+  - Explicitly not included: new documentation directories, runtime behavior, parser/runtime/API/adapter/kernel implementation, dependency changes, external probing, GPU/CUDA integration, benchmark claims, superiority claims, or fallback execution.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -323,6 +325,25 @@ Supporting docs:
   - Blockers:
     - None known.
 
+- [x] Follow-up: R5.4.14 documentation concept-map structure
+  - Why: make the long-term documentation structure explicit before the glossary and external-learning corpus grow.
+  - Files:
+    - `README.md`
+    - `docs/architecture/canonical-terminology.md`
+    - `docs/architecture/systems-learning-map.md`
+    - `docs/architecture/phased-execution-plan.md`
+  - Acceptance:
+    - README stays compact and links to core concepts without duplicating active status or the full glossary.
+    - Canonical terminology owns the ShardLoom glossary/index and links concept groups to governing RFCs.
+    - Systems-learning owns external technique transfer, including Modal GPU Glossary lessons, without authorizing dependencies or runtime behavior.
+    - Phase plan documents ownership boundaries for README, canonical terminology, and systems-learning.
+    - No new documentation directories, runtime behavior, dependencies, external probing, GPU/CUDA integration, benchmark claims, superiority claims, or fallback execution are added.
+  - Local validation status:
+    - docs hygiene scans passed for `git diff --check`, hidden/bidi controls, and claim-language review
+    - full Rust validation passed with toolchain `1.91.1`
+  - Blockers:
+    - None known.
+
 ## Cleanup / Refactor Ledger
 - [x] R0 Roadmap/docs synchronization
 - [x] R1 Systems learning map
@@ -429,6 +450,12 @@ Supporting docs:
   - Local validation status:
     - docs hygiene scans passed for stale README status wording, hidden/bidi controls, and `git diff --check`
     - full Rust validation passed with toolchain `1.91.1` after one transient Windows linker-file-lock rerun
+- [x] R5.4.14 Documentation concept-map structure
+  - Why: keep README, canonical terminology, systems-learning, RFCs, and the phase plan in distinct ownership lanes before the glossary grows.
+  - Acceptance: README has a compact core-concepts doorway; canonical terminology owns the glossary/index; systems-learning owns Modal GPU Glossary technique transfer; phase plan records the ownership rules.
+  - Local validation status:
+    - docs hygiene scans passed for `git diff --check`, hidden/bidi controls, and claim-language review
+    - full Rust validation passed with toolchain `1.91.1`
 
 ## Implementation Phase Queue
 - [x] R4 Resume CG implementation

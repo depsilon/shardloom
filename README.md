@@ -17,6 +17,19 @@ Compute less. Decode later. Materialize only at explicit boundaries.
 - correctness evidence, execution certificates, and benchmark-gated claims
 - common analytical capability through SQL, Python/API, UDF, adapter, ETL, and unstructured/media surfaces over time
 
+## Core Concepts
+
+The full vocabulary lives in [`docs/architecture/canonical-terminology.md`](docs/architecture/canonical-terminology.md). These terms are the shortest orientation path:
+
+- **native Vortex input/output**: Vortex is the highest-fidelity input and persistence target.
+- **encoded-columnar execution**: operators should preserve encoded representation when capability evidence allows it.
+- **metadata-first planning**: answer or prune from metadata before reading data bytes.
+- **zero-decode**: execute over encoded Vortex representation without decoding values.
+- **late materialization**: concrete rows/columns appear only at explicit materialization boundaries.
+- **compatibility output**: Parquet, Arrow IPC, Iceberg-compatible, Delta-compatible, JSONL, and CSV are translation/export targets, not fallback execution engines.
+- **no-fallback execution**: unsupported plans fail with deterministic diagnostics instead of delegating runtime work to another engine.
+- **capability certification**: SQL, operator, function, adapter, Python/API, ETL, and unstructured/media support must be evidence-backed before claims are made.
+
 ## Roadmap Source Of Truth
 
 Active implementation state is tracked in [`docs/architecture/phased-execution-plan.md`](docs/architecture/phased-execution-plan.md).
@@ -24,6 +37,8 @@ Active implementation state is tracked in [`docs/architecture/phased-execution-p
 The competitive roadmap is organized as CG-1 through CG-20. Supporting RFCs live in [`docs/rfcs`](docs/rfcs), and phase/RFC mapping lives in [`docs/architecture/rfc-phase-traceability.md`](docs/architecture/rfc-phase-traceability.md).
 
 This README intentionally does not duplicate active status checklists.
+
+External systems lessons and technique-transfer notes live in [`docs/architecture/systems-learning-map.md`](docs/architecture/systems-learning-map.md). RFCs own deep contracts and acceptance criteria.
 
 ## No-Fallback Policy
 

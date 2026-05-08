@@ -6,6 +6,32 @@ ShardLoom intentionally keeps related concepts at different layers (planning, ex
 
 This document owns vocabulary definitions, not phase status. Active implementation status and queue placement live in `docs/architecture/phased-execution-plan.md`.
 
+## Glossary ownership and index
+
+This file is the authoritative ShardLoom glossary and concept index. It should stay concise enough to scan and link outward to RFCs or architecture references for deep contracts.
+
+- **Entry-point summary**: `README.md` keeps only the short core-concepts doorway and links here.
+- **External lessons**: `docs/architecture/systems-learning-map.md` records technique transfer from Vortex, Spark, DataFusion, Modal's GPU glossary, and other systems; it does not own ShardLoom vocabulary definitions.
+- **Deep contracts**: RFCs define field-level contracts, acceptance criteria, non-goals, and verification plans.
+- **Active status**: `docs/architecture/phased-execution-plan.md` remains the only mutable source of truth for current status, queue placement, completed phase ledger, and CG closeout state.
+
+Concept groups:
+
+- **Native execution and work avoidance**: `metadata_only`, `segment_pruning`, `zero_decode`, `partial_decode`, `late_materialization`, `full_materialization`, `DataWorkLevel`, `ExecutionState`.
+- **I/O, representation, and translation**: `native_vortex_input`, `native_vortex_output`, `compatibility_output`, `foreign_encoded`, `universal native I/O envelope`, `native work envelope`, `native I/O certificate`.
+- **Materialization and fidelity**: `MaterializationPolicy`, `MaterializationRequirement`, `MaterializationBoundary`, `FidelityLevel`, `VortexOutputFidelity`, `metadata_loss`, `fidelity_loss`.
+- **Planning, diagnostics, and provenance**: `pushdown proof`, `residual expression`, `lowering provenance`, `portability loss`, `intermediate artifact`, `fallback_attempted`, `unsupported`.
+- **Capability and certification**: `capability certification surface`, `workload constitution`, `operator certification`, `function certification`, `SQL coverage tier`, `adapter maturity level`, `semantic compatibility profile`, `migration compatibility report`, `best-choice scorecard`.
+- **User capability surfaces**: `data/ETL capability report`, `Python surface report`, `unstructured media capability report`, `universal adapter catalog`, `API surface certification`, `observability certification`, `deployment readiness report`, `extension capability report`, `security governance report`.
+
+Primary governing references:
+
+- No-fallback and Vortex I/O: `docs/rfcs/0002-no-fallback-and-vortex-io.md`
+- Diagnostics and capability discovery: `docs/rfcs/0012-diagnostics-explain-estimate-capabilities.md`
+- Streaming, zero-copy, zero-decode, and boundaries: `docs/rfcs/0013-streaming-zero-copy-boundary-interoperability.md`
+- Universal native I/O envelope: `docs/rfcs/0031-universal-native-io-envelope.md`
+- World-class capability surface: `docs/rfcs/0032-world-class-sql-operators-functions-adapters-user-capability.md`
+
 ## Core principles
 
 - Keep layer-specific types when they model different decisions.
