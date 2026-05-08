@@ -36,26 +36,23 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-4.3 local committed-manifest rollback cleanup execution
+- [x] Session label: CG-2.1e.22 stable explicit local encoded `CountAll` execution surface
   - Primary files:
-    - `shardloom-vortex/src/commit_protocol.rs`
-    - `shardloom-vortex/src/lib.rs`
     - `shardloom-cli/src/main.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
     - `docs/architecture/vortex-public-api-inventory.md`
     - `docs/architecture/vortex-adapter-integration-plan.md`
-  - Scope: Add the first feature-gated local rollback cleanup execution path for the committed-manifest artifact only.
+  - Scope: Promote the approved local `.vortex` encoded `CountAll` scan/count path from spike-only CLI access into an explicit stable `vortex-count` opt-in.
   - Checklist:
-    - [x] Add local commit rollback execution report/status fields and side-effect evidence.
-    - [x] Require a rollback-planned recovery report before cleanup execution.
-    - [x] Keep default builds feature-disabled/report-only.
-    - [x] In feature-enabled builds, delete only `_shardloom_committed_manifest.json`.
-    - [x] Preserve finalized-manifest, commit-marker, and output-payload artifacts during rollback cleanup.
-    - [x] Surface `shardloom vortex-local-commit-rollback-execute` with text/JSON cleanup and no-fallback evidence.
-    - [x] Run focused default and feature-gated Vortex/CLI rollback tests.
+    - [x] Add `shardloom vortex-count <dataset_uri> --execute-local-encoded-count <memory_gb> <max_parallelism>`.
+    - [x] Keep default `shardloom vortex-count <dataset_uri>` metadata-only behavior unchanged.
+    - [x] Reuse encoded-read readiness, encoded-count approval, approved local scan/count, and local execution bridge evidence.
+    - [x] Emit text/JSON fields for local scan target/source match, arrays read, rows counted, count result, side effects, and no-fallback status.
+    - [x] Keep the path feature-gated and explicit.
+    - [x] Run focused default and feature-gated CLI tests.
     - [x] Run full required validation.
-  - Explicitly not included: object-store commit/recovery, table/catalog transaction commit, output payload writing/deletion, finalized-manifest deletion, commit-marker deletion, generalized output writes, upstream `Vortex` commit APIs, generalized recovery manager execution, retry execution, distributed commit, spill IO, external baseline execution, fallback execution, benchmarks, public command/signal renames, CG-4 closeout, or later CG closeout.
+  - Explicitly not included: broad scan/read-start approval, non-local adapters, object-store IO, encoded predicates, projection execution, row reads, requested decode/materialization, Arrow conversion, writes, spill IO, external baseline execution, fallback execution, benchmarks, CG-1 closeout, CG-2 closeout, or later CG closeout.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -595,7 +592,15 @@ Supporting docs:
     - `shardloom vortex-encoded-read-spike ... --execute-local-count` emits the bridged local execution status, mode, value, and side-effect fields alongside the existing local scan count fields.
     - Capability discovery names the approved local scan result bridge as available but remains report-only and side-effect-free.
     - No generalized encoded-data count execution, adapters, non-local sources, object-store IO, encoded predicates, projection execution, row reads, requested decode/materialization, Arrow conversion, writes, spill IO, external baseline invocation, fallback execution, benchmarks, CG-1 closeout, or CG-2 closeout are added.
-- [ ] CG-2.1e generalized encoded-data count execution path (planned)
+- [x] CG-2.1e.22 stable explicit local encoded `CountAll` execution surface
+  - Why: make the approved local `.vortex` scan/count path reachable from the stable count command instead of only the spike command.
+  - Acceptance:
+    - `shardloom vortex-count <dataset_uri>` remains metadata-only by default.
+    - `shardloom vortex-count <dataset_uri> --execute-local-encoded-count <memory_gb> <max_parallelism>` explicitly opts into the approved local encoded count path.
+    - The stable command reuses encoded-read readiness, encoded-count approval, approved local scan/count execution, and the local execution bridge.
+    - CLI output reports the local scan target, readiness source, source-match evidence, arrays read, rows counted, count result, local execution status, side-effect flags, and `fallback_execution_allowed=false`.
+    - No broad scan/read-start approval, adapters, non-local sources, object-store IO, encoded predicates, projection execution, row reads, requested decode/materialization, Arrow conversion, writes, spill IO, external baseline invocation, fallback execution, benchmarks, CG-1 closeout, or CG-2 closeout are added.
+- [ ] CG-2.1e generalized encoded-data count execution path beyond explicit local `.vortex` count (planned)
   - Why: turn the local fixture scan/count proof into a generalized native count path only after the public Vortex data path and representation guarantees are approved.
   - Acceptance:
     - Real encoded data traversal remains feature-gated and still avoids rows, decode/materialization requests, Arrow conversion, object-store IO, writes, and fallback.
@@ -652,6 +657,7 @@ Status legend:
   - [x] CG-2.1e.19 explicit local encoded-count execution boundary
   - [x] CG-2.1e.20 approved local scan naming normalization
   - [x] CG-2.1e.21 approved local scan result bridge
+  - [x] CG-2.1e.22 stable explicit local encoded `CountAll` execution surface
   - [~] CG-2.1+ generalized non-metadata primitive execution remains deferred pending broader encoded-data execution guarantees
   - [x] CG-2.2c filtered-count metadata proof local guard
   - [x] CG-2.2d filtered-count metadata proof report
@@ -861,6 +867,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.19 explicit local encoded-count execution boundary
 - [x] CG-2.1e.20 approved local scan naming normalization
 - [x] CG-2.1e.21 approved local scan result bridge
+- [x] CG-2.1e.22 stable explicit local encoded `CountAll` execution surface
 - [x] CG-2.2a filtered-count readiness core contract
 - [x] CG-2.2a.1 filtered-count blocker precision hardening
 - [x] CG-2.2b filtered-count readiness CLI integration
@@ -1065,6 +1072,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] Phase 12A/12B/12C planning-and-readiness milestones listed in traceability
   - Note: Phase-12 placeholder artifacts are readiness-only and do not imply CG-3 completion.
   - Note: CG-3.1 adds the first real local native Vortex count-result payload path.
+  - Note: CG-2.1e.22 adds a stable explicit `vortex-count --execute-local-encoded-count` surface for the approved local `.vortex` encoded `CountAll` path; broader encoded count remains deferred.
   - Note: CG-4.1 adds the first feature-gated local committed-manifest execution path.
   - Note: CG-4.2 adds report-only local committed-manifest recovery/rollback diagnostics.
   - Note: CG-4.3 adds the first feature-gated local committed-manifest rollback cleanup path; generalized recovery and object-store writes remain separate work.
@@ -1094,6 +1102,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.19 explicit local encoded-count execution boundary exposes the approved local `.vortex` `CountAll` scan/count path through a narrow API boundary and CLI opt-in while generalized encoded-data count execution remains deferred.
 - [x] CG-2.1e.20 approved local scan naming normalization updates public report and diagnostic names from fixture wording to local-scan wording without widening behavior.
 - [x] CG-2.1e.21 approved local scan result bridge connects the successful approved local scan/count report to local query-primitive execution evidence with known count value, target/source-match validation, no decode/materialization/row/Arrow/object-store/write/spill/external effects, and no fallback.
+- [x] CG-2.1e.22 stable explicit local encoded `CountAll` execution surface adds `shardloom vortex-count <dataset_uri> --execute-local-encoded-count <memory_gb> <max_parallelism>` over the same approved local scan/count and local execution bridge while keeping default `vortex-count` metadata-only.
 - [x] CG-4.2 local committed-manifest recovery/rollback diagnostics represent recovery-not-required, rollback-required/planned, ambiguous-commit, missing-manifest, cleanup-policy, and object-store blocker states without executing cleanup, rollback, object-store IO, or fallback.
 - [x] CG-4.3 local committed-manifest rollback cleanup execution deletes only `_shardloom_committed_manifest.json` behind `vortex-staged-output-fs` after rollback-planned recovery evidence; finalized manifests, commit markers, output payloads, object-store IO, upstream `Vortex` APIs, and fallback remain untouched.
 - [x] CG-2.2c filtered-count metadata proof local guard admits only metadata-proof `CountWhere` requests into metadata-only local execution and rejects encoded predicate candidates without fallback.

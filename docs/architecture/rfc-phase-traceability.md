@@ -501,6 +501,15 @@ No fallback execution.
 - `shardloom vortex-encoded-read-spike ... --execute-local-count` now emits local execution status, mode, known result/value, task/data-read evidence, and side-effect/no-fallback fields alongside the local scan report.
 - This is still not generalized encoded-data count execution: adapters, non-local sources, object-store IO, encoded predicates, projections, writes, benchmarks, external baselines, CG closeout, and fallback execution remain out of scope.
 
+## CG-2.1e.22 stable explicit local encoded `CountAll` execution surface
+
+- Primary RFC linkage: RFC 0012 Diagnostics/Capabilities, RFC 0013 Streaming/Zero-Copy Boundary, RFC 0015 Correctness/testing, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
+- `shardloom vortex-count <dataset_uri>` remains metadata-only by default.
+- `shardloom vortex-count <dataset_uri> --execute-local-encoded-count <memory_gb> <max_parallelism>` now explicitly opts into the same approved local `.vortex` encoded `CountAll` path that was previously reachable only through the spike command.
+- The stable command reuses encoded-read readiness, encoded-count data-path approval, approved local scan/count execution, and approved local scan result bridging before reporting a known count value.
+- CLI output records local scan target URI, readiness source URI, source-match evidence, arrays read, rows counted, count result, local execution status, side-effect flags, and `fallback_execution_allowed=false`.
+- This does not approve broad scan/read-start execution, adapters, non-local sources, object-store IO, encoded predicates, projections, row reads, requested decode/materialization, Arrow conversion, writes, spill IO, benchmarks, external baselines, CG closeout, or fallback execution.
+
 ## CG-5.1 metadata query primitive correctness fixtures
 
 - Primary RFC linkage: RFC 0015 Correctness/Semantics/Differential Testing, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
