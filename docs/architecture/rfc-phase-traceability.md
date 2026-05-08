@@ -492,6 +492,14 @@ No fallback execution.
 - `shardloom-contract-tests/tests/physical_operator_kernel_contracts.rs` verifies missing-kernel blockers, reference-only rejection, synthetic native-readiness without execution, and no-fallback invariants.
 - This pass adds no kernel implementation, query execution behavior, encoded-data traversal, scan/read-start API calls, row reads, decode/materialization, Arrow conversion, object-store IO, write behavior, external engine invocation, or fallback execution.
 
+## CG-7.2 physical operator capability discovery
+
+- Primary RFC linkage: RFC 0012 diagnostics/capabilities, RFC 0021 kernel registry requirements, RFC 0025 no-fallback guardrails, and RFC 0032 operator coverage/certification discovery requirements.
+- `PhysicalOperatorPlan` now carries a stable schema version and readiness-count helpers for ready, missing-kernel, and unsupported operator contract states.
+- `shardloom capabilities operators` includes the physical operator plan schema/version, plan id, operator count, readiness count, missing-kernel count, unsupported count, fallback-disabled flag, and runtime-execution=false flag.
+- `shardloom-cli/tests/capability_discovery_snapshots.rs` locks the operator capability JSON field order and verifies the CG-7 physical operator blockers remain agent-readable.
+- This pass adds no kernel implementation, query execution behavior, encoded-data traversal, scan/read-start API calls, row reads, decode/materialization, Arrow conversion, object-store IO, write behavior, external engine invocation, or fallback execution.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.

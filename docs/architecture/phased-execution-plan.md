@@ -10,21 +10,23 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [x] Session label: CG-7.1 physical operator/kernel contracts
-  - Current cleanup/implementation step: Add report-only physical operator contracts that declare native kernel requirements for filter, projection, and count aggregate without implementing kernels or execution.
+- [x] Session label: CG-7.2 physical operator capability discovery
+  - Current cleanup/implementation step: Surface the report-only CG-7 physical operator plan through `shardloom capabilities operators` with readiness and missing-kernel counts.
   - Primary files:
     - `shardloom-core/src/operator.rs`
     - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
     - `shardloom-contract-tests/tests/physical_operator_kernel_contracts.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-  - Scope: Physical operator planning contracts, kernel requirement status, reference-only rejection, missing-kernel diagnostics, and no-fallback operator readiness.
+  - Scope: Agent-readable operator capability discovery, physical operator plan schema/version fields, missing-kernel counts, readiness counts, and no-fallback/runtime-execution flags.
   - Explicitly not included: New query execution, kernel implementation, encoded-data traversal, scan/read-start APIs, row reads, decode/materialization, Arrow conversion, object-store IO, writes, external baseline execution, fallback execution, benchmarks, SQL/API/adapter expansion, or superiority claims.
   - Validation required:
     - `cargo fmt --all -- --check`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: `PhysicalOperatorPlan::cg7_foundation` declares filter/project/count-aggregate contracts and keeps native planning blocked until required native kernels exist.
+  - Completion notes: `shardloom capabilities operators` exposes the CG-7 foundation physical-operator blockers without executing operators, probing filesystems/adapters, or invoking runtime paths.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -525,6 +527,7 @@ Status legend:
 
 - [ ] CG-7 — Physical operator/kernel layer (**planned**)
   - [x] CG-7.1 physical operator/kernel contract foundation
+  - [x] CG-7.2 physical operator capability discovery
   - Scope:
     - filter/projection/count-aggregate kernels
     - metadata/encoded/hybrid execution levels
@@ -707,6 +710,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 
 ### CG-7 detailed checklist
 - [x] CG-7.1 physical operator/kernel contract foundation
+- [x] CG-7.2 physical operator capability discovery
 - [ ] filter kernel
 - [ ] projection kernel
 - [ ] count/aggregate kernel
@@ -845,6 +849,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-6.4 benchmark reproducibility manifest records dataset, engine-version, hardware, OS, runtime, cache, reproduction-step, correctness, and no-fallback metadata requirements before any benchmark evidence can count.
 - [x] CG-6.5 reproducibility-aware benchmark claim gate blocks publication unless comparison evidence and reproducible run metadata are both present.
 - [x] CG-7.1 physical operator/kernel contract foundation declares filter, projection, and count aggregate kernel blockers without implementing kernels or execution.
+- [x] CG-7.2 physical operator capability discovery exposes missing-kernel/readiness counts through `shardloom capabilities operators` without executing operators or probing runtime inputs.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [~] CG-3 real Vortex payload writes remain deferred; placeholder artifact paths are not completion evidence.
 

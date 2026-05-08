@@ -9,12 +9,21 @@ use shardloom_core::{
 fn cg7_foundation_plan_declares_initial_operator_kernel_blockers() {
     let plan = PhysicalOperatorPlan::cg7_foundation();
 
+    assert_eq!(plan.schema_version, "shardloom.physical_operator_plan.v1");
     assert!(plan.has_operator_kind(PhysicalOperatorKind::Filter));
     assert!(plan.has_operator_kind(PhysicalOperatorKind::Project));
     assert!(plan.has_operator_kind(PhysicalOperatorKind::CountAggregate));
+    assert_eq!(plan.ready_for_native_planning_count(), 0);
+    assert_eq!(plan.missing_kernel_count(), 3);
+    assert_eq!(plan.unsupported_count(), 0);
     assert!(!plan.all_ready_for_native_planning());
     assert!(!plan.fallback_execution_allowed());
     assert!(!plan.diagnostics.is_empty());
+    assert!(
+        plan.to_human_text()
+            .contains("schema_version: shardloom.physical_operator_plan.v1")
+    );
+    assert!(plan.to_human_text().contains("missing kernels: 3"));
 
     for operator in &plan.operators {
         assert_eq!(
