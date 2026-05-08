@@ -90,6 +90,9 @@ fn foundation_plan_tracks_required_edge_case_fixture_families() {
             edge.as_str()
         );
     }
+    assert!(plan.required_foundation_edge_cases_covered());
+    assert_eq!(plan.covered_required_foundation_edge_case_count(), 7);
+    assert!(plan.missing_required_foundation_edge_cases().is_empty());
 }
 
 #[test]
@@ -111,9 +114,29 @@ fn reference_roles_remain_test_only_not_production_fallback() {
             .iter()
             .all(CorrectnessFixture::reference_roles_are_test_only)
     );
+    assert!(plan.reference_roles_are_test_only());
+    assert_eq!(
+        plan.reference_role_order(),
+        vec!["golden_fixture", "external_oracle"]
+    );
     assert!(!plan.fallback_execution_allowed());
     assert!(
         plan.to_human_text()
             .contains("external baselines: test/comparison only")
     );
+}
+
+#[test]
+fn foundation_plan_reports_reference_and_gap_counts() {
+    let plan = CorrectnessValidationPlan::default_foundation_plan();
+
+    assert_eq!(plan.fixture_count(), 14);
+    assert_eq!(plan.fixtures_with_source_ref_count(), 2);
+    assert_eq!(plan.golden_fixture_count(), 2);
+    assert_eq!(plan.executable_expected_output_count(), 1);
+    assert_eq!(plan.not_yet_defined_fixture_count(), 8);
+    assert_eq!(plan.diagnostic_expected_output_count(), 1);
+    assert_eq!(plan.unsupported_expected_output_count(), 1);
+    assert_eq!(plan.baseline_count(), 5);
+    assert!(plan.baselines_are_fallback_free());
 }
