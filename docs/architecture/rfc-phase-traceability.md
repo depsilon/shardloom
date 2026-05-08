@@ -412,6 +412,14 @@ No fallback execution.
 - Missing/unknown signals fail deterministically, and the current public API boundary remains unsupported unless runtime-driver permission is explicit.
 - This pass adds no runtime invocation, dependency, parser, adapter runtime, object-store IO, write behavior, or fallback execution.
 
+## CG-5.1 metadata query primitive correctness fixtures
+
+- Primary RFC linkage: RFC 0015 Correctness/Semantics/Differential Testing, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
+- `shardloom-contract-tests/tests/query_primitive_correctness.rs` adds cross-crate fixtures for metadata-backed `CountAll`, metadata-proven `CountWhere`, inconclusive predicate deferral, and projection deferral.
+- The fixtures assert exact values for file row-count, segment row-count summing, metadata-proven false predicates, metadata-proven true predicates, and deferred encoded-predicate/projection cases.
+- Every fixture asserts no task execution, data read, decode/materialization, object-store IO, write IO, or fallback execution.
+- This pass adds no new runtime behavior, external baseline execution, benchmark claim, dependency, parser, adapter runtime, object-store IO, write behavior, or fallback execution.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.
