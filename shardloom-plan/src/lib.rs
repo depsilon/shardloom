@@ -45,8 +45,9 @@ pub use optimizer::{
 pub use plan_ir::{
     EffectBoundary, NativePlanDocument, NativePlanNode, NativePlanNodeKind, PlanBoundaryKind,
     PlanCapabilityKind, PlanCapabilityRequirement, PlanExportRequest, PlanExportStatus, PlanId,
-    PlanImportRequest, PlanImportStatus, PlanInteropFormat, PlanLayer, PlanSchemaVersion,
-    PlanValidationReport, PlanValidationStatus, TranslationBoundary,
+    PlanImportRequest, PlanImportStatus, PlanInteropFormat, PlanLayer, PlanPortabilityDirection,
+    PlanPortabilityReport, PlanPortabilityStatus, PlanSchemaVersion, PlanValidationReport,
+    PlanValidationStatus, TranslationBoundary,
 };
 pub use scan::{ProjectionRequest, ScanMode, ScanPlanSkeleton, ScanPlanningStatus, ScanRequest};
 

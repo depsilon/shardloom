@@ -21,6 +21,62 @@ This RFC defines implementation contracts for:
 - Optional Substrait-like export/import validation.
 - Residual unsupported plan reporting.
 - No external engine execution in runtime paths.
+- Initial CG-12 report foundation is validation-only and does not serialize,
+  import, export, parse, execute, probe, read, write, or delegate.
+
+### CG-12 native-first plan portability report foundation
+
+The first CG-12 milestone exposes a `PlanPortabilityReport` through existing
+plan commands. It is a report contract for agents and future clients, not real
+plan interchange behavior.
+
+Required report fields:
+- `schema_version`
+- `report_id`
+- `direction`
+- `status`
+- `interop_format`
+- `native_plan_schema_version`
+- `native_first=true`
+- `validation_only=true`
+- `validation_required`
+- `capability_check_required`
+- `supported_constructs`
+- `native_only_nodes`
+- `substrait_like_representable_nodes`
+- `lossy_nodes`
+- `unsupported_nodes`
+- `residual_unsupported_constructs`
+- `metadata_loss_boundaries`
+- `encoded_semantics_loss`
+- `redaction_required`
+- `parser_executed=false`
+- `import_export_serialization_performed=false`
+- `runtime_execution=false`
+- `external_engine_execution=false`
+- `filesystem_probe=false`
+- `network_probe=false`
+- `catalog_probe=false`
+- `adapter_probe=false`
+- `read_io=false`
+- `write_io=false`
+- `side_effect_free=true`
+- `fallback_execution_allowed=false`
+- `fallback_attempted=false`
+- `diagnostics`
+
+Acceptance:
+- `plan-ir --format json` emits native-first plan portability evidence for the
+  current native plan skeleton.
+- `plan-import --format json` emits unsupported/residual import evidence without
+  parsing or lowering a payload.
+- `plan-export --format json` emits unsupported/residual export evidence and
+  records redaction requirements without serializing a payload.
+- All three commands remain side-effect-free: no parser execution, no runtime
+  execution, no external engine execution, no filesystem/network/catalog/adapter
+  probing, no read/write IO, and no fallback execution.
+- Real plan serialization/import/export remains deferred until a later CG-12
+  implementation gate adds native capability checks and compatibility tests.
 
 ## Universal runner/deployment contract
 

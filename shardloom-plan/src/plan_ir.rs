@@ -566,6 +566,359 @@ impl PlanInteropFormat {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PlanPortabilityDirection {
+    NativeReview,
+    ImportValidation,
+    ExportValidation,
+}
+impl PlanPortabilityDirection {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::NativeReview => "native_review",
+            Self::ImportValidation => "import_validation",
+            Self::ExportValidation => "export_validation",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PlanPortabilityStatus {
+    NativeSkeleton,
+    ValidationOnly,
+    NotImplemented,
+    Unsupported,
+}
+impl PlanPortabilityStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::NativeSkeleton => "native_skeleton",
+            Self::ValidationOnly => "validation_only",
+            Self::NotImplemented => "not_implemented",
+            Self::Unsupported => "unsupported",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_error(&self) -> bool {
+        matches!(self, Self::NotImplemented | Self::Unsupported)
+    }
+}
+
+/// Report-only CG-12 contract for native-first plan portability evidence.
+///
+/// The report records whether native plan constructs are native-only,
+/// Substrait-like representable, lossy, unsupported, or residual. It is
+/// validation metadata only: it never parses, imports, exports, executes, probes
+/// storage, writes output, or delegates to an external engine.
+#[allow(clippy::struct_excessive_bools)]
+#[derive(Debug, Clone, PartialEq)]
+pub struct PlanPortabilityReport {
+    pub schema_version: &'static str,
+    pub report_id: String,
+    pub direction: PlanPortabilityDirection,
+    pub status: PlanPortabilityStatus,
+    pub interop_format: PlanInteropFormat,
+    pub native_plan_schema_version: PlanSchemaVersion,
+    pub native_first: bool,
+    pub validation_only: bool,
+    pub validation_required: bool,
+    pub capability_check_required: bool,
+    pub supported_constructs: Vec<String>,
+    pub native_only_nodes: Vec<String>,
+    pub substrait_like_representable_nodes: Vec<String>,
+    pub lossy_nodes: Vec<String>,
+    pub unsupported_nodes: Vec<String>,
+    pub residual_unsupported_constructs: Vec<String>,
+    pub metadata_loss_boundaries: Vec<String>,
+    pub encoded_semantics_loss: bool,
+    pub redaction_required: bool,
+    pub parser_executed: bool,
+    pub import_export_serialization_performed: bool,
+    pub runtime_execution: bool,
+    pub external_engine_execution: bool,
+    pub filesystem_probe: bool,
+    pub network_probe: bool,
+    pub catalog_probe: bool,
+    pub adapter_probe: bool,
+    pub read_io: bool,
+    pub write_io: bool,
+    pub side_effect_free: bool,
+    pub fallback_execution_allowed: bool,
+    pub fallback_attempted: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl PlanPortabilityReport {
+    #[must_use]
+    pub fn native_skeleton(document: &NativePlanDocument) -> Self {
+        let mut report = Self::base(
+            format!("portability-native-{}", document.id.as_str()),
+            PlanPortabilityDirection::NativeReview,
+            PlanPortabilityStatus::NativeSkeleton,
+            PlanInteropFormat::ShardLoomNative,
+            document.schema_version.clone(),
+        );
+        report.supported_constructs = vec![
+            "native_plan_document".to_string(),
+            "native_plan_schema_version".to_string(),
+            "validation_report".to_string(),
+            "diagnostics".to_string(),
+            "fallback_status".to_string(),
+        ];
+        report.validation_required = true;
+        report.capability_check_required = true;
+        for node in &document.nodes {
+            report.record_node(node);
+        }
+        report
+            .diagnostics
+            .extend(document.validation.diagnostics.clone());
+        report.diagnostics.extend(document.diagnostics.clone());
+        report
+    }
+
+    #[must_use]
+    pub fn for_import_request(request: &PlanImportRequest) -> Self {
+        let mut report = Self::base(
+            format!(
+                "portability-import-{}-{}",
+                request.format.as_str(),
+                request.source_label
+            ),
+            PlanPortabilityDirection::ImportValidation,
+            match request.status {
+                PlanImportStatus::Unsupported => PlanPortabilityStatus::Unsupported,
+                PlanImportStatus::NotImplemented => PlanPortabilityStatus::NotImplemented,
+                PlanImportStatus::Planned | PlanImportStatus::RequiresValidation => {
+                    PlanPortabilityStatus::ValidationOnly
+                }
+            },
+            request.format,
+            request
+                .schema_version
+                .clone()
+                .unwrap_or_else(PlanSchemaVersion::shardloom_v1),
+        );
+        report.supported_constructs = vec![
+            "format_declaration".to_string(),
+            "source_label".to_string(),
+            "native_capability_check_required".to_string(),
+            "diagnostics".to_string(),
+        ];
+        report.validation_required = true;
+        report.capability_check_required = true;
+        if matches!(
+            request.status,
+            PlanImportStatus::Unsupported | PlanImportStatus::NotImplemented
+        ) {
+            report
+                .unsupported_nodes
+                .push("real_plan_import".to_string());
+            report
+                .residual_unsupported_constructs
+                .push("plan_payload_parsing".to_string());
+            report
+                .residual_unsupported_constructs
+                .push("native_lowering".to_string());
+        }
+        report.diagnostics.extend(request.diagnostics.clone());
+        report
+    }
+
+    #[must_use]
+    pub fn for_export_request(request: &PlanExportRequest) -> Self {
+        let mut report = Self::base(
+            format!("portability-export-{}", request.format.as_str()),
+            PlanPortabilityDirection::ExportValidation,
+            match request.status {
+                PlanExportStatus::Unsupported => PlanPortabilityStatus::Unsupported,
+                PlanExportStatus::NotImplemented => PlanPortabilityStatus::NotImplemented,
+                PlanExportStatus::Planned => PlanPortabilityStatus::ValidationOnly,
+            },
+            request.format,
+            PlanSchemaVersion::shardloom_v1(),
+        );
+        report.supported_constructs = vec![
+            "format_declaration".to_string(),
+            "native_plan_schema_version".to_string(),
+            "diagnostics".to_string(),
+            "redaction_policy_required".to_string(),
+        ];
+        report.validation_required = true;
+        report.capability_check_required = true;
+        report.redaction_required = true;
+        if matches!(
+            request.status,
+            PlanExportStatus::Unsupported | PlanExportStatus::NotImplemented
+        ) {
+            report
+                .unsupported_nodes
+                .push("real_plan_export".to_string());
+            report
+                .residual_unsupported_constructs
+                .push("interop_serialization".to_string());
+        }
+        if request.include_secrets {
+            report
+                .metadata_loss_boundaries
+                .push("secret_redaction_boundary".to_string());
+            report
+                .lossy_nodes
+                .push("exported_secret_fields".to_string());
+        }
+        report.diagnostics.extend(request.diagnostics.clone());
+        report
+    }
+
+    fn base(
+        report_id: String,
+        direction: PlanPortabilityDirection,
+        status: PlanPortabilityStatus,
+        interop_format: PlanInteropFormat,
+        native_plan_schema_version: PlanSchemaVersion,
+    ) -> Self {
+        Self {
+            schema_version: "shardloom.plan_portability.v1",
+            report_id,
+            direction,
+            status,
+            interop_format,
+            native_plan_schema_version,
+            native_first: true,
+            validation_only: true,
+            validation_required: false,
+            capability_check_required: false,
+            supported_constructs: Vec::new(),
+            native_only_nodes: Vec::new(),
+            substrait_like_representable_nodes: Vec::new(),
+            lossy_nodes: Vec::new(),
+            unsupported_nodes: Vec::new(),
+            residual_unsupported_constructs: Vec::new(),
+            metadata_loss_boundaries: Vec::new(),
+            encoded_semantics_loss: false,
+            redaction_required: false,
+            parser_executed: false,
+            import_export_serialization_performed: false,
+            runtime_execution: false,
+            external_engine_execution: false,
+            filesystem_probe: false,
+            network_probe: false,
+            catalog_probe: false,
+            adapter_probe: false,
+            read_io: false,
+            write_io: false,
+            side_effect_free: true,
+            fallback_execution_allowed: false,
+            fallback_attempted: false,
+            diagnostics: Vec::new(),
+        }
+    }
+
+    fn record_node(&mut self, node: &NativePlanNode) {
+        let node_label = format!("{}:{}", node.id.as_str(), node.kind.as_str());
+        match node.kind {
+            NativePlanNodeKind::Scan
+            | NativePlanNodeKind::Filter
+            | NativePlanNodeKind::Projection
+            | NativePlanNodeKind::Aggregate
+            | NativePlanNodeKind::Join
+            | NativePlanNodeKind::Sort
+            | NativePlanNodeKind::Limit => self.substrait_like_representable_nodes.push(node_label),
+            NativePlanNodeKind::Unsupported => self.unsupported_nodes.push(node_label),
+            NativePlanNodeKind::Udf
+            | NativePlanNodeKind::ExternalRead
+            | NativePlanNodeKind::ExternalWrite
+            | NativePlanNodeKind::ModelCall
+            | NativePlanNodeKind::EmbeddingGeneration
+            | NativePlanNodeKind::VectorSearch
+            | NativePlanNodeKind::Translation
+            | NativePlanNodeKind::Write
+            | NativePlanNodeKind::Commit => self.native_only_nodes.push(node_label),
+        }
+
+        for boundary in &node.boundaries {
+            match boundary {
+                PlanBoundaryKind::CompatibilityOutput | PlanBoundaryKind::Translation => self
+                    .metadata_loss_boundaries
+                    .push(format!("{}:{}", node.id.as_str(), boundary.as_str())),
+                PlanBoundaryKind::Materialization | PlanBoundaryKind::ZeroCopyInterop => self
+                    .lossy_nodes
+                    .push(format!("{}:{}", node.id.as_str(), boundary.as_str())),
+                PlanBoundaryKind::Unsupported => self.unsupported_nodes.push(format!(
+                    "{}:{}",
+                    node.id.as_str(),
+                    boundary.as_str()
+                )),
+                PlanBoundaryKind::NativeVortexInput
+                | PlanBoundaryKind::NativeVortexOutput
+                | PlanBoundaryKind::Effect
+                | PlanBoundaryKind::ZeroDecode
+                | PlanBoundaryKind::Spill
+                | PlanBoundaryKind::Shuffle
+                | PlanBoundaryKind::Distributed => {}
+            }
+        }
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.status.is_error()
+            || self.parser_executed
+            || self.import_export_serialization_performed
+            || self.runtime_execution
+            || self.external_engine_execution
+            || self.filesystem_probe
+            || self.network_probe
+            || self.catalog_probe
+            || self.adapter_probe
+            || self.read_io
+            || self.write_io
+            || !self.side_effect_free
+            || self.fallback_execution_allowed
+            || self.fallback_attempted
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "plan portability report\nschema_version: {}\nreport_id: {}\ndirection: {}\nstatus: {}\ninterop_format: {}\nnative_plan_schema_version: {}\nnative_first: {}\nvalidation_only: {}\nvalidation_required: {}\ncapability_check_required: {}\nsupported_constructs: {}\nnative_only_nodes: {}\nsubstrait_like_representable_nodes: {}\nlossy_nodes: {}\nunsupported_nodes: {}\nresidual_unsupported_constructs: {}\nmetadata_loss_boundaries: {}\nruntime execution: disabled\nexternal engine execution: disabled\nimport/export serialization: disabled\nfallback execution: disabled",
+            self.schema_version,
+            self.report_id,
+            self.direction.as_str(),
+            self.status.as_str(),
+            self.interop_format.as_str(),
+            self.native_plan_schema_version.summary(),
+            self.native_first,
+            self.validation_only,
+            self.validation_required,
+            self.capability_check_required,
+            format_list(&self.supported_constructs),
+            format_list(&self.native_only_nodes),
+            format_list(&self.substrait_like_representable_nodes),
+            format_list(&self.lossy_nodes),
+            format_list(&self.unsupported_nodes),
+            format_list(&self.residual_unsupported_constructs),
+            format_list(&self.metadata_loss_boundaries),
+        )
+    }
+}
+
+fn format_list(values: &[String]) -> String {
+    if values.is_empty() {
+        "<none>".to_string()
+    } else {
+        values.join(", ")
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PlanImportStatus {
     Planned,
     RequiresValidation,
@@ -584,7 +937,10 @@ impl PlanImportStatus {
     }
     #[must_use]
     pub const fn requires_validation(&self) -> bool {
-        matches!(self, Self::Planned | Self::RequiresValidation)
+        matches!(
+            self,
+            Self::Planned | Self::RequiresValidation | Self::Unsupported | Self::NotImplemented
+        )
     }
 }
 
@@ -1004,6 +1360,79 @@ mod tests {
         );
     }
     #[test]
+    fn import_not_implemented_still_requires_native_validation() {
+        let request =
+            PlanImportRequest::not_implemented(PlanInteropFormat::JsonLike, "src").expect("ok");
+        assert!(request.status.requires_validation());
+        assert!(request.summary().contains("validation_required=true"));
+    }
+    #[test]
+    fn portability_report_for_import_is_validation_only_and_no_fallback() {
+        let request =
+            PlanImportRequest::not_implemented(PlanInteropFormat::SubstraitLike, "fixture")
+                .expect("request");
+        let report = PlanPortabilityReport::for_import_request(&request);
+
+        assert_eq!(report.schema_version, "shardloom.plan_portability.v1");
+        assert_eq!(report.direction, PlanPortabilityDirection::ImportValidation);
+        assert_eq!(report.status, PlanPortabilityStatus::NotImplemented);
+        assert!(report.native_first);
+        assert!(report.validation_only);
+        assert!(report.validation_required);
+        assert!(report.capability_check_required);
+        assert!(
+            report
+                .unsupported_nodes
+                .contains(&"real_plan_import".to_string())
+        );
+        assert!(
+            report
+                .residual_unsupported_constructs
+                .contains(&"native_lowering".to_string())
+        );
+        assert!(!report.parser_executed);
+        assert!(!report.runtime_execution);
+        assert!(!report.external_engine_execution);
+        assert!(!report.write_io);
+        assert!(!report.fallback_execution_allowed);
+        assert!(!report.fallback_attempted);
+    }
+    #[test]
+    fn portability_report_classifies_native_nodes_and_boundaries() {
+        let mut document = NativePlanDocument::empty(PlanId::new("p").expect("id"));
+        let mut scan = NativePlanNode::new(
+            PlanNodeId::new("n1").expect("node id"),
+            PlanLayer::Logical,
+            NativePlanNodeKind::Scan,
+            "scan",
+        );
+        scan.add_boundary(PlanBoundaryKind::CompatibilityOutput);
+        document.add_node(scan);
+        let udf = NativePlanNode::new(
+            PlanNodeId::new("n2").expect("node id"),
+            PlanLayer::Logical,
+            NativePlanNodeKind::Udf,
+            "udf",
+        );
+        document.add_node(udf);
+        document.validate_skeleton();
+
+        let report = PlanPortabilityReport::native_skeleton(&document);
+
+        assert!(
+            report
+                .substrait_like_representable_nodes
+                .contains(&"n1:scan".to_string())
+        );
+        assert!(report.native_only_nodes.contains(&"n2:udf".to_string()));
+        assert!(
+            report
+                .metadata_loss_boundaries
+                .contains(&"n1:compatibility_output".to_string())
+        );
+        assert!(!report.has_errors());
+    }
+    #[test]
     fn export_defaults_include_secrets_false() {
         assert!(!PlanExportRequest::new(PlanInteropFormat::Unknown).include_secrets);
     }
@@ -1015,6 +1444,25 @@ mod tests {
                 .iter()
                 .any(|d| d.severity == DiagnosticSeverity::Warning)
         );
+    }
+    #[test]
+    fn portability_report_for_export_records_redaction_and_no_side_effects() {
+        let request =
+            PlanExportRequest::not_implemented(PlanInteropFormat::JsonLike).include_secrets(true);
+        let report = PlanPortabilityReport::for_export_request(&request);
+
+        assert_eq!(report.direction, PlanPortabilityDirection::ExportValidation);
+        assert_eq!(report.status, PlanPortabilityStatus::NotImplemented);
+        assert!(report.redaction_required);
+        assert!(
+            report
+                .metadata_loss_boundaries
+                .contains(&"secret_redaction_boundary".to_string())
+        );
+        assert!(!report.import_export_serialization_performed);
+        assert!(!report.read_io);
+        assert!(!report.write_io);
+        assert!(!report.fallback_attempted);
     }
     #[test]
     fn empty_doc_zero_nodes() {

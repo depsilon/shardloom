@@ -45,33 +45,34 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-11.2 thin Python wrapper foundation
+- [x] Session label: CG-12.1 native-first plan portability report foundation
   - Primary files:
-    - `shardloom-core/src/output.rs`
-    - `shardloom-core/src/lib.rs`
+    - `shardloom-plan/src/plan_ir.rs`
+    - `shardloom-plan/src/lib.rs`
     - `shardloom-cli/src/main.rs`
-    - `shardloom-cli/tests/python_wrapper_snapshots.rs`
+    - `shardloom-cli/tests/plan_portability_snapshots.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/rfcs/0022-plan-ir-substrait-compatible-interoperability.md`
     - `docs/rfcs/0030-universal-api-plan-portability-import-deployment-baselines.md`
-  - Scope: Add report-only thin Python wrapper foundation evidence over the stable CLI JSON protocol without creating a Python package, adding PyO3/maturin, invoking Python, running a parser, executing runtime work, probing hosts/adapters, writing files, publishing packages, or fallback execution.
+  - Scope: Add report-only native-first plan portability evidence for existing plan commands without implementing real plan serialization/import/export, parser execution, runtime execution, host probing, read/write IO, external engine execution, or fallback execution.
   - Checklist:
-    - [x] Add `PythonWrapperFoundationReport` contract for wrapper identity, transport protocol, command scope, required client behaviors, and deferred mature Python surfaces.
-    - [x] Surface wrapper fields through `python-wrapper-plan --format json`.
-    - [x] Preserve the first wrapper boundary as subprocess CLI JSON only.
-    - [x] Record no Python package, no PyO3/maturin, no native extension, no DataFrame/notebook/Python UDF implementation, no probes, no parser/runtime execution, no writes, no external publish, and no fallback.
+    - [x] Add `PlanPortabilityReport` contract for native-first direction, interop format, construct buckets, loss boundaries, residual unsupported constructs, side-effect fields, and no-fallback status.
+    - [x] Surface portability fields through `plan-ir --format json`, `plan-import --format json`, and `plan-export --format json`.
+    - [x] Keep import/export validation-only with no parser execution, serialization, runtime execution, external engine execution, probing, reads, writes, or fallback.
     - [x] Add focused CLI JSON snapshot coverage.
-    - [x] Update phase plan, RFC traceability, and RFC 0030.
+    - [x] Update phase plan, RFC traceability, RFC 0022, and RFC 0030.
     - [x] Run full required validation.
   - Local validation status:
-    - focused `shardloom-core` Python wrapper foundation tests passed
-    - focused `shardloom-cli` `python_wrapper_snapshots` tests passed
-    - focused `shardloom-cli` `python_wrapper` unit filter passed
-    - `python-wrapper-plan --format json` smoke check passed
-    - focused Clippy for `shardloom-core` and `shardloom-cli` passed with toolchain `1.91.1`
+    - focused `shardloom-plan` `plan_ir` tests passed
+    - focused `shardloom-cli` `plan_portability_snapshots` tests passed
+    - `plan-ir --format json` smoke check passed
+    - `plan-import substrait-like fixture --format json` smoke check emitted expected unsupported/no-side-effect report
+    - `plan-export json-like --format json` smoke check emitted expected unsupported/no-side-effect report
+    - focused Clippy for `shardloom-plan` and `shardloom-cli` passed with toolchain `1.91.1`
     - full Rust validation passed with toolchain `1.91.1`
     - docs hygiene scans passed for `git diff --check` and hidden/bidi controls
-  - Explicitly not included: Python package implementation, PyO3/maturin, native extension, DataFrame API, notebook API, Python UDF runtime, Foundry integration, parser work, SQL execution, adapter probing, filesystem probing, network probing, runtime execution, write IO, package publication, benchmark claims, superiority claims, or fallback execution.
+  - Explicitly not included: real plan serialization, real plan import/export, external plan execution, parser work, SQL execution, adapter probing, filesystem probing, network probing, catalog probing, runtime execution, read IO, write IO, package publication, benchmark claims, superiority claims, or fallback execution.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -1093,10 +1094,14 @@ Status legend:
     - mature Python wrapper/DataFrame/notebook/Python UDF certification belongs to CG-20
 
 - [ ] CG-12 — Plan portability / semantic IR (**planned**)
+  - [x] CG-12.1 native-first `PlanPortabilityReport` foundation
+  - [x] CG-12.2 explicit unsupported/lossy/residual construct reporting
+  - [x] CG-12.3 import/export commands remain validation-only and side-effect-free
   - Scope:
-    - native-first plan portability reports
+    - native-first plan portability reports for `plan-ir`, `plan-import`, and `plan-export`
     - explicit unsupported/lossy/residual construct reporting
     - no import/export execution side effects
+    - real plan serialization/import/export remains deferred
 
 - [ ] CG-13 — Encoded-native compressed execution (**planned**)
   - Scope:
@@ -1347,9 +1352,11 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] mature Python wrapper/DataFrame/notebook/Python UDF certification deferred to CG-20
 
 ### CG-12 detailed checklist
-- [ ] native-first plan portability reports
-- [ ] explicit unsupported/lossy/residual construct reporting
-- [ ] no import/export execution side effects
+- [x] native-first plan portability reports
+- [x] explicit unsupported/lossy/residual construct reporting
+- [x] no import/export execution side effects
+- [ ] real plan import/export serialization
+- [ ] capability-checked imported-plan execution gate
 
 ### CG-13 detailed checklist
 - [ ] encoding-aware execution path selection
