@@ -10,21 +10,22 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [x] Session label: CG-2.1e.7 encoded-count approval CLI surfacing
-  - Current cleanup/implementation step: Expose the encoded-count data-path approval boundary through a report-only CLI command.
+- [x] Session label: CG-2.1e.8 encoded-count approval local guard
+  - Current cleanup/implementation step: Require the encoded-count approval report before the local encoded-count helper can advance to deferred execution planning.
   - Primary files:
-    - `shardloom-cli/src/main.rs`
+    - `shardloom-vortex/src/local_execution.rs`
+    - `shardloom-vortex/src/lib.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
     - `docs/architecture/vortex-public-api-inventory.md`
     - `docs/architecture/vortex-adapter-integration-plan.md`
-  - Scope: CLI/report-only surfacing for `VortexEncodedCountDataPathApprovalReport`; current public API boundary still blocks approval.
+  - Scope: Local execution guard only; current public API boundary remains blocked and no actual encoded-data execution is added.
   - Explicitly not included: Calling scan/read-start APIs, calling array-stream/evaluation APIs, encoded-data traversal, row reads, actual encoded count execution, filtered count execution, projection execution, decode/materialization, Arrow conversion, object-store IO, writes, fallback execution, SQL/API/adapter expansion, or superiority claims.
   - Validation required:
     - `cargo fmt --all -- --check`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: `shardloom vortex-encoded-count-approval-plan` reports current approval blockers and remains side-effect-free; it does not execute counts, scan, decode, materialize, convert to Arrow, write, perform object-store IO, or attempt fallback.
+  - Completion notes: `execute_vortex_count_all_from_encoded_count_data_path_approval` rejects the current public API boundary and only permits a future approved boundary to return deferred `NeedsEncodedRead`; no execution, scan, decode, materialization, Arrow conversion, write, object-store IO, or fallback behavior is added.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -400,6 +401,13 @@
     - Current public API boundary returns a deterministic unsupported/non-zero result for encoded-data count approval even when readiness flags are present.
     - CLI output remains report-only and includes `fallback_execution_allowed=false`.
     - No scan/read-start invocation, encoded-data traversal, row read, decode/materialization, Arrow conversion, object-store IO, write, or fallback execution is added.
+- [x] CG-2.1e.8 encoded-count approval local guard
+  - Why: prevent local encoded-count execution helpers from advancing unless the explicit approval report is approved.
+  - Acceptance:
+    - `execute_vortex_count_all_from_encoded_count_data_path_approval` consumes `VortexEncodedCountDataPathApprovalReport`.
+    - The current public API boundary returns unsupported from the guard.
+    - A future approved boundary can only return deferred `NeedsEncodedRead`, not actual execution.
+    - No scan/read-start invocation, encoded-data traversal, row read, decode/materialization, Arrow conversion, object-store IO, write, or fallback execution is added.
 - [ ] CG-2.1e encoded-data count execution path (planned)
   - Why: turn the approved encoded-data count candidate into actual native encoded execution after the public Vortex data path is approved.
   - Acceptance:
@@ -441,6 +449,7 @@ Status legend:
   - [x] CG-2.1e.5 `VortexFile::row_count` metadata-surface approval
   - [x] CG-2.1e.6 encoded-count data-path approval boundary
   - [x] CG-2.1e.7 encoded-count approval CLI surfacing
+  - [x] CG-2.1e.8 encoded-count approval local guard
   - [~] CG-2.1+ non-metadata primitive execution remains deferred pending actual encoded-data execution
   - [x] CG-2.3b projection readiness CLI integration
   - Required capabilities for completion:
@@ -601,6 +610,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.5 `VortexFile::row_count` metadata-surface approval
 - [x] CG-2.1e.6 encoded-count data-path approval boundary
 - [x] CG-2.1e.7 encoded-count approval CLI surfacing
+- [x] CG-2.1e.8 encoded-count approval local guard
 - [x] CG-2.2a filtered-count readiness core contract
 - [x] CG-2.2a.1 filtered-count blocker precision hardening
 - [x] CG-2.2b filtered-count readiness CLI integration
@@ -776,6 +786,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.5 `VortexFile::row_count` is approved as metadata-only public API evidence.
 - [x] CG-2.1e.6 encoded-count data-path approval blocks current traversal until an execution-usable public data path exists.
 - [x] CG-2.1e.7 encoded-count approval CLI exposes the current blocker without execution.
+- [x] CG-2.1e.8 local encoded-count approval guard rejects current blockers before deferred execution planning.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [~] CG-3 real Vortex payload writes remain deferred; placeholder artifact paths are not completion evidence.
 

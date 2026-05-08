@@ -725,6 +725,13 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - Ready encoded-count inputs still return unsupported/non-zero while execution-usable data path count remains zero.
 - This remains report-only and introduces no scan/read-start invocation, array stream/evaluation call, encoded-data traversal, row read, decode/materialization, `Arrow` conversion, object-store IO, write, or fallback execution.
 
+## CG-2.1e.8 encoded-count approval local guard
+
+- Local encoded-count planning now has a guard that consumes the approval report derived from this inventory.
+- The current inventory remains blocked by that guard because scan, stream, layout-evaluation, data-source, and Arrow-default blockers are still present.
+- A future approved inventory boundary may advance only to deferred encoded-read planning until real execution is separately approved.
+- This remains report-only and introduces no scan/read-start invocation, array stream/evaluation call, encoded-data traversal, row read, decode/materialization, `Arrow` conversion, object-store IO, write, or fallback execution.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.
