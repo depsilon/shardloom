@@ -732,6 +732,14 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - A future approved inventory boundary may advance only to deferred encoded-read planning until real execution is separately approved.
 - This remains report-only and introduces no scan/read-start invocation, array stream/evaluation call, encoded-data traversal, row read, decode/materialization, `Arrow` conversion, object-store IO, write, or fallback execution.
 
+## CG-2.1e.9 layout-reader construction blocker hardening
+
+- Upstream source review shows `VortexFile::layout_reader` constructs through `VortexFile::segment_source`, and that public method may spawn a background I/O driver.
+- The API boundary now classifies `VortexFile::layout_reader` with a runtime-driver risk instead of treating it as risk-free metadata access.
+- `LayoutReader::row_count` remains metadata-like and non-blocking by itself, but it is not execution-usable and cannot approve encoded-count execution while layout-reader construction is blocked.
+- Count-readiness and encoded-count approval retain `VortexFile::layout_reader` as a named blocker while excluding `VortexFile::row_count` and `LayoutReader::row_count` from encoded-data execution evidence.
+- This remains classification-only and introduces no `LayoutReader` construction, scan/read-start invocation, array stream/evaluation call, encoded-data traversal, row read, decode/materialization, `Arrow` conversion, object-store IO, write, or fallback execution.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.

@@ -92,7 +92,7 @@ pub fn vortex_encoded_read_public_api_compile_probe_summary() -> &'static str {
         layout_filter_method,
     );
 
-    "confirmed public encoded-read-adjacent symbols: `VortexFile::row_count`, `VortexFile::layout_reader`, `LayoutReader::row_count`, `VortexFile::scan`, `ScanBuilder::into_array_stream`, `ScanBuilder::into_array_iter`, `LayoutReader::projection_evaluation`, `LayoutReader::filter_evaluation`, and `VortexFile::data_source`; scan and array stream/evaluation surfaces remain classified as not execution-usable by ShardLoom until no-decode/no-materialization behavior is approved"
+    "confirmed public encoded-read-adjacent symbols: `VortexFile::row_count`, `VortexFile::layout_reader`, `LayoutReader::row_count`, `VortexFile::scan`, `ScanBuilder::into_array_stream`, `ScanBuilder::into_array_iter`, `LayoutReader::projection_evaluation`, `LayoutReader::filter_evaluation`, and `VortexFile::data_source`; `VortexFile::layout_reader` remains blocked by runtime-driver risk, and scan plus array stream/evaluation surfaces remain classified as not execution-usable by ShardLoom until no-decode/no-materialization behavior is approved"
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -192,6 +192,7 @@ impl VortexEncodedReadApiStatus {
 pub enum VortexEncodedReadApiRisk {
     None,
     ApiInstability,
+    RuntimeDriver,
     DataRead,
     Decode,
     Materialization,
@@ -206,6 +207,7 @@ impl VortexEncodedReadApiRisk {
         match self {
             Self::None => "none",
             Self::ApiInstability => "api_instability",
+            Self::RuntimeDriver => "runtime_driver",
             Self::DataRead => "data_read",
             Self::Decode => "decode",
             Self::Materialization => "materialization",
@@ -219,7 +221,8 @@ impl VortexEncodedReadApiRisk {
     pub const fn is_blocking(&self) -> bool {
         matches!(
             self,
-            Self::DataRead
+            Self::RuntimeDriver
+                | Self::DataRead
                 | Self::Decode
                 | Self::Materialization
                 | Self::ArrowDefaultPath
@@ -344,6 +347,7 @@ pub struct VortexEncodedReadApiBoundaryReport {
     pub execution_usable_count: usize,
     pub blocked_count: usize,
     pub data_read_api_count: usize,
+    pub runtime_driver_risk_count: usize,
     pub decode_api_count: usize,
     pub materialization_api_count: usize,
     pub arrow_default_risk_count: usize,
@@ -361,6 +365,7 @@ impl VortexEncodedReadApiBoundaryReport {
             execution_usable_count: 0,
             blocked_count: 0,
             data_read_api_count: 0,
+            runtime_driver_risk_count: 0,
             decode_api_count: 0,
             materialization_api_count: 0,
             arrow_default_risk_count: 0,
@@ -398,6 +403,7 @@ impl VortexEncodedReadApiBoundaryReport {
         self.execution_usable_count = 0;
         self.blocked_count = 0;
         self.data_read_api_count = 0;
+        self.runtime_driver_risk_count = 0;
         self.decode_api_count = 0;
         self.materialization_api_count = 0;
         self.arrow_default_risk_count = 0;
@@ -415,6 +421,9 @@ impl VortexEncodedReadApiBoundaryReport {
             }
             if i.area == VortexEncodedReadApiArea::DataRead {
                 self.data_read_api_count += 1;
+            }
+            if i.risk == VortexEncodedReadApiRisk::RuntimeDriver {
+                self.runtime_driver_risk_count += 1;
             }
             if i.area == VortexEncodedReadApiArea::Decode {
                 self.decode_api_count += 1;
@@ -471,6 +480,11 @@ impl VortexEncodedReadApiBoundaryReport {
             &mut out,
             "data-read API count: {}",
             self.data_read_api_count
+        );
+        let _ = writeln!(
+            &mut out,
+            "runtime-driver risk count: {}",
+            self.runtime_driver_risk_count
         );
         let _ = writeln!(&mut out, "decode API count: {}", self.decode_api_count);
         let _ = writeln!(
@@ -553,9 +567,10 @@ fn vortex_encoded_read_data_access_api_items() -> [Result<VortexEncodedReadApiIt
             VortexEncodedReadApiStatus::ConfirmedPublicButDeferred,
         )
         .map(|item| {
-            item.with_notes(
-                "Constructs a layout reader from opened file metadata and segment source; not an approved data execution path by itself.",
-            )
+            item.with_risk(VortexEncodedReadApiRisk::RuntimeDriver)
+                .with_notes(
+                    "Constructs a layout reader through `VortexFile::segment_source`, whose upstream contract may spawn a background I/O driver; row-count-only use remains deferred until ShardLoom has an explicit local-driver approval boundary.",
+                )
         }),
         VortexEncodedReadApiItem::new(
             VortexEncodedReadApiArea::Layout,
@@ -702,6 +717,15 @@ mod tests {
         .unwrap()
         .with_risk(VortexEncodedReadApiRisk::DataRead);
         assert!(!i.is_contract_usable());
+
+        let i = VortexEncodedReadApiItem::new(
+            VortexEncodedReadApiArea::Layout,
+            "layout_reader",
+            VortexEncodedReadApiStatus::ConfirmedPublicButDeferred,
+        )
+        .unwrap()
+        .with_risk(VortexEncodedReadApiRisk::RuntimeDriver);
+        assert!(i.is_blocked());
     }
     #[test]
     fn item_execution_always_false() {
@@ -739,6 +763,22 @@ mod tests {
         assert_eq!(r.blocked_count, 1);
     }
     #[test]
+    fn report_counts_runtime_driver_risk() {
+        let mut r = VortexEncodedReadApiBoundaryReport::default_deferred();
+        r.add_item(
+            VortexEncodedReadApiItem::new(
+                VortexEncodedReadApiArea::Layout,
+                "layout_reader",
+                VortexEncodedReadApiStatus::ConfirmedPublicButDeferred,
+            )
+            .unwrap()
+            .with_risk(VortexEncodedReadApiRisk::RuntimeDriver),
+        );
+        assert_eq!(r.runtime_driver_risk_count, 1);
+        assert_eq!(r.blocked_count, 1);
+        assert!(r.to_human_text().contains("runtime-driver risk count: 1"));
+    }
+    #[test]
     fn report_text_has_fallback_disabled_and_exec_zero() {
         let r = VortexEncodedReadApiBoundaryReport::default_deferred();
         let t = r.to_human_text();
@@ -770,7 +810,15 @@ mod tests {
             layout_reader.status,
             VortexEncodedReadApiStatus::ConfirmedPublicButDeferred
         );
-        assert_eq!(layout_reader.risk, VortexEncodedReadApiRisk::None);
+        assert_eq!(layout_reader.risk, VortexEncodedReadApiRisk::RuntimeDriver);
+        assert!(layout_reader.is_blocked());
+        assert!(
+            layout_reader
+                .notes
+                .as_deref()
+                .unwrap_or_default()
+                .contains("segment_source")
+        );
 
         let scan = item_named(&r, "VortexFile::scan");
         assert_eq!(scan.area, VortexEncodedReadApiArea::ScanSetup);
@@ -826,6 +874,7 @@ mod tests {
         assert!(r.blocked_count >= 5);
         for name in [
             "VortexFile::scan",
+            "VortexFile::layout_reader",
             "ScanBuilder::into_array_stream",
             "ScanBuilder::into_array_iter",
             "LayoutReader::projection_evaluation",
@@ -856,6 +905,7 @@ mod tests {
             assert!(summary.contains(symbol), "missing `{symbol}`");
         }
         assert!(summary.contains("not execution-usable"));
+        assert!(summary.contains("runtime-driver risk"));
     }
     #[test]
     fn probe_blocked_false() {
