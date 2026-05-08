@@ -379,6 +379,12 @@ impl PythonWrapperFoundationReport {
             || self.dataframe_api_implemented
             || self.notebook_api_implemented
             || self.python_udf_runtime_implemented
+            || !self.side_effect_free
+            || self.filesystem_probe
+            || self.network_probe
+            || self.catalog_probe
+            || self.adapter_probe
+            || self.parser_executed
             || self.runtime_execution
             || self.write_io
             || self.external_publish
@@ -887,5 +893,32 @@ mod tests {
         assert!(!report.runtime_execution);
         assert!(!report.write_io);
         assert!(!report.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn python_wrapper_foundation_treats_probe_and_parser_execution_as_errors() {
+        let mut report = PythonWrapperFoundationReport::contract_only();
+        report.filesystem_probe = true;
+        assert!(report.has_errors());
+
+        let mut report = PythonWrapperFoundationReport::contract_only();
+        report.network_probe = true;
+        assert!(report.has_errors());
+
+        let mut report = PythonWrapperFoundationReport::contract_only();
+        report.catalog_probe = true;
+        assert!(report.has_errors());
+
+        let mut report = PythonWrapperFoundationReport::contract_only();
+        report.adapter_probe = true;
+        assert!(report.has_errors());
+
+        let mut report = PythonWrapperFoundationReport::contract_only();
+        report.parser_executed = true;
+        assert!(report.has_errors());
+
+        let mut report = PythonWrapperFoundationReport::contract_only();
+        report.side_effect_free = false;
+        assert!(report.has_errors());
     }
 }

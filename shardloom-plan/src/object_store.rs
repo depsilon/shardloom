@@ -847,46 +847,53 @@ fn object_store_commit_protocol_diagnostics(
     if status == ObjectStoreCommitProtocolStatus::Ready {
         return Vec::new();
     }
-    let (feature, message, next) = match status {
+    let (code, feature, message, next) = match status {
         ObjectStoreCommitProtocolStatus::Ready => unreachable!("handled above"),
         ObjectStoreCommitProtocolStatus::BlockedNonObjectStore => (
+            DiagnosticCode::ObjectStoreUnsupported,
             "object_store_target",
             "object-store commit protocol requires an S3, GCS, or ADLS target",
             "Use object-store targets only for object-store commit protocol planning.",
         ),
         ObjectStoreCommitProtocolStatus::BlockedMissingStaging => (
+            DiagnosticCode::InvalidInput,
             "staging_prefix",
             "object-store commit protocol requires a declared staging prefix",
             "Declare a staging prefix before planning object-store commits.",
         ),
         ObjectStoreCommitProtocolStatus::BlockedMissingManifestPointer => (
+            DiagnosticCode::InvalidInput,
             "manifest_pointer",
             "object-store commit protocol requires a manifest pointer update plan",
             "Declare manifest pointer update evidence before planning object-store commits.",
         ),
         ObjectStoreCommitProtocolStatus::BlockedMissingCommitRecord => (
+            DiagnosticCode::InvalidInput,
             "commit_record",
             "object-store commit protocol requires a commit record",
             "Declare commit record evidence before planning object-store commits.",
         ),
         ObjectStoreCommitProtocolStatus::BlockedMissingIdempotency => (
+            DiagnosticCode::InvalidInput,
             "idempotency_key",
             "object-store commit protocol requires an idempotency key",
             "Declare idempotency key evidence before planning object-store commits.",
         ),
         ObjectStoreCommitProtocolStatus::BlockedMissingCleanup => (
+            DiagnosticCode::InvalidInput,
             "cleanup_plan",
             "object-store commit protocol requires cleanup planning",
             "Declare cleanup evidence before planning object-store commits.",
         ),
         ObjectStoreCommitProtocolStatus::BlockedAtomicity => (
+            DiagnosticCode::CommitNotAtomic,
             "atomic_commit",
             "object-store commit protocol requires atomicity evidence",
             "Declare provider atomicity or pointer-swap evidence before planning object-store commits.",
         ),
     };
     vec![Diagnostic::new(
-        DiagnosticCode::CommitNotAtomic,
+        code,
         DiagnosticSeverity::Error,
         DiagnosticCategory::ObjectStore,
         message,
@@ -1382,7 +1389,7 @@ impl ObjectStoreRangeCounts {
 fn object_store_range_status(counts: ObjectStoreRangeCounts) -> ObjectStoreRangePlanningStatus {
     if counts.segments == 0 {
         ObjectStoreRangePlanningStatus::Unsupported
-    } else if counts.object_store_files == 0 {
+    } else if counts.object_store_files == 0 || counts.non_object_store_files > 0 {
         ObjectStoreRangePlanningStatus::BlockedNonObjectStore
     } else if counts.invalid_ranges > 0 {
         ObjectStoreRangePlanningStatus::BlockedInvalidRanges
@@ -1491,8 +1498,8 @@ fn object_store_range_diagnostics(
         ObjectStoreRangePlanningStatus::BlockedNonObjectStore => vec![object_store_range_error(
             DiagnosticCode::ObjectStoreUnsupported,
             "object_store_uri",
-            "no object-store input files were declared",
-            "Declare S3, GCS, or ADLS file URIs before object-store range planning.",
+            "object-store range planning requires every declared input file to use an object-store URI",
+            "Declare only S3, GCS, or ADLS file URIs before object-store range planning.",
         )],
         ObjectStoreRangePlanningStatus::BlockedInvalidRanges => vec![object_store_range_error(
             DiagnosticCode::InvalidInput,
@@ -1636,6 +1643,39 @@ mod tests {
             ObjectStoreRangePlanningStatus::BlockedNonObjectStore
         );
         assert_eq!(report.object_store_file_count, 0);
+        assert!(report.has_errors());
+    }
+
+    #[test]
+    fn mixed_local_and_object_store_files_block_range_planning() {
+        let mut manifest =
+            manifest_with_uri("s3://bucket/table.vortex", vec![ByteRange::new(0, 1024)]);
+        let local_uri = DatasetUri::new("file://tmp/table.vortex").expect("uri");
+        let local_file =
+            FileDescriptor::new(local_uri, DatasetFormat::Vortex, FileRole::NativeVortexData)
+                .with_size_bytes(128 * 1024 * 1024);
+        let mut layout = SegmentLayout::new(EncodingKind::Plain, LayoutKind::Flat);
+        layout.byte_ranges = vec![ByteRange::new(1024, 1024)];
+        layout.physical_size_bytes = Some(8 * 1024 * 1024);
+        let local_segment = EncodedSegment::new(
+            SegmentId::new("s2").expect("segment id"),
+            ColumnRef::new("c").expect("column"),
+            LogicalDType::Int64,
+            Nullability::Nullable,
+            layout,
+            SegmentStats::with_row_count(64_000),
+        );
+        manifest.add_file(local_file.clone());
+        manifest.add_segment(ManifestSegment::new(local_segment, local_file));
+
+        let report = plan_object_store_ranges(manifest, ObjectStoreRangePlanningPolicy::default());
+
+        assert_eq!(
+            report.status,
+            ObjectStoreRangePlanningStatus::BlockedNonObjectStore
+        );
+        assert_eq!(report.object_store_file_count, 1);
+        assert_eq!(report.non_object_store_file_count, 1);
         assert!(report.has_errors());
     }
 
@@ -1889,6 +1929,10 @@ mod tests {
         );
         assert!(!report.object_store_target);
         assert!(report.has_errors());
+        assert_eq!(
+            report.diagnostics[0].code,
+            DiagnosticCode::ObjectStoreUnsupported
+        );
     }
 
     #[test]
@@ -1900,8 +1944,21 @@ mod tests {
             report.status,
             ObjectStoreCommitProtocolStatus::BlockedMissingIdempotency
         );
+        assert_eq!(report.diagnostics[0].code, DiagnosticCode::InvalidInput);
         assert!(report.requires_idempotency_key);
         assert!(report.has_errors());
         assert!(report.side_effect_free());
+    }
+
+    #[test]
+    fn object_store_commit_protocol_atomicity_uses_atomicity_diagnostic_code() {
+        let input = ready_commit_input().with_provider_atomic_commit(false);
+        let report = plan_object_store_commit_protocol(input);
+
+        assert_eq!(
+            report.status,
+            ObjectStoreCommitProtocolStatus::BlockedAtomicity
+        );
+        assert_eq!(report.diagnostics[0].code, DiagnosticCode::CommitNotAtomic);
     }
 }

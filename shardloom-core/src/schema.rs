@@ -636,6 +636,17 @@ pub fn evaluate_schema_evolution_compatibility(
         }
     }
 
+    if policy.allows(SchemaEvolutionPolicyKind::StrictExact) && !compatibility.changes.is_empty() {
+        analysis.add_unsafe(
+            &mut compatibility,
+            Diagnostic::invalid_input(
+                "schema_evolution.strict_exact",
+                "strict schema evolution policy requires exact schema equality",
+                "Use identical source and target schemas or select a less strict evolution policy.",
+            ),
+        );
+    }
+
     compatibility.level = analysis.compatibility_level(compatibility.changes.len());
     let read_supported = compatibility.level.allows_read() && !compatibility.has_errors();
     let write_supported = compatibility.level.allows_write() && !compatibility.has_errors();
@@ -1575,31 +1586,14 @@ pub fn evaluate_partition_evolution_compatibility(
         analysis.requires_metadata_rewrite = true;
     }
 
-    for field in from.fields.iter().chain(to.fields.iter()) {
-        if partition_transform_is_unknown(&field.transform) {
-            changes.push(
-                PartitionEvolutionChange::new(
-                    PartitionEvolutionChangeKind::UnknownTransform,
-                    format!(
-                        "partition field {} uses an unknown transform",
-                        field.source.as_dot_separated()
-                    ),
-                )
-                .with_field_path(field.source.clone())
-                .with_transforms(Some(field.transform.clone()), None),
-            );
-            analysis.record_unsafe(
-                &mut diagnostics,
-                partition_evolution_unsupported_diagnostic(
-                    "partition_evolution_unknown_transform",
-                    format!(
-                        "partition transform for {} is unknown",
-                        field.source.as_dot_separated()
-                    ),
-                ),
-            );
-        }
-    }
+    record_unknown_partition_transforms(
+        from,
+        to,
+        &matched_to,
+        &mut changes,
+        &mut diagnostics,
+        &mut analysis,
+    );
 
     let level = analysis.compatibility_level(changes.len());
     let read_supported = level.allows_read() && diagnostics_are_not_errors(&diagnostics);
@@ -1735,6 +1729,84 @@ fn record_partition_add(
             ),
         );
     }
+}
+
+fn record_unknown_partition_transforms(
+    from: &PartitionSpec,
+    to: &PartitionSpec,
+    matched_to: &[bool],
+    changes: &mut Vec<PartitionEvolutionChange>,
+    diagnostics: &mut Vec<Diagnostic>,
+    analysis: &mut PartitionEvolutionAnalysis,
+) {
+    for from_field in &from.fields {
+        if !partition_transform_is_unknown(&from_field.transform) {
+            continue;
+        }
+        let matched_target_unknown = to.fields.iter().enumerate().any(|(index, to_field)| {
+            matched_to[index]
+                && to_field.source == from_field.source
+                && partition_transform_is_unknown(&to_field.transform)
+        });
+        if matched_target_unknown {
+            continue;
+        }
+        record_unknown_partition_transform(
+            from_field,
+            Some(from_field.transform.clone()),
+            None,
+            "source",
+            changes,
+            diagnostics,
+            analysis,
+        );
+    }
+
+    for (to_index, to_field) in to.fields.iter().enumerate() {
+        if matched_to[to_index] && partition_transform_is_unknown(&to_field.transform) {
+            record_unknown_partition_transform(
+                to_field,
+                None,
+                Some(to_field.transform.clone()),
+                "target",
+                changes,
+                diagnostics,
+                analysis,
+            );
+        }
+    }
+}
+
+fn record_unknown_partition_transform(
+    field: &PartitionField,
+    from_transform: Option<PartitionTransform>,
+    to_transform: Option<PartitionTransform>,
+    side: &str,
+    changes: &mut Vec<PartitionEvolutionChange>,
+    diagnostics: &mut Vec<Diagnostic>,
+    analysis: &mut PartitionEvolutionAnalysis,
+) {
+    changes.push(
+        PartitionEvolutionChange::new(
+            PartitionEvolutionChangeKind::UnknownTransform,
+            format!(
+                "{side} partition field {} uses an unknown transform",
+                field.source.as_dot_separated()
+            ),
+        )
+        .with_field_path(field.source.clone())
+        .with_transforms(from_transform, to_transform),
+    );
+    analysis.record_unsafe(
+        diagnostics,
+        partition_evolution_unsupported_diagnostic(
+            "partition_evolution_unknown_transform",
+            format!(
+                "{side} partition transform for {} is unknown",
+                field.source.as_dot_separated()
+            ),
+        ),
+    );
 }
 
 fn partition_field_order_changed(from: &PartitionSpec, to: &PartitionSpec) -> bool {
@@ -2313,6 +2385,26 @@ impl TableCompatibilityReport {
             + usize::from(self.delete_tombstone_report.is_some())
     }
     #[must_use]
+    pub fn diagnostic_count(&self) -> usize {
+        self.diagnostics.len()
+            + self
+                .schema_report
+                .as_ref()
+                .map_or(0, |report| report.diagnostics.len())
+            + self
+                .schema_evolution_report
+                .as_ref()
+                .map_or(0, |report| report.compatibility.diagnostics.len())
+            + self
+                .partition_evolution_report
+                .as_ref()
+                .map_or(0, |report| report.diagnostics.len())
+            + self
+                .delete_tombstone_report
+                .as_ref()
+                .map_or(0, |report| report.diagnostics.len())
+    }
+    #[must_use]
     pub fn read_supported(&self) -> bool {
         self.evidence_report_count() > 0
             && !self.has_errors()
@@ -2366,7 +2458,7 @@ impl TableCompatibilityReport {
             self.write_io,
             self.catalog_io,
             self.object_store_io,
-            self.diagnostics.len()
+            self.diagnostic_count()
         )
     }
 }
@@ -2641,6 +2733,51 @@ mod tests {
     }
 
     #[test]
+    fn partition_evolution_unknown_target_transform_preserves_target_transform() {
+        let from = partition_spec(vec![partition_field("created_at", PartitionTransform::Day)]);
+        let unknown = PartitionTransform::Unknown("vendor_specific".to_string());
+        let to = partition_spec(vec![partition_field("created_at", unknown.clone())]);
+
+        let report = evaluate_partition_evolution_compatibility(&from, &to);
+        let unknown_change = report
+            .changes
+            .iter()
+            .find(|change| change.kind == PartitionEvolutionChangeKind::UnknownTransform)
+            .expect("unknown transform change");
+
+        assert_eq!(unknown_change.from_transform, None);
+        assert_eq!(unknown_change.to_transform, Some(unknown));
+        assert_eq!(report.unsafe_change_count, 1);
+        assert!(report.has_errors());
+    }
+
+    #[test]
+    fn partition_evolution_added_unknown_transform_is_not_double_counted() {
+        let from = partition_spec(vec![partition_field("created_at", PartitionTransform::Day)]);
+        let to = partition_spec(vec![
+            partition_field("created_at", PartitionTransform::Day),
+            partition_field(
+                "vendor_partition",
+                PartitionTransform::Unknown("vendor_specific".to_string()),
+            ),
+        ]);
+
+        let report = evaluate_partition_evolution_compatibility(&from, &to);
+
+        assert_eq!(report.added_field_count, 1);
+        assert_eq!(report.unsafe_change_count, 1);
+        assert_eq!(
+            report
+                .changes
+                .iter()
+                .filter(|change| change.kind == PartitionEvolutionChangeKind::UnknownTransform)
+                .count(),
+            0
+        );
+        assert!(report.has_errors());
+    }
+
+    #[test]
     fn delete_model_none_is_initially_supported() {
         assert!(DeleteModel::None.is_supported_initially());
     }
@@ -2786,6 +2923,27 @@ mod tests {
         let report = TableCompatibilityReport::from_plan(plan).with_schema_report(schema_report);
         assert!(report.has_errors());
     }
+
+    #[test]
+    fn table_compatibility_report_human_text_counts_nested_diagnostics() {
+        let plan = TableCompatibilityPlan::native_vortex();
+        let mut schema_report = SchemaCompatibilityReport::new(
+            SchemaId::new("from").expect("id"),
+            SchemaId::new("to").expect("id"),
+            SchemaCompatibilityLevel::Incompatible,
+        );
+        schema_report.add_diagnostic(Diagnostic::unsupported(
+            DiagnosticCode::UnsupportedDType,
+            "schema_compatibility",
+            "incompatible schema",
+            Some("Update schema mappings.".to_string()),
+        ));
+
+        let report = TableCompatibilityReport::from_plan(plan).with_schema_report(schema_report);
+
+        assert_eq!(report.diagnostic_count(), 1);
+        assert!(report.to_human_text().contains("report_diagnostics=1"));
+    }
     #[test]
     fn table_compatibility_report_from_plan_does_not_perform_io_and_preserves_plan() {
         let p = TableCompatibilityPlan::native_vortex();
@@ -2912,6 +3070,42 @@ mod tests {
         assert!(!report.catalog_io);
         assert!(!report.object_store_io);
         assert!(!report.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn schema_evolution_strict_policy_rejects_safe_changes() {
+        let from = schema_with_fields(
+            1,
+            vec![field(
+                "f1",
+                "order_id",
+                LogicalDType::Int64,
+                Nullability::NonNullable,
+            )],
+        );
+        let to = schema_with_fields(
+            2,
+            vec![field(
+                "f1",
+                "order_id",
+                LogicalDType::Int64,
+                Nullability::Nullable,
+            )],
+        );
+
+        let report =
+            evaluate_schema_evolution_compatibility(&from, &to, &SchemaEvolutionPolicy::strict());
+
+        assert_eq!(
+            report.compatibility.level,
+            SchemaCompatibilityLevel::Incompatible
+        );
+        assert_eq!(report.safe_change_count, 1);
+        assert_eq!(report.unsafe_change_count, 1);
+        assert!(report.has_errors());
+        assert!(report.compatibility.diagnostics.iter().any(|diagnostic| {
+            diagnostic.feature.as_deref() == Some("schema_evolution.strict_exact")
+        }));
     }
 
     #[test]

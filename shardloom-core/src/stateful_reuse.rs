@@ -139,7 +139,7 @@ impl StatefulReuseBoundary {
     /// Returns whether this boundary has an error state.
     #[must_use]
     pub const fn has_errors(&self) -> bool {
-        self.status.is_error() || self.fallback_attempted
+        self.status.is_error() || self.cross_dataset_reuse_allowed || self.fallback_attempted
     }
 }
 
@@ -360,6 +360,8 @@ impl StatefulReuseReport {
     #[must_use]
     pub fn has_errors(&self) -> bool {
         self.status.is_error()
+            || !self.is_side_effect_free()
+            || self.production_claim_allowed
             || self
                 .boundaries
                 .iter()
@@ -505,5 +507,30 @@ mod tests {
         assert!(!report.fallback_execution_allowed);
         assert!(!report.fallback_attempted);
         assert!(!report.production_claim_allowed);
+    }
+
+    #[test]
+    fn stateful_reuse_report_flags_side_effects_and_production_claims_as_errors() {
+        let mut report = StatefulReuseReport::cg17_foundation();
+        report.cache_read = true;
+        assert!(report.has_errors());
+
+        let mut report = StatefulReuseReport::cg17_foundation();
+        report.incremental_execution = true;
+        assert!(report.has_errors());
+
+        let mut report = StatefulReuseReport::cg17_foundation();
+        report.production_claim_allowed = true;
+        assert!(report.has_errors());
+    }
+
+    #[test]
+    fn stateful_reuse_boundary_rejects_cross_dataset_reuse() {
+        let mut boundary =
+            StatefulReuseBoundary::planned("reuse.test", ReuseCacheKind::SegmentResult);
+
+        boundary.cross_dataset_reuse_allowed = true;
+
+        assert!(boundary.has_errors());
     }
 }

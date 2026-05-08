@@ -194,6 +194,9 @@ impl VortexEncodedExecutionPathSelectionReport {
         } else {
             VortexEncodedExecutionPathSelectionStatus::BlockedMissingProfile
         };
+        let encoded_projection_evidence_present = entries
+            .iter()
+            .any(|entry| entry.operator_kind == PhysicalOperatorKind::Project);
 
         Self {
             schema_version: SCHEMA_VERSION,
@@ -204,7 +207,7 @@ impl VortexEncodedExecutionPathSelectionReport {
             encoded_count_discovery_present: count_discovery.is_side_effect_free(),
             encoded_predicate_discovery_present: predicate_discovery.is_side_effect_free(),
             selection_vector_filter_discovery_present: filter_discovery.is_side_effect_free(),
-            encoded_projection_evidence_present: true,
+            encoded_projection_evidence_present,
             data_read: false,
             data_decoded: false,
             data_materialized: false,
@@ -398,6 +401,24 @@ mod tests {
                 .filter(|entry| entry.operator_kind == PhysicalOperatorKind::Filter)
                 .all(|entry| entry.selection_vector_preserved)
         );
+    }
+
+    #[test]
+    fn encoded_projection_evidence_requires_project_profile() {
+        let mut profiles = PhysicalOperatorExecutionProfileMatrix::cg7_foundation();
+        profiles
+            .profiles
+            .retain(|profile| profile.operator_kind != PhysicalOperatorKind::Project);
+
+        let report = VortexEncodedExecutionPathSelectionReport::from_profiles(&profiles);
+
+        assert_eq!(
+            report.status,
+            VortexEncodedExecutionPathSelectionStatus::BlockedMissingProfile
+        );
+        assert!(!report.has_operator(PhysicalOperatorKind::Project));
+        assert!(!report.encoded_projection_evidence_present);
+        assert!(report.has_errors());
     }
 
     #[test]
