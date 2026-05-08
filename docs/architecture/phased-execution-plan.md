@@ -45,28 +45,28 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-19.1 native I/O envelope report
+- [x] Session label: CG-20.1 world-class sufficiency report
   - Primary files:
-    - `shardloom-core/src/native_io.rs`
+    - `shardloom-core/src/certification.rs`
     - `shardloom-core/src/lib.rs`
     - `shardloom-cli/src/main.rs`
-    - `shardloom-cli/tests/native_io_envelope_plan_snapshots.rs`
+    - `shardloom-cli/tests/world_class_sufficiency_plan_snapshots.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-  - Scope: Add a report-only CG-19 universal native I/O envelope surface that turns RFC 0031 contracts into deterministic core and CLI evidence without probing adapters, reading data, decoding, materializing, converting to Arrow, executing object-store I/O, writing, spilling, or using fallback execution.
+  - Scope: Add a report-only CG-20 world-class sufficiency surface that turns RFC 0032's best-default evidence gate into deterministic core and CLI evidence across SQL, operators, functions, adapters, semantic profiles, migration, Python/API, DataFrame/query builder, notebook, UDF/plugin, common ETL, universal adapters, event/API/SaaS adapters, unstructured/media, observability, deployment, security/governance, certificates, snapshots, and no-fallback integrity.
   - Checklist:
-    - [x] Add `NativeIoEnvelopeReport` with RFC 0031 contract surfaces, representation state contracts, transition examples, and per-source/sink-path certificate requirements.
-    - [x] Surface `native-io-envelope-plan --format json` with contract counts, representation state order, transition example order, certificate path order, requirement fields, and side-effect fields.
-    - [x] Keep the report-only boundary explicit: per-path certificates are required, aggregate-only certificates are insufficient, decoded Arrow normalization is disabled, and materialization boundaries are required for decoded/row transitions.
+    - [x] Add `WorldClassSufficiencyReport` with required CG-20 dimensions, sufficiency/publication decisions, evidence-insufficient defaults, best-choice/dossier refs, baseline refs, blocking gaps, and no-fallback/side-effect fields.
+    - [x] Surface `world-class-sufficiency-plan --format json` with dimension counts, dimension order, key surface statuses, certificate coverage statuses, rates, blocking evidence counts, and side-effect fields.
+    - [x] Keep the report-only boundary explicit: no parser execution, runtime execution, adapter probing, filesystem/network/catalog probing, data read, decode, materialization, row read, Arrow conversion, object-store IO, writes, spills, external engine execution, fallback execution, or production/best-default claim publication.
     - [x] Add focused unit and CLI JSON snapshot coverage.
     - [x] Update phase plan and RFC traceability.
     - [x] Run full required validation.
   - Local validation status:
-    - focused `shardloom-core` `native_io` tests passed
-    - focused `shardloom-cli` `native_io` and `native_io_envelope_plan_snapshots` tests passed
+    - focused `shardloom-core` `world_class` tests passed
+    - focused `shardloom-cli` `world_class` and `world_class_sufficiency_plan_snapshots` tests passed
     - full Rust validation passed with toolchain `1.91.1`
     - docs hygiene scans passed for `git diff --check` and hidden/bidi controls
-  - Explicitly not included: adapter runtime, source/sink runtime emission, parser execution, filesystem/network/catalog/adapter probing, data reads, decode/materialization, row reads, Arrow conversion, object-store IO, writes, spill IO, package publication, performance claims, superiority claims, or fallback execution.
+  - Explicitly not included: SQL parser, SQL execution, DataFrame runtime, Python package, UDF runtime, adapter runtime, function registry implementation, operator kernels, source/sink runtime certificate emission, filesystem/network/catalog/adapter probing, data reads, decode/materialization, row reads, Arrow conversion, object-store IO, writes, spill IO, package publication, performance claims, superiority claims, best-default publication, or fallback execution.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -465,6 +465,13 @@ Supporting docs:
   - Why: preserve user-supplied long-context/SSA lessons as architecture reference material without turning them into dependencies or benchmark claims.
   - Acceptance: systems-learning captures functional context, content-dependent evidence routing, structure preservation, multi-hop evidence, scaffolding, iteration economics, and agent-state lessons; canonical terminology defines reusable ShardLoom-native terms.
   - Local validation status:
+    - docs hygiene scans passed for `git diff --check` and hidden/bidi controls
+- [x] CG-20.1 World-class sufficiency report
+  - Why: convert RFC 0032's broad best-default-engine sufficiency gate into a deterministic report-only core/CLI surface before implementing real SQL, adapters, Python, UDF, ETL, or media behavior.
+  - Acceptance: `WorldClassSufficiencyReport` and `world-class-sufficiency-plan` expose required CG-20 dimensions, evidence-insufficient defaults, no-fallback fields, no side effects, and blocked publication status.
+  - Local validation status:
+    - focused `shardloom-core` and `shardloom-cli` world-class sufficiency tests passed
+    - full Rust validation passed with toolchain `1.91.1`
     - docs hygiene scans passed for `git diff --check` and hidden/bidi controls
 
 ## Implementation Phase Queue
@@ -1152,9 +1159,10 @@ Status legend:
   - Scope:
     - preserve representation state, pushdown evidence, materialization boundaries, and sink constraints without default decode
 
-- [ ] CG-20 — World-Class SQL/operator/function/adapter/user capability surface (**planned**)
+- [ ] CG-20 — World-Class SQL/operator/function/adapter/user capability surface (**planned; report-only foundation started**)
   - [x] RFC 0032 contract deepening complete
   - [x] common data/ETL, Python wrapper/API, UDF, universal adapter, and unstructured/media evidence scope documented
+  - [x] CG-20.1 world-class sufficiency report
   - [~] implementation pending
   - Scope:
     - capability certification surface across SQL/operators/functions/adapters/semantic profiles, migration, Python/API, DataFrame/query builder, notebook, UDF/plugin, common ETL, universal adapters, event/API/SaaS adapters, unstructured/media, and certification reporting
@@ -1423,8 +1431,9 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] universal adapter roadmap expanded for common data and ETL sources/sinks
 - [x] event/API/SaaS adapter categories documented as explicit effect/source-pushdown surfaces
 - [x] unstructured/media capability boundaries documented
+- [x] CG-20.1 report-only `WorldClassSufficiencyReport` foundation and `world-class-sufficiency-plan` CLI surface
 - [~] implementation pending
-- [ ] capability certification surface implementation across SQL/operators/functions/adapters/semantic profiles/migration/Python/API/DataFrame/notebook/UDF/ETL/universal-adapter/unstructured-media reporting
+- [ ] capability certification surface implementation across real SQL/operators/functions/adapters/semantic profiles/migration/Python/API/DataFrame/notebook/UDF/ETL/universal-adapter/unstructured-media certification evidence
 
 ### CG attribution and evidence notes
 - [ ] When moving any detailed item to complete, link the implementing PR/commit and validating tests in the completion note.

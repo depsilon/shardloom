@@ -47,6 +47,9 @@ pub use certification::{
     OperatorCoverageEntry, OperatorCoverageMatrix, OperatorFamily, OperatorMemoryCertification,
     ScorecardDimension, SemanticProfileEntry, SemanticProfileName, SourcePushdownExactness,
     SqlCoverageEntry, SqlCoverageMatrix, SqlCoverageTier, SqlFeatureGroup,
+    WorldClassSufficiencyDecision, WorldClassSufficiencyDimension,
+    WorldClassSufficiencyDimensionKind, WorldClassSufficiencyReport, WorldClassSufficiencyStatus,
+    plan_world_class_sufficiency,
 };
 pub use correctness::{
     CorrectnessFixture, CorrectnessPlanStatus, CorrectnessValidationPlan,

@@ -1110,6 +1110,498 @@ impl BestChoiceScorecard {
     }
 }
 
+/// Workload-scoped CG-20 publication decision.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorldClassSufficiencyDecision {
+    NotCertified,
+    PartialForWorkload,
+    SufficientForWorkload,
+    BestDefaultCandidate,
+    BestDefaultCertified,
+}
+
+impl WorldClassSufficiencyDecision {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::NotCertified => "not_certified",
+            Self::PartialForWorkload => "partial_for_workload",
+            Self::SufficientForWorkload => "sufficient_for_workload",
+            Self::BestDefaultCandidate => "best_default_candidate",
+            Self::BestDefaultCertified => "best_default_certified",
+        }
+    }
+
+    #[must_use]
+    pub const fn allows_public_best_default_claim(&self) -> bool {
+        matches!(self, Self::BestDefaultCertified)
+    }
+}
+
+/// Per-dimension CG-20 evidence state.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorldClassSufficiencyStatus {
+    NotCertified,
+    Planned,
+    EvidenceInsufficient,
+    PartialForWorkload,
+    Certified,
+    Blocked,
+    OutOfScope,
+}
+
+impl WorldClassSufficiencyStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::NotCertified => "not_certified",
+            Self::Planned => "planned",
+            Self::EvidenceInsufficient => "evidence_insufficient",
+            Self::PartialForWorkload => "partial_for_workload",
+            Self::Certified => "certified",
+            Self::Blocked => "blocked",
+            Self::OutOfScope => "out_of_scope",
+        }
+    }
+
+    #[must_use]
+    pub const fn satisfies_required_dimension(&self) -> bool {
+        matches!(self, Self::Certified)
+    }
+}
+
+/// Required world-class capability dimensions that CG-20 must evaluate together.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorldClassSufficiencyDimensionKind {
+    WorkloadConstitution,
+    SqlSurface,
+    OperatorSurface,
+    FunctionSurface,
+    AdapterSurface,
+    SemanticProfiles,
+    MigrationSurface,
+    DataEtlSurface,
+    PythonSurface,
+    DataFrameQueryBuilder,
+    NotebookExperience,
+    UdfPlugin,
+    UnstructuredMedia,
+    UniversalAdapterCatalog,
+    EventApiSaasAdapters,
+    ApiSurface,
+    ObservabilitySurface,
+    DeploymentSurface,
+    ExtensionSurface,
+    SecurityGovernance,
+    NativeIoCertificateCoverage,
+    ExecutionCertificateCoverage,
+    CorrectnessEvidence,
+    SemanticConformance,
+    BenchmarkEvidence,
+    MemorySpill,
+    CapabilitySnapshots,
+    BestChoiceScorecard,
+    BestDefaultDossier,
+    NoFallbackIntegrity,
+}
+
+impl WorldClassSufficiencyDimensionKind {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::WorkloadConstitution => "workload_constitution",
+            Self::SqlSurface => "sql_surface",
+            Self::OperatorSurface => "operator_surface",
+            Self::FunctionSurface => "function_surface",
+            Self::AdapterSurface => "adapter_surface",
+            Self::SemanticProfiles => "semantic_profiles",
+            Self::MigrationSurface => "migration_surface",
+            Self::DataEtlSurface => "data_etl_surface",
+            Self::PythonSurface => "python_surface",
+            Self::DataFrameQueryBuilder => "dataframe_query_builder",
+            Self::NotebookExperience => "notebook_experience",
+            Self::UdfPlugin => "udf_plugin",
+            Self::UnstructuredMedia => "unstructured_media",
+            Self::UniversalAdapterCatalog => "universal_adapter_catalog",
+            Self::EventApiSaasAdapters => "event_api_saas_adapters",
+            Self::ApiSurface => "api_surface",
+            Self::ObservabilitySurface => "observability_surface",
+            Self::DeploymentSurface => "deployment_surface",
+            Self::ExtensionSurface => "extension_surface",
+            Self::SecurityGovernance => "security_governance",
+            Self::NativeIoCertificateCoverage => "native_io_certificate_coverage",
+            Self::ExecutionCertificateCoverage => "execution_certificate_coverage",
+            Self::CorrectnessEvidence => "correctness_evidence",
+            Self::SemanticConformance => "semantic_conformance",
+            Self::BenchmarkEvidence => "benchmark_evidence",
+            Self::MemorySpill => "memory_spill",
+            Self::CapabilitySnapshots => "capability_snapshots",
+            Self::BestChoiceScorecard => "best_choice_scorecard",
+            Self::BestDefaultDossier => "best_default_dossier",
+            Self::NoFallbackIntegrity => "no_fallback_integrity",
+        }
+    }
+
+    #[must_use]
+    #[allow(clippy::too_many_lines)]
+    pub const fn all() -> &'static [Self] {
+        &[
+            Self::WorkloadConstitution,
+            Self::SqlSurface,
+            Self::OperatorSurface,
+            Self::FunctionSurface,
+            Self::AdapterSurface,
+            Self::SemanticProfiles,
+            Self::MigrationSurface,
+            Self::DataEtlSurface,
+            Self::PythonSurface,
+            Self::DataFrameQueryBuilder,
+            Self::NotebookExperience,
+            Self::UdfPlugin,
+            Self::UnstructuredMedia,
+            Self::UniversalAdapterCatalog,
+            Self::EventApiSaasAdapters,
+            Self::ApiSurface,
+            Self::ObservabilitySurface,
+            Self::DeploymentSurface,
+            Self::ExtensionSurface,
+            Self::SecurityGovernance,
+            Self::NativeIoCertificateCoverage,
+            Self::ExecutionCertificateCoverage,
+            Self::CorrectnessEvidence,
+            Self::SemanticConformance,
+            Self::BenchmarkEvidence,
+            Self::MemorySpill,
+            Self::CapabilitySnapshots,
+            Self::BestChoiceScorecard,
+            Self::BestDefaultDossier,
+            Self::NoFallbackIntegrity,
+        ]
+    }
+}
+
+/// One required CG-20 dimension and the evidence gates it must satisfy.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct WorldClassSufficiencyDimension {
+    pub kind: WorldClassSufficiencyDimensionKind,
+    pub status: WorldClassSufficiencyStatus,
+    pub required: bool,
+    pub correctness_evidence_required: bool,
+    pub semantic_conformance_required: bool,
+    pub benchmark_evidence_required: bool,
+    pub adapter_certification_required: bool,
+    pub native_io_certificate_required: bool,
+    pub execution_certificate_required: bool,
+    pub capability_snapshot_required: bool,
+    pub fallback_attempted: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl WorldClassSufficiencyDimension {
+    #[must_use]
+    pub const fn required_planned(kind: WorldClassSufficiencyDimensionKind) -> Self {
+        Self {
+            kind,
+            status: WorldClassSufficiencyStatus::EvidenceInsufficient,
+            required: true,
+            correctness_evidence_required: true,
+            semantic_conformance_required: true,
+            benchmark_evidence_required: true,
+            adapter_certification_required: false,
+            native_io_certificate_required: false,
+            execution_certificate_required: false,
+            capability_snapshot_required: true,
+            fallback_attempted: false,
+            diagnostics: Vec::new(),
+        }
+    }
+
+    #[must_use]
+    pub fn with_adapter_certification_required(mut self) -> Self {
+        self.adapter_certification_required = true;
+        self
+    }
+
+    #[must_use]
+    pub fn with_native_io_certificate_required(mut self) -> Self {
+        self.native_io_certificate_required = true;
+        self
+    }
+
+    #[must_use]
+    pub fn with_execution_certificate_required(mut self) -> Self {
+        self.execution_certificate_required = true;
+        self
+    }
+
+    #[must_use]
+    pub fn satisfies_required_dimension(&self) -> bool {
+        !self.required
+            || (self.status.satisfies_required_dimension()
+                && !self.fallback_attempted
+                && self.diagnostics.is_empty())
+    }
+}
+
+/// Machine-readable CG-20 gate proving whether `ShardLoom` is world-class for a workload.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct WorldClassSufficiencyReport {
+    pub schema_version: &'static str,
+    pub report_id: String,
+    pub workload_constitution_ref: String,
+    pub claim_level: WorldClassSufficiencyDecision,
+    pub publication_decision: WorldClassSufficiencyDecision,
+    pub dimensions: Vec<WorldClassSufficiencyDimension>,
+    pub unsupported_rate: Option<String>,
+    pub materialization_rate: Option<String>,
+    pub performance_regression_budget_status: WorldClassSufficiencyStatus,
+    pub scorecard_ref: String,
+    pub best_default_dossier_ref: String,
+    pub capability_snapshot_refs: Vec<String>,
+    pub external_baseline_refs: Vec<String>,
+    pub known_limits: Vec<String>,
+    pub blocking_gaps: Vec<String>,
+    pub runtime_execution: bool,
+    pub parser_executed: bool,
+    pub adapter_probe: bool,
+    pub filesystem_probe: bool,
+    pub network_probe: bool,
+    pub catalog_probe: bool,
+    pub data_read: bool,
+    pub data_decoded: bool,
+    pub data_materialized: bool,
+    pub row_read: bool,
+    pub arrow_converted: bool,
+    pub object_store_io: bool,
+    pub write_io: bool,
+    pub spill_io_performed: bool,
+    pub external_engine_execution: bool,
+    pub fallback_execution_allowed: bool,
+    pub fallback_attempted: bool,
+    pub production_claim_allowed: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl WorldClassSufficiencyReport {
+    /// Creates the report-only CG-20 foundation without evaluating real workloads.
+    #[must_use]
+    pub fn contract_only() -> Self {
+        Self {
+            schema_version: "shardloom.world_class_sufficiency.v1",
+            report_id: "cg20.world_class_sufficiency".to_string(),
+            workload_constitution_ref: "workload_constitution.pending".to_string(),
+            claim_level: WorldClassSufficiencyDecision::NotCertified,
+            publication_decision: WorldClassSufficiencyDecision::NotCertified,
+            dimensions: planned_world_class_sufficiency_dimensions(),
+            unsupported_rate: None,
+            materialization_rate: None,
+            performance_regression_budget_status: WorldClassSufficiencyStatus::EvidenceInsufficient,
+            scorecard_ref: "best_choice_scorecard.pending".to_string(),
+            best_default_dossier_ref: "best_default_dossier.pending".to_string(),
+            capability_snapshot_refs: vec![
+                "capability_certification_report.pending".to_string(),
+                "feature_footprint_report.pending".to_string(),
+            ],
+            external_baseline_refs: vec![
+                "spark_baseline.reference_only".to_string(),
+                "datafusion_baseline.reference_only".to_string(),
+            ],
+            known_limits: vec![
+                "CG-20 is not implemented; this report declares required evidence only."
+                    .to_string(),
+                "SQL parsing, adapter runtime, Python packaging, UDF runtime, media extraction, and execution remain deferred."
+                    .to_string(),
+            ],
+            blocking_gaps: vec![
+                "required world-class dimensions are evidence_insufficient".to_string(),
+                "best-default publication is blocked until CG-5, CG-6, CG-16, and CG-19 evidence exists"
+                    .to_string(),
+            ],
+            runtime_execution: false,
+            parser_executed: false,
+            adapter_probe: false,
+            filesystem_probe: false,
+            network_probe: false,
+            catalog_probe: false,
+            data_read: false,
+            data_decoded: false,
+            data_materialized: false,
+            row_read: false,
+            arrow_converted: false,
+            object_store_io: false,
+            write_io: false,
+            spill_io_performed: false,
+            external_engine_execution: false,
+            fallback_execution_allowed: false,
+            fallback_attempted: false,
+            production_claim_allowed: false,
+            diagnostics: Vec::new(),
+        }
+    }
+
+    #[must_use]
+    pub fn dimension_count(&self) -> usize {
+        self.dimensions.len()
+    }
+
+    #[must_use]
+    pub fn required_dimension_count(&self) -> usize {
+        self.dimensions
+            .iter()
+            .filter(|dimension| dimension.required)
+            .count()
+    }
+
+    #[must_use]
+    pub fn evidence_insufficient_dimension_count(&self) -> usize {
+        self.dimensions
+            .iter()
+            .filter(|dimension| {
+                dimension.status == WorldClassSufficiencyStatus::EvidenceInsufficient
+            })
+            .count()
+    }
+
+    #[must_use]
+    pub fn dimension_kind_order(&self) -> String {
+        self.dimensions
+            .iter()
+            .map(|dimension| dimension.kind.as_str())
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    #[must_use]
+    pub fn status_for(
+        &self,
+        kind: WorldClassSufficiencyDimensionKind,
+    ) -> WorldClassSufficiencyStatus {
+        self.dimensions
+            .iter()
+            .find(|dimension| dimension.kind == kind)
+            .map_or(WorldClassSufficiencyStatus::NotCertified, |dimension| {
+                dimension.status
+            })
+    }
+
+    #[must_use]
+    pub fn is_side_effect_free(&self) -> bool {
+        !self.runtime_execution
+            && !self.parser_executed
+            && !self.adapter_probe
+            && !self.filesystem_probe
+            && !self.network_probe
+            && !self.catalog_probe
+            && !self.data_read
+            && !self.data_decoded
+            && !self.data_materialized
+            && !self.row_read
+            && !self.arrow_converted
+            && !self.object_store_io
+            && !self.write_io
+            && !self.spill_io_performed
+            && !self.external_engine_execution
+            && !self.fallback_execution_allowed
+            && !self.fallback_attempted
+    }
+
+    #[must_use]
+    pub fn can_publish_best_default_claim(&self) -> bool {
+        self.publication_decision.allows_public_best_default_claim()
+            && self.production_claim_allowed
+            && self.is_side_effect_free()
+            && self
+                .dimensions
+                .iter()
+                .all(WorldClassSufficiencyDimension::satisfies_required_dimension)
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.diagnostics.iter().any(|diagnostic| {
+            matches!(
+                diagnostic.severity,
+                DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+            )
+        }) || !self.is_side_effect_free()
+            || self
+                .dimensions
+                .iter()
+                .any(|dimension| dimension.fallback_attempted)
+            || (self.production_claim_allowed && !self.can_publish_best_default_claim())
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        let mut out = String::new();
+        let _ = writeln!(out, "schema_version: {}", self.schema_version);
+        let _ = writeln!(out, "report_id: {}", self.report_id);
+        let _ = writeln!(out, "claim_level: {}", self.claim_level.as_str());
+        let _ = writeln!(
+            out,
+            "publication_decision: {}",
+            self.publication_decision.as_str()
+        );
+        let _ = writeln!(out, "fallback execution: disabled");
+        let _ = writeln!(out, "side effects: none");
+        let _ = writeln!(out, "dimensions: {}", self.dimension_count());
+        let _ = writeln!(
+            out,
+            "evidence_insufficient_dimensions: {}",
+            self.evidence_insufficient_dimension_count()
+        );
+        let _ = writeln!(
+            out,
+            "best default claim: {}",
+            if self.can_publish_best_default_claim() {
+                "allowed"
+            } else {
+                "not_allowed"
+            }
+        );
+        out
+    }
+}
+
+#[must_use]
+pub fn plan_world_class_sufficiency() -> WorldClassSufficiencyReport {
+    WorldClassSufficiencyReport::contract_only()
+}
+
+fn planned_world_class_sufficiency_dimensions() -> Vec<WorldClassSufficiencyDimension> {
+    WorldClassSufficiencyDimensionKind::all()
+        .iter()
+        .copied()
+        .map(planned_world_class_sufficiency_dimension)
+        .collect()
+}
+
+fn planned_world_class_sufficiency_dimension(
+    kind: WorldClassSufficiencyDimensionKind,
+) -> WorldClassSufficiencyDimension {
+    let dimension = WorldClassSufficiencyDimension::required_planned(kind);
+    match kind {
+        WorldClassSufficiencyDimensionKind::AdapterSurface
+        | WorldClassSufficiencyDimensionKind::UniversalAdapterCatalog
+        | WorldClassSufficiencyDimensionKind::EventApiSaasAdapters => {
+            dimension.with_adapter_certification_required()
+        }
+        WorldClassSufficiencyDimensionKind::NativeIoCertificateCoverage
+        | WorldClassSufficiencyDimensionKind::DataEtlSurface
+        | WorldClassSufficiencyDimensionKind::UnstructuredMedia => {
+            dimension.with_native_io_certificate_required()
+        }
+        WorldClassSufficiencyDimensionKind::ExecutionCertificateCoverage
+        | WorldClassSufficiencyDimensionKind::OperatorSurface
+        | WorldClassSufficiencyDimensionKind::MemorySpill => {
+            dimension.with_execution_certificate_required()
+        }
+        _ => dimension,
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CapabilityCertificationReport {
     pub schema_version: &'static str,
@@ -1315,6 +1807,72 @@ mod tests {
                 .iter()
                 .any(|entry| entry.adapter_id == "native_vortex")
         );
+    }
+
+    #[test]
+    fn world_class_sufficiency_report_is_report_only_and_not_certified() {
+        let report = plan_world_class_sufficiency();
+        assert_eq!(
+            report.schema_version,
+            "shardloom.world_class_sufficiency.v1"
+        );
+        assert_eq!(
+            report.claim_level,
+            WorldClassSufficiencyDecision::NotCertified
+        );
+        assert_eq!(
+            report.publication_decision,
+            WorldClassSufficiencyDecision::NotCertified
+        );
+        assert_eq!(report.dimension_count(), 30);
+        assert_eq!(report.required_dimension_count(), 30);
+        assert_eq!(report.evidence_insufficient_dimension_count(), 30);
+        assert!(report.is_side_effect_free());
+        assert!(!report.can_publish_best_default_claim());
+        assert!(!report.has_errors());
+        assert!(!report.fallback_attempted);
+    }
+
+    #[test]
+    fn world_class_sufficiency_includes_broad_user_capability_dimensions() {
+        let report = plan_world_class_sufficiency();
+        for expected in [
+            WorldClassSufficiencyDimensionKind::SqlSurface,
+            WorldClassSufficiencyDimensionKind::OperatorSurface,
+            WorldClassSufficiencyDimensionKind::FunctionSurface,
+            WorldClassSufficiencyDimensionKind::AdapterSurface,
+            WorldClassSufficiencyDimensionKind::DataEtlSurface,
+            WorldClassSufficiencyDimensionKind::PythonSurface,
+            WorldClassSufficiencyDimensionKind::DataFrameQueryBuilder,
+            WorldClassSufficiencyDimensionKind::NotebookExperience,
+            WorldClassSufficiencyDimensionKind::UdfPlugin,
+            WorldClassSufficiencyDimensionKind::UnstructuredMedia,
+            WorldClassSufficiencyDimensionKind::UniversalAdapterCatalog,
+            WorldClassSufficiencyDimensionKind::EventApiSaasAdapters,
+            WorldClassSufficiencyDimensionKind::NativeIoCertificateCoverage,
+            WorldClassSufficiencyDimensionKind::ExecutionCertificateCoverage,
+            WorldClassSufficiencyDimensionKind::NoFallbackIntegrity,
+        ] {
+            assert_eq!(
+                report.status_for(expected),
+                WorldClassSufficiencyStatus::EvidenceInsufficient,
+                "missing expected CG-20 dimension: {}",
+                expected.as_str()
+            );
+        }
+    }
+
+    #[test]
+    fn world_class_sufficiency_flags_side_effect_and_claim_violations() {
+        let mut report = plan_world_class_sufficiency();
+        report.runtime_execution = true;
+        assert!(!report.is_side_effect_free());
+        assert!(report.has_errors());
+
+        let mut report = plan_world_class_sufficiency();
+        report.production_claim_allowed = true;
+        assert!(report.has_errors());
+        assert!(!report.can_publish_best_default_claim());
     }
 
     #[test]
