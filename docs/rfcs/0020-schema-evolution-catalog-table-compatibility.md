@@ -247,6 +247,29 @@ This dependency keeps incremental lakehouse intelligence conservative: compatibi
 decide whether a table change is safe, and CDC planning only routes safe declared changes into
 future native incremental execution.
 
+### Layout health compatibility dependency
+
+Layout-health planning depends on declared manifest/file/segment evidence. It may flag small
+files, small segments, missing statistics, missing byte ranges, mixed formats, mixed encodings,
+mixed layouts, and non-native data files before any table maintenance work runs.
+
+Required dependency rules:
+
+- Layout health may recommend compaction but must not execute compaction.
+- Layout health may report non-native data files but must not treat adapter conversion as
+  fallback execution.
+- Layout health may require statistics refresh or byte-range indexes but must not read files
+  to create them.
+- Layout health must surface mixed-format/layout/encoding evidence before catalog-table
+  metadata integration or maintenance planning can treat the path as safe.
+- Layout health must not read catalogs, table metadata, data files, delete files, or object
+  stores.
+- Layout health must not run fallback execution.
+
+This dependency keeps maintenance intelligence evidence-first: table compatibility reports
+decide semantic safety, layout health decides physical-maintenance risk, and future compaction
+planning decides whether a rewrite is allowed.
+
 ### Catalog integration contract
 
 Catalog adapters should expose:

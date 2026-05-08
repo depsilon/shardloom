@@ -179,6 +179,60 @@ The optimizer should eventually consider:
 - Partition count.
 - Snapshot/change-set information.
 
+### Layout health planning report
+
+Layout-health planning is the report-only bridge between manifest intelligence and later
+maintenance planning. It should use declared manifest, file, segment, statistics, encoding,
+layout, and byte-range metadata already available in memory. It must not construct Vortex
+layout readers, inspect table metadata, read data files, contact object stores, write files,
+run compaction, or attempt fallback execution.
+
+The CG-9 layout-health evidence surface is `LayoutHealthReport`.
+
+Required fields:
+
+- `manifest`.
+- `policy`.
+- `status`.
+- `issues`.
+- `diagnostics`.
+- `file_count`.
+- `segment_count`.
+- `native_vortex_file_count`.
+- `non_native_data_file_count`.
+- `small_file_count`.
+- `small_segment_count`.
+- `missing_statistics_segment_count`.
+- `missing_byte_range_segment_count`.
+- `unique_format_count`.
+- `unique_encoding_count`.
+- `unique_layout_count`.
+- `compaction_candidate_count`.
+- `requires_statistics_refresh`.
+- `requires_byte_range_index`.
+- `requires_layout_review`.
+- `recommends_compaction`.
+- `can_plan_without_io=true`.
+- `data_read=false`.
+- `write_io=false`.
+- `catalog_io=false`.
+- `object_store_io=false`.
+- `compaction_execution_allowed=false`.
+- `fallback_execution_allowed=false`.
+
+`LayoutHealthStatus` should identify at least:
+
+- `healthy`.
+- `needs_attention`.
+- `compaction_recommended`.
+- `unsupported`.
+
+Layout-health diagnostics should identify small files, small segments, missing statistics,
+missing byte ranges, mixed file formats, mixed encodings, mixed layouts, non-native data
+files, and empty manifests. Compaction recommendations are planning evidence only; actual
+rewrite, clustering, delete/tombstone application, manifest update, and commit behavior remain
+separate gated work.
+
 ## Plan states
 
 ShardLoom should make plan states explicit.

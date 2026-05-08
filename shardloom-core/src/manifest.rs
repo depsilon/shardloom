@@ -5,10 +5,12 @@
 //! Unsupported behavior must fail explicitly with deterministic diagnostics, and
 //! fallback execution remains disabled by policy.
 
+use std::collections::BTreeSet;
+
 use crate::{
-    CommitMode, DatasetFormat, DatasetRef, DatasetUri, Diagnostic, DiagnosticCode,
-    DiagnosticSeverity, EncodedSegment, ManifestId, OutputTarget, OutputTargetKind, Result,
-    SegmentId, ShardLoomError, SnapshotId,
+    CommitMode, DatasetFormat, DatasetRef, DatasetUri, Diagnostic, DiagnosticCategory,
+    DiagnosticCode, DiagnosticSeverity, EncodedSegment, FallbackStatus, ManifestId, OutputTarget,
+    OutputTargetKind, Result, SegmentId, ShardLoomError, SnapshotId,
 };
 
 /// Manifest schema version for planning metadata.
@@ -248,6 +250,470 @@ impl DatasetManifest {
             self.segments_with_metadata_count()
         )
     }
+}
+
+/// Heuristic thresholds for report-only layout-health planning.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LayoutHealthPolicy {
+    pub small_file_threshold_bytes: u64,
+    pub small_segment_row_threshold: u64,
+    pub small_segment_size_threshold_bytes: u64,
+    pub target_segment_row_count: u64,
+}
+
+impl Default for LayoutHealthPolicy {
+    fn default() -> Self {
+        Self {
+            small_file_threshold_bytes: 16 * 1024 * 1024,
+            small_segment_row_threshold: 1_000,
+            small_segment_size_threshold_bytes: 1024 * 1024,
+            target_segment_row_count: 64_000,
+        }
+    }
+}
+
+/// Overall layout-health planning status.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LayoutHealthStatus {
+    Healthy,
+    NeedsAttention,
+    CompactionRecommended,
+    Unsupported,
+}
+
+impl LayoutHealthStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Healthy => "healthy",
+            Self::NeedsAttention => "needs_attention",
+            Self::CompactionRecommended => "compaction_recommended",
+            Self::Unsupported => "unsupported",
+        }
+    }
+}
+
+/// Machine-readable issue family for layout-health reports.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LayoutHealthIssueKind {
+    EmptyManifest,
+    SmallFiles,
+    SmallSegments,
+    MissingStatistics,
+    MissingByteRanges,
+    MixedFormats,
+    MixedEncodings,
+    MixedLayouts,
+    NonNativeDataFiles,
+}
+
+impl LayoutHealthIssueKind {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::EmptyManifest => "empty_manifest",
+            Self::SmallFiles => "small_files",
+            Self::SmallSegments => "small_segments",
+            Self::MissingStatistics => "missing_statistics",
+            Self::MissingByteRanges => "missing_byte_ranges",
+            Self::MixedFormats => "mixed_formats",
+            Self::MixedEncodings => "mixed_encodings",
+            Self::MixedLayouts => "mixed_layouts",
+            Self::NonNativeDataFiles => "non_native_data_files",
+        }
+    }
+}
+
+/// Counted layout-health issue emitted by report-only planning.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LayoutHealthIssue {
+    pub kind: LayoutHealthIssueKind,
+    pub affected_count: usize,
+    pub message: String,
+}
+
+impl LayoutHealthIssue {
+    #[must_use]
+    pub fn new(
+        kind: LayoutHealthIssueKind,
+        affected_count: usize,
+        message: impl Into<String>,
+    ) -> Self {
+        Self {
+            kind,
+            affected_count,
+            message: message.into(),
+        }
+    }
+}
+
+/// Machine-readable CG-9 layout-health planning evidence.
+///
+/// This report evaluates already-declared manifest/file/segment metadata only. It does not read
+/// table metadata, inspect files, run compaction, write data, contact catalogs, or attempt fallback execution.
+#[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct LayoutHealthReport {
+    pub manifest: DatasetManifest,
+    pub policy: LayoutHealthPolicy,
+    pub status: LayoutHealthStatus,
+    pub issues: Vec<LayoutHealthIssue>,
+    pub diagnostics: Vec<Diagnostic>,
+    pub file_count: usize,
+    pub segment_count: usize,
+    pub native_vortex_file_count: usize,
+    pub non_native_data_file_count: usize,
+    pub small_file_count: usize,
+    pub small_segment_count: usize,
+    pub missing_statistics_segment_count: usize,
+    pub missing_byte_range_segment_count: usize,
+    pub unique_format_count: usize,
+    pub unique_encoding_count: usize,
+    pub unique_layout_count: usize,
+    pub compaction_candidate_count: usize,
+    pub requires_statistics_refresh: bool,
+    pub requires_byte_range_index: bool,
+    pub requires_layout_review: bool,
+    pub recommends_compaction: bool,
+    pub can_plan_without_io: bool,
+    pub data_read: bool,
+    pub write_io: bool,
+    pub catalog_io: bool,
+    pub object_store_io: bool,
+    pub compaction_execution_allowed: bool,
+    pub fallback_execution_allowed: bool,
+}
+
+impl LayoutHealthReport {
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.fallback_execution_allowed
+            || self.compaction_execution_allowed
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    #[must_use]
+    pub fn side_effect_free(&self) -> bool {
+        !self.data_read
+            && !self.write_io
+            && !self.catalog_io
+            && !self.object_store_io
+            && !self.compaction_execution_allowed
+            && !self.fallback_execution_allowed
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "layout_health(status={}, files={}, segments={}, small_files={}, small_segments={}, missing_stats={}, missing_byte_ranges={}, compaction_candidates={}, data_read=false, write_io=false, catalog_io=false, object_store_io=false, compaction_execution=false, fallback_execution=disabled)",
+            self.status.as_str(),
+            self.file_count,
+            self.segment_count,
+            self.small_file_count,
+            self.small_segment_count,
+            self.missing_statistics_segment_count,
+            self.missing_byte_range_segment_count,
+            self.compaction_candidate_count
+        )
+    }
+}
+
+/// Evaluates manifest layout health without performing table, file, object-store, or catalog IO.
+#[must_use]
+pub fn evaluate_layout_health(
+    manifest: DatasetManifest,
+    policy: LayoutHealthPolicy,
+) -> LayoutHealthReport {
+    let counts = LayoutHealthCounts::from_manifest(&manifest, policy);
+    let issues = layout_health_issues(counts);
+    let diagnostics = layout_health_diagnostics(&issues);
+    let status = layout_health_status(counts);
+
+    LayoutHealthReport {
+        file_count: counts.files,
+        segment_count: counts.segments,
+        native_vortex_file_count: counts.native_vortex_files,
+        non_native_data_file_count: counts.non_native_data_files,
+        small_file_count: counts.small_files,
+        small_segment_count: counts.small_segments,
+        missing_statistics_segment_count: counts.missing_statistics_segments,
+        missing_byte_range_segment_count: counts.missing_byte_range_segments,
+        unique_format_count: counts.unique_formats,
+        unique_encoding_count: counts.unique_encodings,
+        unique_layout_count: counts.unique_layouts,
+        compaction_candidate_count: counts.small_files + counts.small_segments,
+        requires_statistics_refresh: counts.missing_statistics_segments > 0,
+        requires_byte_range_index: counts.missing_byte_range_segments > 0,
+        requires_layout_review: counts.unique_formats > 1
+            || counts.unique_encodings > 1
+            || counts.unique_layouts > 1
+            || counts.non_native_data_files > 0,
+        recommends_compaction: counts.small_files > 0 || counts.small_segments > 0,
+        can_plan_without_io: true,
+        data_read: false,
+        write_io: false,
+        catalog_io: false,
+        object_store_io: false,
+        compaction_execution_allowed: false,
+        fallback_execution_allowed: false,
+        manifest,
+        policy,
+        status,
+        issues,
+        diagnostics,
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct LayoutHealthCounts {
+    files: usize,
+    segments: usize,
+    native_vortex_files: usize,
+    non_native_data_files: usize,
+    small_files: usize,
+    small_segments: usize,
+    missing_statistics_segments: usize,
+    missing_byte_range_segments: usize,
+    unique_formats: usize,
+    unique_encodings: usize,
+    unique_layouts: usize,
+}
+
+impl LayoutHealthCounts {
+    fn from_manifest(manifest: &DatasetManifest, policy: LayoutHealthPolicy) -> Self {
+        Self {
+            files: manifest.file_count(),
+            segments: manifest.segment_count(),
+            native_vortex_files: manifest.native_vortex_file_count(),
+            non_native_data_files: layout_health_non_native_data_files(manifest),
+            small_files: layout_health_small_file_count(manifest, policy),
+            small_segments: layout_health_small_segment_count(manifest, policy),
+            missing_statistics_segments: manifest
+                .segments
+                .iter()
+                .filter(|segment| !segment.can_use_metadata())
+                .count(),
+            missing_byte_range_segments: manifest
+                .segments
+                .iter()
+                .filter(|segment| !segment.has_byte_ranges())
+                .count(),
+            unique_formats: unique_file_format_count(manifest),
+            unique_encodings: unique_segment_encoding_count(manifest),
+            unique_layouts: unique_segment_layout_count(manifest),
+        }
+    }
+}
+
+fn layout_health_status(counts: LayoutHealthCounts) -> LayoutHealthStatus {
+    if counts.segments == 0 {
+        LayoutHealthStatus::Unsupported
+    } else if counts.small_files > 0 || counts.small_segments > 0 {
+        LayoutHealthStatus::CompactionRecommended
+    } else if counts.missing_statistics_segments > 0
+        || counts.missing_byte_range_segments > 0
+        || counts.unique_formats > 1
+        || counts.unique_encodings > 1
+        || counts.unique_layouts > 1
+        || counts.non_native_data_files > 0
+    {
+        LayoutHealthStatus::NeedsAttention
+    } else {
+        LayoutHealthStatus::Healthy
+    }
+}
+
+fn layout_health_issues(counts: LayoutHealthCounts) -> Vec<LayoutHealthIssue> {
+    let mut issues = Vec::new();
+    push_layout_health_issue(
+        &mut issues,
+        counts.segments == 0,
+        LayoutHealthIssueKind::EmptyManifest,
+        1,
+        "layout health requires declared segment metadata",
+    );
+    push_layout_health_issue(
+        &mut issues,
+        counts.small_files > 0,
+        LayoutHealthIssueKind::SmallFiles,
+        counts.small_files,
+        "small files are compaction candidates",
+    );
+    push_layout_health_issue(
+        &mut issues,
+        counts.small_segments > 0,
+        LayoutHealthIssueKind::SmallSegments,
+        counts.small_segments,
+        "small segments are compaction candidates",
+    );
+    push_layout_health_issue(
+        &mut issues,
+        counts.missing_statistics_segments > 0,
+        LayoutHealthIssueKind::MissingStatistics,
+        counts.missing_statistics_segments,
+        "segments missing statistics limit pruning and incremental planning evidence",
+    );
+    push_layout_health_issue(
+        &mut issues,
+        counts.missing_byte_range_segments > 0,
+        LayoutHealthIssueKind::MissingByteRanges,
+        counts.missing_byte_range_segments,
+        "segments missing byte ranges limit object-store range planning evidence",
+    );
+    push_layout_health_issue(
+        &mut issues,
+        counts.unique_formats > 1,
+        LayoutHealthIssueKind::MixedFormats,
+        counts.unique_formats,
+        "mixed file formats require compatibility review",
+    );
+    push_layout_health_issue(
+        &mut issues,
+        counts.unique_encodings > 1,
+        LayoutHealthIssueKind::MixedEncodings,
+        counts.unique_encodings,
+        "mixed encodings require native kernel capability review",
+    );
+    push_layout_health_issue(
+        &mut issues,
+        counts.unique_layouts > 1,
+        LayoutHealthIssueKind::MixedLayouts,
+        counts.unique_layouts,
+        "mixed layouts require native layout capability review",
+    );
+    push_layout_health_issue(
+        &mut issues,
+        counts.non_native_data_files > 0,
+        LayoutHealthIssueKind::NonNativeDataFiles,
+        counts.non_native_data_files,
+        "non-native data files require adapter fidelity evidence",
+    );
+    issues
+}
+
+fn push_layout_health_issue(
+    issues: &mut Vec<LayoutHealthIssue>,
+    present: bool,
+    kind: LayoutHealthIssueKind,
+    affected_count: usize,
+    message: &'static str,
+) {
+    if present {
+        issues.push(LayoutHealthIssue::new(kind, affected_count, message));
+    }
+}
+
+fn layout_health_diagnostics(issues: &[LayoutHealthIssue]) -> Vec<Diagnostic> {
+    issues
+        .iter()
+        .map(|issue| match issue.kind {
+            LayoutHealthIssueKind::EmptyManifest => Diagnostic::invalid_input(
+                issue.kind.as_str(),
+                "layout health requires at least one declared segment",
+                "Attach manifest segment metadata before evaluating layout health.",
+            ),
+            _ => layout_health_warning(issue),
+        })
+        .collect()
+}
+
+fn layout_health_warning(issue: &LayoutHealthIssue) -> Diagnostic {
+    Diagnostic::new(
+        layout_health_diagnostic_code(issue.kind),
+        DiagnosticSeverity::Warning,
+        DiagnosticCategory::Planning,
+        issue.message.clone(),
+        Some(issue.kind.as_str().to_string()),
+        Some("Layout-health planning is report-only and did not inspect storage.".to_string()),
+        Some("Use this evidence to schedule future native maintenance planning.".to_string()),
+        FallbackStatus::disabled_by_policy(),
+    )
+}
+
+fn layout_health_diagnostic_code(kind: LayoutHealthIssueKind) -> DiagnosticCode {
+    match kind {
+        LayoutHealthIssueKind::MissingStatistics => DiagnosticCode::MissingStatistics,
+        LayoutHealthIssueKind::NonNativeDataFiles => DiagnosticCode::MetadataLoss,
+        _ => DiagnosticCode::ResourceBudgetExceeded,
+    }
+}
+
+fn layout_health_non_native_data_files(manifest: &DatasetManifest) -> usize {
+    manifest
+        .files
+        .iter()
+        .filter(|file| {
+            file.role == FileRole::NativeVortexData && !file.format.is_native_vortex()
+                || file.role == FileRole::CompatibilityOutput
+        })
+        .count()
+}
+
+fn layout_health_small_file_count(manifest: &DatasetManifest, policy: LayoutHealthPolicy) -> usize {
+    manifest
+        .files
+        .iter()
+        .filter(|file| {
+            file.size_bytes
+                .is_some_and(|size| size > 0 && size < policy.small_file_threshold_bytes)
+        })
+        .count()
+}
+
+fn layout_health_small_segment_count(
+    manifest: &DatasetManifest,
+    policy: LayoutHealthPolicy,
+) -> usize {
+    manifest
+        .segments
+        .iter()
+        .filter(|segment| {
+            segment
+                .segment
+                .stats
+                .row_count
+                .is_some_and(|rows| rows > 0 && rows < policy.small_segment_row_threshold)
+                || segment
+                    .segment
+                    .layout
+                    .physical_size_bytes
+                    .is_some_and(|size| {
+                        size > 0 && size < policy.small_segment_size_threshold_bytes
+                    })
+        })
+        .count()
+}
+
+fn unique_file_format_count(manifest: &DatasetManifest) -> usize {
+    manifest
+        .files
+        .iter()
+        .map(|file| file.format.as_str().to_string())
+        .collect::<BTreeSet<_>>()
+        .len()
+}
+
+fn unique_segment_encoding_count(manifest: &DatasetManifest) -> usize {
+    manifest
+        .segments
+        .iter()
+        .map(|segment| segment.segment.layout.encoding.as_str().to_string())
+        .collect::<BTreeSet<_>>()
+        .len()
+}
+
+fn unique_segment_layout_count(manifest: &DatasetManifest) -> usize {
+    manifest
+        .segments
+        .iter()
+        .map(|segment| segment.segment.layout.layout.as_str().to_string())
+        .collect::<BTreeSet<_>>()
+        .len()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1153,6 +1619,34 @@ mod tests {
             SegmentStats::with_row_count(10),
         )
     }
+    fn mk_layout_manifest() -> DatasetManifest {
+        DatasetManifest::new(
+            ManifestId::new("m").unwrap(),
+            DatasetRef::from_uri(DatasetUri::new("file://x/a.vortex").unwrap()).unwrap(),
+            SnapshotRef::new(SnapshotId::new("s").unwrap()),
+        )
+    }
+    fn mk_layout_seg(
+        id: &str,
+        rows: Option<u64>,
+        physical_size_bytes: Option<u64>,
+        has_byte_ranges: bool,
+    ) -> EncodedSegment {
+        let mut layout = SegmentLayout::new(EncodingKind::Plain, LayoutKind::Flat);
+        layout.physical_size_bytes = physical_size_bytes;
+        if has_byte_ranges {
+            layout = layout.with_byte_ranges(vec![ByteRange::new(0, 10)]);
+        }
+        let stats = rows.map_or_else(SegmentStats::unknown, SegmentStats::with_row_count);
+        EncodedSegment::new(
+            SegmentId::new(id).unwrap(),
+            ColumnRef::new("c").unwrap(),
+            LogicalDType::Int64,
+            Nullability::Nullable,
+            layout,
+            stats,
+        )
+    }
     #[test]
     fn snapshot_ref_without_parent_has_parent_false() {
         assert!(!SnapshotRef::new(SnapshotId::new("a").unwrap()).has_parent());
@@ -1231,6 +1725,80 @@ mod tests {
         ));
         assert_eq!(dm.file_count(), 1);
         assert_eq!(dm.segment_count(), 1);
+    }
+    #[test]
+    fn layout_health_healthy_manifest_is_side_effect_free() {
+        let mut manifest = mk_layout_manifest();
+        let file = FileDescriptor::from_uri(
+            DatasetUri::new("file://x/a.vortex").unwrap(),
+            FileRole::NativeVortexData,
+        )
+        .with_size_bytes(64 * 1024 * 1024);
+        manifest.add_file(file.clone());
+        manifest.add_segment(ManifestSegment::new(
+            mk_layout_seg("s1", Some(64_000), Some(8 * 1024 * 1024), true),
+            file,
+        ));
+
+        let report = evaluate_layout_health(manifest, LayoutHealthPolicy::default());
+
+        assert_eq!(report.status, LayoutHealthStatus::Healthy);
+        assert_eq!(report.issues.len(), 0);
+        assert!(report.side_effect_free());
+        assert!(!report.has_errors());
+    }
+    #[test]
+    fn layout_health_recommends_compaction_for_small_files_and_segments() {
+        let mut manifest = mk_layout_manifest();
+        let file = FileDescriptor::from_uri(
+            DatasetUri::new("file://x/small.vortex").unwrap(),
+            FileRole::NativeVortexData,
+        )
+        .with_size_bytes(1024);
+        manifest.add_file(file.clone());
+        manifest.add_segment(ManifestSegment::new(
+            mk_layout_seg("s1", Some(10), Some(512), true),
+            file,
+        ));
+
+        let report = evaluate_layout_health(manifest, LayoutHealthPolicy::default());
+
+        assert_eq!(report.status, LayoutHealthStatus::CompactionRecommended);
+        assert_eq!(report.small_file_count, 1);
+        assert_eq!(report.small_segment_count, 1);
+        assert!(report.recommends_compaction);
+        assert!(!report.compaction_execution_allowed);
+    }
+    #[test]
+    fn layout_health_missing_stats_needs_attention_without_io() {
+        let mut manifest = mk_layout_manifest();
+        let file = FileDescriptor::from_uri(
+            DatasetUri::new("file://x/a.vortex").unwrap(),
+            FileRole::NativeVortexData,
+        )
+        .with_size_bytes(64 * 1024 * 1024);
+        manifest.add_file(file.clone());
+        manifest.add_segment(ManifestSegment::new(
+            mk_layout_seg("s1", None, Some(8 * 1024 * 1024), false),
+            file,
+        ));
+
+        let report = evaluate_layout_health(manifest, LayoutHealthPolicy::default());
+
+        assert_eq!(report.status, LayoutHealthStatus::NeedsAttention);
+        assert_eq!(report.missing_statistics_segment_count, 1);
+        assert_eq!(report.missing_byte_range_segment_count, 1);
+        assert!(report.requires_statistics_refresh);
+        assert!(report.side_effect_free());
+        assert!(!report.has_errors());
+    }
+    #[test]
+    fn layout_health_empty_manifest_is_unsupported() {
+        let report = evaluate_layout_health(mk_layout_manifest(), LayoutHealthPolicy::default());
+
+        assert_eq!(report.status, LayoutHealthStatus::Unsupported);
+        assert!(report.has_errors());
+        assert!(!report.fallback_execution_allowed);
     }
     #[test]
     fn dataset_manifest_native_vortex_file_count_works() {
