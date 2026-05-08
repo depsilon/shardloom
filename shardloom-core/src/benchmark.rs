@@ -1097,6 +1097,11 @@ impl BenchmarkPlan {
         self.scenarios.push(scenario);
     }
 
+    #[must_use]
+    pub fn scenario_count(&self) -> usize {
+        self.scenarios.len()
+    }
+
     /// Constructs a default foundation plan with placeholder scenarios.
     ///
     /// # Panics
@@ -1200,10 +1205,55 @@ impl BenchmarkPlan {
     }
 
     #[must_use]
+    pub fn scenario_name_order(&self) -> Vec<&str> {
+        self.scenarios
+            .iter()
+            .map(|scenario| scenario.name.as_str())
+            .collect()
+    }
+
+    #[must_use]
+    pub fn workload_class_order(&self) -> Vec<&'static str> {
+        let mut classes = Vec::new();
+        for scenario in &self.scenarios {
+            let label = scenario.workload_class.as_str();
+            if !classes.contains(&label) {
+                classes.push(label);
+            }
+        }
+        classes
+    }
+
+    #[must_use]
+    pub fn correctness_validation_order(&self) -> Vec<&'static str> {
+        let mut modes = Vec::new();
+        for scenario in &self.scenarios {
+            let label = scenario.correctness_validation.as_str();
+            if !modes.contains(&label) {
+                modes.push(label);
+            }
+        }
+        modes
+    }
+
+    #[must_use]
+    pub fn required_metric_order(&self) -> Vec<&'static str> {
+        self.required_metrics()
+            .iter()
+            .map(BenchmarkMetric::as_str)
+            .collect()
+    }
+
+    #[must_use]
     pub fn covers_metric(&self, metric: BenchmarkMetric) -> bool {
         self.scenarios
             .iter()
             .any(|scenario| scenario.requires_metric(metric))
+    }
+
+    #[must_use]
+    pub fn covers_all_metrics(&self, metrics: &[BenchmarkMetric]) -> bool {
+        metrics.iter().all(|metric| self.covers_metric(*metric))
     }
 
     #[must_use]
@@ -1228,11 +1278,168 @@ impl BenchmarkPlan {
     }
 
     #[must_use]
+    pub fn baseline_engine_order(&self) -> Vec<&'static str> {
+        self.baseline_engines()
+            .iter()
+            .map(BaselineEngine::as_str)
+            .collect()
+    }
+
+    #[must_use]
+    pub fn external_baseline_engine_order(&self) -> Vec<&'static str> {
+        self.baseline_engines()
+            .iter()
+            .filter(|engine| **engine != BaselineEngine::ShardLoom)
+            .map(BaselineEngine::as_str)
+            .collect()
+    }
+
+    #[must_use]
+    pub fn external_baseline_count(&self) -> usize {
+        self.external_baseline_engine_order().len()
+    }
+
+    #[must_use]
     pub fn expected_result_count(&self) -> usize {
         self.scenarios
             .iter()
             .map(|scenario| scenario.baselines.len())
             .sum()
+    }
+
+    #[must_use]
+    pub fn scenario_with_correctness_validation_count(&self) -> usize {
+        self.scenarios
+            .iter()
+            .filter(|scenario| {
+                scenario.correctness_validation != CorrectnessValidationMode::NotYetDefined
+            })
+            .count()
+    }
+
+    #[must_use]
+    pub fn scenario_with_required_metrics_count(&self) -> usize {
+        self.scenarios
+            .iter()
+            .filter(|scenario| !scenario.required_metrics.is_empty())
+            .count()
+    }
+
+    #[must_use]
+    pub fn scenario_with_baselines_count(&self) -> usize {
+        self.scenarios
+            .iter()
+            .filter(|scenario| !scenario.baselines.is_empty())
+            .count()
+    }
+
+    #[must_use]
+    pub fn required_foundation_metrics() -> &'static [BenchmarkMetric] {
+        &[
+            BenchmarkMetric::StartupLatencyMillis,
+            BenchmarkMetric::WallTimeMillis,
+            BenchmarkMetric::QueryRuntimeMillis,
+            BenchmarkMetric::PeakMemoryBytes,
+            BenchmarkMetric::BytesRead,
+            BenchmarkMetric::BytesDecoded,
+            BenchmarkMetric::BytesDecodeAvoided,
+            BenchmarkMetric::RowsMaterializationAvoided,
+            BenchmarkMetric::SegmentsPruned,
+            BenchmarkMetric::WorkAvoidedUnits,
+            BenchmarkMetric::SpillRequiredBytes,
+            BenchmarkMetric::SpillAvoidedBytes,
+            BenchmarkMetric::SegmentsConsidered,
+            BenchmarkMetric::ObjectStoreRequests,
+            BenchmarkMetric::RowsMaterialized,
+            BenchmarkMetric::CostProxy,
+            BenchmarkMetric::WriteCommitLatencyMillis,
+            BenchmarkMetric::BytesWritten,
+            BenchmarkMetric::OutputFiles,
+            BenchmarkMetric::OutputBytes,
+            BenchmarkMetric::SegmentsMetadataAnswered,
+        ]
+    }
+
+    #[must_use]
+    pub fn covered_required_foundation_metric_count(&self) -> usize {
+        Self::required_foundation_metrics()
+            .iter()
+            .filter(|metric| self.covers_metric(**metric))
+            .count()
+    }
+
+    #[must_use]
+    pub fn missing_required_foundation_metrics(&self) -> Vec<&'static str> {
+        Self::required_foundation_metrics()
+            .iter()
+            .filter(|metric| !self.covers_metric(**metric))
+            .map(BenchmarkMetric::as_str)
+            .collect()
+    }
+
+    #[must_use]
+    pub fn required_foundation_metrics_covered(&self) -> bool {
+        self.missing_required_foundation_metrics().is_empty()
+    }
+
+    #[must_use]
+    pub fn runtime_metrics_covered(&self) -> bool {
+        self.covers_all_metrics(&[
+            BenchmarkMetric::WallTimeMillis,
+            BenchmarkMetric::QueryRuntimeMillis,
+        ])
+    }
+
+    #[must_use]
+    pub fn peak_memory_metric_covered(&self) -> bool {
+        self.covers_metric(BenchmarkMetric::PeakMemoryBytes)
+    }
+
+    #[must_use]
+    pub fn bytes_read_written_metrics_covered(&self) -> bool {
+        self.covers_all_metrics(&[BenchmarkMetric::BytesRead, BenchmarkMetric::BytesWritten])
+    }
+
+    #[must_use]
+    pub fn startup_latency_metric_covered(&self) -> bool {
+        self.covers_metric(BenchmarkMetric::StartupLatencyMillis)
+    }
+
+    #[must_use]
+    pub fn query_runtime_metric_covered(&self) -> bool {
+        self.covers_metric(BenchmarkMetric::QueryRuntimeMillis)
+    }
+
+    #[must_use]
+    pub fn write_commit_latency_metric_covered(&self) -> bool {
+        self.covers_metric(BenchmarkMetric::WriteCommitLatencyMillis)
+    }
+
+    #[must_use]
+    pub fn spill_metrics_covered(&self) -> bool {
+        self.covers_all_metrics(&[
+            BenchmarkMetric::SpillRequiredBytes,
+            BenchmarkMetric::SpillAvoidedBytes,
+        ])
+    }
+
+    #[must_use]
+    pub fn object_store_request_metric_covered(&self) -> bool {
+        self.covers_metric(BenchmarkMetric::ObjectStoreRequests)
+    }
+
+    #[must_use]
+    pub fn materialization_metrics_covered(&self) -> bool {
+        self.covers_all_metrics(&[
+            BenchmarkMetric::RowsMaterialized,
+            BenchmarkMetric::RowsMaterializationAvoided,
+        ])
+    }
+
+    #[must_use]
+    pub const fn benchmark_execution_implemented(&self) -> bool {
+        let _ = self;
+        false
     }
 
     #[must_use]
@@ -1424,6 +1631,44 @@ mod tests {
     fn default_foundation_plan_has_at_least_five_scenarios() {
         let plan = BenchmarkPlan::default_foundation_plan();
         assert!(plan.scenarios.len() >= 5);
+    }
+
+    #[test]
+    fn default_foundation_plan_exposes_coverage_inventory() {
+        let plan = BenchmarkPlan::default_foundation_plan();
+
+        assert_eq!(plan.scenario_count(), 5);
+        assert_eq!(plan.required_metrics().len(), 21);
+        assert_eq!(BenchmarkPlan::required_foundation_metrics().len(), 21);
+        assert_eq!(plan.covered_required_foundation_metric_count(), 21);
+        assert!(plan.required_foundation_metrics_covered());
+        assert!(plan.missing_required_foundation_metrics().is_empty());
+        assert_eq!(plan.scenario_with_correctness_validation_count(), 5);
+        assert_eq!(plan.scenario_with_required_metrics_count(), 5);
+        assert_eq!(plan.scenario_with_baselines_count(), 5);
+        assert_eq!(plan.expected_result_count(), 10);
+        assert_eq!(plan.external_baseline_count(), 5);
+        assert_eq!(
+            plan.baseline_engine_order(),
+            vec![
+                "shardloom",
+                "datafusion",
+                "spark",
+                "polars",
+                "vortex_integration",
+                "other"
+            ]
+        );
+        assert!(plan.runtime_metrics_covered());
+        assert!(plan.peak_memory_metric_covered());
+        assert!(plan.bytes_read_written_metrics_covered());
+        assert!(plan.startup_latency_metric_covered());
+        assert!(plan.query_runtime_metric_covered());
+        assert!(plan.write_commit_latency_metric_covered());
+        assert!(plan.spill_metrics_covered());
+        assert!(plan.object_store_request_metric_covered());
+        assert!(plan.materialization_metrics_covered());
+        assert!(!plan.benchmark_execution_implemented());
     }
 
     #[test]
