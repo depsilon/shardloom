@@ -1124,3 +1124,12 @@ No fallback execution.
 - Primary RFC linkage: RFC 0013, RFC 0014, RFC 0016, RFC 0018, RFC 0025, and RFC 0027.
 - Related RFCs: RFC 0008, RFC 0017, RFC 0031, and RFC 0032.
 - This phase adds no stream execution, task execution, feedback application, read-start API, row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, benchmark claim, production/superiority claim, CG-8 closeout, or fallback behavior.
+
+## CG-8.5 encoded streaming-batch planning surface
+
+- `EncodedStreamingBatchPlanInput` and `EncodedStreamingBatchPlanReport` now model encoded streaming-batch planning with representation state, zero-decode status, bounded parallelism, bounded memory, backpressure, materialization boundary, diagnostics, and side-effect flags.
+- `plan_encoded_streaming_batches` preserves Vortex-encoded batch representation for native Vortex source/sink plans, reports compatibility-sink materialization boundaries, and blocks object-store byte-range sources until object-store streaming IO lands.
+- `streaming-batch-plan --format json` exposes stable fields for batch status, source/sink kind, representation, zero-decode, encoded preservation, max parallelism, memory, backpressure, materialization, side-effect flags, and fallback-disabled evidence.
+- Primary RFC linkage: RFC 0013, RFC 0014, RFC 0016, RFC 0018, RFC 0025, and RFC 0027.
+- Related RFCs: RFC 0008, RFC 0017, RFC 0031, and RFC 0032.
+- This phase adds no stream execution, task execution, read-start API, encoded data reads, row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, dynamic sizing feedback application, benchmark claim, production/superiority claim, CG-8 closeout, or fallback behavior.
