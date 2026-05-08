@@ -239,6 +239,7 @@ pub struct VortexCountReadinessRequest {
     pub signals: Vec<VortexCountReadinessSignal>,
     pub expected_count_summary: Option<String>,
     pub upstream_summary: Option<String>,
+    pub api_boundary_blockers: Vec<String>,
     pub diagnostics: Vec<Diagnostic>,
 }
 impl VortexCountReadinessRequest {
@@ -250,6 +251,7 @@ impl VortexCountReadinessRequest {
             signals: vec![],
             expected_count_summary: None,
             upstream_summary: None,
+            api_boundary_blockers: vec![],
             diagnostics: vec![],
         }
     }
@@ -272,6 +274,12 @@ impl VortexCountReadinessRequest {
     }
     pub fn add_diagnostic(&mut self, d: Diagnostic) {
         self.diagnostics.push(d);
+    }
+    pub fn add_api_boundary_blocker(&mut self, blocker: impl Into<String>) {
+        let blocker = blocker.into();
+        if !blocker.trim().is_empty() && !self.api_boundary_blockers.contains(&blocker) {
+            self.api_boundary_blockers.push(blocker);
+        }
     }
     #[must_use]
     pub fn has_errors(&self) -> bool {
@@ -506,6 +514,14 @@ impl VortexCountReadinessReport {
         let _ = writeln!(&mut t, "count_executed={}", self.count_executed());
         let _ = writeln!(
             &mut t,
+            "api_boundary_blocker_count={}",
+            self.request.api_boundary_blockers.len()
+        );
+        for (idx, blocker) in self.request.api_boundary_blockers.iter().enumerate() {
+            let _ = writeln!(&mut t, "api_boundary_blocker[{idx}]={blocker}");
+        }
+        let _ = writeln!(
+            &mut t,
             "fallback_execution_allowed={}",
             self.fallback_execution_allowed()
         );
@@ -707,6 +723,11 @@ pub fn count_readiness_request_from_encoded_read_probe_report(
     }
     if api.write_api_count > 0 || encoded_probe_report.counts.write_risk_count > 0 {
         req = req.write_risk(true);
+    }
+    for item in &api.items {
+        if item.is_blocked() {
+            req.add_api_boundary_blocker(item.summary());
+        }
     }
 
     let probe_summary = encoded_probe_report.to_human_text();
@@ -1100,6 +1121,21 @@ mod tests {
         assert!(req.has_signal(VortexCountReadinessSignal::ScanExecutionRisk));
         assert!(req.has_signal(VortexCountReadinessSignal::ArrowDefaultRisk));
         assert!(
+            req.api_boundary_blockers
+                .iter()
+                .any(|b| b.contains("VortexFile::scan"))
+        );
+        assert!(
+            req.api_boundary_blockers
+                .iter()
+                .any(|b| b.contains("ScanBuilder::into_array_stream"))
+        );
+        assert!(
+            req.api_boundary_blockers
+                .iter()
+                .all(|b| !b.contains("LayoutReader::row_count"))
+        );
+        assert!(
             req.upstream_summary
                 .as_deref()
                 .is_some_and(|s| s.contains("probe status: blocked_by_api_boundary"))
@@ -1115,5 +1151,10 @@ mod tests {
         assert!(!report.encoded_data_read());
         assert!(!report.upstream_scan_called());
         assert!(!report.fallback_execution_allowed());
+        assert!(
+            report
+                .to_human_text()
+                .contains("api_boundary_blocker_count=")
+        );
     }
 }

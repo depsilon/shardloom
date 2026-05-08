@@ -688,6 +688,13 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - `VortexFile::scan`, `ScanBuilder::into_array_stream`, `ScanBuilder::into_array_iter`, `LayoutReader::projection_evaluation`, `LayoutReader::filter_evaluation`, and `VortexFile::data_source` remain blocked or deferred for execution because their no-decode/no-materialization semantics are not yet approved for ShardLoom-native count.
 - Execution usability remains zero; no scan/read-start, array stream/evaluation call, encoded-data traversal, row read, decode/materialization, `Arrow` conversion, object-store IO, write, or fallback execution is introduced.
 
+## CG-2.1e.3 named count API-boundary blockers
+
+- Count readiness now preserves named blocked API-boundary summaries from the encoded-read probe.
+- Blocked public surfaces such as `VortexFile::scan`, `ScanBuilder::into_array_stream`, `ScanBuilder::into_array_iter`, `LayoutReader::projection_evaluation`, `LayoutReader::filter_evaluation`, and `VortexFile::data_source` are visible at the count-readiness boundary.
+- Metadata-like `LayoutReader::row_count` is not reported as an execution blocker.
+- This remains report metadata only and introduces no scan/read-start invocation, array stream/evaluation call, encoded-data traversal, row read, decode/materialization, `Arrow` conversion, object-store IO, write, or fallback execution.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.

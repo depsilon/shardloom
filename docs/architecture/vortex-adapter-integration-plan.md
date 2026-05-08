@@ -804,6 +804,12 @@ CG-2.1c metadata-footer `CountAll` execution is wired; non-metadata execution re
 - Scan, stream, layout-evaluation, and data-source surfaces remain blocked or deferred for actual count execution until adapter-level no-decode/no-materialization behavior is approved.
 - This remains classification-only: no scan/read-start invocation, array stream/evaluation call, encoded-data traversal, row read, decode/materialization, `Arrow` conversion, object-store IO, write, or fallback execution is introduced.
 
+## CG-2.1e.3 named count API-boundary blockers
+
+- Count readiness now carries named blocked API-boundary summaries from the encoded-read probe so adapter/source work can see the exact Vortex public surface that blocked execution readiness.
+- Scan, stream, layout-evaluation, and data-source blockers remain visible by name; metadata-like `LayoutReader::row_count` is intentionally excluded from blocker propagation.
+- This remains report metadata only and does not call scan/read-start APIs, array stream/evaluation APIs, traverse encoded data, read rows, decode/materialize, convert to `Arrow`, perform object-store IO, write, or attempt fallback execution.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.
