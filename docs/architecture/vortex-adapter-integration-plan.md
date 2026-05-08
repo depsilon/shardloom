@@ -810,6 +810,12 @@ CG-2.1c metadata-footer `CountAll` execution is wired; non-metadata execution re
 - Scan, stream, layout-evaluation, and data-source blockers remain visible by name; metadata-like `LayoutReader::row_count` is intentionally excluded from blocker propagation.
 - This remains report metadata only and does not call scan/read-start APIs, array stream/evaluation APIs, traverse encoded data, read rows, decode/materialize, convert to `Arrow`, perform object-store IO, write, or attempt fallback execution.
 
+## CG-2.1e.4 encoded-count admission blocker guard
+
+- Named API-boundary blockers now block count readiness and local encoded-count admission, rather than remaining explanatory metadata only.
+- Future adapter/source execution work must clear or explicitly approve these blockers before encoded `CountAll` can move past admission.
+- This remains guardrail-only and does not call scan/read-start APIs, array stream/evaluation APIs, traverse encoded data, read rows, decode/materialize, convert to `Arrow`, perform object-store IO, write, or attempt fallback execution.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.

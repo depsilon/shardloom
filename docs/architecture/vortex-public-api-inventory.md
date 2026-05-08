@@ -695,6 +695,13 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - Metadata-like `LayoutReader::row_count` is not reported as an execution blocker.
 - This remains report metadata only and introduces no scan/read-start invocation, array stream/evaluation call, encoded-data traversal, row read, decode/materialization, `Arrow` conversion, object-store IO, write, or fallback execution.
 
+## CG-2.1e.4 encoded-count admission blocker guard
+
+- Named API-boundary blockers are now enforced by count-readiness derivation and local encoded-count admission.
+- A readiness request that still names blocked surfaces cannot become `CountReady`, even with `EncodedDataPathReady`.
+- Local encoded-count admission rejects reports with named blockers instead of deferring them as execution candidates.
+- This remains a guardrail only and introduces no scan/read-start invocation, array stream/evaluation call, encoded-data traversal, row read, decode/materialization, `Arrow` conversion, object-store IO, write, or fallback execution.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.

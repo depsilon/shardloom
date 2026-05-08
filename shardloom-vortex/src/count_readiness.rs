@@ -536,6 +536,9 @@ fn derive_status(r: &VortexCountReadinessRequest) -> VortexCountReadinessStatus 
     if r.has_signal(S::ScanExecutionRisk) {
         return VortexCountReadinessStatus::BlockedByScanExecutionRisk;
     }
+    if !r.api_boundary_blockers.is_empty() {
+        return VortexCountReadinessStatus::BlockedByScanExecutionRisk;
+    }
     if r.has_signal(S::DecodeRisk) {
         return VortexCountReadinessStatus::BlockedByDecodeRisk;
     }
@@ -1156,5 +1159,28 @@ mod tests {
                 .to_human_text()
                 .contains("api_boundary_blocker_count=")
         );
+    }
+
+    #[test]
+    fn named_api_boundary_blockers_prevent_count_ready_even_if_signal_is_missing() {
+        let mut request =
+            VortexCountReadinessRequest::new(uri(), VortexCountCandidateSource::EncodedDataPath)
+                .feature_gate_enabled(true)
+                .query_primitive_ready(true)
+                .count_primitive(true)
+                .encoded_data_path_ready(true);
+        request.add_api_boundary_blocker(
+            "area=data_read name=ScanBuilder::into_array_stream status=forbidden_for_now",
+        );
+
+        let report = plan_vortex_count_readiness(request).expect("count readiness");
+
+        assert_eq!(
+            report.status,
+            VortexCountReadinessStatus::BlockedByScanExecutionRisk
+        );
+        assert!(report.has_errors());
+        assert!(!report.count_ready());
+        assert!(report.is_side_effect_free());
     }
 }

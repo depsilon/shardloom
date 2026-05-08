@@ -541,6 +541,7 @@ pub fn execute_vortex_count_all_from_encoded_data_candidate(
     if readiness.status == VortexCountReadinessStatus::CountReady
         && readiness.request.candidate_source == VortexCountCandidateSource::EncodedDataPath
         && readiness.encoded_data_path_ready()
+        && readiness.request.api_boundary_blockers.is_empty()
         && !readiness.has_errors()
     {
         return VortexLocalExecutionReport::from_input(input);
@@ -696,6 +697,29 @@ mod tests {
         assert!(!report.data_materialized);
         assert!(!report.object_store_io);
         assert!(!report.write_io);
+        assert!(!report.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn encoded_data_candidate_with_named_api_blocker_is_unsupported() {
+        let mut request =
+            VortexCountReadinessRequest::new(uri(), VortexCountCandidateSource::EncodedDataPath)
+                .feature_gate_enabled(true)
+                .query_primitive_ready(true)
+                .count_primitive(true)
+                .encoded_data_path_ready(true);
+        request.add_api_boundary_blocker(
+            "area=data_read name=ScanBuilder::into_array_stream status=forbidden_for_now",
+        );
+        let readiness = plan_vortex_count_readiness(request).expect("readiness");
+
+        let report =
+            execute_vortex_count_all_from_encoded_data_candidate(&readiness).expect("execution");
+
+        assert_eq!(report.status, VortexLocalExecutionStatus::Unsupported);
+        assert!(report.has_errors());
+        assert!(report.is_side_effect_free());
+        assert!(!report.data_read);
         assert!(!report.fallback_execution_allowed);
     }
 

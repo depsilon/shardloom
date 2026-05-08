@@ -10,21 +10,22 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [x] Session label: CG-2.1e.3 named count API-boundary blockers
-  - Current cleanup/implementation step: Preserve exact blocked upstream Vortex API surface names when encoded-read probe output is translated into count readiness.
+- [x] Session label: CG-2.1e.4 encoded-count admission blocker guard
+  - Current cleanup/implementation step: Prevent encoded-data `CountAll` admission whenever named API-boundary blockers are present.
   - Primary files:
     - `shardloom-vortex/src/count_readiness.rs`
+    - `shardloom-vortex/src/local_execution.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
     - `docs/architecture/vortex-public-api-inventory.md`
     - `docs/architecture/vortex-adapter-integration-plan.md`
-  - Scope: Count-readiness request/report metadata only; carry named API-boundary blocker summaries from `VortexEncodedReadProbeReport`.
+  - Scope: Count-readiness and local-execution admission guard only; named API-boundary blockers force blocked readiness and prevent encoded-count defer/admission.
   - Explicitly not included: Calling scan/read-start APIs, calling array-stream/evaluation APIs, encoded-data traversal, row reads, actual encoded count execution, filtered count execution, projection execution, decode/materialization, Arrow conversion, object-store IO, writes, fallback execution, SQL/API/adapter expansion, or superiority claims.
   - Validation required:
     - `cargo fmt --all -- --check`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: Encoded-data count readiness now reports named API-boundary blockers such as `VortexFile::scan` and `ScanBuilder::into_array_stream` while excluding metadata-like `LayoutReader::row_count`; execution usability and side effects remain zero.
+  - Completion notes: Encoded-data count readiness with named API-boundary blockers is blocked by scan-execution risk even when encoded-data-ready is otherwise signaled; local encoded-count admission rejects such reports without data reads or fallback.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -373,6 +374,12 @@
     - Blocked scan/stream/evaluation/data-source surfaces are visible at the count-readiness boundary.
     - Metadata-like layout row-count access is not reported as a count execution blocker.
     - No scan/read-start invocation, encoded-data traversal, row read, decode/materialization, Arrow conversion, object-store IO, write, or fallback execution is added.
+- [x] CG-2.1e.4 encoded-count admission blocker guard
+  - Why: make named API-boundary blockers enforcement inputs, not only explanatory metadata.
+  - Acceptance:
+    - Count readiness cannot become `CountReady` while named API-boundary blockers are present.
+    - Local encoded-count admission rejects readiness reports that carry named API-boundary blockers.
+    - No scan/read-start invocation, encoded-data traversal, row read, decode/materialization, Arrow conversion, object-store IO, write, or fallback execution is added.
 - [ ] CG-2.1e encoded-data count execution path (planned)
   - Why: turn the approved encoded-data count candidate into actual native encoded execution after the public Vortex data path is approved.
   - Acceptance:
@@ -410,6 +417,7 @@ Status legend:
   - [x] CG-2.1e.1 encoded-data `CountAll` API-gated blocker through encoded-read probe
   - [x] CG-2.1e.2 exact Vortex data-access API classification
   - [x] CG-2.1e.3 named count API-boundary blockers
+  - [x] CG-2.1e.4 encoded-count admission blocker guard
   - [~] CG-2.1+ non-metadata primitive execution remains deferred pending actual encoded-data execution
   - [x] CG-2.3b projection readiness CLI integration
   - Required capabilities for completion:
@@ -566,6 +574,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.1 encoded-data `CountAll` API-gated blocker through encoded-read probe
 - [x] CG-2.1e.2 exact Vortex data-access API classification
 - [x] CG-2.1e.3 named count API-boundary blockers
+- [x] CG-2.1e.4 encoded-count admission blocker guard
 - [x] CG-2.2a filtered-count readiness core contract
 - [x] CG-2.2a.1 filtered-count blocker precision hardening
 - [x] CG-2.2b filtered-count readiness CLI integration
@@ -737,6 +746,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.1 encoded-data count readiness is now gated by the encoded-read probe and preserves public API blockers.
 - [x] CG-2.1e.2 exact Vortex data-access API classification keeps scan/stream/evaluation surfaces blocked for execution.
 - [x] CG-2.1e.3 count readiness now names exact blocked API-boundary surfaces from the encoded-read probe.
+- [x] CG-2.1e.4 local encoded-count admission rejects reports with named API-boundary blockers.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [~] CG-3 real Vortex payload writes remain deferred; placeholder artifact paths are not completion evidence.
 

@@ -350,6 +350,14 @@ No fallback execution.
 - Metadata-like `LayoutReader::row_count` is intentionally not carried as an execution blocker.
 - This is still report metadata only: no scan/read-start invocation, array stream/evaluation call, encoded-data traversal, row read, decode/materialization, `Arrow` conversion, object-store IO, write, or fallback execution is introduced.
 
+## CG-2.1e.4 encoded-count admission blocker guard
+
+- Primary RFC linkage: RFC 0005 Vortex-Native File IO and Output Contract, RFC 0012 Diagnostics/Capabilities, RFC 0013 Streaming/Zero-Copy Boundary, RFC 0015 Correctness/testing, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
+- Named API-boundary blockers now participate in readiness derivation: a request with any blocker cannot produce `CountReady`, even when `EncodedDataPathReady` is present.
+- `execute_vortex_count_all_from_encoded_data_candidate` also rejects readiness reports that still carry named API-boundary blockers.
+- This closes the admission gap before actual encoded-count execution: exact blocked Vortex surfaces must be removed or approved before any execution helper can advance.
+- This pass does not call scan/read-start APIs, array stream/evaluation APIs, traverse encoded data, read rows, decode/materialize, convert to `Arrow`, perform object-store IO, write, or attempt fallback execution.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.
