@@ -105,7 +105,7 @@ Status categories:
 | RFC 0029 | Partially implemented | CG-5, CG-6, CG-16, CG-17 | CG-16.1 local encoded count certificate, CG-16.2 execution-certificate evidence surface, and CG-17.1 stateful reuse boundary report exist; broader correctness, benchmark, certificate, cache read/write/replay, and incremental execution evidence remain future gate work. |
 | RFC 0030 | Partially implemented | CG-11, CG-12, CG-18 | CG-11.1 stable CLI/API JSON protocol foundation and CG-11.2 thin Python wrapper foundation exist through `CliApiJsonProtocolReport`, `PythonWrapperFoundationReport`, `api-compat-plan`, and `python-wrapper-plan`; CG-12.1 plan portability report foundation and CG-12.4 native plan serialization exist through `PlanPortabilityReport`, `NativePlanDocument`, `plan-ir`, `plan-import native`, and `plan-export native`; CG-18.1 universal harness report exists through `UniversalHarnessReport` and `universal-harness-plan`; imported-plan execution, non-native format parsers/exporters, deployment/import, baseline runner execution, and comparison dataset materialization remain staged. |
 | RFC 0031 | Partially implemented | CG-19 | CG-19.1 native I/O envelope report exists through `NativeIoEnvelopeReport` and `native-io-envelope-plan`; source/sink runtime certificate emission, adapter runtime, reads, decode/materialization, writes, object-store I/O, and fallback remain absent. |
-| RFC 0032 | Partially implemented | CG-20 | CG-20.1 world-class sufficiency reporting exists through `WorldClassSufficiencyReport` and `world-class-sufficiency-plan`; real SQL, operators, functions, adapters, semantic conformance, migration analyzers, Python/API, DataFrame/notebook, UDF, ETL, universal-adapter, unstructured/media, correctness, benchmark, and best-default certification evidence remain staged. |
+| RFC 0032 | Partially implemented | CG-20 | CG-20.1 world-class sufficiency reporting exists through `WorldClassSufficiencyReport` and `world-class-sufficiency-plan`; CG-20.2 user-surface capability discovery exposes report-only `capabilities` scopes for ETL, Python, DataFrame/notebook, UDF, universal/event/API adapters, unstructured/media, API, observability, deployment, extension, and security/governance dimensions; real SQL, operators, functions, adapters, semantic conformance, migration analyzers, Python/API, DataFrame/notebook, UDF, ETL, universal-adapter, unstructured/media, correctness, benchmark, and best-default certification evidence remain staged. |
 
 ## Drift policy
 
@@ -948,6 +948,15 @@ No fallback execution.
 - Related RFCs: RFC 0011, RFC 0012, RFC 0015, RFC 0021, RFC 0022, RFC 0023, RFC 0029, RFC 0030, and RFC 0031.
 - This phase adds no SQL parser, SQL execution, adapter runtime, function registry, operator kernel, dependency, filesystem/network/catalog probing, external-engine probing, or fallback behavior.
 
+## R5.4.2b user-surface capability discovery
+
+- `shardloom capabilities data-etl`, `python`, `dataframe`, `notebook`, `udfs`, `universal-adapters`, `event-api-saas-adapters`, `unstructured-media`, `api-surfaces`, `observability`, `deployment`, `extensions`, and `security-governance` now expose report-only CG-20 user-surface scopes.
+- Each scope maps to the corresponding `WorldClassSufficiencyReport` dimension and emits required evidence gates, surface component labels, production-claim blocking, best-default publication blocking, fallback status, and no-probe/no-runtime fields.
+- `shardloom-cli/tests/capability_discovery_snapshots.rs` locks field ordering, scope names, report-only invariants, and selected dimension mappings.
+- Primary RFC linkage: RFC 0032.
+- Related RFCs: RFC 0010, RFC 0011, RFC 0012, RFC 0013, RFC 0018, RFC 0019, RFC 0023, RFC 0030, and RFC 0031.
+- This phase adds no SQL parser, SQL execution, Python package, DataFrame runtime, notebook runtime, UDF/plugin runtime, adapter runtime, media extraction, filesystem/network/catalog/adapter probing, data reads, object-store IO, writes, external-engine execution, superiority claim, best-default publication, or fallback behavior.
+
 ## R5.4.3 SQL frontend sequencing
 
 - RFC 0032 now defines the SQL frontend stage ladder from `declared_only` through `benchmarked_certified`.
@@ -1070,6 +1079,16 @@ No fallback execution.
 - Primary RFC linkage: RFC 0032.
 - Related RFCs: RFC 0010, RFC 0011, RFC 0012, RFC 0013, RFC 0015, RFC 0016, RFC 0018, RFC 0019, RFC 0021, RFC 0022, RFC 0023, RFC 0029, RFC 0030, and RFC 0031.
 - This phase adds no SQL parser, SQL execution, DataFrame runtime, Python package, UDF runtime, adapter runtime, function registry implementation, operator kernels, source/sink runtime certificate emission, filesystem/network/catalog/adapter probing, data reads, decode/materialization, row reads, Arrow conversion, object-store IO, writes, spill IO, package publication, performance claim, superiority claim, best-default publication, or fallback behavior.
+
+## CG-20.2 user-surface capability discovery
+
+- `shardloom-cli/src/main.rs` maps broad CG-20 user-surface `capabilities` scopes to `WorldClassSufficiencyReport` dimensions.
+- New scopes: `data-etl`, `python`, `dataframe`, `notebook`, `udfs`, `universal-adapters`, `event-api-saas-adapters`, `unstructured-media`, `api-surfaces`, `observability`, `deployment`, `extensions`, and `security-governance`.
+- Each scope exposes its dimension status, required correctness/semantic/benchmark evidence, adapter/native-I/O/execution-certificate/capability-snapshot gates, planned surface components, no-fallback fields, and blocked production/best-default claim fields.
+- Snapshot coverage locks the user-surface field keys, scope values, report-only flags, and selected dimension mappings.
+- Primary RFC linkage: RFC 0032.
+- Related RFCs: RFC 0010, RFC 0011, RFC 0012, RFC 0013, RFC 0018, RFC 0019, RFC 0023, RFC 0030, and RFC 0031.
+- This phase adds no SQL parser, SQL execution, Python package, DataFrame runtime, notebook runtime, UDF/plugin runtime, adapter runtime, media extraction, filesystem/network/catalog/adapter probing, data reads, decode/materialization, row reads, Arrow conversion, object-store IO, writes, external-engine execution, superiority claim, best-default publication, or fallback execution.
 
 ## R5.4.13 README roadmap source-of-truth cleanup
 
