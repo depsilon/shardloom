@@ -515,6 +515,429 @@ impl IncrementalPlanSkeleton {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CdcEventKind {
+    Insert,
+    Update,
+    Delete,
+    Tombstone,
+    SchemaChange,
+    PartitionChange,
+    MetadataOnly,
+    Unknown,
+}
+impl CdcEventKind {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Insert => "insert",
+            Self::Update => "update",
+            Self::Delete => "delete",
+            Self::Tombstone => "tombstone",
+            Self::SchemaChange => "schema_change",
+            Self::PartitionChange => "partition_change",
+            Self::MetadataOnly => "metadata_only",
+            Self::Unknown => "unknown",
+        }
+    }
+
+    #[must_use]
+    pub const fn requires_row_identity(&self) -> bool {
+        matches!(self, Self::Update | Self::Delete)
+    }
+
+    #[must_use]
+    pub const fn requires_delete_handling(&self) -> bool {
+        matches!(self, Self::Delete | Self::Tombstone)
+    }
+
+    #[must_use]
+    pub const fn requires_schema_compatibility(&self) -> bool {
+        matches!(self, Self::SchemaChange)
+    }
+
+    #[must_use]
+    pub const fn requires_partition_compatibility(&self) -> bool {
+        matches!(self, Self::PartitionChange)
+    }
+
+    #[must_use]
+    pub const fn is_unknown(&self) -> bool {
+        matches!(self, Self::Unknown)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CdcEventSummary {
+    pub kind: CdcEventKind,
+    pub count: usize,
+}
+impl CdcEventSummary {
+    #[must_use]
+    pub const fn new(kind: CdcEventKind, count: usize) -> Self {
+        Self { kind, count }
+    }
+
+    #[must_use]
+    pub fn summary(&self) -> String {
+        format!(
+            "cdc_event(kind={}, count={})",
+            self.kind.as_str(),
+            self.count
+        )
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CdcIncrementalPlanningStatus {
+    ReuseUnchangedSegments,
+    ExecuteChangedSegmentsOnly,
+    PartialRecomputeRequired,
+    FullRecomputeRequired,
+    Unsupported,
+}
+impl CdcIncrementalPlanningStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::ReuseUnchangedSegments => "reuse_unchanged_segments",
+            Self::ExecuteChangedSegmentsOnly => "execute_changed_segments_only",
+            Self::PartialRecomputeRequired => "partial_recompute_required",
+            Self::FullRecomputeRequired => "full_recompute_required",
+            Self::Unsupported => "unsupported",
+        }
+    }
+}
+
+/// Machine-readable CG-9 CDC/incremental planning evidence.
+///
+/// This report evaluates declared change sets and CDC event summaries only. It does not read
+/// manifests, scan data files, apply changes, write data, contact catalogs, or attempt fallback execution.
+#[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct CdcIncrementalPlanningReport {
+    pub change_set: ChangeSet,
+    pub incremental_plan: IncrementalPlanSkeleton,
+    pub cdc_events: Vec<CdcEventSummary>,
+    pub status: CdcIncrementalPlanningStatus,
+    pub diagnostics: Vec<Diagnostic>,
+    pub insert_count: usize,
+    pub update_count: usize,
+    pub delete_count: usize,
+    pub tombstone_count: usize,
+    pub schema_change_count: usize,
+    pub partition_change_count: usize,
+    pub metadata_only_count: usize,
+    pub unknown_event_count: usize,
+    pub changed_segment_count: usize,
+    pub metadata_only_segment_count: usize,
+    pub unknown_segment_change_count: usize,
+    pub requires_snapshot_pair: bool,
+    pub requires_row_identity: bool,
+    pub requires_delete_handling: bool,
+    pub requires_schema_compatibility: bool,
+    pub requires_partition_compatibility: bool,
+    pub can_reuse_unchanged_segments: bool,
+    pub can_execute_changed_segments_only: bool,
+    pub requires_partial_recompute: bool,
+    pub requires_full_recompute: bool,
+    pub unsupported_change_count: usize,
+    pub data_read: bool,
+    pub write_io: bool,
+    pub catalog_io: bool,
+    pub object_store_io: bool,
+    pub fallback_execution_allowed: bool,
+}
+
+impl CdcIncrementalPlanningReport {
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.incremental_plan.has_errors()
+            || self.unsupported_change_count > 0
+            || self.fallback_execution_allowed
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    #[must_use]
+    pub fn side_effect_free(&self) -> bool {
+        !self.data_read
+            && !self.write_io
+            && !self.catalog_io
+            && !self.object_store_io
+            && !self.fallback_execution_allowed
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "cdc_incremental_plan(status={}, changed_segments={}, inserts={}, updates={}, deletes={}, tombstones={}, schema_changes={}, partition_changes={}, unsupported_changes={}, data_read=false, write_io=false, catalog_io=false, object_store_io=false, fallback_execution=disabled)",
+            self.status.as_str(),
+            self.changed_segment_count,
+            self.insert_count,
+            self.update_count,
+            self.delete_count,
+            self.tombstone_count,
+            self.schema_change_count,
+            self.partition_change_count,
+            self.unsupported_change_count
+        )
+    }
+}
+
+/// Evaluates CDC/incremental planning metadata without performing manifest, catalog, or data I/O.
+#[must_use]
+pub fn evaluate_cdc_incremental_planning(
+    change_set: ChangeSet,
+    cdc_events: Vec<CdcEventSummary>,
+) -> CdcIncrementalPlanningReport {
+    let incremental_plan = IncrementalPlanSkeleton::from_change_set(change_set.clone());
+    let counts = CdcIncrementalCounts::from_change_set_and_events(&change_set, &cdc_events);
+    let requirements = cdc_incremental_requirements(&change_set, counts);
+    let unsupported_change_count =
+        requirements.len() + counts.unknown_events + counts.unknown_segment_changes;
+    let diagnostics = cdc_incremental_diagnostics(&requirements, counts);
+    let status = if unsupported_change_count > 0 || diagnostics_are_errors(&diagnostics) {
+        CdcIncrementalPlanningStatus::Unsupported
+    } else {
+        cdc_status_from_incremental_decision(&incremental_plan.decision)
+    };
+
+    CdcIncrementalPlanningReport {
+        changed_segment_count: counts.changed_segments,
+        metadata_only_segment_count: counts.metadata_only_segments,
+        unknown_segment_change_count: counts.unknown_segment_changes,
+        insert_count: counts.inserts,
+        update_count: counts.updates,
+        delete_count: counts.deletes,
+        tombstone_count: counts.tombstones,
+        schema_change_count: counts.schema_changes,
+        partition_change_count: counts.partition_changes,
+        metadata_only_count: counts.metadata_only_events,
+        unknown_event_count: counts.unknown_events,
+        requires_snapshot_pair: cdc_has_requirement(
+            &requirements,
+            CdcIncrementalRequirement::SnapshotPair,
+        ),
+        requires_row_identity: cdc_has_requirement(
+            &requirements,
+            CdcIncrementalRequirement::RowIdentity,
+        ),
+        requires_delete_handling: cdc_has_requirement(
+            &requirements,
+            CdcIncrementalRequirement::DeleteHandling,
+        ),
+        requires_schema_compatibility: cdc_has_requirement(
+            &requirements,
+            CdcIncrementalRequirement::SchemaCompatibility,
+        ),
+        requires_partition_compatibility: cdc_has_requirement(
+            &requirements,
+            CdcIncrementalRequirement::PartitionCompatibility,
+        ),
+        can_reuse_unchanged_segments: status
+            == CdcIncrementalPlanningStatus::ReuseUnchangedSegments,
+        can_execute_changed_segments_only: status
+            == CdcIncrementalPlanningStatus::ExecuteChangedSegmentsOnly,
+        requires_partial_recompute: status
+            == CdcIncrementalPlanningStatus::PartialRecomputeRequired,
+        requires_full_recompute: status == CdcIncrementalPlanningStatus::FullRecomputeRequired,
+        unsupported_change_count,
+        data_read: false,
+        write_io: false,
+        catalog_io: false,
+        object_store_io: false,
+        fallback_execution_allowed: false,
+        change_set,
+        incremental_plan,
+        cdc_events,
+        status,
+        diagnostics,
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct CdcIncrementalCounts {
+    inserts: usize,
+    updates: usize,
+    deletes: usize,
+    tombstones: usize,
+    schema_changes: usize,
+    partition_changes: usize,
+    metadata_only_events: usize,
+    unknown_events: usize,
+    changed_segments: usize,
+    metadata_only_segments: usize,
+    unknown_segment_changes: usize,
+}
+
+impl CdcIncrementalCounts {
+    fn from_change_set_and_events(change_set: &ChangeSet, events: &[CdcEventSummary]) -> Self {
+        Self {
+            inserts: count_cdc_events(events, CdcEventKind::Insert),
+            updates: count_cdc_events(events, CdcEventKind::Update),
+            deletes: count_cdc_events(events, CdcEventKind::Delete),
+            tombstones: count_cdc_events(events, CdcEventKind::Tombstone),
+            schema_changes: count_cdc_events(events, CdcEventKind::SchemaChange),
+            partition_changes: count_cdc_events(events, CdcEventKind::PartitionChange),
+            metadata_only_events: count_cdc_events(events, CdcEventKind::MetadataOnly),
+            unknown_events: count_cdc_events(events, CdcEventKind::Unknown),
+            changed_segments: change_set.changed_segment_count(),
+            metadata_only_segments: change_set
+                .changes
+                .iter()
+                .filter(|change| change.kind == SegmentChangeKind::MetadataOnly)
+                .count(),
+            unknown_segment_changes: change_set
+                .changes
+                .iter()
+                .filter(|change| change.kind == SegmentChangeKind::Unknown)
+                .count(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CdcIncrementalRequirement {
+    SnapshotPair,
+    RowIdentity,
+    DeleteHandling,
+    SchemaCompatibility,
+    PartitionCompatibility,
+}
+
+impl CdcIncrementalRequirement {
+    fn diagnostic(self) -> Diagnostic {
+        match self {
+            Self::SnapshotPair => cdc_incremental_unsupported_diagnostic(
+                "cdc_incremental_snapshot_pair",
+                "changed-segment CDC planning requires both source and target snapshot ids",
+            ),
+            Self::RowIdentity => cdc_incremental_unsupported_diagnostic(
+                "cdc_incremental_row_identity",
+                "CDC updates/deletes require a native row-identity rule before incremental planning can be certified",
+            ),
+            Self::DeleteHandling => cdc_incremental_unsupported_diagnostic(
+                "cdc_incremental_delete_handling",
+                "CDC delete/tombstone events require native delete/tombstone handling before incremental planning can be certified",
+            ),
+            Self::SchemaCompatibility => cdc_incremental_unsupported_diagnostic(
+                "cdc_incremental_schema_change",
+                "CDC schema-change events require attached schema compatibility evidence",
+            ),
+            Self::PartitionCompatibility => cdc_incremental_unsupported_diagnostic(
+                "cdc_incremental_partition_change",
+                "CDC partition-change events require attached partition compatibility evidence",
+            ),
+        }
+    }
+}
+
+fn cdc_incremental_requirements(
+    change_set: &ChangeSet,
+    counts: CdcIncrementalCounts,
+) -> Vec<CdcIncrementalRequirement> {
+    let mut requirements = Vec::new();
+    if change_set.from_snapshot.is_none() && !change_set.is_empty() {
+        requirements.push(CdcIncrementalRequirement::SnapshotPair);
+    }
+    if counts.updates > 0 || counts.deletes > 0 {
+        requirements.push(CdcIncrementalRequirement::RowIdentity);
+    }
+    if counts.deletes > 0 || counts.tombstones > 0 {
+        requirements.push(CdcIncrementalRequirement::DeleteHandling);
+    }
+    if counts.schema_changes > 0 {
+        requirements.push(CdcIncrementalRequirement::SchemaCompatibility);
+    }
+    if counts.partition_changes > 0 {
+        requirements.push(CdcIncrementalRequirement::PartitionCompatibility);
+    }
+    requirements
+}
+
+fn cdc_has_requirement(
+    requirements: &[CdcIncrementalRequirement],
+    requirement: CdcIncrementalRequirement,
+) -> bool {
+    requirements.contains(&requirement)
+}
+
+fn cdc_incremental_diagnostics(
+    requirements: &[CdcIncrementalRequirement],
+    counts: CdcIncrementalCounts,
+) -> Vec<Diagnostic> {
+    let mut diagnostics: Vec<_> = requirements
+        .iter()
+        .map(|requirement| requirement.diagnostic())
+        .collect();
+    if counts.unknown_events > 0 || counts.unknown_segment_changes > 0 {
+        diagnostics.push(cdc_incremental_unsupported_diagnostic(
+            "cdc_incremental_unknown_change",
+            "unknown CDC events or segment changes cannot be planned safely",
+        ));
+    }
+    diagnostics
+}
+
+fn count_cdc_events(events: &[CdcEventSummary], kind: CdcEventKind) -> usize {
+    events
+        .iter()
+        .filter(|event| event.kind == kind)
+        .map(|event| event.count)
+        .sum()
+}
+
+fn cdc_status_from_incremental_decision(
+    decision: &IncrementalPlanningDecision,
+) -> CdcIncrementalPlanningStatus {
+    match decision {
+        IncrementalPlanningDecision::ReuseUnchangedSegments { .. } => {
+            CdcIncrementalPlanningStatus::ReuseUnchangedSegments
+        }
+        IncrementalPlanningDecision::ExecuteChangedSegmentsOnly { .. } => {
+            CdcIncrementalPlanningStatus::ExecuteChangedSegmentsOnly
+        }
+        IncrementalPlanningDecision::PartialRecompute { .. } => {
+            CdcIncrementalPlanningStatus::PartialRecomputeRequired
+        }
+        IncrementalPlanningDecision::FullRecomputeRequired { .. } => {
+            CdcIncrementalPlanningStatus::FullRecomputeRequired
+        }
+        IncrementalPlanningDecision::Unsupported { .. } => {
+            CdcIncrementalPlanningStatus::Unsupported
+        }
+    }
+}
+
+fn diagnostics_are_errors(diagnostics: &[Diagnostic]) -> bool {
+    diagnostics.iter().any(|diagnostic| {
+        matches!(
+            diagnostic.severity,
+            DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+        )
+    })
+}
+
+fn cdc_incremental_unsupported_diagnostic(
+    feature: impl Into<String>,
+    message: impl Into<String>,
+) -> Diagnostic {
+    Diagnostic::unsupported(
+        DiagnosticCode::UnsupportedEffect,
+        feature,
+        message,
+        Some(
+            "Attach native CDC compatibility evidence before enabling this incremental path."
+                .to_string(),
+        ),
+    )
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WriteIntentStatus {
     Planned,
     Validated,
@@ -887,6 +1310,93 @@ mod tests {
             p.decision,
             IncrementalPlanningDecision::ExecuteChangedSegmentsOnly { .. }
         ));
+    }
+    #[test]
+    fn cdc_incremental_append_only_executes_changed_segments_without_io() {
+        let mut cs = ChangeSet::between(
+            SnapshotId::new("s1").unwrap(),
+            SnapshotId::new("s2").unwrap(),
+        );
+        cs.add_change(SegmentChange::new(
+            SegmentChangeKind::Added,
+            SegmentId::new("a").unwrap(),
+        ));
+
+        let report = evaluate_cdc_incremental_planning(
+            cs,
+            vec![CdcEventSummary::new(CdcEventKind::Insert, 5)],
+        );
+
+        assert_eq!(
+            report.status,
+            CdcIncrementalPlanningStatus::ExecuteChangedSegmentsOnly
+        );
+        assert_eq!(report.insert_count, 5);
+        assert!(report.can_execute_changed_segments_only);
+        assert_eq!(report.unsupported_change_count, 0);
+        assert!(report.side_effect_free());
+        assert!(!report.has_errors());
+    }
+    #[test]
+    fn cdc_incremental_delete_requires_native_delete_handling() {
+        let mut cs = ChangeSet::between(
+            SnapshotId::new("s1").unwrap(),
+            SnapshotId::new("s2").unwrap(),
+        );
+        cs.add_change(SegmentChange::new(
+            SegmentChangeKind::Removed,
+            SegmentId::new("a").unwrap(),
+        ));
+
+        let report = evaluate_cdc_incremental_planning(
+            cs,
+            vec![CdcEventSummary::new(CdcEventKind::Delete, 1)],
+        );
+
+        assert_eq!(report.status, CdcIncrementalPlanningStatus::Unsupported);
+        assert!(report.requires_row_identity);
+        assert!(report.requires_delete_handling);
+        assert!(report.has_errors());
+        assert!(!report.diagnostics[0].fallback.attempted);
+        assert!(report.side_effect_free());
+    }
+    #[test]
+    fn cdc_incremental_missing_snapshot_pair_is_rejected_for_changes() {
+        let mut cs = ChangeSet::new(SnapshotId::new("s2").unwrap());
+        cs.add_change(SegmentChange::new(
+            SegmentChangeKind::Added,
+            SegmentId::new("a").unwrap(),
+        ));
+
+        let report = evaluate_cdc_incremental_planning(
+            cs,
+            vec![CdcEventSummary::new(CdcEventKind::Insert, 1)],
+        );
+
+        assert_eq!(report.status, CdcIncrementalPlanningStatus::Unsupported);
+        assert!(report.requires_snapshot_pair);
+        assert!(report.has_errors());
+    }
+    #[test]
+    fn cdc_incremental_unknown_change_is_rejected() {
+        let mut cs = ChangeSet::between(
+            SnapshotId::new("s1").unwrap(),
+            SnapshotId::new("s2").unwrap(),
+        );
+        cs.add_change(SegmentChange::new(
+            SegmentChangeKind::Unknown,
+            SegmentId::new("a").unwrap(),
+        ));
+
+        let report = evaluate_cdc_incremental_planning(
+            cs,
+            vec![CdcEventSummary::new(CdcEventKind::Unknown, 1)],
+        );
+
+        assert_eq!(report.status, CdcIncrementalPlanningStatus::Unsupported);
+        assert_eq!(report.unknown_segment_change_count, 1);
+        assert_eq!(report.unknown_event_count, 1);
+        assert!(report.has_errors());
     }
     #[test]
     fn incremental_decision_requires_full_recompute_works() {
