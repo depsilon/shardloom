@@ -188,6 +188,10 @@ impl MetricValue {
     }
 }
 
+fn non_empty_option(value: Option<&str>) -> bool {
+    value.is_some_and(|text| !text.trim().is_empty())
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BenchmarkClaimStatus {
     EvidenceMissing,
@@ -272,6 +276,112 @@ impl BenchmarkComparisonStatus {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BenchmarkReproducibilityStatus {
+    Incomplete,
+    Reproducible,
+}
+
+impl BenchmarkReproducibilityStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Incomplete => "incomplete",
+            Self::Reproducible => "reproducible",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_reproducible(&self) -> bool {
+        matches!(self, Self::Reproducible)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BenchmarkCacheState {
+    Unknown,
+    Cold,
+    Warm,
+    Mixed,
+}
+
+impl BenchmarkCacheState {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Unknown => "unknown",
+            Self::Cold => "cold",
+            Self::Warm => "warm",
+            Self::Mixed => "mixed",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_declared(&self) -> bool {
+        !matches!(self, Self::Unknown)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BenchmarkDatasetProfile {
+    pub scenario_name: String,
+    pub dataset_name: Option<String>,
+    pub dataset_scale: Option<String>,
+    pub schema_profile: Option<String>,
+    pub storage_format: Option<String>,
+    pub compression: Option<String>,
+}
+
+impl BenchmarkDatasetProfile {
+    #[must_use]
+    pub fn from_scenario(scenario: &BenchmarkScenario) -> Self {
+        Self {
+            scenario_name: scenario.name.clone(),
+            dataset_name: scenario.dataset_name.clone(),
+            dataset_scale: scenario.dataset_scale.clone(),
+            schema_profile: None,
+            storage_format: scenario.storage_format.clone(),
+            compression: None,
+        }
+    }
+
+    #[must_use]
+    pub fn is_complete(&self) -> bool {
+        non_empty_option(self.dataset_name.as_deref())
+            && non_empty_option(self.dataset_scale.as_deref())
+            && non_empty_option(self.schema_profile.as_deref())
+            && non_empty_option(self.storage_format.as_deref())
+            && non_empty_option(self.compression.as_deref())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BenchmarkEngineVersion {
+    pub engine: BaselineEngine,
+    pub version: String,
+}
+
+impl BenchmarkEngineVersion {
+    /// Creates a comparison engine-version label.
+    ///
+    /// # Errors
+    /// Returns `ShardLoomError::InvalidOperation` when the version is empty.
+    pub fn new(engine: BaselineEngine, version: impl Into<String>) -> Result<Self> {
+        let version = version.into();
+        if version.trim().is_empty() {
+            return Err(ShardLoomError::InvalidOperation(
+                "benchmark engine version must not be empty".to_string(),
+            ));
+        }
+        Ok(Self { engine, version })
+    }
+
+    #[must_use]
+    pub const fn fallback_execution_allowed(&self) -> bool {
+        false
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BenchmarkResultGap {
     pub scenario_name: String,
@@ -283,6 +393,172 @@ pub struct BenchmarkMetricGap {
     pub scenario_name: String,
     pub engine: BaselineEngine,
     pub metric: BenchmarkMetric,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BenchmarkRunManifest {
+    pub manifest_id: String,
+    pub status: BenchmarkReproducibilityStatus,
+    pub scenario_count: usize,
+    pub dataset_profiles: Vec<BenchmarkDatasetProfile>,
+    pub engine_versions: Vec<BenchmarkEngineVersion>,
+    pub missing_engine_versions: Vec<BaselineEngine>,
+    pub hardware_profile: Option<String>,
+    pub operating_system_profile: Option<String>,
+    pub runtime_configuration: Option<String>,
+    pub cache_state: BenchmarkCacheState,
+    pub required_metrics: Vec<BenchmarkMetric>,
+    pub reproduction_steps: Vec<String>,
+    pub correctness_evidence: BenchmarkEvidenceState,
+    pub fallback: BenchmarkFallbackState,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl BenchmarkRunManifest {
+    /// Creates an empty benchmark reproducibility manifest.
+    ///
+    /// # Errors
+    /// Returns `ShardLoomError::InvalidOperation` when `manifest_id` is empty.
+    pub fn new(manifest_id: impl Into<String>) -> Result<Self> {
+        let manifest_id = manifest_id.into();
+        if manifest_id.trim().is_empty() {
+            return Err(ShardLoomError::InvalidOperation(
+                "benchmark run manifest id must not be empty".to_string(),
+            ));
+        }
+        Ok(Self {
+            manifest_id,
+            status: BenchmarkReproducibilityStatus::Incomplete,
+            scenario_count: 0,
+            dataset_profiles: Vec::new(),
+            engine_versions: Vec::new(),
+            missing_engine_versions: Vec::new(),
+            hardware_profile: None,
+            operating_system_profile: None,
+            runtime_configuration: None,
+            cache_state: BenchmarkCacheState::Unknown,
+            required_metrics: Vec::new(),
+            reproduction_steps: Vec::new(),
+            correctness_evidence: BenchmarkEvidenceState::Missing,
+            fallback: BenchmarkFallbackState::NotAttempted,
+            diagnostics: Vec::new(),
+        })
+    }
+
+    #[must_use]
+    pub fn from_plan(plan: &BenchmarkPlan) -> Self {
+        let mut manifest = Self {
+            manifest_id: "cg6-foundation-benchmark-reproducibility".to_string(),
+            status: BenchmarkReproducibilityStatus::Incomplete,
+            scenario_count: 0,
+            dataset_profiles: Vec::new(),
+            engine_versions: Vec::new(),
+            missing_engine_versions: Vec::new(),
+            hardware_profile: None,
+            operating_system_profile: None,
+            runtime_configuration: None,
+            cache_state: BenchmarkCacheState::Unknown,
+            required_metrics: Vec::new(),
+            reproduction_steps: Vec::new(),
+            correctness_evidence: BenchmarkEvidenceState::Missing,
+            fallback: BenchmarkFallbackState::NotAttempted,
+            diagnostics: Vec::new(),
+        };
+        manifest.dataset_profiles = plan
+            .scenarios
+            .iter()
+            .map(BenchmarkDatasetProfile::from_scenario)
+            .collect();
+        manifest.refresh_against_plan(plan);
+        manifest
+    }
+
+    pub fn add_engine_version(&mut self, version: BenchmarkEngineVersion) {
+        if let Some(existing) = self
+            .engine_versions
+            .iter_mut()
+            .find(|existing| existing.engine == version.engine)
+        {
+            *existing = version;
+        } else {
+            self.engine_versions.push(version);
+        }
+    }
+
+    pub fn add_reproduction_step(&mut self, step: impl Into<String>) {
+        let step = step.into();
+        if !step.trim().is_empty() {
+            self.reproduction_steps.push(step);
+        }
+    }
+
+    #[must_use]
+    pub fn has_engine_version(&self, engine: BaselineEngine) -> bool {
+        self.engine_versions
+            .iter()
+            .any(|version| version.engine == engine && !version.version.trim().is_empty())
+    }
+
+    pub fn refresh_against_plan(&mut self, plan: &BenchmarkPlan) {
+        self.scenario_count = plan.scenarios.len();
+        self.required_metrics = plan.required_metrics();
+        self.missing_engine_versions = plan
+            .baseline_engines()
+            .into_iter()
+            .filter(|engine| !self.has_engine_version(*engine))
+            .collect();
+        self.diagnostics.clear();
+        self.status = if self.required_metadata_present(plan) {
+            BenchmarkReproducibilityStatus::Reproducible
+        } else {
+            self.diagnostics.push(Diagnostic::not_implemented(
+                "benchmark reproducibility evidence",
+                "Benchmark run metadata is incomplete for dataset shape, engine versions, hardware, operating system, runtime configuration, cache state, reproduction steps, correctness evidence, or no-fallback evidence.",
+                "Record complete benchmark run metadata before accepting benchmark evidence for performance or superiority claims.",
+            ));
+            BenchmarkReproducibilityStatus::Incomplete
+        };
+    }
+
+    #[must_use]
+    pub fn required_metadata_present(&self, plan: &BenchmarkPlan) -> bool {
+        self.scenario_count == plan.scenarios.len()
+            && self.scenario_count > 0
+            && !self.required_metrics.is_empty()
+            && self.missing_engine_versions.is_empty()
+            && plan.baselines_are_fallback_free()
+            && plan.scenarios.iter().all(|scenario| {
+                self.dataset_profiles
+                    .iter()
+                    .any(|profile| profile.scenario_name == scenario.name && profile.is_complete())
+            })
+            && non_empty_option(self.hardware_profile.as_deref())
+            && non_empty_option(self.operating_system_profile.as_deref())
+            && non_empty_option(self.runtime_configuration.as_deref())
+            && self.cache_state.is_declared()
+            && !self.reproduction_steps.is_empty()
+            && self.correctness_evidence.is_present()
+            && !self.fallback.attempted()
+    }
+
+    #[must_use]
+    pub const fn fallback_execution_allowed(&self) -> bool {
+        false
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "benchmark run manifest\nmanifest: {}\nreproducibility status: {}\nscenarios: {}\nrequired metrics: {}\nengine versions: {}\nmissing engine versions: {}\ncache state: {}\nfallback execution: disabled",
+            self.manifest_id,
+            self.status.as_str(),
+            self.scenario_count,
+            self.required_metrics.len(),
+            self.engine_versions.len(),
+            self.missing_engine_versions.len(),
+            self.cache_state.as_str(),
+        )
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -781,6 +1057,19 @@ impl BenchmarkPlan {
             .iter()
             .flat_map(|scenario| scenario.baselines.iter())
             .all(|baseline| !baseline.is_fallback_allowed())
+    }
+
+    #[must_use]
+    pub fn baseline_engines(&self) -> Vec<BaselineEngine> {
+        let mut engines = Vec::new();
+        for scenario in &self.scenarios {
+            for engine in &scenario.baselines {
+                if !engines.contains(engine) {
+                    engines.push(*engine);
+                }
+            }
+        }
+        engines
     }
 
     #[must_use]
