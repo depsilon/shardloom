@@ -50,11 +50,12 @@ use shardloom_exec::{
     spill_payload_fs_feature_enabled,
 };
 use shardloom_plan::{
-    EstimateReport, ExplainReport, NativePlanDocument, ObjectStoreRangePlanningPolicy,
+    EstimateReport, ExplainReport, NativePlanDocument, ObjectStoreCommitProtocolInput,
+    ObjectStoreCommitProtocolReport, ObjectStoreRangePlanningPolicy,
     ObjectStoreRangePlanningReport, ObjectStoreRequestCoalescingReport, OptimizerPhase,
     OptimizerPlanSkeleton, PlanExportRequest, PlanId, PlanImportRequest, PlanInteropFormat,
-    ProjectionRequest, ScanPlanSkeleton, ScanRequest, plan_object_store_ranges,
-    plan_object_store_request_coalescing, plan_universal_input_source,
+    ProjectionRequest, ScanPlanSkeleton, ScanRequest, plan_object_store_commit_protocol,
+    plan_object_store_ranges, plan_object_store_request_coalescing, plan_universal_input_source,
 };
 use shardloom_vortex::{
     VortexAdapterCapabilityReport, VortexAdapterReadiness, VortexAdaptiveSizingReport,
@@ -172,7 +173,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|layout-health-plan|compaction-plan|object-store-range-plan|object-store-coalesce-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|layout-health-plan|compaction-plan|object-store-range-plan|object-store-coalesce-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -7102,6 +7103,138 @@ fn object_store_coalesce_output_fields(
     fields
 }
 
+fn emit_object_store_commit_plan(format: OutputFormat, scenario: &str) -> ExitCode {
+    let input = match object_store_commit_fixture(scenario) {
+        Ok(input) => input,
+        Err(error) => {
+            return emit_error(
+                "object-store-commit-plan",
+                format,
+                "object-store commit planning failed",
+                &error,
+            );
+        }
+    };
+    let report = plan_object_store_commit_protocol(input);
+    let status = if report.has_errors() {
+        CommandStatus::Unsupported
+    } else {
+        CommandStatus::Success
+    };
+    emit(
+        "object-store-commit-plan",
+        format,
+        status,
+        "object-store commit protocol report".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        object_store_commit_output_fields(&report, scenario),
+    );
+    if report.has_errors() {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+fn object_store_commit_output_fields(
+    report: &ObjectStoreCommitProtocolReport,
+    scenario: &str,
+) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    push_field(&mut fields, "fallback_execution_allowed", "false");
+    push_field(&mut fields, "mode", "object_store_commit_plan");
+    push_field(&mut fields, "scenario", scenario);
+    push_field(
+        &mut fields,
+        "object_store_commit_status",
+        report.status.as_str(),
+    );
+    push_bool_field(
+        &mut fields,
+        "object_store_target",
+        report.object_store_target,
+    );
+    push_bool_field(
+        &mut fields,
+        "requires_staging_prefix",
+        report.requires_staging_prefix,
+    );
+    push_bool_field(
+        &mut fields,
+        "requires_manifest_pointer_update",
+        report.requires_manifest_pointer_update,
+    );
+    push_bool_field(
+        &mut fields,
+        "requires_commit_record",
+        report.requires_commit_record,
+    );
+    push_bool_field(
+        &mut fields,
+        "requires_idempotency_key",
+        report.requires_idempotency_key,
+    );
+    push_bool_field(
+        &mut fields,
+        "requires_cleanup_plan",
+        report.requires_cleanup_plan,
+    );
+    push_bool_field(
+        &mut fields,
+        "requires_atomic_commit_evidence",
+        report.requires_atomic_commit_evidence,
+    );
+    push_bool_field(
+        &mut fields,
+        "commit_execution_allowed",
+        report.commit_execution_allowed,
+    );
+    push_bool_field(
+        &mut fields,
+        "can_plan_without_io",
+        report.can_plan_without_io,
+    );
+    push_bool_field(&mut fields, "side_effect_free", report.side_effect_free());
+    push_bool_field(&mut fields, "object_store_io", report.object_store_io);
+    push_bool_field(&mut fields, "write_io", report.write_io);
+    push_field(&mut fields, "execution", "not_performed");
+    push_field(&mut fields, "plan_only", "true");
+    fields
+}
+
+fn object_store_commit_fixture(
+    scenario: &str,
+) -> Result<ObjectStoreCommitProtocolInput, ShardLoomError> {
+    let ready = || -> Result<ObjectStoreCommitProtocolInput, ShardLoomError> {
+        Ok(
+            ObjectStoreCommitProtocolInput::new(DatasetUri::new("s3://bucket/table/_commit")?)
+                .with_staging_prefix(true)
+                .with_manifest_pointer_update(true)
+                .with_commit_record(true)
+                .with_idempotency_key(true)
+                .with_cleanup_plan(true)
+                .with_provider_atomic_commit(true),
+        )
+    };
+    match scenario {
+        "ready" => ready(),
+        "missing-staging" => Ok(ready()?.with_staging_prefix(false)),
+        "missing-idempotency" => Ok(ready()?.with_idempotency_key(false)),
+        "missing-atomicity" => Ok(ready()?.with_provider_atomic_commit(false)),
+        "local-file" => Ok(ObjectStoreCommitProtocolInput::new(DatasetUri::new(
+            "file://tmp/table/_commit",
+        )?)
+        .with_staging_prefix(true)
+        .with_manifest_pointer_update(true)
+        .with_commit_record(true)
+        .with_idempotency_key(true)
+        .with_cleanup_plan(true)
+        .with_provider_atomic_commit(true)),
+        value => Err(cli_unknown_arg_error("object-store-commit-plan", value)),
+    }
+}
+
 fn object_store_range_fixture(scenario: &str) -> Result<DatasetManifest, ShardLoomError> {
     match scenario {
         "s3-ranges" => object_store_range_manifest(
@@ -10076,6 +10209,18 @@ fn run(args: Vec<String>) -> ExitCode {
                 );
             }
             emit_object_store_coalesce_plan(format, &scenario)
+        }
+        Some("object-store-commit-plan") => {
+            let scenario = args.next().unwrap_or_else(|| "ready".to_string());
+            if let Some(extra) = args.next() {
+                return emit_error(
+                    "object-store-commit-plan",
+                    format,
+                    "object-store commit planning failed",
+                    &cli_unknown_arg_error("object-store-commit-plan", &extra),
+                );
+            }
+            emit_object_store_commit_plan(format, &scenario)
         }
         Some("incremental-plan") => {
             let Some(snapshot_id) = args.next() else {
@@ -17416,6 +17561,24 @@ mod tests {
     }
 
     #[test]
+    fn object_store_commit_plan_ready_returns_success() {
+        let code = run(vec![
+            "object-store-commit-plan".to_string(),
+            "ready".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn object_store_commit_plan_missing_idempotency_returns_non_zero() {
+        let code = run(vec![
+            "object-store-commit-plan".to_string(),
+            "missing-idempotency".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
     fn incremental_plan_cdc_append_only_returns_success() {
         let code = run(vec![
             "incremental-plan".to_string(),
@@ -18357,6 +18520,10 @@ mod tests {
     #[test]
     fn usage_includes_object_store_coalesce_plan() {
         assert!(cli_usage_line().contains("object-store-coalesce-plan"));
+    }
+    #[test]
+    fn usage_includes_object_store_commit_plan() {
+        assert!(cli_usage_line().contains("object-store-commit-plan"));
     }
     #[test]
     fn parse_sizing_feedback_signals_rejects_unknown_and_empty() {

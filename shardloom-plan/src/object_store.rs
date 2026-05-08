@@ -287,6 +287,159 @@ impl ObjectStoreRequestCoalescingReport {
     }
 }
 
+/// Report-only object-store commit protocol input.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct ObjectStoreCommitProtocolInput {
+    pub target_uri: DatasetUri,
+    pub staging_prefix_declared: bool,
+    pub manifest_pointer_update_declared: bool,
+    pub commit_record_declared: bool,
+    pub idempotency_key_declared: bool,
+    pub cleanup_plan_declared: bool,
+    pub provider_atomic_commit_declared: bool,
+}
+
+impl ObjectStoreCommitProtocolInput {
+    #[must_use]
+    pub fn new(target_uri: DatasetUri) -> Self {
+        Self {
+            target_uri,
+            staging_prefix_declared: false,
+            manifest_pointer_update_declared: false,
+            commit_record_declared: false,
+            idempotency_key_declared: false,
+            cleanup_plan_declared: false,
+            provider_atomic_commit_declared: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn with_staging_prefix(mut self, value: bool) -> Self {
+        self.staging_prefix_declared = value;
+        self
+    }
+
+    #[must_use]
+    pub const fn with_manifest_pointer_update(mut self, value: bool) -> Self {
+        self.manifest_pointer_update_declared = value;
+        self
+    }
+
+    #[must_use]
+    pub const fn with_commit_record(mut self, value: bool) -> Self {
+        self.commit_record_declared = value;
+        self
+    }
+
+    #[must_use]
+    pub const fn with_idempotency_key(mut self, value: bool) -> Self {
+        self.idempotency_key_declared = value;
+        self
+    }
+
+    #[must_use]
+    pub const fn with_cleanup_plan(mut self, value: bool) -> Self {
+        self.cleanup_plan_declared = value;
+        self
+    }
+
+    #[must_use]
+    pub const fn with_provider_atomic_commit(mut self, value: bool) -> Self {
+        self.provider_atomic_commit_declared = value;
+        self
+    }
+}
+
+/// Object-store commit protocol planning status.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ObjectStoreCommitProtocolStatus {
+    Ready,
+    BlockedNonObjectStore,
+    BlockedMissingStaging,
+    BlockedMissingManifestPointer,
+    BlockedMissingCommitRecord,
+    BlockedMissingIdempotency,
+    BlockedMissingCleanup,
+    BlockedAtomicity,
+}
+
+impl ObjectStoreCommitProtocolStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Ready => "ready",
+            Self::BlockedNonObjectStore => "blocked_non_object_store",
+            Self::BlockedMissingStaging => "blocked_missing_staging",
+            Self::BlockedMissingManifestPointer => "blocked_missing_manifest_pointer",
+            Self::BlockedMissingCommitRecord => "blocked_missing_commit_record",
+            Self::BlockedMissingIdempotency => "blocked_missing_idempotency",
+            Self::BlockedMissingCleanup => "blocked_missing_cleanup",
+            Self::BlockedAtomicity => "blocked_atomicity",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_error(&self) -> bool {
+        !matches!(self, Self::Ready)
+    }
+}
+
+/// Machine-readable CG-10 object-store commit protocol planning evidence.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct ObjectStoreCommitProtocolReport {
+    pub input: ObjectStoreCommitProtocolInput,
+    pub status: ObjectStoreCommitProtocolStatus,
+    pub diagnostics: Vec<Diagnostic>,
+    pub object_store_target: bool,
+    pub requires_staging_prefix: bool,
+    pub requires_manifest_pointer_update: bool,
+    pub requires_commit_record: bool,
+    pub requires_idempotency_key: bool,
+    pub requires_cleanup_plan: bool,
+    pub requires_atomic_commit_evidence: bool,
+    pub commit_execution_allowed: bool,
+    pub can_plan_without_io: bool,
+    pub object_store_io: bool,
+    pub write_io: bool,
+    pub fallback_execution_allowed: bool,
+}
+
+impl ObjectStoreCommitProtocolReport {
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.status.is_error()
+            || self.commit_execution_allowed
+            || self.object_store_io
+            || self.write_io
+            || self.fallback_execution_allowed
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    #[must_use]
+    pub const fn side_effect_free(&self) -> bool {
+        !self.commit_execution_allowed
+            && !self.object_store_io
+            && !self.write_io
+            && !self.fallback_execution_allowed
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "object_store_commit_protocol(status={}, object_store_target={}, commit_execution=false, object_store_io=false, write_io=false, fallback_execution=disabled)",
+            self.status.as_str(),
+            self.object_store_target
+        )
+    }
+}
+
 /// Plans object-store byte-range request shapes from declared manifest metadata only.
 #[must_use]
 pub fn plan_object_store_ranges(
@@ -338,6 +491,116 @@ pub fn plan_object_store_ranges(
         requests,
         diagnostics,
     }
+}
+
+/// Plans object-store commit protocol readiness without object-store IO or writes.
+#[must_use]
+pub fn plan_object_store_commit_protocol(
+    input: ObjectStoreCommitProtocolInput,
+) -> ObjectStoreCommitProtocolReport {
+    let status = object_store_commit_protocol_status(&input);
+    let diagnostics = object_store_commit_protocol_diagnostics(&input, status);
+    let object_store_target = is_object_store_uri(&input.target_uri);
+
+    ObjectStoreCommitProtocolReport {
+        requires_staging_prefix: !input.staging_prefix_declared,
+        requires_manifest_pointer_update: !input.manifest_pointer_update_declared,
+        requires_commit_record: !input.commit_record_declared,
+        requires_idempotency_key: !input.idempotency_key_declared,
+        requires_cleanup_plan: !input.cleanup_plan_declared,
+        requires_atomic_commit_evidence: !input.provider_atomic_commit_declared,
+        commit_execution_allowed: false,
+        can_plan_without_io: true,
+        object_store_io: false,
+        write_io: false,
+        fallback_execution_allowed: false,
+        input,
+        status,
+        diagnostics,
+        object_store_target,
+    }
+}
+
+fn object_store_commit_protocol_status(
+    input: &ObjectStoreCommitProtocolInput,
+) -> ObjectStoreCommitProtocolStatus {
+    if !is_object_store_uri(&input.target_uri) {
+        ObjectStoreCommitProtocolStatus::BlockedNonObjectStore
+    } else if !input.staging_prefix_declared {
+        ObjectStoreCommitProtocolStatus::BlockedMissingStaging
+    } else if !input.manifest_pointer_update_declared {
+        ObjectStoreCommitProtocolStatus::BlockedMissingManifestPointer
+    } else if !input.commit_record_declared {
+        ObjectStoreCommitProtocolStatus::BlockedMissingCommitRecord
+    } else if !input.idempotency_key_declared {
+        ObjectStoreCommitProtocolStatus::BlockedMissingIdempotency
+    } else if !input.cleanup_plan_declared {
+        ObjectStoreCommitProtocolStatus::BlockedMissingCleanup
+    } else if !input.provider_atomic_commit_declared {
+        ObjectStoreCommitProtocolStatus::BlockedAtomicity
+    } else {
+        ObjectStoreCommitProtocolStatus::Ready
+    }
+}
+
+fn object_store_commit_protocol_diagnostics(
+    input: &ObjectStoreCommitProtocolInput,
+    status: ObjectStoreCommitProtocolStatus,
+) -> Vec<Diagnostic> {
+    if status == ObjectStoreCommitProtocolStatus::Ready {
+        return Vec::new();
+    }
+    let (feature, message, next) = match status {
+        ObjectStoreCommitProtocolStatus::Ready => unreachable!("handled above"),
+        ObjectStoreCommitProtocolStatus::BlockedNonObjectStore => (
+            "object_store_target",
+            "object-store commit protocol requires an S3, GCS, or ADLS target",
+            "Use object-store targets only for object-store commit protocol planning.",
+        ),
+        ObjectStoreCommitProtocolStatus::BlockedMissingStaging => (
+            "staging_prefix",
+            "object-store commit protocol requires a declared staging prefix",
+            "Declare a staging prefix before planning object-store commits.",
+        ),
+        ObjectStoreCommitProtocolStatus::BlockedMissingManifestPointer => (
+            "manifest_pointer",
+            "object-store commit protocol requires a manifest pointer update plan",
+            "Declare manifest pointer update evidence before planning object-store commits.",
+        ),
+        ObjectStoreCommitProtocolStatus::BlockedMissingCommitRecord => (
+            "commit_record",
+            "object-store commit protocol requires a commit record",
+            "Declare commit record evidence before planning object-store commits.",
+        ),
+        ObjectStoreCommitProtocolStatus::BlockedMissingIdempotency => (
+            "idempotency_key",
+            "object-store commit protocol requires an idempotency key",
+            "Declare idempotency key evidence before planning object-store commits.",
+        ),
+        ObjectStoreCommitProtocolStatus::BlockedMissingCleanup => (
+            "cleanup_plan",
+            "object-store commit protocol requires cleanup planning",
+            "Declare cleanup evidence before planning object-store commits.",
+        ),
+        ObjectStoreCommitProtocolStatus::BlockedAtomicity => (
+            "atomic_commit",
+            "object-store commit protocol requires atomicity evidence",
+            "Declare provider atomicity or pointer-swap evidence before planning object-store commits.",
+        ),
+    };
+    vec![Diagnostic::new(
+        DiagnosticCode::CommitNotAtomic,
+        DiagnosticSeverity::Error,
+        DiagnosticCategory::ObjectStore,
+        message,
+        Some(feature.to_string()),
+        Some(format!(
+            "Commit planning for {} is report-only and did not write to storage.",
+            input.target_uri.as_str()
+        )),
+        Some(next.to_string()),
+        FallbackStatus::disabled_by_policy(),
+    )]
 }
 
 /// Plans request coalescing from object-store byte-range request-shape evidence only.
@@ -813,6 +1076,64 @@ mod tests {
             report.status,
             ObjectStoreRequestCoalescingStatus::BlockedByRangePlanning
         );
+        assert!(report.has_errors());
+        assert!(report.side_effect_free());
+    }
+
+    fn ready_commit_input() -> ObjectStoreCommitProtocolInput {
+        ObjectStoreCommitProtocolInput::new(
+            DatasetUri::new("s3://bucket/table/_commit").expect("uri"),
+        )
+        .with_staging_prefix(true)
+        .with_manifest_pointer_update(true)
+        .with_commit_record(true)
+        .with_idempotency_key(true)
+        .with_cleanup_plan(true)
+        .with_provider_atomic_commit(true)
+    }
+
+    #[test]
+    fn object_store_commit_protocol_ready_is_report_only() {
+        let report = plan_object_store_commit_protocol(ready_commit_input());
+
+        assert_eq!(report.status, ObjectStoreCommitProtocolStatus::Ready);
+        assert!(report.object_store_target);
+        assert!(!report.commit_execution_allowed);
+        assert!(report.side_effect_free());
+        assert!(!report.has_errors());
+    }
+
+    #[test]
+    fn object_store_commit_protocol_blocks_non_object_store() {
+        let input = ObjectStoreCommitProtocolInput::new(
+            DatasetUri::new("file://tmp/table/_commit").expect("uri"),
+        )
+        .with_staging_prefix(true)
+        .with_manifest_pointer_update(true)
+        .with_commit_record(true)
+        .with_idempotency_key(true)
+        .with_cleanup_plan(true)
+        .with_provider_atomic_commit(true);
+        let report = plan_object_store_commit_protocol(input);
+
+        assert_eq!(
+            report.status,
+            ObjectStoreCommitProtocolStatus::BlockedNonObjectStore
+        );
+        assert!(!report.object_store_target);
+        assert!(report.has_errors());
+    }
+
+    #[test]
+    fn object_store_commit_protocol_blocks_missing_idempotency() {
+        let input = ready_commit_input().with_idempotency_key(false);
+        let report = plan_object_store_commit_protocol(input);
+
+        assert_eq!(
+            report.status,
+            ObjectStoreCommitProtocolStatus::BlockedMissingIdempotency
+        );
+        assert!(report.requires_idempotency_key);
         assert!(report.has_errors());
         assert!(report.side_effect_free());
     }
