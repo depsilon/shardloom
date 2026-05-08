@@ -1131,6 +1131,11 @@ mod tests {
         assert!(
             req.api_boundary_blockers
                 .iter()
+                .any(|b| b.contains("VortexFile::layout_reader"))
+        );
+        assert!(
+            req.api_boundary_blockers
+                .iter()
                 .any(|b| b.contains("ScanBuilder::into_array_stream"))
         );
         assert!(

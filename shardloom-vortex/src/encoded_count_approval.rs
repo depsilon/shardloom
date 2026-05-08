@@ -451,6 +451,12 @@ mod tests {
             report
                 .api_boundary_blockers
                 .iter()
+                .any(|b| b.contains("VortexFile::layout_reader"))
+        );
+        assert!(
+            report
+                .api_boundary_blockers
+                .iter()
                 .any(|b| b.contains("ScanBuilder::into_array_stream"))
         );
         assert!(

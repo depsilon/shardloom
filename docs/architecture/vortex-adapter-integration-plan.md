@@ -807,7 +807,7 @@ CG-2.1c metadata-footer `CountAll` execution is wired; non-metadata execution re
 ## CG-2.1e.3 named count API-boundary blockers
 
 - Count readiness now carries named blocked API-boundary summaries from the encoded-read probe so adapter/source work can see the exact Vortex public surface that blocked execution readiness.
-- Scan, stream, layout-evaluation, and data-source blockers remain visible by name; metadata-like `LayoutReader::row_count` is intentionally excluded from blocker propagation.
+- Scan, stream, layout-reader construction, layout-evaluation, and data-source blockers remain visible by name; metadata-like `LayoutReader::row_count` is intentionally excluded from blocker propagation.
 - This remains report metadata only and does not call scan/read-start APIs, array stream/evaluation APIs, traverse encoded data, read rows, decode/materialize, convert to `Arrow`, perform object-store IO, write, or attempt fallback execution.
 
 ## CG-2.1e.4 encoded-count admission blocker guard
@@ -845,6 +845,13 @@ CG-2.1c metadata-footer `CountAll` execution is wired; non-metadata execution re
 - Current adapter/API blockers are rejected by the guard, keeping scan/stream/layout-evaluation/data-source work out of the execution path.
 - A future approved adapter boundary can only return deferred `NeedsEncodedRead` until actual encoded-data count execution is separately approved.
 - This remains report-only and does not call scan/read-start APIs, array stream/evaluation APIs, traverse encoded data, read rows, decode/materialize, convert to `Arrow`, perform object-store IO, write, or attempt fallback execution.
+
+## CG-2.1e.9 layout-reader construction blocker hardening
+
+- Adapter planning now treats `VortexFile::layout_reader` as a runtime-driver blocker because its public construction path reaches `VortexFile::segment_source`.
+- `LayoutReader::row_count` remains metadata-like, but adapters must not use it as encoded-count execution evidence until a local-driver approval boundary exists.
+- The named blocker is preserved through count-readiness and encoded-count approval so adapter work cannot accidentally widen into layout-reader construction.
+- This remains classification-only and does not construct `LayoutReader`, call scan/read-start APIs, array stream/evaluation APIs, traverse encoded data, read rows, decode/materialize, convert to `Arrow`, perform object-store IO, write, or attempt fallback execution.
 
 
 ## CG-2.2a filtered-count readiness core contract
