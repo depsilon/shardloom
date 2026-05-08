@@ -816,6 +816,14 @@ CG-2.1c metadata-footer `CountAll` execution is wired; non-metadata execution re
 - Future adapter/source execution work must clear or explicitly approve these blockers before encoded `CountAll` can move past admission.
 - This remains guardrail-only and does not call scan/read-start APIs, array stream/evaluation APIs, traverse encoded data, read rows, decode/materialize, convert to `Arrow`, perform object-store IO, write, or attempt fallback execution.
 
+## CG-2.1e.5 `VortexFile::row_count` metadata-surface approval
+
+- The adapter boundary now distinguishes direct file metadata from layout-reader construction: `VortexFile::row_count` is compile-checked and approved as a public metadata-only count surface.
+- Adapter planning may use `VortexFile::row_count` as count-planning evidence where a `VortexFile` is already available through the approved metadata/footer path.
+- `LayoutReader::row_count` remains deferred because building a `LayoutReader` is not yet approved as a count execution or metadata admission path.
+- Scan, stream, layout-evaluation, and data-source surfaces remain blocked or deferred for actual count execution until adapter-level no-decode/no-materialization behavior is approved.
+- This remains classification-only and does not call scan/read-start APIs, array stream/evaluation APIs, traverse encoded data, read rows, decode/materialize, convert to `Arrow`, perform object-store IO, write, or attempt fallback execution.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.

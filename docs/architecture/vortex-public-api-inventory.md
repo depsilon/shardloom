@@ -54,7 +54,7 @@ This document records upstream `vortex` public APIs inspected for ShardLoom adap
 - Risks: stats exactness/typing details unclear.
 
 ### File/open APIs
-- Public API names discovered: `vortex::file::VortexOpenOptions`, `vortex::file::OpenOptionsSessionExt`, `vortex::file::VortexFile::footer`.
+- Public API names discovered: `vortex::file::VortexOpenOptions`, `vortex::file::OpenOptionsSessionExt`, `vortex::file::VortexFile::footer`, and `vortex::file::VortexFile::row_count`.
 - Use now: yes, only in `invoke_vortex_metadata_footer_probe_with_session_async` behind `vortex-file-io` with a caller-provided `VortexSession`.
 - Stability: acceptable for the narrow local metadata/footer fixture path.
 - Adapter support: local metadata/footer only; scans, encoded data traversal, object-store IO, and writes remain deferred.
@@ -304,14 +304,15 @@ This contract does not call upstream Vortex scan execution. It consumes `ShardLo
 
 This update adds a `ShardLoom` contract-only boundary for future `Vortex` encoded-read work.
 
-Confirmed public upstream API surfaces from the current review include `VortexOpenOptions`, `OpenOptionsSessionExt`, and `VortexFile::footer` plus related metadata (`row_count`/`dtype`) surfaces. The CG-2.1e.2 classification also compile-checks exact public data-access-adjacent symbols: `VortexFile::layout_reader`, `LayoutReader::row_count`, `VortexFile::scan`, `ScanBuilder::into_array_stream`, `ScanBuilder::into_array_iter`, `LayoutReader::projection_evaluation`, `LayoutReader::filter_evaluation`, and `VortexFile::data_source`.
+Confirmed public upstream API surfaces from the current review include `VortexOpenOptions`, `OpenOptionsSessionExt`, `VortexFile::footer`, and the direct footer-backed `VortexFile::row_count` metadata surface plus related `dtype` metadata surfaces. The CG-2.1e.2/CG-2.1e.5 classifications also compile-check exact public data-access-adjacent symbols: `VortexFile::layout_reader`, `LayoutReader::row_count`, `VortexFile::scan`, `ScanBuilder::into_array_stream`, `ScanBuilder::into_array_iter`, `LayoutReader::projection_evaluation`, `LayoutReader::filter_evaluation`, and `VortexFile::data_source`.
 
 Contract-usable now:
 - `VortexOpenOptions` + `OpenOptionsSessionExt::open_path` + `VortexFile::footer` in the feature-gated local metadata/footer fixture path.
+- `VortexFile::row_count` as a public metadata-only footer row-count method for count planning evidence.
 - `row_count`/`dtype` metadata summaries in the same local fixture path.
 
 Deferred contract surfaces:
-- `VortexFile::scan`, `ScanBuilder::into_array_stream`, `ScanBuilder::into_array_iter`, `LayoutReader::projection_evaluation`, `LayoutReader::filter_evaluation`, `VortexFile::data_source`, object-store, and write surfaces remain deferred or forbidden while encoded-read execution remains blocked by default.
+- `VortexFile::layout_reader`, `LayoutReader::row_count`, `VortexFile::scan`, `ScanBuilder::into_array_stream`, `ScanBuilder::into_array_iter`, `LayoutReader::projection_evaluation`, `LayoutReader::filter_evaluation`, `VortexFile::data_source`, object-store, and write surfaces remain deferred or forbidden while encoded-read execution remains blocked by default.
 
 APIs that would start data reads:
 - Scan/start-read APIs are explicitly classified under data-read and marked forbidden for now.
@@ -701,6 +702,14 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - A readiness request that still names blocked surfaces cannot become `CountReady`, even with `EncodedDataPathReady`.
 - Local encoded-count admission rejects reports with named blockers instead of deferring them as execution candidates.
 - This remains a guardrail only and introduces no scan/read-start invocation, array stream/evaluation call, encoded-data traversal, row read, decode/materialization, `Arrow` conversion, object-store IO, write, or fallback execution.
+
+## CG-2.1e.5 `VortexFile::row_count` metadata-surface approval
+
+- `VortexFile::row_count` is compile-checked as an exact public upstream method and classified as confirmed public `file_metadata`.
+- This approval is metadata-only: the method is contract-usable for count-planning evidence because it is a direct footer row-count wrapper, but it is not execution-usable under the encoded-read API boundary.
+- `LayoutReader::row_count` remains deferred because constructing a layout reader is not yet an approved count path, even though the method itself is metadata-like.
+- `VortexFile::layout_reader`, `VortexFile::scan`, `ScanBuilder::into_array_stream`, `ScanBuilder::into_array_iter`, `LayoutReader::projection_evaluation`, `LayoutReader::filter_evaluation`, and `VortexFile::data_source` remain blocked or deferred for execution.
+- This remains classification-only and introduces no scan/read-start invocation, array stream/evaluation call, encoded-data traversal, row read, decode/materialization, `Arrow` conversion, object-store IO, write, or fallback execution.
 
 
 ## CG-2.2a filtered-count readiness core contract
