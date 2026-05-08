@@ -1,8 +1,8 @@
 use shardloom_core::{
     KernelKind, OperatorCertificationStatus, OperatorMemoryCertification,
-    PhysicalKernelRequirement, PhysicalKernelRequirementStatus, PhysicalOperatorContract,
-    PhysicalOperatorExecutionLevel, PhysicalOperatorKind, PhysicalOperatorPlan,
-    PhysicalOperatorReadinessStatus,
+    PhysicalKernelRegistryPlan, PhysicalKernelRequirement, PhysicalKernelRequirementStatus,
+    PhysicalOperatorContract, PhysicalOperatorExecutionLevel, PhysicalOperatorKind,
+    PhysicalOperatorPlan, PhysicalOperatorReadinessStatus,
 };
 
 #[test]
@@ -62,6 +62,46 @@ fn reference_only_kernel_requirement_cannot_satisfy_native_operator() {
     );
     assert!(!unsupported_requirement.is_satisfied());
     assert_eq!(PhysicalOperatorKind::Unsupported.operator_family(), None);
+}
+
+#[test]
+fn cg7_kernel_registry_plan_names_required_missing_kernel_slots() {
+    let registry = PhysicalKernelRegistryPlan::cg7_foundation();
+
+    assert_eq!(
+        registry.schema_version,
+        "shardloom.physical_kernel_registry_plan.v1"
+    );
+    assert_eq!(
+        registry.registry_id,
+        "cg7.1-physical-operator-foundation.kernel-registry"
+    );
+    assert_eq!(registry.required_slot_count(), 6);
+    assert_eq!(registry.present_slot_count(), 0);
+    assert_eq!(registry.missing_slot_count(), 6);
+    assert_eq!(registry.reference_only_rejected_count(), 0);
+    assert!(!registry.all_required_slots_satisfied());
+    assert!(!registry.fallback_execution_allowed());
+    assert!(!registry.runtime_execution_allowed());
+    assert!(!registry.diagnostics.is_empty());
+    assert!(
+        registry
+            .required_slots
+            .iter()
+            .any(|slot| slot.slot_id == "cg7.1.filter.kernel.metadata")
+    );
+    assert!(
+        registry
+            .required_slots
+            .iter()
+            .all(|slot| !slot.fallback_execution_allowed())
+    );
+    assert!(registry.to_human_text().contains("missing slots: 6"));
+    assert!(
+        registry
+            .to_human_text()
+            .contains("runtime execution: disabled")
+    );
 }
 
 #[test]
