@@ -57,9 +57,10 @@ use shardloom_plan::{
     ObjectStoreDistributedSchedulingReport, ObjectStoreRangePlanningPolicy,
     ObjectStoreRangePlanningReport, ObjectStoreRequestCoalescingReport, OptimizerPhase,
     OptimizerPlanSkeleton, PlanExportRequest, PlanId, PlanImportRequest, PlanInteropFormat,
-    ProjectionRequest, ScanPlanSkeleton, ScanRequest, plan_object_store_checkpoint_retry,
-    plan_object_store_commit_protocol, plan_object_store_distributed_scheduling,
-    plan_object_store_ranges, plan_object_store_request_coalescing, plan_universal_input_source,
+    PlanPortabilityReport, ProjectionRequest, ScanPlanSkeleton, ScanRequest,
+    plan_object_store_checkpoint_retry, plan_object_store_commit_protocol,
+    plan_object_store_distributed_scheduling, plan_object_store_ranges,
+    plan_object_store_request_coalescing, plan_universal_input_source,
 };
 use shardloom_vortex::{
     VortexAdapterCapabilityReport, VortexAdapterReadiness, VortexAdaptiveSizingReport,
@@ -2934,6 +2935,103 @@ fn python_wrapper_fields(report: &PythonWrapperFoundationReport) -> Vec<(String,
         "external_publish_performed",
         report.external_publish,
     );
+    push_bool_field(
+        &mut fields,
+        "fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(&mut fields, "fallback_attempted", report.fallback_attempted);
+    push_count_field(&mut fields, "diagnostic_count", report.diagnostics.len());
+    fields
+}
+
+fn plan_portability_fields(report: &PlanPortabilityReport, mode: &str) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    push_field(&mut fields, "mode", mode);
+    push_field(&mut fields, "execution", "not_performed");
+    push_field(&mut fields, "plan_only", "true");
+    push_field(&mut fields, "schema_version", report.schema_version);
+    push_field(&mut fields, "report_id", &report.report_id);
+    push_field(&mut fields, "direction", report.direction.as_str());
+    push_field(&mut fields, "portability_status", report.status.as_str());
+    push_field(
+        &mut fields,
+        "interop_format",
+        report.interop_format.as_str(),
+    );
+    push_field(
+        &mut fields,
+        "native_plan_schema_version",
+        &report.native_plan_schema_version.summary(),
+    );
+    push_bool_field(&mut fields, "native_first", report.native_first);
+    push_bool_field(&mut fields, "validation_only", report.validation_only);
+    push_bool_field(
+        &mut fields,
+        "validation_required",
+        report.validation_required,
+    );
+    push_bool_field(
+        &mut fields,
+        "capability_check_required",
+        report.capability_check_required,
+    );
+    push_field(
+        &mut fields,
+        "supported_constructs",
+        &report.supported_constructs.join(","),
+    );
+    push_field(
+        &mut fields,
+        "native_only_nodes",
+        &report.native_only_nodes.join(","),
+    );
+    push_field(
+        &mut fields,
+        "substrait_like_representable_nodes",
+        &report.substrait_like_representable_nodes.join(","),
+    );
+    push_field(&mut fields, "lossy_nodes", &report.lossy_nodes.join(","));
+    push_field(
+        &mut fields,
+        "unsupported_nodes",
+        &report.unsupported_nodes.join(","),
+    );
+    push_field(
+        &mut fields,
+        "residual_unsupported_constructs",
+        &report.residual_unsupported_constructs.join(","),
+    );
+    push_field(
+        &mut fields,
+        "metadata_loss_boundaries",
+        &report.metadata_loss_boundaries.join(","),
+    );
+    push_bool_field(
+        &mut fields,
+        "encoded_semantics_loss",
+        report.encoded_semantics_loss,
+    );
+    push_bool_field(&mut fields, "redaction_required", report.redaction_required);
+    push_bool_field(&mut fields, "parser_executed", report.parser_executed);
+    push_bool_field(
+        &mut fields,
+        "import_export_serialization_performed",
+        report.import_export_serialization_performed,
+    );
+    push_bool_field(&mut fields, "runtime_execution", report.runtime_execution);
+    push_bool_field(
+        &mut fields,
+        "external_engine_execution",
+        report.external_engine_execution,
+    );
+    push_bool_field(&mut fields, "filesystem_probe", report.filesystem_probe);
+    push_bool_field(&mut fields, "network_probe", report.network_probe);
+    push_bool_field(&mut fields, "catalog_probe", report.catalog_probe);
+    push_bool_field(&mut fields, "adapter_probe", report.adapter_probe);
+    push_bool_field(&mut fields, "read_io", report.read_io);
+    push_bool_field(&mut fields, "write_io", report.write_io);
+    push_bool_field(&mut fields, "side_effect_free", report.side_effect_free);
     push_bool_field(
         &mut fields,
         "fallback_execution_allowed",
@@ -9520,25 +9618,15 @@ fn run(args: Vec<String>) -> ExitCode {
             };
             let mut document = NativePlanDocument::empty(plan_id);
             document.validate_skeleton();
+            let report = PlanPortabilityReport::native_skeleton(&document);
             emit(
                 "plan-ir",
                 format,
                 CommandStatus::Warning,
                 "native plan ir skeleton".to_string(),
-                document.to_human_text(),
-                document.validation.diagnostics.clone(),
-                vec![
-                    (
-                        "fallback_execution_allowed".to_string(),
-                        "false".to_string(),
-                    ),
-                    ("mode".to_string(), "plan_ir".to_string()),
-                    ("write_io".to_string(), "false".to_string()),
-                    ("execution".to_string(), "not_performed".to_string()),
-                    ("plan_only".to_string(), "true".to_string()),
-                    ("interop_format".to_string(), "native".to_string()),
-                    ("validation_required".to_string(), "true".to_string()),
-                ],
+                format!("{}\n\n{}", document.to_human_text(), report.to_human_text()),
+                report.diagnostics.clone(),
+                plan_portability_fields(&report, "plan_ir"),
             );
             ExitCode::SUCCESS
         }
@@ -9558,28 +9646,15 @@ fn run(args: Vec<String>) -> ExitCode {
                     return emit_error("plan-import", format, "invalid import request", &error);
                 }
             };
+            let report = PlanPortabilityReport::for_import_request(&request);
             emit(
                 "plan-import",
                 format,
                 CommandStatus::Unsupported,
                 "plan import skeleton".to_string(),
-                request.summary(),
-                request.diagnostics.clone(),
-                vec![
-                    (
-                        "fallback_execution_allowed".to_string(),
-                        "false".to_string(),
-                    ),
-                    ("mode".to_string(), "plan_import".to_string()),
-                    ("write_io".to_string(), "false".to_string()),
-                    ("execution".to_string(), "not_performed".to_string()),
-                    ("plan_only".to_string(), "true".to_string()),
-                    (
-                        "interop_format".to_string(),
-                        format_kind.as_str().to_string(),
-                    ),
-                    ("validation_required".to_string(), "true".to_string()),
-                ],
+                format!("{}\n\n{}", request.summary(), report.to_human_text()),
+                report.diagnostics.clone(),
+                plan_portability_fields(&report, "plan_import"),
             );
             ExitCode::from(1)
         }
@@ -9590,28 +9665,15 @@ fn run(args: Vec<String>) -> ExitCode {
             };
             let format_kind = parse_plan_interop_format(&format_raw);
             let request = PlanExportRequest::not_implemented(format_kind);
+            let report = PlanPortabilityReport::for_export_request(&request);
             emit(
                 "plan-export",
                 format,
                 CommandStatus::Unsupported,
                 "plan export skeleton".to_string(),
-                request.summary(),
-                request.diagnostics.clone(),
-                vec![
-                    (
-                        "fallback_execution_allowed".to_string(),
-                        "false".to_string(),
-                    ),
-                    ("mode".to_string(), "plan_export".to_string()),
-                    ("write_io".to_string(), "false".to_string()),
-                    ("execution".to_string(), "not_performed".to_string()),
-                    ("plan_only".to_string(), "true".to_string()),
-                    (
-                        "interop_format".to_string(),
-                        format_kind.as_str().to_string(),
-                    ),
-                    ("validation_required".to_string(), "false".to_string()),
-                ],
+                format!("{}\n\n{}", request.summary(), report.to_human_text()),
+                report.diagnostics.clone(),
+                plan_portability_fields(&report, "plan_export"),
             );
             ExitCode::from(1)
         }

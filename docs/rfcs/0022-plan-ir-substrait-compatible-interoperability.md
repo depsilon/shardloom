@@ -239,6 +239,17 @@ Unsupported plan behavior must fail explicitly with deterministic diagnostics an
 ### Plan portability reporting
 
 - PlanPortabilityReport should include:
+  - `schema_version`
+  - `report_id`
+  - `direction`
+  - `status`
+  - `interop_format`
+  - `native_plan_schema_version`
+  - `native_first=true`
+  - `validation_only=true`
+  - `validation_required`
+  - `capability_check_required`
+  - `supported_constructs`
   - `native_only_nodes`
   - `substrait_like_representable_nodes`
   - `lossy_nodes`
@@ -246,6 +257,19 @@ Unsupported plan behavior must fail explicitly with deterministic diagnostics an
   - `residual_unsupported_constructs`
   - `metadata_loss_boundaries`
   - `encoded_semantics_loss`
+  - `redaction_required`
+  - `parser_executed=false`
+  - `import_export_serialization_performed=false`
+  - `runtime_execution=false`
+  - `external_engine_execution=false`
+  - `filesystem_probe=false`
+  - `network_probe=false`
+  - `catalog_probe=false`
+  - `adapter_probe=false`
+  - `read_io=false`
+  - `write_io=false`
+  - `side_effect_free=true`
+  - `fallback_execution_allowed=false`
   - `fallback_attempted=false`
   - `diagnostics`.
 - Export/import validation must be validation-only and must not execute plans.
@@ -253,6 +277,7 @@ Unsupported plan behavior must fail explicitly with deterministic diagnostics an
 - Imported plans must pass ShardLoom capability checks before any execution path is considered.
 - Unsupported imported plans must fail deterministically with explicit diagnostics.
 - Substrait-like export/import is for validation and interoperability only, not external execution.
+- Initial implementation may expose the report through `plan-ir`, `plan-import`, and `plan-export` before real serialization/import/export exists.
 
 ## Systems-learning portability vocabulary (R5.1)
 
