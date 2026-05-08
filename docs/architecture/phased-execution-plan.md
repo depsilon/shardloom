@@ -10,22 +10,21 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [x] Session label: CG-2.1e.4 encoded-count admission blocker guard
-  - Current cleanup/implementation step: Prevent encoded-data `CountAll` admission whenever named API-boundary blockers are present.
+- [x] Session label: CG-2.1e.5 VortexFile row-count metadata approval
+  - Current cleanup/implementation step: Approve exact `VortexFile::row_count` as a public metadata-only count surface while keeping layout/scan/evaluation paths blocked for execution.
   - Primary files:
-    - `shardloom-vortex/src/count_readiness.rs`
-    - `shardloom-vortex/src/local_execution.rs`
+    - `shardloom-vortex/src/encoded_read_api.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
     - `docs/architecture/vortex-public-api-inventory.md`
     - `docs/architecture/vortex-adapter-integration-plan.md`
-  - Scope: Count-readiness and local-execution admission guard only; named API-boundary blockers force blocked readiness and prevent encoded-count defer/admission.
+  - Scope: API-boundary classification and compile probe only; `VortexFile::row_count` is contract-usable metadata, not an encoded-data traversal path.
   - Explicitly not included: Calling scan/read-start APIs, calling array-stream/evaluation APIs, encoded-data traversal, row reads, actual encoded count execution, filtered count execution, projection execution, decode/materialization, Arrow conversion, object-store IO, writes, fallback execution, SQL/API/adapter expansion, or superiority claims.
   - Validation required:
     - `cargo fmt --all -- --check`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: Encoded-data count readiness with named API-boundary blockers is blocked by scan-execution risk even when encoded-data-ready is otherwise signaled; local encoded-count admission rejects such reports without data reads or fallback.
+  - Completion notes: `VortexFile::row_count` is now a confirmed public metadata-only surface; `LayoutReader::row_count`, `VortexFile::scan`, `ScanBuilder`, and layout evaluation APIs remain non-execution surfaces until separately approved.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -380,6 +379,13 @@
     - Count readiness cannot become `CountReady` while named API-boundary blockers are present.
     - Local encoded-count admission rejects readiness reports that carry named API-boundary blockers.
     - No scan/read-start invocation, encoded-data traversal, row read, decode/materialization, Arrow conversion, object-store IO, write, or fallback execution is added.
+- [x] CG-2.1e.5 `VortexFile::row_count` metadata-surface approval
+  - Why: distinguish the safe public footer-backed row-count method from layout/scan/evaluation data paths.
+  - Acceptance:
+    - `VortexFile::row_count` is compile-checked and classified as confirmed public metadata.
+    - `VortexFile::row_count` is contract-usable but not execution-usable.
+    - `LayoutReader::row_count` remains metadata-like but deferred because constructing layout readers is not yet an approved count path.
+    - No scan/read-start invocation, encoded-data traversal, row read, decode/materialization, Arrow conversion, object-store IO, write, or fallback execution is added.
 - [ ] CG-2.1e encoded-data count execution path (planned)
   - Why: turn the approved encoded-data count candidate into actual native encoded execution after the public Vortex data path is approved.
   - Acceptance:
@@ -418,6 +424,7 @@ Status legend:
   - [x] CG-2.1e.2 exact Vortex data-access API classification
   - [x] CG-2.1e.3 named count API-boundary blockers
   - [x] CG-2.1e.4 encoded-count admission blocker guard
+  - [x] CG-2.1e.5 `VortexFile::row_count` metadata-surface approval
   - [~] CG-2.1+ non-metadata primitive execution remains deferred pending actual encoded-data execution
   - [x] CG-2.3b projection readiness CLI integration
   - Required capabilities for completion:
@@ -575,6 +582,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.2 exact Vortex data-access API classification
 - [x] CG-2.1e.3 named count API-boundary blockers
 - [x] CG-2.1e.4 encoded-count admission blocker guard
+- [x] CG-2.1e.5 `VortexFile::row_count` metadata-surface approval
 - [x] CG-2.2a filtered-count readiness core contract
 - [x] CG-2.2a.1 filtered-count blocker precision hardening
 - [x] CG-2.2b filtered-count readiness CLI integration
@@ -747,6 +755,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.2 exact Vortex data-access API classification keeps scan/stream/evaluation surfaces blocked for execution.
 - [x] CG-2.1e.3 count readiness now names exact blocked API-boundary surfaces from the encoded-read probe.
 - [x] CG-2.1e.4 local encoded-count admission rejects reports with named API-boundary blockers.
+- [x] CG-2.1e.5 `VortexFile::row_count` is approved as metadata-only public API evidence.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [~] CG-3 real Vortex payload writes remain deferred; placeholder artifact paths are not completion evidence.
 

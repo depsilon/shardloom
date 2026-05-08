@@ -18,6 +18,8 @@ type VortexFileScanMethodProbe = fn(
 #[cfg(feature = "vortex-file-io")]
 type VortexFileDataSourceMethodProbe =
     fn(&vortex::file::VortexFile) -> vortex::error::VortexResult<vortex::scan::DataSourceRef>;
+#[cfg(feature = "vortex-file-io")]
+type VortexFileRowCountMethodProbe = fn(&vortex::file::VortexFile) -> u64;
 
 #[cfg(feature = "vortex-file-io")]
 fn scan_builder_into_array_stream_method_item_probe(
@@ -68,6 +70,7 @@ fn layout_reader_filter_evaluation_method_item_probe(
 pub fn vortex_encoded_read_public_api_compile_probe_summary() -> &'static str {
     let layout_reader_method: VortexFileLayoutReaderMethodProbe =
         vortex::file::VortexFile::layout_reader;
+    let file_row_count_method: VortexFileRowCountMethodProbe = vortex::file::VortexFile::row_count;
     let scan_method: VortexFileScanMethodProbe = vortex::file::VortexFile::scan;
     let data_source_method: VortexFileDataSourceMethodProbe = vortex::file::VortexFile::data_source;
     let scan_builder_stream_method = scan_builder_into_array_stream_method_item_probe;
@@ -79,6 +82,7 @@ pub fn vortex_encoded_read_public_api_compile_probe_summary() -> &'static str {
     let layout_filter_method = layout_reader_filter_evaluation_method_item_probe;
     let _ = (
         layout_reader_method,
+        file_row_count_method,
         scan_method,
         data_source_method,
         scan_builder_stream_method,
@@ -88,7 +92,7 @@ pub fn vortex_encoded_read_public_api_compile_probe_summary() -> &'static str {
         layout_filter_method,
     );
 
-    "confirmed public encoded-read-adjacent symbols: `VortexFile::layout_reader`, `LayoutReader::row_count`, `VortexFile::scan`, `ScanBuilder::into_array_stream`, `ScanBuilder::into_array_iter`, `LayoutReader::projection_evaluation`, `LayoutReader::filter_evaluation`, and `VortexFile::data_source`; scan and array stream/evaluation surfaces remain classified as not execution-usable by ShardLoom until no-decode/no-materialization behavior is approved"
+    "confirmed public encoded-read-adjacent symbols: `VortexFile::row_count`, `VortexFile::layout_reader`, `LayoutReader::row_count`, `VortexFile::scan`, `ScanBuilder::into_array_stream`, `ScanBuilder::into_array_iter`, `LayoutReader::projection_evaluation`, `LayoutReader::filter_evaluation`, and `VortexFile::data_source`; scan and array stream/evaluation surfaces remain classified as not execution-usable by ShardLoom until no-decode/no-materialization behavior is approved"
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -500,7 +504,7 @@ impl VortexEncodedReadApiBoundaryReport {
     }
 }
 
-fn vortex_encoded_read_metadata_api_items() -> [Result<VortexEncodedReadApiItem>; 4] {
+fn vortex_encoded_read_metadata_api_items() -> [Result<VortexEncodedReadApiItem>; 5] {
     [
         VortexEncodedReadApiItem::new(
             VortexEncodedReadApiArea::FileOpen,
@@ -518,6 +522,16 @@ fn vortex_encoded_read_metadata_api_items() -> [Result<VortexEncodedReadApiItem>
             "VortexFile::footer",
             VortexEncodedReadApiStatus::ConfirmedPublic,
         ),
+        VortexEncodedReadApiItem::new(
+            VortexEncodedReadApiArea::FileMetadata,
+            "VortexFile::row_count",
+            VortexEncodedReadApiStatus::ConfirmedPublic,
+        )
+        .map(|item| {
+            item.with_notes(
+                "Public metadata-only wrapper over footer row count; approved for metadata count planning, not encoded-data traversal.",
+            )
+        }),
         VortexEncodedReadApiItem::new(
             VortexEncodedReadApiArea::DType,
             "row_count/dtype metadata surfaces",
@@ -739,6 +753,17 @@ mod tests {
     #[test]
     fn boundary_lists_exact_vortex_data_access_surfaces() {
         let r = vortex_encoded_read_public_api_boundary();
+        let file_row_count = item_named(&r, "VortexFile::row_count");
+        assert_eq!(file_row_count.area, VortexEncodedReadApiArea::FileMetadata);
+        assert_eq!(
+            file_row_count.status,
+            VortexEncodedReadApiStatus::ConfirmedPublic
+        );
+        assert_eq!(file_row_count.risk, VortexEncodedReadApiRisk::None);
+        assert!(file_row_count.is_contract_usable());
+        assert!(!file_row_count.is_execution_usable());
+        assert!(!file_row_count.is_blocked());
+
         let layout_reader = item_named(&r, "VortexFile::layout_reader");
         assert_eq!(layout_reader.area, VortexEncodedReadApiArea::Layout);
         assert_eq!(
@@ -818,6 +843,7 @@ mod tests {
     fn compile_probe_summary_lists_data_access_surfaces() {
         let summary = vortex_encoded_read_public_api_compile_probe_summary();
         for symbol in [
+            "VortexFile::row_count",
             "VortexFile::layout_reader",
             "LayoutReader::row_count",
             "VortexFile::scan",
