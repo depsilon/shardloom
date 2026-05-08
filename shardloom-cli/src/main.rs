@@ -11,10 +11,11 @@ use shardloom_core::{
     DatasetRef, DatasetUri, ExtensionId, ExtensionInspectionReport, ExtensionLicenseKind,
     ExtensionManifest, ExtensionProvenance, ExtensionRegistrySnapshot, ExtensionVersion,
     IncrementalPlanSkeleton, InputAdapterRegistrySnapshot, KernelRegistrySnapshot, ManifestId,
-    ObservabilityPlan, OutputEnvelope, OutputFormat, OutputTarget, PhysicalOperatorPlan,
-    PredicateExpr, RedactionPolicy, ReleasePlan, RuntimeObservabilityReport, SchemaDefinition,
-    SchemaId, SchemaVersion, SecurityPlan, ShardLoomError, SnapshotId, SnapshotRef, StatValue,
-    TableCompatibilityPlan, TableFormatKind, TranslationPlan, UdfRuntimeKind, WriteIntent,
+    ObservabilityPlan, OutputEnvelope, OutputFormat, OutputTarget, PhysicalKernelRegistryPlan,
+    PhysicalOperatorPlan, PredicateExpr, RedactionPolicy, ReleasePlan, RuntimeObservabilityReport,
+    SchemaDefinition, SchemaId, SchemaVersion, SecurityPlan, ShardLoomError, SnapshotId,
+    SnapshotRef, StatValue, TableCompatibilityPlan, TableFormatKind, TranslationPlan,
+    UdfRuntimeKind, WriteIntent,
 };
 use shardloom_exec::{
     AdaptiveSizer, AdaptiveSizingPolicy, AttemptId, ByteSize, CancellationReason,
@@ -3911,20 +3912,60 @@ fn run(args: Vec<String>) -> ExitCode {
         }
         Some("kernel-registry") => {
             let snapshot = KernelRegistrySnapshot::empty();
+            let physical_plan = PhysicalKernelRegistryPlan::cg7_foundation();
             emit(
                 "kernel-registry",
                 format,
                 CommandStatus::Success,
                 "kernel registry snapshot".to_string(),
-                snapshot.summary(),
-                vec![],
+                format!("{}\n{}", snapshot.summary(), physical_plan.to_human_text()),
+                physical_plan.diagnostics.clone(),
                 vec![
                     (
                         "fallback_execution_allowed".to_string(),
                         "false".to_string(),
                     ),
                     ("mode".to_string(), "kernel_registry_snapshot".to_string()),
-                    ("status".to_string(), "empty".to_string()),
+                    (
+                        "status".to_string(),
+                        "report_only_missing_required_kernels".to_string(),
+                    ),
+                    (
+                        "registered_kernel_count".to_string(),
+                        snapshot.kernel_count().to_string(),
+                    ),
+                    (
+                        "physical_kernel_schema_version".to_string(),
+                        physical_plan.schema_version.to_string(),
+                    ),
+                    (
+                        "physical_kernel_registry_id".to_string(),
+                        physical_plan.registry_id.clone(),
+                    ),
+                    (
+                        "physical_kernel_required_slot_count".to_string(),
+                        physical_plan.required_slot_count().to_string(),
+                    ),
+                    (
+                        "physical_kernel_present_slot_count".to_string(),
+                        physical_plan.present_slot_count().to_string(),
+                    ),
+                    (
+                        "physical_kernel_missing_slot_count".to_string(),
+                        physical_plan.missing_slot_count().to_string(),
+                    ),
+                    (
+                        "physical_kernel_reference_only_rejected_count".to_string(),
+                        physical_plan.reference_only_rejected_count().to_string(),
+                    ),
+                    (
+                        "physical_kernel_runtime_execution_allowed".to_string(),
+                        physical_plan.runtime_execution_allowed().to_string(),
+                    ),
+                    (
+                        "physical_kernel_fallback_execution_allowed".to_string(),
+                        physical_plan.fallback_execution_allowed().to_string(),
+                    ),
                     ("write_io".to_string(), "false".to_string()),
                     ("execution".to_string(), "not_performed".to_string()),
                     ("plan_only".to_string(), "true".to_string()),

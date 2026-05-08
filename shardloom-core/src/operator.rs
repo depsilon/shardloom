@@ -378,3 +378,164 @@ impl PhysicalOperatorPlan {
         )
     }
 }
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PhysicalKernelSlot {
+    pub slot_id: String,
+    pub operator_id: String,
+    pub operator_kind: PhysicalOperatorKind,
+    pub required_kernel_kind: KernelKind,
+    pub status: PhysicalKernelRequirementStatus,
+}
+
+impl PhysicalKernelSlot {
+    #[must_use]
+    pub fn from_requirement(
+        operator: &PhysicalOperatorContract,
+        requirement: PhysicalKernelRequirement,
+    ) -> Self {
+        Self {
+            slot_id: format!(
+                "{}.kernel.{}",
+                operator.operator_id,
+                requirement.kind.as_str()
+            ),
+            operator_id: operator.operator_id.clone(),
+            operator_kind: operator.kind,
+            required_kernel_kind: requirement.kind,
+            status: requirement.status,
+        }
+    }
+
+    #[must_use]
+    pub const fn is_satisfied(&self) -> bool {
+        self.status.is_satisfied()
+    }
+
+    #[must_use]
+    pub const fn fallback_execution_allowed(&self) -> bool {
+        false
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "{} [{} -> {} / {}]",
+            self.slot_id,
+            self.operator_kind.as_str(),
+            self.required_kernel_kind.as_str(),
+            self.status.as_str()
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PhysicalKernelRegistryPlan {
+    pub schema_version: &'static str,
+    pub registry_id: String,
+    pub required_slots: Vec<PhysicalKernelSlot>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl PhysicalKernelRegistryPlan {
+    #[must_use]
+    pub fn cg7_foundation() -> Self {
+        Self::from_operator_plan(&PhysicalOperatorPlan::cg7_foundation())
+    }
+
+    #[must_use]
+    pub fn from_operator_plan(plan: &PhysicalOperatorPlan) -> Self {
+        let required_slots = plan
+            .operators
+            .iter()
+            .flat_map(|operator| {
+                operator
+                    .kernel_requirements
+                    .iter()
+                    .copied()
+                    .map(|requirement| PhysicalKernelSlot::from_requirement(operator, requirement))
+            })
+            .collect::<Vec<_>>();
+        let mut registry = Self {
+            schema_version: "shardloom.physical_kernel_registry_plan.v1",
+            registry_id: format!("{}.kernel-registry", plan.plan_id),
+            required_slots,
+            diagnostics: Vec::new(),
+        };
+        registry.refresh_diagnostics();
+        registry
+    }
+
+    pub fn refresh_diagnostics(&mut self) {
+        self.diagnostics.clear();
+        if !self.all_required_slots_satisfied() {
+            self.diagnostics.push(Diagnostic::not_implemented(
+                "physical kernel registry",
+                "Physical kernel registry planning is blocked until all required native kernel slots are present.",
+                "Add native metadata, encoded, or hybrid kernels in later CG-7 steps before enabling operator execution.",
+            ));
+        }
+    }
+
+    #[must_use]
+    pub fn required_slot_count(&self) -> usize {
+        self.required_slots.len()
+    }
+
+    #[must_use]
+    pub fn present_slot_count(&self) -> usize {
+        self.required_slots
+            .iter()
+            .filter(|slot| slot.is_satisfied())
+            .count()
+    }
+
+    #[must_use]
+    pub fn missing_slot_count(&self) -> usize {
+        self.required_slots
+            .iter()
+            .filter(|slot| slot.status == PhysicalKernelRequirementStatus::Missing)
+            .count()
+    }
+
+    #[must_use]
+    pub fn reference_only_rejected_count(&self) -> usize {
+        self.required_slots
+            .iter()
+            .filter(|slot| slot.status == PhysicalKernelRequirementStatus::ReferenceOnlyRejected)
+            .count()
+    }
+
+    #[must_use]
+    pub fn all_required_slots_satisfied(&self) -> bool {
+        !self.required_slots.is_empty()
+            && self
+                .required_slots
+                .iter()
+                .all(PhysicalKernelSlot::is_satisfied)
+    }
+
+    #[must_use]
+    pub const fn fallback_execution_allowed(&self) -> bool {
+        false
+    }
+
+    #[must_use]
+    pub const fn runtime_execution_allowed(&self) -> bool {
+        false
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "physical kernel registry plan\nschema_version: {}\nregistry: {}\nrequired slots: {}\npresent slots: {}\nmissing slots: {}\nreference-only rejected: {}\nall slots satisfied: {}\nruntime execution: disabled\nfallback execution: disabled",
+            self.schema_version,
+            self.registry_id,
+            self.required_slot_count(),
+            self.present_slot_count(),
+            self.missing_slot_count(),
+            self.reference_only_rejected_count(),
+            self.all_required_slots_satisfied(),
+        )
+    }
+}

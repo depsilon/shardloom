@@ -10,23 +10,23 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [x] Session label: CG-7.2 physical operator capability discovery
-  - Current cleanup/implementation step: Surface the report-only CG-7 physical operator plan through `shardloom capabilities operators` with readiness and missing-kernel counts.
+- [x] Session label: CG-7.3 physical kernel registry plan
+  - Current cleanup/implementation step: Add a report-only physical kernel registry plan that names the required native kernel slots for the CG-7 filter, projection, and count-aggregate foundation.
   - Primary files:
     - `shardloom-core/src/operator.rs`
     - `shardloom-core/src/lib.rs`
     - `shardloom-cli/src/main.rs`
-    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `shardloom-cli/tests/kernel_registry_snapshots.rs`
     - `shardloom-contract-tests/tests/physical_operator_kernel_contracts.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-  - Scope: Agent-readable operator capability discovery, physical operator plan schema/version fields, missing-kernel counts, readiness counts, and no-fallback/runtime-execution flags.
+  - Scope: Agent-readable physical kernel slot planning, kernel registry schema/version fields, missing/present/reference-only counts, and no-fallback/runtime-execution flags.
   - Explicitly not included: New query execution, kernel implementation, encoded-data traversal, scan/read-start APIs, row reads, decode/materialization, Arrow conversion, object-store IO, writes, external baseline execution, fallback execution, benchmarks, SQL/API/adapter expansion, or superiority claims.
   - Validation required:
     - `cargo fmt --all -- --check`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: `shardloom capabilities operators` exposes the CG-7 foundation physical-operator blockers without executing operators, probing filesystems/adapters, or invoking runtime paths.
+  - Completion notes: `shardloom kernel-registry` exposes the CG-7 foundation kernel-slot blockers without registering kernels, executing operators, probing filesystems/adapters, or invoking runtime paths.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -528,6 +528,7 @@ Status legend:
 - [ ] CG-7 — Physical operator/kernel layer (**planned**)
   - [x] CG-7.1 physical operator/kernel contract foundation
   - [x] CG-7.2 physical operator capability discovery
+  - [x] CG-7.3 physical kernel registry plan
   - Scope:
     - filter/projection/count-aggregate kernels
     - metadata/encoded/hybrid execution levels
@@ -711,6 +712,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 ### CG-7 detailed checklist
 - [x] CG-7.1 physical operator/kernel contract foundation
 - [x] CG-7.2 physical operator capability discovery
+- [x] CG-7.3 physical kernel registry plan
 - [ ] filter kernel
 - [ ] projection kernel
 - [ ] count/aggregate kernel
@@ -850,6 +852,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-6.5 reproducibility-aware benchmark claim gate blocks publication unless comparison evidence and reproducible run metadata are both present.
 - [x] CG-7.1 physical operator/kernel contract foundation declares filter, projection, and count aggregate kernel blockers without implementing kernels or execution.
 - [x] CG-7.2 physical operator capability discovery exposes missing-kernel/readiness counts through `shardloom capabilities operators` without executing operators or probing runtime inputs.
+- [x] CG-7.3 physical kernel registry plan exposes required native kernel slots through `shardloom kernel-registry` without registering kernels or executing runtime paths.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [~] CG-3 real Vortex payload writes remain deferred; placeholder artifact paths are not completion evidence.
 

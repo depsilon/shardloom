@@ -500,6 +500,14 @@ No fallback execution.
 - `shardloom-cli/tests/capability_discovery_snapshots.rs` locks the operator capability JSON field order and verifies the CG-7 physical operator blockers remain agent-readable.
 - This pass adds no kernel implementation, query execution behavior, encoded-data traversal, scan/read-start API calls, row reads, decode/materialization, Arrow conversion, object-store IO, write behavior, external engine invocation, or fallback execution.
 
+## CG-7.3 physical kernel registry plan
+
+- Primary RFC linkage: RFC 0021 kernel registry requirements, RFC 0027 native kernel specialization roadmap, RFC 0012 diagnostics/capabilities, RFC 0025 no-fallback guardrails, and RFC 0032 operator certification requirements.
+- `PhysicalKernelRegistryPlan` derives required native kernel slots from the CG-7 foundation physical operator plan and records present, missing, and reference-only-rejected slot counts.
+- `shardloom kernel-registry` exposes the physical kernel registry schema/version, registry id, required slot count, present count, missing count, reference-only rejection count, runtime-execution=false, and fallback-disabled fields.
+- `shardloom-cli/tests/kernel_registry_snapshots.rs` verifies the kernel-registry JSON fields remain stable and agent-readable.
+- This pass adds no kernel implementation, query execution behavior, encoded-data traversal, scan/read-start API calls, row reads, decode/materialization, Arrow conversion, object-store IO, write behavior, external engine invocation, or fallback execution.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.

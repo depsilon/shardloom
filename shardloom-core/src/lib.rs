@@ -102,9 +102,9 @@ pub use observability::{
 };
 
 pub use operator::{
-    PhysicalKernelRequirement, PhysicalKernelRequirementStatus, PhysicalOperatorContract,
-    PhysicalOperatorExecutionLevel, PhysicalOperatorKind, PhysicalOperatorPlan,
-    PhysicalOperatorReadinessStatus,
+    PhysicalKernelRegistryPlan, PhysicalKernelRequirement, PhysicalKernelRequirementStatus,
+    PhysicalKernelSlot, PhysicalOperatorContract, PhysicalOperatorExecutionLevel,
+    PhysicalOperatorKind, PhysicalOperatorPlan, PhysicalOperatorReadinessStatus,
 };
 
 pub use output::{CommandStatus, OutputEnvelope, OutputFormat};
