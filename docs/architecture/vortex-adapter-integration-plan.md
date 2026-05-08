@@ -657,6 +657,21 @@ Phase 12D.2 / CG-4.2 adds report-only recovery and rollback planning for the loc
 - It does not perform object-store IO.
 - It does not enable fallback execution.
 
+## Feature-gated local committed-manifest rollback cleanup
+
+Phase 12D.3 / CG-4.3 adds the first local rollback cleanup execution path behind `vortex-staged-output-fs`.
+
+- It consumes rollback-planned recovery evidence from the local committed-manifest recovery report.
+- It removes only `_shardloom_committed_manifest.json` from the local staged workspace.
+- It treats an already-missing committed manifest as idempotent `already_cleaned`.
+- It blocks ambiguous commits, object-store targets, missing workspaces, non-file rollback targets, and cleanup-policy gaps.
+- It preserves finalized-manifest, commit-marker, and output-payload artifacts.
+- It does not delete output payload data.
+- It does not call upstream `Vortex` commit or write APIs.
+- It does not perform object-store IO.
+- It does not execute generalized recovery manager, retry, table/catalog, or distributed recovery behavior.
+- It does not enable fallback execution.
+
 
 ## Output payload write contract
 

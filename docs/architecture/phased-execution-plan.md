@@ -36,7 +36,7 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-4.2 local commit recovery and rollback diagnostics
+- [x] Session label: CG-4.3 local committed-manifest rollback cleanup execution
   - Primary files:
     - `shardloom-vortex/src/commit_protocol.rs`
     - `shardloom-vortex/src/lib.rs`
@@ -45,16 +45,17 @@ Supporting docs:
     - `docs/architecture/rfc-phase-traceability.md`
     - `docs/architecture/vortex-public-api-inventory.md`
     - `docs/architecture/vortex-adapter-integration-plan.md`
-  - Scope: Add report-only local committed-manifest recovery and rollback planning diagnostics without deleting artifacts or executing recovery.
+  - Scope: Add the first feature-gated local rollback cleanup execution path for the committed-manifest artifact only.
   - Checklist:
-    - [x] Add local commit recovery request/report/status fields and side-effect evidence.
-    - [x] Represent rollback-required, rollback-planned, recovery-not-required, ambiguous-commit, missing committed-manifest, cleanup-policy, and object-store blockers.
-    - [x] Build `RecoveryPlan` evidence with cleanup targets and ambiguous commit records while keeping execution side-effect-free.
-    - [x] Derive recovery requests from local commit execution reports.
-    - [x] Surface `shardloom vortex-local-commit-recovery-plan` with text/JSON recovery and no-fallback evidence.
-    - [x] Run focused Vortex/CLI recovery tests.
+    - [x] Add local commit rollback execution report/status fields and side-effect evidence.
+    - [x] Require a rollback-planned recovery report before cleanup execution.
+    - [x] Keep default builds feature-disabled/report-only.
+    - [x] In feature-enabled builds, delete only `_shardloom_committed_manifest.json`.
+    - [x] Preserve finalized-manifest, commit-marker, and output-payload artifacts during rollback cleanup.
+    - [x] Surface `shardloom vortex-local-commit-rollback-execute` with text/JSON cleanup and no-fallback evidence.
+    - [x] Run focused default and feature-gated Vortex/CLI rollback tests.
     - [x] Run full required validation.
-  - Explicitly not included: rollback cleanup execution, committed-manifest deletion, object-store commit/recovery, table/catalog transaction commit, output payload writing, generalized output writes, upstream `Vortex` commit APIs, recovery manager execution, retry execution, distributed commit, spill IO, external baseline execution, fallback execution, benchmarks, public command/signal renames, CG-4 closeout, or later CG closeout.
+  - Explicitly not included: object-store commit/recovery, table/catalog transaction commit, output payload writing/deletion, finalized-manifest deletion, commit-marker deletion, generalized output writes, upstream `Vortex` commit APIs, generalized recovery manager execution, retry execution, distributed commit, spill IO, external baseline execution, fallback execution, benchmarks, public command/signal renames, CG-4 closeout, or later CG closeout.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -671,12 +672,13 @@ Status legend:
     - CG-3 payload writes do not by themselves create committed state; committed-manifest state is owned by CG-4
     - no object-store writes initially
 
-- [ ] CG-4 — Commit protocol execution (**current; local commit and recovery diagnostics partially complete**)
+- [ ] CG-4 — Commit protocol execution (**current; local commit/recovery/rollback cleanup partially complete**)
   - [x] report-only planning/state-machine and marker/finalization readiness contracts
   - [x] first feature-gated local committed-manifest execution path
   - [x] idempotent identical committed-manifest detection
   - [x] ambiguous differing committed-manifest diagnostic
   - [x] report-only local committed-manifest recovery/rollback diagnostics
+  - [x] first feature-gated local committed-manifest rollback cleanup path
   - [~] broader table/catalog/object-store commit execution remains deferred
   - Required capabilities for completion:
     - local-first idempotent commit execution across supported paths
@@ -896,7 +898,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [~] recoverable commit execution remains deferred
 - [x] ambiguous differing committed-manifest report
 - [x] rollback-required and rollback-planned reporting
-- [~] rollback cleanup execution remains deferred
+- [x] feature-gated local committed-manifest rollback cleanup execution
 - [x] no object-store commit until later phases
 - [~] broader table/catalog/object-store commit execution remains deferred
 
@@ -1064,7 +1066,8 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
   - Note: Phase-12 placeholder artifacts are readiness-only and do not imply CG-3 completion.
   - Note: CG-3.1 adds the first real local native Vortex count-result payload path.
   - Note: CG-4.1 adds the first feature-gated local committed-manifest execution path.
-  - Note: CG-4.2 adds report-only local committed-manifest recovery/rollback diagnostics; rollback cleanup execution, generalized recovery, and object-store writes remain separate work.
+  - Note: CG-4.2 adds report-only local committed-manifest recovery/rollback diagnostics.
+  - Note: CG-4.3 adds the first feature-gated local committed-manifest rollback cleanup path; generalized recovery and object-store writes remain separate work.
 
 ## Deferred / Blocked Work
 - [x] CG-1.2 metadata/footer execution path has a feature-gated local fixture invocation helper.
@@ -1092,6 +1095,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.20 approved local scan naming normalization updates public report and diagnostic names from fixture wording to local-scan wording without widening behavior.
 - [x] CG-2.1e.21 approved local scan result bridge connects the successful approved local scan/count report to local query-primitive execution evidence with known count value, target/source-match validation, no decode/materialization/row/Arrow/object-store/write/spill/external effects, and no fallback.
 - [x] CG-4.2 local committed-manifest recovery/rollback diagnostics represent recovery-not-required, rollback-required/planned, ambiguous-commit, missing-manifest, cleanup-policy, and object-store blocker states without executing cleanup, rollback, object-store IO, or fallback.
+- [x] CG-4.3 local committed-manifest rollback cleanup execution deletes only `_shardloom_committed_manifest.json` behind `vortex-staged-output-fs` after rollback-planned recovery evidence; finalized manifests, commit markers, output payloads, object-store IO, upstream `Vortex` APIs, and fallback remain untouched.
 - [x] CG-2.2c filtered-count metadata proof local guard admits only metadata-proof `CountWhere` requests into metadata-only local execution and rejects encoded predicate candidates without fallback.
 - [x] CG-2.2d filtered-count metadata proof report classifies proof-ready, encoded-predicate-needed, missing-metadata, and unsupported filtered counts without IO or fallback.
 - [x] CG-5.1 metadata query primitive correctness fixtures cover supported metadata answers and deferred unsupported paths without side effects.
