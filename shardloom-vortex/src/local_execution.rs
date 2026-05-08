@@ -593,9 +593,11 @@ mod tests {
     use crate::{
         VortexCountCandidateSource, VortexCountReadinessRequest,
         VortexEncodedCountDataPathApprovalInput, VortexEncodedReadApiBoundaryReport,
-        VortexEncodedReadApiBoundaryStatus, VortexFileMetadataSummary, VortexMetadataSummaryStatus,
+        VortexEncodedReadApiBoundaryStatus, VortexFileMetadataSummary,
+        VortexLayoutReaderDriverApprovalInput, VortexMetadataSummaryStatus,
         plan_vortex_count_readiness, plan_vortex_encoded_count_data_path_approval,
-        vortex_encoded_read_public_api_boundary,
+        plan_vortex_encoded_count_data_path_approval_with_layout_driver,
+        plan_vortex_layout_reader_driver_approval, vortex_encoded_read_public_api_boundary,
     };
     use shardloom_core::DatasetUri;
     fn uri() -> DatasetUri {
@@ -613,6 +615,37 @@ mod tests {
             },
             diagnostics: vec![],
         }
+    }
+    fn encoded_count_ready_report() -> VortexCountReadinessReport {
+        plan_vortex_count_readiness(
+            VortexCountReadinessRequest::new(uri(), VortexCountCandidateSource::EncodedDataPath)
+                .feature_gate_enabled(true)
+                .query_primitive_ready(true)
+                .count_primitive(true)
+                .encoded_data_path_ready(true),
+        )
+        .expect("readiness")
+    }
+    fn approved_layout_driver_report(
+        api: VortexEncodedReadApiBoundaryReport,
+    ) -> crate::VortexLayoutReaderDriverApprovalReport {
+        plan_vortex_layout_reader_driver_approval(
+            VortexLayoutReaderDriverApprovalInput::new(api)
+                .local_fixture_only(true)
+                .caller_session_allowed(true)
+                .runtime_driver_start_allowed(true)
+                .layout_row_count_only_intent(true)
+                .scan_forbidden(true)
+                .evaluation_forbidden(true)
+                .data_read_forbidden(true)
+                .decode_forbidden(true)
+                .materialization_forbidden(true)
+                .arrow_forbidden(true)
+                .object_store_forbidden(true)
+                .write_forbidden(true)
+                .fallback_forbidden(true),
+        )
+        .expect("layout driver approval")
     }
     #[test]
     fn status_checks() {
@@ -784,14 +817,7 @@ mod tests {
 
     #[test]
     fn encoded_count_approval_guard_defers_when_future_boundary_is_approved() {
-        let readiness = plan_vortex_count_readiness(
-            VortexCountReadinessRequest::new(uri(), VortexCountCandidateSource::EncodedDataPath)
-                .feature_gate_enabled(true)
-                .query_primitive_ready(true)
-                .count_primitive(true)
-                .encoded_data_path_ready(true),
-        )
-        .expect("readiness");
+        let readiness = encoded_count_ready_report();
         let mut api = VortexEncodedReadApiBoundaryReport::default_deferred();
         api.status = VortexEncodedReadApiBoundaryStatus::ContractReady;
         api.execution_usable_count = 1;
@@ -809,6 +835,32 @@ mod tests {
         assert!(report.input.allow_encoded_read);
         assert!(report.is_side_effect_free());
         assert!(!report.data_read);
+        assert!(!report.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn encoded_count_approval_guard_defers_with_layout_row_count_approval() {
+        let api = vortex_encoded_read_public_api_boundary();
+        let layout = approved_layout_driver_report(api.clone());
+        let approval = plan_vortex_encoded_count_data_path_approval_with_layout_driver(
+            encoded_count_ready_report(),
+            api,
+            layout,
+        )
+        .expect("approval");
+        assert!(approval.approved());
+        assert!(approval.layout_row_count_path_approved);
+
+        let report = execute_vortex_count_all_from_encoded_count_data_path_approval(&approval)
+            .expect("execution");
+
+        assert_eq!(report.status, VortexLocalExecutionStatus::NeedsEncodedRead);
+        assert_eq!(report.mode, VortexLocalExecutionMode::PlanOnly);
+        assert!(report.input.allow_encoded_read);
+        assert!(report.is_side_effect_free());
+        assert!(!report.data_read);
+        assert!(!report.data_decoded);
+        assert!(!report.data_materialized);
         assert!(!report.fallback_execution_allowed);
     }
 

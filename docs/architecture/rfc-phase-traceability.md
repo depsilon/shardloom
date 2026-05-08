@@ -420,6 +420,13 @@ No fallback execution.
 - `shardloom vortex-encoded-count-approval-plan ... --layout-row-count-approved` exposes this bridge in CLI output with layout approval status and row-count path approval fields.
 - This pass still performs no actual encoded-data traversal, layout-reader construction, runtime-driver startup, scan/read-start invocation, row read, decode/materialization, Arrow conversion, object-store IO, write behavior, spill IO, external baseline invocation, or fallback execution.
 
+## CG-2.1e.13 layout-approved local count guard
+
+- Primary RFC linkage: RFC 0012 Diagnostics/Capabilities, RFC 0013 Streaming/Zero-Copy Boundary, RFC 0015 Correctness/testing, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
+- `execute_vortex_count_all_from_encoded_count_data_path_approval` now has coverage for a layout-row-count-approved encoded-count approval report, returning only the existing deferred `NeedsEncodedRead` local plan.
+- `shardloom vortex-encoded-count-approval-plan ... --layout-row-count-approved` now includes local execution status fields when approval is present, while preserving `data_read=false`.
+- This pass performs no actual encoded-data traversal, layout-reader construction, runtime-driver startup, scan/read-start invocation, row read, decode/materialization, Arrow conversion, object-store IO, write behavior, spill IO, external baseline invocation, or fallback execution.
+
 ## CG-5.1 metadata query primitive correctness fixtures
 
 - Primary RFC linkage: RFC 0015 Correctness/Semantics/Differential Testing, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.

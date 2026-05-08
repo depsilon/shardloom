@@ -10,21 +10,21 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [x] Session label: CG-2.1e.12 layout-approved encoded count bridge
-  - Current cleanup/implementation step: Let encoded-count data-path approval consume the explicit layout-row-count-only approval boundary before any future execution path can advance.
+- [x] Session label: CG-2.1e.13 layout-approved local count guard
+  - Current cleanup/implementation step: Feed layout-approved encoded-count approval into the local execution guard as a deferred `NeedsEncodedRead` plan without executing the read.
   - Primary files:
+    - `shardloom-vortex/src/local_execution.rs`
     - `shardloom-vortex/src/encoded_count_approval.rs`
-    - `shardloom-vortex/src/lib.rs`
     - `shardloom-cli/src/main.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-  - Scope: Approval/report-only bridge from `VortexLayoutReaderDriverApprovalReport` into encoded-count data-path approval, plus CLI flag surfacing for `--layout-row-count-approved`.
+  - Scope: Local execution guard integration for approved layout row-count count plans, plus CLI fields showing deferred local execution status and side-effect flags.
   - Explicitly not included: Actual encoded-data traversal, scan/read-start APIs, layout-reader construction, runtime-driver startup, row reads, decode/materialization, Arrow conversion, object-store IO, writes, spill IO, external baseline execution, fallback execution, benchmarks, SQL/API/adapter expansion, or superiority claims.
   - Validation required:
     - `cargo fmt --all -- --check`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: Encoded-count approval can now become approved-for-deferred-count only when an explicit matching layout row-count approval report is present and side-effect-free; execution remains disabled.
+  - Completion notes: Layout-approved encoded-count approvals now flow through the existing local guard to `NeedsEncodedRead`, with execution still disabled and report-only.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -474,6 +474,7 @@ Status legend:
   - [x] CG-2.1e.10 layout-driver approval boundary
   - [x] CG-2.1e.11 layout-driver approval CLI surfacing
   - [x] CG-2.1e.12 layout-approved encoded count bridge
+  - [x] CG-2.1e.13 layout-approved local count guard
   - [~] CG-2.1+ non-metadata primitive execution remains deferred pending actual encoded-data execution
   - [x] CG-2.3b projection readiness CLI integration
   - Required capabilities for completion:
@@ -662,6 +663,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.10 layout-driver approval boundary
 - [x] CG-2.1e.11 layout-driver approval CLI surfacing
 - [x] CG-2.1e.12 layout-approved encoded count bridge
+- [x] CG-2.1e.13 layout-approved local count guard
 - [x] CG-2.2a filtered-count readiness core contract
 - [x] CG-2.2a.1 filtered-count blocker precision hardening
 - [x] CG-2.2b filtered-count readiness CLI integration
@@ -864,6 +866,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.10 layout-driver approval is explicit and report-only before any future row-count-only layout reader path.
 - [x] CG-2.1e.11 layout-driver approval CLI exposes the report-only boundary with deterministic signals and no side effects.
 - [x] CG-2.1e.12 layout-approved encoded count bridge lets encoded-count approval consume a matching, side-effect-free layout-row-count-only approval report while keeping actual layout-reader construction and data reads disabled.
+- [x] CG-2.1e.13 layout-approved local count guard feeds the approved report into local execution as deferred `NeedsEncodedRead` planning while preserving no-read/no-decode/no-fallback effects.
 - [x] CG-5.1 metadata query primitive correctness fixtures cover supported metadata answers and deferred unsupported paths without side effects.
 - [x] CG-5.2 metadata query primitive edge and diagnostic fixtures cover missing/unsupported metadata primitive paths without side effects.
 - [x] CG-5.3 correctness fixture manifest declares initial golden fixture/reference output and required edge-case fixture families without execution.
