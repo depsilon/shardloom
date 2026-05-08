@@ -1044,3 +1044,14 @@ No fallback execution.
 - Primary RFC linkage: RFC 0012, RFC 0021, RFC 0025, and RFC 0029.
 - Related RFCs: RFC 0013, RFC 0015, RFC 0016, RFC 0027, RFC 0031, and RFC 0032.
 - This phase adds no new runtime path, generalized encoded-data execution, filter execution, projection execution, aggregate execution, row reads, requested decode/materialization, Arrow conversion, parser, SQL execution, adapter runtime, object-store IO, writes, spill IO, benchmark claim, production/superiority claim, broad operator-kernel closeout, CG closeout, or fallback behavior.
+
+## CG-7.22 encoded segment predicate evaluation foundation
+
+- `shardloom-core::encoded` now defines encoded predicate evaluation report/status contracts that evaluate predicates as far as segment metadata allows.
+- Metadata-proven all/none predicates emit selection vectors without data reads, decode, materialization, row reads, Arrow conversion, object-store IO, writes, spill IO, runtime fallback, or external effects.
+- Inconclusive predicates report `needs_encoded_values` instead of silently decoding or claiming filter execution.
+- Vortex metadata summaries can emit per-segment encoded predicate evaluation reports for the filter operator path.
+- `capabilities operators` and `kernel-registry` expose report-only encoded predicate evaluation discovery fields.
+- Primary RFC linkage: RFC 0012, RFC 0015, RFC 0021, RFC 0025, and RFC 0029.
+- Related RFCs: RFC 0013, RFC 0016, RFC 0027, RFC 0031, and RFC 0032.
+- This phase adds no scan/read-start path, broad encoded-data execution, broad filter execution, projection execution, aggregate execution, row reads, requested decode/materialization, Arrow conversion, parser, SQL execution, adapter runtime, object-store IO, writes, spill IO, benchmark claim, production/superiority claim, broad operator-kernel closeout, CG closeout, or fallback behavior.

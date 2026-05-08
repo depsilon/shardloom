@@ -45,7 +45,7 @@ const FUNCTION_FIELD_KEYS: [&str; 13] = [
     "planned_count",
 ];
 
-const OPERATOR_FIELD_KEYS: [&str; 116] = [
+const OPERATOR_FIELD_KEYS: [&str; 129] = [
     "scope",
     "schema_version",
     "fallback_execution_allowed",
@@ -147,6 +147,19 @@ const OPERATOR_FIELD_KEYS: [&str; 116] = [
     "encoded_count_kernel_admission_requires_benchmark_for_production",
     "encoded_count_kernel_admission_runtime_execution",
     "encoded_count_kernel_admission_fallback_execution_allowed",
+    "encoded_predicate_evaluation_schema_version",
+    "encoded_predicate_evaluation_id",
+    "encoded_predicate_evaluation_operator_kind",
+    "encoded_predicate_evaluation_kernel_kind",
+    "encoded_predicate_evaluation_execution_level",
+    "encoded_predicate_evaluation_contextual_only",
+    "encoded_predicate_evaluation_emits_selection_vectors",
+    "encoded_predicate_evaluation_supports_metadata_proven_all",
+    "encoded_predicate_evaluation_supports_metadata_proven_none",
+    "encoded_predicate_evaluation_defers_inconclusive_to_encoded_values",
+    "encoded_predicate_evaluation_discovery_reads_data",
+    "encoded_predicate_evaluation_runtime_execution",
+    "encoded_predicate_evaluation_fallback_execution_allowed",
     "encoded_count_local_guard_schema_version",
     "encoded_count_local_guard_id",
     "encoded_count_local_guard_accepted_approval_sources",
@@ -305,6 +318,7 @@ fn operator_capability_discovery_includes_physical_plan_blockers() {
     assert_operator_discovery_metadata_filter_kernel_admission(&output);
     assert_operator_discovery_metadata_projection_kernel_admission(&output);
     assert_operator_discovery_encoded_count_kernel(&output);
+    assert_operator_discovery_encoded_predicate_evaluation(&output);
     assert_operator_discovery_encoded_count_guard(&output);
 }
 
@@ -571,6 +585,48 @@ fn assert_operator_discovery_encoded_count_kernel(output: &str) {
     ));
     assert!(output.contains(
         "{\"key\":\"encoded_count_kernel_admission_fallback_execution_allowed\",\"value\":\"false\"}"
+    ));
+}
+
+fn assert_operator_discovery_encoded_predicate_evaluation(output: &str) {
+    assert!(output.contains(
+        "{\"key\":\"encoded_predicate_evaluation_schema_version\",\"value\":\"shardloom.vortex_encoded_predicate_evaluation.v1\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_predicate_evaluation_id\",\"value\":\"vortex.query-primitive.filter_predicate.encoded-predicate-evaluation\"}"
+    ));
+    assert!(
+        output.contains(
+            "{\"key\":\"encoded_predicate_evaluation_operator_kind\",\"value\":\"filter\"}"
+        )
+    );
+    assert!(
+        output.contains(
+            "{\"key\":\"encoded_predicate_evaluation_kernel_kind\",\"value\":\"encoded\"}"
+        )
+    );
+    assert!(output.contains(
+        "{\"key\":\"encoded_predicate_evaluation_execution_level\",\"value\":\"encoded_native\"}"
+    ));
+    assert!(
+        output.contains(
+            "{\"key\":\"encoded_predicate_evaluation_contextual_only\",\"value\":\"true\"}"
+        )
+    );
+    assert!(output.contains(
+        "{\"key\":\"encoded_predicate_evaluation_emits_selection_vectors\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_predicate_evaluation_defers_inconclusive_to_encoded_values\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_predicate_evaluation_discovery_reads_data\",\"value\":\"false\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_predicate_evaluation_runtime_execution\",\"value\":\"false\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_predicate_evaluation_fallback_execution_allowed\",\"value\":\"false\"}"
     ));
 }
 

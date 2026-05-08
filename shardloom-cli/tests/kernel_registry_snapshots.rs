@@ -1,6 +1,6 @@
 use std::process::Command;
 
-const KERNEL_REGISTRY_FIELD_KEYS: [&str; 77] = [
+const KERNEL_REGISTRY_FIELD_KEYS: [&str; 90] = [
     "fallback_execution_allowed",
     "mode",
     "status",
@@ -75,6 +75,19 @@ const KERNEL_REGISTRY_FIELD_KEYS: [&str; 77] = [
     "encoded_count_kernel_admission_requires_benchmark_for_production",
     "encoded_count_kernel_admission_runtime_execution",
     "encoded_count_kernel_admission_fallback_execution_allowed",
+    "encoded_predicate_evaluation_schema_version",
+    "encoded_predicate_evaluation_id",
+    "encoded_predicate_evaluation_operator_kind",
+    "encoded_predicate_evaluation_kernel_kind",
+    "encoded_predicate_evaluation_execution_level",
+    "encoded_predicate_evaluation_contextual_only",
+    "encoded_predicate_evaluation_emits_selection_vectors",
+    "encoded_predicate_evaluation_supports_metadata_proven_all",
+    "encoded_predicate_evaluation_supports_metadata_proven_none",
+    "encoded_predicate_evaluation_defers_inconclusive_to_encoded_values",
+    "encoded_predicate_evaluation_discovery_reads_data",
+    "encoded_predicate_evaluation_runtime_execution",
+    "encoded_predicate_evaluation_fallback_execution_allowed",
     "write_io",
     "execution",
     "plan_only",
@@ -151,6 +164,14 @@ fn kernel_registry_json_fields_include_physical_kernel_blockers() {
     assert_metadata_count_kernel_admission_fields(&output);
     assert_metadata_filter_kernel_admission_fields(&output);
     assert_metadata_projection_kernel_admission_fields(&output);
+    assert_encoded_count_physical_kernel_fields(&output);
+    assert_encoded_count_kernel_admission_fields(&output);
+    assert_encoded_predicate_evaluation_fields(&output);
+    assert!(output.contains("\"allowed\":false"));
+    assert!(output.contains("\"attempted\":false"));
+}
+
+fn assert_encoded_count_physical_kernel_fields(output: &str) {
     assert!(output.contains(
         "{\"key\":\"encoded_count_physical_kernel_schema_version\",\"value\":\"shardloom.vortex_encoded_count_physical_kernel.v1\"}"
     ));
@@ -180,9 +201,6 @@ fn kernel_registry_json_fields_include_physical_kernel_blockers() {
     assert!(output.contains(
         "{\"key\":\"encoded_count_physical_kernel_fallback_execution_allowed\",\"value\":\"false\"}"
     ));
-    assert_encoded_count_kernel_admission_fields(&output);
-    assert!(output.contains("\"allowed\":false"));
-    assert!(output.contains("\"attempted\":false"));
 }
 
 fn assert_metadata_count_kernel_admission_fields(output: &str) {
@@ -314,6 +332,43 @@ fn assert_encoded_count_kernel_admission_fields(output: &str) {
     ));
     assert!(output.contains(
         "{\"key\":\"encoded_count_kernel_admission_fallback_execution_allowed\",\"value\":\"false\"}"
+    ));
+}
+
+fn assert_encoded_predicate_evaluation_fields(output: &str) {
+    assert!(output.contains(
+        "{\"key\":\"encoded_predicate_evaluation_schema_version\",\"value\":\"shardloom.vortex_encoded_predicate_evaluation.v1\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_predicate_evaluation_id\",\"value\":\"vortex.query-primitive.filter_predicate.encoded-predicate-evaluation\"}"
+    ));
+    assert!(
+        output.contains(
+            "{\"key\":\"encoded_predicate_evaluation_operator_kind\",\"value\":\"filter\"}"
+        )
+    );
+    assert!(
+        output.contains(
+            "{\"key\":\"encoded_predicate_evaluation_kernel_kind\",\"value\":\"encoded\"}"
+        )
+    );
+    assert!(output.contains(
+        "{\"key\":\"encoded_predicate_evaluation_execution_level\",\"value\":\"encoded_native\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_predicate_evaluation_emits_selection_vectors\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_predicate_evaluation_defers_inconclusive_to_encoded_values\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_predicate_evaluation_discovery_reads_data\",\"value\":\"false\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_predicate_evaluation_runtime_execution\",\"value\":\"false\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_predicate_evaluation_fallback_execution_allowed\",\"value\":\"false\"}"
     ));
 }
 

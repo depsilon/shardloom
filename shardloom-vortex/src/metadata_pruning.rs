@@ -1,8 +1,7 @@
 use std::fmt::Write as _;
 
 use shardloom_core::{
-    ComparisonOp, Diagnostic, DiagnosticCode, PredicateExpr, PredicateProof, PruningDecision,
-    Result, SegmentId, StatValue,
+    Diagnostic, DiagnosticCode, PredicateExpr, PredicateProof, PruningDecision, Result, SegmentId,
 };
 
 /// Conservative status for `Vortex` metadata-driven pruning planning in `ShardLoom`.
@@ -494,122 +493,13 @@ pub fn prove_predicate_from_segment_stats(
         };
     };
     let stats = &column_stats.stats;
-    match predicate {
-        PredicateExpr::AlwaysTrue => PredicateProof::AlwaysTrue {
-            reason: "always true predicate".to_string(),
-        },
-        PredicateExpr::AlwaysFalse => PredicateProof::AlwaysFalse {
-            reason: "always false predicate".to_string(),
-        },
-        PredicateExpr::IsNull { .. } => match (stats.row_count, stats.null_count) {
-            (_, Some(0)) => PredicateProof::AlwaysFalse {
-                reason: "null_count == 0".to_string(),
-            },
-            (Some(r), Some(n)) if r == n => PredicateProof::AlwaysTrue {
-                reason: "all rows are null".to_string(),
-            },
-            _ => PredicateProof::Unknown {
-                reason: "insufficient null statistics".to_string(),
-            },
-        },
-        PredicateExpr::IsNotNull { .. } => match (stats.row_count, stats.null_count) {
-            (_, Some(0)) => PredicateProof::AlwaysTrue {
-                reason: "null_count == 0".to_string(),
-            },
-            (Some(r), Some(n)) if r == n => PredicateProof::AlwaysFalse {
-                reason: "all rows are null".to_string(),
-            },
-            _ => PredicateProof::Unknown {
-                reason: "insufficient null statistics".to_string(),
-            },
-        },
-        PredicateExpr::Compare { op, value, .. } => {
-            let (Some(min), Some(max)) = (&stats.min_value, &stats.max_value) else {
-                return PredicateProof::Unknown {
-                    reason: "min/max statistics unavailable".to_string(),
-                };
-            };
-            let max_ord = cmp(max, value);
-            let min_ord = cmp(min, value);
-            match op {
-                ComparisonOp::Gt if matches!(max_ord, Some(v) if v <= 0) => {
-                    PredicateProof::AlwaysFalse {
-                        reason: "max <= value".to_string(),
-                    }
-                }
-                ComparisonOp::GtEq if matches!(max_ord, Some(v) if v < 0) => {
-                    PredicateProof::AlwaysFalse {
-                        reason: "max < value".to_string(),
-                    }
-                }
-                ComparisonOp::Lt if matches!(min_ord, Some(v) if v >= 0) => {
-                    PredicateProof::AlwaysFalse {
-                        reason: "min >= value".to_string(),
-                    }
-                }
-                ComparisonOp::LtEq if matches!(min_ord, Some(v) if v > 0) => {
-                    PredicateProof::AlwaysFalse {
-                        reason: "min > value".to_string(),
-                    }
-                }
-                ComparisonOp::Eq => {
-                    if let (Some(c1), Some(c2)) = (cmp(value, min), cmp(value, max)) {
-                        if c1 < 0 || c2 > 0 {
-                            return PredicateProof::AlwaysFalse {
-                                reason: "value outside min/max".to_string(),
-                            };
-                        }
-                    }
-                    PredicateProof::MayMatch {
-                        reason: "min/max cannot exclude eq".to_string(),
-                    }
-                }
-                ComparisonOp::NotEq => PredicateProof::MayMatch {
-                    reason: "conservative not-eq proof".to_string(),
-                },
-                _ => PredicateProof::MayMatch {
-                    reason: "min/max cannot exclude".to_string(),
-                },
-            }
-        }
-    }
-}
-
-fn cmp(a: &StatValue, b: &StatValue) -> Option<i8> {
-    match (a, b) {
-        (StatValue::Int64(x), StatValue::Int64(y)) => Some(match x.cmp(y) {
-            std::cmp::Ordering::Less => -1,
-            std::cmp::Ordering::Equal => 0,
-            std::cmp::Ordering::Greater => 1,
-        }),
-        (StatValue::UInt64(x), StatValue::UInt64(y)) => Some(match x.cmp(y) {
-            std::cmp::Ordering::Less => -1,
-            std::cmp::Ordering::Equal => 0,
-            std::cmp::Ordering::Greater => 1,
-        }),
-        (StatValue::Float64(x), StatValue::Float64(y)) => x.partial_cmp(y).map(|o| match o {
-            std::cmp::Ordering::Less => -1,
-            std::cmp::Ordering::Equal => 0,
-            std::cmp::Ordering::Greater => 1,
-        }),
-        (StatValue::Utf8(x), StatValue::Utf8(y)) => Some(match x.cmp(y) {
-            std::cmp::Ordering::Less => -1,
-            std::cmp::Ordering::Equal => 0,
-            std::cmp::Ordering::Greater => 1,
-        }),
-        (StatValue::Boolean(x), StatValue::Boolean(y)) => Some(match x.cmp(y) {
-            std::cmp::Ordering::Less => -1,
-            std::cmp::Ordering::Equal => 0,
-            std::cmp::Ordering::Greater => 1,
-        }),
-        _ => None,
-    }
+    shardloom_core::prove_predicate_from_stats(predicate, stats)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use shardloom_core::{ColumnRef, ComparisonOp, SegmentStats};
+    use shardloom_core::{ColumnRef, ComparisonOp, SegmentStats, StatValue};
     fn seg(stats: SegmentStats) -> crate::VortexSegmentMetadataSummary {
         let mut s = crate::VortexSegmentMetadataSummary::unknown();
         let mut c = crate::VortexColumnMetadataSummary::new(ColumnRef::new("x").unwrap());
