@@ -27,6 +27,7 @@ pub mod commit_intent;
 pub mod commit_marker;
 pub mod commit_protocol;
 pub mod count_readiness;
+pub mod encoded_count_approval;
 pub mod encoded_read_api;
 pub mod encoded_read_boundary;
 pub mod encoded_read_executor;
@@ -246,6 +247,12 @@ pub use count_readiness::{
     count_readiness_request_from_encoded_read_readiness_report,
     count_readiness_request_from_query_primitive_report, plan_vortex_count_readiness,
     vortex_count_readiness_is_side_effect_free,
+};
+pub use encoded_count_approval::{
+    VortexEncodedCountDataPathApprovalInput, VortexEncodedCountDataPathApprovalMode,
+    VortexEncodedCountDataPathApprovalReport, VortexEncodedCountDataPathApprovalStatus,
+    plan_vortex_encoded_count_data_path_approval,
+    vortex_encoded_count_data_path_approval_is_side_effect_free,
 };
 
 pub use commit_protocol::{

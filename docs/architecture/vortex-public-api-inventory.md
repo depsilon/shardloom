@@ -711,6 +711,13 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - `VortexFile::layout_reader`, `VortexFile::scan`, `ScanBuilder::into_array_stream`, `ScanBuilder::into_array_iter`, `LayoutReader::projection_evaluation`, `LayoutReader::filter_evaluation`, and `VortexFile::data_source` remain blocked or deferred for execution.
 - This remains classification-only and introduces no scan/read-start invocation, array stream/evaluation call, encoded-data traversal, row read, decode/materialization, `Arrow` conversion, object-store IO, write, or fallback execution.
 
+## CG-2.1e.6 encoded-count data-path approval boundary
+
+- `VortexEncodedCountDataPathApprovalReport` now combines count readiness with this API inventory boundary before encoded-data `CountAll` can be approved for any future execution planning.
+- The current inventory does not approve encoded-data traversal: `VortexFile::row_count` is metadata-only evidence, and the boundary still has zero execution-usable data paths.
+- Blocked or deferred surfaces remain visible by name, including scan, stream, layout-evaluation, data-source, and Arrow-default boundaries.
+- This remains report-only and introduces no scan/read-start invocation, array stream/evaluation call, encoded-data traversal, row read, decode/materialization, `Arrow` conversion, object-store IO, write, or fallback execution.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.

@@ -10,21 +10,22 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [x] Session label: CG-2.1e.5 VortexFile row-count metadata approval
-  - Current cleanup/implementation step: Approve exact `VortexFile::row_count` as a public metadata-only count surface while keeping layout/scan/evaluation paths blocked for execution.
+- [x] Session label: CG-2.1e.6 encoded-count data-path approval boundary
+  - Current cleanup/implementation step: Add a report-only approval boundary that separates metadata row-count evidence from actual encoded-data count traversal approval.
   - Primary files:
-    - `shardloom-vortex/src/encoded_read_api.rs`
+    - `shardloom-vortex/src/encoded_count_approval.rs`
+    - `shardloom-vortex/src/lib.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
     - `docs/architecture/vortex-public-api-inventory.md`
     - `docs/architecture/vortex-adapter-integration-plan.md`
-  - Scope: API-boundary classification and compile probe only; `VortexFile::row_count` is contract-usable metadata, not an encoded-data traversal path.
+  - Scope: Contract/report-only approval gate; confirms `VortexFile::row_count` is metadata evidence but not enough to approve encoded-data `CountAll` traversal.
   - Explicitly not included: Calling scan/read-start APIs, calling array-stream/evaluation APIs, encoded-data traversal, row reads, actual encoded count execution, filtered count execution, projection execution, decode/materialization, Arrow conversion, object-store IO, writes, fallback execution, SQL/API/adapter expansion, or superiority claims.
   - Validation required:
     - `cargo fmt --all -- --check`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: `VortexFile::row_count` is now a confirmed public metadata-only surface; `LayoutReader::row_count`, `VortexFile::scan`, `ScanBuilder`, and layout evaluation APIs remain non-execution surfaces until separately approved.
+  - Completion notes: `VortexEncodedCountDataPathApprovalReport` blocks current encoded count traversal because the public API boundary still has no execution-usable data path; no execution, scan, decode, materialization, Arrow conversion, write, object-store IO, or fallback behavior is added.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -386,6 +387,13 @@
     - `VortexFile::row_count` is contract-usable but not execution-usable.
     - `LayoutReader::row_count` remains metadata-like but deferred because constructing layout readers is not yet an approved count path.
     - No scan/read-start invocation, encoded-data traversal, row read, decode/materialization, Arrow conversion, object-store IO, write, or fallback execution is added.
+- [x] CG-2.1e.6 encoded-count data-path approval boundary
+  - Why: prevent metadata count evidence from being mistaken for approval to traverse encoded data.
+  - Acceptance:
+    - `VortexEncodedCountDataPathApprovalReport` consumes count readiness and encoded-read API boundary reports.
+    - Current public API boundary blocks encoded-data count approval because execution-usable data path count remains zero and scan/stream/evaluation surfaces remain blocked.
+    - `VortexFile::row_count` is reported as metadata count evidence only.
+    - No scan/read-start invocation, encoded-data traversal, row read, decode/materialization, Arrow conversion, object-store IO, write, or fallback execution is added.
 - [ ] CG-2.1e encoded-data count execution path (planned)
   - Why: turn the approved encoded-data count candidate into actual native encoded execution after the public Vortex data path is approved.
   - Acceptance:
@@ -425,6 +433,7 @@ Status legend:
   - [x] CG-2.1e.3 named count API-boundary blockers
   - [x] CG-2.1e.4 encoded-count admission blocker guard
   - [x] CG-2.1e.5 `VortexFile::row_count` metadata-surface approval
+  - [x] CG-2.1e.6 encoded-count data-path approval boundary
   - [~] CG-2.1+ non-metadata primitive execution remains deferred pending actual encoded-data execution
   - [x] CG-2.3b projection readiness CLI integration
   - Required capabilities for completion:
@@ -583,6 +592,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.3 named count API-boundary blockers
 - [x] CG-2.1e.4 encoded-count admission blocker guard
 - [x] CG-2.1e.5 `VortexFile::row_count` metadata-surface approval
+- [x] CG-2.1e.6 encoded-count data-path approval boundary
 - [x] CG-2.2a filtered-count readiness core contract
 - [x] CG-2.2a.1 filtered-count blocker precision hardening
 - [x] CG-2.2b filtered-count readiness CLI integration
@@ -756,6 +766,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.3 count readiness now names exact blocked API-boundary surfaces from the encoded-read probe.
 - [x] CG-2.1e.4 local encoded-count admission rejects reports with named API-boundary blockers.
 - [x] CG-2.1e.5 `VortexFile::row_count` is approved as metadata-only public API evidence.
+- [x] CG-2.1e.6 encoded-count data-path approval blocks current traversal until an execution-usable public data path exists.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [~] CG-3 real Vortex payload writes remain deferred; placeholder artifact paths are not completion evidence.
 
