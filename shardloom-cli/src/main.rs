@@ -98,6 +98,7 @@ use shardloom_vortex::{
     probe_vortex_metadata_only, run_vortex_local_engine, setup_vortex_staged_workspace,
     size_vortex_runtime_task_graph, summarize_vortex_metadata_probe,
     vortex_encoded_count_local_guard_discovery_report,
+    vortex_encoded_count_physical_kernel_discovery_report,
     vortex_encoded_read_executor_feature_enabled,
     vortex_encoded_read_local_scan_count_api_boundary, vortex_encoded_read_public_api_boundary,
     vortex_encoded_read_spike_feature_enabled, vortex_file_io_feature_enabled,
@@ -1674,6 +1675,7 @@ fn append_operator_certification_fields(
         execution_profiles.fallback_allowed_count(),
     );
     append_metadata_physical_kernel_discovery_fields(fields);
+    append_encoded_count_physical_kernel_discovery_fields(fields);
     append_encoded_count_local_guard_discovery_fields(fields);
 }
 
@@ -1723,6 +1725,85 @@ fn append_metadata_physical_kernel_discovery_fields(fields: &mut Vec<(String, St
         fields,
         "metadata_physical_kernel_fallback_execution_allowed",
         "false",
+    );
+}
+
+fn append_encoded_count_physical_kernel_discovery_fields(fields: &mut Vec<(String, String)>) {
+    let report = vortex_encoded_count_physical_kernel_discovery_report();
+    push_field(
+        fields,
+        "encoded_count_physical_kernel_schema_version",
+        report.schema_version,
+    );
+    push_field(
+        fields,
+        "encoded_count_physical_kernel_id",
+        report.kernel_report_id,
+    );
+    push_field(
+        fields,
+        "encoded_count_physical_kernel_supported_primitive",
+        report.supported_primitive.as_str(),
+    );
+    push_field(
+        fields,
+        "encoded_count_physical_kernel_operator_kind",
+        report.operator_kind.as_str(),
+    );
+    push_field(
+        fields,
+        "encoded_count_physical_kernel_kernel_kind",
+        report.kernel_kind.as_str(),
+    );
+    push_field(
+        fields,
+        "encoded_count_physical_kernel_execution_level",
+        report.execution_level.as_str(),
+    );
+    push_bool_field(
+        fields,
+        "encoded_count_physical_kernel_contextual_only",
+        report.contextual_only,
+    );
+    push_bool_field(
+        fields,
+        "encoded_count_physical_kernel_requires_execution_certificate",
+        report.requires_execution_certificate,
+    );
+    push_bool_field(
+        fields,
+        "encoded_count_physical_kernel_requires_correctness_evidence",
+        report.requires_correctness_evidence,
+    );
+    push_bool_field(
+        fields,
+        "encoded_count_physical_kernel_requires_memory_safety_evidence",
+        report.requires_memory_safety_evidence,
+    );
+    push_bool_field(
+        fields,
+        "encoded_count_physical_kernel_requires_benchmark_for_production",
+        report.requires_benchmark_for_production,
+    );
+    push_bool_field(
+        fields,
+        "encoded_count_physical_kernel_discovery_reads_data",
+        report.discovery_reads_data,
+    );
+    push_bool_field(
+        fields,
+        "encoded_count_physical_kernel_evaluated_path_reads_data",
+        report.evaluated_path_reads_data,
+    );
+    push_bool_field(
+        fields,
+        "encoded_count_physical_kernel_runtime_execution",
+        report.runtime_execution_allowed_by_discovery,
+    );
+    push_bool_field(
+        fields,
+        "encoded_count_physical_kernel_fallback_execution_allowed",
+        report.fallback_execution_allowed,
     );
 }
 
@@ -4996,6 +5077,42 @@ fn run(args: Vec<String>) -> ExitCode {
                     ),
                     (
                         "metadata_physical_kernel_fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    (
+                        "encoded_count_physical_kernel_schema_version".to_string(),
+                        "shardloom.vortex_encoded_count_physical_kernel.v1".to_string(),
+                    ),
+                    (
+                        "encoded_count_physical_kernel_supported_primitive".to_string(),
+                        "count_all".to_string(),
+                    ),
+                    (
+                        "encoded_count_physical_kernel_operator_kind".to_string(),
+                        "count_aggregate".to_string(),
+                    ),
+                    (
+                        "encoded_count_physical_kernel_kernel_kind".to_string(),
+                        "encoded".to_string(),
+                    ),
+                    (
+                        "encoded_count_physical_kernel_execution_level".to_string(),
+                        "encoded_native".to_string(),
+                    ),
+                    (
+                        "encoded_count_physical_kernel_contextual_only".to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "encoded_count_physical_kernel_requires_execution_certificate".to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "encoded_count_physical_kernel_runtime_execution".to_string(),
+                        "false".to_string(),
+                    ),
+                    (
+                        "encoded_count_physical_kernel_fallback_execution_allowed".to_string(),
                         "false".to_string(),
                     ),
                     ("write_io".to_string(), "false".to_string()),

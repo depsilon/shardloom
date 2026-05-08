@@ -1635,7 +1635,9 @@ mod tests {
     #[test]
     fn local_encoded_count_matches_correctness_manifest_reference_output() {
         use crate::{
-            VortexLocalExecutionStatus, VortexLocalExecutionValue, VortexQueryPrimitiveValue,
+            VortexEncodedCountPhysicalKernelStatus, VortexLocalExecutionStatus,
+            VortexLocalExecutionValue, VortexQueryPrimitiveValue,
+            evaluate_vortex_local_encoded_count_physical_kernel,
             execute_vortex_count_all_from_approved_local_scan_result,
             local_encoded_count_execution_certificate,
         };
@@ -1718,6 +1720,31 @@ mod tests {
         assert!(!certificate.spill_io_performed);
         assert!(!certificate.external_effects_executed);
         assert!(certificate.fallback_free());
+
+        let physical_kernel = evaluate_vortex_local_encoded_count_physical_kernel(
+            &encoded_report,
+            &local_report,
+            &certificate,
+        );
+        assert_eq!(
+            physical_kernel.status,
+            VortexEncodedCountPhysicalKernelStatus::EvaluatedEncodedNative
+        );
+        assert_eq!(physical_kernel.count_result, Some(count));
+        assert_eq!(physical_kernel.rows_counted, count);
+        assert!(physical_kernel.data_read);
+        assert!(physical_kernel.upstream_scan_called);
+        assert!(!physical_kernel.data_decoded);
+        assert!(!physical_kernel.data_materialized);
+        assert!(!physical_kernel.row_read);
+        assert!(!physical_kernel.arrow_converted);
+        assert!(!physical_kernel.object_store_io);
+        assert!(!physical_kernel.write_io);
+        assert!(!physical_kernel.spill_io_performed);
+        assert!(!physical_kernel.fallback_attempted);
+        assert!(!physical_kernel.fallback_execution_allowed);
+        assert!(!physical_kernel.production_claim_allowed);
+        assert!(physical_kernel.is_safe_native_kernel_evidence());
     }
 
     #[cfg(feature = "vortex-encoded-read-spike")]
