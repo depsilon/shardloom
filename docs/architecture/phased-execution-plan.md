@@ -10,21 +10,20 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [x] Session label: CG-5.3 correctness fixture manifest contract
-  - Current cleanup/implementation step: Add core correctness manifest fields, declare the checked-in Vortex golden fixture with a metadata row-count reference output, and track required edge-case fixture families.
+- [x] Session label: CG-5.4 external baseline oracle policy
+  - Current cleanup/implementation step: Declare external correctness baselines as comparison/oracle metadata only and verify they cannot become runtime fallback.
   - Primary files:
     - `shardloom-core/src/correctness.rs`
-    - `shardloom-contract-tests/tests/correctness_fixture_manifest.rs`
-    - `shardloom-vortex/tests/fixtures/README.md`
+    - `shardloom-contract-tests/tests/external_baseline_oracles.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-  - Scope: Metadata-only correctness planning contracts, fixture manifest coverage, reference-output metadata, and test-only reference-role invariants.
+  - Scope: Correctness-plan baseline metadata, external-oracle roles, no-fallback baseline invariants, and phase traceability.
   - Explicitly not included: New query execution, encoded-data traversal, scan/read-start APIs, row reads, decode/materialization, Arrow conversion, object-store IO, writes, external baseline execution, fallback execution, benchmarks, SQL/API/adapter expansion, or superiority claims.
   - Validation required:
     - `cargo fmt --all -- --check`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: The correctness foundation plan now declares the checked-in Vortex metadata fixture, its metadata row-count reference output, and null/nested/dictionary/sparse/run-length/temporal fixture-family placeholders as test-only evidence with fallback disabled.
+  - Completion notes: The correctness foundation plan now declares Spark/DataFusion/DuckDB/Polars/Velox as external correctness oracles only, with tests proving baseline roles are comparison-only and fallback remains disabled.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -502,6 +501,7 @@ Status legend:
   - [x] CG-5.1 metadata query primitive correctness fixtures
   - [x] CG-5.2 metadata query primitive edge and diagnostic fixtures
   - [x] CG-5.3 correctness fixture manifest contract
+  - [x] CG-5.4 external baseline oracle policy
   - Expected evidence:
     - golden Vortex fixtures
     - decoded reference outputs
@@ -678,7 +678,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [~] reference outputs
 - [~] null/nested/dictionary/sparse/run-length/temporal edge-case coverage
 - [x] CG-5.3 correctness fixture manifest contract
-- [ ] Spark/Polars/DataFusion external baselines only, never fallback
+- [x] CG-5.4 Spark/Polars/DataFusion external baselines only, never fallback
 
 ### CG-6 detailed checklist
 - [ ] runtime benchmarks
@@ -825,6 +825,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-5.1 metadata query primitive correctness fixtures cover supported metadata answers and deferred unsupported paths without side effects.
 - [x] CG-5.2 metadata query primitive edge and diagnostic fixtures cover missing/unsupported metadata primitive paths without side effects.
 - [x] CG-5.3 correctness fixture manifest declares initial golden fixture/reference output and required edge-case fixture families without execution.
+- [x] CG-5.4 external baseline oracle policy declares comparison-only baselines and blocks runtime fallback.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [~] CG-3 real Vortex payload writes remain deferred; placeholder artifact paths are not completion evidence.
 
