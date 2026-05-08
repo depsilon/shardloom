@@ -372,6 +372,7 @@ pub use local_execution::{
     VortexEncodedCountLocalGuardDiscoveryReport, VortexLocalExecutionInput,
     VortexLocalExecutionMode, VortexLocalExecutionReport, VortexLocalExecutionStatus,
     VortexLocalExecutionStep, VortexLocalExecutionStepKind, VortexLocalExecutionValue,
+    execute_vortex_count_all_from_approved_local_scan_result,
     execute_vortex_count_all_from_encoded_count_data_path_approval,
     execute_vortex_count_all_from_encoded_data_candidate,
     execute_vortex_count_all_from_metadata_footer_invocation,

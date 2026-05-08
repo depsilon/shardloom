@@ -7,7 +7,9 @@ use shardloom_core::{Diagnostic, DiagnosticCode, DiagnosticSeverity, Result};
 
 use crate::{
     VortexCountCandidateSource, VortexCountReadinessReport, VortexCountReadinessStatus,
-    VortexEncodedCountDataPathApprovalReport, VortexFilteredCountCandidateSource,
+    VortexEncodedCountDataPathApprovalReport, VortexEncodedReadExecutionMode,
+    VortexEncodedReadExecutionReport, VortexEncodedReadExecutionStatus,
+    VortexEncodedReadExecutorFeatureStatus, VortexFilteredCountCandidateSource,
     VortexFilteredCountReadinessReport, VortexMetadataSummaryReport,
     VortexQueryPrimitiveAnalysisReport, VortexQueryPrimitiveKind, VortexQueryPrimitiveRequest,
     VortexQueryPrimitiveResult, VortexQueryPrimitiveStatus, VortexQueryPrimitiveValue,
@@ -18,6 +20,7 @@ use crate::{
 pub enum VortexLocalExecutionStatus {
     Planned,
     MetadataExecuted,
+    LocalEncodedCountExecuted,
     NoOpCompleted,
     NeedsEncodedRead,
     NeedsPredicateEvaluation,
@@ -35,6 +38,7 @@ impl VortexLocalExecutionStatus {
         match self {
             Self::Planned => "planned",
             Self::MetadataExecuted => "metadata_executed",
+            Self::LocalEncodedCountExecuted => "local_encoded_count_executed",
             Self::NoOpCompleted => "no_op_completed",
             Self::NeedsEncodedRead => "needs_encoded_read",
             Self::NeedsPredicateEvaluation => "needs_predicate_evaluation",
@@ -68,6 +72,7 @@ impl VortexLocalExecutionStatus {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VortexLocalExecutionMode {
     MetadataOnly,
+    LocalEncodedCount,
     NoOp,
     PlanOnly,
     Blocked,
@@ -77,6 +82,7 @@ impl VortexLocalExecutionMode {
     pub const fn as_str(&self) -> &'static str {
         match self {
             Self::MetadataOnly => "metadata_only",
+            Self::LocalEncodedCount => "local_encoded_count",
             Self::NoOp => "no_op",
             Self::PlanOnly => "plan_only",
             Self::Blocked => "blocked",
@@ -84,7 +90,7 @@ impl VortexLocalExecutionMode {
         }
     }
     pub const fn reads_data(&self) -> bool {
-        false
+        matches!(self, Self::LocalEncodedCount)
     }
     pub const fn decodes_data(&self) -> bool {
         false
@@ -103,6 +109,7 @@ pub enum VortexLocalExecutionStepKind {
     AttachDecisionTrace,
     AttachWorkAvoidedReport,
     ReturnMetadataResult,
+    ReturnEncodedCountResult,
     DeferEncodedRead,
     BlockUnsafePath,
     Unsupported,
@@ -114,13 +121,17 @@ impl VortexLocalExecutionStepKind {
             Self::AttachDecisionTrace => "attach_decision_trace",
             Self::AttachWorkAvoidedReport => "attach_work_avoided_report",
             Self::ReturnMetadataResult => "return_metadata_result",
+            Self::ReturnEncodedCountResult => "return_encoded_count_result",
             Self::DeferEncodedRead => "defer_encoded_read",
             Self::BlockUnsafePath => "block_unsafe_path",
             Self::Unsupported => "unsupported",
         }
     }
     pub const fn is_completed(&self) -> bool {
-        matches!(self, Self::ReturnMetadataResult)
+        matches!(
+            self,
+            Self::ReturnMetadataResult | Self::ReturnEncodedCountResult
+        )
     }
     pub const fn is_blocking(&self) -> bool {
         matches!(self, Self::BlockUnsafePath | Self::Unsupported)
@@ -356,6 +367,34 @@ impl VortexLocalExecutionReport {
         r.add_step(VortexLocalExecutionStep::new(VortexLocalExecutionStepKind::DeferEncodedRead,"encoded read or encoded predicate evaluation is required and deferred by phase-10a skeleton"));
         r
     }
+    pub fn local_encoded_count_executed(
+        input: VortexLocalExecutionInput,
+        count_result: u64,
+    ) -> Self {
+        let mut r = Self::base(
+            VortexLocalExecutionStatus::LocalEncodedCountExecuted,
+            VortexLocalExecutionMode::LocalEncodedCount,
+            input,
+        );
+        r.value = VortexLocalExecutionValue::QueryPrimitive(VortexQueryPrimitiveValue::Count(
+            count_result,
+        ));
+        r.tasks_executed = true;
+        r.data_read = true;
+        r.add_step(VortexLocalExecutionStep::new(
+            VortexLocalExecutionStepKind::EvaluateQueryPrimitive,
+            "validated CountAll primitive against approved local scan count result",
+        ));
+        r.add_step(VortexLocalExecutionStep::new(
+            VortexLocalExecutionStepKind::AttachDecisionTrace,
+            "attached approved local scan execution evidence to local execution report",
+        ));
+        r.add_step(VortexLocalExecutionStep::new(
+            VortexLocalExecutionStepKind::ReturnEncodedCountResult,
+            "returned local encoded-count result from approved Vortex array-length scan",
+        ));
+        r
+    }
     pub fn missing_metadata(input: VortexLocalExecutionInput, reason: impl Into<String>) -> Self {
         let mut r = Self::base(
             VortexLocalExecutionStatus::MissingMetadata,
@@ -501,6 +540,8 @@ pub struct VortexEncodedCountLocalGuardDiscoveryReport {
     pub local_execution_status: VortexLocalExecutionStatus,
     pub mode: VortexLocalExecutionMode,
     pub layout_row_count_path_accepted: bool,
+    pub approved_local_scan_result_bridge_available: bool,
+    pub approved_local_scan_result_bridge_requires_executed_report: bool,
     pub returns_count_result: bool,
     pub tasks_executed: bool,
     pub data_read: bool,
@@ -519,10 +560,13 @@ impl VortexEncodedCountLocalGuardDiscoveryReport {
             accepted_approval_sources: vec![
                 "execution_usable_public_api_boundary",
                 "layout_row_count_approval",
+                "approved_local_scan_execution_report",
             ],
             local_execution_status: VortexLocalExecutionStatus::NeedsEncodedRead,
             mode: VortexLocalExecutionMode::PlanOnly,
             layout_row_count_path_accepted: true,
+            approved_local_scan_result_bridge_available: true,
+            approved_local_scan_result_bridge_requires_executed_report: true,
             returns_count_result: false,
             tasks_executed: false,
             data_read: false,
@@ -549,13 +593,15 @@ impl VortexEncodedCountLocalGuardDiscoveryReport {
     }
     pub fn to_human_text(&self) -> String {
         format!(
-            "Vortex encoded-count local guard discovery\nschema_version: {}\nguard_id: {}\naccepted approval sources: {}\nlocal execution status: {}\nmode: {}\nlayout row-count path accepted: {}\nreturns count result: {}\ndata read: {}\ndata decoded: {}\ndata materialized: {}\nobject-store IO: {}\nwrite IO: {}\nspill IO: {}\nfallback execution: disabled",
+            "Vortex encoded-count local guard discovery\nschema_version: {}\nguard_id: {}\naccepted approval sources: {}\nlocal execution status: {}\nmode: {}\nlayout row-count path accepted: {}\napproved local scan result bridge available: {}\napproved local scan result bridge requires executed report: {}\nreturns count result: {}\ndata read: {}\ndata decoded: {}\ndata materialized: {}\nobject-store IO: {}\nwrite IO: {}\nspill IO: {}\nfallback execution: disabled",
             self.schema_version,
             self.guard_id,
             self.accepted_approval_sources_text(),
             self.local_execution_status.as_str(),
             self.mode.as_str(),
             self.layout_row_count_path_accepted,
+            self.approved_local_scan_result_bridge_available,
+            self.approved_local_scan_result_bridge_requires_executed_report,
             self.returns_count_result,
             self.data_read,
             self.data_decoded,
@@ -659,6 +705,120 @@ pub fn execute_vortex_count_all_from_encoded_count_data_path_approval(
     ))
 }
 
+/// Bridges an approved local scan/count execution report into local query
+/// primitive evidence.
+///
+/// This consumes an already executed, approval-gated local `.vortex` `CountAll`
+/// scan/count report and returns a local execution report with the count value.
+/// It does not generalize encoded-data execution: the input report must be the
+/// narrow local scan array-length count path, must match the approval target,
+/// and must prove that no rows, decode/materialization, Arrow conversion,
+/// object-store IO, writes, spill IO, external effects, or fallback execution
+/// occurred.
+///
+/// # Errors
+/// Returns an error only if deterministic report construction fails.
+pub fn execute_vortex_count_all_from_approved_local_scan_result(
+    approval: &VortexEncodedCountDataPathApprovalReport,
+    encoded_read: &VortexEncodedReadExecutionReport,
+) -> Result<VortexLocalExecutionReport> {
+    let target_uri = approval
+        .input
+        .count_readiness_report
+        .request
+        .target_uri
+        .clone();
+    let input =
+        VortexLocalExecutionInput::new(VortexQueryPrimitiveRequest::count_all(target_uri.clone()))
+            .allow_encoded_read(true);
+
+    if !approval.approved()
+        || !approval.is_side_effect_free()
+        || approval.has_errors()
+        || approval.fallback_execution_allowed
+    {
+        return Ok(VortexLocalExecutionReport::unsupported(
+            input,
+            "vortex_local_encoded_count_result_bridge",
+            "approved local scan result bridge requires an approved, side-effect-free encoded-count data-path approval report",
+        ));
+    }
+    if encoded_read.feature_status != VortexEncodedReadExecutorFeatureStatus::Enabled {
+        return Ok(VortexLocalExecutionReport::unsupported(
+            input,
+            "vortex_local_encoded_count_result_bridge",
+            "approved local scan result bridge requires an enabled encoded-read executor feature report",
+        ));
+    }
+    if encoded_read.status != VortexEncodedReadExecutionStatus::LocalScanEncodedCountExecuted
+        || encoded_read.mode != VortexEncodedReadExecutionMode::LocalScanEncodedArrayLengthCount
+        || encoded_read.has_errors()
+    {
+        return Ok(VortexLocalExecutionReport::unsupported(
+            input,
+            "vortex_local_encoded_count_result_bridge",
+            "approved local scan result bridge requires a successful local scan encoded-count execution report",
+        ));
+    }
+    let Some(count_result) = encoded_read.count_result else {
+        return Ok(VortexLocalExecutionReport::unsupported(
+            input,
+            "vortex_local_encoded_count_result_bridge",
+            "approved local scan result bridge requires a known count result",
+        ));
+    };
+    if encoded_read.rows_counted != count_result {
+        return Ok(VortexLocalExecutionReport::unsupported(
+            input,
+            "vortex_local_encoded_count_result_bridge",
+            "approved local scan rows-counted evidence must match the count result",
+        ));
+    }
+    if encoded_read.local_scan_target_uri.as_ref() != Some(&target_uri) {
+        return Ok(VortexLocalExecutionReport::unsupported(
+            input,
+            "vortex_local_encoded_count_result_bridge",
+            "approved local scan target URI must match the encoded-count approval target URI",
+        ));
+    }
+    if encoded_read.local_scan_readiness_source_uri.as_ref() != Some(&target_uri)
+        || !encoded_read.local_scan_source_uri_matches_target
+    {
+        return Ok(VortexLocalExecutionReport::unsupported(
+            input,
+            "vortex_local_encoded_count_result_bridge",
+            "approved local scan readiness source URI must match the encoded-count approval target URI",
+        ));
+    }
+    if !encoded_read.data_read || !encoded_read.upstream_scan_called {
+        return Ok(VortexLocalExecutionReport::unsupported(
+            input,
+            "vortex_local_encoded_count_result_bridge",
+            "approved local scan result bridge requires executed local scan data-read evidence",
+        ));
+    }
+    if encoded_read.data_decoded
+        || encoded_read.data_materialized
+        || encoded_read.row_read
+        || encoded_read.arrow_converted
+        || encoded_read.object_store_io
+        || encoded_read.write_io
+        || encoded_read.spill_io_performed
+        || encoded_read.external_effects_executed
+        || encoded_read.fallback_execution_allowed
+    {
+        return Ok(VortexLocalExecutionReport::unsupported(
+            input,
+            "vortex_local_encoded_count_result_bridge",
+            "approved local scan result bridge rejects reports with decode, materialization, row reads, Arrow conversion, IO expansion, external effects, or fallback execution",
+        ));
+    }
+
+    let mut report = VortexLocalExecutionReport::local_encoded_count_executed(input, count_result);
+    report.diagnostics.extend(encoded_read.diagnostics.clone());
+    Ok(report)
+}
+
 /// Executes metadata-proven `CountWhere` through the filtered-count readiness guard.
 ///
 /// This path accepts only metadata predicate proof candidates. It may return a
@@ -718,7 +878,8 @@ mod tests {
         plan_vortex_filtered_count_readiness, plan_vortex_layout_reader_driver_approval,
         vortex_encoded_read_public_api_boundary,
     };
-    use shardloom_core::{DatasetUri, PredicateExpr};
+    use shardloom_core::{DatasetUri, PredicateExpr, UniversalInputSource};
+    use shardloom_exec::{AdaptiveSizingPolicy, ByteSize, MemoryBudget};
     fn uri() -> DatasetUri {
         DatasetUri::new("file://tmp/a.vortex").expect("uri")
     }
@@ -776,6 +937,90 @@ mod tests {
         )
         .expect("layout driver approval")
     }
+    fn approved_encoded_count_path_for_uri(
+        target_uri: DatasetUri,
+    ) -> VortexEncodedCountDataPathApprovalReport {
+        let readiness = plan_vortex_count_readiness(
+            VortexCountReadinessRequest::new(
+                target_uri,
+                VortexCountCandidateSource::EncodedDataPath,
+            )
+            .feature_gate_enabled(true)
+            .query_primitive_ready(true)
+            .count_primitive(true)
+            .encoded_data_path_ready(true),
+        )
+        .expect("count readiness");
+        let mut api = VortexEncodedReadApiBoundaryReport::default_deferred();
+        api.status = VortexEncodedReadApiBoundaryStatus::ContractReady;
+        api.execution_usable_count = 1;
+        VortexEncodedCountDataPathApprovalReport::from_input(
+            VortexEncodedCountDataPathApprovalInput::new(readiness, api),
+        )
+        .expect("approval")
+    }
+    fn encoded_read_readiness_for_uri(
+        target_uri: DatasetUri,
+    ) -> crate::VortexEncodedReadReadinessReport {
+        let source = UniversalInputSource::from_dataset_uri(target_uri).expect("source");
+        let input_plan = crate::plan_native_vortex_universal_input(source).expect("input plan");
+        let read_report =
+            crate::plan_vortex_read_from_universal_input(input_plan).expect("read plan");
+        let runtime_report =
+            crate::build_vortex_runtime_task_graph(read_report).expect("runtime bridge");
+        let sizing_report = crate::size_vortex_runtime_task_graph(
+            runtime_report,
+            AdaptiveSizingPolicy::memory_limited(ByteSize::from_gib(1)),
+        )
+        .expect("sizing");
+        let memory = crate::plan_vortex_memory_safety(
+            sizing_report,
+            MemoryBudget::from_gib(1).expect("memory budget"),
+        )
+        .expect("memory bridge");
+        let mut scheduler = crate::VortexSchedulerBridgeReport::from_input(
+            crate::VortexSchedulerBridgeInput::new(memory),
+        )
+        .expect("scheduler bridge");
+        scheduler.decisions.clear();
+        scheduler
+            .decisions
+            .push(crate::VortexTaskSchedulingDecision::schedule_now(
+                None,
+                "local array-length count scan",
+            ));
+        scheduler.recompute_counts();
+        crate::VortexEncodedReadReadinessReport::from_scheduler_report(scheduler)
+            .expect("readiness")
+    }
+    fn local_scan_count_result_report(
+        approval: &VortexEncodedCountDataPathApprovalReport,
+        count: u64,
+    ) -> VortexEncodedReadExecutionReport {
+        let target_uri = approval
+            .input
+            .count_readiness_report
+            .request
+            .target_uri
+            .clone();
+        let readiness = encoded_read_readiness_for_uri(target_uri.clone());
+        let mut report = VortexEncodedReadExecutionReport::feature_disabled(
+            crate::VortexEncodedReadExecutionInput::new(readiness)
+                .allow_encoded_read_execution(true),
+        );
+        report.feature_status = VortexEncodedReadExecutorFeatureStatus::Enabled;
+        report.status = VortexEncodedReadExecutionStatus::LocalScanEncodedCountExecuted;
+        report.mode = VortexEncodedReadExecutionMode::LocalScanEncodedArrayLengthCount;
+        report.data_read = true;
+        report.upstream_scan_called = true;
+        report.arrays_read_count = 1;
+        report.rows_counted = count;
+        report.count_result = Some(count);
+        report.local_scan_target_uri = Some(target_uri.clone());
+        report.local_scan_readiness_source_uri = Some(target_uri);
+        report.local_scan_source_uri_matches_target = true;
+        report
+    }
     fn filtered_count_metadata_proof_ready_report() -> VortexFilteredCountReadinessReport {
         plan_vortex_filtered_count_readiness(
             VortexFilteredCountReadinessRequest::new(
@@ -817,8 +1062,17 @@ mod tests {
         assert!(!m.reads_data() && !m.decodes_data() && !m.materializes_data() && !m.writes_data());
     }
     #[test]
+    fn local_encoded_count_mode_reads_data_only() {
+        let m = VortexLocalExecutionMode::LocalEncodedCount;
+        assert!(m.reads_data());
+        assert!(!m.decodes_data());
+        assert!(!m.materializes_data());
+        assert!(!m.writes_data());
+    }
+    #[test]
     fn step_kind_flags() {
         assert!(VortexLocalExecutionStepKind::ReturnMetadataResult.is_completed());
+        assert!(VortexLocalExecutionStepKind::ReturnEncodedCountResult.is_completed());
         assert!(VortexLocalExecutionStepKind::BlockUnsafePath.is_blocking());
     }
     #[test]
@@ -1023,6 +1277,90 @@ mod tests {
     }
 
     #[test]
+    fn approved_local_scan_result_bridge_returns_count_value() {
+        let approval = approved_encoded_count_path_for_uri(uri());
+        let encoded = local_scan_count_result_report(&approval, 42);
+
+        let report = execute_vortex_count_all_from_approved_local_scan_result(&approval, &encoded)
+            .expect("bridge");
+
+        assert_eq!(
+            report.status,
+            VortexLocalExecutionStatus::LocalEncodedCountExecuted
+        );
+        assert_eq!(report.mode, VortexLocalExecutionMode::LocalEncodedCount);
+        assert_eq!(
+            report.value,
+            VortexLocalExecutionValue::QueryPrimitive(VortexQueryPrimitiveValue::Count(42))
+        );
+        assert!(report.input.allow_encoded_read);
+        assert!(report.tasks_executed);
+        assert!(report.data_read);
+        assert!(!report.data_decoded);
+        assert!(!report.data_materialized);
+        assert!(!report.object_store_io);
+        assert!(!report.write_io);
+        assert!(!report.spill_io_performed);
+        assert!(!report.external_effects_executed);
+        assert!(!report.fallback_execution_allowed);
+        assert!(!report.is_side_effect_free());
+        assert!(!report.has_errors());
+        assert!(
+            report
+                .steps
+                .iter()
+                .any(|step| step.kind == VortexLocalExecutionStepKind::ReturnEncodedCountResult)
+        );
+    }
+
+    #[test]
+    fn approved_local_scan_result_bridge_rejects_missing_count_result() {
+        let approval = approved_encoded_count_path_for_uri(uri());
+        let mut encoded = local_scan_count_result_report(&approval, 42);
+        encoded.count_result = None;
+
+        let report = execute_vortex_count_all_from_approved_local_scan_result(&approval, &encoded)
+            .expect("bridge");
+
+        assert_eq!(report.status, VortexLocalExecutionStatus::Unsupported);
+        assert!(report.has_errors());
+        assert!(report.is_side_effect_free());
+        assert!(!report.data_read);
+        assert!(!report.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn approved_local_scan_result_bridge_rejects_target_mismatch() {
+        let approval = approved_encoded_count_path_for_uri(uri());
+        let mut encoded = local_scan_count_result_report(&approval, 42);
+        encoded.local_scan_target_uri =
+            Some(DatasetUri::new("file://tmp/other.vortex").expect("uri"));
+
+        let report = execute_vortex_count_all_from_approved_local_scan_result(&approval, &encoded)
+            .expect("bridge");
+
+        assert_eq!(report.status, VortexLocalExecutionStatus::Unsupported);
+        assert!(report.has_errors());
+        assert!(report.is_side_effect_free());
+        assert!(!report.data_read);
+    }
+
+    #[test]
+    fn approved_local_scan_result_bridge_rejects_decode_or_row_read() {
+        let approval = approved_encoded_count_path_for_uri(uri());
+        let mut encoded = local_scan_count_result_report(&approval, 42);
+        encoded.row_read = true;
+
+        let report = execute_vortex_count_all_from_approved_local_scan_result(&approval, &encoded)
+            .expect("bridge");
+
+        assert_eq!(report.status, VortexLocalExecutionStatus::Unsupported);
+        assert!(report.has_errors());
+        assert!(report.is_side_effect_free());
+        assert!(!report.data_read);
+    }
+
+    #[test]
     fn encoded_count_local_guard_discovery_remains_report_only() {
         let report = vortex_encoded_count_local_guard_discovery_report();
 
@@ -1036,12 +1374,14 @@ mod tests {
         );
         assert_eq!(report.mode, VortexLocalExecutionMode::PlanOnly);
         assert!(report.layout_row_count_path_accepted);
+        assert!(report.approved_local_scan_result_bridge_available);
+        assert!(report.approved_local_scan_result_bridge_requires_executed_report);
         assert!(!report.returns_count_result);
         assert!(report.is_side_effect_free());
         assert!(!report.fallback_execution_allowed);
         assert_eq!(
             report.accepted_approval_sources_text(),
-            "execution_usable_public_api_boundary,layout_row_count_approval"
+            "execution_usable_public_api_boundary,layout_row_count_approval,approved_local_scan_execution_report"
         );
     }
 

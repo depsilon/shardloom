@@ -36,24 +36,27 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-2.1e.20 approved local scan naming normalization
+- [x] Session label: CG-2.1e.21 approved local scan result bridge
   - Primary files:
-    - `shardloom-vortex/src/encoded_read_executor.rs`
+    - `shardloom-vortex/src/local_execution.rs`
+    - `shardloom-vortex/src/local_engine.rs`
     - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
     - `docs/architecture/vortex-public-api-inventory.md`
     - `docs/architecture/vortex-adapter-integration-plan.md`
-  - Scope: Normalize the approved local count execution surface from fixture-only wording to local-scan wording after CG-2.1e.19 made the boundary explicit.
+  - Scope: Bridge the already approved local `.vortex` scan/count execution report into the local query-primitive execution evidence surface.
   - Checklist:
-    - [x] Rename local count execution status/mode strings from `local_fixture_*` to `local_scan_*`.
-    - [x] Rename execution report fields from `local_fixture_*` to `local_scan_*`.
-    - [x] Rename local count diagnostics and human text to local-scan wording.
-    - [x] Keep the existing layout-driver `local-fixture-only` signal unchanged because it is a historical public CLI signal.
+    - [x] Add `execute_vortex_count_all_from_approved_local_scan_result` as the local execution bridge from approved local scan result evidence to a known `CountAll` value.
+    - [x] Add local execution status/mode evidence for `local_encoded_count_executed`.
+    - [x] Require approved encoded-count data-path approval, enabled encoded-read executor evidence, matching local scan target/readiness source URI, known count result, and no decode/materialization/row/Arrow/object-store/write/spill/external/fallback effects.
+    - [x] Surface bridged local execution status, value, and side-effect fields from `shardloom vortex-encoded-read-spike ... --execute-local-count`.
+    - [x] Update operator capability discovery fields to name the approved local scan result bridge while keeping discovery report-only.
     - [x] Record phase-plan, traceability, Vortex API inventory, and adapter-boundary docs.
     - [x] Run focused feature-gated Vortex and CLI tests.
     - [x] Run full required validation.
-  - Explicitly not included: behavior widening, generalized encoded-data count execution, adapters, non-local sources, object-store IO, encoded predicates, projection execution, row reads, decode/materialization, Arrow conversion, writes, spill IO, external baseline execution, fallback execution, benchmarks, public command/signal renames, CG-1 closeout, or CG-2 closeout.
+  - Explicitly not included: generalized encoded-data count execution, adapters, non-local sources, object-store IO, encoded predicates, projection execution, row reads, decode/materialization, Arrow conversion, writes, spill IO, external baseline execution, fallback execution, benchmarks, public command/signal renames, CG-1 closeout, or CG-2 closeout.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -563,6 +566,15 @@ Supporting docs:
     - Existing CLI output keys already using `local_scan_*` continue to work.
     - Historical layout-driver `local-fixture-only` signal remains unchanged to avoid renaming a public signal outside this cleanup scope.
     - No behavior widening, generalized encoded-data count execution, adapters, non-local sources, object-store IO, encoded predicates, projection execution, row reads, requested decode/materialization, Arrow conversion, writes, spill IO, external baseline invocation, fallback execution, benchmarks, CG-1 closeout, or CG-2 closeout are added.
+- [x] CG-2.1e.21 approved local scan result bridge
+  - Why: connect the approved local `.vortex` scan/count result back into the local query-primitive execution evidence path without generalizing encoded-data execution.
+  - Acceptance:
+    - `execute_vortex_count_all_from_approved_local_scan_result` consumes both the approved encoded-count data-path report and a successful approved local scan execution report.
+    - Local execution can report `local_encoded_count_executed`, `local_encoded_count`, a known `CountAll` value, `tasks_executed=true`, and `data_read=true` only when the local scan report proves matching target/source evidence and no unsafe effects.
+    - The bridge rejects missing count results, target/source mismatches, disabled feature reports, unsuccessful scan reports, row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, external effects, and fallback execution.
+    - `shardloom vortex-encoded-read-spike ... --execute-local-count` emits the bridged local execution status, mode, value, and side-effect fields alongside the existing local scan count fields.
+    - Capability discovery names the approved local scan result bridge as available but remains report-only and side-effect-free.
+    - No generalized encoded-data count execution, adapters, non-local sources, object-store IO, encoded predicates, projection execution, row reads, requested decode/materialization, Arrow conversion, writes, spill IO, external baseline invocation, fallback execution, benchmarks, CG-1 closeout, or CG-2 closeout are added.
 - [ ] CG-2.1e generalized encoded-data count execution path (planned)
   - Why: turn the local fixture scan/count proof into a generalized native count path only after the public Vortex data path and representation guarantees are approved.
   - Acceptance:
@@ -619,6 +631,7 @@ Status legend:
   - [x] CG-2.1e.18 local fixture scan source evidence reporting
   - [x] CG-2.1e.19 explicit local encoded-count execution boundary
   - [x] CG-2.1e.20 approved local scan naming normalization
+  - [x] CG-2.1e.21 approved local scan result bridge
   - [~] CG-2.1+ generalized non-metadata primitive execution remains deferred pending broader encoded-data execution guarantees
   - [x] CG-2.2c filtered-count metadata proof local guard
   - [x] CG-2.2d filtered-count metadata proof report
@@ -818,6 +831,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.18 local fixture scan source evidence reporting
 - [x] CG-2.1e.19 explicit local encoded-count execution boundary
 - [x] CG-2.1e.20 approved local scan naming normalization
+- [x] CG-2.1e.21 approved local scan result bridge
 - [x] CG-2.2a filtered-count readiness core contract
 - [x] CG-2.2a.1 filtered-count blocker precision hardening
 - [x] CG-2.2b filtered-count readiness CLI integration
@@ -1030,6 +1044,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.18 local fixture scan source evidence reporting adds scan-target/readiness-source fields to local fixture execution reports without broadening execution.
 - [x] CG-2.1e.19 explicit local encoded-count execution boundary exposes the approved local `.vortex` `CountAll` scan/count path through a narrow API boundary and CLI opt-in while generalized encoded-data count execution remains deferred.
 - [x] CG-2.1e.20 approved local scan naming normalization updates public report and diagnostic names from fixture wording to local-scan wording without widening behavior.
+- [x] CG-2.1e.21 approved local scan result bridge connects the successful approved local scan/count report to local query-primitive execution evidence with known count value, target/source-match validation, no decode/materialization/row/Arrow/object-store/write/spill/external effects, and no fallback.
 - [x] CG-2.2c filtered-count metadata proof local guard admits only metadata-proof `CountWhere` requests into metadata-only local execution and rejects encoded predicate candidates without fallback.
 - [x] CG-2.2d filtered-count metadata proof report classifies proof-ready, encoded-predicate-needed, missing-metadata, and unsupported filtered counts without IO or fallback.
 - [x] CG-5.1 metadata query primitive correctness fixtures cover supported metadata answers and deferred unsupported paths without side effects.

@@ -917,6 +917,13 @@ CG-2.1c metadata-footer `CountAll` execution is wired; non-metadata execution re
 - Diagnostic labels use `vortex_local_scan_count`, keeping adapter/source evidence terminology aligned before generalized count execution is considered.
 - This does not make adapters, non-local sources, object stores, predicates, projections, writes, benchmarks, external baselines, or fallback execution in scope.
 
+## CG-2.1e.21 approved local scan result bridge
+
+- Local execution now has an explicit bridge from approved local scan/count evidence to a known `CountAll` query-primitive value.
+- The bridge requires the adapter/source authorization chain to remain exact: approved encoded-count data-path report, enabled local scan execution report, matching approval target/local scan/readiness source URI evidence, and no unsafe effects.
+- Capability discovery names the approved local scan result bridge while remaining report-only; discovery does not probe adapters, filesystems, catalogs, object stores, or runtime inputs.
+- This does not make adapters, non-local sources, object stores, encoded predicates, projections, writes, benchmarks, external baselines, or fallback execution in scope.
+
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.
 - CG-2.2a adds `VortexFilteredCountReadinessRequest` and `VortexFilteredCountReadinessReport` planning/reporting only.

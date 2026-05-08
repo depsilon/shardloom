@@ -23,6 +23,7 @@ use crate::{
 pub enum VortexLocalEngineStatus {
     Planned,
     MetadataCompleted,
+    LocalEncodedCountCompleted,
     NoOpCompleted,
     DeferredEncodedRead,
     DeferredPredicateEvaluation,
@@ -42,6 +43,7 @@ impl VortexLocalEngineStatus {
         match self {
             Self::Planned => "planned",
             Self::MetadataCompleted => "metadata_completed",
+            Self::LocalEncodedCountCompleted => "local_encoded_count_completed",
             Self::NoOpCompleted => "no_op_completed",
             Self::DeferredEncodedRead => "deferred_encoded_read",
             Self::DeferredPredicateEvaluation => "deferred_predicate_evaluation",
@@ -79,6 +81,7 @@ impl VortexLocalEngineStatus {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VortexLocalEngineMode {
     MetadataOnly,
+    LocalEncodedCount,
     NoOp,
     PlanOnly,
     BoundedLocal,
@@ -89,6 +92,7 @@ impl VortexLocalEngineMode {
     pub const fn as_str(&self) -> &'static str {
         match self {
             Self::MetadataOnly => "metadata_only",
+            Self::LocalEncodedCount => "local_encoded_count",
             Self::NoOp => "no_op",
             Self::PlanOnly => "plan_only",
             Self::BoundedLocal => "bounded_local",
@@ -97,7 +101,7 @@ impl VortexLocalEngineMode {
         }
     }
     pub const fn reads_data(&self) -> bool {
-        false
+        matches!(self, Self::LocalEncodedCount)
     }
     pub const fn decodes_data(&self) -> bool {
         false
@@ -431,14 +435,18 @@ impl VortexLocalEngineReport {
         let _ = writeln!(out, "work avoided metrics: {}", self.work_avoided_metrics);
         let _ = writeln!(out, "memory_gb: {}", self.request.memory_gb);
         let _ = writeln!(out, "max_parallelism: {}", self.request.max_parallelism);
-        let _ = writeln!(out, "tasks executed: false");
-        let _ = writeln!(out, "data read: false");
-        let _ = writeln!(out, "data decoded: false");
-        let _ = writeln!(out, "data materialized: false");
-        let _ = writeln!(out, "object-store IO: false");
-        let _ = writeln!(out, "write IO: false");
-        let _ = writeln!(out, "spill IO: false");
-        let _ = writeln!(out, "external effects executed: false");
+        let _ = writeln!(out, "tasks executed: {}", self.tasks_executed);
+        let _ = writeln!(out, "data read: {}", self.data_read);
+        let _ = writeln!(out, "data decoded: {}", self.data_decoded);
+        let _ = writeln!(out, "data materialized: {}", self.data_materialized);
+        let _ = writeln!(out, "object-store IO: {}", self.object_store_io);
+        let _ = writeln!(out, "write IO: {}", self.write_io);
+        let _ = writeln!(out, "spill IO: {}", self.spill_io_performed);
+        let _ = writeln!(
+            out,
+            "external effects executed: {}",
+            self.external_effects_executed
+        );
         let _ = writeln!(out, "fallback execution disabled");
         out
     }
@@ -447,6 +455,9 @@ impl VortexLocalEngineReport {
 fn map_mode(status: VortexLocalEngineStatus) -> VortexLocalEngineMode {
     match status {
         VortexLocalEngineStatus::MetadataCompleted => VortexLocalEngineMode::MetadataOnly,
+        VortexLocalEngineStatus::LocalEncodedCountCompleted => {
+            VortexLocalEngineMode::LocalEncodedCount
+        }
         VortexLocalEngineStatus::NoOpCompleted => VortexLocalEngineMode::NoOp,
         VortexLocalEngineStatus::DeferredEncodedRead
         | VortexLocalEngineStatus::DeferredPredicateEvaluation
@@ -548,6 +559,9 @@ fn map_bounded_execution_status(status: VortexBoundedExecutionStatus) -> VortexL
 fn map_local_execution_status(status: VortexLocalExecutionStatus) -> VortexLocalEngineStatus {
     match status {
         VortexLocalExecutionStatus::MetadataExecuted => VortexLocalEngineStatus::MetadataCompleted,
+        VortexLocalExecutionStatus::LocalEncodedCountExecuted => {
+            VortexLocalEngineStatus::LocalEncodedCountCompleted
+        }
         VortexLocalExecutionStatus::NoOpCompleted => VortexLocalEngineStatus::NoOpCompleted,
         VortexLocalExecutionStatus::NeedsEncodedRead => {
             VortexLocalEngineStatus::DeferredEncodedRead
