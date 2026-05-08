@@ -51,11 +51,13 @@ use shardloom_exec::{
 };
 use shardloom_plan::{
     EstimateReport, ExplainReport, NativePlanDocument, ObjectStoreCommitProtocolInput,
-    ObjectStoreCommitProtocolReport, ObjectStoreRangePlanningPolicy,
+    ObjectStoreCommitProtocolReport, ObjectStoreDistributedSchedulingPolicy,
+    ObjectStoreDistributedSchedulingReport, ObjectStoreRangePlanningPolicy,
     ObjectStoreRangePlanningReport, ObjectStoreRequestCoalescingReport, OptimizerPhase,
     OptimizerPlanSkeleton, PlanExportRequest, PlanId, PlanImportRequest, PlanInteropFormat,
     ProjectionRequest, ScanPlanSkeleton, ScanRequest, plan_object_store_commit_protocol,
-    plan_object_store_ranges, plan_object_store_request_coalescing, plan_universal_input_source,
+    plan_object_store_distributed_scheduling, plan_object_store_ranges,
+    plan_object_store_request_coalescing, plan_universal_input_source,
 };
 use shardloom_vortex::{
     VortexAdapterCapabilityReport, VortexAdapterReadiness, VortexAdaptiveSizingReport,
@@ -173,7 +175,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|layout-health-plan|compaction-plan|object-store-range-plan|object-store-coalesce-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|layout-health-plan|compaction-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -7103,6 +7105,182 @@ fn object_store_coalesce_output_fields(
     fields
 }
 
+fn emit_object_store_schedule_plan(format: OutputFormat, scenario: &str) -> ExitCode {
+    let (manifest, range_policy, scheduling_policy) = match object_store_schedule_fixture(scenario)
+    {
+        Ok(fixture) => fixture,
+        Err(error) => {
+            return emit_error(
+                "object-store-schedule-plan",
+                format,
+                "object-store scheduling planning failed",
+                &error,
+            );
+        }
+    };
+    let coalescing_report = plan_object_store_request_coalescing(manifest, range_policy);
+    let report = plan_object_store_distributed_scheduling(coalescing_report, scheduling_policy);
+    let status = if report.has_errors() {
+        CommandStatus::Unsupported
+    } else {
+        CommandStatus::Success
+    };
+    emit(
+        "object-store-schedule-plan",
+        format,
+        status,
+        "object-store distributed scheduling report".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        object_store_schedule_output_fields(&report, scenario),
+    );
+    if report.has_errors() {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+fn object_store_schedule_output_fields(
+    report: &ObjectStoreDistributedSchedulingReport,
+    scenario: &str,
+) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    push_field(&mut fields, "fallback_execution_allowed", "false");
+    push_field(&mut fields, "mode", "object_store_schedule_plan");
+    push_field(&mut fields, "scenario", scenario);
+    push_field(
+        &mut fields,
+        "object_store_schedule_status",
+        report.status.as_str(),
+    );
+    push_count_field(
+        &mut fields,
+        "max_requests_per_task",
+        report.policy.max_requests_per_task,
+    );
+    push_count_field(&mut fields, "max_task_count", report.policy.max_task_count);
+    push_count_field(
+        &mut fields,
+        "input_request_count",
+        report.input_request_count,
+    );
+    push_count_field(&mut fields, "planned_task_count", report.planned_task_count);
+    push_u64_field(
+        &mut fields,
+        "estimated_request_bytes",
+        report.estimated_request_bytes,
+    );
+    push_bool_field(
+        &mut fields,
+        "requires_checkpoint_plan",
+        report.requires_checkpoint_plan,
+    );
+    push_bool_field(
+        &mut fields,
+        "requires_retry_policy",
+        report.requires_retry_policy,
+    );
+    push_bool_field(
+        &mut fields,
+        "requires_idempotency_keys",
+        report.requires_idempotency_keys,
+    );
+    push_bool_field(
+        &mut fields,
+        "scheduler_execution_allowed",
+        report.scheduler_execution_allowed,
+    );
+    push_bool_field(
+        &mut fields,
+        "coordinator_started",
+        report.coordinator_started,
+    );
+    push_bool_field(&mut fields, "worker_started", report.worker_started);
+    push_bool_field(
+        &mut fields,
+        "task_execution_allowed",
+        report.task_execution_allowed,
+    );
+    push_bool_field(
+        &mut fields,
+        "can_plan_without_io",
+        report.can_plan_without_io,
+    );
+    push_bool_field(&mut fields, "side_effect_free", report.side_effect_free());
+    push_bool_field(&mut fields, "object_store_io", report.object_store_io);
+    push_bool_field(&mut fields, "write_io", report.write_io);
+    push_field(&mut fields, "execution", "not_performed");
+    push_field(&mut fields, "plan_only", "true");
+    fields
+}
+
+fn object_store_schedule_fixture(
+    scenario: &str,
+) -> Result<
+    (
+        DatasetManifest,
+        ObjectStoreRangePlanningPolicy,
+        ObjectStoreDistributedSchedulingPolicy,
+    ),
+    ShardLoomError,
+> {
+    let default_range_policy = ObjectStoreRangePlanningPolicy::default();
+    let default_scheduling_policy = ObjectStoreDistributedSchedulingPolicy::default();
+    let spaced_range_policy = ObjectStoreRangePlanningPolicy {
+        max_coalesce_gap_bytes: 0,
+        ..ObjectStoreRangePlanningPolicy::default()
+    };
+    let spaced_manifest = || {
+        object_store_range_manifest(
+            "s3://bucket/table.vortex",
+            vec![
+                ByteRange::new(0, 1024),
+                ByteRange::new(8192, 1024),
+                ByteRange::new(16_384, 1024),
+            ],
+        )
+    };
+
+    match scenario {
+        "s3-ranges" => Ok((
+            object_store_range_fixture("s3-ranges")?,
+            default_range_policy,
+            default_scheduling_policy,
+        )),
+        "multi-task" => Ok((
+            spaced_manifest()?,
+            spaced_range_policy,
+            ObjectStoreDistributedSchedulingPolicy {
+                max_requests_per_task: 1,
+                max_task_count: 4,
+            },
+        )),
+        "missing-ranges" => Ok((
+            object_store_range_fixture("missing-ranges")?,
+            default_range_policy,
+            default_scheduling_policy,
+        )),
+        "task-budget" => Ok((
+            spaced_manifest()?,
+            spaced_range_policy,
+            ObjectStoreDistributedSchedulingPolicy {
+                max_requests_per_task: 1,
+                max_task_count: 2,
+            },
+        )),
+        "invalid-policy" => Ok((
+            object_store_range_fixture("s3-ranges")?,
+            default_range_policy,
+            ObjectStoreDistributedSchedulingPolicy {
+                max_requests_per_task: 0,
+                max_task_count: 1,
+            },
+        )),
+        value => Err(cli_unknown_arg_error("object-store-schedule-plan", value)),
+    }
+}
+
 fn emit_object_store_commit_plan(format: OutputFormat, scenario: &str) -> ExitCode {
     let input = match object_store_commit_fixture(scenario) {
         Ok(input) => input,
@@ -10209,6 +10387,18 @@ fn run(args: Vec<String>) -> ExitCode {
                 );
             }
             emit_object_store_coalesce_plan(format, &scenario)
+        }
+        Some("object-store-schedule-plan") => {
+            let scenario = args.next().unwrap_or_else(|| "s3-ranges".to_string());
+            if let Some(extra) = args.next() {
+                return emit_error(
+                    "object-store-schedule-plan",
+                    format,
+                    "object-store scheduling planning failed",
+                    &cli_unknown_arg_error("object-store-schedule-plan", &extra),
+                );
+            }
+            emit_object_store_schedule_plan(format, &scenario)
         }
         Some("object-store-commit-plan") => {
             let scenario = args.next().unwrap_or_else(|| "ready".to_string());
@@ -17561,6 +17751,33 @@ mod tests {
     }
 
     #[test]
+    fn object_store_schedule_plan_s3_ranges_returns_success() {
+        let code = run(vec![
+            "object-store-schedule-plan".to_string(),
+            "s3-ranges".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn object_store_schedule_plan_missing_ranges_returns_non_zero() {
+        let code = run(vec![
+            "object-store-schedule-plan".to_string(),
+            "missing-ranges".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn object_store_schedule_plan_task_budget_returns_non_zero() {
+        let code = run(vec![
+            "object-store-schedule-plan".to_string(),
+            "task-budget".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
     fn object_store_commit_plan_ready_returns_success() {
         let code = run(vec![
             "object-store-commit-plan".to_string(),
@@ -18520,6 +18737,10 @@ mod tests {
     #[test]
     fn usage_includes_object_store_coalesce_plan() {
         assert!(cli_usage_line().contains("object-store-coalesce-plan"));
+    }
+    #[test]
+    fn usage_includes_object_store_schedule_plan() {
+        assert!(cli_usage_line().contains("object-store-schedule-plan"));
     }
     #[test]
     fn usage_includes_object_store_commit_plan() {
