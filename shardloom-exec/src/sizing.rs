@@ -575,6 +575,257 @@ impl SizingPlan {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DynamicSizingFeedbackStatus {
+    NoFeedback,
+    Planned,
+    TargetReduced,
+    TargetIncreased,
+    MixedSignals,
+    Unsupported,
+}
+impl DynamicSizingFeedbackStatus {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::NoFeedback => "no_feedback",
+            Self::Planned => "planned",
+            Self::TargetReduced => "target_reduced",
+            Self::TargetIncreased => "target_increased",
+            Self::MixedSignals => "mixed_signals",
+            Self::Unsupported => "unsupported",
+        }
+    }
+    pub const fn is_error(&self) -> bool {
+        matches!(self, Self::Unsupported)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DynamicSizingFeedbackMode {
+    PlanOnly,
+    TargetAdjustment,
+    Unsupported,
+}
+impl DynamicSizingFeedbackMode {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::PlanOnly => "plan_only",
+            Self::TargetAdjustment => "target_adjustment",
+            Self::Unsupported => "unsupported",
+        }
+    }
+    pub const fn executes_feedback(&self) -> bool {
+        false
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SizingFeedbackSignalKind {
+    Stable,
+    TaskTooLarge,
+    TaskTooSmall,
+    MemoryPressureHigh,
+    ObjectStoreThrottled,
+}
+impl SizingFeedbackSignalKind {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Stable => "stable",
+            Self::TaskTooLarge => "task_too_large",
+            Self::TaskTooSmall => "task_too_small",
+            Self::MemoryPressureHigh => "memory_pressure_high",
+            Self::ObjectStoreThrottled => "object_store_throttled",
+        }
+    }
+    pub const fn recommends_smaller_tasks(&self) -> bool {
+        matches!(self, Self::TaskTooLarge | Self::MemoryPressureHigh)
+    }
+    pub const fn recommends_larger_tasks(&self) -> bool {
+        matches!(self, Self::TaskTooSmall | Self::ObjectStoreThrottled)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SizingFeedbackSignal {
+    pub kind: SizingFeedbackSignalKind,
+    pub reason: String,
+}
+impl SizingFeedbackSignal {
+    pub fn new(kind: SizingFeedbackSignalKind, reason: impl Into<String>) -> Self {
+        Self {
+            kind,
+            reason: reason.into(),
+        }
+    }
+    pub fn stable() -> Self {
+        Self::new(
+            SizingFeedbackSignalKind::Stable,
+            "runtime feedback is stable",
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DynamicSizingFeedbackInput {
+    pub current_policy: AdaptiveSizingPolicy,
+    pub signals: Vec<SizingFeedbackSignal>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl DynamicSizingFeedbackInput {
+    pub fn new(current_policy: AdaptiveSizingPolicy) -> Self {
+        Self {
+            current_policy,
+            signals: vec![],
+            diagnostics: vec![],
+        }
+    }
+    pub fn add_signal(&mut self, signal: SizingFeedbackSignal) {
+        self.signals.push(signal);
+    }
+    pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
+    }
+    pub fn has_errors(&self) -> bool {
+        self.diagnostics.iter().any(|d| {
+            matches!(
+                d.severity,
+                DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+            )
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct DynamicSizingFeedbackReport {
+    pub status: DynamicSizingFeedbackStatus,
+    pub mode: DynamicSizingFeedbackMode,
+    pub input: DynamicSizingFeedbackInput,
+    pub recommended_policy: AdaptiveSizingPolicy,
+    pub signal_count: usize,
+    pub reduce_signal_count: usize,
+    pub increase_signal_count: usize,
+    pub stable_signal_count: usize,
+    pub current_target_task_bytes: ByteSize,
+    pub recommended_target_task_bytes: ByteSize,
+    pub tasks_executed: bool,
+    pub data_read: bool,
+    pub object_store_io: bool,
+    pub write_io: bool,
+    pub spill_io_performed: bool,
+    pub feedback_applied: bool,
+    pub fallback_execution_allowed: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl DynamicSizingFeedbackReport {
+    pub fn from_input(input: DynamicSizingFeedbackInput) -> Self {
+        let current_target = input.current_policy.target_task_bytes;
+        let mut recommended_policy = input.current_policy.clone();
+        let reduce_count = input
+            .signals
+            .iter()
+            .filter(|s| s.kind.recommends_smaller_tasks())
+            .count();
+        let increase_count = input
+            .signals
+            .iter()
+            .filter(|s| s.kind.recommends_larger_tasks())
+            .count();
+        let stable_count = input
+            .signals
+            .iter()
+            .filter(|s| s.kind == SizingFeedbackSignalKind::Stable)
+            .count();
+        let mut status = if input.signals.is_empty() {
+            DynamicSizingFeedbackStatus::NoFeedback
+        } else {
+            DynamicSizingFeedbackStatus::Planned
+        };
+        let mut mode = DynamicSizingFeedbackMode::PlanOnly;
+        if input.has_errors() {
+            status = DynamicSizingFeedbackStatus::Unsupported;
+            mode = DynamicSizingFeedbackMode::Unsupported;
+        } else if reduce_count > 0 {
+            recommended_policy.target_task_bytes = std::cmp::max(
+                current_target.saturating_div(2),
+                input.current_policy.min_task_bytes,
+            );
+            status = if increase_count > 0 {
+                DynamicSizingFeedbackStatus::MixedSignals
+            } else {
+                DynamicSizingFeedbackStatus::TargetReduced
+            };
+            mode = DynamicSizingFeedbackMode::TargetAdjustment;
+        } else if increase_count > 0 {
+            recommended_policy.target_task_bytes = std::cmp::min(
+                current_target.saturating_mul(2),
+                input.current_policy.max_task_bytes,
+            );
+            status = DynamicSizingFeedbackStatus::TargetIncreased;
+            mode = DynamicSizingFeedbackMode::TargetAdjustment;
+        }
+        let recommended_target = recommended_policy.target_task_bytes;
+        Self {
+            status,
+            mode,
+            signal_count: input.signals.len(),
+            reduce_signal_count: reduce_count,
+            increase_signal_count: increase_count,
+            stable_signal_count: stable_count,
+            current_target_task_bytes: current_target,
+            recommended_target_task_bytes: recommended_target,
+            recommended_policy,
+            diagnostics: input.diagnostics.clone(),
+            input,
+            tasks_executed: false,
+            data_read: false,
+            object_store_io: false,
+            write_io: false,
+            spill_io_performed: false,
+            feedback_applied: false,
+            fallback_execution_allowed: false,
+        }
+    }
+    pub fn has_errors(&self) -> bool {
+        self.status.is_error()
+            || self.input.has_errors()
+            || self.diagnostics.iter().any(|d| {
+                matches!(
+                    d.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+    pub const fn is_side_effect_free(&self) -> bool {
+        !self.tasks_executed
+            && !self.data_read
+            && !self.object_store_io
+            && !self.write_io
+            && !self.spill_io_performed
+            && !self.feedback_applied
+            && !self.fallback_execution_allowed
+    }
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "dynamic sizing feedback status: {}\nmode: {}\nsignals: {}\nreduce signals: {}\nincrease signals: {}\nstable signals: {}\ncurrent target task bytes: {}\nrecommended target task bytes: {}\ntasks executed: false\ndata read: false\nobject-store IO: false\nwrite IO: false\nspill IO performed: false\nfeedback applied: false\nfallback execution: disabled",
+            self.status.as_str(),
+            self.mode.as_str(),
+            self.signal_count,
+            self.reduce_signal_count,
+            self.increase_signal_count,
+            self.stable_signal_count,
+            self.current_target_task_bytes.as_bytes(),
+            self.recommended_target_task_bytes.as_bytes(),
+        )
+    }
+}
+
+pub fn plan_dynamic_sizing_feedback(
+    input: DynamicSizingFeedbackInput,
+) -> DynamicSizingFeedbackReport {
+    DynamicSizingFeedbackReport::from_input(input)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -756,5 +1007,65 @@ mod tests {
             ParallelismPlan::new(ParallelismLimit::Auto, 1, 1, "x"),
         );
         assert!(p.to_human_text().contains("fallback execution: disabled"));
+    }
+    #[test]
+    fn dynamic_feedback_reduces_target_for_memory_pressure() {
+        let mut input = DynamicSizingFeedbackInput::new(AdaptiveSizingPolicy::default_local());
+        input.add_signal(SizingFeedbackSignal::new(
+            SizingFeedbackSignalKind::MemoryPressureHigh,
+            "memory pressure crossed soft limit",
+        ));
+        let report = plan_dynamic_sizing_feedback(input);
+        assert_eq!(report.status, DynamicSizingFeedbackStatus::TargetReduced);
+        assert_eq!(
+            report.recommended_target_task_bytes,
+            ByteSize::from_mib(128)
+        );
+        assert!(report.is_side_effect_free());
+        assert!(!report.feedback_applied);
+    }
+    #[test]
+    fn dynamic_feedback_increases_target_for_small_tasks() {
+        let mut input = DynamicSizingFeedbackInput::new(AdaptiveSizingPolicy::default_local());
+        input.add_signal(SizingFeedbackSignal::new(
+            SizingFeedbackSignalKind::TaskTooSmall,
+            "scheduler overhead dominated useful work",
+        ));
+        let report = plan_dynamic_sizing_feedback(input);
+        assert_eq!(report.status, DynamicSizingFeedbackStatus::TargetIncreased);
+        assert_eq!(
+            report.recommended_target_task_bytes,
+            ByteSize::from_mib(512)
+        );
+        assert!(report.is_side_effect_free());
+    }
+    #[test]
+    fn dynamic_feedback_no_signals_is_no_feedback() {
+        let report = plan_dynamic_sizing_feedback(DynamicSizingFeedbackInput::new(
+            AdaptiveSizingPolicy::default_local(),
+        ));
+        assert_eq!(report.status, DynamicSizingFeedbackStatus::NoFeedback);
+        assert_eq!(
+            report.current_target_task_bytes,
+            report.recommended_target_task_bytes
+        );
+    }
+    #[test]
+    fn dynamic_feedback_mixed_signals_chooses_safer_smaller_target() {
+        let mut input = DynamicSizingFeedbackInput::new(AdaptiveSizingPolicy::default_local());
+        input.add_signal(SizingFeedbackSignal::new(
+            SizingFeedbackSignalKind::TaskTooSmall,
+            "small task overhead",
+        ));
+        input.add_signal(SizingFeedbackSignal::new(
+            SizingFeedbackSignalKind::TaskTooLarge,
+            "task exceeded memory budget",
+        ));
+        let report = plan_dynamic_sizing_feedback(input);
+        assert_eq!(report.status, DynamicSizingFeedbackStatus::MixedSignals);
+        assert_eq!(
+            report.recommended_target_task_bytes,
+            ByteSize::from_mib(128)
+        );
     }
 }

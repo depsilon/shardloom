@@ -39,27 +39,27 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-8.3 bounded backpressure planning surface
+- [x] Session label: CG-8.4 dynamic sizing feedback planning surface
   - Primary files:
-    - `shardloom-exec/src/streaming.rs`
+    - `shardloom-exec/src/sizing.rs`
     - `shardloom-exec/src/lib.rs`
     - `shardloom-cli/src/main.rs`
-    - `shardloom-cli/tests/backpressure_plan_snapshots.rs`
+    - `shardloom-cli/tests/sizing_feedback_plan_snapshots.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-  - Scope: Add a bounded, memory-aware backpressure planning report and CLI surface without executing streams, tasks, reads, writes, spill IO, or fallback.
+  - Scope: Add a side-effect-free dynamic sizing feedback report and CLI surface that recommends target-task-byte changes from observed planning signals without applying feedback or executing work.
   - Checklist:
-    - [x] Add `BackpressurePlanInput`, `BackpressurePlanReport`, status/mode, bounded policy derivation, and side-effect flags.
-    - [x] Export backpressure planning contracts from `shardloom-exec`.
-    - [x] Add `backpressure-plan` CLI JSON surface.
-    - [x] Add focused unit and CLI snapshot tests for bounded and rejected backpressure plans.
+    - [x] Add `DynamicSizingFeedbackInput`, `DynamicSizingFeedbackReport`, status/mode, signal classification, recommended policy derivation, and side-effect flags.
+    - [x] Export dynamic sizing feedback planning contracts from `shardloom-exec`.
+    - [x] Add `sizing-feedback-plan` CLI JSON surface.
+    - [x] Add focused unit and CLI snapshot tests for reduced, increased, mixed, stable, and rejected feedback plans.
     - [x] Update phase and RFC traceability docs.
     - [x] Run full required validation.
   - Local validation status:
-    - focused `backpressure` exec tests passed
-    - `backpressure_plan_snapshots` integration tests passed
+    - focused `dynamic_feedback` exec tests passed
+    - `sizing_feedback_plan_snapshots` integration tests passed
     - full Rust validation passed with toolchain `1.91.1`
-  - Explicitly not included: stream execution, task execution, read-start APIs, row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, dynamic feedback execution, benchmarks, production/superiority claims, fallback execution, or CG-8 closeout.
+  - Explicitly not included: stream execution, task execution, read-start APIs, row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, feedback application/execution, benchmarks, production/superiority claims, fallback execution, or CG-8 closeout.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -721,6 +721,13 @@ Supporting docs:
     - `backpressure-plan --format json` emits bounded policy, side-effect, and no-fallback fields.
     - Invalid zero-parallelism requests fail explicitly without fallback.
     - Streams, tasks, reads, materialization, object-store IO, writes, spill IO, benchmark claims, superiority claims, and fallback behavior remain disabled.
+- [x] CG-8.4 dynamic sizing feedback planning surface
+  - Why: make runtime feedback inputs visible and machine-checkable before any adaptive feedback execution or policy mutation is allowed.
+  - Acceptance:
+    - `DynamicSizingFeedbackReport` records feedback signal counts, current/recommended task target bytes, side-effect flags, and fallback-disabled evidence.
+    - `sizing-feedback-plan --format json` emits stable fields for target-reduced, target-increased, mixed-signal, no-feedback, and rejected plans.
+    - Unknown feedback signals fail explicitly without fallback.
+    - Feedback remains advisory only; streams, tasks, reads, materialization, object-store IO, writes, spill IO, feedback application, benchmark claims, superiority claims, and fallback behavior remain disabled.
 
 ## Competitive Engine Gates CG-1 through CG-20
 
@@ -866,6 +873,9 @@ Status legend:
 
 - [ ] CG-8 — Streaming/parallel/adaptive execution (**planned**)
   - [x] CG-8.1 streaming plan discovery surface
+  - [x] CG-8.2 adaptive sizing, memory, scheduler, and bounded execution evidence surface
+  - [x] CG-8.3 bounded backpressure planning surface
+  - [x] CG-8.4 dynamic sizing feedback planning surface
   - Scope:
     - streaming encoded batches
     - bounded parallel local execution
@@ -1102,10 +1112,13 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 ### CG-8 detailed checklist
 - [x] CG-8.1 streaming plan discovery surface
 - [x] CG-8.2 adaptive sizing, memory, scheduler, and bounded execution evidence surface
+- [x] CG-8.3 bounded backpressure planning surface
+- [x] CG-8.4 dynamic sizing feedback planning surface
 - [ ] streaming encoded batches
 - [ ] bounded parallel local execution
 - [x] adaptive split/coalesce planning surface
-- [ ] dynamic sizing feedback loop
+- [x] dynamic sizing feedback planning surface
+- [ ] dynamic sizing feedback execution loop
 - [x] backpressure planning surface
 - [x] memory/spill-aware scheduler planning surface
 
@@ -1292,6 +1305,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-8.1 streaming plan discovery surface exposes `streaming-plan` JSON fields for Vortex-native zero-decode planning and compatibility materialization boundaries without enabling streaming runtime execution.
 - [x] CG-8.2 adaptive sizing, memory, scheduler, and bounded execution evidence surface exposes JSON fields and snapshots for split/coalesce policy, memory/spill gates, bounded queue batches, and bounded local execution guards without enabling new runtime execution.
 - [x] CG-8.3 bounded backpressure planning surface adds report/CLI evidence for bounded max in-flight chunks and buffered bytes while keeping streams, tasks, IO, spill, and fallback disabled.
+- [x] CG-8.4 dynamic sizing feedback planning surface adds report/CLI evidence for target-task-byte feedback recommendations while keeping feedback application, streams, tasks, IO, spill, and fallback disabled.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind `vortex-write`; placeholder artifact paths remain readiness-only.
 - [~] CG-3 broader output payload shapes remain deferred.
