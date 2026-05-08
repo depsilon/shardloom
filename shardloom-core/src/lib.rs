@@ -26,10 +26,10 @@ pub mod translation;
 pub use benchmark::{
     BaselineEngine, BenchmarkCacheState, BenchmarkClaimGate, BenchmarkClaimStatus,
     BenchmarkComparisonReport, BenchmarkComparisonStatus, BenchmarkDatasetProfile,
-    BenchmarkEngineVersion, BenchmarkEvidenceState, BenchmarkFallbackState, BenchmarkMetric,
-    BenchmarkMetricGap, BenchmarkPlan, BenchmarkReproducibilityStatus, BenchmarkResult,
-    BenchmarkResultGap, BenchmarkRunManifest, BenchmarkScenario, CorrectnessValidationMode,
-    MetricValue, WorkloadClass,
+    BenchmarkEngineVersion, BenchmarkEvidenceBundle, BenchmarkEvidenceState,
+    BenchmarkFallbackState, BenchmarkMetric, BenchmarkMetricGap, BenchmarkPlan,
+    BenchmarkReproducibilityStatus, BenchmarkResult, BenchmarkResultGap, BenchmarkRunManifest,
+    BenchmarkScenario, CorrectnessValidationMode, MetricValue, WorkloadClass,
 };
 pub use capabilities::{Capability, CapabilityStatus, EngineCapabilities};
 pub use certification::{

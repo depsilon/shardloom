@@ -1,9 +1,9 @@
 use shardloom_core::{
     BaselineEngine, BenchmarkCacheState, BenchmarkClaimGate, BenchmarkClaimStatus,
     BenchmarkComparisonReport, BenchmarkComparisonStatus, BenchmarkEngineVersion,
-    BenchmarkEvidenceState, BenchmarkFallbackState, BenchmarkMetric, BenchmarkPlan,
-    BenchmarkReproducibilityStatus, BenchmarkResult, BenchmarkRunManifest, BenchmarkScenario,
-    CorrectnessValidationMode, MetricValue, WorkloadClass,
+    BenchmarkEvidenceBundle, BenchmarkEvidenceState, BenchmarkFallbackState, BenchmarkMetric,
+    BenchmarkPlan, BenchmarkReproducibilityStatus, BenchmarkResult, BenchmarkRunManifest,
+    BenchmarkScenario, CorrectnessValidationMode, MetricValue, WorkloadClass,
 };
 
 #[test]
@@ -65,6 +65,10 @@ fn benchmark_claim_gate_blocks_without_correctness_and_benchmark_evidence() {
     assert_eq!(gate.correctness_evidence, BenchmarkEvidenceState::Missing);
     assert_eq!(gate.benchmark_evidence, BenchmarkEvidenceState::Missing);
     assert_eq!(gate.comparison_report, BenchmarkEvidenceState::Missing);
+    assert_eq!(
+        gate.reproducibility_evidence,
+        BenchmarkEvidenceState::Missing
+    );
     assert_eq!(gate.fallback, BenchmarkFallbackState::NotAttempted);
     assert_eq!(gate.status, BenchmarkClaimStatus::EvidenceMissing);
     assert!(!gate.can_publish_performance_claim());
@@ -81,20 +85,25 @@ fn benchmark_claim_gate_requires_every_publication_input() {
     let no_fallback = BenchmarkFallbackState::NotAttempted;
     let fallback = BenchmarkFallbackState::Attempted;
     let missing_correctness =
-        BenchmarkClaimGate::new(missing, present, present, present, no_fallback);
+        BenchmarkClaimGate::new(missing, present, present, present, present, no_fallback);
     let missing_benchmark =
-        BenchmarkClaimGate::new(present, missing, present, present, no_fallback);
-    let missing_metrics = BenchmarkClaimGate::new(present, present, missing, present, no_fallback);
+        BenchmarkClaimGate::new(present, missing, present, present, present, no_fallback);
+    let missing_metrics =
+        BenchmarkClaimGate::new(present, present, missing, present, present, no_fallback);
     let missing_comparison =
-        BenchmarkClaimGate::new(present, present, present, missing, no_fallback);
-    let fallback_attempted = BenchmarkClaimGate::new(present, present, present, present, fallback);
-    let ready = BenchmarkClaimGate::new(present, present, present, present, no_fallback);
+        BenchmarkClaimGate::new(present, present, present, missing, present, no_fallback);
+    let missing_reproducibility =
+        BenchmarkClaimGate::new(present, present, present, present, missing, no_fallback);
+    let fallback_attempted =
+        BenchmarkClaimGate::new(present, present, present, present, present, fallback);
+    let ready = BenchmarkClaimGate::new(present, present, present, present, present, no_fallback);
 
     for gate in [
         missing_correctness,
         missing_benchmark,
         missing_metrics,
         missing_comparison,
+        missing_reproducibility,
         fallback_attempted,
     ] {
         assert_eq!(gate.status, BenchmarkClaimStatus::EvidenceMissing);
@@ -119,6 +128,10 @@ fn benchmark_comparison_report_is_emitted_but_claim_blocked_without_results() {
     assert_eq!(gate.comparison_report, BenchmarkEvidenceState::Present);
     assert_eq!(gate.benchmark_evidence, BenchmarkEvidenceState::Missing);
     assert_eq!(gate.correctness_evidence, BenchmarkEvidenceState::Missing);
+    assert_eq!(
+        gate.reproducibility_evidence,
+        BenchmarkEvidenceState::Missing
+    );
     assert_eq!(gate.status, BenchmarkClaimStatus::EvidenceMissing);
     assert!(!gate.can_publish_performance_claim());
     assert!(!report.diagnostics.is_empty());
@@ -162,7 +175,7 @@ fn benchmark_comparison_report_requires_known_metrics_for_each_baseline() {
 }
 
 #[test]
-fn complete_benchmark_comparison_report_becomes_ready_for_claim_review() {
+fn complete_benchmark_comparison_report_still_needs_reproducibility_for_claims() {
     let mut plan = one_scenario_benchmark_plan();
     plan.scenarios[0].add_required_metric(BenchmarkMetric::WallTimeMillis);
 
@@ -181,20 +194,74 @@ fn complete_benchmark_comparison_report_becomes_ready_for_claim_review() {
 
     assert_eq!(
         report.status,
-        BenchmarkComparisonStatus::ReadyForClaimReview
+        BenchmarkComparisonStatus::ReadyForComparisonReview
     );
     assert!(report.missing_results.is_empty());
     assert!(report.missing_metrics.is_empty());
     assert_eq!(report.benchmark_evidence, BenchmarkEvidenceState::Present);
     assert_eq!(
         report.claim_gate().status,
-        BenchmarkClaimStatus::ReadyToPublish
+        BenchmarkClaimStatus::EvidenceMissing
     );
-    assert!(report.claim_gate().can_publish_performance_claim());
+    assert_eq!(
+        report.claim_gate().reproducibility_evidence,
+        BenchmarkEvidenceState::Missing
+    );
+    assert!(!report.claim_gate().can_publish_performance_claim());
     assert!(
         !report
             .to_human_text()
             .contains("fallback execution: enabled")
+    );
+}
+
+#[test]
+fn benchmark_evidence_bundle_requires_reproducible_manifest() {
+    let mut plan = one_scenario_benchmark_plan();
+    plan.scenarios[0].add_required_metric(BenchmarkMetric::WallTimeMillis);
+    let report = complete_comparison_report(&plan);
+    let manifest = BenchmarkRunManifest::from_plan(&plan);
+
+    let bundle = BenchmarkEvidenceBundle::from_reports(manifest, report);
+
+    assert_eq!(
+        bundle.claim_gate.status,
+        BenchmarkClaimStatus::EvidenceMissing
+    );
+    assert_eq!(
+        bundle.claim_gate.reproducibility_evidence,
+        BenchmarkEvidenceState::Missing
+    );
+    assert!(!bundle.can_publish_performance_claim());
+    assert!(!bundle.diagnostics.is_empty());
+}
+
+#[test]
+fn complete_benchmark_evidence_bundle_allows_publication_gate() {
+    let mut plan = one_scenario_benchmark_plan();
+    plan.scenarios[0].dataset_name = Some("metadata-footer-u64".to_string());
+    plan.scenarios[0].dataset_scale = Some("20k_rows".to_string());
+    plan.scenarios[0].storage_format = Some("vortex".to_string());
+    plan.scenarios[0].add_required_metric(BenchmarkMetric::WallTimeMillis);
+    let report = complete_comparison_report(&plan);
+    let manifest = complete_run_manifest(&plan);
+
+    let bundle = BenchmarkEvidenceBundle::from_reports(manifest, report);
+
+    assert_eq!(
+        bundle.claim_gate.status,
+        BenchmarkClaimStatus::ReadyToPublish
+    );
+    assert_eq!(
+        bundle.claim_gate.reproducibility_evidence,
+        BenchmarkEvidenceState::Present
+    );
+    assert!(bundle.can_publish_performance_claim());
+    assert!(bundle.diagnostics.is_empty());
+    assert!(
+        bundle
+            .to_human_text()
+            .contains("claim gate: ready_to_publish")
     );
 }
 
@@ -225,23 +292,7 @@ fn benchmark_run_manifest_requires_environment_dataset_versions_and_steps() {
     plan.scenarios[0].storage_format = Some("vortex".to_string());
     plan.scenarios[0].add_required_metric(BenchmarkMetric::WallTimeMillis);
 
-    let mut manifest = BenchmarkRunManifest::from_plan(&plan);
-    manifest.dataset_profiles[0].schema_profile = Some("single u64 column".to_string());
-    manifest.dataset_profiles[0].compression = Some("fixture default".to_string());
-    manifest.hardware_profile = Some("local-ci-x64".to_string());
-    manifest.operating_system_profile = Some("windows-latest".to_string());
-    manifest.runtime_configuration = Some("release=false; toolchain=1.91.1".to_string());
-    manifest.cache_state = BenchmarkCacheState::Cold;
-    manifest.correctness_evidence = BenchmarkEvidenceState::Present;
-    manifest.add_reproduction_step("build workspace");
-    manifest.add_reproduction_step("run approved benchmark harness");
-    manifest.add_engine_version(
-        BenchmarkEngineVersion::new(BaselineEngine::ShardLoom, "0.1.0").expect("valid"),
-    );
-    manifest.add_engine_version(
-        BenchmarkEngineVersion::new(BaselineEngine::DataFusion, "comparison-only").expect("valid"),
-    );
-    manifest.refresh_against_plan(&plan);
+    let manifest = complete_run_manifest(&plan);
 
     assert_eq!(
         manifest.status,
@@ -276,4 +327,39 @@ fn one_scenario_benchmark_plan() -> BenchmarkPlan {
     scenario.add_baseline(BaselineEngine::DataFusion);
     plan.add_scenario(scenario);
     plan
+}
+
+fn complete_comparison_report(plan: &BenchmarkPlan) -> BenchmarkComparisonReport {
+    let mut shardloom =
+        BenchmarkResult::new("metadata count", BaselineEngine::ShardLoom).expect("valid");
+    shardloom.add_metric(BenchmarkMetric::WallTimeMillis, MetricValue::U64(10));
+    let mut datafusion =
+        BenchmarkResult::new("metadata count", BaselineEngine::DataFusion).expect("valid");
+    datafusion.add_metric(BenchmarkMetric::WallTimeMillis, MetricValue::U64(20));
+    BenchmarkComparisonReport::from_plan_and_results(
+        plan,
+        vec![shardloom, datafusion],
+        BenchmarkEvidenceState::Present,
+    )
+}
+
+fn complete_run_manifest(plan: &BenchmarkPlan) -> BenchmarkRunManifest {
+    let mut manifest = BenchmarkRunManifest::from_plan(plan);
+    manifest.dataset_profiles[0].schema_profile = Some("single u64 column".to_string());
+    manifest.dataset_profiles[0].compression = Some("fixture default".to_string());
+    manifest.hardware_profile = Some("local-ci-x64".to_string());
+    manifest.operating_system_profile = Some("windows-latest".to_string());
+    manifest.runtime_configuration = Some("release=false; toolchain=1.91.1".to_string());
+    manifest.cache_state = BenchmarkCacheState::Cold;
+    manifest.correctness_evidence = BenchmarkEvidenceState::Present;
+    manifest.add_reproduction_step("build workspace");
+    manifest.add_reproduction_step("run approved benchmark harness");
+    manifest.add_engine_version(
+        BenchmarkEngineVersion::new(BaselineEngine::ShardLoom, "0.1.0").expect("valid"),
+    );
+    manifest.add_engine_version(
+        BenchmarkEngineVersion::new(BaselineEngine::DataFusion, "comparison-only").expect("valid"),
+    );
+    manifest.refresh_against_plan(plan);
+    manifest
 }
