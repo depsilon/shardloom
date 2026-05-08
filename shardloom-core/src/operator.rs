@@ -1056,3 +1056,215 @@ impl PhysicalKernelSelectionReport {
         )
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PhysicalOperatorPlanningCertificateStatus {
+    OperatorPlanBlocked,
+    KernelRegistryBlocked,
+    KernelSelectionBlocked,
+    KernelAdmissionBlocked,
+    ReadyForNativePlanning,
+    ProductionCertified,
+}
+
+impl PhysicalOperatorPlanningCertificateStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::OperatorPlanBlocked => "operator_plan_blocked",
+            Self::KernelRegistryBlocked => "kernel_registry_blocked",
+            Self::KernelSelectionBlocked => "kernel_selection_blocked",
+            Self::KernelAdmissionBlocked => "kernel_admission_blocked",
+            Self::ReadyForNativePlanning => "ready_for_native_planning",
+            Self::ProductionCertified => "production_certified",
+        }
+    }
+
+    #[must_use]
+    pub const fn can_plan_native(&self) -> bool {
+        matches!(
+            self,
+            Self::ReadyForNativePlanning | Self::ProductionCertified
+        )
+    }
+
+    #[must_use]
+    pub const fn can_satisfy_production_claim(&self) -> bool {
+        matches!(self, Self::ProductionCertified)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PhysicalOperatorPlanningCertificate {
+    pub schema_version: &'static str,
+    pub certificate_id: String,
+    pub plan_id: String,
+    pub operator_count: usize,
+    pub ready_operator_count: usize,
+    pub missing_kernel_operator_count: usize,
+    pub unsupported_operator_count: usize,
+    pub required_slot_count: usize,
+    pub missing_slot_count: usize,
+    pub selection_blocked_count: usize,
+    pub admission_blocked_count: usize,
+    pub registry_ready_slot_count: usize,
+    pub production_ready_slot_count: usize,
+    pub fallback_attempted: bool,
+    pub selection_reports: Vec<PhysicalKernelSelectionReport>,
+    pub admission_reports: Vec<PhysicalKernelAdmissionReport>,
+    pub status: PhysicalOperatorPlanningCertificateStatus,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl PhysicalOperatorPlanningCertificate {
+    #[must_use]
+    pub fn evaluate(
+        plan: &PhysicalOperatorPlan,
+        profiles: &PhysicalOperatorExecutionProfileMatrix,
+        correctness_evidence: BenchmarkEvidenceState,
+        benchmark_evidence: BenchmarkEvidenceState,
+        memory: OperatorMemoryCertification,
+        fallback: BenchmarkFallbackState,
+    ) -> Self {
+        let registry = PhysicalKernelRegistryPlan::from_operator_plan(plan);
+        let selection_reports = plan
+            .operators
+            .iter()
+            .map(|operator| {
+                PhysicalKernelSelectionReport::evaluate(
+                    operator.kind,
+                    operator.execution_level,
+                    profiles,
+                    &registry,
+                )
+            })
+            .collect::<Vec<_>>();
+        let admission_reports = registry
+            .required_slots
+            .iter()
+            .map(|slot| {
+                PhysicalKernelAdmissionReport::evaluate(
+                    slot,
+                    slot.required_kernel_kind,
+                    correctness_evidence,
+                    benchmark_evidence,
+                    memory,
+                    fallback,
+                )
+            })
+            .collect::<Vec<_>>();
+        let mut certificate = Self {
+            schema_version: "shardloom.physical_operator_planning_certificate.v1",
+            certificate_id: format!("{}.physical-operator-planning-certificate", plan.plan_id),
+            plan_id: plan.plan_id.clone(),
+            operator_count: plan.operators.len(),
+            ready_operator_count: plan.ready_for_native_planning_count(),
+            missing_kernel_operator_count: plan.missing_kernel_count(),
+            unsupported_operator_count: plan.unsupported_count(),
+            required_slot_count: registry.required_slot_count(),
+            missing_slot_count: registry.missing_slot_count(),
+            selection_blocked_count: selection_reports
+                .iter()
+                .filter(|report| !report.can_select_kernel())
+                .count(),
+            admission_blocked_count: admission_reports
+                .iter()
+                .filter(|report| !report.can_mark_kernel_present())
+                .count(),
+            registry_ready_slot_count: admission_reports
+                .iter()
+                .filter(|report| report.can_mark_kernel_present())
+                .count(),
+            production_ready_slot_count: admission_reports
+                .iter()
+                .filter(|report| report.can_satisfy_production_claim())
+                .count(),
+            fallback_attempted: admission_reports
+                .iter()
+                .any(PhysicalKernelAdmissionReport::fallback_attempted),
+            selection_reports,
+            admission_reports,
+            status: PhysicalOperatorPlanningCertificateStatus::OperatorPlanBlocked,
+            diagnostics: Vec::new(),
+        };
+        certificate.status = certificate.compute_status();
+        certificate.refresh_diagnostics();
+        certificate
+    }
+
+    fn compute_status(&self) -> PhysicalOperatorPlanningCertificateStatus {
+        if self.operator_count == 0
+            || self.missing_kernel_operator_count > 0
+            || self.unsupported_operator_count > 0
+        {
+            return PhysicalOperatorPlanningCertificateStatus::OperatorPlanBlocked;
+        }
+        if self.missing_slot_count > 0 {
+            return PhysicalOperatorPlanningCertificateStatus::KernelRegistryBlocked;
+        }
+        if self.selection_blocked_count > 0 {
+            return PhysicalOperatorPlanningCertificateStatus::KernelSelectionBlocked;
+        }
+        if self.admission_blocked_count > 0 {
+            return PhysicalOperatorPlanningCertificateStatus::KernelAdmissionBlocked;
+        }
+        if self.required_slot_count > 0
+            && self.production_ready_slot_count == self.required_slot_count
+        {
+            PhysicalOperatorPlanningCertificateStatus::ProductionCertified
+        } else {
+            PhysicalOperatorPlanningCertificateStatus::ReadyForNativePlanning
+        }
+    }
+
+    pub fn refresh_diagnostics(&mut self) {
+        self.diagnostics.clear();
+        if !self.status.can_plan_native() {
+            self.diagnostics.push(Diagnostic::not_implemented(
+                format!("physical operator planning certificate {}", self.plan_id),
+                format!(
+                    "Physical operator planning certificate is blocked with status {}.",
+                    self.status.as_str()
+                ),
+                "Resolve operator readiness, registry slots, selection, and kernel admission evidence before enabling physical operator execution.",
+            ));
+        }
+    }
+
+    #[must_use]
+    pub const fn can_plan_native(&self) -> bool {
+        self.status.can_plan_native()
+    }
+
+    #[must_use]
+    pub const fn can_satisfy_production_claim(&self) -> bool {
+        self.status.can_satisfy_production_claim()
+    }
+
+    #[must_use]
+    pub const fn runtime_execution_allowed(&self) -> bool {
+        false
+    }
+
+    #[must_use]
+    pub const fn fallback_execution_allowed(&self) -> bool {
+        false
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "physical operator planning certificate\nschema_version: {}\ncertificate: {}\nplan: {}\noperators: {}\nrequired slots: {}\nmissing slots: {}\nselection blocked: {}\nadmission blocked: {}\nstatus: {}\nruntime execution: disabled\nfallback attempted: {}\nfallback execution: disabled",
+            self.schema_version,
+            self.certificate_id,
+            self.plan_id,
+            self.operator_count,
+            self.required_slot_count,
+            self.missing_slot_count,
+            self.selection_blocked_count,
+            self.admission_blocked_count,
+            self.status.as_str(),
+            self.fallback_attempted,
+        )
+    }
+}

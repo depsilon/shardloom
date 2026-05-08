@@ -107,6 +107,7 @@ pub use operator::{
     PhysicalKernelSelectionStatus, PhysicalKernelSlot, PhysicalOperatorContract,
     PhysicalOperatorExecutionLevel, PhysicalOperatorExecutionProfile,
     PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorKind, PhysicalOperatorPlan,
+    PhysicalOperatorPlanningCertificate, PhysicalOperatorPlanningCertificateStatus,
     PhysicalOperatorReadinessStatus,
 };
 

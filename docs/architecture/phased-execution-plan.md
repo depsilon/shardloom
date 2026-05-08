@@ -10,21 +10,21 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [x] Session label: CG-7.6 physical kernel selection gate
-  - Current cleanup/implementation step: Add report-only physical kernel selection reports that validate requested execution levels and block selection while required kernel slots are missing.
+- [x] Session label: CG-7.7 physical operator planning certificate
+  - Current cleanup/implementation step: Add report-only physical operator planning certificates that summarize operator, registry, selection, and admission blockers before kernel execution can be enabled.
   - Primary files:
     - `shardloom-core/src/operator.rs`
     - `shardloom-core/src/lib.rs`
     - `shardloom-contract-tests/tests/physical_operator_kernel_contracts.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-  - Scope: Operator profile lookup, execution-level rejection, required-kernel-slot missing reports, selection-ready admission-review state, and no-runtime/no-fallback flags.
+  - Scope: Certificate status, ready/missing/admission counts, fallback-attempt evidence, production-claim separation, and no-runtime/no-fallback flags.
   - Explicitly not included: New query execution, kernel implementation, encoded-data traversal, scan/read-start APIs, row reads, decode/materialization, Arrow conversion, object-store IO, writes, external baseline execution, fallback execution, benchmarks, SQL/API/adapter expansion, or superiority claims.
   - Validation required:
     - `cargo fmt --all -- --check`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: `PhysicalKernelSelectionReport` keeps physical kernel selection blocked until an operator profile allows the requested execution level and the required native kernel slots are present; even ready selection remains non-executing.
+  - Completion notes: `PhysicalOperatorPlanningCertificate` ties physical operator readiness, kernel registry slots, selection reports, and admission evidence into one non-executing certificate surface.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -530,6 +530,7 @@ Status legend:
   - [x] CG-7.4 physical kernel admission gate
   - [x] CG-7.5 physical operator execution profiles
   - [x] CG-7.6 physical kernel selection gate
+  - [x] CG-7.7 physical operator planning certificate
   - Scope:
     - filter/projection/count-aggregate kernels
     - metadata/encoded/hybrid execution levels
@@ -717,6 +718,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-7.4 physical kernel admission gate
 - [x] CG-7.5 physical operator execution profiles
 - [x] CG-7.6 physical kernel selection gate
+- [x] CG-7.7 physical operator planning certificate
 - [ ] filter kernel
 - [ ] projection kernel
 - [ ] count/aggregate kernel
@@ -860,6 +862,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-7.4 physical kernel admission gate blocks reference-only kernels, fallback attempts, missing correctness evidence, and missing memory-safety evidence before a native kernel slot can be marked present.
 - [x] CG-7.5 physical operator execution profiles declare metadata/encoded/hybrid/native-decoded levels for foundation operators while blocking reference-only, row-materialized, Arrow, and fallback paths.
 - [x] CG-7.6 physical kernel selection gate rejects disallowed execution levels and missing kernel slots before any physical kernel can be selected.
+- [x] CG-7.7 physical operator planning certificate summarizes operator, registry, selection, and admission evidence while keeping runtime execution disabled.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [~] CG-3 real Vortex payload writes remain deferred; placeholder artifact paths are not completion evidence.
 
