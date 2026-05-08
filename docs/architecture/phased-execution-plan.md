@@ -39,25 +39,27 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-8.2 adaptive sizing, memory, scheduler, and bounded execution evidence surface
+- [x] Session label: CG-8.3 bounded backpressure planning surface
   - Primary files:
+    - `shardloom-exec/src/streaming.rs`
+    - `shardloom-exec/src/lib.rs`
     - `shardloom-cli/src/main.rs`
-    - `shardloom-cli/tests/cg8_scheduling_snapshots.rs`
+    - `shardloom-cli/tests/backpressure_plan_snapshots.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-  - Scope: Surface stable CG-8 JSON evidence for adaptive split/coalesce policy, memory/spill/OOM gates, bounded scheduler queue batches, and bounded local execution blocking without enabling runtime task execution.
+  - Scope: Add a bounded, memory-aware backpressure planning report and CLI surface without executing streams, tasks, reads, writes, spill IO, or fallback.
   - Checklist:
-    - [x] Add adaptive sizing JSON fields for policy, split/coalesce counts, and side-effect flags.
-    - [x] Add memory bridge JSON fields for memory budget, spill policy, OOM/spill task counts, and side-effect flags.
-    - [x] Add scheduler bridge JSON fields for bounded parallel batch counts and queue status.
-    - [x] Add bounded local execution JSON fields for blocked/completed counts and local execution status.
-    - [x] Add snapshot tests for adaptive sizing, memory, scheduler, and bounded execution guard outputs.
+    - [x] Add `BackpressurePlanInput`, `BackpressurePlanReport`, status/mode, bounded policy derivation, and side-effect flags.
+    - [x] Export backpressure planning contracts from `shardloom-exec`.
+    - [x] Add `backpressure-plan` CLI JSON surface.
+    - [x] Add focused unit and CLI snapshot tests for bounded and rejected backpressure plans.
     - [x] Update phase and RFC traceability docs.
     - [x] Run full required validation.
   - Local validation status:
-    - `cg8_scheduling_snapshots` integration tests passed
+    - focused `backpressure` exec tests passed
+    - `backpressure_plan_snapshots` integration tests passed
     - full Rust validation passed with toolchain `1.91.1`
-  - Explicitly not included: stream execution, new task execution, new read-start APIs, row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, dynamic feedback execution, benchmarks, production/superiority claims, fallback execution, or CG-8 closeout.
+  - Explicitly not included: stream execution, task execution, read-start APIs, row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, dynamic feedback execution, benchmarks, production/superiority claims, fallback execution, or CG-8 closeout.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -712,6 +714,13 @@ Supporting docs:
     - `vortex-schedule-plan` emits bounded queue/batch fields and confirms max-parallelism enforcement.
     - `vortex-bounded-local-exec` emits bounded execution status, local execution status, and blocked/completed decision counts.
     - Runtime task execution, object-store IO, writes, spill IO, benchmark claims, superiority claims, and fallback behavior remain disabled.
+- [x] CG-8.3 bounded backpressure planning surface
+  - Why: make backpressure an explicit bounded-memory contract before streaming execution lands.
+  - Acceptance:
+    - `BackpressurePlanReport` derives bounded max in-flight chunks and max buffered bytes from memory and parallelism inputs.
+    - `backpressure-plan --format json` emits bounded policy, side-effect, and no-fallback fields.
+    - Invalid zero-parallelism requests fail explicitly without fallback.
+    - Streams, tasks, reads, materialization, object-store IO, writes, spill IO, benchmark claims, superiority claims, and fallback behavior remain disabled.
 
 ## Competitive Engine Gates CG-1 through CG-20
 
@@ -1097,7 +1106,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [ ] bounded parallel local execution
 - [x] adaptive split/coalesce planning surface
 - [ ] dynamic sizing feedback loop
-- [ ] backpressure
+- [x] backpressure planning surface
 - [x] memory/spill-aware scheduler planning surface
 
 ### CG-9 detailed checklist
@@ -1282,6 +1291,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-7.25 count/aggregate kernel closeout ties encoded `CountAll` and metadata `CountAll`/`CountWhere` count-aggregate admissions to the remaining CG-7 checklist item without adding runtime behavior.
 - [x] CG-8.1 streaming plan discovery surface exposes `streaming-plan` JSON fields for Vortex-native zero-decode planning and compatibility materialization boundaries without enabling streaming runtime execution.
 - [x] CG-8.2 adaptive sizing, memory, scheduler, and bounded execution evidence surface exposes JSON fields and snapshots for split/coalesce policy, memory/spill gates, bounded queue batches, and bounded local execution guards without enabling new runtime execution.
+- [x] CG-8.3 bounded backpressure planning surface adds report/CLI evidence for bounded max in-flight chunks and buffered bytes while keeping streams, tasks, IO, spill, and fallback disabled.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind `vortex-write`; placeholder artifact paths remain readiness-only.
 - [~] CG-3 broader output payload shapes remain deferred.

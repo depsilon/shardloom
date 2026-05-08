@@ -259,6 +259,235 @@ impl BackpressurePolicy {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BackpressurePlanStatus {
+    Disabled,
+    Planned,
+    Bounded,
+    BlockedByMissingBudget,
+    Unsupported,
+}
+impl BackpressurePlanStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Disabled => "disabled",
+            Self::Planned => "planned",
+            Self::Bounded => "bounded",
+            Self::BlockedByMissingBudget => "blocked_by_missing_budget",
+            Self::Unsupported => "unsupported",
+        }
+    }
+    #[must_use]
+    pub const fn is_error(&self) -> bool {
+        matches!(self, Self::BlockedByMissingBudget | Self::Unsupported)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BackpressurePlanMode {
+    PlanOnly,
+    BoundedStreaming,
+    Disabled,
+    Unsupported,
+}
+impl BackpressurePlanMode {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::PlanOnly => "plan_only",
+            Self::BoundedStreaming => "bounded_streaming",
+            Self::Disabled => "disabled",
+            Self::Unsupported => "unsupported",
+        }
+    }
+    #[must_use]
+    pub const fn executes_streams(&self) -> bool {
+        false
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BackpressurePlanInput {
+    pub memory: BoundedMemoryPolicy,
+    pub max_parallelism: usize,
+    pub estimated_chunk_bytes: Option<ByteSize>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl BackpressurePlanInput {
+    /// Creates a backpressure planning input.
+    ///
+    /// # Errors
+    /// Returns `ShardLoomError::InvalidOperation` when `max_parallelism == 0`.
+    pub fn new(memory: BoundedMemoryPolicy, max_parallelism: usize) -> Result<Self> {
+        if max_parallelism == 0 {
+            return Err(ShardLoomError::InvalidOperation(
+                "max_parallelism must be greater than zero".to_string(),
+            ));
+        }
+        Ok(Self {
+            memory,
+            max_parallelism,
+            estimated_chunk_bytes: None,
+            diagnostics: vec![],
+        })
+    }
+    #[must_use]
+    pub const fn with_estimated_chunk_bytes(mut self, value: ByteSize) -> Self {
+        self.estimated_chunk_bytes = Some(value);
+        self
+    }
+    pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
+    }
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.diagnostics.iter().any(|d| {
+            matches!(
+                d.severity,
+                DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+            )
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct BackpressurePlanReport {
+    pub status: BackpressurePlanStatus,
+    pub mode: BackpressurePlanMode,
+    pub input: BackpressurePlanInput,
+    pub policy: BackpressurePolicy,
+    pub bounded: bool,
+    pub max_in_flight_chunks: Option<usize>,
+    pub max_buffered_bytes: Option<ByteSize>,
+    pub estimated_chunk_bytes: Option<ByteSize>,
+    pub memory_required: bool,
+    pub spill_allowed: bool,
+    pub streams_executed: bool,
+    pub tasks_executed: bool,
+    pub data_read: bool,
+    pub data_materialized: bool,
+    pub object_store_io: bool,
+    pub write_io: bool,
+    pub spill_io_performed: bool,
+    pub fallback_execution_allowed: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl BackpressurePlanReport {
+    /// Builds a planning-only backpressure report.
+    ///
+    /// # Errors
+    /// Returns errors from bounded policy validation.
+    pub fn from_input(input: BackpressurePlanInput) -> Result<Self> {
+        let mut out = Self {
+            status: BackpressurePlanStatus::Planned,
+            mode: BackpressurePlanMode::PlanOnly,
+            policy: BackpressurePolicy::disabled(),
+            bounded: false,
+            max_in_flight_chunks: None,
+            max_buffered_bytes: None,
+            estimated_chunk_bytes: input.estimated_chunk_bytes,
+            memory_required: input.memory.required,
+            spill_allowed: input.memory.allow_spill,
+            streams_executed: false,
+            tasks_executed: false,
+            data_read: false,
+            data_materialized: false,
+            object_store_io: false,
+            write_io: false,
+            spill_io_performed: false,
+            fallback_execution_allowed: false,
+            diagnostics: input.diagnostics.clone(),
+            input,
+        };
+        if out.input.has_errors() {
+            out.status = BackpressurePlanStatus::Unsupported;
+            out.mode = BackpressurePlanMode::Unsupported;
+            return Ok(out);
+        }
+        if !out.memory_required {
+            out.status = BackpressurePlanStatus::Disabled;
+            out.mode = BackpressurePlanMode::Disabled;
+            return Ok(out);
+        }
+        let Some(max_buffered_bytes) = out.input.memory.max_memory_bytes else {
+            out.status = BackpressurePlanStatus::BlockedByMissingBudget;
+            out.mode = BackpressurePlanMode::Unsupported;
+            out.diagnostics.push(Diagnostic::invalid_input(
+                "backpressure.memory_budget",
+                "bounded backpressure requires max_memory_bytes",
+                "provide a bounded memory policy before streaming execution is enabled",
+            ));
+            return Ok(out);
+        };
+        if max_buffered_bytes.as_bytes() == 0 {
+            out.status = BackpressurePlanStatus::Unsupported;
+            out.mode = BackpressurePlanMode::Unsupported;
+            out.diagnostics.push(Diagnostic::invalid_input(
+                "backpressure.memory_budget",
+                "bounded backpressure requires a non-zero memory budget",
+                "provide memory_gb greater than zero",
+            ));
+            return Ok(out);
+        }
+        out.policy = BackpressurePolicy::bounded(out.input.max_parallelism, max_buffered_bytes)?;
+        out.bounded = out.policy.is_bounded();
+        out.max_in_flight_chunks = out.policy.max_in_flight_chunks;
+        out.max_buffered_bytes = out.policy.max_buffered_bytes;
+        out.status = BackpressurePlanStatus::Bounded;
+        out.mode = BackpressurePlanMode::BoundedStreaming;
+        Ok(out)
+    }
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.status.is_error()
+            || self.input.has_errors()
+            || self.diagnostics.iter().any(|d| {
+                matches!(
+                    d.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+    #[must_use]
+    pub const fn is_side_effect_free(&self) -> bool {
+        !self.streams_executed
+            && !self.tasks_executed
+            && !self.data_read
+            && !self.data_materialized
+            && !self.object_store_io
+            && !self.write_io
+            && !self.spill_io_performed
+            && !self.fallback_execution_allowed
+    }
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "backpressure status: {}\nmode: {}\nbounded: {}\nmax in-flight chunks: {}\nmax buffered bytes: {}\nestimated chunk bytes: {}\nmemory required: {}\nspill allowed: {}\nstreams executed: false\ntasks executed: false\ndata read: false\ndata materialized: false\nobject-store IO: false\nwrite IO: false\nspill IO performed: false\nfallback execution: disabled",
+            self.status.as_str(),
+            self.mode.as_str(),
+            self.bounded,
+            self.max_in_flight_chunks
+                .map_or("none".to_string(), |v| v.to_string()),
+            self.max_buffered_bytes
+                .map_or("none".to_string(), |v| v.as_bytes().to_string()),
+            self.estimated_chunk_bytes
+                .map_or("unknown".to_string(), |v| v.as_bytes().to_string()),
+            self.memory_required,
+            self.spill_allowed,
+        )
+    }
+}
+
+/// Plans bounded backpressure for streaming execution without executing streams.
+///
+/// # Errors
+/// Returns errors from backpressure policy validation.
+pub fn plan_backpressure(input: BackpressurePlanInput) -> Result<BackpressurePlanReport> {
+    BackpressurePlanReport::from_input(input)
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BoundedMemoryPolicy {
     pub required: bool,
@@ -1195,6 +1424,41 @@ mod tests {
                 .unwrap()
                 .is_bounded()
         );
+    }
+    #[test]
+    fn backpressure_plan_bounds_in_flight_chunks_by_parallelism() {
+        let input =
+            BackpressurePlanInput::new(BoundedMemoryPolicy::required(ByteSize::from_mib(64)), 4)
+                .unwrap()
+                .with_estimated_chunk_bytes(ByteSize::from_mib(8));
+        let report = plan_backpressure(input).expect("report");
+        assert_eq!(report.status, BackpressurePlanStatus::Bounded);
+        assert_eq!(report.mode, BackpressurePlanMode::BoundedStreaming);
+        assert!(report.bounded);
+        assert_eq!(report.max_in_flight_chunks, Some(4));
+        assert_eq!(report.max_buffered_bytes, Some(ByteSize::from_mib(64)));
+        assert!(report.is_side_effect_free());
+    }
+    #[test]
+    fn backpressure_plan_disabled_when_memory_not_required() {
+        let input = BackpressurePlanInput::new(BoundedMemoryPolicy::best_effort(), 2).unwrap();
+        let report = plan_backpressure(input).expect("report");
+        assert_eq!(report.status, BackpressurePlanStatus::Disabled);
+        assert!(!report.bounded);
+        assert!(report.is_side_effect_free());
+    }
+    #[test]
+    fn backpressure_plan_blocks_required_memory_without_budget() {
+        let mut memory = BoundedMemoryPolicy::required(ByteSize::from_mib(1));
+        memory.max_memory_bytes = None;
+        let input = BackpressurePlanInput::new(memory, 2).unwrap();
+        let report = plan_backpressure(input).expect("report");
+        assert_eq!(
+            report.status,
+            BackpressurePlanStatus::BlockedByMissingBudget
+        );
+        assert!(report.has_errors());
+        assert!(!report.fallback_execution_allowed);
     }
     #[test]
     fn bounded_memory_required_sets_required() {
