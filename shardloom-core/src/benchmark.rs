@@ -252,6 +252,40 @@ impl BenchmarkFallbackState {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BenchmarkComparisonStatus {
+    EvidenceMissing,
+    ReadyForClaimReview,
+}
+
+impl BenchmarkComparisonStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::EvidenceMissing => "evidence_missing",
+            Self::ReadyForClaimReview => "ready_for_claim_review",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_ready_for_claim_review(&self) -> bool {
+        matches!(self, Self::ReadyForClaimReview)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BenchmarkResultGap {
+    pub scenario_name: String,
+    pub engine: BaselineEngine,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BenchmarkMetricGap {
+    pub scenario_name: String,
+    pub engine: BaselineEngine,
+    pub metric: BenchmarkMetric,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BenchmarkClaimGate {
     pub correctness_evidence: BenchmarkEvidenceState,
     pub benchmark_evidence: BenchmarkEvidenceState,
@@ -393,6 +427,7 @@ pub struct BenchmarkResult {
     pub engine: BaselineEngine,
     pub metrics: Vec<(BenchmarkMetric, MetricValue)>,
     pub diagnostics: Vec<Diagnostic>,
+    pub fallback: BenchmarkFallbackState,
 }
 
 impl BenchmarkResult {
@@ -413,11 +448,20 @@ impl BenchmarkResult {
             engine,
             metrics: Vec::new(),
             diagnostics: Vec::new(),
+            fallback: BenchmarkFallbackState::NotAttempted,
         })
     }
 
     pub fn add_metric(&mut self, metric: BenchmarkMetric, value: MetricValue) {
-        self.metrics.push((metric, value));
+        if let Some(existing) = self
+            .metrics
+            .iter_mut()
+            .find(|(candidate, _)| *candidate == metric)
+        {
+            *existing = (metric, value);
+        } else {
+            self.metrics.push((metric, value));
+        }
     }
 
     pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
@@ -425,13 +469,175 @@ impl BenchmarkResult {
     }
 
     #[must_use]
+    pub fn metric_value(&self, metric: BenchmarkMetric) -> Option<MetricValue> {
+        self.metrics
+            .iter()
+            .find_map(|(candidate, value)| (*candidate == metric).then_some(*value))
+    }
+
+    #[must_use]
+    pub fn has_known_metric(&self, metric: BenchmarkMetric) -> bool {
+        self.metric_value(metric)
+            .is_some_and(|value| value.is_known())
+    }
+
+    #[must_use]
+    pub const fn fallback_execution_allowed(&self) -> bool {
+        false
+    }
+
+    #[must_use]
     pub fn to_human_text(&self) -> String {
         format!(
-            "benchmark result\nscenario: {}\nengine: {}\nmetrics: {}\ndiagnostics: {}",
+            "benchmark result\nscenario: {}\nengine: {}\nmetrics: {}\ndiagnostics: {}\nfallback execution: disabled",
             self.scenario_name,
             self.engine.as_str(),
             self.metrics.len(),
             self.diagnostics.len(),
+        )
+    }
+}
+
+/// Report-only comparison evidence assembled from benchmark results.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BenchmarkComparisonReport {
+    pub status: BenchmarkComparisonStatus,
+    pub scenario_count: usize,
+    pub expected_result_count: usize,
+    pub results: Vec<BenchmarkResult>,
+    pub required_metrics: Vec<BenchmarkMetric>,
+    pub missing_results: Vec<BenchmarkResultGap>,
+    pub missing_metrics: Vec<BenchmarkMetricGap>,
+    pub correctness_evidence: BenchmarkEvidenceState,
+    pub benchmark_evidence: BenchmarkEvidenceState,
+    pub fallback: BenchmarkFallbackState,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl BenchmarkComparisonReport {
+    #[must_use]
+    pub fn from_plan(plan: &BenchmarkPlan) -> Self {
+        Self::from_plan_and_results(plan, Vec::new(), BenchmarkEvidenceState::Missing)
+    }
+
+    #[must_use]
+    pub fn from_plan_and_results(
+        plan: &BenchmarkPlan,
+        results: Vec<BenchmarkResult>,
+        correctness_evidence: BenchmarkEvidenceState,
+    ) -> Self {
+        let mut missing_results = Vec::new();
+        let mut missing_metrics = Vec::new();
+
+        for scenario in &plan.scenarios {
+            for engine in &scenario.baselines {
+                if let Some(result) = results.iter().find(|result| {
+                    result.scenario_name == scenario.name && result.engine == *engine
+                }) {
+                    for metric in &scenario.required_metrics {
+                        if !result.has_known_metric(*metric) {
+                            missing_metrics.push(BenchmarkMetricGap {
+                                scenario_name: scenario.name.clone(),
+                                engine: *engine,
+                                metric: *metric,
+                            });
+                        }
+                    }
+                } else {
+                    missing_results.push(BenchmarkResultGap {
+                        scenario_name: scenario.name.clone(),
+                        engine: *engine,
+                    });
+                }
+            }
+        }
+
+        let required_metrics = plan.required_metrics();
+        let benchmark_evidence = if !results.is_empty()
+            && missing_results.is_empty()
+            && missing_metrics.is_empty()
+            && !required_metrics.is_empty()
+        {
+            BenchmarkEvidenceState::Present
+        } else {
+            BenchmarkEvidenceState::Missing
+        };
+        let fallback = if results.iter().any(|result| result.fallback.attempted()) {
+            BenchmarkFallbackState::Attempted
+        } else {
+            BenchmarkFallbackState::NotAttempted
+        };
+        let gate = BenchmarkClaimGate::new(
+            correctness_evidence,
+            benchmark_evidence,
+            if required_metrics.is_empty() {
+                BenchmarkEvidenceState::Missing
+            } else {
+                BenchmarkEvidenceState::Present
+            },
+            BenchmarkEvidenceState::Present,
+            fallback,
+        );
+        let status = if gate.can_publish_performance_claim() {
+            BenchmarkComparisonStatus::ReadyForClaimReview
+        } else {
+            BenchmarkComparisonStatus::EvidenceMissing
+        };
+        let mut diagnostics = Vec::new();
+        if !status.is_ready_for_claim_review() {
+            diagnostics.push(Diagnostic::not_implemented(
+                "benchmark comparison evidence",
+                "Benchmark execution and comparison evidence has not been collected for every required scenario, baseline, and metric.",
+                "Run an approved native benchmark harness in a later CG-6 step before publishing performance or superiority claims.",
+            ));
+        }
+
+        Self {
+            status,
+            scenario_count: plan.scenarios.len(),
+            expected_result_count: plan.expected_result_count(),
+            results,
+            required_metrics,
+            missing_results,
+            missing_metrics,
+            correctness_evidence,
+            benchmark_evidence,
+            fallback,
+            diagnostics,
+        }
+    }
+
+    #[must_use]
+    pub fn claim_gate(&self) -> BenchmarkClaimGate {
+        BenchmarkClaimGate::new(
+            self.correctness_evidence,
+            self.benchmark_evidence,
+            if self.required_metrics.is_empty() {
+                BenchmarkEvidenceState::Missing
+            } else {
+                BenchmarkEvidenceState::Present
+            },
+            BenchmarkEvidenceState::Present,
+            self.fallback,
+        )
+    }
+
+    #[must_use]
+    pub const fn fallback_execution_allowed(&self) -> bool {
+        false
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "benchmark comparison report\nstatus: {}\ncomparison report emitted: true\nclaim gate: {}\nscenarios: {}\nexpected results: {}\nresults: {}\nmissing results: {}\nmissing metrics: {}\nfallback execution: disabled",
+            self.status.as_str(),
+            self.claim_gate().status.as_str(),
+            self.scenario_count,
+            self.expected_result_count,
+            self.results.len(),
+            self.missing_results.len(),
+            self.missing_metrics.len(),
         )
     }
 }
@@ -575,6 +781,14 @@ impl BenchmarkPlan {
             .iter()
             .flat_map(|scenario| scenario.baselines.iter())
             .all(|baseline| !baseline.is_fallback_allowed())
+    }
+
+    #[must_use]
+    pub fn expected_result_count(&self) -> usize {
+        self.scenarios
+            .iter()
+            .map(|scenario| scenario.baselines.len())
+            .sum()
     }
 
     #[must_use]
