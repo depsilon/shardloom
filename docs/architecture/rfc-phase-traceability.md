@@ -97,7 +97,7 @@ Status categories:
 | RFC 0023 | Deferred | Ongoing (extension track) | Extension/plugin ABI and sandboxing are documented but not a near-term core phase focus. |
 | RFC 0024 | Partially implemented | 10D, 12A, 12B, Ongoing | Release/API compatibility policy exists; continues as a cross-phase enforcement concern. |
 | RFC 0025 | Planned | CG-1 through CG-20, Ongoing | Competitive Engine Track policy is documented; implementation remains gate-specific and evidence-gated. |
-| RFC 0026 | Partially implemented | CG-1, CG-2, CG-13 | Encoded-read and query-primitive readiness contracts exist; real execution remains gated. |
+| RFC 0026 | Partially implemented | CG-1, CG-2, CG-13 | Encoded-read and query-primitive readiness contracts exist; CG-13.1 encoded path selection evidence exists for count/filter/project candidates; real generalized encoded execution remains gated. |
 | RFC 0027 | Planned | CG-7, CG-8, CG-14, CG-15 | CPU/vectorized/runtime adaptivity scope remains future implementation. |
 | RFC 0028 | Partially implemented | CG-3, CG-4, CG-9, CG-10 | Output/commit readiness contracts exist; first native count-result payload path is complete; first local committed-manifest execution path is complete; local committed-manifest recovery diagnostics and first local rollback cleanup path are complete; broader payloads, generalized recovery, table/catalog commits, and object-store commits remain incomplete. |
 | RFC 0029 | Planned | CG-5, CG-6, CG-16, CG-17 | Correctness, benchmark, certificate, and reuse evidence remain future gate work. |
@@ -190,6 +190,10 @@ Competitive gate coverage:
     - constraints: subprocess CLI JSON contract only; no Python package, native bindings, DataFrame/notebook/Python UDF runtime, parser/runtime execution, probes, writes, package publication, or fallback
 - CG-12: plan portability / semantic IR
 - CG-13: encoded-native compressed execution
+  - CG-13.1 encoded path selection report foundation: complete
+    - primary RFC: RFC 0026
+    - secondary RFCs: RFC 0012, RFC 0015, RFC 0021, RFC 0025, RFC 0029, RFC 0031, RFC 0032
+    - constraints: report-only path selection; no generalized encoded execution, parser, SQL execution, adapter runtime, scan/read-start API, encoded-data read, decode, materialization, Arrow conversion, object-store IO, writes, spill IO, external engine execution, production/superiority claim, or fallback
 - CG-14: runtime-adaptive optimizer and execution memory
 - CG-15: CPU operator specialization
 - CG-16: evidence-first execution certificates
@@ -986,6 +990,16 @@ No fallback execution.
 - Primary RFC linkage: RFC 0025 and RFC 0032.
 - Related RFCs: RFC 0012, RFC 0029, RFC 0030, and RFC 0031.
 - This phase adds no runtime behavior, parser, execution, adapter runtime, Python package, media runtime, dependency change, benchmark claim, superiority claim, or fallback behavior.
+
+## CG-13.1 encoded path selection report foundation
+
+- `shardloom-vortex/src/encoded_path_selection.rs` adds a report-only `VortexEncodedExecutionPathSelectionReport` for CG-13 count/filter/project encoded-native candidate selection.
+- The report composes existing physical operator profiles, encoded count discovery, encoded predicate discovery, selection-vector filter discovery, and encoded projection evidence into one agent-readable artifact.
+- `vortex-encoded-path-selection-plan` exposes the report through stable CLI JSON/text output with selected execution levels, evidence sources, decode/materialization avoided counts, selection-vector preservation, and explicit no-work/no-fallback fields.
+- The path selection report does not read data, decode arrays, materialize values, read rows, convert to Arrow, touch object stores, write, spill, execute runtime paths, invoke external engines, or allow fallback.
+- Primary RFC linkage: RFC 0026 and RFC 0021.
+- Related RFCs: RFC 0012, RFC 0015, RFC 0025, RFC 0029, RFC 0031, and RFC 0032.
+- This phase adds no generalized encoded execution, scan/read-start API, parser, SQL execution, adapter runtime, object-store IO, writes, spill IO, benchmark claim, production/superiority claim, CG closeout, or fallback behavior.
 
 ## CG-7.15 local encoded `CountAll` physical kernel evidence
 
