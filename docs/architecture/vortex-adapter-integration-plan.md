@@ -839,6 +839,13 @@ CG-2.1c metadata-footer `CountAll` execution is wired; non-metadata execution re
 - The command remains deterministic and report-only; it does not make adapter execution broader.
 - This remains report-only and does not call scan/read-start APIs, array stream/evaluation APIs, traverse encoded data, read rows, decode/materialize, convert to `Arrow`, perform object-store IO, write, or attempt fallback execution.
 
+## CG-2.1e.8 encoded-count approval local guard
+
+- Local encoded-count planning now has an approval-report guard before future adapter/source execution can advance.
+- Current adapter/API blockers are rejected by the guard, keeping scan/stream/layout-evaluation/data-source work out of the execution path.
+- A future approved adapter boundary can only return deferred `NeedsEncodedRead` until actual encoded-data count execution is separately approved.
+- This remains report-only and does not call scan/read-start APIs, array stream/evaluation APIs, traverse encoded data, read rows, decode/materialize, convert to `Arrow`, perform object-store IO, write, or attempt fallback execution.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.

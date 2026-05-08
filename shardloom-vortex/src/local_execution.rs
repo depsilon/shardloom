@@ -7,10 +7,10 @@ use shardloom_core::{Diagnostic, DiagnosticCode, DiagnosticSeverity, Result};
 
 use crate::{
     VortexCountCandidateSource, VortexCountReadinessReport, VortexCountReadinessStatus,
-    VortexMetadataSummaryReport, VortexQueryPrimitiveAnalysisReport, VortexQueryPrimitiveKind,
-    VortexQueryPrimitiveRequest, VortexQueryPrimitiveResult, VortexQueryPrimitiveStatus,
-    VortexQueryPrimitiveValue, analyze_vortex_query_primitive_result,
-    evaluate_vortex_query_primitive,
+    VortexEncodedCountDataPathApprovalReport, VortexMetadataSummaryReport,
+    VortexQueryPrimitiveAnalysisReport, VortexQueryPrimitiveKind, VortexQueryPrimitiveRequest,
+    VortexQueryPrimitiveResult, VortexQueryPrimitiveStatus, VortexQueryPrimitiveValue,
+    analyze_vortex_query_primitive_result, evaluate_vortex_query_primitive,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -553,6 +553,36 @@ pub fn execute_vortex_count_all_from_encoded_data_candidate(
     ))
 }
 
+/// Plans `CountAll` through an approved encoded-count data-path approval report.
+///
+/// The returned report is still a deferred `NeedsEncodedRead` result. This
+/// helper exists so future encoded-count execution work has to pass the
+/// explicit approval boundary before any local execution path can advance.
+///
+/// # Errors
+/// Returns an error if primitive analysis construction fails.
+pub fn execute_vortex_count_all_from_encoded_count_data_path_approval(
+    approval: &VortexEncodedCountDataPathApprovalReport,
+) -> Result<VortexLocalExecutionReport> {
+    let request = VortexQueryPrimitiveRequest::count_all(
+        approval
+            .input
+            .count_readiness_report
+            .request
+            .target_uri
+            .clone(),
+    );
+    let input = VortexLocalExecutionInput::new(request).allow_encoded_read(true);
+    if approval.approved() && approval.is_side_effect_free() && !approval.has_errors() {
+        return VortexLocalExecutionReport::from_input(input);
+    }
+    Ok(VortexLocalExecutionReport::unsupported(
+        input,
+        "vortex_encoded_count_data_path_approval",
+        "encoded-count data-path approval is not approved",
+    ))
+}
+
 pub fn vortex_local_execution_is_side_effect_free(report: &VortexLocalExecutionReport) -> bool {
     report.is_side_effect_free()
 }
@@ -561,8 +591,11 @@ pub fn vortex_local_execution_is_side_effect_free(report: &VortexLocalExecutionR
 mod tests {
     use super::*;
     use crate::{
-        VortexCountCandidateSource, VortexCountReadinessRequest, VortexFileMetadataSummary,
-        VortexMetadataSummaryStatus, plan_vortex_count_readiness,
+        VortexCountCandidateSource, VortexCountReadinessRequest,
+        VortexEncodedCountDataPathApprovalInput, VortexEncodedReadApiBoundaryReport,
+        VortexEncodedReadApiBoundaryStatus, VortexFileMetadataSummary, VortexMetadataSummaryStatus,
+        plan_vortex_count_readiness, plan_vortex_encoded_count_data_path_approval,
+        vortex_encoded_read_public_api_boundary,
     };
     use shardloom_core::DatasetUri;
     fn uri() -> DatasetUri {
@@ -718,6 +751,62 @@ mod tests {
 
         assert_eq!(report.status, VortexLocalExecutionStatus::Unsupported);
         assert!(report.has_errors());
+        assert!(report.is_side_effect_free());
+        assert!(!report.data_read);
+        assert!(!report.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn encoded_count_approval_guard_blocks_current_public_api_boundary() {
+        let readiness = plan_vortex_count_readiness(
+            VortexCountReadinessRequest::new(uri(), VortexCountCandidateSource::EncodedDataPath)
+                .feature_gate_enabled(true)
+                .query_primitive_ready(true)
+                .count_primitive(true)
+                .encoded_data_path_ready(true),
+        )
+        .expect("readiness");
+        let approval = plan_vortex_encoded_count_data_path_approval(
+            readiness,
+            vortex_encoded_read_public_api_boundary(),
+        )
+        .expect("approval");
+
+        let report = execute_vortex_count_all_from_encoded_count_data_path_approval(&approval)
+            .expect("execution");
+
+        assert_eq!(report.status, VortexLocalExecutionStatus::Unsupported);
+        assert!(report.has_errors());
+        assert!(report.is_side_effect_free());
+        assert!(!report.data_read);
+        assert!(!report.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn encoded_count_approval_guard_defers_when_future_boundary_is_approved() {
+        let readiness = plan_vortex_count_readiness(
+            VortexCountReadinessRequest::new(uri(), VortexCountCandidateSource::EncodedDataPath)
+                .feature_gate_enabled(true)
+                .query_primitive_ready(true)
+                .count_primitive(true)
+                .encoded_data_path_ready(true),
+        )
+        .expect("readiness");
+        let mut api = VortexEncodedReadApiBoundaryReport::default_deferred();
+        api.status = VortexEncodedReadApiBoundaryStatus::ContractReady;
+        api.execution_usable_count = 1;
+        let approval = crate::VortexEncodedCountDataPathApprovalReport::from_input(
+            VortexEncodedCountDataPathApprovalInput::new(readiness, api),
+        )
+        .expect("approval");
+        assert!(approval.approved());
+
+        let report = execute_vortex_count_all_from_encoded_count_data_path_approval(&approval)
+            .expect("execution");
+
+        assert_eq!(report.status, VortexLocalExecutionStatus::NeedsEncodedRead);
+        assert_eq!(report.mode, VortexLocalExecutionMode::PlanOnly);
+        assert!(report.input.allow_encoded_read);
         assert!(report.is_side_effect_free());
         assert!(!report.data_read);
         assert!(!report.fallback_execution_allowed);
