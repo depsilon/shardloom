@@ -8,11 +8,11 @@ use std::process::ExitCode;
 use shardloom_core::{
     BenchmarkEvidenceState, BenchmarkFallbackState, CapabilityCertificationReport,
     CapabilityCertificationStatus, CatalogKind, CatalogRef, ChangeSet, ColumnRef, CommandStatus,
-    ComparisonOp, CorrectnessValidationPlan, DatasetManifest, DatasetRef, DatasetUri, ExtensionId,
-    ExtensionInspectionReport, ExtensionLicenseKind, ExtensionManifest, ExtensionProvenance,
-    ExtensionRegistrySnapshot, ExtensionVersion, IncrementalPlanSkeleton,
-    InputAdapterRegistrySnapshot, KernelRegistrySnapshot, ManifestId, ObservabilityPlan,
-    OperatorMemoryCertification, OutputEnvelope, OutputFormat, OutputTarget,
+    ComparisonOp, CorrectnessFixture, CorrectnessValidationPlan, DatasetManifest, DatasetRef,
+    DatasetUri, ExecutionCertificate, ExtensionId, ExtensionInspectionReport, ExtensionLicenseKind,
+    ExtensionManifest, ExtensionProvenance, ExtensionRegistrySnapshot, ExtensionVersion,
+    IncrementalPlanSkeleton, InputAdapterRegistrySnapshot, KernelRegistrySnapshot, ManifestId,
+    ObservabilityPlan, OperatorMemoryCertification, OutputEnvelope, OutputFormat, OutputTarget,
     PhysicalKernelRegistryPlan, PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorPlan,
     PredicateExpr, RedactionPolicy, ReleasePlan, RuntimeObservabilityReport, SchemaDefinition,
     SchemaId, SchemaVersion, SecurityPlan, ShardLoomError, SnapshotId, SnapshotRef, StatValue,
@@ -45,8 +45,9 @@ use shardloom_vortex::{
     VortexCommitMarkerSignal, VortexCommitMarkerWriteOption, VortexCommitProtocolReport,
     VortexCommitProtocolRequest, VortexCommitProtocolSignal, VortexCommitProtocolState,
     VortexCommitProtocolTransition, VortexCountCandidateSource, VortexCountReadinessRequest,
-    VortexCountReadinessSignal, VortexDTypeMappingReport, VortexEncodedReadBoundaryReport,
-    VortexEncodedReadBoundaryRequest, VortexEncodedReadBoundarySignal, VortexEncodedReadFixtureRef,
+    VortexCountReadinessSignal, VortexDTypeMappingReport, VortexEncodedCountPhysicalKernelReport,
+    VortexEncodedReadBoundaryReport, VortexEncodedReadBoundaryRequest,
+    VortexEncodedReadBoundarySignal, VortexEncodedReadFixtureRef,
     VortexEncodedReadMetadataProbeReport, VortexEncodedReadMetadataProbeRequest,
     VortexEncodedReadMetadataProbeSignal, VortexEncodedReadReadinessStatus,
     VortexEncodingLayoutMappingReport, VortexExecutionReadinessStatus, VortexFileRef,
@@ -72,20 +73,22 @@ use shardloom_vortex::{
     VortexWriteIntentReport, VortexWriteIntentRequest, VortexWriteIntentSignal, VortexWriteOptions,
     VortexWritePlan, build_vortex_runtime_task_graph, commit_marker_write_request_from_plan,
     evaluate_vortex_encoded_read_readiness, evaluate_vortex_execution_readiness,
-    evaluate_vortex_metadata_physical_kernels, evaluate_vortex_query_primitive,
-    execute_vortex_bounded_local_query, execute_vortex_count_all_from_approved_local_scan,
+    evaluate_vortex_local_encoded_count_physical_kernel, evaluate_vortex_metadata_physical_kernels,
+    evaluate_vortex_query_primitive, execute_vortex_bounded_local_query,
+    execute_vortex_count_all_from_approved_local_scan,
     execute_vortex_count_all_from_approved_local_scan_result,
     execute_vortex_count_all_from_encoded_count_data_path_approval,
     execute_vortex_encoded_read_contract, execute_vortex_encoded_read_spike,
     execute_vortex_local_commit, execute_vortex_local_commit_rollback,
     execute_vortex_local_query_primitive, execute_vortex_metadata_only,
-    finalized_manifest_artifact_write_request_from_plan, metadata_planning_is_side_effect_free,
-    metadata_pruning_is_side_effect_free, metadata_summary_is_plan_only,
-    native_output_payload_write_request_from_plan, open_vortex_metadata_only,
-    output_payload_artifact_write_request_from_plan, parse_vortex_local_engine_primitive,
-    plan_from_vortex_metadata_summary, plan_native_vortex_universal_input,
-    plan_vortex_commit_intent, plan_vortex_commit_marker, plan_vortex_commit_protocol,
-    plan_vortex_count_readiness, plan_vortex_encoded_count_data_path_approval,
+    finalized_manifest_artifact_write_request_from_plan, local_encoded_count_execution_certificate,
+    metadata_planning_is_side_effect_free, metadata_pruning_is_side_effect_free,
+    metadata_summary_is_plan_only, native_output_payload_write_request_from_plan,
+    open_vortex_metadata_only, output_payload_artifact_write_request_from_plan,
+    parse_vortex_local_engine_primitive, plan_from_vortex_metadata_summary,
+    plan_native_vortex_universal_input, plan_vortex_commit_intent, plan_vortex_commit_marker,
+    plan_vortex_commit_protocol, plan_vortex_count_readiness,
+    plan_vortex_encoded_count_data_path_approval,
     plan_vortex_encoded_count_data_path_approval_with_layout_driver,
     plan_vortex_encoded_read_boundary, plan_vortex_encoded_read_probe,
     plan_vortex_filtered_count_readiness, plan_vortex_layout_reader_driver_approval,
@@ -3251,23 +3254,34 @@ fn handle_vortex_count_local_encoded(
             }
         };
     let local_execution_failed = local_report.has_errors();
+    let evidence = match vortex_count_local_encoded_evidence(&encoded_report, &local_report) {
+        Ok(evidence) => evidence,
+        Err(error) => {
+            return emit_error(
+                "vortex-count",
+                format,
+                "vortex count evidence failed",
+                &error,
+            );
+        }
+    };
     let mut diagnostics = encoded_report.diagnostics.clone();
     diagnostics.extend(local_report.diagnostics.clone());
-    let human_text = format!(
-        "{}\n\n{}",
-        encoded_report.to_human_text(),
-        local_report.to_human_text()
-    );
+    diagnostics.extend(evidence.diagnostics());
+    let mut human_sections = vec![encoded_report.to_human_text(), local_report.to_human_text()];
+    human_sections.extend(evidence.human_sections());
+    let human_text = human_sections.join("\n\n");
     let fields = vortex_count_local_encoded_fields(
         memory_gb,
         max_parallelism,
         &encoded_report,
         &local_report,
+        &evidence,
     );
     emit(
         "vortex-count",
         format,
-        if encoded_report.has_errors() || local_execution_failed {
+        if encoded_report.has_errors() || local_execution_failed || evidence.has_errors() {
             CommandStatus::Unsupported
         } else {
             CommandStatus::Success
@@ -3277,11 +3291,140 @@ fn handle_vortex_count_local_encoded(
         diagnostics,
         fields,
     );
-    if encoded_report.has_errors() || local_execution_failed {
+    if encoded_report.has_errors() || local_execution_failed || evidence.has_errors() {
         ExitCode::from(1)
     } else {
         ExitCode::SUCCESS
     }
+}
+
+struct VortexCountLocalEncodedEvidence {
+    fixture_id: Option<String>,
+    fixture_source_ref: Option<String>,
+    certificate: Option<ExecutionCertificate>,
+    physical_kernel: Option<VortexEncodedCountPhysicalKernelReport>,
+}
+
+impl VortexCountLocalEncodedEvidence {
+    fn unavailable() -> Self {
+        Self {
+            fixture_id: None,
+            fixture_source_ref: None,
+            certificate: None,
+            physical_kernel: None,
+        }
+    }
+
+    fn from_fixture(
+        fixture: &CorrectnessFixture,
+        certificate: ExecutionCertificate,
+        physical_kernel: VortexEncodedCountPhysicalKernelReport,
+    ) -> Self {
+        Self {
+            fixture_id: Some(fixture.id.as_str().to_string()),
+            fixture_source_ref: fixture.source_ref.clone(),
+            certificate: Some(certificate),
+            physical_kernel: Some(physical_kernel),
+        }
+    }
+
+    fn has_errors(&self) -> bool {
+        self.certificate
+            .as_ref()
+            .is_some_and(|certificate| !certificate.is_certified())
+            || self
+                .physical_kernel
+                .as_ref()
+                .is_some_and(VortexEncodedCountPhysicalKernelReport::has_errors)
+    }
+
+    fn diagnostics(&self) -> Vec<shardloom_core::Diagnostic> {
+        let mut diagnostics = Vec::new();
+        if let Some(certificate) = &self.certificate {
+            diagnostics.extend(certificate.diagnostics.clone());
+        }
+        if let Some(physical_kernel) = &self.physical_kernel {
+            diagnostics.extend(physical_kernel.diagnostics.clone());
+        }
+        diagnostics
+    }
+
+    fn human_sections(&self) -> Vec<String> {
+        let mut sections = Vec::new();
+        if let Some(certificate) = &self.certificate {
+            sections.push(certificate.to_human_text());
+        }
+        if let Some(physical_kernel) = &self.physical_kernel {
+            sections.push(physical_kernel.to_human_text());
+        }
+        sections
+    }
+}
+
+fn vortex_count_local_encoded_evidence(
+    encoded_report: &shardloom_vortex::VortexEncodedReadExecutionReport,
+    local_report: &VortexLocalExecutionReport,
+) -> shardloom_core::Result<VortexCountLocalEncodedEvidence> {
+    let Some(fixture) = local_encoded_count_correctness_fixture_for_report(encoded_report) else {
+        return Ok(VortexCountLocalEncodedEvidence::unavailable());
+    };
+    let certificate =
+        local_encoded_count_execution_certificate(&fixture, encoded_report, local_report)?;
+    let physical_kernel = evaluate_vortex_local_encoded_count_physical_kernel(
+        encoded_report,
+        local_report,
+        &certificate,
+    );
+    Ok(VortexCountLocalEncodedEvidence::from_fixture(
+        &fixture,
+        certificate,
+        physical_kernel,
+    ))
+}
+
+fn local_encoded_count_correctness_fixture_for_report(
+    encoded_report: &shardloom_vortex::VortexEncodedReadExecutionReport,
+) -> Option<CorrectnessFixture> {
+    if !encoded_report.local_scan_source_uri_matches_target {
+        return None;
+    }
+    let target_uri = encoded_report.local_scan_target_uri.as_ref()?;
+    local_encoded_count_correctness_fixture_for_target(target_uri)
+}
+
+fn local_encoded_count_correctness_fixture_for_target(
+    target_uri: &DatasetUri,
+) -> Option<CorrectnessFixture> {
+    let target_ref = normalized_local_fixture_ref(target_uri.as_str());
+    CorrectnessValidationPlan::default_foundation_plan()
+        .fixtures
+        .into_iter()
+        .find(|fixture| {
+            fixture.id.as_str() == "vortex-local-encoded-count-u64-20000"
+                && fixture
+                    .source_ref
+                    .as_deref()
+                    .is_some_and(|source_ref| local_fixture_ref_matches(&target_ref, source_ref))
+        })
+}
+
+fn local_fixture_ref_matches(target_ref: &str, source_ref: &str) -> bool {
+    let source_ref = normalized_local_fixture_ref(source_ref);
+    target_ref == source_ref || target_ref.ends_with(&format!("/{source_ref}"))
+}
+
+fn normalized_local_fixture_ref(value: &str) -> String {
+    let without_fragment = value
+        .split_once(['?', '#'])
+        .map_or(value, |(prefix, _)| prefix);
+    let without_scheme = without_fragment
+        .strip_prefix("file:///")
+        .or_else(|| without_fragment.strip_prefix("file://"))
+        .unwrap_or(without_fragment);
+    without_scheme
+        .replace('\\', "/")
+        .trim_start_matches("./")
+        .to_string()
 }
 
 fn vortex_count_local_encoded_fields(
@@ -3289,6 +3432,7 @@ fn vortex_count_local_encoded_fields(
     max_parallelism: usize,
     encoded_report: &shardloom_vortex::VortexEncodedReadExecutionReport,
     local_report: &VortexLocalExecutionReport,
+    evidence: &VortexCountLocalEncodedEvidence,
 ) -> Vec<(String, String)> {
     let mut fields = Vec::new();
     push_bool_field(&mut fields, "fallback_execution_allowed", false);
@@ -3371,7 +3515,271 @@ fn vortex_count_local_encoded_fields(
         encoded_report.local_scan_source_uri_matches_target,
     );
     append_vortex_encoded_read_spike_local_execution_fields(&mut fields, local_report);
+    append_vortex_count_local_encoded_evidence_fields(&mut fields, evidence);
     fields
+}
+
+fn append_vortex_count_local_encoded_evidence_fields(
+    fields: &mut Vec<(String, String)>,
+    evidence: &VortexCountLocalEncodedEvidence,
+) {
+    push_bool_field(
+        fields,
+        "correctness_fixture_matched",
+        evidence.fixture_id.is_some(),
+    );
+    push_field(
+        fields,
+        "correctness_fixture_id",
+        evidence.fixture_id.as_deref().unwrap_or("none"),
+    );
+    push_field(
+        fields,
+        "correctness_fixture_source_ref",
+        evidence.fixture_source_ref.as_deref().unwrap_or("none"),
+    );
+    if let Some(certificate) = &evidence.certificate {
+        append_execution_certificate_fields(fields, certificate);
+    } else {
+        push_bool_field(fields, "execution_certificate_emitted", false);
+        push_field(
+            fields,
+            "execution_certificate_status",
+            "evidence_unavailable",
+        );
+        push_bool_field(fields, "execution_certificate_correctness_passed", false);
+        push_bool_field(
+            fields,
+            "execution_certificate_unsafe_effect_detected",
+            false,
+        );
+        push_bool_field(fields, "execution_certificate_fallback_attempted", false);
+        push_bool_field(
+            fields,
+            "execution_certificate_fallback_execution_allowed",
+            false,
+        );
+    }
+    if let Some(physical_kernel) = &evidence.physical_kernel {
+        append_encoded_count_physical_kernel_fields(fields, physical_kernel);
+    } else {
+        push_bool_field(fields, "encoded_count_physical_kernel_emitted", false);
+        push_field(
+            fields,
+            "encoded_count_physical_kernel_status",
+            "evidence_unavailable",
+        );
+        push_bool_field(fields, "encoded_count_physical_kernel_safe_evidence", false);
+        push_bool_field(
+            fields,
+            "encoded_count_physical_kernel_production_claim_allowed",
+            false,
+        );
+    }
+}
+
+fn append_execution_certificate_fields(
+    fields: &mut Vec<(String, String)>,
+    certificate: &ExecutionCertificate,
+) {
+    push_bool_field(fields, "execution_certificate_emitted", true);
+    push_field(
+        fields,
+        "execution_certificate_schema_version",
+        certificate.schema_version,
+    );
+    push_field(
+        fields,
+        "execution_certificate_id",
+        &certificate.certificate_id,
+    );
+    push_field(
+        fields,
+        "execution_certificate_execution_kind",
+        &certificate.execution_kind,
+    );
+    push_field(
+        fields,
+        "execution_certificate_status",
+        certificate.status.as_str(),
+    );
+    push_field(
+        fields,
+        "execution_certificate_input_ref",
+        certificate.input_ref.as_deref().unwrap_or("none"),
+    );
+    push_field(
+        fields,
+        "execution_certificate_output_ref",
+        certificate.output_ref.as_deref().unwrap_or("none"),
+    );
+    push_bool_field(
+        fields,
+        "execution_certificate_correctness_passed",
+        certificate.correctness_passed,
+    );
+    push_bool_field(
+        fields,
+        "execution_certificate_data_read",
+        certificate.data_read,
+    );
+    push_bool_field(
+        fields,
+        "execution_certificate_data_decoded",
+        certificate.data_decoded,
+    );
+    push_bool_field(
+        fields,
+        "execution_certificate_data_materialized",
+        certificate.data_materialized,
+    );
+    push_bool_field(
+        fields,
+        "execution_certificate_row_read",
+        certificate.row_read,
+    );
+    push_bool_field(
+        fields,
+        "execution_certificate_arrow_converted",
+        certificate.arrow_converted,
+    );
+    push_bool_field(
+        fields,
+        "execution_certificate_object_store_io",
+        certificate.object_store_io,
+    );
+    push_bool_field(
+        fields,
+        "execution_certificate_write_io",
+        certificate.write_io,
+    );
+    push_bool_field(
+        fields,
+        "execution_certificate_spill_io_performed",
+        certificate.spill_io_performed,
+    );
+    push_bool_field(
+        fields,
+        "execution_certificate_external_effects_executed",
+        certificate.external_effects_executed,
+    );
+    push_bool_field(
+        fields,
+        "execution_certificate_unsafe_effect_detected",
+        certificate.unsafe_effect_detected,
+    );
+    push_bool_field(
+        fields,
+        "execution_certificate_fallback_attempted",
+        certificate.fallback_attempted,
+    );
+    push_bool_field(
+        fields,
+        "execution_certificate_fallback_execution_allowed",
+        certificate.fallback_execution_allowed,
+    );
+}
+
+fn append_encoded_count_physical_kernel_fields(
+    fields: &mut Vec<(String, String)>,
+    physical_kernel: &VortexEncodedCountPhysicalKernelReport,
+) {
+    push_bool_field(fields, "encoded_count_physical_kernel_emitted", true);
+    push_field(
+        fields,
+        "encoded_count_physical_kernel_schema_version",
+        physical_kernel.schema_version,
+    );
+    push_field(
+        fields,
+        "encoded_count_physical_kernel_id",
+        &physical_kernel.kernel_report_id,
+    );
+    push_field(
+        fields,
+        "encoded_count_physical_kernel_status",
+        physical_kernel.status.as_str(),
+    );
+    push_field(
+        fields,
+        "encoded_count_physical_kernel_execution_certificate_id",
+        physical_kernel
+            .execution_certificate_id
+            .as_deref()
+            .unwrap_or("none"),
+    );
+    push_field(
+        fields,
+        "encoded_count_physical_kernel_count",
+        &physical_kernel
+            .count_result
+            .map_or_else(|| "unknown".to_string(), |count| count.to_string()),
+    );
+    push_bool_field(
+        fields,
+        "encoded_count_physical_kernel_safe_evidence",
+        physical_kernel.is_safe_native_kernel_evidence(),
+    );
+    push_bool_field(
+        fields,
+        "encoded_count_physical_kernel_production_claim_allowed",
+        physical_kernel.production_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "encoded_count_physical_kernel_data_read",
+        physical_kernel.data_read,
+    );
+    push_bool_field(
+        fields,
+        "encoded_count_physical_kernel_data_decoded",
+        physical_kernel.data_decoded,
+    );
+    push_bool_field(
+        fields,
+        "encoded_count_physical_kernel_data_materialized",
+        physical_kernel.data_materialized,
+    );
+    push_bool_field(
+        fields,
+        "encoded_count_physical_kernel_row_read",
+        physical_kernel.row_read,
+    );
+    push_bool_field(
+        fields,
+        "encoded_count_physical_kernel_arrow_converted",
+        physical_kernel.arrow_converted,
+    );
+    push_bool_field(
+        fields,
+        "encoded_count_physical_kernel_object_store_io",
+        physical_kernel.object_store_io,
+    );
+    push_bool_field(
+        fields,
+        "encoded_count_physical_kernel_write_io",
+        physical_kernel.write_io,
+    );
+    push_bool_field(
+        fields,
+        "encoded_count_physical_kernel_spill_io_performed",
+        physical_kernel.spill_io_performed,
+    );
+    push_bool_field(
+        fields,
+        "encoded_count_physical_kernel_external_effects_executed",
+        physical_kernel.external_effects_executed,
+    );
+    push_bool_field(
+        fields,
+        "encoded_count_physical_kernel_fallback_attempted",
+        physical_kernel.fallback_attempted,
+    );
+    push_bool_field(
+        fields,
+        "encoded_count_physical_kernel_fallback_execution_allowed",
+        physical_kernel.fallback_execution_allowed,
+    );
 }
 
 #[allow(clippy::too_many_lines)]
@@ -14901,6 +15309,45 @@ mod tests {
                 max_parallelism: 2
             }
         );
+    }
+
+    #[test]
+    fn vortex_count_local_encoded_evidence_matches_workspace_fixture_path() {
+        let fixture_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("workspace crate parent")
+            .join("shardloom-vortex")
+            .join("tests")
+            .join("fixtures")
+            .join("metadata_footer_u64_20000.vortex");
+        let uri = DatasetUri::new(fixture_path.to_string_lossy().to_string()).expect("uri");
+
+        let fixture =
+            local_encoded_count_correctness_fixture_for_target(&uri).expect("fixture match");
+
+        assert_eq!(fixture.id.as_str(), "vortex-local-encoded-count-u64-20000");
+    }
+
+    #[test]
+    fn vortex_count_local_encoded_evidence_matches_relative_fixture_path() {
+        let uri = DatasetUri::new(
+            ".\\shardloom-vortex\\tests\\fixtures\\metadata_footer_u64_20000.vortex",
+        )
+        .expect("uri");
+
+        let fixture =
+            local_encoded_count_correctness_fixture_for_target(&uri).expect("fixture match");
+
+        assert_eq!(fixture.id.as_str(), "vortex-local-encoded-count-u64-20000");
+    }
+
+    #[test]
+    fn vortex_count_local_encoded_evidence_rejects_unrelated_path() {
+        let uri = DatasetUri::new("file:///tmp/unrelated.vortex").expect("uri");
+
+        let fixture = local_encoded_count_correctness_fixture_for_target(&uri);
+
+        assert!(fixture.is_none());
     }
 
     #[test]

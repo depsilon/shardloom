@@ -984,3 +984,12 @@ No fallback execution.
 - Primary RFC linkage: RFC 0021, RFC 0025, and RFC 0029.
 - Related RFCs: RFC 0012, RFC 0015, RFC 0016, RFC 0031, and RFC 0032.
 - This phase adds no new runtime path, generalized encoded-data execution, filtered-count execution, projection execution, parser, SQL execution, adapter runtime, object-store IO, writes, spill IO, benchmark claim, superiority claim, CG closeout, or fallback behavior.
+
+## CG-7.16 local encoded `CountAll` CLI evidence surfacing
+
+- `shardloom vortex-count <dataset_uri> --execute-local-encoded-count <memory_gb> <max_parallelism>` now surfaces fixture-matched CG-16 execution certificate evidence and CG-7.15 encoded physical-kernel evidence in the stable command output.
+- Certification is emitted only when the executed local target matches the repository's `vortex-local-encoded-count-u64-20000` correctness fixture source ref; arbitrary local `.vortex` count execution remains usable without claiming fixture certification.
+- The command output records fixture match status, certificate status, correctness/no-fallback fields, encoded physical-kernel status, safe-native-kernel evidence, and production-claim-disabled status.
+- Primary RFC linkage: RFC 0010, RFC 0012, RFC 0021, RFC 0025, and RFC 0029.
+- Related RFCs: RFC 0015, RFC 0016, RFC 0031, and RFC 0032.
+- This phase adds no new runtime path, generalized encoded-data execution, filtered-count execution, projection execution, parser, SQL execution, adapter runtime, object-store IO, writes, spill IO, benchmark claim, production/superiority claim, CG closeout, or fallback behavior.

@@ -39,30 +39,25 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-7.15 local encoded `CountAll` physical kernel evidence
+- [x] Session label: CG-7.16 local encoded `CountAll` CLI evidence surfacing
   - Primary files:
-    - `shardloom-vortex/src/encoded_count_physical_kernel.rs`
-    - `shardloom-vortex/src/encoded_read_executor.rs`
-    - `shardloom-vortex/src/lib.rs`
     - `shardloom-cli/src/main.rs`
-    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
-    - `shardloom-cli/tests/kernel_registry_snapshots.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-  - Scope: Add the first contextual encoded-native count physical-kernel evidence report by consuming the approved local encoded `CountAll` execution report and CG-16 execution certificate.
+  - Scope: Surface the CG-16 execution certificate and CG-7.15 contextual encoded-count physical-kernel evidence through the stable explicit local encoded `CountAll` CLI path when the checked-in correctness fixture matches the executed local target.
   - Checklist:
-    - [x] Add a Vortex encoded-count physical-kernel report and discovery contract.
-    - [x] Require a certified local encoded count execution certificate before kernel evidence can evaluate.
-    - [x] Reject mismatched count values, unsafe effects, decode/materialization, row reads, Arrow conversion, IO expansion, external effects, or fallback evidence.
-    - [x] Surface the contextual encoded count kernel in `capabilities operators` and `kernel-registry` without runtime probing.
-    - [x] Extend the feature-gated fixture test so the local encoded count path produces physical-kernel evidence after correctness and certificate evidence.
+    - [x] Keep arbitrary local `.vortex` count execution usable without fixture certification.
+    - [x] Match certification only to the repository's local encoded count correctness fixture source ref.
+    - [x] Add stable JSON/text fields for fixture match, execution certificate status, no-fallback evidence, and encoded physical-kernel evidence.
+    - [x] Keep production/superiority claims disabled.
+    - [x] Add focused CLI tests for fixture matching and non-matching targets.
     - [x] Run focused and full required validation.
   - Local validation status:
-    - focused encoded-count physical-kernel unit tests passed
-    - focused CLI operator capability and kernel-registry snapshot tests passed
-    - feature-gated local encoded count fixture test passed with physical-kernel evidence
+    - focused CLI fixture-matching tests passed
+    - feature-enabled local encoded count CLI smoke passed
+    - focused CLI clippy passed with and without the Vortex encoded-read spike feature
     - full Rust validation passed with toolchain `1.91.1`
-  - Explicitly not included: new scan/read-start paths, generalized encoded-data execution, filtered-count execution, projection execution, parser, SQL execution, adapter runtime, object-store IO, writes, spill IO, benchmarks, superiority claims, fallback execution, CG-7 closeout, or CG-2 closeout.
+  - Explicitly not included: new scan/read-start paths, generalized encoded-data execution, filtered-count execution, projection execution, parser, SQL execution, adapter runtime, object-store IO, writes, spill IO, benchmarks, production/superiority claims, fallback execution, CG-7 closeout, or CG-2 closeout.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -627,6 +622,13 @@ Supporting docs:
     - A contextual encoded count physical-kernel report evaluates only from successful approved local scan evidence, matching local execution evidence, and a certified CG-16 execution certificate.
     - Discovery surfaces remain report-only and do not execute scans or probe files.
     - Production claims remain blocked until benchmark and broader certification evidence exists.
+- [x] CG-7.16 local encoded `CountAll` CLI evidence surfacing
+  - Why: make the stable explicit local encoded count command show the complete evidence chain already required by CG-16 and CG-7.15.
+  - Acceptance:
+    - Fixture certification is emitted only when the executed local target matches the repository correctness fixture source ref.
+    - Stable command fields report fixture match status, execution certificate status, encoded physical-kernel status, no-fallback evidence, unsafe-effect flags, and production-claim-disabled status.
+    - Arbitrary local `.vortex` count execution remains usable without over-certifying non-fixture targets.
+    - No new execution path, benchmark claim, superiority claim, or fallback behavior is added.
 
 ## Competitive Engine Gates CG-1 through CG-20
 
@@ -755,6 +757,7 @@ Status legend:
   - [x] CG-7.13 metadata physical kernel CLI surfacing
   - [x] CG-7.14 metadata kernel capability discovery
   - [x] CG-7.15 local encoded `CountAll` physical kernel evidence
+  - [x] CG-7.16 local encoded `CountAll` CLI evidence surfacing
   - Scope:
     - filter/projection/count-aggregate kernels
     - metadata/encoded/hybrid execution levels
@@ -978,6 +981,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-7.13 metadata physical kernel CLI surfacing
 - [x] CG-7.14 metadata kernel capability discovery
 - [x] CG-7.15 local encoded `CountAll` physical kernel evidence
+- [x] CG-7.16 local encoded `CountAll` CLI evidence surfacing
 - [ ] filter kernel
 - [ ] projection kernel
 - [ ] count/aggregate kernel
@@ -1160,6 +1164,8 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-7.12 metadata-only physical kernel report evaluates certificate-gated metadata count/filter physical kernel reports over already metadata-answered primitive results without data reads, decode, materialization, IO, or fallback execution.
 - [x] CG-7.13 metadata physical kernel CLI surfacing exposes the report through `vortex-metadata-physical-kernel-plan` with explicit evidence flags and side-effect/no-fallback fields.
 - [x] CG-7.14 metadata kernel capability discovery surfaces contextual metadata physical kernel availability and evidence requirements in `capabilities operators` and `kernel-registry` without treating those contextual reports as global runtime kernels.
+- [x] CG-7.15 local encoded `CountAll` physical kernel evidence verifies the approved local encoded count path against correctness evidence, a CG-16 execution certificate, and encoded-native physical-kernel evidence.
+- [x] CG-7.16 local encoded `CountAll` CLI evidence surfacing emits the fixture match, execution certificate, and encoded physical-kernel evidence through `vortex-count --execute-local-encoded-count` without over-certifying arbitrary local targets.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind `vortex-write`; placeholder artifact paths remain readiness-only.
 - [~] CG-3 broader output payload shapes remain deferred.
