@@ -39,22 +39,30 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: R5.4.13 README roadmap source-of-truth cleanup
+- [x] Session label: CG-7.15 local encoded `CountAll` physical kernel evidence
   - Primary files:
-    - `README.md`
+    - `shardloom-vortex/src/encoded_count_physical_kernel.rs`
+    - `shardloom-vortex/src/encoded_read_executor.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `shardloom-cli/tests/kernel_registry_snapshots.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-  - Scope: Refresh the top-level README so it is an evergreen project entry point that links to the phase plan instead of carrying stale status.
+  - Scope: Add the first contextual encoded-native count physical-kernel evidence report by consuming the approved local encoded `CountAll` execution report and CG-16 execution certificate.
   - Checklist:
-    - [x] Remove stale early-design status wording from README.
-    - [x] Point README readers to the phase plan as the active status source of truth.
-    - [x] Preserve no-fallback and evidence-gated-claim guardrails.
-    - [x] Mention CG-20 user-capability scope without claiming implementation completion.
-    - [x] Run docs hygiene and required validation.
+    - [x] Add a Vortex encoded-count physical-kernel report and discovery contract.
+    - [x] Require a certified local encoded count execution certificate before kernel evidence can evaluate.
+    - [x] Reject mismatched count values, unsafe effects, decode/materialization, row reads, Arrow conversion, IO expansion, external effects, or fallback evidence.
+    - [x] Surface the contextual encoded count kernel in `capabilities operators` and `kernel-registry` without runtime probing.
+    - [x] Extend the feature-gated fixture test so the local encoded count path produces physical-kernel evidence after correctness and certificate evidence.
+    - [x] Run focused and full required validation.
   - Local validation status:
-    - docs hygiene scans passed for stale README status wording, hidden/bidi controls, and `git diff --check`
-    - full Rust validation passed with toolchain `1.91.1` after one transient Windows linker-file-lock rerun
-  - Explicitly not included: runtime behavior, parser, execution, adapter runtime, Python package, media runtime, dependency changes, benchmark claims, superiority claims, fallback execution, or CG closeout.
+    - focused encoded-count physical-kernel unit tests passed
+    - focused CLI operator capability and kernel-registry snapshot tests passed
+    - feature-gated local encoded count fixture test passed with physical-kernel evidence
+    - full Rust validation passed with toolchain `1.91.1`
+  - Explicitly not included: new scan/read-start paths, generalized encoded-data execution, filtered-count execution, projection execution, parser, SQL execution, adapter runtime, object-store IO, writes, spill IO, benchmarks, superiority claims, fallback execution, CG-7 closeout, or CG-2 closeout.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -613,6 +621,12 @@ Supporting docs:
   - Acceptance:
     - Real encoded data traversal remains feature-gated and still avoids rows, decode/materialization requests, Arrow conversion, object-store IO, writes, and fallback.
     - Representation guarantees, segment/chunk boundaries, and non-fixture target policy are explicit before broad execution is allowed.
+- [x] CG-7.15 local encoded `CountAll` physical kernel evidence
+  - Why: connect the approved local encoded `CountAll` path to CG-7 physical-kernel evidence before expanding additional primitives.
+  - Acceptance:
+    - A contextual encoded count physical-kernel report evaluates only from successful approved local scan evidence, matching local execution evidence, and a certified CG-16 execution certificate.
+    - Discovery surfaces remain report-only and do not execute scans or probe files.
+    - Production claims remain blocked until benchmark and broader certification evidence exists.
 
 ## Competitive Engine Gates CG-1 through CG-20
 
@@ -740,6 +754,7 @@ Status legend:
   - [x] CG-7.12 metadata-only physical kernel report
   - [x] CG-7.13 metadata physical kernel CLI surfacing
   - [x] CG-7.14 metadata kernel capability discovery
+  - [x] CG-7.15 local encoded `CountAll` physical kernel evidence
   - Scope:
     - filter/projection/count-aggregate kernels
     - metadata/encoded/hybrid execution levels
@@ -962,6 +977,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-7.12 metadata-only physical kernel report
 - [x] CG-7.13 metadata physical kernel CLI surfacing
 - [x] CG-7.14 metadata kernel capability discovery
+- [x] CG-7.15 local encoded `CountAll` physical kernel evidence
 - [ ] filter kernel
 - [ ] projection kernel
 - [ ] count/aggregate kernel

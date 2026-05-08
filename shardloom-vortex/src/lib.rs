@@ -28,6 +28,7 @@ pub mod commit_marker;
 pub mod commit_protocol;
 pub mod count_readiness;
 pub mod encoded_count_approval;
+pub mod encoded_count_physical_kernel;
 pub mod encoded_read_api;
 pub mod encoded_read_boundary;
 pub mod encoded_read_executor;
@@ -158,6 +159,11 @@ pub use metadata_executor::{
     vortex_metadata_executor_feature_enabled,
 };
 
+pub use encoded_count_physical_kernel::{
+    VortexEncodedCountPhysicalKernelDiscoveryReport, VortexEncodedCountPhysicalKernelReport,
+    VortexEncodedCountPhysicalKernelStatus, evaluate_vortex_local_encoded_count_physical_kernel,
+    vortex_encoded_count_physical_kernel_discovery_report,
+};
 pub use metadata_async_boundary::{
     VortexMetadataAsyncBoundaryEffect, VortexMetadataAsyncBoundaryMode,
     VortexMetadataAsyncBoundaryReport, VortexMetadataAsyncBoundaryRequest,

@@ -974,3 +974,13 @@ No fallback execution.
 - Primary RFC linkage: RFC 0025 and RFC 0032.
 - Related RFCs: RFC 0012, RFC 0029, RFC 0030, and RFC 0031.
 - This phase adds no runtime behavior, parser, execution, adapter runtime, Python package, media runtime, dependency change, benchmark claim, superiority claim, or fallback behavior.
+
+## CG-7.15 local encoded `CountAll` physical kernel evidence
+
+- `shardloom-vortex/src/encoded_count_physical_kernel.rs` adds a contextual encoded-native physical-kernel report for the approved local encoded `CountAll` path.
+- The report consumes existing local scan evidence, local execution evidence, and the CG-16 execution certificate; it does not open files, scan, decode, materialize, convert to Arrow, touch object stores, write, spill, invoke external baselines, or fallback on its own.
+- `capabilities operators` and `kernel-registry` now surface the encoded count physical kernel as contextual/report-only discovery.
+- The feature-gated local encoded count fixture test now verifies correctness evidence, execution certificate evidence, and encoded physical-kernel evidence for the same `CountAll` result.
+- Primary RFC linkage: RFC 0021, RFC 0025, and RFC 0029.
+- Related RFCs: RFC 0012, RFC 0015, RFC 0016, RFC 0031, and RFC 0032.
+- This phase adds no new runtime path, generalized encoded-data execution, filtered-count execution, projection execution, parser, SQL execution, adapter runtime, object-store IO, writes, spill IO, benchmark claim, superiority claim, CG closeout, or fallback behavior.

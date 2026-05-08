@@ -1,6 +1,6 @@
 use std::process::Command;
 
-const KERNEL_REGISTRY_FIELD_KEYS: [&str; 23] = [
+const KERNEL_REGISTRY_FIELD_KEYS: [&str; 32] = [
     "fallback_execution_allowed",
     "mode",
     "status",
@@ -21,6 +21,15 @@ const KERNEL_REGISTRY_FIELD_KEYS: [&str; 23] = [
     "metadata_physical_kernel_requires_benchmark_for_production",
     "metadata_physical_kernel_runtime_execution",
     "metadata_physical_kernel_fallback_execution_allowed",
+    "encoded_count_physical_kernel_schema_version",
+    "encoded_count_physical_kernel_supported_primitive",
+    "encoded_count_physical_kernel_operator_kind",
+    "encoded_count_physical_kernel_kernel_kind",
+    "encoded_count_physical_kernel_execution_level",
+    "encoded_count_physical_kernel_contextual_only",
+    "encoded_count_physical_kernel_requires_execution_certificate",
+    "encoded_count_physical_kernel_runtime_execution",
+    "encoded_count_physical_kernel_fallback_execution_allowed",
     "write_io",
     "execution",
     "plan_only",
@@ -72,6 +81,35 @@ fn kernel_registry_json_fields_include_physical_kernel_blockers() {
     );
     assert!(output.contains(
         "{\"key\":\"metadata_physical_kernel_fallback_execution_allowed\",\"value\":\"false\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_count_physical_kernel_schema_version\",\"value\":\"shardloom.vortex_encoded_count_physical_kernel.v1\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_count_physical_kernel_supported_primitive\",\"value\":\"count_all\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_count_physical_kernel_operator_kind\",\"value\":\"count_aggregate\"}"
+    ));
+    assert!(
+        output.contains(
+            "{\"key\":\"encoded_count_physical_kernel_kernel_kind\",\"value\":\"encoded\"}"
+        )
+    );
+    assert!(output.contains(
+        "{\"key\":\"encoded_count_physical_kernel_execution_level\",\"value\":\"encoded_native\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_count_physical_kernel_contextual_only\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_count_physical_kernel_requires_execution_certificate\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_count_physical_kernel_runtime_execution\",\"value\":\"false\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_count_physical_kernel_fallback_execution_allowed\",\"value\":\"false\"}"
     ));
     assert!(output.contains("\"allowed\":false"));
     assert!(output.contains("\"attempted\":false"));
