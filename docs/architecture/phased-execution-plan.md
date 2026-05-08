@@ -283,6 +283,23 @@ Supporting docs:
   - Blockers:
     - Generalized execution remains blocked until the evidence listed by the gate lands.
 
+- [x] Follow-up: CG-5.6 correctness coverage inventory surfacing
+  - Why: CG-5 already tracks foundational fixtures and external baseline policy, but agents need stable coverage/gap fields before expanding golden fixtures, decoded references, and semantic edge cases.
+  - Files:
+    - `shardloom-core/src/correctness.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/correctness_plan_snapshots.rs`
+    - `shardloom-contract-tests/tests/correctness_fixture_manifest.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Acceptance:
+    - `correctness-plan` reports fixture IDs, semantic areas, edge cases, reference roles, source-backed fixture count, golden fixture count, executable expected-output count, not-yet-defined gap count, baseline count, required edge-case coverage, and no-fallback/test-only fields.
+    - Required null, nested, dictionary, sparse-validity, run-length, temporal, and unsupported-plan-shape fixture families are machine-checkable.
+    - External baselines remain correctness oracles only and cannot become runtime fallback.
+    - No new query execution, external baseline invocation, decoded reference execution, parser, adapter runtime, object-store IO, write IO, benchmark/superiority claim, or fallback execution is added.
+  - Blockers:
+    - Real golden fixture expansion and decoded reference outputs remain open CG-5 work.
+
 - [x] Follow-up: R5.4.10 user-surface RFC hardening
   - Why: SQL/operator/function/adapter details are deep enough for current planning, but best-default certification also needs explicit API, BI/server, observability, deployment, extension, and security/governance evidence.
   - Files:
@@ -1020,6 +1037,7 @@ Status legend:
   - [x] CG-5.3 correctness fixture manifest contract
   - [x] CG-5.4 external baseline oracle policy
   - [x] CG-5.5 local encoded `CountAll` golden fixture/reference-output proof
+  - [x] CG-5.6 correctness coverage inventory surfacing
   - Expected evidence:
     - golden Vortex fixtures
     - decoded reference outputs
@@ -1296,6 +1314,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-5.3 correctness fixture manifest contract
 - [x] CG-5.4 Spark/Polars/DataFusion external baselines only, never fallback
 - [x] CG-5.5 local encoded `CountAll` golden fixture/reference-output proof
+- [x] CG-5.6 correctness coverage inventory surfacing
 
 ### CG-6 detailed checklist
 - [x] CG-6.1 benchmark evidence manifest
@@ -1541,6 +1560,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-5.3 correctness fixture manifest declares initial golden fixture/reference output and required edge-case fixture families without execution.
 - [x] CG-5.4 external baseline oracle policy declares comparison-only baselines and blocks runtime fallback.
 - [x] CG-5.5 local encoded `CountAll` fixture/reference-output proof declares `ExpectedOutcome::EncodedCount { count: 20000 }` for the checked-in Vortex fixture and verifies the approved local encoded count path returns that value without decode/materialization/row/Arrow/object-store/write/spill/external/fallback effects.
+- [x] CG-5.6 correctness coverage inventory surfaces fixture IDs, semantic areas, edge cases, reference roles, required edge-case coverage, source-backed/golden/executable/not-yet-defined counts, and no-fallback/test-only fields through `correctness-plan`.
 - [x] CG-16.1 local encoded `CountAll` execution certificate adds a deterministic core certificate contract and Vortex adapter helper that certify the approved local encoded count path only when expected/actual correctness output matches and fallback/unsafe-effect evidence is absent.
 - [x] CG-17.1 stateful reuse boundary report adds `StatefulReuseReport` and `stateful-reuse-plan` surfacing for typed cache/reuse boundaries, invalidation signals, deterministic key requirements, correctness proof requirements, execution-certificate linkage, manifest-diff requirements, and no-cache/no-runtime/no-fallback side-effect fields.
 - [x] CG-6.1 benchmark evidence manifest covers required metric categories without running benchmarks.

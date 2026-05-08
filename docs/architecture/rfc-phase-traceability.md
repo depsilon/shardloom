@@ -582,6 +582,14 @@ No fallback execution.
 - `shardloom-vortex/src/encoded_read_executor.rs` feature-gated tests verify the approved local encoded count path and local execution bridge return the manifest count without decode/materialization/row/Arrow/object-store/write/spill/external/fallback effects.
 - This pass adds no new fixture generation, decoded reference engine execution, external baseline invocation, generalized encoded-data execution, non-local adapter, object-store IO, encoded predicate, projection execution, row read, requested decode/materialization, Arrow conversion, write behavior, benchmark claim, superiority claim, or fallback execution.
 
+## CG-5.6 correctness coverage inventory surfacing
+
+- Primary RFC linkage: RFC 0015 Correctness/Semantics/Differential Testing, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, RFC 0029 Correctness/Benchmarks/Execution Certificates, and RFC 0032 capability certification gates.
+- `CorrectnessValidationPlan` now exposes fixture ID order, semantic-area order, edge-case order, reference-role order, source-backed fixture count, golden fixture count, executable expected-output count, not-yet-defined gap count, diagnostic/unsupported expectation counts, required foundation edge-case coverage, and test-only/no-fallback helpers.
+- `shardloom correctness-plan` now emits these fields in deterministic text/JSON output so humans and agents can see which CG-5 fixture families are present versus still only planned.
+- Contract and CLI snapshot tests verify required null, nested, dictionary, sparse-validity, run-length, temporal, and unsupported-plan-shape fixture families are tracked, while reference roles and external baselines remain non-production and fallback-free.
+- This pass adds no new query execution, decoded reference execution, external baseline invocation, fixture generation, parser, adapter runtime, object-store IO, write IO, benchmark/superiority claim, or fallback execution.
+
 ## CG-16.1 local encoded `CountAll` execution certificate
 
 - Primary RFC linkage: RFC 0029 Correctness/Benchmarks/Execution Certificates, RFC 0015 Correctness/Semantics/Differential Testing, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.

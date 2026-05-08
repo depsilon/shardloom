@@ -888,6 +888,96 @@ fn vortex_generalized_encoded_primitive_gate_side_effect_fields(
     ]
 }
 
+fn correctness_plan_fields(plan: &CorrectnessValidationPlan) -> Vec<(String, String)> {
+    vec![
+        ("mode".to_string(), "correctness_plan".to_string()),
+        ("status".to_string(), plan.status.as_str().to_string()),
+        (
+            "fallback_execution_allowed".to_string(),
+            plan.fallback_execution_allowed().to_string(),
+        ),
+        (
+            "external_baselines".to_string(),
+            "test_oracles_only".to_string(),
+        ),
+        (
+            "fixture_count".to_string(),
+            plan.fixture_count().to_string(),
+        ),
+        (
+            "fixture_id_order".to_string(),
+            plan.fixture_id_order().join(","),
+        ),
+        (
+            "semantic_area_order".to_string(),
+            plan.semantic_area_order().join(","),
+        ),
+        (
+            "edge_case_order".to_string(),
+            plan.edge_case_order().join(","),
+        ),
+        (
+            "reference_role_order".to_string(),
+            plan.reference_role_order().join(","),
+        ),
+        (
+            "fixtures_with_source_ref_count".to_string(),
+            plan.fixtures_with_source_ref_count().to_string(),
+        ),
+        (
+            "golden_fixture_count".to_string(),
+            plan.golden_fixture_count().to_string(),
+        ),
+        (
+            "executable_expected_output_count".to_string(),
+            plan.executable_expected_output_count().to_string(),
+        ),
+        (
+            "not_yet_defined_fixture_count".to_string(),
+            plan.not_yet_defined_fixture_count().to_string(),
+        ),
+        (
+            "diagnostic_expected_output_count".to_string(),
+            plan.diagnostic_expected_output_count().to_string(),
+        ),
+        (
+            "unsupported_expected_output_count".to_string(),
+            plan.unsupported_expected_output_count().to_string(),
+        ),
+        (
+            "baseline_count".to_string(),
+            plan.baseline_count().to_string(),
+        ),
+        (
+            "covered_required_foundation_edge_case_count".to_string(),
+            plan.covered_required_foundation_edge_case_count()
+                .to_string(),
+        ),
+        (
+            "required_foundation_edge_case_count".to_string(),
+            CorrectnessValidationPlan::required_foundation_edge_cases()
+                .len()
+                .to_string(),
+        ),
+        (
+            "missing_required_foundation_edge_cases".to_string(),
+            plan.missing_required_foundation_edge_cases().join(","),
+        ),
+        (
+            "required_foundation_edge_cases_covered".to_string(),
+            plan.required_foundation_edge_cases_covered().to_string(),
+        ),
+        (
+            "reference_roles_test_only".to_string(),
+            plan.reference_roles_are_test_only().to_string(),
+        ),
+        (
+            "baselines_fallback_free".to_string(),
+            plan.baselines_are_fallback_free().to_string(),
+        ),
+    ]
+}
+
 fn streaming_plan_fields(plan: &StreamingPlanSkeleton) -> Vec<(String, String)> {
     vec![
         ("mode".to_string(), plan.mode.as_str().to_string()),
@@ -11199,18 +11289,7 @@ fn run(args: Vec<String>) -> ExitCode {
                 "correctness validation foundation plan".to_string(),
                 plan.to_human_text(),
                 vec![],
-                vec![
-                    (
-                        "fallback_execution_allowed".to_string(),
-                        "false".to_string(),
-                    ),
-                    ("mode".to_string(), "correctness_plan".to_string()),
-                    ("status".to_string(), "planned".to_string()),
-                    (
-                        "external_baselines".to_string(),
-                        "test_oracles_only".to_string(),
-                    ),
-                ],
+                correctness_plan_fields(&plan),
             );
             ExitCode::SUCCESS
         }

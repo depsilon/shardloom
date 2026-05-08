@@ -621,6 +621,135 @@ impl CorrectnessValidationPlan {
     pub fn fixture_count(&self) -> usize {
         self.fixtures.len()
     }
+    pub fn fixture_id_order(&self) -> Vec<&str> {
+        self.fixtures
+            .iter()
+            .map(|fixture| fixture.id.as_str())
+            .collect()
+    }
+    pub fn semantic_area_order(&self) -> Vec<&'static str> {
+        let mut areas = Vec::new();
+        for fixture in &self.fixtures {
+            for area in &fixture.semantic_areas {
+                let label = area.as_str();
+                if !areas.contains(&label) {
+                    areas.push(label);
+                }
+            }
+        }
+        areas
+    }
+    pub fn edge_case_order(&self) -> Vec<&'static str> {
+        let mut edge_cases = Vec::new();
+        for fixture in &self.fixtures {
+            for edge_case in &fixture.edge_cases {
+                let label = edge_case.as_str();
+                if !edge_cases.contains(&label) {
+                    edge_cases.push(label);
+                }
+            }
+        }
+        edge_cases
+    }
+    pub fn reference_role_order(&self) -> Vec<&'static str> {
+        let mut roles = Vec::new();
+        for fixture in &self.fixtures {
+            for role in &fixture.reference_roles {
+                let label = role.as_str();
+                if !roles.contains(&label) {
+                    roles.push(label);
+                }
+            }
+        }
+        for baseline in &self.baselines {
+            let label = baseline.role.as_str();
+            if !roles.contains(&label) {
+                roles.push(label);
+            }
+        }
+        roles
+    }
+    pub fn fixtures_with_source_ref_count(&self) -> usize {
+        self.fixtures
+            .iter()
+            .filter(|fixture| fixture.source_ref.is_some())
+            .count()
+    }
+    pub fn golden_fixture_count(&self) -> usize {
+        self.fixtures
+            .iter()
+            .filter(|fixture| fixture.has_reference_role(ReferenceRole::GoldenFixture))
+            .count()
+    }
+    pub fn executable_expected_output_count(&self) -> usize {
+        self.fixtures
+            .iter()
+            .filter(|fixture| fixture.expected.requires_execution())
+            .count()
+    }
+    pub fn not_yet_defined_fixture_count(&self) -> usize {
+        self.fixtures
+            .iter()
+            .filter(|fixture| fixture.expected == ExpectedOutcome::NotYetDefined)
+            .count()
+    }
+    pub fn diagnostic_expected_output_count(&self) -> usize {
+        self.fixtures
+            .iter()
+            .filter(|fixture| matches!(fixture.expected, ExpectedOutcome::Diagnostic { .. }))
+            .count()
+    }
+    pub fn unsupported_expected_output_count(&self) -> usize {
+        self.fixtures
+            .iter()
+            .filter(|fixture| matches!(fixture.expected, ExpectedOutcome::Unsupported { .. }))
+            .count()
+    }
+    pub fn required_foundation_edge_cases() -> &'static [EdgeCase] {
+        &[
+            EdgeCase::AllNull,
+            EdgeCase::NestedStructList,
+            EdgeCase::DictionaryEncoded,
+            EdgeCase::SparseValidity,
+            EdgeCase::RunLengthEncoded,
+            EdgeCase::TemporalValues,
+            EdgeCase::UnsupportedPlanShape,
+        ]
+    }
+    pub fn covered_required_foundation_edge_case_count(&self) -> usize {
+        Self::required_foundation_edge_cases()
+            .iter()
+            .filter(|edge_case| {
+                self.fixtures
+                    .iter()
+                    .any(|fixture| fixture.covers_edge_case(**edge_case))
+            })
+            .count()
+    }
+    pub fn missing_required_foundation_edge_cases(&self) -> Vec<&'static str> {
+        Self::required_foundation_edge_cases()
+            .iter()
+            .filter(|edge_case| {
+                !self
+                    .fixtures
+                    .iter()
+                    .any(|fixture| fixture.covers_edge_case(**edge_case))
+            })
+            .map(EdgeCase::as_str)
+            .collect()
+    }
+    pub fn required_foundation_edge_cases_covered(&self) -> bool {
+        self.missing_required_foundation_edge_cases().is_empty()
+    }
+    pub fn reference_roles_are_test_only(&self) -> bool {
+        self.fixtures
+            .iter()
+            .all(CorrectnessFixture::reference_roles_are_test_only)
+            && self
+                .baselines
+                .iter()
+                .all(|baseline| !baseline.role.is_production_execution())
+    }
     pub fn baseline_count(&self) -> usize {
         self.baselines.len()
     }
@@ -856,6 +985,28 @@ mod tests {
     #[test]
     fn plan_has_at_least_six_fixtures() {
         assert!(CorrectnessValidationPlan::default_foundation_plan().fixture_count() >= 6);
+    }
+    #[test]
+    fn foundation_plan_exposes_coverage_inventory() {
+        let plan = CorrectnessValidationPlan::default_foundation_plan();
+
+        assert_eq!(plan.fixture_count(), 14);
+        assert_eq!(plan.fixtures_with_source_ref_count(), 2);
+        assert_eq!(plan.golden_fixture_count(), 2);
+        assert_eq!(plan.executable_expected_output_count(), 1);
+        assert_eq!(plan.not_yet_defined_fixture_count(), 8);
+        assert_eq!(plan.diagnostic_expected_output_count(), 1);
+        assert_eq!(plan.unsupported_expected_output_count(), 1);
+        assert_eq!(plan.baseline_count(), 5);
+        assert!(plan.required_foundation_edge_cases_covered());
+        assert_eq!(plan.covered_required_foundation_edge_case_count(), 7);
+        assert!(plan.missing_required_foundation_edge_cases().is_empty());
+        assert!(plan.reference_roles_are_test_only());
+        assert!(plan.baselines_are_fallback_free());
+        assert_eq!(
+            plan.reference_role_order(),
+            vec!["golden_fixture", "external_oracle"]
+        );
     }
     #[test]
     fn plan_text_mentions_fallback_disabled() {
