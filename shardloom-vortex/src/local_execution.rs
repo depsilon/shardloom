@@ -491,6 +491,81 @@ impl VortexLocalExecutionReport {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexEncodedCountLocalGuardDiscoveryReport {
+    pub schema_version: &'static str,
+    pub guard_id: &'static str,
+    pub accepted_approval_sources: Vec<&'static str>,
+    pub local_execution_status: VortexLocalExecutionStatus,
+    pub mode: VortexLocalExecutionMode,
+    pub layout_row_count_path_accepted: bool,
+    pub returns_count_result: bool,
+    pub tasks_executed: bool,
+    pub data_read: bool,
+    pub data_decoded: bool,
+    pub data_materialized: bool,
+    pub object_store_io: bool,
+    pub write_io: bool,
+    pub spill_io_performed: bool,
+    pub fallback_execution_allowed: bool,
+}
+impl VortexEncodedCountLocalGuardDiscoveryReport {
+    pub fn report_only() -> Self {
+        Self {
+            schema_version: "shardloom.vortex_encoded_count_local_guard.v1",
+            guard_id: "cg2.1e-layout-approved-count-local-guard",
+            accepted_approval_sources: vec![
+                "execution_usable_public_api_boundary",
+                "layout_row_count_approval",
+            ],
+            local_execution_status: VortexLocalExecutionStatus::NeedsEncodedRead,
+            mode: VortexLocalExecutionMode::PlanOnly,
+            layout_row_count_path_accepted: true,
+            returns_count_result: false,
+            tasks_executed: false,
+            data_read: false,
+            data_decoded: false,
+            data_materialized: false,
+            object_store_io: false,
+            write_io: false,
+            spill_io_performed: false,
+            fallback_execution_allowed: false,
+        }
+    }
+    pub const fn is_side_effect_free(&self) -> bool {
+        !self.tasks_executed
+            && !self.data_read
+            && !self.data_decoded
+            && !self.data_materialized
+            && !self.object_store_io
+            && !self.write_io
+            && !self.spill_io_performed
+            && !self.fallback_execution_allowed
+    }
+    pub fn accepted_approval_sources_text(&self) -> String {
+        self.accepted_approval_sources.join(",")
+    }
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "Vortex encoded-count local guard discovery\nschema_version: {}\nguard_id: {}\naccepted approval sources: {}\nlocal execution status: {}\nmode: {}\nlayout row-count path accepted: {}\nreturns count result: {}\ndata read: {}\ndata decoded: {}\ndata materialized: {}\nobject-store IO: {}\nwrite IO: {}\nspill IO: {}\nfallback execution: disabled",
+            self.schema_version,
+            self.guard_id,
+            self.accepted_approval_sources_text(),
+            self.local_execution_status.as_str(),
+            self.mode.as_str(),
+            self.layout_row_count_path_accepted,
+            self.returns_count_result,
+            self.data_read,
+            self.data_decoded,
+            self.data_materialized,
+            self.object_store_io,
+            self.write_io,
+            self.spill_io_performed
+        )
+    }
+}
+
 /// Executes `Vortex` local query primitive skeleton path.
 /// # Errors
 /// Returns an error if primitive evaluation or analysis construction fails.
@@ -585,6 +660,11 @@ pub fn execute_vortex_count_all_from_encoded_count_data_path_approval(
 
 pub fn vortex_local_execution_is_side_effect_free(report: &VortexLocalExecutionReport) -> bool {
     report.is_side_effect_free()
+}
+
+pub fn vortex_encoded_count_local_guard_discovery_report()
+-> VortexEncodedCountLocalGuardDiscoveryReport {
+    VortexEncodedCountLocalGuardDiscoveryReport::report_only()
 }
 
 #[cfg(test)]
@@ -862,6 +942,29 @@ mod tests {
         assert!(!report.data_decoded);
         assert!(!report.data_materialized);
         assert!(!report.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn encoded_count_local_guard_discovery_remains_report_only() {
+        let report = vortex_encoded_count_local_guard_discovery_report();
+
+        assert_eq!(
+            report.schema_version,
+            "shardloom.vortex_encoded_count_local_guard.v1"
+        );
+        assert_eq!(
+            report.local_execution_status,
+            VortexLocalExecutionStatus::NeedsEncodedRead
+        );
+        assert_eq!(report.mode, VortexLocalExecutionMode::PlanOnly);
+        assert!(report.layout_row_count_path_accepted);
+        assert!(!report.returns_count_result);
+        assert!(report.is_side_effect_free());
+        assert!(!report.fallback_execution_allowed);
+        assert_eq!(
+            report.accepted_approval_sources_text(),
+            "execution_usable_public_api_boundary,layout_row_count_approval"
+        );
     }
 
     #[test]

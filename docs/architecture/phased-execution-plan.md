@@ -10,21 +10,22 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [x] Session label: CG-2.1e.13 layout-approved local count guard
-  - Current cleanup/implementation step: Feed layout-approved encoded-count approval into the local execution guard as a deferred `NeedsEncodedRead` plan without executing the read.
+- [x] Session label: CG-2.1e.14 encoded-count local guard capability discovery
+  - Current cleanup/implementation step: Surface the layout-approved encoded-count local guard in capability discovery without enabling execution.
   - Primary files:
     - `shardloom-vortex/src/local_execution.rs`
-    - `shardloom-vortex/src/encoded_count_approval.rs`
+    - `shardloom-vortex/src/lib.rs`
     - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-  - Scope: Local execution guard integration for approved layout row-count count plans, plus CLI fields showing deferred local execution status and side-effect flags.
+  - Scope: Static, report-only capability fields for the encoded-count local guard, including accepted approval sources, deferred status, result-known state, and no-read/no-decode/no-fallback effects.
   - Explicitly not included: Actual encoded-data traversal, scan/read-start APIs, layout-reader construction, runtime-driver startup, row reads, decode/materialization, Arrow conversion, object-store IO, writes, spill IO, external baseline execution, fallback execution, benchmarks, SQL/API/adapter expansion, or superiority claims.
   - Validation required:
     - `cargo fmt --all -- --check`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: Layout-approved encoded-count approvals now flow through the existing local guard to `NeedsEncodedRead`, with execution still disabled and report-only.
+  - Completion notes: `shardloom capabilities operators` now exposes the encoded-count local guard as report-only discovery evidence; execution remains disabled and deferred.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -428,6 +429,12 @@
     - Missing, empty, duplicate, and unknown signal handling is deterministic.
     - Current public API boundary blocks without explicit runtime-driver permission.
     - A full approved signal set still performs no construction, driver start, scan, evaluation, data read, row read, decode/materialization, Arrow conversion, object-store IO, write, or fallback execution.
+- [x] CG-2.1e.14 encoded-count local guard capability discovery
+  - Why: make the new deferred local guard visible in operator capability discovery before real encoded execution can be claimed.
+  - Acceptance:
+    - `shardloom capabilities operators --format json` emits an encoded-count local guard discovery block.
+    - The discovery block records accepted approval sources, `needs_encoded_read`, `plan_only`, no count result, no data read, no decode/materialization, no runtime execution, and no fallback.
+    - The discovery surface remains static/report-only and does not construct layout readers, start runtime drivers, scan, evaluate, read rows, decode/materialize, convert to Arrow, touch object stores, write, spill, invoke external baselines, or fallback.
 - [ ] CG-2.1e encoded-data count execution path (planned)
   - Why: turn the approved encoded-data count candidate into actual native encoded execution after the public Vortex data path is approved.
   - Acceptance:
@@ -475,6 +482,7 @@ Status legend:
   - [x] CG-2.1e.11 layout-driver approval CLI surfacing
   - [x] CG-2.1e.12 layout-approved encoded count bridge
   - [x] CG-2.1e.13 layout-approved local count guard
+  - [x] CG-2.1e.14 encoded-count local guard capability discovery
   - [~] CG-2.1+ non-metadata primitive execution remains deferred pending actual encoded-data execution
   - [x] CG-2.3b projection readiness CLI integration
   - Required capabilities for completion:
@@ -664,6 +672,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.11 layout-driver approval CLI surfacing
 - [x] CG-2.1e.12 layout-approved encoded count bridge
 - [x] CG-2.1e.13 layout-approved local count guard
+- [x] CG-2.1e.14 encoded-count local guard capability discovery
 - [x] CG-2.2a filtered-count readiness core contract
 - [x] CG-2.2a.1 filtered-count blocker precision hardening
 - [x] CG-2.2b filtered-count readiness CLI integration
@@ -867,6 +876,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.11 layout-driver approval CLI exposes the report-only boundary with deterministic signals and no side effects.
 - [x] CG-2.1e.12 layout-approved encoded count bridge lets encoded-count approval consume a matching, side-effect-free layout-row-count-only approval report while keeping actual layout-reader construction and data reads disabled.
 - [x] CG-2.1e.13 layout-approved local count guard feeds the approved report into local execution as deferred `NeedsEncodedRead` planning while preserving no-read/no-decode/no-fallback effects.
+- [x] CG-2.1e.14 encoded-count local guard capability discovery exposes the deferred guard in `capabilities operators` with static no-read/no-decode/no-fallback evidence.
 - [x] CG-5.1 metadata query primitive correctness fixtures cover supported metadata answers and deferred unsupported paths without side effects.
 - [x] CG-5.2 metadata query primitive edge and diagnostic fixtures cover missing/unsupported metadata primitive paths without side effects.
 - [x] CG-5.3 correctness fixture manifest declares initial golden fixture/reference output and required edge-case fixture families without execution.

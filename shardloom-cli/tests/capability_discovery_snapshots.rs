@@ -45,7 +45,7 @@ const FUNCTION_FIELD_KEYS: [&str; 13] = [
     "planned_count",
 ];
 
-const OPERATOR_FIELD_KEYS: [&str; 41] = [
+const OPERATOR_FIELD_KEYS: [&str; 54] = [
     "scope",
     "schema_version",
     "fallback_execution_allowed",
@@ -87,6 +87,19 @@ const OPERATOR_FIELD_KEYS: [&str; 41] = [
     "metadata_physical_kernel_spill_io",
     "metadata_physical_kernel_runtime_execution",
     "metadata_physical_kernel_fallback_execution_allowed",
+    "encoded_count_local_guard_schema_version",
+    "encoded_count_local_guard_id",
+    "encoded_count_local_guard_accepted_approval_sources",
+    "encoded_count_local_guard_local_execution_status",
+    "encoded_count_local_guard_mode",
+    "encoded_count_local_guard_layout_row_count_path_accepted",
+    "encoded_count_local_guard_returns_count_result",
+    "encoded_count_local_guard_side_effect_free",
+    "encoded_count_local_guard_data_read",
+    "encoded_count_local_guard_data_decoded",
+    "encoded_count_local_guard_data_materialized",
+    "encoded_count_local_guard_runtime_execution",
+    "encoded_count_local_guard_fallback_execution_allowed",
 ];
 
 const ADAPTER_FIELD_KEYS: [&str; 13] = [
@@ -283,6 +296,43 @@ fn operator_capability_discovery_includes_physical_plan_blockers() {
     );
     assert!(output.contains(
         "{\"key\":\"metadata_physical_kernel_fallback_execution_allowed\",\"value\":\"false\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_count_local_guard_schema_version\",\"value\":\"shardloom.vortex_encoded_count_local_guard.v1\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_count_local_guard_id\",\"value\":\"cg2.1e-layout-approved-count-local-guard\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_count_local_guard_accepted_approval_sources\",\"value\":\"execution_usable_public_api_boundary,layout_row_count_approval\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_count_local_guard_local_execution_status\",\"value\":\"needs_encoded_read\"}"
+    ));
+    assert!(
+        output.contains("{\"key\":\"encoded_count_local_guard_mode\",\"value\":\"plan_only\"}")
+    );
+    assert!(output.contains(
+        "{\"key\":\"encoded_count_local_guard_layout_row_count_path_accepted\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_count_local_guard_returns_count_result\",\"value\":\"false\"}"
+    ));
+    assert!(
+        output.contains(
+            "{\"key\":\"encoded_count_local_guard_side_effect_free\",\"value\":\"true\"}"
+        )
+    );
+    assert!(
+        output.contains("{\"key\":\"encoded_count_local_guard_data_read\",\"value\":\"false\"}")
+    );
+    assert!(
+        output.contains(
+            "{\"key\":\"encoded_count_local_guard_runtime_execution\",\"value\":\"false\"}"
+        )
+    );
+    assert!(output.contains(
+        "{\"key\":\"encoded_count_local_guard_fallback_execution_allowed\",\"value\":\"false\"}"
     ));
 }
 
