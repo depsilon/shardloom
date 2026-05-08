@@ -745,7 +745,11 @@ impl PhysicalOperatorExecutionProfile {
                     PhysicalOperatorExecutionLevel::HybridNative,
                     PhysicalOperatorExecutionLevel::NativeDecoded,
                 ],
-                vec![KernelKind::Metadata, KernelKind::Encoded],
+                vec![
+                    KernelKind::Metadata,
+                    KernelKind::Encoded,
+                    KernelKind::PartialDecode,
+                ],
             ),
             _ => (
                 PhysicalOperatorExecutionLevel::Unsupported,
@@ -768,6 +772,34 @@ impl PhysicalOperatorExecutionProfile {
     #[must_use]
     pub fn allows_level(&self, level: PhysicalOperatorExecutionLevel) -> bool {
         self.allowed_levels.contains(&level)
+    }
+
+    #[must_use]
+    pub fn required_kernel_kinds_for_level(
+        &self,
+        level: PhysicalOperatorExecutionLevel,
+    ) -> Vec<KernelKind> {
+        if !self.allows_level(level) {
+            return self.required_kernel_kinds.clone();
+        }
+        match level {
+            PhysicalOperatorExecutionLevel::MetadataOnly => vec![KernelKind::Metadata],
+            PhysicalOperatorExecutionLevel::EncodedNative => {
+                vec![KernelKind::Metadata, KernelKind::Encoded]
+            }
+            PhysicalOperatorExecutionLevel::HybridNative => {
+                vec![
+                    KernelKind::Metadata,
+                    KernelKind::Encoded,
+                    KernelKind::PartialDecode,
+                ]
+            }
+            PhysicalOperatorExecutionLevel::NativeDecoded => {
+                vec![KernelKind::Metadata, KernelKind::PartialDecode]
+            }
+            PhysicalOperatorExecutionLevel::TestReferenceOnly => vec![KernelKind::DecodedReference],
+            PhysicalOperatorExecutionLevel::Unsupported => vec![KernelKind::Unsupported],
+        }
     }
 
     #[must_use]
@@ -950,8 +982,8 @@ impl PhysicalKernelSelectionReport {
                 PhysicalKernelSelectionStatus::ExecutionLevelRejected,
             );
         }
-        let missing_slot_ids = profile
-            .required_kernel_kinds
+        let required_kernel_kinds = profile.required_kernel_kinds_for_level(requested_level);
+        let missing_slot_ids = required_kernel_kinds
             .iter()
             .flat_map(|kernel_kind| {
                 let matching_slots = registry
@@ -986,7 +1018,7 @@ impl PhysicalKernelSelectionReport {
             schema_version: "shardloom.physical_kernel_selection.v1",
             operator_kind,
             requested_level,
-            required_kernel_kinds: profile.required_kernel_kinds.clone(),
+            required_kernel_kinds,
             missing_slot_ids,
             status,
             diagnostics: Vec::new(),

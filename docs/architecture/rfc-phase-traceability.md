@@ -553,6 +553,15 @@ No fallback execution.
 - `shardloom-vortex/src/physical_operator_bridge.rs` verifies count/filter/project mappings, physical operator order, side-effect-free behavior, and no-fallback diagnostics.
 - This pass adds no kernel implementation, query execution behavior, encoded-data traversal, scan/read-start API calls, row reads, decode/materialization, Arrow conversion, object-store IO, write behavior, external engine invocation, or fallback execution.
 
+## CG-7.9 execution-level kernel requirements
+
+- Primary RFC linkage: RFC 0021 deterministic kernel selection requirements, RFC 0027 metadata/encoded/hybrid/native-decoded operator levels, RFC 0012 deterministic diagnostics, RFC 0025 no-fallback guardrails, and RFC 0032 operator certification requirements.
+- `PhysicalOperatorExecutionProfile::required_kernel_kinds_for_level` makes kernel selection requirements depend on the requested execution level.
+- Metadata-only selection now requires only metadata kernels, encoded-native selection requires metadata and encoded kernels, hybrid-native selection also requires partial-decode capability, and native-decoded selection requires metadata plus partial-decode capability.
+- `PhysicalKernelSelectionReport` stores the level-specific required kernel kinds and emits missing-slot blockers for absent level-specific slots.
+- `shardloom-contract-tests/tests/physical_operator_kernel_contracts.rs` verifies metadata-only readiness without encoded blockers and hybrid partial-decode missing-slot diagnostics.
+- This pass adds no kernel implementation, query execution behavior, encoded-data traversal, scan/read-start API calls, row reads, decode/materialization, Arrow conversion, object-store IO, write behavior, external engine invocation, or fallback execution.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.
