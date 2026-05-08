@@ -5,7 +5,7 @@ use shardloom_core::{
     OperatorMemoryCertification, PhysicalKernelAdmissionReport, PhysicalKernelAdmissionStatus,
     PhysicalKernelRequirement, PhysicalKernelSlot, PhysicalOperatorContract,
     PhysicalOperatorExecutionLevel, PhysicalOperatorKind,
-    PhysicalOperatorPlanningCertificateStatus,
+    PhysicalOperatorPlanningCertificateStatus, ShardLoomError,
 };
 
 use crate::{
@@ -14,8 +14,11 @@ use crate::{
 };
 
 const SCHEMA_VERSION: &str = "shardloom.vortex_metadata_physical_kernel.v1";
+const COUNT_ADMISSION_SCHEMA_VERSION: &str = "shardloom.vortex_metadata_count_kernel_admission.v1";
 const FILTER_ADMISSION_SCHEMA_VERSION: &str =
     "shardloom.vortex_metadata_filter_kernel_admission.v1";
+const COUNT_ALL_OPERATOR_ID: &str = "vortex.query_primitive.count_all.metadata_count_aggregate";
+const COUNT_WHERE_OPERATOR_ID: &str = "vortex.query_primitive.count_where.metadata_count_aggregate";
 const FILTER_KERNEL_REPORT_ID: &str =
     "vortex.query-primitive.filter_predicate.metadata-physical-kernel";
 const FILTER_OPERATOR_ID: &str = "vortex.query_primitive.filter_predicate.metadata_filter";
@@ -160,6 +163,22 @@ impl VortexMetadataPhysicalKernelReport {
     }
 
     #[must_use]
+    pub fn is_safe_metadata_count_kernel_evidence(&self) -> bool {
+        self.status == VortexMetadataPhysicalKernelStatus::EvaluatedMetadataOnly
+            && matches!(
+                self.primitive_kind,
+                VortexQueryPrimitiveKind::CountAll | VortexQueryPrimitiveKind::CountWhere
+            )
+            && self.kernel_kind == KernelKind::Metadata
+            && matches!(self.value, VortexQueryPrimitiveValue::Count(_))
+            && self
+                .evaluated_operator_kinds
+                .contains(&PhysicalOperatorKind::CountAggregate)
+            && self.is_side_effect_free()
+            && !self.has_errors()
+    }
+
+    #[must_use]
     pub fn is_safe_metadata_filter_kernel_evidence(&self) -> bool {
         self.status == VortexMetadataPhysicalKernelStatus::EvaluatedMetadataOnly
             && self.primitive_kind == VortexQueryPrimitiveKind::FilterPredicate
@@ -193,6 +212,96 @@ impl VortexMetadataPhysicalKernelReport {
         let _ = writeln!(text, "spill io performed: false");
         let _ = writeln!(text, "fallback execution: disabled");
         text
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexMetadataCountKernelAdmissionReport {
+    pub schema_version: &'static str,
+    pub admission_id: String,
+    pub metadata_kernel_report_id: String,
+    pub primitive_kind: VortexQueryPrimitiveKind,
+    pub slot_id: String,
+    pub operator_kind: PhysicalOperatorKind,
+    pub required_kernel_kind: KernelKind,
+    pub candidate_kernel_kind: KernelKind,
+    pub correctness_evidence: BenchmarkEvidenceState,
+    pub benchmark_evidence: BenchmarkEvidenceState,
+    pub memory: OperatorMemoryCertification,
+    pub fallback: BenchmarkFallbackState,
+    pub status: PhysicalKernelAdmissionStatus,
+    pub slot_marked_present: bool,
+    pub production_claim_allowed: bool,
+    pub runtime_execution_allowed: bool,
+    pub fallback_execution_allowed: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl VortexMetadataCountKernelAdmissionReport {
+    #[must_use]
+    pub fn from_admission(
+        metadata_kernel: &VortexMetadataPhysicalKernelReport,
+        admission: PhysicalKernelAdmissionReport,
+    ) -> Self {
+        let mut diagnostics = metadata_kernel.diagnostics.clone();
+        diagnostics.extend(admission.diagnostics.clone());
+        let slot_marked_present = admission.can_mark_kernel_present();
+        let production_claim_allowed = admission.can_satisfy_production_claim();
+        Self {
+            schema_version: COUNT_ADMISSION_SCHEMA_VERSION,
+            admission_id: format!("{}.count-admission", metadata_kernel.kernel_report_id),
+            metadata_kernel_report_id: metadata_kernel.kernel_report_id.clone(),
+            primitive_kind: metadata_kernel.primitive_kind,
+            slot_id: admission.slot_id,
+            operator_kind: admission.operator_kind,
+            required_kernel_kind: admission.required_kernel_kind,
+            candidate_kernel_kind: admission.candidate_kernel_kind,
+            correctness_evidence: admission.correctness_evidence,
+            benchmark_evidence: admission.benchmark_evidence,
+            memory: admission.memory,
+            fallback: admission.fallback,
+            status: admission.status,
+            slot_marked_present,
+            production_claim_allowed,
+            runtime_execution_allowed: false,
+            fallback_execution_allowed: false,
+            diagnostics,
+        }
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        !self.status.can_enter_registry()
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    shardloom_core::DiagnosticSeverity::Error
+                        | shardloom_core::DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    #[must_use]
+    pub const fn is_side_effect_free(&self) -> bool {
+        !self.runtime_execution_allowed && !self.fallback_execution_allowed
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "metadata count kernel admission\nschema_version: {}\nadmission: {}\nprimitive: {}\nslot: {}\noperator: {}\nrequired kernel: {}\ncandidate kernel: {}\nstatus: {}\nslot marked present: {}\nproduction claim allowed: {}\nruntime execution: disabled\nfallback execution: disabled",
+            self.schema_version,
+            self.admission_id,
+            self.primitive_kind.as_str(),
+            self.slot_id,
+            self.operator_kind.as_str(),
+            self.required_kernel_kind.as_str(),
+            self.candidate_kernel_kind.as_str(),
+            self.status.as_str(),
+            self.slot_marked_present,
+            self.production_claim_allowed
+        )
     }
 }
 
@@ -355,6 +464,83 @@ pub fn evaluate_vortex_metadata_physical_kernels(
                 ),
             ),
         ),
+    }
+}
+
+/// Admits already evaluated metadata-only count evidence into the CG-7
+/// count-aggregate metadata kernel slot.
+///
+/// This is a contextual evidence bridge. It does not register a global runtime
+/// aggregate kernel, execute encoded data, claim production readiness, or close
+/// broader count/aggregate kernel work.
+///
+/// # Errors
+/// Returns an error if the metadata kernel report is not for a count primitive
+/// or if the static metadata-count operator contract cannot be built.
+pub fn admit_vortex_metadata_count_kernel(
+    metadata_kernel: &VortexMetadataPhysicalKernelReport,
+) -> shardloom_core::Result<VortexMetadataCountKernelAdmissionReport> {
+    let slot = metadata_count_kernel_slot(metadata_kernel.primitive_kind)?;
+    let safe_evidence = metadata_kernel.is_safe_metadata_count_kernel_evidence();
+    let admission = PhysicalKernelAdmissionReport::evaluate(
+        &slot,
+        KernelKind::Metadata,
+        if safe_evidence {
+            BenchmarkEvidenceState::Present
+        } else {
+            BenchmarkEvidenceState::Missing
+        },
+        BenchmarkEvidenceState::Missing,
+        if safe_evidence {
+            safe_metadata_count_memory()
+        } else {
+            OperatorMemoryCertification::unsupported()
+        },
+        if metadata_kernel.fallback_execution_allowed {
+            BenchmarkFallbackState::Attempted
+        } else {
+            BenchmarkFallbackState::NotAttempted
+        },
+    );
+    Ok(VortexMetadataCountKernelAdmissionReport::from_admission(
+        metadata_kernel,
+        admission,
+    ))
+}
+
+fn metadata_count_kernel_slot(
+    primitive_kind: VortexQueryPrimitiveKind,
+) -> shardloom_core::Result<PhysicalKernelSlot> {
+    let operator_id = match primitive_kind {
+        VortexQueryPrimitiveKind::CountAll => COUNT_ALL_OPERATOR_ID,
+        VortexQueryPrimitiveKind::CountWhere => COUNT_WHERE_OPERATOR_ID,
+        _ => {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "metadata count kernel admission requires a count primitive, got {}",
+                primitive_kind.as_str()
+            )));
+        }
+    };
+    let operator = PhysicalOperatorContract::new(
+        operator_id,
+        PhysicalOperatorKind::CountAggregate,
+        PhysicalOperatorExecutionLevel::MetadataOnly,
+        vec![PhysicalKernelRequirement::missing(KernelKind::Metadata)],
+    )?;
+    Ok(PhysicalKernelSlot::from_requirement(
+        &operator,
+        PhysicalKernelRequirement::missing(KernelKind::Metadata),
+    ))
+}
+
+const fn safe_metadata_count_memory() -> OperatorMemoryCertification {
+    OperatorMemoryCertification {
+        streaming: true,
+        bounded_memory: true,
+        spillable: false,
+        requires_full_materialization: false,
+        requires_shuffle: false,
+        oom_safe: true,
     }
 }
 
@@ -602,6 +788,129 @@ mod tests {
             vec![PhysicalOperatorKind::Filter]
         );
         assert!(report.is_side_effect_free());
+    }
+
+    #[test]
+    fn safe_metadata_count_kernel_admits_metadata_slot_without_production_claim() {
+        let result = VortexQueryPrimitiveResult::metadata_answered(
+            VortexQueryPrimitiveRequest::count_all(uri()),
+            VortexQueryPrimitiveValue::Count(7),
+        );
+        let bridge = evidence_ready_bridge(&result);
+        let metadata_kernel = evaluate_vortex_metadata_physical_kernels(&result, &bridge);
+
+        let admission =
+            admit_vortex_metadata_count_kernel(&metadata_kernel).expect("count admission");
+
+        assert_eq!(admission.schema_version, COUNT_ADMISSION_SCHEMA_VERSION);
+        assert_eq!(
+            admission.status,
+            PhysicalKernelAdmissionStatus::RegistryReady
+        );
+        assert_eq!(
+            admission.operator_kind,
+            PhysicalOperatorKind::CountAggregate
+        );
+        assert_eq!(admission.required_kernel_kind, KernelKind::Metadata);
+        assert_eq!(admission.candidate_kernel_kind, KernelKind::Metadata);
+        assert_eq!(
+            admission.correctness_evidence,
+            BenchmarkEvidenceState::Present
+        );
+        assert_eq!(
+            admission.benchmark_evidence,
+            BenchmarkEvidenceState::Missing
+        );
+        assert_eq!(admission.primitive_kind, VortexQueryPrimitiveKind::CountAll);
+        assert!(admission.slot_marked_present);
+        assert!(!admission.production_claim_allowed);
+        assert!(admission.is_side_effect_free());
+        assert!(!admission.has_errors());
+    }
+
+    #[test]
+    fn safe_metadata_filtered_count_admits_count_aggregate_slot() {
+        let result = VortexQueryPrimitiveResult::metadata_answered(
+            VortexQueryPrimitiveRequest::count_where(
+                uri(),
+                PredicateExpr::IsNotNull {
+                    column: ColumnRef::new("flag").expect("column"),
+                },
+            ),
+            VortexQueryPrimitiveValue::Count(5),
+        );
+        let bridge = evidence_ready_bridge(&result);
+        let metadata_kernel = evaluate_vortex_metadata_physical_kernels(&result, &bridge);
+
+        let admission =
+            admit_vortex_metadata_count_kernel(&metadata_kernel).expect("count admission");
+
+        assert_eq!(
+            admission.status,
+            PhysicalKernelAdmissionStatus::RegistryReady
+        );
+        assert_eq!(
+            admission.primitive_kind,
+            VortexQueryPrimitiveKind::CountWhere
+        );
+        assert_eq!(
+            admission.operator_kind,
+            PhysicalOperatorKind::CountAggregate
+        );
+        assert!(admission.slot_id.contains("count_where"));
+        assert!(admission.slot_marked_present);
+        assert!(!admission.production_claim_allowed);
+    }
+
+    #[test]
+    fn blocked_metadata_count_kernel_cannot_admit_slot() {
+        let result = VortexQueryPrimitiveResult::metadata_answered(
+            VortexQueryPrimitiveRequest::count_all(uri()),
+            VortexQueryPrimitiveValue::Count(7),
+        );
+        let bridge =
+            plan_vortex_query_primitive_result_physical_operators(&result).expect("bridge");
+        let metadata_kernel = evaluate_vortex_metadata_physical_kernels(&result, &bridge);
+
+        let admission =
+            admit_vortex_metadata_count_kernel(&metadata_kernel).expect("count admission");
+
+        assert_eq!(
+            admission.status,
+            PhysicalKernelAdmissionStatus::BlockedMissingCorrectness
+        );
+        assert_eq!(
+            admission.correctness_evidence,
+            BenchmarkEvidenceState::Missing
+        );
+        assert!(!admission.slot_marked_present);
+        assert!(!admission.production_claim_allowed);
+        assert!(admission.has_errors());
+        assert!(admission.is_side_effect_free());
+    }
+
+    #[test]
+    fn metadata_count_admission_rejects_non_count_primitives() {
+        let result = VortexQueryPrimitiveResult::metadata_answered(
+            VortexQueryPrimitiveRequest::filter(
+                uri(),
+                PredicateExpr::IsNull {
+                    column: ColumnRef::new("flag").expect("column"),
+                },
+            ),
+            VortexQueryPrimitiveValue::Boolean(false),
+        );
+        let bridge = evidence_ready_bridge(&result);
+        let metadata_kernel = evaluate_vortex_metadata_physical_kernels(&result, &bridge);
+
+        let error = admit_vortex_metadata_count_kernel(&metadata_kernel)
+            .expect_err("filter cannot enter count admission");
+
+        assert!(
+            error.message().contains("filter_predicate"),
+            "{}",
+            error.message()
+        );
     }
 
     #[test]

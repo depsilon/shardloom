@@ -66,6 +66,18 @@ These systems are pressure tests for ShardLoom-native architecture and diagnosti
   - Spark lesson: broad platform capability across SQL, Python-style workflows, APIs, deployment, monitoring, streaming, ETL, lakehouse workflows, and operational integrations.
   - DataFusion lesson: extensible local SQL/DataFrame capability with operators, functions, adapters, UDFs, and Arrow-oriented ecosystem habits.
   - ShardLoom translation: SQL coverage matrix, operator coverage matrix, function coverage matrix, adapter certification, data/ETL capability reports, Python surface reports, unstructured/media capability reports, semantic profiles, migration analyzers, capability discovery.
+- Vortex upstream lessons
+  - Vortex's public direction emphasizes compressed arrays, logical DTypes, physical encodings, extensible layouts, Scan API source/sink boundaries, lazy operator evaluation, IO coalescing/backpressure, GPU/device-array exploration, footer/cache reuse, wide-table optimization, nested/list support, and benchmark visibility.
+  - ShardLoom translation: treat those as native-design references for CG-1/CG-7/CG-8/CG-19/CG-20 while keeping ShardLoom's internal execution independent, zero-decode-first, Vortex-native, and no-fallback.
+  - Vortex integration adapters may bridge upstream Scan API, array/operator, IO, write, or device concepts only through ShardLoom-native reports, certificates, materialization boundaries, and explicit unsupported diagnostics.
+  - Vortex's Arrow/vector-oriented integration paths are compatibility boundaries for ShardLoom unless a later RFC certifies a native use; they are not the default internal execution substrate.
+  - Compression lessons: cascading BtrBlocks-style selection, deterministic sampling, per-column strategy, ALP/ALP-RD float semantics, FSST random-access strings, FastLanes integer layout, German strings/StringView, sparse/constant/dictionary/run-end/zigzag encodings, and temporal decomposition require encoding-specific correctness, null/NaN/negative-zero, patch, and benchmark evidence before production claims.
+  - Metadata/pruning lessons: zone maps should be logical-row-zone evidence, not merely physical page evidence; clustering and missing statistics must be diagnosable, and pruning must never exclude valid rows.
+  - Layout lessons: Vortex layouts and segments are not equivalent to file byte ranges; CG-1/CG-8/CG-10/CG-19 planning must distinguish row splits, layout splits, byte ranges, segment ranges, and task scheduling hints.
+  - Versioning lessons: Vortex editions, postscript/footer feature sets, forward compatibility, compression/encryption specs, and reader capability negotiation should feed adapter certification and native I/O certificates before ShardLoom broadens accepted file features.
+  - Object-storage lessons: tail latency, hedged reads, cache economics, request budgets, coalescing, prefetch, and endpoint/provider variability belong in object-store plans and estimates; they must be surfaced as planning evidence rather than hidden retry behavior.
+  - Lakehouse lessons: Iceberg integration needs row-splittability, deletion-vector pushdown, encryption, safe native-handle lifecycles across language boundaries, and source/sink certificate evidence; Spark/Iceberg demos remain external baselines, not fallback paths.
+  - Machine-scale data lessons: embeddings, images, video, PDFs, and other large or small multimodal objects reinforce CG-20 unstructured/media, governance, Python/API, adapter, and security reports, but do not authorize hidden external effects.
 
 ## Placement Guidance
 

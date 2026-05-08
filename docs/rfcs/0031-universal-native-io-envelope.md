@@ -21,6 +21,15 @@ ShardLoom needs a portable, deterministic contract for source-to-sink data flow 
 ## Core concept
 Universal I/O is a native contract layer, not a decoded-batch normalization step.
 
+## Vortex Scan API alignment
+Vortex's Scan API direction is an important design reference for CG-19, especially its source/sink boundary, split-based work units, filter/projection pushdown, compressed data flow, and independently executable split model.
+
+ShardLoom should preserve those lessons without coupling the internal execution model to an unstable upstream API surface. A future Vortex source/sink adapter may implement or bridge Scan API concepts, but it must still emit ShardLoom-native envelopes, capability reports, pushdown proofs, materialization boundaries, and per-source/sink-path native I/O certificates.
+
+CG-19 adapters should also preserve range-read, coalescing, prefetch, backpressure, and segment-cache evidence where the source can provide it. These are scheduling and I/O-planning signals, not permission to delegate query execution to an external engine.
+
+Vortex's own operator/vector, GPU, Arrow device array, cuDF, and Arrow-oriented integration work should remain a compatibility and implementation-reference signal for ShardLoom unless a later RFC certifies a native boundary. CG-19 must not treat fully decoded Arrow vectors, GPU output arrays, or external engine integrations as the implicit universal path.
+
 ## Contract vocabulary
 - `NativeWorkEnvelope`
 - `NativeWorkStream`
