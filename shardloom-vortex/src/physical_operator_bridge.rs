@@ -45,10 +45,14 @@ impl VortexPhysicalOperatorBridgeReport {
     /// Returns an error only if an internal static operator id is malformed.
     pub fn from_request(request: &VortexQueryPrimitiveRequest) -> Result<Self> {
         let physical_plan = physical_operator_plan_for_vortex_query_primitive(request)?;
-        Ok(Self::from_plan(
+        Ok(Self::from_plan_with_evidence(
             request.kind,
             physical_plan,
             request.diagnostics.clone(),
+            BenchmarkEvidenceState::Missing,
+            BenchmarkEvidenceState::Missing,
+            OperatorMemoryCertification::unsupported(),
+            BenchmarkFallbackState::NotAttempted,
         ))
     }
 
@@ -61,28 +65,60 @@ impl VortexPhysicalOperatorBridgeReport {
     /// # Errors
     /// Returns an error only if an internal static operator id is malformed.
     pub fn from_result(result: &VortexQueryPrimitiveResult) -> Result<Self> {
-        let physical_plan = physical_operator_plan_for_vortex_query_primitive_result(result)?;
-        let mut diagnostics = result.request.diagnostics.clone();
-        diagnostics.extend(result.diagnostics.clone());
-        Ok(Self::from_plan(
-            result.request.kind,
-            physical_plan,
-            diagnostics,
-        ))
-    }
-
-    fn from_plan(
-        primitive_kind: VortexQueryPrimitiveKind,
-        physical_plan: PhysicalOperatorPlan,
-        mut diagnostics: Vec<Diagnostic>,
-    ) -> Self {
-        let planning_certificate = PhysicalOperatorPlanningCertificate::evaluate(
-            &physical_plan,
-            &PhysicalOperatorExecutionProfileMatrix::cg7_foundation(),
+        Self::from_result_with_evidence(
+            result,
             BenchmarkEvidenceState::Missing,
             BenchmarkEvidenceState::Missing,
             OperatorMemoryCertification::unsupported(),
             BenchmarkFallbackState::NotAttempted,
+        )
+    }
+
+    /// Builds a report-only physical-operator plan from an evaluated Vortex primitive
+    /// using explicit admission evidence.
+    ///
+    /// The evidence only affects planning-certificate readiness. Runtime execution and
+    /// fallback execution remain disabled by this bridge.
+    ///
+    /// # Errors
+    /// Returns an error only if an internal static operator id is malformed.
+    pub fn from_result_with_evidence(
+        result: &VortexQueryPrimitiveResult,
+        correctness_evidence: BenchmarkEvidenceState,
+        benchmark_evidence: BenchmarkEvidenceState,
+        memory: OperatorMemoryCertification,
+        fallback: BenchmarkFallbackState,
+    ) -> Result<Self> {
+        let physical_plan = physical_operator_plan_for_vortex_query_primitive_result(result)?;
+        let mut diagnostics = result.request.diagnostics.clone();
+        diagnostics.extend(result.diagnostics.clone());
+        Ok(Self::from_plan_with_evidence(
+            result.request.kind,
+            physical_plan,
+            diagnostics,
+            correctness_evidence,
+            benchmark_evidence,
+            memory,
+            fallback,
+        ))
+    }
+
+    fn from_plan_with_evidence(
+        primitive_kind: VortexQueryPrimitiveKind,
+        physical_plan: PhysicalOperatorPlan,
+        mut diagnostics: Vec<Diagnostic>,
+        correctness_evidence: BenchmarkEvidenceState,
+        benchmark_evidence: BenchmarkEvidenceState,
+        memory: OperatorMemoryCertification,
+        fallback: BenchmarkFallbackState,
+    ) -> Self {
+        let planning_certificate = PhysicalOperatorPlanningCertificate::evaluate(
+            &physical_plan,
+            &PhysicalOperatorExecutionProfileMatrix::cg7_foundation(),
+            correctness_evidence,
+            benchmark_evidence,
+            memory,
+            fallback,
         );
         let status = if physical_plan.unsupported_count() > 0 {
             VortexPhysicalOperatorBridgeStatus::Unsupported
@@ -270,6 +306,27 @@ pub fn plan_vortex_query_primitive_result_physical_operators(
     VortexPhysicalOperatorBridgeReport::from_result(result)
 }
 
+/// Builds a side-effect-free bridge report from an evaluated Vortex query primitive
+/// using explicit admission evidence.
+///
+/// # Errors
+/// Returns an error only if an internal static operator id is malformed.
+pub fn plan_vortex_query_primitive_result_physical_operators_with_evidence(
+    result: &VortexQueryPrimitiveResult,
+    correctness_evidence: BenchmarkEvidenceState,
+    benchmark_evidence: BenchmarkEvidenceState,
+    memory: OperatorMemoryCertification,
+    fallback: BenchmarkFallbackState,
+) -> Result<VortexPhysicalOperatorBridgeReport> {
+    VortexPhysicalOperatorBridgeReport::from_result_with_evidence(
+        result,
+        correctness_evidence,
+        benchmark_evidence,
+        memory,
+        fallback,
+    )
+}
+
 fn bridge_operator(
     operator_id: &str,
     kind: PhysicalOperatorKind,
@@ -306,10 +363,23 @@ fn metadata_bridge_operator(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use shardloom_core::{ColumnRef, DatasetUri, PredicateExpr};
+    use shardloom_core::{
+        ColumnRef, DatasetUri, PhysicalOperatorPlanningCertificateStatus, PredicateExpr,
+    };
 
     fn uri() -> DatasetUri {
         DatasetUri::new("file:///tmp/test.vortex").expect("uri")
+    }
+
+    fn safe_streaming_memory() -> OperatorMemoryCertification {
+        OperatorMemoryCertification {
+            streaming: true,
+            bounded_memory: true,
+            spillable: false,
+            requires_full_materialization: false,
+            requires_shuffle: false,
+            oom_safe: true,
+        }
     }
 
     #[test]
@@ -406,6 +476,98 @@ mod tests {
         assert_eq!(report.planning_certificate.admission_blocked_count, 1);
         assert!(!report.runtime_execution_allowed());
         assert!(!report.fallback_execution_allowed());
+    }
+
+    #[test]
+    fn metadata_result_with_correctness_and_memory_evidence_reaches_native_planning() {
+        let result = VortexQueryPrimitiveResult::metadata_answered(
+            VortexQueryPrimitiveRequest::count_all(uri()),
+            crate::VortexQueryPrimitiveValue::Count(9),
+        );
+
+        let report = plan_vortex_query_primitive_result_physical_operators_with_evidence(
+            &result,
+            BenchmarkEvidenceState::Present,
+            BenchmarkEvidenceState::Missing,
+            safe_streaming_memory(),
+            BenchmarkFallbackState::NotAttempted,
+        )
+        .expect("report");
+
+        assert_eq!(
+            report.status,
+            VortexPhysicalOperatorBridgeStatus::MetadataReady
+        );
+        assert_eq!(
+            report.planning_certificate.status,
+            PhysicalOperatorPlanningCertificateStatus::ReadyForNativePlanning
+        );
+        assert_eq!(report.planning_certificate.required_slot_count, 1);
+        assert_eq!(report.planning_certificate.missing_slot_count, 0);
+        assert_eq!(report.planning_certificate.selection_blocked_count, 0);
+        assert_eq!(report.planning_certificate.admission_blocked_count, 0);
+        assert_eq!(report.planning_certificate.registry_ready_slot_count, 1);
+        assert_eq!(report.planning_certificate.production_ready_slot_count, 0);
+        assert!(report.planning_certificate.can_plan_native());
+        assert!(!report.planning_certificate.can_satisfy_production_claim());
+        assert!(!report.runtime_execution_allowed());
+        assert!(!report.fallback_execution_allowed());
+        assert!(report.diagnostics.is_empty());
+    }
+
+    #[test]
+    fn metadata_result_with_benchmark_evidence_reaches_production_certificate() {
+        let result = VortexQueryPrimitiveResult::metadata_answered(
+            VortexQueryPrimitiveRequest::count_all(uri()),
+            crate::VortexQueryPrimitiveValue::Count(9),
+        );
+
+        let report = plan_vortex_query_primitive_result_physical_operators_with_evidence(
+            &result,
+            BenchmarkEvidenceState::Present,
+            BenchmarkEvidenceState::Present,
+            safe_streaming_memory(),
+            BenchmarkFallbackState::NotAttempted,
+        )
+        .expect("report");
+
+        assert_eq!(
+            report.planning_certificate.status,
+            PhysicalOperatorPlanningCertificateStatus::ProductionCertified
+        );
+        assert_eq!(report.planning_certificate.production_ready_slot_count, 1);
+        assert!(report.planning_certificate.can_plan_native());
+        assert!(report.planning_certificate.can_satisfy_production_claim());
+        assert!(!report.runtime_execution_allowed());
+        assert!(!report.fallback_execution_allowed());
+    }
+
+    #[test]
+    fn metadata_result_with_fallback_attempted_blocks_admission() {
+        let result = VortexQueryPrimitiveResult::metadata_answered(
+            VortexQueryPrimitiveRequest::count_all(uri()),
+            crate::VortexQueryPrimitiveValue::Count(9),
+        );
+
+        let report = plan_vortex_query_primitive_result_physical_operators_with_evidence(
+            &result,
+            BenchmarkEvidenceState::Present,
+            BenchmarkEvidenceState::Present,
+            safe_streaming_memory(),
+            BenchmarkFallbackState::Attempted,
+        )
+        .expect("report");
+
+        assert_eq!(
+            report.planning_certificate.status,
+            PhysicalOperatorPlanningCertificateStatus::KernelAdmissionBlocked
+        );
+        assert_eq!(report.planning_certificate.admission_blocked_count, 1);
+        assert!(report.planning_certificate.fallback_attempted);
+        assert!(!report.planning_certificate.can_plan_native());
+        assert!(!report.runtime_execution_allowed());
+        assert!(!report.fallback_execution_allowed());
+        assert!(!report.diagnostics.is_empty());
     }
 
     #[test]

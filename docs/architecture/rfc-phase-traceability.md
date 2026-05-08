@@ -572,6 +572,15 @@ No fallback execution.
 - `shardloom-vortex/src/physical_operator_bridge.rs` verifies metadata count/filter readiness, non-metadata blocker preservation, side-effect-free behavior, and no-fallback flags.
 - This pass adds no new query execution behavior, kernel implementation, encoded-data traversal, scan/read-start API calls, row reads, decode/materialization, Arrow conversion, object-store IO, write behavior, external engine invocation, or fallback execution.
 
+## CG-7.11 metadata bridge admission evidence
+
+- Primary RFC linkage: RFC 0021 kernel admission and selection requirements, RFC 0026 metadata/query primitive bridge, RFC 0027 physical operator/kernel roadmap, RFC 0012 deterministic diagnostics, RFC 0025 no-fallback guardrails, RFC 0029 benchmark evidence gating, and RFC 0032 operator certification requirements.
+- `plan_vortex_query_primitive_result_physical_operators_with_evidence` lets already metadata-answered Vortex query primitive results supply explicit correctness, benchmark, memory-safety, and no-fallback admission evidence to the attached physical planning certificate.
+- Metadata-result bridge defaults remain conservative: the existing `plan_vortex_query_primitive_result_physical_operators` path still emits missing evidence and blocked admission until evidence is supplied.
+- Correctness plus memory-safety evidence can advance metadata-only count/filter bridges to `ready_for_native_planning`; benchmark evidence is still required before `production_certified` can appear.
+- Any attempted fallback evidence blocks admission and keeps runtime execution and fallback execution disabled.
+- This pass adds no new query execution behavior, kernel implementation, encoded-data traversal, scan/read-start API calls, row reads, decode/materialization, Arrow conversion, object-store IO, write behavior, external baseline invocation, or fallback execution.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.
