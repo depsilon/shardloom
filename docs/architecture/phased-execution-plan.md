@@ -45,32 +45,32 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-10.5 object-store checkpoint/retry/idempotency planning evidence
+- [x] Session label: CG-11.1 stable CLI/API JSON protocol foundation
   - Primary files:
-    - `shardloom-plan/src/object_store.rs`
-    - `shardloom-plan/src/lib.rs`
+    - `shardloom-core/src/output.rs`
+    - `shardloom-core/src/lib.rs`
     - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/api_protocol_snapshots.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-    - `docs/rfcs/0008-object-store-runtime-distributed-tasks.md`
-    - `docs/architecture/canonical-terminology.md`
-  - Scope: Add no-IO/no-fallback object-store checkpoint/retry/idempotency readiness evidence over distributed scheduling reports without executing retries, writing checkpoints, starting a coordinator, starting workers, contacting object stores, writing files, or fallback execution.
+    - `docs/rfcs/0030-universal-api-plan-portability-import-deployment-baselines.md`
+  - Scope: Add report-only CLI/API JSON protocol evidence for future clients and a thin Python wrapper boundary without adding Python packaging, PyO3/maturin, parser execution, runtime execution, probes, writes, publication, or fallback execution.
   - Checklist:
-    - [x] Add `ObjectStoreCheckpointRetryInput`, `ObjectStoreCheckpointRetryStatus`, and `ObjectStoreCheckpointRetryReport` contracts.
-    - [x] Require successful distributed scheduling plus declared retry policy, checkpoint plan, idempotency keys, attempt records, and cleanup policy before readiness.
-    - [x] Block failed scheduling and missing reliability evidence with deterministic diagnostics.
-    - [x] Surface no-retry-execution/no-checkpoint-write/no-cleanup-execution/no-IO/no-fallback evidence through `object-store-checkpoint-retry-plan`.
-    - [x] Add focused success/failure tests for checkpoint/retry/idempotency planning.
-    - [x] Update phase, RFC traceability, RFC 0008, and terminology docs.
+    - [x] Add `CliApiJsonProtocolReport` contract for `OutputEnvelope` schema, fallback, diagnostics, fields, statuses, and formats.
+    - [x] Surface protocol fields through `api-compat-plan --format json`.
+    - [x] Preserve thin Python wrapper as CLI JSON subprocess boundary only.
+    - [x] Record no PyO3/maturin, no Foundry requirement, no DataFrame API implementation, no probes, no parser/runtime execution, no writes, no external publish, and no fallback.
+    - [x] Add focused CLI JSON snapshot coverage.
+    - [x] Update phase plan, RFC traceability, and RFC 0030.
     - [x] Run full required validation.
   - Local validation status:
-    - focused `shardloom-plan` checkpoint/retry tests passed
-    - focused `shardloom-cli` object-store-checkpoint-retry-plan tests passed
-    - focused Clippy for `shardloom-plan` and `shardloom-cli` passed with toolchain `1.91.1`
+    - focused `shardloom-core` CLI/API protocol tests passed
+    - focused `shardloom-cli` `api_protocol_snapshots` tests passed
+    - `api-compat-plan --format json` smoke check passed
+    - focused Clippy for `shardloom-core` and `shardloom-cli` passed with toolchain `1.91.1`
     - full Rust validation passed with toolchain `1.91.1`
     - docs hygiene scans passed for `git diff --check` and hidden/bidi controls
-    - CLI JSON smoke check passed for `object-store-checkpoint-retry-plan ready --format json`
-  - Explicitly not included: object-store IO, file IO, data reads, row reads, decode/materialization, Arrow conversion, request execution, retry execution, checkpoint writes, network probing, writes, commit execution, coordinator runtime, worker runtime, task execution, cleanup execution, parser work, SQL execution, adapter runtime, benchmark claims, superiority claims, or fallback execution.
+  - Explicitly not included: Python package implementation, PyO3/maturin, DataFrame API, Foundry integration, parser work, SQL execution, adapter probing, filesystem probing, network probing, runtime execution, write IO, package publication, benchmark claims, superiority claims, or fallback execution.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -1082,6 +1082,7 @@ Status legend:
     - distributed scheduling task-shape planning with checkpoint/retry/idempotency readiness recorded before execution
 
 - [ ] CG-11 — Python/API foundation surface later (**planned**)
+  - [x] CG-11.1 stable CLI/API JSON protocol foundation
   - Scope:
     - API/protocol foundation for stable CLI JSON and future clients
     - thin Python wrapper foundation over stable CLI JSON first
@@ -1336,12 +1337,12 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [ ] checkpoint/retry/idempotency execution
 
 ### CG-11 detailed checklist
-- [ ] stable CLI/API JSON protocol foundation
+- [x] CG-11.1 stable CLI/API JSON protocol foundation
 - [ ] thin Python wrapper foundation over CLI JSON first
-- [ ] Foundry-friendly later
-- [ ] no PyO3/maturin unless explicitly approved
-- [ ] no Spark fallback
-- [ ] mature Python wrapper/DataFrame/notebook/Python UDF certification deferred to CG-20
+- [~] Foundry-friendly later
+- [x] no PyO3/maturin unless explicitly approved
+- [x] no Spark fallback
+- [x] mature Python wrapper/DataFrame/notebook/Python UDF certification deferred to CG-20
 
 ### CG-12 detailed checklist
 - [ ] native-first plan portability reports
@@ -1519,6 +1520,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-10.3 object-store commit protocol planning evidence adds `ObjectStoreCommitProtocolReport` and `object-store-commit-plan` surfacing for declared staging, manifest pointer, commit record, idempotency, cleanup, atomicity, non-object-store blockers, no commit execution, no object-store IO, and no fallback.
 - [x] CG-10.4 object-store distributed scheduling planning evidence adds `ObjectStoreDistributedSchedulingReport` and `object-store-schedule-plan` surfacing for task-shape grouping over coalesced requests, task-budget blockers, checkpoint/retry/idempotency requirements, no coordinator/worker/task execution, no object-store IO, and no fallback.
 - [x] CG-10.5 object-store checkpoint/retry/idempotency planning evidence adds `ObjectStoreCheckpointRetryReport` and `object-store-checkpoint-retry-plan` surfacing for retry policy, checkpoint plan, idempotency keys, attempt records, cleanup policy, scheduling blockers, no retry execution, no checkpoint writes, no cleanup execution, and no fallback.
+- [x] CG-11.1 stable CLI/API JSON protocol foundation adds `CliApiJsonProtocolReport` and `api-compat-plan` fields for `OutputEnvelope` schema keys, command statuses, fallback and diagnostic keys, thin Python wrapper boundary, no PyO3/maturin, no parser/runtime/probe/write/publish side effects, and no fallback.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind `vortex-write`; placeholder artifact paths remain readiness-only.
 - [~] CG-3 broader output payload shapes remain deferred.

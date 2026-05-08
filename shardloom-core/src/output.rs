@@ -234,6 +234,137 @@ impl OutputEnvelope {
     }
 }
 
+/// Report-only CG-11 contract for the stable CLI/API JSON protocol foundation.
+///
+/// This is the protocol surface that a future thin Python wrapper or other
+/// client can consume before native bindings exist. It describes the existing
+/// [`OutputEnvelope`] JSON shape without executing commands, probing local
+/// state, publishing packages, or enabling fallback execution.
+#[allow(clippy::struct_excessive_bools)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CliApiJsonProtocolReport {
+    pub schema_version: &'static str,
+    pub protocol_id: &'static str,
+    pub protocol_stability: &'static str,
+    pub output_envelope_schema_version: &'static str,
+    pub required_envelope_fields: Vec<&'static str>,
+    pub required_fallback_fields: Vec<&'static str>,
+    pub required_diagnostic_fields: Vec<&'static str>,
+    pub required_field_entry_fields: Vec<&'static str>,
+    pub command_status_values: Vec<&'static str>,
+    pub output_formats: Vec<&'static str>,
+    pub thin_python_wrapper_boundary: &'static str,
+    pub pyo3_maturin_allowed: bool,
+    pub foundry_required: bool,
+    pub dataframe_api_implemented: bool,
+    pub side_effect_free: bool,
+    pub filesystem_probe: bool,
+    pub network_probe: bool,
+    pub catalog_probe: bool,
+    pub adapter_probe: bool,
+    pub parser_executed: bool,
+    pub runtime_execution: bool,
+    pub write_io: bool,
+    pub external_publish: bool,
+    pub fallback_execution_allowed: bool,
+    pub fallback_attempted: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl CliApiJsonProtocolReport {
+    /// Builds the static protocol-foundation report without any probing.
+    #[must_use]
+    pub fn contract_only() -> Self {
+        Self {
+            schema_version: "shardloom.cli_api_json_protocol.v1",
+            protocol_id: "shardloom.cli_json.v1",
+            protocol_stability: "experimental",
+            output_envelope_schema_version: "shardloom.output.v1",
+            required_envelope_fields: vec![
+                "schema_version",
+                "command",
+                "status",
+                "summary",
+                "human_text",
+                "fallback",
+                "diagnostics",
+                "fields",
+            ],
+            required_fallback_fields: vec!["attempted", "allowed", "engine", "reason"],
+            required_diagnostic_fields: vec![
+                "code",
+                "severity",
+                "category",
+                "message",
+                "feature",
+                "reason",
+                "suggested_next_step",
+                "fallback",
+            ],
+            required_field_entry_fields: vec!["key", "value"],
+            command_status_values: vec!["success", "warning", "error", "unsupported"],
+            output_formats: vec!["text", "json"],
+            thin_python_wrapper_boundary: "cli_json_subprocess_first",
+            pyo3_maturin_allowed: false,
+            foundry_required: false,
+            dataframe_api_implemented: false,
+            side_effect_free: true,
+            filesystem_probe: false,
+            network_probe: false,
+            catalog_probe: false,
+            adapter_probe: false,
+            parser_executed: false,
+            runtime_execution: false,
+            write_io: false,
+            external_publish: false,
+            fallback_execution_allowed: false,
+            fallback_attempted: false,
+            diagnostics: Vec::new(),
+        }
+    }
+
+    #[must_use]
+    pub fn status(&self) -> CommandStatus {
+        if self.has_errors() {
+            CommandStatus::Error
+        } else {
+            CommandStatus::Success
+        }
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.fallback_execution_allowed
+            || self.fallback_attempted
+            || self.runtime_execution
+            || self.write_io
+            || self.external_publish
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "cli/api json protocol\nschema_version: {}\nprotocol_id: {}\nprotocol_stability: {}\noutput_envelope_schema_version: {}\nrequired envelope fields: {}\ncommand statuses: {}\noutput formats: {}\npython wrapper boundary: {}\npyo3/maturin allowed: {}\nfoundry required: {}\nruntime execution: disabled\nwrite io: disabled\nfallback execution: disabled",
+            self.schema_version,
+            self.protocol_id,
+            self.protocol_stability,
+            self.output_envelope_schema_version,
+            self.required_envelope_fields.join(", "),
+            self.command_status_values.join(", "),
+            self.output_formats.join(", "),
+            self.thin_python_wrapper_boundary,
+            self.pyo3_maturin_allowed,
+            self.foundry_required,
+        )
+    }
+}
+
 pub(crate) fn json_escape(value: &str) -> String {
     let mut escaped = String::with_capacity(value.len());
     for ch in value.chars() {
@@ -562,5 +693,30 @@ mod tests {
             &ShardLoomError::InvalidOperation("bad".to_string()),
         );
         assert!(envelope.to_json().contains("\"attempted\":false"));
+    }
+
+    #[test]
+    fn cli_api_json_protocol_is_report_only() {
+        let report = CliApiJsonProtocolReport::contract_only();
+        assert_eq!(report.output_envelope_schema_version, "shardloom.output.v1");
+        assert!(report.required_envelope_fields.contains(&"fallback"));
+        assert!(report.required_diagnostic_fields.contains(&"code"));
+        assert!(!report.fallback_execution_allowed);
+        assert!(!report.fallback_attempted);
+        assert!(!report.runtime_execution);
+        assert!(!report.write_io);
+        assert!(!report.external_publish);
+        assert!(!report.has_errors());
+    }
+
+    #[test]
+    fn cli_api_json_protocol_disallows_native_python_binding_claim() {
+        let report = CliApiJsonProtocolReport::contract_only();
+        assert_eq!(
+            report.thin_python_wrapper_boundary,
+            "cli_json_subprocess_first"
+        );
+        assert!(!report.pyo3_maturin_allowed);
+        assert!(!report.dataframe_api_implemented);
     }
 }

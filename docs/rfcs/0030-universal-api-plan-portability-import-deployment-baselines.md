@@ -51,6 +51,52 @@ Required fields:
 - `output_artifacts`
 - `metrics`
 
+### CG-11 CLI/API JSON protocol foundation
+
+The first CG-11 implementation surface is a report-only CLI/API protocol
+contract. It standardizes the existing `OutputEnvelope` JSON boundary for
+automation, agents, and a future thin Python wrapper before native Python
+bindings or a DataFrame API exist.
+
+Required report fields:
+- `schema_version`
+- `protocol_id`
+- `protocol_stability`
+- `output_envelope_schema_version`
+- `required_envelope_fields`
+- `required_fallback_fields`
+- `required_diagnostic_fields`
+- `required_field_entry_fields`
+- `command_status_values`
+- `output_formats`
+- `thin_python_wrapper_boundary`
+- `pyo3_maturin_allowed=false`
+- `foundry_required=false`
+- `dataframe_api_implemented=false`
+- `side_effect_free=true`
+- `filesystem_probe=false`
+- `network_probe=false`
+- `catalog_probe=false`
+- `adapter_probe=false`
+- `parser_executed=false`
+- `runtime_execution=false`
+- `write_io=false`
+- `external_publish=not_performed`
+- `external_publish_performed=false`
+- `fallback_execution_allowed=false`
+- `fallback_attempted=false`
+- `diagnostics`
+
+Acceptance:
+- `api-compat-plan --format json` emits the protocol contract using the stable
+  output envelope.
+- The protocol contract documents the envelope, fallback, diagnostic, and field
+  entry keys that clients can consume.
+- A future Python wrapper starts as a thin CLI JSON subprocess/client boundary.
+- CG-11 does not add PyO3, maturin, a Python package, a DataFrame API, runtime
+  execution, parser execution, adapter probing, filesystem/network probing,
+  external publication, or fallback execution.
+
 ### ExternalBaselineRun
 
 Required fields:

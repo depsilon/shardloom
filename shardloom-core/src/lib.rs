@@ -121,7 +121,7 @@ pub use operator::{
     PhysicalOperatorReadinessStatus,
 };
 
-pub use output::{CommandStatus, OutputEnvelope, OutputFormat};
+pub use output::{CliApiJsonProtocolReport, CommandStatus, OutputEnvelope, OutputFormat};
 
 pub use release::{
     ApiStabilityTier, ChecklistStatus, DependencyLicenseClass, DependencyReview,
