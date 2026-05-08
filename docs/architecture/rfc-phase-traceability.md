@@ -420,6 +420,14 @@ No fallback execution.
 - Every fixture asserts no task execution, data read, decode/materialization, object-store IO, write IO, or fallback execution.
 - This pass adds no new runtime behavior, external baseline execution, benchmark claim, dependency, parser, adapter runtime, object-store IO, write behavior, or fallback execution.
 
+## CG-5.2 metadata query primitive edge and diagnostic fixtures
+
+- Primary RFC linkage: RFC 0015 Correctness/Semantics/Differential Testing, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
+- `shardloom-contract-tests/tests/query_primitive_correctness.rs` extends cross-crate fixtures to missing metadata, metadata-proven true predicates without segment row counts, metadata-pruned filters, projection metadata misses, unsupported primitive requests, and local missing-summary blocking.
+- `shardloom-vortex/src/query_primitive.rs` corrects the `CountAll` missing-metadata reason so diagnostic evidence names the evaluated primitive.
+- Every fixture asserts no task execution, data read, decode/materialization, object-store IO, write IO, spill IO, or fallback execution.
+- This pass adds no new query execution behavior, external baseline execution, benchmark claim, dependency, parser, adapter runtime, object-store IO, write behavior, or fallback execution.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.
