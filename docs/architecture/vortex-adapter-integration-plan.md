@@ -868,6 +868,14 @@ CG-2.1c metadata-footer `CountAll` execution is wired; non-metadata execution re
 - CLI output remains report-only and records construction, driver start, scan/evaluation, data read, row read, decode/materialization, `Arrow`, object-store, write, and fallback fields as false.
 - This is a planning/diagnostic surface only and does not make any adapter execute counts through `LayoutReader`.
 
+## CG-2.1e.15 local fixture Vortex array scan/count proof
+
+- `execute_vortex_count_all_from_local_scan_with_session` is the first feature-gated data-scan proof for `CountAll`.
+- The helper is local fixture only: it requires a caller-owned `VortexSession`, caller-owned blocking runtime, a local `.vortex` target, and encoded-read readiness approved for future execution.
+- The helper calls `VortexFile::scan` and `ScanBuilder::into_array_iter` inside the `vortex-encoded-read-spike` boundary, then sums `ArrayRef::len()` across returned Vortex arrays.
+- The report intentionally records `data_read=true` and `upstream_scan_called=true` so this path cannot be confused with metadata-only execution.
+- The report also records no row read, no requested decode/materialization, no `Arrow` conversion, no object-store IO, no writes, no spill IO, and no fallback execution.
+- This does not make the broad adapter API execution-usable: non-fixture sources, object stores, encoded predicates, projections, writes, benchmarks, and external baselines remain out of scope.
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.

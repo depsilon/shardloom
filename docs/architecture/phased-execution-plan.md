@@ -10,19 +10,24 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [x] Session label: CG-1/CG-2 feature-gated encoded-read validation repair
-  - Current cleanup/implementation step: Fix the feature-gated metadata async boundary validation blocker before attempting any real encoded-data path.
+- [x] Session label: CG-1.4/CG-2.1e.15 feature-gated local fixture scan/count
+  - Current cleanup/implementation step: Add the first narrow local fixture Vortex array scan/count proof after the encoded-read validation repair.
   - Primary files:
-    - `shardloom-vortex/src/metadata_async_boundary.rs`
+    - `shardloom-vortex/src/encoded_read_executor.rs`
+    - `shardloom-vortex/src/lib.rs`
     - `docs/architecture/phased-execution-plan.md`
-  - Scope: Test/assertion hygiene for the already-approved caller-session metadata/footer fixture path under `vortex-file-io` / `vortex-encoded-read-spike`.
-  - Explicitly not included: Encoded predicate evaluation, actual encoded-data traversal, scan/read-start APIs, layout-reader construction, runtime-driver startup, row reads, decode/materialization, Arrow conversion, object-store IO, writes, spill IO, external baseline execution, fallback execution, benchmarks, SQL/API/adapter expansion, or superiority claims.
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/vortex-adapter-integration-plan.md`
+    - `docs/architecture/vortex-public-api-inventory.md`
+  - Scope: Feature-gated local `.vortex` fixture scan with caller-owned `VortexSession` and blocking runtime, using `ArrayRef::len()` to produce a `CountAll` result.
+  - Explicitly included: report fields for `data_read=true`, `upstream_scan_called=true`, array count, row count, and count result.
+  - Explicitly not included: General scan API approval, encoded predicate evaluation, filtered-count execution, projection execution, row reads, decode/materialization requests, Arrow conversion, object-store IO, writes, spill IO, external baseline execution, fallback execution, benchmarks, SQL/API/adapter expansion, or superiority claims.
   - Validation required:
     - `cargo fmt --all -- --check`
     - `cargo test -p shardloom-vortex --features vortex-encoded-read-spike`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: Feature-gated encoded-read spike validation no longer expects obsolete deferred-invocation wording for the approved metadata/footer caller-session path.
+  - Completion notes: A checked-in local Vortex fixture now has a feature-gated scan/count proof path that counts scanned Vortex arrays without row reads, Arrow conversion, writes, object-store IO, spill IO, or fallback execution. The general public scan API boundary remains conservative.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -446,10 +451,21 @@
     - Proof-ready reports carry the metadata-only count result without reading data.
     - Inconclusive metadata reports request encoded predicate evaluation without executing it.
     - No encoded predicate evaluation, scan/read-start invocation, encoded-data traversal, row read, decode/materialization, Arrow conversion, object-store IO, write, spill, external baseline invocation, or fallback execution is added.
-- [ ] CG-2.1e encoded-data count execution path (planned)
-  - Why: turn the approved encoded-data count candidate into actual native encoded execution after the public Vortex data path is approved.
+- [x] CG-1.4/CG-2.1e.15 local fixture Vortex array scan/count proof
+  - Why: move beyond metadata/footer count by proving a tightly scoped local Vortex data scan can produce `CountAll` from scanned array lengths.
   - Acceptance:
-    - Real encoded data traversal is feature-gated, local-fixture scoped first, and still avoids rows, decode/materialization, Arrow conversion, object-store IO, writes, and fallback.
+    - Feature-gated behind `vortex-encoded-read-spike`.
+    - Requires caller-owned `VortexSession`, caller-owned blocking runtime, a local `.vortex` path, and encoded-read readiness approved for future execution.
+    - Uses `VortexFile::scan` and `ScanBuilder::into_array_iter` only inside the local fixture helper.
+    - Counts `ArrayRef::len()` across returned Vortex arrays and reports array count, row count, and count result.
+    - Records `data_read=true` and `upstream_scan_called=true`.
+    - Records no row read, no requested decode/materialization, no Arrow conversion, no object-store IO, no writes, no spill IO, and no fallback execution.
+    - General scan/read-start and adapter execution remain unapproved outside this local fixture path.
+- [ ] CG-2.1e generalized encoded-data count execution path (planned)
+  - Why: turn the local fixture scan/count proof into a generalized native count path only after the public Vortex data path and representation guarantees are approved.
+  - Acceptance:
+    - Real encoded data traversal remains feature-gated and still avoids rows, decode/materialization requests, Arrow conversion, object-store IO, writes, and fallback.
+    - Representation guarantees, segment/chunk boundaries, and non-fixture target policy are explicit before broad execution is allowed.
 
 ## Competitive Engine Gates CG-1 through CG-20
 
@@ -463,6 +479,7 @@ Status legend:
   - [x] CG-1.1b CLI/docs integration
   - [x] CG-1.2a/1.2b/1.2c planning, fixture, and metadata probe/report integration
   - [x] CG-1.2d metadata/footer invocation path exists for feature-gated local fixtures with caller-provided async/session context
+  - [x] CG-1.4 local fixture Vortex array scan/count proof exists under `vortex-encoded-read-spike`
   - Required capabilities:
     - feature-gated local encoded read API boundary
     - segment/chunk/byte-range descriptors
@@ -494,7 +511,8 @@ Status legend:
   - [x] CG-2.1e.12 layout-approved encoded count bridge
   - [x] CG-2.1e.13 layout-approved local count guard
   - [x] CG-2.1e.14 encoded-count local guard capability discovery
-  - [~] CG-2.1+ non-metadata primitive execution remains deferred pending actual encoded-data execution
+  - [x] CG-2.1e.15 local fixture Vortex array scan/count proof
+  - [~] CG-2.1+ generalized non-metadata primitive execution remains deferred pending broader encoded-data execution guarantees
   - [x] CG-2.2c filtered-count metadata proof local guard
   - [x] CG-2.2d filtered-count metadata proof report
   - [x] CG-2.3b projection readiness CLI integration
@@ -661,7 +679,8 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-1.2c metadata/footer probe CLI/docs integration
 - [x] CG-1.3 no-broad-materialization/no-Arrow-default invariant closeout (report-contract scope)
 - [x] CG-1.2d metadata/footer invocation execution path for local fixtures
-- [ ] CG-1 closeout still requires an encoded data path beyond metadata/footer inspection
+- [x] CG-1.4 local fixture Vortex array scan/count proof
+- [ ] CG-1 closeout still requires generalized encoded data path evidence beyond a local fixture array-length scan
 
 ### CG-2 detailed checklist
 - [x] CG-2.0 query primitive readiness boundary (report-only)
@@ -686,6 +705,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.12 layout-approved encoded count bridge
 - [x] CG-2.1e.13 layout-approved local count guard
 - [x] CG-2.1e.14 encoded-count local guard capability discovery
+- [x] CG-2.1e.15 local fixture Vortex array scan/count proof
 - [x] CG-2.2a filtered-count readiness core contract
 - [x] CG-2.2a.1 filtered-count blocker precision hardening
 - [x] CG-2.2b filtered-count readiness CLI integration
@@ -693,8 +713,8 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.2d filtered-count metadata proof report
 - [x] CG-2.3a projection readiness semantic hardening
 - [x] CG-2.3b projection readiness CLI integration
-- [~] CG-2.1+ non-metadata query primitive execution remains deferred pending actual encoded-data execution
-- [ ] CG-2 closeout requires real count/filtered-count/projection execution over actual Vortex data
+- [~] CG-2.1+ generalized non-metadata query primitive execution remains deferred pending broader encoded-data execution guarantees
+- [ ] CG-2 closeout requires generalized count plus filtered-count/projection execution over actual Vortex data
 
 ### CG-3 detailed checklist
 - [x] CG-3 contract/readiness scaffolding represented in phase-12 planning artifacts
@@ -892,6 +912,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.12 layout-approved encoded count bridge lets encoded-count approval consume a matching, side-effect-free layout-row-count-only approval report while keeping actual layout-reader construction and data reads disabled.
 - [x] CG-2.1e.13 layout-approved local count guard feeds the approved report into local execution as deferred `NeedsEncodedRead` planning while preserving no-read/no-decode/no-fallback effects.
 - [x] CG-2.1e.14 encoded-count local guard capability discovery exposes the deferred guard in `capabilities operators` with static no-read/no-decode/no-fallback evidence.
+- [x] CG-2.1e.15 local fixture Vortex array scan/count proof produces `CountAll` from scanned `ArrayRef::len()` values under `vortex-encoded-read-spike` while preserving no row reads, no Arrow conversion, no object-store IO, no writes, no spill IO, and no fallback.
 - [x] CG-2.2c filtered-count metadata proof local guard admits only metadata-proof `CountWhere` requests into metadata-only local execution and rejects encoded predicate candidates without fallback.
 - [x] CG-2.2d filtered-count metadata proof report classifies proof-ready, encoded-predicate-needed, missing-metadata, and unsupported filtered counts without IO or fallback.
 - [x] CG-5.1 metadata query primitive correctness fixtures cover supported metadata answers and deferred unsupported paths without side effects.

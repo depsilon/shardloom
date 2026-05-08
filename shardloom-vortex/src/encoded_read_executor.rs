@@ -8,6 +8,8 @@
 
 use std::fmt::Write as _;
 
+#[cfg(feature = "vortex-encoded-read-spike")]
+use shardloom_core::{DatasetUri, UriScheme};
 use shardloom_core::{Diagnostic, DiagnosticCode, DiagnosticSeverity, Result, SegmentId};
 use shardloom_exec::TaskId;
 
@@ -53,6 +55,7 @@ pub enum VortexEncodedReadExecutionStatus {
     BlockedByUnsupportedInput,
     NoEncodedReadCandidates,
     WouldExecuteEncodedRead,
+    LocalFixtureEncodedCountExecuted,
     Unsupported,
 }
 impl VortexEncodedReadExecutionStatus {
@@ -71,6 +74,7 @@ impl VortexEncodedReadExecutionStatus {
             Self::BlockedByUnsupportedInput => "blocked_by_unsupported_input",
             Self::NoEncodedReadCandidates => "no_encoded_read_candidates",
             Self::WouldExecuteEncodedRead => "would_execute_encoded_read",
+            Self::LocalFixtureEncodedCountExecuted => "local_fixture_encoded_count_executed",
             Self::Unsupported => "unsupported",
         }
     }
@@ -90,7 +94,10 @@ impl VortexEncodedReadExecutionStatus {
         )
     }
     pub const fn would_execute_anything(&self) -> bool {
-        matches!(self, Self::WouldExecuteEncodedRead)
+        matches!(
+            self,
+            Self::WouldExecuteEncodedRead | Self::LocalFixtureEncodedCountExecuted
+        )
     }
 }
 
@@ -98,6 +105,7 @@ impl VortexEncodedReadExecutionStatus {
 pub enum VortexEncodedReadExecutionMode {
     ReportOnly,
     EncodedReadContractOnly,
+    LocalFixtureEncodedArrayLengthCount,
     Unsupported,
 }
 impl VortexEncodedReadExecutionMode {
@@ -105,11 +113,12 @@ impl VortexEncodedReadExecutionMode {
         match self {
             Self::ReportOnly => "report_only",
             Self::EncodedReadContractOnly => "encoded_read_contract_only",
+            Self::LocalFixtureEncodedArrayLengthCount => "local_fixture_encoded_array_length_count",
             Self::Unsupported => "unsupported",
         }
     }
     pub const fn reads_data(&self) -> bool {
-        false
+        matches!(self, Self::LocalFixtureEncodedArrayLengthCount)
     }
     pub const fn decodes_data(&self) -> bool {
         false
@@ -399,6 +408,12 @@ pub struct VortexEncodedReadExecutionReport {
     pub data_read: bool,
     pub data_decoded: bool,
     pub data_materialized: bool,
+    pub upstream_scan_called: bool,
+    pub row_read: bool,
+    pub arrow_converted: bool,
+    pub arrays_read_count: usize,
+    pub rows_counted: u64,
+    pub count_result: Option<u64>,
     pub object_store_io: bool,
     pub write_io: bool,
     pub spill_io_performed: bool,
@@ -430,6 +445,12 @@ impl VortexEncodedReadExecutionReport {
             data_read: false,
             data_decoded: false,
             data_materialized: false,
+            upstream_scan_called: false,
+            row_read: false,
+            arrow_converted: false,
+            arrays_read_count: 0,
+            rows_counted: 0,
+            count_result: None,
             object_store_io: false,
             write_io: false,
             spill_io_performed: false,
@@ -466,6 +487,12 @@ impl VortexEncodedReadExecutionReport {
             data_read: false,
             data_decoded: false,
             data_materialized: false,
+            upstream_scan_called: false,
+            row_read: false,
+            arrow_converted: false,
+            arrays_read_count: 0,
+            rows_counted: 0,
+            count_result: None,
             object_store_io: false,
             write_io: false,
             spill_io_performed: false,
@@ -729,6 +756,9 @@ impl VortexEncodedReadExecutionReport {
         !self.data_read
             && !self.data_decoded
             && !self.data_materialized
+            && !self.upstream_scan_called
+            && !self.row_read
+            && !self.arrow_converted
             && !self.object_store_io
             && !self.write_io
             && !self.spill_io_performed
@@ -776,10 +806,29 @@ impl VortexEncodedReadExecutionReport {
             "unsupported blocked count: {}",
             self.unsupported_blocked_count
         );
+        let _ = writeln!(o, "data read: {}", self.data_read);
+        let _ = writeln!(o, "data decoded: {}", self.data_decoded);
+        let _ = writeln!(o, "data materialized: {}", self.data_materialized);
+        let _ = writeln!(o, "upstream scan called: {}", self.upstream_scan_called);
+        let _ = writeln!(o, "row read: {}", self.row_read);
+        let _ = writeln!(o, "Arrow converted: {}", self.arrow_converted);
+        let _ = writeln!(o, "arrays read count: {}", self.arrays_read_count);
+        let _ = writeln!(o, "rows counted: {}", self.rows_counted);
         let _ = writeln!(
             o,
-            "data read: false\ndata decoded: false\ndata materialized: false\nobject-store IO: false\nwrite IO: false\nspill IO performed: false\nexternal effects executed: false\nfallback execution disabled"
+            "count result: {}",
+            self.count_result
+                .map_or_else(|| "none".to_string(), |count| count.to_string())
         );
+        let _ = writeln!(o, "object-store IO: {}", self.object_store_io);
+        let _ = writeln!(o, "write IO: {}", self.write_io);
+        let _ = writeln!(o, "spill IO performed: {}", self.spill_io_performed);
+        let _ = writeln!(
+            o,
+            "external effects executed: {}",
+            self.external_effects_executed
+        );
+        let _ = writeln!(o, "fallback execution disabled");
         if !self.input.allow_encoded_read_execution {
             let _ = writeln!(o, "encoded-read execution is not enabled by input contract");
         }
@@ -890,6 +939,232 @@ pub fn execute_vortex_encoded_read_spike(
     ));
     Ok(report)
 }
+
+#[cfg(feature = "vortex-encoded-read-spike")]
+fn local_vortex_scan_path(
+    target_uri: &DatasetUri,
+    report: &mut VortexEncodedReadExecutionReport,
+) -> Option<std::path::PathBuf> {
+    if !target_uri.looks_like_vortex() {
+        report.status = VortexEncodedReadExecutionStatus::BlockedByUnsupportedInput;
+        report.add_diagnostic(Diagnostic::invalid_input(
+            "vortex_local_fixture_scan_count",
+            format!(
+                "target is not a Vortex-native path: {}",
+                target_uri.as_str()
+            ),
+            "provide a local `.vortex` target for the feature-gated scan/count proof",
+        ));
+        return None;
+    }
+    let path = match target_uri.scheme() {
+        UriScheme::LocalPath => std::path::PathBuf::from(target_uri.as_str()),
+        UriScheme::File => std::path::PathBuf::from(
+            target_uri
+                .as_str()
+                .strip_prefix("file://")
+                .unwrap_or_else(|| target_uri.as_str()),
+        ),
+        UriScheme::S3 | UriScheme::Gcs | UriScheme::Adls => {
+            report.status = VortexEncodedReadExecutionStatus::BlockedByObjectStoreIo;
+            report.add_diagnostic(Diagnostic::unsupported(
+                DiagnosticCode::NotImplemented,
+                "vortex_local_fixture_scan_count",
+                format!(
+                    "object-store targets are outside the local fixture scan/count scope: {}",
+                    target_uri.as_str()
+                ),
+                Some(
+                    "Use a checked-in local `.vortex` fixture until object-store IO is explicitly phased."
+                        .to_string(),
+                ),
+            ));
+            return None;
+        }
+        UriScheme::Other => {
+            report.status = VortexEncodedReadExecutionStatus::BlockedByUnsupportedInput;
+            report.add_diagnostic(Diagnostic::invalid_input(
+                "vortex_local_fixture_scan_count",
+                format!(
+                    "unsupported target scheme for local fixture scan/count: {}",
+                    target_uri.as_str()
+                ),
+                "provide a local path or file:// `.vortex` target",
+            ));
+            return None;
+        }
+    };
+    if !path.exists() {
+        report.status = VortexEncodedReadExecutionStatus::BlockedByUnsupportedInput;
+        report.add_diagnostic(Diagnostic::invalid_input(
+            "vortex_local_fixture_scan_count",
+            format!(
+                "local Vortex fixture path does not exist: {}",
+                path.display()
+            ),
+            "provide an existing local `.vortex` fixture path",
+        ));
+        return None;
+    }
+    Some(path)
+}
+
+/// Executes a feature-gated local fixture `CountAll` by scanning Vortex arrays
+/// and summing their lengths.
+///
+/// This is intentionally narrower than the general encoded-read API boundary:
+/// it accepts only a caller-owned `VortexSession`, caller-owned blocking runtime,
+/// local `.vortex` target, and readiness report already approved for future
+/// encoded reads. It does not read rows, request `Arrow` conversion, write data,
+/// perform object-store IO or spill IO, or permit fallback execution.
+///
+/// # Errors
+/// Returns an error only if deterministic report construction fails.
+#[cfg(feature = "vortex-encoded-read-spike")]
+pub fn execute_vortex_count_all_from_local_scan_with_session<B>(
+    readiness_report: VortexEncodedReadReadinessReport,
+    target_uri: &DatasetUri,
+    runtime: &B,
+    session: &vortex::session::VortexSession,
+) -> Result<VortexEncodedReadExecutionReport>
+where
+    B: vortex::io::runtime::BlockingRuntime,
+{
+    use vortex::file::OpenOptionsSessionExt as _;
+
+    let input =
+        VortexEncodedReadExecutionInput::new(readiness_report).allow_encoded_read_execution(true);
+    let mut report = VortexEncodedReadExecutionReport::from_input(input)?;
+    if !vortex_encoded_read_spike_feature_enabled() {
+        return Ok(VortexEncodedReadExecutionReport::feature_disabled(
+            report.input,
+        ));
+    }
+    if !report
+        .input
+        .readiness_report
+        .status
+        .allows_future_encoded_read()
+        || report.would_execute_encoded_read_count == 0
+        || report.blocked_count > 0
+        || report.input.has_errors()
+    {
+        report.status = VortexEncodedReadExecutionStatus::BlockedByReadiness;
+        report.mode = VortexEncodedReadExecutionMode::EncodedReadContractOnly;
+        report.add_diagnostic(Diagnostic::unsupported(
+            DiagnosticCode::NotImplemented,
+            "vortex_local_fixture_scan_count",
+            "local fixture scan/count requires a readiness report approved for future encoded read",
+            Some("Fallback attempted: false".to_string()),
+        ));
+        return Ok(report);
+    }
+    let Some(path) = local_vortex_scan_path(target_uri, &mut report) else {
+        report.mode = VortexEncodedReadExecutionMode::EncodedReadContractOnly;
+        return Ok(report);
+    };
+    let file = match runtime.block_on(session.open_options().open_path(&path)) {
+        Ok(file) => file,
+        Err(error) => {
+            report.status = VortexEncodedReadExecutionStatus::BlockedByUnsupportedInput;
+            report.mode = VortexEncodedReadExecutionMode::EncodedReadContractOnly;
+            report.add_diagnostic(Diagnostic::invalid_input(
+                "vortex_local_fixture_scan_count",
+                format!("failed to open local Vortex fixture for scan/count: {error}"),
+                "provide an existing local `.vortex` fixture compatible with the pinned Vortex version",
+            ));
+            return Ok(report);
+        }
+    };
+    let scan = match file.scan() {
+        Ok(scan) => scan,
+        Err(error) => {
+            report.status = VortexEncodedReadExecutionStatus::BlockedByUnsupportedInput;
+            report.mode = VortexEncodedReadExecutionMode::EncodedReadContractOnly;
+            report.add_diagnostic(Diagnostic::unsupported(
+                DiagnosticCode::NotImplemented,
+                "vortex_local_fixture_scan_count",
+                format!("Vortex scan setup failed for local fixture count: {error}"),
+                Some("Fallback attempted: false".to_string()),
+            ));
+            return Ok(report);
+        }
+    };
+    let iter = match scan.into_array_iter(runtime) {
+        Ok(iter) => iter,
+        Err(error) => {
+            report.status = VortexEncodedReadExecutionStatus::BlockedByUnsupportedInput;
+            report.mode = VortexEncodedReadExecutionMode::EncodedReadContractOnly;
+            report.add_diagnostic(Diagnostic::unsupported(
+                DiagnosticCode::NotImplemented,
+                "vortex_local_fixture_scan_count",
+                format!("Vortex array iterator setup failed for local fixture count: {error}"),
+                Some("Fallback attempted: false".to_string()),
+            ));
+            return Ok(report);
+        }
+    };
+    let mut arrays_read_count = 0usize;
+    let mut rows_counted = 0u64;
+    for array_result in iter {
+        let array = match array_result {
+            Ok(array) => array,
+            Err(error) => {
+                report.status = VortexEncodedReadExecutionStatus::BlockedByUnsupportedInput;
+                report.mode = VortexEncodedReadExecutionMode::EncodedReadContractOnly;
+                report.add_diagnostic(Diagnostic::unsupported(
+                    DiagnosticCode::NotImplemented,
+                    "vortex_local_fixture_scan_count",
+                    format!("Vortex local fixture scan failed while reading arrays: {error}"),
+                    Some("Fallback attempted: false".to_string()),
+                ));
+                return Ok(report);
+            }
+        };
+        let Ok(len) = u64::try_from(array.len()) else {
+            report.status = VortexEncodedReadExecutionStatus::BlockedByUnsupportedInput;
+            report.mode = VortexEncodedReadExecutionMode::EncodedReadContractOnly;
+            report.add_diagnostic(Diagnostic::unsupported(
+                DiagnosticCode::NotImplemented,
+                "vortex_local_fixture_scan_count",
+                "Vortex array length does not fit in u64 for count result",
+                Some("Fallback attempted: false".to_string()),
+            ));
+            return Ok(report);
+        };
+        arrays_read_count += 1;
+        let Some(total) = rows_counted.checked_add(len) else {
+            report.status = VortexEncodedReadExecutionStatus::BlockedByUnsupportedInput;
+            report.mode = VortexEncodedReadExecutionMode::EncodedReadContractOnly;
+            report.add_diagnostic(Diagnostic::unsupported(
+                DiagnosticCode::NotImplemented,
+                "vortex_local_fixture_scan_count",
+                "Vortex local fixture count overflowed u64",
+                Some("Fallback attempted: false".to_string()),
+            ));
+            return Ok(report);
+        };
+        rows_counted = total;
+    }
+    report.status = VortexEncodedReadExecutionStatus::LocalFixtureEncodedCountExecuted;
+    report.mode = VortexEncodedReadExecutionMode::LocalFixtureEncodedArrayLengthCount;
+    report.data_read = true;
+    report.upstream_scan_called = true;
+    report.arrays_read_count = arrays_read_count;
+    report.rows_counted = rows_counted;
+    report.count_result = Some(rows_counted);
+    report.data_decoded = false;
+    report.data_materialized = false;
+    report.row_read = false;
+    report.arrow_converted = false;
+    report.object_store_io = false;
+    report.write_io = false;
+    report.spill_io_performed = false;
+    report.external_effects_executed = false;
+    report.fallback_execution_allowed = false;
+    Ok(report)
+}
+
 pub fn vortex_encoded_read_execution_is_side_effect_free(
     report: &VortexEncodedReadExecutionReport,
 ) -> bool {
@@ -900,10 +1175,44 @@ pub fn vortex_encoded_read_execution_is_side_effect_free(
 mod tests {
     use super::*;
 
+    #[cfg(feature = "vortex-encoded-read-spike")]
+    fn ready_readiness() -> VortexEncodedReadReadinessReport {
+        use crate::{
+            VortexMemoryBridgeInput, VortexMemoryBridgeReport, VortexSchedulerBridgeInput,
+            VortexTaskSchedulingDecision,
+        };
+        use shardloom_exec::MemoryBudget;
+
+        let memory = VortexMemoryBridgeReport::from_input(VortexMemoryBridgeInput::new(
+            MemoryBudget::from_gib(1).expect("memory budget"),
+        ))
+        .expect("memory bridge");
+        let mut scheduler =
+            crate::VortexSchedulerBridgeReport::from_input(VortexSchedulerBridgeInput::new(memory))
+                .expect("scheduler bridge");
+        scheduler
+            .decisions
+            .push(VortexTaskSchedulingDecision::schedule_now(
+                None,
+                "local fixture array-length count scan",
+            ));
+        scheduler.recompute_counts();
+        VortexEncodedReadReadinessReport::from_scheduler_report(scheduler).expect("readiness")
+    }
+
     #[test]
     fn mode_contract_only_no_data() {
         let m = VortexEncodedReadExecutionMode::EncodedReadContractOnly;
         assert!(!m.reads_data() && !m.decodes_data() && !m.materializes_data() && !m.writes_data());
+    }
+
+    #[test]
+    fn local_fixture_count_mode_reads_data_only() {
+        let m = VortexEncodedReadExecutionMode::LocalFixtureEncodedArrayLengthCount;
+        assert!(m.reads_data());
+        assert!(!m.decodes_data());
+        assert!(!m.materializes_data());
+        assert!(!m.writes_data());
     }
 
     #[test]
@@ -925,5 +1234,90 @@ mod tests {
             vortex_encoded_read_executor_feature_enabled(),
             cfg!(feature = "vortex-encoded-read-executor")
         );
+    }
+
+    #[cfg(feature = "vortex-encoded-read-spike")]
+    #[test]
+    fn local_fixture_scan_counts_vortex_array_lengths() {
+        use shardloom_core::DatasetUri;
+        use vortex::VortexSessionDefault as _;
+        use vortex::io::runtime::BlockingRuntime as _;
+        use vortex::io::runtime::single::SingleThreadRuntime;
+        use vortex::io::session::RuntimeSessionExt as _;
+        use vortex::session::VortexSession;
+
+        let fixture_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
+            .join("metadata_footer_u64_20000.vortex");
+        let target_uri = DatasetUri::new(fixture_path.to_string_lossy().to_string()).expect("uri");
+        let runtime = SingleThreadRuntime::default();
+        let session = VortexSession::default().with_handle(runtime.handle());
+
+        let report = execute_vortex_count_all_from_local_scan_with_session(
+            ready_readiness(),
+            &target_uri,
+            &runtime,
+            &session,
+        )
+        .expect("local fixture scan/count");
+
+        assert_eq!(
+            report.status,
+            VortexEncodedReadExecutionStatus::LocalFixtureEncodedCountExecuted
+        );
+        assert_eq!(
+            report.mode,
+            VortexEncodedReadExecutionMode::LocalFixtureEncodedArrayLengthCount
+        );
+        assert_eq!(report.count_result, Some(20_000));
+        assert_eq!(report.rows_counted, 20_000);
+        assert!(report.arrays_read_count > 0);
+        assert!(report.data_read);
+        assert!(report.upstream_scan_called);
+        assert!(!report.data_decoded);
+        assert!(!report.data_materialized);
+        assert!(!report.row_read);
+        assert!(!report.arrow_converted);
+        assert!(!report.object_store_io);
+        assert!(!report.write_io);
+        assert!(!report.spill_io_performed);
+        assert!(!report.external_effects_executed);
+        assert!(!report.fallback_execution_allowed);
+        assert!(!report.has_errors());
+        assert!(!report.is_side_effect_free());
+    }
+
+    #[cfg(feature = "vortex-encoded-read-spike")]
+    #[test]
+    fn local_fixture_scan_rejects_object_store_target_without_io() {
+        use shardloom_core::DatasetUri;
+        use vortex::VortexSessionDefault as _;
+        use vortex::io::runtime::BlockingRuntime as _;
+        use vortex::io::runtime::single::SingleThreadRuntime;
+        use vortex::io::session::RuntimeSessionExt as _;
+        use vortex::session::VortexSession;
+
+        let target_uri = DatasetUri::new("s3://bucket/data.vortex").expect("uri");
+        let runtime = SingleThreadRuntime::default();
+        let session = VortexSession::default().with_handle(runtime.handle());
+
+        let report = execute_vortex_count_all_from_local_scan_with_session(
+            ready_readiness(),
+            &target_uri,
+            &runtime,
+            &session,
+        )
+        .expect("object store block report");
+
+        assert_eq!(
+            report.status,
+            VortexEncodedReadExecutionStatus::BlockedByObjectStoreIo
+        );
+        assert!(!report.data_read);
+        assert!(!report.upstream_scan_called);
+        assert!(!report.object_store_io);
+        assert!(!report.fallback_execution_allowed);
+        assert!(report.has_errors());
     }
 }

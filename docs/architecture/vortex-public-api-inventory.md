@@ -755,6 +755,14 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - Current inventory remains blocked without `runtime-driver-start-allowed`; a complete approved signal set still reports `layout_reader_constructed=false`, `runtime_driver_started=false`, `scan_called=false`, `data_read=false`, and `fallback_execution_allowed=false`.
 - This introduces no scan/read-start invocation, array stream/evaluation call, encoded-data traversal, row read, decode/materialization, `Arrow` conversion, object-store IO, write, or fallback execution.
 
+## CG-2.1e.15 local fixture Vortex array scan/count proof
+
+- `VortexFile::scan` and `ScanBuilder::into_array_iter` are now invoked only by the feature-gated local fixture helper `execute_vortex_count_all_from_local_scan_with_session`.
+- This helper requires a caller-owned `VortexSession`, caller-owned blocking runtime, local `.vortex` target, and encoded-read readiness approved for future execution.
+- The helper counts returned Vortex arrays with `ArrayRef::len()` and reports array count, row count, count result, `data_read=true`, and `upstream_scan_called=true`.
+- It reports no row read, no requested decode/materialization, no `Arrow` conversion, no object-store IO, no writes, no spill IO, and no fallback execution.
+- The static public API boundary still treats broad scan, stream, layout-evaluation, data-source, and object-store paths as blocked or deferred for general execution.
+- This inventory update does not approve non-fixture adapters, encoded predicates, projections, writes, external baselines, or superiority claims.
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.
