@@ -590,6 +590,14 @@ No fallback execution.
 - Blocked reports remain deterministic, side-effect-free, and fallback-disabled.
 - This pass adds no encoded-data traversal, scan/read-start API calls, row reads, decode/materialization, Arrow conversion, object-store IO, write behavior, spill IO, external baseline invocation, or fallback execution.
 
+## CG-7.13 metadata physical kernel CLI surfacing
+
+- Primary RFC linkage: RFC 0012 deterministic capability/diagnostic discovery, RFC 0021 kernel selection and metadata-kernel requirements, RFC 0025 no-fallback guardrails, RFC 0029 evidence gating, and RFC 0032 operator certification discovery requirements.
+- `shardloom vortex-metadata-physical-kernel-plan <primitive> <dataset_uri> <metadata_value>` exposes metadata-only physical kernel reports for count, filtered-count, and filter metadata values.
+- The command requires explicit `--correctness-evidence` and `--memory-safe` evidence before returning success; `--benchmark-evidence` upgrades the attached certificate to production-certified, and `--fallback-attempted` blocks admission.
+- JSON/text output includes certificate status, metadata kernel count, evidence flags, data-read/decode/materialization/IO fields, side-effect-free status, and fallback-disabled status.
+- This pass adds no encoded-data traversal, scan/read-start API calls, row reads, decode/materialization, Arrow conversion, object-store IO, write behavior, spill IO, external baseline invocation, or fallback execution.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.
