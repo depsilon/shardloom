@@ -21,7 +21,7 @@ Concept groups:
 - **I/O, representation, and translation**: `native_vortex_input`, `native_vortex_output`, `compatibility_output`, `foreign_encoded`, `universal native I/O envelope`, `native work envelope`, `native I/O certificate`.
 - **Materialization and fidelity**: `MaterializationPolicy`, `MaterializationRequirement`, `MaterializationBoundary`, `FidelityLevel`, `VortexOutputFidelity`, `metadata_loss`, `fidelity_loss`.
 - **Planning, diagnostics, and provenance**: `pushdown proof`, `residual expression`, `lowering provenance`, `portability loss`, `intermediate artifact`, `fallback_attempted`, `unsupported`.
-- **Capability and certification**: `capability certification surface`, `workload constitution`, `operator certification`, `function certification`, `SQL coverage tier`, `adapter maturity level`, `semantic compatibility profile`, `migration compatibility report`, `delete/tombstone compatibility report`, `best-choice scorecard`.
+- **Capability and certification**: `capability certification surface`, `workload constitution`, `operator certification`, `function certification`, `SQL coverage tier`, `adapter maturity level`, `semantic compatibility profile`, `migration compatibility report`, `delete/tombstone compatibility report`, `table compatibility aggregation report`, `best-choice scorecard`.
 - **User capability surfaces**: `data/ETL capability report`, `Python surface report`, `unstructured media capability report`, `universal adapter catalog`, `API surface certification`, `observability certification`, `deployment readiness report`, `extension capability report`, `security governance report`.
 - **Agent/context capability**: `functional context scope`, `evidence routing`, `context structure preservation`, `stateful certificate history`.
 
@@ -174,6 +174,7 @@ See `docs/architecture/terminology-consolidation-backlog.md` for the full audit 
 - **migration compatibility report**: structured report mapping supported/unsupported constructs and semantic deltas for migration planning.
 - **delete/tombstone compatibility report**: structured table-compatibility evidence for declared delete models, tombstones, row/position/equality deletes, metadata-loss boundaries, and no-fallback status.
 - **native delete/tombstone rule**: ShardLoom-owned handling rule required before a delete model can be treated as supported; external delete files or metadata are never fallback execution.
+- **table compatibility aggregation report**: structured evidence bundle combining schema, partition, and delete/tombstone compatibility reports before catalog or table metadata IO is allowed.
 - **source pushdown exactness**: the declared guarantee quality for source pushdown (exact, exact with residual, conservative, unsupported, unsafe rejected).
 - **native I/O certificate**: structured evidence object capturing source/sink capability, transitions, materialization boundaries, and no-fallback status.
 - **data/ETL coverage entry**: per-capability evidence row for an ETL family such as ingestion, schema contracts, cleaning/quality, transformation, enrichment, incremental state, write/export, or pipeline operations.
