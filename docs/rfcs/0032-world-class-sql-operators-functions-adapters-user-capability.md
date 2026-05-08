@@ -1,13 +1,16 @@
 # RFC 0032: World-Class SQL, Operator, Function, Adapter, and User Capability Surface
 
 ## Summary
-This RFC defines CG-20 as the final user-capability certification gate for ShardLoom. It expands competitive scope beyond narrow Vortex acceleration into user-visible capability breadth and certified workload fitness.
+This RFC defines CG-20 as the final user-capability certification gate for ShardLoom. It expands competitive scope beyond narrow Vortex acceleration into user-visible capability breadth, common data/ETL coverage, universal adapter fitness, and certified workload fitness.
 
 ## Motivation
-Real users choose engines for end-to-end capability: SQL/function/operator breadth, adapters, semantics, APIs, migration ergonomics, diagnostics, and certification confidence.
+Real users choose engines for end-to-end capability: SQL/function/operator breadth, adapters, Python ergonomics, UDFs, unstructured and media data handling, semantics, APIs, migration ergonomics, diagnostics, and certification confidence.
 
 ## Goals
 - Define capability-certification contracts for SQL/operators/functions/adapters/user surfaces.
+- Define common data and ETL capability expectations for ingestion, cleaning, transformation, incremental processing, writes, and export.
+- Define Python wrapper/API certification as a first-class CG-20 user surface.
+- Define UDF/plugin and unstructured media capability expectations without weakening side-effect and materialization boundaries.
 - Define maturity ladders and conformance scorecards.
 - Preserve no-fallback execution constraints.
 
@@ -17,10 +20,65 @@ Real users choose engines for end-to-end capability: SQL/function/operator bread
 - no external engine execution
 - no SQL execution delegation
 - no adapter runtime implementation
+- no Python wrapper implementation
+- no unstructured media runtime implementation
+- no OCR, LLM, embedding, vector, image, audio, or video processing dependency additions
 - no broad dependency additions
 
 ## CG-20 definition
 CG-20 is the final user-capability gate that defines evidence required before ShardLoom can be certified as the best default engine for declared workload constitutions. It is not only a fast subset-executor gate.
+
+## Common data and ETL capability scope
+CG-20 must cover the common work users expect from a serious local analytical and ETL engine. SQL support is necessary but insufficient; users also need Python-first ergonomics, safe UDFs, common source/sink adapters, unstructured data intake, pipeline diagnostics, and migration paths.
+
+Minimum common data/ETL surface:
+- tabular file ingestion and export
+- local filesystem and object-store source/sink paths
+- schema discovery, schema evolution, and type coercion diagnostics
+- projection, filtering, cleaning, deduplication, enrichment, joins, aggregations, windows, sorts, limits, and set operations
+- incremental recompute, CDC-like change intake, merge/delete/update where table semantics support it
+- partition discovery, partition pruning, compaction planning, and layout health reporting
+- batch and bounded-streaming modes with backpressure and memory/spill declarations
+- explain, estimate, profile/analyze, and capability discovery for every supported pipeline stage
+- explicit materialization, fidelity-loss, metadata-loss, and external-effect reporting
+- deterministic unsupported diagnostics and rewrite suggestions
+- workload-scoped correctness, semantic conformance, benchmark, adapter, and no-fallback evidence
+
+`DataEtlCapabilityReport` fields:
+- `report_id`
+- `workload_constitution_ref`
+- `pipeline_surface_status`
+- `ingestion_capabilities`
+- `transformation_capabilities`
+- `cleaning_capabilities`
+- `join_aggregate_window_capabilities`
+- `incremental_recompute_capabilities`
+- `cdc_merge_delete_update_capabilities`
+- `write_export_capabilities`
+- `partition_layout_capabilities`
+- `batch_mode_status`
+- `bounded_streaming_status`
+- `memory_spill_status`
+- `schema_evolution_status`
+- `source_adapter_refs`
+- `sink_adapter_refs`
+- `native_io_certificate_refs`
+- `execution_certificate_refs`
+- `materialization_boundaries`
+- `fidelity_loss_reports`
+- `unsupported_operations`
+- `rewrite_suggestions`
+- `correctness_status`
+- `benchmark_status`
+- `diagnostics`
+- `fallback_attempted=false`
+
+ETL certification boundaries:
+- A pipeline stage is not supported merely because one SQL clause or function exists; source, operator, memory, sink, and observability evidence must line up for the declared workload.
+- Cleaning and enrichment UDFs must carry function/extension metadata and materialization/effect boundaries.
+- Incremental, merge, delete, update, compaction, and commit paths require explicit table/adapter semantics and commit/recovery evidence.
+- Object-store pipelines require request-budget, range-read, retry, idempotency, and cleanup diagnostics.
+- Unstructured extraction, OCR, LLM calls, embedding generation, and external APIs are effectful operations unless a later native path is certified.
 
 ## Capability certification surface
 Contract names:
@@ -38,6 +96,10 @@ Contract names:
 - `BestChoiceScorecard`
 - `WorkloadConstitution`
 - `WorldClassSufficiencyReport`
+- `DataEtlCapabilityReport`
+- `UniversalAdapterCatalog`
+- `PythonSurfaceReport`
+- `UnstructuredMediaCapabilityReport`
 - `ApiSurfaceReport`
 - `ObservabilityCertificationReport`
 - `DeploymentReadinessReport`
@@ -57,6 +119,10 @@ CG-20 is complete only when the capability surface can prove that ShardLoom is t
 - `adapter_surface_status`
 - `semantic_profile_status`
 - `migration_surface_status`
+- `data_etl_surface_status`
+- `python_surface_status`
+- `unstructured_media_surface_status`
+- `universal_adapter_catalog_status`
 - `api_surface_status`
 - `observability_surface_status`
 - `deployment_surface_status`
@@ -89,7 +155,7 @@ Required sufficiency decisions:
 - `best_default_certified`: correctness-backed, benchmark-backed, adapter-certified, native-I/O-certified, migration-documented, no-fallback-certified, and approved for the declared workload only.
 
 Sufficiency invariants:
-- No single subsystem can satisfy CG-20 by itself. SQL breadth, operator breadth, function breadth, adapters, semantics, migration, API ergonomics, observability, deployment posture, extension safety, security/governance, correctness, benchmarks, native I/O certificates, execution certificates, and no-fallback integrity must all be represented.
+- No single subsystem can satisfy CG-20 by itself. SQL breadth, Python usability, ETL coverage, operator breadth, function breadth, adapters, unstructured/media data handling, semantics, migration, API ergonomics, observability, deployment posture, extension safety, security/governance, correctness, benchmarks, native I/O certificates, execution certificates, and no-fallback integrity must all be represented.
 - Planned, parsed-only, test-reference-only, migration-analysis-only, or benchmark-label-only entries cannot count as production support.
 - Optional workload categories must be explicitly marked optional or out of scope before they can be excluded from a sufficiency decision.
 - Missing evidence downgrades the publication decision instead of weakening required fields.
@@ -103,13 +169,14 @@ Disqualifiers:
 - Missing CG-19 native I/O certificate evidence for a required source/sink path.
 - Any hidden fallback, delegated execution, or external engine runtime dependency.
 - Planned-only SQL/operator/function/adapter/API/observability/deployment/extension/security entries presented as supported.
+- Required Python, ETL, unstructured media, or universal-adapter surfaces presented as supported before certification evidence exists.
 - Unsupported constructs without deterministic diagnostics and rewrite guidance where possible.
 - Unreported materialization, metadata loss, fidelity loss, semantic difference, memory spill gap, or object-store limitation.
 - Snapshot drift that changes support status without matching RFC, correctness, benchmark, dependency, and migration evidence.
 
 Explicit deferrals:
-- This RFC does not approve a SQL parser dependency, adapter runtime dependency, object-store client dependency, catalog dependency, benchmark runner, client/server dependency, UDF/plugin runtime dependency, external baseline invocation, or execution implementation.
-- Future parser, adapter, object-store, catalog, benchmark, client/server, UDF/plugin, and external-effect dependencies require their own dependency, license, provenance, no-fallback, and capability-snapshot review.
+- This RFC does not approve a SQL parser dependency, adapter runtime dependency, object-store client dependency, catalog dependency, Python package dependency, media/OCR/LLM/embedding dependency, benchmark runner, client/server dependency, UDF/plugin runtime dependency, external baseline invocation, or execution implementation.
+- Future parser, adapter, object-store, catalog, Python, media/OCR/LLM/embedding, benchmark, client/server, UDF/plugin, and external-effect dependencies require their own dependency, license, provenance, no-fallback, and capability-snapshot review.
 - CG-20 sufficiency may define required fields before their implementation exists; unimplemented fields must report `not_certified`, `planned`, `unsupported`, or `evidence_insufficient`.
 
 ## Competitive claim ladder
@@ -671,6 +738,8 @@ Disallowed:
 - CSV source/sink utility
 - JSON / NDJSON source/sink utility
 - Avro/ORC later
+- compressed text/file wrappers where safe and explicit
+- partitioned directory datasets
 
 ### Lakehouse/table
 - Iceberg-compatible table metadata
@@ -695,6 +764,39 @@ Disallowed:
 - Glue-like catalog adapter
 - Nessie-like catalog adapter
 
+### Relational and warehouse sources
+- PostgreSQL-compatible source later
+- MySQL/MariaDB-compatible source later
+- SQLite/local embedded source utility later
+- Snowflake-like warehouse import/export analyzer later
+- BigQuery-like warehouse import/export analyzer later
+- generic JDBC/ODBC source bridge only after no-fallback and pushdown-proof rules are satisfied
+
+Relational/warehouse boundaries:
+- Remote systems may provide tables, metadata, snapshots, and proof-backed source pushdown.
+- Remote systems must not execute unsupported ShardLoom residual plans as fallback.
+- SQL pushdown into remote systems must be represented as source pushdown with exactness, residual, and semantic-difference reporting.
+- Federated reads must expose materialization, network, credential, consistency, and retry boundaries.
+
+### Unstructured and media inputs
+- text files
+- HTML and XML documents
+- PDF/document references
+- office document references
+- image metadata and binary object references
+- audio/video metadata and binary object references
+- log/event records
+- archive/container manifests
+- extracted text/chunk manifests
+- embedding/vector references where explicitly enabled
+
+Unstructured/media boundaries:
+- Native analytical execution operates on typed references, metadata, extracted fields, chunks, and manifests.
+- OCR, speech-to-text, document parsing, LLM calls, embedding generation, and media decoding are explicit effectful extensions unless a later native path is certified.
+- Raw binary/media payloads must not be silently decoded during capability discovery, explain, estimate, dry run, or planning.
+- Extracted fields must record provenance, extractor version, confidence/quality when available, redaction status, and materialization cost.
+- Unstructured and media adapters must emit native I/O certificate evidence for each source/sink path before they can count toward CG-20.
+
 ### Client/server
 - CLI JSON runner
 - Python API
@@ -702,6 +804,22 @@ Disallowed:
 - HTTP/gRPC query service later
 - Flight/FlightSQL-like service later
 - JDBC/ODBC bridge later
+
+### Python and notebook
+- thin Python wrapper over stable CLI JSON first
+- Python query builder/DataFrame-like API later
+- notebook display helpers
+- Python capability discovery helpers
+- Python diagnostics/explain/estimate/profile helpers
+- Python UDF boundary declarations
+- Python package/release surface later
+
+Python boundaries:
+- The first Python wrapper should be a stable, thin, machine-readable client over CLI/API JSON, not a hidden execution engine.
+- Python APIs must not imply pandas/Polars/Spark/DataFusion execution fallback.
+- DataFrame-like APIs must lower into ShardLoom-native capability checks and plans.
+- Any conversion to pandas, Arrow, NumPy, or Python objects is a materialization boundary with explicit diagnostics.
+- Python UDFs require explicit type, null, determinism, volatility, effect, sandbox/resource, and materialization metadata.
 
 ### Migration
 - Spark SQL migration analyzer
@@ -885,6 +1003,12 @@ CG-20 cannot complete without native support plans for:
 - object-store reads/writes
 - incremental recompute
 - common Parquet/Arrow workloads
+- common CSV/JSON/log ingestion and cleaning
+- relational source import/export
+- document/text extraction pipelines
+- unstructured media metadata pipelines
+- Python notebook/data science workflows
+- Python UDF enrichment workflows
 - Vortex-native pipelines
 - adapter migration workloads
 - BI/dashboard query patterns
@@ -906,6 +1030,9 @@ Required fields:
 - `required_operator_families`
 - `required_function_groups`
 - `required_adapter_paths`
+- `required_data_etl_capabilities`
+- `required_python_surfaces`
+- `required_unstructured_media_capabilities`
 - `required_api_surfaces`
 - `required_observability_surfaces`
 - `required_deployment_profiles`
@@ -935,6 +1062,9 @@ Required fields:
 - `required_operator_families`
 - `required_function_groups`
 - `required_adapter_paths`
+- `required_data_etl_capabilities`
+- `required_python_surfaces`
+- `required_unstructured_media_capabilities`
 - `required_semantic_profiles`
 - `required_api_surfaces`
 - `required_observability_surfaces`
@@ -1036,6 +1166,43 @@ API surface families:
 - `jdbc_odbc_bridge`
 - `bi_dashboard_connector`
 
+`PythonSurfaceReport` fields:
+- `surface_id`
+- `package_name`
+- `wrapper_mode`
+- `cli_json_protocol_version`
+- `native_api_protocol_version`
+- `dataframe_api_status`
+- `query_builder_status`
+- `notebook_status`
+- `capability_discovery_status`
+- `explain_estimate_profile_status`
+- `materialization_boundary_status`
+- `pandas_arrow_numpy_conversion_status`
+- `udf_boundary_status`
+- `async_cancellation_status`
+- `idempotency_key_status`
+- `error_mapping_status`
+- `schema_version`
+- `packaging_status`
+- `diagnostics`
+- `fallback_attempted=false`
+
+`PythonWrapperMode` values:
+- `declared_only`
+- `cli_json_thin_wrapper`
+- `native_api_client`
+- `dataframe_query_builder`
+- `notebook_integrated`
+- `workload_certified`
+
+Python wrapper acceptance boundaries:
+- The wrapper belongs under CG-20 user capability because it is a primary adoption surface, not an execution shortcut.
+- The first acceptable wrapper is thin over stable CLI/API JSON and preserves machine-readable diagnostics.
+- Python must not call pandas, Polars, Spark, DuckDB, DataFusion, or another engine to execute unsupported ShardLoom plans.
+- Python object conversion, pandas/Arrow/NumPy export, row iteration, and UDF calls are materialization/effect boundaries.
+- Python package status cannot be `workload_certified` until the underlying CLI/API, SQL/operator/function/adapter, correctness, benchmark, observability, and no-fallback evidence is certified for the declared workload.
+
 `ApiSurfaceMaturity` values:
 - `U0_declared`: surface is documented only.
 - `U1_discoverable`: surface appears in capability discovery with unsupported/planned diagnostics.
@@ -1134,6 +1301,42 @@ Extension certification boundaries:
 - Extension inspection must not execute extension code.
 - Missing sandbox, permission, credential, license, or effect metadata blocks certification.
 - Extension behavior must be reflected in function/operator/API capability reports before a workload can be certified.
+
+## Unstructured media capability
+CG-20 includes unstructured and media data because common ETL work often starts from documents, logs, web content, images, audio, video, archives, and extracted text. ShardLoom should model these as typed source references, extracted metadata, chunks, embeddings, manifests, and explicit effectful extraction stages rather than silently decoding arbitrary media inside the analytical engine.
+
+`UnstructuredMediaCapabilityReport` fields:
+- `report_id`
+- `workload_constitution_ref`
+- `source_kinds`
+- `binary_reference_model`
+- `metadata_extraction_status`
+- `text_extraction_status`
+- `chunk_manifest_status`
+- `ocr_status`
+- `speech_to_text_status`
+- `image_metadata_status`
+- `audio_video_metadata_status`
+- `embedding_reference_status`
+- `vector_search_boundary_status`
+- `extractor_provenance_status`
+- `confidence_quality_fields`
+- `redaction_status`
+- `external_effect_policy`
+- `materialization_boundaries`
+- `adapter_certification_refs`
+- `native_io_certificate_refs`
+- `extension_capability_refs`
+- `unsupported_media_types`
+- `diagnostics`
+- `fallback_attempted=false`
+
+Unstructured media certification boundaries:
+- Capability discovery may report supported/planned media categories but must not open, decode, OCR, transcribe, embed, or summarize media by default.
+- Extracted text, chunks, and metadata must include provenance and materialization cost before downstream SQL/function/operator certification can use them.
+- OCR, speech-to-text, LLM calls, API calls, embedding generation, and vector indexing require explicit effect permissions and extension capability reports.
+- Raw media payload handling must preserve credential, privacy, redaction, and data-retention policy.
+- Unsupported media types must produce deterministic diagnostics with safe rewrite/import suggestions where possible.
 
 ## Observability certification
 Observability is a CG-20 certification dimension, not an optional debugging add-on. Users must be able to prove what ShardLoom did, what it avoided, what it could not do, and why no fallback happened.
@@ -1269,6 +1472,9 @@ Scorecard dimensions:
 - function coverage
 - operator coverage
 - adapter coverage
+- data/ETL coverage
+- Python usability
+- unstructured/media coverage
 - API usability
 - observability
 - migration ease
@@ -1305,6 +1511,9 @@ Dimension evidence requirements:
 - `function coverage`: requires function certification entries for every required function group and signature class.
 - `operator coverage`: requires operator certification entries for every required operator family.
 - `adapter coverage`: requires adapter certification and native I/O certificate evidence for required source/sink paths.
+- `data/ETL coverage`: requires certified ingestion, transformation, cleaning, incremental, write/export, memory/spill, and observability evidence for the declared workload.
+- `Python usability`: requires wrapper/API/report evidence, stable diagnostics, explicit materialization boundaries, and no Python-side fallback execution.
+- `unstructured/media coverage`: requires adapter, extractor, provenance, materialization, redaction, effect-permission, and unsupported-diagnostic evidence for required non-tabular sources.
 - `API usability`: requires declared CLI/API/client surfaces and diagnostics for unsupported surfaces.
 - `observability`: requires diagnostic, explain, estimate, profile, and certificate report coverage for the workload.
 - `migration ease`: requires migration compatibility reports and rewrite suggestions for declared migration sources.
@@ -1343,6 +1552,9 @@ Required fields:
 - `operator_certification_evidence`
 - `function_certification_evidence`
 - `adapter_certification_evidence`
+- `data_etl_evidence`
+- `python_surface_evidence`
+- `unstructured_media_evidence`
 - `native_io_certificate_evidence`
 - `memory_spill_evidence`
 - `observability_evidence`
@@ -1366,6 +1578,9 @@ Minimum evidence floor for a world-class claim:
 - Operator evidence covers native status, encoded capability, streaming, bounded memory, spill, shuffle, ordering, partitioning, and OOM behavior for every required operator family.
 - Function evidence covers aliases, type signatures, null behavior, determinism, volatility, effect level, encoded capability, materialization requirements, semantic profile, tests, and benchmark status for required functions.
 - Adapter evidence covers schema/metadata discovery, pushdown exactness, residuals, metadata loss, fidelity loss, encoded preservation, source/sink paths, commit semantics, streaming, object-store range behavior, and per-path native I/O certificates.
+- Data/ETL evidence covers ingestion, cleaning, transformation, joins/aggregates/windows, incremental recompute, CDC/merge/delete/update where applicable, write/export, partition/layout behavior, bounded streaming, memory/spill, and pipeline observability.
+- Python evidence covers thin CLI/API JSON wrapper status, DataFrame/query-builder status, notebook ergonomics, diagnostics, materialization/export boundaries, UDF boundaries, packaging status, cancellation/idempotency where relevant, and no Python-side fallback execution.
+- Unstructured/media evidence covers typed references, metadata extraction, chunk manifests, extractor provenance, redaction, effect permissions, materialization cost, and explicit unsupported diagnostics for required document/media sources.
 - Migration evidence covers supported constructs, unsupported constructs, semantic deltas, function deltas, adapter deltas, rewrite suggestions, materialization requirements, uncertainty, and Vortex conversion payback.
 - Observability evidence covers diagnostics, explain, estimate, profile/analyze, capabilities, certificates, work-avoided/decode/materialization metrics, redaction, and actionable unsupported-feature reporting.
 - API evidence covers CLI, Rust API, Python/API roadmap status, DataFrame/query builder status, BI/server access status, machine-readable output, cancellation/idempotency where relevant, and user-visible unsupported diagnostics.
@@ -1381,6 +1596,7 @@ Disqualifiers for a best-default claim:
 - Planned-only SQL, operator, function, adapter, semantic-profile, migration, API, observability, deployment, extension, or security/governance entries presented as supported.
 - A mandatory workload category without certified coverage evidence.
 - A required source/sink path without native I/O certificate evidence.
+- Required Python, ETL, or unstructured/media surfaces without certification evidence.
 - Unreported materialization, metadata loss, fidelity loss, or semantic divergence.
 - Unbounded memory or OOM behavior for required large-state operators.
 - Unsupported constructs without deterministic diagnostics.

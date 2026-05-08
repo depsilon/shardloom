@@ -277,9 +277,14 @@ pub use encoded_count_approval::{
 pub use commit_protocol::{
     VortexCommitProtocolEffect, VortexCommitProtocolMode, VortexCommitProtocolReport,
     VortexCommitProtocolRequest, VortexCommitProtocolSignal, VortexCommitProtocolState,
-    VortexCommitProtocolStatus, VortexCommitProtocolTransition,
-    commit_protocol_request_from_commit_intent, plan_vortex_commit_protocol,
-    plan_vortex_commit_protocol_from_commit_intent, vortex_commit_protocol_is_side_effect_free,
+    VortexCommitProtocolStatus, VortexCommitProtocolTransition, VortexCommittedManifestFileName,
+    VortexCommittedManifestFileRef, VortexLocalCommitExecutionMode,
+    VortexLocalCommitExecutionReport, VortexLocalCommitExecutionRequest,
+    VortexLocalCommitExecutionSignal, VortexLocalCommitExecutionStatus,
+    commit_protocol_request_from_commit_intent, execute_vortex_local_commit,
+    plan_vortex_commit_protocol, plan_vortex_commit_protocol_from_commit_intent,
+    vortex_commit_protocol_is_side_effect_free, vortex_local_commit_execution_feature_enabled,
+    vortex_local_commit_execution_is_side_effect_free,
 };
 
 pub use commit_execution_gate::{
