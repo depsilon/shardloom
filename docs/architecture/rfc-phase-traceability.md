@@ -459,6 +459,14 @@ No fallback execution.
 - Missing readiness source URI evidence or a target mismatch returns a blocked report with `data_read=false`, `upstream_scan_called=false`, and `fallback_execution_allowed=false`.
 - This prevents cross-target evidence reuse while keeping the local fixture exception narrow: no row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, external baselines, or fallback execution are added.
 
+## CG-2.1e.18 local fixture scan source evidence reporting
+
+- Primary RFC linkage: RFC 0012 Diagnostics/Capabilities, RFC 0013 Streaming/Zero-Copy Boundary, RFC 0015 Correctness/testing, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
+- `VortexEncodedReadExecutionReport` now exposes local fixture scan target URI, encoded-read readiness source URI, and a source/target match flag.
+- Successful local fixture reports, target-mismatch reports, object-store blocked reports, and approval-blocked reports preserve the source-evidence fields for auditability.
+- These fields make the narrow fixture proof easier to validate before generalized count execution while keeping non-fixture scan/read-start approval deferred.
+- No row reads, requested decode/materialization, Arrow conversion, object-store IO expansion, writes, spill IO, external baselines, or fallback execution are added.
+
 ## CG-5.1 metadata query primitive correctness fixtures
 
 - Primary RFC linkage: RFC 0015 Correctness/Semantics/Differential Testing, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.

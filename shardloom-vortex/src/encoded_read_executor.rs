@@ -9,8 +9,10 @@
 use std::fmt::Write as _;
 
 #[cfg(feature = "vortex-encoded-read-spike")]
-use shardloom_core::{DatasetUri, UriScheme};
-use shardloom_core::{Diagnostic, DiagnosticCode, DiagnosticSeverity, Result, SegmentId};
+use shardloom_core::UriScheme;
+use shardloom_core::{
+    DatasetUri, Diagnostic, DiagnosticCode, DiagnosticSeverity, Result, SegmentId,
+};
 use shardloom_exec::TaskId;
 
 #[cfg(feature = "vortex-encoded-read-spike")]
@@ -416,6 +418,9 @@ pub struct VortexEncodedReadExecutionReport {
     pub arrays_read_count: usize,
     pub rows_counted: u64,
     pub count_result: Option<u64>,
+    pub local_fixture_scan_target_uri: Option<DatasetUri>,
+    pub local_fixture_readiness_source_uri: Option<DatasetUri>,
+    pub local_fixture_source_uri_matches_target: bool,
     pub object_store_io: bool,
     pub write_io: bool,
     pub spill_io_performed: bool,
@@ -453,6 +458,9 @@ impl VortexEncodedReadExecutionReport {
             arrays_read_count: 0,
             rows_counted: 0,
             count_result: None,
+            local_fixture_scan_target_uri: None,
+            local_fixture_readiness_source_uri: None,
+            local_fixture_source_uri_matches_target: false,
             object_store_io: false,
             write_io: false,
             spill_io_performed: false,
@@ -495,6 +503,9 @@ impl VortexEncodedReadExecutionReport {
             arrays_read_count: 0,
             rows_counted: 0,
             count_result: None,
+            local_fixture_scan_target_uri: None,
+            local_fixture_readiness_source_uri: None,
+            local_fixture_source_uri_matches_target: false,
             object_store_io: false,
             write_io: false,
             spill_io_performed: false,
@@ -822,6 +833,25 @@ impl VortexEncodedReadExecutionReport {
             self.count_result
                 .map_or_else(|| "none".to_string(), |count| count.to_string())
         );
+        let _ = writeln!(
+            o,
+            "local fixture scan target URI: {}",
+            self.local_fixture_scan_target_uri
+                .as_ref()
+                .map_or("<none>", DatasetUri::as_str)
+        );
+        let _ = writeln!(
+            o,
+            "local fixture readiness source URI: {}",
+            self.local_fixture_readiness_source_uri
+                .as_ref()
+                .map_or("<none>", DatasetUri::as_str)
+        );
+        let _ = writeln!(
+            o,
+            "local fixture source URI matches target: {}",
+            self.local_fixture_source_uri_matches_target
+        );
         let _ = writeln!(o, "object-store IO: {}", self.object_store_io);
         let _ = writeln!(o, "write IO: {}", self.write_io);
         let _ = writeln!(o, "spill IO performed: {}", self.spill_io_performed);
@@ -1079,6 +1109,22 @@ fn encoded_read_readiness_source_uri(
     memory_bridge_source_uri(&report.input.scheduler_report.input.memory_bridge_report)
 }
 
+#[cfg(feature = "vortex-encoded-read-spike")]
+fn annotate_local_fixture_scan_source_evidence(
+    report: &mut VortexEncodedReadExecutionReport,
+    target_uri: &DatasetUri,
+    readiness_report: &VortexEncodedReadReadinessReport,
+) -> Option<DatasetUri> {
+    let readiness_source_uri = encoded_read_readiness_source_uri(readiness_report).cloned();
+    report.local_fixture_scan_target_uri = Some(target_uri.clone());
+    report
+        .local_fixture_readiness_source_uri
+        .clone_from(&readiness_source_uri);
+    report.local_fixture_source_uri_matches_target =
+        readiness_source_uri.as_ref() == Some(target_uri);
+    readiness_source_uri
+}
+
 /// Executes a feature-gated local fixture `CountAll` by scanning Vortex arrays
 /// and summing their lengths.
 ///
@@ -1090,7 +1136,7 @@ fn encoded_read_readiness_source_uri(
 /// Returns an error only if deterministic report construction fails.
 #[cfg(feature = "vortex-encoded-read-spike")]
 fn execute_vortex_count_all_from_local_scan_readiness_with_session<B>(
-    readiness_report: VortexEncodedReadReadinessReport,
+    readiness_report: &VortexEncodedReadReadinessReport,
     target_uri: &DatasetUri,
     runtime: &B,
     session: &vortex::session::VortexSession,
@@ -1100,9 +1146,10 @@ where
 {
     use vortex::file::OpenOptionsSessionExt as _;
 
-    let input =
-        VortexEncodedReadExecutionInput::new(readiness_report).allow_encoded_read_execution(true);
+    let input = VortexEncodedReadExecutionInput::new(readiness_report.clone())
+        .allow_encoded_read_execution(true);
     let mut report = VortexEncodedReadExecutionReport::from_input(input)?;
+    annotate_local_fixture_scan_source_evidence(&mut report, target_uri, readiness_report);
     if !vortex_encoded_read_spike_feature_enabled() {
         return Ok(VortexEncodedReadExecutionReport::feature_disabled(
             report.input,
@@ -1243,7 +1290,7 @@ where
 #[cfg(feature = "vortex-encoded-read-spike")]
 pub fn execute_vortex_count_all_from_local_scan_with_session<B>(
     approval_report: &VortexEncodedCountDataPathApprovalReport,
-    readiness_report: VortexEncodedReadReadinessReport,
+    readiness_report: &VortexEncodedReadReadinessReport,
     runtime: &B,
     session: &vortex::session::VortexSession,
 ) -> Result<VortexEncodedReadExecutionReport>
@@ -1259,6 +1306,8 @@ where
         VortexEncodedReadExecutionInput::new(readiness_report.clone())
             .allow_encoded_read_execution(true),
     )?;
+    let readiness_target_uri =
+        annotate_local_fixture_scan_source_evidence(&mut report, target_uri, readiness_report);
     if !approval_report.approved()
         || approval_report.has_errors()
         || !approval_report.is_side_effect_free()
@@ -1270,14 +1319,14 @@ where
         );
         return Ok(report);
     }
-    let Some(readiness_target_uri) = encoded_read_readiness_source_uri(&readiness_report) else {
+    let Some(readiness_target_uri) = readiness_target_uri else {
         block_local_fixture_scan_for_approval(
             &mut report,
             "local fixture scan/count requires encoded-read readiness source URI evidence",
         );
         return Ok(report);
     };
-    if readiness_target_uri != target_uri {
+    if &readiness_target_uri != target_uri {
         block_local_fixture_scan_for_approval(
             &mut report,
             format!(
@@ -1461,7 +1510,7 @@ mod tests {
 
         let report = execute_vortex_count_all_from_local_scan_with_session(
             &approval,
-            ready_readiness_for_uri(target_uri),
+            &ready_readiness_for_uri(target_uri),
             &runtime,
             &session,
         )
@@ -1484,6 +1533,15 @@ mod tests {
         assert!(!report.data_materialized);
         assert!(!report.row_read);
         assert!(!report.arrow_converted);
+        assert_eq!(
+            report.local_fixture_scan_target_uri.as_ref(),
+            Some(&approval.input.count_readiness_report.request.target_uri)
+        );
+        assert_eq!(
+            report.local_fixture_readiness_source_uri.as_ref(),
+            report.local_fixture_scan_target_uri.as_ref()
+        );
+        assert!(report.local_fixture_source_uri_matches_target);
         assert!(!report.object_store_io);
         assert!(!report.write_io);
         assert!(!report.spill_io_performed);
@@ -1510,7 +1568,7 @@ mod tests {
 
         let report = execute_vortex_count_all_from_local_scan_with_session(
             &approval,
-            ready_readiness_for_uri(target_uri),
+            &ready_readiness_for_uri(target_uri),
             &runtime,
             &session,
         )
@@ -1522,6 +1580,15 @@ mod tests {
         );
         assert!(!report.data_read);
         assert!(!report.upstream_scan_called);
+        assert_eq!(
+            report.local_fixture_scan_target_uri.as_ref(),
+            Some(&approval.input.count_readiness_report.request.target_uri)
+        );
+        assert_eq!(
+            report.local_fixture_readiness_source_uri.as_ref(),
+            report.local_fixture_scan_target_uri.as_ref()
+        );
+        assert!(report.local_fixture_source_uri_matches_target);
         assert!(!report.object_store_io);
         assert!(!report.fallback_execution_allowed);
         assert!(report.has_errors());
@@ -1549,7 +1616,7 @@ mod tests {
 
         let report = execute_vortex_count_all_from_local_scan_with_session(
             &approval,
-            ready_readiness_for_uri(target_uri),
+            &ready_readiness_for_uri(target_uri),
             &runtime,
             &session,
         )
@@ -1561,6 +1628,15 @@ mod tests {
         );
         assert!(!report.data_read);
         assert!(!report.upstream_scan_called);
+        assert_eq!(
+            report.local_fixture_scan_target_uri.as_ref(),
+            Some(&approval.input.count_readiness_report.request.target_uri)
+        );
+        assert_eq!(
+            report.local_fixture_readiness_source_uri.as_ref(),
+            report.local_fixture_scan_target_uri.as_ref()
+        );
+        assert!(report.local_fixture_source_uri_matches_target);
         assert!(!report.fallback_execution_allowed);
         assert!(report.has_errors());
     }
@@ -1584,13 +1660,19 @@ mod tests {
         let approval_uri =
             DatasetUri::new(format!("file://{}", fixture_path.display())).expect("approval uri");
         let approval = approved_encoded_count_path_for_uri(approval_uri);
+        let approval_uri = approval
+            .input
+            .count_readiness_report
+            .request
+            .target_uri
+            .clone();
         assert!(approval.approved());
         let runtime = SingleThreadRuntime::default();
         let session = VortexSession::default().with_handle(runtime.handle());
 
         let report = execute_vortex_count_all_from_local_scan_with_session(
             &approval,
-            ready_readiness_for_uri(readiness_uri),
+            &ready_readiness_for_uri(readiness_uri.clone()),
             &runtime,
             &session,
         )
@@ -1602,6 +1684,15 @@ mod tests {
         );
         assert!(!report.data_read);
         assert!(!report.upstream_scan_called);
+        assert_eq!(
+            report.local_fixture_scan_target_uri.as_ref(),
+            Some(&approval_uri)
+        );
+        assert_eq!(
+            report.local_fixture_readiness_source_uri.as_ref(),
+            Some(&readiness_uri)
+        );
+        assert!(!report.local_fixture_source_uri_matches_target);
         assert!(!report.fallback_execution_allowed);
         assert!(report.has_errors());
         assert!(
