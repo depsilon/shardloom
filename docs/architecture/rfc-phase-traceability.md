@@ -396,6 +396,14 @@ No fallback execution.
 - Count-readiness and encoded-count approval preserve the layout-reader blocker by name while excluding metadata-only row-count surfaces from execution blockers.
 - This pass does not construct `LayoutReader`, call scan/read-start APIs, array stream/evaluation APIs, traverse encoded data, read rows, decode/materialize, convert to `Arrow`, perform object-store IO, write, or attempt fallback execution.
 
+## CG-2.1e.10 layout-driver approval boundary
+
+- Primary RFC linkage: RFC 0005 Vortex-Native File IO and Output Contract, RFC 0012 Diagnostics/Capabilities, RFC 0013 Streaming/Zero-Copy Boundary, RFC 0015 Correctness/testing, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
+- `VortexLayoutReaderDriverApprovalReport` defines the report-only gate that must approve any future `LayoutReader::row_count` use.
+- The current public API boundary remains blocked unless local fixture scope, caller session, runtime-driver permission, row-count-only intent, no scan/evaluation/data-read/decode/materialization/Arrow/object-store/write, and no-fallback signals are explicit.
+- Even approved reports construct no `LayoutReader`, start no driver, call no scan/evaluation API, read no data or rows, decode/materialize nothing, convert nothing to `Arrow`, perform no object-store IO or writes, and do not allow fallback.
+- This pass adds no runtime invocation, dependency, parser, adapter runtime, object-store IO, write behavior, or fallback execution.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.
