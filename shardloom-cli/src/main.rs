@@ -77,15 +77,15 @@ use shardloom_vortex::{
     execute_vortex_count_all_from_approved_local_scan_result,
     execute_vortex_count_all_from_encoded_count_data_path_approval,
     execute_vortex_encoded_read_contract, execute_vortex_encoded_read_spike,
-    execute_vortex_local_commit, execute_vortex_local_query_primitive,
-    execute_vortex_metadata_only, finalized_manifest_artifact_write_request_from_plan,
-    metadata_planning_is_side_effect_free, metadata_pruning_is_side_effect_free,
-    metadata_summary_is_plan_only, native_output_payload_write_request_from_plan,
-    open_vortex_metadata_only, output_payload_artifact_write_request_from_plan,
-    parse_vortex_local_engine_primitive, plan_from_vortex_metadata_summary,
-    plan_native_vortex_universal_input, plan_vortex_commit_intent, plan_vortex_commit_marker,
-    plan_vortex_commit_protocol, plan_vortex_count_readiness,
-    plan_vortex_encoded_count_data_path_approval,
+    execute_vortex_local_commit, execute_vortex_local_commit_rollback,
+    execute_vortex_local_query_primitive, execute_vortex_metadata_only,
+    finalized_manifest_artifact_write_request_from_plan, metadata_planning_is_side_effect_free,
+    metadata_pruning_is_side_effect_free, metadata_summary_is_plan_only,
+    native_output_payload_write_request_from_plan, open_vortex_metadata_only,
+    output_payload_artifact_write_request_from_plan, parse_vortex_local_engine_primitive,
+    plan_from_vortex_metadata_summary, plan_native_vortex_universal_input,
+    plan_vortex_commit_intent, plan_vortex_commit_marker, plan_vortex_commit_protocol,
+    plan_vortex_count_readiness, plan_vortex_encoded_count_data_path_approval,
     plan_vortex_encoded_count_data_path_approval_with_layout_driver,
     plan_vortex_encoded_read_boundary, plan_vortex_encoded_read_probe,
     plan_vortex_filtered_count_readiness, plan_vortex_layout_reader_driver_approval,
@@ -143,7 +143,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -6937,6 +6937,140 @@ fn run(args: Vec<String>) -> ExitCode {
                 ExitCode::SUCCESS
             }
         }
+        Some("vortex-local-commit-rollback-execute") => {
+            let Some(target_uri_raw) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-local-commit-rollback-execute <target_uri> <workspace_path> <signals>"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(workspace_path_raw) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-local-commit-rollback-execute <target_uri> <workspace_path> <signals>"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(signals_raw) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-local-commit-rollback-execute <target_uri> <workspace_path> <signals>"
+                );
+                return ExitCode::from(2);
+            };
+            let target_uri = match DatasetUri::new(target_uri_raw) {
+                Ok(uri) => uri,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-local-commit-rollback-execute",
+                        format,
+                        "invalid dataset uri",
+                        &error,
+                    );
+                }
+            };
+            let workspace_path = match VortexStagedWorkspacePath::new(workspace_path_raw) {
+                Ok(path) => path,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-local-commit-rollback-execute",
+                        format,
+                        "invalid workspace path",
+                        &error,
+                    );
+                }
+            };
+            let signals = match parse_vortex_local_commit_recovery_signals(&signals_raw) {
+                Ok(signals) => signals,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-local-commit-rollback-execute",
+                        format,
+                        "invalid local commit recovery signals",
+                        &error,
+                    );
+                }
+            };
+            let mut request = VortexLocalCommitRecoveryRequest::new(target_uri, workspace_path);
+            for signal in signals {
+                request.add_signal(signal, true);
+            }
+            let recovery_report = match plan_vortex_local_commit_recovery(request) {
+                Ok(report) => report,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-local-commit-rollback-execute",
+                        format,
+                        "local commit recovery planning failed",
+                        &error,
+                    );
+                }
+            };
+            let report = match execute_vortex_local_commit_rollback(recovery_report) {
+                Ok(report) => report,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-local-commit-rollback-execute",
+                        format,
+                        "local commit rollback execution failed",
+                        &error,
+                    );
+                }
+            };
+            emit(
+                "vortex-local-commit-rollback-execute",
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "vortex local commit rollback execute".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    (
+                        "mode".to_string(),
+                        "vortex_local_commit_rollback_execute".to_string(),
+                    ),
+                    (
+                        "rollback_executed".to_string(),
+                        report.rollback_executed().to_string(),
+                    ),
+                    (
+                        "cleanup_performed".to_string(),
+                        report.cleanup_performed().to_string(),
+                    ),
+                    (
+                        "committed_manifest_removed".to_string(),
+                        report.committed_manifest_removed().to_string(),
+                    ),
+                    (
+                        "bytes_removed".to_string(),
+                        report.bytes_removed.to_string(),
+                    ),
+                    (
+                        "object_store_io".to_string(),
+                        report.object_store_io().to_string(),
+                    ),
+                    (
+                        "upstream_vortex_write_called".to_string(),
+                        report.upstream_vortex_write_called().to_string(),
+                    ),
+                    (
+                        "execution".to_string(),
+                        "local_commit_rollback_execution_or_not_performed".to_string(),
+                    ),
+                ],
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
         Some("vortex-staged-workspace-setup") => {
             let Some(workspace_id_raw) = args.next() else {
                 eprintln!(
@@ -12691,6 +12825,57 @@ mod tests {
     }
 
     #[test]
+    fn vortex_local_commit_rollback_execute_ready_returns_success() {
+        let unique = format!(
+            "shardloom-cli-local-commit-rollback-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        );
+        let root = std::env::temp_dir().join(unique);
+        let workspace = root.join("stage");
+        std::fs::create_dir_all(&workspace).unwrap();
+        let committed_path = workspace.join("_shardloom_committed_manifest.json");
+        std::fs::write(&committed_path, b"{\"committed\":true}").unwrap();
+        let code = run(vec![
+            "vortex-local-commit-rollback-execute".to_string(),
+            "file://tmp/out.vortex".to_string(),
+            workspace.to_string_lossy().to_string(),
+            "rollback-requested,committed-manifest-written,local-workspace,cleanup-allowed"
+                .to_string(),
+        ]);
+        assert_eq!(
+            committed_path.exists(),
+            !shardloom_vortex::vortex_local_commit_rollback_execution_feature_enabled()
+        );
+        let _ = std::fs::remove_dir_all(root);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_local_commit_rollback_execute_invalid_inputs_return_non_zero() {
+        assert_ne!(
+            run(vec!["vortex-local-commit-rollback-execute".to_string()]),
+            ExitCode::SUCCESS
+        );
+        let unknown_signal = run(vec![
+            "vortex-local-commit-rollback-execute".to_string(),
+            "file://tmp/out.vortex".to_string(),
+            "/tmp/stage".to_string(),
+            "committed-manifest-written,unknown".to_string(),
+        ]);
+        assert_ne!(unknown_signal, ExitCode::SUCCESS);
+        let ambiguous = run(vec![
+            "vortex-local-commit-rollback-execute".to_string(),
+            "file://tmp/out.vortex".to_string(),
+            "/tmp/stage".to_string(),
+            "committed-manifest-written,ambiguous-commit,local-workspace".to_string(),
+        ]);
+        assert_ne!(ambiguous, ExitCode::SUCCESS);
+    }
+
+    #[test]
     fn vortex_commit_marker_plan_ready_returns_success() {
         let code = run(vec![
             "vortex-commit-marker-plan".to_string(),
@@ -14208,6 +14393,7 @@ mod tests {
         assert!(usage.contains("|vortex-native-count-payload-write|"));
         assert!(usage.contains("|vortex-local-commit-execute|"));
         assert!(usage.contains("|vortex-local-commit-recovery-plan|"));
+        assert!(usage.contains("|vortex-local-commit-rollback-execute|"));
     }
 
     #[test]
@@ -14403,10 +14589,11 @@ mod tests {
     fn cli_usage_execute_command_names_are_explicitly_scoped() {
         let usage = cli_usage_line();
         let execute_commands = usage.matches("-execute").count();
-        assert_eq!(execute_commands, 3);
+        assert_eq!(execute_commands, 4);
         assert!(usage.contains("vortex-encoded-read-execute"));
         assert!(usage.contains("vortex-metadata-execute"));
         assert!(usage.contains("vortex-local-commit-execute"));
+        assert!(usage.contains("vortex-local-commit-rollback-execute"));
     }
     #[test]
     fn cli_contract_name_is_shardloom() {
