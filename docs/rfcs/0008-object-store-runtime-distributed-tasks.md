@@ -92,6 +92,58 @@ Object-store IO should support:
 
 ShardLoom should avoid full-file reads unless required.
 
+### Object-store range planning report
+
+Object-store range planning is the report-only bridge between declared manifest byte ranges
+and future object-store reads. It may produce request-shape evidence from already-declared
+S3/GCS/ADLS segment byte ranges, but it must not contact object stores, probe networks, read
+files, materialize data, retry requests, or execute fallback behavior.
+
+The CG-10 object-store range evidence surface is `ObjectStoreRangePlanningReport`.
+
+Required fields:
+
+- `manifest`.
+- `policy`.
+- `status`.
+- `requests`.
+- `diagnostics`.
+- `file_count`.
+- `segment_count`.
+- `object_store_file_count`.
+- `non_object_store_file_count`.
+- `ranged_segment_count`.
+- `missing_byte_range_segment_count`.
+- `invalid_range_count`.
+- `oversized_range_count`.
+- `planned_request_count`.
+- `planned_range_count`.
+- `coalesced_range_count`.
+- `estimated_request_bytes`.
+- `requires_byte_ranges`.
+- `requires_request_budget_review`.
+- `full_file_read_required`.
+- `full_file_read_allowed=false`.
+- `can_plan_without_io=true`.
+- `data_read=false`.
+- `object_store_io=false`.
+- `write_io=false`.
+- `fallback_execution_allowed=false`.
+
+`ObjectStoreRangePlanningStatus` should identify at least:
+
+- `planned`.
+- `blocked_missing_byte_ranges`.
+- `blocked_invalid_ranges`.
+- `blocked_request_budget`.
+- `blocked_non_object_store`.
+- `unsupported`.
+
+Object-store range planning may coalesce adjacent ranges when the request budget allows it.
+Coalescing is planning evidence only; it does not execute reads or imply provider capability.
+Missing byte ranges must not silently degrade into full-file reads. Full-file reads require a
+separate native approval gate and must remain disallowed in this report.
+
 ## SegmentTask
 
 A SegmentTask is a unit of execution over one or more encoded segments.

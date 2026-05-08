@@ -45,33 +45,32 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-9.7 compaction planning evidence
+- [x] Session label: CG-10.1 object-store range planning evidence
   - Primary files:
-    - `shardloom-core/src/manifest.rs`
-    - `shardloom-core/src/lib.rs`
+    - `shardloom-plan/src/object_store.rs`
+    - `shardloom-plan/src/lib.rs`
     - `shardloom-cli/src/main.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-    - `docs/rfcs/0016-optimizer-adaptive-execution-runtime-filters-skew.md`
-    - `docs/rfcs/0020-schema-evolution-catalog-table-compatibility.md`
+    - `docs/rfcs/0008-object-store-runtime-distributed-tasks.md`
     - `docs/architecture/canonical-terminology.md`
-  - Scope: Add no-IO/no-fallback compaction planning evidence over declared manifest/layout-health metadata without constructing layout readers, catalog access, table metadata IO, data reads, writes, object-store IO, compaction execution, or fallback execution.
+  - Scope: Add no-IO/no-fallback object-store range planning evidence over declared manifest segment byte ranges without reading object storage, reading files, materializing data, writing, retrying requests, or fallback execution.
   - Checklist:
-    - [x] Add `CompactionPlanningPolicy`, `CompactionPlanningAction`, and `CompactionPlanningReport` contracts.
-    - [x] Derive future compaction recommendations from `LayoutHealthReport` without reads, writes, maintenance execution, or fallback.
-    - [x] Block missing metadata and mixed/non-native layout evidence behind explicit planning statuses.
-    - [x] Surface no-IO/no-fallback evidence through `compaction-plan`.
-    - [x] Add focused success/failure tests for compaction planning.
-    - [x] Update phase, RFC traceability, RFC 0016, RFC 0020, and terminology docs.
+    - [x] Add `ObjectStoreRangePlanningPolicy`, `ObjectStoreRangeRequest`, and `ObjectStoreRangePlanningReport` contracts.
+    - [x] Plan request shapes from declared S3/GCS/ADLS segment byte ranges without object-store IO.
+    - [x] Block empty manifests, local/non-object-store inputs, missing byte ranges, invalid ranges, and oversized ranges with deterministic diagnostics.
+    - [x] Surface no-IO/no-fallback evidence through `object-store-range-plan`.
+    - [x] Add focused success/failure tests for object-store range planning.
+    - [x] Update phase, RFC traceability, RFC 0008, and terminology docs.
     - [x] Run full required validation.
   - Local validation status:
-    - focused `shardloom-core` compaction-planning tests passed
-    - focused `shardloom-cli` compaction-plan tests passed
-    - focused Clippy for `shardloom-core` and `shardloom-cli` passed with toolchain `1.91.1`
+    - focused `shardloom-plan` object-store range tests passed
+    - focused `shardloom-cli` object-store-range-plan tests passed
+    - focused Clippy for `shardloom-plan` and `shardloom-cli` passed with toolchain `1.91.1`
     - full Rust validation passed with toolchain `1.91.1`
     - docs hygiene scans passed for `git diff --check` and hidden/bidi controls
-    - CLI JSON smoke check passed for `compaction-plan small-files --format json`
-  - Explicitly not included: layout-reader construction, catalog access, table metadata reads, object-store IO, data reads, writes, commits, external table-format implementation, delete-file application, tombstone filtering, row-delete execution, position-delete execution, equality-delete execution, CDC execution, compaction execution, parser work, SQL execution, adapter runtime, benchmark claims, superiority claims, or fallback execution.
+    - CLI JSON smoke check passed for `object-store-range-plan s3-ranges --format json`
+  - Explicitly not included: object-store IO, file IO, data reads, row reads, decode/materialization, Arrow conversion, request execution, retry execution, network probing, writes, commits, distributed execution, parser work, SQL execution, adapter runtime, benchmark claims, superiority claims, or fallback execution.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -853,6 +852,15 @@ Supporting docs:
     - `compaction-plan` surfaces stable report fields for healthy, small-file, missing-stats, mixed-layout, and empty-manifest scenarios.
     - Empty manifests are rejected; recommendations remain planning evidence and do not execute writes or maintenance.
     - No layout-reader construction, catalog access, table metadata IO, data reads, writes, object-store IO, compaction execution, benchmark claim, superiority claim, or fallback behavior is added.
+- [x] CG-10.1 object-store range planning evidence
+  - Why: start CG-10 with byte-range request-shape evidence before object-store request execution, retries, distributed scheduling, or commit behavior expands.
+  - Acceptance:
+    - `ObjectStoreRangePlanningReport` records manifest, policy, status, request, count, blocker, estimated byte, side-effect, full-file-read-disallowed, object-store-IO-disabled, and no-fallback fields.
+    - The planner emits object-store request shapes only from declared S3/GCS/ADLS segment byte ranges.
+    - Empty manifests, local/non-object-store inputs, missing byte ranges, invalid ranges, and oversized ranges are blocked with deterministic diagnostics.
+    - `object-store-range-plan` surfaces stable report fields for s3-ranges, missing-ranges, local-file, invalid-range, oversized-range, and empty scenarios.
+    - Planned ranges remain request-shape evidence only and do not execute reads, retries, network probing, or full-file reads.
+    - No object-store IO, file IO, data reads, writes, distributed execution, benchmark claim, superiority claim, or fallback behavior is added.
 
 ## Competitive Engine Gates CG-1 through CG-20
 
@@ -1027,6 +1035,7 @@ Status legend:
     - layout-health and compaction planning
 
 - [ ] CG-10 — Object-store/distributed execution (**planned**)
+  - [x] CG-10.1 object-store range planning evidence
   - Scope:
     - object-store range planning and request coalescing
     - object-store commit protocol
@@ -1278,7 +1287,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [ ] broader compaction execution and catalog/table maintenance integration
 
 ### CG-10 detailed checklist
-- [ ] object-store range planning
+- [x] CG-10.1 object-store range planning evidence
 - [ ] request coalescing
 - [ ] object-store commit protocol
 - [ ] distributed scheduling
@@ -1463,6 +1472,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-9.5 CDC incremental planning evidence adds `CdcIncrementalPlanningReport` and `incremental-plan cdc` surfacing for append-only/metadata-only plan routing and unsupported update/delete/tombstone/schema/partition/unknown cases while keeping catalog access, table metadata reads, IO, writes, CDC execution, and fallback disabled.
 - [x] CG-9.6 layout health planning evidence adds `LayoutHealthReport` and `layout-health-plan` surfacing for small files/segments, missing stats/byte ranges, mixed formats/layouts/encodings, and compaction recommendations while keeping layout-reader construction, catalog access, table metadata reads, IO, writes, compaction execution, and fallback disabled.
 - [x] CG-9.7 compaction planning evidence adds `CompactionPlanningReport` and `compaction-plan` surfacing for future small-file/small-segment maintenance recommendations, metadata/layout blockers, and estimated report-only groups while keeping layout-reader construction, catalog access, table metadata reads, IO, writes, compaction execution, and fallback disabled.
+- [x] CG-10.1 object-store range planning evidence adds `ObjectStoreRangePlanningReport` and `object-store-range-plan` surfacing for declared S3/GCS/ADLS byte ranges, request-shape counts, coalesced range evidence, missing/invalid/oversized range blockers, no full-file-read permission, no object-store IO, and no fallback.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind `vortex-write`; placeholder artifact paths remain readiness-only.
 - [~] CG-3 broader output payload shapes remain deferred.

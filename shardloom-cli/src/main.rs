@@ -50,9 +50,10 @@ use shardloom_exec::{
     spill_payload_fs_feature_enabled,
 };
 use shardloom_plan::{
-    EstimateReport, ExplainReport, NativePlanDocument, OptimizerPhase, OptimizerPlanSkeleton,
-    PlanExportRequest, PlanId, PlanImportRequest, PlanInteropFormat, ProjectionRequest,
-    ScanPlanSkeleton, ScanRequest, plan_universal_input_source,
+    EstimateReport, ExplainReport, NativePlanDocument, ObjectStoreRangePlanningPolicy,
+    ObjectStoreRangePlanningReport, OptimizerPhase, OptimizerPlanSkeleton, PlanExportRequest,
+    PlanId, PlanImportRequest, PlanInteropFormat, ProjectionRequest, ScanPlanSkeleton, ScanRequest,
+    plan_object_store_ranges, plan_universal_input_source,
 };
 use shardloom_vortex::{
     VortexAdapterCapabilityReport, VortexAdapterReadiness, VortexAdaptiveSizingReport,
@@ -170,7 +171,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|layout-health-plan|compaction-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|layout-health-plan|compaction-plan|object-store-range-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -2760,6 +2761,10 @@ fn push_field(fields: &mut Vec<(String, String)>, key: &str, value: &str) {
 }
 
 fn push_count_field(fields: &mut Vec<(String, String)>, key: &str, value: usize) {
+    fields.push((key.to_string(), value.to_string()));
+}
+
+fn push_u64_field(fields: &mut Vec<(String, String)>, key: &str, value: u64) {
     fields.push((key.to_string(), value.to_string()));
 }
 
@@ -6867,6 +6872,203 @@ fn append_compaction_side_effect_fields(
     );
 }
 
+fn emit_object_store_range_plan(format: OutputFormat, scenario: &str) -> ExitCode {
+    let manifest = match object_store_range_fixture(scenario) {
+        Ok(manifest) => manifest,
+        Err(error) => {
+            return emit_error(
+                "object-store-range-plan",
+                format,
+                "object-store range planning failed",
+                &error,
+            );
+        }
+    };
+    let report = plan_object_store_ranges(manifest, ObjectStoreRangePlanningPolicy::default());
+    let status = if report.has_errors() {
+        CommandStatus::Unsupported
+    } else {
+        CommandStatus::Success
+    };
+    emit(
+        "object-store-range-plan",
+        format,
+        status,
+        "object-store range planning report".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        object_store_range_output_fields(&report, scenario),
+    );
+    if report.has_errors() {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+fn object_store_range_output_fields(
+    report: &ObjectStoreRangePlanningReport,
+    scenario: &str,
+) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    push_field(&mut fields, "fallback_execution_allowed", "false");
+    push_field(&mut fields, "mode", "object_store_range_plan");
+    push_field(&mut fields, "scenario", scenario);
+    push_field(
+        &mut fields,
+        "object_store_range_status",
+        report.status.as_str(),
+    );
+    append_object_store_range_count_fields(&mut fields, report);
+    append_object_store_range_requirement_fields(&mut fields, report);
+    append_object_store_range_side_effect_fields(&mut fields, report);
+    push_field(&mut fields, "execution", "not_performed");
+    push_field(&mut fields, "plan_only", "true");
+    fields
+}
+
+fn append_object_store_range_count_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &ObjectStoreRangePlanningReport,
+) {
+    push_count_field(fields, "file_count", report.file_count);
+    push_count_field(fields, "segment_count", report.segment_count);
+    push_count_field(
+        fields,
+        "object_store_file_count",
+        report.object_store_file_count,
+    );
+    push_count_field(
+        fields,
+        "non_object_store_file_count",
+        report.non_object_store_file_count,
+    );
+    push_count_field(fields, "ranged_segment_count", report.ranged_segment_count);
+    push_count_field(
+        fields,
+        "missing_byte_range_segment_count",
+        report.missing_byte_range_segment_count,
+    );
+    push_count_field(fields, "invalid_range_count", report.invalid_range_count);
+    push_count_field(
+        fields,
+        "oversized_range_count",
+        report.oversized_range_count,
+    );
+    push_count_field(
+        fields,
+        "planned_request_count",
+        report.planned_request_count,
+    );
+    push_count_field(fields, "planned_range_count", report.planned_range_count);
+    push_count_field(
+        fields,
+        "coalesced_range_count",
+        report.coalesced_range_count,
+    );
+    push_u64_field(
+        fields,
+        "estimated_request_bytes",
+        report.estimated_request_bytes,
+    );
+}
+
+fn append_object_store_range_requirement_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &ObjectStoreRangePlanningReport,
+) {
+    push_bool_field(fields, "requires_byte_ranges", report.requires_byte_ranges);
+    push_bool_field(
+        fields,
+        "requires_request_budget_review",
+        report.requires_request_budget_review,
+    );
+    push_bool_field(
+        fields,
+        "full_file_read_required",
+        report.full_file_read_required,
+    );
+    push_bool_field(
+        fields,
+        "full_file_read_allowed",
+        report.full_file_read_allowed,
+    );
+    push_bool_field(fields, "can_plan_without_io", report.can_plan_without_io);
+}
+
+fn append_object_store_range_side_effect_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &ObjectStoreRangePlanningReport,
+) {
+    push_bool_field(fields, "side_effect_free", report.side_effect_free());
+    push_bool_field(fields, "data_read", report.data_read);
+    push_bool_field(fields, "object_store_io", report.object_store_io);
+    push_bool_field(fields, "write_io", report.write_io);
+}
+
+fn object_store_range_fixture(scenario: &str) -> Result<DatasetManifest, ShardLoomError> {
+    match scenario {
+        "s3-ranges" => object_store_range_manifest(
+            "s3://bucket/table.vortex",
+            vec![ByteRange::new(0, 1024), ByteRange::new(2048, 1024)],
+        ),
+        "missing-ranges" => object_store_range_manifest("s3://bucket/table.vortex", vec![]),
+        "local-file" => object_store_range_manifest(
+            "file://object-store-range/table.vortex",
+            vec![ByteRange::new(0, 1024)],
+        ),
+        "invalid-range" => {
+            object_store_range_manifest("s3://bucket/table.vortex", vec![ByteRange::new(0, 0)])
+        }
+        "oversized-range" => object_store_range_manifest(
+            "s3://bucket/table.vortex",
+            vec![ByteRange::new(0, 32 * 1024 * 1024)],
+        ),
+        "empty" => Ok(object_store_range_base_manifest()?),
+        value => Err(cli_unknown_arg_error("object-store-range-plan", value)),
+    }
+}
+
+fn object_store_range_base_manifest() -> Result<DatasetManifest, ShardLoomError> {
+    Ok(DatasetManifest::new(
+        ManifestId::new("object-store-range-manifest")?,
+        DatasetRef::from_uri(DatasetUri::new("s3://bucket/table.vortex")?)?,
+        SnapshotRef::new(SnapshotId::new("object-store-range-snapshot")?),
+    ))
+}
+
+fn object_store_range_manifest(
+    uri: &str,
+    ranges: Vec<ByteRange>,
+) -> Result<DatasetManifest, ShardLoomError> {
+    let dataset_uri = DatasetUri::new(uri)?;
+    let mut manifest = DatasetManifest::new(
+        ManifestId::new("object-store-range-manifest")?,
+        DatasetRef::from_uri(dataset_uri.clone())?,
+        SnapshotRef::new(SnapshotId::new("object-store-range-snapshot")?),
+    );
+    let file = FileDescriptor::new(
+        dataset_uri,
+        DatasetFormat::Vortex,
+        FileRole::NativeVortexData,
+    )
+    .with_size_bytes(128 * 1024 * 1024);
+    let mut layout = SegmentLayout::new(EncodingKind::Plain, LayoutKind::Flat);
+    layout.byte_ranges = ranges;
+    layout.physical_size_bytes = Some(8 * 1024 * 1024);
+    let segment = EncodedSegment::new(
+        SegmentId::new("object-store-range-segment")?,
+        ColumnRef::new("value")?,
+        LogicalDType::Int64,
+        Nullability::Nullable,
+        layout,
+        SegmentStats::with_row_count(64_000),
+    );
+    manifest.add_file(file.clone());
+    manifest.add_segment(ManifestSegment::new(segment, file));
+    Ok(manifest)
+}
+
 fn layout_health_fixture(scenario: &str) -> Result<DatasetManifest, ShardLoomError> {
     let mut manifest = layout_health_base_manifest()?;
     match scenario {
@@ -9754,6 +9956,18 @@ fn run(args: Vec<String>) -> ExitCode {
                 );
             }
             emit_compaction_plan(format, &scenario)
+        }
+        Some("object-store-range-plan") => {
+            let scenario = args.next().unwrap_or_else(|| "s3-ranges".to_string());
+            if let Some(extra) = args.next() {
+                return emit_error(
+                    "object-store-range-plan",
+                    format,
+                    "object-store range planning failed",
+                    &cli_unknown_arg_error("object-store-range-plan", &extra),
+                );
+            }
+            emit_object_store_range_plan(format, &scenario)
         }
         Some("incremental-plan") => {
             let Some(snapshot_id) = args.next() else {
@@ -17058,6 +17272,24 @@ mod tests {
     }
 
     #[test]
+    fn object_store_range_plan_s3_ranges_returns_success() {
+        let code = run(vec![
+            "object-store-range-plan".to_string(),
+            "s3-ranges".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn object_store_range_plan_missing_ranges_returns_non_zero() {
+        let code = run(vec![
+            "object-store-range-plan".to_string(),
+            "missing-ranges".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
     fn incremental_plan_cdc_append_only_returns_success() {
         let code = run(vec![
             "incremental-plan".to_string(),
@@ -17991,6 +18223,10 @@ mod tests {
     #[test]
     fn usage_includes_compaction_plan() {
         assert!(cli_usage_line().contains("compaction-plan"));
+    }
+    #[test]
+    fn usage_includes_object_store_range_plan() {
+        assert!(cli_usage_line().contains("object-store-range-plan"));
     }
     #[test]
     fn parse_sizing_feedback_signals_rejects_unknown_and_empty() {

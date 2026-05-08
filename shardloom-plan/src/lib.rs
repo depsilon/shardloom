@@ -7,6 +7,7 @@ pub mod estimate;
 pub mod explain;
 pub mod input_bridge;
 pub mod input_planning;
+pub mod object_store;
 pub mod optimizer;
 pub mod plan_ir;
 pub mod scan;
@@ -19,6 +20,10 @@ pub use input_bridge::input_source_to_scan_request;
 pub use input_planning::{
     InputPlanningMode, InputPlanningStatus, UniversalInputPlanningReport,
     plan_universal_input_source, universal_input_planning_is_side_effect_free,
+};
+pub use object_store::{
+    ObjectStoreRangePlanningPolicy, ObjectStoreRangePlanningReport, ObjectStoreRangePlanningStatus,
+    ObjectStoreRangeRequest, plan_object_store_ranges,
 };
 pub use optimizer::{
     AdaptiveDecisionKind, AdaptiveExecutionDecision, AdaptiveTrigger, AdaptiveTriggerKind,
