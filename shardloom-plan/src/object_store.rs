@@ -7,7 +7,7 @@ use std::collections::BTreeSet;
 
 use shardloom_core::{
     ByteRange, DatasetManifest, DatasetUri, Diagnostic, DiagnosticCategory, DiagnosticCode,
-    DiagnosticSeverity, FallbackStatus, SegmentId, UriScheme,
+    DiagnosticSeverity, FallbackStatus, FileDescriptor, FileRole, SegmentId, UriScheme,
 };
 
 /// Report-only policy for object-store range planning.
@@ -1347,38 +1347,52 @@ impl ObjectStoreRangeCounts {
             object_store_files: manifest
                 .files
                 .iter()
-                .filter(|file| is_object_store_uri(&file.uri))
+                .filter(|file| {
+                    is_object_store_range_input_file(file) && is_object_store_uri(&file.uri)
+                })
                 .count(),
             non_object_store_files: manifest
                 .files
                 .iter()
-                .filter(|file| !is_object_store_uri(&file.uri))
+                .filter(|file| {
+                    is_object_store_range_input_file(file) && !is_object_store_uri(&file.uri)
+                })
                 .count(),
             ranged_segments: manifest
                 .segments
                 .iter()
                 .filter(|segment| {
-                    is_object_store_uri(&segment.file.uri) && segment.segment.has_byte_ranges()
+                    is_object_store_range_input_file(&segment.file)
+                        && is_object_store_uri(&segment.file.uri)
+                        && segment.segment.has_byte_ranges()
                 })
                 .count(),
             missing_byte_range_segments: manifest
                 .segments
                 .iter()
                 .filter(|segment| {
-                    is_object_store_uri(&segment.file.uri) && !segment.segment.has_byte_ranges()
+                    is_object_store_range_input_file(&segment.file)
+                        && is_object_store_uri(&segment.file.uri)
+                        && !segment.segment.has_byte_ranges()
                 })
                 .count(),
             invalid_ranges: manifest
                 .segments
                 .iter()
-                .filter(|segment| is_object_store_uri(&segment.file.uri))
+                .filter(|segment| {
+                    is_object_store_range_input_file(&segment.file)
+                        && is_object_store_uri(&segment.file.uri)
+                })
                 .flat_map(|segment| segment.segment.layout.byte_ranges.iter())
                 .filter(|range| range.is_empty())
                 .count(),
             oversized_ranges: manifest
                 .segments
                 .iter()
-                .filter(|segment| is_object_store_uri(&segment.file.uri))
+                .filter(|segment| {
+                    is_object_store_range_input_file(&segment.file)
+                        && is_object_store_uri(&segment.file.uri)
+                })
                 .flat_map(|segment| segment.segment.layout.byte_ranges.iter())
                 .filter(|range| range.length > policy.max_request_bytes)
                 .count(),
@@ -1409,6 +1423,10 @@ fn is_object_store_uri(uri: &DatasetUri) -> bool {
     )
 }
 
+fn is_object_store_range_input_file(file: &FileDescriptor) -> bool {
+    file.role == FileRole::NativeVortexData
+}
+
 fn coalesced_object_store_ranges(
     manifest: &DatasetManifest,
     policy: ObjectStoreRangePlanningPolicy,
@@ -1416,7 +1434,10 @@ fn coalesced_object_store_ranges(
     let mut requests = manifest
         .segments
         .iter()
-        .filter(|segment| is_object_store_uri(&segment.file.uri))
+        .filter(|segment| {
+            is_object_store_range_input_file(&segment.file)
+                && is_object_store_uri(&segment.file.uri)
+        })
         .flat_map(|segment| {
             segment
                 .segment
@@ -1498,8 +1519,8 @@ fn object_store_range_diagnostics(
         ObjectStoreRangePlanningStatus::BlockedNonObjectStore => vec![object_store_range_error(
             DiagnosticCode::ObjectStoreUnsupported,
             "object_store_uri",
-            "object-store range planning requires every declared input file to use an object-store URI",
-            "Declare only S3, GCS, or ADLS file URIs before object-store range planning.",
+            "object-store range planning requires every declared input data file to use an object-store URI",
+            "Declare only S3, GCS, or ADLS input data file URIs before object-store range planning.",
         )],
         ObjectStoreRangePlanningStatus::BlockedInvalidRanges => vec![object_store_range_error(
             DiagnosticCode::InvalidInput,
@@ -1677,6 +1698,27 @@ mod tests {
         assert_eq!(report.object_store_file_count, 1);
         assert_eq!(report.non_object_store_file_count, 1);
         assert!(report.has_errors());
+    }
+
+    #[test]
+    fn local_compatibility_outputs_do_not_block_object_store_range_planning() {
+        let mut manifest =
+            manifest_with_uri("s3://bucket/table.vortex", vec![ByteRange::new(0, 1024)]);
+        let compatibility_uri = DatasetUri::new("file://tmp/export.parquet").expect("uri");
+        manifest.add_file(FileDescriptor::new(
+            compatibility_uri,
+            DatasetFormat::Parquet,
+            FileRole::CompatibilityOutput,
+        ));
+
+        let report = plan_object_store_ranges(manifest, ObjectStoreRangePlanningPolicy::default());
+
+        assert_eq!(report.status, ObjectStoreRangePlanningStatus::Planned);
+        assert_eq!(report.file_count, 2);
+        assert_eq!(report.object_store_file_count, 1);
+        assert_eq!(report.non_object_store_file_count, 0);
+        assert_eq!(report.planned_range_count, 1);
+        assert!(!report.has_errors());
     }
 
     #[test]
