@@ -443,6 +443,14 @@ No fallback execution.
 - The report records no row reads, no requested decode/materialization, no Arrow conversion, no object-store IO, no writes, no spill IO, and no fallback execution.
 - The general public scan/read-start API boundary remains conservative; this pass does not approve adapters, non-fixture sources, encoded predicates, projections, object-store targets, benchmarks, external baselines, parser/runtime expansion, or superiority claims.
 
+## CG-2.1e.16 approval-gated local fixture scan/count
+
+- Primary RFC linkage: RFC 0012 Diagnostics/Capabilities, RFC 0013 Streaming/Zero-Copy Boundary, RFC 0015 Correctness/testing, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
+- `execute_vortex_count_all_from_local_scan_with_session` now requires an approved `VortexEncodedCountDataPathApprovalReport` before the local fixture scan/count path can run.
+- Current public API-boundary approval blockers return a blocked report before `VortexFile::scan` or `ScanBuilder::into_array_iter` is called.
+- Approved reports still require encoded-read readiness, caller-owned session/runtime, and local `.vortex` scope.
+- This keeps the CG-2.1e approval chain authoritative as execution begins: no row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, external baselines, or fallback execution are added.
+
 ## CG-5.1 metadata query primitive correctness fixtures
 
 - Primary RFC linkage: RFC 0015 Correctness/Semantics/Differential Testing, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.

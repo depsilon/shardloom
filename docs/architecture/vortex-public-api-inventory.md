@@ -764,6 +764,13 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - The static public API boundary still treats broad scan, stream, layout-evaluation, data-source, and object-store paths as blocked or deferred for general execution.
 - This inventory update does not approve non-fixture adapters, encoded predicates, projections, writes, external baselines, or superiority claims.
 
+## CG-2.1e.16 approval-gated local fixture scan/count
+
+- The feature-gated local fixture helper now requires `VortexEncodedCountDataPathApprovalReport::approved()` before it can invoke `VortexFile::scan` or `ScanBuilder::into_array_iter`.
+- Current public API-boundary blockers still prevent approval and therefore prevent scan invocation.
+- Approved local fixture scan/count remains a narrow exception to the static broad API boundary, not a general adapter/source approval.
+- This inventory update keeps non-fixture sources, object stores, encoded predicates, projections, writes, external baselines, and superiority claims out of scope.
+
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.
 - CG-2.2a adds `VortexFilteredCountReadinessRequest` and `VortexFilteredCountReadinessReport` planning/reporting only.
