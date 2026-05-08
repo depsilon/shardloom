@@ -676,6 +676,14 @@ No fallback execution.
 - `shardloom-contract-tests/tests/benchmark_evidence_manifest.rs` verifies comparison-ready reports remain blocked without reproducibility and that complete synthetic comparison/reproducibility evidence is required before the publication gate can open.
 - This pass adds no benchmark runner, external baseline invocation, query execution behavior, superiority claim, dependency, parser, adapter runtime, object-store IO, write behavior, or fallback execution.
 
+## CG-6.6 benchmark coverage inventory surfacing
+
+- Primary RFC linkage: RFC 0029 benchmark evidence requirements, RFC 0015 correctness-before-performance requirements, RFC 0025 competitive/no-fallback guardrails, RFC 0012 diagnostics/capability reporting, and RFC 0032 benchmark-gated claim publication requirements.
+- `BenchmarkPlan` now exposes deterministic scenario, workload class, correctness-validation, required-metric, foundation-metric, baseline-engine, external-baseline, expected-result, metric-family, benchmark-execution, and no-fallback inventory helpers.
+- `benchmark-plan` now emits stable JSON/text fields for scenario names, workload classes, correctness-validation modes, metric-family coverage, baseline engine order, expected result slots, claim-gate evidence state, and comparison-only/no-fallback boundaries.
+- `shardloom-cli/tests/benchmark_plan_snapshots.rs` and `shardloom-contract-tests/tests/benchmark_evidence_manifest.rs` verify the inventory fields without executing benchmarks or invoking external baselines.
+- This pass adds no benchmark runner, external baseline invocation, query execution behavior, performance/superiority/best-default claim, dependency, parser, adapter runtime, object-store IO, write behavior, or fallback execution.
+
 ## CG-7.1 physical operator/kernel contract foundation
 
 - Primary RFC linkage: RFC 0021 Expression Engine and Kernel Registry, RFC 0027 CPU Vectorized Kernels/Runtime Adaptivity, RFC 0014 Memory/Spill/OOM Safety, RFC 0025 competitive/no-fallback guardrails, and RFC 0032 operator certification requirements.

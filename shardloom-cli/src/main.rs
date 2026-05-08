@@ -6,19 +6,20 @@
 use std::process::ExitCode;
 
 use shardloom_core::{
-    BenchmarkEvidenceState, BenchmarkFallbackState, ByteRange, CapabilityCertificationReport,
-    CapabilityCertificationStatus, CatalogKind, CatalogRef, CdcEventKind, CdcEventSummary,
-    CdcIncrementalPlanningReport, ChangeSet, CliApiJsonProtocolReport, ColumnRef, CommandStatus,
-    CompactionPlanningPolicy, CompactionPlanningReport, ComparisonOp, CorrectnessFixture,
-    CorrectnessValidationPlan, CpuOperatorSpecializationReport, DatasetFormat, DatasetManifest,
-    DatasetRef, DatasetUri, DeleteModel, DeleteTombstoneCompatibilityReport, Diagnostic,
-    EncodedSegment, EncodingKind, ExecutionCertificate, ExecutionCertificateEvidenceSurfaceReport,
-    ExecutionEvidenceArtifactKind, ExtensionId, ExtensionInspectionReport, ExtensionLicenseKind,
-    ExtensionManifest, ExtensionProvenance, ExtensionRegistrySnapshot, ExtensionVersion, FieldId,
-    FieldName, FieldPath, FileDescriptor, FileRole, IncrementalPlanSkeleton,
-    InputAdapterRegistrySnapshot, KernelRegistrySnapshot, LayoutHealthPolicy, LayoutHealthReport,
-    LayoutKind, LogicalDType, ManifestId, ManifestSegment, NativeIoEnvelopeReport, Nullability,
-    ObservabilityPlan, OperatorMemoryCertification, OutputEnvelope, OutputFormat, OutputTarget,
+    BenchmarkEvidenceState, BenchmarkFallbackState, BenchmarkPlan, ByteRange,
+    CapabilityCertificationReport, CapabilityCertificationStatus, CatalogKind, CatalogRef,
+    CdcEventKind, CdcEventSummary, CdcIncrementalPlanningReport, ChangeSet,
+    CliApiJsonProtocolReport, ColumnRef, CommandStatus, CompactionPlanningPolicy,
+    CompactionPlanningReport, ComparisonOp, CorrectnessFixture, CorrectnessValidationPlan,
+    CpuOperatorSpecializationReport, DatasetFormat, DatasetManifest, DatasetRef, DatasetUri,
+    DeleteModel, DeleteTombstoneCompatibilityReport, Diagnostic, EncodedSegment, EncodingKind,
+    ExecutionCertificate, ExecutionCertificateEvidenceSurfaceReport, ExecutionEvidenceArtifactKind,
+    ExtensionId, ExtensionInspectionReport, ExtensionLicenseKind, ExtensionManifest,
+    ExtensionProvenance, ExtensionRegistrySnapshot, ExtensionVersion, FieldId, FieldName,
+    FieldPath, FileDescriptor, FileRole, IncrementalPlanSkeleton, InputAdapterRegistrySnapshot,
+    KernelRegistrySnapshot, LayoutHealthPolicy, LayoutHealthReport, LayoutKind, LogicalDType,
+    ManifestId, ManifestSegment, NativeIoEnvelopeReport, Nullability, ObservabilityPlan,
+    OperatorMemoryCertification, OutputEnvelope, OutputFormat, OutputTarget,
     PartitionEvolutionCompatibilityReport, PartitionField, PartitionSpec, PartitionTransform,
     PhysicalKernelRegistryPlan, PhysicalOperatorExecutionLevel,
     PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorKind, PhysicalOperatorPlan,
@@ -976,6 +977,201 @@ fn correctness_plan_fields(plan: &CorrectnessValidationPlan) -> Vec<(String, Str
             plan.baselines_are_fallback_free().to_string(),
         ),
     ]
+}
+
+fn benchmark_plan_fields(plan: &BenchmarkPlan) -> Vec<(String, String)> {
+    let mut fields = Vec::new();
+    append_benchmark_plan_overview_fields(&mut fields, plan);
+    append_benchmark_plan_scenario_fields(&mut fields, plan);
+    append_benchmark_plan_metric_fields(&mut fields, plan);
+    append_benchmark_plan_claim_fields(&mut fields, plan);
+    fields
+}
+
+fn append_benchmark_plan_overview_fields(fields: &mut Vec<(String, String)>, plan: &BenchmarkPlan) {
+    let claim_gate = plan.claim_gate();
+    push_field(fields, "mode", "benchmark_plan");
+    push_field(fields, "status", "planned");
+    push_bool_field(
+        fields,
+        "benchmark_execution_implemented",
+        plan.benchmark_execution_implemented(),
+    );
+    push_bool_field(
+        fields,
+        "performance_claim_allowed",
+        claim_gate.can_publish_performance_claim(),
+    );
+    push_bool_field(fields, "fallback_execution_allowed", false);
+    push_field(fields, "external_baselines", "comparison_only");
+}
+
+fn append_benchmark_plan_scenario_fields(fields: &mut Vec<(String, String)>, plan: &BenchmarkPlan) {
+    push_count_field(fields, "scenario_count", plan.scenario_count());
+    push_field(
+        fields,
+        "scenario_name_order",
+        &plan.scenario_name_order().join(","),
+    );
+    push_field(
+        fields,
+        "workload_class_order",
+        &plan.workload_class_order().join(","),
+    );
+    push_field(
+        fields,
+        "correctness_validation_order",
+        &plan.correctness_validation_order().join(","),
+    );
+    push_count_field(
+        fields,
+        "scenario_with_correctness_validation_count",
+        plan.scenario_with_correctness_validation_count(),
+    );
+    push_count_field(
+        fields,
+        "scenario_with_required_metrics_count",
+        plan.scenario_with_required_metrics_count(),
+    );
+    push_count_field(
+        fields,
+        "scenario_with_baselines_count",
+        plan.scenario_with_baselines_count(),
+    );
+}
+
+fn append_benchmark_plan_metric_fields(fields: &mut Vec<(String, String)>, plan: &BenchmarkPlan) {
+    push_count_field(
+        fields,
+        "required_metric_count",
+        plan.required_metrics().len(),
+    );
+    push_field(
+        fields,
+        "required_metric_order",
+        &plan.required_metric_order().join(","),
+    );
+    push_count_field(
+        fields,
+        "required_foundation_metric_count",
+        BenchmarkPlan::required_foundation_metrics().len(),
+    );
+    push_count_field(
+        fields,
+        "covered_required_foundation_metric_count",
+        plan.covered_required_foundation_metric_count(),
+    );
+    push_field(
+        fields,
+        "missing_required_foundation_metrics",
+        &plan.missing_required_foundation_metrics().join(","),
+    );
+    push_bool_field(
+        fields,
+        "required_foundation_metrics_covered",
+        plan.required_foundation_metrics_covered(),
+    );
+    push_bool_field(
+        fields,
+        "runtime_metrics_covered",
+        plan.runtime_metrics_covered(),
+    );
+    push_bool_field(
+        fields,
+        "peak_memory_metric_covered",
+        plan.peak_memory_metric_covered(),
+    );
+    push_bool_field(
+        fields,
+        "bytes_read_written_metrics_covered",
+        plan.bytes_read_written_metrics_covered(),
+    );
+    push_bool_field(
+        fields,
+        "startup_latency_metric_covered",
+        plan.startup_latency_metric_covered(),
+    );
+    push_bool_field(
+        fields,
+        "query_runtime_metric_covered",
+        plan.query_runtime_metric_covered(),
+    );
+    push_bool_field(
+        fields,
+        "write_commit_latency_metric_covered",
+        plan.write_commit_latency_metric_covered(),
+    );
+    push_bool_field(
+        fields,
+        "spill_metrics_covered",
+        plan.spill_metrics_covered(),
+    );
+    push_bool_field(
+        fields,
+        "object_store_request_metric_covered",
+        plan.object_store_request_metric_covered(),
+    );
+    push_bool_field(
+        fields,
+        "materialization_metrics_covered",
+        plan.materialization_metrics_covered(),
+    );
+}
+
+fn append_benchmark_plan_claim_fields(fields: &mut Vec<(String, String)>, plan: &BenchmarkPlan) {
+    let claim_gate = plan.claim_gate();
+    push_field(
+        fields,
+        "baseline_engine_order",
+        &plan.baseline_engine_order().join(","),
+    );
+    push_field(
+        fields,
+        "external_baseline_engine_order",
+        &plan.external_baseline_engine_order().join(","),
+    );
+    push_count_field(
+        fields,
+        "external_baseline_count",
+        plan.external_baseline_count(),
+    );
+    push_count_field(
+        fields,
+        "expected_result_count",
+        plan.expected_result_count(),
+    );
+    push_field(fields, "claim_gate_status", claim_gate.status.as_str());
+    push_field(
+        fields,
+        "claim_gate_correctness_evidence",
+        claim_gate.correctness_evidence.as_str(),
+    );
+    push_field(
+        fields,
+        "claim_gate_benchmark_evidence",
+        claim_gate.benchmark_evidence.as_str(),
+    );
+    push_field(
+        fields,
+        "claim_gate_required_metrics",
+        claim_gate.required_metrics.as_str(),
+    );
+    push_field(
+        fields,
+        "claim_gate_comparison_report",
+        claim_gate.comparison_report.as_str(),
+    );
+    push_field(
+        fields,
+        "claim_gate_reproducibility_evidence",
+        claim_gate.reproducibility_evidence.as_str(),
+    );
+    push_field(fields, "claim_gate_fallback", claim_gate.fallback.as_str());
+    push_bool_field(
+        fields,
+        "baselines_fallback_free",
+        plan.baselines_are_fallback_free(),
+    );
 }
 
 fn streaming_plan_fields(plan: &StreamingPlanSkeleton) -> Vec<(String, String)> {
@@ -12216,7 +12412,7 @@ fn run(args: Vec<String>) -> ExitCode {
             }
         }
         Some("benchmark-plan") => {
-            let plan = shardloom_core::BenchmarkPlan::default_foundation_plan();
+            let plan = BenchmarkPlan::default_foundation_plan();
             emit(
                 "benchmark-plan",
                 format,
@@ -12224,7 +12420,7 @@ fn run(args: Vec<String>) -> ExitCode {
                 "benchmark plan".to_string(),
                 plan.to_human_text(),
                 vec![],
-                vec![],
+                benchmark_plan_fields(&plan),
             );
             ExitCode::SUCCESS
         }

@@ -300,6 +300,23 @@ Supporting docs:
   - Blockers:
     - Real golden fixture expansion and decoded reference outputs remain open CG-5 work.
 
+- [x] Follow-up: CG-6.6 benchmark coverage inventory surfacing
+  - Why: CG-6 already models benchmark scenarios, metrics, baselines, reproducibility, comparison reports, and claim gates, but agents need stable machine-readable coverage/gap fields before adding approved benchmark runners or external baseline rows.
+  - Files:
+    - `shardloom-core/src/benchmark.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/benchmark_plan_snapshots.rs`
+    - `shardloom-contract-tests/tests/benchmark_evidence_manifest.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Acceptance:
+    - `benchmark-plan` reports scenario names, workload classes, correctness-validation modes, required metrics, foundation metric coverage, baseline engines, external-baseline counts, expected result slots, claim-gate fields, and no-fallback/comparison-only boundaries.
+    - Runtime, peak-memory, bytes read/written, startup latency, query runtime, write/commit latency, spill, object-store request, and materialization metric families are machine-checkable as planned coverage.
+    - Benchmark execution remains unimplemented and performance/superiority/best-default claims remain blocked until real CG-6 evidence exists.
+    - No benchmark runner, external baseline invocation, query execution, parser, adapter runtime, object-store IO, write IO, dependency, benchmark/superiority claim, or fallback execution is added.
+  - Blockers:
+    - Real benchmark execution, measured result rows, reproducible run metadata, and external baseline comparison outputs remain open CG-6 work.
+
 - [x] Follow-up: R5.4.10 user-surface RFC hardening
   - Why: SQL/operator/function/adapter details are deep enough for current planning, but best-default certification also needs explicit API, BI/server, observability, deployment, extension, and security/governance evidence.
   - Files:
@@ -1050,6 +1067,7 @@ Status legend:
   - [x] CG-6.3 benchmark comparison report contract
   - [x] CG-6.4 benchmark reproducibility manifest
   - [x] CG-6.5 reproducibility-aware benchmark claim gate
+  - [x] CG-6.6 benchmark coverage inventory surfacing
   - Expected evidence:
     - runtime latency and startup latency
     - peak memory and spill-required/avoided reporting
@@ -1322,6 +1340,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-6.3 benchmark comparison report contract
 - [x] CG-6.4 benchmark reproducibility manifest
 - [x] CG-6.5 reproducibility-aware benchmark claim gate
+- [x] CG-6.6 benchmark coverage inventory surfacing
 - [ ] runtime benchmarks
 - [ ] peak-memory benchmarks
 - [ ] bytes read/written benchmarks
@@ -1568,6 +1587,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-6.3 benchmark comparison report contract records missing scenario/baseline results and metric gaps without running benchmarks or invoking external baselines.
 - [x] CG-6.4 benchmark reproducibility manifest records dataset, engine-version, hardware, OS, runtime, cache, reproduction-step, correctness, and no-fallback metadata requirements before any benchmark evidence can count.
 - [x] CG-6.5 reproducibility-aware benchmark claim gate blocks publication unless comparison evidence and reproducible run metadata are both present.
+- [x] CG-6.6 benchmark coverage inventory surfaces scenario names, workload classes, correctness-validation modes, metric families, baseline engine order, expected result slots, claim-gate state, and no-fallback/comparison-only fields through `benchmark-plan`.
 - [x] CG-7.1 physical operator/kernel contract foundation declares filter, projection, and count aggregate kernel blockers without implementing kernels or execution.
 - [x] CG-7.2 physical operator capability discovery exposes missing-kernel/readiness counts through `shardloom capabilities operators` without executing operators or probing runtime inputs.
 - [x] CG-7.3 physical kernel registry plan exposes required native kernel slots through `shardloom kernel-registry` without registering kernels or executing runtime paths.

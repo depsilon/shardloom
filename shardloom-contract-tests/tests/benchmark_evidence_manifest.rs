@@ -34,6 +34,38 @@ fn foundation_benchmark_plan_covers_cg6_evidence_categories() {
     for metric in required {
         assert!(plan.covers_metric(metric), "missing {}", metric.as_str());
     }
+    assert_eq!(plan.scenario_count(), 5);
+    assert_eq!(plan.required_metrics().len(), 21);
+    assert_eq!(BenchmarkPlan::required_foundation_metrics().len(), 21);
+    assert_eq!(plan.covered_required_foundation_metric_count(), 21);
+    assert!(plan.required_foundation_metrics_covered());
+    assert!(plan.missing_required_foundation_metrics().is_empty());
+    assert_eq!(plan.scenario_with_correctness_validation_count(), 5);
+    assert_eq!(plan.scenario_with_required_metrics_count(), 5);
+    assert_eq!(plan.scenario_with_baselines_count(), 5);
+    assert_eq!(plan.expected_result_count(), 10);
+    assert_eq!(plan.external_baseline_count(), 5);
+    assert_eq!(
+        plan.baseline_engine_order(),
+        vec![
+            "shardloom",
+            "datafusion",
+            "spark",
+            "polars",
+            "vortex_integration",
+            "other"
+        ]
+    );
+    assert!(plan.runtime_metrics_covered());
+    assert!(plan.peak_memory_metric_covered());
+    assert!(plan.bytes_read_written_metrics_covered());
+    assert!(plan.startup_latency_metric_covered());
+    assert!(plan.query_runtime_metric_covered());
+    assert!(plan.write_commit_latency_metric_covered());
+    assert!(plan.spill_metrics_covered());
+    assert!(plan.object_store_request_metric_covered());
+    assert!(plan.materialization_metrics_covered());
+    assert!(!plan.benchmark_execution_implemented());
     assert!(plan.baselines_are_fallback_free());
     assert!(
         plan.to_human_text()
