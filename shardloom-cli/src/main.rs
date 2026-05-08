@@ -10,14 +10,16 @@ use shardloom_core::{
     CapabilityCertificationStatus, CatalogKind, CatalogRef, ChangeSet, ColumnRef, CommandStatus,
     ComparisonOp, CorrectnessFixture, CorrectnessValidationPlan, DatasetManifest, DatasetRef,
     DatasetUri, ExecutionCertificate, ExtensionId, ExtensionInspectionReport, ExtensionLicenseKind,
-    ExtensionManifest, ExtensionProvenance, ExtensionRegistrySnapshot, ExtensionVersion,
-    IncrementalPlanSkeleton, InputAdapterRegistrySnapshot, KernelRegistrySnapshot, ManifestId,
-    ObservabilityPlan, OperatorMemoryCertification, OutputEnvelope, OutputFormat, OutputTarget,
-    PhysicalKernelRegistryPlan, PhysicalOperatorExecutionLevel,
-    PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorPlan, PredicateExpr, RedactionPolicy,
-    ReleasePlan, RuntimeObservabilityReport, SchemaDefinition, SchemaId, SchemaVersion,
-    SecurityPlan, ShardLoomError, SnapshotId, SnapshotRef, StatValue, TableCompatibilityPlan,
-    TableFormatKind, TranslationPlan, UdfRuntimeKind, WriteIntent,
+    ExtensionManifest, ExtensionProvenance, ExtensionRegistrySnapshot, ExtensionVersion, FieldId,
+    FieldName, IncrementalPlanSkeleton, InputAdapterRegistrySnapshot, KernelRegistrySnapshot,
+    LogicalDType, ManifestId, Nullability, ObservabilityPlan, OperatorMemoryCertification,
+    OutputEnvelope, OutputFormat, OutputTarget, PhysicalKernelRegistryPlan,
+    PhysicalOperatorExecutionLevel, PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorPlan,
+    PredicateExpr, RedactionPolicy, ReleasePlan, RuntimeObservabilityReport, SchemaDefinition,
+    SchemaEvolutionCompatibilityReport, SchemaEvolutionPolicy, SchemaField, SchemaId,
+    SchemaVersion, SecurityPlan, ShardLoomError, SnapshotId, SnapshotRef, StatValue,
+    TableCompatibilityPlan, TableFormatKind, TranslationPlan, UdfRuntimeKind, WriteIntent,
+    evaluate_schema_evolution_compatibility,
 };
 use shardloom_exec::{
     AdaptiveSizer, AdaptiveSizingPolicy, AttemptId, BackpressurePlanInput, BackpressurePlanReport,
@@ -1370,6 +1372,324 @@ fn emit_error(
         OutputFormat::Json => println!("{}", envelope.to_json()),
     }
     ExitCode::from(2)
+}
+
+fn handle_schema_plan(mut args: std::vec::IntoIter<String>, format: OutputFormat) -> ExitCode {
+    match args.next().as_deref() {
+        None => emit_schema_plan_skeleton(format),
+        Some("evolution") => {
+            let scenario = args.next().unwrap_or_else(|| "add-nullable".to_string());
+            if let Some(extra) = args.next() {
+                return emit_error(
+                    "schema-plan",
+                    format,
+                    "schema evolution plan failed",
+                    &cli_unknown_arg_error("schema-plan evolution", &extra),
+                );
+            }
+            emit_schema_evolution_plan(format, &scenario)
+        }
+        Some(value) => emit_error(
+            "schema-plan",
+            format,
+            "schema plan failed",
+            &cli_unknown_arg_error("schema-plan", value),
+        ),
+    }
+}
+
+fn emit_schema_plan_skeleton(format: OutputFormat) -> ExitCode {
+    let schema = match (SchemaId::new("schema-placeholder"), SchemaVersion::new(1)) {
+        (Ok(id), Ok(version)) => SchemaDefinition::new(id, version),
+        (Err(error), _) | (_, Err(error)) => {
+            return emit_error("schema-plan", format, "schema plan failed", &error);
+        }
+    };
+    let text = schema.summary();
+    emit(
+        "schema-plan",
+        format,
+        CommandStatus::Success,
+        "schema plan skeleton".to_string(),
+        text,
+        vec![],
+        vec![
+            (
+                "fallback_execution_allowed".to_string(),
+                "false".to_string(),
+            ),
+            ("mode".to_string(), "schema_plan".to_string()),
+            (
+                "schema_evolution_report_emitted".to_string(),
+                "false".to_string(),
+            ),
+            ("data_read".to_string(), "false".to_string()),
+            ("write_io".to_string(), "false".to_string()),
+            ("catalog_io".to_string(), "false".to_string()),
+            ("object_store_io".to_string(), "false".to_string()),
+            ("execution".to_string(), "not_performed".to_string()),
+            ("plan_only".to_string(), "true".to_string()),
+            (
+                "table_formats_are".to_string(),
+                "compatibility_targets_not_fallback_engines".to_string(),
+            ),
+        ],
+    );
+    ExitCode::SUCCESS
+}
+
+fn emit_schema_evolution_plan(format: OutputFormat, scenario: &str) -> ExitCode {
+    let (from, to, policy) = match schema_evolution_fixture(scenario) {
+        Ok(parts) => parts,
+        Err(error) => {
+            return emit_error(
+                "schema-plan",
+                format,
+                "schema evolution plan failed",
+                &error,
+            );
+        }
+    };
+    let report = evaluate_schema_evolution_compatibility(&from, &to, &policy);
+    let status = if report.has_errors() {
+        CommandStatus::Unsupported
+    } else {
+        CommandStatus::Success
+    };
+    emit(
+        "schema-plan",
+        format,
+        status,
+        "schema evolution compatibility report".to_string(),
+        report.to_human_text(),
+        report.compatibility.diagnostics.clone(),
+        schema_evolution_output_fields(&report, scenario),
+    );
+    if report.has_errors() {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+fn schema_evolution_output_fields(
+    report: &SchemaEvolutionCompatibilityReport,
+    scenario: &str,
+) -> Vec<(String, String)> {
+    vec![
+        (
+            "fallback_execution_allowed".to_string(),
+            "false".to_string(),
+        ),
+        ("mode".to_string(), "schema_evolution_plan".to_string()),
+        ("scenario".to_string(), scenario.to_string()),
+        (
+            "schema_evolution_report_emitted".to_string(),
+            "true".to_string(),
+        ),
+        (
+            "compatibility_level".to_string(),
+            report.compatibility.level.as_str().to_string(),
+        ),
+        (
+            "change_count".to_string(),
+            report.compatibility.changes.len().to_string(),
+        ),
+        (
+            "safe_change_count".to_string(),
+            report.safe_change_count.to_string(),
+        ),
+        (
+            "unsafe_change_count".to_string(),
+            report.unsafe_change_count.to_string(),
+        ),
+        (
+            "field_id_required_count".to_string(),
+            report.field_id_required_count.to_string(),
+        ),
+        (
+            "missing_field_id_count".to_string(),
+            report.missing_field_id_count.to_string(),
+        ),
+        (
+            "requires_projection".to_string(),
+            report.requires_projection.to_string(),
+        ),
+        (
+            "requires_cast".to_string(),
+            report.requires_cast.to_string(),
+        ),
+        (
+            "requires_default_values".to_string(),
+            report.requires_default_values.to_string(),
+        ),
+        (
+            "metadata_loss_reported".to_string(),
+            report.metadata_loss_reported.to_string(),
+        ),
+        (
+            "read_supported".to_string(),
+            report.read_supported.to_string(),
+        ),
+        (
+            "write_supported".to_string(),
+            report.write_supported.to_string(),
+        ),
+        ("data_read".to_string(), report.data_read.to_string()),
+        ("write_io".to_string(), report.write_io.to_string()),
+        ("catalog_io".to_string(), report.catalog_io.to_string()),
+        (
+            "object_store_io".to_string(),
+            report.object_store_io.to_string(),
+        ),
+        ("execution".to_string(), "not_performed".to_string()),
+        ("plan_only".to_string(), "true".to_string()),
+        (
+            "table_formats_are".to_string(),
+            "compatibility_targets_not_fallback_engines".to_string(),
+        ),
+    ]
+}
+
+fn schema_evolution_fixture(
+    scenario: &str,
+) -> Result<(SchemaDefinition, SchemaDefinition, SchemaEvolutionPolicy), ShardLoomError> {
+    let policy = SchemaEvolutionPolicy::default_conservative();
+    match scenario {
+        "add-nullable" => Ok((
+            orders_schema_v1(true, LogicalDType::Int64)?,
+            orders_schema_with_extra_region()?,
+            policy,
+        )),
+        "rename-with-id" => Ok((
+            orders_schema_v1(true, LogicalDType::Int64)?,
+            orders_schema_renamed_status(true)?,
+            policy,
+        )),
+        "rename-without-id" => Ok((
+            orders_schema_v1(false, LogicalDType::Int64)?,
+            orders_schema_renamed_status(false)?,
+            policy,
+        )),
+        "drop-field" => Ok((
+            orders_schema_v1(true, LogicalDType::Int64)?,
+            orders_schema_without_status()?,
+            policy,
+        )),
+        "widen" => Ok((
+            orders_schema_v1(true, LogicalDType::Int64)?,
+            orders_schema_v1(true, LogicalDType::Float64)?,
+            policy,
+        )),
+        "narrow" => Ok((
+            orders_schema_v1(true, LogicalDType::Float64)?,
+            orders_schema_v1(true, LogicalDType::Int64)?,
+            policy,
+        )),
+        value => Err(cli_unknown_arg_error("schema-plan evolution", value)),
+    }
+}
+
+fn orders_schema_v1(
+    with_ids: bool,
+    amount_dtype: LogicalDType,
+) -> Result<SchemaDefinition, ShardLoomError> {
+    let mut schema = SchemaDefinition::new(SchemaId::new("orders")?, SchemaVersion::new(1)?);
+    schema.add_field(schema_fixture_field(
+        with_ids,
+        "f1",
+        "order_id",
+        LogicalDType::Int64,
+        Nullability::NonNullable,
+    )?);
+    schema.add_field(schema_fixture_field(
+        with_ids,
+        "f2",
+        "status",
+        LogicalDType::Utf8,
+        Nullability::Nullable,
+    )?);
+    schema.add_field(schema_fixture_field(
+        with_ids,
+        "f3",
+        "amount",
+        amount_dtype,
+        Nullability::Nullable,
+    )?);
+    Ok(schema)
+}
+
+fn orders_schema_with_extra_region() -> Result<SchemaDefinition, ShardLoomError> {
+    let mut schema = orders_schema_v1(true, LogicalDType::Int64)?;
+    schema.version = SchemaVersion::new(2)?;
+    schema.add_field(schema_fixture_field(
+        true,
+        "f4",
+        "region",
+        LogicalDType::Utf8,
+        Nullability::Nullable,
+    )?);
+    Ok(schema)
+}
+
+fn orders_schema_renamed_status(with_ids: bool) -> Result<SchemaDefinition, ShardLoomError> {
+    let mut schema = SchemaDefinition::new(SchemaId::new("orders")?, SchemaVersion::new(2)?);
+    schema.add_field(schema_fixture_field(
+        with_ids,
+        "f1",
+        "order_id",
+        LogicalDType::Int64,
+        Nullability::NonNullable,
+    )?);
+    schema.add_field(schema_fixture_field(
+        with_ids,
+        "f2",
+        "order_status",
+        LogicalDType::Utf8,
+        Nullability::Nullable,
+    )?);
+    schema.add_field(schema_fixture_field(
+        with_ids,
+        "f3",
+        "amount",
+        LogicalDType::Int64,
+        Nullability::Nullable,
+    )?);
+    Ok(schema)
+}
+
+fn orders_schema_without_status() -> Result<SchemaDefinition, ShardLoomError> {
+    let mut schema = SchemaDefinition::new(SchemaId::new("orders")?, SchemaVersion::new(2)?);
+    schema.add_field(schema_fixture_field(
+        true,
+        "f1",
+        "order_id",
+        LogicalDType::Int64,
+        Nullability::NonNullable,
+    )?);
+    schema.add_field(schema_fixture_field(
+        true,
+        "f3",
+        "amount",
+        LogicalDType::Int64,
+        Nullability::Nullable,
+    )?);
+    Ok(schema)
+}
+
+fn schema_fixture_field(
+    with_id: bool,
+    id: &str,
+    name: &str,
+    dtype: LogicalDType,
+    nullability: Nullability,
+) -> Result<SchemaField, ShardLoomError> {
+    let field = SchemaField::new(FieldName::new(name)?, dtype, nullability);
+    if with_id {
+        Ok(field.with_id(FieldId::new(id)?))
+    } else {
+        Ok(field)
+    }
 }
 
 #[must_use]
@@ -6603,38 +6923,7 @@ fn run(args: Vec<String>) -> ExitCode {
             }
         }
 
-        Some("schema-plan") => {
-            let schema = match (SchemaId::new("schema-placeholder"), SchemaVersion::new(1)) {
-                (Ok(id), Ok(version)) => SchemaDefinition::new(id, version),
-                (Err(error), _) | (_, Err(error)) => {
-                    return emit_error("schema-plan", format, "schema plan failed", &error);
-                }
-            };
-            let text = schema.summary();
-            emit(
-                "schema-plan",
-                format,
-                CommandStatus::Success,
-                "schema plan skeleton".to_string(),
-                text,
-                vec![],
-                vec![
-                    (
-                        "fallback_execution_allowed".to_string(),
-                        "false".to_string(),
-                    ),
-                    ("mode".to_string(), "schema_plan".to_string()),
-                    ("write_io".to_string(), "false".to_string()),
-                    ("execution".to_string(), "not_performed".to_string()),
-                    ("plan_only".to_string(), "true".to_string()),
-                    (
-                        "table_formats_are".to_string(),
-                        "compatibility_targets_not_fallback_engines".to_string(),
-                    ),
-                ],
-            );
-            ExitCode::SUCCESS
-        }
+        Some("schema-plan") => handle_schema_plan(args, format),
         Some("catalog-plan") => {
             let kind = match args.next().as_deref() {
                 Some("local") => CatalogKind::LocalManifest,
@@ -17290,6 +17579,27 @@ mod tests {
         let code = run(vec!["table-compat-plan".to_string(), "unknown".to_string()]);
         assert_ne!(code, ExitCode::SUCCESS);
     }
+
+    #[test]
+    fn schema_plan_evolution_add_nullable_returns_success() {
+        let code = run(vec![
+            "schema-plan".to_string(),
+            "evolution".to_string(),
+            "add-nullable".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn schema_plan_evolution_rename_without_id_returns_non_zero() {
+        let code = run(vec![
+            "schema-plan".to_string(),
+            "evolution".to_string(),
+            "rename-without-id".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
     #[test]
     fn translation_plan_with_vortex_uri_returns_success() {
         let code = run(vec![

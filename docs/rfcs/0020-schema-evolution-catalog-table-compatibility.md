@@ -55,6 +55,49 @@ Potential operations:
 - Tighten type/nullability (generally unsupported without explicit policy).
 - Struct/list nested evolution.
 
+### Schema evolution compatibility report
+
+The initial CG-9 schema-evolution evidence surface is `SchemaEvolutionCompatibilityReport`.
+It compares typed schema definitions and emits deterministic compatibility evidence before
+catalog access, table metadata IO, reads, writes, or object-store behavior are introduced.
+
+Required fields:
+
+- `compatibility`: the underlying `SchemaCompatibilityReport`.
+- `policy`: the applied `SchemaEvolutionPolicy`.
+- `safe_change_count`.
+- `unsafe_change_count`.
+- `field_id_required_count`.
+- `missing_field_id_count`.
+- `requires_projection`.
+- `requires_cast`.
+- `requires_default_values`.
+- `metadata_loss_reported`.
+- `read_supported`.
+- `write_supported`.
+- `data_read=false`.
+- `write_io=false`.
+- `catalog_io=false`.
+- `object_store_io=false`.
+- `fallback_execution_allowed=false`.
+
+The evaluator should detect:
+
+- add nullable field.
+- add field with default.
+- drop field requiring projection.
+- rename field with stable field identity.
+- possible rename without stable field identity.
+- safe widening.
+- unsafe narrowing or unknown type change.
+- nullability loosening or tightening.
+- field identity changes.
+- metadata changes and metadata loss.
+
+Safe rename evidence requires stable field IDs. A possible rename without stable field
+identity is rejected even when the field shape looks compatible, because accepting it would
+make unsafe data movement indistinguishable from a real rename.
+
 ### Catalog integration contract
 
 Catalog adapters should expose:

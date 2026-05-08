@@ -7,8 +7,8 @@
 #![allow(clippy::must_use_candidate, clippy::missing_errors_doc)]
 
 use crate::{
-    CredentialScope, Diagnostic, DiagnosticSeverity, LogicalDType, Nullability, Result,
-    ShardLoomError,
+    CredentialScope, Diagnostic, DiagnosticCategory, DiagnosticCode, DiagnosticSeverity,
+    FallbackStatus, LogicalDType, Nullability, Result, ShardLoomError,
 };
 
 fn validate_non_empty(label: &str, value: &str) -> Result<()> {
@@ -483,6 +483,564 @@ impl SchemaCompatibilityReport {
             self.changes.len()
         )
     }
+}
+
+/// Machine-readable CG-9 schema evolution compatibility evidence.
+///
+/// This report only compares typed schema definitions. It does not read data, write data,
+/// contact a catalog, touch object storage, or attempt fallback execution.
+#[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct SchemaEvolutionCompatibilityReport {
+    pub compatibility: SchemaCompatibilityReport,
+    pub policy: SchemaEvolutionPolicy,
+    pub safe_change_count: usize,
+    pub unsafe_change_count: usize,
+    pub field_id_required_count: usize,
+    pub missing_field_id_count: usize,
+    pub requires_projection: bool,
+    pub requires_cast: bool,
+    pub requires_default_values: bool,
+    pub metadata_loss_reported: bool,
+    pub read_supported: bool,
+    pub write_supported: bool,
+    pub data_read: bool,
+    pub write_io: bool,
+    pub catalog_io: bool,
+    pub object_store_io: bool,
+    pub fallback_execution_allowed: bool,
+}
+
+impl SchemaEvolutionCompatibilityReport {
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.compatibility.has_errors() || self.unsafe_change_count > 0
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "schema_evolution_compatibility(level={}, safe_changes={}, unsafe_changes={}, read_supported={}, write_supported={}, data_read=false, write_io=false, catalog_io=false, object_store_io=false, fallback_execution=disabled)",
+            self.compatibility.level.as_str(),
+            self.safe_change_count,
+            self.unsafe_change_count,
+            self.read_supported,
+            self.write_supported
+        )
+    }
+}
+
+#[derive(Debug, Default)]
+#[allow(clippy::struct_excessive_bools)]
+struct SchemaEvolutionAnalysis {
+    safe_change_count: usize,
+    unsafe_change_count: usize,
+    field_id_required_count: usize,
+    missing_field_id_count: usize,
+    requires_projection: bool,
+    requires_cast: bool,
+    requires_default_values: bool,
+    metadata_loss_reported: bool,
+}
+
+impl SchemaEvolutionAnalysis {
+    fn add_safe(&mut self) {
+        self.safe_change_count += 1;
+    }
+
+    fn add_unsafe(&mut self, report: &mut SchemaCompatibilityReport, diagnostic: Diagnostic) {
+        self.unsafe_change_count += 1;
+        report.add_diagnostic(diagnostic);
+    }
+
+    #[must_use]
+    fn compatibility_level(&self, change_count: usize) -> SchemaCompatibilityLevel {
+        if self.unsafe_change_count > 0 {
+            SchemaCompatibilityLevel::Incompatible
+        } else if change_count == 0 {
+            SchemaCompatibilityLevel::Exact
+        } else if self.requires_default_values {
+            SchemaCompatibilityLevel::RequiresDefaultValues
+        } else if self.requires_cast {
+            SchemaCompatibilityLevel::RequiresCast
+        } else if self.requires_projection {
+            SchemaCompatibilityLevel::RequiresProjection
+        } else {
+            SchemaCompatibilityLevel::ReadCompatible
+        }
+    }
+}
+
+/// Evaluates a schema transition against the provided policy without performing I/O.
+#[must_use]
+pub fn evaluate_schema_evolution_compatibility(
+    from: &SchemaDefinition,
+    to: &SchemaDefinition,
+    policy: &SchemaEvolutionPolicy,
+) -> SchemaEvolutionCompatibilityReport {
+    let mut compatibility = SchemaCompatibilityReport::new(
+        from.id.clone(),
+        to.id.clone(),
+        SchemaCompatibilityLevel::Unknown,
+    );
+    let mut analysis = SchemaEvolutionAnalysis::default();
+    let mut matched_to = vec![false; to.fields.len()];
+    let mut unmatched_from = Vec::new();
+
+    if from.has_errors() || to.has_errors() {
+        analysis.add_unsafe(
+            &mut compatibility,
+            Diagnostic::invalid_input(
+                "schema_evolution",
+                "schema definitions contain existing error diagnostics",
+                "Fix schema definition diagnostics before evaluating schema evolution.",
+            ),
+        );
+    }
+
+    for from_index in 0..from.fields.len() {
+        let from_field = &from.fields[from_index];
+        if let Some(to_index) = find_schema_match_index(from_field, to, &matched_to) {
+            matched_to[to_index] = true;
+            compare_matched_schema_fields(
+                from_field,
+                &to.fields[to_index],
+                policy,
+                &mut compatibility,
+                &mut analysis,
+            );
+        } else {
+            unmatched_from.push(from_index);
+        }
+    }
+
+    for from_index in unmatched_from {
+        let from_field = &from.fields[from_index];
+        if let Some(to_index) = find_possible_rename_without_identity(from_field, to, &matched_to) {
+            matched_to[to_index] = true;
+            record_schema_rename(
+                from_field,
+                &to.fields[to_index],
+                policy,
+                &mut compatibility,
+                &mut analysis,
+            );
+        } else {
+            record_schema_drop(from_field, policy, &mut compatibility, &mut analysis);
+        }
+    }
+
+    for (to_index, to_field) in to.fields.iter().enumerate() {
+        if !matched_to[to_index] {
+            record_schema_add(to_field, policy, &mut compatibility, &mut analysis);
+        }
+    }
+
+    compatibility.level = analysis.compatibility_level(compatibility.changes.len());
+    let read_supported = compatibility.level.allows_read() && !compatibility.has_errors();
+    let write_supported = compatibility.level.allows_write() && !compatibility.has_errors();
+
+    SchemaEvolutionCompatibilityReport {
+        compatibility,
+        policy: policy.clone(),
+        safe_change_count: analysis.safe_change_count,
+        unsafe_change_count: analysis.unsafe_change_count,
+        field_id_required_count: analysis.field_id_required_count,
+        missing_field_id_count: analysis.missing_field_id_count,
+        requires_projection: analysis.requires_projection,
+        requires_cast: analysis.requires_cast,
+        requires_default_values: analysis.requires_default_values,
+        metadata_loss_reported: analysis.metadata_loss_reported,
+        read_supported,
+        write_supported,
+        data_read: false,
+        write_io: false,
+        catalog_io: false,
+        object_store_io: false,
+        fallback_execution_allowed: false,
+    }
+}
+
+fn find_schema_match_index(
+    from_field: &SchemaField,
+    to: &SchemaDefinition,
+    matched_to: &[bool],
+) -> Option<usize> {
+    if let Some(from_id) = &from_field.id {
+        if let Some(index) = to
+            .fields
+            .iter()
+            .enumerate()
+            .find(|(index, field)| !matched_to[*index] && field.id.as_ref() == Some(from_id))
+            .map(|(index, _)| index)
+        {
+            return Some(index);
+        }
+    }
+
+    to.fields
+        .iter()
+        .enumerate()
+        .find(|(index, field)| {
+            !matched_to[*index] && field.name.as_str() == from_field.name.as_str()
+        })
+        .map(|(index, _)| index)
+}
+
+fn find_possible_rename_without_identity(
+    from_field: &SchemaField,
+    to: &SchemaDefinition,
+    matched_to: &[bool],
+) -> Option<usize> {
+    to.fields
+        .iter()
+        .enumerate()
+        .find(|(index, field)| {
+            !matched_to[*index]
+                && field.name != from_field.name
+                && field.dtype == from_field.dtype
+                && field.nullability == from_field.nullability
+        })
+        .map(|(index, _)| index)
+}
+
+fn compare_matched_schema_fields(
+    from_field: &SchemaField,
+    to_field: &SchemaField,
+    policy: &SchemaEvolutionPolicy,
+    compatibility: &mut SchemaCompatibilityReport,
+    analysis: &mut SchemaEvolutionAnalysis,
+) {
+    if from_field.id != to_field.id && from_field.name == to_field.name {
+        record_field_identity_change(from_field, to_field, compatibility, analysis);
+    }
+    if from_field.name != to_field.name {
+        record_schema_rename(from_field, to_field, policy, compatibility, analysis);
+    }
+    if from_field.dtype != to_field.dtype {
+        record_dtype_change(from_field, to_field, policy, compatibility, analysis);
+    }
+    if from_field.nullability != to_field.nullability {
+        record_nullability_change(from_field, to_field, compatibility, analysis);
+    }
+    if from_field.metadata != to_field.metadata {
+        record_metadata_change(from_field, to_field, compatibility, analysis);
+    }
+}
+
+fn record_schema_add(
+    to_field: &SchemaField,
+    policy: &SchemaEvolutionPolicy,
+    compatibility: &mut SchemaCompatibilityReport,
+    analysis: &mut SchemaEvolutionAnalysis,
+) {
+    compatibility.add_change(
+        SchemaChange::new(
+            SchemaChangeKind::AddField,
+            format!(
+                "target field {} is not present in source schema",
+                to_field.name.as_str()
+            ),
+        )
+        .with_field_path(to_field.path.clone()),
+    );
+
+    if to_field.nullability == Nullability::Nullable
+        && policy.allows(SchemaEvolutionPolicyKind::AllowAddNullableFields)
+    {
+        analysis.add_safe();
+    } else if field_has_default(to_field)
+        && policy.allows(SchemaEvolutionPolicyKind::AllowAddNullableFields)
+    {
+        analysis.add_safe();
+        analysis.requires_default_values = true;
+    } else {
+        analysis.add_unsafe(
+            compatibility,
+            schema_evolution_unsupported_diagnostic(
+                "schema_evolution_add_field",
+                format!(
+                    "adding non-nullable field {} without a declared default is unsupported",
+                    to_field.name.as_str()
+                ),
+            ),
+        );
+    }
+}
+
+fn record_schema_drop(
+    from_field: &SchemaField,
+    policy: &SchemaEvolutionPolicy,
+    compatibility: &mut SchemaCompatibilityReport,
+    analysis: &mut SchemaEvolutionAnalysis,
+) {
+    compatibility.add_change(
+        SchemaChange::new(
+            SchemaChangeKind::DropField,
+            format!(
+                "source field {} is not present in target schema",
+                from_field.name.as_str()
+            ),
+        )
+        .with_field_path(from_field.path.clone()),
+    );
+
+    if policy.allows(SchemaEvolutionPolicyKind::AllowProjection) {
+        analysis.add_safe();
+        analysis.requires_projection = true;
+    } else {
+        analysis.add_unsafe(
+            compatibility,
+            schema_evolution_unsupported_diagnostic(
+                "schema_evolution_drop_field",
+                format!(
+                    "dropping field {} requires explicit projection compatibility",
+                    from_field.name.as_str()
+                ),
+            ),
+        );
+    }
+}
+
+fn record_schema_rename(
+    from_field: &SchemaField,
+    to_field: &SchemaField,
+    policy: &SchemaEvolutionPolicy,
+    compatibility: &mut SchemaCompatibilityReport,
+    analysis: &mut SchemaEvolutionAnalysis,
+) {
+    compatibility.add_change(
+        SchemaChange::new(
+            SchemaChangeKind::RenameField,
+            format!(
+                "field {} was renamed to {}",
+                from_field.name.as_str(),
+                to_field.name.as_str()
+            ),
+        )
+        .with_field_path(from_field.path.clone()),
+    );
+    analysis.field_id_required_count += 1;
+
+    if policy.allows(SchemaEvolutionPolicyKind::RequireFieldIdsForRename)
+        && from_field.id.is_some()
+        && from_field.id == to_field.id
+    {
+        analysis.add_safe();
+    } else {
+        analysis.missing_field_id_count += 1;
+        analysis.add_unsafe(
+            compatibility,
+            schema_evolution_unsupported_diagnostic(
+                "schema_evolution_rename_field",
+                format!(
+                    "renaming {} to {} requires a stable field id on both schemas",
+                    from_field.name.as_str(),
+                    to_field.name.as_str()
+                ),
+            ),
+        );
+    }
+}
+
+fn record_field_identity_change(
+    from_field: &SchemaField,
+    to_field: &SchemaField,
+    compatibility: &mut SchemaCompatibilityReport,
+    analysis: &mut SchemaEvolutionAnalysis,
+) {
+    compatibility.add_change(
+        SchemaChange::new(
+            SchemaChangeKind::Unknown,
+            format!(
+                "field identity changed for {} from {} to {}",
+                from_field.name.as_str(),
+                from_field
+                    .id
+                    .as_ref()
+                    .map_or("none".to_string(), |id| id.as_str().to_string()),
+                to_field
+                    .id
+                    .as_ref()
+                    .map_or("none".to_string(), |id| id.as_str().to_string())
+            ),
+        )
+        .with_field_path(from_field.path.clone()),
+    );
+    analysis.add_unsafe(
+        compatibility,
+        schema_evolution_invalid_diagnostic(
+            "schema_evolution_field_identity",
+            format!(
+                "field {} changed identity without a safe rename contract",
+                from_field.name.as_str()
+            ),
+        ),
+    );
+}
+
+fn record_dtype_change(
+    from_field: &SchemaField,
+    to_field: &SchemaField,
+    policy: &SchemaEvolutionPolicy,
+    compatibility: &mut SchemaCompatibilityReport,
+    analysis: &mut SchemaEvolutionAnalysis,
+) {
+    let safe_widening = is_safe_schema_widening(&from_field.dtype, &to_field.dtype);
+    let kind = if safe_widening {
+        SchemaChangeKind::WidenType
+    } else {
+        SchemaChangeKind::NarrowType
+    };
+    compatibility.add_change(
+        SchemaChange::new(
+            kind,
+            format!(
+                "field {} dtype changed from {} to {}",
+                from_field.name.as_str(),
+                from_field.dtype.as_str(),
+                to_field.dtype.as_str()
+            ),
+        )
+        .with_field_path(from_field.path.clone()),
+    );
+
+    if safe_widening && policy.allows(SchemaEvolutionPolicyKind::AllowSafeWidening) {
+        analysis.add_safe();
+        analysis.requires_cast = true;
+    } else {
+        analysis.add_unsafe(
+            compatibility,
+            schema_evolution_unsupported_diagnostic(
+                "schema_evolution_dtype_change",
+                format!(
+                    "dtype change from {} to {} is not a supported safe widening",
+                    from_field.dtype.as_str(),
+                    to_field.dtype.as_str()
+                ),
+            ),
+        );
+    }
+}
+
+fn record_nullability_change(
+    from_field: &SchemaField,
+    to_field: &SchemaField,
+    compatibility: &mut SchemaCompatibilityReport,
+    analysis: &mut SchemaEvolutionAnalysis,
+) {
+    compatibility.add_change(
+        SchemaChange::new(
+            SchemaChangeKind::ChangeNullability,
+            format!(
+                "field {} nullability changed from {} to {}",
+                from_field.name.as_str(),
+                from_field.nullability.as_str(),
+                to_field.nullability.as_str()
+            ),
+        )
+        .with_field_path(from_field.path.clone()),
+    );
+
+    if from_field.nullability == Nullability::NonNullable
+        && to_field.nullability == Nullability::Nullable
+    {
+        analysis.add_safe();
+    } else {
+        analysis.add_unsafe(
+            compatibility,
+            schema_evolution_unsupported_diagnostic(
+                "schema_evolution_nullability_change",
+                format!(
+                    "nullability change from {} to {} is not safely supported",
+                    from_field.nullability.as_str(),
+                    to_field.nullability.as_str()
+                ),
+            ),
+        );
+    }
+}
+
+fn record_metadata_change(
+    from_field: &SchemaField,
+    to_field: &SchemaField,
+    compatibility: &mut SchemaCompatibilityReport,
+    analysis: &mut SchemaEvolutionAnalysis,
+) {
+    compatibility.add_change(
+        SchemaChange::new(
+            SchemaChangeKind::ChangeMetadata,
+            format!("field {} metadata changed", from_field.name.as_str()),
+        )
+        .with_field_path(from_field.path.clone()),
+    );
+    analysis.add_safe();
+
+    if metadata_was_lost(from_field, to_field) {
+        analysis.metadata_loss_reported = true;
+        compatibility.add_diagnostic(Diagnostic::new(
+            DiagnosticCode::MetadataLoss,
+            DiagnosticSeverity::Warning,
+            DiagnosticCategory::MetadataLoss,
+            format!(
+                "Schema evolution may lose metadata for field {}.",
+                from_field.name.as_str()
+            ),
+            Some("schema_evolution_metadata".to_string()),
+            Some("Target schema does not preserve every source metadata entry.".to_string()),
+            Some("Preserve metadata explicitly or accept reported fidelity loss.".to_string()),
+            FallbackStatus::disabled_by_policy(),
+        ));
+    }
+}
+
+fn schema_evolution_unsupported_diagnostic(
+    feature: impl Into<String>,
+    message: impl Into<String>,
+) -> Diagnostic {
+    Diagnostic::unsupported(
+        DiagnosticCode::NotImplemented,
+        feature,
+        message,
+        Some(
+            "Use a compatible schema transition or add a native schema-evolution rule.".to_string(),
+        ),
+    )
+}
+
+fn schema_evolution_invalid_diagnostic(
+    feature: impl Into<String>,
+    reason: impl Into<String>,
+) -> Diagnostic {
+    Diagnostic::invalid_input(
+        feature,
+        reason,
+        "Provide stable field identity and a supported schema transition.",
+    )
+}
+
+fn field_has_default(field: &SchemaField) -> bool {
+    field
+        .metadata
+        .iter()
+        .any(|(key, _)| key.eq_ignore_ascii_case("default"))
+}
+
+fn metadata_was_lost(from_field: &SchemaField, to_field: &SchemaField) -> bool {
+    from_field
+        .metadata
+        .iter()
+        .any(|entry| !to_field.metadata.contains(entry))
+}
+
+fn is_safe_schema_widening(from: &LogicalDType, to: &LogicalDType) -> bool {
+    matches!(
+        (from, to),
+        (
+            LogicalDType::Int64 | LogicalDType::UInt64,
+            LogicalDType::Float64
+        ) | (LogicalDType::Date32, LogicalDType::TimestampMicros)
+    )
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1193,5 +1751,212 @@ mod tests {
         let p = TableCompatibilityPlan::native_vortex();
         let r = TableCompatibilityReport::from_plan(p.clone());
         assert_eq!(r.plan, p);
+    }
+
+    fn schema_with_fields(version: u64, fields: Vec<SchemaField>) -> SchemaDefinition {
+        let mut schema = SchemaDefinition::new(
+            SchemaId::new("orders").expect("id"),
+            SchemaVersion::new(version).expect("version"),
+        );
+        for field in fields {
+            schema.add_field(field);
+        }
+        schema
+    }
+
+    fn field(id: &str, name: &str, dtype: LogicalDType, nullability: Nullability) -> SchemaField {
+        SchemaField::new(FieldName::new(name).expect("name"), dtype, nullability)
+            .with_id(FieldId::new(id).expect("field id"))
+    }
+
+    #[test]
+    fn schema_evolution_add_nullable_field_is_read_compatible_without_io_or_fallback() {
+        let from = schema_with_fields(
+            1,
+            vec![field(
+                "f1",
+                "order_id",
+                LogicalDType::Int64,
+                Nullability::NonNullable,
+            )],
+        );
+        let to = schema_with_fields(
+            2,
+            vec![
+                field(
+                    "f1",
+                    "order_id",
+                    LogicalDType::Int64,
+                    Nullability::NonNullable,
+                ),
+                field("f2", "region", LogicalDType::Utf8, Nullability::Nullable),
+            ],
+        );
+
+        let report = evaluate_schema_evolution_compatibility(
+            &from,
+            &to,
+            &SchemaEvolutionPolicy::default_conservative(),
+        );
+
+        assert_eq!(
+            report.compatibility.level,
+            SchemaCompatibilityLevel::ReadCompatible
+        );
+        assert!(report.read_supported);
+        assert!(!report.write_supported);
+        assert_eq!(report.safe_change_count, 1);
+        assert_eq!(report.unsafe_change_count, 0);
+        assert!(!report.data_read);
+        assert!(!report.write_io);
+        assert!(!report.catalog_io);
+        assert!(!report.object_store_io);
+        assert!(!report.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn schema_evolution_rename_with_stable_field_id_is_safe() {
+        let from = schema_with_fields(
+            1,
+            vec![field(
+                "f1",
+                "status",
+                LogicalDType::Utf8,
+                Nullability::Nullable,
+            )],
+        );
+        let to = schema_with_fields(
+            2,
+            vec![field(
+                "f1",
+                "order_status",
+                LogicalDType::Utf8,
+                Nullability::Nullable,
+            )],
+        );
+
+        let report = evaluate_schema_evolution_compatibility(
+            &from,
+            &to,
+            &SchemaEvolutionPolicy::default_conservative(),
+        );
+
+        assert_eq!(report.field_id_required_count, 1);
+        assert_eq!(report.missing_field_id_count, 0);
+        assert_eq!(report.safe_change_count, 1);
+        assert!(!report.has_errors());
+    }
+
+    #[test]
+    fn schema_evolution_rename_without_field_id_is_rejected() {
+        let from = schema_with_fields(
+            1,
+            vec![SchemaField::new(
+                FieldName::new("status").expect("name"),
+                LogicalDType::Utf8,
+                Nullability::Nullable,
+            )],
+        );
+        let to = schema_with_fields(
+            2,
+            vec![SchemaField::new(
+                FieldName::new("order_status").expect("name"),
+                LogicalDType::Utf8,
+                Nullability::Nullable,
+            )],
+        );
+
+        let report = evaluate_schema_evolution_compatibility(
+            &from,
+            &to,
+            &SchemaEvolutionPolicy::default_conservative(),
+        );
+
+        assert_eq!(
+            report.compatibility.level,
+            SchemaCompatibilityLevel::Incompatible
+        );
+        assert_eq!(report.field_id_required_count, 1);
+        assert_eq!(report.missing_field_id_count, 1);
+        assert_eq!(report.unsafe_change_count, 1);
+        assert_eq!(
+            report.compatibility.diagnostics[0].code,
+            DiagnosticCode::NotImplemented
+        );
+        assert!(!report.compatibility.diagnostics[0].fallback.attempted);
+    }
+
+    #[test]
+    fn schema_evolution_safe_widening_requires_cast() {
+        let from = schema_with_fields(
+            1,
+            vec![field(
+                "f1",
+                "amount",
+                LogicalDType::Int64,
+                Nullability::Nullable,
+            )],
+        );
+        let to = schema_with_fields(
+            2,
+            vec![field(
+                "f1",
+                "amount",
+                LogicalDType::Float64,
+                Nullability::Nullable,
+            )],
+        );
+
+        let report = evaluate_schema_evolution_compatibility(
+            &from,
+            &to,
+            &SchemaEvolutionPolicy::default_conservative(),
+        );
+
+        assert_eq!(
+            report.compatibility.level,
+            SchemaCompatibilityLevel::RequiresCast
+        );
+        assert!(report.requires_cast);
+        assert_eq!(report.safe_change_count, 1);
+        assert_eq!(report.unsafe_change_count, 0);
+    }
+
+    #[test]
+    fn schema_evolution_drop_field_requires_projection() {
+        let from = schema_with_fields(
+            1,
+            vec![
+                field(
+                    "f1",
+                    "order_id",
+                    LogicalDType::Int64,
+                    Nullability::NonNullable,
+                ),
+                field("f2", "status", LogicalDType::Utf8, Nullability::Nullable),
+            ],
+        );
+        let to = schema_with_fields(
+            2,
+            vec![field(
+                "f1",
+                "order_id",
+                LogicalDType::Int64,
+                Nullability::NonNullable,
+            )],
+        );
+
+        let report = evaluate_schema_evolution_compatibility(
+            &from,
+            &to,
+            &SchemaEvolutionPolicy::default_conservative(),
+        );
+
+        assert_eq!(
+            report.compatibility.level,
+            SchemaCompatibilityLevel::RequiresProjection
+        );
+        assert!(report.requires_projection);
+        assert_eq!(report.safe_change_count, 1);
     }
 }

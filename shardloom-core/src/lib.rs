@@ -128,9 +128,10 @@ pub use release::{
 pub use schema::{
     CatalogKind, CatalogRef, DeleteModel, FieldId, FieldName, FieldPath, PartitionField,
     PartitionSpec, PartitionTransform, SchemaChange, SchemaChangeKind, SchemaCompatibilityLevel,
-    SchemaCompatibilityReport, SchemaDefinition, SchemaEvolutionPolicy, SchemaEvolutionPolicyKind,
-    SchemaField, SchemaId, SchemaVersion, TableCompatibilityPlan, TableCompatibilityReport,
-    TableCompatibilityStatus, TableFeature, TableFeatureKind, TableFeatureStatus, TableFormatKind,
+    SchemaCompatibilityReport, SchemaDefinition, SchemaEvolutionCompatibilityReport,
+    SchemaEvolutionPolicy, SchemaEvolutionPolicyKind, SchemaField, SchemaId, SchemaVersion,
+    TableCompatibilityPlan, TableCompatibilityReport, TableCompatibilityStatus, TableFeature,
+    TableFeatureKind, TableFeatureStatus, TableFormatKind, evaluate_schema_evolution_compatibility,
 };
 
 pub use security::{
