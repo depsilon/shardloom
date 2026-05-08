@@ -44,9 +44,10 @@ pub use optimizer::{
     plan_adaptive_optimizer_memory,
 };
 pub use plan_ir::{
-    EffectBoundary, NativePlanDocument, NativePlanNode, NativePlanNodeKind, PlanBoundaryKind,
-    PlanCapabilityKind, PlanCapabilityRequirement, PlanExportRequest, PlanExportStatus, PlanId,
-    PlanImportRequest, PlanImportStatus, PlanInteropFormat, PlanLayer, PlanPortabilityDirection,
+    EffectBoundary, ImportedPlanCapabilityGateReport, ImportedPlanCapabilityGateStatus,
+    NativePlanDocument, NativePlanNode, NativePlanNodeKind, PlanBoundaryKind, PlanCapabilityKind,
+    PlanCapabilityRequirement, PlanExportRequest, PlanExportStatus, PlanId, PlanImportRequest,
+    PlanImportStatus, PlanInteropFormat, PlanLayer, PlanPortabilityDirection,
     PlanPortabilityReport, PlanPortabilityStatus, PlanSchemaVersion, PlanValidationReport,
     PlanValidationStatus, TranslationBoundary,
 };
