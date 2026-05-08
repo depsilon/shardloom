@@ -35,22 +35,65 @@ Minimum common data/ETL surface:
 - tabular file ingestion and export
 - local filesystem and object-store source/sink paths
 - schema discovery, schema evolution, and type coercion diagnostics
+- data contracts for required columns, types, nullability, uniqueness, ordering, partitioning, and freshness
 - projection, filtering, cleaning, deduplication, enrichment, joins, aggregations, windows, sorts, limits, and set operations
+- reshaping operations such as rename, cast, parse, explode/unnest, flatten, pivot/unpivot where supported, and nested-field projection
+- data quality handling for rejected rows, quarantine outputs, invalid records, parse failures, duplicate keys, and constraint violations
 - incremental recompute, CDC-like change intake, merge/delete/update where table semantics support it
+- pipeline state, checkpoints, watermarks, idempotency keys, and replay boundaries where incremental or streaming workloads require them
 - partition discovery, partition pruning, compaction planning, and layout health reporting
 - batch and bounded-streaming modes with backpressure and memory/spill declarations
+- orchestration boundaries for dry-run, plan, execute, retry, cancel, resume, and certify flows
+- lineage, provenance, audit, redaction, credential, and data-retention reporting where adapters or unstructured inputs require governance
 - explain, estimate, profile/analyze, and capability discovery for every supported pipeline stage
 - explicit materialization, fidelity-loss, metadata-loss, and external-effect reporting
 - deterministic unsupported diagnostics and rewrite suggestions
 - workload-scoped correctness, semantic conformance, benchmark, adapter, and no-fallback evidence
 
+Common data/ETL coverage families:
+- `ingestion`: files, partitioned datasets, object stores, relational sources, warehouses, event/log sources, API sources, unstructured references, and Vortex-native inputs.
+- `schema_contracts`: discovery, declared schema, type coercion, nullability, evolution, nested types, compatibility, and rejected-schema diagnostics.
+- `cleaning_quality`: parsing, normalization, deduplication, missing-value handling, constraint checks, quarantine, rejected-record reporting, and data-quality metrics.
+- `transformation`: projection, casts, derived columns, string/date/time/numeric transforms, nested-field transforms, explode/unnest, joins, aggregates, windows, sorts, limits, and set operations.
+- `enrichment`: lookup joins, UDF enrichment, external API enrichment, LLM/model enrichment, embedding enrichment, and explicit effect/materialization boundaries.
+- `incremental_state`: snapshots, CDC/change sets, watermarks, checkpoints, replay, idempotency, reuse, merge/update/delete, and stateful recompute.
+- `write_export`: append, overwrite, partitioned write, merge/upsert/delete where table semantics allow it, compatibility export, commit/recovery, and sink fidelity.
+- `pipeline_operations`: dry run, explain, estimate, profile/analyze, retry, cancellation, cleanup, certification, and machine-readable diagnostics.
+
+`DataEtlCoverageEntry` fields:
+- `family`
+- `capability_name`
+- `status`
+- `source_requirements`
+- `sink_requirements`
+- `operator_requirements`
+- `function_requirements`
+- `adapter_requirements`
+- `python_api_requirements`
+- `udf_extension_requirements`
+- `unstructured_media_requirements`
+- `semantic_profile_requirements`
+- `memory_spill_requirements`
+- `state_checkpoint_requirements`
+- `materialization_requirement`
+- `external_effect_requirement`
+- `diagnostic_requirements`
+- `correctness_evidence_ref`
+- `benchmark_evidence_ref`
+- `native_io_certificate_refs`
+- `execution_certificate_refs`
+- `fallback_attempted=false`
+
 `DataEtlCapabilityReport` fields:
 - `report_id`
 - `workload_constitution_ref`
 - `pipeline_surface_status`
+- `coverage_entries`
 - `ingestion_capabilities`
 - `transformation_capabilities`
 - `cleaning_capabilities`
+- `data_quality_capabilities`
+- `schema_contract_status`
 - `join_aggregate_window_capabilities`
 - `incremental_recompute_capabilities`
 - `cdc_merge_delete_update_capabilities`
@@ -60,6 +103,12 @@ Minimum common data/ETL surface:
 - `bounded_streaming_status`
 - `memory_spill_status`
 - `schema_evolution_status`
+- `state_checkpoint_status`
+- `orchestration_boundary_status`
+- `lineage_provenance_refs`
+- `quarantine_policy`
+- `data_contract_status`
+- `credential_effect_boundary_status`
 - `source_adapter_refs`
 - `sink_adapter_refs`
 - `native_io_certificate_refs`
@@ -79,6 +128,8 @@ ETL certification boundaries:
 - Incremental, merge, delete, update, compaction, and commit paths require explicit table/adapter semantics and commit/recovery evidence.
 - Object-store pipelines require request-budget, range-read, retry, idempotency, and cleanup diagnostics.
 - Unstructured extraction, OCR, LLM calls, embedding generation, and external APIs are effectful operations unless a later native path is certified.
+- Python convenience APIs cannot certify an ETL capability unless the underlying native plan, adapters, diagnostics, materialization boundaries, and evidence reports are certified for that workload.
+- A pipeline with mixed structured and unstructured inputs must certify both the tabular path and the unstructured/media reference or extraction path.
 
 ## Capability certification surface
 Contract names:
@@ -778,6 +829,23 @@ Relational/warehouse boundaries:
 - SQL pushdown into remote systems must be represented as source pushdown with exactness, residual, and semantic-difference reporting.
 - Federated reads must expose materialization, network, credential, consistency, and retry boundaries.
 
+### Event, API, and SaaS sources
+- local log/event file source utility
+- webhook/event manifest import later
+- Kafka-like stream source later
+- Kinesis/Pub/Sub-like stream source later
+- REST/HTTP JSON source later
+- GraphQL source later
+- SaaS/API connector manifests later
+- explicit API enrichment adapter later
+
+Event/API/SaaS boundaries:
+- Event and API sources are adapters or explicit external effects; they must not become hidden execution engines.
+- API calls, webhook pulls, SaaS reads, model calls, and external enrichment require credential, timeout, retry, rate-limit, idempotency, and cost diagnostics.
+- Stream sources require bounded state, checkpoint, watermark, replay, backpressure, and cancellation semantics before certification.
+- Remote filtering or projection is source pushdown only when exactness, residuals, semantic differences, and unsafe-rejected operations are reported.
+- Capability discovery must not call remote APIs, open streams, validate credentials, or inspect private schemas by default.
+
 ### Unstructured and media inputs
 - text files
 - HTML and XML documents
@@ -816,10 +884,12 @@ Unstructured/media boundaries:
 
 Python boundaries:
 - The first Python wrapper should be a stable, thin, machine-readable client over CLI/API JSON, not a hidden execution engine.
+- CG-11 may establish the low-level API/protocol foundation, but CG-20 owns mature Python wrapper, DataFrame/query-builder, notebook, Python UDF, and Python packaging certification.
 - Python APIs must not imply pandas/Polars/Spark/DataFusion execution fallback.
 - DataFrame-like APIs must lower into ShardLoom-native capability checks and plans.
 - Any conversion to pandas, Arrow, NumPy, or Python objects is a materialization boundary with explicit diagnostics.
 - Python UDFs require explicit type, null, determinism, volatility, effect, sandbox/resource, and materialization metadata.
+- Python must surface every unsupported construct, materialization boundary, external effect, credential requirement, and fallback-attempt field that the CLI/API JSON surface emits.
 
 ### Migration
 - Spark SQL migration analyzer
@@ -1096,6 +1166,10 @@ Future commands:
 - `shardloom capabilities functions`
 - `shardloom capabilities operators`
 - `shardloom capabilities adapters`
+- `shardloom capabilities universal-adapters`
+- `shardloom capabilities data-etl`
+- `shardloom capabilities python`
+- `shardloom capabilities unstructured-media`
 - `shardloom capabilities semantic-profiles`
 - `shardloom capabilities migration`
 - `shardloom capabilities certification`
@@ -1578,6 +1652,7 @@ Minimum evidence floor for a world-class claim:
 - Operator evidence covers native status, encoded capability, streaming, bounded memory, spill, shuffle, ordering, partitioning, and OOM behavior for every required operator family.
 - Function evidence covers aliases, type signatures, null behavior, determinism, volatility, effect level, encoded capability, materialization requirements, semantic profile, tests, and benchmark status for required functions.
 - Adapter evidence covers schema/metadata discovery, pushdown exactness, residuals, metadata loss, fidelity loss, encoded preservation, source/sink paths, commit semantics, streaming, object-store range behavior, and per-path native I/O certificates.
+- Universal adapter catalog evidence covers required tabular, lakehouse/table, object-store, catalog, relational/warehouse, event/API/SaaS, client/server, Python/notebook, and unstructured/media paths for the declared workload.
 - Data/ETL evidence covers ingestion, cleaning, transformation, joins/aggregates/windows, incremental recompute, CDC/merge/delete/update where applicable, write/export, partition/layout behavior, bounded streaming, memory/spill, and pipeline observability.
 - Python evidence covers thin CLI/API JSON wrapper status, DataFrame/query-builder status, notebook ergonomics, diagnostics, materialization/export boundaries, UDF boundaries, packaging status, cancellation/idempotency where relevant, and no Python-side fallback execution.
 - Unstructured/media evidence covers typed references, metadata extraction, chunk manifests, extractor provenance, redaction, effect permissions, materialization cost, and explicit unsupported diagnostics for required document/media sources.
@@ -1597,6 +1672,7 @@ Disqualifiers for a best-default claim:
 - A mandatory workload category without certified coverage evidence.
 - A required source/sink path without native I/O certificate evidence.
 - Required Python, ETL, or unstructured/media surfaces without certification evidence.
+- CG-11 API/protocol foundation work presented as mature CG-20 Python, DataFrame, notebook, ETL, or adapter certification.
 - Unreported materialization, metadata loss, fidelity loss, or semantic divergence.
 - Unbounded memory or OOM behavior for required large-state operators.
 - Unsupported constructs without deterministic diagnostics.
@@ -1706,6 +1782,11 @@ Snapshot execution boundaries:
 
 ## Dependency policy distinction
 Spark/DataFusion and other engines remain external baselines for comparison, not runtime dependencies or fallback paths.
+
+## Relationship to RFC 0030 and CG-11
+RFC 0030 and CG-11 cover the earlier API/protocol foundation needed to expose ShardLoom safely. CG-20 owns the mature user-capability certification layer: Python wrapper usability, DataFrame/query-builder ergonomics, notebook behavior, Python UDF boundaries, API packaging readiness, common ETL workflows, universal adapters, unstructured/media handling, and best-default workload certification.
+
+CG-11 completion can prove that an API surface exists and preserves native/no-fallback boundaries. It cannot by itself certify that the Python wrapper, ETL surface, adapter catalog, UDF system, or notebook experience is world-class. Those claims require CG-20 evidence, workload-scoped correctness and benchmark gates, native I/O certificates, execution certificates, and no-fallback diagnostics.
 
 ## Relationship to RFC 0025 and CG-20
 RFC 0025 defines competitive gates; this RFC specifies CG-20 capability contracts and evidence expectations.

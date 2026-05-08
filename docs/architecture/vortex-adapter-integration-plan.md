@@ -643,6 +643,20 @@ Phase 12D.1 / CG-4.1 adds the first local commit execution path behind `vortex-s
 - It does not execute rollback/recovery actions.
 - It does not enable fallback execution.
 
+## Local committed-manifest recovery diagnostics
+
+Phase 12D.2 / CG-4.2 adds report-only recovery and rollback planning for the local committed-manifest path.
+
+- It represents recovery-not-required, rollback-required, rollback-planned, ambiguous-commit, missing committed-manifest, cleanup-policy, and object-store blocker states.
+- It emits `RecoveryPlan` cleanup targets for rollback-required paths.
+- It emits ambiguous commit records when committed-manifest evidence cannot be trusted.
+- It derives recovery requests from local commit execution reports.
+- It does not delete committed manifests.
+- It does not execute cleanup or rollback.
+- It does not call upstream `Vortex` commit or write APIs.
+- It does not perform object-store IO.
+- It does not enable fallback execution.
+
 
 ## Output payload write contract
 

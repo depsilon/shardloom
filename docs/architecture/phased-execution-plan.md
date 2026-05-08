@@ -36,7 +36,7 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-4.1 local committed-manifest execution
+- [x] Session label: CG-4.2 local commit recovery and rollback diagnostics
   - Primary files:
     - `shardloom-vortex/src/commit_protocol.rs`
     - `shardloom-vortex/src/lib.rs`
@@ -45,19 +45,16 @@ Supporting docs:
     - `docs/architecture/rfc-phase-traceability.md`
     - `docs/architecture/vortex-public-api-inventory.md`
     - `docs/architecture/vortex-adapter-integration-plan.md`
-  - Scope: Add the first feature-gated local commit execution path by copying a finalized-manifest candidate into a committed-manifest artifact.
+  - Scope: Add report-only local committed-manifest recovery and rollback planning diagnostics without deleting artifacts or executing recovery.
   - Checklist:
-    - [x] Add local commit execution request/report/status fields and side-effect evidence.
-    - [x] Require commit protocol readiness, finalized-manifest artifact, commit marker artifact, output payload artifact, local workspace, and feature-gate readiness before committing.
-    - [x] Write only `_shardloom_committed_manifest.json` behind `vortex-staged-output-fs`.
-    - [x] Treat identical existing committed manifest as idempotent `already_committed`.
-    - [x] Treat differing existing committed manifest as ambiguous/blocked.
-    - [x] Surface `shardloom vortex-local-commit-execute` with text/JSON side-effect evidence.
-    - [x] Prove default builds remain report-only/feature-disabled and feature-enabled builds write only the committed-manifest artifact.
-    - [x] Fold in user-requested CG-20 expansion for common data/ETL, Python wrapper/API, universal adapters, UDFs, and unstructured/media capability evidence.
-    - [x] Run focused default and feature-gated Vortex/CLI tests.
+    - [x] Add local commit recovery request/report/status fields and side-effect evidence.
+    - [x] Represent rollback-required, rollback-planned, recovery-not-required, ambiguous-commit, missing committed-manifest, cleanup-policy, and object-store blockers.
+    - [x] Build `RecoveryPlan` evidence with cleanup targets and ambiguous commit records while keeping execution side-effect-free.
+    - [x] Derive recovery requests from local commit execution reports.
+    - [x] Surface `shardloom vortex-local-commit-recovery-plan` with text/JSON recovery and no-fallback evidence.
+    - [x] Run focused Vortex/CLI recovery tests.
     - [x] Run full required validation.
-  - Explicitly not included: object-store commit, table/catalog transaction commit, output payload writing, generalized output writes, upstream `Vortex` commit APIs, rollback execution, recovery manager, retry execution, distributed commit, spill IO, external baseline execution, fallback execution, benchmarks, public command/signal renames, CG-4 closeout, or later CG closeout.
+  - Explicitly not included: rollback cleanup execution, committed-manifest deletion, object-store commit/recovery, table/catalog transaction commit, output payload writing, generalized output writes, upstream `Vortex` commit APIs, recovery manager execution, retry execution, distributed commit, spill IO, external baseline execution, fallback execution, benchmarks, public command/signal renames, CG-4 closeout, or later CG closeout.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -312,7 +309,10 @@ Supporting docs:
     - `docs/architecture/canonical-terminology.md`
   - Acceptance:
     - CG-20 explicitly covers common data/ETL, Python wrapper/API, UDF enrichment, universal adapters, and unstructured/media capability evidence.
+    - CG-11 is clarified as API/protocol foundation while CG-20 owns mature Python wrapper, DataFrame/query-builder, notebook, Python UDF, and Python packaging certification.
     - Python wrapper ownership starts as a thin stable CLI/API JSON surface, not a hidden execution engine.
+    - ETL coverage includes ingestion, schema contracts, data quality, transformation, enrichment, incremental state, write/export, pipeline operations, lineage/provenance, and governance evidence.
+    - Universal adapters include tabular files, table/lakehouse metadata, object stores, catalogs, relational/warehouse sources, event/API/SaaS sources, client/server bridges, Python/notebook surfaces, and unstructured/media references.
     - Unstructured/media sources are modeled as typed references, metadata, extracted fields, chunks, manifests, and explicit effectful extraction boundaries.
     - Scope remains docs/RFC-only with no parser, Python package, adapter runtime, media runtime, OCR/LLM/embedding dependency, execution behavior, external probing, or fallback execution.
   - Blockers:
@@ -417,7 +417,7 @@ Supporting docs:
     - full Rust validation passed with toolchain `1.91.1`
 - [x] R5.4.12 Common data/ETL and Python/media surface expansion
   - Why: make CG-20 broad enough for common data/ETL, Python, UDF, universal adapter, and unstructured/media adoption.
-  - Acceptance: RFC/sequencing docs cover ETL reports, Python wrapper reports, unstructured/media reports, adapter roadmap expansion, workload/scorecard/dossier evidence, and no-fallback boundaries.
+  - Acceptance: RFC/sequencing docs cover ETL coverage families, ETL reports, Python wrapper reports, CG-11/CG-20 ownership split, unstructured/media reports, event/API/SaaS adapter roadmap expansion, workload/scorecard/dossier evidence, and no-fallback boundaries.
 
 ## Implementation Phase Queue
 - [x] R4 Resume CG implementation
@@ -671,15 +671,16 @@ Status legend:
     - CG-3 payload writes do not by themselves create committed state; committed-manifest state is owned by CG-4
     - no object-store writes initially
 
-- [ ] CG-4 — Commit protocol execution (**current; first local committed-manifest path complete**)
+- [ ] CG-4 — Commit protocol execution (**current; local commit and recovery diagnostics partially complete**)
   - [x] report-only planning/state-machine and marker/finalization readiness contracts
   - [x] first feature-gated local committed-manifest execution path
   - [x] idempotent identical committed-manifest detection
   - [x] ambiguous differing committed-manifest diagnostic
+  - [x] report-only local committed-manifest recovery/rollback diagnostics
   - [~] broader table/catalog/object-store commit execution remains deferred
   - Required capabilities for completion:
     - local-first idempotent commit execution across supported paths
-    - recoverable rollback/ambiguous-commit diagnostics
+    - recoverable rollback/ambiguous-commit diagnostics across supported paths
     - deterministic commit-state transitions
 
 - [ ] CG-5 — Correctness/differential tests (**planned**)
@@ -747,11 +748,13 @@ Status legend:
     - object-store commit protocol
     - distributed scheduling with checkpoint/retry/idempotency
 
-- [ ] CG-11 — Python/API surface later (**planned**)
+- [ ] CG-11 — Python/API foundation surface later (**planned**)
   - Scope:
-    - thin Python wrapper over stable CLI JSON first
+    - API/protocol foundation for stable CLI JSON and future clients
+    - thin Python wrapper foundation over stable CLI JSON first
     - Foundry-friendly integration later
     - no PyO3/maturin unless explicitly approved
+    - mature Python wrapper/DataFrame/notebook/Python UDF certification belongs to CG-20
 
 - [ ] CG-12 — Plan portability / semantic IR (**planned**)
   - Scope:
@@ -805,7 +808,7 @@ Status legend:
   - [x] common data/ETL, Python wrapper/API, UDF, universal adapter, and unstructured/media evidence scope documented
   - [~] implementation pending
   - Scope:
-    - capability certification surface across SQL/operators/functions/adapters/semantic profiles, migration, Python/API, UDF/plugin, common ETL, unstructured/media, and certification reporting
+    - capability certification surface across SQL/operators/functions/adapters/semantic profiles, migration, Python/API, DataFrame/query builder, notebook, UDF/plugin, common ETL, universal adapters, event/API/SaaS adapters, unstructured/media, and certification reporting
 
 
 ## Competitive Engine Gate Detailed Checklist Ledger
@@ -889,9 +892,11 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] local-first committed-manifest execution
 - [x] feature-gated local commit execution path behind `vortex-staged-output-fs`
 - [x] idempotent identical already-committed behavior
-- [~] recoverable commit behavior remains deferred
+- [x] report-only local committed-manifest recovery/rollback diagnostics
+- [~] recoverable commit execution remains deferred
 - [x] ambiguous differing committed-manifest report
-- [~] rollback execution/reporting remains deferred
+- [x] rollback-required and rollback-planned reporting
+- [~] rollback cleanup execution remains deferred
 - [x] no object-store commit until later phases
 - [~] broader table/catalog/object-store commit execution remains deferred
 
@@ -967,10 +972,12 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [ ] checkpoint/retry/idempotency
 
 ### CG-11 detailed checklist
-- [ ] thin Python wrapper over CLI JSON first
+- [ ] stable CLI/API JSON protocol foundation
+- [ ] thin Python wrapper foundation over CLI JSON first
 - [ ] Foundry-friendly later
 - [ ] no PyO3/maturin unless explicitly approved
 - [ ] no Spark fallback
+- [ ] mature Python wrapper/DataFrame/notebook/Python UDF certification deferred to CG-20
 
 ### CG-12 detailed checklist
 - [ ] native-first plan portability reports
@@ -1013,10 +1020,12 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] World-class sufficiency report, best-default dossier linkage, and claim disqualifiers documented
 - [x] common data/ETL capability evidence documented
 - [x] Python wrapper/API ownership documented under CG-20
+- [x] CG-11 API/protocol foundation split from CG-20 mature Python certification
 - [x] universal adapter roadmap expanded for common data and ETL sources/sinks
+- [x] event/API/SaaS adapter categories documented as explicit effect/source-pushdown surfaces
 - [x] unstructured/media capability boundaries documented
 - [~] implementation pending
-- [ ] capability certification surface implementation across SQL/operators/functions/adapters/semantic profiles/migration/Python/API/ETL/unstructured-media reporting
+- [ ] capability certification surface implementation across SQL/operators/functions/adapters/semantic profiles/migration/Python/API/DataFrame/notebook/UDF/ETL/universal-adapter/unstructured-media reporting
 
 ### CG attribution and evidence notes
 - [ ] When moving any detailed item to complete, link the implementing PR/commit and validating tests in the completion note.
@@ -1054,7 +1063,8 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] Phase 12A/12B/12C planning-and-readiness milestones listed in traceability
   - Note: Phase-12 placeholder artifacts are readiness-only and do not imply CG-3 completion.
   - Note: CG-3.1 adds the first real local native Vortex count-result payload path.
-  - Note: CG-4.1 adds the first feature-gated local committed-manifest execution path; generalized commit/recovery and object-store writes remain separate work.
+  - Note: CG-4.1 adds the first feature-gated local committed-manifest execution path.
+  - Note: CG-4.2 adds report-only local committed-manifest recovery/rollback diagnostics; rollback cleanup execution, generalized recovery, and object-store writes remain separate work.
 
 ## Deferred / Blocked Work
 - [x] CG-1.2 metadata/footer execution path has a feature-gated local fixture invocation helper.
@@ -1081,6 +1091,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.19 explicit local encoded-count execution boundary exposes the approved local `.vortex` `CountAll` scan/count path through a narrow API boundary and CLI opt-in while generalized encoded-data count execution remains deferred.
 - [x] CG-2.1e.20 approved local scan naming normalization updates public report and diagnostic names from fixture wording to local-scan wording without widening behavior.
 - [x] CG-2.1e.21 approved local scan result bridge connects the successful approved local scan/count report to local query-primitive execution evidence with known count value, target/source-match validation, no decode/materialization/row/Arrow/object-store/write/spill/external effects, and no fallback.
+- [x] CG-4.2 local committed-manifest recovery/rollback diagnostics represent recovery-not-required, rollback-required/planned, ambiguous-commit, missing-manifest, cleanup-policy, and object-store blocker states without executing cleanup, rollback, object-store IO, or fallback.
 - [x] CG-2.2c filtered-count metadata proof local guard admits only metadata-proof `CountWhere` requests into metadata-only local execution and rejects encoded predicate candidates without fallback.
 - [x] CG-2.2d filtered-count metadata proof report classifies proof-ready, encoded-predicate-needed, missing-metadata, and unsupported filtered counts without IO or fallback.
 - [x] CG-5.1 metadata query primitive correctness fixtures cover supported metadata answers and deferred unsupported paths without side effects.

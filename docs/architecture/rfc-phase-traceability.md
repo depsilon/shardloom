@@ -95,7 +95,7 @@ Status categories:
 | RFC 0025 | Planned | CG-1 through CG-20, Ongoing | Competitive Engine Track policy is documented; implementation remains gate-specific and evidence-gated. |
 | RFC 0026 | Partially implemented | CG-1, CG-2, CG-13 | Encoded-read and query-primitive readiness contracts exist; real execution remains gated. |
 | RFC 0027 | Planned | CG-7, CG-8, CG-14, CG-15 | CPU/vectorized/runtime adaptivity scope remains future implementation. |
-| RFC 0028 | Partially implemented | CG-3, CG-4, CG-9, CG-10 | Output/commit readiness contracts exist; first native count-result payload path is complete; first local committed-manifest execution path is complete; broader payloads, recovery, table/catalog commits, and object-store commits remain incomplete. |
+| RFC 0028 | Partially implemented | CG-3, CG-4, CG-9, CG-10 | Output/commit readiness contracts exist; first native count-result payload path is complete; first local committed-manifest execution path is complete; local committed-manifest recovery/rollback diagnostics are report-only; broader payloads, rollback execution, table/catalog commits, and object-store commits remain incomplete. |
 | RFC 0029 | Planned | CG-5, CG-6, CG-16, CG-17 | Correctness, benchmark, certificate, and reuse evidence remain future gate work. |
 | RFC 0030 | Planned | CG-11, CG-12, CG-18 | API, portability, deployment, and baseline harness work remains staged. |
 | RFC 0031 | Planned | CG-19 | Universal Native I/O Envelope is RFC-level only; implementation pending. |
@@ -175,7 +175,7 @@ Competitive gate coverage:
 - CG-8: streaming/parallel/adaptive execution
 - CG-9: lakehouse/table intelligence
 - CG-10: object-store/distributed execution
-- CG-11: Python/API surface later
+- CG-11: Python/API foundation surface later
 - CG-12: plan portability / semantic IR
 - CG-13: encoded-native compressed execution
 - CG-14: runtime-adaptive optimizer and execution memory
@@ -199,6 +199,7 @@ Competitive gate coverage:
 | Phase 12C.4 — staged smoke test includes output payload artifact (complete readiness-only) | RFC 0015 Correctness, Semantics, Differential Testing, and Fuzzing | RFC 0004 Native Dataset Manifest, Snapshot, Incremental | Extends staged CLI-driven write-readiness smoke coverage with output payload plan and placeholder artifact write; verifies no real `Vortex` payload writes, no upstream `Vortex` write API calls, no manifest/commit writes, no object-store IO, fallback disabled; this is CG-3 readiness evidence only and does not complete CG-3 | Complete readiness-only milestone; not the active implementation phase. |
 | Phase 12C.5 / CG-3.1 — native count output payload write (complete) | RFC 0005 Vortex-Native File IO and Output Contract; RFC 0012 Diagnostics, Explain, Estimate, and Capabilities | RFC 0004 Native Dataset Manifest, Snapshot, Incremental; RFC 0017 Fault Tolerance, Cancellation, and Recovery | feature-gated local native `Vortex` output payload write for a known `CountAll` result; writes a one-row `u64` `.vortex` payload through upstream `Vortex` writer APIs only under `vortex-write`; default builds remain report-only/feature-disabled; no manifest writes, no manifest commits, no object-store IO, no generalized output writes, and no fallback execution | Provides the first real CG-3 payload path while leaving CG-4 commit execution and broader output support deferred. |
 | Phase 12D.1 / CG-4.1 — local committed-manifest execution (complete) | RFC 0017 Fault Tolerance, Cancellation, and Recovery; RFC 0012 Diagnostics, Explain, Estimate, and Capabilities | RFC 0004 Native Dataset Manifest, Snapshot, Incremental; RFC 0005 Vortex-Native File IO and Output Contract | feature-gated local commit execution copies `_shardloom_finalized_manifest.json` into `_shardloom_committed_manifest.json` only after commit protocol, finalized-manifest, commit-marker, output-payload, local-workspace, and feature-gate evidence; identical existing committed manifest is idempotent; differing existing committed manifest is ambiguous/blocked; no object-store IO, output payload write, upstream `Vortex` commit API, recovery execution, rollback execution, or fallback execution | Provides the first CG-4 local commit path while leaving recovery, rollback, table/catalog transaction, distributed, and object-store commit paths deferred. |
+| Phase 12D.2 / CG-4.2 — local commit recovery/rollback diagnostics (complete) | RFC 0017 Fault Tolerance, Cancellation, and Recovery; RFC 0012 Diagnostics, Explain, Estimate, and Capabilities | RFC 0004 Native Dataset Manifest, Snapshot, Incremental; RFC 0028 Output Payloads, Finalization, Commit, and Lakehouse Semantics | report-only local committed-manifest recovery planning records recovery-not-required, rollback-required, rollback-planned, ambiguous commit, missing committed-manifest, cleanup-policy, and object-store blockers; emits `RecoveryPlan` cleanup targets and ambiguous commit records; no cleanup deletion, rollback execution, object-store IO, upstream `Vortex` commit API, retry execution, or fallback execution | Provides CG-4 rollback and ambiguous-commit diagnostics while leaving rollback cleanup execution and broader recovery deferred. |
 
 
 ## Competitive Engine Track RFC mappings
@@ -805,6 +806,7 @@ No fallback execution.
 
 - `shardloom-cli/src/main.rs` exposes report-only CG-20 discovery through `shardloom capabilities <scope>`.
 - Implemented scopes: `sql`, `functions`, `operators`, `adapters`, `semantic-profiles`, `migration`, and `certification`.
+- Broader user-surface scopes such as `data-etl`, `python`, `unstructured-media`, `universal-adapters`, `api-surfaces`, `observability`, `deployment`, `extensions`, and `security-governance` remain planned until report-only contracts and snapshot coverage are added.
 - `shardloom capabilities` without a scope remains the existing engine-level capability summary.
 - Discovery output includes stable output-envelope fields for scope, schema version, fallback-disabled status, fallback-attempted status, and side-effect/probe flags.
 - Primary RFC linkage: RFC 0032.
@@ -924,9 +926,10 @@ No fallback execution.
 
 ## R5.4.12 common data/ETL and Python/media surface expansion
 
-- RFC 0032 now defines CG-20 coverage for common data/ETL surfaces beyond SQL, including ingestion, cleaning, transformation, incremental recompute, write/export, partition/layout behavior, bounded streaming, memory/spill, and pipeline observability.
-- RFC 0032 now places the Python wrapper/API under CG-20 user capability, starting with a thin stable CLI/API JSON client and requiring explicit diagnostics and materialization boundaries.
-- RFC 0032 now expands universal adapter coverage to partitioned datasets, compressed wrappers, relational/warehouse sources, Python/notebook surfaces, and unstructured/media references.
+- RFC 0032 now defines CG-20 coverage for common data/ETL surfaces beyond SQL, including ingestion, schema contracts, data quality, cleaning, transformation, enrichment, incremental state, write/export, partition/layout behavior, bounded streaming, memory/spill, lineage/provenance, governance, and pipeline observability.
+- RFC 0032 now places mature Python wrapper/API, DataFrame/query-builder, notebook, Python UDF, and Python packaging certification under CG-20 user capability, starting with a thin stable CLI/API JSON client and requiring explicit diagnostics and materialization boundaries.
+- RFC 0032 now clarifies that CG-11 supplies API/protocol foundation while CG-20 owns mature Python and user-capability certification.
+- RFC 0032 now expands universal adapter coverage to partitioned datasets, compressed wrappers, relational/warehouse sources, event/API/SaaS sources, Python/notebook surfaces, and unstructured/media references.
 - RFC 0032 now defines unstructured/media capability boundaries for typed references, extracted text/chunks/metadata, extractor provenance, redaction, effect permissions, materialization costs, and unsupported diagnostics.
 - Workload constitutions, scorecards, best-default dossiers, and sufficiency reports now include data/ETL, Python, and unstructured/media evidence where those surfaces are in scope.
 - Primary RFC linkage: RFC 0032.

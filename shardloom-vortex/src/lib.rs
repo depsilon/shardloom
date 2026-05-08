@@ -281,10 +281,15 @@ pub use commit_protocol::{
     VortexCommittedManifestFileRef, VortexLocalCommitExecutionMode,
     VortexLocalCommitExecutionReport, VortexLocalCommitExecutionRequest,
     VortexLocalCommitExecutionSignal, VortexLocalCommitExecutionStatus,
-    commit_protocol_request_from_commit_intent, execute_vortex_local_commit,
+    VortexLocalCommitRecoveryMode, VortexLocalCommitRecoveryReport,
+    VortexLocalCommitRecoveryRequest, VortexLocalCommitRecoverySignal,
+    VortexLocalCommitRecoveryStatus, commit_protocol_request_from_commit_intent,
+    execute_vortex_local_commit, local_commit_recovery_request_from_execution_report,
     plan_vortex_commit_protocol, plan_vortex_commit_protocol_from_commit_intent,
-    vortex_commit_protocol_is_side_effect_free, vortex_local_commit_execution_feature_enabled,
+    plan_vortex_local_commit_recovery, vortex_commit_protocol_is_side_effect_free,
+    vortex_local_commit_execution_feature_enabled,
     vortex_local_commit_execution_is_side_effect_free,
+    vortex_local_commit_recovery_is_side_effect_free,
 };
 
 pub use commit_execution_gate::{
