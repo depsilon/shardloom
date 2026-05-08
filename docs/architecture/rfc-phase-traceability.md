@@ -542,6 +542,15 @@ No fallback execution.
 - `shardloom-contract-tests/tests/external_baseline_oracles.rs` verifies all declared baselines are present, reference-only, non-fallback-capable, and not runtime execution paths.
 - This pass adds no external engine dependency, external baseline invocation, query execution behavior, benchmark claim, parser, adapter runtime, object-store IO, write behavior, or fallback execution.
 
+## CG-5.5 local encoded `CountAll` correctness fixture/reference-output proof
+
+- Primary RFC linkage: RFC 0015 Correctness/Semantics/Differential Testing, RFC 0029 Correctness/Benchmarks/Execution Certificates, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
+- `ExpectedOutcome::EncodedCount { count }` records an execution-required reference output distinct from metadata-only row-count evidence.
+- `CorrectnessValidationPlan::default_foundation_plan` declares `vortex-local-encoded-count-u64-20000` over the checked-in `metadata_footer_u64_20000.vortex` fixture with `ExpectedOutcome::EncodedCount { count: 20000 }`.
+- `shardloom-contract-tests/tests/correctness_fixture_manifest.rs` verifies the fixture path, expected count, execution-required status, golden fixture role, and non-production reference role.
+- `shardloom-vortex/src/encoded_read_executor.rs` feature-gated tests verify the approved local encoded count path and local execution bridge return the manifest count without decode/materialization/row/Arrow/object-store/write/spill/external/fallback effects.
+- This pass adds no new fixture generation, decoded reference engine execution, external baseline invocation, generalized encoded-data execution, non-local adapter, object-store IO, encoded predicate, projection execution, row read, requested decode/materialization, Arrow conversion, write behavior, benchmark claim, superiority claim, or fallback execution.
+
 ## CG-6.1 benchmark evidence manifest
 
 - Primary RFC linkage: RFC 0029 Correctness/Benchmarks/Execution Certificates, RFC 0015 Correctness/Semantics/Differential Testing, RFC 0025 Competitive/no-fallback, and RFC 0032 capability certification gates.

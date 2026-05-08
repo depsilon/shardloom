@@ -1633,6 +1633,71 @@ mod tests {
 
     #[cfg(feature = "vortex-encoded-read-spike")]
     #[test]
+    fn local_encoded_count_matches_correctness_manifest_reference_output() {
+        use crate::{
+            VortexLocalExecutionStatus, VortexLocalExecutionValue, VortexQueryPrimitiveValue,
+            execute_vortex_count_all_from_approved_local_scan_result,
+        };
+        use shardloom_core::{CorrectnessValidationPlan, DatasetUri, ExpectedOutcome};
+
+        let plan = CorrectnessValidationPlan::default_foundation_plan();
+        let fixture = plan
+            .fixtures
+            .iter()
+            .find(|fixture| fixture.id.as_str() == "vortex-local-encoded-count-u64-20000")
+            .expect("encoded count fixture");
+        let ExpectedOutcome::EncodedCount { count } = fixture.expected else {
+            panic!("encoded count fixture must declare encoded count reference output");
+        };
+        let fixture_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("workspace root")
+            .join(fixture.source_ref.as_ref().expect("fixture source ref"));
+        let target_uri = DatasetUri::new(fixture_path.to_string_lossy().to_string()).expect("uri");
+        let approval = approved_encoded_count_path_for_uri(target_uri.clone());
+        let encoded_report = execute_vortex_count_all_from_approved_local_scan(
+            &approval,
+            &ready_readiness_for_uri(target_uri),
+        )
+        .expect("approved local scan/count");
+        let local_report =
+            execute_vortex_count_all_from_approved_local_scan_result(&approval, &encoded_report)
+                .expect("local encoded count bridge");
+
+        assert_eq!(encoded_report.count_result, Some(count));
+        assert_eq!(encoded_report.rows_counted, count);
+        assert!(encoded_report.local_scan_source_uri_matches_target);
+        assert!(encoded_report.data_read);
+        assert!(!encoded_report.data_decoded);
+        assert!(!encoded_report.data_materialized);
+        assert!(!encoded_report.row_read);
+        assert!(!encoded_report.arrow_converted);
+        assert!(!encoded_report.object_store_io);
+        assert!(!encoded_report.write_io);
+        assert!(!encoded_report.spill_io_performed);
+        assert!(!encoded_report.fallback_execution_allowed);
+        assert_eq!(
+            local_report.status,
+            VortexLocalExecutionStatus::LocalEncodedCountExecuted
+        );
+        assert_eq!(
+            local_report.value,
+            VortexLocalExecutionValue::QueryPrimitive(VortexQueryPrimitiveValue::Count(count))
+        );
+        assert!(local_report.tasks_executed);
+        assert!(local_report.data_read);
+        assert!(!local_report.data_decoded);
+        assert!(!local_report.data_materialized);
+        assert!(!local_report.object_store_io);
+        assert!(!local_report.write_io);
+        assert!(!local_report.spill_io_performed);
+        assert!(!local_report.external_effects_executed);
+        assert!(!local_report.fallback_execution_allowed);
+        assert!(!local_report.has_errors());
+    }
+
+    #[cfg(feature = "vortex-encoded-read-spike")]
+    #[test]
     fn local_scan_rejects_object_store_target_without_io() {
         use shardloom_core::DatasetUri;
         use vortex::VortexSessionDefault as _;
