@@ -39,27 +39,33 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-7.21 execution-level coverage discovery
+- [x] Session label: CG-7.22 encoded segment predicate evaluation foundation
   - Primary files:
-    - `shardloom-core/src/operator.rs`
+    - `shardloom-core/src/encoded.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-vortex/src/encoded_predicate_evaluation.rs`
+    - `shardloom-vortex/src/metadata_pruning.rs`
+    - `shardloom-vortex/src/lib.rs`
     - `shardloom-cli/src/main.rs`
     - `shardloom-cli/tests/capability_discovery_snapshots.rs`
     - `shardloom-cli/tests/kernel_registry_snapshots.rs`
-    - `shardloom-contract-tests/tests/physical_operator_kernel_contracts.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-  - Scope: Surface CG-7 metadata-only, encoded-native, hybrid-native, and native-decoded execution-level coverage as stable discovery evidence while keeping runtime execution, kernel registration, broad filter/project/count closure, and CG-7 closeout blocked.
+  - Scope: Add a no-fallback encoded-segment predicate evaluation foundation that emits selection vectors for metadata-proven all/none cases, defers inconclusive predicates to encoded-value kernels, and exposes report-only discovery without enabling broad filter execution or runtime kernel registration.
   - Checklist:
-    - [x] Add profile-matrix helpers for allowed execution-level counts.
-    - [x] Expose metadata-only, encoded-native, hybrid-native, and native-decoded profile counts in `capabilities operators`.
-    - [x] Expose the same execution-level counts in `kernel-registry`.
-    - [x] Keep reference-only, row materialization, Arrow conversion, runtime execution, and fallback counts at zero.
-    - [x] Run focused and full required validation.
+    - [x] Add core encoded predicate evaluation report/status types.
+    - [x] Emit `SelectionVector::All` and `SelectionVector::None` for metadata-proven segment predicates.
+    - [x] Preserve explicit `needs_encoded_values`, `missing_segment_metadata`, and `unsupported` outcomes.
+    - [x] Add Vortex summary bridge across segment metadata.
+    - [x] Surface encoded predicate evaluation discovery in `capabilities operators` and `kernel-registry`.
+    - [x] Keep data read, decode, materialization, row read, Arrow conversion, object-store IO, write IO, spill IO, runtime execution, and fallback disabled.
+    - [x] Run full required validation.
   - Local validation status:
-    - focused execution-profile contract test passed
+    - focused core encoded predicate tests passed
+    - focused Vortex encoded predicate evaluation tests passed
     - operator capability and kernel-registry snapshot tests passed
     - full Rust validation passed with toolchain `1.91.1`
-  - Explicitly not included: new scan/read-start paths, generalized encoded-data execution, filter execution, projection execution, aggregate execution, row reads, requested decode/materialization, Arrow conversion, parser, SQL execution, adapter runtime, object-store IO, writes, spill IO, benchmarks, production/superiority claims, fallback execution, broad filter/project/count closeout, CG-7 closeout, or CG-2 closeout.
+  - Explicitly not included: new scan/read-start paths, generalized encoded-data execution, broad filter execution, projection execution, aggregate execution, row reads, requested decode/materialization, Arrow conversion, parser, SQL execution, adapter runtime, object-store IO, writes, spill IO, benchmarks, production/superiority claims, fallback execution, broad filter/project/count closeout, CG-7 closeout, or CG-2 closeout.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -666,6 +672,14 @@ Supporting docs:
     - `capabilities operators` and `kernel-registry` expose metadata-only, encoded-native, hybrid-native, and native-decoded level counts without runtime probing.
     - Reference-only, row-materialization, Arrow-conversion, runtime-execution, and fallback counts remain zero.
     - No kernel registration, filter execution, projection execution, aggregate execution, benchmark claim, superiority claim, or fallback behavior is added.
+- [x] CG-7.22 encoded segment predicate evaluation foundation
+  - Why: provide the shared predicate/selection-vector foundation needed before broad encoded filter kernels can be admitted.
+  - Acceptance:
+    - Core encoded segments emit `SelectionVector::All` or `SelectionVector::None` for metadata-proven predicates.
+    - Inconclusive predicates report `needs_encoded_values` without reading, decoding, materializing, converting to Arrow, or attempting fallback.
+    - Vortex metadata summaries can produce per-segment encoded predicate evaluation reports.
+    - `capabilities operators` and `kernel-registry` surface report-only encoded predicate evaluation discovery.
+    - No global kernel registration, broad filter execution, benchmark claim, superiority claim, or fallback behavior is added.
 
 ## Competitive Engine Gates CG-1 through CG-20
 
@@ -800,6 +814,7 @@ Status legend:
   - [x] CG-7.19 metadata projection kernel admission bridge
   - [x] CG-7.20 metadata count aggregate kernel admission bridge
   - [x] CG-7.21 execution-level coverage discovery
+  - [x] CG-7.22 encoded segment predicate evaluation foundation
   - Scope:
     - filter/projection/count-aggregate kernels
     - metadata/encoded/hybrid execution levels
@@ -1029,11 +1044,12 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-7.19 metadata projection kernel admission bridge
 - [x] CG-7.20 metadata count aggregate kernel admission bridge
 - [x] CG-7.21 execution-level coverage discovery
+- [x] CG-7.22 encoded segment predicate evaluation foundation
 - [ ] filter kernel
 - [ ] projection kernel
 - [ ] count/aggregate kernel
 - [x] metadata/encoded/hybrid execution levels
-- [ ] expression evaluation over encoded segments
+- [x] expression evaluation over encoded segments
 
 ### CG-8 detailed checklist
 - [ ] streaming encoded batches
@@ -1219,6 +1235,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-7.19 metadata projection kernel admission bridge lets safe metadata-schema projection readiness mark the project metadata slot registry-ready while benchmark-gating production certification.
 - [x] CG-7.20 metadata count aggregate kernel admission bridge lets safe metadata-only `CountAll` and metadata-proof `CountWhere` physical-kernel evidence mark the count-aggregate metadata slot registry-ready while benchmark-gating production certification.
 - [x] CG-7.21 execution-level coverage discovery surfaces metadata-only, encoded-native, hybrid-native, and native-decoded execution-level profile counts through capability and kernel-registry output without enabling runtime execution.
+- [x] CG-7.22 encoded segment predicate evaluation foundation emits metadata-proven selection vectors and encoded-value-required reports across core encoded segments and Vortex metadata summaries without enabling broad filter execution.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind `vortex-write`; placeholder artifact paths remain readiness-only.
 - [~] CG-3 broader output payload shapes remain deferred.

@@ -57,10 +57,11 @@ pub use diagnostics::{
     Diagnostic, DiagnosticCategory, DiagnosticCode, DiagnosticSeverity, FallbackStatus,
 };
 pub use encoded::{
-    ByteRange, ColumnRef, ComparisonOp, EncodedEvalCapability, EncodedSegment, EncodingKind,
-    ExecutionState, LayoutKind, LogicalDType, MaterializationPolicy, Nullability, PredicateExpr,
-    PredicateProof, PruningDecision, SegmentId, SegmentLayout, SegmentStats, SelectionVector,
-    SortOrder, StatValue, StatisticsExactness,
+    ByteRange, ColumnRef, ComparisonOp, EncodedEvalCapability, EncodedPredicateEvaluationReport,
+    EncodedPredicateEvaluationStatus, EncodedSegment, EncodingKind, ExecutionState, LayoutKind,
+    LogicalDType, MaterializationPolicy, Nullability, PredicateExpr, PredicateProof,
+    PruningDecision, SegmentId, SegmentLayout, SegmentStats, SelectionVector, SortOrder, StatValue,
+    StatisticsExactness, evaluate_predicate_on_encoded_segment, prove_predicate_from_stats,
 };
 pub use execution_certificate::{
     ExecutionCertificate, ExecutionCertificateInput, ExecutionCertificateStatus,

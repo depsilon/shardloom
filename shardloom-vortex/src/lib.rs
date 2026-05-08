@@ -29,6 +29,7 @@ pub mod commit_protocol;
 pub mod count_readiness;
 pub mod encoded_count_approval;
 pub mod encoded_count_physical_kernel;
+pub mod encoded_predicate_evaluation;
 pub mod encoded_read_api;
 pub mod encoded_read_boundary;
 pub mod encoded_read_executor;
@@ -164,6 +165,11 @@ pub use encoded_count_physical_kernel::{
     VortexEncodedCountPhysicalKernelReport, VortexEncodedCountPhysicalKernelStatus,
     admit_vortex_encoded_count_kernel, evaluate_vortex_local_encoded_count_physical_kernel,
     vortex_encoded_count_physical_kernel_discovery_report,
+};
+pub use encoded_predicate_evaluation::{
+    VortexEncodedPredicateEvaluationDiscoveryReport, VortexEncodedPredicateEvaluationReport,
+    VortexEncodedPredicateEvaluationStatus, evaluate_vortex_encoded_predicate_segments,
+    vortex_encoded_predicate_evaluation_discovery_report,
 };
 pub use metadata_async_boundary::{
     VortexMetadataAsyncBoundaryEffect, VortexMetadataAsyncBoundaryMode,

@@ -105,6 +105,7 @@ use shardloom_vortex::{
     size_vortex_runtime_task_graph, summarize_vortex_metadata_probe,
     vortex_encoded_count_local_guard_discovery_report,
     vortex_encoded_count_physical_kernel_discovery_report,
+    vortex_encoded_predicate_evaluation_discovery_report,
     vortex_encoded_read_executor_feature_enabled,
     vortex_encoded_read_local_scan_count_api_boundary, vortex_encoded_read_public_api_boundary,
     vortex_encoded_read_spike_feature_enabled, vortex_file_io_feature_enabled,
@@ -1733,6 +1734,7 @@ fn append_operator_certification_fields(
     append_metadata_projection_kernel_admission_discovery_fields(fields);
     append_encoded_count_physical_kernel_discovery_fields(fields);
     append_encoded_count_kernel_admission_discovery_fields(fields);
+    append_encoded_predicate_evaluation_discovery_fields(fields);
     append_encoded_count_local_guard_discovery_fields(fields);
 }
 
@@ -2106,6 +2108,71 @@ fn append_encoded_count_kernel_admission_discovery_fields(fields: &mut Vec<(Stri
         fields,
         "encoded_count_kernel_admission_fallback_execution_allowed",
         false,
+    );
+}
+
+fn append_encoded_predicate_evaluation_discovery_fields(fields: &mut Vec<(String, String)>) {
+    let report = vortex_encoded_predicate_evaluation_discovery_report();
+    push_field(
+        fields,
+        "encoded_predicate_evaluation_schema_version",
+        report.schema_version,
+    );
+    push_field(fields, "encoded_predicate_evaluation_id", report.report_id);
+    push_field(
+        fields,
+        "encoded_predicate_evaluation_operator_kind",
+        report.operator_kind.as_str(),
+    );
+    push_field(
+        fields,
+        "encoded_predicate_evaluation_kernel_kind",
+        report.kernel_kind.as_str(),
+    );
+    push_field(
+        fields,
+        "encoded_predicate_evaluation_execution_level",
+        report.execution_level.as_str(),
+    );
+    push_bool_field(
+        fields,
+        "encoded_predicate_evaluation_contextual_only",
+        report.contextual_only,
+    );
+    push_bool_field(
+        fields,
+        "encoded_predicate_evaluation_emits_selection_vectors",
+        report.emits_selection_vectors,
+    );
+    push_bool_field(
+        fields,
+        "encoded_predicate_evaluation_supports_metadata_proven_all",
+        report.supports_metadata_proven_all,
+    );
+    push_bool_field(
+        fields,
+        "encoded_predicate_evaluation_supports_metadata_proven_none",
+        report.supports_metadata_proven_none,
+    );
+    push_bool_field(
+        fields,
+        "encoded_predicate_evaluation_defers_inconclusive_to_encoded_values",
+        report.defers_inconclusive_predicates_to_encoded_values,
+    );
+    push_bool_field(
+        fields,
+        "encoded_predicate_evaluation_discovery_reads_data",
+        report.discovery_reads_data,
+    );
+    push_bool_field(
+        fields,
+        "encoded_predicate_evaluation_runtime_execution",
+        report.runtime_execution_allowed_by_discovery,
+    );
+    push_bool_field(
+        fields,
+        "encoded_predicate_evaluation_fallback_execution_allowed",
+        report.fallback_execution_allowed,
     );
 }
 
@@ -6387,6 +6454,60 @@ fn run(args: Vec<String>) -> ExitCode {
                     ),
                     (
                         "encoded_count_kernel_admission_fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    (
+                        "encoded_predicate_evaluation_schema_version".to_string(),
+                        "shardloom.vortex_encoded_predicate_evaluation.v1".to_string(),
+                    ),
+                    (
+                        "encoded_predicate_evaluation_id".to_string(),
+                        "vortex.query-primitive.filter_predicate.encoded-predicate-evaluation"
+                            .to_string(),
+                    ),
+                    (
+                        "encoded_predicate_evaluation_operator_kind".to_string(),
+                        "filter".to_string(),
+                    ),
+                    (
+                        "encoded_predicate_evaluation_kernel_kind".to_string(),
+                        "encoded".to_string(),
+                    ),
+                    (
+                        "encoded_predicate_evaluation_execution_level".to_string(),
+                        "encoded_native".to_string(),
+                    ),
+                    (
+                        "encoded_predicate_evaluation_contextual_only".to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "encoded_predicate_evaluation_emits_selection_vectors".to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "encoded_predicate_evaluation_supports_metadata_proven_all".to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "encoded_predicate_evaluation_supports_metadata_proven_none".to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "encoded_predicate_evaluation_defers_inconclusive_to_encoded_values"
+                            .to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "encoded_predicate_evaluation_discovery_reads_data".to_string(),
+                        "false".to_string(),
+                    ),
+                    (
+                        "encoded_predicate_evaluation_runtime_execution".to_string(),
+                        "false".to_string(),
+                    ),
+                    (
+                        "encoded_predicate_evaluation_fallback_execution_allowed".to_string(),
                         "false".to_string(),
                     ),
                     ("write_io".to_string(), "false".to_string()),

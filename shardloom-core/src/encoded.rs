@@ -2,7 +2,10 @@
 
 #![allow(clippy::must_use_candidate, clippy::return_self_not_must_use)]
 
-use crate::{Result, ShardLoomError};
+use crate::{Diagnostic, DiagnosticCode, Result, ShardLoomError};
+
+const ENCODED_PREDICATE_EVALUATION_SCHEMA_VERSION: &str =
+    "shardloom.encoded_predicate_evaluation.v1";
 
 /// Stable identifier for an encoded segment.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -414,6 +417,16 @@ pub enum PredicateExpr {
     },
 }
 impl PredicateExpr {
+    #[must_use]
+    pub const fn column(&self) -> Option<&ColumnRef> {
+        match self {
+            Self::IsNull { column } | Self::IsNotNull { column } | Self::Compare { column, .. } => {
+                Some(column)
+            }
+            Self::AlwaysTrue | Self::AlwaysFalse => None,
+        }
+    }
+
     pub fn summary(&self) -> String {
         match self {
             Self::AlwaysTrue => "always_true".to_string(),
@@ -446,6 +459,204 @@ impl PredicateProof {
             | Self::MayMatch { reason }
             | Self::Unknown { reason }
             | Self::Unsupported { reason } => reason,
+        }
+    }
+}
+
+/// Segment-local status for predicate evaluation over an encoded segment.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EncodedPredicateEvaluationStatus {
+    /// A full segment selection vector was emitted without reading encoded values.
+    SelectedAll,
+    /// An empty selection vector was emitted without reading encoded values.
+    SelectedNone,
+    /// The metadata proof is conservative and an encoded-value kernel is required.
+    NeedsEncodedValues,
+    /// Required segment metadata is missing before a stable selection vector can be emitted.
+    MissingSegmentMetadata,
+    /// The predicate cannot be evaluated against this encoded segment.
+    Unsupported,
+}
+
+impl EncodedPredicateEvaluationStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::SelectedAll => "selected_all",
+            Self::SelectedNone => "selected_none",
+            Self::NeedsEncodedValues => "needs_encoded_values",
+            Self::MissingSegmentMetadata => "missing_segment_metadata",
+            Self::Unsupported => "unsupported",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_error(&self) -> bool {
+        matches!(self, Self::Unsupported)
+    }
+
+    #[must_use]
+    pub const fn emits_selection_vector(&self) -> bool {
+        matches!(self, Self::SelectedAll | Self::SelectedNone)
+    }
+}
+
+/// Report emitted when a predicate is evaluated as far as possible against one
+/// encoded segment without decoding or materializing values.
+#[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct EncodedPredicateEvaluationReport {
+    pub schema_version: &'static str,
+    pub report_id: String,
+    pub segment_id: SegmentId,
+    pub segment_column: ColumnRef,
+    pub predicate: PredicateExpr,
+    pub proof: PredicateProof,
+    pub status: EncodedPredicateEvaluationStatus,
+    pub capability: EncodedEvalCapability,
+    pub execution_state: ExecutionState,
+    pub selection_vector: Option<SelectionVector>,
+    pub row_count: Option<u64>,
+    pub selected_count: Option<u64>,
+    pub data_read: bool,
+    pub data_decoded: bool,
+    pub data_materialized: bool,
+    pub row_read: bool,
+    pub arrow_converted: bool,
+    pub object_store_io: bool,
+    pub write_io: bool,
+    pub spill_io_performed: bool,
+    pub fallback_attempted: bool,
+    pub fallback_execution_allowed: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl EncodedPredicateEvaluationReport {
+    #[must_use]
+    fn selected(
+        segment: &EncodedSegment,
+        predicate: &PredicateExpr,
+        proof: PredicateProof,
+        selection_vector: SelectionVector,
+        execution_state: ExecutionState,
+    ) -> Self {
+        let selected_count = Some(selection_vector.selected_count());
+        let status = if selection_vector.is_all() {
+            EncodedPredicateEvaluationStatus::SelectedAll
+        } else {
+            EncodedPredicateEvaluationStatus::SelectedNone
+        };
+        let reason = proof.reason().to_string();
+        Self::new(
+            segment,
+            predicate,
+            proof,
+            status,
+            EncodedEvalCapability::MetadataOnly { reason },
+            execution_state,
+            Some(selection_vector),
+            selected_count,
+            Vec::new(),
+        )
+    }
+
+    #[must_use]
+    fn blocked(
+        segment: &EncodedSegment,
+        predicate: &PredicateExpr,
+        proof: PredicateProof,
+        status: EncodedPredicateEvaluationStatus,
+        capability: EncodedEvalCapability,
+        diagnostic: Option<Diagnostic>,
+    ) -> Self {
+        let diagnostics = diagnostic.into_iter().collect();
+        Self::new(
+            segment,
+            predicate,
+            proof,
+            status,
+            capability,
+            status.execution_state(),
+            None,
+            None,
+            diagnostics,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    #[must_use]
+    fn new(
+        segment: &EncodedSegment,
+        predicate: &PredicateExpr,
+        proof: PredicateProof,
+        status: EncodedPredicateEvaluationStatus,
+        capability: EncodedEvalCapability,
+        execution_state: ExecutionState,
+        selection_vector: Option<SelectionVector>,
+        selected_count: Option<u64>,
+        diagnostics: Vec<Diagnostic>,
+    ) -> Self {
+        Self {
+            schema_version: ENCODED_PREDICATE_EVALUATION_SCHEMA_VERSION,
+            report_id: format!("{}.predicate-evaluation", segment.id.as_str()),
+            segment_id: segment.id.clone(),
+            segment_column: segment.column.clone(),
+            predicate: predicate.clone(),
+            proof,
+            status,
+            capability,
+            execution_state,
+            selection_vector,
+            row_count: segment.stats.row_count,
+            selected_count,
+            data_read: false,
+            data_decoded: false,
+            data_materialized: false,
+            row_read: false,
+            arrow_converted: false,
+            object_store_io: false,
+            write_io: false,
+            spill_io_performed: false,
+            fallback_attempted: false,
+            fallback_execution_allowed: false,
+            diagnostics,
+        }
+    }
+
+    #[must_use]
+    pub const fn is_side_effect_free(&self) -> bool {
+        !self.data_read
+            && !self.data_decoded
+            && !self.data_materialized
+            && !self.row_read
+            && !self.arrow_converted
+            && !self.object_store_io
+            && !self.write_io
+            && !self.spill_io_performed
+            && !self.fallback_attempted
+            && !self.fallback_execution_allowed
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.status.is_error()
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    crate::DiagnosticSeverity::Error | crate::DiagnosticSeverity::Fatal
+                )
+            })
+    }
+}
+
+impl EncodedPredicateEvaluationStatus {
+    const fn execution_state(self) -> ExecutionState {
+        match self {
+            Self::SelectedAll => ExecutionState::MetadataOnly,
+            Self::SelectedNone => ExecutionState::Pruned,
+            Self::NeedsEncodedValues => ExecutionState::EncodedEvaluation,
+            Self::MissingSegmentMetadata => ExecutionState::PartialDecode,
+            Self::Unsupported => ExecutionState::Unsupported,
         }
     }
 }
@@ -487,6 +698,269 @@ impl PruningDecision {
             | Self::NeedMaterialization { reason }
             | Self::Unsupported { reason } => reason,
         }
+    }
+}
+
+#[must_use]
+pub fn prove_predicate_from_stats(
+    predicate: &PredicateExpr,
+    stats: &SegmentStats,
+) -> PredicateProof {
+    match predicate {
+        PredicateExpr::AlwaysTrue => PredicateProof::AlwaysTrue {
+            reason: "always true predicate".to_string(),
+        },
+        PredicateExpr::AlwaysFalse => PredicateProof::AlwaysFalse {
+            reason: "always false predicate".to_string(),
+        },
+        PredicateExpr::IsNull { .. } => match (stats.row_count, stats.null_count) {
+            (Some(0), _) => PredicateProof::AlwaysFalse {
+                reason: "segment row_count == 0".to_string(),
+            },
+            (_, Some(0)) => PredicateProof::AlwaysFalse {
+                reason: "null_count == 0".to_string(),
+            },
+            (Some(r), Some(n)) if r == n => PredicateProof::AlwaysTrue {
+                reason: "all rows are null".to_string(),
+            },
+            _ => PredicateProof::Unknown {
+                reason: "insufficient null statistics".to_string(),
+            },
+        },
+        PredicateExpr::IsNotNull { .. } => match (stats.row_count, stats.null_count) {
+            (Some(0), _) => PredicateProof::AlwaysFalse {
+                reason: "segment row_count == 0".to_string(),
+            },
+            (_, Some(0)) => PredicateProof::AlwaysTrue {
+                reason: "null_count == 0".to_string(),
+            },
+            (Some(r), Some(n)) if r == n => PredicateProof::AlwaysFalse {
+                reason: "all rows are null".to_string(),
+            },
+            _ => PredicateProof::Unknown {
+                reason: "insufficient null statistics".to_string(),
+            },
+        },
+        PredicateExpr::Compare { op, value, .. } => prove_comparison_from_stats(*op, value, stats),
+    }
+}
+
+#[must_use]
+#[allow(clippy::too_many_lines)]
+pub fn evaluate_predicate_on_encoded_segment(
+    predicate: &PredicateExpr,
+    segment: &EncodedSegment,
+) -> EncodedPredicateEvaluationReport {
+    if let Some(column) = predicate.column()
+        && column != &segment.column
+    {
+        let reason = format!(
+            "predicate column {} does not match encoded segment column {}",
+            column.as_str(),
+            segment.column.as_str()
+        );
+        return EncodedPredicateEvaluationReport::blocked(
+            segment,
+            predicate,
+            PredicateProof::Unsupported {
+                reason: reason.clone(),
+            },
+            EncodedPredicateEvaluationStatus::Unsupported,
+            EncodedEvalCapability::Unsupported {
+                reason: reason.clone(),
+            },
+            Some(Diagnostic::unsupported(
+                DiagnosticCode::NotImplemented,
+                "encoded_predicate_evaluation",
+                reason,
+                Some(
+                    "Evaluate this predicate against the matching encoded column segment."
+                        .to_string(),
+                ),
+            )),
+        );
+    }
+
+    let proof = prove_predicate_from_stats(predicate, &segment.stats);
+    match &proof {
+        PredicateProof::AlwaysTrue { reason } => {
+            let Some(row_count) = segment.stats.row_count else {
+                return EncodedPredicateEvaluationReport::blocked(
+                    segment,
+                    predicate,
+                    proof.clone(),
+                    EncodedPredicateEvaluationStatus::MissingSegmentMetadata,
+                    EncodedEvalCapability::PartialDecodeRequired {
+                        reason: "row_count metadata is required to emit a full selection vector"
+                            .to_string(),
+                    },
+                    Some(Diagnostic::not_implemented(
+                        "encoded_predicate_evaluation",
+                        "row_count metadata is required to emit a full selection vector",
+                        "Provide segment row_count metadata before using metadata-proven all-row predicate evaluation.",
+                    )),
+                );
+            };
+            EncodedPredicateEvaluationReport::selected(
+                segment,
+                predicate,
+                PredicateProof::AlwaysTrue {
+                    reason: reason.clone(),
+                },
+                SelectionVector::all(row_count),
+                ExecutionState::MetadataOnly,
+            )
+        }
+        PredicateProof::AlwaysFalse { reason } => EncodedPredicateEvaluationReport::selected(
+            segment,
+            predicate,
+            PredicateProof::AlwaysFalse {
+                reason: reason.clone(),
+            },
+            SelectionVector::none(),
+            ExecutionState::Pruned,
+        ),
+        PredicateProof::MayMatch { reason } => EncodedPredicateEvaluationReport::blocked(
+            segment,
+            predicate,
+            PredicateProof::MayMatch {
+                reason: reason.clone(),
+            },
+            EncodedPredicateEvaluationStatus::NeedsEncodedValues,
+            EncodedEvalCapability::Encoded {
+                reason: reason.clone(),
+            },
+            None,
+        ),
+        PredicateProof::Unknown { reason } => EncodedPredicateEvaluationReport::blocked(
+            segment,
+            predicate,
+            PredicateProof::Unknown {
+                reason: reason.clone(),
+            },
+            EncodedPredicateEvaluationStatus::NeedsEncodedValues,
+            EncodedEvalCapability::Encoded {
+                reason: "metadata proof is inconclusive; encoded values are required".to_string(),
+            },
+            None,
+        ),
+        PredicateProof::Unsupported { reason } => EncodedPredicateEvaluationReport::blocked(
+            segment,
+            predicate,
+            PredicateProof::Unsupported {
+                reason: reason.clone(),
+            },
+            EncodedPredicateEvaluationStatus::Unsupported,
+            EncodedEvalCapability::Unsupported {
+                reason: reason.clone(),
+            },
+            Some(Diagnostic::unsupported(
+                DiagnosticCode::NotImplemented,
+                "encoded_predicate_evaluation",
+                reason.clone(),
+                Some("Use a supported native predicate expression.".to_string()),
+            )),
+        ),
+    }
+}
+
+fn prove_comparison_from_stats(
+    op: ComparisonOp,
+    value: &StatValue,
+    stats: &SegmentStats,
+) -> PredicateProof {
+    if stats.row_count == Some(0) {
+        return PredicateProof::AlwaysFalse {
+            reason: "segment row_count == 0".to_string(),
+        };
+    }
+    let (Some(min), Some(max)) = (&stats.min_value, &stats.max_value) else {
+        return PredicateProof::Unknown {
+            reason: "min/max statistics unavailable".to_string(),
+        };
+    };
+    let max_ord = cmp_stat_values(max, value);
+    let min_ord = cmp_stat_values(min, value);
+    match op {
+        ComparisonOp::Gt if matches!(max_ord, Some(v) if v <= 0) => PredicateProof::AlwaysFalse {
+            reason: "max <= value".to_string(),
+        },
+        ComparisonOp::GtEq if matches!(max_ord, Some(v) if v < 0) => PredicateProof::AlwaysFalse {
+            reason: "max < value".to_string(),
+        },
+        ComparisonOp::Lt if matches!(min_ord, Some(v) if v >= 0) => PredicateProof::AlwaysFalse {
+            reason: "min >= value".to_string(),
+        },
+        ComparisonOp::LtEq if matches!(min_ord, Some(v) if v > 0) => PredicateProof::AlwaysFalse {
+            reason: "min > value".to_string(),
+        },
+        ComparisonOp::Eq => {
+            if let (Some(c1), Some(c2)) = (cmp_stat_values(value, min), cmp_stat_values(value, max))
+            {
+                if c1 < 0 || c2 > 0 {
+                    return PredicateProof::AlwaysFalse {
+                        reason: "value outside min/max".to_string(),
+                    };
+                }
+                if c1 == 0 && c2 == 0 && stats.null_count == Some(0) {
+                    return PredicateProof::AlwaysTrue {
+                        reason: "value equals constant non-null segment".to_string(),
+                    };
+                }
+            }
+            PredicateProof::MayMatch {
+                reason: "min/max cannot exclude eq".to_string(),
+            }
+        }
+        ComparisonOp::NotEq => {
+            if matches!(
+                (cmp_stat_values(min, value), cmp_stat_values(max, value)),
+                (Some(0), Some(0))
+            ) {
+                return PredicateProof::AlwaysFalse {
+                    reason: "constant segment equals not-eq value".to_string(),
+                };
+            }
+            PredicateProof::MayMatch {
+                reason: "conservative not-eq proof".to_string(),
+            }
+        }
+        _ => PredicateProof::MayMatch {
+            reason: "min/max cannot exclude".to_string(),
+        },
+    }
+}
+
+fn cmp_stat_values(a: &StatValue, b: &StatValue) -> Option<i8> {
+    match (a, b) {
+        (StatValue::Int64(x), StatValue::Int64(y)) => Some(match x.cmp(y) {
+            std::cmp::Ordering::Less => -1,
+            std::cmp::Ordering::Equal => 0,
+            std::cmp::Ordering::Greater => 1,
+        }),
+        (StatValue::UInt64(x), StatValue::UInt64(y)) => Some(match x.cmp(y) {
+            std::cmp::Ordering::Less => -1,
+            std::cmp::Ordering::Equal => 0,
+            std::cmp::Ordering::Greater => 1,
+        }),
+        (StatValue::Float64(x), StatValue::Float64(y)) => {
+            x.partial_cmp(y).map(|ordering| match ordering {
+                std::cmp::Ordering::Less => -1,
+                std::cmp::Ordering::Equal => 0,
+                std::cmp::Ordering::Greater => 1,
+            })
+        }
+        (StatValue::Utf8(x), StatValue::Utf8(y)) => Some(match x.cmp(y) {
+            std::cmp::Ordering::Less => -1,
+            std::cmp::Ordering::Equal => 0,
+            std::cmp::Ordering::Greater => 1,
+        }),
+        (StatValue::Boolean(x), StatValue::Boolean(y)) => Some(match x.cmp(y) {
+            std::cmp::Ordering::Less => -1,
+            std::cmp::Ordering::Equal => 0,
+            std::cmp::Ordering::Greater => 1,
+        }),
+        _ => None,
     }
 }
 
@@ -718,6 +1192,172 @@ mod tests {
             SelectionVector::from_indices(vec![1, 3, 7]).selected_count(),
             3
         );
+    }
+
+    fn segment_with_stats(column: &str, stats: SegmentStats) -> EncodedSegment {
+        EncodedSegment::new(
+            SegmentId::new("segment-1").unwrap(),
+            ColumnRef::new(column).unwrap(),
+            LogicalDType::Int64,
+            Nullability::Nullable,
+            SegmentLayout::new(
+                EncodingKind::VortexNative("test".to_string()),
+                LayoutKind::Flat,
+            ),
+            stats,
+        )
+    }
+
+    #[test]
+    fn encoded_predicate_evaluation_selects_all_for_metadata_true() {
+        let mut stats = SegmentStats::with_row_count(3);
+        stats.null_count = Some(0);
+        let segment = segment_with_stats("x", stats);
+        let report = evaluate_predicate_on_encoded_segment(
+            &PredicateExpr::IsNotNull {
+                column: ColumnRef::new("x").unwrap(),
+            },
+            &segment,
+        );
+
+        assert_eq!(report.status, EncodedPredicateEvaluationStatus::SelectedAll);
+        assert_eq!(report.execution_state, ExecutionState::MetadataOnly);
+        assert_eq!(report.selection_vector, Some(SelectionVector::all(3)));
+        assert_eq!(report.selected_count, Some(3));
+        assert!(report.is_side_effect_free());
+        assert!(!report.has_errors());
+    }
+
+    #[test]
+    fn encoded_predicate_evaluation_selects_none_for_metadata_false() {
+        let mut stats = SegmentStats::with_row_count(7);
+        stats.null_count = Some(0);
+        let segment = segment_with_stats("x", stats);
+        let report = evaluate_predicate_on_encoded_segment(
+            &PredicateExpr::IsNull {
+                column: ColumnRef::new("x").unwrap(),
+            },
+            &segment,
+        );
+
+        assert_eq!(
+            report.status,
+            EncodedPredicateEvaluationStatus::SelectedNone
+        );
+        assert_eq!(report.execution_state, ExecutionState::Pruned);
+        assert_eq!(report.selection_vector, Some(SelectionVector::none()));
+        assert_eq!(report.selected_count, Some(0));
+        assert!(report.is_side_effect_free());
+    }
+
+    #[test]
+    fn encoded_predicate_evaluation_defers_may_match_to_encoded_values() {
+        let mut stats = SegmentStats::with_row_count(8);
+        stats.min_value = Some(StatValue::Int64(1));
+        stats.max_value = Some(StatValue::Int64(9));
+        let segment = segment_with_stats("x", stats);
+        let report = evaluate_predicate_on_encoded_segment(
+            &PredicateExpr::Compare {
+                column: ColumnRef::new("x").unwrap(),
+                op: ComparisonOp::Eq,
+                value: StatValue::Int64(5),
+            },
+            &segment,
+        );
+
+        assert_eq!(
+            report.status,
+            EncodedPredicateEvaluationStatus::NeedsEncodedValues
+        );
+        assert_eq!(report.execution_state, ExecutionState::EncodedEvaluation);
+        assert!(matches!(
+            report.capability,
+            EncodedEvalCapability::Encoded { .. }
+        ));
+        assert_eq!(report.selection_vector, None);
+        assert!(report.is_side_effect_free());
+        assert!(!report.has_errors());
+    }
+
+    #[test]
+    fn encoded_predicate_evaluation_blocks_full_selection_without_row_count() {
+        let mut stats = SegmentStats::unknown();
+        stats.null_count = Some(0);
+        let segment = segment_with_stats("x", stats);
+        let report = evaluate_predicate_on_encoded_segment(
+            &PredicateExpr::IsNotNull {
+                column: ColumnRef::new("x").unwrap(),
+            },
+            &segment,
+        );
+
+        assert_eq!(
+            report.status,
+            EncodedPredicateEvaluationStatus::MissingSegmentMetadata
+        );
+        assert_eq!(report.execution_state, ExecutionState::PartialDecode);
+        assert_eq!(report.selection_vector, None);
+        assert!(report.is_side_effect_free());
+        assert!(report.has_errors());
+        assert!(report.diagnostics.iter().all(|d| !d.fallback.attempted));
+    }
+
+    #[test]
+    fn encoded_predicate_evaluation_rejects_wrong_segment_column() {
+        let segment = segment_with_stats("x", SegmentStats::with_row_count(4));
+        let report = evaluate_predicate_on_encoded_segment(
+            &PredicateExpr::IsNull {
+                column: ColumnRef::new("y").unwrap(),
+            },
+            &segment,
+        );
+
+        assert_eq!(report.status, EncodedPredicateEvaluationStatus::Unsupported);
+        assert_eq!(report.execution_state, ExecutionState::Unsupported);
+        assert_eq!(report.selection_vector, None);
+        assert!(report.has_errors());
+        assert!(report.is_side_effect_free());
+        assert!(report.diagnostics.iter().all(|d| !d.fallback.attempted));
+    }
+
+    #[test]
+    fn encoded_predicate_evaluation_empty_segment_selects_none() {
+        let segment = segment_with_stats("x", SegmentStats::with_row_count(0));
+        let report = evaluate_predicate_on_encoded_segment(
+            &PredicateExpr::Compare {
+                column: ColumnRef::new("x").unwrap(),
+                op: ComparisonOp::Gt,
+                value: StatValue::Int64(5),
+            },
+            &segment,
+        );
+
+        assert_eq!(
+            report.status,
+            EncodedPredicateEvaluationStatus::SelectedNone
+        );
+        assert_eq!(report.selection_vector, Some(SelectionVector::none()));
+        assert_eq!(report.selected_count, Some(0));
+        assert!(report.is_side_effect_free());
+    }
+
+    #[test]
+    fn prove_predicate_from_stats_recognizes_constant_eq_true() {
+        let mut stats = SegmentStats::with_row_count(2);
+        stats.null_count = Some(0);
+        stats.min_value = Some(StatValue::Int64(7));
+        stats.max_value = Some(StatValue::Int64(7));
+
+        let proof = prove_predicate_from_stats(
+            &PredicateExpr::Compare {
+                column: ColumnRef::new("x").unwrap(),
+                op: ComparisonOp::Eq,
+                value: StatValue::Int64(7),
+            },
+            &stats,
+        );
+
+        assert!(matches!(proof, PredicateProof::AlwaysTrue { .. }));
     }
     #[test]
     fn materialization_policy_requires_materialization() {
