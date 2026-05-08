@@ -342,6 +342,14 @@ No fallback execution.
 - Scan, array-stream, layout-evaluation, and data-source surfaces remain blocked or deferred until ShardLoom can prove no row reads, decode/materialization, `Arrow` conversion, object-store IO, writes, or fallback execution.
 - CG-2.1e actual encoded-data count execution remains planned and blocked until one of these public surfaces, or an upstream-supported alternative, is approved as no-decode/no-materialization safe for ShardLoom-native count execution.
 
+## CG-2.1e.3 named count API-boundary blockers
+
+- Primary RFC linkage: RFC 0005 Vortex-Native File IO and Output Contract, RFC 0012 Diagnostics/Capabilities, RFC 0013 Streaming/Zero-Copy Boundary, RFC 0015 Correctness/testing, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
+- `count_readiness_request_from_encoded_read_probe_report` now copies named blocked API-boundary summaries from `VortexEncodedReadProbeReport` into count readiness.
+- The count-readiness boundary can now expose exact blockers such as `VortexFile::scan`, `ScanBuilder::into_array_stream`, `ScanBuilder::into_array_iter`, `LayoutReader::projection_evaluation`, `LayoutReader::filter_evaluation`, and `VortexFile::data_source`.
+- Metadata-like `LayoutReader::row_count` is intentionally not carried as an execution blocker.
+- This is still report metadata only: no scan/read-start invocation, array stream/evaluation call, encoded-data traversal, row read, decode/materialization, `Arrow` conversion, object-store IO, write, or fallback execution is introduced.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.
