@@ -84,11 +84,12 @@ pub use sizing::{
 };
 
 pub use streaming::{
+    BackpressurePlanInput, BackpressurePlanMode, BackpressurePlanReport, BackpressurePlanStatus,
     BackpressurePolicy, BoundaryInteropKind, BoundedMemoryPolicy, DataWorkLevel,
     MaterializationBoundary, SinkRequirement, StreamingCapability, StreamingMode,
     StreamingOperator, StreamingOperatorKind, StreamingPlanSkeleton, StreamingPlanStatus,
     StreamingSink, StreamingSinkKind, StreamingSource, StreamingSourceKind, StreamingStage,
-    ZeroCopyStatus, ZeroDecodeStatus,
+    ZeroCopyStatus, ZeroDecodeStatus, plan_backpressure,
 };
 
 pub use spill_lifecycle::*;

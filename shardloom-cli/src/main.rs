@@ -20,17 +20,18 @@ use shardloom_core::{
     TableFormatKind, TranslationPlan, UdfRuntimeKind, WriteIntent,
 };
 use shardloom_exec::{
-    AdaptiveSizer, AdaptiveSizingPolicy, AttemptId, ByteSize, CancellationReason,
-    CancellationRequest, CancellationScope, MemoryBudget, MemoryOwner, MemoryPoolPlan,
-    OomSafetyPlan, OperatorMemoryClass, ParallelismLimit, ParallelismPlan, RecoveryPlan, RetryPlan,
-    RuntimePlanSkeleton, ShardLoomCancellationExecutionGateReport,
-    ShardLoomCancellationExecutionGateRequest, ShardLoomCancellationExecutionGateSignal,
-    ShardLoomCleanupExecutionRequest, ShardLoomRetryExecutionGateReport,
-    ShardLoomRetryExecutionGateRequest, ShardLoomRetryExecutionGateSignal, SizeEstimate,
-    SizingInput, SizingPlan, SpillLifecycleRequest, SpillPayloadFsRef, SpillPayloadId,
-    SpillPayloadPath, SpillPayloadRef, SpillPayloadRoundTripRequest, SpillPayloadWriteRequest,
-    SpillPlan, SpillPolicy, SpillReservationIntegrationRequest, SpillWorkspaceId,
-    SpillWorkspacePath, StreamingPlanSkeleton, SyntheticSpillPayload, TaskAttemptRecord,
+    AdaptiveSizer, AdaptiveSizingPolicy, AttemptId, BackpressurePlanInput, BackpressurePlanReport,
+    BoundedMemoryPolicy, ByteSize, CancellationReason, CancellationRequest, CancellationScope,
+    MemoryBudget, MemoryOwner, MemoryPoolPlan, OomSafetyPlan, OperatorMemoryClass,
+    ParallelismLimit, ParallelismPlan, RecoveryPlan, RetryPlan, RuntimePlanSkeleton,
+    ShardLoomCancellationExecutionGateReport, ShardLoomCancellationExecutionGateRequest,
+    ShardLoomCancellationExecutionGateSignal, ShardLoomCleanupExecutionRequest,
+    ShardLoomRetryExecutionGateReport, ShardLoomRetryExecutionGateRequest,
+    ShardLoomRetryExecutionGateSignal, SizeEstimate, SizingInput, SizingPlan,
+    SpillLifecycleRequest, SpillPayloadFsRef, SpillPayloadId, SpillPayloadPath, SpillPayloadRef,
+    SpillPayloadRoundTripRequest, SpillPayloadWriteRequest, SpillPlan, SpillPolicy,
+    SpillReservationIntegrationRequest, SpillWorkspaceId, SpillWorkspacePath,
+    StreamingPlanSkeleton, SyntheticSpillPayload, TaskAttemptRecord, plan_backpressure,
     plan_cancellation_execution_gate, plan_retry_execution_gate, plan_spill_lifecycle,
     plan_spill_reservation_integration, roundtrip_spill_payload, spill_payload_fs_feature_enabled,
 };
@@ -154,7 +155,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|streaming-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|streaming-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -1662,6 +1663,48 @@ fn push_count_field(fields: &mut Vec<(String, String)>, key: &str, value: usize)
 
 fn push_bool_field(fields: &mut Vec<(String, String)>, key: &str, value: bool) {
     fields.push((key.to_string(), value.to_string()));
+}
+
+fn backpressure_plan_fields(report: &BackpressurePlanReport) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    push_field(&mut fields, "fallback_execution_allowed", "false");
+    push_field(&mut fields, "mode", "backpressure_plan");
+    push_field(&mut fields, "backpressure_status", report.status.as_str());
+    push_field(&mut fields, "backpressure_mode", report.mode.as_str());
+    push_bool_field(&mut fields, "bounded", report.bounded);
+    push_bool_field(&mut fields, "memory_required", report.memory_required);
+    push_bool_field(&mut fields, "spill_allowed", report.spill_allowed);
+    push_count_field(&mut fields, "max_parallelism", report.input.max_parallelism);
+    push_field(
+        &mut fields,
+        "max_in_flight_chunks",
+        &report
+            .max_in_flight_chunks
+            .map_or("none".to_string(), |value| value.to_string()),
+    );
+    push_field(
+        &mut fields,
+        "max_buffered_bytes",
+        &report
+            .max_buffered_bytes
+            .map_or("none".to_string(), |value| value.as_bytes().to_string()),
+    );
+    push_field(
+        &mut fields,
+        "estimated_chunk_bytes",
+        &report
+            .estimated_chunk_bytes
+            .map_or("unknown".to_string(), |value| value.as_bytes().to_string()),
+    );
+    push_bool_field(&mut fields, "streams_executed", report.streams_executed);
+    push_bool_field(&mut fields, "tasks_executed", report.tasks_executed);
+    push_bool_field(&mut fields, "data_read", report.data_read);
+    push_bool_field(&mut fields, "data_materialized", report.data_materialized);
+    push_bool_field(&mut fields, "object_store_io", report.object_store_io);
+    push_bool_field(&mut fields, "write_io", report.write_io);
+    push_bool_field(&mut fields, "spill_io_performed", report.spill_io_performed);
+    push_field(&mut fields, "execution", "not_performed");
+    fields
 }
 
 fn adaptive_sizing_report_fields(
@@ -10203,6 +10246,106 @@ fn run(args: Vec<String>) -> ExitCode {
                 ExitCode::SUCCESS
             }
         }
+        Some("backpressure-plan") => {
+            let Some(memory_gb_text) = args.next() else {
+                eprintln!(
+                    "usage: shardloom backpressure-plan <memory_gb> <max_parallelism> [chunk_mib]"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(max_parallelism_text) = args.next() else {
+                eprintln!(
+                    "usage: shardloom backpressure-plan <memory_gb> <max_parallelism> [chunk_mib]"
+                );
+                return ExitCode::from(2);
+            };
+            let memory_gb: u64 = match memory_gb_text.parse() {
+                Ok(value) => value,
+                Err(_) => {
+                    return emit_error(
+                        "backpressure-plan",
+                        format,
+                        "backpressure planning failed",
+                        &ShardLoomError::InvalidOperation(
+                            "memory_gb must be an unsigned integer".to_string(),
+                        ),
+                    );
+                }
+            };
+            let max_parallelism: usize = match max_parallelism_text.parse() {
+                Ok(value) => value,
+                Err(_) => {
+                    return emit_error(
+                        "backpressure-plan",
+                        format,
+                        "backpressure planning failed",
+                        &ShardLoomError::InvalidOperation(
+                            "max_parallelism must be an unsigned integer".to_string(),
+                        ),
+                    );
+                }
+            };
+            let chunk_mib = match args.next() {
+                Some(value) => match value.parse::<u64>() {
+                    Ok(parsed) => Some(parsed),
+                    Err(_) => {
+                        return emit_error(
+                            "backpressure-plan",
+                            format,
+                            "backpressure planning failed",
+                            &ShardLoomError::InvalidOperation(
+                                "chunk_mib must be an unsigned integer".to_string(),
+                            ),
+                        );
+                    }
+                },
+                None => None,
+            };
+            let memory = BoundedMemoryPolicy::required(ByteSize::from_gib(memory_gb));
+            let mut input = match BackpressurePlanInput::new(memory, max_parallelism) {
+                Ok(input) => input,
+                Err(error) => {
+                    return emit_error(
+                        "backpressure-plan",
+                        format,
+                        "backpressure planning failed",
+                        &error,
+                    );
+                }
+            };
+            if let Some(chunk_mib) = chunk_mib {
+                input = input.with_estimated_chunk_bytes(ByteSize::from_mib(chunk_mib));
+            }
+            let report = match plan_backpressure(input) {
+                Ok(report) => report,
+                Err(error) => {
+                    return emit_error(
+                        "backpressure-plan",
+                        format,
+                        "backpressure planning failed",
+                        &error,
+                    );
+                }
+            };
+            emit(
+                "backpressure-plan",
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "backpressure plan".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                backpressure_plan_fields(&report),
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
         Some("runtime-plan") => {
             let Some(dataset_uri) = args.next() else {
                 eprintln!("usage: shardloom runtime-plan <dataset_uri>");
@@ -15483,6 +15626,10 @@ mod tests {
     #[test]
     fn usage_includes_streaming_plan() {
         assert!(cli_usage_line().contains("streaming-plan"));
+    }
+    #[test]
+    fn usage_includes_backpressure_plan() {
+        assert!(cli_usage_line().contains("backpressure-plan"));
     }
     #[test]
     fn vortex_count_readiness_plan_missing_candidate_source_returns_non_zero() {

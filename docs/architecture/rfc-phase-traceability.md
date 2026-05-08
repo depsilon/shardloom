@@ -1106,3 +1106,12 @@ No fallback execution.
 - Primary RFC linkage: RFC 0013, RFC 0014, RFC 0016, RFC 0018, RFC 0025, and RFC 0027.
 - Related RFCs: RFC 0008, RFC 0017, RFC 0021, RFC 0031, and RFC 0032.
 - This phase adds no stream execution, new task execution, new read-start API, row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, dynamic sizing feedback execution, benchmark claim, production/superiority claim, CG-8 closeout, or fallback behavior.
+
+## CG-8.3 bounded backpressure planning surface
+
+- `BackpressurePlanInput` and `BackpressurePlanReport` now model bounded-memory backpressure planning with status/mode, max parallelism, max in-flight chunks, max buffered bytes, optional estimated chunk bytes, side-effect flags, diagnostics, and fallback status.
+- `plan_backpressure` derives a bounded `BackpressurePolicy` from required bounded memory and max parallelism; missing budgets and zero parallelism fail explicitly.
+- `backpressure-plan --format json` exposes stable backpressure fields for agents and CI without executing streams or tasks.
+- Primary RFC linkage: RFC 0013, RFC 0014, RFC 0016, RFC 0018, RFC 0025, and RFC 0027.
+- Related RFCs: RFC 0008, RFC 0017, RFC 0031, and RFC 0032.
+- This phase adds no stream execution, task execution, read-start API, row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, dynamic sizing feedback execution, benchmark claim, production/superiority claim, CG-8 closeout, or fallback behavior.
