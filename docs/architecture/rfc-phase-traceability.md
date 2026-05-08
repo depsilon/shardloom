@@ -1013,3 +1013,12 @@ No fallback execution.
 - Primary RFC linkage: RFC 0012, RFC 0021, RFC 0025, and RFC 0029.
 - Related RFCs: RFC 0015, RFC 0016, RFC 0027, RFC 0031, and RFC 0032.
 - This phase adds no new runtime path, generalized encoded-data execution, encoded predicate execution, filtered-count execution, projection execution, parser, SQL execution, adapter runtime, object-store IO, writes, spill IO, benchmark claim, production/superiority claim, broad filter-kernel closeout, CG closeout, or fallback behavior.
+
+## CG-7.19 metadata projection kernel admission bridge
+
+- `VortexMetadataProjectionKernelAdmissionReport` maps safe metadata-schema projection readiness into the CG-7 `PhysicalKernelAdmissionReport` gate for the project metadata-kernel slot.
+- Safe evidence can make the project metadata slot registry-ready, but benchmark evidence remains missing so production certification and any superiority/best-choice claims remain blocked.
+- `capabilities operators` and `kernel-registry` expose admission discovery fields without probing files, executing kernels, or registering a global runtime kernel.
+- Primary RFC linkage: RFC 0012, RFC 0021, RFC 0025, and RFC 0029.
+- Related RFCs: RFC 0015, RFC 0016, RFC 0027, RFC 0031, and RFC 0032.
+- This phase adds no new runtime path, generalized encoded-data execution, encoded projection execution, projection execution, row reads, requested decode/materialization, Arrow conversion, parser, SQL execution, adapter runtime, object-store IO, writes, spill IO, benchmark claim, production/superiority claim, broad projection-kernel closeout, CG closeout, or fallback behavior.
