@@ -1,6 +1,6 @@
 use std::process::Command;
 
-const KERNEL_REGISTRY_FIELD_KEYS: [&str; 62] = [
+const KERNEL_REGISTRY_FIELD_KEYS: [&str; 72] = [
     "fallback_execution_allowed",
     "mode",
     "status",
@@ -21,6 +21,16 @@ const KERNEL_REGISTRY_FIELD_KEYS: [&str; 62] = [
     "metadata_physical_kernel_requires_benchmark_for_production",
     "metadata_physical_kernel_runtime_execution",
     "metadata_physical_kernel_fallback_execution_allowed",
+    "metadata_count_kernel_admission_schema_version",
+    "metadata_count_kernel_admission_contextual_only",
+    "metadata_count_kernel_admission_operator_kind",
+    "metadata_count_kernel_admission_required_kernel_kind",
+    "metadata_count_kernel_admission_requires_metadata_kernel_evidence",
+    "metadata_count_kernel_admission_requires_correctness_evidence",
+    "metadata_count_kernel_admission_requires_memory_safety_evidence",
+    "metadata_count_kernel_admission_requires_benchmark_for_production",
+    "metadata_count_kernel_admission_runtime_execution",
+    "metadata_count_kernel_admission_fallback_execution_allowed",
     "metadata_filter_kernel_admission_schema_version",
     "metadata_filter_kernel_admission_contextual_only",
     "metadata_filter_kernel_admission_operator_kind",
@@ -112,6 +122,7 @@ fn kernel_registry_json_fields_include_physical_kernel_blockers() {
     assert!(output.contains(
         "{\"key\":\"metadata_physical_kernel_fallback_execution_allowed\",\"value\":\"false\"}"
     ));
+    assert_metadata_count_kernel_admission_fields(&output);
     assert_metadata_filter_kernel_admission_fields(&output);
     assert_metadata_projection_kernel_admission_fields(&output);
     assert!(output.contains(
@@ -146,6 +157,39 @@ fn kernel_registry_json_fields_include_physical_kernel_blockers() {
     assert_encoded_count_kernel_admission_fields(&output);
     assert!(output.contains("\"allowed\":false"));
     assert!(output.contains("\"attempted\":false"));
+}
+
+fn assert_metadata_count_kernel_admission_fields(output: &str) {
+    assert!(output.contains(
+        "{\"key\":\"metadata_count_kernel_admission_schema_version\",\"value\":\"shardloom.vortex_metadata_count_kernel_admission.v1\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"metadata_count_kernel_admission_contextual_only\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"metadata_count_kernel_admission_operator_kind\",\"value\":\"count_aggregate\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"metadata_count_kernel_admission_required_kernel_kind\",\"value\":\"metadata\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"metadata_count_kernel_admission_requires_metadata_kernel_evidence\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"metadata_count_kernel_admission_requires_correctness_evidence\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"metadata_count_kernel_admission_requires_memory_safety_evidence\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"metadata_count_kernel_admission_requires_benchmark_for_production\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"metadata_count_kernel_admission_runtime_execution\",\"value\":\"false\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"metadata_count_kernel_admission_fallback_execution_allowed\",\"value\":\"false\"}"
+    ));
 }
 
 fn assert_metadata_filter_kernel_admission_fields(output: &str) {

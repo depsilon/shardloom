@@ -1022,3 +1022,15 @@ No fallback execution.
 - Primary RFC linkage: RFC 0012, RFC 0021, RFC 0025, and RFC 0029.
 - Related RFCs: RFC 0015, RFC 0016, RFC 0027, RFC 0031, and RFC 0032.
 - This phase adds no new runtime path, generalized encoded-data execution, encoded projection execution, projection execution, row reads, requested decode/materialization, Arrow conversion, parser, SQL execution, adapter runtime, object-store IO, writes, spill IO, benchmark claim, production/superiority claim, broad projection-kernel closeout, CG closeout, or fallback behavior.
+
+## CG-7.20 metadata count aggregate kernel admission bridge
+
+- `VortexMetadataCountKernelAdmissionReport` maps safe metadata-only `CountAll` and metadata-proof `CountWhere` physical-kernel evidence into the CG-7 `PhysicalKernelAdmissionReport` gate for the count-aggregate metadata-kernel slot.
+- Safe evidence can make the count-aggregate metadata slot registry-ready, but benchmark evidence remains missing so production certification and any superiority/best-choice claims remain blocked.
+- `vortex-metadata-physical-kernel-plan count` and `vortex-metadata-physical-kernel-plan filtered-count` surface metadata count admission fields when explicit correctness and memory evidence is supplied.
+- `capabilities operators` and `kernel-registry` expose admission discovery fields without probing files, executing kernels, or registering a global runtime kernel.
+- RFC 0031 wording now records the upstream Vortex Scan API source/sink/split/range-I/O lessons as a design reference for CG-19, while preserving ShardLoom-native envelopes and no-fallback execution boundaries.
+- The systems-learning map now records Vortex blog lessons around lazy operators, IO/write surfaces, GPU/device paths, nested/list support, wide-table work, and benchmark visibility as design references only.
+- Primary RFC linkage: RFC 0012, RFC 0021, RFC 0025, and RFC 0029.
+- Related RFCs: RFC 0013, RFC 0015, RFC 0016, RFC 0027, RFC 0031, and RFC 0032.
+- This phase adds no new runtime path, generalized encoded-data execution, encoded aggregate execution, count execution beyond existing metadata/local paths, row reads, requested decode/materialization, Arrow conversion, parser, SQL execution, adapter runtime, object-store IO, writes, spill IO, benchmark claim, production/superiority claim, broad count/aggregate closeout, CG closeout, or fallback behavior.
