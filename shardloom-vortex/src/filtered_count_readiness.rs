@@ -4,9 +4,12 @@ use shardloom_core::{
     DatasetUri, Diagnostic, DiagnosticCode, DiagnosticSeverity, Result, ShardLoomError,
 };
 
+use crate::query_primitive::evaluate_vortex_count_where_from_summary;
 use crate::{
-    VortexQueryPrimitiveBoundaryKind, VortexQueryPrimitiveBoundaryStatus,
-    VortexQueryPrimitiveReport, VortexQueryPrimitiveSignal,
+    VortexMetadataSummaryReport, VortexQueryPrimitiveBoundaryKind,
+    VortexQueryPrimitiveBoundaryStatus, VortexQueryPrimitiveKind, VortexQueryPrimitiveReport,
+    VortexQueryPrimitiveRequest, VortexQueryPrimitiveSignal, VortexQueryPrimitiveStatus,
+    VortexQueryPrimitiveValue,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -564,6 +567,152 @@ impl VortexFilteredCountReadinessReport {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexFilteredCountMetadataProofStatus {
+    ProofReady,
+    NeedsEncodedPredicate,
+    MissingMetadata,
+    Unsupported,
+}
+impl VortexFilteredCountMetadataProofStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::ProofReady => "proof_ready",
+            Self::NeedsEncodedPredicate => "needs_encoded_predicate",
+            Self::MissingMetadata => "missing_metadata",
+            Self::Unsupported => "unsupported",
+        }
+    }
+    #[must_use]
+    pub const fn is_error(&self) -> bool {
+        matches!(self, Self::Unsupported)
+    }
+    #[must_use]
+    pub const fn proof_ready(&self) -> bool {
+        matches!(self, Self::ProofReady)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexFilteredCountMetadataProofReport {
+    pub schema_version: &'static str,
+    pub status: VortexFilteredCountMetadataProofStatus,
+    pub request: VortexQueryPrimitiveRequest,
+    pub count: Option<u64>,
+    pub result_known: bool,
+    pub metadata_summary_supplied: bool,
+    pub needs_encoded_predicate: bool,
+    pub data_read: bool,
+    pub row_read: bool,
+    pub data_decoded: bool,
+    pub data_materialized: bool,
+    pub object_store_io: bool,
+    pub write_io: bool,
+    pub fallback_execution_allowed: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl VortexFilteredCountMetadataProofReport {
+    /// # Errors
+    /// Returns an error only if metadata predicate proof evaluation over supplied summary fails internally.
+    pub fn from_summary(
+        request: VortexQueryPrimitiveRequest,
+        summary: &VortexMetadataSummaryReport,
+    ) -> Result<Self> {
+        let primitive_result = evaluate_vortex_count_where_from_summary(request.clone(), summary)?;
+        let (status, count, needs_encoded_predicate) = match primitive_result.status {
+            VortexQueryPrimitiveStatus::MetadataAnswered => match primitive_result.value {
+                VortexQueryPrimitiveValue::Count(v) => (
+                    VortexFilteredCountMetadataProofStatus::ProofReady,
+                    Some(v),
+                    false,
+                ),
+                _ => (
+                    VortexFilteredCountMetadataProofStatus::Unsupported,
+                    None,
+                    false,
+                ),
+            },
+            VortexQueryPrimitiveStatus::NeedsEncodedPredicate
+            | VortexQueryPrimitiveStatus::NeedsEncodedRead => (
+                VortexFilteredCountMetadataProofStatus::NeedsEncodedPredicate,
+                None,
+                true,
+            ),
+            VortexQueryPrimitiveStatus::MissingMetadata => (
+                VortexFilteredCountMetadataProofStatus::MissingMetadata,
+                None,
+                false,
+            ),
+            _ => (
+                VortexFilteredCountMetadataProofStatus::Unsupported,
+                None,
+                false,
+            ),
+        };
+        Ok(Self {
+            schema_version: "shardloom.vortex_filtered_count_metadata_proof.v1",
+            status,
+            request,
+            count,
+            result_known: count.is_some(),
+            metadata_summary_supplied: true,
+            needs_encoded_predicate,
+            data_read: false,
+            row_read: false,
+            data_decoded: false,
+            data_materialized: false,
+            object_store_io: false,
+            write_io: false,
+            fallback_execution_allowed: false,
+            diagnostics: primitive_result.diagnostics,
+        })
+    }
+    #[must_use]
+    pub const fn proof_ready(&self) -> bool {
+        self.status.proof_ready()
+    }
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.status.is_error()
+            || self.diagnostics.iter().any(|d| {
+                matches!(
+                    d.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+    #[must_use]
+    pub const fn is_side_effect_free(&self) -> bool {
+        !self.data_read
+            && !self.row_read
+            && !self.data_decoded
+            && !self.data_materialized
+            && !self.object_store_io
+            && !self.write_io
+            && !self.fallback_execution_allowed
+    }
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "filtered_count_metadata_proof_status={}\nproof_ready={}\nresult_known={}\nneeds_encoded_predicate={}\nmetadata_summary_supplied={}\ndata_read={}\nrow_read={}\ndata_decoded={}\ndata_materialized={}\nobject_store_io={}\nwrite_io={}\nfallback_execution_allowed={}",
+            self.status.as_str(),
+            self.proof_ready(),
+            self.result_known,
+            self.needs_encoded_predicate,
+            self.metadata_summary_supplied,
+            self.data_read,
+            self.row_read,
+            self.data_decoded,
+            self.data_materialized,
+            self.object_store_io,
+            self.write_io,
+            self.fallback_execution_allowed
+        )
+    }
+}
+
 fn derive_status(r: &VortexFilteredCountReadinessRequest) -> VortexFilteredCountReadinessStatus {
     use VortexFilteredCountReadinessSignal as S;
     if r.has_signal(S::ObjectStoreTarget) {
@@ -705,6 +854,38 @@ pub fn plan_vortex_filtered_count_readiness(
         ))
     })
 }
+
+/// # Errors
+pub fn plan_vortex_filtered_count_metadata_proof(
+    request: VortexQueryPrimitiveRequest,
+    summary: &VortexMetadataSummaryReport,
+) -> Result<VortexFilteredCountMetadataProofReport> {
+    if request.kind != VortexQueryPrimitiveKind::CountWhere {
+        return Ok(VortexFilteredCountMetadataProofReport {
+            schema_version: "shardloom.vortex_filtered_count_metadata_proof.v1",
+            status: VortexFilteredCountMetadataProofStatus::Unsupported,
+            request,
+            count: None,
+            result_known: false,
+            metadata_summary_supplied: true,
+            needs_encoded_predicate: false,
+            data_read: false,
+            row_read: false,
+            data_decoded: false,
+            data_materialized: false,
+            object_store_io: false,
+            write_io: false,
+            fallback_execution_allowed: false,
+            diagnostics: vec![Diagnostic::unsupported(
+                DiagnosticCode::NotImplemented,
+                "vortex_filtered_count_metadata_proof",
+                "Only CountWhere requests can produce filtered-count metadata proof.",
+                Some("Use a CountWhere request with a predicate and metadata summary.".to_string()),
+            )],
+        });
+    }
+    VortexFilteredCountMetadataProofReport::from_summary(request, summary)
+}
 #[must_use]
 pub fn vortex_filtered_count_readiness_is_side_effect_free(
     report: &VortexFilteredCountReadinessReport,
@@ -716,8 +897,19 @@ pub fn vortex_filtered_count_readiness_is_side_effect_free(
 mod tests {
     use super::*;
     use crate::*;
+    use shardloom_core::{ColumnRef, PredicateExpr};
     fn uri() -> DatasetUri {
         DatasetUri::new("file://tmp/a.vortex").expect("uri")
+    }
+    fn metadata_summary_with_segment_rows(rows: u64) -> VortexMetadataSummaryReport {
+        let mut summary = VortexFileMetadataSummary::empty();
+        summary.row_count = Some(rows);
+        summary.add_segment(VortexSegmentMetadataSummary::unknown().with_row_count(rows));
+        VortexMetadataSummaryReport {
+            status: VortexMetadataSummaryStatus::Summarized,
+            summary,
+            diagnostics: vec![],
+        }
     }
     #[test]
     fn basic_statuses_and_helpers() {
@@ -826,6 +1018,72 @@ mod tests {
             req.candidate_source,
             VortexFilteredCountCandidateSource::EncodedPredicatePath
         );
+    }
+
+    #[test]
+    fn metadata_proof_report_marks_proven_count_where_ready() {
+        let report = plan_vortex_filtered_count_metadata_proof(
+            VortexQueryPrimitiveRequest::count_where(uri(), PredicateExpr::AlwaysTrue),
+            &metadata_summary_with_segment_rows(9),
+        )
+        .expect("report");
+
+        assert_eq!(
+            report.schema_version,
+            "shardloom.vortex_filtered_count_metadata_proof.v1"
+        );
+        assert_eq!(
+            report.status,
+            VortexFilteredCountMetadataProofStatus::ProofReady
+        );
+        assert!(report.proof_ready());
+        assert_eq!(report.count, Some(9));
+        assert!(report.result_known);
+        assert!(!report.needs_encoded_predicate);
+        assert!(report.is_side_effect_free());
+        assert!(!report.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn metadata_proof_report_defers_inconclusive_predicate() {
+        let report = plan_vortex_filtered_count_metadata_proof(
+            VortexQueryPrimitiveRequest::count_where(
+                uri(),
+                PredicateExpr::IsNull {
+                    column: ColumnRef::new("missing_stats").expect("column"),
+                },
+            ),
+            &metadata_summary_with_segment_rows(9),
+        )
+        .expect("report");
+
+        assert_eq!(
+            report.status,
+            VortexFilteredCountMetadataProofStatus::NeedsEncodedPredicate
+        );
+        assert!(!report.proof_ready());
+        assert_eq!(report.count, None);
+        assert!(report.needs_encoded_predicate);
+        assert!(!report.has_errors());
+        assert!(report.is_side_effect_free());
+    }
+
+    #[test]
+    fn metadata_proof_report_rejects_non_count_where_requests() {
+        let report = plan_vortex_filtered_count_metadata_proof(
+            VortexQueryPrimitiveRequest::count_all(uri()),
+            &metadata_summary_with_segment_rows(9),
+        )
+        .expect("report");
+
+        assert_eq!(
+            report.status,
+            VortexFilteredCountMetadataProofStatus::Unsupported
+        );
+        assert!(!report.proof_ready());
+        assert!(report.has_errors());
+        assert!(report.is_side_effect_free());
+        assert!(!report.fallback_execution_allowed);
     }
 
     #[test]

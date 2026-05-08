@@ -889,6 +889,13 @@ CG-2.1c metadata-footer `CountAll` execution is wired; non-metadata execution re
 - Encoded-predicate candidates are rejected by this guard and remain future work.
 - This adds no encoded predicate evaluation, scan/read-start invocation, encoded-data traversal, row read, decode/materialization, Arrow conversion, object-store IO, write behavior, spill IO, external baseline invocation, or fallback execution.
 
+## CG-2.2d filtered-count metadata proof report
+
+- `VortexFilteredCountMetadataProofReport` classifies `CountWhere` plus a supplied metadata summary as `proof_ready`, `needs_encoded_predicate`, `missing_metadata`, or `unsupported`.
+- Proof-ready reports carry the metadata-only count result and explicitly report no data read, no row read, no decode/materialization, no object-store IO, no write IO, and no fallback.
+- Inconclusive metadata reports request encoded predicate evaluation without executing it.
+- This adds no encoded predicate evaluation, scan/read-start invocation, encoded-data traversal, row read, decode/materialization, Arrow conversion, object-store IO, write behavior, spill IO, external baseline invocation, or fallback execution.
+
 ## CG-2.3a projection readiness semantic hardening
 
 - CG-2.2, CG-2.2a.1, and CG-2.2b are complete.
