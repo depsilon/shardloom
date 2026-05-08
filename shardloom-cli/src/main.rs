@@ -71,6 +71,7 @@ use shardloom_vortex::{
     commit_marker_write_request_from_plan, evaluate_vortex_encoded_read_readiness,
     evaluate_vortex_execution_readiness, evaluate_vortex_metadata_physical_kernels,
     evaluate_vortex_query_primitive, execute_vortex_bounded_local_query,
+    execute_vortex_count_all_from_encoded_count_data_path_approval,
     execute_vortex_encoded_read_contract, execute_vortex_encoded_read_spike,
     execute_vortex_local_query_primitive, execute_vortex_metadata_only,
     finalized_manifest_artifact_write_request_from_plan, metadata_planning_is_side_effect_free,
@@ -9401,6 +9402,21 @@ fn run(args: Vec<String>) -> ExitCode {
                     );
                 }
             };
+            let local_execution_report = if report.approved() {
+                match execute_vortex_count_all_from_encoded_count_data_path_approval(&report) {
+                    Ok(local) => Some(local),
+                    Err(error) => {
+                        return emit_error(
+                            command,
+                            format,
+                            "encoded count local guard planning failed",
+                            &error,
+                        );
+                    }
+                }
+            } else {
+                None
+            };
             emit(
                 command,
                 format,
@@ -9490,6 +9506,27 @@ fn run(args: Vec<String>) -> ExitCode {
                     (
                         "upstream_scan_called".to_string(),
                         report.upstream_scan_called.to_string(),
+                    ),
+                    (
+                        "local_execution_status".to_string(),
+                        local_execution_report.as_ref().map_or_else(
+                            || "not_planned".to_string(),
+                            |local| local.status.as_str().to_string(),
+                        ),
+                    ),
+                    (
+                        "local_execution_result_known".to_string(),
+                        local_execution_report
+                            .as_ref()
+                            .is_some_and(|local| local.value.is_known())
+                            .to_string(),
+                    ),
+                    (
+                        "local_execution_data_read".to_string(),
+                        local_execution_report
+                            .as_ref()
+                            .is_some_and(|local| local.data_read)
+                            .to_string(),
                     ),
                 ],
             );
