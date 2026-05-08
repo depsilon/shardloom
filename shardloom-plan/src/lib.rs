@@ -23,7 +23,10 @@ pub use input_planning::{
 };
 pub use object_store::{
     ObjectStoreRangePlanningPolicy, ObjectStoreRangePlanningReport, ObjectStoreRangePlanningStatus,
-    ObjectStoreRangeRequest, plan_object_store_ranges,
+    ObjectStoreRangeRequest, ObjectStoreRequestCoalescingDecision,
+    ObjectStoreRequestCoalescingDecisionKind, ObjectStoreRequestCoalescingReport,
+    ObjectStoreRequestCoalescingStatus, plan_object_store_ranges,
+    plan_object_store_request_coalescing,
 };
 pub use optimizer::{
     AdaptiveDecisionKind, AdaptiveExecutionDecision, AdaptiveTrigger, AdaptiveTriggerKind,

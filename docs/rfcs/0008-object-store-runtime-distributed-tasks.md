@@ -144,6 +144,46 @@ Coalescing is planning evidence only; it does not execute reads or imply provide
 Missing byte ranges must not silently degrade into full-file reads. Full-file reads require a
 separate native approval gate and must remain disallowed in this report.
 
+### Object-store request coalescing report
+
+Request coalescing planning is the report-only comparison between uncoalesced and coalesced
+range request shapes. It may show how many declared byte ranges can be reduced into fewer
+object-store requests under a policy budget, but it must not execute reads, retry requests,
+probe provider behavior, or claim measured latency/cost improvement.
+
+The CG-10 coalescing evidence surface is `ObjectStoreRequestCoalescingReport`.
+
+Required fields:
+
+- `uncoalesced_range_report`.
+- `coalesced_range_report`.
+- `status`.
+- `decisions`.
+- `diagnostics`.
+- `input_request_count`.
+- `output_request_count`.
+- `request_reduction_count`.
+- `input_range_count`.
+- `coalesced_range_count`.
+- `estimated_request_bytes_before`.
+- `estimated_request_bytes_after`.
+- `coalescing_applied`.
+- `can_plan_without_io=true`.
+- `data_read=false`.
+- `object_store_io=false`.
+- `write_io=false`.
+- `fallback_execution_allowed=false`.
+
+`ObjectStoreRequestCoalescingStatus` should identify at least:
+
+- `planned`.
+- `no_coalescing_needed`.
+- `blocked_by_range_planning`.
+
+Coalescing must be blocked whenever range planning is blocked by missing byte ranges, invalid
+ranges, request-budget violations, or non-object-store inputs. Coalescing evidence is not a
+benchmark claim and must not be used as a cost/performance claim before CG-6 benchmark gates.
+
 ## SegmentTask
 
 A SegmentTask is a unit of execution over one or more encoded segments.
