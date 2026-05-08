@@ -1326,6 +1326,473 @@ impl PartitionSpec {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PartitionEvolutionCompatibilityLevel {
+    Exact,
+    ReadCompatible,
+    RequiresPartitionRouting,
+    RequiresMetadataRewrite,
+    RequiresRepartition,
+    Incompatible,
+    Unknown,
+}
+
+impl PartitionEvolutionCompatibilityLevel {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Exact => "exact",
+            Self::ReadCompatible => "read_compatible",
+            Self::RequiresPartitionRouting => "requires_partition_routing",
+            Self::RequiresMetadataRewrite => "requires_metadata_rewrite",
+            Self::RequiresRepartition => "requires_repartition",
+            Self::Incompatible => "incompatible",
+            Self::Unknown => "unknown",
+        }
+    }
+
+    #[must_use]
+    pub const fn allows_read(&self) -> bool {
+        matches!(
+            self,
+            Self::Exact
+                | Self::ReadCompatible
+                | Self::RequiresPartitionRouting
+                | Self::RequiresMetadataRewrite
+                | Self::RequiresRepartition
+        )
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PartitionEvolutionChangeKind {
+    AddField,
+    DropField,
+    ChangeTransform,
+    ReorderField,
+    UnknownTransform,
+}
+
+impl PartitionEvolutionChangeKind {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::AddField => "add_field",
+            Self::DropField => "drop_field",
+            Self::ChangeTransform => "change_transform",
+            Self::ReorderField => "reorder_field",
+            Self::UnknownTransform => "unknown_transform",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PartitionEvolutionChange {
+    pub kind: PartitionEvolutionChangeKind,
+    pub field_path: Option<FieldPath>,
+    pub from_transform: Option<PartitionTransform>,
+    pub to_transform: Option<PartitionTransform>,
+    pub reason: String,
+}
+
+impl PartitionEvolutionChange {
+    #[must_use]
+    pub fn new(kind: PartitionEvolutionChangeKind, reason: impl Into<String>) -> Self {
+        Self {
+            kind,
+            field_path: None,
+            from_transform: None,
+            to_transform: None,
+            reason: reason.into(),
+        }
+    }
+
+    #[must_use]
+    pub fn with_field_path(mut self, field_path: FieldPath) -> Self {
+        self.field_path = Some(field_path);
+        self
+    }
+
+    #[must_use]
+    pub fn with_transforms(
+        mut self,
+        from_transform: Option<PartitionTransform>,
+        to_transform: Option<PartitionTransform>,
+    ) -> Self {
+        self.from_transform = from_transform;
+        self.to_transform = to_transform;
+        self
+    }
+
+    #[must_use]
+    pub fn summary(&self) -> String {
+        format!(
+            "partition_evolution_change(kind={}, field_path={}, from_transform={}, to_transform={}, reason={})",
+            self.kind.as_str(),
+            self.field_path
+                .as_ref()
+                .map_or("none".to_string(), FieldPath::as_dot_separated),
+            self.from_transform
+                .as_ref()
+                .map_or("none".to_string(), PartitionTransform::summary),
+            self.to_transform
+                .as_ref()
+                .map_or("none".to_string(), PartitionTransform::summary),
+            self.reason
+        )
+    }
+}
+
+/// Machine-readable CG-9 partition evolution compatibility evidence.
+///
+/// This report only compares typed partition specs. It does not read table metadata,
+/// route real files, repartition data, write data, contact a catalog, or attempt fallback execution.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct PartitionEvolutionCompatibilityReport {
+    pub from_spec: PartitionSpec,
+    pub to_spec: PartitionSpec,
+    pub level: PartitionEvolutionCompatibilityLevel,
+    pub changes: Vec<PartitionEvolutionChange>,
+    pub diagnostics: Vec<Diagnostic>,
+    pub preserved_field_count: usize,
+    pub added_field_count: usize,
+    pub dropped_field_count: usize,
+    pub transform_change_count: usize,
+    pub reorder_count: usize,
+    pub unsafe_change_count: usize,
+    pub requires_partition_router: bool,
+    pub requires_metadata_rewrite: bool,
+    pub requires_repartition: bool,
+    pub read_supported: bool,
+    pub write_supported: bool,
+    pub data_read: bool,
+    pub write_io: bool,
+    pub catalog_io: bool,
+    pub object_store_io: bool,
+    pub fallback_execution_allowed: bool,
+}
+
+impl PartitionEvolutionCompatibilityReport {
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.unsafe_change_count > 0
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "partition_evolution_compatibility(level={}, changes={}, unsafe_changes={}, read_supported={}, write_supported={}, data_read=false, write_io=false, catalog_io=false, object_store_io=false, fallback_execution=disabled)",
+            self.level.as_str(),
+            self.changes.len(),
+            self.unsafe_change_count,
+            self.read_supported,
+            self.write_supported
+        )
+    }
+}
+
+#[derive(Debug, Default)]
+struct PartitionEvolutionAnalysis {
+    preserved_field_count: usize,
+    added_field_count: usize,
+    dropped_field_count: usize,
+    transform_change_count: usize,
+    reorder_count: usize,
+    unsafe_change_count: usize,
+    requires_partition_router: bool,
+    requires_metadata_rewrite: bool,
+    requires_repartition: bool,
+}
+
+impl PartitionEvolutionAnalysis {
+    fn record_unsafe(&mut self, diagnostics: &mut Vec<Diagnostic>, diagnostic: Diagnostic) {
+        self.unsafe_change_count += 1;
+        diagnostics.push(diagnostic);
+    }
+
+    #[must_use]
+    fn compatibility_level(&self, change_count: usize) -> PartitionEvolutionCompatibilityLevel {
+        if self.unsafe_change_count > 0 {
+            PartitionEvolutionCompatibilityLevel::Incompatible
+        } else if change_count == 0 {
+            PartitionEvolutionCompatibilityLevel::Exact
+        } else if self.requires_repartition {
+            PartitionEvolutionCompatibilityLevel::RequiresRepartition
+        } else if self.requires_metadata_rewrite {
+            PartitionEvolutionCompatibilityLevel::RequiresMetadataRewrite
+        } else if self.requires_partition_router {
+            PartitionEvolutionCompatibilityLevel::RequiresPartitionRouting
+        } else {
+            PartitionEvolutionCompatibilityLevel::ReadCompatible
+        }
+    }
+}
+
+/// Evaluates a partition spec transition without performing table metadata or data I/O.
+#[must_use]
+pub fn evaluate_partition_evolution_compatibility(
+    from: &PartitionSpec,
+    to: &PartitionSpec,
+) -> PartitionEvolutionCompatibilityReport {
+    let mut changes = Vec::new();
+    let mut diagnostics = Vec::new();
+    let mut analysis = PartitionEvolutionAnalysis::default();
+    let mut matched_to = vec![false; to.fields.len()];
+
+    for from_field in &from.fields {
+        if let Some(to_index) = find_partition_field_index(from_field, to, &matched_to) {
+            matched_to[to_index] = true;
+            compare_partition_field(
+                from_field,
+                &to.fields[to_index],
+                &mut changes,
+                &mut diagnostics,
+                &mut analysis,
+            );
+        } else {
+            record_partition_drop(from_field, &mut changes, &mut analysis);
+        }
+    }
+
+    for (to_index, to_field) in to.fields.iter().enumerate() {
+        if !matched_to[to_index] {
+            record_partition_add(to_field, &mut changes, &mut diagnostics, &mut analysis);
+        }
+    }
+
+    if partition_field_order_changed(from, to) {
+        changes.push(PartitionEvolutionChange::new(
+            PartitionEvolutionChangeKind::ReorderField,
+            "partition fields use the same sources and transforms but appear in a different order",
+        ));
+        analysis.reorder_count += 1;
+        analysis.requires_metadata_rewrite = true;
+    }
+
+    for field in from.fields.iter().chain(to.fields.iter()) {
+        if partition_transform_is_unknown(&field.transform) {
+            changes.push(
+                PartitionEvolutionChange::new(
+                    PartitionEvolutionChangeKind::UnknownTransform,
+                    format!(
+                        "partition field {} uses an unknown transform",
+                        field.source.as_dot_separated()
+                    ),
+                )
+                .with_field_path(field.source.clone())
+                .with_transforms(Some(field.transform.clone()), None),
+            );
+            analysis.record_unsafe(
+                &mut diagnostics,
+                partition_evolution_unsupported_diagnostic(
+                    "partition_evolution_unknown_transform",
+                    format!(
+                        "partition transform for {} is unknown",
+                        field.source.as_dot_separated()
+                    ),
+                ),
+            );
+        }
+    }
+
+    let level = analysis.compatibility_level(changes.len());
+    let read_supported = level.allows_read() && diagnostics_are_not_errors(&diagnostics);
+    let write_supported = read_supported
+        && !to
+            .fields
+            .iter()
+            .any(|field| partition_transform_is_unknown(&field.transform));
+
+    PartitionEvolutionCompatibilityReport {
+        from_spec: from.clone(),
+        to_spec: to.clone(),
+        level,
+        changes,
+        diagnostics,
+        preserved_field_count: analysis.preserved_field_count,
+        added_field_count: analysis.added_field_count,
+        dropped_field_count: analysis.dropped_field_count,
+        transform_change_count: analysis.transform_change_count,
+        reorder_count: analysis.reorder_count,
+        unsafe_change_count: analysis.unsafe_change_count,
+        requires_partition_router: analysis.requires_partition_router,
+        requires_metadata_rewrite: analysis.requires_metadata_rewrite,
+        requires_repartition: analysis.requires_repartition,
+        read_supported,
+        write_supported,
+        data_read: false,
+        write_io: false,
+        catalog_io: false,
+        object_store_io: false,
+        fallback_execution_allowed: false,
+    }
+}
+
+fn find_partition_field_index(
+    from_field: &PartitionField,
+    to: &PartitionSpec,
+    matched_to: &[bool],
+) -> Option<usize> {
+    to.fields
+        .iter()
+        .enumerate()
+        .find(|(index, to_field)| !matched_to[*index] && to_field.source == from_field.source)
+        .map(|(index, _)| index)
+}
+
+fn compare_partition_field(
+    from_field: &PartitionField,
+    to_field: &PartitionField,
+    changes: &mut Vec<PartitionEvolutionChange>,
+    _diagnostics: &mut Vec<Diagnostic>,
+    analysis: &mut PartitionEvolutionAnalysis,
+) {
+    if from_field.transform == to_field.transform {
+        analysis.preserved_field_count += 1;
+        return;
+    }
+
+    changes.push(
+        PartitionEvolutionChange::new(
+            PartitionEvolutionChangeKind::ChangeTransform,
+            format!(
+                "partition transform for {} changed from {} to {}",
+                from_field.source.as_dot_separated(),
+                from_field.transform.summary(),
+                to_field.transform.summary()
+            ),
+        )
+        .with_field_path(from_field.source.clone())
+        .with_transforms(
+            Some(from_field.transform.clone()),
+            Some(to_field.transform.clone()),
+        ),
+    );
+    analysis.transform_change_count += 1;
+    analysis.requires_partition_router = true;
+    analysis.requires_metadata_rewrite = true;
+    analysis.requires_repartition = true;
+}
+
+fn record_partition_drop(
+    from_field: &PartitionField,
+    changes: &mut Vec<PartitionEvolutionChange>,
+    analysis: &mut PartitionEvolutionAnalysis,
+) {
+    changes.push(
+        PartitionEvolutionChange::new(
+            PartitionEvolutionChangeKind::DropField,
+            format!(
+                "partition field {} is not present in target spec",
+                from_field.source.as_dot_separated()
+            ),
+        )
+        .with_field_path(from_field.source.clone())
+        .with_transforms(Some(from_field.transform.clone()), None),
+    );
+    analysis.dropped_field_count += 1;
+    analysis.requires_partition_router = true;
+    analysis.requires_metadata_rewrite = true;
+}
+
+fn record_partition_add(
+    to_field: &PartitionField,
+    changes: &mut Vec<PartitionEvolutionChange>,
+    diagnostics: &mut Vec<Diagnostic>,
+    analysis: &mut PartitionEvolutionAnalysis,
+) {
+    changes.push(
+        PartitionEvolutionChange::new(
+            PartitionEvolutionChangeKind::AddField,
+            format!(
+                "partition field {} is new in target spec",
+                to_field.source.as_dot_separated()
+            ),
+        )
+        .with_field_path(to_field.source.clone())
+        .with_transforms(None, Some(to_field.transform.clone())),
+    );
+    analysis.added_field_count += 1;
+    analysis.requires_partition_router = true;
+    analysis.requires_metadata_rewrite = true;
+    analysis.requires_repartition = true;
+
+    if partition_transform_is_unknown(&to_field.transform) {
+        analysis.record_unsafe(
+            diagnostics,
+            partition_evolution_unsupported_diagnostic(
+                "partition_evolution_add_field",
+                format!(
+                    "new partition field {} uses an unknown transform",
+                    to_field.source.as_dot_separated()
+                ),
+            ),
+        );
+    }
+}
+
+fn partition_field_order_changed(from: &PartitionSpec, to: &PartitionSpec) -> bool {
+    if from.fields.len() != to.fields.len() {
+        return false;
+    }
+
+    let from_order = partition_field_keys(from);
+    let to_order = partition_field_keys(to);
+    let mut from_sorted = from_order.clone();
+    let mut to_sorted = to_order.clone();
+    from_sorted.sort();
+    to_sorted.sort();
+
+    from_sorted == to_sorted && from_order != to_order
+}
+
+fn partition_field_keys(spec: &PartitionSpec) -> Vec<String> {
+    spec.fields
+        .iter()
+        .map(|field| {
+            format!(
+                "{}:{}",
+                field.source.as_dot_separated(),
+                field.transform.summary()
+            )
+        })
+        .collect()
+}
+
+fn partition_transform_is_unknown(transform: &PartitionTransform) -> bool {
+    matches!(transform, PartitionTransform::Unknown(_))
+}
+
+fn diagnostics_are_not_errors(diagnostics: &[Diagnostic]) -> bool {
+    !diagnostics.iter().any(|diagnostic| {
+        matches!(
+            diagnostic.severity,
+            DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+        )
+    })
+}
+
+fn partition_evolution_unsupported_diagnostic(
+    feature: impl Into<String>,
+    message: impl Into<String>,
+) -> Diagnostic {
+    Diagnostic::unsupported(
+        DiagnosticCode::NotImplemented,
+        feature,
+        message,
+        Some(
+            "Use known partition transforms or add a native partition-evolution rule.".to_string(),
+        ),
+    )
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DeleteModel {
     None,
     FileLevelDelete,
@@ -1695,6 +2162,124 @@ mod tests {
     fn partition_spec_empty_is_not_partitioned() {
         assert!(!PartitionSpec::empty().is_partitioned());
     }
+
+    fn partition_path(value: &str) -> FieldPath {
+        FieldPath::from_dot_separated(value).expect("partition path")
+    }
+
+    fn partition_field(source: &str, transform: PartitionTransform) -> PartitionField {
+        PartitionField::new(partition_path(source), transform)
+    }
+
+    fn partition_spec(fields: Vec<PartitionField>) -> PartitionSpec {
+        let mut spec = PartitionSpec::empty();
+        for field in fields {
+            spec.add_field(field);
+        }
+        spec
+    }
+
+    #[test]
+    fn partition_evolution_same_spec_is_exact_and_side_effect_free() {
+        let spec = partition_spec(vec![partition_field("created_at", PartitionTransform::Day)]);
+
+        let report = evaluate_partition_evolution_compatibility(&spec, &spec);
+
+        assert_eq!(report.level, PartitionEvolutionCompatibilityLevel::Exact);
+        assert_eq!(report.preserved_field_count, 1);
+        assert_eq!(report.changes.len(), 0);
+        assert!(report.read_supported);
+        assert!(report.write_supported);
+        assert!(!report.data_read);
+        assert!(!report.write_io);
+        assert!(!report.catalog_io);
+        assert!(!report.object_store_io);
+        assert!(!report.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn partition_evolution_add_field_requires_routing_and_repartition() {
+        let from = partition_spec(vec![partition_field("created_at", PartitionTransform::Day)]);
+        let to = partition_spec(vec![
+            partition_field("created_at", PartitionTransform::Day),
+            partition_field("customer_id", PartitionTransform::Bucket { buckets: 16 }),
+        ]);
+
+        let report = evaluate_partition_evolution_compatibility(&from, &to);
+
+        assert_eq!(
+            report.level,
+            PartitionEvolutionCompatibilityLevel::RequiresRepartition
+        );
+        assert_eq!(report.added_field_count, 1);
+        assert!(report.requires_partition_router);
+        assert!(report.requires_metadata_rewrite);
+        assert!(report.requires_repartition);
+        assert!(report.read_supported);
+        assert!(report.write_supported);
+    }
+
+    #[test]
+    fn partition_evolution_transform_change_requires_repartition() {
+        let from = partition_spec(vec![partition_field("created_at", PartitionTransform::Day)]);
+        let to = partition_spec(vec![partition_field(
+            "created_at",
+            PartitionTransform::Month,
+        )]);
+
+        let report = evaluate_partition_evolution_compatibility(&from, &to);
+
+        assert_eq!(report.transform_change_count, 1);
+        assert_eq!(
+            report.level,
+            PartitionEvolutionCompatibilityLevel::RequiresRepartition
+        );
+        assert!(report.requires_partition_router);
+        assert!(report.requires_repartition);
+    }
+
+    #[test]
+    fn partition_evolution_reorder_requires_metadata_rewrite() {
+        let from = partition_spec(vec![
+            partition_field("created_at", PartitionTransform::Day),
+            partition_field("customer_id", PartitionTransform::Bucket { buckets: 16 }),
+        ]);
+        let to = partition_spec(vec![
+            partition_field("customer_id", PartitionTransform::Bucket { buckets: 16 }),
+            partition_field("created_at", PartitionTransform::Day),
+        ]);
+
+        let report = evaluate_partition_evolution_compatibility(&from, &to);
+
+        assert_eq!(
+            report.level,
+            PartitionEvolutionCompatibilityLevel::RequiresMetadataRewrite
+        );
+        assert_eq!(report.reorder_count, 1);
+        assert!(report.requires_metadata_rewrite);
+        assert_eq!(report.unsafe_change_count, 0);
+    }
+
+    #[test]
+    fn partition_evolution_unknown_transform_is_rejected() {
+        let from = partition_spec(vec![partition_field("created_at", PartitionTransform::Day)]);
+        let to = partition_spec(vec![partition_field(
+            "created_at",
+            PartitionTransform::Unknown("vendor_specific".to_string()),
+        )]);
+
+        let report = evaluate_partition_evolution_compatibility(&from, &to);
+
+        assert_eq!(
+            report.level,
+            PartitionEvolutionCompatibilityLevel::Incompatible
+        );
+        assert_eq!(report.unsafe_change_count, 1);
+        assert!(report.has_errors());
+        assert_eq!(report.diagnostics[0].code, DiagnosticCode::NotImplemented);
+        assert!(!report.diagnostics[0].fallback.attempted);
+    }
+
     #[test]
     fn delete_model_none_is_initially_supported() {
         assert!(DeleteModel::None.is_supported_initially());
