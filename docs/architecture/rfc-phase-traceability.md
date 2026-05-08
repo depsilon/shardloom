@@ -366,6 +366,14 @@ No fallback execution.
 - `LayoutReader::row_count` remains metadata-like but deferred because constructing layout readers is not yet an approved count execution path.
 - This pass does not call scan/read-start APIs, array stream/evaluation APIs, traverse encoded data, read rows, decode/materialize, convert to `Arrow`, perform object-store IO, write, or attempt fallback execution.
 
+## CG-2.1e.6 encoded-count data-path approval boundary
+
+- Primary RFC linkage: RFC 0005 Vortex-Native File IO and Output Contract, RFC 0012 Diagnostics/Capabilities, RFC 0013 Streaming/Zero-Copy Boundary, RFC 0015 Correctness/testing, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
+- `VortexEncodedCountDataPathApprovalReport` now consumes `VortexCountReadinessReport` and `VortexEncodedReadApiBoundaryReport` to decide whether encoded-data `CountAll` can even be approved for deferred execution planning.
+- The current public API boundary remains blocked: `VortexFile::row_count` is metadata count evidence, but execution-usable data path count is zero and scan/stream/evaluation/data-source surfaces remain blocked or deferred.
+- This pass makes the remaining blocker explicit before actual encoded-data count execution work.
+- This pass does not call scan/read-start APIs, array stream/evaluation APIs, traverse encoded data, read rows, decode/materialize, convert to `Arrow`, perform object-store IO, write, or attempt fallback execution.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.

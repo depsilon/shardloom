@@ -824,6 +824,14 @@ CG-2.1c metadata-footer `CountAll` execution is wired; non-metadata execution re
 - Scan, stream, layout-evaluation, and data-source surfaces remain blocked or deferred for actual count execution until adapter-level no-decode/no-materialization behavior is approved.
 - This remains classification-only and does not call scan/read-start APIs, array stream/evaluation APIs, traverse encoded data, read rows, decode/materialize, convert to `Arrow`, perform object-store IO, write, or attempt fallback execution.
 
+## CG-2.1e.6 encoded-count data-path approval boundary
+
+- Adapter work now has an explicit encoded-count approval report between count readiness and future execution work.
+- `VortexEncodedCountDataPathApprovalReport` confirms that metadata count evidence does not approve encoded-data traversal by itself.
+- Current adapter/API state remains blocked for encoded-data `CountAll`: no execution-usable data path is present, and scan/stream/layout-evaluation/data-source APIs remain blocked or deferred.
+- Future adapter/source execution work must make this report approved before introducing real encoded-data count traversal.
+- This remains report-only and does not call scan/read-start APIs, array stream/evaluation APIs, traverse encoded data, read rows, decode/materialize, convert to `Arrow`, perform object-store IO, write, or attempt fallback execution.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.
