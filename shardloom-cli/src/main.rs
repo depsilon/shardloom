@@ -6,16 +6,17 @@
 use std::process::ExitCode;
 
 use shardloom_core::{
-    CapabilityCertificationReport, CapabilityCertificationStatus, CatalogKind, CatalogRef,
-    ChangeSet, ColumnRef, CommandStatus, ComparisonOp, CorrectnessValidationPlan, DatasetManifest,
-    DatasetRef, DatasetUri, ExtensionId, ExtensionInspectionReport, ExtensionLicenseKind,
-    ExtensionManifest, ExtensionProvenance, ExtensionRegistrySnapshot, ExtensionVersion,
-    IncrementalPlanSkeleton, InputAdapterRegistrySnapshot, KernelRegistrySnapshot, ManifestId,
-    ObservabilityPlan, OutputEnvelope, OutputFormat, OutputTarget, PhysicalKernelRegistryPlan,
-    PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorPlan, PredicateExpr, RedactionPolicy,
-    ReleasePlan, RuntimeObservabilityReport, SchemaDefinition, SchemaId, SchemaVersion,
-    SecurityPlan, ShardLoomError, SnapshotId, SnapshotRef, StatValue, TableCompatibilityPlan,
-    TableFormatKind, TranslationPlan, UdfRuntimeKind, WriteIntent,
+    BenchmarkEvidenceState, BenchmarkFallbackState, CapabilityCertificationReport,
+    CapabilityCertificationStatus, CatalogKind, CatalogRef, ChangeSet, ColumnRef, CommandStatus,
+    ComparisonOp, CorrectnessValidationPlan, DatasetManifest, DatasetRef, DatasetUri, ExtensionId,
+    ExtensionInspectionReport, ExtensionLicenseKind, ExtensionManifest, ExtensionProvenance,
+    ExtensionRegistrySnapshot, ExtensionVersion, IncrementalPlanSkeleton,
+    InputAdapterRegistrySnapshot, KernelRegistrySnapshot, ManifestId, ObservabilityPlan,
+    OperatorMemoryCertification, OutputEnvelope, OutputFormat, OutputTarget,
+    PhysicalKernelRegistryPlan, PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorPlan,
+    PredicateExpr, RedactionPolicy, ReleasePlan, RuntimeObservabilityReport, SchemaDefinition,
+    SchemaId, SchemaVersion, SecurityPlan, ShardLoomError, SnapshotId, SnapshotRef, StatValue,
+    TableCompatibilityPlan, TableFormatKind, TranslationPlan, UdfRuntimeKind, WriteIntent,
 };
 use shardloom_exec::{
     AdaptiveSizer, AdaptiveSizingPolicy, AttemptId, ByteSize, CancellationReason,
@@ -57,7 +58,8 @@ use shardloom_vortex::{
     VortexMetadataProbeReport, VortexOutputPayloadContentDescriptor, VortexOutputPayloadFileName,
     VortexOutputPayloadFileRef, VortexOutputPayloadReport, VortexOutputPayloadRequest,
     VortexOutputPayloadSignal, VortexProjectionCandidateSource, VortexProjectionReadinessSignal,
-    VortexQueryPrimitiveSignal, VortexReadPlan, VortexStagedManifestDraftContent,
+    VortexQueryPrimitiveRequest, VortexQueryPrimitiveResult, VortexQueryPrimitiveSignal,
+    VortexQueryPrimitiveValue, VortexReadPlan, VortexStagedManifestDraftContent,
     VortexStagedManifestFileEffect, VortexStagedManifestFileRef, VortexStagedManifestFileReport,
     VortexStagedManifestFileRequest, VortexStagedManifestFileSignal,
     VortexStagedManifestFileWriteEffect, VortexStagedManifestFileWriteOption,
@@ -67,12 +69,12 @@ use shardloom_vortex::{
     VortexStatisticsMappingReport, VortexWriteIntentReport, VortexWriteIntentRequest,
     VortexWriteIntentSignal, VortexWriteOptions, VortexWritePlan, build_vortex_runtime_task_graph,
     commit_marker_write_request_from_plan, evaluate_vortex_encoded_read_readiness,
-    evaluate_vortex_execution_readiness, evaluate_vortex_query_primitive,
-    execute_vortex_bounded_local_query, execute_vortex_encoded_read_contract,
-    execute_vortex_encoded_read_spike, execute_vortex_local_query_primitive,
-    execute_vortex_metadata_only, finalized_manifest_artifact_write_request_from_plan,
-    metadata_planning_is_side_effect_free, metadata_pruning_is_side_effect_free,
-    metadata_summary_is_plan_only, open_vortex_metadata_only,
+    evaluate_vortex_execution_readiness, evaluate_vortex_metadata_physical_kernels,
+    evaluate_vortex_query_primitive, execute_vortex_bounded_local_query,
+    execute_vortex_encoded_read_contract, execute_vortex_encoded_read_spike,
+    execute_vortex_local_query_primitive, execute_vortex_metadata_only,
+    finalized_manifest_artifact_write_request_from_plan, metadata_planning_is_side_effect_free,
+    metadata_pruning_is_side_effect_free, metadata_summary_is_plan_only, open_vortex_metadata_only,
     output_payload_artifact_write_request_from_plan, parse_vortex_local_engine_primitive,
     plan_from_vortex_metadata_summary, plan_native_vortex_universal_input,
     plan_vortex_commit_intent, plan_vortex_commit_marker, plan_vortex_commit_protocol,
@@ -81,6 +83,7 @@ use shardloom_vortex::{
     plan_vortex_filtered_count_readiness, plan_vortex_layout_reader_driver_approval,
     plan_vortex_manifest_finalization, plan_vortex_memory_safety, plan_vortex_metadata_pruning,
     plan_vortex_output_payload, plan_vortex_projection_readiness, plan_vortex_query_primitive,
+    plan_vortex_query_primitive_result_physical_operators_with_evidence,
     plan_vortex_read_from_universal_input, plan_vortex_scheduler_queue,
     plan_vortex_staged_manifest_file, plan_vortex_write_intent, probe_vortex_encoded_read_metadata,
     probe_vortex_metadata_only, run_vortex_local_engine, setup_vortex_staged_workspace,
@@ -127,7 +130,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -1076,6 +1079,239 @@ fn emit_error(
         OutputFormat::Json => println!("{}", envelope.to_json()),
     }
     ExitCode::from(2)
+}
+
+#[must_use]
+fn safe_metadata_kernel_memory() -> OperatorMemoryCertification {
+    OperatorMemoryCertification {
+        streaming: true,
+        bounded_memory: true,
+        spillable: false,
+        requires_full_materialization: false,
+        requires_shuffle: false,
+        oom_safe: true,
+    }
+}
+
+#[must_use]
+fn metadata_kernel_memory_safe(memory: OperatorMemoryCertification) -> bool {
+    memory.oom_safe
+        && !memory.requires_full_materialization
+        && (memory.streaming || memory.bounded_memory || memory.spillable)
+}
+
+#[allow(clippy::too_many_lines)]
+fn run_vortex_metadata_physical_kernel_plan(format: OutputFormat, args: Vec<String>) -> ExitCode {
+    let command = "vortex-metadata-physical-kernel-plan";
+    let mut args = args.into_iter();
+    let Some(primitive_arg) = args.next() else {
+        return emit_error(
+            command,
+            format,
+            "missing primitive",
+            &cli_missing_arg_error(command, "primitive"),
+        );
+    };
+    let Some(uri_arg) = args.next() else {
+        return emit_error(
+            command,
+            format,
+            "missing dataset uri",
+            &cli_missing_arg_error(command, "dataset_uri"),
+        );
+    };
+    let Some(value_arg) = args.next() else {
+        return emit_error(
+            command,
+            format,
+            "missing metadata value",
+            &cli_missing_arg_error(command, "metadata_value"),
+        );
+    };
+    let uri = match DatasetUri::new(uri_arg) {
+        Ok(uri) => uri,
+        Err(error) => return emit_error(command, format, "invalid dataset uri", &error),
+    };
+    let (request, value) = match primitive_arg.as_str() {
+        "count" | "count-all" | "count_all" => {
+            let Ok(count) = value_arg.parse::<u64>() else {
+                return emit_error(
+                    command,
+                    format,
+                    "invalid count metadata value",
+                    &ShardLoomError::InvalidOperation(format!(
+                        "count metadata value must be u64: {value_arg}"
+                    )),
+                );
+            };
+            (
+                VortexQueryPrimitiveRequest::count_all(uri),
+                VortexQueryPrimitiveValue::Count(count),
+            )
+        }
+        "filtered-count" | "filtered_count" => {
+            let Ok(count) = value_arg.parse::<u64>() else {
+                return emit_error(
+                    command,
+                    format,
+                    "invalid filtered count metadata value",
+                    &ShardLoomError::InvalidOperation(format!(
+                        "filtered count metadata value must be u64: {value_arg}"
+                    )),
+                );
+            };
+            (
+                VortexQueryPrimitiveRequest::count_where(uri, PredicateExpr::AlwaysTrue),
+                VortexQueryPrimitiveValue::Count(count),
+            )
+        }
+        "filter" | "predicate-filter" | "predicate_filter" => {
+            let value = match value_arg.as_str() {
+                "true" => true,
+                "false" => false,
+                _ => {
+                    return emit_error(
+                        command,
+                        format,
+                        "invalid filter metadata value",
+                        &ShardLoomError::InvalidOperation(format!(
+                            "filter metadata value must be true or false: {value_arg}"
+                        )),
+                    );
+                }
+            };
+            (
+                VortexQueryPrimitiveRequest::filter(uri, PredicateExpr::AlwaysFalse),
+                VortexQueryPrimitiveValue::Boolean(value),
+            )
+        }
+        _ => {
+            return emit_error(
+                command,
+                format,
+                "invalid primitive",
+                &ShardLoomError::InvalidOperation(format!("invalid primitive: {primitive_arg}")),
+            );
+        }
+    };
+    let mut correctness_evidence = BenchmarkEvidenceState::Missing;
+    let mut benchmark_evidence = BenchmarkEvidenceState::Missing;
+    let mut memory = OperatorMemoryCertification::unsupported();
+    let mut fallback = BenchmarkFallbackState::NotAttempted;
+    for token in args {
+        match token.as_str() {
+            "--correctness-evidence" | "--correctness-passed" => {
+                correctness_evidence = BenchmarkEvidenceState::Present;
+            }
+            "--benchmark-evidence" | "--benchmark-passed" => {
+                benchmark_evidence = BenchmarkEvidenceState::Present;
+            }
+            "--memory-safe" => {
+                memory = safe_metadata_kernel_memory();
+            }
+            "--fallback-attempted" => {
+                fallback = BenchmarkFallbackState::Attempted;
+            }
+            _ => {
+                return emit_error(
+                    command,
+                    format,
+                    "unknown option",
+                    &cli_unknown_arg_error(command, &token),
+                );
+            }
+        }
+    }
+    let result = VortexQueryPrimitiveResult::metadata_answered(request, value);
+    let bridge = match plan_vortex_query_primitive_result_physical_operators_with_evidence(
+        &result,
+        correctness_evidence,
+        benchmark_evidence,
+        memory,
+        fallback,
+    ) {
+        Ok(report) => report,
+        Err(error) => {
+            return emit_error(command, format, "physical bridge planning failed", &error);
+        }
+    };
+    let report = evaluate_vortex_metadata_physical_kernels(&result, &bridge);
+    emit(
+        command,
+        format,
+        if report.has_errors() {
+            CommandStatus::Unsupported
+        } else {
+            CommandStatus::Success
+        },
+        "vortex metadata physical kernel report".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        vec![
+            (
+                "primitive".to_string(),
+                report.primitive_kind.as_str().to_string(),
+            ),
+            ("status".to_string(), report.status.as_str().to_string()),
+            (
+                "certificate_status".to_string(),
+                report.certificate_status.as_str().to_string(),
+            ),
+            (
+                "metadata_kernel_count".to_string(),
+                report.metadata_kernel_count.to_string(),
+            ),
+            (
+                "kernel_kind".to_string(),
+                report.kernel_kind.as_str().to_string(),
+            ),
+            ("value".to_string(), report.value.as_str()),
+            (
+                "correctness_evidence".to_string(),
+                correctness_evidence.as_str().to_string(),
+            ),
+            (
+                "benchmark_evidence".to_string(),
+                benchmark_evidence.as_str().to_string(),
+            ),
+            (
+                "memory_safe".to_string(),
+                metadata_kernel_memory_safe(memory).to_string(),
+            ),
+            (
+                "fallback_attempted".to_string(),
+                fallback.attempted().to_string(),
+            ),
+            ("data_read".to_string(), report.data_read.to_string()),
+            ("data_decoded".to_string(), report.data_decoded.to_string()),
+            (
+                "data_materialized".to_string(),
+                report.data_materialized.to_string(),
+            ),
+            (
+                "object_store_io".to_string(),
+                report.object_store_io.to_string(),
+            ),
+            ("write_io".to_string(), report.write_io.to_string()),
+            (
+                "spill_io_performed".to_string(),
+                report.spill_io_performed.to_string(),
+            ),
+            (
+                "fallback_execution_allowed".to_string(),
+                report.fallback_execution_allowed.to_string(),
+            ),
+            (
+                "side_effect_free".to_string(),
+                report.is_side_effect_free().to_string(),
+            ),
+        ],
+    );
+    if report.has_errors() {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -8741,6 +8977,9 @@ fn run(args: Vec<String>) -> ExitCode {
                 ExitCode::SUCCESS
             }
         }
+        Some("vortex-metadata-physical-kernel-plan") => {
+            run_vortex_metadata_physical_kernel_plan(format, args.collect())
+        }
         Some("vortex-count-readiness-plan") => {
             let Some(source_arg) = args.next() else {
                 return emit_error(
@@ -11461,6 +11700,10 @@ mod tests {
         assert!(cli_usage_line().contains("vortex-projection-readiness-plan"));
     }
     #[test]
+    fn usage_includes_vortex_metadata_physical_kernel_plan() {
+        assert!(cli_usage_line().contains("vortex-metadata-physical-kernel-plan"));
+    }
+    #[test]
     fn vortex_count_readiness_plan_missing_candidate_source_returns_non_zero() {
         assert_ne!(
             run(vec!["vortex-count-readiness-plan".to_string()]),
@@ -12826,6 +13069,44 @@ mod tests {
             "count".to_string(),
             "file:///tmp/example.vortex".to_string(),
             "extra".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_metadata_physical_kernel_plan_ready_count_succeeds() {
+        let code = run(vec![
+            "vortex-metadata-physical-kernel-plan".to_string(),
+            "count".to_string(),
+            "file:///tmp/example.vortex".to_string(),
+            "5".to_string(),
+            "--correctness-evidence".to_string(),
+            "--memory-safe".to_string(),
+            "--format".to_string(),
+            "json".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_metadata_physical_kernel_plan_missing_evidence_returns_non_zero() {
+        let code = run(vec![
+            "vortex-metadata-physical-kernel-plan".to_string(),
+            "count".to_string(),
+            "file:///tmp/example.vortex".to_string(),
+            "5".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_metadata_physical_kernel_plan_unknown_option_returns_non_zero() {
+        let code = run(vec![
+            "vortex-metadata-physical-kernel-plan".to_string(),
+            "filter".to_string(),
+            "file:///tmp/example.vortex".to_string(),
+            "false".to_string(),
+            "--bogus".to_string(),
         ]);
         assert_ne!(code, ExitCode::SUCCESS);
     }
