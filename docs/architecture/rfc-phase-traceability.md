@@ -1065,3 +1065,13 @@ No fallback execution.
 - Primary RFC linkage: RFC 0012, RFC 0015, RFC 0021, RFC 0025, and RFC 0029.
 - Related RFCs: RFC 0013, RFC 0016, RFC 0027, RFC 0031, and RFC 0032.
 - This phase adds no scan/read-start path, generalized encoded-data execution, encoded-value predicate execution, broad filter execution, projection execution, aggregate execution, row reads, requested decode/materialization, Arrow conversion, parser, SQL execution, adapter runtime, object-store IO, writes, spill IO, benchmark claim, production/superiority claim, broad operator-kernel closeout, CG closeout, or fallback behavior.
+
+## CG-7.24 encoded projection kernel evidence
+
+- `shardloom-vortex` now admits safe encoded-column projection readiness into the encoded project kernel slot.
+- Safe reports can mark the encoded project kernel slot registry-ready, while benchmark evidence remains required before production certification or any superiority claim.
+- Missing encoded-column readiness blocks admission and does not read encoded data, decode, materialize, convert to Arrow, execute fallback, or claim broad projection execution.
+- `capabilities operators` and `kernel-registry` expose encoded projection-kernel admission fields.
+- Primary RFC linkage: RFC 0012, RFC 0015, RFC 0021, RFC 0025, and RFC 0029.
+- Related RFCs: RFC 0013, RFC 0016, RFC 0027, RFC 0031, and RFC 0032.
+- This phase adds no scan/read-start path, generalized encoded-data execution, encoded-value projection execution, broad projection execution, aggregate execution, row reads, requested decode/materialization, Arrow conversion, parser, SQL execution, adapter runtime, object-store IO, writes, spill IO, benchmark claim, production/superiority claim, broad operator-kernel closeout, CG closeout, or fallback behavior.
