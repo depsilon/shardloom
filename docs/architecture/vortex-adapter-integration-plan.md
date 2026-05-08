@@ -910,6 +910,13 @@ CG-2.1c metadata-footer `CountAll` execution is wired; non-metadata execution re
 - `shardloom vortex-encoded-read-spike ... --execute-local-count` exposes the path for explicit local verification; it is not an adapter/source generalization.
 - Broad scan/read-start approval, non-local adapters, object stores, encoded predicates, projections, writes, benchmarks, external baselines, CG closeout, and fallback remain out of scope.
 
+## CG-2.1e.20 approved local scan naming normalization
+
+- Adapter-boundary reporting now calls the approved local count path a local scan/count path rather than a local fixture path.
+- `VortexEncodedReadExecutionReport` exposes `local_scan_*` fields for target URI, readiness source URI, and source-match evidence.
+- Diagnostic labels use `vortex_local_scan_count`, keeping adapter/source evidence terminology aligned before generalized count execution is considered.
+- This does not make adapters, non-local sources, object stores, predicates, projections, writes, benchmarks, external baselines, or fallback execution in scope.
+
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.
 - CG-2.2a adds `VortexFilteredCountReadinessRequest` and `VortexFilteredCountReadinessReport` planning/reporting only.

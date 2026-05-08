@@ -57,7 +57,7 @@ pub enum VortexEncodedReadExecutionStatus {
     BlockedByUnsupportedInput,
     NoEncodedReadCandidates,
     WouldExecuteEncodedRead,
-    LocalFixtureEncodedCountExecuted,
+    LocalScanEncodedCountExecuted,
     Unsupported,
 }
 impl VortexEncodedReadExecutionStatus {
@@ -76,7 +76,7 @@ impl VortexEncodedReadExecutionStatus {
             Self::BlockedByUnsupportedInput => "blocked_by_unsupported_input",
             Self::NoEncodedReadCandidates => "no_encoded_read_candidates",
             Self::WouldExecuteEncodedRead => "would_execute_encoded_read",
-            Self::LocalFixtureEncodedCountExecuted => "local_fixture_encoded_count_executed",
+            Self::LocalScanEncodedCountExecuted => "local_scan_encoded_count_executed",
             Self::Unsupported => "unsupported",
         }
     }
@@ -98,7 +98,7 @@ impl VortexEncodedReadExecutionStatus {
     pub const fn would_execute_anything(&self) -> bool {
         matches!(
             self,
-            Self::WouldExecuteEncodedRead | Self::LocalFixtureEncodedCountExecuted
+            Self::WouldExecuteEncodedRead | Self::LocalScanEncodedCountExecuted
         )
     }
 }
@@ -107,7 +107,7 @@ impl VortexEncodedReadExecutionStatus {
 pub enum VortexEncodedReadExecutionMode {
     ReportOnly,
     EncodedReadContractOnly,
-    LocalFixtureEncodedArrayLengthCount,
+    LocalScanEncodedArrayLengthCount,
     Unsupported,
 }
 impl VortexEncodedReadExecutionMode {
@@ -115,12 +115,12 @@ impl VortexEncodedReadExecutionMode {
         match self {
             Self::ReportOnly => "report_only",
             Self::EncodedReadContractOnly => "encoded_read_contract_only",
-            Self::LocalFixtureEncodedArrayLengthCount => "local_fixture_encoded_array_length_count",
+            Self::LocalScanEncodedArrayLengthCount => "local_scan_encoded_array_length_count",
             Self::Unsupported => "unsupported",
         }
     }
     pub const fn reads_data(&self) -> bool {
-        matches!(self, Self::LocalFixtureEncodedArrayLengthCount)
+        matches!(self, Self::LocalScanEncodedArrayLengthCount)
     }
     pub const fn decodes_data(&self) -> bool {
         false
@@ -416,9 +416,9 @@ pub struct VortexEncodedReadExecutionReport {
     pub arrays_read_count: usize,
     pub rows_counted: u64,
     pub count_result: Option<u64>,
-    pub local_fixture_scan_target_uri: Option<DatasetUri>,
-    pub local_fixture_readiness_source_uri: Option<DatasetUri>,
-    pub local_fixture_source_uri_matches_target: bool,
+    pub local_scan_target_uri: Option<DatasetUri>,
+    pub local_scan_readiness_source_uri: Option<DatasetUri>,
+    pub local_scan_source_uri_matches_target: bool,
     pub object_store_io: bool,
     pub write_io: bool,
     pub spill_io_performed: bool,
@@ -456,9 +456,9 @@ impl VortexEncodedReadExecutionReport {
             arrays_read_count: 0,
             rows_counted: 0,
             count_result: None,
-            local_fixture_scan_target_uri: None,
-            local_fixture_readiness_source_uri: None,
-            local_fixture_source_uri_matches_target: false,
+            local_scan_target_uri: None,
+            local_scan_readiness_source_uri: None,
+            local_scan_source_uri_matches_target: false,
             object_store_io: false,
             write_io: false,
             spill_io_performed: false,
@@ -501,9 +501,9 @@ impl VortexEncodedReadExecutionReport {
             arrays_read_count: 0,
             rows_counted: 0,
             count_result: None,
-            local_fixture_scan_target_uri: None,
-            local_fixture_readiness_source_uri: None,
-            local_fixture_source_uri_matches_target: false,
+            local_scan_target_uri: None,
+            local_scan_readiness_source_uri: None,
+            local_scan_source_uri_matches_target: false,
             object_store_io: false,
             write_io: false,
             spill_io_performed: false,
@@ -833,22 +833,22 @@ impl VortexEncodedReadExecutionReport {
         );
         let _ = writeln!(
             o,
-            "local fixture scan target URI: {}",
-            self.local_fixture_scan_target_uri
+            "local scan target URI: {}",
+            self.local_scan_target_uri
                 .as_ref()
                 .map_or("<none>", DatasetUri::as_str)
         );
         let _ = writeln!(
             o,
-            "local fixture readiness source URI: {}",
-            self.local_fixture_readiness_source_uri
+            "local scan readiness source URI: {}",
+            self.local_scan_readiness_source_uri
                 .as_ref()
                 .map_or("<none>", DatasetUri::as_str)
         );
         let _ = writeln!(
             o,
-            "local fixture source URI matches target: {}",
-            self.local_fixture_source_uri_matches_target
+            "local scan source URI matches target: {}",
+            self.local_scan_source_uri_matches_target
         );
         let _ = writeln!(o, "object-store IO: {}", self.object_store_io);
         let _ = writeln!(o, "write IO: {}", self.write_io);
@@ -978,7 +978,7 @@ fn local_vortex_scan_path(
     if !target_uri.looks_like_vortex() {
         report.status = VortexEncodedReadExecutionStatus::BlockedByUnsupportedInput;
         report.add_diagnostic(Diagnostic::invalid_input(
-            "vortex_local_fixture_scan_count",
+            "vortex_local_scan_count",
             format!(
                 "target is not a Vortex-native path: {}",
                 target_uri.as_str()
@@ -999,13 +999,13 @@ fn local_vortex_scan_path(
             report.status = VortexEncodedReadExecutionStatus::BlockedByObjectStoreIo;
             report.add_diagnostic(Diagnostic::unsupported(
                 DiagnosticCode::NotImplemented,
-                "vortex_local_fixture_scan_count",
+                "vortex_local_scan_count",
                 format!(
-                    "object-store targets are outside the local fixture scan/count scope: {}",
+                    "object-store targets are outside the local scan/count scope: {}",
                     target_uri.as_str()
                 ),
                 Some(
-                    "Use a checked-in local `.vortex` fixture until object-store IO is explicitly phased."
+                    "Use a local `.vortex` target until object-store IO is explicitly phased."
                         .to_string(),
                 ),
             ));
@@ -1014,9 +1014,9 @@ fn local_vortex_scan_path(
         UriScheme::Other => {
             report.status = VortexEncodedReadExecutionStatus::BlockedByUnsupportedInput;
             report.add_diagnostic(Diagnostic::invalid_input(
-                "vortex_local_fixture_scan_count",
+                "vortex_local_scan_count",
                 format!(
-                    "unsupported target scheme for local fixture scan/count: {}",
+                    "unsupported target scheme for local scan/count: {}",
                     target_uri.as_str()
                 ),
                 "provide a local path or file:// `.vortex` target",
@@ -1027,12 +1027,9 @@ fn local_vortex_scan_path(
     if !path.exists() {
         report.status = VortexEncodedReadExecutionStatus::BlockedByUnsupportedInput;
         report.add_diagnostic(Diagnostic::invalid_input(
-            "vortex_local_fixture_scan_count",
-            format!(
-                "local Vortex fixture path does not exist: {}",
-                path.display()
-            ),
-            "provide an existing local `.vortex` fixture path",
+            "vortex_local_scan_count",
+            format!("local Vortex path does not exist: {}", path.display()),
+            "provide an existing local `.vortex` target path",
         ));
         return None;
     }
@@ -1040,7 +1037,7 @@ fn local_vortex_scan_path(
 }
 
 #[cfg(feature = "vortex-encoded-read-spike")]
-fn block_local_fixture_scan_for_approval(
+fn block_local_scan_for_approval(
     report: &mut VortexEncodedReadExecutionReport,
     reason: impl Into<String>,
 ) {
@@ -1048,7 +1045,7 @@ fn block_local_fixture_scan_for_approval(
     report.mode = VortexEncodedReadExecutionMode::EncodedReadContractOnly;
     report.add_diagnostic(Diagnostic::unsupported(
         DiagnosticCode::NotImplemented,
-        "vortex_local_fixture_scan_count",
+        "vortex_local_scan_count",
         reason,
         Some("Fallback attempted: false".to_string()),
     ));
@@ -1108,22 +1105,21 @@ fn encoded_read_readiness_source_uri(
 }
 
 #[cfg(feature = "vortex-encoded-read-spike")]
-fn annotate_local_fixture_scan_source_evidence(
+fn annotate_local_scan_source_evidence(
     report: &mut VortexEncodedReadExecutionReport,
     target_uri: &DatasetUri,
     readiness_report: &VortexEncodedReadReadinessReport,
 ) -> Option<DatasetUri> {
     let readiness_source_uri = encoded_read_readiness_source_uri(readiness_report).cloned();
-    report.local_fixture_scan_target_uri = Some(target_uri.clone());
+    report.local_scan_target_uri = Some(target_uri.clone());
     report
-        .local_fixture_readiness_source_uri
+        .local_scan_readiness_source_uri
         .clone_from(&readiness_source_uri);
-    report.local_fixture_source_uri_matches_target =
-        readiness_source_uri.as_ref() == Some(target_uri);
+    report.local_scan_source_uri_matches_target = readiness_source_uri.as_ref() == Some(target_uri);
     readiness_source_uri
 }
 
-/// Executes a feature-gated local fixture `CountAll` by scanning Vortex arrays
+/// Executes a feature-gated local `CountAll` by scanning Vortex arrays
 /// and summing their lengths.
 ///
 /// This private helper is intentionally narrower than the general encoded-read
@@ -1147,7 +1143,7 @@ where
     let input = VortexEncodedReadExecutionInput::new(readiness_report.clone())
         .allow_encoded_read_execution(true);
     let mut report = VortexEncodedReadExecutionReport::from_input(input)?;
-    annotate_local_fixture_scan_source_evidence(&mut report, target_uri, readiness_report);
+    annotate_local_scan_source_evidence(&mut report, target_uri, readiness_report);
     if !vortex_encoded_read_spike_feature_enabled() {
         return Ok(VortexEncodedReadExecutionReport::feature_disabled(
             report.input,
@@ -1162,9 +1158,9 @@ where
         || report.blocked_count > 0
         || report.input.has_errors()
     {
-        block_local_fixture_scan_for_approval(
+        block_local_scan_for_approval(
             &mut report,
-            "local fixture scan/count requires a readiness report approved for future encoded read",
+            "local scan/count requires a readiness report approved for future encoded read",
         );
         return Ok(report);
     }
@@ -1178,9 +1174,9 @@ where
             report.status = VortexEncodedReadExecutionStatus::BlockedByUnsupportedInput;
             report.mode = VortexEncodedReadExecutionMode::EncodedReadContractOnly;
             report.add_diagnostic(Diagnostic::invalid_input(
-                "vortex_local_fixture_scan_count",
-                format!("failed to open local Vortex fixture for scan/count: {error}"),
-                "provide an existing local `.vortex` fixture compatible with the pinned Vortex version",
+                "vortex_local_scan_count",
+                format!("failed to open local Vortex target for scan/count: {error}"),
+                "provide an existing local `.vortex` target compatible with the pinned Vortex version",
             ));
             return Ok(report);
         }
@@ -1192,8 +1188,8 @@ where
             report.mode = VortexEncodedReadExecutionMode::EncodedReadContractOnly;
             report.add_diagnostic(Diagnostic::unsupported(
                 DiagnosticCode::NotImplemented,
-                "vortex_local_fixture_scan_count",
-                format!("Vortex scan setup failed for local fixture count: {error}"),
+                "vortex_local_scan_count",
+                format!("Vortex scan setup failed for local count: {error}"),
                 Some("Fallback attempted: false".to_string()),
             ));
             return Ok(report);
@@ -1206,8 +1202,8 @@ where
             report.mode = VortexEncodedReadExecutionMode::EncodedReadContractOnly;
             report.add_diagnostic(Diagnostic::unsupported(
                 DiagnosticCode::NotImplemented,
-                "vortex_local_fixture_scan_count",
-                format!("Vortex array iterator setup failed for local fixture count: {error}"),
+                "vortex_local_scan_count",
+                format!("Vortex array iterator setup failed for local count: {error}"),
                 Some("Fallback attempted: false".to_string()),
             ));
             return Ok(report);
@@ -1223,8 +1219,8 @@ where
                 report.mode = VortexEncodedReadExecutionMode::EncodedReadContractOnly;
                 report.add_diagnostic(Diagnostic::unsupported(
                     DiagnosticCode::NotImplemented,
-                    "vortex_local_fixture_scan_count",
-                    format!("Vortex local fixture scan failed while reading arrays: {error}"),
+                    "vortex_local_scan_count",
+                    format!("Vortex local scan failed while reading arrays: {error}"),
                     Some("Fallback attempted: false".to_string()),
                 ));
                 return Ok(report);
@@ -1235,7 +1231,7 @@ where
             report.mode = VortexEncodedReadExecutionMode::EncodedReadContractOnly;
             report.add_diagnostic(Diagnostic::unsupported(
                 DiagnosticCode::NotImplemented,
-                "vortex_local_fixture_scan_count",
+                "vortex_local_scan_count",
                 "Vortex array length does not fit in u64 for count result",
                 Some("Fallback attempted: false".to_string()),
             ));
@@ -1247,16 +1243,16 @@ where
             report.mode = VortexEncodedReadExecutionMode::EncodedReadContractOnly;
             report.add_diagnostic(Diagnostic::unsupported(
                 DiagnosticCode::NotImplemented,
-                "vortex_local_fixture_scan_count",
-                "Vortex local fixture count overflowed u64",
+                "vortex_local_scan_count",
+                "Vortex local count overflowed u64",
                 Some("Fallback attempted: false".to_string()),
             ));
             return Ok(report);
         };
         rows_counted = total;
     }
-    report.status = VortexEncodedReadExecutionStatus::LocalFixtureEncodedCountExecuted;
-    report.mode = VortexEncodedReadExecutionMode::LocalFixtureEncodedArrayLengthCount;
+    report.status = VortexEncodedReadExecutionStatus::LocalScanEncodedCountExecuted;
+    report.mode = VortexEncodedReadExecutionMode::LocalScanEncodedArrayLengthCount;
     report.data_read = true;
     report.upstream_scan_called = true;
     report.arrays_read_count = arrays_read_count;
@@ -1274,11 +1270,11 @@ where
     Ok(report)
 }
 
-/// Executes an approval-gated local fixture `CountAll` by scanning Vortex arrays
+/// Executes an approval-gated local `CountAll` by scanning Vortex arrays
 /// and summing their lengths.
 ///
 /// This path requires the existing encoded-count data-path approval report plus
-/// encoded-read readiness for the same source URI. It stays local-fixture-only
+/// encoded-read readiness for the same source URI. It stays local-path-only
 /// and does not read rows, request decode/materialization, convert to `Arrow`,
 /// touch object stores, write data, spill, invoke external baselines, or allow
 /// fallback execution.
@@ -1305,30 +1301,30 @@ where
             .allow_encoded_read_execution(true),
     )?;
     let readiness_target_uri =
-        annotate_local_fixture_scan_source_evidence(&mut report, target_uri, readiness_report);
+        annotate_local_scan_source_evidence(&mut report, target_uri, readiness_report);
     if !approval_report.approved()
         || approval_report.has_errors()
         || !approval_report.is_side_effect_free()
         || approval_report.fallback_execution_allowed
     {
-        block_local_fixture_scan_for_approval(
+        block_local_scan_for_approval(
             &mut report,
-            "local fixture scan/count requires an approved encoded-count data-path approval report",
+            "local scan/count requires an approved encoded-count data-path approval report",
         );
         return Ok(report);
     }
     let Some(readiness_target_uri) = readiness_target_uri else {
-        block_local_fixture_scan_for_approval(
+        block_local_scan_for_approval(
             &mut report,
-            "local fixture scan/count requires encoded-read readiness source URI evidence",
+            "local scan/count requires encoded-read readiness source URI evidence",
         );
         return Ok(report);
     };
     if &readiness_target_uri != target_uri {
-        block_local_fixture_scan_for_approval(
+        block_local_scan_for_approval(
             &mut report,
             format!(
-                "local fixture scan/count approval target URI '{}' does not match encoded-read readiness source URI '{}'",
+                "local scan/count approval target URI '{}' does not match encoded-read readiness source URI '{}'",
                 target_uri.as_str(),
                 readiness_target_uri.as_str()
             ),
@@ -1380,7 +1376,7 @@ pub fn execute_vortex_count_all_from_approved_local_scan(
             VortexEncodedReadExecutionInput::new(readiness_report.clone())
                 .allow_encoded_read_execution(true),
         );
-        report.local_fixture_scan_target_uri = Some(
+        report.local_scan_target_uri = Some(
             approval_report
                 .input
                 .count_readiness_report
@@ -1437,7 +1433,7 @@ mod tests {
             .decisions
             .push(VortexTaskSchedulingDecision::schedule_now(
                 None,
-                "local fixture array-length count scan",
+                "local array-length count scan",
             ));
         scheduler.recompute_counts();
         VortexEncodedReadReadinessReport::from_scheduler_report(scheduler).expect("readiness")
@@ -1507,8 +1503,8 @@ mod tests {
     }
 
     #[test]
-    fn local_fixture_count_mode_reads_data_only() {
-        let m = VortexEncodedReadExecutionMode::LocalFixtureEncodedArrayLengthCount;
+    fn local_scan_count_mode_reads_data_only() {
+        let m = VortexEncodedReadExecutionMode::LocalScanEncodedArrayLengthCount;
         assert!(m.reads_data());
         assert!(!m.decodes_data());
         assert!(!m.materializes_data());
@@ -1538,7 +1534,7 @@ mod tests {
 
     #[cfg(feature = "vortex-encoded-read-spike")]
     #[test]
-    fn local_fixture_scan_counts_vortex_array_lengths() {
+    fn local_scan_counts_vortex_array_lengths() {
         use shardloom_core::DatasetUri;
         use vortex::VortexSessionDefault as _;
         use vortex::io::runtime::BlockingRuntime as _;
@@ -1561,15 +1557,15 @@ mod tests {
             &runtime,
             &session,
         )
-        .expect("local fixture scan/count");
+        .expect("local scan/count");
 
         assert_eq!(
             report.status,
-            VortexEncodedReadExecutionStatus::LocalFixtureEncodedCountExecuted
+            VortexEncodedReadExecutionStatus::LocalScanEncodedCountExecuted
         );
         assert_eq!(
             report.mode,
-            VortexEncodedReadExecutionMode::LocalFixtureEncodedArrayLengthCount
+            VortexEncodedReadExecutionMode::LocalScanEncodedArrayLengthCount
         );
         assert_eq!(report.count_result, Some(20_000));
         assert_eq!(report.rows_counted, 20_000);
@@ -1581,14 +1577,14 @@ mod tests {
         assert!(!report.row_read);
         assert!(!report.arrow_converted);
         assert_eq!(
-            report.local_fixture_scan_target_uri.as_ref(),
+            report.local_scan_target_uri.as_ref(),
             Some(&approval.input.count_readiness_report.request.target_uri)
         );
         assert_eq!(
-            report.local_fixture_readiness_source_uri.as_ref(),
-            report.local_fixture_scan_target_uri.as_ref()
+            report.local_scan_readiness_source_uri.as_ref(),
+            report.local_scan_target_uri.as_ref()
         );
-        assert!(report.local_fixture_source_uri_matches_target);
+        assert!(report.local_scan_source_uri_matches_target);
         assert!(!report.object_store_io);
         assert!(!report.write_io);
         assert!(!report.spill_io_performed);
@@ -1618,12 +1614,12 @@ mod tests {
 
         assert_eq!(
             report.status,
-            VortexEncodedReadExecutionStatus::LocalFixtureEncodedCountExecuted
+            VortexEncodedReadExecutionStatus::LocalScanEncodedCountExecuted
         );
         assert_eq!(report.count_result, Some(20_000));
         assert!(report.data_read);
         assert!(report.upstream_scan_called);
-        assert!(report.local_fixture_source_uri_matches_target);
+        assert!(report.local_scan_source_uri_matches_target);
         assert!(!report.data_decoded);
         assert!(!report.data_materialized);
         assert!(!report.row_read);
@@ -1637,7 +1633,7 @@ mod tests {
 
     #[cfg(feature = "vortex-encoded-read-spike")]
     #[test]
-    fn local_fixture_scan_rejects_object_store_target_without_io() {
+    fn local_scan_rejects_object_store_target_without_io() {
         use shardloom_core::DatasetUri;
         use vortex::VortexSessionDefault as _;
         use vortex::io::runtime::BlockingRuntime as _;
@@ -1665,14 +1661,14 @@ mod tests {
         assert!(!report.data_read);
         assert!(!report.upstream_scan_called);
         assert_eq!(
-            report.local_fixture_scan_target_uri.as_ref(),
+            report.local_scan_target_uri.as_ref(),
             Some(&approval.input.count_readiness_report.request.target_uri)
         );
         assert_eq!(
-            report.local_fixture_readiness_source_uri.as_ref(),
-            report.local_fixture_scan_target_uri.as_ref()
+            report.local_scan_readiness_source_uri.as_ref(),
+            report.local_scan_target_uri.as_ref()
         );
-        assert!(report.local_fixture_source_uri_matches_target);
+        assert!(report.local_scan_source_uri_matches_target);
         assert!(!report.object_store_io);
         assert!(!report.fallback_execution_allowed);
         assert!(report.has_errors());
@@ -1680,7 +1676,7 @@ mod tests {
 
     #[cfg(feature = "vortex-encoded-read-spike")]
     #[test]
-    fn local_fixture_scan_requires_encoded_count_approval() {
+    fn local_scan_requires_encoded_count_approval() {
         use shardloom_core::DatasetUri;
         use vortex::VortexSessionDefault as _;
         use vortex::io::runtime::BlockingRuntime as _;
@@ -1713,21 +1709,21 @@ mod tests {
         assert!(!report.data_read);
         assert!(!report.upstream_scan_called);
         assert_eq!(
-            report.local_fixture_scan_target_uri.as_ref(),
+            report.local_scan_target_uri.as_ref(),
             Some(&approval.input.count_readiness_report.request.target_uri)
         );
         assert_eq!(
-            report.local_fixture_readiness_source_uri.as_ref(),
-            report.local_fixture_scan_target_uri.as_ref()
+            report.local_scan_readiness_source_uri.as_ref(),
+            report.local_scan_target_uri.as_ref()
         );
-        assert!(report.local_fixture_source_uri_matches_target);
+        assert!(report.local_scan_source_uri_matches_target);
         assert!(!report.fallback_execution_allowed);
         assert!(report.has_errors());
     }
 
     #[cfg(feature = "vortex-encoded-read-spike")]
     #[test]
-    fn local_fixture_scan_requires_matching_approval_and_readiness_target() {
+    fn local_scan_requires_matching_approval_and_readiness_target() {
         use shardloom_core::DatasetUri;
         use vortex::VortexSessionDefault as _;
         use vortex::io::runtime::BlockingRuntime as _;
@@ -1768,15 +1764,12 @@ mod tests {
         );
         assert!(!report.data_read);
         assert!(!report.upstream_scan_called);
+        assert_eq!(report.local_scan_target_uri.as_ref(), Some(&approval_uri));
         assert_eq!(
-            report.local_fixture_scan_target_uri.as_ref(),
-            Some(&approval_uri)
-        );
-        assert_eq!(
-            report.local_fixture_readiness_source_uri.as_ref(),
+            report.local_scan_readiness_source_uri.as_ref(),
             Some(&readiness_uri)
         );
-        assert!(!report.local_fixture_source_uri_matches_target);
+        assert!(!report.local_scan_source_uri_matches_target);
         assert!(!report.fallback_execution_allowed);
         assert!(report.has_errors());
         assert!(

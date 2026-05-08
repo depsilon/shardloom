@@ -480,6 +480,14 @@ No fallback execution.
 - The broad public API boundary remains conservative; generalized encoded-data count execution, adapters, non-local sources, object-store IO, encoded predicates, projections, writes, benchmarks, external baselines, CG closeout, and fallback execution remain out of scope.
 - No row reads, requested decode/materialization, Arrow conversion, object-store IO expansion, writes, spill IO, external baselines, or fallback execution are added.
 
+## CG-2.1e.20 approved local scan naming normalization
+
+- Primary RFC linkage: RFC 0012 Diagnostics/Capabilities, RFC 0013 Streaming/Zero-Copy Boundary, RFC 0015 Correctness/testing, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
+- `VortexEncodedReadExecutionStatus`, `VortexEncodedReadExecutionMode`, `VortexEncodedReadExecutionReport`, diagnostics, human text, and focused tests now use `local_scan` naming for the approved local count path.
+- The CLI output keeps the existing `local_scan_*` fields while reading the renamed report fields.
+- Historical layout-driver `local-fixture-only` input remains unchanged to avoid a public signal rename outside this cleanup scope.
+- This is naming/report-surface cleanup only: generalized encoded-data count execution, adapters, non-local sources, object-store IO, encoded predicates, projections, writes, benchmarks, external baselines, CG closeout, and fallback execution remain out of scope.
+
 ## CG-5.1 metadata query primitive correctness fixtures
 
 - Primary RFC linkage: RFC 0015 Correctness/Semantics/Differential Testing, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.

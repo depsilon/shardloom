@@ -2667,20 +2667,20 @@ fn handle_vortex_encoded_read_spike(
             (
                 "local_scan_target_uri".to_string(),
                 report
-                    .local_fixture_scan_target_uri
+                    .local_scan_target_uri
                     .as_ref()
                     .map_or_else(|| "none".to_string(), |uri| uri.as_str().to_string()),
             ),
             (
                 "local_scan_readiness_source_uri".to_string(),
                 report
-                    .local_fixture_readiness_source_uri
+                    .local_scan_readiness_source_uri
                     .as_ref()
                     .map_or_else(|| "none".to_string(), |uri| uri.as_str().to_string()),
             ),
             (
                 "local_scan_source_uri_matches_target".to_string(),
-                report.local_fixture_source_uri_matches_target.to_string(),
+                report.local_scan_source_uri_matches_target.to_string(),
             ),
         ],
     );

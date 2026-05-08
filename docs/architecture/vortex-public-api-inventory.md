@@ -806,6 +806,13 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - The broad public API inventory remains conservative for general scan/read-start, adapters, object-store targets, encoded predicates, projections, writes, external baselines, and superiority claims.
 - This inventory update does not approve row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, or fallback execution.
 
+## CG-2.1e.20 approved local scan naming normalization
+
+- The approved local count path now uses `local_scan` status, mode, report-field, diagnostic, and human-text names.
+- This keeps the public inventory aligned with CG-2.1e.19: the path is local `.vortex` scan/count only, not checked-in fixture only.
+- The layout-driver `local-fixture-only` signal remains historical and unchanged; it is not part of this approved local scan report surface.
+- This inventory update does not approve broader scan/read-start use, adapters, object-store targets, encoded predicates, projections, row reads, requested decode/materialization, Arrow conversion, writes, spill IO, or fallback execution.
+
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.
 - CG-2.2a adds `VortexFilteredCountReadinessRequest` and `VortexFilteredCountReadinessReport` planning/reporting only.
