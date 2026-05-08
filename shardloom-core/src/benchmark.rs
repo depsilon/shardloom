@@ -188,6 +188,119 @@ impl MetricValue {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BenchmarkClaimStatus {
+    EvidenceMissing,
+    ReadyToPublish,
+}
+
+impl BenchmarkClaimStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::EvidenceMissing => "evidence_missing",
+            Self::ReadyToPublish => "ready_to_publish",
+        }
+    }
+
+    #[must_use]
+    pub const fn can_publish(&self) -> bool {
+        matches!(self, Self::ReadyToPublish)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BenchmarkEvidenceState {
+    Missing,
+    Present,
+}
+
+impl BenchmarkEvidenceState {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Missing => "missing",
+            Self::Present => "present",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_present(&self) -> bool {
+        matches!(self, Self::Present)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BenchmarkFallbackState {
+    NotAttempted,
+    Attempted,
+}
+
+impl BenchmarkFallbackState {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::NotAttempted => "not_attempted",
+            Self::Attempted => "attempted",
+        }
+    }
+
+    #[must_use]
+    pub const fn attempted(&self) -> bool {
+        matches!(self, Self::Attempted)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BenchmarkClaimGate {
+    pub correctness_evidence: BenchmarkEvidenceState,
+    pub benchmark_evidence: BenchmarkEvidenceState,
+    pub required_metrics: BenchmarkEvidenceState,
+    pub comparison_report: BenchmarkEvidenceState,
+    pub fallback: BenchmarkFallbackState,
+    pub status: BenchmarkClaimStatus,
+}
+
+impl BenchmarkClaimGate {
+    #[must_use]
+    pub const fn new(
+        correctness_evidence: BenchmarkEvidenceState,
+        benchmark_evidence: BenchmarkEvidenceState,
+        required_metrics: BenchmarkEvidenceState,
+        comparison_report: BenchmarkEvidenceState,
+        fallback: BenchmarkFallbackState,
+    ) -> Self {
+        let status = if correctness_evidence.is_present()
+            && benchmark_evidence.is_present()
+            && required_metrics.is_present()
+            && comparison_report.is_present()
+            && !fallback.attempted()
+        {
+            BenchmarkClaimStatus::ReadyToPublish
+        } else {
+            BenchmarkClaimStatus::EvidenceMissing
+        };
+        Self {
+            correctness_evidence,
+            benchmark_evidence,
+            required_metrics,
+            comparison_report,
+            fallback,
+            status,
+        }
+    }
+
+    #[must_use]
+    pub const fn can_publish_performance_claim(&self) -> bool {
+        self.status.can_publish()
+            && self.correctness_evidence.is_present()
+            && self.benchmark_evidence.is_present()
+            && self.required_metrics.is_present()
+            && self.comparison_report.is_present()
+            && !self.fallback.attempted()
+    }
+}
+
 /// Benchmark scenario metadata used to define reproducible, correctness-first plans.
 #[derive(Debug, Clone, PartialEq)]
 pub struct BenchmarkScenario {
@@ -465,12 +578,28 @@ impl BenchmarkPlan {
     }
 
     #[must_use]
+    pub fn claim_gate(&self) -> BenchmarkClaimGate {
+        BenchmarkClaimGate::new(
+            BenchmarkEvidenceState::Missing,
+            BenchmarkEvidenceState::Missing,
+            if self.required_metrics().is_empty() {
+                BenchmarkEvidenceState::Missing
+            } else {
+                BenchmarkEvidenceState::Present
+            },
+            BenchmarkEvidenceState::Missing,
+            BenchmarkFallbackState::NotAttempted,
+        )
+    }
+
+    #[must_use]
     pub fn to_human_text(&self) -> String {
         let mut lines = vec![
             "benchmark foundation plan".to_string(),
             "benchmark execution is not implemented yet".to_string(),
             "baselines are comparison targets only".to_string(),
             "fallback execution: disabled".to_string(),
+            format!("claim gate: {}", self.claim_gate().status.as_str()),
             format!("scenario count: {}", self.scenarios.len()),
         ];
 
