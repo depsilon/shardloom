@@ -8,6 +8,7 @@ pub mod benchmark;
 pub mod capabilities;
 pub mod certification;
 pub mod correctness;
+pub mod cpu_specialization;
 pub mod dataset;
 pub mod diagnostics;
 pub mod encoded;
@@ -49,6 +50,10 @@ pub use correctness::{
     CorrectnessValidationReport, DiagnosticExpectation, DifferentialBaseline, EdgeCase,
     ExpectedOutcome, FixtureFormat, FixtureId, FuzzSeed, ReferenceRole, SemanticArea,
     ValidationResultStatus,
+};
+pub use cpu_specialization::{
+    CpuInstructionClass, CpuOperatorSpecializationEntry, CpuOperatorSpecializationReport,
+    CpuSpecializationStatus, plan_cpu_operator_specialization,
 };
 pub use dataset::{
     DatasetFormat, DatasetId, DatasetRef, DatasetUri, ManifestId, SnapshotId, UriScheme,

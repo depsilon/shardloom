@@ -45,31 +45,30 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-14.1 adaptive optimizer and memory decision report foundation
+- [x] Session label: CG-15.1 CPU operator specialization report foundation
   - Primary files:
-    - `shardloom-plan/src/optimizer.rs`
-    - `shardloom-plan/src/lib.rs`
+    - `shardloom-core/src/cpu_specialization.rs`
+    - `shardloom-core/src/lib.rs`
     - `shardloom-cli/src/main.rs`
-    - `shardloom-cli/tests/adaptive_optimizer_memory_snapshots.rs`
+    - `shardloom-cli/tests/cpu_specialization_snapshots.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-    - `docs/rfcs/0016-optimizer-adaptive-execution-runtime-filters-skew.md`
-    - `docs/rfcs/0014-memory-management-spill-oom-safety.md`
-  - Scope: Add a report-only CG-14 adaptive optimizer/memory decision contract that records conservative runtime-filter gates, dynamic-pruning proof requirements, bounded-memory/spill-policy requirements, adaptive decision candidates, skew signal representation, and no-fallback side-effect boundaries without applying runtime adaptation or executing optimizer rewrites.
+    - `docs/rfcs/0027-cpu-vectorized-kernels-streaming-runtime-adaptivity.md`
+  - Scope: Add a report-only CG-15 CPU operator specialization contract that records commodity CPU vectorization candidates, SIMD/cache/encoded-layout classes, correctness and benchmark evidence gates, CPU feature guard requirements, portable native baseline requirements, and no-fallback side-effect boundaries without probing CPU features, dispatching specialized kernels, using unsafe SIMD, or executing operators.
   - Checklist:
-    - [x] Add `AdaptiveOptimizerMemoryReport` for runtime-filter, dynamic-pruning, adaptive, skew, and memory/spill decision evidence.
-    - [x] Surface `optimizer-adaptive-memory-plan --format json` with deterministic decision, boundary, and side-effect fields.
-    - [x] Keep adaptive optimization report-only with no optimizer execution, runtime adaptation, runtime filter build/apply, plan rewrite, data reads, decode, materialization, Arrow conversion, object-store IO, writes, spill IO, external engine execution, or fallback.
+    - [x] Add `CpuOperatorSpecializationReport` for operator/kernel CPU specialization candidate evidence.
+    - [x] Surface `cpu-specialization-plan --format json` with deterministic candidate counts, evidence gates, CPU feature guard fields, and side-effect fields.
+    - [x] Keep CPU specialization report-only with no CPU probing, runtime dispatch, operator execution, data reads, decode, materialization, Arrow conversion, object-store IO, writes, spill IO, unsafe code, external engine execution, or fallback.
     - [x] Add focused unit and CLI JSON snapshot coverage.
-    - [x] Update phase plan, RFC traceability, RFC 0016, and RFC 0014.
+    - [x] Update phase plan, RFC traceability, and RFC 0027.
     - [x] Run full required validation.
   - Local validation status:
-    - focused `shardloom-plan` `adaptive_optimizer_memory` tests passed
-    - focused `shardloom-cli` `adaptive_optimizer_memory_snapshots` tests passed
-    - focused Clippy for `shardloom-plan` and `shardloom-cli` passed with toolchain `1.91.1`
+    - focused `shardloom-core` `cpu_specialization` tests passed
+    - focused `shardloom-cli` `cpu_specialization_snapshots` tests passed
+    - focused Clippy for `shardloom-core` and `shardloom-cli` passed with toolchain `1.91.1`
     - full Rust validation passed with toolchain `1.91.1`
     - docs hygiene scans passed for `git diff --check` and hidden/bidi controls
-  - Explicitly not included: real optimizer execution, cost-model execution, runtime adaptation application, runtime-filter construction/application, dynamic pruning execution, plan rewrites, join/aggregate/skew execution, memory allocator/reservation runtime, spill execution, parser work, SQL execution, adapters, object-store IO, row reads, decode/materialization, Arrow conversion, writes, package publication, benchmark claims, superiority claims, or fallback execution.
+  - Explicitly not included: CPU feature probing, runtime SIMD dispatch, unsafe CPU intrinsic code, operator execution, kernel implementation, benchmark execution, production certification, parser work, SQL execution, adapters, object-store IO, row reads, decode/materialization, Arrow conversion, writes, spill execution, package publication, performance claims, superiority claims, or fallback execution.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -1118,9 +1117,12 @@ Status legend:
     - runtime adaptation, filter application, plan rewrite, and spill execution remain deferred
 
 - [ ] CG-15 — CPU operator specialization (**planned**)
+  - [x] CG-15.1 CPU specialization report foundation
   - Scope:
-    - commodity CPU vectorized specialization
+    - commodity CPU vectorized specialization through `cpu-specialization-plan`
     - SIMD/cache-aware operator paths
+    - CPU feature guard and portable native baseline requirements
+    - correctness and benchmark evidence gates before execution or claims
     - no fallback engines for specialization
 
 - [ ] CG-16 — Evidence-first execution certificates (**planned**)
@@ -1375,8 +1377,12 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [ ] spill-aware adaptive execution
 
 ### CG-15 detailed checklist
-- [ ] commodity CPU vectorized specialization is first-class
-- [ ] no external engine fallback for specialization
+- [x] CG-15.1 CPU specialization report foundation
+- [x] commodity CPU vectorized specialization is first-class
+- [x] SIMD/cache/encoded-layout specialization candidate classes are reported
+- [x] CPU feature guards and portable native baselines are required before dispatch
+- [x] no external engine fallback for specialization
+- [x] runtime CPU dispatch and unsafe SIMD implementation remain deferred until correctness and benchmark gates exist
 
 ### CG-16 detailed checklist
 - [x] CG-16.1 local encoded `CountAll` execution certificate

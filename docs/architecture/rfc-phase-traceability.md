@@ -98,7 +98,7 @@ Status categories:
 | RFC 0024 | Partially implemented | 10D, 12A, 12B, Ongoing | Release/API compatibility policy exists; continues as a cross-phase enforcement concern. |
 | RFC 0025 | Planned | CG-1 through CG-20, Ongoing | Competitive Engine Track policy is documented; implementation remains gate-specific and evidence-gated. |
 | RFC 0026 | Partially implemented | CG-1, CG-2, CG-13 | Encoded-read and query-primitive readiness contracts exist; CG-13.1 encoded path selection evidence exists for count/filter/project candidates; real generalized encoded execution remains gated. |
-| RFC 0027 | Planned | CG-7, CG-8, CG-14, CG-15 | CPU/vectorized/runtime adaptivity scope remains future implementation. |
+| RFC 0027 | Partially implemented | CG-7, CG-8, CG-14, CG-15 | CG-14.1 adaptive optimizer/memory decision evidence and CG-15.1 CPU specialization report evidence exist; runtime adaptivity, CPU probing, SIMD dispatch, and specialized kernel execution remain planned. |
 | RFC 0028 | Partially implemented | CG-3, CG-4, CG-9, CG-10 | Output/commit readiness contracts exist; first native count-result payload path is complete; first local committed-manifest execution path is complete; local committed-manifest recovery diagnostics and first local rollback cleanup path are complete; broader payloads, generalized recovery, table/catalog commits, and object-store commits remain incomplete. |
 | RFC 0029 | Planned | CG-5, CG-6, CG-16, CG-17 | Correctness, benchmark, certificate, and reuse evidence remain future gate work. |
 | RFC 0030 | Partially implemented | CG-11, CG-12, CG-18 | CG-11.1 stable CLI/API JSON protocol foundation and CG-11.2 thin Python wrapper foundation exist through `CliApiJsonProtocolReport`, `PythonWrapperFoundationReport`, `api-compat-plan`, and `python-wrapper-plan`; CG-12.1 plan portability report foundation exists through `PlanPortabilityReport`, `plan-ir`, `plan-import`, and `plan-export`; real plan serialization/import/export, deployment/import, and baseline harness work remain staged. |
@@ -1014,6 +1014,16 @@ No fallback execution.
 - Primary RFC linkage: RFC 0016 and RFC 0014.
 - Related RFCs: RFC 0012, RFC 0013, RFC 0015, RFC 0021, RFC 0025, RFC 0027, RFC 0029, RFC 0031, and RFC 0032.
 - This phase adds no optimizer execution, cost-model execution, runtime-filter build/apply, dynamic pruning execution, plan rewrite, join/aggregate/skew execution, allocator/reservation runtime, spill execution, object-store IO, writes, benchmark claim, production/superiority claim, CG closeout, or fallback behavior.
+
+## CG-15.1 CPU operator specialization report foundation
+
+- `shardloom-core/src/cpu_specialization.rs` adds `CpuOperatorSpecializationReport`, a report-only contract for commodity CPU operator specialization candidates.
+- The report records filter, project, count-aggregate, aggregate, sort, and join operator/kernel candidates with SIMD, cache-aware, branch-reduced, encoded-layout-aware, and selection-vector-aware classes.
+- The report requires correctness evidence, benchmark evidence, CPU feature guards, portable native baselines, and deterministic dispatch before any runtime specialization or performance claim.
+- `cpu-specialization-plan` exposes deterministic JSON/text fields for candidate counts, operator/kernel order, evidence gates, CPU probing/dispatch status, unsafe/GPU/FPGA requirements, side-effect boundaries, and no-fallback status.
+- Primary RFC linkage: RFC 0027 and RFC 0021.
+- Related RFCs: RFC 0012, RFC 0015, RFC 0025, RFC 0029, RFC 0031, and RFC 0032.
+- This phase adds no CPU feature probing, runtime dispatch, unsafe SIMD implementation, operator execution, kernel implementation, data reads, decode/materialization, Arrow conversion, object-store IO, writes, spill IO, benchmark execution, performance/superiority claim, production certification, CG closeout, or fallback behavior.
 
 ## CG-7.15 local encoded `CountAll` physical kernel evidence
 
