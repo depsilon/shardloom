@@ -434,6 +434,15 @@ No fallback execution.
 - `shardloom capabilities operators --format json` emits accepted approval sources, deferred local execution status, plan-only mode, no count result, no data read, no decode/materialization, no runtime execution, and no fallback.
 - This pass performs no actual encoded-data traversal, layout-reader construction, runtime-driver startup, scan/read-start invocation, row read, decode/materialization, Arrow conversion, object-store IO, write behavior, spill IO, external baseline invocation, or fallback execution.
 
+## CG-2.1e.15 local fixture Vortex array scan/count proof
+
+- Primary RFC linkage: RFC 0005 Vortex-Native File IO and Output Contract, RFC 0012 Diagnostics/Capabilities, RFC 0013 Streaming/Zero-Copy Boundary, RFC 0015 Correctness/testing, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
+- `execute_vortex_count_all_from_local_scan_with_session` adds a feature-gated local fixture path that requires caller-owned `VortexSession`, caller-owned blocking runtime, local `.vortex` target, and encoded-read readiness approved for future execution.
+- The helper calls `VortexFile::scan` and `ScanBuilder::into_array_iter` only inside the `vortex-encoded-read-spike` local fixture boundary, then counts returned Vortex arrays via `ArrayRef::len()`.
+- The report records `data_read=true`, `upstream_scan_called=true`, array count, row count, and count result.
+- The report records no row reads, no requested decode/materialization, no Arrow conversion, no object-store IO, no writes, no spill IO, and no fallback execution.
+- The general public scan/read-start API boundary remains conservative; this pass does not approve adapters, non-fixture sources, encoded predicates, projections, object-store targets, benchmarks, external baselines, parser/runtime expansion, or superiority claims.
+
 ## CG-5.1 metadata query primitive correctness fixtures
 
 - Primary RFC linkage: RFC 0015 Correctness/Semantics/Differential Testing, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.

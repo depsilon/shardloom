@@ -118,6 +118,8 @@ pub use encoded_read_metadata_probe::{
     vortex_encoded_read_metadata_probe_is_side_effect_free,
 };
 
+#[cfg(feature = "vortex-encoded-read-spike")]
+pub use encoded_read_executor::execute_vortex_count_all_from_local_scan_with_session;
 pub use encoded_read_executor::{
     VortexEncodedReadExecutionDecision, VortexEncodedReadExecutionDecisionKind,
     VortexEncodedReadExecutionInput, VortexEncodedReadExecutionMode,
