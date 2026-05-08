@@ -57,6 +57,7 @@ pub mod query_trace;
 pub mod read_planning;
 pub mod runtime_bridge;
 pub mod scheduler_bridge;
+pub mod selection_vector_filter_kernel;
 pub mod staged_manifest;
 pub mod staged_output;
 pub mod write_intent;
@@ -189,6 +190,13 @@ pub use metadata_physical_kernel::{
     VortexMetadataPhysicalKernelReport, VortexMetadataPhysicalKernelStatus,
     admit_vortex_metadata_count_kernel, admit_vortex_metadata_filter_kernel,
     evaluate_vortex_metadata_physical_kernels,
+};
+pub use selection_vector_filter_kernel::{
+    VortexSelectionVectorFilterKernelAdmissionReport,
+    VortexSelectionVectorFilterKernelDiscoveryReport, VortexSelectionVectorFilterKernelReport,
+    VortexSelectionVectorFilterKernelStatus, admit_vortex_selection_vector_filter_kernel,
+    evaluate_vortex_selection_vector_filter_kernel,
+    vortex_selection_vector_filter_kernel_discovery_report,
 };
 
 pub use memory_bridge::{

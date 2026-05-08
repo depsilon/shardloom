@@ -1,6 +1,6 @@
 use std::process::Command;
 
-const KERNEL_REGISTRY_FIELD_KEYS: [&str; 90] = [
+const KERNEL_REGISTRY_FIELD_KEYS: [&str; 114] = [
     "fallback_execution_allowed",
     "mode",
     "status",
@@ -88,6 +88,30 @@ const KERNEL_REGISTRY_FIELD_KEYS: [&str; 90] = [
     "encoded_predicate_evaluation_discovery_reads_data",
     "encoded_predicate_evaluation_runtime_execution",
     "encoded_predicate_evaluation_fallback_execution_allowed",
+    "selection_vector_filter_kernel_schema_version",
+    "selection_vector_filter_kernel_id",
+    "selection_vector_filter_kernel_operator_kind",
+    "selection_vector_filter_kernel_kernel_kind",
+    "selection_vector_filter_kernel_execution_level",
+    "selection_vector_filter_kernel_contextual_only",
+    "selection_vector_filter_kernel_requires_encoded_predicate_evaluation",
+    "selection_vector_filter_kernel_requires_selection_vectors",
+    "selection_vector_filter_kernel_requires_correctness_evidence",
+    "selection_vector_filter_kernel_requires_memory_safety_evidence",
+    "selection_vector_filter_kernel_requires_benchmark_for_production",
+    "selection_vector_filter_kernel_discovery_reads_data",
+    "selection_vector_filter_kernel_runtime_execution",
+    "selection_vector_filter_kernel_fallback_execution_allowed",
+    "selection_vector_filter_kernel_admission_schema_version",
+    "selection_vector_filter_kernel_admission_contextual_only",
+    "selection_vector_filter_kernel_admission_operator_kind",
+    "selection_vector_filter_kernel_admission_required_kernel_kind",
+    "selection_vector_filter_kernel_admission_requires_filter_kernel_evidence",
+    "selection_vector_filter_kernel_admission_requires_correctness_evidence",
+    "selection_vector_filter_kernel_admission_requires_memory_safety_evidence",
+    "selection_vector_filter_kernel_admission_requires_benchmark_for_production",
+    "selection_vector_filter_kernel_admission_runtime_execution",
+    "selection_vector_filter_kernel_admission_fallback_execution_allowed",
     "write_io",
     "execution",
     "plan_only",
@@ -167,6 +191,7 @@ fn kernel_registry_json_fields_include_physical_kernel_blockers() {
     assert_encoded_count_physical_kernel_fields(&output);
     assert_encoded_count_kernel_admission_fields(&output);
     assert_encoded_predicate_evaluation_fields(&output);
+    assert_selection_vector_filter_kernel_fields(&output);
     assert!(output.contains("\"allowed\":false"));
     assert!(output.contains("\"attempted\":false"));
 }
@@ -369,6 +394,54 @@ fn assert_encoded_predicate_evaluation_fields(output: &str) {
     ));
     assert!(output.contains(
         "{\"key\":\"encoded_predicate_evaluation_fallback_execution_allowed\",\"value\":\"false\"}"
+    ));
+}
+
+fn assert_selection_vector_filter_kernel_fields(output: &str) {
+    assert!(output.contains(
+        "{\"key\":\"selection_vector_filter_kernel_schema_version\",\"value\":\"shardloom.vortex_selection_vector_filter_kernel.v1\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"selection_vector_filter_kernel_id\",\"value\":\"vortex.query-primitive.filter_predicate.selection-vector-filter-kernel\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"selection_vector_filter_kernel_operator_kind\",\"value\":\"filter\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"selection_vector_filter_kernel_kernel_kind\",\"value\":\"encoded\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"selection_vector_filter_kernel_execution_level\",\"value\":\"encoded_native\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"selection_vector_filter_kernel_requires_encoded_predicate_evaluation\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"selection_vector_filter_kernel_requires_selection_vectors\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"selection_vector_filter_kernel_discovery_reads_data\",\"value\":\"false\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"selection_vector_filter_kernel_runtime_execution\",\"value\":\"false\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"selection_vector_filter_kernel_fallback_execution_allowed\",\"value\":\"false\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"selection_vector_filter_kernel_admission_schema_version\",\"value\":\"shardloom.vortex_selection_vector_filter_kernel_admission.v1\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"selection_vector_filter_kernel_admission_required_kernel_kind\",\"value\":\"encoded\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"selection_vector_filter_kernel_admission_requires_filter_kernel_evidence\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"selection_vector_filter_kernel_admission_runtime_execution\",\"value\":\"false\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"selection_vector_filter_kernel_admission_fallback_execution_allowed\",\"value\":\"false\"}"
     ));
 }
 
