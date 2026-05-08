@@ -87,6 +87,16 @@ These systems are pressure tests for ShardLoom-native architecture and diagnosti
   - Launch/capture lesson: CUDA Graphs reduce repeated host submission overhead by capturing a replayable graph of device work. ShardLoom translation: future execution plans and certificates should distinguish planning overhead, task-submission overhead, reusable/captured plan shapes, and safe replay constraints without adding hidden side effects.
   - Tooling lesson: NVML, `nvidia-smi`, CUPTI, Nsight, binary utilities, cuBLAS, and cuDNN show that observability, inspection, profiling, and curated primitive libraries are part of the product surface. ShardLoom translation: `explain`, `estimate`, `profile`, `doctor`, `capabilities`, `certify`, kernel-registry reports, and benchmark dossiers belong in the core roadmap, not in polish-only work.
   - Guardrail: these lessons do not authorize GPU dependencies, CUDA runtime integration, external kernel libraries, hidden acceleration, or benchmark claims. They are technique-transfer references for vocabulary, evidence, profiling taxonomy, and capability certification.
+- SubQ long-context technique-transfer lessons
+  - Source scope: Subquadratic's May 5, 2026 launch article (`https://subq.ai/introducing-subq`), technical SSA article (`https://subq.ai/how-ssa-makes-long-context-practical`), and product page (`https://subq.ai/`). The model card and technical report are described as forthcoming by the source, so ShardLoom should treat benchmark and product claims as external context only until independently reproducible evidence exists.
+  - Nominal versus functional context lesson: the technical article distinguishes a nominal context window from a functional context window that can reliably retrieve and reason across distributed evidence. ShardLoom translation: CG-20 capability claims must distinguish nominal feature acceptance from functional capability certification over declared workload constitutions, with correctness, semantic, adapter, benchmark, and no-fallback evidence.
+  - Content-dependent routing lesson: SSA is presented as selecting relevant positions based on content rather than fixed position patterns or all-pairs work. ShardLoom translation: optimizer, pushdown, pruning, runtime-filter, selection-vector, and adapter planning should route work by proven content/capability evidence rather than fixed file/page/chunk heuristics, and every skipped unit needs proof or an explicit uncertainty label.
+  - Structure-preservation lesson: the SubQ article argues that chunking/retrieval pipelines can lose position, hierarchy, neighboring context, and reference structure. ShardLoom translation: native work envelopes, migration reports, and unstructured/media capability reports should preserve source refs, field paths, row/segment identity, ordering/partitioning, provenance, and residual context instead of flattening everything into anonymous decoded batches.
+  - Exact-evidence lesson: SubQ frames long-context enterprise work as multi-hop reasoning over fragmented evidence, not simple lookup. ShardLoom translation: best-choice dossiers should include multi-hop analytical workloads where answers depend on schema evolution, partition metadata, adapter pushdown, source statistics, table semantics, and execution certificates across multiple artifacts.
+  - Scaffolding lesson: the SubQ narrative treats RAG/orchestration as useful but failure-prone scaffolding around model limits. ShardLoom translation: adapters, migration analyzers, and Python/API surfaces should reduce coordination burden through native reports and certificates rather than hiding limitations behind external-engine fallback, ad hoc orchestration, or lossy summaries.
+  - Iteration-economics lesson: lower long-context cost is described as making experimentation routine instead of reserved. ShardLoom translation: work-avoidance, metadata-first execution, reusable certificates, and stable benchmark harnesses should reduce the cost of repeated correctness/benchmark/differential runs, making evidence refresh cheap enough for CI rather than occasional release exercises.
+  - Agent-state lesson: the product framing includes full repositories, months of PRs, long histories, and persistent state. ShardLoom translation: CG-17 stateful reuse and CG-20 agent/Python/API surfaces should preserve exact prior constraints, certificates, invalidation causes, and plan decisions rather than relying on compressed human summaries.
+  - Guardrail: these lessons do not authorize calling SubQ, adding model dependencies, replacing ShardLoom diagnostics with long-context prompts, accepting vendor benchmark claims as ShardLoom evidence, or weakening no-fallback policy. They are technique-transfer references for functional capability, evidence routing, structure preservation, and agent-facing certification.
 
 ## Placement Guidance
 
@@ -114,6 +124,11 @@ These systems are pressure tests for ShardLoom-native architecture and diagnosti
   - SQL frontend RFC.
   - Bind/validate/unsupported diagnostics.
   - Tiny SQL subset.
+- Before agent/API context expansion
+  - Functional context scope.
+  - Exact source/reference preservation.
+  - Evidence-routing diagnostics.
+  - Stateful certificate/invalidation history.
 
 ## User-Surface Lessons
 

@@ -23,6 +23,7 @@ Concept groups:
 - **Planning, diagnostics, and provenance**: `pushdown proof`, `residual expression`, `lowering provenance`, `portability loss`, `intermediate artifact`, `fallback_attempted`, `unsupported`.
 - **Capability and certification**: `capability certification surface`, `workload constitution`, `operator certification`, `function certification`, `SQL coverage tier`, `adapter maturity level`, `semantic compatibility profile`, `migration compatibility report`, `best-choice scorecard`.
 - **User capability surfaces**: `data/ETL capability report`, `Python surface report`, `unstructured media capability report`, `universal adapter catalog`, `API surface certification`, `observability certification`, `deployment readiness report`, `extension capability report`, `security governance report`.
+- **Agent/context capability**: `functional context scope`, `evidence routing`, `context structure preservation`, `stateful certificate history`.
 
 Primary governing references:
 
@@ -183,3 +184,7 @@ See `docs/architecture/terminology-consolidation-backlog.md` for the full audit 
 - **deployment readiness report**: structured evidence for packaging, configuration, resource limits, reproducibility, compatibility, and operational constraints.
 - **extension capability report**: structured UDF/plugin evidence for type metadata, effect level, sandboxing, permissions, materialization, and no-fallback behavior.
 - **security governance report**: structured evidence for credentials, permissions, external effects, destructive-operation policy, redaction, audit, and agent safety.
+- **functional context scope**: the declared amount and shape of source, plan, history, and evidence context a user/API/agent surface can reliably use, not merely accept as input.
+- **evidence routing**: content- and capability-dependent selection of sources, segments, fields, operators, or artifacts to inspect or skip, backed by proof, uncertainty, or explicit unsupported diagnostics.
+- **context structure preservation**: keeping source references, field paths, row/segment identity, ordering, partitioning, provenance, and neighboring context visible across planning, migration, and agent-facing reports.
+- **stateful certificate history**: reusable record of prior execution/capability certificates, invalidation causes, and plan decisions that can be consumed by future sessions without relying on lossy summaries.
