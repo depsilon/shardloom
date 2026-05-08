@@ -79,6 +79,7 @@ use shardloom_vortex::{
     plan_from_vortex_metadata_summary, plan_native_vortex_universal_input,
     plan_vortex_commit_intent, plan_vortex_commit_marker, plan_vortex_commit_protocol,
     plan_vortex_count_readiness, plan_vortex_encoded_count_data_path_approval,
+    plan_vortex_encoded_count_data_path_approval_with_layout_driver,
     plan_vortex_encoded_read_boundary, plan_vortex_encoded_read_probe,
     plan_vortex_filtered_count_readiness, plan_vortex_layout_reader_driver_approval,
     plan_vortex_manifest_finalization, plan_vortex_memory_safety, plan_vortex_metadata_pruning,
@@ -9293,6 +9294,7 @@ fn run(args: Vec<String>) -> ExitCode {
             };
             let mut request =
                 shardloom_vortex::VortexCountReadinessRequest::new(uri, candidate_source);
+            let mut layout_row_count_approved = false;
             for token in args {
                 match token.as_str() {
                     "--feature-gate" => {
@@ -9333,6 +9335,9 @@ fn run(args: Vec<String>) -> ExitCode {
                     "--fallback-policy-blocked" => {
                         request.add_signal(VortexCountReadinessSignal::FallbackPolicyBlocked);
                     }
+                    "--layout-row-count-approved" => {
+                        layout_row_count_approved = true;
+                    }
                     _ => {
                         return emit_error(
                             command,
@@ -9349,10 +9354,43 @@ fn run(args: Vec<String>) -> ExitCode {
                     return emit_error(command, format, "count readiness planning failed", &error);
                 }
             };
-            let report = match plan_vortex_encoded_count_data_path_approval(
-                count_report,
-                vortex_encoded_read_public_api_boundary(),
-            ) {
+            let api_boundary = vortex_encoded_read_public_api_boundary();
+            let report = if layout_row_count_approved {
+                let layout_report = match plan_vortex_layout_reader_driver_approval(
+                    VortexLayoutReaderDriverApprovalInput::new(api_boundary.clone())
+                        .local_fixture_only(true)
+                        .caller_session_allowed(true)
+                        .runtime_driver_start_allowed(true)
+                        .layout_row_count_only_intent(true)
+                        .scan_forbidden(true)
+                        .evaluation_forbidden(true)
+                        .data_read_forbidden(true)
+                        .decode_forbidden(true)
+                        .materialization_forbidden(true)
+                        .arrow_forbidden(true)
+                        .object_store_forbidden(true)
+                        .write_forbidden(true)
+                        .fallback_forbidden(true),
+                ) {
+                    Ok(report) => report,
+                    Err(error) => {
+                        return emit_error(
+                            command,
+                            format,
+                            "layout driver approval planning failed",
+                            &error,
+                        );
+                    }
+                };
+                plan_vortex_encoded_count_data_path_approval_with_layout_driver(
+                    count_report,
+                    api_boundary,
+                    layout_report,
+                )
+            } else {
+                plan_vortex_encoded_count_data_path_approval(count_report, api_boundary)
+            };
+            let report = match report {
                 Ok(report) => report,
                 Err(error) => {
                     return emit_error(
@@ -9395,6 +9433,17 @@ fn run(args: Vec<String>) -> ExitCode {
                     (
                         "execution_usable_data_path_count".to_string(),
                         report.execution_usable_data_path_count.to_string(),
+                    ),
+                    (
+                        "layout_driver_approval_status".to_string(),
+                        report
+                            .layout_driver_approval_status
+                            .clone()
+                            .unwrap_or_else(|| "absent".to_string()),
+                    ),
+                    (
+                        "layout_row_count_path_approved".to_string(),
+                        report.layout_row_count_path_approved.to_string(),
                     ),
                     (
                         "api_boundary_blocker_count".to_string(),
@@ -11969,6 +12018,24 @@ mod tests {
                 "--query-primitive-ready".to_string(),
                 "--count-primitive".to_string(),
                 "--encoded-data-path-ready".to_string(),
+                "--format".to_string(),
+                "json".to_string(),
+            ]),
+            ExitCode::SUCCESS
+        );
+    }
+    #[test]
+    fn vortex_encoded_count_approval_plan_layout_row_count_approval_succeeds() {
+        assert_eq!(
+            run(vec![
+                "vortex-encoded-count-approval-plan".to_string(),
+                "encoded-data-path".to_string(),
+                "file://tmp/in.vortex".to_string(),
+                "--feature-gate".to_string(),
+                "--query-primitive-ready".to_string(),
+                "--count-primitive".to_string(),
+                "--encoded-data-path-ready".to_string(),
+                "--layout-row-count-approved".to_string(),
                 "--format".to_string(),
                 "json".to_string(),
             ]),

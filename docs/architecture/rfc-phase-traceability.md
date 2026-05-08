@@ -412,6 +412,14 @@ No fallback execution.
 - Missing/unknown signals fail deterministically, and the current public API boundary remains unsupported unless runtime-driver permission is explicit.
 - This pass adds no runtime invocation, dependency, parser, adapter runtime, object-store IO, write behavior, or fallback execution.
 
+## CG-2.1e.12 layout-approved encoded count bridge
+
+- Primary RFC linkage: RFC 0005 Vortex-Native File IO and Output Contract, RFC 0012 Diagnostics/Capabilities, RFC 0013 Streaming/Zero-Copy Boundary, RFC 0015 Correctness/testing, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
+- `VortexEncodedCountDataPathApprovalInput` can now carry a matching `VortexLayoutReaderDriverApprovalReport`.
+- Encoded-count approval can reach `approved_for_deferred_count` when count readiness is ready and the layout approval report is approved, side-effect-free, fallback-disabled, and built from the same API boundary.
+- `shardloom vortex-encoded-count-approval-plan ... --layout-row-count-approved` exposes this bridge in CLI output with layout approval status and row-count path approval fields.
+- This pass still performs no actual encoded-data traversal, layout-reader construction, runtime-driver startup, scan/read-start invocation, row read, decode/materialization, Arrow conversion, object-store IO, write behavior, spill IO, external baseline invocation, or fallback execution.
+
 ## CG-5.1 metadata query primitive correctness fixtures
 
 - Primary RFC linkage: RFC 0015 Correctness/Semantics/Differential Testing, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.

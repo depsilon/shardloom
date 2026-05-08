@@ -267,6 +267,7 @@ pub use encoded_count_approval::{
     VortexEncodedCountDataPathApprovalInput, VortexEncodedCountDataPathApprovalMode,
     VortexEncodedCountDataPathApprovalReport, VortexEncodedCountDataPathApprovalStatus,
     plan_vortex_encoded_count_data_path_approval,
+    plan_vortex_encoded_count_data_path_approval_with_layout_driver,
     vortex_encoded_count_data_path_approval_is_side_effect_free,
 };
 
