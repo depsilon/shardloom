@@ -1,6 +1,6 @@
 use std::process::Command;
 
-const KERNEL_REGISTRY_FIELD_KEYS: [&str; 72] = [
+const KERNEL_REGISTRY_FIELD_KEYS: [&str; 77] = [
     "fallback_execution_allowed",
     "mode",
     "status",
@@ -13,6 +13,11 @@ const KERNEL_REGISTRY_FIELD_KEYS: [&str; 72] = [
     "physical_kernel_reference_only_rejected_count",
     "physical_kernel_runtime_execution_allowed",
     "physical_kernel_fallback_execution_allowed",
+    "physical_operator_native_execution_level_count",
+    "physical_operator_metadata_only_level_count",
+    "physical_operator_encoded_native_level_count",
+    "physical_operator_hybrid_native_level_count",
+    "physical_operator_native_decoded_level_count",
     "metadata_physical_kernel_schema_version",
     "metadata_physical_kernel_supported_primitives",
     "metadata_physical_kernel_contextual_only",
@@ -100,6 +105,27 @@ fn kernel_registry_json_fields_include_physical_kernel_blockers() {
         output.contains(
             "{\"key\":\"physical_kernel_fallback_execution_allowed\",\"value\":\"false\"}"
         )
+    );
+    assert!(
+        output.contains(
+            "{\"key\":\"physical_operator_native_execution_level_count\",\"value\":\"4\"}"
+        )
+    );
+    assert!(
+        output
+            .contains("{\"key\":\"physical_operator_metadata_only_level_count\",\"value\":\"3\"}")
+    );
+    assert!(
+        output
+            .contains("{\"key\":\"physical_operator_encoded_native_level_count\",\"value\":\"3\"}")
+    );
+    assert!(
+        output
+            .contains("{\"key\":\"physical_operator_hybrid_native_level_count\",\"value\":\"3\"}")
+    );
+    assert!(
+        output
+            .contains("{\"key\":\"physical_operator_native_decoded_level_count\",\"value\":\"3\"}")
     );
     assert!(output.contains(
         "{\"key\":\"metadata_physical_kernel_schema_version\",\"value\":\"shardloom.vortex_metadata_physical_kernel.v1\"}"

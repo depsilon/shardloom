@@ -13,10 +13,11 @@ use shardloom_core::{
     ExtensionManifest, ExtensionProvenance, ExtensionRegistrySnapshot, ExtensionVersion,
     IncrementalPlanSkeleton, InputAdapterRegistrySnapshot, KernelRegistrySnapshot, ManifestId,
     ObservabilityPlan, OperatorMemoryCertification, OutputEnvelope, OutputFormat, OutputTarget,
-    PhysicalKernelRegistryPlan, PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorPlan,
-    PredicateExpr, RedactionPolicy, ReleasePlan, RuntimeObservabilityReport, SchemaDefinition,
-    SchemaId, SchemaVersion, SecurityPlan, ShardLoomError, SnapshotId, SnapshotRef, StatValue,
-    TableCompatibilityPlan, TableFormatKind, TranslationPlan, UdfRuntimeKind, WriteIntent,
+    PhysicalKernelRegistryPlan, PhysicalOperatorExecutionLevel,
+    PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorPlan, PredicateExpr, RedactionPolicy,
+    ReleasePlan, RuntimeObservabilityReport, SchemaDefinition, SchemaId, SchemaVersion,
+    SecurityPlan, ShardLoomError, SnapshotId, SnapshotRef, StatValue, TableCompatibilityPlan,
+    TableFormatKind, TranslationPlan, UdfRuntimeKind, WriteIntent,
 };
 use shardloom_exec::{
     AdaptiveSizer, AdaptiveSizingPolicy, AttemptId, ByteSize, CancellationReason,
@@ -1705,6 +1706,7 @@ fn append_operator_certification_fields(
         "physical_operator_execution_profile_count",
         execution_profiles.profile_count(),
     );
+    append_physical_operator_execution_level_fields(fields, &execution_profiles);
     push_count_field(
         fields,
         "physical_operator_reference_only_level_count",
@@ -1732,6 +1734,37 @@ fn append_operator_certification_fields(
     append_encoded_count_physical_kernel_discovery_fields(fields);
     append_encoded_count_kernel_admission_discovery_fields(fields);
     append_encoded_count_local_guard_discovery_fields(fields);
+}
+
+fn append_physical_operator_execution_level_fields(
+    fields: &mut Vec<(String, String)>,
+    execution_profiles: &PhysicalOperatorExecutionProfileMatrix,
+) {
+    push_count_field(
+        fields,
+        "physical_operator_native_execution_level_count",
+        execution_profiles.native_execution_level_count(),
+    );
+    push_count_field(
+        fields,
+        "physical_operator_metadata_only_level_count",
+        execution_profiles.allowed_level_count(PhysicalOperatorExecutionLevel::MetadataOnly),
+    );
+    push_count_field(
+        fields,
+        "physical_operator_encoded_native_level_count",
+        execution_profiles.allowed_level_count(PhysicalOperatorExecutionLevel::EncodedNative),
+    );
+    push_count_field(
+        fields,
+        "physical_operator_hybrid_native_level_count",
+        execution_profiles.allowed_level_count(PhysicalOperatorExecutionLevel::HybridNative),
+    );
+    push_count_field(
+        fields,
+        "physical_operator_native_decoded_level_count",
+        execution_profiles.allowed_level_count(PhysicalOperatorExecutionLevel::NativeDecoded),
+    );
 }
 
 fn append_metadata_physical_kernel_discovery_fields(fields: &mut Vec<(String, String)>) {
@@ -6029,6 +6062,7 @@ fn run(args: Vec<String>) -> ExitCode {
         Some("kernel-registry") => {
             let snapshot = KernelRegistrySnapshot::empty();
             let physical_plan = PhysicalKernelRegistryPlan::cg7_foundation();
+            let execution_profiles = PhysicalOperatorExecutionProfileMatrix::cg7_foundation();
             emit(
                 "kernel-registry",
                 format,
@@ -6081,6 +6115,36 @@ fn run(args: Vec<String>) -> ExitCode {
                     (
                         "physical_kernel_fallback_execution_allowed".to_string(),
                         physical_plan.fallback_execution_allowed().to_string(),
+                    ),
+                    (
+                        "physical_operator_native_execution_level_count".to_string(),
+                        execution_profiles
+                            .native_execution_level_count()
+                            .to_string(),
+                    ),
+                    (
+                        "physical_operator_metadata_only_level_count".to_string(),
+                        execution_profiles
+                            .allowed_level_count(PhysicalOperatorExecutionLevel::MetadataOnly)
+                            .to_string(),
+                    ),
+                    (
+                        "physical_operator_encoded_native_level_count".to_string(),
+                        execution_profiles
+                            .allowed_level_count(PhysicalOperatorExecutionLevel::EncodedNative)
+                            .to_string(),
+                    ),
+                    (
+                        "physical_operator_hybrid_native_level_count".to_string(),
+                        execution_profiles
+                            .allowed_level_count(PhysicalOperatorExecutionLevel::HybridNative)
+                            .to_string(),
+                    ),
+                    (
+                        "physical_operator_native_decoded_level_count".to_string(),
+                        execution_profiles
+                            .allowed_level_count(PhysicalOperatorExecutionLevel::NativeDecoded)
+                            .to_string(),
                     ),
                     (
                         "metadata_physical_kernel_schema_version".to_string(),

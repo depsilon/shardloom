@@ -856,6 +856,31 @@ impl PhysicalOperatorExecutionProfileMatrix {
     }
 
     #[must_use]
+    pub fn allowed_level_count(&self, level: PhysicalOperatorExecutionLevel) -> usize {
+        self.profiles
+            .iter()
+            .filter(|profile| profile.allows_level(level))
+            .count()
+    }
+
+    #[must_use]
+    pub fn native_execution_level_count(&self) -> usize {
+        [
+            PhysicalOperatorExecutionLevel::MetadataOnly,
+            PhysicalOperatorExecutionLevel::EncodedNative,
+            PhysicalOperatorExecutionLevel::HybridNative,
+            PhysicalOperatorExecutionLevel::NativeDecoded,
+        ]
+        .into_iter()
+        .filter(|level| {
+            self.profiles
+                .iter()
+                .any(|profile| profile.allows_level(*level))
+        })
+        .count()
+    }
+
+    #[must_use]
     pub fn reference_only_allowed_count(&self) -> usize {
         self.profiles
             .iter()

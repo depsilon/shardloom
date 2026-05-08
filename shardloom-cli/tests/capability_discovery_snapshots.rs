@@ -45,7 +45,7 @@ const FUNCTION_FIELD_KEYS: [&str; 13] = [
     "planned_count",
 ];
 
-const OPERATOR_FIELD_KEYS: [&str; 111] = [
+const OPERATOR_FIELD_KEYS: [&str; 116] = [
     "scope",
     "schema_version",
     "fallback_execution_allowed",
@@ -69,6 +69,11 @@ const OPERATOR_FIELD_KEYS: [&str; 111] = [
     "physical_operator_runtime_execution",
     "physical_operator_execution_profile_schema_version",
     "physical_operator_execution_profile_count",
+    "physical_operator_native_execution_level_count",
+    "physical_operator_metadata_only_level_count",
+    "physical_operator_encoded_native_level_count",
+    "physical_operator_hybrid_native_level_count",
+    "physical_operator_native_decoded_level_count",
     "physical_operator_reference_only_level_count",
     "physical_operator_row_materialization_level_count",
     "physical_operator_arrow_conversion_level_count",
@@ -326,6 +331,27 @@ fn assert_operator_discovery_physical_plan(output: &str) {
     ));
     assert!(
         output.contains("{\"key\":\"physical_operator_execution_profile_count\",\"value\":\"3\"}")
+    );
+    assert!(
+        output.contains(
+            "{\"key\":\"physical_operator_native_execution_level_count\",\"value\":\"4\"}"
+        )
+    );
+    assert!(
+        output
+            .contains("{\"key\":\"physical_operator_metadata_only_level_count\",\"value\":\"3\"}")
+    );
+    assert!(
+        output
+            .contains("{\"key\":\"physical_operator_encoded_native_level_count\",\"value\":\"3\"}")
+    );
+    assert!(
+        output
+            .contains("{\"key\":\"physical_operator_hybrid_native_level_count\",\"value\":\"3\"}")
+    );
+    assert!(
+        output
+            .contains("{\"key\":\"physical_operator_native_decoded_level_count\",\"value\":\"3\"}")
     );
     assert!(
         output
