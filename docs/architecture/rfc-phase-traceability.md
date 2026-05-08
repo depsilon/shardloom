@@ -100,7 +100,7 @@ Status categories:
 | RFC 0026 | Partially implemented | CG-1, CG-2, CG-13 | Encoded-read and query-primitive readiness contracts exist; CG-13.1 encoded path selection evidence exists for count/filter/project candidates; real generalized encoded execution remains gated. |
 | RFC 0027 | Partially implemented | CG-7, CG-8, CG-14, CG-15 | CG-14.1 adaptive optimizer/memory decision evidence and CG-15.1 CPU specialization report evidence exist; runtime adaptivity, CPU probing, SIMD dispatch, and specialized kernel execution remain planned. |
 | RFC 0028 | Partially implemented | CG-3, CG-4, CG-9, CG-10 | Output/commit readiness contracts exist; first native count-result payload path is complete; first local committed-manifest execution path is complete; local committed-manifest recovery diagnostics and first local rollback cleanup path are complete; broader payloads, generalized recovery, table/catalog commits, and object-store commits remain incomplete. |
-| RFC 0029 | Partially implemented | CG-5, CG-6, CG-16, CG-17 | CG-16.1 local encoded count certificate and CG-16.2 execution-certificate evidence surface exist; broader correctness, benchmark, certificate, and reuse evidence remain future gate work. |
+| RFC 0029 | Partially implemented | CG-5, CG-6, CG-16, CG-17 | CG-16.1 local encoded count certificate, CG-16.2 execution-certificate evidence surface, and CG-17.1 stateful reuse boundary report exist; broader correctness, benchmark, certificate, cache read/write/replay, and incremental execution evidence remain future gate work. |
 | RFC 0030 | Partially implemented | CG-11, CG-12, CG-18 | CG-11.1 stable CLI/API JSON protocol foundation and CG-11.2 thin Python wrapper foundation exist through `CliApiJsonProtocolReport`, `PythonWrapperFoundationReport`, `api-compat-plan`, and `python-wrapper-plan`; CG-12.1 plan portability report foundation exists through `PlanPortabilityReport`, `plan-ir`, `plan-import`, and `plan-export`; real plan serialization/import/export, deployment/import, and baseline harness work remain staged. |
 | RFC 0031 | Planned | CG-19 | Universal Native I/O Envelope is RFC-level only; implementation pending. |
 | RFC 0032 | Planned | CG-20 | Capability certification surface is RFC-level only; implementation pending. |
@@ -588,6 +588,15 @@ No fallback execution.
 - The report requires plan hash, input snapshot hash, output hash, selected/skipped segment traces, side-effect manifest, reproducibility metadata, correctness fixture linkage, deterministic field order, and machine-readable artifacts.
 - `execution-certificate-plan` exposes stable JSON/text fields for artifact counts, per-kind counts, hash requirements, reproducibility requirements, no-evaluation status, no-runtime status, and fallback-disabled status.
 - This phase adds no generalized execution certificate evaluation, benchmark certificate execution, external baseline invocation, generalized encoded-data execution, adapter runtime, object-store IO, row reads, decode/materialization, Arrow conversion, writes, spill IO, performance/superiority claim, production certification, CG closeout, or fallback behavior.
+
+## CG-17.1 stateful reuse boundary report
+
+- Primary RFC linkage: RFC 0029 Correctness/Benchmarks/Execution Certificates/Stateful Reuse, RFC 0015 Correctness/Semantics/Differential Testing, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, RFC 0031 Native I/O Certificates, and RFC 0032 capability certification requirements.
+- `StatefulReuseReport` defines typed cache/reuse boundaries for segment results, predicate results, encoded dictionaries, encoded filters, layout decisions, execution certificates, and incremental manifest diffs.
+- The report requires deterministic keys scoped to dataset snapshot, plan hash, semantic profile, encoding/layout, and adapter fidelity before any reuse can become eligible.
+- Invalidation proof requirements cover snapshot, segment, schema, partition, predicate, semantic profile, function version, adapter fidelity, and unknown-change signals with conservative rejection for unproven changes.
+- `stateful-reuse-plan` exposes stable JSON/text fields for boundary counts, invalidation signal counts, correctness proof counts, invalidation proof counts, execution certificate counts, manifest-diff requirements, no-cache side-effect fields, no-runtime fields, and fallback-disabled status.
+- This phase adds no cache storage, cache lookup, cache write, cache replay, incremental recompute execution, manifest-diff reads, generalized execution certificate evaluation, external baseline invocation, generalized encoded-data execution, adapter runtime, object-store IO, row reads, decode/materialization, Arrow conversion, writes, spill IO, performance/superiority claim, production certification, CG closeout, or fallback behavior.
 
 ## CG-6.1 benchmark evidence manifest
 

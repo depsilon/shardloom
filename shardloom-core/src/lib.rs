@@ -24,6 +24,7 @@ pub mod output;
 pub mod release;
 pub mod schema;
 pub mod security;
+pub mod stateful_reuse;
 pub mod translation;
 
 pub use benchmark::{
@@ -161,6 +162,11 @@ pub use security::{
     PermissionKind, PermissionRequirement, PermissionStatus, RedactionPolicy, RedactionPolicyKind,
     SecretProviderKind, SecretRef, SecretRefId, SecurityPlan, SecurityPolicyStatus, SecurityReport,
     SensitiveField,
+};
+
+pub use stateful_reuse::{
+    InvalidationProofRequirement, InvalidationSignalKind, ReuseBoundaryStatus, ReuseCacheKind,
+    StatefulReuseBoundary, StatefulReuseReport, StatefulReuseStatus, plan_stateful_reuse,
 };
 
 pub use translation::{
