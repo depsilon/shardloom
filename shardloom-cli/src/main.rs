@@ -1704,6 +1704,7 @@ fn append_operator_certification_fields(
     );
     append_metadata_physical_kernel_discovery_fields(fields);
     append_metadata_filter_kernel_admission_discovery_fields(fields);
+    append_metadata_projection_kernel_admission_discovery_fields(fields);
     append_encoded_count_physical_kernel_discovery_fields(fields);
     append_encoded_count_kernel_admission_discovery_fields(fields);
     append_encoded_count_local_guard_discovery_fields(fields);
@@ -1807,6 +1808,61 @@ fn append_metadata_filter_kernel_admission_discovery_fields(fields: &mut Vec<(St
     push_bool_field(
         fields,
         "metadata_filter_kernel_admission_fallback_execution_allowed",
+        false,
+    );
+}
+
+fn append_metadata_projection_kernel_admission_discovery_fields(
+    fields: &mut Vec<(String, String)>,
+) {
+    push_field(
+        fields,
+        "metadata_projection_kernel_admission_schema_version",
+        "shardloom.vortex_metadata_projection_kernel_admission.v1",
+    );
+    push_bool_field(
+        fields,
+        "metadata_projection_kernel_admission_contextual_only",
+        true,
+    );
+    push_field(
+        fields,
+        "metadata_projection_kernel_admission_operator_kind",
+        "project",
+    );
+    push_field(
+        fields,
+        "metadata_projection_kernel_admission_required_kernel_kind",
+        "metadata",
+    );
+    push_bool_field(
+        fields,
+        "metadata_projection_kernel_admission_requires_projection_readiness",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "metadata_projection_kernel_admission_requires_correctness_evidence",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "metadata_projection_kernel_admission_requires_memory_safety_evidence",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "metadata_projection_kernel_admission_requires_benchmark_for_production",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "metadata_projection_kernel_admission_runtime_execution",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "metadata_projection_kernel_admission_fallback_execution_allowed",
         false,
     );
 }
@@ -5902,6 +5958,51 @@ fn run(args: Vec<String>) -> ExitCode {
                     ),
                     (
                         "metadata_filter_kernel_admission_fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    (
+                        "metadata_projection_kernel_admission_schema_version".to_string(),
+                        "shardloom.vortex_metadata_projection_kernel_admission.v1".to_string(),
+                    ),
+                    (
+                        "metadata_projection_kernel_admission_contextual_only".to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "metadata_projection_kernel_admission_operator_kind".to_string(),
+                        "project".to_string(),
+                    ),
+                    (
+                        "metadata_projection_kernel_admission_required_kernel_kind".to_string(),
+                        "metadata".to_string(),
+                    ),
+                    (
+                        "metadata_projection_kernel_admission_requires_projection_readiness"
+                            .to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "metadata_projection_kernel_admission_requires_correctness_evidence"
+                            .to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "metadata_projection_kernel_admission_requires_memory_safety_evidence"
+                            .to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "metadata_projection_kernel_admission_requires_benchmark_for_production"
+                            .to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "metadata_projection_kernel_admission_runtime_execution".to_string(),
+                        "false".to_string(),
+                    ),
+                    (
+                        "metadata_projection_kernel_admission_fallback_execution_allowed"
+                            .to_string(),
                         "false".to_string(),
                     ),
                     (

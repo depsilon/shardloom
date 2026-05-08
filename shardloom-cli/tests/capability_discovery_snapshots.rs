@@ -45,7 +45,7 @@ const FUNCTION_FIELD_KEYS: [&str; 13] = [
     "planned_count",
 ];
 
-const OPERATOR_FIELD_KEYS: [&str; 91] = [
+const OPERATOR_FIELD_KEYS: [&str; 101] = [
     "scope",
     "schema_version",
     "fallback_execution_allowed",
@@ -97,6 +97,16 @@ const OPERATOR_FIELD_KEYS: [&str; 91] = [
     "metadata_filter_kernel_admission_requires_benchmark_for_production",
     "metadata_filter_kernel_admission_runtime_execution",
     "metadata_filter_kernel_admission_fallback_execution_allowed",
+    "metadata_projection_kernel_admission_schema_version",
+    "metadata_projection_kernel_admission_contextual_only",
+    "metadata_projection_kernel_admission_operator_kind",
+    "metadata_projection_kernel_admission_required_kernel_kind",
+    "metadata_projection_kernel_admission_requires_projection_readiness",
+    "metadata_projection_kernel_admission_requires_correctness_evidence",
+    "metadata_projection_kernel_admission_requires_memory_safety_evidence",
+    "metadata_projection_kernel_admission_requires_benchmark_for_production",
+    "metadata_projection_kernel_admission_runtime_execution",
+    "metadata_projection_kernel_admission_fallback_execution_allowed",
     "encoded_count_physical_kernel_schema_version",
     "encoded_count_physical_kernel_id",
     "encoded_count_physical_kernel_supported_primitive",
@@ -277,6 +287,7 @@ fn operator_capability_discovery_includes_physical_plan_blockers() {
     assert_operator_discovery_physical_plan(&output);
     assert_operator_discovery_metadata_kernel(&output);
     assert_operator_discovery_metadata_filter_kernel_admission(&output);
+    assert_operator_discovery_metadata_projection_kernel_admission(&output);
     assert_operator_discovery_encoded_count_kernel(&output);
     assert_operator_discovery_encoded_count_guard(&output);
 }
@@ -377,6 +388,39 @@ fn assert_operator_discovery_metadata_filter_kernel_admission(output: &str) {
     ));
     assert!(output.contains(
         "{\"key\":\"metadata_filter_kernel_admission_fallback_execution_allowed\",\"value\":\"false\"}"
+    ));
+}
+
+fn assert_operator_discovery_metadata_projection_kernel_admission(output: &str) {
+    assert!(output.contains(
+        "{\"key\":\"metadata_projection_kernel_admission_schema_version\",\"value\":\"shardloom.vortex_metadata_projection_kernel_admission.v1\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"metadata_projection_kernel_admission_contextual_only\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"metadata_projection_kernel_admission_operator_kind\",\"value\":\"project\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"metadata_projection_kernel_admission_required_kernel_kind\",\"value\":\"metadata\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"metadata_projection_kernel_admission_requires_projection_readiness\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"metadata_projection_kernel_admission_requires_correctness_evidence\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"metadata_projection_kernel_admission_requires_memory_safety_evidence\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"metadata_projection_kernel_admission_requires_benchmark_for_production\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"metadata_projection_kernel_admission_runtime_execution\",\"value\":\"false\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"metadata_projection_kernel_admission_fallback_execution_allowed\",\"value\":\"false\"}"
     ));
 }
 

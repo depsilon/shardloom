@@ -1,11 +1,21 @@
 use std::fmt::Write as _;
 
-use shardloom_core::{DatasetUri, Diagnostic, DiagnosticCode, DiagnosticSeverity, Result};
+use shardloom_core::{
+    BenchmarkEvidenceState, BenchmarkFallbackState, DatasetUri, Diagnostic, DiagnosticCode,
+    DiagnosticSeverity, KernelKind, OperatorMemoryCertification, PhysicalKernelAdmissionReport,
+    PhysicalKernelAdmissionStatus, PhysicalKernelRequirement, PhysicalKernelSlot,
+    PhysicalOperatorContract, PhysicalOperatorExecutionLevel, PhysicalOperatorKind, Result,
+};
 
 use crate::{
     VortexQueryPrimitiveBoundaryKind, VortexQueryPrimitiveBoundaryStatus,
     VortexQueryPrimitiveReport, VortexQueryPrimitiveSignal,
 };
+
+const METADATA_PROJECTION_ADMISSION_SCHEMA_VERSION: &str =
+    "shardloom.vortex_metadata_projection_kernel_admission.v1";
+const METADATA_PROJECTION_OPERATOR_ID: &str =
+    "vortex.query_primitive.project_columns.metadata_project";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VortexProjectionCandidateSource {
@@ -567,6 +577,21 @@ impl VortexProjectionReadinessReport {
             && !self.fallback_execution_allowed()
     }
     #[must_use]
+    pub fn is_safe_metadata_projection_kernel_evidence(&self) -> bool {
+        self.status == VortexProjectionReadinessStatus::ProjectionReady
+            && self.mode == VortexProjectionReadinessMode::MetadataSchemaProjectionPlanning
+            && self.request.candidate_source
+                == VortexProjectionCandidateSource::MetadataSchemaProjection
+            && self.feature_gate_enabled()
+            && self.query_primitive_ready()
+            && self.metadata_footer_ready()
+            && self.projection_primitive()
+            && self.projection_provided()
+            && self.projection_supported()
+            && self.is_side_effect_free()
+            && !self.has_errors()
+    }
+    #[must_use]
     pub fn to_human_text(&self) -> String {
         let mut out = String::new();
         let _ = writeln!(&mut out, "status: {}", self.status.as_str());
@@ -596,6 +621,95 @@ impl VortexProjectionReadinessReport {
             self.fallback_execution_allowed()
         );
         out
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexMetadataProjectionKernelAdmissionReport {
+    pub schema_version: &'static str,
+    pub admission_id: String,
+    pub projection_readiness_status: VortexProjectionReadinessStatus,
+    pub projection_readiness_mode: VortexProjectionReadinessMode,
+    pub slot_id: String,
+    pub operator_kind: PhysicalOperatorKind,
+    pub required_kernel_kind: KernelKind,
+    pub candidate_kernel_kind: KernelKind,
+    pub correctness_evidence: BenchmarkEvidenceState,
+    pub benchmark_evidence: BenchmarkEvidenceState,
+    pub memory: OperatorMemoryCertification,
+    pub fallback: BenchmarkFallbackState,
+    pub status: PhysicalKernelAdmissionStatus,
+    pub slot_marked_present: bool,
+    pub production_claim_allowed: bool,
+    pub runtime_execution_allowed: bool,
+    pub fallback_execution_allowed: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl VortexMetadataProjectionKernelAdmissionReport {
+    #[must_use]
+    pub fn from_admission(
+        readiness: &VortexProjectionReadinessReport,
+        admission: PhysicalKernelAdmissionReport,
+    ) -> Self {
+        let mut diagnostics = readiness.diagnostics.clone();
+        diagnostics.extend(admission.diagnostics.clone());
+        let slot_marked_present = admission.can_mark_kernel_present();
+        let production_claim_allowed = admission.can_satisfy_production_claim();
+        Self {
+            schema_version: METADATA_PROJECTION_ADMISSION_SCHEMA_VERSION,
+            admission_id: "vortex.query-primitive.project_columns.metadata-projection-admission"
+                .to_string(),
+            projection_readiness_status: readiness.status,
+            projection_readiness_mode: readiness.mode,
+            slot_id: admission.slot_id,
+            operator_kind: admission.operator_kind,
+            required_kernel_kind: admission.required_kernel_kind,
+            candidate_kernel_kind: admission.candidate_kernel_kind,
+            correctness_evidence: admission.correctness_evidence,
+            benchmark_evidence: admission.benchmark_evidence,
+            memory: admission.memory,
+            fallback: admission.fallback,
+            status: admission.status,
+            slot_marked_present,
+            production_claim_allowed,
+            runtime_execution_allowed: false,
+            fallback_execution_allowed: false,
+            diagnostics,
+        }
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        !self.status.can_enter_registry()
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    #[must_use]
+    pub const fn is_side_effect_free(&self) -> bool {
+        !self.runtime_execution_allowed && !self.fallback_execution_allowed
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "metadata projection kernel admission\nschema_version: {}\nadmission: {}\nslot: {}\noperator: {}\nrequired kernel: {}\ncandidate kernel: {}\nstatus: {}\nslot marked present: {}\nproduction claim allowed: {}\nruntime execution: disabled\nfallback execution: disabled",
+            self.schema_version,
+            self.admission_id,
+            self.slot_id,
+            self.operator_kind.as_str(),
+            self.required_kernel_kind.as_str(),
+            self.candidate_kernel_kind.as_str(),
+            self.status.as_str(),
+            self.slot_marked_present,
+            self.production_claim_allowed
+        )
     }
 }
 
@@ -721,6 +835,63 @@ pub fn plan_vortex_projection_readiness(
 ) -> Result<VortexProjectionReadinessReport> {
     VortexProjectionReadinessReport::from_request(request)
 }
+
+/// Admits metadata-schema projection readiness into the CG-7 project metadata
+/// kernel slot.
+///
+/// This is a contextual evidence bridge. It does not execute projection, read
+/// encoded columns, decode arrays, materialize values, register a global runtime
+/// project kernel, claim production readiness, or close broader projection-kernel
+/// work.
+///
+/// # Errors
+/// Returns an error only if the static metadata-project operator contract cannot
+/// be built.
+pub fn admit_vortex_metadata_projection_kernel(
+    readiness: &VortexProjectionReadinessReport,
+    correctness_evidence: BenchmarkEvidenceState,
+    benchmark_evidence: BenchmarkEvidenceState,
+    memory: OperatorMemoryCertification,
+    fallback: BenchmarkFallbackState,
+) -> Result<VortexMetadataProjectionKernelAdmissionReport> {
+    let slot = metadata_projection_kernel_slot()?;
+    let safe_readiness = readiness.is_safe_metadata_projection_kernel_evidence();
+    let admission = PhysicalKernelAdmissionReport::evaluate(
+        &slot,
+        KernelKind::Metadata,
+        if safe_readiness {
+            correctness_evidence
+        } else {
+            BenchmarkEvidenceState::Missing
+        },
+        if safe_readiness {
+            benchmark_evidence
+        } else {
+            BenchmarkEvidenceState::Missing
+        },
+        if safe_readiness {
+            memory
+        } else {
+            OperatorMemoryCertification::unsupported()
+        },
+        fallback,
+    );
+    Ok(VortexMetadataProjectionKernelAdmissionReport::from_admission(readiness, admission))
+}
+
+fn metadata_projection_kernel_slot() -> Result<PhysicalKernelSlot> {
+    let operator = PhysicalOperatorContract::new(
+        METADATA_PROJECTION_OPERATOR_ID,
+        PhysicalOperatorKind::Project,
+        PhysicalOperatorExecutionLevel::MetadataOnly,
+        vec![PhysicalKernelRequirement::missing(KernelKind::Metadata)],
+    )?;
+    Ok(PhysicalKernelSlot::from_requirement(
+        &operator,
+        PhysicalKernelRequirement::missing(KernelKind::Metadata),
+    ))
+}
+
 #[must_use]
 pub fn vortex_projection_readiness_is_side_effect_free(
     report: &VortexProjectionReadinessReport,
@@ -734,6 +905,17 @@ mod tests {
 
     fn uri() -> DatasetUri {
         DatasetUri::new("file:///tmp/a.vortex").expect("uri")
+    }
+
+    fn safe_streaming_memory() -> OperatorMemoryCertification {
+        OperatorMemoryCertification {
+            streaming: true,
+            bounded_memory: true,
+            spillable: false,
+            requires_full_materialization: false,
+            requires_shuffle: false,
+            oom_safe: true,
+        }
     }
 
     #[test]
@@ -927,6 +1109,127 @@ mod tests {
         )
         .expect("report");
         assert!(ready.projection_ready());
+    }
+
+    #[test]
+    fn metadata_projection_kernel_admits_metadata_slot_without_production_claim() {
+        let readiness = plan_vortex_projection_readiness(
+            VortexProjectionReadinessRequest::new(
+                uri(),
+                VortexProjectionCandidateSource::MetadataSchemaProjection,
+            )
+            .feature_gate_enabled(true)
+            .query_primitive_ready(true)
+            .projection_primitive(true)
+            .projection_provided(true)
+            .metadata_footer_ready(true)
+            .projection_supported(true),
+        )
+        .expect("projection readiness");
+
+        let admission = admit_vortex_metadata_projection_kernel(
+            &readiness,
+            BenchmarkEvidenceState::Present,
+            BenchmarkEvidenceState::Missing,
+            safe_streaming_memory(),
+            BenchmarkFallbackState::NotAttempted,
+        )
+        .expect("projection admission");
+
+        assert_eq!(
+            admission.schema_version,
+            METADATA_PROJECTION_ADMISSION_SCHEMA_VERSION
+        );
+        assert_eq!(
+            admission.status,
+            PhysicalKernelAdmissionStatus::RegistryReady
+        );
+        assert_eq!(admission.operator_kind, PhysicalOperatorKind::Project);
+        assert_eq!(admission.required_kernel_kind, KernelKind::Metadata);
+        assert_eq!(admission.candidate_kernel_kind, KernelKind::Metadata);
+        assert_eq!(
+            admission.correctness_evidence,
+            BenchmarkEvidenceState::Present
+        );
+        assert_eq!(
+            admission.benchmark_evidence,
+            BenchmarkEvidenceState::Missing
+        );
+        assert!(admission.slot_marked_present);
+        assert!(!admission.production_claim_allowed);
+        assert!(admission.memory.streaming);
+        assert!(admission.memory.bounded_memory);
+        assert!(admission.memory.oom_safe);
+        assert!(admission.is_side_effect_free());
+        assert!(!admission.has_errors());
+    }
+
+    #[test]
+    fn metadata_projection_kernel_missing_correctness_blocks_admission() {
+        let readiness = plan_vortex_projection_readiness(
+            VortexProjectionReadinessRequest::new(
+                uri(),
+                VortexProjectionCandidateSource::MetadataSchemaProjection,
+            )
+            .feature_gate_enabled(true)
+            .query_primitive_ready(true)
+            .projection_primitive(true)
+            .projection_provided(true)
+            .metadata_footer_ready(true)
+            .projection_supported(true),
+        )
+        .expect("projection readiness");
+
+        let admission = admit_vortex_metadata_projection_kernel(
+            &readiness,
+            BenchmarkEvidenceState::Missing,
+            BenchmarkEvidenceState::Missing,
+            safe_streaming_memory(),
+            BenchmarkFallbackState::NotAttempted,
+        )
+        .expect("projection admission");
+
+        assert_eq!(
+            admission.status,
+            PhysicalKernelAdmissionStatus::BlockedMissingCorrectness
+        );
+        assert!(!admission.slot_marked_present);
+        assert!(!admission.production_claim_allowed);
+        assert!(admission.has_errors());
+        assert!(admission.is_side_effect_free());
+    }
+
+    #[test]
+    fn encoded_projection_readiness_cannot_admit_metadata_projection_slot() {
+        let readiness = plan_vortex_projection_readiness(
+            VortexProjectionReadinessRequest::new(
+                uri(),
+                VortexProjectionCandidateSource::EncodedColumnPath,
+            )
+            .feature_gate_enabled(true)
+            .query_primitive_ready(true)
+            .projection_primitive(true)
+            .projection_provided(true)
+            .projection_supported(true)
+            .encoded_data_path_ready(true),
+        )
+        .expect("projection readiness");
+
+        let admission = admit_vortex_metadata_projection_kernel(
+            &readiness,
+            BenchmarkEvidenceState::Present,
+            BenchmarkEvidenceState::Missing,
+            safe_streaming_memory(),
+            BenchmarkFallbackState::NotAttempted,
+        )
+        .expect("projection admission");
+
+        assert_eq!(
+            admission.status,
+            PhysicalKernelAdmissionStatus::BlockedMissingCorrectness
+        );
+        assert!(!admission.slot_marked_present);
+        assert!(admission.has_errors());
     }
 
     #[test]
