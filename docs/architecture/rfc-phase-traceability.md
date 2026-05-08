@@ -517,6 +517,15 @@ No fallback execution.
 - `shardloom-contract-tests/tests/physical_operator_kernel_contracts.rs` verifies blocked reference/fallback/missing-evidence states and the registry-ready versus production-ready distinction.
 - This pass adds no kernel implementation, query execution behavior, encoded-data traversal, scan/read-start API calls, row reads, decode/materialization, Arrow conversion, object-store IO, write behavior, external engine invocation, or fallback execution.
 
+## CG-7.5 physical operator execution profiles
+
+- Primary RFC linkage: RFC 0021 expression/kernel execution modes, RFC 0027 native kernel specialization roadmap, RFC 0014 memory/materialization safety, RFC 0025 no-fallback guardrails, and RFC 0032 operator certification requirements.
+- `PhysicalOperatorExecutionProfileMatrix::cg7_foundation` declares metadata-only, encoded-native, hybrid-native, and native-decoded execution levels for filter, project, and count-aggregate operator profiles.
+- Foundation profiles reject test-reference-only and unsupported execution levels and keep row materialization, Arrow conversion, and fallback execution disabled.
+- `shardloom capabilities operators` includes execution-profile schema/version and counts for profile, reference-only, row-materialization, Arrow-conversion, and fallback paths.
+- `shardloom-contract-tests/tests/physical_operator_kernel_contracts.rs` and `shardloom-cli/tests/capability_discovery_snapshots.rs` verify the profile contracts and capability discovery fields.
+- This pass adds no kernel implementation, query execution behavior, encoded-data traversal, scan/read-start API calls, row reads, decode/materialization, Arrow conversion, object-store IO, write behavior, external engine invocation, or fallback execution.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.

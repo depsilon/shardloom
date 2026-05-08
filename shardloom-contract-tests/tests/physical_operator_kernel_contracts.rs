@@ -2,8 +2,9 @@ use shardloom_core::{
     BenchmarkEvidenceState, BenchmarkFallbackState, KernelKind, OperatorCertificationStatus,
     OperatorMemoryCertification, PhysicalKernelAdmissionReport, PhysicalKernelAdmissionStatus,
     PhysicalKernelRegistryPlan, PhysicalKernelRequirement, PhysicalKernelRequirementStatus,
-    PhysicalOperatorContract, PhysicalOperatorExecutionLevel, PhysicalOperatorKind,
-    PhysicalOperatorPlan, PhysicalOperatorReadinessStatus,
+    PhysicalOperatorContract, PhysicalOperatorExecutionLevel,
+    PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorKind, PhysicalOperatorPlan,
+    PhysicalOperatorReadinessStatus,
 };
 
 fn safe_streaming_memory() -> OperatorMemoryCertification {
@@ -243,6 +244,44 @@ fn physical_kernel_admission_allows_registry_before_production_claims() {
     );
     assert!(production_ready.can_mark_kernel_present());
     assert!(production_ready.can_satisfy_production_claim());
+}
+
+#[test]
+fn physical_operator_execution_profiles_declare_native_levels_without_materialization() {
+    let matrix = PhysicalOperatorExecutionProfileMatrix::cg7_foundation();
+
+    assert_eq!(
+        matrix.schema_version,
+        "shardloom.physical_operator_execution_profiles.v1"
+    );
+    assert_eq!(matrix.profile_count(), 3);
+    assert_eq!(matrix.reference_only_allowed_count(), 0);
+    assert_eq!(matrix.unsupported_allowed_count(), 0);
+    assert_eq!(matrix.row_materialization_allowed_count(), 0);
+    assert_eq!(matrix.arrow_conversion_allowed_count(), 0);
+    assert_eq!(matrix.fallback_allowed_count(), 0);
+
+    for operator_kind in [
+        PhysicalOperatorKind::Filter,
+        PhysicalOperatorKind::Project,
+        PhysicalOperatorKind::CountAggregate,
+    ] {
+        let profile = matrix
+            .profile_for(operator_kind)
+            .expect("foundation operator profile exists");
+        assert_eq!(
+            profile.preferred_level,
+            PhysicalOperatorExecutionLevel::EncodedNative
+        );
+        assert!(profile.allows_level(PhysicalOperatorExecutionLevel::MetadataOnly));
+        assert!(profile.allows_level(PhysicalOperatorExecutionLevel::EncodedNative));
+        assert!(profile.allows_level(PhysicalOperatorExecutionLevel::HybridNative));
+        assert!(profile.allows_level(PhysicalOperatorExecutionLevel::NativeDecoded));
+        assert!(!profile.allows_reference_only());
+        assert!(!profile.fallback_execution_allowed);
+    }
+
+    assert!(matrix.to_human_text().contains("reference-only allowed: 0"));
 }
 
 #[test]

@@ -45,7 +45,7 @@ const FUNCTION_FIELD_KEYS: [&str; 13] = [
     "planned_count",
 ];
 
-const OPERATOR_FIELD_KEYS: [&str; 21] = [
+const OPERATOR_FIELD_KEYS: [&str; 27] = [
     "scope",
     "schema_version",
     "fallback_execution_allowed",
@@ -67,6 +67,12 @@ const OPERATOR_FIELD_KEYS: [&str; 21] = [
     "physical_operator_unsupported_count",
     "physical_operator_fallback_execution_allowed",
     "physical_operator_runtime_execution",
+    "physical_operator_execution_profile_schema_version",
+    "physical_operator_execution_profile_count",
+    "physical_operator_reference_only_level_count",
+    "physical_operator_row_materialization_level_count",
+    "physical_operator_arrow_conversion_level_count",
+    "physical_operator_fallback_level_count",
 ];
 
 const ADAPTER_FIELD_KEYS: [&str; 13] = [
@@ -220,6 +226,19 @@ fn operator_capability_discovery_includes_physical_plan_blockers() {
     ));
     assert!(
         output.contains("{\"key\":\"physical_operator_runtime_execution\",\"value\":\"false\"}")
+    );
+    assert!(output.contains(
+        "{\"key\":\"physical_operator_execution_profile_schema_version\",\"value\":\"shardloom.physical_operator_execution_profiles.v1\"}"
+    ));
+    assert!(
+        output.contains("{\"key\":\"physical_operator_execution_profile_count\",\"value\":\"3\"}")
+    );
+    assert!(
+        output
+            .contains("{\"key\":\"physical_operator_reference_only_level_count\",\"value\":\"0\"}")
+    );
+    assert!(
+        output.contains("{\"key\":\"physical_operator_fallback_level_count\",\"value\":\"0\"}")
     );
 }
 
