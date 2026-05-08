@@ -45,23 +45,25 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: R5.4.14 documentation concept-map structure
+- [x] Session label: CG-8.6 bounded metadata/no-op local task execution
   - Primary files:
-    - `README.md`
-    - `docs/architecture/canonical-terminology.md`
-    - `docs/architecture/systems-learning-map.md`
+    - `shardloom-vortex/src/bounded_execution.rs`
+    - `shardloom-vortex/src/local_engine.rs`
     - `docs/architecture/phased-execution-plan.md`
-  - Scope: Make the documentation structure explicit: README stays compact, canonical terminology owns ShardLoom vocabulary, systems-learning owns external technique transfer, RFCs own deep contracts, and the phase plan owns active status.
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: Make bounded metadata-only and no-op local decisions report actual bounded task execution while preserving no data reads, decode, materialization, object-store IO, writes, spill IO, external effects, and fallback-disabled evidence.
   - Checklist:
-    - [x] Add a compact README core-concepts doorway that links to canonical terminology.
-    - [x] Make canonical terminology the explicit glossary/index and link concept groups to governing RFCs.
-    - [x] Add Modal GPU Glossary technique-transfer lessons to the systems-learning map.
-    - [x] Update phase-plan architecture document ownership rules for README, canonical terminology, and systems-learning.
-    - [x] Run docs hygiene and required validation.
+    - [x] Make `VortexBoundedExecutionMode::MetadataOnly` and `NoOp` report task execution.
+    - [x] Recompute bounded report `tasks_executed` from completed metadata/no-op decisions.
+    - [x] Propagate bounded task side-effect flags through the local engine report.
+    - [x] Add focused tests for metadata-task execution, no-op task execution, and local-engine effect propagation.
+    - [x] Update phase and RFC traceability docs.
+    - [x] Run full required validation.
   - Local validation status:
-    - docs hygiene scans passed for `git diff --check`, hidden/bidi controls, and claim-language review
+    - focused bounded metadata/no-op and local-engine effect tests passed
     - full Rust validation passed with toolchain `1.91.1`
-  - Explicitly not included: new documentation directories, runtime behavior, parser/runtime/API/adapter/kernel implementation, dependency changes, external probing, GPU/CUDA integration, benchmark claims, superiority claims, or fallback execution.
+    - docs hygiene scans passed for `git diff --check` and hidden/bidi controls
+  - Explicitly not included: streaming encoded batch runtime execution, bounded parallel encoded/read execution, scan/read-start APIs, encoded data reads, row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, dynamic sizing feedback execution, benchmarks, production/superiority claims, fallback execution, or CG-8 closeout.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -762,6 +764,15 @@ Supporting docs:
     - `streaming-batch-plan --format json` emits stable fields for native Vortex encoded batches, compatibility materialization boundaries, object-store source blockers, and rejected parallelism.
     - Object-store byte-range sources fail explicitly until object-store streaming IO lands.
     - Streams, tasks, encoded data reads, row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, benchmark claims, superiority claims, and fallback behavior remain disabled.
+- [x] CG-8.6 bounded metadata/no-op local task execution
+  - Why: make completed bounded metadata-only and no-op decisions count as local bounded task execution before broader bounded parallel/read execution.
+  - Acceptance:
+    - `VortexBoundedExecutionMode::MetadataOnly` and `NoOp` report task execution.
+    - `VortexBoundedExecutionReport::tasks_executed` derives from completed metadata/no-op decisions.
+    - Local engine reports propagate nested local and bounded side-effect flags.
+    - Metadata/no-op bounded task execution preserves no data reads, decode, materialization, object-store IO, writes, spill IO, external effects, and fallback-disabled evidence.
+    - Policy-disabled metadata tasks remain side-effect-free and `ReadyButNoExecutableTasks`.
+    - No stream runtime execution, encoded-data read execution, row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, benchmark claims, superiority claims, or fallback behavior is added.
 
 ## Competitive Engine Gates CG-1 through CG-20
 
@@ -911,6 +922,7 @@ Status legend:
   - [x] CG-8.3 bounded backpressure planning surface
   - [x] CG-8.4 dynamic sizing feedback planning surface
   - [x] CG-8.5 encoded streaming-batch planning surface
+  - [x] CG-8.6 bounded metadata/no-op local task execution
   - Scope:
     - encoded streaming-batch planning surface
     - streaming encoded batch runtime execution
@@ -1151,8 +1163,9 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-8.3 bounded backpressure planning surface
 - [x] CG-8.4 dynamic sizing feedback planning surface
 - [x] CG-8.5 encoded streaming-batch planning surface
+- [x] CG-8.6 bounded metadata/no-op local task execution
 - [ ] streaming encoded batch runtime execution
-- [ ] bounded parallel local execution
+- [ ] bounded parallel encoded/read local execution
 - [x] adaptive split/coalesce planning surface
 - [x] dynamic sizing feedback planning surface
 - [ ] dynamic sizing feedback execution loop
@@ -1344,6 +1357,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-8.3 bounded backpressure planning surface adds report/CLI evidence for bounded max in-flight chunks and buffered bytes while keeping streams, tasks, IO, spill, and fallback disabled.
 - [x] CG-8.4 dynamic sizing feedback planning surface adds report/CLI evidence for target-task-byte feedback recommendations while keeping feedback application, streams, tasks, IO, spill, and fallback disabled.
 - [x] CG-8.5 encoded streaming-batch planning surface adds report/CLI evidence for Vortex encoded batch representation, compatibility materialization boundaries, object-store blockers, bounded memory/backpressure, and no-IO/no-fallback side-effect fields without enabling stream runtime execution.
+- [x] CG-8.6 bounded metadata/no-op local task execution makes completed bounded metadata-only and no-op decisions report `tasks_executed=true` while preserving no data reads, decode, materialization, object-store IO, writes, spill IO, external effects, or fallback execution.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind `vortex-write`; placeholder artifact paths remain readiness-only.
 - [~] CG-3 broader output payload shapes remain deferred.

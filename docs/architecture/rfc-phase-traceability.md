@@ -1133,3 +1133,13 @@ No fallback execution.
 - Primary RFC linkage: RFC 0013, RFC 0014, RFC 0016, RFC 0018, RFC 0025, and RFC 0027.
 - Related RFCs: RFC 0008, RFC 0017, RFC 0031, and RFC 0032.
 - This phase adds no stream execution, task execution, read-start API, encoded data reads, row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, dynamic sizing feedback application, benchmark claim, production/superiority claim, CG-8 closeout, or fallback behavior.
+
+## CG-8.6 bounded metadata/no-op local task execution
+
+- `VortexBoundedExecutionMode::MetadataOnly` and `VortexBoundedExecutionMode::NoOp` now report task execution because their bounded decisions complete local work.
+- `VortexBoundedExecutionReport::tasks_executed` derives from completed metadata-only or no-op bounded decisions, while data-read, decode, materialization, object-store, write, spill, external-effect, and fallback fields remain false.
+- Local-engine reports now propagate nested local and bounded effect flags so `tasks_executed=true` is visible when bounded metadata/no-op work completes.
+- Policy-disabled metadata tasks stay `ReadyButNoExecutableTasks`, keep `tasks_executed=false`, and remain side-effect-free.
+- Primary RFC linkage: RFC 0013, RFC 0014, RFC 0016, RFC 0018, RFC 0025, and RFC 0027.
+- Related RFCs: RFC 0008, RFC 0017, RFC 0021, RFC 0031, and RFC 0032.
+- This phase adds no stream runtime execution, bounded parallel encoded/read execution, read-start API, encoded data reads, row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, dynamic sizing feedback execution, benchmark claim, production/superiority claim, CG-8 closeout, or fallback behavior.
