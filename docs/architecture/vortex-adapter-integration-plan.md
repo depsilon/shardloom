@@ -643,7 +643,7 @@ The local commit execution gate is report-only in this phase. It requires commit
 
 ## Feature-gated local output payload artifact
 
-Output payload artifact writing is feature-gated. In this phase it writes only a local placeholder output payload artifact and is not a real `Vortex` payload. It does not call upstream `Vortex` write APIs, does not write manifests, does not commit manifests, and does not perform object-store IO. Real native `Vortex` output payload writing remains future work.
+Output payload artifact writing is feature-gated. In this phase it writes only a local placeholder output payload artifact and is not a real `Vortex` payload. It does not call upstream `Vortex` write APIs, does not write manifests, does not commit manifests, and does not perform object-store IO. Real native `Vortex` output payload writing is introduced separately by CG-3.1 for the narrow count-result payload path only.
 
 ### Output payload plan CLI (Phase 12C.3a complete)
 
@@ -663,12 +663,17 @@ The staged write-readiness smoke chain now includes `vortex-output-payload-plan`
 
 The output payload artifact remains a local placeholder contract artifact, not a real `Vortex` payload and not committed dataset output. Upstream `Vortex` write APIs remain unused. Manifest writes, committed-manifest writes, commit execution, and object-store IO remain disabled in this phase.
 
+### Native count output payload write (CG-3.1)
+
+`shardloom vortex-native-count-payload-write` is the first real native `Vortex` output payload path. It is feature-gated behind `vortex-write` and writes a one-row `u64` `CountAll` result payload only when the output-payload plan is ready, the feature gate is explicit, the workspace is local, the payload content is native, and the count result is known.
+
+Default builds remain report-only/feature-disabled. Feature-enabled builds call the upstream `Vortex` writer from inside `shardloom-vortex` and write only the local payload file. This path does not write manifests, does not commit manifests, does not perform object-store IO, does not generalize output payload shapes, and does not allow fallback execution.
 
 ## CG-3 clarification
 
 - Local placeholder output payload artifact paths are readiness scaffolding only, not real Vortex payload paths.
-- Upstream Vortex write APIs remain deferred in this phase.
-- Any future real payload write path must be explicitly feature-gated and approved before implementation.
+- CG-3.1 is the first approved real native Vortex payload path and is limited to a local count-result payload.
+- Broader payload shapes, manifest commits, and object-store writes remain deferred.
 
 
 ## CG-1.2b metadata/footer probe

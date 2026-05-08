@@ -311,15 +311,21 @@ pub use staged_output::{
 };
 
 pub use output_payload::{
+    VortexNativeOutputPayloadWriteMode, VortexNativeOutputPayloadWriteReport,
+    VortexNativeOutputPayloadWriteRequest, VortexNativeOutputPayloadWriteStatus,
     VortexOutputPayloadArtifactWriteMode, VortexOutputPayloadArtifactWriteOption,
     VortexOutputPayloadArtifactWriteReport, VortexOutputPayloadArtifactWriteRequest,
     VortexOutputPayloadArtifactWriteStatus, VortexOutputPayloadContentDescriptor,
     VortexOutputPayloadContentKind, VortexOutputPayloadEffect, VortexOutputPayloadFileName,
     VortexOutputPayloadFileRef, VortexOutputPayloadMode, VortexOutputPayloadReport,
     VortexOutputPayloadRequest, VortexOutputPayloadSignal, VortexOutputPayloadStatus,
-    output_payload_artifact_write_request_from_plan, output_payload_request_from_reports,
-    plan_vortex_output_payload, vortex_output_payload_artifact_write_is_side_effect_free,
-    vortex_output_payload_is_side_effect_free, write_vortex_output_payload_artifact,
+    native_output_payload_write_request_from_plan, output_payload_artifact_write_request_from_plan,
+    output_payload_request_from_reports, plan_vortex_output_payload,
+    vortex_native_output_payload_write_feature_enabled,
+    vortex_native_output_payload_write_is_side_effect_free,
+    vortex_output_payload_artifact_write_is_side_effect_free,
+    vortex_output_payload_is_side_effect_free, write_vortex_native_count_output_payload,
+    write_vortex_output_payload_artifact,
 };
 
 pub use write_intent::{
