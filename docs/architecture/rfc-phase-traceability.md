@@ -508,6 +508,15 @@ No fallback execution.
 - `shardloom-cli/tests/kernel_registry_snapshots.rs` verifies the kernel-registry JSON fields remain stable and agent-readable.
 - This pass adds no kernel implementation, query execution behavior, encoded-data traversal, scan/read-start API calls, row reads, decode/materialization, Arrow conversion, object-store IO, write behavior, external engine invocation, or fallback execution.
 
+## CG-7.4 physical kernel admission gate
+
+- Primary RFC linkage: RFC 0021 kernel registry requirements, RFC 0015 correctness-first requirements, RFC 0014 memory/OOM safety, RFC 0025 no-fallback guardrails, RFC 0029 benchmark evidence rules, and RFC 0032 operator certification requirements.
+- `PhysicalKernelAdmissionReport` records required/candidate kernel kind, correctness evidence, benchmark evidence, memory-safety evidence, fallback state, and admission status for a physical kernel slot.
+- Reference-only kernels, unsupported kernels, kind mismatches, fallback attempts, missing correctness evidence, and missing memory-safety evidence cannot mark a slot present.
+- Registry admission can proceed before production claims when benchmark evidence is missing, but production readiness requires benchmark evidence in addition to correctness, memory, and no-fallback proof.
+- `shardloom-contract-tests/tests/physical_operator_kernel_contracts.rs` verifies blocked reference/fallback/missing-evidence states and the registry-ready versus production-ready distinction.
+- This pass adds no kernel implementation, query execution behavior, encoded-data traversal, scan/read-start API calls, row reads, decode/materialization, Arrow conversion, object-store IO, write behavior, external engine invocation, or fallback execution.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.

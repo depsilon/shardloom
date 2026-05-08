@@ -5,8 +5,9 @@
 //! invoke external fallback engines.
 
 use crate::{
-    Diagnostic, KernelKind, OperatorCertificationStatus, OperatorFamily,
-    OperatorMemoryCertification, Result, ShardLoomError,
+    BenchmarkEvidenceState, BenchmarkFallbackState, Diagnostic, KernelKind,
+    OperatorCertificationStatus, OperatorFamily, OperatorMemoryCertification, Result,
+    ShardLoomError,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -536,6 +537,184 @@ impl PhysicalKernelRegistryPlan {
             self.missing_slot_count(),
             self.reference_only_rejected_count(),
             self.all_required_slots_satisfied(),
+        )
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PhysicalKernelAdmissionStatus {
+    BlockedKernelKindMismatch,
+    BlockedUnsupportedKernel,
+    BlockedReferenceOnlyKernel,
+    BlockedFallbackAttempted,
+    BlockedMissingCorrectness,
+    BlockedMissingMemorySafety,
+    RegistryReady,
+    ProductionReady,
+}
+
+impl PhysicalKernelAdmissionStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::BlockedKernelKindMismatch => "blocked_kernel_kind_mismatch",
+            Self::BlockedUnsupportedKernel => "blocked_unsupported_kernel",
+            Self::BlockedReferenceOnlyKernel => "blocked_reference_only_kernel",
+            Self::BlockedFallbackAttempted => "blocked_fallback_attempted",
+            Self::BlockedMissingCorrectness => "blocked_missing_correctness",
+            Self::BlockedMissingMemorySafety => "blocked_missing_memory_safety",
+            Self::RegistryReady => "registry_ready",
+            Self::ProductionReady => "production_ready",
+        }
+    }
+
+    #[must_use]
+    pub const fn can_enter_registry(&self) -> bool {
+        matches!(self, Self::RegistryReady | Self::ProductionReady)
+    }
+
+    #[must_use]
+    pub const fn can_satisfy_production_claim(&self) -> bool {
+        matches!(self, Self::ProductionReady)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PhysicalKernelAdmissionReport {
+    pub schema_version: &'static str,
+    pub slot_id: String,
+    pub operator_kind: PhysicalOperatorKind,
+    pub required_kernel_kind: KernelKind,
+    pub candidate_kernel_kind: KernelKind,
+    pub correctness_evidence: BenchmarkEvidenceState,
+    pub benchmark_evidence: BenchmarkEvidenceState,
+    pub memory: OperatorMemoryCertification,
+    pub fallback: BenchmarkFallbackState,
+    pub status: PhysicalKernelAdmissionStatus,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl PhysicalKernelAdmissionReport {
+    #[must_use]
+    pub fn evaluate(
+        slot: &PhysicalKernelSlot,
+        candidate_kernel_kind: KernelKind,
+        correctness_evidence: BenchmarkEvidenceState,
+        benchmark_evidence: BenchmarkEvidenceState,
+        memory: OperatorMemoryCertification,
+        fallback: BenchmarkFallbackState,
+    ) -> Self {
+        let status = Self::admission_status(
+            slot,
+            candidate_kernel_kind,
+            correctness_evidence,
+            benchmark_evidence,
+            memory,
+            fallback,
+        );
+        let mut report = Self {
+            schema_version: "shardloom.physical_kernel_admission.v1",
+            slot_id: slot.slot_id.clone(),
+            operator_kind: slot.operator_kind,
+            required_kernel_kind: slot.required_kernel_kind,
+            candidate_kernel_kind,
+            correctness_evidence,
+            benchmark_evidence,
+            memory,
+            fallback,
+            status,
+            diagnostics: Vec::new(),
+        };
+        report.refresh_diagnostics();
+        report
+    }
+
+    fn admission_status(
+        slot: &PhysicalKernelSlot,
+        candidate_kernel_kind: KernelKind,
+        correctness_evidence: BenchmarkEvidenceState,
+        benchmark_evidence: BenchmarkEvidenceState,
+        memory: OperatorMemoryCertification,
+        fallback: BenchmarkFallbackState,
+    ) -> PhysicalKernelAdmissionStatus {
+        if matches!(candidate_kernel_kind, KernelKind::Unsupported) {
+            return PhysicalKernelAdmissionStatus::BlockedUnsupportedKernel;
+        }
+        if candidate_kernel_kind.is_reference_only() {
+            return PhysicalKernelAdmissionStatus::BlockedReferenceOnlyKernel;
+        }
+        if candidate_kernel_kind != slot.required_kernel_kind {
+            return PhysicalKernelAdmissionStatus::BlockedKernelKindMismatch;
+        }
+        if fallback.attempted() {
+            return PhysicalKernelAdmissionStatus::BlockedFallbackAttempted;
+        }
+        if !correctness_evidence.is_present() {
+            return PhysicalKernelAdmissionStatus::BlockedMissingCorrectness;
+        }
+        if !Self::memory_safety_evidence_present(memory) {
+            return PhysicalKernelAdmissionStatus::BlockedMissingMemorySafety;
+        }
+        if benchmark_evidence.is_present() {
+            PhysicalKernelAdmissionStatus::ProductionReady
+        } else {
+            PhysicalKernelAdmissionStatus::RegistryReady
+        }
+    }
+
+    #[must_use]
+    pub const fn memory_safety_evidence_present(memory: OperatorMemoryCertification) -> bool {
+        memory.oom_safe
+            && !memory.requires_full_materialization
+            && (memory.streaming || memory.bounded_memory || memory.spillable)
+    }
+
+    pub fn refresh_diagnostics(&mut self) {
+        self.diagnostics.clear();
+        if !self.status.can_enter_registry() {
+            self.diagnostics.push(Diagnostic::not_implemented(
+                format!("physical kernel admission {}", self.slot_id),
+                format!(
+                    "Native kernel admission is blocked with status {}.",
+                    self.status.as_str()
+                ),
+                "Provide a matching native kernel kind, correctness evidence, memory-safety evidence, and no-fallback proof before marking the slot present.",
+            ));
+        }
+    }
+
+    #[must_use]
+    pub const fn can_mark_kernel_present(&self) -> bool {
+        self.status.can_enter_registry()
+    }
+
+    #[must_use]
+    pub const fn can_satisfy_production_claim(&self) -> bool {
+        self.status.can_satisfy_production_claim()
+    }
+
+    #[must_use]
+    pub const fn fallback_execution_allowed(&self) -> bool {
+        false
+    }
+
+    #[must_use]
+    pub fn fallback_attempted(&self) -> bool {
+        self.fallback.attempted()
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "physical kernel admission\nschema_version: {}\nslot: {}\nrequired kernel: {}\ncandidate kernel: {}\nstatus: {}\ncorrectness: {}\nbenchmark: {}\nfallback attempted: {}\nfallback execution: disabled",
+            self.schema_version,
+            self.slot_id,
+            self.required_kernel_kind.as_str(),
+            self.candidate_kernel_kind.as_str(),
+            self.status.as_str(),
+            self.correctness_evidence.as_str(),
+            self.benchmark_evidence.as_str(),
+            self.fallback_attempted(),
         )
     }
 }

@@ -10,23 +10,21 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [x] Session label: CG-7.3 physical kernel registry plan
-  - Current cleanup/implementation step: Add a report-only physical kernel registry plan that names the required native kernel slots for the CG-7 filter, projection, and count-aggregate foundation.
+- [x] Session label: CG-7.4 physical kernel admission gate
+  - Current cleanup/implementation step: Add a report-only admission gate for marking physical kernel slots present without allowing reference-only kernels, fallback attempts, missing correctness evidence, or missing memory-safety evidence.
   - Primary files:
     - `shardloom-core/src/operator.rs`
     - `shardloom-core/src/lib.rs`
-    - `shardloom-cli/src/main.rs`
-    - `shardloom-cli/tests/kernel_registry_snapshots.rs`
     - `shardloom-contract-tests/tests/physical_operator_kernel_contracts.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-  - Scope: Agent-readable physical kernel slot planning, kernel registry schema/version fields, missing/present/reference-only counts, and no-fallback/runtime-execution flags.
+  - Scope: Physical kernel admission status, correctness evidence checks, benchmark-to-production distinction, memory-safety evidence checks, reference-only rejection, and no-fallback proof.
   - Explicitly not included: New query execution, kernel implementation, encoded-data traversal, scan/read-start APIs, row reads, decode/materialization, Arrow conversion, object-store IO, writes, external baseline execution, fallback execution, benchmarks, SQL/API/adapter expansion, or superiority claims.
   - Validation required:
     - `cargo fmt --all -- --check`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: `shardloom kernel-registry` exposes the CG-7 foundation kernel-slot blockers without registering kernels, executing operators, probing filesystems/adapters, or invoking runtime paths.
+  - Completion notes: `PhysicalKernelAdmissionReport` can admit a native slot into the registry only with matching native kernel kind, correctness evidence, memory-safety evidence, and no-fallback proof; production readiness additionally requires benchmark evidence.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -529,6 +527,7 @@ Status legend:
   - [x] CG-7.1 physical operator/kernel contract foundation
   - [x] CG-7.2 physical operator capability discovery
   - [x] CG-7.3 physical kernel registry plan
+  - [x] CG-7.4 physical kernel admission gate
   - Scope:
     - filter/projection/count-aggregate kernels
     - metadata/encoded/hybrid execution levels
@@ -713,6 +712,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-7.1 physical operator/kernel contract foundation
 - [x] CG-7.2 physical operator capability discovery
 - [x] CG-7.3 physical kernel registry plan
+- [x] CG-7.4 physical kernel admission gate
 - [ ] filter kernel
 - [ ] projection kernel
 - [ ] count/aggregate kernel
@@ -853,6 +853,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-7.1 physical operator/kernel contract foundation declares filter, projection, and count aggregate kernel blockers without implementing kernels or execution.
 - [x] CG-7.2 physical operator capability discovery exposes missing-kernel/readiness counts through `shardloom capabilities operators` without executing operators or probing runtime inputs.
 - [x] CG-7.3 physical kernel registry plan exposes required native kernel slots through `shardloom kernel-registry` without registering kernels or executing runtime paths.
+- [x] CG-7.4 physical kernel admission gate blocks reference-only kernels, fallback attempts, missing correctness evidence, and missing memory-safety evidence before a native kernel slot can be marked present.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [~] CG-3 real Vortex payload writes remain deferred; placeholder artifact paths are not completion evidence.
 

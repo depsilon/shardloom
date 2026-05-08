@@ -1,9 +1,21 @@
 use shardloom_core::{
-    KernelKind, OperatorCertificationStatus, OperatorMemoryCertification,
+    BenchmarkEvidenceState, BenchmarkFallbackState, KernelKind, OperatorCertificationStatus,
+    OperatorMemoryCertification, PhysicalKernelAdmissionReport, PhysicalKernelAdmissionStatus,
     PhysicalKernelRegistryPlan, PhysicalKernelRequirement, PhysicalKernelRequirementStatus,
     PhysicalOperatorContract, PhysicalOperatorExecutionLevel, PhysicalOperatorKind,
     PhysicalOperatorPlan, PhysicalOperatorReadinessStatus,
 };
+
+fn safe_streaming_memory() -> OperatorMemoryCertification {
+    OperatorMemoryCertification {
+        streaming: true,
+        bounded_memory: true,
+        spillable: false,
+        requires_full_materialization: false,
+        requires_shuffle: false,
+        oom_safe: true,
+    }
+}
 
 #[test]
 fn cg7_foundation_plan_declares_initial_operator_kernel_blockers() {
@@ -102,6 +114,135 @@ fn cg7_kernel_registry_plan_names_required_missing_kernel_slots() {
             .to_human_text()
             .contains("runtime execution: disabled")
     );
+}
+
+#[test]
+fn physical_kernel_admission_blocks_reference_fallback_and_missing_evidence() {
+    let registry = PhysicalKernelRegistryPlan::cg7_foundation();
+    let slot = registry
+        .required_slots
+        .iter()
+        .find(|slot| slot.slot_id == "cg7.1.filter.kernel.metadata")
+        .expect("slot exists");
+
+    let reference = PhysicalKernelAdmissionReport::evaluate(
+        slot,
+        KernelKind::DecodedReference,
+        BenchmarkEvidenceState::Present,
+        BenchmarkEvidenceState::Present,
+        safe_streaming_memory(),
+        BenchmarkFallbackState::NotAttempted,
+    );
+    assert_eq!(
+        reference.status,
+        PhysicalKernelAdmissionStatus::BlockedReferenceOnlyKernel
+    );
+    assert_eq!(
+        reference.schema_version,
+        "shardloom.physical_kernel_admission.v1"
+    );
+    assert!(!reference.can_mark_kernel_present());
+
+    let mismatch = PhysicalKernelAdmissionReport::evaluate(
+        slot,
+        KernelKind::Encoded,
+        BenchmarkEvidenceState::Present,
+        BenchmarkEvidenceState::Present,
+        safe_streaming_memory(),
+        BenchmarkFallbackState::NotAttempted,
+    );
+    assert_eq!(
+        mismatch.status,
+        PhysicalKernelAdmissionStatus::BlockedKernelKindMismatch
+    );
+
+    let fallback = PhysicalKernelAdmissionReport::evaluate(
+        slot,
+        KernelKind::Metadata,
+        BenchmarkEvidenceState::Present,
+        BenchmarkEvidenceState::Present,
+        safe_streaming_memory(),
+        BenchmarkFallbackState::Attempted,
+    );
+    assert_eq!(
+        fallback.status,
+        PhysicalKernelAdmissionStatus::BlockedFallbackAttempted
+    );
+    assert!(fallback.fallback_attempted());
+    assert!(!fallback.fallback_execution_allowed());
+
+    let missing_correctness = PhysicalKernelAdmissionReport::evaluate(
+        slot,
+        KernelKind::Metadata,
+        BenchmarkEvidenceState::Missing,
+        BenchmarkEvidenceState::Present,
+        safe_streaming_memory(),
+        BenchmarkFallbackState::NotAttempted,
+    );
+    assert_eq!(
+        missing_correctness.status,
+        PhysicalKernelAdmissionStatus::BlockedMissingCorrectness
+    );
+    assert!(!missing_correctness.diagnostics.is_empty());
+
+    let unsafe_memory = PhysicalKernelAdmissionReport::evaluate(
+        slot,
+        KernelKind::Metadata,
+        BenchmarkEvidenceState::Present,
+        BenchmarkEvidenceState::Present,
+        OperatorMemoryCertification::unsupported(),
+        BenchmarkFallbackState::NotAttempted,
+    );
+    assert_eq!(
+        unsafe_memory.status,
+        PhysicalKernelAdmissionStatus::BlockedMissingMemorySafety
+    );
+}
+
+#[test]
+fn physical_kernel_admission_allows_registry_before_production_claims() {
+    let registry = PhysicalKernelRegistryPlan::cg7_foundation();
+    let slot = registry
+        .required_slots
+        .iter()
+        .find(|slot| slot.slot_id == "cg7.1.filter.kernel.metadata")
+        .expect("slot exists");
+
+    let registry_ready = PhysicalKernelAdmissionReport::evaluate(
+        slot,
+        KernelKind::Metadata,
+        BenchmarkEvidenceState::Present,
+        BenchmarkEvidenceState::Missing,
+        safe_streaming_memory(),
+        BenchmarkFallbackState::NotAttempted,
+    );
+    assert_eq!(
+        registry_ready.status,
+        PhysicalKernelAdmissionStatus::RegistryReady
+    );
+    assert!(registry_ready.can_mark_kernel_present());
+    assert!(!registry_ready.can_satisfy_production_claim());
+    assert!(registry_ready.diagnostics.is_empty());
+    assert!(
+        registry_ready
+            .to_human_text()
+            .contains("fallback execution: disabled")
+    );
+
+    let production_ready = PhysicalKernelAdmissionReport::evaluate(
+        slot,
+        KernelKind::Metadata,
+        BenchmarkEvidenceState::Present,
+        BenchmarkEvidenceState::Present,
+        safe_streaming_memory(),
+        BenchmarkFallbackState::NotAttempted,
+    );
+    assert_eq!(
+        production_ready.status,
+        PhysicalKernelAdmissionStatus::ProductionReady
+    );
+    assert!(production_ready.can_mark_kernel_present());
+    assert!(production_ready.can_satisfy_production_claim());
 }
 
 #[test]
