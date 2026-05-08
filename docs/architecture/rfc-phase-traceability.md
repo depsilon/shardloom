@@ -634,13 +634,21 @@ No fallback execution.
 - CG-2.2a adds `VortexFilteredCountReadinessRequest` and `VortexFilteredCountReadinessReport` planning/reporting only.
 - CG-2.2a.1 blocker precision helper update is complete: `filtered-count` + `PredicateProvided` maps to `EncodedPredicatePath` even when encoded-data-path readiness is missing; missing encoded-data-path reports `BlockedByMissingEncodedDataPath`; non-`filtered-count` primitives remain `Unknown`; metadata predicate-proof remains deferred to explicit proof contract.
 - Distinguishes `VortexFilteredCountCandidateSource::MetadataPredicateProof` vs `::EncodedPredicatePath`.
-- Metadata-proof filtered count remains blocked until a dedicated predicate-proof contract is introduced.
-- Filtered-count execution is not implemented.
+- Metadata-proof filtered count remains explicit and opt-in via `PredicateMetadataProofReady`; CG-2.2c admits it to metadata-only local execution only when a matching `CountWhere` request and metadata summary are supplied.
+- Encoded-predicate filtered-count execution is not implemented.
 - No scan/read-start, predicate evaluation, encoded-data read, row read, decode, materialization, `Arrow` conversion, object-store IO, writes, or fallback execution are added.
 - CG-2.2b CLI integration is complete via `shardloom vortex-filtered-count-readiness-plan <candidate_source> <dataset_uri> [flags] [--format text|json]`.
 - Keep CG-1 through CG-20 visible and current.
 - The command does not execute filtered count, does not evaluate predicates, does not call scan/read-start APIs, and performs no metadata/footer open, encoded-data read, row read, decode/materialization, `Arrow` conversion, object-store IO, writes, or fallback execution.
-- Filtered-count execution remains blocked until a real encoded predicate path or explicit metadata predicate proof execution capability exists; metadata-proof remains explicit and opt-in via `PredicateMetadataProofReady`.
+- Encoded-predicate filtered-count execution remains blocked until a real encoded predicate path exists.
+
+## CG-2.2c filtered-count metadata proof local guard
+
+- Primary RFC linkage: RFC 0012 Diagnostics/Capabilities, RFC 0013 Streaming/Zero-Copy Boundary, RFC 0015 Correctness/testing, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex query-readiness boundaries.
+- `execute_vortex_count_where_from_filtered_count_metadata_proof` accepts only `MetadataPredicateProof` readiness for matching `CountWhere` requests with metadata summaries.
+- Metadata-proven predicates can return metadata-only count results from segment metadata through the local execution report, preserving no encoded-data read, no row read, no decode/materialization, and no fallback.
+- Encoded-predicate candidates are rejected by this guard and remain future work.
+- This pass adds no encoded predicate evaluation, scan/read-start invocation, encoded-data traversal, row read, decode/materialization, Arrow conversion, object-store IO, write behavior, spill IO, external baseline invocation, or fallback execution.
 
 ## CG-2.3a projection readiness semantic hardening
 

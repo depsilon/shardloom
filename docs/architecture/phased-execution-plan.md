@@ -10,22 +10,20 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [x] Session label: CG-2.1e.14 encoded-count local guard capability discovery
-  - Current cleanup/implementation step: Surface the layout-approved encoded-count local guard in capability discovery without enabling execution.
+- [x] Session label: CG-2.2c filtered-count metadata proof local guard
+  - Current cleanup/implementation step: Let metadata-proven filtered-count readiness enter local execution only as metadata-only `CountWhere`, while rejecting encoded-predicate candidates.
   - Primary files:
     - `shardloom-vortex/src/local_execution.rs`
     - `shardloom-vortex/src/lib.rs`
-    - `shardloom-cli/src/main.rs`
-    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-  - Scope: Static, report-only capability fields for the encoded-count local guard, including accepted approval sources, deferred status, result-known state, and no-read/no-decode/no-fallback effects.
-  - Explicitly not included: Actual encoded-data traversal, scan/read-start APIs, layout-reader construction, runtime-driver startup, row reads, decode/materialization, Arrow conversion, object-store IO, writes, spill IO, external baseline execution, fallback execution, benchmarks, SQL/API/adapter expansion, or superiority claims.
+  - Scope: Metadata-only local guard helper for `MetadataPredicateProof` filtered-count readiness, with tests for metadata result execution and encoded-predicate rejection.
+  - Explicitly not included: Encoded predicate evaluation, actual encoded-data traversal, scan/read-start APIs, layout-reader construction, runtime-driver startup, row reads, decode/materialization, Arrow conversion, object-store IO, writes, spill IO, external baseline execution, fallback execution, benchmarks, SQL/API/adapter expansion, or superiority claims.
   - Validation required:
     - `cargo fmt --all -- --check`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: `shardloom capabilities operators` now exposes the encoded-count local guard as report-only discovery evidence; execution remains disabled and deferred.
+  - Completion notes: Metadata-proof filtered counts can now pass through a typed local guard to metadata-only execution; encoded-predicate candidates remain rejected by this guard.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -435,6 +433,13 @@
     - `shardloom capabilities operators --format json` emits an encoded-count local guard discovery block.
     - The discovery block records accepted approval sources, `needs_encoded_read`, `plan_only`, no count result, no data read, no decode/materialization, no runtime execution, and no fallback.
     - The discovery surface remains static/report-only and does not construct layout readers, start runtime drivers, scan, evaluate, read rows, decode/materialize, convert to Arrow, touch object stores, write, spill, invoke external baselines, or fallback.
+- [x] CG-2.2c filtered-count metadata proof local guard
+  - Why: wire metadata-proven filtered counts into the same local execution discipline before any encoded predicate execution is allowed.
+  - Acceptance:
+    - `execute_vortex_count_where_from_filtered_count_metadata_proof` accepts only `MetadataPredicateProof` readiness for matching `CountWhere` requests.
+    - Metadata-proven predicates can return metadata-only count results from segment metadata without reading data.
+    - Encoded-predicate candidates are rejected by this guard and remain future work.
+    - No encoded predicate evaluation, scan/read-start invocation, encoded-data traversal, row read, decode/materialization, Arrow conversion, object-store IO, write, spill, external baseline invocation, or fallback execution is added.
 - [ ] CG-2.1e encoded-data count execution path (planned)
   - Why: turn the approved encoded-data count candidate into actual native encoded execution after the public Vortex data path is approved.
   - Acceptance:
@@ -484,6 +489,7 @@ Status legend:
   - [x] CG-2.1e.13 layout-approved local count guard
   - [x] CG-2.1e.14 encoded-count local guard capability discovery
   - [~] CG-2.1+ non-metadata primitive execution remains deferred pending actual encoded-data execution
+  - [x] CG-2.2c filtered-count metadata proof local guard
   - [x] CG-2.3b projection readiness CLI integration
   - Required capabilities for completion:
     - encoded-first selection vectors
@@ -676,6 +682,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.2a filtered-count readiness core contract
 - [x] CG-2.2a.1 filtered-count blocker precision hardening
 - [x] CG-2.2b filtered-count readiness CLI integration
+- [x] CG-2.2c filtered-count metadata proof local guard
 - [x] CG-2.3a projection readiness semantic hardening
 - [x] CG-2.3b projection readiness CLI integration
 - [~] CG-2.1+ non-metadata query primitive execution remains deferred pending actual encoded-data execution
@@ -877,6 +884,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.12 layout-approved encoded count bridge lets encoded-count approval consume a matching, side-effect-free layout-row-count-only approval report while keeping actual layout-reader construction and data reads disabled.
 - [x] CG-2.1e.13 layout-approved local count guard feeds the approved report into local execution as deferred `NeedsEncodedRead` planning while preserving no-read/no-decode/no-fallback effects.
 - [x] CG-2.1e.14 encoded-count local guard capability discovery exposes the deferred guard in `capabilities operators` with static no-read/no-decode/no-fallback evidence.
+- [x] CG-2.2c filtered-count metadata proof local guard admits only metadata-proof `CountWhere` requests into metadata-only local execution and rejects encoded predicate candidates without fallback.
 - [x] CG-5.1 metadata query primitive correctness fixtures cover supported metadata answers and deferred unsupported paths without side effects.
 - [x] CG-5.2 metadata query primitive edge and diagnostic fixtures cover missing/unsupported metadata primitive paths without side effects.
 - [x] CG-5.3 correctness fixture manifest declares initial golden fixture/reference output and required edge-case fixture families without execution.
