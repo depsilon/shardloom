@@ -964,3 +964,13 @@ No fallback execution.
 - Primary RFC linkage: RFC 0032.
 - Related RFCs: RFC 0010, RFC 0011, RFC 0012, RFC 0013, RFC 0018, RFC 0019, RFC 0023, RFC 0030, and RFC 0031.
 - This phase adds no runtime behavior, parser, SQL execution, Python package, adapter runtime, media runtime, OCR/LLM/embedding dependency, external probing, superiority claim, or fallback behavior.
+
+## R5.4.13 README roadmap source-of-truth cleanup
+
+- README now acts as a stable project entry point rather than a mutable implementation-status ledger.
+- README points active implementation state to `docs/architecture/phased-execution-plan.md`.
+- README preserves the no-fallback policy and evidence-gated claim rule.
+- README names CG-20 user-capability surfaces such as SQL, Python/API, DataFrame/query builder, notebook, UDF, common ETL, universal adapters, and unstructured/media workflows without claiming implementation completion.
+- Primary RFC linkage: RFC 0025 and RFC 0032.
+- Related RFCs: RFC 0012, RFC 0029, RFC 0030, and RFC 0031.
+- This phase adds no runtime behavior, parser, execution, adapter runtime, Python package, media runtime, dependency change, benchmark claim, superiority claim, or fallback behavior.

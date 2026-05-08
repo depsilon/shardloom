@@ -16,6 +16,9 @@
 - If a supporting doc records completed history, keep it clearly labeled as a completed ledger or historical note.
 
 Supporting docs:
+- `README.md`
+  - Role: project entry point and stable orientation.
+  - Status rule: points to this phase plan for active state; must not duplicate active status checklists.
 - `docs/architecture/rfc-phase-traceability.md`
   - Role: maps phases and CG work to governing RFCs.
   - Status rule: may record traceability history, but this file owns current work state.
@@ -36,26 +39,22 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-16.1 local encoded `CountAll` execution certificate
+- [x] Session label: R5.4.13 README roadmap source-of-truth cleanup
   - Primary files:
-    - `shardloom-core/src/execution_certificate.rs`
-    - `shardloom-core/src/lib.rs`
-    - `shardloom-contract-tests/tests/execution_certificate_contracts.rs`
-    - `shardloom-vortex/src/local_execution.rs`
-    - `shardloom-vortex/src/encoded_read_executor.rs`
-    - `shardloom-vortex/src/lib.rs`
+    - `README.md`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-  - Scope: Add a deterministic CG-16 execution certificate surface for the approved local encoded `CountAll` path and prove it against the CG-5.5 correctness fixture.
+  - Scope: Refresh the top-level README so it is an evergreen project entry point that links to the phase plan instead of carrying stale status.
   - Checklist:
-    - [x] Add generic `ExecutionCertificateInput`, `ExecutionCertificate`, and status vocabulary in core.
-    - [x] Require matching expected/actual correctness output and no fallback/unsafe-effect evidence before certification.
-    - [x] Add contract tests for certified, fallback-blocked, unsafe-effect-blocked, and diagnostic-blocked certificates.
-    - [x] Add a Vortex helper that converts approved local encoded count reports into an execution certificate.
-    - [x] Extend the feature-gated local encoded count test to assert the certificate is certified and fallback-free.
-    - [x] Run focused default and feature-gated certificate tests.
-    - [x] Run full required validation.
-  - Explicitly not included: generalized execution certificates, native I/O certificates, benchmark certificates, external baseline invocation, generalized encoded-data execution, non-local adapters, object-store IO, encoded predicates, projections, row reads, requested decode/materialization, Arrow conversion, writes, spill IO, benchmark claims, superiority claims, fallback execution, CG-16 closeout, or later CG closeout.
+    - [x] Remove stale early-design status wording from README.
+    - [x] Point README readers to the phase plan as the active status source of truth.
+    - [x] Preserve no-fallback and evidence-gated-claim guardrails.
+    - [x] Mention CG-20 user-capability scope without claiming implementation completion.
+    - [x] Run docs hygiene and required validation.
+  - Local validation status:
+    - docs hygiene scans passed for stale README status wording, hidden/bidi controls, and `git diff --check`
+    - full Rust validation passed with toolchain `1.91.1` after one transient Windows linker-file-lock rerun
+  - Explicitly not included: runtime behavior, parser, execution, adapter runtime, Python package, media runtime, dependency changes, benchmark claims, superiority claims, fallback execution, or CG closeout.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -419,6 +418,12 @@ Supporting docs:
 - [x] R5.4.12 Common data/ETL and Python/media surface expansion
   - Why: make CG-20 broad enough for common data/ETL, Python, UDF, universal adapter, and unstructured/media adoption.
   - Acceptance: RFC/sequencing docs cover ETL coverage families, ETL reports, Python wrapper reports, CG-11/CG-20 ownership split, unstructured/media reports, event/API/SaaS adapter roadmap expansion, workload/scorecard/dossier evidence, and no-fallback boundaries.
+- [x] R5.4.13 README roadmap source-of-truth cleanup
+  - Why: keep the repository entry point aligned with the phase plan without creating a second active-status source.
+  - Acceptance: README points to the phase plan for active state, removes stale early-design wording, preserves no-fallback/evidence-gated-claim guardrails, and mentions CG-20 user-capability scope without claiming implementation completion.
+  - Local validation status:
+    - docs hygiene scans passed for stale README status wording, hidden/bidi controls, and `git diff --check`
+    - full Rust validation passed with toolchain `1.91.1` after one transient Windows linker-file-lock rerun
 
 ## Implementation Phase Queue
 - [x] R4 Resume CG implementation
