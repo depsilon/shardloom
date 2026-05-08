@@ -436,6 +436,14 @@ No fallback execution.
 - `shardloom-contract-tests/tests/correctness_fixture_manifest.rs` verifies the fixture is checked in, the row-count reference output does not require execution, null/nested/dictionary/sparse/run-length/temporal fixture families are tracked, and reference roles cannot become production fallback.
 - This pass adds no query execution behavior, external baseline invocation, benchmark claim, dependency, parser, adapter runtime, object-store IO, write behavior, or fallback execution.
 
+## CG-5.4 external baseline oracle policy
+
+- Primary RFC linkage: RFC 0015 Correctness/Semantics/Differential Testing, RFC 0029 Correctness/Benchmarks/Execution Certificates, RFC 0025 Competitive/no-fallback, and RFC 0032 capability certification gates.
+- `CorrectnessValidationPlan::default_foundation_plan` now declares Spark, DataFusion, DuckDB, Polars, and Velox as external correctness oracles only.
+- `DifferentialBaseline::external_correctness_oracle` records comparison-only notes and remains fallback-disabled.
+- `shardloom-contract-tests/tests/external_baseline_oracles.rs` verifies all declared baselines are present, reference-only, non-fallback-capable, and not runtime execution paths.
+- This pass adds no external engine dependency, external baseline invocation, query execution behavior, benchmark claim, parser, adapter runtime, object-store IO, write behavior, or fallback execution.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.

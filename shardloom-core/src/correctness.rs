@@ -163,6 +163,10 @@ impl DifferentialBaseline {
         self.notes = Some(notes.into());
         self
     }
+    pub fn external_correctness_oracle(engine: BaselineEngine) -> Self {
+        Self::new(engine)
+            .with_notes("external correctness oracle only; no runtime fallback execution")
+    }
     pub const fn is_fallback_allowed(&self) -> bool {
         false
     }
@@ -430,6 +434,19 @@ fn vortex_metadata_footer_fixture() -> CorrectnessFixture {
     fixture
 }
 
+fn default_external_oracle_baselines() -> Vec<DifferentialBaseline> {
+    [
+        BaselineEngine::Spark,
+        BaselineEngine::DataFusion,
+        BaselineEngine::DuckDb,
+        BaselineEngine::Polars,
+        BaselineEngine::Velox,
+    ]
+    .into_iter()
+    .map(DifferentialBaseline::external_correctness_oracle)
+    .collect()
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CorrectnessPlanStatus {
     Planned,
@@ -565,6 +582,9 @@ impl CorrectnessValidationPlan {
         ] {
             plan.add_fixture(fixture);
         }
+        for baseline in default_external_oracle_baselines() {
+            plan.add_baseline(baseline);
+        }
         plan
     }
     pub fn add_fixture(&mut self, fixture: CorrectnessFixture) {
@@ -584,6 +604,19 @@ impl CorrectnessValidationPlan {
     }
     pub fn fixture_count(&self) -> usize {
         self.fixtures.len()
+    }
+    pub fn baseline_count(&self) -> usize {
+        self.baselines.len()
+    }
+    pub fn has_baseline(&self, engine: BaselineEngine) -> bool {
+        self.baselines
+            .iter()
+            .any(|baseline| baseline.engine == engine)
+    }
+    pub fn baselines_are_fallback_free(&self) -> bool {
+        self.baselines
+            .iter()
+            .all(|baseline| !baseline.is_fallback_allowed())
     }
     pub fn has_errors(&self) -> bool {
         self.diagnostics.iter().any(|d| {
