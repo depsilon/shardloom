@@ -1,0 +1,93 @@
+use std::path::Path;
+
+use shardloom_core::{
+    CorrectnessFixture, CorrectnessValidationPlan, EdgeCase, ExpectedOutcome, FixtureFormat,
+    ReferenceRole, SemanticArea,
+};
+
+fn fixture<'a>(plan: &'a CorrectnessValidationPlan, id: &str) -> &'a CorrectnessFixture {
+    plan.fixtures
+        .iter()
+        .find(|fixture| fixture.id.as_str() == id)
+        .expect("fixture present")
+}
+
+#[test]
+fn foundation_plan_declares_checked_in_vortex_golden_fixture() {
+    let plan = CorrectnessValidationPlan::default_foundation_plan();
+    let fixture = fixture(&plan, "vortex-metadata-footer-u64-20000");
+
+    assert_eq!(fixture.format, FixtureFormat::ShardLoomNative);
+    assert_eq!(
+        fixture.source_ref.as_deref(),
+        Some("shardloom-vortex/tests/fixtures/metadata_footer_u64_20000.vortex")
+    );
+    let workspace_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("workspace root");
+    let fixture_path = workspace_root.join(fixture.source_ref.as_ref().expect("source ref"));
+    assert!(fixture_path.is_file(), "{fixture_path:?}");
+    assert_eq!(
+        fixture.expected,
+        ExpectedOutcome::MetadataRowCount { row_count: 20000 }
+    );
+    assert!(!fixture.expected.requires_execution());
+    assert!(fixture.covers_area(SemanticArea::MetadataOnly));
+    assert!(fixture.covers_edge_case(EdgeCase::NoNulls));
+    assert!(fixture.has_reference_role(ReferenceRole::GoldenFixture));
+    assert!(fixture.reference_roles_are_test_only());
+}
+
+#[test]
+fn foundation_plan_tracks_required_edge_case_fixture_families() {
+    let plan = CorrectnessValidationPlan::default_foundation_plan();
+    let required = [
+        (SemanticArea::Nulls, EdgeCase::AllNull),
+        (SemanticArea::NestedData, EdgeCase::NestedStructList),
+        (SemanticArea::EncodedExecution, EdgeCase::DictionaryEncoded),
+        (SemanticArea::SelectionVectors, EdgeCase::SparseValidity),
+        (SemanticArea::EncodedExecution, EdgeCase::RunLengthEncoded),
+        (SemanticArea::Temporal, EdgeCase::TemporalValues),
+        (
+            SemanticArea::UnsupportedDiagnostics,
+            EdgeCase::UnsupportedPlanShape,
+        ),
+    ];
+
+    for (area, edge) in required {
+        assert!(
+            plan.fixtures
+                .iter()
+                .any(|fixture| fixture.covers_area(area) && fixture.covers_edge_case(edge)),
+            "missing fixture family for {} / {}",
+            area.as_str(),
+            edge.as_str()
+        );
+    }
+}
+
+#[test]
+fn reference_roles_remain_test_only_not_production_fallback() {
+    let plan = CorrectnessValidationPlan::default_foundation_plan();
+    let roles = [
+        ReferenceRole::DecodedReference,
+        ReferenceRole::ExternalOracle,
+        ReferenceRole::GoldenFixture,
+        ReferenceRole::GeneratedProperty,
+        ReferenceRole::FuzzSeed,
+    ];
+
+    for role in roles {
+        assert!(!role.is_production_execution(), "{}", role.as_str());
+    }
+    assert!(
+        plan.fixtures
+            .iter()
+            .all(CorrectnessFixture::reference_roles_are_test_only)
+    );
+    assert!(!plan.fallback_execution_allowed());
+    assert!(
+        plan.to_human_text()
+            .contains("external baselines: test/comparison only")
+    );
+}
