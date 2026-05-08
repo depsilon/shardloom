@@ -17,6 +17,7 @@ pub mod feature_footprint;
 pub mod input;
 pub mod manifest;
 pub mod observability;
+pub mod operator;
 pub mod output;
 pub mod release;
 pub mod schema;
@@ -98,6 +99,12 @@ pub use observability::{
     OperatorProfile, RedactionStatus, RuntimeObservabilityReport, SensitivityLevel,
     StructuredEvent, StructuredEventKind, TraceSpanCategory, TraceSpanId, TraceSpanSkeleton,
     TraceSpanStatus,
+};
+
+pub use operator::{
+    PhysicalKernelRequirement, PhysicalKernelRequirementStatus, PhysicalOperatorContract,
+    PhysicalOperatorExecutionLevel, PhysicalOperatorKind, PhysicalOperatorPlan,
+    PhysicalOperatorReadinessStatus,
 };
 
 pub use output::{CommandStatus, OutputEnvelope, OutputFormat};

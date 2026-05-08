@@ -484,6 +484,14 @@ No fallback execution.
 - `shardloom-contract-tests/tests/benchmark_evidence_manifest.rs` verifies comparison-ready reports remain blocked without reproducibility and that complete synthetic comparison/reproducibility evidence is required before the publication gate can open.
 - This pass adds no benchmark runner, external baseline invocation, query execution behavior, superiority claim, dependency, parser, adapter runtime, object-store IO, write behavior, or fallback execution.
 
+## CG-7.1 physical operator/kernel contract foundation
+
+- Primary RFC linkage: RFC 0021 Expression Engine and Kernel Registry, RFC 0027 CPU Vectorized Kernels/Runtime Adaptivity, RFC 0014 Memory/Spill/OOM Safety, RFC 0025 competitive/no-fallback guardrails, and RFC 0032 operator certification requirements.
+- `PhysicalOperatorPlan::cg7_foundation` declares report-only filter, project, and count-aggregate operator contracts with required metadata/encoded kernel blockers.
+- `PhysicalKernelRequirement` rejects decoded-reference kernels as production native evidence, and `PhysicalOperatorContract` keeps native planning blocked while required kernels are missing.
+- `shardloom-contract-tests/tests/physical_operator_kernel_contracts.rs` verifies missing-kernel blockers, reference-only rejection, synthetic native-readiness without execution, and no-fallback invariants.
+- This pass adds no kernel implementation, query execution behavior, encoded-data traversal, scan/read-start API calls, row reads, decode/materialization, Arrow conversion, object-store IO, write behavior, external engine invocation, or fallback execution.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.
