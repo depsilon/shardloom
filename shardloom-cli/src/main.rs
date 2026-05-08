@@ -51,6 +51,7 @@ use shardloom_vortex::{
     VortexFilteredCountCandidateSource, VortexFilteredCountReadinessSignal,
     VortexFinalizedManifestArtifactWriteOption, VortexFinalizedManifestContent,
     VortexFinalizedManifestFileName, VortexFinalizedManifestFileRef,
+    VortexLayoutReaderDriverApprovalInput, VortexLayoutReaderDriverApprovalSignal,
     VortexManifestFinalizationRequest, VortexManifestFinalizationSignal, VortexMetadataOpenRequest,
     VortexMetadataProbeReport, VortexOutputPayloadContentDescriptor, VortexOutputPayloadFileName,
     VortexOutputPayloadFileRef, VortexOutputPayloadReport, VortexOutputPayloadRequest,
@@ -76,9 +77,9 @@ use shardloom_vortex::{
     plan_vortex_commit_intent, plan_vortex_commit_marker, plan_vortex_commit_protocol,
     plan_vortex_count_readiness, plan_vortex_encoded_count_data_path_approval,
     plan_vortex_encoded_read_boundary, plan_vortex_encoded_read_probe,
-    plan_vortex_filtered_count_readiness, plan_vortex_manifest_finalization,
-    plan_vortex_memory_safety, plan_vortex_metadata_pruning, plan_vortex_output_payload,
-    plan_vortex_projection_readiness, plan_vortex_query_primitive,
+    plan_vortex_filtered_count_readiness, plan_vortex_layout_reader_driver_approval,
+    plan_vortex_manifest_finalization, plan_vortex_memory_safety, plan_vortex_metadata_pruning,
+    plan_vortex_output_payload, plan_vortex_projection_readiness, plan_vortex_query_primitive,
     plan_vortex_read_from_universal_input, plan_vortex_scheduler_queue,
     plan_vortex_staged_manifest_file, plan_vortex_write_intent, probe_vortex_encoded_read_metadata,
     probe_vortex_metadata_only, run_vortex_local_engine, setup_vortex_staged_workspace,
@@ -125,7 +126,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -254,6 +255,61 @@ fn parse_vortex_encoded_read_metadata_probe_signals(
                 return Err(cli_unknown_signal_error(
                     "vortex-encoded-read-metadata-probe",
                     "encoded-read-metadata-probe",
+                    token,
+                ));
+            }
+        };
+        if !signals.contains(&signal) {
+            signals.push(signal);
+        }
+    }
+    Ok(signals)
+}
+
+fn parse_vortex_layout_driver_approval_signals(
+    signals_raw: &str,
+) -> Result<Vec<VortexLayoutReaderDriverApprovalSignal>, ShardLoomError> {
+    if signals_raw.trim().is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "layout driver approval signals must not be empty".to_string(),
+        ));
+    }
+    let mut signals = Vec::new();
+    for token in signals_raw.split(',') {
+        let token = token.trim();
+        if token.is_empty() {
+            return Err(ShardLoomError::InvalidOperation(
+                "layout driver approval signals must not contain empty tokens".to_string(),
+            ));
+        }
+        let signal = match token {
+            "local-fixture-only" => VortexLayoutReaderDriverApprovalSignal::LocalFixtureOnly,
+            "caller-session-allowed" => {
+                VortexLayoutReaderDriverApprovalSignal::CallerSessionAllowed
+            }
+            "runtime-driver-start-allowed" => {
+                VortexLayoutReaderDriverApprovalSignal::RuntimeDriverStartAllowed
+            }
+            "layout-row-count-only-intent" => {
+                VortexLayoutReaderDriverApprovalSignal::LayoutRowCountOnlyIntent
+            }
+            "scan-forbidden" => VortexLayoutReaderDriverApprovalSignal::ScanForbidden,
+            "evaluation-forbidden" => VortexLayoutReaderDriverApprovalSignal::EvaluationForbidden,
+            "data-read-forbidden" => VortexLayoutReaderDriverApprovalSignal::DataReadForbidden,
+            "decode-forbidden" => VortexLayoutReaderDriverApprovalSignal::DecodeForbidden,
+            "materialization-forbidden" => {
+                VortexLayoutReaderDriverApprovalSignal::MaterializationForbidden
+            }
+            "arrow-forbidden" => VortexLayoutReaderDriverApprovalSignal::ArrowForbidden,
+            "object-store-forbidden" => {
+                VortexLayoutReaderDriverApprovalSignal::ObjectStoreForbidden
+            }
+            "write-forbidden" => VortexLayoutReaderDriverApprovalSignal::WriteForbidden,
+            "fallback-forbidden" => VortexLayoutReaderDriverApprovalSignal::FallbackForbidden,
+            _ => {
+                return Err(cli_unknown_signal_error(
+                    "vortex-layout-driver-approval-plan",
+                    "layout-driver-approval",
                     token,
                 ));
             }
@@ -8958,6 +9014,121 @@ fn run(args: Vec<String>) -> ExitCode {
                 ExitCode::SUCCESS
             }
         }
+        Some("vortex-layout-driver-approval-plan") => {
+            let command = "vortex-layout-driver-approval-plan";
+            let Some(signals_raw) = args.next() else {
+                return emit_error(
+                    command,
+                    format,
+                    "missing signals",
+                    &ShardLoomError::InvalidOperation(
+                        "missing required argument: <signals>".to_string(),
+                    ),
+                );
+            };
+            if let Some(extra) = args.next() {
+                return emit_error(
+                    command,
+                    format,
+                    "unknown option",
+                    &ShardLoomError::InvalidOperation(format!("unknown option: {extra}")),
+                );
+            }
+            let signals = match parse_vortex_layout_driver_approval_signals(&signals_raw) {
+                Ok(signals) => signals,
+                Err(error) => {
+                    return emit_error(command, format, "invalid signals", &error);
+                }
+            };
+            let mut input = VortexLayoutReaderDriverApprovalInput::new(
+                vortex_encoded_read_public_api_boundary(),
+            );
+            for signal in signals {
+                input.add_signal(signal);
+            }
+            let report = match plan_vortex_layout_reader_driver_approval(input) {
+                Ok(report) => report,
+                Err(error) => {
+                    return emit_error(
+                        command,
+                        format,
+                        "layout driver approval planning failed",
+                        &error,
+                    );
+                }
+            };
+            emit(
+                command,
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "vortex layout driver approval planning report".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                vec![
+                    ("status".to_string(), report.status.as_str().to_string()),
+                    ("mode".to_string(), report.mode.as_str().to_string()),
+                    ("approved".to_string(), report.approved().to_string()),
+                    (
+                        "layout_reader_surface_present".to_string(),
+                        report.layout_reader_surface_present.to_string(),
+                    ),
+                    (
+                        "layout_row_count_surface_present".to_string(),
+                        report.layout_row_count_surface_present.to_string(),
+                    ),
+                    (
+                        "runtime_driver_risk_present".to_string(),
+                        report.runtime_driver_risk_present.to_string(),
+                    ),
+                    (
+                        "layout_reader_constructed".to_string(),
+                        report.layout_reader_constructed.to_string(),
+                    ),
+                    (
+                        "runtime_driver_started".to_string(),
+                        report.runtime_driver_started.to_string(),
+                    ),
+                    ("scan_called".to_string(), report.scan_called.to_string()),
+                    (
+                        "evaluation_called".to_string(),
+                        report.evaluation_called.to_string(),
+                    ),
+                    ("data_read".to_string(), report.data_read.to_string()),
+                    ("row_read".to_string(), report.row_read.to_string()),
+                    ("data_decoded".to_string(), report.data_decoded.to_string()),
+                    (
+                        "data_materialized".to_string(),
+                        report.data_materialized.to_string(),
+                    ),
+                    (
+                        "arrow_converted".to_string(),
+                        report.arrow_converted.to_string(),
+                    ),
+                    (
+                        "object_store_io".to_string(),
+                        report.object_store_io.to_string(),
+                    ),
+                    ("write_io".to_string(), report.write_io.to_string()),
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        report.fallback_execution_allowed.to_string(),
+                    ),
+                    (
+                        "side_effect_free".to_string(),
+                        report.is_side_effect_free().to_string(),
+                    ),
+                ],
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
         Some("vortex-filtered-count-readiness-plan") => {
             let Some(source_arg) = args.next() else {
                 return emit_error(
@@ -11132,6 +11303,28 @@ mod tests {
         ]);
         assert_eq!(code, ExitCode::SUCCESS);
     }
+
+    fn layout_driver_approval_signals(runtime_allowed: bool) -> String {
+        let mut signals = vec![
+            "local-fixture-only",
+            "caller-session-allowed",
+            "layout-row-count-only-intent",
+            "scan-forbidden",
+            "evaluation-forbidden",
+            "data-read-forbidden",
+            "decode-forbidden",
+            "materialization-forbidden",
+            "arrow-forbidden",
+            "object-store-forbidden",
+            "write-forbidden",
+            "fallback-forbidden",
+        ];
+        if runtime_allowed {
+            signals.push("runtime-driver-start-allowed");
+        }
+        signals.join(",")
+    }
+
     #[test]
     fn usage_includes_vortex_count_readiness_plan() {
         assert!(cli_usage_line().contains("vortex-count-readiness-plan"));
@@ -11139,6 +11332,10 @@ mod tests {
     #[test]
     fn usage_includes_vortex_encoded_count_approval_plan() {
         assert!(cli_usage_line().contains("vortex-encoded-count-approval-plan"));
+    }
+    #[test]
+    fn usage_includes_vortex_layout_driver_approval_plan() {
+        assert!(cli_usage_line().contains("vortex-layout-driver-approval-plan"));
     }
     #[test]
     fn usage_includes_vortex_filtered_count_readiness_plan() {
@@ -11332,6 +11529,65 @@ mod tests {
                 "--query-primitive-ready".to_string(),
                 "--count-primitive".to_string(),
                 "--encoded-data-path-ready".to_string(),
+                "--format".to_string(),
+                "json".to_string(),
+            ]),
+            ExitCode::SUCCESS
+        );
+    }
+    #[test]
+    fn parse_vortex_layout_driver_approval_signals_unknown_token_maps_to_invalid_input() {
+        let err = parse_vortex_layout_driver_approval_signals("bad-token").unwrap_err();
+        assert!(err.to_string().contains("bad-token"));
+    }
+    #[test]
+    fn parse_vortex_layout_driver_approval_signals_dedup_and_trim() {
+        let parsed = parse_vortex_layout_driver_approval_signals(
+            "local-fixture-only, local-fixture-only,caller-session-allowed",
+        )
+        .unwrap();
+        assert_eq!(
+            parsed,
+            vec![
+                VortexLayoutReaderDriverApprovalSignal::LocalFixtureOnly,
+                VortexLayoutReaderDriverApprovalSignal::CallerSessionAllowed,
+            ]
+        );
+    }
+    #[test]
+    fn vortex_layout_driver_approval_plan_missing_signals_returns_non_zero() {
+        assert_ne!(
+            run(vec!["vortex-layout-driver-approval-plan".to_string()]),
+            ExitCode::SUCCESS
+        );
+    }
+    #[test]
+    fn vortex_layout_driver_approval_plan_unknown_extra_token_returns_non_zero() {
+        assert_ne!(
+            run(vec![
+                "vortex-layout-driver-approval-plan".to_string(),
+                layout_driver_approval_signals(true),
+                "--nope".to_string(),
+            ]),
+            ExitCode::SUCCESS
+        );
+    }
+    #[test]
+    fn vortex_layout_driver_approval_plan_current_api_boundary_blocks_without_driver_signal() {
+        assert_ne!(
+            run(vec![
+                "vortex-layout-driver-approval-plan".to_string(),
+                layout_driver_approval_signals(false),
+            ]),
+            ExitCode::SUCCESS
+        );
+    }
+    #[test]
+    fn vortex_layout_driver_approval_plan_json_ready_remains_report_only() {
+        assert_eq!(
+            run(vec![
+                "vortex-layout-driver-approval-plan".to_string(),
+                layout_driver_approval_signals(true),
                 "--format".to_string(),
                 "json".to_string(),
             ]),
