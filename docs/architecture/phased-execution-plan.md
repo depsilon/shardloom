@@ -36,24 +36,26 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-5.5 local encoded `CountAll` correctness fixture/reference-output proof
+- [x] Session label: CG-16.1 local encoded `CountAll` execution certificate
   - Primary files:
-    - `shardloom-core/src/correctness.rs`
-    - `shardloom-contract-tests/tests/correctness_fixture_manifest.rs`
+    - `shardloom-core/src/execution_certificate.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-contract-tests/tests/execution_certificate_contracts.rs`
+    - `shardloom-vortex/src/local_execution.rs`
     - `shardloom-vortex/src/encoded_read_executor.rs`
-    - `shardloom-vortex/tests/fixtures/README.md`
+    - `shardloom-vortex/src/lib.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-  - Scope: Tie the checked-in Vortex golden fixture to an encoded `CountAll` reference output and verify the approved local encoded count path against that manifest evidence.
+  - Scope: Add a deterministic CG-16 execution certificate surface for the approved local encoded `CountAll` path and prove it against the CG-5.5 correctness fixture.
   - Checklist:
-    - [x] Add an `ExpectedOutcome::EncodedCount` manifest reference-output shape.
-    - [x] Declare `vortex-local-encoded-count-u64-20000` in the default correctness foundation plan.
-    - [x] Assert the checked-in fixture path, expected count, execution requirement, golden role, and no-fallback reference role in contract tests.
-    - [x] Add a feature-gated Vortex correctness test that the approved local encoded count path returns the manifest count without decode/materialization/row/Arrow/object-store/write/spill/external/fallback effects.
-    - [x] Update fixture README scope so metadata and approved local encoded-count evidence are both explicit.
-    - [x] Run focused default and feature-gated correctness tests.
+    - [x] Add generic `ExecutionCertificateInput`, `ExecutionCertificate`, and status vocabulary in core.
+    - [x] Require matching expected/actual correctness output and no fallback/unsafe-effect evidence before certification.
+    - [x] Add contract tests for certified, fallback-blocked, unsafe-effect-blocked, and diagnostic-blocked certificates.
+    - [x] Add a Vortex helper that converts approved local encoded count reports into an execution certificate.
+    - [x] Extend the feature-gated local encoded count test to assert the certificate is certified and fallback-free.
+    - [x] Run focused default and feature-gated certificate tests.
     - [x] Run full required validation.
-  - Explicitly not included: new fixtures, decoded reference engine execution, external baseline invocation, generalized encoded-data execution, non-local adapters, object-store IO, encoded predicates, projections, row reads, requested decode/materialization, Arrow conversion, writes, spill IO, benchmark claims, superiority claims, fallback execution, CG-1 closeout, CG-2 closeout, or CG-5 closeout.
+  - Explicitly not included: generalized execution certificates, native I/O certificates, benchmark certificates, external baseline invocation, generalized encoded-data execution, non-local adapters, object-store IO, encoded predicates, projections, row reads, requested decode/materialization, Arrow conversion, writes, spill IO, benchmark claims, superiority claims, fallback execution, CG-16 closeout, or later CG closeout.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -791,6 +793,7 @@ Status legend:
     - no fallback engines for specialization
 
 - [ ] CG-16 — Evidence-first execution certificates (**planned**)
+  - [x] CG-16.1 local encoded `CountAll` execution certificate
   - Scope:
     - plan/input/output evidence artifacts
     - reproducibility metadata
@@ -1009,6 +1012,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [ ] no external engine fallback for specialization
 
 ### CG-16 detailed checklist
+- [x] CG-16.1 local encoded `CountAll` execution certificate
 - [ ] plan/input/output evidence artifacts for reproducibility
 - [ ] deterministic, machine-readable certificate surfaces
 
@@ -1115,6 +1119,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-5.3 correctness fixture manifest declares initial golden fixture/reference output and required edge-case fixture families without execution.
 - [x] CG-5.4 external baseline oracle policy declares comparison-only baselines and blocks runtime fallback.
 - [x] CG-5.5 local encoded `CountAll` fixture/reference-output proof declares `ExpectedOutcome::EncodedCount { count: 20000 }` for the checked-in Vortex fixture and verifies the approved local encoded count path returns that value without decode/materialization/row/Arrow/object-store/write/spill/external/fallback effects.
+- [x] CG-16.1 local encoded `CountAll` execution certificate adds a deterministic core certificate contract and Vortex adapter helper that certify the approved local encoded count path only when expected/actual correctness output matches and fallback/unsafe-effect evidence is absent.
 - [x] CG-6.1 benchmark evidence manifest covers required metric categories without running benchmarks.
 - [x] CG-6.2 benchmark claim gate blocks publication without correctness, benchmark, comparison, metric, and no-fallback evidence.
 - [x] CG-6.3 benchmark comparison report contract records missing scenario/baseline results and metric gaps without running benchmarks or invoking external baselines.

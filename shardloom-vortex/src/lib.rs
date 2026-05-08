@@ -397,8 +397,8 @@ pub use local_execution::{
     execute_vortex_count_all_from_encoded_data_candidate,
     execute_vortex_count_all_from_metadata_footer_invocation,
     execute_vortex_count_where_from_filtered_count_metadata_proof,
-    execute_vortex_local_query_primitive, vortex_encoded_count_local_guard_discovery_report,
-    vortex_local_execution_is_side_effect_free,
+    execute_vortex_local_query_primitive, local_encoded_count_execution_certificate,
+    vortex_encoded_count_local_guard_discovery_report, vortex_local_execution_is_side_effect_free,
 };
 
 pub use metadata_summary::{

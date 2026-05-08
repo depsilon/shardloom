@@ -1637,8 +1637,11 @@ mod tests {
         use crate::{
             VortexLocalExecutionStatus, VortexLocalExecutionValue, VortexQueryPrimitiveValue,
             execute_vortex_count_all_from_approved_local_scan_result,
+            local_encoded_count_execution_certificate,
         };
-        use shardloom_core::{CorrectnessValidationPlan, DatasetUri, ExpectedOutcome};
+        use shardloom_core::{
+            CorrectnessValidationPlan, DatasetUri, ExecutionCertificateStatus, ExpectedOutcome,
+        };
 
         let plan = CorrectnessValidationPlan::default_foundation_plan();
         let fixture = plan
@@ -1694,6 +1697,27 @@ mod tests {
         assert!(!local_report.external_effects_executed);
         assert!(!local_report.fallback_execution_allowed);
         assert!(!local_report.has_errors());
+
+        let certificate =
+            local_encoded_count_execution_certificate(fixture, &encoded_report, &local_report)
+                .expect("execution certificate");
+        assert_eq!(certificate.status, ExecutionCertificateStatus::Certified);
+        assert!(certificate.is_certified());
+        assert_eq!(
+            certificate.correctness_fixture_id.as_deref(),
+            Some("vortex-local-encoded-count-u64-20000")
+        );
+        assert_eq!(certificate.expected_outcome, certificate.actual_outcome);
+        assert!(certificate.data_read);
+        assert!(!certificate.data_decoded);
+        assert!(!certificate.data_materialized);
+        assert!(!certificate.row_read);
+        assert!(!certificate.arrow_converted);
+        assert!(!certificate.object_store_io);
+        assert!(!certificate.write_io);
+        assert!(!certificate.spill_io_performed);
+        assert!(!certificate.external_effects_executed);
+        assert!(certificate.fallback_free());
     }
 
     #[cfg(feature = "vortex-encoded-read-spike")]

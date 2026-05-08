@@ -11,6 +11,7 @@ pub mod correctness;
 pub mod dataset;
 pub mod diagnostics;
 pub mod encoded;
+pub mod execution_certificate;
 pub mod expression;
 pub mod extension;
 pub mod feature_footprint;
@@ -60,6 +61,9 @@ pub use encoded::{
     ExecutionState, LayoutKind, LogicalDType, MaterializationPolicy, Nullability, PredicateExpr,
     PredicateProof, PruningDecision, SegmentId, SegmentLayout, SegmentStats, SelectionVector,
     SortOrder, StatValue, StatisticsExactness,
+};
+pub use execution_certificate::{
+    ExecutionCertificate, ExecutionCertificateInput, ExecutionCertificateStatus,
 };
 pub use extension::{
     ExtensionCapability, ExtensionCapabilityStatus, ExtensionCategory, ExtensionEffectDeclaration,
