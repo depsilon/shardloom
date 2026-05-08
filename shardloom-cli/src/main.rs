@@ -50,14 +50,15 @@ use shardloom_exec::{
     spill_payload_fs_feature_enabled,
 };
 use shardloom_plan::{
-    EstimateReport, ExplainReport, NativePlanDocument, ObjectStoreCommitProtocolInput,
+    EstimateReport, ExplainReport, NativePlanDocument, ObjectStoreCheckpointRetryInput,
+    ObjectStoreCheckpointRetryReport, ObjectStoreCommitProtocolInput,
     ObjectStoreCommitProtocolReport, ObjectStoreDistributedSchedulingPolicy,
     ObjectStoreDistributedSchedulingReport, ObjectStoreRangePlanningPolicy,
     ObjectStoreRangePlanningReport, ObjectStoreRequestCoalescingReport, OptimizerPhase,
     OptimizerPlanSkeleton, PlanExportRequest, PlanId, PlanImportRequest, PlanInteropFormat,
-    ProjectionRequest, ScanPlanSkeleton, ScanRequest, plan_object_store_commit_protocol,
-    plan_object_store_distributed_scheduling, plan_object_store_ranges,
-    plan_object_store_request_coalescing, plan_universal_input_source,
+    ProjectionRequest, ScanPlanSkeleton, ScanRequest, plan_object_store_checkpoint_retry,
+    plan_object_store_commit_protocol, plan_object_store_distributed_scheduling,
+    plan_object_store_ranges, plan_object_store_request_coalescing, plan_universal_input_source,
 };
 use shardloom_vortex::{
     VortexAdapterCapabilityReport, VortexAdapterReadiness, VortexAdaptiveSizingReport,
@@ -175,7 +176,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|layout-health-plan|compaction-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|layout-health-plan|compaction-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -7281,6 +7282,171 @@ fn object_store_schedule_fixture(
     }
 }
 
+fn emit_object_store_checkpoint_retry_plan(format: OutputFormat, scenario: &str) -> ExitCode {
+    let input = match object_store_checkpoint_retry_fixture(scenario) {
+        Ok(input) => input,
+        Err(error) => {
+            return emit_error(
+                "object-store-checkpoint-retry-plan",
+                format,
+                "object-store checkpoint/retry planning failed",
+                &error,
+            );
+        }
+    };
+    let report = plan_object_store_checkpoint_retry(input);
+    let status = if report.has_errors() {
+        CommandStatus::Unsupported
+    } else {
+        CommandStatus::Success
+    };
+    emit(
+        "object-store-checkpoint-retry-plan",
+        format,
+        status,
+        "object-store checkpoint/retry report".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        object_store_checkpoint_retry_output_fields(&report, scenario),
+    );
+    if report.has_errors() {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+fn object_store_checkpoint_retry_output_fields(
+    report: &ObjectStoreCheckpointRetryReport,
+    scenario: &str,
+) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    push_field(&mut fields, "fallback_execution_allowed", "false");
+    push_field(&mut fields, "mode", "object_store_checkpoint_retry_plan");
+    push_field(&mut fields, "scenario", scenario);
+    push_field(
+        &mut fields,
+        "object_store_checkpoint_retry_status",
+        report.status.as_str(),
+    );
+    push_count_field(&mut fields, "task_count", report.task_count);
+    push_count_field(
+        &mut fields,
+        "retryable_task_count",
+        report.retryable_task_count,
+    );
+    push_count_field(
+        &mut fields,
+        "planned_checkpoint_record_count",
+        report.planned_checkpoint_record_count,
+    );
+    push_count_field(
+        &mut fields,
+        "planned_attempt_record_count",
+        report.planned_attempt_record_count,
+    );
+    push_bool_field(
+        &mut fields,
+        "requires_retry_policy",
+        report.requires_retry_policy,
+    );
+    push_bool_field(
+        &mut fields,
+        "requires_checkpoint_plan",
+        report.requires_checkpoint_plan,
+    );
+    push_bool_field(
+        &mut fields,
+        "requires_idempotency_keys",
+        report.requires_idempotency_keys,
+    );
+    push_bool_field(
+        &mut fields,
+        "requires_attempt_records",
+        report.requires_attempt_records,
+    );
+    push_bool_field(
+        &mut fields,
+        "requires_cleanup_policy",
+        report.requires_cleanup_policy,
+    );
+    push_bool_field(
+        &mut fields,
+        "retry_execution_allowed",
+        report.retry_execution_allowed,
+    );
+    push_bool_field(
+        &mut fields,
+        "checkpoint_write_allowed",
+        report.checkpoint_write_allowed,
+    );
+    push_bool_field(
+        &mut fields,
+        "cleanup_execution_allowed",
+        report.cleanup_execution_allowed,
+    );
+    push_bool_field(
+        &mut fields,
+        "coordinator_started",
+        report.coordinator_started,
+    );
+    push_bool_field(&mut fields, "worker_started", report.worker_started);
+    push_bool_field(&mut fields, "side_effect_free", report.side_effect_free());
+    push_bool_field(&mut fields, "object_store_io", report.object_store_io);
+    push_bool_field(&mut fields, "write_io", report.write_io);
+    push_field(&mut fields, "execution", "not_performed");
+    push_field(&mut fields, "plan_only", "true");
+    fields
+}
+
+fn object_store_checkpoint_retry_fixture(
+    scenario: &str,
+) -> Result<ObjectStoreCheckpointRetryInput, ShardLoomError> {
+    let scheduling_report = |schedule_scenario: &str| -> Result<
+        ObjectStoreDistributedSchedulingReport,
+        ShardLoomError,
+    > {
+        let (manifest, range_policy, scheduling_policy) =
+            object_store_schedule_fixture(schedule_scenario)?;
+        let coalescing_report = plan_object_store_request_coalescing(manifest, range_policy);
+        Ok(plan_object_store_distributed_scheduling(
+            coalescing_report,
+            scheduling_policy,
+        ))
+    };
+    let ready = || -> Result<ObjectStoreCheckpointRetryInput, ShardLoomError> {
+        Ok(
+            ObjectStoreCheckpointRetryInput::new(scheduling_report("multi-task")?)
+                .with_retry_policy(true)
+                .with_checkpoint_plan(true)
+                .with_idempotency_keys(true)
+                .with_attempt_record(true)
+                .with_cleanup_policy(true),
+        )
+    };
+
+    match scenario {
+        "ready" => ready(),
+        "missing-retry" => Ok(ready()?.with_retry_policy(false)),
+        "missing-checkpoint" => Ok(ready()?.with_checkpoint_plan(false)),
+        "missing-idempotency" => Ok(ready()?.with_idempotency_keys(false)),
+        "missing-attempt" => Ok(ready()?.with_attempt_record(false)),
+        "missing-cleanup" => Ok(ready()?.with_cleanup_policy(false)),
+        "blocked-scheduling" => Ok(ObjectStoreCheckpointRetryInput::new(scheduling_report(
+            "task-budget",
+        )?)
+        .with_retry_policy(true)
+        .with_checkpoint_plan(true)
+        .with_idempotency_keys(true)
+        .with_attempt_record(true)
+        .with_cleanup_policy(true)),
+        value => Err(cli_unknown_arg_error(
+            "object-store-checkpoint-retry-plan",
+            value,
+        )),
+    }
+}
+
 fn emit_object_store_commit_plan(format: OutputFormat, scenario: &str) -> ExitCode {
     let input = match object_store_commit_fixture(scenario) {
         Ok(input) => input,
@@ -10399,6 +10565,18 @@ fn run(args: Vec<String>) -> ExitCode {
                 );
             }
             emit_object_store_schedule_plan(format, &scenario)
+        }
+        Some("object-store-checkpoint-retry-plan") => {
+            let scenario = args.next().unwrap_or_else(|| "ready".to_string());
+            if let Some(extra) = args.next() {
+                return emit_error(
+                    "object-store-checkpoint-retry-plan",
+                    format,
+                    "object-store checkpoint/retry planning failed",
+                    &cli_unknown_arg_error("object-store-checkpoint-retry-plan", &extra),
+                );
+            }
+            emit_object_store_checkpoint_retry_plan(format, &scenario)
         }
         Some("object-store-commit-plan") => {
             let scenario = args.next().unwrap_or_else(|| "ready".to_string());
@@ -17778,6 +17956,33 @@ mod tests {
     }
 
     #[test]
+    fn object_store_checkpoint_retry_plan_ready_returns_success() {
+        let code = run(vec![
+            "object-store-checkpoint-retry-plan".to_string(),
+            "ready".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn object_store_checkpoint_retry_plan_missing_idempotency_returns_non_zero() {
+        let code = run(vec![
+            "object-store-checkpoint-retry-plan".to_string(),
+            "missing-idempotency".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn object_store_checkpoint_retry_plan_blocked_scheduling_returns_non_zero() {
+        let code = run(vec![
+            "object-store-checkpoint-retry-plan".to_string(),
+            "blocked-scheduling".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
     fn object_store_commit_plan_ready_returns_success() {
         let code = run(vec![
             "object-store-commit-plan".to_string(),
@@ -18741,6 +18946,10 @@ mod tests {
     #[test]
     fn usage_includes_object_store_schedule_plan() {
         assert!(cli_usage_line().contains("object-store-schedule-plan"));
+    }
+    #[test]
+    fn usage_includes_object_store_checkpoint_retry_plan() {
+        assert!(cli_usage_line().contains("object-store-checkpoint-retry-plan"));
     }
     #[test]
     fn usage_includes_object_store_commit_plan() {

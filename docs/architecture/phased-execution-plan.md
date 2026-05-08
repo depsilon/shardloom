@@ -45,7 +45,7 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-10.4 object-store distributed scheduling planning evidence
+- [x] Session label: CG-10.5 object-store checkpoint/retry/idempotency planning evidence
   - Primary files:
     - `shardloom-plan/src/object_store.rs`
     - `shardloom-plan/src/lib.rs`
@@ -54,23 +54,23 @@ Supporting docs:
     - `docs/architecture/rfc-phase-traceability.md`
     - `docs/rfcs/0008-object-store-runtime-distributed-tasks.md`
     - `docs/architecture/canonical-terminology.md`
-  - Scope: Add no-IO/no-fallback object-store distributed scheduling task-shape evidence over request coalescing metadata without starting a coordinator, starting workers, executing tasks, contacting object stores, writing files, or fallback execution.
+  - Scope: Add no-IO/no-fallback object-store checkpoint/retry/idempotency readiness evidence over distributed scheduling reports without executing retries, writing checkpoints, starting a coordinator, starting workers, contacting object stores, writing files, or fallback execution.
   - Checklist:
-    - [x] Add `ObjectStoreDistributedSchedulingPolicy`, `ObjectStoreDistributedTaskPlan`, and `ObjectStoreDistributedSchedulingReport` contracts.
-    - [x] Derive stable task-shape evidence from successful object-store request coalescing reports.
-    - [x] Block scheduling when coalescing is blocked, requests are empty, task budget is exceeded, or policy limits are invalid.
-    - [x] Surface no-coordinator/no-worker/no-task-execution/no-IO/no-fallback evidence through `object-store-schedule-plan`.
-    - [x] Add focused success/failure tests for distributed scheduling planning.
+    - [x] Add `ObjectStoreCheckpointRetryInput`, `ObjectStoreCheckpointRetryStatus`, and `ObjectStoreCheckpointRetryReport` contracts.
+    - [x] Require successful distributed scheduling plus declared retry policy, checkpoint plan, idempotency keys, attempt records, and cleanup policy before readiness.
+    - [x] Block failed scheduling and missing reliability evidence with deterministic diagnostics.
+    - [x] Surface no-retry-execution/no-checkpoint-write/no-cleanup-execution/no-IO/no-fallback evidence through `object-store-checkpoint-retry-plan`.
+    - [x] Add focused success/failure tests for checkpoint/retry/idempotency planning.
     - [x] Update phase, RFC traceability, RFC 0008, and terminology docs.
     - [x] Run full required validation.
   - Local validation status:
-    - focused `shardloom-plan` distributed scheduling tests passed
-    - focused `shardloom-cli` object-store-schedule-plan tests passed
+    - focused `shardloom-plan` checkpoint/retry tests passed
+    - focused `shardloom-cli` object-store-checkpoint-retry-plan tests passed
     - focused Clippy for `shardloom-plan` and `shardloom-cli` passed with toolchain `1.91.1`
     - full Rust validation passed with toolchain `1.91.1`
     - docs hygiene scans passed for `git diff --check` and hidden/bidi controls
-    - CLI JSON smoke check passed for `object-store-schedule-plan multi-task --format json`
-  - Explicitly not included: object-store IO, file IO, data reads, row reads, decode/materialization, Arrow conversion, request execution, retry execution, network probing, writes, commit execution, coordinator runtime, worker runtime, task execution, parser work, SQL execution, adapter runtime, benchmark claims, superiority claims, or fallback execution.
+    - CLI JSON smoke check passed for `object-store-checkpoint-retry-plan ready --format json`
+  - Explicitly not included: object-store IO, file IO, data reads, row reads, decode/materialization, Arrow conversion, request execution, retry execution, checkpoint writes, network probing, writes, commit execution, coordinator runtime, worker runtime, task execution, cleanup execution, parser work, SQL execution, adapter runtime, benchmark claims, superiority claims, or fallback execution.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -888,6 +888,15 @@ Supporting docs:
     - `object-store-schedule-plan` surfaces stable report fields for s3-ranges, multi-task, missing-ranges, task-budget, and invalid-policy scenarios.
     - Scheduling remains planning evidence only and does not execute requests, retries, checkpoints, distributed runtime, writes, or cleanup.
     - No object-store IO, file IO, data reads, writes, commit execution, distributed execution runtime, benchmark claim, superiority claim, or fallback behavior is added.
+- [x] CG-10.5 object-store checkpoint/retry/idempotency planning evidence
+  - Why: make task reliability requirements explicit before distributed retry execution, checkpoint writes, or cleanup behavior expands.
+  - Acceptance:
+    - `ObjectStoreCheckpointRetryReport` records scheduling input, reliability evidence flags, status, diagnostics, task/retry/checkpoint/attempt counts, side-effect flags, and no-fallback fields.
+    - The planner requires successful distributed scheduling plus declared retry policy, checkpoint plan, idempotency keys, attempt records, and cleanup policy before readiness.
+    - Blocked scheduling and missing reliability evidence are rejected with deterministic diagnostics.
+    - `object-store-checkpoint-retry-plan` surfaces stable report fields for ready, missing-retry, missing-checkpoint, missing-idempotency, missing-attempt, missing-cleanup, and blocked-scheduling scenarios.
+    - Checkpoint/retry/idempotency readiness remains planning evidence only and does not execute retries, write checkpoints, run cleanup, contact storage, or start distributed runtime.
+    - No object-store IO, file IO, data reads, writes, checkpoint writes, retry execution, cleanup execution, distributed execution runtime, benchmark claim, superiority claim, or fallback behavior is added.
 
 ## Competitive Engine Gates CG-1 through CG-20
 
@@ -1066,10 +1075,11 @@ Status legend:
   - [x] CG-10.2 object-store request coalescing evidence
   - [x] CG-10.3 object-store commit protocol planning evidence
   - [x] CG-10.4 object-store distributed scheduling planning evidence
+  - [x] CG-10.5 object-store checkpoint/retry/idempotency planning evidence
   - Scope:
     - object-store range planning and request coalescing
     - object-store commit protocol planning before commit execution
-    - distributed scheduling task-shape planning with checkpoint/retry/idempotency requirements recorded
+    - distributed scheduling task-shape planning with checkpoint/retry/idempotency readiness recorded before execution
 
 - [ ] CG-11 — Python/API foundation surface later (**planned**)
   - Scope:
@@ -1321,8 +1331,9 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-10.2 object-store request coalescing evidence
 - [x] CG-10.3 object-store commit protocol planning evidence
 - [x] CG-10.4 object-store distributed scheduling planning evidence
+- [x] CG-10.5 object-store checkpoint/retry/idempotency planning evidence
 - [ ] broader object-store commit execution
-- [ ] checkpoint/retry/idempotency
+- [ ] checkpoint/retry/idempotency execution
 
 ### CG-11 detailed checklist
 - [ ] stable CLI/API JSON protocol foundation
@@ -1507,6 +1518,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-10.2 object-store request coalescing evidence adds `ObjectStoreRequestCoalescingReport` and `object-store-coalesce-plan` surfacing for uncoalesced/coalesced request-shape comparison, request reduction, range-planning blockers, no object-store IO, and no fallback.
 - [x] CG-10.3 object-store commit protocol planning evidence adds `ObjectStoreCommitProtocolReport` and `object-store-commit-plan` surfacing for declared staging, manifest pointer, commit record, idempotency, cleanup, atomicity, non-object-store blockers, no commit execution, no object-store IO, and no fallback.
 - [x] CG-10.4 object-store distributed scheduling planning evidence adds `ObjectStoreDistributedSchedulingReport` and `object-store-schedule-plan` surfacing for task-shape grouping over coalesced requests, task-budget blockers, checkpoint/retry/idempotency requirements, no coordinator/worker/task execution, no object-store IO, and no fallback.
+- [x] CG-10.5 object-store checkpoint/retry/idempotency planning evidence adds `ObjectStoreCheckpointRetryReport` and `object-store-checkpoint-retry-plan` surfacing for retry policy, checkpoint plan, idempotency keys, attempt records, cleanup policy, scheduling blockers, no retry execution, no checkpoint writes, no cleanup execution, and no fallback.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind `vortex-write`; placeholder artifact paths remain readiness-only.
 - [~] CG-3 broader output payload shapes remain deferred.

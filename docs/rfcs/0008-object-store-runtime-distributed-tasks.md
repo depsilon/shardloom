@@ -325,6 +325,53 @@ Scheduling evidence may require checkpoint, retry, and idempotency plans, but th
 complete those plans. Checkpoint/retry/idempotency readiness remains a separate CG-10 gate before
 distributed task execution can be considered.
 
+### Object-store checkpoint/retry/idempotency planning report
+
+Object-store checkpoint/retry/idempotency planning is the report-only readiness bridge between
+distributed task shapes and future retry/checkpoint execution. It may validate declared task
+reliability evidence, but it must not execute retries, write checkpoint records, write attempt
+records, clean up failed attempts, start a coordinator, start workers, contact object stores, or
+invoke fallback execution.
+
+The CG-10 reliability evidence surface is `ObjectStoreCheckpointRetryReport`.
+
+Required fields:
+
+- `input`.
+- `status`.
+- `diagnostics`.
+- `task_count`.
+- `retryable_task_count`.
+- `planned_checkpoint_record_count`.
+- `planned_attempt_record_count`.
+- `requires_retry_policy`.
+- `requires_checkpoint_plan`.
+- `requires_idempotency_keys`.
+- `requires_attempt_records`.
+- `requires_cleanup_policy`.
+- `retry_execution_allowed=false`.
+- `checkpoint_write_allowed=false`.
+- `cleanup_execution_allowed=false`.
+- `coordinator_started=false`.
+- `worker_started=false`.
+- `object_store_io=false`.
+- `write_io=false`.
+- `fallback_execution_allowed=false`.
+
+`ObjectStoreCheckpointRetryStatus` should identify at least:
+
+- `ready`.
+- `blocked_by_scheduling`.
+- `blocked_missing_retry_policy`.
+- `blocked_missing_checkpoint_plan`.
+- `blocked_missing_idempotency`.
+- `blocked_missing_attempt_record`.
+- `blocked_missing_cleanup_policy`.
+
+A ready report means the reliability evidence is coherent enough for a later implementation phase
+to consider distributed retry/checkpoint behavior. It does not execute retries, write checkpoints,
+or create durable attempt records.
+
 ## Coordinator
 
 A future coordinator may:
