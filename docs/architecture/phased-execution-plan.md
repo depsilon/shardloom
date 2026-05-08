@@ -10,20 +10,20 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [x] Session label: CG-7.9 execution-level kernel requirements
-  - Current cleanup/implementation step: Make physical kernel selection use execution-level-specific kernel requirements for metadata-only, encoded-native, hybrid-native, and native-decoded paths.
+- [x] Session label: CG-7.10 metadata-result physical operator bridge
+  - Current cleanup/implementation step: Let metadata-answered Vortex query primitive results produce metadata-only physical operator plans with metadata kernel requirements marked present.
   - Primary files:
-    - `shardloom-core/src/operator.rs`
-    - `shardloom-contract-tests/tests/physical_operator_kernel_contracts.rs`
+    - `shardloom-vortex/src/physical_operator_bridge.rs`
+    - `shardloom-vortex/src/lib.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-  - Scope: Metadata-only kernel selection without encoded-kernel blockers, encoded-native requirements, hybrid partial-decode blockers, and no-runtime/no-fallback selection reports.
+  - Scope: Metadata-result-to-physical-plan mapping, metadata-only count/filter operator readiness, planning certificate attachment, and no-runtime/no-fallback flags.
   - Explicitly not included: New query execution, kernel implementation, encoded-data traversal, scan/read-start APIs, row reads, decode/materialization, Arrow conversion, object-store IO, writes, external baseline execution, fallback execution, benchmarks, SQL/API/adapter expansion, or superiority claims.
   - Validation required:
     - `cargo fmt --all -- --check`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: `PhysicalOperatorExecutionProfile::required_kernel_kinds_for_level` keeps kernel blockers precise by requested execution level before any real kernel implementation is accepted.
+  - Completion notes: `plan_vortex_query_primitive_result_physical_operators` marks metadata kernel requirements present only for already metadata-answered count/filter primitives and keeps admission/certification evidence separate.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -532,6 +532,7 @@ Status legend:
   - [x] CG-7.7 physical operator planning certificate
   - [x] CG-7.8 Vortex query primitive physical-operator bridge
   - [x] CG-7.9 execution-level kernel requirements
+  - [x] CG-7.10 metadata-result physical operator bridge
   - Scope:
     - filter/projection/count-aggregate kernels
     - metadata/encoded/hybrid execution levels
@@ -722,6 +723,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-7.7 physical operator planning certificate
 - [x] CG-7.8 Vortex query primitive physical-operator bridge
 - [x] CG-7.9 execution-level kernel requirements
+- [x] CG-7.10 metadata-result physical operator bridge
 - [ ] filter kernel
 - [ ] projection kernel
 - [ ] count/aggregate kernel
@@ -868,6 +870,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-7.7 physical operator planning certificate summarizes operator, registry, selection, and admission evidence while keeping runtime execution disabled.
 - [x] CG-7.8 Vortex query primitive physical-operator bridge lowers count/filter/project primitives into physical operator plans and certificates without executing kernels.
 - [x] CG-7.9 execution-level kernel requirements separate metadata-only, encoded-native, hybrid-native, and native-decoded kernel blockers.
+- [x] CG-7.10 metadata-result physical operator bridge maps existing metadata answers to metadata-only physical operator readiness while keeping admission evidence separate.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [~] CG-3 real Vortex payload writes remain deferred; placeholder artifact paths are not completion evidence.
 

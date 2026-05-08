@@ -179,7 +179,9 @@ pub use projection_readiness::*;
 pub use physical_operator_bridge::{
     VortexPhysicalOperatorBridgeReport, VortexPhysicalOperatorBridgeStatus,
     physical_operator_plan_for_vortex_query_primitive,
+    physical_operator_plan_for_vortex_query_primitive_result,
     plan_vortex_query_primitive_physical_operators,
+    plan_vortex_query_primitive_result_physical_operators,
 };
 
 pub use query_primitive::{
