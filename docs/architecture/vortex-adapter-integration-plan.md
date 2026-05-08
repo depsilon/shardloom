@@ -891,6 +891,13 @@ CG-2.1c metadata-footer `CountAll` execution is wired; non-metadata execution re
 - Missing readiness source URI evidence or a target mismatch returns a blocked report without `data_read`, `upstream_scan_called`, or fallback.
 - This prevents an approval report for one source from authorizing fixture execution over another source; broad scan/read-start approval, non-fixture adapters, object stores, predicates, projections, writes, benchmarks, external baselines, and fallback remain out of scope.
 
+## CG-2.1e.18 local fixture scan source evidence reporting
+
+- The local fixture scan/count execution report now carries the scan target URI, encoded-read readiness source URI, and source/target match flag.
+- The evidence fields are present on successful fixture counts and on blocked approval, target mismatch, and object-store paths.
+- This makes adapter/source authorization auditable before any generalized encoded-data count path is considered.
+- Broad scan/read-start approval, non-fixture adapters, object stores beyond deterministic rejection, predicates, projections, writes, benchmarks, external baselines, and fallback remain out of scope.
+
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.
 - CG-2.2a adds `VortexFilteredCountReadinessRequest` and `VortexFilteredCountReadinessReport` planning/reporting only.

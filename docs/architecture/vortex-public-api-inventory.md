@@ -778,6 +778,13 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - The local fixture exception remains exact-source, approval-gated evidence only, not a general public scan/read-start approval.
 - This inventory update keeps non-fixture sources, object stores, encoded predicates, projections, writes, external baselines, and superiority claims out of scope.
 
+## CG-2.1e.18 local fixture scan source evidence reporting
+
+- The feature-gated local fixture execution report now exposes scan target URI, readiness source URI, and source/target match status.
+- These evidence fields are emitted for successful fixture count scans and for blocked approval, target mismatch, and object-store rejection reports.
+- The evidence does not make scan/read-start broadly execution-usable; it documents the exact source authorization for the existing local fixture exception.
+- This inventory update keeps non-fixture sources, object stores beyond deterministic rejection, encoded predicates, projections, writes, external baselines, and superiority claims out of scope.
+
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.
 - CG-2.2a adds `VortexFilteredCountReadinessRequest` and `VortexFilteredCountReadinessReport` planning/reporting only.

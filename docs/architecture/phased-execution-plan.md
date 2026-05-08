@@ -10,23 +10,23 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [x] Session label: CG-2.1e.17 local fixture scan target consistency
-  - Current cleanup/implementation step: Bind the feature-gated local fixture scan/count proof to matching approval and encoded-read readiness source URIs.
+- [x] Session label: CG-2.1e.18 local fixture scan source evidence reporting
+  - Current cleanup/implementation step: Make the feature-gated local fixture scan/count proof expose machine-readable scan target and readiness source evidence.
   - Primary files:
     - `shardloom-vortex/src/encoded_read_executor.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
     - `docs/architecture/vortex-adapter-integration-plan.md`
     - `docs/architecture/vortex-public-api-inventory.md`
-  - Scope: Feature-gated local `.vortex` fixture scan/count now requires `VortexEncodedCountDataPathApprovalReport::approved()`, encoded-read readiness, and matching approval/readiness target URI evidence before `VortexFile::scan` is reachable.
-  - Explicitly included: target-mismatch reports that do not scan, approval-blocked reports that do not scan, and approved local fixture reports that preserve array count, row count, count result, `data_read=true`, and `upstream_scan_called=true`.
+  - Scope: Feature-gated local `.vortex` fixture scan/count reports the local scan target URI, readiness source URI, and source/target match flag alongside existing approval/readiness gates.
+  - Explicitly included: source-evidence fields on success, target mismatch, object-store block, and approval-blocked reports.
   - Explicitly not included: General scan API approval, encoded predicate evaluation, filtered-count execution, projection execution, row reads, decode/materialization requests, Arrow conversion, object-store IO, writes, spill IO, external baseline execution, fallback execution, benchmarks, SQL/API/adapter expansion, or superiority claims.
   - Validation required:
     - `cargo fmt --all -- --check`
     - `cargo test -p shardloom-vortex --features vortex-encoded-read-spike`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: The checked-in local Vortex fixture scan/count proof is now approval- and source-consistency-gated; blocked approval and target-mismatch reports return before scan, while approved matching local fixture reports count scanned Vortex arrays without row reads, Arrow conversion, writes, object-store IO, spill IO, or fallback execution.
+  - Completion notes: The checked-in local Vortex fixture scan/count proof now reports exact scan-target/readiness-source evidence while preserving approval and source-consistency gates. Blocked approval and target-mismatch reports return before scan, while approved matching local fixture reports count scanned Vortex arrays without row reads, Arrow conversion, writes, object-store IO, spill IO, or fallback execution.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -476,6 +476,14 @@
     - Approval target URI and encoded-read readiness source URI must match exactly before scan.
     - Target-mismatch reports keep `data_read=false`, `upstream_scan_called=false`, and `fallback_execution_allowed=false`.
     - No row read, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, external baseline invocation, or fallback execution is added.
+- [x] CG-2.1e.18 local fixture scan source evidence reporting
+  - Why: make local scan authorization evidence machine-readable before expanding beyond the local fixture proof.
+  - Acceptance:
+    - `VortexEncodedReadExecutionReport` exposes the local fixture scan target URI.
+    - `VortexEncodedReadExecutionReport` exposes the readiness source URI derived from the encoded-read readiness planning chain.
+    - Reports expose whether readiness source URI matches scan target URI.
+    - Successful local fixture reports, blocked approval reports, target-mismatch reports, and object-store blocked reports preserve these evidence fields.
+    - No row read, requested decode/materialization, Arrow conversion, object-store IO expansion, writes, spill IO, external baseline invocation, or fallback execution is added.
 - [ ] CG-2.1e generalized encoded-data count execution path (planned)
   - Why: turn the local fixture scan/count proof into a generalized native count path only after the public Vortex data path and representation guarantees are approved.
   - Acceptance:
@@ -529,6 +537,7 @@ Status legend:
   - [x] CG-2.1e.15 local fixture Vortex array scan/count proof
   - [x] CG-2.1e.16 approval-gated local fixture scan/count
   - [x] CG-2.1e.17 local fixture scan target consistency
+  - [x] CG-2.1e.18 local fixture scan source evidence reporting
   - [~] CG-2.1+ generalized non-metadata primitive execution remains deferred pending broader encoded-data execution guarantees
   - [x] CG-2.2c filtered-count metadata proof local guard
   - [x] CG-2.2d filtered-count metadata proof report
@@ -725,6 +734,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.15 local fixture Vortex array scan/count proof
 - [x] CG-2.1e.16 approval-gated local fixture scan/count
 - [x] CG-2.1e.17 local fixture scan target consistency
+- [x] CG-2.1e.18 local fixture scan source evidence reporting
 - [x] CG-2.2a filtered-count readiness core contract
 - [x] CG-2.2a.1 filtered-count blocker precision hardening
 - [x] CG-2.2b filtered-count readiness CLI integration
@@ -934,6 +944,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.15 local fixture Vortex array scan/count proof produces `CountAll` from scanned `ArrayRef::len()` values under `vortex-encoded-read-spike` while preserving no row reads, no Arrow conversion, no object-store IO, no writes, no spill IO, and no fallback.
 - [x] CG-2.1e.16 approval-gated local fixture scan/count requires approved encoded-count data-path approval before any local fixture scan is called.
 - [x] CG-2.1e.17 local fixture scan target consistency requires approval target URI and encoded-read readiness source URI evidence to match before any local fixture scan is called.
+- [x] CG-2.1e.18 local fixture scan source evidence reporting adds scan-target/readiness-source fields to local fixture execution reports without broadening execution.
 - [x] CG-2.2c filtered-count metadata proof local guard admits only metadata-proof `CountWhere` requests into metadata-only local execution and rejects encoded predicate candidates without fallback.
 - [x] CG-2.2d filtered-count metadata proof report classifies proof-ready, encoded-predicate-needed, missing-metadata, and unsupported filtered counts without IO or fallback.
 - [x] CG-5.1 metadata query primitive correctness fixtures cover supported metadata answers and deferred unsupported paths without side effects.
