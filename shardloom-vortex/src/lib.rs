@@ -46,6 +46,7 @@ pub mod metadata_planning;
 pub mod metadata_pruning;
 pub mod metadata_summary;
 pub mod output_payload;
+pub mod physical_operator_bridge;
 pub mod projection_readiness;
 pub mod query_primitive;
 pub mod query_primitives;
@@ -174,6 +175,12 @@ pub use memory_bridge::{
     vortex_memory_bridge_is_side_effect_free,
 };
 pub use projection_readiness::*;
+
+pub use physical_operator_bridge::{
+    VortexPhysicalOperatorBridgeReport, VortexPhysicalOperatorBridgeStatus,
+    physical_operator_plan_for_vortex_query_primitive,
+    plan_vortex_query_primitive_physical_operators,
+};
 
 pub use query_primitive::{
     VortexQueryPrimitiveKind, VortexQueryPrimitiveMode, VortexQueryPrimitiveRequest,
