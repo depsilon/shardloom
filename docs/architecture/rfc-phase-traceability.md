@@ -471,6 +471,15 @@ No fallback execution.
 - These fields make the narrow fixture proof easier to validate before generalized count execution while keeping non-fixture scan/read-start approval deferred.
 - No row reads, requested decode/materialization, Arrow conversion, object-store IO expansion, writes, spill IO, external baselines, or fallback execution are added.
 
+## CG-2.1e.19 explicit local encoded-count execution boundary
+
+- Primary RFC linkage: RFC 0005 Vortex-Native File IO and Output Contract, RFC 0012 Diagnostics/Capabilities, RFC 0013 Streaming/Zero-Copy Boundary, RFC 0015 Correctness/testing, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
+- `vortex_encoded_read_local_scan_count_api_boundary` marks only `OpenOptionsSessionExt::open_path`, `VortexFile::scan`, and `ScanBuilder::into_array_iter` as execution-usable, and only for local `.vortex` `CountAll`.
+- `execute_vortex_count_all_from_approved_local_scan` owns the upstream runtime/session setup for that approved local boundary while preserving encoded-count approval and source-match gates.
+- `shardloom vortex-encoded-read-spike ... --execute-local-count` exposes the path as an explicit CLI opt-in and reports count result, arrays read, rows counted, scan target, readiness source, and source-match evidence.
+- The broad public API boundary remains conservative; generalized encoded-data count execution, adapters, non-local sources, object-store IO, encoded predicates, projections, writes, benchmarks, external baselines, CG closeout, and fallback execution remain out of scope.
+- No row reads, requested decode/materialization, Arrow conversion, object-store IO expansion, writes, spill IO, external baselines, or fallback execution are added.
+
 ## CG-5.1 metadata query primitive correctness fixtures
 
 - Primary RFC linkage: RFC 0015 Correctness/Semantics/Differential Testing, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
