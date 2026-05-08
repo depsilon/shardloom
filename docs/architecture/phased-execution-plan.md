@@ -39,28 +39,27 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-7.23 selection-vector filter kernel evidence
+- [x] Session label: CG-7.24 encoded projection kernel evidence
   - Primary files:
-    - `shardloom-vortex/src/lib.rs`
-    - `shardloom-vortex/src/selection_vector_filter_kernel.rs`
+    - `shardloom-vortex/src/projection_readiness.rs`
     - `shardloom-cli/src/main.rs`
     - `shardloom-cli/tests/capability_discovery_snapshots.rs`
     - `shardloom-cli/tests/kernel_registry_snapshots.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-  - Scope: Add contextual selection-vector filter-kernel evidence and admission for metadata-proven encoded predicate evaluation reports while keeping broad encoded-value filter execution, runtime kernel registration, and production claims blocked.
+  - Scope: Add contextual encoded-column projection-kernel evidence and admission for safe projection-readiness reports while keeping broad projection execution, runtime kernel registration, and production claims blocked.
   - Checklist:
-    - [x] Add Vortex selection-vector filter-kernel report/status types.
-    - [x] Admit safe selection-vector filter evidence into the encoded filter slot without production certification.
-    - [x] Block inconclusive predicates as `needs_encoded_values` until encoded-value predicate kernels exist.
-    - [x] Surface filter-kernel and admission discovery in `capabilities operators` and `kernel-registry`.
+    - [x] Add encoded projection-kernel admission report/status evidence.
+    - [x] Admit safe encoded-column projection readiness into the encoded project slot without production certification.
+    - [x] Block missing encoded-column readiness from project-kernel admission.
+    - [x] Surface encoded projection-kernel admission discovery in `capabilities operators` and `kernel-registry`.
     - [x] Keep data read, decode, materialization, row read, Arrow conversion, object-store IO, write IO, spill IO, runtime execution, and fallback disabled.
     - [x] Run full required validation.
   - Local validation status:
-    - focused Vortex selection-vector filter kernel tests passed
+    - focused Vortex projection-readiness tests passed
     - operator capability and kernel-registry snapshot tests passed
     - full Rust validation passed
-  - Explicitly not included: new scan/read-start paths, generalized encoded-data execution, encoded-value predicate execution, broad filter execution, projection execution, aggregate execution, row reads, requested decode/materialization, Arrow conversion, parser, SQL execution, adapter runtime, object-store IO, writes, spill IO, benchmarks, production/superiority claims, fallback execution, broad projection/count closeout, CG-7 closeout, or CG-2 closeout.
+  - Explicitly not included: new scan/read-start paths, generalized encoded-data execution, encoded-value projection execution, broad projection execution, aggregate execution, row reads, requested decode/materialization, Arrow conversion, parser, SQL execution, adapter runtime, object-store IO, writes, spill IO, benchmarks, production/superiority claims, fallback execution, broad count closeout, CG-7 closeout, or CG-2 closeout.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -683,6 +682,14 @@ Supporting docs:
     - Benchmark evidence remains missing, so production certification and superiority claims remain blocked.
     - `capabilities operators` and `kernel-registry` surface selection-vector filter-kernel discovery and admission fields.
     - No global kernel registration, broad filter execution, benchmark claim, superiority claim, or fallback behavior is added.
+- [x] CG-7.24 encoded projection kernel evidence
+  - Why: convert encoded-column projection readiness into encoded project-kernel admission evidence without enabling broad projection execution.
+  - Acceptance:
+    - Safe encoded-column projection readiness can mark the encoded project kernel slot registry-ready.
+    - Missing encoded-column readiness blocks admission with deterministic diagnostics.
+    - Benchmark evidence remains missing, so production certification and superiority claims remain blocked.
+    - `capabilities operators` and `kernel-registry` surface encoded projection-kernel admission fields.
+    - No global kernel registration, broad projection execution, benchmark claim, superiority claim, or fallback behavior is added.
 
 ## Competitive Engine Gates CG-1 through CG-20
 
@@ -819,6 +826,7 @@ Status legend:
   - [x] CG-7.21 execution-level coverage discovery
   - [x] CG-7.22 encoded segment predicate evaluation foundation
   - [x] CG-7.23 selection-vector filter kernel evidence
+  - [x] CG-7.24 encoded projection kernel evidence
   - Scope:
     - filter/projection/count-aggregate kernels
     - metadata/encoded/hybrid execution levels
@@ -1051,7 +1059,8 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-7.22 encoded segment predicate evaluation foundation
 - [x] CG-7.23 selection-vector filter kernel evidence
 - [x] filter kernel
-- [ ] projection kernel
+- [x] CG-7.24 encoded projection kernel evidence
+- [x] projection kernel
 - [ ] count/aggregate kernel
 - [x] metadata/encoded/hybrid execution levels
 - [x] expression evaluation over encoded segments
@@ -1242,6 +1251,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-7.21 execution-level coverage discovery surfaces metadata-only, encoded-native, hybrid-native, and native-decoded execution-level profile counts through capability and kernel-registry output without enabling runtime execution.
 - [x] CG-7.22 encoded segment predicate evaluation foundation emits metadata-proven selection vectors and encoded-value-required reports across core encoded segments and Vortex metadata summaries without enabling broad filter execution.
 - [x] CG-7.23 selection-vector filter kernel evidence admits safe selection-vector filter reports into the encoded filter slot while benchmark-gating production certification and blocking encoded-value predicate execution.
+- [x] CG-7.24 encoded projection kernel evidence admits safe encoded-column projection readiness into the encoded project slot while benchmark-gating production certification and blocking broad projection execution.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind `vortex-write`; placeholder artifact paths remain readiness-only.
 - [~] CG-3 broader output payload shapes remain deferred.

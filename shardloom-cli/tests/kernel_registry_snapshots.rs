@@ -1,6 +1,6 @@
 use std::process::Command;
 
-const KERNEL_REGISTRY_FIELD_KEYS: [&str; 114] = [
+const KERNEL_REGISTRY_FIELD_KEYS: [&str; 125] = [
     "fallback_execution_allowed",
     "mode",
     "status",
@@ -56,6 +56,17 @@ const KERNEL_REGISTRY_FIELD_KEYS: [&str; 114] = [
     "metadata_projection_kernel_admission_requires_benchmark_for_production",
     "metadata_projection_kernel_admission_runtime_execution",
     "metadata_projection_kernel_admission_fallback_execution_allowed",
+    "encoded_projection_kernel_admission_schema_version",
+    "encoded_projection_kernel_admission_contextual_only",
+    "encoded_projection_kernel_admission_operator_kind",
+    "encoded_projection_kernel_admission_required_kernel_kind",
+    "encoded_projection_kernel_admission_requires_projection_readiness",
+    "encoded_projection_kernel_admission_requires_encoded_column_path",
+    "encoded_projection_kernel_admission_requires_correctness_evidence",
+    "encoded_projection_kernel_admission_requires_memory_safety_evidence",
+    "encoded_projection_kernel_admission_requires_benchmark_for_production",
+    "encoded_projection_kernel_admission_runtime_execution",
+    "encoded_projection_kernel_admission_fallback_execution_allowed",
     "encoded_count_physical_kernel_schema_version",
     "encoded_count_physical_kernel_supported_primitive",
     "encoded_count_physical_kernel_operator_kind",
@@ -188,6 +199,7 @@ fn kernel_registry_json_fields_include_physical_kernel_blockers() {
     assert_metadata_count_kernel_admission_fields(&output);
     assert_metadata_filter_kernel_admission_fields(&output);
     assert_metadata_projection_kernel_admission_fields(&output);
+    assert_encoded_projection_kernel_admission_fields(&output);
     assert_encoded_count_physical_kernel_fields(&output);
     assert_encoded_count_kernel_admission_fields(&output);
     assert_encoded_predicate_evaluation_fields(&output);
@@ -324,6 +336,42 @@ fn assert_metadata_projection_kernel_admission_fields(output: &str) {
     ));
     assert!(output.contains(
         "{\"key\":\"metadata_projection_kernel_admission_fallback_execution_allowed\",\"value\":\"false\"}"
+    ));
+}
+
+fn assert_encoded_projection_kernel_admission_fields(output: &str) {
+    assert!(output.contains(
+        "{\"key\":\"encoded_projection_kernel_admission_schema_version\",\"value\":\"shardloom.vortex_encoded_projection_kernel_admission.v1\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_projection_kernel_admission_contextual_only\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_projection_kernel_admission_operator_kind\",\"value\":\"project\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_projection_kernel_admission_required_kernel_kind\",\"value\":\"encoded\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_projection_kernel_admission_requires_projection_readiness\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_projection_kernel_admission_requires_encoded_column_path\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_projection_kernel_admission_requires_correctness_evidence\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_projection_kernel_admission_requires_memory_safety_evidence\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_projection_kernel_admission_requires_benchmark_for_production\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_projection_kernel_admission_runtime_execution\",\"value\":\"false\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_projection_kernel_admission_fallback_execution_allowed\",\"value\":\"false\"}"
     ));
 }
 

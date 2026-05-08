@@ -1733,6 +1733,7 @@ fn append_operator_certification_fields(
     append_metadata_count_kernel_admission_discovery_fields(fields);
     append_metadata_filter_kernel_admission_discovery_fields(fields);
     append_metadata_projection_kernel_admission_discovery_fields(fields);
+    append_encoded_projection_kernel_admission_discovery_fields(fields);
     append_encoded_count_physical_kernel_discovery_fields(fields);
     append_encoded_count_kernel_admission_discovery_fields(fields);
     append_encoded_predicate_evaluation_discovery_fields(fields);
@@ -1978,6 +1979,64 @@ fn append_metadata_projection_kernel_admission_discovery_fields(
     push_bool_field(
         fields,
         "metadata_projection_kernel_admission_fallback_execution_allowed",
+        false,
+    );
+}
+
+fn append_encoded_projection_kernel_admission_discovery_fields(fields: &mut Vec<(String, String)>) {
+    push_field(
+        fields,
+        "encoded_projection_kernel_admission_schema_version",
+        "shardloom.vortex_encoded_projection_kernel_admission.v1",
+    );
+    push_bool_field(
+        fields,
+        "encoded_projection_kernel_admission_contextual_only",
+        true,
+    );
+    push_field(
+        fields,
+        "encoded_projection_kernel_admission_operator_kind",
+        "project",
+    );
+    push_field(
+        fields,
+        "encoded_projection_kernel_admission_required_kernel_kind",
+        "encoded",
+    );
+    push_bool_field(
+        fields,
+        "encoded_projection_kernel_admission_requires_projection_readiness",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "encoded_projection_kernel_admission_requires_encoded_column_path",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "encoded_projection_kernel_admission_requires_correctness_evidence",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "encoded_projection_kernel_admission_requires_memory_safety_evidence",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "encoded_projection_kernel_admission_requires_benchmark_for_production",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "encoded_projection_kernel_admission_runtime_execution",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "encoded_projection_kernel_admission_fallback_execution_allowed",
         false,
     );
 }
@@ -6506,6 +6565,56 @@ fn run(args: Vec<String>) -> ExitCode {
                     ),
                     (
                         "metadata_projection_kernel_admission_fallback_execution_allowed"
+                            .to_string(),
+                        "false".to_string(),
+                    ),
+                    (
+                        "encoded_projection_kernel_admission_schema_version".to_string(),
+                        "shardloom.vortex_encoded_projection_kernel_admission.v1".to_string(),
+                    ),
+                    (
+                        "encoded_projection_kernel_admission_contextual_only".to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "encoded_projection_kernel_admission_operator_kind".to_string(),
+                        "project".to_string(),
+                    ),
+                    (
+                        "encoded_projection_kernel_admission_required_kernel_kind".to_string(),
+                        "encoded".to_string(),
+                    ),
+                    (
+                        "encoded_projection_kernel_admission_requires_projection_readiness"
+                            .to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "encoded_projection_kernel_admission_requires_encoded_column_path"
+                            .to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "encoded_projection_kernel_admission_requires_correctness_evidence"
+                            .to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "encoded_projection_kernel_admission_requires_memory_safety_evidence"
+                            .to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "encoded_projection_kernel_admission_requires_benchmark_for_production"
+                            .to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "encoded_projection_kernel_admission_runtime_execution".to_string(),
+                        "false".to_string(),
+                    ),
+                    (
+                        "encoded_projection_kernel_admission_fallback_execution_allowed"
                             .to_string(),
                         "false".to_string(),
                     ),
