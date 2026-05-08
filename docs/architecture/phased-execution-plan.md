@@ -45,30 +45,30 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-16.2 execution certificate evidence surface
+- [x] Session label: CG-17.1 stateful reuse boundary report
   - Primary files:
-    - `shardloom-core/src/execution_certificate.rs`
+    - `shardloom-core/src/stateful_reuse.rs`
     - `shardloom-core/src/lib.rs`
     - `shardloom-cli/src/main.rs`
-    - `shardloom-cli/tests/execution_certificate_plan_snapshots.rs`
+    - `shardloom-cli/tests/stateful_reuse_plan_snapshots.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
     - `docs/rfcs/0029-correctness-benchmarks-execution-certificates-stateful-reuse.md`
-  - Scope: Add a report-only CG-16 execution certificate evidence surface that makes plan/input/output hashes, segment traces, side-effect manifest, reproducibility metadata, correctness fixture linkage, deterministic field order, and machine-readable output explicit without evaluating certificates or executing runtime work.
+  - Scope: Add a report-only CG-17 stateful reuse boundary surface that makes typed cache/reuse boundaries, deterministic keys, invalidation proof requirements, correctness proof requirements, execution-certificate linkage, and incremental manifest-diff requirements explicit without reading/writing/replaying caches or executing incremental recompute.
   - Checklist:
-    - [x] Add `ExecutionCertificateEvidenceSurfaceReport` for deterministic certificate artifact requirements.
-    - [x] Surface `execution-certificate-plan --format json` with artifact counts, hash requirements, reproducibility requirements, and side-effect fields.
-    - [x] Keep the evidence surface report-only with no certificate evaluation, runtime execution, data reads, decode, materialization, Arrow conversion, object-store IO, writes, spill IO, external engine execution, or fallback.
+    - [x] Add `StatefulReuseReport` with typed cache/reuse boundaries and invalidation proof requirements.
+    - [x] Surface `stateful-reuse-plan --format json` with cache boundary counts, invalidation signal counts, proof requirements, and side-effect fields.
+    - [x] Keep the reuse surface report-only with no cache read/write/replay, incremental execution, runtime execution, data reads, decode, materialization, Arrow conversion, object-store IO, writes, spill IO, external engine execution, or fallback.
     - [x] Add focused unit and CLI JSON snapshot coverage.
     - [x] Update phase plan, RFC traceability, and RFC 0029.
     - [x] Run full required validation.
   - Local validation status:
-    - focused `shardloom-core` `evidence_surface` tests passed
-    - focused `shardloom-cli` `execution_certificate_plan_snapshots` tests passed
+    - focused `shardloom-core` `stateful_reuse` tests passed
+    - focused `shardloom-cli` `stateful_reuse_plan_snapshots` tests passed
     - focused Clippy for `shardloom-core` and `shardloom-cli` passed with toolchain `1.91.1`
     - full Rust validation passed with toolchain `1.91.1`
     - docs hygiene scans passed for `git diff --check` and hidden/bidi controls
-  - Explicitly not included: generalized execution certificate evaluation, benchmark certificate execution, external baseline invocation, generalized encoded-data execution, adapter runtime, object-store IO, row reads, decode/materialization, Arrow conversion, writes, spill execution, package publication, performance claims, superiority claims, or fallback execution.
+  - Explicitly not included: cache storage, cache lookup, cache write, cache replay, incremental recompute execution, manifest-diff reads, generalized execution certificate evaluation, external baseline invocation, generalized encoded-data execution, adapter runtime, object-store IO, row reads, decode/materialization, Arrow conversion, writes, spill execution, package publication, performance claims, superiority claims, or fallback execution.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -1134,9 +1134,11 @@ Status legend:
     - deterministic machine-readable certificate surfaces
 
 - [ ] CG-17 — Stateful result reuse / incremental execution (**planned**)
+  - [x] CG-17.1 stateful reuse boundary report
   - Scope:
-    - typed cache/reuse boundaries
+    - typed cache/reuse boundaries through `stateful-reuse-plan`
     - explicit invalidation rules and correctness-proof signals
+    - execution-certificate and manifest-diff requirements before any reuse or incremental recompute
 
 - [ ] CG-18 — Universal import/deployment/baseline harness (**planned**)
   - Scope:
@@ -1392,8 +1394,11 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] deterministic, machine-readable certificate surfaces
 
 ### CG-17 detailed checklist
-- [ ] typed cache/reuse boundaries
-- [ ] explicit invalidation and correctness proof signals
+- [x] CG-17.1 stateful reuse boundary report
+- [x] typed cache/reuse boundaries
+- [x] explicit invalidation and correctness proof signals
+- [x] execution-certificate linkage for every reusable cache family
+- [x] manifest-diff proof requirements before incremental recompute
 
 ### CG-18 detailed checklist
 - [ ] universal runner contracts and portability checks
@@ -1496,6 +1501,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-5.4 external baseline oracle policy declares comparison-only baselines and blocks runtime fallback.
 - [x] CG-5.5 local encoded `CountAll` fixture/reference-output proof declares `ExpectedOutcome::EncodedCount { count: 20000 }` for the checked-in Vortex fixture and verifies the approved local encoded count path returns that value without decode/materialization/row/Arrow/object-store/write/spill/external/fallback effects.
 - [x] CG-16.1 local encoded `CountAll` execution certificate adds a deterministic core certificate contract and Vortex adapter helper that certify the approved local encoded count path only when expected/actual correctness output matches and fallback/unsafe-effect evidence is absent.
+- [x] CG-17.1 stateful reuse boundary report adds `StatefulReuseReport` and `stateful-reuse-plan` surfacing for typed cache/reuse boundaries, invalidation signals, deterministic key requirements, correctness proof requirements, execution-certificate linkage, manifest-diff requirements, and no-cache/no-runtime/no-fallback side-effect fields.
 - [x] CG-6.1 benchmark evidence manifest covers required metric categories without running benchmarks.
 - [x] CG-6.2 benchmark claim gate blocks publication without correctness, benchmark, comparison, metric, and no-fallback evidence.
 - [x] CG-6.3 benchmark comparison report contract records missing scenario/baseline results and metric gaps without running benchmarks or invoking external baselines.

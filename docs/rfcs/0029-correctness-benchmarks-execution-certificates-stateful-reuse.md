@@ -87,11 +87,93 @@ CG-16 cannot close until:
 
 ## Stateful reuse and incremental recompute (CG-17)
 
-- Segment-result cache.
-- Predicate-result cache.
-- Encoded dictionary/filter cache.
-- Incremental recompute from manifest diffs.
-- Cache invalidation proof.
+`StatefulReuseReport` is the report-only CG-17 surface for typed reuse and
+incremental recompute eligibility. It records the cache families, key
+requirements, invalidation proof requirements, correctness proof requirements,
+execution-certificate linkage, and side-effect boundaries that must exist before
+any cache lookup, cache write, cache replay, or incremental execution can be
+enabled.
+
+Typed cache and reuse boundaries:
+- segment result
+- predicate result
+- encoded dictionary
+- encoded filter
+- layout decision
+- execution certificate
+- incremental manifest diff
+
+Every boundary must declare:
+- stable boundary id
+- cache kind
+- reuse eligibility status
+- deterministic key requirement
+- dataset snapshot scope
+- plan hash scope
+- semantic profile scope
+- encoding/layout scope
+- adapter fidelity scope
+- correctness proof requirement
+- invalidation proof requirement
+- execution certificate requirement
+- cross-dataset reuse disabled unless a later RFC explicitly proves safety
+- fallback attempted false
+
+Invalidation signals must be explicit and conservative:
+- snapshot changed
+- segment added
+- segment removed
+- segment replaced
+- schema changed
+- partition changed
+- predicate changed
+- semantic profile changed
+- function version changed
+- adapter fidelity changed
+- unknown change
+
+Each invalidation signal must map to a conservative action. Unknown or
+unproven changes reject reuse and require recompute instead of guessing.
+
+`stateful-reuse-plan` exposes the CG-17 report for humans and agents. Its
+machine-readable fields include:
+- schema version and report id
+- stateful reuse status
+- typed cache boundary count
+- invalidation requirement count
+- correctness proof required count
+- invalidation proof required count
+- execution certificate required count
+- stable cache-kind order
+- stable invalidation-signal order
+- deterministic key requirement
+- manifest diff requirement
+- cache read disabled
+- cache write disabled
+- cache replay disabled
+- incremental execution disabled
+- runtime execution disabled
+- data read/decode/materialization disabled
+- object-store, write, and spill IO disabled
+- external engine execution disabled
+- fallback execution allowed false
+- fallback attempted false
+- production claim disabled
+
+CG-17 cannot close until:
+- supported reuse paths emit typed reuse boundaries
+- cache keys are deterministic and scoped to dataset snapshot, plan hash,
+  semantic profile, encoding/layout, and adapter fidelity
+- every reusable result links to correctness proof and execution certificate
+  evidence
+- every reuse decision records invalidation proof or a conservative rejection
+- manifest-diff incremental recompute records changed/unchanged segment evidence
+- stale, unknown, schema-incompatible, or semantically changed inputs reject
+  reuse deterministically
+- cache read/write/replay behavior is separately validated before execution
+- incremental recompute has correctness fixtures and no-fallback diagnostics
+- performance or superiority claims remain blocked unless CG-5 and CG-6 evidence
+  also exists
 
 ## Non-goals
 
