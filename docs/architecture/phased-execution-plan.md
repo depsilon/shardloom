@@ -45,30 +45,30 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-15.1 CPU operator specialization report foundation
+- [x] Session label: CG-16.2 execution certificate evidence surface
   - Primary files:
-    - `shardloom-core/src/cpu_specialization.rs`
+    - `shardloom-core/src/execution_certificate.rs`
     - `shardloom-core/src/lib.rs`
     - `shardloom-cli/src/main.rs`
-    - `shardloom-cli/tests/cpu_specialization_snapshots.rs`
+    - `shardloom-cli/tests/execution_certificate_plan_snapshots.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-    - `docs/rfcs/0027-cpu-vectorized-kernels-streaming-runtime-adaptivity.md`
-  - Scope: Add a report-only CG-15 CPU operator specialization contract that records commodity CPU vectorization candidates, SIMD/cache/encoded-layout classes, correctness and benchmark evidence gates, CPU feature guard requirements, portable native baseline requirements, and no-fallback side-effect boundaries without probing CPU features, dispatching specialized kernels, using unsafe SIMD, or executing operators.
+    - `docs/rfcs/0029-correctness-benchmarks-execution-certificates-stateful-reuse.md`
+  - Scope: Add a report-only CG-16 execution certificate evidence surface that makes plan/input/output hashes, segment traces, side-effect manifest, reproducibility metadata, correctness fixture linkage, deterministic field order, and machine-readable output explicit without evaluating certificates or executing runtime work.
   - Checklist:
-    - [x] Add `CpuOperatorSpecializationReport` for operator/kernel CPU specialization candidate evidence.
-    - [x] Surface `cpu-specialization-plan --format json` with deterministic candidate counts, evidence gates, CPU feature guard fields, and side-effect fields.
-    - [x] Keep CPU specialization report-only with no CPU probing, runtime dispatch, operator execution, data reads, decode, materialization, Arrow conversion, object-store IO, writes, spill IO, unsafe code, external engine execution, or fallback.
+    - [x] Add `ExecutionCertificateEvidenceSurfaceReport` for deterministic certificate artifact requirements.
+    - [x] Surface `execution-certificate-plan --format json` with artifact counts, hash requirements, reproducibility requirements, and side-effect fields.
+    - [x] Keep the evidence surface report-only with no certificate evaluation, runtime execution, data reads, decode, materialization, Arrow conversion, object-store IO, writes, spill IO, external engine execution, or fallback.
     - [x] Add focused unit and CLI JSON snapshot coverage.
-    - [x] Update phase plan, RFC traceability, and RFC 0027.
+    - [x] Update phase plan, RFC traceability, and RFC 0029.
     - [x] Run full required validation.
   - Local validation status:
-    - focused `shardloom-core` `cpu_specialization` tests passed
-    - focused `shardloom-cli` `cpu_specialization_snapshots` tests passed
+    - focused `shardloom-core` `evidence_surface` tests passed
+    - focused `shardloom-cli` `execution_certificate_plan_snapshots` tests passed
     - focused Clippy for `shardloom-core` and `shardloom-cli` passed with toolchain `1.91.1`
     - full Rust validation passed with toolchain `1.91.1`
     - docs hygiene scans passed for `git diff --check` and hidden/bidi controls
-  - Explicitly not included: CPU feature probing, runtime SIMD dispatch, unsafe CPU intrinsic code, operator execution, kernel implementation, benchmark execution, production certification, parser work, SQL execution, adapters, object-store IO, row reads, decode/materialization, Arrow conversion, writes, spill execution, package publication, performance claims, superiority claims, or fallback execution.
+  - Explicitly not included: generalized execution certificate evaluation, benchmark certificate execution, external baseline invocation, generalized encoded-data execution, adapter runtime, object-store IO, row reads, decode/materialization, Arrow conversion, writes, spill execution, package publication, performance claims, superiority claims, or fallback execution.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -1127,9 +1127,10 @@ Status legend:
 
 - [ ] CG-16 — Evidence-first execution certificates (**planned**)
   - [x] CG-16.1 local encoded `CountAll` execution certificate
+  - [x] CG-16.2 execution certificate evidence surface
   - Scope:
-    - plan/input/output evidence artifacts
-    - reproducibility metadata
+    - plan/input/output evidence artifacts through `execution-certificate-plan`
+    - reproducibility metadata and segment traces
     - deterministic machine-readable certificate surfaces
 
 - [ ] CG-17 — Stateful result reuse / incremental execution (**planned**)
@@ -1386,8 +1387,9 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 
 ### CG-16 detailed checklist
 - [x] CG-16.1 local encoded `CountAll` execution certificate
-- [ ] plan/input/output evidence artifacts for reproducibility
-- [ ] deterministic, machine-readable certificate surfaces
+- [x] CG-16.2 execution certificate evidence surface
+- [x] plan/input/output evidence artifacts for reproducibility
+- [x] deterministic, machine-readable certificate surfaces
 
 ### CG-17 detailed checklist
 - [ ] typed cache/reuse boundaries

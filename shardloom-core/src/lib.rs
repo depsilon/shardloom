@@ -69,7 +69,11 @@ pub use encoded::{
     StatisticsExactness, evaluate_predicate_on_encoded_segment, prove_predicate_from_stats,
 };
 pub use execution_certificate::{
-    ExecutionCertificate, ExecutionCertificateInput, ExecutionCertificateStatus,
+    ExecutionCertificate, ExecutionCertificateEvidenceSurfaceReport,
+    ExecutionCertificateEvidenceSurfaceStatus, ExecutionCertificateInput,
+    ExecutionCertificateStatus, ExecutionEvidenceArtifactKind,
+    ExecutionEvidenceArtifactRequirement, ExecutionEvidenceArtifactStatus,
+    plan_execution_certificate_evidence_surface,
 };
 pub use extension::{
     ExtensionCapability, ExtensionCapabilityStatus, ExtensionCategory, ExtensionEffectDeclaration,
