@@ -35,12 +35,13 @@ pub use object_store::{
     plan_object_store_ranges, plan_object_store_request_coalescing,
 };
 pub use optimizer::{
-    AdaptiveDecisionKind, AdaptiveExecutionDecision, AdaptiveTrigger, AdaptiveTriggerKind,
-    AggregateStrategy, CostEstimate, CostMetric, CostModelInput, CostValue, DynamicPruningDecision,
-    JoinStrategy, OptimizerPhase, OptimizerPlanSkeleton, OptimizerPlanStatus,
-    OptimizerRuleDecision, OptimizerRuleId, OptimizerRuleKind, OptimizerRuleStatus, RuntimeFilter,
-    RuntimeFilterKind, RuntimeFilterStatus, SkewHandlingStrategy, SkewSeverity, SkewSignal,
-    SkewSignalKind,
+    AdaptiveDecisionKind, AdaptiveExecutionDecision, AdaptiveOptimizerMemoryReport,
+    AdaptiveOptimizerMemoryStatus, AdaptiveTrigger, AdaptiveTriggerKind, AggregateStrategy,
+    CostEstimate, CostMetric, CostModelInput, CostValue, DynamicPruningDecision, JoinStrategy,
+    OptimizerPhase, OptimizerPlanSkeleton, OptimizerPlanStatus, OptimizerRuleDecision,
+    OptimizerRuleId, OptimizerRuleKind, OptimizerRuleStatus, RuntimeFilter, RuntimeFilterKind,
+    RuntimeFilterStatus, SkewHandlingStrategy, SkewSeverity, SkewSignal, SkewSignalKind,
+    plan_adaptive_optimizer_memory,
 };
 pub use plan_ir::{
     EffectBoundary, NativePlanDocument, NativePlanNode, NativePlanNodeKind, PlanBoundaryKind,

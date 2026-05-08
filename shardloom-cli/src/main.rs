@@ -51,13 +51,14 @@ use shardloom_exec::{
     spill_payload_fs_feature_enabled,
 };
 use shardloom_plan::{
-    EstimateReport, ExplainReport, NativePlanDocument, ObjectStoreCheckpointRetryInput,
-    ObjectStoreCheckpointRetryReport, ObjectStoreCommitProtocolInput,
-    ObjectStoreCommitProtocolReport, ObjectStoreDistributedSchedulingPolicy,
-    ObjectStoreDistributedSchedulingReport, ObjectStoreRangePlanningPolicy,
-    ObjectStoreRangePlanningReport, ObjectStoreRequestCoalescingReport, OptimizerPhase,
-    OptimizerPlanSkeleton, PlanExportRequest, PlanId, PlanImportRequest, PlanInteropFormat,
-    PlanPortabilityReport, ProjectionRequest, ScanPlanSkeleton, ScanRequest,
+    AdaptiveOptimizerMemoryReport, EstimateReport, ExplainReport, NativePlanDocument,
+    ObjectStoreCheckpointRetryInput, ObjectStoreCheckpointRetryReport,
+    ObjectStoreCommitProtocolInput, ObjectStoreCommitProtocolReport,
+    ObjectStoreDistributedSchedulingPolicy, ObjectStoreDistributedSchedulingReport,
+    ObjectStoreRangePlanningPolicy, ObjectStoreRangePlanningReport,
+    ObjectStoreRequestCoalescingReport, OptimizerPhase, OptimizerPlanSkeleton, PlanExportRequest,
+    PlanId, PlanImportRequest, PlanInteropFormat, PlanPortabilityReport, ProjectionRequest,
+    ScanPlanSkeleton, ScanRequest, plan_adaptive_optimizer_memory,
     plan_object_store_checkpoint_retry, plan_object_store_commit_protocol,
     plan_object_store_distributed_scheduling, plan_object_store_ranges,
     plan_object_store_request_coalescing, plan_universal_input_source,
@@ -179,7 +180,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|layout-health-plan|compaction-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|layout-health-plan|compaction-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -3237,6 +3238,143 @@ fn push_u64_field(fields: &mut Vec<(String, String)>, key: &str, value: u64) {
 
 fn push_bool_field(fields: &mut Vec<(String, String)>, key: &str, value: bool) {
     fields.push((key.to_string(), value.to_string()));
+}
+
+fn adaptive_optimizer_memory_fields(
+    report: &AdaptiveOptimizerMemoryReport,
+) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    append_adaptive_optimizer_memory_identity_fields(&mut fields, report);
+    append_adaptive_optimizer_memory_gate_fields(&mut fields, report);
+    append_adaptive_optimizer_memory_side_effect_fields(&mut fields, report);
+    fields
+}
+
+fn append_adaptive_optimizer_memory_identity_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &AdaptiveOptimizerMemoryReport,
+) {
+    push_field(fields, "mode", "optimizer_adaptive_memory_plan");
+    push_field(fields, "execution", "not_performed");
+    push_field(fields, "plan_only", "true");
+    push_field(fields, "schema_version", report.schema_version);
+    push_field(fields, "report_id", &report.report_id);
+    push_field(fields, "adaptive_optimizer_status", report.status.as_str());
+    push_field(fields, "optimizer_phase", report.optimizer_phase.as_str());
+    push_count_field(fields, "rule_decision_count", report.rule_decision_count());
+    push_count_field(fields, "deferred_rule_count", report.deferred_rule_count());
+    push_count_field(
+        fields,
+        "runtime_filter_count",
+        report.runtime_filter_count(),
+    );
+    push_count_field(
+        fields,
+        "conservative_runtime_filter_count",
+        report.conservative_runtime_filter_count(),
+    );
+    push_count_field(
+        fields,
+        "adaptive_decision_count",
+        report.adaptive_decision_count(),
+    );
+    push_count_field(fields, "skew_signal_count", report.skew_signal_count());
+    push_field(
+        fields,
+        "dynamic_pruning_decision",
+        report.dynamic_pruning_decision.summary().as_str(),
+    );
+}
+
+fn append_adaptive_optimizer_memory_gate_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &AdaptiveOptimizerMemoryReport,
+) {
+    push_bool_field(
+        fields,
+        "conservative_runtime_filter_required",
+        report.conservative_runtime_filter_required,
+    );
+    push_bool_field(
+        fields,
+        "dynamic_pruning_requires_proof",
+        report.dynamic_pruning_requires_proof,
+    );
+    push_bool_field(
+        fields,
+        "memory_budget_required",
+        report.memory_budget_required,
+    );
+    push_bool_field(
+        fields,
+        "bounded_memory_required",
+        report.bounded_memory_required,
+    );
+    push_bool_field(
+        fields,
+        "spill_policy_required",
+        report.spill_policy_required,
+    );
+    push_bool_field(
+        fields,
+        "deterministic_oom_boundary",
+        report.deterministic_oom_boundary,
+    );
+    push_bool_field(
+        fields,
+        "sink_requirement_boundary_required",
+        report.sink_requirement_boundary_required,
+    );
+    push_bool_field(
+        fields,
+        "runtime_fact_required_before_adaptation",
+        report.runtime_fact_required_before_adaptation,
+    );
+}
+
+fn append_adaptive_optimizer_memory_side_effect_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &AdaptiveOptimizerMemoryReport,
+) {
+    push_bool_field(fields, "optimizer_execution", report.optimizer_execution);
+    push_bool_field(
+        fields,
+        "runtime_adaptation_applied",
+        report.runtime_adaptation_applied,
+    );
+    push_bool_field(fields, "runtime_filter_built", report.runtime_filter_built);
+    push_bool_field(
+        fields,
+        "runtime_filter_applied",
+        report.runtime_filter_applied,
+    );
+    push_bool_field(fields, "plan_rewritten", report.plan_rewritten);
+    push_bool_field(fields, "data_read", report.data_read);
+    push_bool_field(fields, "data_decoded", report.data_decoded);
+    push_bool_field(fields, "data_materialized", report.data_materialized);
+    push_bool_field(fields, "row_read", report.row_read);
+    push_bool_field(fields, "arrow_converted", report.arrow_converted);
+    push_bool_field(fields, "object_store_io", report.object_store_io);
+    push_bool_field(fields, "write_io", report.write_io);
+    push_bool_field(fields, "spill_io_performed", report.spill_io_performed);
+    push_bool_field(
+        fields,
+        "external_engine_execution",
+        report.external_engine_execution,
+    );
+    push_bool_field(
+        fields,
+        "fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(fields, "fallback_attempted", report.fallback_attempted);
+    push_bool_field(
+        fields,
+        "production_claim_allowed",
+        report.production_claim_allowed,
+    );
+    push_bool_field(fields, "side_effect_free", report.is_side_effect_free());
+    push_count_field(fields, "diagnostic_count", report.diagnostics.len());
 }
 
 fn backpressure_plan_fields(report: &BackpressurePlanReport) -> Vec<(String, String)> {
@@ -18220,6 +18358,28 @@ fn run(args: Vec<String>) -> ExitCode {
             );
             ExitCode::from(1)
         }
+        Some("optimizer-adaptive-memory-plan") => {
+            let command = "optimizer-adaptive-memory-plan";
+            let report = plan_adaptive_optimizer_memory();
+            emit(
+                command,
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "adaptive optimizer memory plan".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                adaptive_optimizer_memory_fields(&report),
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
         Some("estimate") => {
             let operation = args
                 .next()
@@ -18297,6 +18457,12 @@ mod tests {
     fn optimizer_plan_returns_non_zero() {
         let code = run(vec!["optimizer-plan".to_string()]);
         assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn optimizer_adaptive_memory_plan_returns_success() {
+        let code = run(vec!["optimizer-adaptive-memory-plan".to_string()]);
+        assert_eq!(code, ExitCode::SUCCESS);
     }
 
     #[test]
@@ -19415,6 +19581,10 @@ mod tests {
     #[test]
     fn usage_includes_object_store_commit_plan() {
         assert!(cli_usage_line().contains("object-store-commit-plan"));
+    }
+    #[test]
+    fn usage_includes_optimizer_adaptive_memory_plan() {
+        assert!(cli_usage_line().contains("optimizer-adaptive-memory-plan"));
     }
     #[test]
     fn parse_sizing_feedback_signals_rejects_unknown_and_empty() {

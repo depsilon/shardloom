@@ -85,9 +85,9 @@ Status categories:
 | RFC 0011 | Deferred | Ongoing (post-core) | Modular extensibility remains intentionally deferred relative to core engine phases. |
 | RFC 0012 | Partially implemented | 10C, 10D, Ongoing | Diagnostics contracts exist; stabilization and propagation are explicit upcoming checkpoints. |
 | RFC 0013 | Planned | 13B+, Ongoing | Streaming/zero-copy boundary work remains mostly future-phase effort. |
-| RFC 0014 | Planned | 10B, 11A, 11B, 13B, 14A | Memory/spill/OOM policies are partially scaffolded but not fully realized. |
+| RFC 0014 | Partially implemented | 10B, 11A, 11B, 13B, 14A, CG-14 | Memory/spill/OOM policies are partially scaffolded; CG-14.1 adaptive memory boundary evidence exists, but allocator/reservation runtime and spill execution remain planned. |
 | RFC 0015 | Partially implemented | Ongoing | Correctness-first posture present; deeper differential/fuzz coverage continues over time. |
-| RFC 0016 | Partially implemented | 13B, 14B, Ongoing | CG-9.6 layout-health planning and CG-9.7 compaction planning evidence exist; advanced optimizer/adaptive behavior remains later-phase work. |
+| RFC 0016 | Partially implemented | 13B, 14B, CG-14, Ongoing | CG-9.6 layout-health planning, CG-9.7 compaction planning, and CG-14.1 adaptive optimizer/memory decision evidence exist; runtime adaptation, runtime filter application, and advanced optimizer behavior remain later-phase work. |
 | RFC 0017 | Planned | 11A, 11B, 12B, 14A, 14B | Recovery/cancellation/commit robustness is a remaining implementation focus. |
 | RFC 0018 | Partially implemented | 10D, 14A, 14B, Ongoing | Observability foundations exist; richer tracing/profiling is still phased. |
 | RFC 0019 | Partially implemented | 11B, 13A, Ongoing | Security/governance guardrails exist; advanced phase-specific controls remain planned. |
@@ -195,6 +195,10 @@ Competitive gate coverage:
     - secondary RFCs: RFC 0012, RFC 0015, RFC 0021, RFC 0025, RFC 0029, RFC 0031, RFC 0032
     - constraints: report-only path selection; no generalized encoded execution, parser, SQL execution, adapter runtime, scan/read-start API, encoded-data read, decode, materialization, Arrow conversion, object-store IO, writes, spill IO, external engine execution, production/superiority claim, or fallback
 - CG-14: runtime-adaptive optimizer and execution memory
+  - CG-14.1 adaptive optimizer and memory decision report foundation: complete
+    - primary RFCs: RFC 0016 and RFC 0014
+    - secondary RFCs: RFC 0012, RFC 0013, RFC 0015, RFC 0021, RFC 0025, RFC 0027, RFC 0029, RFC 0031, RFC 0032
+    - constraints: report-only optimizer/memory decision evidence; no optimizer execution, runtime adaptation application, runtime filter build/apply, dynamic pruning execution, plan rewrite, join/aggregate/skew execution, memory allocator/reservation runtime, spill execution, object-store IO, writes, production/superiority claim, or fallback
 - CG-15: CPU operator specialization
 - CG-16: evidence-first execution certificates
 - CG-17: stateful result reuse / incremental execution
@@ -1000,6 +1004,16 @@ No fallback execution.
 - Primary RFC linkage: RFC 0026 and RFC 0021.
 - Related RFCs: RFC 0012, RFC 0015, RFC 0025, RFC 0029, RFC 0031, and RFC 0032.
 - This phase adds no generalized encoded execution, scan/read-start API, parser, SQL execution, adapter runtime, object-store IO, writes, spill IO, benchmark claim, production/superiority claim, CG closeout, or fallback behavior.
+
+## CG-14.1 adaptive optimizer and memory decision report foundation
+
+- `shardloom-plan/src/optimizer.rs` adds `AdaptiveOptimizerMemoryReport`, a report-only contract for runtime-adaptive optimizer and execution-memory decision evidence.
+- The report records deferred optimizer rules for conservative runtime filters, dynamic pruning proof gates, and memory/spill-aware planning boundaries.
+- The report surfaces candidate adaptive decisions for memory pressure and runtime-filter availability while explicitly recording that no runtime adaptation is applied.
+- `optimizer-adaptive-memory-plan` exposes deterministic JSON/text fields for rule counts, conservative runtime-filter counts, adaptive decision counts, skew signal representation, memory/spill proof requirements, side-effect boundaries, and no-fallback status.
+- Primary RFC linkage: RFC 0016 and RFC 0014.
+- Related RFCs: RFC 0012, RFC 0013, RFC 0015, RFC 0021, RFC 0025, RFC 0027, RFC 0029, RFC 0031, and RFC 0032.
+- This phase adds no optimizer execution, cost-model execution, runtime-filter build/apply, dynamic pruning execution, plan rewrite, join/aggregate/skew execution, allocator/reservation runtime, spill execution, object-store IO, writes, benchmark claim, production/superiority claim, CG closeout, or fallback behavior.
 
 ## CG-7.15 local encoded `CountAll` physical kernel evidence
 

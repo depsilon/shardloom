@@ -506,6 +506,39 @@ Optimizer diagnostics should include:
 - Unsupported reason.
 - Fallback attempted false.
 
+### CG-14.1 adaptive optimizer memory report
+
+`AdaptiveOptimizerMemoryReport` is the initial report-only CG-14 evidence
+surface. It does not run the optimizer or adapt a plan. It records the gates that
+must be satisfied before runtime-adaptive behavior can become executable.
+
+Required fields:
+- schema/report identity.
+- optimizer phase.
+- status.
+- deferred optimizer rule decisions.
+- conservative runtime-filter candidates.
+- dynamic-pruning proof status.
+- adaptive decision candidates.
+- skew signal representation.
+- memory-budget, bounded-memory, spill-policy, sink-boundary, and deterministic
+  OOM boundary requirements.
+- side-effect fields for optimizer execution, runtime adaptation application,
+  runtime filter build/apply, plan rewrite, data read, decode, materialization,
+  row read, Arrow conversion, object-store IO, writes, spill IO, external engine
+  execution, fallback allowance, fallback attempt, and production claim
+  allowance.
+
+Acceptance boundaries:
+- Runtime filters must be conservative candidates only until proof exists.
+- Dynamic pruning must remain candidate-only until runtime proof exists.
+- Adaptive decisions may be listed as candidates, but `runtime_adaptation_applied`
+  must remain false until a later CG-14 execution step.
+- Memory/spill-aware planning may require budgets and spill policy, but must not
+  perform spill IO in this report.
+- The report must emit `fallback_attempted=false` and
+  `fallback_execution_allowed=false`.
+
 ## Failure behavior
 
 Unsupported optimization behavior must fail explicitly if required for correctness.
