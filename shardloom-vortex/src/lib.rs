@@ -42,6 +42,7 @@ pub mod manifest_finalization;
 pub mod memory_bridge;
 pub mod metadata_async_boundary;
 pub mod metadata_executor;
+pub mod metadata_physical_kernel;
 pub mod metadata_planning;
 pub mod metadata_pruning;
 pub mod metadata_summary;
@@ -166,6 +167,10 @@ pub use metadata_async_boundary::{
 #[cfg(feature = "vortex-file-io")]
 pub use metadata_async_boundary::{
     VortexMetadataAsyncInvocationInput, invoke_vortex_metadata_footer_probe_with_session_async,
+};
+pub use metadata_physical_kernel::{
+    VortexMetadataPhysicalKernelReport, VortexMetadataPhysicalKernelStatus,
+    evaluate_vortex_metadata_physical_kernels,
 };
 
 pub use memory_bridge::{
