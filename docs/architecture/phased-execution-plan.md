@@ -45,29 +45,29 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-8.7 approved local encoded streaming-batch runtime evidence
+- [x] Session label: CG-9.1 schema evolution compatibility evidence
   - Primary files:
-    - `shardloom-vortex/src/streaming_batch_runtime.rs`
-    - `shardloom-vortex/src/lib.rs`
+    - `shardloom-core/src/schema.rs`
+    - `shardloom-core/src/lib.rs`
     - `shardloom-cli/src/main.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-  - Scope: Bridge the already approved local encoded `CountAll` scan into explicit streaming-batch runtime evidence without widening scan/read APIs or adding broader query streaming.
+  - Scope: Add typed CG-9 schema-evolution compatibility evidence for field identity, safe additions, projection/cast/default requirements, metadata-loss diagnostics, and unsafe-transition rejection without catalog access, data reads, writes, object-store IO, or fallback execution.
   - Checklist:
-    - [x] Add a `VortexStreamingBatchRuntimeReport` for local encoded count batches.
-    - [x] Require planned zero-decode Vortex streaming-batch input with no materialization boundary.
-    - [x] Require successful approved local scan/count evidence with matching source URI.
-    - [x] Reject decode, materialization, row reads, Arrow conversion, object-store IO, writes, spill, external effects, and fallback.
-    - [x] Surface streaming-batch runtime evidence through stable `vortex-count --execute-local-encoded-count`.
-    - [x] Add focused runtime-evidence tests.
+    - [x] Add `SchemaEvolutionCompatibilityReport` and evaluator in core.
+    - [x] Detect add, drop, rename, widening, narrowing, nullability, field-identity, and metadata changes.
+    - [x] Require stable field IDs for safe rename evidence.
+    - [x] Surface no-IO/no-fallback schema-evolution evidence through `schema-plan evolution`.
+    - [x] Add focused success/failure tests for safe and unsafe transitions.
     - [x] Update phase and RFC traceability docs.
     - [x] Run full required validation.
   - Local validation status:
-    - focused `shardloom-vortex` streaming-batch runtime tests passed
-    - focused `shardloom-cli` local encoded count bridge test passed
+    - focused `shardloom-core` schema-evolution tests passed
+    - focused `shardloom-cli` schema-plan evolution tests passed
+    - focused Clippy for `shardloom-core` and `shardloom-cli` passed with toolchain `1.91.1`
     - full Rust validation passed with toolchain `1.91.1`
     - docs hygiene scans passed for `git diff --check` and hidden/bidi controls
-  - Explicitly not included: broad streaming runtime execution for arbitrary query plans, bounded parallel encoded/read execution, new scan/read-start APIs, new encoded data read paths beyond the approved local count scan, filtered-count/projection execution, row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, dynamic sizing feedback execution, benchmarks, production/superiority claims, fallback execution, or CG-8 closeout.
+  - Explicitly not included: catalog access, table metadata reads, object-store IO, data reads, writes, commits, external table-format implementation, partition evolution, delete/tombstone execution, CDC execution, layout-health execution, compaction execution, parser work, SQL execution, adapter runtime, benchmark claims, superiority claims, or fallback execution.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -786,6 +786,14 @@ Supporting docs:
     - Decode, materialization, row reads, Arrow conversion, object-store IO, writes, spill, external effects, fallback, source mismatch, and unsafe local scan reports are rejected.
     - Stable `vortex-count --execute-local-encoded-count` surfaces streaming-batch runtime evidence alongside the existing execution certificate and physical-kernel evidence.
     - No broad streaming runtime, bounded parallel encoded/read execution, new scan/read-start API, new encoded data read path, filtered-count/projection execution, object-store IO, write IO, spill IO, benchmark claim, superiority claim, or fallback behavior is added.
+- [x] CG-9.1 schema evolution compatibility evidence
+  - Why: start CG-9 with typed compatibility evidence before catalog/table metadata integration or write-side behavior.
+  - Acceptance:
+    - `SchemaEvolutionCompatibilityReport` records compatibility level, safe/unsafe change counts, field-id requirements, projection/cast/default requirements, metadata-loss reporting, read/write support, and no-IO/no-fallback evidence.
+    - The evaluator detects add/drop/rename/type/nullability/identity/metadata changes and rejects unsafe transitions deterministically.
+    - Safe renames require stable field IDs; possible renames without field IDs are rejected with no fallback attempted.
+    - `schema-plan evolution` surfaces stable schema-evolution report fields for representative safe and unsafe transitions.
+    - No catalog access, table metadata IO, data reads, writes, object-store IO, partition evolution, delete/tombstone execution, CDC execution, compaction, benchmark claim, superiority claim, or fallback behavior is added.
 
 ## Competitive Engine Gates CG-1 through CG-20
 
@@ -945,6 +953,7 @@ Status legend:
     - backpressure and memory/spill-aware scheduling
 
 - [ ] CG-9 — Lakehouse/table intelligence (**planned**)
+  - [x] CG-9.1 schema evolution compatibility evidence
   - Scope:
     - schema evolution and partition evolution
     - delete/tombstone semantics
@@ -1188,7 +1197,8 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] memory/spill-aware scheduler planning surface
 
 ### CG-9 detailed checklist
-- [ ] schema evolution
+- [x] CG-9.1 schema evolution compatibility evidence
+- [ ] broader schema evolution catalog/table metadata integration
 - [ ] partition evolution
 - [ ] delete/tombstone semantics
 - [ ] CDC/incremental planning
@@ -1374,6 +1384,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-8.5 encoded streaming-batch planning surface adds report/CLI evidence for Vortex encoded batch representation, compatibility materialization boundaries, object-store blockers, bounded memory/backpressure, and no-IO/no-fallback side-effect fields without enabling stream runtime execution.
 - [x] CG-8.6 bounded metadata/no-op local task execution makes completed bounded metadata-only and no-op decisions report `tasks_executed=true` while preserving no data reads, decode, materialization, object-store IO, writes, spill IO, external effects, or fallback execution.
 - [x] CG-8.7 approved local encoded streaming-batch runtime evidence exposes the approved local encoded `CountAll` scan as executed streaming batches with source-match, bounded-memory/backpressure, batch-count, row-count, no-decode/no-materialization/no-row/no-Arrow/no-object-store/no-write/no-spill/no-fallback evidence while broader streaming runtime remains deferred.
+- [x] CG-9.1 schema evolution compatibility evidence adds a typed no-IO/no-fallback report for schema add/drop/rename/type/nullability/identity/metadata changes, field-id rename safety, metadata-loss diagnostics, and `schema-plan evolution` surfacing while broader catalog/table integration remains deferred.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind `vortex-write`; placeholder artifact paths remain readiness-only.
 - [~] CG-3 broader output payload shapes remain deferred.
