@@ -6,6 +6,7 @@ use crate::{
     VortexCountCandidateSource, VortexCountReadinessReport, VortexCountReadinessStatus,
     VortexEncodedReadApiArea, VortexEncodedReadApiBoundaryReport,
     VortexEncodedReadApiBoundaryStatus, VortexEncodedReadApiItem, VortexEncodedReadApiRisk,
+    VortexLayoutReaderDriverApprovalReport,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -20,6 +21,7 @@ pub enum VortexEncodedCountDataPathApprovalStatus {
     BlockedByObjectStoreIo,
     BlockedByWriteIo,
     BlockedByFallbackPolicy,
+    BlockedByLayoutDriverApproval,
     Unsupported,
 }
 impl VortexEncodedCountDataPathApprovalStatus {
@@ -38,6 +40,7 @@ impl VortexEncodedCountDataPathApprovalStatus {
             Self::BlockedByObjectStoreIo => "blocked_by_object_store_io",
             Self::BlockedByWriteIo => "blocked_by_write_io",
             Self::BlockedByFallbackPolicy => "blocked_by_fallback_policy",
+            Self::BlockedByLayoutDriverApproval => "blocked_by_layout_driver_approval",
             Self::Unsupported => "unsupported",
         }
     }
@@ -112,6 +115,7 @@ impl VortexEncodedCountDataPathApprovalMode {
 pub struct VortexEncodedCountDataPathApprovalInput {
     pub count_readiness_report: VortexCountReadinessReport,
     pub api_boundary_report: VortexEncodedReadApiBoundaryReport,
+    pub layout_driver_approval_report: Option<VortexLayoutReaderDriverApprovalReport>,
     pub require_execution_usable_data_path: bool,
     pub diagnostics: Vec<Diagnostic>,
 }
@@ -124,10 +128,20 @@ impl VortexEncodedCountDataPathApprovalInput {
         Self {
             count_readiness_report,
             api_boundary_report,
+            layout_driver_approval_report: None,
             require_execution_usable_data_path: true,
             diagnostics: vec![],
         }
     }
+    #[must_use]
+    pub fn with_layout_driver_approval(
+        mut self,
+        report: VortexLayoutReaderDriverApprovalReport,
+    ) -> Self {
+        self.layout_driver_approval_report = Some(report);
+        self
+    }
+
     #[must_use]
     pub fn require_execution_usable_data_path(mut self, value: bool) -> Self {
         self.require_execution_usable_data_path = value;
@@ -156,6 +170,8 @@ pub struct VortexEncodedCountDataPathApprovalReport {
     pub metadata_count_surface_ready: bool,
     pub execution_usable_data_path_count: usize,
     pub api_boundary_blockers: Vec<String>,
+    pub layout_driver_approval_status: Option<String>,
+    pub layout_row_count_path_approved: bool,
     pub count_executed: bool,
     pub encoded_data_read: bool,
     pub row_read: bool,
@@ -174,7 +190,9 @@ impl VortexEncodedCountDataPathApprovalReport {
     pub fn from_input(input: VortexEncodedCountDataPathApprovalInput) -> Result<Self> {
         let metadata_count_surface_ready =
             has_metadata_count_surface(&input.api_boundary_report.items);
-        let execution_usable_data_path_count = input.api_boundary_report.execution_usable_count;
+        let layout_row_count_path_approved = layout_driver_row_count_path_approved(&input);
+        let execution_usable_data_path_count = input.api_boundary_report.execution_usable_count
+            + usize::from(layout_row_count_path_approved);
         let api_boundary_blockers = input
             .api_boundary_report
             .items
@@ -187,6 +205,10 @@ impl VortexEncodedCountDataPathApprovalReport {
             execution_usable_data_path_count,
             &api_boundary_blockers,
         );
+        let layout_driver_approval_status = input
+            .layout_driver_approval_report
+            .as_ref()
+            .map(|report| report.status.as_str().to_string());
         let mode = derive_mode(status);
         let mut diagnostics = input.diagnostics.clone();
         diagnostics.extend(input.count_readiness_report.diagnostics.clone());
@@ -209,6 +231,8 @@ impl VortexEncodedCountDataPathApprovalReport {
             metadata_count_surface_ready,
             execution_usable_data_path_count,
             api_boundary_blockers,
+            layout_driver_approval_status,
+            layout_row_count_path_approved,
             count_executed: false,
             encoded_data_read: false,
             row_read: false,
@@ -275,6 +299,18 @@ impl VortexEncodedCountDataPathApprovalReport {
             "api_boundary_blocker_count={}",
             self.api_boundary_blockers.len()
         );
+        let _ = writeln!(
+            &mut out,
+            "layout_driver_approval_status={}",
+            self.layout_driver_approval_status
+                .as_deref()
+                .unwrap_or("absent")
+        );
+        let _ = writeln!(
+            &mut out,
+            "layout_row_count_path_approved={}",
+            self.layout_row_count_path_approved
+        );
         let _ = writeln!(&mut out, "count_executed={}", self.count_executed);
         let _ = writeln!(&mut out, "encoded_data_read={}", self.encoded_data_read);
         let _ = writeln!(&mut out, "row_read={}", self.row_read);
@@ -329,6 +365,12 @@ fn derive_status(
     if api.fallback_execution_allowed {
         return VortexEncodedCountDataPathApprovalStatus::BlockedByFallbackPolicy;
     }
+    if input.layout_driver_approval_report.is_some() {
+        if !layout_driver_row_count_path_approved(input) {
+            return VortexEncodedCountDataPathApprovalStatus::BlockedByLayoutDriverApproval;
+        }
+        return VortexEncodedCountDataPathApprovalStatus::ApprovedForDeferredCount;
+    }
     if api.has_errors()
         || matches!(
             api.status,
@@ -358,6 +400,19 @@ fn derive_status(
         return VortexEncodedCountDataPathApprovalStatus::BlockedByMissingExecutionUsableDataPath;
     }
     VortexEncodedCountDataPathApprovalStatus::ApprovedForDeferredCount
+}
+
+fn layout_driver_row_count_path_approved(input: &VortexEncodedCountDataPathApprovalInput) -> bool {
+    input
+        .layout_driver_approval_report
+        .as_ref()
+        .is_some_and(|report| {
+            report.approved()
+                && report.is_side_effect_free()
+                && !report.has_errors()
+                && !report.fallback_execution_allowed
+                && report.input.api_boundary_report == input.api_boundary_report
+        })
 }
 
 const fn derive_mode(
@@ -390,6 +445,24 @@ pub fn plan_vortex_encoded_count_data_path_approval(
     })
 }
 
+/// # Errors
+/// Returns an error if encoded-count approval report construction fails.
+pub fn plan_vortex_encoded_count_data_path_approval_with_layout_driver(
+    count_readiness_report: VortexCountReadinessReport,
+    api_boundary_report: VortexEncodedReadApiBoundaryReport,
+    layout_driver_approval_report: VortexLayoutReaderDriverApprovalReport,
+) -> Result<VortexEncodedCountDataPathApprovalReport> {
+    VortexEncodedCountDataPathApprovalReport::from_input(
+        VortexEncodedCountDataPathApprovalInput::new(count_readiness_report, api_boundary_report)
+            .with_layout_driver_approval(layout_driver_approval_report),
+    )
+    .map_err(|e| {
+        ShardLoomError::NotImplemented(format!(
+            "encoded-count layout-driver approval planning failed: {e}"
+        ))
+    })
+}
+
 #[must_use]
 pub fn vortex_encoded_count_data_path_approval_is_side_effect_free(
     report: &VortexEncodedCountDataPathApprovalReport,
@@ -401,8 +474,9 @@ pub fn vortex_encoded_count_data_path_approval_is_side_effect_free(
 mod tests {
     use super::*;
     use crate::{
-        VortexCountReadinessRequest, VortexEncodedReadApiStatus, plan_vortex_count_readiness,
-        vortex_encoded_read_public_api_boundary,
+        VortexCountReadinessRequest, VortexEncodedReadApiStatus,
+        VortexLayoutReaderDriverApprovalInput, plan_vortex_count_readiness,
+        plan_vortex_layout_reader_driver_approval, vortex_encoded_read_public_api_boundary,
     };
     use shardloom_core::DatasetUri;
 
@@ -419,6 +493,28 @@ mod tests {
                 .encoded_data_path_ready(true),
         )
         .expect("count readiness")
+    }
+
+    fn approved_layout_driver_report(
+        api: VortexEncodedReadApiBoundaryReport,
+    ) -> VortexLayoutReaderDriverApprovalReport {
+        plan_vortex_layout_reader_driver_approval(
+            VortexLayoutReaderDriverApprovalInput::new(api)
+                .local_fixture_only(true)
+                .caller_session_allowed(true)
+                .runtime_driver_start_allowed(true)
+                .layout_row_count_only_intent(true)
+                .scan_forbidden(true)
+                .evaluation_forbidden(true)
+                .data_read_forbidden(true)
+                .decode_forbidden(true)
+                .materialization_forbidden(true)
+                .arrow_forbidden(true)
+                .object_store_forbidden(true)
+                .write_forbidden(true)
+                .fallback_forbidden(true),
+        )
+        .expect("layout driver approval")
     }
 
     #[test]
@@ -489,6 +585,68 @@ mod tests {
         assert!(report.metadata_count_surface_ready);
         assert_eq!(report.execution_usable_data_path_count, 0);
         assert!(!report.approved());
+        assert!(report.is_side_effect_free());
+    }
+
+    #[test]
+    fn approved_layout_driver_row_count_path_allows_deferred_count_approval() {
+        let api = vortex_encoded_read_public_api_boundary();
+        let layout = approved_layout_driver_report(api.clone());
+
+        let report = plan_vortex_encoded_count_data_path_approval_with_layout_driver(
+            encoded_count_ready_report(),
+            api,
+            layout,
+        )
+        .expect("approval");
+
+        assert_eq!(
+            report.status,
+            VortexEncodedCountDataPathApprovalStatus::ApprovedForDeferredCount
+        );
+        assert!(report.approved());
+        assert!(report.layout_row_count_path_approved);
+        assert_eq!(
+            report.layout_driver_approval_status.as_deref(),
+            Some("approved_for_layout_row_count_only")
+        );
+        assert_eq!(report.execution_usable_data_path_count, 1);
+        assert!(!report.api_boundary_blockers.is_empty());
+        assert!(!report.count_executed);
+        assert!(!report.encoded_data_read);
+        assert!(!report.row_read);
+        assert!(!report.array_decoded);
+        assert!(!report.values_materialized);
+        assert!(!report.upstream_scan_called);
+        assert!(!report.fallback_execution_allowed);
+        assert!(report.is_side_effect_free());
+        assert!(
+            report
+                .to_human_text()
+                .contains("layout_driver_approval_status=approved_for_layout_row_count_only")
+        );
+    }
+
+    #[test]
+    fn mismatched_layout_driver_approval_blocks_deferred_count_approval() {
+        let api = vortex_encoded_read_public_api_boundary();
+        let layout = approved_layout_driver_report(api);
+
+        let report = plan_vortex_encoded_count_data_path_approval_with_layout_driver(
+            encoded_count_ready_report(),
+            VortexEncodedReadApiBoundaryReport::default_deferred(),
+            layout,
+        )
+        .expect("approval");
+
+        assert_eq!(
+            report.status,
+            VortexEncodedCountDataPathApprovalStatus::BlockedByLayoutDriverApproval
+        );
+        assert!(!report.approved());
+        assert!(!report.layout_row_count_path_approved);
+        assert_eq!(report.execution_usable_data_path_count, 0);
+        assert!(report.has_errors());
         assert!(report.is_side_effect_free());
     }
 
