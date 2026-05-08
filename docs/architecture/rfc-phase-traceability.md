@@ -1075,3 +1075,14 @@ No fallback execution.
 - Primary RFC linkage: RFC 0012, RFC 0015, RFC 0021, RFC 0025, and RFC 0029.
 - Related RFCs: RFC 0013, RFC 0016, RFC 0027, RFC 0031, and RFC 0032.
 - This phase adds no scan/read-start path, generalized encoded-data execution, encoded-value projection execution, broad projection execution, aggregate execution, row reads, requested decode/materialization, Arrow conversion, parser, SQL execution, adapter runtime, object-store IO, writes, spill IO, benchmark claim, production/superiority claim, broad operator-kernel closeout, CG closeout, or fallback behavior.
+
+## CG-7.25 count/aggregate kernel closeout
+
+- CG-7 count/aggregate kernel coverage is complete for the declared CG-7 scope through existing encoded `CountAll` physical-kernel evidence/admission and metadata `CountAll`/`CountWhere` count-aggregate admission.
+- `shardloom-vortex/src/encoded_count_physical_kernel.rs` provides local encoded `CountAll` physical-kernel evidence and encoded count-aggregate admission.
+- `shardloom-vortex/src/metadata_physical_kernel.rs` provides metadata-only `CountAll` and metadata-proof `CountWhere` count-aggregate admission.
+- `capabilities operators`, `kernel-registry`, `vortex-count --execute-local-encoded-count`, and `vortex-metadata-physical-kernel-plan` expose the count-aggregate evidence chain.
+- With filter, projection, count-aggregate, execution-level, and encoded segment evaluation checklist items complete, CG-7 is marked complete in the phase plan.
+- Primary RFC linkage: RFC 0012, RFC 0015, RFC 0021, RFC 0025, and RFC 0029.
+- Related RFCs: RFC 0013, RFC 0016, RFC 0027, RFC 0031, and RFC 0032.
+- This phase adds no scan/read-start path, new count execution, new aggregate execution, generalized encoded-data execution, row reads, requested decode/materialization, Arrow conversion, parser, SQL execution, adapter runtime, object-store IO, writes, spill IO, benchmark claim, production/superiority claim, CG-2 closeout, or fallback behavior.
