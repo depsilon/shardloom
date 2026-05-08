@@ -33,10 +33,11 @@ use shardloom_exec::{
     SpillPayloadFsRef, SpillPayloadId, SpillPayloadPath, SpillPayloadRef,
     SpillPayloadRoundTripRequest, SpillPayloadWriteRequest, SpillPlan, SpillPolicy,
     SpillReservationIntegrationRequest, SpillWorkspaceId, SpillWorkspacePath,
-    StreamingPlanSkeleton, SyntheticSpillPayload, TaskAttemptRecord, plan_backpressure,
-    plan_cancellation_execution_gate, plan_dynamic_sizing_feedback, plan_encoded_streaming_batches,
-    plan_retry_execution_gate, plan_spill_lifecycle, plan_spill_reservation_integration,
-    roundtrip_spill_payload, spill_payload_fs_feature_enabled,
+    StreamingPlanSkeleton, StreamingSink, StreamingSource, SyntheticSpillPayload,
+    TaskAttemptRecord, plan_backpressure, plan_cancellation_execution_gate,
+    plan_dynamic_sizing_feedback, plan_encoded_streaming_batches, plan_retry_execution_gate,
+    plan_spill_lifecycle, plan_spill_reservation_integration, roundtrip_spill_payload,
+    spill_payload_fs_feature_enabled,
 };
 use shardloom_plan::{
     EstimateReport, ExplainReport, NativePlanDocument, OptimizerPhase, OptimizerPlanSkeleton,
@@ -77,9 +78,9 @@ use shardloom_vortex::{
     VortexStagedManifestFileWriteRequest, VortexStagedManifestFileWriteSignal,
     VortexStagedMarkerOption, VortexStagedMarkerRequest, VortexStagedWorkspaceId,
     VortexStagedWorkspacePath, VortexStagedWorkspaceSetupOption, VortexStagedWorkspaceSetupRequest,
-    VortexStatisticsMappingReport, VortexTaskSchedulingDecision, VortexWriteIntentReport,
-    VortexWriteIntentRequest, VortexWriteIntentSignal, VortexWriteOptions, VortexWritePlan,
-    admit_vortex_encoded_count_kernel, admit_vortex_metadata_count_kernel,
+    VortexStatisticsMappingReport, VortexStreamingBatchRuntimeReport, VortexTaskSchedulingDecision,
+    VortexWriteIntentReport, VortexWriteIntentRequest, VortexWriteIntentSignal, VortexWriteOptions,
+    VortexWritePlan, admit_vortex_encoded_count_kernel, admit_vortex_metadata_count_kernel,
     admit_vortex_metadata_filter_kernel, build_vortex_runtime_task_graph,
     commit_marker_write_request_from_plan, evaluate_vortex_encoded_read_readiness,
     evaluate_vortex_execution_readiness, evaluate_vortex_local_encoded_count_physical_kernel,
@@ -90,6 +91,7 @@ use shardloom_vortex::{
     execute_vortex_encoded_read_contract, execute_vortex_encoded_read_spike,
     execute_vortex_local_commit, execute_vortex_local_commit_rollback,
     execute_vortex_local_query_primitive, execute_vortex_metadata_only,
+    execute_vortex_streaming_batches_from_local_encoded_count,
     finalized_manifest_artifact_write_request_from_plan, local_encoded_count_execution_certificate,
     metadata_planning_is_side_effect_free, metadata_pruning_is_side_effect_free,
     metadata_summary_is_plan_only, native_output_payload_write_request_from_plan,
@@ -4449,12 +4451,28 @@ fn handle_vortex_count_local_encoded(
     format: OutputFormat,
 ) -> ExitCode {
     let (encoded_report, local_report) =
-        match run_vortex_approved_local_encoded_count(uri, memory_gb, max_parallelism) {
+        match run_vortex_approved_local_encoded_count(uri.clone(), memory_gb, max_parallelism) {
             Ok(reports) => reports,
             Err(error) => {
                 return emit_error("vortex-count", format, "vortex count failed", &error);
             }
         };
+    let streaming_plan =
+        match build_vortex_count_local_streaming_batch_plan(uri, memory_gb, max_parallelism) {
+            Ok(report) => report,
+            Err(error) => {
+                return emit_error(
+                    "vortex-count",
+                    format,
+                    "vortex streaming-batch runtime evidence failed",
+                    &error,
+                );
+            }
+        };
+    let streaming_report = execute_vortex_streaming_batches_from_local_encoded_count(
+        streaming_plan,
+        encoded_report.clone(),
+    );
     let local_execution_failed = local_report.has_errors();
     let evidence = match vortex_count_local_encoded_evidence(&encoded_report, &local_report) {
         Ok(evidence) => evidence,
@@ -4469,8 +4487,10 @@ fn handle_vortex_count_local_encoded(
     };
     let mut diagnostics = encoded_report.diagnostics.clone();
     diagnostics.extend(local_report.diagnostics.clone());
+    diagnostics.extend(streaming_report.diagnostics.clone());
     diagnostics.extend(evidence.diagnostics());
     let mut human_sections = vec![encoded_report.to_human_text(), local_report.to_human_text()];
+    human_sections.push(streaming_report.to_human_text());
     human_sections.extend(evidence.human_sections());
     let human_text = human_sections.join("\n\n");
     let fields = vortex_count_local_encoded_fields(
@@ -4478,12 +4498,17 @@ fn handle_vortex_count_local_encoded(
         max_parallelism,
         &encoded_report,
         &local_report,
+        &streaming_report,
         &evidence,
     );
     emit(
         "vortex-count",
         format,
-        if encoded_report.has_errors() || local_execution_failed || evidence.has_errors() {
+        if encoded_report.has_errors()
+            || local_execution_failed
+            || streaming_report.has_errors()
+            || evidence.has_errors()
+        {
             CommandStatus::Unsupported
         } else {
             CommandStatus::Success
@@ -4493,11 +4518,30 @@ fn handle_vortex_count_local_encoded(
         diagnostics,
         fields,
     );
-    if encoded_report.has_errors() || local_execution_failed || evidence.has_errors() {
+    if encoded_report.has_errors()
+        || local_execution_failed
+        || streaming_report.has_errors()
+        || evidence.has_errors()
+    {
         ExitCode::from(1)
     } else {
         ExitCode::SUCCESS
     }
+}
+
+fn build_vortex_count_local_streaming_batch_plan(
+    uri: DatasetUri,
+    memory_gb: u64,
+    max_parallelism: usize,
+) -> shardloom_core::Result<EncodedStreamingBatchPlanReport> {
+    let dataset = DatasetRef::from_uri(uri)?;
+    let input = EncodedStreamingBatchPlanInput::new(
+        StreamingSource::vortex_dataset(dataset),
+        StreamingSink::null_benchmark(),
+        BoundedMemoryPolicy::required(ByteSize::from_gib(memory_gb)),
+        max_parallelism,
+    )?;
+    plan_encoded_streaming_batches(input)
 }
 
 struct VortexCountLocalEncodedEvidence {
@@ -4689,6 +4733,7 @@ fn vortex_count_local_encoded_fields(
     max_parallelism: usize,
     encoded_report: &shardloom_vortex::VortexEncodedReadExecutionReport,
     local_report: &VortexLocalExecutionReport,
+    streaming_report: &VortexStreamingBatchRuntimeReport,
     evidence: &VortexCountLocalEncodedEvidence,
 ) -> Vec<(String, String)> {
     let mut fields = Vec::new();
@@ -4772,8 +4817,166 @@ fn vortex_count_local_encoded_fields(
         encoded_report.local_scan_source_uri_matches_target,
     );
     append_vortex_encoded_read_spike_local_execution_fields(&mut fields, local_report);
+    append_vortex_streaming_batch_runtime_fields(&mut fields, streaming_report);
     append_vortex_count_local_encoded_evidence_fields(&mut fields, evidence);
     fields
+}
+
+fn append_vortex_streaming_batch_runtime_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &VortexStreamingBatchRuntimeReport,
+) {
+    append_vortex_streaming_batch_runtime_contract_fields(fields, report);
+    append_vortex_streaming_batch_runtime_source_fields(fields, report);
+    append_vortex_streaming_batch_runtime_execution_fields(fields, report);
+}
+
+fn append_vortex_streaming_batch_runtime_contract_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &VortexStreamingBatchRuntimeReport,
+) {
+    push_bool_field(fields, "streaming_batch_runtime_report_emitted", true);
+    push_field(
+        fields,
+        "streaming_batch_runtime_schema_version",
+        report.schema_version,
+    );
+    push_field(
+        fields,
+        "streaming_batch_runtime_status",
+        report.status.as_str(),
+    );
+    push_field(fields, "streaming_batch_runtime_mode", report.mode.as_str());
+    push_field(
+        fields,
+        "streaming_batch_runtime_representation",
+        report.representation.as_str(),
+    );
+    push_field(
+        fields,
+        "streaming_batch_runtime_zero_decode",
+        report.zero_decode.as_str(),
+    );
+    push_bool_field(
+        fields,
+        "streaming_batch_runtime_encoded_representation_preserved",
+        report.encoded_representation_preserved,
+    );
+    push_bool_field(
+        fields,
+        "streaming_batch_runtime_bounded_parallelism",
+        report.bounded_parallelism,
+    );
+    push_bool_field(
+        fields,
+        "streaming_batch_runtime_bounded_memory",
+        report.bounded_memory,
+    );
+    push_bool_field(
+        fields,
+        "streaming_batch_runtime_backpressure_bounded",
+        report.backpressure_bounded,
+    );
+}
+
+fn append_vortex_streaming_batch_runtime_source_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &VortexStreamingBatchRuntimeReport,
+) {
+    push_field(
+        fields,
+        "streaming_batch_runtime_source_uri",
+        &report
+            .source_uri
+            .as_ref()
+            .map_or_else(|| "none".to_string(), |uri| uri.as_str().to_string()),
+    );
+    push_field(
+        fields,
+        "streaming_batch_runtime_local_scan_target_uri",
+        &report
+            .local_scan_target_uri
+            .as_ref()
+            .map_or_else(|| "none".to_string(), |uri| uri.as_str().to_string()),
+    );
+    push_bool_field(
+        fields,
+        "streaming_batch_runtime_source_uri_matches_local_scan",
+        report.source_uri_matches_local_scan,
+    );
+}
+
+fn append_vortex_streaming_batch_runtime_execution_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &VortexStreamingBatchRuntimeReport,
+) {
+    push_count_field(
+        fields,
+        "streaming_batch_runtime_batches_executed",
+        report.batches_executed,
+    );
+    fields.push((
+        "streaming_batch_runtime_rows_processed".to_string(),
+        report.rows_processed.to_string(),
+    ));
+    fields.push((
+        "streaming_batch_runtime_count_result".to_string(),
+        report
+            .count_result
+            .map_or_else(|| "unknown".to_string(), |count| count.to_string()),
+    ));
+    push_bool_field(
+        fields,
+        "streaming_batch_runtime_streams_executed",
+        report.streams_executed,
+    );
+    push_bool_field(
+        fields,
+        "streaming_batch_runtime_tasks_executed",
+        report.tasks_executed,
+    );
+    push_bool_field(
+        fields,
+        "streaming_batch_runtime_data_read",
+        report.data_read,
+    );
+    push_bool_field(
+        fields,
+        "streaming_batch_runtime_data_decoded",
+        report.data_decoded,
+    );
+    push_bool_field(
+        fields,
+        "streaming_batch_runtime_data_materialized",
+        report.data_materialized,
+    );
+    push_bool_field(fields, "streaming_batch_runtime_row_read", report.row_read);
+    push_bool_field(
+        fields,
+        "streaming_batch_runtime_arrow_converted",
+        report.arrow_converted,
+    );
+    push_bool_field(
+        fields,
+        "streaming_batch_runtime_object_store_io",
+        report.object_store_io,
+    );
+    push_bool_field(fields, "streaming_batch_runtime_write_io", report.write_io);
+    push_bool_field(
+        fields,
+        "streaming_batch_runtime_spill_io_performed",
+        report.spill_io_performed,
+    );
+    push_bool_field(
+        fields,
+        "streaming_batch_runtime_external_effects_executed",
+        report.external_effects_executed,
+    );
+    push_bool_field(
+        fields,
+        "streaming_batch_runtime_fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
 }
 
 fn append_vortex_count_local_encoded_evidence_fields(

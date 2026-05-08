@@ -1143,3 +1143,14 @@ No fallback execution.
 - Primary RFC linkage: RFC 0013, RFC 0014, RFC 0016, RFC 0018, RFC 0025, and RFC 0027.
 - Related RFCs: RFC 0008, RFC 0017, RFC 0021, RFC 0031, and RFC 0032.
 - This phase adds no stream runtime execution, bounded parallel encoded/read execution, read-start API, encoded data reads, row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, dynamic sizing feedback execution, benchmark claim, production/superiority claim, CG-8 closeout, or fallback behavior.
+
+## CG-8.7 approved local encoded streaming-batch runtime evidence
+
+- `VortexStreamingBatchRuntimeReport` records schema, status, mode, representation, zero-decode, bounded-memory, backpressure, source-match, batch-count, row-count, count-result, side-effect, diagnostic, and no-fallback fields for the approved local encoded count path.
+- Runtime evidence requires an already planned zero-decode Vortex streaming-batch source/sink path with no materialization boundary.
+- Runtime evidence requires a successful approved local scan encoded-count execution report, and the streaming source URI must match the local scan target URI.
+- Unsafe reports are rejected if they include decode, materialization, row reads, Arrow conversion, object-store IO, writes, spill, external effects, fallback, or source mismatch.
+- Stable `vortex-count --execute-local-encoded-count` now surfaces streaming-batch runtime evidence beside existing local execution, execution-certificate, physical-kernel, and kernel-admission evidence.
+- Primary RFC linkage: RFC 0013, RFC 0014, RFC 0016, RFC 0018, RFC 0025, and RFC 0027.
+- Related RFCs: RFC 0008, RFC 0017, RFC 0021, RFC 0029, RFC 0031, and RFC 0032.
+- This phase adds no broad streaming runtime execution for arbitrary query plans, bounded parallel encoded/read execution, new scan/read-start API, new encoded data read path beyond the approved local count scan, filtered-count/projection execution, row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, dynamic sizing feedback execution, benchmark claim, production/superiority claim, CG-8 closeout, or fallback behavior.

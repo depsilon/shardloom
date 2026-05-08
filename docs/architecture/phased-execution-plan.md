@@ -45,25 +45,29 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-8.6 bounded metadata/no-op local task execution
+- [x] Session label: CG-8.7 approved local encoded streaming-batch runtime evidence
   - Primary files:
-    - `shardloom-vortex/src/bounded_execution.rs`
-    - `shardloom-vortex/src/local_engine.rs`
+    - `shardloom-vortex/src/streaming_batch_runtime.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `shardloom-cli/src/main.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-  - Scope: Make bounded metadata-only and no-op local decisions report actual bounded task execution while preserving no data reads, decode, materialization, object-store IO, writes, spill IO, external effects, and fallback-disabled evidence.
+  - Scope: Bridge the already approved local encoded `CountAll` scan into explicit streaming-batch runtime evidence without widening scan/read APIs or adding broader query streaming.
   - Checklist:
-    - [x] Make `VortexBoundedExecutionMode::MetadataOnly` and `NoOp` report task execution.
-    - [x] Recompute bounded report `tasks_executed` from completed metadata/no-op decisions.
-    - [x] Propagate bounded task side-effect flags through the local engine report.
-    - [x] Add focused tests for metadata-task execution, no-op task execution, and local-engine effect propagation.
+    - [x] Add a `VortexStreamingBatchRuntimeReport` for local encoded count batches.
+    - [x] Require planned zero-decode Vortex streaming-batch input with no materialization boundary.
+    - [x] Require successful approved local scan/count evidence with matching source URI.
+    - [x] Reject decode, materialization, row reads, Arrow conversion, object-store IO, writes, spill, external effects, and fallback.
+    - [x] Surface streaming-batch runtime evidence through stable `vortex-count --execute-local-encoded-count`.
+    - [x] Add focused runtime-evidence tests.
     - [x] Update phase and RFC traceability docs.
     - [x] Run full required validation.
   - Local validation status:
-    - focused bounded metadata/no-op and local-engine effect tests passed
+    - focused `shardloom-vortex` streaming-batch runtime tests passed
+    - focused `shardloom-cli` local encoded count bridge test passed
     - full Rust validation passed with toolchain `1.91.1`
     - docs hygiene scans passed for `git diff --check` and hidden/bidi controls
-  - Explicitly not included: streaming encoded batch runtime execution, bounded parallel encoded/read execution, scan/read-start APIs, encoded data reads, row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, dynamic sizing feedback execution, benchmarks, production/superiority claims, fallback execution, or CG-8 closeout.
+  - Explicitly not included: broad streaming runtime execution for arbitrary query plans, bounded parallel encoded/read execution, new scan/read-start APIs, new encoded data read paths beyond the approved local count scan, filtered-count/projection execution, row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, dynamic sizing feedback execution, benchmarks, production/superiority claims, fallback execution, or CG-8 closeout.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -773,6 +777,15 @@ Supporting docs:
     - Metadata/no-op bounded task execution preserves no data reads, decode, materialization, object-store IO, writes, spill IO, external effects, and fallback-disabled evidence.
     - Policy-disabled metadata tasks remain side-effect-free and `ReadyButNoExecutableTasks`.
     - No stream runtime execution, encoded-data read execution, row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, benchmark claims, superiority claims, or fallback behavior is added.
+- [x] CG-8.7 approved local encoded streaming-batch runtime evidence
+  - Why: make the already approved local encoded `CountAll` scan visible as executed streaming-batch runtime evidence before broader streaming and parallel encoded-read execution.
+  - Acceptance:
+    - `VortexStreamingBatchRuntimeReport` records schema, status, mode, representation, zero-decode, bounded-memory, backpressure, source-match, batch-count, row-count, count-result, side-effect, diagnostic, and no-fallback fields.
+    - Runtime evidence requires a planned zero-decode Vortex streaming-batch path with no materialization boundary.
+    - Runtime evidence requires a successful approved local scan encoded-count execution report with matching source URI.
+    - Decode, materialization, row reads, Arrow conversion, object-store IO, writes, spill, external effects, fallback, source mismatch, and unsafe local scan reports are rejected.
+    - Stable `vortex-count --execute-local-encoded-count` surfaces streaming-batch runtime evidence alongside the existing execution certificate and physical-kernel evidence.
+    - No broad streaming runtime, bounded parallel encoded/read execution, new scan/read-start API, new encoded data read path, filtered-count/projection execution, object-store IO, write IO, spill IO, benchmark claim, superiority claim, or fallback behavior is added.
 
 ## Competitive Engine Gates CG-1 through CG-20
 
@@ -923,6 +936,7 @@ Status legend:
   - [x] CG-8.4 dynamic sizing feedback planning surface
   - [x] CG-8.5 encoded streaming-batch planning surface
   - [x] CG-8.6 bounded metadata/no-op local task execution
+  - [x] CG-8.7 approved local encoded streaming-batch runtime evidence
   - Scope:
     - encoded streaming-batch planning surface
     - streaming encoded batch runtime execution
@@ -1164,7 +1178,8 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-8.4 dynamic sizing feedback planning surface
 - [x] CG-8.5 encoded streaming-batch planning surface
 - [x] CG-8.6 bounded metadata/no-op local task execution
-- [ ] streaming encoded batch runtime execution
+- [x] CG-8.7 approved local encoded streaming-batch runtime evidence
+- [ ] broader streaming encoded batch runtime execution
 - [ ] bounded parallel encoded/read local execution
 - [x] adaptive split/coalesce planning surface
 - [x] dynamic sizing feedback planning surface
@@ -1358,6 +1373,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-8.4 dynamic sizing feedback planning surface adds report/CLI evidence for target-task-byte feedback recommendations while keeping feedback application, streams, tasks, IO, spill, and fallback disabled.
 - [x] CG-8.5 encoded streaming-batch planning surface adds report/CLI evidence for Vortex encoded batch representation, compatibility materialization boundaries, object-store blockers, bounded memory/backpressure, and no-IO/no-fallback side-effect fields without enabling stream runtime execution.
 - [x] CG-8.6 bounded metadata/no-op local task execution makes completed bounded metadata-only and no-op decisions report `tasks_executed=true` while preserving no data reads, decode, materialization, object-store IO, writes, spill IO, external effects, or fallback execution.
+- [x] CG-8.7 approved local encoded streaming-batch runtime evidence exposes the approved local encoded `CountAll` scan as executed streaming batches with source-match, bounded-memory/backpressure, batch-count, row-count, no-decode/no-materialization/no-row/no-Arrow/no-object-store/no-write/no-spill/no-fallback evidence while broader streaming runtime remains deferred.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind `vortex-write`; placeholder artifact paths remain readiness-only.
 - [~] CG-3 broader output payload shapes remain deferred.
