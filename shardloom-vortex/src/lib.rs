@@ -60,6 +60,7 @@ pub mod scheduler_bridge;
 pub mod selection_vector_filter_kernel;
 pub mod staged_manifest;
 pub mod staged_output;
+pub mod streaming_batch_runtime;
 pub mod write_intent;
 
 pub use filtered_count_readiness::*;
@@ -422,6 +423,12 @@ pub use local_execution::{
     execute_vortex_count_where_from_filtered_count_metadata_proof,
     execute_vortex_local_query_primitive, local_encoded_count_execution_certificate,
     vortex_encoded_count_local_guard_discovery_report, vortex_local_execution_is_side_effect_free,
+};
+pub use streaming_batch_runtime::{
+    VortexStreamingBatchRuntimeMode, VortexStreamingBatchRuntimeReport,
+    VortexStreamingBatchRuntimeStatus, execute_vortex_streaming_batches_from_local_encoded_count,
+    vortex_streaming_batch_runtime_is_side_effect_free,
+    vortex_streaming_batch_runtime_schema_version,
 };
 
 pub use metadata_summary::{
