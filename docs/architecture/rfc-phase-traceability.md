@@ -562,6 +562,16 @@ No fallback execution.
 - `shardloom-contract-tests/tests/physical_operator_kernel_contracts.rs` verifies metadata-only readiness without encoded blockers and hybrid partial-decode missing-slot diagnostics.
 - This pass adds no kernel implementation, query execution behavior, encoded-data traversal, scan/read-start API calls, row reads, decode/materialization, Arrow conversion, object-store IO, write behavior, external engine invocation, or fallback execution.
 
+## CG-7.10 metadata-result physical operator bridge
+
+- Primary RFC linkage: RFC 0021 metadata kernel selection requirements, RFC 0026 metadata/query primitive bridge, RFC 0027 physical operator/kernel roadmap, RFC 0012 deterministic diagnostics, RFC 0025 no-fallback guardrails, and RFC 0032 operator certification requirements.
+- `plan_vortex_query_primitive_result_physical_operators` maps already metadata-answered Vortex query primitive results to metadata-only physical operator plans.
+- Metadata-answered `CountAll`, `CountWhere`, and `FilterPredicate` results can mark metadata kernel requirements present for count/filter physical operators without executing kernels.
+- Physical planning certificate admission remains blocked until separate correctness, memory-safety, benchmark, and no-fallback evidence is supplied.
+- Non-metadata results keep the original missing-kernel blockers, and unsupported primitives remain unsupported instead of fallback execution.
+- `shardloom-vortex/src/physical_operator_bridge.rs` verifies metadata count/filter readiness, non-metadata blocker preservation, side-effect-free behavior, and no-fallback flags.
+- This pass adds no new query execution behavior, kernel implementation, encoded-data traversal, scan/read-start API calls, row reads, decode/materialization, Arrow conversion, object-store IO, write behavior, external engine invocation, or fallback execution.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.

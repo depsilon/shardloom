@@ -7,11 +7,12 @@ use shardloom_core::{
     PhysicalOperatorPlan, PhysicalOperatorPlanningCertificate, Result,
 };
 
-use crate::{VortexQueryPrimitiveKind, VortexQueryPrimitiveRequest};
+use crate::{VortexQueryPrimitiveKind, VortexQueryPrimitiveRequest, VortexQueryPrimitiveResult};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VortexPhysicalOperatorBridgeStatus {
     Planned,
+    MetadataReady,
     Unsupported,
 }
 
@@ -20,6 +21,7 @@ impl VortexPhysicalOperatorBridgeStatus {
     pub const fn as_str(&self) -> &'static str {
         match self {
             Self::Planned => "planned",
+            Self::MetadataReady => "metadata_ready",
             Self::Unsupported => "unsupported",
         }
     }
@@ -43,6 +45,37 @@ impl VortexPhysicalOperatorBridgeReport {
     /// Returns an error only if an internal static operator id is malformed.
     pub fn from_request(request: &VortexQueryPrimitiveRequest) -> Result<Self> {
         let physical_plan = physical_operator_plan_for_vortex_query_primitive(request)?;
+        Ok(Self::from_plan(
+            request.kind,
+            physical_plan,
+            request.diagnostics.clone(),
+        ))
+    }
+
+    /// Builds a report-only physical-operator plan from an already evaluated Vortex primitive.
+    ///
+    /// Metadata-answered primitives can mark metadata kernel requirements present in
+    /// the physical plan. Certificate admission still requires separate correctness,
+    /// memory-safety, and benchmark evidence before any execution claim is allowed.
+    ///
+    /// # Errors
+    /// Returns an error only if an internal static operator id is malformed.
+    pub fn from_result(result: &VortexQueryPrimitiveResult) -> Result<Self> {
+        let physical_plan = physical_operator_plan_for_vortex_query_primitive_result(result)?;
+        let mut diagnostics = result.request.diagnostics.clone();
+        diagnostics.extend(result.diagnostics.clone());
+        Ok(Self::from_plan(
+            result.request.kind,
+            physical_plan,
+            diagnostics,
+        ))
+    }
+
+    fn from_plan(
+        primitive_kind: VortexQueryPrimitiveKind,
+        physical_plan: PhysicalOperatorPlan,
+        mut diagnostics: Vec<Diagnostic>,
+    ) -> Self {
         let planning_certificate = PhysicalOperatorPlanningCertificate::evaluate(
             &physical_plan,
             &PhysicalOperatorExecutionProfileMatrix::cg7_foundation(),
@@ -53,25 +86,25 @@ impl VortexPhysicalOperatorBridgeReport {
         );
         let status = if physical_plan.unsupported_count() > 0 {
             VortexPhysicalOperatorBridgeStatus::Unsupported
+        } else if physical_plan.all_ready_for_native_planning() {
+            VortexPhysicalOperatorBridgeStatus::MetadataReady
         } else {
             VortexPhysicalOperatorBridgeStatus::Planned
         };
-        let mut diagnostics = Vec::new();
-        diagnostics.extend(request.diagnostics.clone());
         diagnostics.extend(physical_plan.diagnostics.clone());
         diagnostics.extend(planning_certificate.diagnostics.clone());
-        Ok(Self {
+        Self {
             schema_version: "shardloom.vortex_physical_operator_bridge.v1",
             bridge_id: format!(
                 "vortex.query-primitive.{}.physical-operator-bridge",
-                request.kind.as_str()
+                primitive_kind.as_str()
             ),
-            primitive_kind: request.kind,
+            primitive_kind,
             physical_plan,
             planning_certificate,
             status,
             diagnostics,
-        })
+        }
     }
 
     #[must_use]
@@ -168,6 +201,55 @@ pub fn physical_operator_plan_for_vortex_query_primitive(
     Ok(plan)
 }
 
+/// Builds a report-only physical-operator plan from an evaluated Vortex primitive.
+///
+/// # Errors
+/// Returns an error only if an internal static operator id is malformed.
+pub fn physical_operator_plan_for_vortex_query_primitive_result(
+    result: &VortexQueryPrimitiveResult,
+) -> Result<PhysicalOperatorPlan> {
+    if !result.status.has_result() {
+        return physical_operator_plan_for_vortex_query_primitive(&result.request);
+    }
+    let operators = match result.request.kind {
+        VortexQueryPrimitiveKind::CountAll => vec![metadata_bridge_operator(
+            "vortex.query_primitive.count_all.metadata_count_aggregate",
+            PhysicalOperatorKind::CountAggregate,
+        )?],
+        VortexQueryPrimitiveKind::CountWhere => vec![
+            metadata_bridge_operator(
+                "vortex.query_primitive.count_where.metadata_filter",
+                PhysicalOperatorKind::Filter,
+            )?,
+            metadata_bridge_operator(
+                "vortex.query_primitive.count_where.metadata_count_aggregate",
+                PhysicalOperatorKind::CountAggregate,
+            )?,
+        ],
+        VortexQueryPrimitiveKind::FilterPredicate => vec![metadata_bridge_operator(
+            "vortex.query_primitive.filter_predicate.metadata_filter",
+            PhysicalOperatorKind::Filter,
+        )?],
+        VortexQueryPrimitiveKind::ProjectColumns
+        | VortexQueryPrimitiveKind::FilterAndProject
+        | VortexQueryPrimitiveKind::SimpleAggregate
+        | VortexQueryPrimitiveKind::Unsupported => {
+            return physical_operator_plan_for_vortex_query_primitive(&result.request);
+        }
+    };
+    let mut plan = PhysicalOperatorPlan {
+        schema_version: "shardloom.physical_operator_plan.v1",
+        plan_id: format!(
+            "vortex.query-primitive.{}.metadata-result-physical-plan",
+            result.request.kind.as_str()
+        ),
+        operators,
+        diagnostics: Vec::new(),
+    };
+    plan.refresh_diagnostics();
+    Ok(plan)
+}
+
 /// Builds a side-effect-free bridge report for a Vortex query primitive.
 ///
 /// # Errors
@@ -176,6 +258,16 @@ pub fn plan_vortex_query_primitive_physical_operators(
     request: &VortexQueryPrimitiveRequest,
 ) -> Result<VortexPhysicalOperatorBridgeReport> {
     VortexPhysicalOperatorBridgeReport::from_request(request)
+}
+
+/// Builds a side-effect-free bridge report from an evaluated Vortex query primitive.
+///
+/// # Errors
+/// Returns an error only if an internal static operator id is malformed.
+pub fn plan_vortex_query_primitive_result_physical_operators(
+    result: &VortexQueryPrimitiveResult,
+) -> Result<VortexPhysicalOperatorBridgeReport> {
+    VortexPhysicalOperatorBridgeReport::from_result(result)
 }
 
 fn bridge_operator(
@@ -197,6 +289,18 @@ fn bridge_operator(
         )
     };
     PhysicalOperatorContract::new(operator_id, kind, execution_level, kernel_requirements)
+}
+
+fn metadata_bridge_operator(
+    operator_id: &str,
+    kind: PhysicalOperatorKind,
+) -> Result<PhysicalOperatorContract> {
+    PhysicalOperatorContract::new(
+        operator_id,
+        kind,
+        PhysicalOperatorExecutionLevel::MetadataOnly,
+        vec![PhysicalKernelRequirement::present(KernelKind::Metadata)],
+    )
 }
 
 #[cfg(test)]
@@ -278,5 +382,74 @@ mod tests {
                 .to_human_text()
                 .contains("fallback execution: disabled")
         );
+    }
+
+    #[test]
+    fn metadata_count_result_marks_metadata_count_kernel_present_without_execution() {
+        let result = VortexQueryPrimitiveResult::metadata_answered(
+            VortexQueryPrimitiveRequest::count_all(uri()),
+            crate::VortexQueryPrimitiveValue::Count(9),
+        );
+
+        let report =
+            plan_vortex_query_primitive_result_physical_operators(&result).expect("report");
+
+        assert_eq!(
+            report.status,
+            VortexPhysicalOperatorBridgeStatus::MetadataReady
+        );
+        assert_eq!(report.physical_plan.ready_for_native_planning_count(), 1);
+        assert_eq!(report.physical_plan.missing_kernel_count(), 0);
+        assert_eq!(report.planning_certificate.required_slot_count, 1);
+        assert_eq!(report.planning_certificate.missing_slot_count, 0);
+        assert_eq!(report.planning_certificate.selection_blocked_count, 0);
+        assert_eq!(report.planning_certificate.admission_blocked_count, 1);
+        assert!(!report.runtime_execution_allowed());
+        assert!(!report.fallback_execution_allowed());
+    }
+
+    #[test]
+    fn metadata_filter_result_marks_filter_metadata_kernel_present_without_execution() {
+        let result = VortexQueryPrimitiveResult::metadata_answered(
+            VortexQueryPrimitiveRequest::filter(
+                uri(),
+                PredicateExpr::IsNull {
+                    column: ColumnRef::new("flag").expect("column"),
+                },
+            ),
+            crate::VortexQueryPrimitiveValue::Boolean(false),
+        );
+
+        let plan = physical_operator_plan_for_vortex_query_primitive_result(&result).expect("plan");
+
+        assert_eq!(plan.operators.len(), 1);
+        assert_eq!(plan.operators[0].kind, PhysicalOperatorKind::Filter);
+        assert_eq!(
+            plan.operators[0].execution_level,
+            PhysicalOperatorExecutionLevel::MetadataOnly
+        );
+        assert!(plan.operators[0].can_plan_native());
+        assert!(!plan.fallback_execution_allowed());
+    }
+
+    #[test]
+    fn non_metadata_result_keeps_original_missing_kernel_blockers() {
+        let result = VortexQueryPrimitiveResult::needs_encoded_read(
+            VortexQueryPrimitiveRequest::project(
+                uri(),
+                shardloom_plan::ProjectionRequest::columns(vec![
+                    ColumnRef::new("col1").expect("column"),
+                ]),
+            ),
+            "projection requires encoded read",
+        );
+
+        let report =
+            plan_vortex_query_primitive_result_physical_operators(&result).expect("report");
+
+        assert_eq!(report.status, VortexPhysicalOperatorBridgeStatus::Planned);
+        assert_eq!(report.physical_plan.ready_for_native_planning_count(), 0);
+        assert_eq!(report.physical_plan.missing_kernel_count(), 1);
+        assert!(!report.planning_certificate.can_plan_native());
     }
 }
