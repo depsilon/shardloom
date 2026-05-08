@@ -1003,3 +1003,13 @@ No fallback execution.
 - Primary RFC linkage: RFC 0012, RFC 0021, RFC 0025, and RFC 0029.
 - Related RFCs: RFC 0015, RFC 0016, RFC 0027, RFC 0031, and RFC 0032.
 - This phase adds no new runtime path, generalized encoded-data execution, filtered-count execution, projection execution, parser, SQL execution, adapter runtime, object-store IO, writes, spill IO, benchmark claim, production/superiority claim, broad count/aggregate closeout, CG closeout, or fallback behavior.
+
+## CG-7.18 metadata filter kernel admission bridge
+
+- `VortexMetadataFilterKernelAdmissionReport` maps safe metadata-only filter physical-kernel evidence into the CG-7 `PhysicalKernelAdmissionReport` gate for the filter metadata-kernel slot.
+- Safe evidence can make the metadata filter slot registry-ready, but benchmark evidence remains missing so production certification and any superiority/best-choice claims remain blocked.
+- `vortex-metadata-physical-kernel-plan filter` surfaces metadata filter kernel admission fields when explicit correctness and memory evidence is supplied.
+- `capabilities operators` and `kernel-registry` expose admission discovery fields without probing files, executing kernels, or registering a global runtime kernel.
+- Primary RFC linkage: RFC 0012, RFC 0021, RFC 0025, and RFC 0029.
+- Related RFCs: RFC 0015, RFC 0016, RFC 0027, RFC 0031, and RFC 0032.
+- This phase adds no new runtime path, generalized encoded-data execution, encoded predicate execution, filtered-count execution, projection execution, parser, SQL execution, adapter runtime, object-store IO, writes, spill IO, benchmark claim, production/superiority claim, broad filter-kernel closeout, CG closeout, or fallback behavior.

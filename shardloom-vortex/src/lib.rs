@@ -179,7 +179,8 @@ pub use metadata_async_boundary::{
     VortexMetadataAsyncInvocationInput, invoke_vortex_metadata_footer_probe_with_session_async,
 };
 pub use metadata_physical_kernel::{
-    VortexMetadataPhysicalKernelReport, VortexMetadataPhysicalKernelStatus,
+    VortexMetadataFilterKernelAdmissionReport, VortexMetadataPhysicalKernelReport,
+    VortexMetadataPhysicalKernelStatus, admit_vortex_metadata_filter_kernel,
     evaluate_vortex_metadata_physical_kernels,
 };
 

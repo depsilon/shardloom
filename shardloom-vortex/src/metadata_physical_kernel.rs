@@ -1,7 +1,10 @@
 use std::fmt::Write as _;
 
 use shardloom_core::{
-    Diagnostic, DiagnosticCode, KernelKind, PhysicalOperatorKind,
+    BenchmarkEvidenceState, BenchmarkFallbackState, Diagnostic, DiagnosticCode, KernelKind,
+    OperatorMemoryCertification, PhysicalKernelAdmissionReport, PhysicalKernelAdmissionStatus,
+    PhysicalKernelRequirement, PhysicalKernelSlot, PhysicalOperatorContract,
+    PhysicalOperatorExecutionLevel, PhysicalOperatorKind,
     PhysicalOperatorPlanningCertificateStatus,
 };
 
@@ -9,6 +12,13 @@ use crate::{
     VortexPhysicalOperatorBridgeReport, VortexQueryPrimitiveKind, VortexQueryPrimitiveResult,
     VortexQueryPrimitiveStatus, VortexQueryPrimitiveValue,
 };
+
+const SCHEMA_VERSION: &str = "shardloom.vortex_metadata_physical_kernel.v1";
+const FILTER_ADMISSION_SCHEMA_VERSION: &str =
+    "shardloom.vortex_metadata_filter_kernel_admission.v1";
+const FILTER_KERNEL_REPORT_ID: &str =
+    "vortex.query-primitive.filter_predicate.metadata-physical-kernel";
+const FILTER_OPERATOR_ID: &str = "vortex.query_primitive.filter_predicate.metadata_filter";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VortexMetadataPhysicalKernelStatus {
@@ -68,7 +78,7 @@ impl VortexMetadataPhysicalKernelReport {
     ) -> Self {
         let metadata_kernel_count = evaluated_operator_kinds.len();
         Self {
-            schema_version: "shardloom.vortex_metadata_physical_kernel.v1",
+            schema_version: SCHEMA_VERSION,
             kernel_report_id: format!(
                 "vortex.query-primitive.{}.metadata-physical-kernel",
                 result.request.kind.as_str()
@@ -103,7 +113,7 @@ impl VortexMetadataPhysicalKernelReport {
         diagnostics.extend(bridge.diagnostics.clone());
         diagnostics.push(diagnostic);
         Self {
-            schema_version: "shardloom.vortex_metadata_physical_kernel.v1",
+            schema_version: SCHEMA_VERSION,
             kernel_report_id: format!(
                 "vortex.query-primitive.{}.metadata-physical-kernel",
                 result.request.kind.as_str()
@@ -150,6 +160,22 @@ impl VortexMetadataPhysicalKernelReport {
     }
 
     #[must_use]
+    pub fn is_safe_metadata_filter_kernel_evidence(&self) -> bool {
+        self.status == VortexMetadataPhysicalKernelStatus::EvaluatedMetadataOnly
+            && self.primitive_kind == VortexQueryPrimitiveKind::FilterPredicate
+            && self.kernel_kind == KernelKind::Metadata
+            && matches!(self.value, VortexQueryPrimitiveValue::Boolean(_))
+            && self.metadata_kernel_count == 1
+            && matches!(
+                self.evaluated_operator_kinds.as_slice(),
+                [PhysicalOperatorKind::Filter]
+            )
+            && self.is_side_effect_free()
+            && !self.has_errors()
+            && self.kernel_report_id == FILTER_KERNEL_REPORT_ID
+    }
+
+    #[must_use]
     pub fn to_human_text(&self) -> String {
         let mut text = String::new();
         let _ = writeln!(text, "schema_version: {}", self.schema_version);
@@ -167,6 +193,93 @@ impl VortexMetadataPhysicalKernelReport {
         let _ = writeln!(text, "spill io performed: false");
         let _ = writeln!(text, "fallback execution: disabled");
         text
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexMetadataFilterKernelAdmissionReport {
+    pub schema_version: &'static str,
+    pub admission_id: String,
+    pub metadata_kernel_report_id: String,
+    pub slot_id: String,
+    pub operator_kind: PhysicalOperatorKind,
+    pub required_kernel_kind: KernelKind,
+    pub candidate_kernel_kind: KernelKind,
+    pub correctness_evidence: BenchmarkEvidenceState,
+    pub benchmark_evidence: BenchmarkEvidenceState,
+    pub memory: OperatorMemoryCertification,
+    pub fallback: BenchmarkFallbackState,
+    pub status: PhysicalKernelAdmissionStatus,
+    pub slot_marked_present: bool,
+    pub production_claim_allowed: bool,
+    pub runtime_execution_allowed: bool,
+    pub fallback_execution_allowed: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl VortexMetadataFilterKernelAdmissionReport {
+    #[must_use]
+    pub fn from_admission(
+        metadata_kernel: &VortexMetadataPhysicalKernelReport,
+        admission: PhysicalKernelAdmissionReport,
+    ) -> Self {
+        let mut diagnostics = metadata_kernel.diagnostics.clone();
+        diagnostics.extend(admission.diagnostics.clone());
+        let slot_marked_present = admission.can_mark_kernel_present();
+        let production_claim_allowed = admission.can_satisfy_production_claim();
+        Self {
+            schema_version: FILTER_ADMISSION_SCHEMA_VERSION,
+            admission_id: format!("{}.filter-admission", metadata_kernel.kernel_report_id),
+            metadata_kernel_report_id: metadata_kernel.kernel_report_id.clone(),
+            slot_id: admission.slot_id,
+            operator_kind: admission.operator_kind,
+            required_kernel_kind: admission.required_kernel_kind,
+            candidate_kernel_kind: admission.candidate_kernel_kind,
+            correctness_evidence: admission.correctness_evidence,
+            benchmark_evidence: admission.benchmark_evidence,
+            memory: admission.memory,
+            fallback: admission.fallback,
+            status: admission.status,
+            slot_marked_present,
+            production_claim_allowed,
+            runtime_execution_allowed: false,
+            fallback_execution_allowed: false,
+            diagnostics,
+        }
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        !self.status.can_enter_registry()
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    shardloom_core::DiagnosticSeverity::Error
+                        | shardloom_core::DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    #[must_use]
+    pub const fn is_side_effect_free(&self) -> bool {
+        !self.runtime_execution_allowed && !self.fallback_execution_allowed
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "metadata filter kernel admission\nschema_version: {}\nadmission: {}\nslot: {}\noperator: {}\nrequired kernel: {}\ncandidate kernel: {}\nstatus: {}\nslot marked present: {}\nproduction claim allowed: {}\nruntime execution: disabled\nfallback execution: disabled",
+            self.schema_version,
+            self.admission_id,
+            self.slot_id,
+            self.operator_kind.as_str(),
+            self.required_kernel_kind.as_str(),
+            self.candidate_kernel_kind.as_str(),
+            self.status.as_str(),
+            self.slot_marked_present,
+            self.production_claim_allowed
+        )
     }
 }
 
@@ -245,6 +358,71 @@ pub fn evaluate_vortex_metadata_physical_kernels(
     }
 }
 
+/// Admits already evaluated metadata-only filter evidence into the CG-7 filter
+/// metadata kernel slot.
+///
+/// This is a contextual evidence bridge. It does not register a global runtime
+/// filter kernel, execute encoded predicates, materialize rows, claim production
+/// readiness, or close broader filter-kernel work.
+///
+/// # Errors
+/// Returns an error only if the static metadata-filter operator contract cannot
+/// be built.
+pub fn admit_vortex_metadata_filter_kernel(
+    metadata_kernel: &VortexMetadataPhysicalKernelReport,
+) -> shardloom_core::Result<VortexMetadataFilterKernelAdmissionReport> {
+    let slot = metadata_filter_kernel_slot()?;
+    let safe_evidence = metadata_kernel.is_safe_metadata_filter_kernel_evidence();
+    let admission = PhysicalKernelAdmissionReport::evaluate(
+        &slot,
+        KernelKind::Metadata,
+        if safe_evidence {
+            BenchmarkEvidenceState::Present
+        } else {
+            BenchmarkEvidenceState::Missing
+        },
+        BenchmarkEvidenceState::Missing,
+        if safe_evidence {
+            safe_metadata_filter_memory()
+        } else {
+            OperatorMemoryCertification::unsupported()
+        },
+        if metadata_kernel.fallback_execution_allowed {
+            BenchmarkFallbackState::Attempted
+        } else {
+            BenchmarkFallbackState::NotAttempted
+        },
+    );
+    Ok(VortexMetadataFilterKernelAdmissionReport::from_admission(
+        metadata_kernel,
+        admission,
+    ))
+}
+
+fn metadata_filter_kernel_slot() -> shardloom_core::Result<PhysicalKernelSlot> {
+    let operator = PhysicalOperatorContract::new(
+        FILTER_OPERATOR_ID,
+        PhysicalOperatorKind::Filter,
+        PhysicalOperatorExecutionLevel::MetadataOnly,
+        vec![PhysicalKernelRequirement::missing(KernelKind::Metadata)],
+    )?;
+    Ok(PhysicalKernelSlot::from_requirement(
+        &operator,
+        PhysicalKernelRequirement::missing(KernelKind::Metadata),
+    ))
+}
+
+const fn safe_metadata_filter_memory() -> OperatorMemoryCertification {
+    OperatorMemoryCertification {
+        streaming: true,
+        bounded_memory: true,
+        spillable: false,
+        requires_full_materialization: false,
+        requires_shuffle: false,
+        oom_safe: true,
+    }
+}
+
 fn evaluate_count_metadata_kernel(
     result: &VortexQueryPrimitiveResult,
     bridge: &VortexPhysicalOperatorBridgeReport,
@@ -305,7 +483,7 @@ mod tests {
     use super::*;
     use shardloom_core::{
         BenchmarkEvidenceState, BenchmarkFallbackState, ColumnRef, DatasetUri,
-        OperatorMemoryCertification, PredicateExpr,
+        OperatorMemoryCertification, PhysicalKernelAdmissionStatus, PredicateExpr,
     };
 
     use crate::{
@@ -424,6 +602,76 @@ mod tests {
             vec![PhysicalOperatorKind::Filter]
         );
         assert!(report.is_side_effect_free());
+    }
+
+    #[test]
+    fn safe_metadata_filter_kernel_admits_metadata_slot_without_production_claim() {
+        let result = VortexQueryPrimitiveResult::metadata_answered(
+            VortexQueryPrimitiveRequest::filter(
+                uri(),
+                PredicateExpr::IsNull {
+                    column: ColumnRef::new("flag").expect("column"),
+                },
+            ),
+            VortexQueryPrimitiveValue::Boolean(false),
+        );
+        let bridge = evidence_ready_bridge(&result);
+        let metadata_kernel = evaluate_vortex_metadata_physical_kernels(&result, &bridge);
+
+        let admission =
+            admit_vortex_metadata_filter_kernel(&metadata_kernel).expect("filter admission");
+
+        assert_eq!(admission.schema_version, FILTER_ADMISSION_SCHEMA_VERSION);
+        assert_eq!(
+            admission.status,
+            PhysicalKernelAdmissionStatus::RegistryReady
+        );
+        assert_eq!(admission.operator_kind, PhysicalOperatorKind::Filter);
+        assert_eq!(admission.required_kernel_kind, KernelKind::Metadata);
+        assert_eq!(admission.candidate_kernel_kind, KernelKind::Metadata);
+        assert_eq!(
+            admission.correctness_evidence,
+            BenchmarkEvidenceState::Present
+        );
+        assert_eq!(
+            admission.benchmark_evidence,
+            BenchmarkEvidenceState::Missing
+        );
+        assert!(admission.slot_marked_present);
+        assert!(!admission.production_claim_allowed);
+        assert!(admission.memory.streaming);
+        assert!(admission.memory.bounded_memory);
+        assert!(admission.memory.oom_safe);
+        assert!(!admission.memory.requires_full_materialization);
+        assert!(admission.is_side_effect_free());
+        assert!(!admission.has_errors());
+    }
+
+    #[test]
+    fn blocked_metadata_filter_kernel_cannot_admit_slot() {
+        let result = VortexQueryPrimitiveResult::metadata_answered(
+            VortexQueryPrimitiveRequest::filter(uri(), PredicateExpr::AlwaysFalse),
+            VortexQueryPrimitiveValue::Boolean(false),
+        );
+        let bridge =
+            plan_vortex_query_primitive_result_physical_operators(&result).expect("bridge");
+        let metadata_kernel = evaluate_vortex_metadata_physical_kernels(&result, &bridge);
+
+        let admission =
+            admit_vortex_metadata_filter_kernel(&metadata_kernel).expect("filter admission");
+
+        assert_eq!(
+            admission.status,
+            PhysicalKernelAdmissionStatus::BlockedMissingCorrectness
+        );
+        assert_eq!(
+            admission.correctness_evidence,
+            BenchmarkEvidenceState::Missing
+        );
+        assert!(!admission.slot_marked_present);
+        assert!(!admission.production_claim_allowed);
+        assert!(admission.has_errors());
+        assert!(admission.is_side_effect_free());
     }
 
     #[test]

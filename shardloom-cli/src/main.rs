@@ -57,7 +57,8 @@ use shardloom_vortex::{
     VortexLayoutReaderDriverApprovalInput, VortexLayoutReaderDriverApprovalSignal,
     VortexLocalCommitExecutionRequest, VortexLocalCommitExecutionSignal,
     VortexLocalCommitRecoveryRequest, VortexLocalCommitRecoverySignal, VortexLocalExecutionReport,
-    VortexManifestFinalizationRequest, VortexManifestFinalizationSignal, VortexMetadataOpenRequest,
+    VortexManifestFinalizationRequest, VortexManifestFinalizationSignal,
+    VortexMetadataFilterKernelAdmissionReport, VortexMetadataOpenRequest,
     VortexMetadataProbeReport, VortexNativeOutputPayloadWriteReport,
     VortexOutputPayloadContentDescriptor, VortexOutputPayloadFileName, VortexOutputPayloadFileRef,
     VortexOutputPayloadReport, VortexOutputPayloadRequest, VortexOutputPayloadSignal,
@@ -71,11 +72,12 @@ use shardloom_vortex::{
     VortexStagedWorkspaceId, VortexStagedWorkspacePath, VortexStagedWorkspaceSetupOption,
     VortexStagedWorkspaceSetupRequest, VortexStatisticsMappingReport, VortexTaskSchedulingDecision,
     VortexWriteIntentReport, VortexWriteIntentRequest, VortexWriteIntentSignal, VortexWriteOptions,
-    VortexWritePlan, admit_vortex_encoded_count_kernel, build_vortex_runtime_task_graph,
-    commit_marker_write_request_from_plan, evaluate_vortex_encoded_read_readiness,
-    evaluate_vortex_execution_readiness, evaluate_vortex_local_encoded_count_physical_kernel,
-    evaluate_vortex_metadata_physical_kernels, evaluate_vortex_query_primitive,
-    execute_vortex_bounded_local_query, execute_vortex_count_all_from_approved_local_scan,
+    VortexWritePlan, admit_vortex_encoded_count_kernel, admit_vortex_metadata_filter_kernel,
+    build_vortex_runtime_task_graph, commit_marker_write_request_from_plan,
+    evaluate_vortex_encoded_read_readiness, evaluate_vortex_execution_readiness,
+    evaluate_vortex_local_encoded_count_physical_kernel, evaluate_vortex_metadata_physical_kernels,
+    evaluate_vortex_query_primitive, execute_vortex_bounded_local_query,
+    execute_vortex_count_all_from_approved_local_scan,
     execute_vortex_count_all_from_approved_local_scan_result,
     execute_vortex_count_all_from_encoded_count_data_path_approval,
     execute_vortex_encoded_read_contract, execute_vortex_encoded_read_spike,
@@ -1341,78 +1343,101 @@ fn run_vortex_metadata_physical_kernel_plan(format: OutputFormat, args: Vec<Stri
         }
     };
     let report = evaluate_vortex_metadata_physical_kernels(&result, &bridge);
+    let filter_admission =
+        if report.primitive_kind == shardloom_vortex::VortexQueryPrimitiveKind::FilterPredicate {
+            match admit_vortex_metadata_filter_kernel(&report) {
+                Ok(admission) => Some(admission),
+                Err(error) => {
+                    return emit_error(command, format, "filter kernel admission failed", &error);
+                }
+            }
+        } else {
+            None
+        };
+    let report_has_errors = report.has_errors()
+        || filter_admission
+            .as_ref()
+            .is_some_and(VortexMetadataFilterKernelAdmissionReport::has_errors);
+    let mut diagnostics = report.diagnostics.clone();
+    if let Some(filter_admission) = &filter_admission {
+        diagnostics.extend(filter_admission.diagnostics.clone());
+    }
+    let mut fields = vec![
+        (
+            "primitive".to_string(),
+            report.primitive_kind.as_str().to_string(),
+        ),
+        ("status".to_string(), report.status.as_str().to_string()),
+        (
+            "certificate_status".to_string(),
+            report.certificate_status.as_str().to_string(),
+        ),
+        (
+            "metadata_kernel_count".to_string(),
+            report.metadata_kernel_count.to_string(),
+        ),
+        (
+            "kernel_kind".to_string(),
+            report.kernel_kind.as_str().to_string(),
+        ),
+        ("value".to_string(), report.value.as_str()),
+        (
+            "correctness_evidence".to_string(),
+            correctness_evidence.as_str().to_string(),
+        ),
+        (
+            "benchmark_evidence".to_string(),
+            benchmark_evidence.as_str().to_string(),
+        ),
+        (
+            "memory_safe".to_string(),
+            metadata_kernel_memory_safe(memory).to_string(),
+        ),
+        (
+            "fallback_attempted".to_string(),
+            fallback.attempted().to_string(),
+        ),
+        ("data_read".to_string(), report.data_read.to_string()),
+        ("data_decoded".to_string(), report.data_decoded.to_string()),
+        (
+            "data_materialized".to_string(),
+            report.data_materialized.to_string(),
+        ),
+        (
+            "object_store_io".to_string(),
+            report.object_store_io.to_string(),
+        ),
+        ("write_io".to_string(), report.write_io.to_string()),
+        (
+            "spill_io_performed".to_string(),
+            report.spill_io_performed.to_string(),
+        ),
+        (
+            "fallback_execution_allowed".to_string(),
+            report.fallback_execution_allowed.to_string(),
+        ),
+        (
+            "side_effect_free".to_string(),
+            report.is_side_effect_free().to_string(),
+        ),
+    ];
+    if let Some(filter_admission) = &filter_admission {
+        append_metadata_filter_kernel_admission_fields(&mut fields, filter_admission);
+    }
     emit(
         command,
         format,
-        if report.has_errors() {
+        if report_has_errors {
             CommandStatus::Unsupported
         } else {
             CommandStatus::Success
         },
         "vortex metadata physical kernel report".to_string(),
         report.to_human_text(),
-        report.diagnostics.clone(),
-        vec![
-            (
-                "primitive".to_string(),
-                report.primitive_kind.as_str().to_string(),
-            ),
-            ("status".to_string(), report.status.as_str().to_string()),
-            (
-                "certificate_status".to_string(),
-                report.certificate_status.as_str().to_string(),
-            ),
-            (
-                "metadata_kernel_count".to_string(),
-                report.metadata_kernel_count.to_string(),
-            ),
-            (
-                "kernel_kind".to_string(),
-                report.kernel_kind.as_str().to_string(),
-            ),
-            ("value".to_string(), report.value.as_str()),
-            (
-                "correctness_evidence".to_string(),
-                correctness_evidence.as_str().to_string(),
-            ),
-            (
-                "benchmark_evidence".to_string(),
-                benchmark_evidence.as_str().to_string(),
-            ),
-            (
-                "memory_safe".to_string(),
-                metadata_kernel_memory_safe(memory).to_string(),
-            ),
-            (
-                "fallback_attempted".to_string(),
-                fallback.attempted().to_string(),
-            ),
-            ("data_read".to_string(), report.data_read.to_string()),
-            ("data_decoded".to_string(), report.data_decoded.to_string()),
-            (
-                "data_materialized".to_string(),
-                report.data_materialized.to_string(),
-            ),
-            (
-                "object_store_io".to_string(),
-                report.object_store_io.to_string(),
-            ),
-            ("write_io".to_string(), report.write_io.to_string()),
-            (
-                "spill_io_performed".to_string(),
-                report.spill_io_performed.to_string(),
-            ),
-            (
-                "fallback_execution_allowed".to_string(),
-                report.fallback_execution_allowed.to_string(),
-            ),
-            (
-                "side_effect_free".to_string(),
-                report.is_side_effect_free().to_string(),
-            ),
-        ],
+        diagnostics,
+        fields,
     );
-    if report.has_errors() {
+    if report_has_errors {
         ExitCode::from(1)
     } else {
         ExitCode::SUCCESS
@@ -1678,6 +1703,7 @@ fn append_operator_certification_fields(
         execution_profiles.fallback_allowed_count(),
     );
     append_metadata_physical_kernel_discovery_fields(fields);
+    append_metadata_filter_kernel_admission_discovery_fields(fields);
     append_encoded_count_physical_kernel_discovery_fields(fields);
     append_encoded_count_kernel_admission_discovery_fields(fields);
     append_encoded_count_local_guard_discovery_fields(fields);
@@ -1729,6 +1755,59 @@ fn append_metadata_physical_kernel_discovery_fields(fields: &mut Vec<(String, St
         fields,
         "metadata_physical_kernel_fallback_execution_allowed",
         "false",
+    );
+}
+
+fn append_metadata_filter_kernel_admission_discovery_fields(fields: &mut Vec<(String, String)>) {
+    push_field(
+        fields,
+        "metadata_filter_kernel_admission_schema_version",
+        "shardloom.vortex_metadata_filter_kernel_admission.v1",
+    );
+    push_bool_field(
+        fields,
+        "metadata_filter_kernel_admission_contextual_only",
+        true,
+    );
+    push_field(
+        fields,
+        "metadata_filter_kernel_admission_operator_kind",
+        "filter",
+    );
+    push_field(
+        fields,
+        "metadata_filter_kernel_admission_required_kernel_kind",
+        "metadata",
+    );
+    push_bool_field(
+        fields,
+        "metadata_filter_kernel_admission_requires_metadata_kernel_evidence",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "metadata_filter_kernel_admission_requires_correctness_evidence",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "metadata_filter_kernel_admission_requires_memory_safety_evidence",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "metadata_filter_kernel_admission_requires_benchmark_for_production",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "metadata_filter_kernel_admission_runtime_execution",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "metadata_filter_kernel_admission_fallback_execution_allowed",
+        false,
     );
 }
 
@@ -3872,6 +3951,108 @@ fn append_encoded_count_physical_kernel_fields(
     );
 }
 
+fn append_metadata_filter_kernel_admission_fields(
+    fields: &mut Vec<(String, String)>,
+    filter_admission: &VortexMetadataFilterKernelAdmissionReport,
+) {
+    push_bool_field(fields, "metadata_filter_kernel_admission_emitted", true);
+    push_field(
+        fields,
+        "metadata_filter_kernel_admission_schema_version",
+        filter_admission.schema_version,
+    );
+    push_field(
+        fields,
+        "metadata_filter_kernel_admission_id",
+        &filter_admission.admission_id,
+    );
+    push_field(
+        fields,
+        "metadata_filter_kernel_admission_kernel_report_id",
+        &filter_admission.metadata_kernel_report_id,
+    );
+    push_field(
+        fields,
+        "metadata_filter_kernel_admission_slot_id",
+        &filter_admission.slot_id,
+    );
+    push_field(
+        fields,
+        "metadata_filter_kernel_admission_operator_kind",
+        filter_admission.operator_kind.as_str(),
+    );
+    push_field(
+        fields,
+        "metadata_filter_kernel_admission_required_kernel_kind",
+        filter_admission.required_kernel_kind.as_str(),
+    );
+    push_field(
+        fields,
+        "metadata_filter_kernel_admission_candidate_kernel_kind",
+        filter_admission.candidate_kernel_kind.as_str(),
+    );
+    push_field(
+        fields,
+        "metadata_filter_kernel_admission_status",
+        filter_admission.status.as_str(),
+    );
+    push_field(
+        fields,
+        "metadata_filter_kernel_admission_correctness_evidence",
+        filter_admission.correctness_evidence.as_str(),
+    );
+    push_field(
+        fields,
+        "metadata_filter_kernel_admission_benchmark_evidence",
+        filter_admission.benchmark_evidence.as_str(),
+    );
+    push_bool_field(
+        fields,
+        "metadata_filter_kernel_admission_memory_streaming",
+        filter_admission.memory.streaming,
+    );
+    push_bool_field(
+        fields,
+        "metadata_filter_kernel_admission_memory_bounded",
+        filter_admission.memory.bounded_memory,
+    );
+    push_bool_field(
+        fields,
+        "metadata_filter_kernel_admission_memory_oom_safe",
+        filter_admission.memory.oom_safe,
+    );
+    push_bool_field(
+        fields,
+        "metadata_filter_kernel_admission_requires_full_materialization",
+        filter_admission.memory.requires_full_materialization,
+    );
+    push_field(
+        fields,
+        "metadata_filter_kernel_admission_fallback_state",
+        filter_admission.fallback.as_str(),
+    );
+    push_bool_field(
+        fields,
+        "metadata_filter_kernel_admission_slot_marked_present",
+        filter_admission.slot_marked_present,
+    );
+    push_bool_field(
+        fields,
+        "metadata_filter_kernel_admission_production_claim_allowed",
+        filter_admission.production_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "metadata_filter_kernel_admission_runtime_execution",
+        filter_admission.runtime_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "metadata_filter_kernel_admission_fallback_execution_allowed",
+        filter_admission.fallback_execution_allowed,
+    );
+}
+
 fn append_encoded_count_kernel_admission_fields(
     fields: &mut Vec<(String, String)>,
     kernel_admission: &VortexEncodedCountKernelAdmissionReport,
@@ -5677,6 +5858,50 @@ fn run(args: Vec<String>) -> ExitCode {
                     ),
                     (
                         "metadata_physical_kernel_fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    (
+                        "metadata_filter_kernel_admission_schema_version".to_string(),
+                        "shardloom.vortex_metadata_filter_kernel_admission.v1".to_string(),
+                    ),
+                    (
+                        "metadata_filter_kernel_admission_contextual_only".to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "metadata_filter_kernel_admission_operator_kind".to_string(),
+                        "filter".to_string(),
+                    ),
+                    (
+                        "metadata_filter_kernel_admission_required_kernel_kind".to_string(),
+                        "metadata".to_string(),
+                    ),
+                    (
+                        "metadata_filter_kernel_admission_requires_metadata_kernel_evidence"
+                            .to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "metadata_filter_kernel_admission_requires_correctness_evidence"
+                            .to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "metadata_filter_kernel_admission_requires_memory_safety_evidence"
+                            .to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "metadata_filter_kernel_admission_requires_benchmark_for_production"
+                            .to_string(),
+                        "true".to_string(),
+                    ),
+                    (
+                        "metadata_filter_kernel_admission_runtime_execution".to_string(),
+                        "false".to_string(),
+                    ),
+                    (
+                        "metadata_filter_kernel_admission_fallback_execution_allowed".to_string(),
                         "false".to_string(),
                     ),
                     (
@@ -15660,6 +15885,34 @@ mod tests {
             "json".to_string(),
         ]);
         assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_metadata_physical_kernel_plan_filter_admission_succeeds() {
+        let code = run(vec![
+            "vortex-metadata-physical-kernel-plan".to_string(),
+            "filter".to_string(),
+            "file:///tmp/example.vortex".to_string(),
+            "false".to_string(),
+            "--correctness-evidence".to_string(),
+            "--memory-safe".to_string(),
+            "--format".to_string(),
+            "json".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_metadata_physical_kernel_plan_filter_admission_missing_evidence_blocks() {
+        let code = run(vec![
+            "vortex-metadata-physical-kernel-plan".to_string(),
+            "filter".to_string(),
+            "file:///tmp/example.vortex".to_string(),
+            "false".to_string(),
+            "--format".to_string(),
+            "json".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
     }
 
     #[test]
