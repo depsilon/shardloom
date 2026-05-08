@@ -404,6 +404,90 @@ fn physical_kernel_selection_can_reach_admission_review_without_execution() {
 }
 
 #[test]
+fn physical_kernel_selection_uses_execution_level_specific_requirements() {
+    let profiles = PhysicalOperatorExecutionProfileMatrix::cg7_foundation();
+    let metadata_operator = PhysicalOperatorContract::new(
+        "cg7.synthetic.metadata-filter",
+        PhysicalOperatorKind::Filter,
+        PhysicalOperatorExecutionLevel::MetadataOnly,
+        vec![PhysicalKernelRequirement::present(KernelKind::Metadata)],
+    )
+    .expect("valid operator");
+    let mut metadata_plan = PhysicalOperatorPlan {
+        schema_version: "shardloom.physical_operator_plan.v1",
+        plan_id: "cg7.synthetic-metadata-ready".to_string(),
+        operators: vec![metadata_operator],
+        diagnostics: Vec::new(),
+    };
+    metadata_plan.refresh_diagnostics();
+    let metadata_registry = PhysicalKernelRegistryPlan::from_operator_plan(&metadata_plan);
+
+    let metadata_selection = PhysicalKernelSelectionReport::evaluate(
+        PhysicalOperatorKind::Filter,
+        PhysicalOperatorExecutionLevel::MetadataOnly,
+        &profiles,
+        &metadata_registry,
+    );
+    assert_eq!(
+        metadata_selection.status,
+        PhysicalKernelSelectionStatus::ReadyForAdmissionReview
+    );
+    assert_eq!(
+        metadata_selection.required_kernel_kinds,
+        vec![KernelKind::Metadata]
+    );
+    assert!(metadata_selection.missing_slot_ids.is_empty());
+
+    let encoded_selection = PhysicalKernelSelectionReport::evaluate(
+        PhysicalOperatorKind::Filter,
+        PhysicalOperatorExecutionLevel::EncodedNative,
+        &profiles,
+        &metadata_registry,
+    );
+    assert_eq!(
+        encoded_selection.status,
+        PhysicalKernelSelectionStatus::RequiredKernelMissing
+    );
+    assert_eq!(
+        encoded_selection.required_kernel_kinds,
+        vec![KernelKind::Metadata, KernelKind::Encoded]
+    );
+    assert!(
+        encoded_selection
+            .missing_slot_ids
+            .iter()
+            .any(|slot_id| slot_id.contains(".encoded.missing"))
+    );
+
+    let encoded_plan = ready_filter_plan();
+    let encoded_registry = PhysicalKernelRegistryPlan::from_operator_plan(&encoded_plan);
+    let hybrid_selection = PhysicalKernelSelectionReport::evaluate(
+        PhysicalOperatorKind::Filter,
+        PhysicalOperatorExecutionLevel::HybridNative,
+        &profiles,
+        &encoded_registry,
+    );
+    assert_eq!(
+        hybrid_selection.status,
+        PhysicalKernelSelectionStatus::RequiredKernelMissing
+    );
+    assert_eq!(
+        hybrid_selection.required_kernel_kinds,
+        vec![
+            KernelKind::Metadata,
+            KernelKind::Encoded,
+            KernelKind::PartialDecode
+        ]
+    );
+    assert!(
+        hybrid_selection
+            .missing_slot_ids
+            .iter()
+            .any(|slot_id| slot_id.contains(".partial_decode.missing"))
+    );
+}
+
+#[test]
 fn physical_operator_planning_certificate_blocks_foundation_missing_kernels() {
     let plan = PhysicalOperatorPlan::cg7_foundation();
     let profiles = PhysicalOperatorExecutionProfileMatrix::cg7_foundation();
