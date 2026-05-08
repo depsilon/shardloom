@@ -45,7 +45,7 @@ const FUNCTION_FIELD_KEYS: [&str; 13] = [
     "planned_count",
 ];
 
-const OPERATOR_FIELD_KEYS: [&str; 54] = [
+const OPERATOR_FIELD_KEYS: [&str; 56] = [
     "scope",
     "schema_version",
     "fallback_execution_allowed",
@@ -93,6 +93,8 @@ const OPERATOR_FIELD_KEYS: [&str; 54] = [
     "encoded_count_local_guard_local_execution_status",
     "encoded_count_local_guard_mode",
     "encoded_count_local_guard_layout_row_count_path_accepted",
+    "encoded_count_local_guard_approved_local_scan_result_bridge_available",
+    "encoded_count_local_guard_approved_local_scan_result_bridge_requires_executed_report",
     "encoded_count_local_guard_returns_count_result",
     "encoded_count_local_guard_side_effect_free",
     "encoded_count_local_guard_data_read",
@@ -237,6 +239,12 @@ fn capability_discovery_scope_values_are_stable() {
 fn operator_capability_discovery_includes_physical_plan_blockers() {
     let output = run_capabilities_scope("operators");
 
+    assert_operator_discovery_physical_plan(&output);
+    assert_operator_discovery_metadata_kernel(&output);
+    assert_operator_discovery_encoded_count_guard(&output);
+}
+
+fn assert_operator_discovery_physical_plan(output: &str) {
     assert!(output.contains(
         "{\"key\":\"physical_operator_schema_version\",\"value\":\"shardloom.physical_operator_plan.v1\"}"
     ));
@@ -267,6 +275,9 @@ fn operator_capability_discovery_includes_physical_plan_blockers() {
     assert!(
         output.contains("{\"key\":\"physical_operator_fallback_level_count\",\"value\":\"0\"}")
     );
+}
+
+fn assert_operator_discovery_metadata_kernel(output: &str) {
     assert!(output.contains(
         "{\"key\":\"metadata_physical_kernel_schema_version\",\"value\":\"shardloom.vortex_metadata_physical_kernel.v1\"}"
     ));
@@ -297,6 +308,9 @@ fn operator_capability_discovery_includes_physical_plan_blockers() {
     assert!(output.contains(
         "{\"key\":\"metadata_physical_kernel_fallback_execution_allowed\",\"value\":\"false\"}"
     ));
+}
+
+fn assert_operator_discovery_encoded_count_guard(output: &str) {
     assert!(output.contains(
         "{\"key\":\"encoded_count_local_guard_schema_version\",\"value\":\"shardloom.vortex_encoded_count_local_guard.v1\"}"
     ));
@@ -304,7 +318,7 @@ fn operator_capability_discovery_includes_physical_plan_blockers() {
         "{\"key\":\"encoded_count_local_guard_id\",\"value\":\"cg2.1e-layout-approved-count-local-guard\"}"
     ));
     assert!(output.contains(
-        "{\"key\":\"encoded_count_local_guard_accepted_approval_sources\",\"value\":\"execution_usable_public_api_boundary,layout_row_count_approval\"}"
+        "{\"key\":\"encoded_count_local_guard_accepted_approval_sources\",\"value\":\"execution_usable_public_api_boundary,layout_row_count_approval,approved_local_scan_execution_report\"}"
     ));
     assert!(output.contains(
         "{\"key\":\"encoded_count_local_guard_local_execution_status\",\"value\":\"needs_encoded_read\"}"
@@ -314,6 +328,12 @@ fn operator_capability_discovery_includes_physical_plan_blockers() {
     );
     assert!(output.contains(
         "{\"key\":\"encoded_count_local_guard_layout_row_count_path_accepted\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_count_local_guard_approved_local_scan_result_bridge_available\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"encoded_count_local_guard_approved_local_scan_result_bridge_requires_executed_report\",\"value\":\"true\"}"
     ));
     assert!(output.contains(
         "{\"key\":\"encoded_count_local_guard_returns_count_result\",\"value\":\"false\"}"

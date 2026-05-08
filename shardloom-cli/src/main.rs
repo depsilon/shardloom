@@ -54,24 +54,25 @@ use shardloom_vortex::{
     VortexFinalizedManifestArtifactWriteOption, VortexFinalizedManifestContent,
     VortexFinalizedManifestFileName, VortexFinalizedManifestFileRef,
     VortexLayoutReaderDriverApprovalInput, VortexLayoutReaderDriverApprovalSignal,
-    VortexManifestFinalizationRequest, VortexManifestFinalizationSignal, VortexMetadataOpenRequest,
-    VortexMetadataProbeReport, VortexOutputPayloadContentDescriptor, VortexOutputPayloadFileName,
-    VortexOutputPayloadFileRef, VortexOutputPayloadReport, VortexOutputPayloadRequest,
-    VortexOutputPayloadSignal, VortexProjectionCandidateSource, VortexProjectionReadinessSignal,
-    VortexQueryPrimitiveRequest, VortexQueryPrimitiveResult, VortexQueryPrimitiveSignal,
-    VortexQueryPrimitiveValue, VortexReadPlan, VortexStagedManifestDraftContent,
-    VortexStagedManifestFileEffect, VortexStagedManifestFileRef, VortexStagedManifestFileReport,
-    VortexStagedManifestFileRequest, VortexStagedManifestFileSignal,
-    VortexStagedManifestFileWriteEffect, VortexStagedManifestFileWriteOption,
-    VortexStagedManifestFileWriteRequest, VortexStagedManifestFileWriteSignal,
-    VortexStagedMarkerOption, VortexStagedMarkerRequest, VortexStagedWorkspaceId,
-    VortexStagedWorkspacePath, VortexStagedWorkspaceSetupOption, VortexStagedWorkspaceSetupRequest,
-    VortexStatisticsMappingReport, VortexTaskSchedulingDecision, VortexWriteIntentReport,
-    VortexWriteIntentRequest, VortexWriteIntentSignal, VortexWriteOptions, VortexWritePlan,
-    build_vortex_runtime_task_graph, commit_marker_write_request_from_plan,
+    VortexLocalExecutionReport, VortexManifestFinalizationRequest,
+    VortexManifestFinalizationSignal, VortexMetadataOpenRequest, VortexMetadataProbeReport,
+    VortexOutputPayloadContentDescriptor, VortexOutputPayloadFileName, VortexOutputPayloadFileRef,
+    VortexOutputPayloadReport, VortexOutputPayloadRequest, VortexOutputPayloadSignal,
+    VortexProjectionCandidateSource, VortexProjectionReadinessSignal, VortexQueryPrimitiveRequest,
+    VortexQueryPrimitiveResult, VortexQueryPrimitiveSignal, VortexQueryPrimitiveValue,
+    VortexReadPlan, VortexStagedManifestDraftContent, VortexStagedManifestFileEffect,
+    VortexStagedManifestFileRef, VortexStagedManifestFileReport, VortexStagedManifestFileRequest,
+    VortexStagedManifestFileSignal, VortexStagedManifestFileWriteEffect,
+    VortexStagedManifestFileWriteOption, VortexStagedManifestFileWriteRequest,
+    VortexStagedManifestFileWriteSignal, VortexStagedMarkerOption, VortexStagedMarkerRequest,
+    VortexStagedWorkspaceId, VortexStagedWorkspacePath, VortexStagedWorkspaceSetupOption,
+    VortexStagedWorkspaceSetupRequest, VortexStatisticsMappingReport, VortexTaskSchedulingDecision,
+    VortexWriteIntentReport, VortexWriteIntentRequest, VortexWriteIntentSignal, VortexWriteOptions,
+    VortexWritePlan, build_vortex_runtime_task_graph, commit_marker_write_request_from_plan,
     evaluate_vortex_encoded_read_readiness, evaluate_vortex_execution_readiness,
     evaluate_vortex_metadata_physical_kernels, evaluate_vortex_query_primitive,
     execute_vortex_bounded_local_query, execute_vortex_count_all_from_approved_local_scan,
+    execute_vortex_count_all_from_approved_local_scan_result,
     execute_vortex_count_all_from_encoded_count_data_path_approval,
     execute_vortex_encoded_read_contract, execute_vortex_encoded_read_spike,
     execute_vortex_local_query_primitive, execute_vortex_metadata_only,
@@ -1436,6 +1437,10 @@ fn push_count_field(fields: &mut Vec<(String, String)>, key: &str, value: usize)
     fields.push((key.to_string(), value.to_string()));
 }
 
+fn push_bool_field(fields: &mut Vec<(String, String)>, key: &str, value: bool) {
+    fields.push((key.to_string(), value.to_string()));
+}
+
 fn append_sql_certification_fields(
     report: &CapabilityCertificationReport,
     fields: &mut Vec<(String, String)>,
@@ -1649,69 +1654,55 @@ fn append_encoded_count_local_guard_discovery_fields(fields: &mut Vec<(String, S
         "encoded_count_local_guard_mode",
         report.mode.as_str(),
     );
-    push_field(
+    push_bool_field(
         fields,
         "encoded_count_local_guard_layout_row_count_path_accepted",
-        if report.layout_row_count_path_accepted {
-            "true"
-        } else {
-            "false"
-        },
+        report.layout_row_count_path_accepted,
     );
-    push_field(
+    push_bool_field(
+        fields,
+        "encoded_count_local_guard_approved_local_scan_result_bridge_available",
+        report.approved_local_scan_result_bridge_available,
+    );
+    push_bool_field(
+        fields,
+        "encoded_count_local_guard_approved_local_scan_result_bridge_requires_executed_report",
+        report.approved_local_scan_result_bridge_requires_executed_report,
+    );
+    push_bool_field(
         fields,
         "encoded_count_local_guard_returns_count_result",
-        if report.returns_count_result {
-            "true"
-        } else {
-            "false"
-        },
+        report.returns_count_result,
     );
-    push_field(
+    push_bool_field(
         fields,
         "encoded_count_local_guard_side_effect_free",
-        if report.is_side_effect_free() {
-            "true"
-        } else {
-            "false"
-        },
+        report.is_side_effect_free(),
     );
-    push_field(
+    push_bool_field(
         fields,
         "encoded_count_local_guard_data_read",
-        if report.data_read { "true" } else { "false" },
+        report.data_read,
     );
-    push_field(
+    push_bool_field(
         fields,
         "encoded_count_local_guard_data_decoded",
-        if report.data_decoded { "true" } else { "false" },
+        report.data_decoded,
     );
-    push_field(
+    push_bool_field(
         fields,
         "encoded_count_local_guard_data_materialized",
-        if report.data_materialized {
-            "true"
-        } else {
-            "false"
-        },
+        report.data_materialized,
     );
-    push_field(
+    push_bool_field(
         fields,
         "encoded_count_local_guard_runtime_execution",
-        if report.tasks_executed {
-            "true"
-        } else {
-            "false"
-        },
+        report.tasks_executed,
     );
-    push_field(
+    push_bool_field(
         fields,
         "encoded_count_local_guard_fallback_execution_allowed",
-        if report.fallback_execution_allowed {
-            "true"
-        } else {
-            "false"
-        },
+        report.fallback_execution_allowed,
     );
 }
 
@@ -2607,88 +2598,172 @@ fn handle_vortex_encoded_read_spike(
         Ok(v) => v,
         Err(code) => return code,
     };
-    let (memory_gb, max_parallelism, execute_local_count, report) =
+    let (memory_gb, max_parallelism, execute_local_count, report, local_execution_report) =
         match run_vortex_encoded_read_spike(parsed.0, parsed.1, parsed.2, parsed.3) {
             Ok(v) => v,
             Err(error) => {
                 return emit_error(command, format, "vortex encoded-read spike failed", &error);
             }
         };
+    let local_execution_failed = local_execution_report
+        .as_ref()
+        .is_some_and(VortexLocalExecutionReport::has_errors);
+    let mut diagnostics = report.diagnostics.clone();
+    if let Some(local) = &local_execution_report {
+        diagnostics.extend(local.diagnostics.clone());
+    }
+    let human_text = local_execution_report.as_ref().map_or_else(
+        || report.to_human_text(),
+        |local| format!("{}\n\n{}", report.to_human_text(), local.to_human_text()),
+    );
+    let fields = vortex_encoded_read_spike_fields(
+        memory_gb,
+        max_parallelism,
+        execute_local_count,
+        &report,
+        local_execution_report.as_ref(),
+    );
     emit(
         command,
         format,
-        if report.has_errors() {
+        if report.has_errors() || local_execution_failed {
             CommandStatus::Unsupported
         } else {
             CommandStatus::Success
         },
         "vortex encoded-read spike report".to_string(),
-        report.to_human_text(),
-        report.diagnostics.clone(),
-        vec![
-            (
-                "fallback_execution_allowed".to_string(),
-                "false".to_string(),
-            ),
-            ("mode".to_string(), "vortex_encoded_read_spike".to_string()),
-            (
-                "feature_enabled".to_string(),
-                vortex_encoded_read_spike_feature_enabled().to_string(),
-            ),
-            (
-                "execute_local_count_requested".to_string(),
-                execute_local_count.to_string(),
-            ),
-            (
-                "encoded_read_attempted".to_string(),
-                report.upstream_scan_called.to_string(),
-            ),
-            ("data_read".to_string(), report.data_read.to_string()),
-            ("data_decoded".to_string(), "false".to_string()),
-            ("data_materialized".to_string(), "false".to_string()),
-            ("object_store_io".to_string(), "false".to_string()),
-            ("write_io".to_string(), "false".to_string()),
-            ("spill_io_performed".to_string(), "false".to_string()),
-            ("external_effects_executed".to_string(), "false".to_string()),
-            ("execution".to_string(), report.status.as_str().to_string()),
-            ("memory_gb".to_string(), memory_gb.to_string()),
-            ("max_parallelism".to_string(), max_parallelism.to_string()),
-            (
-                "arrays_read_count".to_string(),
-                report.arrays_read_count.to_string(),
-            ),
-            ("rows_counted".to_string(), report.rows_counted.to_string()),
-            (
-                "count_result".to_string(),
-                report
-                    .count_result
-                    .map_or_else(|| "unknown".to_string(), |count| count.to_string()),
-            ),
-            (
-                "local_scan_target_uri".to_string(),
-                report
-                    .local_scan_target_uri
-                    .as_ref()
-                    .map_or_else(|| "none".to_string(), |uri| uri.as_str().to_string()),
-            ),
-            (
-                "local_scan_readiness_source_uri".to_string(),
-                report
-                    .local_scan_readiness_source_uri
-                    .as_ref()
-                    .map_or_else(|| "none".to_string(), |uri| uri.as_str().to_string()),
-            ),
-            (
-                "local_scan_source_uri_matches_target".to_string(),
-                report.local_scan_source_uri_matches_target.to_string(),
-            ),
-        ],
+        human_text,
+        diagnostics,
+        fields,
     );
-    if report.has_errors() {
+    if report.has_errors() || local_execution_failed {
         ExitCode::from(1)
     } else {
         ExitCode::SUCCESS
     }
+}
+
+fn vortex_encoded_read_spike_fields(
+    memory_gb: u64,
+    max_parallelism: usize,
+    execute_local_count: bool,
+    report: &shardloom_vortex::VortexEncodedReadExecutionReport,
+    local_execution_report: Option<&VortexLocalExecutionReport>,
+) -> Vec<(String, String)> {
+    let mut fields = Vec::new();
+    push_bool_field(
+        &mut fields,
+        "fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_field(&mut fields, "mode", "vortex_encoded_read_spike");
+    push_bool_field(
+        &mut fields,
+        "feature_enabled",
+        vortex_encoded_read_spike_feature_enabled(),
+    );
+    push_bool_field(
+        &mut fields,
+        "execute_local_count_requested",
+        execute_local_count,
+    );
+    push_bool_field(
+        &mut fields,
+        "encoded_read_attempted",
+        report.upstream_scan_called,
+    );
+    push_bool_field(&mut fields, "data_read", report.data_read);
+    push_bool_field(&mut fields, "data_decoded", report.data_decoded);
+    push_bool_field(&mut fields, "data_materialized", report.data_materialized);
+    push_bool_field(&mut fields, "object_store_io", report.object_store_io);
+    push_bool_field(&mut fields, "write_io", report.write_io);
+    push_bool_field(&mut fields, "spill_io_performed", report.spill_io_performed);
+    push_bool_field(
+        &mut fields,
+        "external_effects_executed",
+        report.external_effects_executed,
+    );
+    push_field(&mut fields, "execution", report.status.as_str());
+    fields.push(("memory_gb".to_string(), memory_gb.to_string()));
+    push_count_field(&mut fields, "max_parallelism", max_parallelism);
+    push_count_field(&mut fields, "arrays_read_count", report.arrays_read_count);
+    fields.push(("rows_counted".to_string(), report.rows_counted.to_string()));
+    fields.push((
+        "count_result".to_string(),
+        report
+            .count_result
+            .map_or_else(|| "unknown".to_string(), |count| count.to_string()),
+    ));
+    fields.push((
+        "local_scan_target_uri".to_string(),
+        report
+            .local_scan_target_uri
+            .as_ref()
+            .map_or_else(|| "none".to_string(), |uri| uri.as_str().to_string()),
+    ));
+    fields.push((
+        "local_scan_readiness_source_uri".to_string(),
+        report
+            .local_scan_readiness_source_uri
+            .as_ref()
+            .map_or_else(|| "none".to_string(), |uri| uri.as_str().to_string()),
+    ));
+    push_bool_field(
+        &mut fields,
+        "local_scan_source_uri_matches_target",
+        report.local_scan_source_uri_matches_target,
+    );
+    if let Some(local) = local_execution_report {
+        append_vortex_encoded_read_spike_local_execution_fields(&mut fields, local);
+    }
+    fields
+}
+
+fn append_vortex_encoded_read_spike_local_execution_fields(
+    fields: &mut Vec<(String, String)>,
+    local: &VortexLocalExecutionReport,
+) {
+    push_field(fields, "local_execution_status", local.status.as_str());
+    push_field(fields, "local_execution_mode", local.mode.as_str());
+    push_bool_field(
+        fields,
+        "local_execution_result_known",
+        local.value.is_known(),
+    );
+    fields.push(("local_execution_value".to_string(), local.value.summary()));
+    push_bool_field(
+        fields,
+        "local_execution_tasks_executed",
+        local.tasks_executed,
+    );
+    push_bool_field(fields, "local_execution_data_read", local.data_read);
+    push_bool_field(fields, "local_execution_data_decoded", local.data_decoded);
+    push_bool_field(
+        fields,
+        "local_execution_data_materialized",
+        local.data_materialized,
+    );
+    push_bool_field(
+        fields,
+        "local_execution_object_store_io",
+        local.object_store_io,
+    );
+    push_bool_field(fields, "local_execution_write_io", local.write_io);
+    push_bool_field(
+        fields,
+        "local_execution_spill_io_performed",
+        local.spill_io_performed,
+    );
+    push_bool_field(
+        fields,
+        "local_execution_external_effects_executed",
+        local.external_effects_executed,
+    );
+    push_bool_field(
+        fields,
+        "local_execution_fallback_execution_allowed",
+        local.fallback_execution_allowed,
+    );
 }
 
 fn parse_vortex_spike_args(
@@ -2734,6 +2809,7 @@ fn run_vortex_encoded_read_spike(
     usize,
     bool,
     shardloom_vortex::VortexEncodedReadExecutionReport,
+    Option<VortexLocalExecutionReport>,
 )> {
     let source = shardloom_core::UniversalInputSource::from_dataset_uri(uri.clone())?;
     let input_plan = plan_native_vortex_universal_input(source)?;
@@ -2756,7 +2832,7 @@ fn run_vortex_encoded_read_spike(
         scheduler_report.recompute_counts();
     }
     let readiness_report = evaluate_vortex_encoded_read_readiness(scheduler_report)?;
-    let report = if execute_local_count {
+    let (report, local_execution_report) = if execute_local_count {
         let count_report = plan_vortex_count_readiness(
             VortexCountReadinessRequest::new(uri, VortexCountCandidateSource::EncodedDataPath)
                 .feature_gate_enabled(true)
@@ -2768,13 +2844,26 @@ fn run_vortex_encoded_read_spike(
             count_report,
             vortex_encoded_read_local_scan_count_api_boundary(),
         )?;
-        execute_vortex_count_all_from_approved_local_scan(&approval, &readiness_report)?
+        let report =
+            execute_vortex_count_all_from_approved_local_scan(&approval, &readiness_report)?;
+        let local_execution_report =
+            execute_vortex_count_all_from_approved_local_scan_result(&approval, &report)?;
+        (report, Some(local_execution_report))
     } else {
         let api = vortex_encoded_read_public_api_boundary();
         let probe = plan_vortex_encoded_read_probe(api.clone(), readiness_report.clone())?;
-        execute_vortex_encoded_read_spike(readiness_report, api, probe)?
+        (
+            execute_vortex_encoded_read_spike(readiness_report, api, probe)?,
+            None,
+        )
     };
-    Ok((memory_gb, max_parallelism, execute_local_count, report))
+    Ok((
+        memory_gb,
+        max_parallelism,
+        execute_local_count,
+        report,
+        local_execution_report,
+    ))
 }
 
 #[allow(clippy::too_many_lines)]
@@ -13454,6 +13543,32 @@ mod tests {
             .into_iter(),
         );
         assert_eq!(parsed, Err(ExitCode::from(2)));
+    }
+
+    #[test]
+    fn vortex_encoded_read_spike_execute_local_count_bridges_when_feature_enabled() {
+        if !vortex_encoded_read_spike_feature_enabled() {
+            return;
+        }
+        let fixture_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("workspace crate parent")
+            .join("shardloom-vortex")
+            .join("tests")
+            .join("fixtures")
+            .join("metadata_footer_u64_20000.vortex");
+
+        let code = run(vec![
+            "vortex-encoded-read-spike".to_string(),
+            fixture_path.to_string_lossy().to_string(),
+            "1".to_string(),
+            "2".to_string(),
+            "--execute-local-count".to_string(),
+            "--format".to_string(),
+            "json".to_string(),
+        ]);
+
+        assert_eq!(code, ExitCode::SUCCESS);
     }
 
     #[test]

@@ -488,6 +488,15 @@ No fallback execution.
 - Historical layout-driver `local-fixture-only` input remains unchanged to avoid a public signal rename outside this cleanup scope.
 - This is naming/report-surface cleanup only: generalized encoded-data count execution, adapters, non-local sources, object-store IO, encoded predicates, projections, writes, benchmarks, external baselines, CG closeout, and fallback execution remain out of scope.
 
+## CG-2.1e.21 approved local scan result bridge
+
+- Primary RFC linkage: RFC 0012 Diagnostics/Capabilities, RFC 0013 Streaming/Zero-Copy Boundary, RFC 0015 Correctness/testing, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
+- `execute_vortex_count_all_from_approved_local_scan_result` now consumes approved encoded-count data-path evidence plus a successful approved local scan/count report and returns local execution evidence with a known `CountAll` value.
+- The bridge requires enabled feature evidence, `local_scan_encoded_count_executed`, `local_scan_encoded_array_length_count`, matching approval target/readiness source URI evidence, a known count result, and `rows_counted == count_result`.
+- The bridge rejects missing count results, target/source mismatches, disabled feature reports, unsuccessful scan reports, row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, external effects, and fallback execution.
+- `shardloom vortex-encoded-read-spike ... --execute-local-count` now emits local execution status, mode, known result/value, task/data-read evidence, and side-effect/no-fallback fields alongside the local scan report.
+- This is still not generalized encoded-data count execution: adapters, non-local sources, object-store IO, encoded predicates, projections, writes, benchmarks, external baselines, CG closeout, and fallback execution remain out of scope.
+
 ## CG-5.1 metadata query primitive correctness fixtures
 
 - Primary RFC linkage: RFC 0015 Correctness/Semantics/Differential Testing, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.

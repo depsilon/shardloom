@@ -813,6 +813,14 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - The layout-driver `local-fixture-only` signal remains historical and unchanged; it is not part of this approved local scan report surface.
 - This inventory update does not approve broader scan/read-start use, adapters, object-store targets, encoded predicates, projections, row reads, requested decode/materialization, Arrow conversion, writes, spill IO, or fallback execution.
 
+## CG-2.1e.21 approved local scan result bridge
+
+- The approved local scan/count report is now accepted by local query-primitive execution only through `execute_vortex_count_all_from_approved_local_scan_result`.
+- The bridge verifies the local scan report is the narrow local `.vortex` `CountAll` array-length path and that approval target URI, local scan target URI, and encoded-read readiness source URI all match.
+- Local execution can report `local_encoded_count_executed` and a known count value only after the approved local scan report proves data was read by the local scan and proves no rows, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, external effects, or fallback execution occurred.
+- `shardloom vortex-encoded-read-spike ... --execute-local-count` now surfaces the bridged local execution fields for auditability.
+- This inventory update does not approve broader scan/read-start use, adapters, object-store targets, encoded predicates, projections, row reads, requested decode/materialization, Arrow conversion, writes, spill IO, external baselines, or fallback execution.
+
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.
 - CG-2.2a adds `VortexFilteredCountReadinessRequest` and `VortexFilteredCountReadinessReport` planning/reporting only.
