@@ -544,6 +544,15 @@ No fallback execution.
 - `shardloom-contract-tests/tests/physical_operator_kernel_contracts.rs` verifies foundation blockers, synthetic native-planning readiness, production-certification separation, and fallback-attempt blocking.
 - This pass adds no kernel implementation, query execution behavior, encoded-data traversal, scan/read-start API calls, row reads, decode/materialization, Arrow conversion, object-store IO, write behavior, external engine invocation, or fallback execution.
 
+## CG-7.8 Vortex query primitive physical-operator bridge
+
+- Primary RFC linkage: RFC 0021 physical/kernel selection requirements, RFC 0027 operator/kernel roadmap, RFC 0012 deterministic diagnostics, RFC 0025 no-fallback guardrails, and RFC 0032 operator coverage/certification requirements.
+- `VortexPhysicalOperatorBridgeReport` lowers Vortex `CountAll`, `CountWhere`, `ProjectColumns`, `FilterPredicate`, and `FilterAndProject` requests into CG-7 physical operator plans.
+- The bridge attaches a `PhysicalOperatorPlanningCertificate` so CG-2 query primitives expose CG-7 operator/kernel blockers before any kernel implementation is accepted.
+- Unsupported Vortex query primitives lower to an unsupported physical operator instead of fallback execution.
+- `shardloom-vortex/src/physical_operator_bridge.rs` verifies count/filter/project mappings, physical operator order, side-effect-free behavior, and no-fallback diagnostics.
+- This pass adds no kernel implementation, query execution behavior, encoded-data traversal, scan/read-start API calls, row reads, decode/materialization, Arrow conversion, object-store IO, write behavior, external engine invocation, or fallback execution.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.
