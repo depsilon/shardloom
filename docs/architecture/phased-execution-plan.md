@@ -10,19 +10,20 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [x] Session label: CG-5.1 metadata query primitive correctness fixtures
-  - Current cleanup/implementation step: Add cross-crate correctness fixtures for metadata-backed query primitives and no-side-effect invariants.
+- [x] Session label: CG-5.2 metadata query primitive edge and diagnostic fixtures
+  - Current cleanup/implementation step: Add cross-crate fixtures for missing metadata, unsupported primitive, metadata-pruned filter, projection-metadata miss, and no-fallback diagnostic invariants.
   - Primary files:
     - `shardloom-contract-tests/tests/query_primitive_correctness.rs`
+    - `shardloom-vortex/src/query_primitive.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-  - Scope: Contract tests for existing metadata-only `CountAll`, metadata-proven `CountWhere`, inconclusive predicate deferral, projection deferral, and no-fallback/no-side-effect behavior.
+  - Scope: Contract tests and diagnostic-text correction for existing metadata-only/missing/deferred/unsupported query primitive paths and no-fallback/no-side-effect behavior.
   - Explicitly not included: New query execution, encoded-data traversal, scan/read-start APIs, row reads, decode/materialization, Arrow conversion, object-store IO, writes, external baseline execution, fallback execution, benchmarks, SQL/API/adapter expansion, or superiority claims.
   - Validation required:
     - `cargo fmt --all -- --check`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: Metadata query primitive correctness fixtures cover file row-count, segment row-count summing, metadata-proven false/true filtered counts, inconclusive predicate deferral, projection deferral, and no data-read/decode/materialization/object-store/write/fallback effects.
+  - Completion notes: Metadata query primitive edge fixtures cover missing metadata, metadata-proven true without row counts, metadata-pruned filters, projection metadata misses, unsupported primitives, local missing-summary blocking, and no data-read/decode/materialization/object-store/write/fallback effects.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -498,6 +499,7 @@ Status legend:
 
 - [ ] CG-5 — Correctness/differential tests (**planned**)
   - [x] CG-5.1 metadata query primitive correctness fixtures
+  - [x] CG-5.2 metadata query primitive edge and diagnostic fixtures
   - Expected evidence:
     - golden Vortex fixtures
     - decoded reference outputs
@@ -669,6 +671,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 
 ### CG-5 detailed checklist
 - [x] CG-5.1 metadata query primitive correctness fixtures
+- [x] CG-5.2 metadata query primitive edge and diagnostic fixtures
 - [ ] golden Vortex fixtures
 - [ ] reference outputs
 - [ ] null/nested/dictionary/sparse/run-length/temporal edge-case coverage
@@ -817,6 +820,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.10 layout-driver approval is explicit and report-only before any future row-count-only layout reader path.
 - [x] CG-2.1e.11 layout-driver approval CLI exposes the report-only boundary with deterministic signals and no side effects.
 - [x] CG-5.1 metadata query primitive correctness fixtures cover supported metadata answers and deferred unsupported paths without side effects.
+- [x] CG-5.2 metadata query primitive edge and diagnostic fixtures cover missing/unsupported metadata primitive paths without side effects.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [~] CG-3 real Vortex payload writes remain deferred; placeholder artifact paths are not completion evidence.
 

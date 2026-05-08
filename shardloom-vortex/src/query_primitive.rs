@@ -419,7 +419,7 @@ pub fn evaluate_vortex_count_all_from_summary(
     if summary.summary.segments.is_empty() {
         return Ok(VortexQueryPrimitiveResult::missing_metadata(
             request,
-            "no segment metadata available for CountWhere evaluation",
+            "no segment metadata available for CountAll evaluation",
         ));
     }
     let mut total = 0_u64;
