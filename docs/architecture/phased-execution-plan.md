@@ -10,23 +10,21 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [x] Session label: CG-7.5 physical operator execution profiles
-  - Current cleanup/implementation step: Add report-only execution profile matrix for the CG-7 filter, projection, and count-aggregate foundation.
+- [x] Session label: CG-7.6 physical kernel selection gate
+  - Current cleanup/implementation step: Add report-only physical kernel selection reports that validate requested execution levels and block selection while required kernel slots are missing.
   - Primary files:
     - `shardloom-core/src/operator.rs`
     - `shardloom-core/src/lib.rs`
-    - `shardloom-cli/src/main.rs`
-    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
     - `shardloom-contract-tests/tests/physical_operator_kernel_contracts.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-  - Scope: Metadata/encoded/hybrid/native-decoded execution-level declarations, reference-only exclusion, materialization/Arrow/fallback blockers, and operator capability discovery fields.
+  - Scope: Operator profile lookup, execution-level rejection, required-kernel-slot missing reports, selection-ready admission-review state, and no-runtime/no-fallback flags.
   - Explicitly not included: New query execution, kernel implementation, encoded-data traversal, scan/read-start APIs, row reads, decode/materialization, Arrow conversion, object-store IO, writes, external baseline execution, fallback execution, benchmarks, SQL/API/adapter expansion, or superiority claims.
   - Validation required:
     - `cargo fmt --all -- --check`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: `PhysicalOperatorExecutionProfileMatrix::cg7_foundation` declares allowed execution levels for the foundation operators while keeping reference-only, row-materialized, Arrow, and fallback paths unavailable.
+  - Completion notes: `PhysicalKernelSelectionReport` keeps physical kernel selection blocked until an operator profile allows the requested execution level and the required native kernel slots are present; even ready selection remains non-executing.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -531,6 +529,7 @@ Status legend:
   - [x] CG-7.3 physical kernel registry plan
   - [x] CG-7.4 physical kernel admission gate
   - [x] CG-7.5 physical operator execution profiles
+  - [x] CG-7.6 physical kernel selection gate
   - Scope:
     - filter/projection/count-aggregate kernels
     - metadata/encoded/hybrid execution levels
@@ -717,6 +716,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-7.3 physical kernel registry plan
 - [x] CG-7.4 physical kernel admission gate
 - [x] CG-7.5 physical operator execution profiles
+- [x] CG-7.6 physical kernel selection gate
 - [ ] filter kernel
 - [ ] projection kernel
 - [ ] count/aggregate kernel
@@ -859,6 +859,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-7.3 physical kernel registry plan exposes required native kernel slots through `shardloom kernel-registry` without registering kernels or executing runtime paths.
 - [x] CG-7.4 physical kernel admission gate blocks reference-only kernels, fallback attempts, missing correctness evidence, and missing memory-safety evidence before a native kernel slot can be marked present.
 - [x] CG-7.5 physical operator execution profiles declare metadata/encoded/hybrid/native-decoded levels for foundation operators while blocking reference-only, row-materialized, Arrow, and fallback paths.
+- [x] CG-7.6 physical kernel selection gate rejects disallowed execution levels and missing kernel slots before any physical kernel can be selected.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [~] CG-3 real Vortex payload writes remain deferred; placeholder artifact paths are not completion evidence.
 

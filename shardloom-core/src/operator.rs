@@ -887,3 +887,172 @@ impl PhysicalOperatorExecutionProfileMatrix {
         )
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PhysicalKernelSelectionStatus {
+    OperatorProfileMissing,
+    ExecutionLevelRejected,
+    RequiredKernelMissing,
+    ReadyForAdmissionReview,
+}
+
+impl PhysicalKernelSelectionStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::OperatorProfileMissing => "operator_profile_missing",
+            Self::ExecutionLevelRejected => "execution_level_rejected",
+            Self::RequiredKernelMissing => "required_kernel_missing",
+            Self::ReadyForAdmissionReview => "ready_for_admission_review",
+        }
+    }
+
+    #[must_use]
+    pub const fn can_select_kernel(&self) -> bool {
+        matches!(self, Self::ReadyForAdmissionReview)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PhysicalKernelSelectionReport {
+    pub schema_version: &'static str,
+    pub operator_kind: PhysicalOperatorKind,
+    pub requested_level: PhysicalOperatorExecutionLevel,
+    pub required_kernel_kinds: Vec<KernelKind>,
+    pub missing_slot_ids: Vec<String>,
+    pub status: PhysicalKernelSelectionStatus,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl PhysicalKernelSelectionReport {
+    #[must_use]
+    pub fn evaluate(
+        operator_kind: PhysicalOperatorKind,
+        requested_level: PhysicalOperatorExecutionLevel,
+        profiles: &PhysicalOperatorExecutionProfileMatrix,
+        registry: &PhysicalKernelRegistryPlan,
+    ) -> Self {
+        let Some(profile) = profiles.profile_for(operator_kind) else {
+            return Self::blocked(
+                operator_kind,
+                requested_level,
+                Vec::new(),
+                Vec::new(),
+                PhysicalKernelSelectionStatus::OperatorProfileMissing,
+            );
+        };
+        if !profile.allows_level(requested_level) {
+            return Self::blocked(
+                operator_kind,
+                requested_level,
+                profile.required_kernel_kinds.clone(),
+                Vec::new(),
+                PhysicalKernelSelectionStatus::ExecutionLevelRejected,
+            );
+        }
+        let missing_slot_ids = profile
+            .required_kernel_kinds
+            .iter()
+            .flat_map(|kernel_kind| {
+                let matching_slots = registry
+                    .required_slots
+                    .iter()
+                    .filter(|slot| {
+                        slot.operator_kind == operator_kind
+                            && slot.required_kernel_kind == *kernel_kind
+                    })
+                    .collect::<Vec<_>>();
+                if matching_slots.is_empty() {
+                    vec![format!(
+                        "{}.kernel.{}.missing",
+                        operator_kind.as_str(),
+                        kernel_kind.as_str()
+                    )]
+                } else {
+                    matching_slots
+                        .into_iter()
+                        .filter(|slot| !slot.is_satisfied())
+                        .map(|slot| slot.slot_id.clone())
+                        .collect::<Vec<_>>()
+                }
+            })
+            .collect::<Vec<_>>();
+        let status = if missing_slot_ids.is_empty() {
+            PhysicalKernelSelectionStatus::ReadyForAdmissionReview
+        } else {
+            PhysicalKernelSelectionStatus::RequiredKernelMissing
+        };
+        let mut report = Self {
+            schema_version: "shardloom.physical_kernel_selection.v1",
+            operator_kind,
+            requested_level,
+            required_kernel_kinds: profile.required_kernel_kinds.clone(),
+            missing_slot_ids,
+            status,
+            diagnostics: Vec::new(),
+        };
+        report.refresh_diagnostics();
+        report
+    }
+
+    fn blocked(
+        operator_kind: PhysicalOperatorKind,
+        requested_level: PhysicalOperatorExecutionLevel,
+        required_kernel_kinds: Vec<KernelKind>,
+        missing_slot_ids: Vec<String>,
+        status: PhysicalKernelSelectionStatus,
+    ) -> Self {
+        let mut report = Self {
+            schema_version: "shardloom.physical_kernel_selection.v1",
+            operator_kind,
+            requested_level,
+            required_kernel_kinds,
+            missing_slot_ids,
+            status,
+            diagnostics: Vec::new(),
+        };
+        report.refresh_diagnostics();
+        report
+    }
+
+    pub fn refresh_diagnostics(&mut self) {
+        self.diagnostics.clear();
+        if !self.status.can_select_kernel() {
+            self.diagnostics.push(Diagnostic::not_implemented(
+                format!("physical kernel selection {}", self.operator_kind.as_str()),
+                format!(
+                    "Physical kernel selection is blocked with status {}.",
+                    self.status.as_str()
+                ),
+                "Provide an allowed execution level and present native kernel slots before selecting a kernel for execution.",
+            ));
+        }
+    }
+
+    #[must_use]
+    pub const fn can_select_kernel(&self) -> bool {
+        self.status.can_select_kernel()
+    }
+
+    #[must_use]
+    pub const fn fallback_execution_allowed(&self) -> bool {
+        false
+    }
+
+    #[must_use]
+    pub const fn runtime_execution_allowed(&self) -> bool {
+        false
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "physical kernel selection\nschema_version: {}\noperator: {}\nrequested level: {}\nstatus: {}\nmissing slots: {}\nruntime execution: disabled\nfallback execution: disabled",
+            self.schema_version,
+            self.operator_kind.as_str(),
+            self.requested_level.as_str(),
+            self.status.as_str(),
+            self.missing_slot_ids.len(),
+        )
+    }
+}

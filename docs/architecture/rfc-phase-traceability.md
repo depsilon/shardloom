@@ -526,6 +526,15 @@ No fallback execution.
 - `shardloom-contract-tests/tests/physical_operator_kernel_contracts.rs` and `shardloom-cli/tests/capability_discovery_snapshots.rs` verify the profile contracts and capability discovery fields.
 - This pass adds no kernel implementation, query execution behavior, encoded-data traversal, scan/read-start API calls, row reads, decode/materialization, Arrow conversion, object-store IO, write behavior, external engine invocation, or fallback execution.
 
+## CG-7.6 physical kernel selection gate
+
+- Primary RFC linkage: RFC 0021 kernel selection requirements, RFC 0027 native kernel specialization roadmap, RFC 0012 deterministic diagnostics, RFC 0025 no-fallback guardrails, and RFC 0032 operator certification requirements.
+- `PhysicalKernelSelectionReport` validates operator profile availability, requested execution level, and required native kernel slot presence before a physical kernel can be selected.
+- Selection rejects missing operator profiles, disallowed execution levels, and missing required slots while preserving runtime-execution=false and fallback-disabled flags.
+- A synthetic present-kernel registry can reach `ready_for_admission_review` for planning evidence, but selection still does not execute kernels or read data.
+- `shardloom-contract-tests/tests/physical_operator_kernel_contracts.rs` verifies missing-slot, rejected-level, missing-profile, and synthetic ready-selection states.
+- This pass adds no kernel implementation, query execution behavior, encoded-data traversal, scan/read-start API calls, row reads, decode/materialization, Arrow conversion, object-store IO, write behavior, external engine invocation, or fallback execution.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.

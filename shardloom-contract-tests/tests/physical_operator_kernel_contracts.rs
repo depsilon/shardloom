@@ -2,9 +2,9 @@ use shardloom_core::{
     BenchmarkEvidenceState, BenchmarkFallbackState, KernelKind, OperatorCertificationStatus,
     OperatorMemoryCertification, PhysicalKernelAdmissionReport, PhysicalKernelAdmissionStatus,
     PhysicalKernelRegistryPlan, PhysicalKernelRequirement, PhysicalKernelRequirementStatus,
-    PhysicalOperatorContract, PhysicalOperatorExecutionLevel,
-    PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorKind, PhysicalOperatorPlan,
-    PhysicalOperatorReadinessStatus,
+    PhysicalKernelSelectionReport, PhysicalKernelSelectionStatus, PhysicalOperatorContract,
+    PhysicalOperatorExecutionLevel, PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorKind,
+    PhysicalOperatorPlan, PhysicalOperatorReadinessStatus,
 };
 
 fn safe_streaming_memory() -> OperatorMemoryCertification {
@@ -282,6 +282,119 @@ fn physical_operator_execution_profiles_declare_native_levels_without_materializ
     }
 
     assert!(matrix.to_human_text().contains("reference-only allowed: 0"));
+}
+
+#[test]
+fn physical_kernel_selection_blocks_missing_slots_and_rejected_levels() {
+    let profiles = PhysicalOperatorExecutionProfileMatrix::cg7_foundation();
+    let registry = PhysicalKernelRegistryPlan::cg7_foundation();
+
+    let missing = PhysicalKernelSelectionReport::evaluate(
+        PhysicalOperatorKind::Filter,
+        PhysicalOperatorExecutionLevel::EncodedNative,
+        &profiles,
+        &registry,
+    );
+    assert_eq!(
+        missing.schema_version,
+        "shardloom.physical_kernel_selection.v1"
+    );
+    assert_eq!(
+        missing.status,
+        PhysicalKernelSelectionStatus::RequiredKernelMissing
+    );
+    assert_eq!(missing.missing_slot_ids.len(), 2);
+    assert!(!missing.can_select_kernel());
+    assert!(!missing.runtime_execution_allowed());
+    assert!(!missing.fallback_execution_allowed());
+    assert!(!missing.diagnostics.is_empty());
+
+    let empty_registry = PhysicalKernelRegistryPlan {
+        schema_version: "shardloom.physical_kernel_registry_plan.v1",
+        registry_id: "cg7.empty.kernel-registry".to_string(),
+        required_slots: Vec::new(),
+        diagnostics: Vec::new(),
+    };
+    let absent_slots = PhysicalKernelSelectionReport::evaluate(
+        PhysicalOperatorKind::Filter,
+        PhysicalOperatorExecutionLevel::EncodedNative,
+        &profiles,
+        &empty_registry,
+    );
+    assert_eq!(
+        absent_slots.status,
+        PhysicalKernelSelectionStatus::RequiredKernelMissing
+    );
+    assert_eq!(absent_slots.missing_slot_ids.len(), 2);
+    assert!(
+        absent_slots
+            .missing_slot_ids
+            .iter()
+            .all(|slot_id| slot_id.ends_with(".missing"))
+    );
+
+    let rejected_level = PhysicalKernelSelectionReport::evaluate(
+        PhysicalOperatorKind::Filter,
+        PhysicalOperatorExecutionLevel::TestReferenceOnly,
+        &profiles,
+        &registry,
+    );
+    assert_eq!(
+        rejected_level.status,
+        PhysicalKernelSelectionStatus::ExecutionLevelRejected
+    );
+    assert!(!rejected_level.can_select_kernel());
+
+    let missing_profile = PhysicalKernelSelectionReport::evaluate(
+        PhysicalOperatorKind::Join,
+        PhysicalOperatorExecutionLevel::EncodedNative,
+        &profiles,
+        &registry,
+    );
+    assert_eq!(
+        missing_profile.status,
+        PhysicalKernelSelectionStatus::OperatorProfileMissing
+    );
+}
+
+#[test]
+fn physical_kernel_selection_can_reach_admission_review_without_execution() {
+    let profiles = PhysicalOperatorExecutionProfileMatrix::cg7_foundation();
+    let operator = PhysicalOperatorContract::new(
+        "cg7.synthetic.filter",
+        PhysicalOperatorKind::Filter,
+        PhysicalOperatorExecutionLevel::EncodedNative,
+        vec![
+            PhysicalKernelRequirement::present(KernelKind::Metadata),
+            PhysicalKernelRequirement::present(KernelKind::Encoded),
+        ],
+    )
+    .expect("valid operator");
+    let mut plan = PhysicalOperatorPlan {
+        schema_version: "shardloom.physical_operator_plan.v1",
+        plan_id: "cg7.synthetic-ready".to_string(),
+        operators: vec![operator],
+        diagnostics: Vec::new(),
+    };
+    plan.refresh_diagnostics();
+    let registry = PhysicalKernelRegistryPlan::from_operator_plan(&plan);
+
+    let selection = PhysicalKernelSelectionReport::evaluate(
+        PhysicalOperatorKind::Filter,
+        PhysicalOperatorExecutionLevel::EncodedNative,
+        &profiles,
+        &registry,
+    );
+
+    assert_eq!(
+        selection.status,
+        PhysicalKernelSelectionStatus::ReadyForAdmissionReview
+    );
+    assert!(selection.can_select_kernel());
+    assert!(selection.diagnostics.is_empty());
+    assert!(selection.to_human_text().contains("missing slots: 0"));
+    assert!(!selection.runtime_execution_allowed());
+    assert!(!selection.fallback_execution_allowed());
 }
 
 #[test]
