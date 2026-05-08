@@ -6,11 +6,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
-#[cfg(feature = "vortex-staged-output-fs")]
-use shardloom_core::UriScheme;
 use shardloom_core::{
     DatasetUri, Diagnostic, DiagnosticCode, DiagnosticSeverity, FallbackStatus, Result,
-    ShardLoomError,
+    ShardLoomError, UriScheme,
 };
 use shardloom_exec::{
     AmbiguousCommitRecord, CleanupRequirement, CleanupTargetKind, FaultToleranceLevel,
@@ -2271,7 +2269,9 @@ pub fn local_commit_recovery_request_from_execution_report(
             .request
             .has_signal(VortexLocalCommitExecutionSignal::LocalWorkspace),
     )
-    .object_store_target(execution.object_store_io());
+    .object_store_target(local_commit_execution_targets_object_store(
+        &execution.request,
+    ));
 
     match execution.status {
         VortexLocalCommitExecutionStatus::CommitExecuted => {
@@ -2313,6 +2313,17 @@ pub fn local_commit_recovery_request_from_execution_report(
         request.add_diagnostic(diagnostic.clone());
     }
     request
+}
+
+fn local_commit_execution_targets_object_store(
+    request: &VortexLocalCommitExecutionRequest,
+) -> bool {
+    request.has_signal(VortexLocalCommitExecutionSignal::ObjectStoreTarget)
+        || local_commit_target_requires_remote_storage(&request.target_uri)
+}
+
+fn local_commit_target_requires_remote_storage(target_uri: &DatasetUri) -> bool {
+    !matches!(target_uri.scheme(), UriScheme::LocalPath | UriScheme::File)
 }
 
 /// Executes the first local-only commit step by copying a finalized-manifest
@@ -2381,7 +2392,7 @@ fn execute_vortex_local_commit_fs(
 fn local_commit_readiness_blocker(
     request: &VortexLocalCommitExecutionRequest,
 ) -> Option<(VortexLocalCommitExecutionStatus, &'static str)> {
-    if request.has_signal(VortexLocalCommitExecutionSignal::ObjectStoreTarget) {
+    if local_commit_execution_targets_object_store(request) {
         return Some((
             VortexLocalCommitExecutionStatus::BlockedByObjectStoreTarget,
             "local commit execution does not support object-store targets",
@@ -3014,9 +3025,12 @@ mod tests {
         assert!(text.contains("fallback execution disabled"));
     }
 
-    fn local_commit_request(path: &str) -> VortexLocalCommitExecutionRequest {
+    fn local_commit_request_for_target(
+        target_uri: DatasetUri,
+        path: &str,
+    ) -> VortexLocalCommitExecutionRequest {
         VortexLocalCommitExecutionRequest::new(
-            uri(),
+            target_uri,
             VortexStagedWorkspacePath::new(path).expect("workspace path"),
         )
         .commit_protocol_ready(true)
@@ -3025,6 +3039,10 @@ mod tests {
         .output_payload_written(true)
         .local_workspace(true)
         .feature_gate_enabled(true)
+    }
+
+    fn local_commit_request(path: &str) -> VortexLocalCommitExecutionRequest {
+        local_commit_request_for_target(uri(), path)
     }
 
     #[test]
@@ -3158,6 +3176,33 @@ mod tests {
         assert!(report.is_side_effect_free());
     }
 
+    #[test]
+    fn local_commit_recovery_derivation_preserves_object_store_target() {
+        let execution = VortexLocalCommitExecutionReport::blocked(
+            local_commit_request_for_target(
+                DatasetUri::new("s3://bucket/out.vortex").expect("target uri"),
+                "/tmp/stage",
+            ),
+            VortexLocalCommitExecutionStatus::BlockedByObjectStoreTarget,
+            "local commit execution does not support object-store targets",
+        );
+        assert!(!execution.object_store_io());
+        assert!(local_commit_execution_targets_object_store(
+            &execution.request
+        ));
+
+        let request = local_commit_recovery_request_from_execution_report(&execution, true, true);
+
+        assert!(request.has_signal(VortexLocalCommitRecoverySignal::ObjectStoreTarget));
+        let report = plan_vortex_local_commit_recovery(request).expect("recovery report");
+        assert_eq!(
+            report.status,
+            VortexLocalCommitRecoveryStatus::BlockedByObjectStoreTarget
+        );
+        assert!(!report.object_store_io());
+        assert!(!report.fallback_execution_allowed());
+    }
+
     #[cfg(not(feature = "vortex-staged-output-fs"))]
     #[test]
     fn local_commit_execution_default_build_is_report_only() {
@@ -3282,6 +3327,18 @@ mod tests {
         );
         assert!(object_store.has_errors());
         assert!(!object_store.object_store_io());
+
+        let object_store_target = execute_vortex_local_commit(local_commit_request_for_target(
+            DatasetUri::new("s3://bucket/out.vortex").expect("target uri"),
+            &workspace.to_string_lossy(),
+        ))
+        .expect("object-store target report");
+        assert_eq!(
+            object_store_target.status,
+            VortexLocalCommitExecutionStatus::BlockedByObjectStoreTarget
+        );
+        assert!(object_store_target.has_errors());
+        assert!(!object_store_target.object_store_io());
 
         std::fs::remove_dir_all(workspace).expect("cleanup");
     }

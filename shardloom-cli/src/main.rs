@@ -4510,7 +4510,6 @@ fn local_encoded_count_correctness_fixture_for_report(
 fn local_encoded_count_correctness_fixture_for_target(
     target_uri: &DatasetUri,
 ) -> Option<CorrectnessFixture> {
-    let target_ref = normalized_local_fixture_ref(target_uri.as_str());
     CorrectnessValidationPlan::default_foundation_plan()
         .fixtures
         .into_iter()
@@ -4519,13 +4518,53 @@ fn local_encoded_count_correctness_fixture_for_target(
                 && fixture
                     .source_ref
                     .as_deref()
-                    .is_some_and(|source_ref| local_fixture_ref_matches(&target_ref, source_ref))
+                    .is_some_and(|source_ref| local_fixture_ref_matches(target_uri, source_ref))
         })
 }
 
-fn local_fixture_ref_matches(target_ref: &str, source_ref: &str) -> bool {
+fn local_fixture_ref_matches(target_uri: &DatasetUri, source_ref: &str) -> bool {
+    let Some(target_ref) = canonical_local_fixture_ref(target_uri.as_str()) else {
+        return false;
+    };
+    let Some(workspace_source_ref) = canonical_workspace_fixture_ref(source_ref) else {
+        return false;
+    };
+    target_ref == workspace_source_ref
+}
+
+fn canonical_workspace_fixture_ref(source_ref: &str) -> Option<String> {
     let source_ref = normalized_local_fixture_ref(source_ref);
-    target_ref == source_ref || target_ref.ends_with(&format!("/{source_ref}"))
+    let source_path = std::path::Path::new(&source_ref);
+    let absolute = if source_path.is_absolute() {
+        source_path.to_path_buf()
+    } else {
+        workspace_root().join(source_path)
+    };
+    canonical_path_string(&absolute)
+}
+
+fn canonical_local_fixture_ref(value: &str) -> Option<String> {
+    let target_ref = normalized_local_fixture_ref(value);
+    let target_path = std::path::Path::new(&target_ref);
+    let absolute = if target_path.is_absolute() {
+        target_path.to_path_buf()
+    } else {
+        workspace_root().join(target_path)
+    };
+    canonical_path_string(&absolute)
+}
+
+fn workspace_root() -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("workspace root")
+        .to_path_buf()
+}
+
+fn canonical_path_string(path: &std::path::Path) -> Option<String> {
+    path.canonicalize()
+        .ok()
+        .map(|path| path.to_string_lossy().replace('\\', "/"))
 }
 
 fn normalized_local_fixture_ref(value: &str) -> String {
@@ -17339,6 +17378,32 @@ mod tests {
         let fixture = local_encoded_count_correctness_fixture_for_target(&uri);
 
         assert!(fixture.is_none());
+    }
+
+    #[test]
+    fn vortex_count_local_encoded_evidence_rejects_suffix_match_outside_workspace() {
+        let outside_root = std::env::temp_dir().join(format!(
+            "shardloom-outside-fixture-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos()
+        ));
+        let outside_fixture = outside_root
+            .join("shardloom-vortex")
+            .join("tests")
+            .join("fixtures")
+            .join("metadata_footer_u64_20000.vortex");
+        std::fs::create_dir_all(outside_fixture.parent().expect("outside fixture parent"))
+            .expect("outside fixture directory");
+        std::fs::write(&outside_fixture, b"copied fixture placeholder")
+            .expect("outside fixture file");
+        let uri = DatasetUri::new(outside_fixture.to_string_lossy().to_string()).expect("uri");
+
+        let fixture = local_encoded_count_correctness_fixture_for_target(&uri);
+
+        assert!(fixture.is_none());
+        std::fs::remove_dir_all(outside_root).expect("outside fixture cleanup");
     }
 
     #[test]

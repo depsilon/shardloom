@@ -248,6 +248,8 @@ impl PhysicalOperatorContract {
             || self.kind == PhysicalOperatorKind::Unsupported
         {
             PhysicalOperatorReadinessStatus::Unsupported
+        } else if self.kernel_requirements.is_empty() {
+            PhysicalOperatorReadinessStatus::MissingKernel
         } else if self
             .kernel_requirements
             .iter()
@@ -287,6 +289,30 @@ impl PhysicalOperatorContract {
             self.execution_level.as_str(),
             self.kernel_requirements.len(),
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn empty_kernel_requirements_cannot_ready_native_operator() {
+        let contract = PhysicalOperatorContract::new(
+            "test.empty-kernels",
+            PhysicalOperatorKind::CountAggregate,
+            PhysicalOperatorExecutionLevel::EncodedNative,
+            Vec::new(),
+        )
+        .expect("operator contract");
+
+        assert_eq!(
+            contract.readiness_status,
+            PhysicalOperatorReadinessStatus::MissingKernel
+        );
+        assert!(!contract.can_plan_native());
+        assert!(!contract.diagnostics.is_empty());
+        assert!(!contract.fallback_execution_allowed());
     }
 }
 

@@ -951,8 +951,13 @@ impl BenchmarkEvidenceBundle {
             } else {
                 BenchmarkFallbackState::NotAttempted
             };
+        let metric_sets_match =
+            benchmark_required_metric_sets_match(&run_manifest, &comparison_report);
+        let scenario_sets_match =
+            benchmark_evidence_scenario_sets_match(&run_manifest, &comparison_report);
         let required_metrics = if run_manifest.required_metrics.is_empty()
             || comparison_report.required_metrics.is_empty()
+            || !metric_sets_match
         {
             BenchmarkEvidenceState::Missing
         } else {
@@ -962,12 +967,23 @@ impl BenchmarkEvidenceBundle {
             comparison_report.correctness_evidence,
             comparison_report.benchmark_evidence,
             required_metrics,
-            BenchmarkEvidenceState::Present,
+            if scenario_sets_match && metric_sets_match {
+                BenchmarkEvidenceState::Present
+            } else {
+                BenchmarkEvidenceState::Missing
+            },
             run_manifest.evidence_state(),
             fallback,
         );
         let mut diagnostics = run_manifest.diagnostics.clone();
         diagnostics.extend(comparison_report.diagnostics.clone());
+        if !scenario_sets_match || !metric_sets_match {
+            diagnostics.push(Diagnostic::not_implemented(
+                "benchmark evidence compatibility",
+                "Benchmark run manifest and comparison report do not describe the same scenario set and required metric set.",
+                "Regenerate the benchmark run manifest and comparison report from the same approved benchmark plan before publishing performance or superiority claims.",
+            ));
+        }
         if !claim_gate.can_publish_performance_claim() {
             diagnostics.push(Diagnostic::not_implemented(
                 "benchmark claim evidence bundle",
@@ -998,6 +1014,63 @@ impl BenchmarkEvidenceBundle {
             self.comparison_report.status.as_str(),
         )
     }
+}
+
+fn benchmark_required_metric_sets_match(
+    run_manifest: &BenchmarkRunManifest,
+    comparison_report: &BenchmarkComparisonReport,
+) -> bool {
+    run_manifest.required_metrics.len() == comparison_report.required_metrics.len()
+        && run_manifest
+            .required_metrics
+            .iter()
+            .all(|metric| comparison_report.required_metrics.contains(metric))
+}
+
+fn benchmark_evidence_scenario_sets_match(
+    run_manifest: &BenchmarkRunManifest,
+    comparison_report: &BenchmarkComparisonReport,
+) -> bool {
+    if run_manifest.scenario_count != comparison_report.scenario_count {
+        return false;
+    }
+    let manifest_names = benchmark_manifest_scenario_names(run_manifest);
+    let comparison_names = benchmark_comparison_scenario_names(comparison_report);
+    run_manifest.scenario_count == manifest_names.len()
+        && comparison_report.scenario_count == comparison_names.len()
+        && manifest_names == comparison_names
+}
+
+fn benchmark_manifest_scenario_names(run_manifest: &BenchmarkRunManifest) -> Vec<&str> {
+    let mut names = Vec::new();
+    for profile in &run_manifest.dataset_profiles {
+        if !names.contains(&profile.scenario_name.as_str()) {
+            names.push(profile.scenario_name.as_str());
+        }
+    }
+    names.sort_unstable();
+    names
+}
+
+fn benchmark_comparison_scenario_names(comparison_report: &BenchmarkComparisonReport) -> Vec<&str> {
+    let mut names = Vec::new();
+    for result in &comparison_report.results {
+        if !names.contains(&result.scenario_name.as_str()) {
+            names.push(result.scenario_name.as_str());
+        }
+    }
+    for gap in &comparison_report.missing_results {
+        if !names.contains(&gap.scenario_name.as_str()) {
+            names.push(gap.scenario_name.as_str());
+        }
+    }
+    for gap in &comparison_report.missing_metrics {
+        if !names.contains(&gap.scenario_name.as_str()) {
+            names.push(gap.scenario_name.as_str());
+        }
+    }
+    names.sort_unstable();
+    names
 }
 
 /// Collection of benchmark scenarios for foundation planning.
@@ -1202,6 +1275,55 @@ impl BenchmarkPlan {
 mod tests {
     use super::*;
 
+    fn ready_plan(name: &str, metric: BenchmarkMetric) -> BenchmarkPlan {
+        let mut plan = BenchmarkPlan::new();
+        let mut scenario = BenchmarkScenario::new(name, WorkloadClass::SingleNodeEncodedExecution)
+            .expect("scenario");
+        scenario.dataset_name = Some("fixture".to_string());
+        scenario.dataset_scale = Some("tiny".to_string());
+        scenario.storage_format = Some("vortex".to_string());
+        scenario.correctness_validation = CorrectnessValidationMode::ExpectedOutput;
+        scenario.add_baseline(BaselineEngine::ShardLoom);
+        scenario.add_required_metric(metric);
+        plan.add_scenario(scenario);
+        plan
+    }
+
+    fn reproducible_manifest(plan: &BenchmarkPlan) -> BenchmarkRunManifest {
+        let mut manifest = BenchmarkRunManifest::from_plan(plan);
+        manifest.add_engine_version(
+            BenchmarkEngineVersion::new(BaselineEngine::ShardLoom, "1.0.0")
+                .expect("engine version"),
+        );
+        for profile in &mut manifest.dataset_profiles {
+            profile.schema_profile = Some("u64 count fixture".to_string());
+            profile.compression = Some("vortex".to_string());
+        }
+        manifest.hardware_profile = Some("local ci".to_string());
+        manifest.operating_system_profile = Some("windows".to_string());
+        manifest.runtime_configuration = Some("debug tests".to_string());
+        manifest.cache_state = BenchmarkCacheState::Cold;
+        manifest.add_reproduction_step("cargo test benchmark".to_string());
+        manifest.correctness_evidence = BenchmarkEvidenceState::Present;
+        manifest.refresh_against_plan(plan);
+        manifest
+    }
+
+    fn ready_comparison(
+        plan: &BenchmarkPlan,
+        metric: BenchmarkMetric,
+    ) -> BenchmarkComparisonReport {
+        let scenario_name = plan.scenarios[0].name.clone();
+        let mut result =
+            BenchmarkResult::new(scenario_name, BaselineEngine::ShardLoom).expect("result");
+        result.add_metric(metric, MetricValue::U64(1));
+        BenchmarkComparisonReport::from_plan_and_results(
+            plan,
+            vec![result],
+            BenchmarkEvidenceState::Present,
+        )
+    }
+
     #[test]
     fn spark_fallback_not_allowed() {
         assert!(!BaselineEngine::Spark.is_fallback_allowed());
@@ -1248,6 +1370,54 @@ mod tests {
         assert!(MetricValue::U64(1).is_known());
         assert!(MetricValue::F64(1.5).is_known());
         assert!(!MetricValue::Unknown.is_known());
+    }
+
+    #[test]
+    fn evidence_bundle_rejects_required_metric_mismatch() {
+        let manifest_plan = ready_plan("encoded count", BenchmarkMetric::WallTimeMillis);
+        let comparison_plan = ready_plan("encoded count", BenchmarkMetric::BytesRead);
+        let manifest = reproducible_manifest(&manifest_plan);
+        let comparison = ready_comparison(&comparison_plan, BenchmarkMetric::BytesRead);
+        assert!(manifest.status.is_reproducible());
+        assert!(comparison.status.is_ready_for_comparison_review());
+
+        let bundle = BenchmarkEvidenceBundle::from_reports(manifest, comparison);
+
+        assert!(!bundle.can_publish_performance_claim());
+        assert_eq!(
+            bundle.claim_gate.required_metrics,
+            BenchmarkEvidenceState::Missing
+        );
+        assert!(bundle.diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .reason
+                .as_deref()
+                .is_some_and(|reason| reason.contains("same scenario set and required metric set"))
+        }));
+    }
+
+    #[test]
+    fn evidence_bundle_rejects_scenario_set_mismatch() {
+        let manifest_plan = ready_plan("encoded count", BenchmarkMetric::WallTimeMillis);
+        let comparison_plan = ready_plan("metadata count", BenchmarkMetric::WallTimeMillis);
+        let manifest = reproducible_manifest(&manifest_plan);
+        let comparison = ready_comparison(&comparison_plan, BenchmarkMetric::WallTimeMillis);
+        assert!(manifest.status.is_reproducible());
+        assert!(comparison.status.is_ready_for_comparison_review());
+
+        let bundle = BenchmarkEvidenceBundle::from_reports(manifest, comparison);
+
+        assert!(!bundle.can_publish_performance_claim());
+        assert_eq!(
+            bundle.claim_gate.comparison_report,
+            BenchmarkEvidenceState::Missing
+        );
+        assert!(bundle.diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .reason
+                .as_deref()
+                .is_some_and(|reason| reason.contains("same scenario set and required metric set"))
+        }));
     }
 
     #[test]
