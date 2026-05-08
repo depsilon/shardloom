@@ -535,6 +535,15 @@ No fallback execution.
 - `shardloom-contract-tests/tests/physical_operator_kernel_contracts.rs` verifies missing-slot, rejected-level, missing-profile, and synthetic ready-selection states.
 - This pass adds no kernel implementation, query execution behavior, encoded-data traversal, scan/read-start API calls, row reads, decode/materialization, Arrow conversion, object-store IO, write behavior, external engine invocation, or fallback execution.
 
+## CG-7.7 physical operator planning certificate
+
+- Primary RFC linkage: RFC 0021 kernel selection and registry requirements, RFC 0027 physical operator/kernel roadmap, RFC 0012 deterministic diagnostics, RFC 0025 no-fallback guardrails, RFC 0029 evidence gating, and RFC 0032 operator certification requirements.
+- `PhysicalOperatorPlanningCertificate` summarizes physical operator readiness, registry slot state, selection gate state, admission gate state, fallback-attempt evidence, and production-claim readiness in one report-only certificate.
+- Certificates distinguish operator-plan blockers, registry blockers, selection blockers, admission blockers, native-planning readiness, and production certification readiness.
+- Production certification remains separate from native planning readiness and requires benchmark evidence; runtime execution remains disabled even when certificate evidence is ready.
+- `shardloom-contract-tests/tests/physical_operator_kernel_contracts.rs` verifies foundation blockers, synthetic native-planning readiness, production-certification separation, and fallback-attempt blocking.
+- This pass adds no kernel implementation, query execution behavior, encoded-data traversal, scan/read-start API calls, row reads, decode/materialization, Arrow conversion, object-store IO, write behavior, external engine invocation, or fallback execution.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.

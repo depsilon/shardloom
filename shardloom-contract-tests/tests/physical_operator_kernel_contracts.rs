@@ -4,7 +4,8 @@ use shardloom_core::{
     PhysicalKernelRegistryPlan, PhysicalKernelRequirement, PhysicalKernelRequirementStatus,
     PhysicalKernelSelectionReport, PhysicalKernelSelectionStatus, PhysicalOperatorContract,
     PhysicalOperatorExecutionLevel, PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorKind,
-    PhysicalOperatorPlan, PhysicalOperatorReadinessStatus,
+    PhysicalOperatorPlan, PhysicalOperatorPlanningCertificate,
+    PhysicalOperatorPlanningCertificateStatus, PhysicalOperatorReadinessStatus,
 };
 
 fn safe_streaming_memory() -> OperatorMemoryCertification {
@@ -16,6 +17,27 @@ fn safe_streaming_memory() -> OperatorMemoryCertification {
         requires_shuffle: false,
         oom_safe: true,
     }
+}
+
+fn ready_filter_plan() -> PhysicalOperatorPlan {
+    let operator = PhysicalOperatorContract::new(
+        "cg7.synthetic.filter",
+        PhysicalOperatorKind::Filter,
+        PhysicalOperatorExecutionLevel::EncodedNative,
+        vec![
+            PhysicalKernelRequirement::present(KernelKind::Metadata),
+            PhysicalKernelRequirement::present(KernelKind::Encoded),
+        ],
+    )
+    .expect("valid operator");
+    let mut plan = PhysicalOperatorPlan {
+        schema_version: "shardloom.physical_operator_plan.v1",
+        plan_id: "cg7.synthetic-ready".to_string(),
+        operators: vec![operator],
+        diagnostics: Vec::new(),
+    };
+    plan.refresh_diagnostics();
+    plan
 }
 
 #[test]
@@ -360,23 +382,7 @@ fn physical_kernel_selection_blocks_missing_slots_and_rejected_levels() {
 #[test]
 fn physical_kernel_selection_can_reach_admission_review_without_execution() {
     let profiles = PhysicalOperatorExecutionProfileMatrix::cg7_foundation();
-    let operator = PhysicalOperatorContract::new(
-        "cg7.synthetic.filter",
-        PhysicalOperatorKind::Filter,
-        PhysicalOperatorExecutionLevel::EncodedNative,
-        vec![
-            PhysicalKernelRequirement::present(KernelKind::Metadata),
-            PhysicalKernelRequirement::present(KernelKind::Encoded),
-        ],
-    )
-    .expect("valid operator");
-    let mut plan = PhysicalOperatorPlan {
-        schema_version: "shardloom.physical_operator_plan.v1",
-        plan_id: "cg7.synthetic-ready".to_string(),
-        operators: vec![operator],
-        diagnostics: Vec::new(),
-    };
-    plan.refresh_diagnostics();
+    let plan = ready_filter_plan();
     let registry = PhysicalKernelRegistryPlan::from_operator_plan(&plan);
 
     let selection = PhysicalKernelSelectionReport::evaluate(
@@ -395,6 +401,122 @@ fn physical_kernel_selection_can_reach_admission_review_without_execution() {
     assert!(selection.to_human_text().contains("missing slots: 0"));
     assert!(!selection.runtime_execution_allowed());
     assert!(!selection.fallback_execution_allowed());
+}
+
+#[test]
+fn physical_operator_planning_certificate_blocks_foundation_missing_kernels() {
+    let plan = PhysicalOperatorPlan::cg7_foundation();
+    let profiles = PhysicalOperatorExecutionProfileMatrix::cg7_foundation();
+
+    let certificate = PhysicalOperatorPlanningCertificate::evaluate(
+        &plan,
+        &profiles,
+        BenchmarkEvidenceState::Missing,
+        BenchmarkEvidenceState::Missing,
+        OperatorMemoryCertification::unsupported(),
+        BenchmarkFallbackState::NotAttempted,
+    );
+
+    assert_eq!(
+        certificate.schema_version,
+        "shardloom.physical_operator_planning_certificate.v1"
+    );
+    assert_eq!(
+        certificate.status,
+        PhysicalOperatorPlanningCertificateStatus::OperatorPlanBlocked
+    );
+    assert_eq!(certificate.operator_count, 3);
+    assert_eq!(certificate.ready_operator_count, 0);
+    assert_eq!(certificate.missing_kernel_operator_count, 3);
+    assert_eq!(certificate.required_slot_count, 6);
+    assert_eq!(certificate.missing_slot_count, 6);
+    assert_eq!(certificate.selection_blocked_count, 3);
+    assert_eq!(certificate.admission_blocked_count, 6);
+    assert!(!certificate.can_plan_native());
+    assert!(!certificate.can_satisfy_production_claim());
+    assert!(!certificate.runtime_execution_allowed());
+    assert!(!certificate.fallback_execution_allowed());
+    assert!(!certificate.fallback_attempted);
+    assert!(!certificate.diagnostics.is_empty());
+}
+
+#[test]
+fn physical_operator_planning_certificate_reaches_native_planning_without_runtime() {
+    let plan = ready_filter_plan();
+    let profiles = PhysicalOperatorExecutionProfileMatrix::cg7_foundation();
+
+    let certificate = PhysicalOperatorPlanningCertificate::evaluate(
+        &plan,
+        &profiles,
+        BenchmarkEvidenceState::Present,
+        BenchmarkEvidenceState::Missing,
+        safe_streaming_memory(),
+        BenchmarkFallbackState::NotAttempted,
+    );
+
+    assert_eq!(
+        certificate.status,
+        PhysicalOperatorPlanningCertificateStatus::ReadyForNativePlanning
+    );
+    assert_eq!(certificate.operator_count, 1);
+    assert_eq!(certificate.ready_operator_count, 1);
+    assert_eq!(certificate.required_slot_count, 2);
+    assert_eq!(certificate.missing_slot_count, 0);
+    assert_eq!(certificate.selection_blocked_count, 0);
+    assert_eq!(certificate.admission_blocked_count, 0);
+    assert_eq!(certificate.registry_ready_slot_count, 2);
+    assert_eq!(certificate.production_ready_slot_count, 0);
+    assert!(certificate.can_plan_native());
+    assert!(!certificate.can_satisfy_production_claim());
+    assert!(!certificate.runtime_execution_allowed());
+    assert!(!certificate.fallback_execution_allowed());
+    assert!(certificate.diagnostics.is_empty());
+    assert!(
+        certificate
+            .to_human_text()
+            .contains("runtime execution: disabled")
+    );
+}
+
+#[test]
+fn physical_operator_planning_certificate_separates_production_and_fallback_blockers() {
+    let plan = ready_filter_plan();
+    let profiles = PhysicalOperatorExecutionProfileMatrix::cg7_foundation();
+
+    let production = PhysicalOperatorPlanningCertificate::evaluate(
+        &plan,
+        &profiles,
+        BenchmarkEvidenceState::Present,
+        BenchmarkEvidenceState::Present,
+        safe_streaming_memory(),
+        BenchmarkFallbackState::NotAttempted,
+    );
+    assert_eq!(
+        production.status,
+        PhysicalOperatorPlanningCertificateStatus::ProductionCertified
+    );
+    assert_eq!(production.production_ready_slot_count, 2);
+    assert!(production.can_satisfy_production_claim());
+    assert!(!production.runtime_execution_allowed());
+    assert!(!production.fallback_execution_allowed());
+
+    let fallback_blocked = PhysicalOperatorPlanningCertificate::evaluate(
+        &plan,
+        &profiles,
+        BenchmarkEvidenceState::Present,
+        BenchmarkEvidenceState::Present,
+        safe_streaming_memory(),
+        BenchmarkFallbackState::Attempted,
+    );
+    assert_eq!(
+        fallback_blocked.status,
+        PhysicalOperatorPlanningCertificateStatus::KernelAdmissionBlocked
+    );
+    assert_eq!(fallback_blocked.admission_blocked_count, 2);
+    assert!(fallback_blocked.fallback_attempted);
+    assert!(!fallback_blocked.can_plan_native());
+    assert!(!fallback_blocked.fallback_execution_allowed());
+    assert!(!fallback_blocked.diagnostics.is_empty());
 }
 
 #[test]
