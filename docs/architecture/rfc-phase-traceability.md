@@ -993,3 +993,13 @@ No fallback execution.
 - Primary RFC linkage: RFC 0010, RFC 0012, RFC 0021, RFC 0025, and RFC 0029.
 - Related RFCs: RFC 0015, RFC 0016, RFC 0031, and RFC 0032.
 - This phase adds no new runtime path, generalized encoded-data execution, filtered-count execution, projection execution, parser, SQL execution, adapter runtime, object-store IO, writes, spill IO, benchmark claim, production/superiority claim, CG closeout, or fallback behavior.
+
+## CG-7.17 encoded count aggregate kernel admission bridge
+
+- `VortexEncodedCountKernelAdmissionReport` maps safe encoded count physical-kernel evidence into the CG-7 `PhysicalKernelAdmissionReport` gate for the count-aggregate encoded kernel slot.
+- Safe evidence can make the encoded slot registry-ready, but benchmark evidence remains missing so production certification and any superiority/best-choice claims remain blocked.
+- `vortex-count --execute-local-encoded-count` surfaces encoded count kernel admission fields when fixture certification is available.
+- `capabilities operators` and `kernel-registry` expose admission discovery fields without probing files, executing kernels, or registering a global runtime kernel.
+- Primary RFC linkage: RFC 0012, RFC 0021, RFC 0025, and RFC 0029.
+- Related RFCs: RFC 0015, RFC 0016, RFC 0027, RFC 0031, and RFC 0032.
+- This phase adds no new runtime path, generalized encoded-data execution, filtered-count execution, projection execution, parser, SQL execution, adapter runtime, object-store IO, writes, spill IO, benchmark claim, production/superiority claim, broad count/aggregate closeout, CG closeout, or fallback behavior.

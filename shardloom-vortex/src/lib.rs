@@ -160,8 +160,9 @@ pub use metadata_executor::{
 };
 
 pub use encoded_count_physical_kernel::{
-    VortexEncodedCountPhysicalKernelDiscoveryReport, VortexEncodedCountPhysicalKernelReport,
-    VortexEncodedCountPhysicalKernelStatus, evaluate_vortex_local_encoded_count_physical_kernel,
+    VortexEncodedCountKernelAdmissionReport, VortexEncodedCountPhysicalKernelDiscoveryReport,
+    VortexEncodedCountPhysicalKernelReport, VortexEncodedCountPhysicalKernelStatus,
+    admit_vortex_encoded_count_kernel, evaluate_vortex_local_encoded_count_physical_kernel,
     vortex_encoded_count_physical_kernel_discovery_report,
 };
 pub use metadata_async_boundary::{
