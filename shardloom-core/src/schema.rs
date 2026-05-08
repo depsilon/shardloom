@@ -2200,10 +2200,19 @@ impl TableCompatibilityPlan {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct TableCompatibilityReport {
     pub plan: TableCompatibilityPlan,
     pub schema_report: Option<SchemaCompatibilityReport>,
+    pub schema_evolution_report: Option<SchemaEvolutionCompatibilityReport>,
+    pub partition_evolution_report: Option<PartitionEvolutionCompatibilityReport>,
+    pub delete_tombstone_report: Option<DeleteTombstoneCompatibilityReport>,
     pub diagnostics: Vec<Diagnostic>,
+    pub data_read: bool,
+    pub write_io: bool,
+    pub catalog_io: bool,
+    pub object_store_io: bool,
+    pub fallback_execution_allowed: bool,
 }
 impl TableCompatibilityReport {
     #[must_use]
@@ -2211,12 +2220,59 @@ impl TableCompatibilityReport {
         Self {
             plan,
             schema_report: None,
+            schema_evolution_report: None,
+            partition_evolution_report: None,
+            delete_tombstone_report: None,
             diagnostics: vec![],
+            data_read: false,
+            write_io: false,
+            catalog_io: false,
+            object_store_io: false,
+            fallback_execution_allowed: false,
         }
     }
     #[must_use]
     pub fn with_schema_report(mut self, schema_report: SchemaCompatibilityReport) -> Self {
         self.schema_report = Some(schema_report);
+        self
+    }
+    #[must_use]
+    pub fn with_schema_evolution_report(
+        mut self,
+        schema_evolution_report: SchemaEvolutionCompatibilityReport,
+    ) -> Self {
+        self.data_read |= schema_evolution_report.data_read;
+        self.write_io |= schema_evolution_report.write_io;
+        self.catalog_io |= schema_evolution_report.catalog_io;
+        self.object_store_io |= schema_evolution_report.object_store_io;
+        self.fallback_execution_allowed |= schema_evolution_report.fallback_execution_allowed;
+        self.schema_evolution_report = Some(schema_evolution_report);
+        self
+    }
+    #[must_use]
+    pub fn with_partition_evolution_report(
+        mut self,
+        partition_evolution_report: PartitionEvolutionCompatibilityReport,
+    ) -> Self {
+        self.data_read |= partition_evolution_report.data_read;
+        self.write_io |= partition_evolution_report.write_io;
+        self.catalog_io |= partition_evolution_report.catalog_io;
+        self.object_store_io |= partition_evolution_report.object_store_io;
+        self.fallback_execution_allowed |= partition_evolution_report.fallback_execution_allowed;
+        self.partition_evolution_report = Some(partition_evolution_report);
+        self
+    }
+    #[must_use]
+    pub fn with_delete_tombstone_report(
+        mut self,
+        delete_tombstone_report: DeleteTombstoneCompatibilityReport,
+    ) -> Self {
+        self.data_read |= delete_tombstone_report.data_read;
+        self.write_io |= delete_tombstone_report.write_io;
+        self.catalog_io |= delete_tombstone_report.catalog_io;
+        self.object_store_io |= delete_tombstone_report.object_store_io;
+        self.fallback_execution_allowed |= delete_tombstone_report.fallback_execution_allowed;
+        self.delete_tombstone_report = Some(delete_tombstone_report);
         self
     }
     pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
@@ -2229,6 +2285,19 @@ impl TableCompatibilityReport {
                 .schema_report
                 .as_ref()
                 .is_some_and(SchemaCompatibilityReport::has_errors)
+            || self
+                .schema_evolution_report
+                .as_ref()
+                .is_some_and(SchemaEvolutionCompatibilityReport::has_errors)
+            || self
+                .partition_evolution_report
+                .as_ref()
+                .is_some_and(PartitionEvolutionCompatibilityReport::has_errors)
+            || self
+                .delete_tombstone_report
+                .as_ref()
+                .is_some_and(DeleteTombstoneCompatibilityReport::has_errors)
+            || self.fallback_execution_allowed
             || self.diagnostics.iter().any(|d| {
                 matches!(
                     d.severity,
@@ -2237,10 +2306,66 @@ impl TableCompatibilityReport {
             })
     }
     #[must_use]
+    pub fn evidence_report_count(&self) -> usize {
+        usize::from(self.schema_report.is_some())
+            + usize::from(self.schema_evolution_report.is_some())
+            + usize::from(self.partition_evolution_report.is_some())
+            + usize::from(self.delete_tombstone_report.is_some())
+    }
+    #[must_use]
+    pub fn read_supported(&self) -> bool {
+        self.evidence_report_count() > 0
+            && !self.has_errors()
+            && self
+                .schema_evolution_report
+                .as_ref()
+                .is_none_or(|report| report.read_supported)
+            && self
+                .partition_evolution_report
+                .as_ref()
+                .is_none_or(|report| report.read_supported)
+            && self
+                .delete_tombstone_report
+                .as_ref()
+                .is_none_or(|report| report.read_supported)
+    }
+    #[must_use]
+    pub fn write_supported(&self) -> bool {
+        self.evidence_report_count() > 0
+            && !self.has_errors()
+            && self
+                .schema_evolution_report
+                .as_ref()
+                .is_none_or(|report| report.write_supported)
+            && self
+                .partition_evolution_report
+                .as_ref()
+                .is_none_or(|report| report.write_supported)
+            && self
+                .delete_tombstone_report
+                .as_ref()
+                .is_none_or(|report| report.write_supported)
+    }
+    #[must_use]
+    pub const fn side_effect_free(&self) -> bool {
+        !self.data_read
+            && !self.write_io
+            && !self.catalog_io
+            && !self.object_store_io
+            && !self.fallback_execution_allowed
+    }
+    #[must_use]
     pub fn to_human_text(&self) -> String {
         format!(
-            "{}; report_diagnostics={}; fallback execution: disabled",
+            "{}; evidence_reports={}; read_supported={}; write_supported={}; data_read={}; write_io={}; catalog_io={}; object_store_io={}; report_diagnostics={}; fallback execution: disabled",
             self.plan.to_human_text(),
+            self.evidence_report_count(),
+            self.read_supported(),
+            self.write_supported(),
+            self.data_read,
+            self.write_io,
+            self.catalog_io,
+            self.object_store_io,
             self.diagnostics.len()
         )
     }
@@ -2666,6 +2791,66 @@ mod tests {
         let p = TableCompatibilityPlan::native_vortex();
         let r = TableCompatibilityReport::from_plan(p.clone());
         assert_eq!(r.plan, p);
+    }
+    #[test]
+    fn table_compatibility_report_aggregates_evidence_without_io() {
+        let from_schema = schema_with_fields(
+            1,
+            vec![field(
+                "f1",
+                "order_id",
+                LogicalDType::Int64,
+                Nullability::NonNullable,
+            )],
+        );
+        let to_schema = schema_with_fields(
+            2,
+            vec![field(
+                "f1",
+                "order_id",
+                LogicalDType::Int64,
+                Nullability::NonNullable,
+            )],
+        );
+        let spec = partition_spec(vec![partition_field("created_at", PartitionTransform::Day)]);
+        let schema_report = evaluate_schema_evolution_compatibility(
+            &from_schema,
+            &to_schema,
+            &SchemaEvolutionPolicy::default_conservative(),
+        );
+        let partition_report = evaluate_partition_evolution_compatibility(&spec, &spec);
+        let delete_report = evaluate_delete_tombstone_compatibility(
+            DeleteModel::None,
+            DeleteModel::FileLevelDelete,
+        );
+
+        let report = TableCompatibilityReport::from_plan(TableCompatibilityPlan::native_vortex())
+            .with_schema_evolution_report(schema_report)
+            .with_partition_evolution_report(partition_report)
+            .with_delete_tombstone_report(delete_report);
+
+        assert_eq!(report.evidence_report_count(), 3);
+        assert!(report.read_supported());
+        assert!(report.write_supported());
+        assert!(report.side_effect_free());
+        assert!(!report.has_errors());
+        assert!(!report.fallback_execution_allowed);
+    }
+    #[test]
+    fn table_compatibility_report_blocks_on_nested_delete_errors() {
+        let delete_report = evaluate_delete_tombstone_compatibility(
+            DeleteModel::EqualityDelete,
+            DeleteModel::EqualityDelete,
+        );
+
+        let report = TableCompatibilityReport::from_plan(TableCompatibilityPlan::native_vortex())
+            .with_delete_tombstone_report(delete_report);
+
+        assert_eq!(report.evidence_report_count(), 1);
+        assert!(report.has_errors());
+        assert!(!report.read_supported());
+        assert!(!report.write_supported());
+        assert!(report.side_effect_free());
     }
 
     fn schema_with_fields(version: u64, fields: Vec<SchemaField>) -> SchemaDefinition {

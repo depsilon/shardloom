@@ -191,6 +191,39 @@ The evaluator must not treat external delete files, tombstones, row-level delete
 deletes, or equality deletes as fallback execution. They are compatibility signals that must
 either route into native ShardLoom handling or fail with deterministic diagnostics.
 
+### Table compatibility aggregation report
+
+`TableCompatibilityReport` aggregates the schema-evolution, partition-evolution, and
+delete/tombstone reports for a table path before any catalog adapter or table metadata reader
+is allowed to run. The aggregate report is evidence routing, not catalog access.
+
+Required fields:
+
+- `plan`.
+- `schema_report`, when an older schema compatibility report is attached.
+- `schema_evolution_report`.
+- `partition_evolution_report`.
+- `delete_tombstone_report`.
+- `diagnostics`.
+- `data_read=false`.
+- `write_io=false`.
+- `catalog_io=false`.
+- `object_store_io=false`.
+- `fallback_execution_allowed=false`.
+
+The aggregate report must compute:
+
+- evidence report count.
+- aggregate read support.
+- aggregate write support.
+- aggregate side-effect-free status.
+- nested diagnostic propagation.
+- nested error blocking.
+
+Aggregation does not make unsupported nested behavior supported. If schema, partition, or
+delete/tombstone evidence rejects a path, the table compatibility report must reject the
+aggregate path with deterministic diagnostics and no fallback execution.
+
 ### Catalog integration contract
 
 Catalog adapters should expose:
