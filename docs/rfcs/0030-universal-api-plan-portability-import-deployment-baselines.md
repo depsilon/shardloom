@@ -93,6 +93,84 @@ Acceptance:
 - Stable comparison report dataset.
 - No runtime fallback.
 
+### CG-18 universal harness report foundation
+
+The first CG-18 milestone exposes a `UniversalHarnessReport` through
+`universal-harness-plan`. It is a report-only contract that ties the CLI JSON
+runner, package/import guidance, deployment profile guidance, optional Foundry
+examples, external baseline harnesses, comparison report datasets, and
+portability checks into one machine-readable surface.
+
+Required report fields:
+- `schema_version`
+- `report_id`
+- `status`
+- `runner_contract_fields`
+- `surfaces`
+- `external_baselines`
+- `output_envelope_required`
+- `stable_command_schema_required`
+- `exit_code_required`
+- `diagnostics_required`
+- `side_effect_manifest_required`
+- `output_artifacts_required`
+- `metrics_required`
+- `comparison_dataset_required`
+- `correctness_evidence_required`
+- `benchmark_evidence_required`
+- `foundry_required=false`
+- `foundry_optional_example=true`
+- `package_import_performed=false`
+- `deployment_performed=false`
+- `external_baseline_execution=false`
+- `runtime_execution=false`
+- `filesystem_probe=false`
+- `network_probe=false`
+- `catalog_probe=false`
+- `adapter_probe=false`
+- `read_io=false`
+- `write_io=false`
+- `external_publish=false`
+- `fallback_execution_allowed=false`
+- `fallback_attempted=false`
+- `production_claim_allowed=false`
+- `diagnostics`
+
+Harness surfaces:
+- CLI JSON runner
+- package/import
+- deployment profile
+- Foundry example
+- external baseline runner
+- comparison report dataset
+- portability check
+
+External baseline requirements:
+- baseline engine
+- engine version required
+- workload id required
+- fixture id required
+- command or transform required
+- correctness result required
+- benchmark metrics required
+- comparison report required
+- external only true
+- runner execution performed false
+- fallback execution allowed false
+- fallback attempted false
+
+Acceptance:
+- `universal-harness-plan --format json` emits the CG-18 contract with stable
+  runner contract fields and deterministic surface/baseline ordering.
+- Foundry remains optional example context, never a required deployment target.
+- Spark, DataFusion, and Polars are external comparison harness targets only.
+- The report is side-effect-free: no package import, deployment, Foundry
+  invocation, baseline runner execution, parser execution, runtime execution,
+  filesystem/network/catalog/adapter probing, read/write IO, external publish,
+  or fallback execution.
+- Real import/deployment, comparison dataset materialization, baseline runner
+  scripts, and portability execution remain deferred until later CG-18 gates.
+
 
 ### Universal CLI JSON runner contract
 

@@ -27,12 +27,12 @@ use shardloom_core::{
     SchemaEvolutionPolicy, SchemaField, SchemaId, SchemaVersion, SecurityPlan, SegmentChange,
     SegmentChangeKind, SegmentId, SegmentLayout, SegmentStats, ShardLoomError, SnapshotId,
     SnapshotRef, StatValue, StatefulReuseReport, TableCompatibilityPlan, TableCompatibilityReport,
-    TableFormatKind, TranslationPlan, UdfRuntimeKind, WriteIntent,
+    TableFormatKind, TranslationPlan, UdfRuntimeKind, UniversalHarnessReport, WriteIntent,
     evaluate_cdc_incremental_planning, evaluate_compaction_planning,
     evaluate_delete_tombstone_compatibility, evaluate_layout_health,
     evaluate_partition_evolution_compatibility, evaluate_schema_evolution_compatibility,
     plan_cpu_operator_specialization, plan_execution_certificate_evidence_surface,
-    plan_stateful_reuse,
+    plan_stateful_reuse, plan_universal_harness,
 };
 use shardloom_exec::{
     AdaptiveSizer, AdaptiveSizingPolicy, AttemptId, BackpressurePlanInput, BackpressurePlanReport,
@@ -184,7 +184,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|layout-health-plan|compaction-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|correctness-plan|execution-certificate-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|layout-health-plan|compaction-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|correctness-plan|execution-certificate-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -3778,6 +3778,131 @@ fn append_stateful_reuse_side_effect_fields(
         "external_engine_execution",
         report.external_engine_execution,
     );
+    push_bool_field(
+        fields,
+        "fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(fields, "fallback_attempted", report.fallback_attempted);
+    push_bool_field(
+        fields,
+        "production_claim_allowed",
+        report.production_claim_allowed,
+    );
+    push_bool_field(fields, "side_effect_free", report.is_side_effect_free());
+    push_count_field(fields, "diagnostic_count", report.diagnostics.len());
+}
+
+fn universal_harness_fields(report: &UniversalHarnessReport) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    append_universal_harness_identity_fields(&mut fields, report);
+    append_universal_harness_requirement_fields(&mut fields, report);
+    append_universal_harness_side_effect_fields(&mut fields, report);
+    fields
+}
+
+fn append_universal_harness_identity_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &UniversalHarnessReport,
+) {
+    push_field(fields, "mode", "universal_harness_plan");
+    push_field(fields, "execution", "not_performed");
+    push_field(fields, "plan_only", "true");
+    push_field(fields, "schema_version", report.schema_version);
+    push_field(fields, "report_id", &report.report_id);
+    push_field(fields, "universal_harness_status", report.status.as_str());
+    push_count_field(fields, "surface_count", report.surface_count());
+    push_count_field(
+        fields,
+        "external_baseline_count",
+        report.external_baseline_count(),
+    );
+    push_field(
+        fields,
+        "runner_contract_field_order",
+        &report.runner_contract_field_order(),
+    );
+    push_field(fields, "surface_kind_order", &report.surface_kind_order());
+    push_field(
+        fields,
+        "baseline_engine_order",
+        &report.baseline_engine_order(),
+    );
+}
+
+fn append_universal_harness_requirement_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &UniversalHarnessReport,
+) {
+    push_bool_field(
+        fields,
+        "output_envelope_required",
+        report.output_envelope_required,
+    );
+    push_bool_field(
+        fields,
+        "stable_command_schema_required",
+        report.stable_command_schema_required,
+    );
+    push_bool_field(fields, "exit_code_required", report.exit_code_required);
+    push_bool_field(fields, "diagnostics_required", report.diagnostics_required);
+    push_bool_field(
+        fields,
+        "side_effect_manifest_required",
+        report.side_effect_manifest_required,
+    );
+    push_bool_field(
+        fields,
+        "output_artifacts_required",
+        report.output_artifacts_required,
+    );
+    push_bool_field(fields, "metrics_required", report.metrics_required);
+    push_bool_field(
+        fields,
+        "comparison_dataset_required",
+        report.comparison_dataset_required,
+    );
+    push_bool_field(
+        fields,
+        "correctness_evidence_required",
+        report.correctness_evidence_required,
+    );
+    push_bool_field(
+        fields,
+        "benchmark_evidence_required",
+        report.benchmark_evidence_required,
+    );
+    push_bool_field(fields, "foundry_required", report.foundry_required);
+    push_bool_field(
+        fields,
+        "foundry_optional_example",
+        report.foundry_optional_example,
+    );
+}
+
+fn append_universal_harness_side_effect_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &UniversalHarnessReport,
+) {
+    push_bool_field(
+        fields,
+        "package_import_performed",
+        report.package_import_performed,
+    );
+    push_bool_field(fields, "deployment_performed", report.deployment_performed);
+    push_bool_field(
+        fields,
+        "external_baseline_execution",
+        report.external_baseline_execution,
+    );
+    push_bool_field(fields, "runtime_execution", report.runtime_execution);
+    push_bool_field(fields, "filesystem_probe", report.filesystem_probe);
+    push_bool_field(fields, "network_probe", report.network_probe);
+    push_bool_field(fields, "catalog_probe", report.catalog_probe);
+    push_bool_field(fields, "adapter_probe", report.adapter_probe);
+    push_bool_field(fields, "read_io", report.read_io);
+    push_bool_field(fields, "write_io", report.write_io);
+    push_bool_field(fields, "external_publish", report.external_publish);
     push_bool_field(
         fields,
         "fallback_execution_allowed",
@@ -11655,6 +11780,28 @@ fn run(args: Vec<String>) -> ExitCode {
                 ExitCode::SUCCESS
             }
         }
+        Some("universal-harness-plan") => {
+            let command = "universal-harness-plan";
+            let report = plan_universal_harness();
+            emit(
+                command,
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "universal harness plan".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                universal_harness_fields(&report),
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
         Some("vortex-write-intent-plan") => {
             let Some(target_uri) = args.next() else {
                 eprintln!("usage: shardloom vortex-write-intent-plan <target_uri> <signals>");
@@ -18969,6 +19116,12 @@ mod tests {
     }
 
     #[test]
+    fn universal_harness_plan_returns_success() {
+        let code = run(vec!["universal-harness-plan".to_string()]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
     fn layout_health_plan_healthy_returns_success() {
         let code = run(vec![
             "layout-health-plan".to_string(),
@@ -20090,6 +20243,10 @@ mod tests {
     #[test]
     fn usage_includes_stateful_reuse_plan() {
         assert!(cli_usage_line().contains("stateful-reuse-plan"));
+    }
+    #[test]
+    fn usage_includes_universal_harness_plan() {
+        assert!(cli_usage_line().contains("universal-harness-plan"));
     }
     #[test]
     fn parse_sizing_feedback_signals_rejects_unknown_and_empty() {

@@ -45,30 +45,30 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-17.1 stateful reuse boundary report
+- [x] Session label: CG-18.1 universal harness report
   - Primary files:
-    - `shardloom-core/src/stateful_reuse.rs`
+    - `shardloom-core/src/universal_harness.rs`
     - `shardloom-core/src/lib.rs`
     - `shardloom-cli/src/main.rs`
-    - `shardloom-cli/tests/stateful_reuse_plan_snapshots.rs`
+    - `shardloom-cli/tests/universal_harness_plan_snapshots.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-    - `docs/rfcs/0029-correctness-benchmarks-execution-certificates-stateful-reuse.md`
-  - Scope: Add a report-only CG-17 stateful reuse boundary surface that makes typed cache/reuse boundaries, deterministic keys, invalidation proof requirements, correctness proof requirements, execution-certificate linkage, and incremental manifest-diff requirements explicit without reading/writing/replaying caches or executing incremental recompute.
+    - `docs/rfcs/0030-universal-api-plan-portability-import-deployment-baselines.md`
+  - Scope: Add a report-only CG-18 universal import/deployment/baseline harness surface that ties the CLI JSON runner contract, package/import evidence, deployment profile evidence, optional Foundry examples, external baseline requirements, comparison report datasets, and portability checks together without importing, deploying, publishing, probing, running baselines, or executing runtime work.
   - Checklist:
-    - [x] Add `StatefulReuseReport` with typed cache/reuse boundaries and invalidation proof requirements.
-    - [x] Surface `stateful-reuse-plan --format json` with cache boundary counts, invalidation signal counts, proof requirements, and side-effect fields.
-    - [x] Keep the reuse surface report-only with no cache read/write/replay, incremental execution, runtime execution, data reads, decode, materialization, Arrow conversion, object-store IO, writes, spill IO, external engine execution, or fallback.
+    - [x] Add `UniversalHarnessReport` with universal runner, import/deployment, optional Foundry, external baseline, comparison dataset, and portability-check surfaces.
+    - [x] Surface `universal-harness-plan --format json` with harness surface counts, baseline counts, runner contract field order, requirement fields, and side-effect fields.
+    - [x] Keep the harness report-only with no package import, deployment, Foundry invocation, external baseline execution, runtime execution, probes, reads, writes, publishing, production claims, or fallback.
     - [x] Add focused unit and CLI JSON snapshot coverage.
-    - [x] Update phase plan, RFC traceability, and RFC 0029.
+    - [x] Update phase plan, RFC traceability, and RFC 0030.
     - [x] Run full required validation.
   - Local validation status:
-    - focused `shardloom-core` `stateful_reuse` tests passed
-    - focused `shardloom-cli` `stateful_reuse_plan_snapshots` tests passed
+    - focused `shardloom-core` `universal_harness` tests passed
+    - focused `shardloom-cli` `universal_harness_plan_snapshots` tests passed
     - focused Clippy for `shardloom-core` and `shardloom-cli` passed with toolchain `1.91.1`
     - full Rust validation passed with toolchain `1.91.1`
     - docs hygiene scans passed for `git diff --check` and hidden/bidi controls
-  - Explicitly not included: cache storage, cache lookup, cache write, cache replay, incremental recompute execution, manifest-diff reads, generalized execution certificate evaluation, external baseline invocation, generalized encoded-data execution, adapter runtime, object-store IO, row reads, decode/materialization, Arrow conversion, writes, spill execution, package publication, performance claims, superiority claims, or fallback execution.
+  - Explicitly not included: package import, deployment execution, Foundry invocation, external baseline runner execution, plan import/export serialization, parser execution, filesystem/network/catalog/adapter probing, data reads, decode/materialization, Arrow conversion, writes, spill execution, package publication, performance claims, superiority claims, or fallback execution.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -1141,8 +1141,9 @@ Status legend:
     - execution-certificate and manifest-diff requirements before any reuse or incremental recompute
 
 - [ ] CG-18 — Universal import/deployment/baseline harness (**planned**)
+  - [x] CG-18.1 universal harness report
   - Scope:
-    - universal runner contracts and portability checks
+    - universal runner contracts and portability checks through `universal-harness-plan`
     - external baseline harnesses are comparison-only
     - Foundry remains optional deployment/comparison only
 
@@ -1401,9 +1402,10 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] manifest-diff proof requirements before incremental recompute
 
 ### CG-18 detailed checklist
-- [ ] universal runner contracts and portability checks
-- [ ] external baseline harnesses are comparison-only
-- [ ] Foundry optional deployment/comparison example only
+- [x] CG-18.1 universal harness report
+- [x] universal runner contracts and portability checks
+- [x] external baseline harnesses are comparison-only
+- [x] Foundry optional deployment/comparison example only
 
 ### CG-19 detailed checklist
 - [x] RFC 0031 contract deepening complete
@@ -1553,6 +1555,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-10.5 object-store checkpoint/retry/idempotency planning evidence adds `ObjectStoreCheckpointRetryReport` and `object-store-checkpoint-retry-plan` surfacing for retry policy, checkpoint plan, idempotency keys, attempt records, cleanup policy, scheduling blockers, no retry execution, no checkpoint writes, no cleanup execution, and no fallback.
 - [x] CG-11.1 stable CLI/API JSON protocol foundation adds `CliApiJsonProtocolReport` and `api-compat-plan` fields for `OutputEnvelope` schema keys, command statuses, fallback and diagnostic keys, thin Python wrapper boundary, no PyO3/maturin, no parser/runtime/probe/write/publish side effects, and no fallback.
 - [x] CG-11.2 thin Python wrapper foundation adds `PythonWrapperFoundationReport` and `python-wrapper-plan` fields for a future subprocess CLI JSON client, required diagnostics/fallback/materialization passthrough behavior, deferred package/native binding/DataFrame/notebook/Python UDF surfaces, no probes, no runtime/parser execution, no writes, no publish, and no fallback.
+- [x] CG-18.1 universal harness report adds `UniversalHarnessReport` and `universal-harness-plan` surfacing for CLI JSON runner fields, import/deployment surfaces, optional Foundry examples, external-only Spark/DataFusion/Polars baseline requirements, comparison dataset requirements, portability-check requirements, and no-import/no-deployment/no-baseline-execution/no-probe/no-publish/no-fallback side-effect fields.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind `vortex-write`; placeholder artifact paths remain readiness-only.
 - [~] CG-3 broader output payload shapes remain deferred.

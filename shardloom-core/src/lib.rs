@@ -26,6 +26,7 @@ pub mod schema;
 pub mod security;
 pub mod stateful_reuse;
 pub mod translation;
+pub mod universal_harness;
 
 pub use benchmark::{
     BaselineEngine, BenchmarkCacheState, BenchmarkClaimGate, BenchmarkClaimStatus,
@@ -173,6 +174,12 @@ pub use translation::{
     CommitMode, FidelityLevel, MaterializationRequirement, MetadataKind, MetadataPreservation,
     MetadataPreservationStatus, OutputTarget, OutputTargetKind, TranslationPlan,
     TranslationPlanningStatus, TranslationReport,
+};
+
+pub use universal_harness::{
+    ExternalBaselineHarnessRequirement, UniversalHarnessReport, UniversalHarnessStatus,
+    UniversalHarnessSurface, UniversalHarnessSurfaceKind, UniversalHarnessSurfaceStatus,
+    plan_universal_harness,
 };
 
 /// Canonical crate-level result type for `ShardLoom`.
