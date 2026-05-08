@@ -1096,3 +1096,13 @@ No fallback execution.
 - Primary RFC linkage: RFC 0013, RFC 0014, RFC 0016, RFC 0018, RFC 0025, and RFC 0027.
 - Related RFCs: RFC 0008, RFC 0017, RFC 0021, RFC 0031, and RFC 0032.
 - This phase adds no stream execution, task execution, read-start API, row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, benchmark claim, production/superiority claim, CG-8 closeout, or fallback behavior.
+
+## CG-8.2 adaptive sizing, memory, scheduler, and bounded execution evidence surface
+
+- `vortex-adaptive-sizing --format json` now emits stable fields for adaptive sizing status/mode, segment input count, planned task count, split decisions, coalesce candidates, estimate blockers, keep-single decisions, metadata-only decisions, split/coalesce policy, and target/min/max task bytes.
+- `vortex-memory-plan --format json` now emits stable fields for memory bridge status/mode, memory budget bytes, spill policy, task memory-safety counts, spill-required counts, spill-plan count, side-effect flags, and fallback status.
+- `vortex-schedule-plan --format json` now emits stable fields for scheduler status/mode, max parallelism, bounded batch counts, scheduled/metadata/blocked/unsupported task counts, bounded parallelism enforcement, future-action status, side-effect flags, and fallback status.
+- `vortex-bounded-local-exec --format json` now emits stable fields for bounded execution status/mode, local execution status/mode, completed/deferred/blocked counts, decision count, max parallelism, side-effect flags, result-known status, and fallback status.
+- Primary RFC linkage: RFC 0013, RFC 0014, RFC 0016, RFC 0018, RFC 0025, and RFC 0027.
+- Related RFCs: RFC 0008, RFC 0017, RFC 0021, RFC 0031, and RFC 0032.
+- This phase adds no stream execution, new task execution, new read-start API, row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, dynamic sizing feedback execution, benchmark claim, production/superiority claim, CG-8 closeout, or fallback behavior.

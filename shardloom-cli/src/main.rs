@@ -40,13 +40,14 @@ use shardloom_plan::{
     ScanPlanSkeleton, ScanRequest, plan_universal_input_source,
 };
 use shardloom_vortex::{
-    VortexAdapterCapabilityReport, VortexAdapterReadiness, VortexCommitIntentReport,
-    VortexCommitIntentRequest, VortexCommitIntentSignal, VortexCommitMarkerContent,
-    VortexCommitMarkerFileName, VortexCommitMarkerFileRef, VortexCommitMarkerRequest,
-    VortexCommitMarkerSignal, VortexCommitMarkerWriteOption, VortexCommitProtocolReport,
-    VortexCommitProtocolRequest, VortexCommitProtocolSignal, VortexCommitProtocolState,
-    VortexCommitProtocolTransition, VortexCountCandidateSource, VortexCountReadinessRequest,
-    VortexCountReadinessSignal, VortexDTypeMappingReport, VortexEncodedCountKernelAdmissionReport,
+    VortexAdapterCapabilityReport, VortexAdapterReadiness, VortexAdaptiveSizingReport,
+    VortexBoundedExecutionReport, VortexCommitIntentReport, VortexCommitIntentRequest,
+    VortexCommitIntentSignal, VortexCommitMarkerContent, VortexCommitMarkerFileName,
+    VortexCommitMarkerFileRef, VortexCommitMarkerRequest, VortexCommitMarkerSignal,
+    VortexCommitMarkerWriteOption, VortexCommitProtocolReport, VortexCommitProtocolRequest,
+    VortexCommitProtocolSignal, VortexCommitProtocolState, VortexCommitProtocolTransition,
+    VortexCountCandidateSource, VortexCountReadinessRequest, VortexCountReadinessSignal,
+    VortexDTypeMappingReport, VortexEncodedCountKernelAdmissionReport,
     VortexEncodedCountPhysicalKernelReport, VortexEncodedReadBoundaryReport,
     VortexEncodedReadBoundaryRequest, VortexEncodedReadBoundarySignal, VortexEncodedReadFixtureRef,
     VortexEncodedReadMetadataProbeReport, VortexEncodedReadMetadataProbeRequest,
@@ -58,22 +59,23 @@ use shardloom_vortex::{
     VortexLayoutReaderDriverApprovalInput, VortexLayoutReaderDriverApprovalSignal,
     VortexLocalCommitExecutionRequest, VortexLocalCommitExecutionSignal,
     VortexLocalCommitRecoveryRequest, VortexLocalCommitRecoverySignal, VortexLocalExecutionReport,
-    VortexManifestFinalizationRequest, VortexManifestFinalizationSignal,
+    VortexManifestFinalizationRequest, VortexManifestFinalizationSignal, VortexMemoryBridgeReport,
     VortexMetadataCountKernelAdmissionReport, VortexMetadataFilterKernelAdmissionReport,
     VortexMetadataOpenRequest, VortexMetadataProbeReport, VortexNativeOutputPayloadWriteReport,
     VortexOutputPayloadContentDescriptor, VortexOutputPayloadFileName, VortexOutputPayloadFileRef,
     VortexOutputPayloadReport, VortexOutputPayloadRequest, VortexOutputPayloadSignal,
     VortexProjectionCandidateSource, VortexProjectionReadinessSignal, VortexQueryPrimitiveRequest,
     VortexQueryPrimitiveResult, VortexQueryPrimitiveSignal, VortexQueryPrimitiveValue,
-    VortexReadPlan, VortexStagedManifestDraftContent, VortexStagedManifestFileEffect,
-    VortexStagedManifestFileRef, VortexStagedManifestFileReport, VortexStagedManifestFileRequest,
-    VortexStagedManifestFileSignal, VortexStagedManifestFileWriteEffect,
-    VortexStagedManifestFileWriteOption, VortexStagedManifestFileWriteRequest,
-    VortexStagedManifestFileWriteSignal, VortexStagedMarkerOption, VortexStagedMarkerRequest,
-    VortexStagedWorkspaceId, VortexStagedWorkspacePath, VortexStagedWorkspaceSetupOption,
-    VortexStagedWorkspaceSetupRequest, VortexStatisticsMappingReport, VortexTaskSchedulingDecision,
-    VortexWriteIntentReport, VortexWriteIntentRequest, VortexWriteIntentSignal, VortexWriteOptions,
-    VortexWritePlan, admit_vortex_encoded_count_kernel, admit_vortex_metadata_count_kernel,
+    VortexReadPlan, VortexSchedulerBridgeReport, VortexStagedManifestDraftContent,
+    VortexStagedManifestFileEffect, VortexStagedManifestFileRef, VortexStagedManifestFileReport,
+    VortexStagedManifestFileRequest, VortexStagedManifestFileSignal,
+    VortexStagedManifestFileWriteEffect, VortexStagedManifestFileWriteOption,
+    VortexStagedManifestFileWriteRequest, VortexStagedManifestFileWriteSignal,
+    VortexStagedMarkerOption, VortexStagedMarkerRequest, VortexStagedWorkspaceId,
+    VortexStagedWorkspacePath, VortexStagedWorkspaceSetupOption, VortexStagedWorkspaceSetupRequest,
+    VortexStatisticsMappingReport, VortexTaskSchedulingDecision, VortexWriteIntentReport,
+    VortexWriteIntentRequest, VortexWriteIntentSignal, VortexWriteOptions, VortexWritePlan,
+    admit_vortex_encoded_count_kernel, admit_vortex_metadata_count_kernel,
     admit_vortex_metadata_filter_kernel, build_vortex_runtime_task_graph,
     commit_marker_write_request_from_plan, evaluate_vortex_encoded_read_readiness,
     evaluate_vortex_execution_readiness, evaluate_vortex_local_encoded_count_physical_kernel,
@@ -1660,6 +1662,318 @@ fn push_count_field(fields: &mut Vec<(String, String)>, key: &str, value: usize)
 
 fn push_bool_field(fields: &mut Vec<(String, String)>, key: &str, value: bool) {
     fields.push((key.to_string(), value.to_string()));
+}
+
+fn adaptive_sizing_report_fields(
+    report: &VortexAdaptiveSizingReport,
+    memory_gb: u64,
+    native_vortex_input: bool,
+) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    push_field(&mut fields, "fallback_execution_allowed", "false");
+    push_field(&mut fields, "mode", "vortex_adaptive_sizing");
+    push_field(
+        &mut fields,
+        "adaptive_sizing_status",
+        report.status.as_str(),
+    );
+    push_field(&mut fields, "adaptive_sizing_mode", report.mode.as_str());
+    push_bool_field(&mut fields, "native_vortex_input", native_vortex_input);
+    push_bool_field(&mut fields, "plan_only", true);
+    push_bool_field(&mut fields, "tasks_executed", false);
+    push_bool_field(&mut fields, "data_executed", report.data_executed);
+    push_bool_field(&mut fields, "data_read", report.data_read);
+    push_bool_field(&mut fields, "data_materialized", report.data_materialized);
+    push_bool_field(&mut fields, "object_store_io", report.object_store_io);
+    push_bool_field(&mut fields, "write_io", report.write_io);
+    push_bool_field(
+        &mut fields,
+        "external_effects_executed",
+        report.external_effects_executed,
+    );
+    push_field(&mut fields, "execution", "not_performed");
+    push_field(&mut fields, "memory_gb", &memory_gb.to_string());
+    push_count_field(
+        &mut fields,
+        "segment_input_count",
+        report.segment_inputs.len(),
+    );
+    push_count_field(&mut fields, "planned_task_count", report.planned_task_count);
+    push_count_field(
+        &mut fields,
+        "split_decision_count",
+        report.split_decision_count,
+    );
+    push_count_field(
+        &mut fields,
+        "coalesce_candidate_count",
+        report.coalesce_candidate_count,
+    );
+    push_count_field(
+        &mut fields,
+        "needs_estimate_count",
+        report.needs_estimate_count,
+    );
+    push_count_field(&mut fields, "keep_single_count", report.keep_single_count);
+    push_count_field(
+        &mut fields,
+        "metadata_only_count",
+        report.metadata_only_count,
+    );
+    push_bool_field(
+        &mut fields,
+        "adaptive_splitting_allowed",
+        report.input.policy.allow_splitting,
+    );
+    push_bool_field(
+        &mut fields,
+        "adaptive_coalescing_allowed",
+        report.input.policy.allow_coalescing,
+    );
+    push_field(
+        &mut fields,
+        "target_task_bytes",
+        &report.input.policy.target_task_bytes.as_bytes().to_string(),
+    );
+    push_field(
+        &mut fields,
+        "min_task_bytes",
+        &report.input.policy.min_task_bytes.as_bytes().to_string(),
+    );
+    push_field(
+        &mut fields,
+        "max_task_bytes",
+        &report.input.policy.max_task_bytes.as_bytes().to_string(),
+    );
+    push_field(&mut fields, "reservation_lifecycle_integration", "true");
+    push_field(&mut fields, "memory_integration", "true");
+    push_field(&mut fields, "vortex_memory_bridge_integration", "true");
+    push_field(&mut fields, "bounded_execution_integration", "true");
+    fields
+}
+
+fn memory_bridge_report_fields(
+    report: &VortexMemoryBridgeReport,
+    memory_gb: u64,
+    native_vortex_input: bool,
+) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    push_field(&mut fields, "fallback_execution_allowed", "false");
+    push_field(&mut fields, "mode", "vortex_memory_plan");
+    push_field(&mut fields, "memory_bridge_status", report.status.as_str());
+    push_field(&mut fields, "memory_bridge_mode", report.mode.as_str());
+    push_bool_field(&mut fields, "native_vortex_input", native_vortex_input);
+    push_bool_field(&mut fields, "plan_only", true);
+    push_bool_field(&mut fields, "tasks_executed", false);
+    push_bool_field(&mut fields, "data_executed", report.io_flags.data_executed);
+    push_bool_field(&mut fields, "data_read", report.io_flags.data_read);
+    push_bool_field(
+        &mut fields,
+        "data_materialized",
+        report.io_flags.data_materialized,
+    );
+    push_bool_field(
+        &mut fields,
+        "object_store_io",
+        report.effect_flags.object_store_io,
+    );
+    push_bool_field(&mut fields, "write_io", report.effect_flags.write_io);
+    push_bool_field(
+        &mut fields,
+        "spill_io_performed",
+        report.effect_flags.spill_io_performed,
+    );
+    push_bool_field(
+        &mut fields,
+        "external_effects_executed",
+        report.execution_policy_flags.external_effects_executed,
+    );
+    push_field(&mut fields, "execution", "not_performed");
+    push_field(&mut fields, "memory_gb", &memory_gb.to_string());
+    push_field(
+        &mut fields,
+        "memory_budget_total_bytes",
+        &report.input.memory_budget.total.as_bytes().to_string(),
+    );
+    push_field(
+        &mut fields,
+        "memory_budget_soft_limit_bytes",
+        &report.input.memory_budget.soft_limit.as_bytes().to_string(),
+    );
+    push_field(
+        &mut fields,
+        "memory_budget_hard_limit_bytes",
+        &report.input.memory_budget.hard_limit.as_bytes().to_string(),
+    );
+    push_field(
+        &mut fields,
+        "spill_policy",
+        report.input.spill_policy.as_str(),
+    );
+    push_count_field(&mut fields, "tasks_considered", report.tasks_considered);
+    push_count_field(
+        &mut fields,
+        "tasks_needing_estimate",
+        report.tasks_needing_estimate,
+    );
+    push_count_field(&mut fields, "tasks_memory_safe", report.tasks_memory_safe);
+    push_count_field(
+        &mut fields,
+        "tasks_spill_may_be_required",
+        report.tasks_spill_may_be_required,
+    );
+    push_count_field(
+        &mut fields,
+        "tasks_spill_required_not_implemented",
+        report.tasks_spill_required_not_implemented,
+    );
+    push_count_field(&mut fields, "spill_plan_count", report.spill_plans.len());
+    push_field(&mut fields, "reservation_lifecycle_integration", "true");
+    push_field(&mut fields, "memory_integration", "true");
+    push_field(&mut fields, "vortex_memory_bridge_integration", "true");
+    push_field(&mut fields, "bounded_execution_integration", "true");
+    fields
+}
+
+fn scheduler_bridge_report_fields(
+    report: &VortexSchedulerBridgeReport,
+    memory_gb: u64,
+    max_parallelism: usize,
+) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    let max_batch_decisions = report
+        .batches
+        .iter()
+        .map(|batch| batch.decisions.len())
+        .max()
+        .unwrap_or(0);
+    let bounded_parallelism_enforced = report
+        .batches
+        .iter()
+        .all(|batch| batch.decisions.len() <= batch.max_parallelism);
+    push_field(&mut fields, "fallback_execution_allowed", "false");
+    push_field(&mut fields, "mode", "vortex_schedule_plan");
+    push_field(
+        &mut fields,
+        "scheduler_bridge_status",
+        report.status.as_str(),
+    );
+    push_field(&mut fields, "scheduler_bridge_mode", report.mode.as_str());
+    push_bool_field(&mut fields, "plan_only", true);
+    push_bool_field(&mut fields, "tasks_executed", report.tasks_executed);
+    push_bool_field(&mut fields, "data_executed", report.data_executed);
+    push_bool_field(&mut fields, "data_read", report.data_read);
+    push_bool_field(&mut fields, "data_materialized", report.data_materialized);
+    push_bool_field(&mut fields, "object_store_io", report.object_store_io);
+    push_bool_field(&mut fields, "write_io", report.write_io);
+    push_bool_field(&mut fields, "spill_io_performed", report.spill_io_performed);
+    push_bool_field(
+        &mut fields,
+        "external_effects_executed",
+        report.external_effects_executed,
+    );
+    push_field(&mut fields, "execution", "not_performed");
+    push_field(&mut fields, "memory_gb", &memory_gb.to_string());
+    push_count_field(&mut fields, "max_parallelism", max_parallelism);
+    push_count_field(&mut fields, "batch_count", report.batches.len());
+    push_count_field(&mut fields, "max_batch_decision_count", max_batch_decisions);
+    push_bool_field(
+        &mut fields,
+        "bounded_parallelism_enforced",
+        bounded_parallelism_enforced,
+    );
+    push_count_field(
+        &mut fields,
+        "scheduled_task_count",
+        report.scheduled_task_count,
+    );
+    push_count_field(
+        &mut fields,
+        "metadata_only_task_count",
+        report.metadata_only_task_count,
+    );
+    push_count_field(&mut fields, "blocked_task_count", report.blocked_task_count);
+    push_count_field(
+        &mut fields,
+        "unsupported_task_count",
+        report.unsupported_task_count,
+    );
+    push_bool_field(
+        &mut fields,
+        "scheduler_requires_future_action",
+        report.status.requires_future_action(),
+    );
+    fields
+}
+
+fn bounded_local_execution_fields(
+    report: &VortexBoundedExecutionReport,
+    primitive: &str,
+    memory_gb: u64,
+    max_parallelism: usize,
+) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    push_field(&mut fields, "fallback_execution_allowed", "false");
+    push_field(&mut fields, "mode", "vortex_bounded_local_exec");
+    push_field(
+        &mut fields,
+        "bounded_execution_status",
+        report.status.as_str(),
+    );
+    push_field(&mut fields, "bounded_execution_mode", report.mode.as_str());
+    push_field(&mut fields, "primitive", primitive);
+    push_count_field(&mut fields, "max_parallelism", max_parallelism);
+    push_field(&mut fields, "memory_gb", &memory_gb.to_string());
+    push_count_field(
+        &mut fields,
+        "metadata_tasks_completed",
+        report.metadata_tasks_completed,
+    );
+    push_count_field(
+        &mut fields,
+        "noop_tasks_completed",
+        report.noop_tasks_completed,
+    );
+    push_count_field(
+        &mut fields,
+        "encoded_read_tasks_deferred",
+        report.encoded_read_tasks_deferred,
+    );
+    push_count_field(&mut fields, "blocked_task_count", report.blocked_task_count);
+    push_count_field(
+        &mut fields,
+        "bounded_decision_count",
+        report.decisions.len(),
+    );
+    push_field(
+        &mut fields,
+        "local_execution_status",
+        report.local_execution_report.status.as_str(),
+    );
+    push_field(
+        &mut fields,
+        "local_execution_mode",
+        report.local_execution_report.mode.as_str(),
+    );
+    push_bool_field(&mut fields, "tasks_executed", report.tasks_executed);
+    push_bool_field(&mut fields, "data_read", report.data_read);
+    push_bool_field(&mut fields, "data_decoded", report.data_decoded);
+    push_bool_field(&mut fields, "data_materialized", report.data_materialized);
+    push_bool_field(&mut fields, "object_store_io", report.object_store_io);
+    push_bool_field(&mut fields, "write_io", report.write_io);
+    push_bool_field(&mut fields, "spill_io_performed", report.spill_io_performed);
+    push_bool_field(
+        &mut fields,
+        "external_effects_executed",
+        report.external_effects_executed,
+    );
+    push_field(&mut fields, "execution", "metadata_only_or_not_performed");
+    push_bool_field(
+        &mut fields,
+        "result_known",
+        report.local_execution_report.value.is_known(),
+    );
+    fields
 }
 
 fn append_sql_certification_fields(
@@ -10191,40 +10505,11 @@ fn run(args: Vec<String>) -> ExitCode {
                 "vortex adaptive sizing report".to_string(),
                 report.to_human_text(),
                 report.diagnostics.clone(),
-                vec![
-                    (
-                        "fallback_execution_allowed".to_string(),
-                        "false".to_string(),
-                    ),
-                    ("mode".to_string(), "vortex_adaptive_sizing".to_string()),
-                    (
-                        "native_vortex_input".to_string(),
-                        input_plan.source.is_native_vortex().to_string(),
-                    ),
-                    ("plan_only".to_string(), "true".to_string()),
-                    ("tasks_executed".to_string(), "false".to_string()),
-                    ("data_executed".to_string(), "false".to_string()),
-                    ("data_read".to_string(), "false".to_string()),
-                    ("data_materialized".to_string(), "false".to_string()),
-                    ("object_store_io".to_string(), "false".to_string()),
-                    ("write_io".to_string(), "false".to_string()),
-                    ("external_effects_executed".to_string(), "false".to_string()),
-                    ("execution".to_string(), "not_performed".to_string()),
-                    ("memory_gb".to_string(), memory_gb.to_string()),
-                    (
-                        "reservation_lifecycle_integration".to_string(),
-                        "true".to_string(),
-                    ),
-                    ("memory_integration".to_string(), "true".to_string()),
-                    (
-                        "vortex_memory_bridge_integration".to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "bounded_execution_integration".to_string(),
-                        "true".to_string(),
-                    ),
-                ],
+                adaptive_sizing_report_fields(
+                    &report,
+                    memory_gb,
+                    input_plan.source.is_native_vortex(),
+                ),
             );
             if report.has_errors() {
                 ExitCode::from(1)
@@ -10377,41 +10662,11 @@ fn run(args: Vec<String>) -> ExitCode {
                 "vortex memory planning report".to_string(),
                 report.to_human_text(),
                 report.diagnostics.clone(),
-                vec![
-                    (
-                        "fallback_execution_allowed".to_string(),
-                        "false".to_string(),
-                    ),
-                    ("mode".to_string(), "vortex_memory_plan".to_string()),
-                    (
-                        "native_vortex_input".to_string(),
-                        input_plan.source.is_native_vortex().to_string(),
-                    ),
-                    ("plan_only".to_string(), "true".to_string()),
-                    ("tasks_executed".to_string(), "false".to_string()),
-                    ("data_executed".to_string(), "false".to_string()),
-                    ("data_read".to_string(), "false".to_string()),
-                    ("data_materialized".to_string(), "false".to_string()),
-                    ("object_store_io".to_string(), "false".to_string()),
-                    ("write_io".to_string(), "false".to_string()),
-                    ("spill_io_performed".to_string(), "false".to_string()),
-                    ("external_effects_executed".to_string(), "false".to_string()),
-                    ("execution".to_string(), "not_performed".to_string()),
-                    ("memory_gb".to_string(), memory_gb.to_string()),
-                    (
-                        "reservation_lifecycle_integration".to_string(),
-                        "true".to_string(),
-                    ),
-                    ("memory_integration".to_string(), "true".to_string()),
-                    (
-                        "vortex_memory_bridge_integration".to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "bounded_execution_integration".to_string(),
-                        "true".to_string(),
-                    ),
-                ],
+                memory_bridge_report_fields(
+                    &report,
+                    memory_gb,
+                    input_plan.source.is_native_vortex(),
+                ),
             );
             if report.has_errors() {
                 ExitCode::from(1)
@@ -10591,25 +10846,7 @@ fn run(args: Vec<String>) -> ExitCode {
                 "vortex scheduler queue planning report".to_string(),
                 report.to_human_text(),
                 report.diagnostics.clone(),
-                vec![
-                    (
-                        "fallback_execution_allowed".to_string(),
-                        "false".to_string(),
-                    ),
-                    ("mode".to_string(), "vortex_schedule_plan".to_string()),
-                    ("plan_only".to_string(), "true".to_string()),
-                    ("tasks_executed".to_string(), "false".to_string()),
-                    ("data_executed".to_string(), "false".to_string()),
-                    ("data_read".to_string(), "false".to_string()),
-                    ("data_materialized".to_string(), "false".to_string()),
-                    ("object_store_io".to_string(), "false".to_string()),
-                    ("write_io".to_string(), "false".to_string()),
-                    ("spill_io_performed".to_string(), "false".to_string()),
-                    ("external_effects_executed".to_string(), "false".to_string()),
-                    ("execution".to_string(), "not_performed".to_string()),
-                    ("memory_gb".to_string(), memory_gb.to_string()),
-                    ("max_parallelism".to_string(), max_parallelism.to_string()),
-                ],
+                scheduler_bridge_report_fields(&report, memory_gb, max_parallelism),
             );
             if report.has_errors() {
                 ExitCode::from(1)
@@ -13733,32 +13970,7 @@ fn run(args: Vec<String>) -> ExitCode {
                 "vortex bounded local execution".to_string(),
                 report.to_human_text(),
                 report.diagnostics.clone(),
-                vec![
-                    (
-                        "fallback_execution_allowed".to_string(),
-                        "false".to_string(),
-                    ),
-                    ("mode".to_string(), "vortex_bounded_local_exec".to_string()),
-                    ("primitive".to_string(), primitive_arg),
-                    ("max_parallelism".to_string(), max_parallelism.to_string()),
-                    ("memory_gb".to_string(), memory_gb.to_string()),
-                    ("tasks_executed".to_string(), "false".to_string()),
-                    ("data_read".to_string(), "false".to_string()),
-                    ("data_decoded".to_string(), "false".to_string()),
-                    ("data_materialized".to_string(), "false".to_string()),
-                    ("object_store_io".to_string(), "false".to_string()),
-                    ("write_io".to_string(), "false".to_string()),
-                    ("spill_io_performed".to_string(), "false".to_string()),
-                    ("external_effects_executed".to_string(), "false".to_string()),
-                    (
-                        "execution".to_string(),
-                        "metadata_only_or_not_performed".to_string(),
-                    ),
-                    (
-                        "result_known".to_string(),
-                        report.local_execution_report.value.is_known().to_string(),
-                    ),
-                ],
+                bounded_local_execution_fields(&report, &primitive_arg, memory_gb, max_parallelism),
             );
             if report.has_errors() {
                 ExitCode::from(1)

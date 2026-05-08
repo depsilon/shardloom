@@ -39,24 +39,25 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-8.1 streaming plan discovery surface
+- [x] Session label: CG-8.2 adaptive sizing, memory, scheduler, and bounded execution evidence surface
   - Primary files:
     - `shardloom-cli/src/main.rs`
-    - `shardloom-cli/tests/streaming_plan_snapshots.rs`
+    - `shardloom-cli/tests/cg8_scheduling_snapshots.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-  - Scope: Surface the existing `StreamingPlanSkeleton` through stable CLI JSON evidence for Vortex-native zero-decode streaming plans and compatibility materialization boundaries.
+  - Scope: Surface stable CG-8 JSON evidence for adaptive split/coalesce policy, memory/spill/OOM gates, bounded scheduler queue batches, and bounded local execution blocking without enabling runtime task execution.
   - Checklist:
-    - [x] Add `streaming-plan` to the public CLI usage surface.
-    - [x] Emit streaming plan JSON fields for mode/status, source, sink, backpressure, memory policy, materialization, best work level, runtime execution, and fallback status.
-    - [x] Add snapshot tests for Vortex-native zero-decode streaming and compatibility-sink materialization boundaries.
+    - [x] Add adaptive sizing JSON fields for policy, split/coalesce counts, and side-effect flags.
+    - [x] Add memory bridge JSON fields for memory budget, spill policy, OOM/spill task counts, and side-effect flags.
+    - [x] Add scheduler bridge JSON fields for bounded parallel batch counts and queue status.
+    - [x] Add bounded local execution JSON fields for blocked/completed counts and local execution status.
+    - [x] Add snapshot tests for adaptive sizing, memory, scheduler, and bounded execution guard outputs.
     - [x] Update phase and RFC traceability docs.
     - [x] Run full required validation.
   - Local validation status:
-    - focused `streaming_plan` CLI tests passed
-    - `streaming_plan_snapshots` integration tests passed
+    - `cg8_scheduling_snapshots` integration tests passed
     - full Rust validation passed with toolchain `1.91.1`
-  - Explicitly not included: stream execution, task execution, new read-start APIs, row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, adaptive scheduling behavior, benchmarks, production/superiority claims, fallback execution, or CG-8 closeout.
+  - Explicitly not included: stream execution, new task execution, new read-start APIs, row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, dynamic feedback execution, benchmarks, production/superiority claims, fallback execution, or CG-8 closeout.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -703,6 +704,14 @@ Supporting docs:
     - Compatibility targets expose materialization-required and metadata-preservation-loss planning fields.
     - Runtime execution and fallback execution remain false.
     - No stream execution, task execution, read-start API, benchmark claim, superiority claim, or fallback behavior is added.
+- [x] CG-8.2 adaptive sizing, memory, scheduler, and bounded execution evidence surface
+  - Why: make the existing adaptive sizing, memory bridge, scheduler bridge, and bounded local execution guard observable through stable CLI JSON before enabling new runtime work.
+  - Acceptance:
+    - `vortex-adaptive-sizing` emits split/coalesce policy fields and task-decision counts.
+    - `vortex-memory-plan` emits memory budget, spill policy, OOM/spill task-count, and side-effect fields.
+    - `vortex-schedule-plan` emits bounded queue/batch fields and confirms max-parallelism enforcement.
+    - `vortex-bounded-local-exec` emits bounded execution status, local execution status, and blocked/completed decision counts.
+    - Runtime task execution, object-store IO, writes, spill IO, benchmark claims, superiority claims, and fallback behavior remain disabled.
 
 ## Competitive Engine Gates CG-1 through CG-20
 
@@ -1083,12 +1092,13 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 
 ### CG-8 detailed checklist
 - [x] CG-8.1 streaming plan discovery surface
+- [x] CG-8.2 adaptive sizing, memory, scheduler, and bounded execution evidence surface
 - [ ] streaming encoded batches
 - [ ] bounded parallel local execution
-- [ ] adaptive split/coalesce
+- [x] adaptive split/coalesce planning surface
 - [ ] dynamic sizing feedback loop
 - [ ] backpressure
-- [ ] memory/spill-aware scheduler
+- [x] memory/spill-aware scheduler planning surface
 
 ### CG-9 detailed checklist
 - [ ] schema evolution
@@ -1271,6 +1281,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-7.24 encoded projection kernel evidence admits safe encoded-column projection readiness into the encoded project slot while benchmark-gating production certification and blocking broad projection execution.
 - [x] CG-7.25 count/aggregate kernel closeout ties encoded `CountAll` and metadata `CountAll`/`CountWhere` count-aggregate admissions to the remaining CG-7 checklist item without adding runtime behavior.
 - [x] CG-8.1 streaming plan discovery surface exposes `streaming-plan` JSON fields for Vortex-native zero-decode planning and compatibility materialization boundaries without enabling streaming runtime execution.
+- [x] CG-8.2 adaptive sizing, memory, scheduler, and bounded execution evidence surface exposes JSON fields and snapshots for split/coalesce policy, memory/spill gates, bounded queue batches, and bounded local execution guards without enabling new runtime execution.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind `vortex-write`; placeholder artifact paths remain readiness-only.
 - [~] CG-3 broader output payload shapes remain deferred.
