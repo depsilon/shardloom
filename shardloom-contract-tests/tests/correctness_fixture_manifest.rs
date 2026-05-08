@@ -39,6 +39,32 @@ fn foundation_plan_declares_checked_in_vortex_golden_fixture() {
 }
 
 #[test]
+fn foundation_plan_declares_local_encoded_count_reference_output() {
+    let plan = CorrectnessValidationPlan::default_foundation_plan();
+    let fixture = fixture(&plan, "vortex-local-encoded-count-u64-20000");
+
+    assert_eq!(fixture.format, FixtureFormat::ShardLoomNative);
+    assert_eq!(
+        fixture.source_ref.as_deref(),
+        Some("shardloom-vortex/tests/fixtures/metadata_footer_u64_20000.vortex")
+    );
+    let workspace_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("workspace root");
+    let fixture_path = workspace_root.join(fixture.source_ref.as_ref().expect("source ref"));
+    assert!(fixture_path.is_file(), "{fixture_path:?}");
+    assert_eq!(
+        fixture.expected,
+        ExpectedOutcome::EncodedCount { count: 20000 }
+    );
+    assert!(fixture.expected.requires_execution());
+    assert!(fixture.covers_area(SemanticArea::EncodedExecution));
+    assert!(fixture.covers_edge_case(EdgeCase::NoNulls));
+    assert!(fixture.has_reference_role(ReferenceRole::GoldenFixture));
+    assert!(fixture.reference_roles_are_test_only());
+}
+
+#[test]
 fn foundation_plan_tracks_required_edge_case_fixture_families() {
     let plan = CorrectnessValidationPlan::default_foundation_plan();
     let required = [

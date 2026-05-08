@@ -222,6 +222,7 @@ impl FixtureFormat {
 pub enum ExpectedOutcome {
     Rows { row_count: Option<u64> },
     MetadataRowCount { row_count: u64 },
+    EncodedCount { count: u64 },
     Diagnostic { code: DiagnosticCode },
     Unsupported { feature: String },
     MetadataOnly,
@@ -235,6 +236,7 @@ impl ExpectedOutcome {
             Self::MetadataRowCount { row_count } => {
                 format!("metadata row count expected: {row_count}")
             }
+            Self::EncodedCount { count } => format!("encoded count expected: {count}"),
             Self::Diagnostic { code } => format!("diagnostic expected: {}", code.as_str()),
             Self::Unsupported { feature } => format!("unsupported: {feature}"),
             Self::MetadataOnly => "metadata-only expectation".to_string(),
@@ -243,7 +245,7 @@ impl ExpectedOutcome {
         }
     }
     pub const fn requires_execution(&self) -> bool {
-        matches!(self, Self::Rows { .. })
+        matches!(self, Self::Rows { .. } | Self::EncodedCount { .. })
     }
 }
 
@@ -434,6 +436,19 @@ fn vortex_metadata_footer_fixture() -> CorrectnessFixture {
     fixture
 }
 
+fn vortex_local_encoded_count_fixture() -> CorrectnessFixture {
+    let mut fixture = CorrectnessFixture::new(
+        FixtureId::new("vortex-local-encoded-count-u64-20000").expect("valid"),
+        FixtureFormat::ShardLoomNative,
+    )
+    .with_source_ref("shardloom-vortex/tests/fixtures/metadata_footer_u64_20000.vortex")
+    .with_expected(ExpectedOutcome::EncodedCount { count: 20000 });
+    fixture.add_semantic_area(SemanticArea::EncodedExecution);
+    fixture.add_edge_case(EdgeCase::NoNulls);
+    fixture.add_reference_role(ReferenceRole::GoldenFixture);
+    fixture
+}
+
 fn default_external_oracle_baselines() -> Vec<DifferentialBaseline> {
     [
         BaselineEngine::Spark,
@@ -502,6 +517,7 @@ impl CorrectnessValidationPlan {
         )
         .expect("valid");
         plan.add_fixture(vortex_metadata_footer_fixture());
+        plan.add_fixture(vortex_local_encoded_count_fixture());
         for fixture in [
             generated_fixture(
                 "null-semantics",
@@ -801,6 +817,10 @@ mod tests {
     #[test]
     fn expected_outcome_rows_exec() {
         assert!(ExpectedOutcome::Rows { row_count: None }.requires_execution());
+    }
+    #[test]
+    fn expected_outcome_encoded_count_exec() {
+        assert!(ExpectedOutcome::EncodedCount { count: 42 }.requires_execution());
     }
     #[test]
     fn diagnostic_expectation_from_diagnostic_matches() {

@@ -36,23 +36,24 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-2.1e.22 stable explicit local encoded `CountAll` execution surface
+- [x] Session label: CG-5.5 local encoded `CountAll` correctness fixture/reference-output proof
   - Primary files:
-    - `shardloom-cli/src/main.rs`
+    - `shardloom-core/src/correctness.rs`
+    - `shardloom-contract-tests/tests/correctness_fixture_manifest.rs`
+    - `shardloom-vortex/src/encoded_read_executor.rs`
+    - `shardloom-vortex/tests/fixtures/README.md`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-    - `docs/architecture/vortex-public-api-inventory.md`
-    - `docs/architecture/vortex-adapter-integration-plan.md`
-  - Scope: Promote the approved local `.vortex` encoded `CountAll` scan/count path from spike-only CLI access into an explicit stable `vortex-count` opt-in.
+  - Scope: Tie the checked-in Vortex golden fixture to an encoded `CountAll` reference output and verify the approved local encoded count path against that manifest evidence.
   - Checklist:
-    - [x] Add `shardloom vortex-count <dataset_uri> --execute-local-encoded-count <memory_gb> <max_parallelism>`.
-    - [x] Keep default `shardloom vortex-count <dataset_uri>` metadata-only behavior unchanged.
-    - [x] Reuse encoded-read readiness, encoded-count approval, approved local scan/count, and local execution bridge evidence.
-    - [x] Emit text/JSON fields for local scan target/source match, arrays read, rows counted, count result, side effects, and no-fallback status.
-    - [x] Keep the path feature-gated and explicit.
-    - [x] Run focused default and feature-gated CLI tests.
+    - [x] Add an `ExpectedOutcome::EncodedCount` manifest reference-output shape.
+    - [x] Declare `vortex-local-encoded-count-u64-20000` in the default correctness foundation plan.
+    - [x] Assert the checked-in fixture path, expected count, execution requirement, golden role, and no-fallback reference role in contract tests.
+    - [x] Add a feature-gated Vortex correctness test that the approved local encoded count path returns the manifest count without decode/materialization/row/Arrow/object-store/write/spill/external/fallback effects.
+    - [x] Update fixture README scope so metadata and approved local encoded-count evidence are both explicit.
+    - [x] Run focused default and feature-gated correctness tests.
     - [x] Run full required validation.
-  - Explicitly not included: broad scan/read-start approval, non-local adapters, object-store IO, encoded predicates, projection execution, row reads, requested decode/materialization, Arrow conversion, writes, spill IO, external baseline execution, fallback execution, benchmarks, CG-1 closeout, CG-2 closeout, or later CG closeout.
+  - Explicitly not included: new fixtures, decoded reference engine execution, external baseline invocation, generalized encoded-data execution, non-local adapters, object-store IO, encoded predicates, projections, row reads, requested decode/materialization, Arrow conversion, writes, spill IO, benchmark claims, superiority claims, fallback execution, CG-1 closeout, CG-2 closeout, or CG-5 closeout.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -696,6 +697,7 @@ Status legend:
   - [x] CG-5.2 metadata query primitive edge and diagnostic fixtures
   - [x] CG-5.3 correctness fixture manifest contract
   - [x] CG-5.4 external baseline oracle policy
+  - [x] CG-5.5 local encoded `CountAll` golden fixture/reference-output proof
   - Expected evidence:
     - golden Vortex fixtures
     - decoded reference outputs
@@ -917,6 +919,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [~] null/nested/dictionary/sparse/run-length/temporal edge-case coverage
 - [x] CG-5.3 correctness fixture manifest contract
 - [x] CG-5.4 Spark/Polars/DataFusion external baselines only, never fallback
+- [x] CG-5.5 local encoded `CountAll` golden fixture/reference-output proof
 
 ### CG-6 detailed checklist
 - [x] CG-6.1 benchmark evidence manifest
@@ -1111,6 +1114,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-5.2 metadata query primitive edge and diagnostic fixtures cover missing/unsupported metadata primitive paths without side effects.
 - [x] CG-5.3 correctness fixture manifest declares initial golden fixture/reference output and required edge-case fixture families without execution.
 - [x] CG-5.4 external baseline oracle policy declares comparison-only baselines and blocks runtime fallback.
+- [x] CG-5.5 local encoded `CountAll` fixture/reference-output proof declares `ExpectedOutcome::EncodedCount { count: 20000 }` for the checked-in Vortex fixture and verifies the approved local encoded count path returns that value without decode/materialization/row/Arrow/object-store/write/spill/external/fallback effects.
 - [x] CG-6.1 benchmark evidence manifest covers required metric categories without running benchmarks.
 - [x] CG-6.2 benchmark claim gate blocks publication without correctness, benchmark, comparison, metric, and no-fallback evidence.
 - [x] CG-6.3 benchmark comparison report contract records missing scenario/baseline results and metric gaps without running benchmarks or invoking external baselines.
