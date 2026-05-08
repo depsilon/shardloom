@@ -8,6 +8,8 @@ This document defines how ShardLoom maps common lakehouse table-system value pro
 
 ShardLoom remains a standalone execution engine with native Vortex input/output. Lakehouse table systems are treated as compatibility and table-management surfaces, not execution dependencies and not execution fallback engines.
 
+Active phase status and CG closeout decisions live in `docs/architecture/phased-execution-plan.md`. This matrix is a reference contract for future CG-9, CG-10, CG-18, CG-19, and CG-20 work.
+
 ## Context
 
 Teams expect lakehouse semantics such as snapshots, schema evolution, and incremental processing. These features are valuable, but ShardLoom must not couple execution to external engines or silently adopt semantics it cannot enforce.
@@ -120,7 +122,7 @@ For lakehouse compatibility semantics, diagnostics should include at least:
 
 - Over-modeling before implementation could create stale contracts.
 - Under-modeling can lead to inconsistent adapter behavior later.
-- Compatibility expectations may exceed current skeleton-phase scope.
+- Compatibility expectations may exceed the existing skeleton-phase scope.
 
 Mitigation: keep statuses explicit (`planned`, `deferred`, `unsupported`) and require deterministic diagnostics.
 
@@ -131,6 +133,8 @@ Mitigation: keep statuses explicit (`planned`, `deferred`, `unsupported`) and re
 - No section implies external-engine fallback execution.
 - Delete/tombstone and metadata-loss requirements are explicit.
 - Document is compatible with standalone, Vortex-native architecture.
+- Future adapter implementations should emit machine-readable status for each applicable value prop after the phase plan authorizes that adapter work.
+- Future phase-plan items should define mandatory versus optional compatibility semantics per adapter profile.
 
 ## Verification plan
 

@@ -4,6 +4,10 @@
 
 RFCs are ShardLoom's source-of-truth design documents, but they are not automatically enforced by code. The phased execution plan should explicitly reference the RFCs that govern each phase so phase work can remain aligned with approved architecture and acceptance criteria.
 
+`docs/architecture/phased-execution-plan.md` is the source of truth for active status, active queue, completed phase ledger, deferred work, and CG closeout state. This document maps phase and CG work to governing RFCs; it may record historical traceability, but it must not introduce a competing active queue.
+
+Status words in historical sections below describe evidence recorded at the time of the original phase note. They are not active queue state and do not override `phased-execution-plan.md`.
+
 ## How to use this document
 
 - Before starting a new phase, check the mapped RFCs for that phase.
@@ -21,7 +25,7 @@ RFCs are ShardLoom's source-of-truth design documents, but they are not automati
 | R3.2 — CLI usage/name consistency cleanup (complete) | RFC 0012 Diagnostics, Explain, Estimate, and Capabilities; RFC 0024 Release Engineering, API Compatibility, and Packaging; RFC 0030 Universal API/baseline harness | RFC 0025 Competitive/no-fallback | docs/test/CLI compatibility cleanup only; no runtime behavior changes; no fallback execution | Verifies user-facing usage/help naming uses `shardloom`, reinforces plan/probe/write/execute distinction through focused CLI tests, and records command-registry work as backlog only. |
 | R3.3 — diagnostics normalization backlog (complete) | RFC 0012 Diagnostics, Explain, Estimate, and Capabilities; RFC 0024 Release Engineering, API Compatibility, and Packaging; RFC 0030 Universal API/baseline harness | RFC 0025 Competitive/no-fallback | docs/audit-only scope; no runtime behavior; no fallback execution | Audits diagnostic normalization backlog across CLI parse/argument paths, ShardLoomError-to-Diagnostic conversion, category/status consistency, and future helper/test sequencing for targeted follow-up PRs. |
 | Phase 10D — Local engine diagnostic propagation stabilization | RFC 0012 Diagnostics, Explain, Estimate, Capabilities; RFC 0018 Observability, Tracing, Profiling; RFC 0024 Release Engineering, API Compatibility, Packaging | — | stable diagnostic codes; JSON/human output compatibility; no generic diagnostics replacing root-cause diagnostics; no fallback execution | Stabilize diagnostics transport and schema compatibility for local engine surfaces before broader runtime expansion. |
-| Phase 11A — Spill policy turns real (11A.1 lifecycle/cleanup contract; 11A.2 reservations/bounded memory integration; 11A.3 spill data movement; 11A.3a.2d roundtrip API complete; 11A.3a.3 CLI/docs integration current; 11A.3b bounded execution spill payload integration planned) | RFC 0014 Memory Management, Spill, and OOM Safety | RFC 0017 Fault Tolerance, Cancellation, and Recovery; RFC 0008 Object-Store Runtime and Distributed Task Model | memory budgets; memory reservations; spill policies; spill file refs; cleanup expectations; deterministic fail-before-OOM; no fallback execution | Keep spill posture local/native and deterministic; do not add object-store spill during this phase. |
+| Phase 11A — Spill policy turns real (11A.1 lifecycle/cleanup contract; 11A.2 reservations/bounded memory integration; 11A.3 spill data movement; 11A.3a.2d roundtrip API complete; 11A.3a.3 CLI/docs integration recorded-active; 11A.3b bounded execution spill payload integration planned) | RFC 0014 Memory Management, Spill, and OOM Safety | RFC 0017 Fault Tolerance, Cancellation, and Recovery; RFC 0008 Object-Store Runtime and Distributed Task Model | memory budgets; memory reservations; spill policies; spill file refs; cleanup expectations; deterministic fail-before-OOM; no fallback execution | Keep spill posture local/native and deterministic; do not add object-store spill during this phase. |
 | Phase 11B.1 — Recovery context and cleanup planning integration (complete) | RFC 0017 Fault Tolerance, Cancellation, and Recovery | RFC 0014 Memory Management, Spill, and OOM Safety; RFC 0008 Object-Store Runtime and Distributed Task Model | task attempt identity; cleanup required; bounded spill recovery artifacts; deterministic report-only recovery planning; no fallback execution | Recovery context is planning-only and side-effect-free; classify known vs unknown cleanup artifacts explicitly. |
 | Phase 11B.2 — Retry/cancellation planning integration (complete) | RFC 0017 Fault Tolerance, Cancellation, and Recovery | RFC 0014 Memory Management, Spill, and OOM Safety | retry eligibility; cancellation planning state; cleanup-before-retry gating; no fallback execution | Retry/cancellation outcomes remain explicit plans until execution phases. |
 | Phase 11B.3a — Cleanup execution core contract, no filesystem (complete) | RFC 0017 Fault Tolerance, Cancellation, and Recovery | RFC 0014 Memory Management, Spill, and OOM Safety; RFC 0008 Object-Store Runtime and Distributed Task Model | cleanup execution contract; deterministic report semantics; no filesystem deletes; no fallback execution | Establishes explicit cleanup execution shape without performing cleanup side effects. |
@@ -62,7 +66,7 @@ Status categories:
 - Deferred
 - Needs amendment
 
-| RFC | Current status | Relevant phases | Notes |
+| RFC | RFC implementation status | Relevant phases | Notes |
 | --- | --- | --- | --- |
 | RFC 0001 | Partially implemented | 0-3, Ongoing | Foundational architecture and no-fallback direction established; ongoing operationalization across phases. |
 | RFC 0002 | Partially implemented | 2-6, Ongoing | Core contract framing in place; implementation depth still increases by phase. |
@@ -112,16 +116,16 @@ Status categories:
 
 ## Phase 12A refinement
 
-- 12A.2a staged output workspace core contract is current and report-only.
+- 12A.2a staged output workspace core contract was recorded as active and report-only.
 - 12A.2b feature-gated local staged workspace/marker behavior remains planned.
 - Output payload and manifest writes remain deferred.
 
-- 12A.1 native `Vortex` write intent core contract is current.
+- 12A.1 native `Vortex` write intent core contract was recorded as active.
 - 12A.2 staged output workspace contract is planned.
 - Actual write execution remains deferred.
 ## Phase 12A.3a update
 - Phase 12A.2c.2 complete.
-- Phase 12A.3a current: staged manifest draft core contract (report-only, no filesystem).
+- Phase 12A.3a recorded-active: staged manifest draft core contract (report-only, no filesystem).
 - Phase 12A.3b planned: feature-gated local staged manifest draft file.
 - Phase 12A.3c planned: CLI/docs integration.
 - Actual output payload and file writes remain deferred.
@@ -133,7 +137,7 @@ Status categories:
 - Phase 12B.1b commit readiness integration is complete.
 - Phase 12B.1c validation closeout is complete.
 - Phase 12B.2a.1 commit protocol state machine core contract is complete and report-only.
-- Phase 12B.2a.2 commit intent report integration is current.
+- Phase 12B.2a.2 commit intent report integration was recorded as active in the historical ledger.
 - Commit protocol remains report-only and commit execution remains deferred.
 - Commit execution remains deferred.
 - Commit protocol must start report-only.
@@ -158,7 +162,7 @@ Competitive gate coverage:
   - CG-1.2b metadata probe fixture/report integration: complete
   - CG-1.2b.1 metadata probe stability/contract closeout: complete
   - CG-1.2c metadata probe `CLI`/docs integration: complete
-  - CG-1.2d.2 deterministic async/session boundary contract: current (report-only; no runtime/executor added; metadata/footer invocation deferred to CG-1.2d.3)
+  - CG-1.2d.2 deterministic async/session boundary contract: recorded-active (report-only; no runtime/executor added; metadata/footer invocation deferred to CG-1.2d.3)
     - primary RFC: RFC 0026
     - secondary RFCs: RFC 0012, RFC 0016, RFC 0025, RFC 0027, RFC 0029
     - constraints: no scan/read-start, decode, materialization, Arrow conversion, object-store IO, or fallback
@@ -192,7 +196,7 @@ Competitive gate coverage:
 
 | Phase 12C.3a — output payload plan CLI (complete) | RFC 0012 Diagnostics, Explain, Estimate, and Capabilities | RFC 0004 Native Dataset Manifest, Snapshot, Incremental | CLI report-only output payload readiness planning; no artifact writes; no real `Vortex` payload writes; upstream `Vortex` write APIs remain deferred | Complete. |
 | Phase 12C.3b — output payload artifact write CLI (complete) | RFC 0012 Diagnostics, Explain, Estimate, and Capabilities | RFC 0004 Native Dataset Manifest, Snapshot, Incremental | CLI for local placeholder output payload artifact writes; default build remains feature-disabled/report-only; no real upstream `Vortex` payload writes; no manifest writes/commit execution/object-store IO | Complete readiness-only milestone. |
-| Phase 12C.4 — staged smoke test includes output payload artifact (complete readiness-only) | RFC 0015 Correctness, Semantics, Differential Testing, and Fuzzing | RFC 0004 Native Dataset Manifest, Snapshot, Incremental | Extends staged CLI-driven write-readiness smoke coverage with output payload plan and placeholder artifact write; verifies no real `Vortex` payload writes, no upstream `Vortex` write API calls, no manifest/commit writes, no object-store IO, fallback disabled; this is CG-3 readiness evidence only and does not complete CG-3 | Complete readiness-only milestone; not the current implementation phase. |
+| Phase 12C.4 — staged smoke test includes output payload artifact (complete readiness-only) | RFC 0015 Correctness, Semantics, Differential Testing, and Fuzzing | RFC 0004 Native Dataset Manifest, Snapshot, Incremental | Extends staged CLI-driven write-readiness smoke coverage with output payload plan and placeholder artifact write; verifies no real `Vortex` payload writes, no upstream `Vortex` write API calls, no manifest/commit writes, no object-store IO, fallback disabled; this is CG-3 readiness evidence only and does not complete CG-3 | Complete readiness-only milestone; not the active implementation phase. |
 
 
 ## Competitive Engine Track RFC mappings
@@ -268,7 +272,7 @@ No fallback execution.
 
 ## CG-2.0 query primitive boundary update
 - CG-1.2 metadata/footer execution was paused after CG-1.2d.8; CG-1.2d.9 clears the local fixture metadata/footer invocation blocker but does not add query primitive execution.
-- CG-2.0 is current and adds a report-only, feature-gated `Vortex` query primitive readiness boundary for count, filtered count, projection, and predicate/filter primitives.
+- Historical evidence: CG-2.0 added a report-only, feature-gated `Vortex` query primitive readiness boundary for count, filtered count, projection, and predicate/filter primitives.
 - This boundary does not execute query primitives and remains side-effect-free.
 - CG-2.1c clears metadata-footer `CountAll` execution; encoded-data-path readiness is still required for non-metadata candidates.
 - No scan/read-start, encoded data reads, row reads, decode/materialization, `Arrow` conversion, object-store `IO`, writes, or fallback execution are introduced.
@@ -288,14 +292,14 @@ No fallback execution.
 - CG-2.1+ actual non-metadata count/query execution remains blocked until encoded-data readiness exists for non-metadata candidates.
 
 
-| CG-1.3 - encoded-read no-materialization / no-`Arrow` invariant closeout (complete for current contract surfaces) | RFC 0025 Competitive/no-fallback; RFC 0026 `Vortex` encoded-read/query-readiness boundaries | RFC 0015 Correctness/testing | Keep report-contract only outside the feature-gated CG-1.2d.9 local metadata/footer invocation; no scan/read-start; no decode/materialization/`Arrow` conversion; no object-store IO/writes; no fallback execution | Closes invariant gates for no broad row materialization and no `Arrow`-default conversion across current report surfaces; CG-1.2d.9 clears local metadata/footer invocation; CG-2.1 execution remains blocked pending query wiring and encoded data path readiness. |
+| CG-1.3 - encoded-read no-materialization / no-`Arrow` invariant evidence (complete for recorded contract surfaces) | RFC 0025 Competitive/no-fallback; RFC 0026 `Vortex` encoded-read/query-readiness boundaries | RFC 0015 Correctness/testing | Keep report-contract only outside the feature-gated CG-1.2d.9 local metadata/footer invocation; no scan/read-start; no decode/materialization/`Arrow` conversion; no object-store IO/writes; no fallback execution | Records invariant evidence for no broad row materialization and no `Arrow`-default conversion across recorded report surfaces; CG-1.2d.9 clears local metadata/footer invocation; CG-2.1 execution remains blocked pending query wiring and encoded data path readiness. |
 
 
 ## CG-2.1 count readiness planning update
 
 - CG-1.3 invariant contract tests are complete.
 - CG-2.0 / CG-2.0b / CG-2.0c / CG-2.0c.1 are complete.
-- CG-2.1 is current with a report-only `VortexCountReadinessRequest`/`VortexCountReadinessReport` planning contract.
+- Historical evidence: CG-2.1 added a report-only `VortexCountReadinessRequest`/`VortexCountReadinessReport` planning contract.
 - Count planning distinguishes metadata-footer candidates from encoded-data-path candidates.
 - Metadata-footer `CountAll` execution is now wired through CG-2.1c; encoded-data count candidates can be approved and deferred through CG-2.1d.
 - No scan/read-start, encoded-data reads, row reads, decode, materialization, `Arrow` conversion, object-store IO, writes, or fallback execution are introduced.
@@ -328,7 +332,7 @@ No fallback execution.
 
 - Primary RFC linkage: RFC 0005 Vortex-Native File IO and Output Contract, RFC 0012 Diagnostics/Capabilities, RFC 0013 Streaming/Zero-Copy Boundary, RFC 0015 Correctness/testing, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
 - `count_readiness_request_from_encoded_read_probe_report` consumes `VortexEncodedReadProbeReport` so encoded-data count readiness is gated by the public encoded-read API boundary, not only scheduler/readiness candidates.
-- Current upstream public surfaces for data access remain blocked for actual count execution because they route through scan/data-read or array-stream/evaluation APIs that are not yet approved under ShardLoom's no-decode/no-materialization boundary.
+- Recorded upstream public surfaces for data access remain blocked for actual count execution because they route through scan/data-read or array-stream/evaluation APIs that are not yet approved under ShardLoom's no-decode/no-materialization boundary.
 - API boundary blockers propagate into count readiness as deterministic object-store, scan-execution, decode, materialization, Arrow-default, or write blockers.
 - This pass does not execute encoded reads, call scan/read-start APIs, traverse encoded data, read rows, decode/materialize values, convert to `Arrow`, perform object-store IO or writes, or attempt fallback execution.
 - CG-2.1e actual encoded-data count execution remains planned and blocked until a safe public Vortex data path is approved.
@@ -370,7 +374,7 @@ No fallback execution.
 
 - Primary RFC linkage: RFC 0005 Vortex-Native File IO and Output Contract, RFC 0012 Diagnostics/Capabilities, RFC 0013 Streaming/Zero-Copy Boundary, RFC 0015 Correctness/testing, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
 - `VortexEncodedCountDataPathApprovalReport` now consumes `VortexCountReadinessReport` and `VortexEncodedReadApiBoundaryReport` to decide whether encoded-data `CountAll` can even be approved for deferred execution planning.
-- The current public API boundary remains blocked: `VortexFile::row_count` is metadata count evidence, but execution-usable data path count is zero and scan/stream/evaluation/data-source surfaces remain blocked or deferred.
+- The recorded public API boundary remains blocked: `VortexFile::row_count` is metadata count evidence, but execution-usable data path count is zero and scan/stream/evaluation/data-source surfaces remain blocked or deferred.
 - This pass makes the remaining blocker explicit before actual encoded-data count execution work.
 - This pass does not call scan/read-start APIs, array stream/evaluation APIs, traverse encoded data, read rows, decode/materialize, convert to `Arrow`, perform object-store IO, write, or attempt fallback execution.
 
@@ -378,14 +382,14 @@ No fallback execution.
 
 - Primary RFC linkage: RFC 0005 Vortex-Native File IO and Output Contract, RFC 0012 Diagnostics/Capabilities, RFC 0013 Streaming/Zero-Copy Boundary, RFC 0015 Correctness/testing, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
 - `shardloom vortex-encoded-count-approval-plan` now surfaces `VortexEncodedCountDataPathApprovalReport` in text/JSON CLI envelopes.
-- The command is report-only: current public API blockers remain visible and ready encoded-data count inputs return deterministic unsupported/non-zero status until an execution-usable data path exists.
+- The command is report-only: recorded public API blockers remain visible and ready encoded-data count inputs return deterministic unsupported/non-zero status until an execution-usable data path exists.
 - This pass does not call scan/read-start APIs, array stream/evaluation APIs, traverse encoded data, read rows, decode/materialize, convert to `Arrow`, perform object-store IO, write, or attempt fallback execution.
 
 ## CG-2.1e.8 encoded-count approval local guard
 
 - Primary RFC linkage: RFC 0005 Vortex-Native File IO and Output Contract, RFC 0012 Diagnostics/Capabilities, RFC 0013 Streaming/Zero-Copy Boundary, RFC 0015 Correctness/testing, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
 - `execute_vortex_count_all_from_encoded_count_data_path_approval` now requires `VortexEncodedCountDataPathApprovalReport` before local encoded-count planning can advance.
-- The current public API boundary is rejected by this guard; a future approved boundary can only produce deferred `NeedsEncodedRead`, not actual scan/data execution.
+- The recorded public API boundary is rejected by this guard; a future approved boundary can only produce deferred `NeedsEncodedRead`, not actual scan/data execution.
 - This pass does not call scan/read-start APIs, array stream/evaluation APIs, traverse encoded data, read rows, decode/materialize, convert to `Arrow`, perform object-store IO, write, or attempt fallback execution.
 
 ## CG-2.1e.9 layout-reader construction blocker hardening
@@ -400,7 +404,7 @@ No fallback execution.
 
 - Primary RFC linkage: RFC 0005 Vortex-Native File IO and Output Contract, RFC 0012 Diagnostics/Capabilities, RFC 0013 Streaming/Zero-Copy Boundary, RFC 0015 Correctness/testing, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
 - `VortexLayoutReaderDriverApprovalReport` defines the report-only gate that must approve any future `LayoutReader::row_count` use.
-- The current public API boundary remains blocked unless local fixture scope, caller session, runtime-driver permission, row-count-only intent, no scan/evaluation/data-read/decode/materialization/Arrow/object-store/write, and no-fallback signals are explicit.
+- The recorded public API boundary remains blocked unless local fixture scope, caller session, runtime-driver permission, row-count-only intent, no scan/evaluation/data-read/decode/materialization/Arrow/object-store/write, and no-fallback signals are explicit.
 - Even approved reports construct no `LayoutReader`, start no driver, call no scan/evaluation API, read no data or rows, decode/materialize nothing, convert nothing to `Arrow`, perform no object-store IO or writes, and do not allow fallback.
 - This pass adds no runtime invocation, dependency, parser, adapter runtime, object-store IO, write behavior, or fallback execution.
 
@@ -409,7 +413,7 @@ No fallback execution.
 - Primary RFC linkage: RFC 0010 Developer Experience, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
 - `shardloom vortex-layout-driver-approval-plan <signals> [--format text|json]` exposes the layout-driver approval report for human and agent inspection.
 - The command consumes only explicit signal text and the static encoded-read public API boundary report; it performs no filesystem, network, catalog, adapter, scan, evaluation, or data-read probing.
-- Missing/unknown signals fail deterministically, and the current public API boundary remains unsupported unless runtime-driver permission is explicit.
+- Missing/unknown signals fail deterministically, and the recorded public API boundary remains unsupported unless runtime-driver permission is explicit.
 - This pass adds no runtime invocation, dependency, parser, adapter runtime, object-store IO, write behavior, or fallback execution.
 
 ## CG-2.1e.12 layout-approved encoded count bridge
@@ -447,7 +451,7 @@ No fallback execution.
 
 - Primary RFC linkage: RFC 0012 Diagnostics/Capabilities, RFC 0013 Streaming/Zero-Copy Boundary, RFC 0015 Correctness/testing, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
 - `execute_vortex_count_all_from_local_scan_with_session` now requires an approved `VortexEncodedCountDataPathApprovalReport` before the local fixture scan/count path can run.
-- Current public API-boundary approval blockers return a blocked report before `VortexFile::scan` or `ScanBuilder::into_array_iter` is called.
+- Recorded public API-boundary approval blockers return a blocked report before `VortexFile::scan` or `ScanBuilder::into_array_iter` is called.
 - Approved reports still require encoded-read readiness, caller-owned session/runtime, and local `.vortex` scope.
 - This keeps the CG-2.1e approval chain authoritative as execution begins: no row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, external baselines, or fallback execution are added.
 
@@ -511,7 +515,7 @@ No fallback execution.
 
 - Primary RFC linkage: RFC 0029 Correctness/Benchmarks/Execution Certificates, RFC 0015 Correctness/Semantics/Differential Testing, RFC 0025 Competitive/no-fallback, and RFC 0032 claim publication requirements.
 - `BenchmarkClaimGate` blocks performance, superiority, cost, replacement, or best-default publication unless correctness evidence, benchmark evidence, required metrics, comparison reports, and no-fallback evidence are all present.
-- `BenchmarkPlan::claim_gate` returns `evidence_missing` for the current report-only foundation plan because no benchmark runner or comparison report exists yet.
+- `BenchmarkPlan::claim_gate` returns `evidence_missing` for the recorded report-only foundation plan because no benchmark runner or comparison report exists yet.
 - `shardloom-contract-tests/tests/benchmark_evidence_manifest.rs` verifies every publication input is required and fallback attempts block claims.
 - This pass adds no benchmark runner, external baseline invocation, query execution behavior, superiority claim, dependency, parser, adapter runtime, object-store IO, write behavior, or fallback execution.
 
@@ -527,7 +531,7 @@ No fallback execution.
 
 - Primary RFC linkage: RFC 0029 reproducible benchmark evidence requirements, RFC 0015 correctness-before-performance requirements, RFC 0025 competitive/no-fallback guardrails, and RFC 0032 benchmark evidence floor for best-default claims.
 - `BenchmarkRunManifest` records dataset shape, schema, storage format, compression, engine versions, hardware profile, operating-system profile, runtime configuration, cache state, required metrics, reproduction steps, correctness evidence state, and no-fallback state.
-- The current foundation plan remains `incomplete` because no approved benchmark runner has produced complete reproducibility metadata or benchmark results.
+- The recorded foundation plan remains `incomplete` because no approved benchmark runner has produced complete reproducibility metadata or benchmark results.
 - `shardloom-contract-tests/tests/benchmark_evidence_manifest.rs` verifies incomplete default manifests, complete synthetic reproducibility metadata, and comparison-only engine-version labels.
 - This pass adds no benchmark runner, external baseline invocation, query execution behavior, superiority claim, dependency, parser, adapter runtime, object-store IO, write behavior, or fallback execution.
 
@@ -671,7 +675,7 @@ No fallback execution.
 - Encoded-predicate filtered-count execution is not implemented.
 - No scan/read-start, predicate evaluation, encoded-data read, row read, decode, materialization, `Arrow` conversion, object-store IO, writes, or fallback execution are added.
 - CG-2.2b CLI integration is complete via `shardloom vortex-filtered-count-readiness-plan <candidate_source> <dataset_uri> [flags] [--format text|json]`.
-- Keep CG-1 through CG-20 visible and current.
+- Keep CG-1 through CG-20 visible; active status remains in `phased-execution-plan.md`.
 - The command does not execute filtered count, does not evaluate predicates, does not call scan/read-start APIs, and performs no metadata/footer open, encoded-data read, row read, decode/materialization, `Arrow` conversion, object-store IO, writes, or fallback execution.
 - Encoded-predicate filtered-count execution remains blocked until a real encoded predicate path exists.
 
@@ -700,7 +704,7 @@ No fallback execution.
   - metadata/schema projection remains explicit and requires `ProjectionSupported` plus `MetadataFooterReady`;
   - encoded-column projection candidates require `EncodedDataPathReady`.
 - The contract remains report-only: no scan/read-start, no projection application, no encoded-data reads, no row reads, no decode, no materialization, no `Arrow` conversion, no object-store `IO`, no writes, and no fallback execution.
-- Keep CG-1 through CG-20 visible and current.
+- Keep CG-1 through CG-20 visible; active status remains in `phased-execution-plan.md`.
 
 ## CG-2.3b projection readiness CLI integration
 
@@ -879,3 +883,13 @@ No fallback execution.
 - Primary RFC linkage: RFC 0032.
 - Related RFCs: RFC 0010, RFC 0011, RFC 0012, RFC 0018, RFC 0019, RFC 0023, RFC 0024, RFC 0030, and RFC 0031.
 - This phase adds no runtime behavior, SQL parser, SQL execution, API implementation, server implementation, UDF/plugin runtime, adapter runtime, dependency, external probing, superiority claim, or fallback behavior.
+
+## R5.4.11 architecture document ownership cleanup
+
+- `phased-execution-plan.md` now explicitly owns active status, active queue, completed phase ledger, deferred work, and CG closeout state.
+- Supporting architecture docs now identify whether they are traceability maps, sequencing ledgers, cleanup backlogs, inventories, reference maps, or vocabulary references.
+- Cleanup and sequencing docs use checklist/completed-ledger structure where status tracking is meaningful.
+- Conceptual and reference docs use structured maps and guardrails rather than misleading completion checklists.
+- Primary RFC linkage: RFC 0012, RFC 0024, RFC 0025, and RFC 0030.
+- Related RFCs: RFC 0010, RFC 0011, RFC 0013, RFC 0014, RFC 0017, RFC 0018, RFC 0019, RFC 0020, RFC 0031, and RFC 0032.
+- This phase adds no runtime behavior, parser, execution, API implementation, server implementation, UDF/plugin runtime, adapter runtime, dependency, external probing, superiority claim, CG closeout, or fallback behavior.

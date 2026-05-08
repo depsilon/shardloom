@@ -2,168 +2,93 @@
 
 ## Purpose
 
-- This document inventories scattered feature/dependency/capability/doctor status surfaces.
-- It defines a future `FeatureFootprintReport` contract.
-- It does not implement runtime behavior.
-- It does not authorize fallback execution.
-- It does not add dependencies.
+This document inventories feature, dependency, capability, and doctor status surfaces that should converge on `FeatureFootprintReport`. Active queue and completion state live in `docs/architecture/phased-execution-plan.md`.
 
-## Current posture
+It does not implement runtime behavior, authorize fallback execution, or add dependencies.
 
-- Default `shardloom-vortex` build should remain lightweight.
-- Upstream `Vortex` is feature-gated.
-- `vortex-encoded-read-executor` is feature-gated.
-- `vortex-file-io` may be locally blocked by rustc/upstream dependency mismatch and should not be required unless toolchain validates.
+## Design Posture
+
+- Default `shardloom-vortex` builds should remain lightweight.
+- Upstream `Vortex` remains feature-gated.
+- Feature-gated Vortex IO paths must stay explicit and narrow.
 - Fallback engines remain absent and disallowed.
-- `doctor`/`capabilities`/output envelope already expose some feature/fallback state, but not through one centralized report contract.
+- `doctor`, `capabilities`, and output envelopes should expose consistent feature/fallback state through stable report fields.
 
-## Current scattered surfaces
+## Surface Inventory
 
-Current feature/dependency/doctor/capability posture appears across these surfaces:
-
-- `shardloom-core::CapabilityReport` / core capabilities model (`EngineCapabilities`).
+- `shardloom-core::CapabilityReport` / `EngineCapabilities`.
 - `doctor` CLI command surface.
 - `capabilities` CLI command surface.
-- `OutputEnvelope` fallback object (`fallback`).
-- `ShardLoomError` / `Diagnostic` fallback status (`FallbackStatus`).
+- `OutputEnvelope` fallback object.
+- `ShardLoomError`, `Diagnostic`, and `FallbackStatus`.
 - `VortexAdapterCapabilityReport`.
-- Vortex feature helpers:
-  - `vortex_encoded_read_executor_feature_enabled`
-  - `vortex_file_io_feature_enabled`
-  - `vortex_metadata_executor_feature_enabled`
-  - `vortex_encoded_read_spike_feature_enabled`
-  - spill feature helper parity where relevant (for cross-crate gate posture)
-- Staged output/write feature fields and staged artifact gate reports.
-- Spill payload feature fields (`spill_payload_fs_feature_enabled`) and related report gates.
+- Vortex feature helpers.
+- Staged output/write feature gates.
+- Spill payload feature gates.
 - Cleanup/retry/cancellation gate surfaces.
 - Release/dependency/license review surfaces.
-- External baseline availability documentation surfaces (comparison-only, non-runtime).
+- External baseline documentation surfaces.
 
-## Future FeatureFootprintReport contract
+## FeatureFootprintReport Checklist
 
-Future contract fields:
+- [x] Core no-probe report contract
+  - `schema_version`
+  - `engine_version`
+  - `crate_versions`
+  - `compiled_features`
+  - `enabled_features`
+  - `disabled_features`
+  - `fallback_engines_absent`
+  - `fallback_execution_allowed=false`
+  - `diagnostics`
+- [x] Vortex gate fields
+  - `upstream_vortex`
+  - `vortex_file_io`
+  - `vortex_metadata_executor`
+  - `vortex_encoded_read_executor`
+  - `vortex_staged_output_fs`
+  - `vortex_write`
+  - `vortex_object_store`
+  - `vortex_output_payload`
+  - `vortex_commit_execution`
+- [ ] Doctor/capabilities alignment
+  - `doctor` eventually reports environment/readiness through `FeatureFootprintReport`.
+  - `capabilities` eventually reports supported/planned/disabled features using normalized names.
+  - CLI JSON fields use consistent keys.
+  - Output envelope fallback state matches feature-footprint fallback fields.
+- [x] No-fallback dependency checks
+  - No direct or transitive Spark runtime dependency.
+  - No direct or transitive DataFusion runtime dependency.
+  - No direct or transitive `vortex-datafusion` runtime dependency.
+  - No direct or transitive DuckDB, Polars, or Velox runtime dependency.
+  - External engines may appear only in external baseline scopes and must not be runtime dependencies.
+- [ ] Future tests
+  - Default `shardloom-vortex` feature graph remains lightweight.
+  - `FeatureFootprintReport` fallback allowed false.
+  - Doctor/capabilities share normalized feature keys.
+  - Feature-gated Vortex status is stable.
+  - Toolchain mismatch is reported, not ignored.
+  - External baseline availability is separate from runtime fallback.
 
-- `schema_version`
-- `engine_version`
-- `crate_versions`
-- `compiled_features`
-- `enabled_features`
-- `disabled_features`
-- `upstream_vortex_dependency_status`
-- `upstream_vortex_version`
-- `vortex_gates`
-- `encoded_read_gates`
-- `metadata_io_gates`
-- `write_gates`
-- `spill_gates`
-- `cleanup_gates`
-- `object_store_gates`
-- `distributed_execution_gates`
-- `external_baseline_availability`
-- `fallback_engines_absent`
-- `fallback_execution_allowed=false`
-- `diagnostics`
-- `generated_at` (optional/deferred)
+## Completed Ledger
 
-Contract guardrails:
+- [x] R3.5a
+  - Implemented `FeatureFootprintReport` core contract.
+  - Kept it no-probe.
+  - Did not change doctor/capabilities behavior.
+  - Did not add CLI exposure or dependency scanning in that pass.
+- [x] R3.5d
+  - Added no-fallback dependency invariant tests.
+  - Tests inspect manifests and `Cargo.lock`, not docs.
+  - External systems remain conceptual references or external baselines only.
+  - Arrow transitive packages are not treated as fallback engines.
+- [x] CG-1.2d note
+  - CG-1.2d uses feature-specific validation before local metadata/footer IO.
+  - `FeatureFootprintReport` behavior remains unchanged by that phase.
 
-- `generated_at` should be omitted or deterministic until timestamp policy is accepted.
-- No filesystem/object-store probing by default.
-- No network calls.
-- No external engine execution.
+## Guardrails
 
-## Vortex gate fields
-
-Normalized gate names:
-
-- `upstream_vortex`
-- `vortex_file_io`
-- `vortex_metadata_executor`
-- `vortex_encoded_read_executor`
-- `vortex_staged_output_fs`
-- `vortex_write`
-- `vortex_object_store`
-- `vortex_output_payload`
-- `vortex_commit_execution`
-
-Per-gate field shape:
-
-- `compiled`
-- `enabled`
-- `default_enabled`
-- `requires_toolchain`
-- `allows_io`
-- `allows_scan`
-- `allows_write`
-- `allows_object_store`
-- `diagnostics`
-
-## Doctor/capabilities alignment
-
-Future alignment direction:
-
-- `doctor` should eventually report environment/readiness using `FeatureFootprintReport`.
-- `capabilities` should eventually report supported/planned/disabled features using the same normalized feature names.
-- CLI JSON fields should use consistent keys.
-- Output envelope fallback status must remain consistent with feature-footprint fallback fields.
-
-## No-fallback dependency checks
-
-Future checks should assert:
-
-- no direct or transitive Spark
-- no direct or transitive DataFusion
-- no direct or transitive vortex-datafusion
-- no direct or transitive DuckDB
-- no direct or transitive Polars
-- no direct or transitive Velox
-- external engines may appear only in external baseline harness scopes and must not be runtime dependencies
-
-Scope note:
-
-- This PR does not implement dependency scanning.
-- Future tests can use `cargo tree` or manifest inspection.
-
-## Future tests
-
-- default `shardloom-vortex` feature graph remains lightweight
-- fallback engines absent from dependency graph
-- `FeatureFootprintReport` fallback allowed false
-- doctor/capabilities share normalized feature keys
-- `vortex-encoded-read-executor` feature status stable
-- `vortex-file-io` toolchain mismatch is reported, not silently ignored
-- external baseline availability is separate from runtime fallback
-
-## Follow-up implementation sequence
-
-- R3.5a feature-footprint report core contract, no probing
-- R3.5b doctor/capabilities docs alignment
-- R3.5c optional CLI feature-footprint report, no filesystem/network
-- R3.5d dependency invariant tests for no fallback engines
-- R4 resume CG implementation, unless user keeps cleanup queue active
-
-
-## R3.5a implementation status
-
-- `FeatureFootprintReport` core contract implemented.
-- No probing.
-- No `doctor`/`capabilities` behavior change.
-- No CLI exposure yet.
-- No dependency scanning yet.
-- Next possible follow-up:
-  - R3.5d no-fallback dependency invariant tests, or
-  - R4 resume CG implementation if user chooses.
-
-## R3.5d invariant status
-
-- no-fallback dependency invariant tests added.
-- tests inspect manifests and Cargo.lock, not docs.
-- external systems remain conceptual references or external baselines only.
-- Arrow transitive packages are not treated as fallback engines.
-- no runtime behavior changed.
-
-
-## CG-1.2d note
-
-- CG-1.2d uses feature-specific validation before enabling local metadata/footer IO.
-- `FeatureFootprintReport` behavior remains unchanged in this phase.
+- Do not probe filesystem, network, catalogs, or adapters by default.
+- Do not add generated timestamps until deterministic timestamp policy exists.
+- Do not treat external baseline availability as fallback availability.
+- Promote future implementation work into `phased-execution-plan.md` before editing behavior.

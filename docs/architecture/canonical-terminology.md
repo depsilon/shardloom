@@ -4,6 +4,8 @@
 
 ShardLoom intentionally keeps related concepts at different layers (planning, execution, streaming boundaries, translation, and adapters). This document defines canonical meanings so terminology stays consistent without collapsing useful layer boundaries too early.
 
+This document owns vocabulary definitions, not phase status. Active implementation status and queue placement live in `docs/architecture/phased-execution-plan.md`.
+
 ## Core principles
 
 - Keep layer-specific types when they model different decisions.

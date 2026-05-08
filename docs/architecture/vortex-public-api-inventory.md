@@ -3,7 +3,20 @@
 ## Purpose
 This document records upstream `vortex` public APIs inspected for ShardLoom adapter work and defines narrow adapter boundaries. It is explicitly not a broad Vortex scan/read/write implementation; the only approved IO path is the feature-gated local metadata/footer fixture open described below.
 
-## Current dependency
+Active phase status, active queue placement, and CG closeout decisions live in `docs/architecture/phased-execution-plan.md`. This document is an API evidence inventory. It may record what was inspected, but it does not authorize new Vortex IO or mark CG-1/CG-2/CG-3 complete.
+
+Status words in historical sections below describe evidence recorded at the time of the original phase note. They are not active queue state and do not override `phased-execution-plan.md`.
+
+## Inventory Rules
+
+- Record the upstream `vortex` dependency version and license posture.
+- Record public API discovery method.
+- Classify DType, array, encoding, layout, statistics, file/open, scan/source, write/sink, and Arrow interoperability surfaces.
+- Keep all broad scan, read-start, row-read, decode, Arrow conversion, object-store, write, and fallback paths explicitly blocked unless a phase-plan item authorizes them.
+- Re-validate upstream public API shapes before any generalized encoded-data execution path.
+- Promote any new executable API usage into `phased-execution-plan.md` before implementation.
+
+## Dependency Snapshot
 - Crate: `vortex`
 - Version: `0.70`
 - License: Apache-2.0 (per dependency review)
@@ -279,7 +292,7 @@ No fallback execution was introduced.
 
 ## Metadata-only execution spike update
 
-The current spike validates ShardLoom's end-to-end Vortex contract without invoking upstream scan execution.
+The recorded spike validates ShardLoom's end-to-end Vortex contract without invoking upstream scan execution.
 
 The feature-gated file IO seam remains metadata/report oriented, and no fallback execution is introduced.
 
@@ -304,7 +317,7 @@ This contract does not call upstream Vortex scan execution. It consumes `ShardLo
 
 This update adds a `ShardLoom` contract-only boundary for future `Vortex` encoded-read work.
 
-Confirmed public upstream API surfaces from the current review include `VortexOpenOptions`, `OpenOptionsSessionExt`, `VortexFile::footer`, and the direct footer-backed `VortexFile::row_count` metadata surface plus related `dtype` metadata surfaces. The CG-2.1e.2/CG-2.1e.5 classifications also compile-check exact public data-access-adjacent symbols: `VortexFile::layout_reader`, `LayoutReader::row_count`, `VortexFile::scan`, `ScanBuilder::into_array_stream`, `ScanBuilder::into_array_iter`, `LayoutReader::projection_evaluation`, `LayoutReader::filter_evaluation`, and `VortexFile::data_source`.
+Confirmed public upstream API surfaces from the recorded review include `VortexOpenOptions`, `OpenOptionsSessionExt`, `VortexFile::footer`, and the direct footer-backed `VortexFile::row_count` metadata surface plus related `dtype` metadata surfaces. The CG-2.1e.2/CG-2.1e.5 classifications also compile-check exact public data-access-adjacent symbols: `VortexFile::layout_reader`, `LayoutReader::row_count`, `VortexFile::scan`, `ScanBuilder::into_array_stream`, `ScanBuilder::into_array_iter`, `LayoutReader::projection_evaluation`, `LayoutReader::filter_evaluation`, and `VortexFile::data_source`.
 
 Contract-usable now:
 - `VortexOpenOptions` + `OpenOptionsSessionExt::open_path` + `VortexFile::footer` in the feature-gated local metadata/footer fixture path.
@@ -334,7 +347,7 @@ No fallback execution is introduced by this boundary update.
 
 - Inspected public upstream `vortex` API surface via compile-time integration and existing `vortex-file-io` path.
 - Phase 8 spike is feature-gated behind `vortex-encoded-read-spike`.
-- Current spike returns deterministic blocked/deferred execution when a safe no-decode/no-materialize encoded-read API path is not yet proven.
+- Recorded spike returns deterministic blocked/deferred execution when a safe no-decode/no-materialize encoded-read API path is not yet proven.
 - No fixture was added in this phase.
 - No decode/materialization/write/object-store/fallback behavior was introduced.
 
@@ -423,7 +436,7 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - Actual `Vortex` write execution remains deferred.
 ## Phase 12A.3a update
 - Phase 12A.2c.2 complete.
-- Phase 12A.3a current: staged manifest draft core contract (report-only, no filesystem).
+- Phase 12A.3a recorded-active: staged manifest draft core contract (report-only, no filesystem).
 - Phase 12A.3b planned: feature-gated local staged manifest draft file.
 - Phase 12A.3c planned: CLI/docs integration.
 - Actual output payload and file writes remain deferred.
@@ -514,7 +527,7 @@ This update does not introduce scans, decode, materialization, writes, object-st
 
 - The staged write-readiness smoke test remains `ShardLoom`-native and does not use upstream `Vortex` write APIs.
 
-## Phase 12B.4 closeout note
+## Phase 12B.4 readiness audit note
 
 - Upstream Vortex write APIs remain unused after commit-marker staging.
 - Manifest finalization remains ShardLoom-native and report-only for the next phase.
@@ -545,7 +558,7 @@ This update does not introduce scans, decode, materialization, writes, object-st
 ## CG-3 clarification
 
 - Local placeholder artifact write paths are not real Vortex payload write paths.
-- Upstream Vortex write APIs remain deferred in current phases.
+- Upstream Vortex write APIs remain deferred in the recorded phases.
 - A future real payload write path must be feature-gated and explicitly approved before CG-3 can be treated as complete.
 
 
@@ -557,7 +570,7 @@ This update does not introduce scans, decode, materialization, writes, object-st
 ## CG-1.2d blocker clarification
 
 - Re-validated public symbols: `VortexOpenOptions`, `OpenOptionsSessionExt`, `VortexFile::footer`.
-- Current blocker: these metadata/footer paths require async/session invocation semantics.
+- Recorded blocker: these metadata/footer paths require async/session invocation semantics.
 - This phase intentionally avoids introducing a runtime boundary (`tokio`/executor wiring) for probe-only metadata/footer calls.
 - Result: `MetadataProbeCompleted` remains unreachable in this phase; deterministic `BlockedByUnsupportedApiSurface` is preserved for existing local files under `vortex-file-io`.
 
@@ -616,7 +629,7 @@ This update does not introduce scans, decode, materialization, writes, object-st
 
 ## CG-2.0 query primitive boundary update
 - CG-1.2d.9 clears the local fixture metadata/footer invocation blocker for the caller-session feature-gated path.
-- CG-2.0 is current and adds a report-only, feature-gated `Vortex` query primitive readiness boundary for count, filtered count, projection, and predicate/filter primitives.
+- Historical evidence: CG-2.0 added a report-only, feature-gated `Vortex` query primitive readiness boundary for count, filtered count, projection, and predicate/filter primitives.
 - This boundary does not execute query primitives and remains side-effect-free.
 - CG-2.1c clears the metadata-footer `CountAll` blocker; CG-2.1d clears the encoded-data count candidate blocker while actual encoded execution remains deferred.
 - No scan/read-start, encoded data reads, row reads, decode/materialization, `Arrow` conversion, object-store `IO`, writes, or fallback execution are introduced.
@@ -636,9 +649,9 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - CG-2.1+ actual non-metadata count/query execution remains blocked until encoded-data readiness exists for non-metadata candidates.
 
 
-## CG-1.3 invariant closeout status
+## CG-1.3 invariant evidence note
 
-- Current encoded-read and query-readiness report contracts now include cross-surface invariant coverage for no row reads, no decode/materialization, no `Arrow` default conversion, and no fallback execution.
+- Recorded encoded-read and query-readiness report contracts now include cross-surface invariant coverage for no row reads, no decode/materialization, no `Arrow` default conversion, and no fallback execution.
 - Feature-gated local fixture metadata/footer invocation exists through CG-1.2d.9 and does not call scan/read-start APIs.
 - CG-2.1c wires metadata-footer count execution; encoded-data execution remains blocked pending encoded data path availability for non-metadata candidates.
 
@@ -647,7 +660,7 @@ This update does not introduce scans, decode, materialization, writes, object-st
 
 - CG-1.3 invariant contract tests are complete.
 - CG-2.0 / CG-2.0b / CG-2.0c / CG-2.0c.1 are complete.
-- CG-2.1 is current with a report-only `VortexCountReadinessRequest`/`VortexCountReadinessReport` planning contract.
+- Historical evidence: CG-2.1 added a report-only `VortexCountReadinessRequest`/`VortexCountReadinessReport` planning contract.
 - Count planning distinguishes metadata-footer candidates from encoded-data-path candidates.
 - Metadata-footer `CountAll` execution is wired through CG-2.1c; encoded-data count candidates are approved/deferred through CG-2.1d while actual encoded execution remains deferred.
 - No scan/read-start, encoded-data reads, row reads, decode, materialization, `Arrow` conversion, object-store IO, writes, or fallback execution are introduced.
@@ -676,7 +689,7 @@ This update does not introduce scans, decode, materialization, writes, object-st
 ## CG-2.1e.1 encoded-data CountAll API gate
 
 - `count_readiness_request_from_encoded_read_probe_report` now gates encoded-data count readiness through `VortexEncodedReadProbeReport`.
-- The current public API boundary still reports scan/data-read and Arrow-default risks for actual data access, so encoded-data `CountAll` cannot yet become executable from scheduler/readiness candidates alone.
+- The recorded public API boundary still reports scan/data-read and Arrow-default risks for actual data access, so encoded-data `CountAll` cannot yet become executable from scheduler/readiness candidates alone.
 - Public API blockers from the probe are translated into count-readiness blockers before any execution helper is allowed to see `EncodedDataPathReady`.
 - This pass intentionally performs no scan/read-start invocation, no encoded data traversal, no row reads, no decode/materialization, no `Arrow` conversion, no object-store IO, no writes, and no fallback execution.
 - CG-2.1e actual encoded-data count execution remains blocked until the public Vortex data path is approved as no-decode/no-materialization safe.
@@ -714,21 +727,21 @@ This update does not introduce scans, decode, materialization, writes, object-st
 ## CG-2.1e.6 encoded-count data-path approval boundary
 
 - `VortexEncodedCountDataPathApprovalReport` now combines count readiness with this API inventory boundary before encoded-data `CountAll` can be approved for any future execution planning.
-- The current inventory does not approve encoded-data traversal: `VortexFile::row_count` is metadata-only evidence, and the boundary still has zero execution-usable data paths.
+- The recorded inventory does not approve encoded-data traversal: `VortexFile::row_count` is metadata-only evidence, and the boundary still has zero execution-usable data paths.
 - Blocked or deferred surfaces remain visible by name, including scan, stream, layout-evaluation, data-source, and Arrow-default boundaries.
 - This remains report-only and introduces no scan/read-start invocation, array stream/evaluation call, encoded-data traversal, row read, decode/materialization, `Arrow` conversion, object-store IO, write, or fallback execution.
 
 ## CG-2.1e.7 encoded-count approval CLI surfacing
 
 - `shardloom vortex-encoded-count-approval-plan` now exposes the encoded-count approval boundary from this inventory to text/JSON CLI output.
-- The command keeps current scan, stream, layout-evaluation, data-source, and Arrow-default blockers visible to users and agents.
+- The command keeps recorded scan, stream, layout-evaluation, data-source, and Arrow-default blockers visible to users and agents.
 - Ready encoded-count inputs still return unsupported/non-zero while execution-usable data path count remains zero.
 - This remains report-only and introduces no scan/read-start invocation, array stream/evaluation call, encoded-data traversal, row read, decode/materialization, `Arrow` conversion, object-store IO, write, or fallback execution.
 
 ## CG-2.1e.8 encoded-count approval local guard
 
 - Local encoded-count planning now has a guard that consumes the approval report derived from this inventory.
-- The current inventory remains blocked by that guard because scan, stream, layout-evaluation, data-source, and Arrow-default blockers are still present.
+- The recorded inventory remains blocked by that guard because scan, stream, layout-evaluation, data-source, and Arrow-default blockers are still present.
 - A future approved inventory boundary may advance only to deferred encoded-read planning until real execution is separately approved.
 - This remains report-only and introduces no scan/read-start invocation, array stream/evaluation call, encoded-data traversal, row read, decode/materialization, `Arrow` conversion, object-store IO, write, or fallback execution.
 
@@ -743,7 +756,7 @@ This update does not introduce scans, decode, materialization, writes, object-st
 ## CG-2.1e.10 layout-driver approval boundary
 
 - `VortexLayoutReaderDriverApprovalReport` now records the explicit approval requirements for any future row-count-only `LayoutReader` construction path.
-- Current inventory remains blocked without explicit runtime-driver permission, even when `VortexFile::layout_reader` and `LayoutReader::row_count` are present.
+- Recorded inventory remains blocked without explicit runtime-driver permission, even when `VortexFile::layout_reader` and `LayoutReader::row_count` are present.
 - Approval is local-fixture and row-count-only: it requires caller session permission and explicit no-scan, no-evaluation, no-data-read, no-decode, no-materialization, no-`Arrow`, no-object-store, no-write, and no-fallback signals.
 - Even an approved report is still report-only and records `layout_reader_constructed=false`, `runtime_driver_started=false`, `scan_called=false`, `data_read=false`, and `fallback_execution_allowed=false`.
 - This introduces no `LayoutReader` construction, driver start, scan/read-start invocation, array stream/evaluation call, encoded-data traversal, row read, decode/materialization, `Arrow` conversion, object-store IO, write, or fallback execution.
@@ -752,7 +765,7 @@ This update does not introduce scans, decode, materialization, writes, object-st
 
 - `shardloom vortex-layout-driver-approval-plan <signals> [--format text|json]` now exposes the layout-driver approval report and side-effect fields.
 - The command uses the static public API inventory and caller-provided signals only; it does not inspect files, open Vortex data, construct `LayoutReader`, or start a driver.
-- Current inventory remains blocked without `runtime-driver-start-allowed`; a complete approved signal set still reports `layout_reader_constructed=false`, `runtime_driver_started=false`, `scan_called=false`, `data_read=false`, and `fallback_execution_allowed=false`.
+- Recorded inventory remains blocked without `runtime-driver-start-allowed`; a complete approved signal set still reports `layout_reader_constructed=false`, `runtime_driver_started=false`, `scan_called=false`, `data_read=false`, and `fallback_execution_allowed=false`.
 - This introduces no scan/read-start invocation, array stream/evaluation call, encoded-data traversal, row read, decode/materialization, `Arrow` conversion, object-store IO, write, or fallback execution.
 
 ## CG-2.1e.15 local fixture Vortex array scan/count proof
@@ -767,7 +780,7 @@ This update does not introduce scans, decode, materialization, writes, object-st
 ## CG-2.1e.16 approval-gated local fixture scan/count
 
 - The feature-gated local fixture helper now requires `VortexEncodedCountDataPathApprovalReport::approved()` before it can invoke `VortexFile::scan` or `ScanBuilder::into_array_iter`.
-- Current public API-boundary blockers still prevent approval and therefore prevent scan invocation.
+- Recorded public API-boundary blockers still prevent approval and therefore prevent scan invocation.
 - Approved local fixture scan/count remains a narrow exception to the static broad API boundary, not a general adapter/source approval.
 - This inventory update keeps non-fixture sources, object stores, encoded predicates, projections, writes, external baselines, and superiority claims out of scope.
 
@@ -794,7 +807,7 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - Encoded-predicate filtered-count execution is not implemented.
 - No scan/read-start, predicate evaluation, encoded-data read, row read, decode, materialization, `Arrow` conversion, object-store IO, writes, or fallback execution are added.
 - CG-2.2b CLI integration is complete via `shardloom vortex-filtered-count-readiness-plan <candidate_source> <dataset_uri> [flags] [--format text|json]`.
-- Keep CG-1 through CG-20 visible and current.
+- Keep CG-1 through CG-20 visible; active status remains in `phased-execution-plan.md`.
 - The command does not execute filtered count, does not evaluate predicates, does not call scan/read-start APIs, and performs no metadata/footer open, encoded-data read, row read, decode/materialization, `Arrow` conversion, object-store IO, writes, or fallback execution.
 - Encoded-predicate filtered-count execution remains blocked until a real encoded predicate path exists.
 
@@ -821,7 +834,7 @@ This update does not introduce scans, decode, materialization, writes, object-st
   - metadata/schema projection remains explicit and requires `ProjectionSupported` plus `MetadataFooterReady`;
   - encoded-column projection candidates require `EncodedDataPathReady`.
 - The contract remains report-only: no scan/read-start, no projection application, no encoded-data reads, no row reads, no decode, no materialization, no `Arrow` conversion, no object-store `IO`, no writes, and no fallback execution.
-- Keep CG-1 through CG-20 visible and current.
+- Keep CG-1 through CG-20 visible; active status remains in `phased-execution-plan.md`.
 
 ## CG-2.3b projection readiness CLI integration
 
