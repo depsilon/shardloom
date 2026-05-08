@@ -3,6 +3,8 @@
 //! This module plans request shapes from already-declared manifest byte-range metadata.
 //! It performs no object-store IO, no file reads, no data materialization, and no fallback execution.
 
+use std::collections::BTreeSet;
+
 use shardloom_core::{
     ByteRange, DatasetManifest, DatasetUri, Diagnostic, DiagnosticCategory, DiagnosticCode,
     DiagnosticSeverity, FallbackStatus, SegmentId, UriScheme,
@@ -283,6 +285,142 @@ impl ObjectStoreRequestCoalescingReport {
             self.output_request_count,
             self.request_reduction_count,
             self.coalesced_range_count
+        )
+    }
+}
+
+/// Report-only policy for object-store distributed task-shape planning.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ObjectStoreDistributedSchedulingPolicy {
+    pub max_requests_per_task: usize,
+    pub max_task_count: usize,
+}
+
+impl Default for ObjectStoreDistributedSchedulingPolicy {
+    fn default() -> Self {
+        Self {
+            max_requests_per_task: 4,
+            max_task_count: 128,
+        }
+    }
+}
+
+impl ObjectStoreDistributedSchedulingPolicy {
+    #[must_use]
+    pub const fn valid(&self) -> bool {
+        self.max_requests_per_task > 0 && self.max_task_count > 0
+    }
+}
+
+/// Object-store distributed scheduling planning status.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ObjectStoreDistributedSchedulingStatus {
+    Planned,
+    BlockedByCoalescing,
+    BlockedEmptyRequests,
+    BlockedTaskBudget,
+    BlockedInvalidPolicy,
+}
+
+impl ObjectStoreDistributedSchedulingStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Planned => "planned",
+            Self::BlockedByCoalescing => "blocked_by_coalescing",
+            Self::BlockedEmptyRequests => "blocked_empty_requests",
+            Self::BlockedTaskBudget => "blocked_task_budget",
+            Self::BlockedInvalidPolicy => "blocked_invalid_policy",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_error(&self) -> bool {
+        !matches!(self, Self::Planned)
+    }
+}
+
+/// Planned distributed task shape derived from object-store request evidence.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct ObjectStoreDistributedTaskPlan {
+    pub task_id: String,
+    pub request_start_index: usize,
+    pub request_count: usize,
+    pub range_count: usize,
+    pub uri_count: usize,
+    pub estimated_request_bytes: u64,
+    pub requires_retry_identity: bool,
+    pub requires_checkpoint_record: bool,
+    pub requires_idempotency_key: bool,
+    pub task_execution_allowed: bool,
+    pub object_store_io: bool,
+    pub write_io: bool,
+}
+
+/// Machine-readable CG-10 object-store distributed scheduling evidence.
+#[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct ObjectStoreDistributedSchedulingReport {
+    pub coalescing_report: ObjectStoreRequestCoalescingReport,
+    pub policy: ObjectStoreDistributedSchedulingPolicy,
+    pub status: ObjectStoreDistributedSchedulingStatus,
+    pub tasks: Vec<ObjectStoreDistributedTaskPlan>,
+    pub diagnostics: Vec<Diagnostic>,
+    pub input_request_count: usize,
+    pub planned_task_count: usize,
+    pub estimated_request_bytes: u64,
+    pub requires_checkpoint_plan: bool,
+    pub requires_retry_policy: bool,
+    pub requires_idempotency_keys: bool,
+    pub scheduler_execution_allowed: bool,
+    pub coordinator_started: bool,
+    pub worker_started: bool,
+    pub task_execution_allowed: bool,
+    pub can_plan_without_io: bool,
+    pub object_store_io: bool,
+    pub write_io: bool,
+    pub fallback_execution_allowed: bool,
+}
+
+impl ObjectStoreDistributedSchedulingReport {
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.status.is_error()
+            || self.scheduler_execution_allowed
+            || self.coordinator_started
+            || self.worker_started
+            || self.task_execution_allowed
+            || self.object_store_io
+            || self.write_io
+            || self.fallback_execution_allowed
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    #[must_use]
+    pub const fn side_effect_free(&self) -> bool {
+        !self.scheduler_execution_allowed
+            && !self.coordinator_started
+            && !self.worker_started
+            && !self.task_execution_allowed
+            && !self.object_store_io
+            && !self.write_io
+            && !self.fallback_execution_allowed
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "object_store_distributed_scheduling(status={}, input_requests={}, planned_tasks={}, estimated_request_bytes={}, scheduler_execution=false, coordinator_started=false, worker_started=false, object_store_io=false, write_io=false, fallback_execution=disabled)",
+            self.status.as_str(),
+            self.input_request_count,
+            self.planned_task_count,
+            self.estimated_request_bytes
         )
     }
 }
@@ -657,6 +795,187 @@ pub fn plan_object_store_request_coalescing(
         request_reduction_count,
         coalesced_range_count,
     }
+}
+
+/// Plans distributed object-store task shapes without scheduling or executing tasks.
+#[must_use]
+pub fn plan_object_store_distributed_scheduling(
+    coalescing_report: ObjectStoreRequestCoalescingReport,
+    policy: ObjectStoreDistributedSchedulingPolicy,
+) -> ObjectStoreDistributedSchedulingReport {
+    let status = object_store_distributed_scheduling_status(&coalescing_report, policy);
+    let tasks = if status == ObjectStoreDistributedSchedulingStatus::Planned {
+        object_store_distributed_task_plans(
+            &coalescing_report.coalesced_range_report.requests,
+            policy,
+        )
+    } else {
+        Vec::new()
+    };
+    let diagnostics = object_store_distributed_scheduling_diagnostics(
+        &coalescing_report,
+        status,
+        policy,
+        object_store_task_count(
+            coalescing_report.output_request_count,
+            policy.max_requests_per_task,
+        ),
+    );
+
+    ObjectStoreDistributedSchedulingReport {
+        input_request_count: coalescing_report.output_request_count,
+        planned_task_count: tasks.len(),
+        estimated_request_bytes: coalescing_report.estimated_request_bytes_after,
+        requires_checkpoint_plan: status == ObjectStoreDistributedSchedulingStatus::Planned,
+        requires_retry_policy: status == ObjectStoreDistributedSchedulingStatus::Planned,
+        requires_idempotency_keys: status == ObjectStoreDistributedSchedulingStatus::Planned,
+        scheduler_execution_allowed: false,
+        coordinator_started: false,
+        worker_started: false,
+        task_execution_allowed: false,
+        can_plan_without_io: true,
+        object_store_io: false,
+        write_io: false,
+        fallback_execution_allowed: false,
+        coalescing_report,
+        policy,
+        status,
+        tasks,
+        diagnostics,
+    }
+}
+
+fn object_store_distributed_scheduling_status(
+    report: &ObjectStoreRequestCoalescingReport,
+    policy: ObjectStoreDistributedSchedulingPolicy,
+) -> ObjectStoreDistributedSchedulingStatus {
+    if !policy.valid() {
+        ObjectStoreDistributedSchedulingStatus::BlockedInvalidPolicy
+    } else if report.has_errors() {
+        ObjectStoreDistributedSchedulingStatus::BlockedByCoalescing
+    } else if report.output_request_count == 0 {
+        ObjectStoreDistributedSchedulingStatus::BlockedEmptyRequests
+    } else if object_store_task_count(report.output_request_count, policy.max_requests_per_task)
+        > policy.max_task_count
+    {
+        ObjectStoreDistributedSchedulingStatus::BlockedTaskBudget
+    } else {
+        ObjectStoreDistributedSchedulingStatus::Planned
+    }
+}
+
+fn object_store_task_count(request_count: usize, max_requests_per_task: usize) -> usize {
+    if request_count == 0 || max_requests_per_task == 0 {
+        0
+    } else {
+        request_count.div_ceil(max_requests_per_task)
+    }
+}
+
+fn object_store_distributed_task_plans(
+    requests: &[ObjectStoreRangeRequest],
+    policy: ObjectStoreDistributedSchedulingPolicy,
+) -> Vec<ObjectStoreDistributedTaskPlan> {
+    requests
+        .chunks(policy.max_requests_per_task)
+        .enumerate()
+        .map(|(index, chunk)| {
+            let request_start_index = index * policy.max_requests_per_task;
+            let range_count = chunk.iter().map(|request| request.source_range_count).sum();
+            let estimated_request_bytes = chunk
+                .iter()
+                .map(ObjectStoreRangeRequest::estimated_bytes)
+                .sum();
+            let uri_count = chunk
+                .iter()
+                .map(|request| request.uri.as_str())
+                .collect::<BTreeSet<_>>()
+                .len();
+
+            ObjectStoreDistributedTaskPlan {
+                task_id: format!("object-store-task-{index:04}"),
+                request_start_index,
+                request_count: chunk.len(),
+                range_count,
+                uri_count,
+                estimated_request_bytes,
+                requires_retry_identity: true,
+                requires_checkpoint_record: true,
+                requires_idempotency_key: true,
+                task_execution_allowed: false,
+                object_store_io: false,
+                write_io: false,
+            }
+        })
+        .collect()
+}
+
+fn object_store_distributed_scheduling_diagnostics(
+    report: &ObjectStoreRequestCoalescingReport,
+    status: ObjectStoreDistributedSchedulingStatus,
+    policy: ObjectStoreDistributedSchedulingPolicy,
+    planned_task_count: usize,
+) -> Vec<Diagnostic> {
+    match status {
+        ObjectStoreDistributedSchedulingStatus::Planned => Vec::new(),
+        ObjectStoreDistributedSchedulingStatus::BlockedByCoalescing => {
+            if report.diagnostics.is_empty() {
+                vec![object_store_scheduling_error(
+                    DiagnosticCode::ObjectStoreUnsupported,
+                    "coalescing_report",
+                    "object-store distributed scheduling requires successful request coalescing evidence",
+                    "Fix range/coalescing blockers before planning distributed task shapes.",
+                )]
+            } else {
+                report.diagnostics.clone()
+            }
+        }
+        ObjectStoreDistributedSchedulingStatus::BlockedEmptyRequests => {
+            vec![object_store_scheduling_error(
+                DiagnosticCode::InvalidInput,
+                "object_store_requests",
+                "object-store distributed scheduling requires at least one planned request",
+                "Attach successful range/coalescing evidence before planning distributed task shapes.",
+            )]
+        }
+        ObjectStoreDistributedSchedulingStatus::BlockedTaskBudget => {
+            vec![object_store_scheduling_error(
+                DiagnosticCode::ResourceBudgetExceeded,
+                "task_budget",
+                format!(
+                    "{planned_task_count} planned tasks exceed the max task budget of {}",
+                    policy.max_task_count
+                ),
+                "Raise the task budget explicitly or coalesce request shapes before scheduling.",
+            )]
+        }
+        ObjectStoreDistributedSchedulingStatus::BlockedInvalidPolicy => {
+            vec![object_store_scheduling_error(
+                DiagnosticCode::InvalidInput,
+                "scheduler_policy",
+                "object-store distributed scheduling requires positive task policy limits",
+                "Set max_requests_per_task and max_task_count above zero.",
+            )]
+        }
+    }
+}
+
+fn object_store_scheduling_error(
+    code: DiagnosticCode,
+    feature: impl Into<String>,
+    message: impl Into<String>,
+    suggested_next_step: impl Into<String>,
+) -> Diagnostic {
+    Diagnostic::new(
+        code,
+        DiagnosticSeverity::Error,
+        DiagnosticCategory::ObjectStore,
+        message,
+        Some(feature.into()),
+        Some("Object-store distributed scheduling is report-only and did not start a coordinator, worker, or storage request.".to_string()),
+        Some(suggested_next_step.into()),
+        FallbackStatus::disabled_by_policy(),
+    )
 }
 
 fn object_store_request_coalescing_status(
@@ -1076,6 +1395,90 @@ mod tests {
             report.status,
             ObjectStoreRequestCoalescingStatus::BlockedByRangePlanning
         );
+        assert!(report.has_errors());
+        assert!(report.side_effect_free());
+    }
+
+    fn distributed_scheduling_report(
+        ranges: Vec<ByteRange>,
+        scheduling_policy: ObjectStoreDistributedSchedulingPolicy,
+    ) -> ObjectStoreDistributedSchedulingReport {
+        let coalescing_report = plan_object_store_request_coalescing(
+            manifest_with_uri("s3://bucket/table.vortex", ranges),
+            ObjectStoreRangePlanningPolicy {
+                max_coalesce_gap_bytes: 0,
+                ..ObjectStoreRangePlanningPolicy::default()
+            },
+        );
+        plan_object_store_distributed_scheduling(coalescing_report, scheduling_policy)
+    }
+
+    #[test]
+    fn distributed_scheduling_plans_task_shapes_without_io() {
+        let report = distributed_scheduling_report(
+            vec![
+                ByteRange::new(0, 1024),
+                ByteRange::new(8192, 1024),
+                ByteRange::new(16_384, 1024),
+            ],
+            ObjectStoreDistributedSchedulingPolicy {
+                max_requests_per_task: 2,
+                max_task_count: 4,
+            },
+        );
+
+        assert_eq!(
+            report.status,
+            ObjectStoreDistributedSchedulingStatus::Planned
+        );
+        assert_eq!(report.input_request_count, 3);
+        assert_eq!(report.planned_task_count, 2);
+        assert!(report.requires_checkpoint_plan);
+        assert!(report.requires_retry_policy);
+        assert!(report.requires_idempotency_keys);
+        assert!(report.tasks.iter().all(|task| !task.task_execution_allowed));
+        assert!(report.side_effect_free());
+        assert!(!report.has_errors());
+    }
+
+    #[test]
+    fn distributed_scheduling_blocks_when_coalescing_blocks() {
+        let coalescing_report = plan_object_store_request_coalescing(
+            manifest_with_uri("s3://bucket/table.vortex", Vec::new()),
+            ObjectStoreRangePlanningPolicy::default(),
+        );
+        let report = plan_object_store_distributed_scheduling(
+            coalescing_report,
+            ObjectStoreDistributedSchedulingPolicy::default(),
+        );
+
+        assert_eq!(
+            report.status,
+            ObjectStoreDistributedSchedulingStatus::BlockedByCoalescing
+        );
+        assert!(report.has_errors());
+        assert!(report.side_effect_free());
+    }
+
+    #[test]
+    fn distributed_scheduling_blocks_task_budget() {
+        let report = distributed_scheduling_report(
+            vec![
+                ByteRange::new(0, 1024),
+                ByteRange::new(8192, 1024),
+                ByteRange::new(16_384, 1024),
+            ],
+            ObjectStoreDistributedSchedulingPolicy {
+                max_requests_per_task: 1,
+                max_task_count: 2,
+            },
+        );
+
+        assert_eq!(
+            report.status,
+            ObjectStoreDistributedSchedulingStatus::BlockedTaskBudget
+        );
+        assert_eq!(report.planned_task_count, 0);
         assert!(report.has_errors());
         assert!(report.side_effect_free());
     }

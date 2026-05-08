@@ -265,6 +265,66 @@ It may include:
 
 The graph should make shuffle boundaries explicit.
 
+### Object-store distributed scheduling planning report
+
+Object-store distributed scheduling planning is the report-only bridge between request-shape
+evidence and future coordinator/worker execution. It may group successful object-store request
+coalescing evidence into stable task shapes, but it must not start a coordinator, start workers,
+execute tasks, read object-store ranges, write checkpoint artifacts, retry requests, or invoke
+fallback execution.
+
+The CG-10 distributed scheduling evidence surface is
+`ObjectStoreDistributedSchedulingReport`.
+
+Required fields:
+
+- `coalescing_report`.
+- `policy`.
+- `status`.
+- `tasks`.
+- `diagnostics`.
+- `input_request_count`.
+- `planned_task_count`.
+- `estimated_request_bytes`.
+- `requires_checkpoint_plan`.
+- `requires_retry_policy`.
+- `requires_idempotency_keys`.
+- `scheduler_execution_allowed=false`.
+- `coordinator_started=false`.
+- `worker_started=false`.
+- `task_execution_allowed=false`.
+- `can_plan_without_io=true`.
+- `object_store_io=false`.
+- `write_io=false`.
+- `fallback_execution_allowed=false`.
+
+`ObjectStoreDistributedSchedulingStatus` should identify at least:
+
+- `planned`.
+- `blocked_by_coalescing`.
+- `blocked_empty_requests`.
+- `blocked_task_budget`.
+- `blocked_invalid_policy`.
+
+`ObjectStoreDistributedTaskPlan` should identify at least:
+
+- `task_id`.
+- `request_start_index`.
+- `request_count`.
+- `range_count`.
+- `uri_count`.
+- `estimated_request_bytes`.
+- `requires_retry_identity`.
+- `requires_checkpoint_record`.
+- `requires_idempotency_key`.
+- `task_execution_allowed=false`.
+- `object_store_io=false`.
+- `write_io=false`.
+
+Scheduling evidence may require checkpoint, retry, and idempotency plans, but this report does not
+complete those plans. Checkpoint/retry/idempotency readiness remains a separate CG-10 gate before
+distributed task execution can be considered.
+
 ## Coordinator
 
 A future coordinator may:
