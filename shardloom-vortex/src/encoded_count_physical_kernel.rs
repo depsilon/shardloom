@@ -542,6 +542,9 @@ fn matching_count(
     local_execution: &VortexLocalExecutionReport,
     certificate: &ExecutionCertificate,
 ) -> Option<u64> {
+    if !matching_provenance(encoded_read, local_execution, certificate) {
+        return None;
+    }
     let encoded_count = encoded_read.count_result?;
     if encoded_read.rows_counted != encoded_count {
         return None;
@@ -567,6 +570,20 @@ fn matching_count(
         && encoded_count == certificate_count
         && encoded_count == expected_count)
         .then_some(encoded_count)
+}
+
+fn matching_provenance(
+    encoded_read: &VortexEncodedReadExecutionReport,
+    local_execution: &VortexLocalExecutionReport,
+    certificate: &ExecutionCertificate,
+) -> bool {
+    let Some(encoded_target_uri) = encoded_read.local_scan_target_uri.as_ref() else {
+        return false;
+    };
+    encoded_read.local_scan_source_uri_matches_target
+        && encoded_read.local_scan_readiness_source_uri.as_ref() == Some(encoded_target_uri)
+        && local_execution.input.request.source_uri.as_ref() == Some(encoded_target_uri)
+        && certificate.input_ref.as_deref() == Some(encoded_target_uri.as_str())
 }
 
 fn unsafe_effect_detected(
@@ -850,6 +867,45 @@ mod tests {
         let encoded = encoded_report(42);
         let local = local_report(42);
         let certificate = certificate(43);
+
+        let report =
+            evaluate_vortex_local_encoded_count_physical_kernel(&encoded, &local, &certificate);
+
+        assert_eq!(
+            report.status,
+            VortexEncodedCountPhysicalKernelStatus::BlockedByValue
+        );
+        assert!(report.has_errors());
+        assert!(!report.data_read);
+        assert!(!report.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn mismatched_local_source_identity_blocks_kernel_evaluation() {
+        let encoded = encoded_report(42);
+        let mut local = local_report(42);
+        local.input.request.source_uri =
+            Some(DatasetUri::new("file://tmp/other.vortex").expect("uri"));
+        let certificate = certificate(42);
+
+        let report =
+            evaluate_vortex_local_encoded_count_physical_kernel(&encoded, &local, &certificate);
+
+        assert_eq!(
+            report.status,
+            VortexEncodedCountPhysicalKernelStatus::BlockedByValue
+        );
+        assert!(report.has_errors());
+        assert!(!report.data_read);
+        assert!(!report.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn mismatched_certificate_input_ref_blocks_kernel_evaluation() {
+        let encoded = encoded_report(42);
+        let local = local_report(42);
+        let mut certificate = certificate(42);
+        certificate.input_ref = Some("file://tmp/other.vortex".to_string());
 
         let report =
             evaluate_vortex_local_encoded_count_physical_kernel(&encoded, &local, &certificate);
