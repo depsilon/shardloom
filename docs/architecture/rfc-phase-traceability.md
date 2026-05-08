@@ -444,6 +444,14 @@ No fallback execution.
 - `shardloom-contract-tests/tests/external_baseline_oracles.rs` verifies all declared baselines are present, reference-only, non-fallback-capable, and not runtime execution paths.
 - This pass adds no external engine dependency, external baseline invocation, query execution behavior, benchmark claim, parser, adapter runtime, object-store IO, write behavior, or fallback execution.
 
+## CG-6.1 benchmark evidence manifest
+
+- Primary RFC linkage: RFC 0029 Correctness/Benchmarks/Execution Certificates, RFC 0015 Correctness/Semantics/Differential Testing, RFC 0025 Competitive/no-fallback, and RFC 0032 capability certification gates.
+- `shardloom-core/src/benchmark.rs` expands benchmark metric vocabulary for startup/runtime/write latency, peak memory, bytes read/written/decoded/avoided, materialization avoided, segments considered/pruned/metadata-answered, object-store requests, spill required/avoided, and work avoided.
+- `BenchmarkPlan::default_foundation_plan` now covers CG-6 metric categories in report-only scenarios and keeps baselines comparison-only with fallback disabled.
+- `shardloom-contract-tests/tests/benchmark_evidence_manifest.rs` verifies required metric coverage and correctness validation mode presence before any claim can rely on the benchmark plan.
+- This pass adds no benchmark runner, external baseline invocation, query execution behavior, superiority claim, dependency, parser, adapter runtime, object-store IO, write behavior, or fallback execution.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.
