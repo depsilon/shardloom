@@ -39,21 +39,24 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-7.25 count/aggregate kernel closeout
+- [x] Session label: CG-8.1 streaming plan discovery surface
   - Primary files:
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/streaming_plan_snapshots.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-  - Scope: Close the CG-7 count/aggregate kernel checklist item by tying existing encoded `CountAll` physical-kernel evidence/admission and metadata `CountAll`/`CountWhere` count-aggregate admission into the canonical plan, then mark CG-7 complete.
+  - Scope: Surface the existing `StreamingPlanSkeleton` through stable CLI JSON evidence for Vortex-native zero-decode streaming plans and compatibility materialization boundaries.
   - Checklist:
-    - [x] Confirm local encoded `CountAll` physical-kernel evidence and admission are complete.
-    - [x] Confirm metadata `CountAll` and metadata-proof `CountWhere` count-aggregate admission are complete.
-    - [x] Mark the CG-7 count/aggregate kernel checklist item complete without adding runtime behavior.
-    - [x] Mark CG-7 complete after filter, projection, count-aggregate, execution-level, and encoded segment evaluation checklist items are complete.
-    - [x] Update RFC traceability for the closeout boundary.
+    - [x] Add `streaming-plan` to the public CLI usage surface.
+    - [x] Emit streaming plan JSON fields for mode/status, source, sink, backpressure, memory policy, materialization, best work level, runtime execution, and fallback status.
+    - [x] Add snapshot tests for Vortex-native zero-decode streaming and compatibility-sink materialization boundaries.
+    - [x] Update phase and RFC traceability docs.
     - [x] Run full required validation.
   - Local validation status:
-    - full Rust validation passed
-  - Explicitly not included: new scan/read-start paths, new count execution, new aggregate execution, generalized encoded-data execution, broad projection execution, row reads, requested decode/materialization, Arrow conversion, parser, SQL execution, adapter runtime, object-store IO, writes, spill IO, benchmarks, production/superiority claims, fallback execution, or CG-2 closeout.
+    - focused `streaming_plan` CLI tests passed
+    - `streaming_plan_snapshots` integration tests passed
+    - full Rust validation passed with toolchain `1.91.1`
+  - Explicitly not included: stream execution, task execution, new read-start APIs, row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, adaptive scheduling behavior, benchmarks, production/superiority claims, fallback execution, or CG-8 closeout.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -692,6 +695,14 @@ Supporting docs:
     - `capabilities operators` and `kernel-registry` expose count-aggregate metadata and encoded admission fields.
     - Benchmark evidence remains required before production certification or superiority claims.
     - No new count execution, aggregate execution, benchmark claim, superiority claim, or fallback behavior is added.
+- [x] CG-8.1 streaming plan discovery surface
+  - Why: make the existing streaming plan skeleton observable through stable CLI JSON before enabling any streaming runtime behavior.
+  - Acceptance:
+    - `streaming-plan` is included in the public CLI usage surface.
+    - Vortex-native targets expose zero-decode, encoded-accepting, no-materialization planning fields.
+    - Compatibility targets expose materialization-required and metadata-preservation-loss planning fields.
+    - Runtime execution and fallback execution remain false.
+    - No stream execution, task execution, read-start API, benchmark claim, superiority claim, or fallback behavior is added.
 
 ## Competitive Engine Gates CG-1 through CG-20
 
@@ -836,6 +847,7 @@ Status legend:
     - expression evaluation over encoded segments
 
 - [ ] CG-8 — Streaming/parallel/adaptive execution (**planned**)
+  - [x] CG-8.1 streaming plan discovery surface
   - Scope:
     - streaming encoded batches
     - bounded parallel local execution
@@ -1070,6 +1082,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] expression evaluation over encoded segments
 
 ### CG-8 detailed checklist
+- [x] CG-8.1 streaming plan discovery surface
 - [ ] streaming encoded batches
 - [ ] bounded parallel local execution
 - [ ] adaptive split/coalesce
@@ -1257,6 +1270,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-7.23 selection-vector filter kernel evidence admits safe selection-vector filter reports into the encoded filter slot while benchmark-gating production certification and blocking encoded-value predicate execution.
 - [x] CG-7.24 encoded projection kernel evidence admits safe encoded-column projection readiness into the encoded project slot while benchmark-gating production certification and blocking broad projection execution.
 - [x] CG-7.25 count/aggregate kernel closeout ties encoded `CountAll` and metadata `CountAll`/`CountWhere` count-aggregate admissions to the remaining CG-7 checklist item without adding runtime behavior.
+- [x] CG-8.1 streaming plan discovery surface exposes `streaming-plan` JSON fields for Vortex-native zero-decode planning and compatibility materialization boundaries without enabling streaming runtime execution.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind `vortex-write`; placeholder artifact paths remain readiness-only.
 - [~] CG-3 broader output payload shapes remain deferred.

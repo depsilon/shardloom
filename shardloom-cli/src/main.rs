@@ -152,7 +152,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|streaming-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -491,6 +491,77 @@ fn vortex_encoded_read_metadata_probe_fields(
         ("execution".to_string(), "not_performed".to_string()),
     ]
 }
+
+fn streaming_plan_fields(plan: &StreamingPlanSkeleton) -> Vec<(String, String)> {
+    vec![
+        ("mode".to_string(), plan.mode.as_str().to_string()),
+        ("status".to_string(), plan.status.as_str().to_string()),
+        (
+            "source_kind".to_string(),
+            plan.source.kind.as_str().to_string(),
+        ),
+        (
+            "source_capability".to_string(),
+            plan.source.capability.as_str().to_string(),
+        ),
+        (
+            "source_zero_decode".to_string(),
+            plan.source.zero_decode.as_str().to_string(),
+        ),
+        ("sink_kind".to_string(), plan.sink.kind.as_str().to_string()),
+        (
+            "sink_capability".to_string(),
+            plan.sink.capability.as_str().to_string(),
+        ),
+        (
+            "sink_accepts_encoded".to_string(),
+            plan.sink.requirement.accepts_encoded.to_string(),
+        ),
+        (
+            "sink_requires_materialization".to_string(),
+            plan.sink.requirement.requires_materialization.to_string(),
+        ),
+        (
+            "sink_preserves_metadata".to_string(),
+            plan.sink.requirement.preserves_metadata.to_string(),
+        ),
+        (
+            "backpressure_enabled".to_string(),
+            plan.backpressure.enabled.to_string(),
+        ),
+        (
+            "backpressure_bounded".to_string(),
+            plan.backpressure.is_bounded().to_string(),
+        ),
+        (
+            "memory_policy_required".to_string(),
+            plan.memory.required.to_string(),
+        ),
+        (
+            "memory_policy_allow_spill".to_string(),
+            plan.memory.allow_spill.to_string(),
+        ),
+        (
+            "materialization_required".to_string(),
+            plan.requires_materialization().to_string(),
+        ),
+        (
+            "best_data_work_level".to_string(),
+            plan.best_data_work_level().as_str().to_string(),
+        ),
+        ("stage_count".to_string(), plan.stages.len().to_string()),
+        (
+            "operator_count".to_string(),
+            plan.operators.len().to_string(),
+        ),
+        ("runtime_execution".to_string(), "false".to_string()),
+        (
+            "fallback_execution_allowed".to_string(),
+            "false".to_string(),
+        ),
+    ]
+}
+
 fn parse_vortex_output_payload_artifact_write_options(
     options_raw: &str,
 ) -> Result<bool, ShardLoomError> {
@@ -9810,7 +9881,7 @@ fn run(args: Vec<String>) -> ExitCode {
                 "streaming plan".to_string(),
                 plan.to_human_text(),
                 plan.diagnostics.clone(),
-                vec![],
+                streaming_plan_fields(&plan),
             );
             if plan.has_errors() {
                 ExitCode::from(1)
@@ -15198,6 +15269,10 @@ mod tests {
         assert!(cli_usage_line().contains("vortex-metadata-physical-kernel-plan"));
     }
     #[test]
+    fn usage_includes_streaming_plan() {
+        assert!(cli_usage_line().contains("streaming-plan"));
+    }
+    #[test]
     fn vortex_count_readiness_plan_missing_candidate_source_returns_non_zero() {
         assert_ne!(
             run(vec!["vortex-count-readiness-plan".to_string()]),
@@ -16080,6 +16155,16 @@ mod tests {
         let code = run(vec![
             "scan-plan".to_string(),
             "file://tmp/test.vortex".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn streaming_plan_with_vortex_target_returns_success() {
+        let code = run(vec![
+            "streaming-plan".to_string(),
+            "file://tmp/test.vortex".to_string(),
+            "file://tmp/out.vortex".to_string(),
         ]);
         assert_eq!(code, ExitCode::SUCCESS);
     }

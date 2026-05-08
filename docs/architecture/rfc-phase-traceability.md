@@ -1086,3 +1086,13 @@ No fallback execution.
 - Primary RFC linkage: RFC 0012, RFC 0015, RFC 0021, RFC 0025, and RFC 0029.
 - Related RFCs: RFC 0013, RFC 0016, RFC 0027, RFC 0031, and RFC 0032.
 - This phase adds no scan/read-start path, new count execution, new aggregate execution, generalized encoded-data execution, row reads, requested decode/materialization, Arrow conversion, parser, SQL execution, adapter runtime, object-store IO, writes, spill IO, benchmark claim, production/superiority claim, CG-2 closeout, or fallback behavior.
+
+## CG-8.1 streaming plan discovery surface
+
+- `streaming-plan` is now listed in the public CLI usage surface.
+- `streaming-plan --format json` emits stable plan fields for mode/status, source kind/capability/zero-decode, sink kind/capability/encoded acceptance/materialization/metadata preservation, backpressure, memory policy, best work level, runtime execution, and fallback status.
+- Vortex-native targets surface zero-decode planning with encoded-preserving sink requirements and no materialization boundary.
+- Compatibility targets surface materialization-required boundaries and metadata-preservation loss without treating the compatibility sink as fallback execution.
+- Primary RFC linkage: RFC 0013, RFC 0014, RFC 0016, RFC 0018, RFC 0025, and RFC 0027.
+- Related RFCs: RFC 0008, RFC 0017, RFC 0021, RFC 0031, and RFC 0032.
+- This phase adds no stream execution, task execution, read-start API, row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, benchmark claim, production/superiority claim, CG-8 closeout, or fallback behavior.
