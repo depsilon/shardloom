@@ -10,21 +10,19 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [x] Session label: CG-2.2d filtered-count metadata proof report
-  - Current cleanup/implementation step: Add an explicit metadata proof report for filtered counts so readiness can cite concrete metadata evidence instead of raw flags.
+- [x] Session label: CG-1/CG-2 feature-gated encoded-read validation repair
+  - Current cleanup/implementation step: Fix the feature-gated metadata async boundary validation blocker before attempting any real encoded-data path.
   - Primary files:
-    - `shardloom-vortex/src/filtered_count_readiness.rs`
+    - `shardloom-vortex/src/metadata_async_boundary.rs`
     - `docs/architecture/phased-execution-plan.md`
-    - `docs/architecture/rfc-phase-traceability.md`
-    - `docs/architecture/vortex-adapter-integration-plan.md`
-    - `docs/architecture/vortex-public-api-inventory.md`
-  - Scope: Metadata-only proof report for `CountWhere` over supplied metadata summaries, with proof-ready, needs-encoded-predicate, and unsupported states.
+  - Scope: Test/assertion hygiene for the already-approved caller-session metadata/footer fixture path under `vortex-file-io` / `vortex-encoded-read-spike`.
   - Explicitly not included: Encoded predicate evaluation, actual encoded-data traversal, scan/read-start APIs, layout-reader construction, runtime-driver startup, row reads, decode/materialization, Arrow conversion, object-store IO, writes, spill IO, external baseline execution, fallback execution, benchmarks, SQL/API/adapter expansion, or superiority claims.
   - Validation required:
     - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-vortex --features vortex-encoded-read-spike`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: Filtered-count metadata proof now has a stable report contract that distinguishes proof-ready metadata counts from encoded-predicate deferral without IO or fallback.
+  - Completion notes: Feature-gated encoded-read spike validation no longer expects obsolete deferred-invocation wording for the approved metadata/footer caller-session path.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
