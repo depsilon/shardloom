@@ -41,6 +41,7 @@ pub mod encoded_read_readiness;
 pub mod execution_readiness;
 pub mod file_io;
 pub mod filtered_count_readiness;
+pub mod generalized_encoded_primitive_gate;
 pub mod manifest_finalization;
 pub mod memory_bridge;
 pub mod metadata_async_boundary;
@@ -65,6 +66,11 @@ pub mod streaming_batch_runtime;
 pub mod write_intent;
 
 pub use filtered_count_readiness::*;
+pub use generalized_encoded_primitive_gate::{
+    VortexGeneralizedEncodedPrimitiveGateEntry, VortexGeneralizedEncodedPrimitiveGateReport,
+    VortexGeneralizedEncodedPrimitiveGateStatus, VortexGeneralizedEncodedPrimitiveKind,
+    VortexGeneralizedEncodedPrimitiveStatus, plan_vortex_generalized_encoded_primitive_gate,
+};
 
 pub use file_io::{
     VortexFileIoFeatureStatus, VortexMetadataOpenMode, VortexMetadataOpenReport,

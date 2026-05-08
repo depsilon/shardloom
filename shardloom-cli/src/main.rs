@@ -87,10 +87,11 @@ use shardloom_vortex::{
     VortexFilteredCountCandidateSource, VortexFilteredCountReadinessSignal,
     VortexFinalizedManifestArtifactWriteOption, VortexFinalizedManifestContent,
     VortexFinalizedManifestFileName, VortexFinalizedManifestFileRef,
-    VortexLayoutReaderDriverApprovalInput, VortexLayoutReaderDriverApprovalSignal,
-    VortexLocalCommitExecutionRequest, VortexLocalCommitExecutionSignal,
-    VortexLocalCommitRecoveryRequest, VortexLocalCommitRecoverySignal, VortexLocalExecutionReport,
-    VortexManifestFinalizationRequest, VortexManifestFinalizationSignal, VortexMemoryBridgeReport,
+    VortexGeneralizedEncodedPrimitiveGateReport, VortexLayoutReaderDriverApprovalInput,
+    VortexLayoutReaderDriverApprovalSignal, VortexLocalCommitExecutionRequest,
+    VortexLocalCommitExecutionSignal, VortexLocalCommitRecoveryRequest,
+    VortexLocalCommitRecoverySignal, VortexLocalExecutionReport, VortexManifestFinalizationRequest,
+    VortexManifestFinalizationSignal, VortexMemoryBridgeReport,
     VortexMetadataCountKernelAdmissionReport, VortexMetadataFilterKernelAdmissionReport,
     VortexMetadataOpenRequest, VortexMetadataProbeReport, VortexNativeOutputPayloadWriteReport,
     VortexOutputPayloadContentDescriptor, VortexOutputPayloadFileName, VortexOutputPayloadFileRef,
@@ -129,9 +130,10 @@ use shardloom_vortex::{
     plan_vortex_encoded_count_data_path_approval_with_layout_driver,
     plan_vortex_encoded_execution_path_selection, plan_vortex_encoded_read_boundary,
     plan_vortex_encoded_read_probe, plan_vortex_filtered_count_readiness,
-    plan_vortex_layout_reader_driver_approval, plan_vortex_local_commit_recovery,
-    plan_vortex_manifest_finalization, plan_vortex_memory_safety, plan_vortex_metadata_pruning,
-    plan_vortex_output_payload, plan_vortex_projection_readiness, plan_vortex_query_primitive,
+    plan_vortex_generalized_encoded_primitive_gate, plan_vortex_layout_reader_driver_approval,
+    plan_vortex_local_commit_recovery, plan_vortex_manifest_finalization,
+    plan_vortex_memory_safety, plan_vortex_metadata_pruning, plan_vortex_output_payload,
+    plan_vortex_projection_readiness, plan_vortex_query_primitive,
     plan_vortex_query_primitive_result_physical_operators_with_evidence,
     plan_vortex_read_from_universal_input, plan_vortex_scheduler_queue,
     plan_vortex_staged_manifest_file, plan_vortex_write_intent, probe_vortex_encoded_read_metadata,
@@ -186,7 +188,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|layout-health-plan|compaction-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|correctness-plan|execution-certificate-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|layout-health-plan|compaction-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|correctness-plan|execution-certificate-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -653,6 +655,186 @@ fn vortex_encoded_path_selection_discovery_fields(
 
 fn vortex_encoded_path_selection_side_effect_fields(
     report: &VortexEncodedExecutionPathSelectionReport,
+) -> Vec<(String, String)> {
+    vec![
+        ("data_read".to_string(), report.data_read.to_string()),
+        ("data_decoded".to_string(), report.data_decoded.to_string()),
+        (
+            "data_materialized".to_string(),
+            report.data_materialized.to_string(),
+        ),
+        ("row_read".to_string(), report.row_read.to_string()),
+        (
+            "arrow_converted".to_string(),
+            report.arrow_converted.to_string(),
+        ),
+        (
+            "object_store_io".to_string(),
+            report.object_store_io.to_string(),
+        ),
+        ("write_io".to_string(), report.write_io.to_string()),
+        (
+            "spill_io_performed".to_string(),
+            report.spill_io_performed.to_string(),
+        ),
+        (
+            "runtime_execution_allowed".to_string(),
+            report.runtime_execution_allowed.to_string(),
+        ),
+        (
+            "external_engine_execution".to_string(),
+            report.external_engine_execution.to_string(),
+        ),
+        (
+            "fallback_execution_allowed".to_string(),
+            report.fallback_execution_allowed.to_string(),
+        ),
+        (
+            "fallback_attempted".to_string(),
+            report.fallback_attempted.to_string(),
+        ),
+        (
+            "production_claim_allowed".to_string(),
+            report.production_claim_allowed.to_string(),
+        ),
+        (
+            "side_effect_free".to_string(),
+            report.is_side_effect_free().to_string(),
+        ),
+        (
+            "diagnostic_count".to_string(),
+            report.diagnostics.len().to_string(),
+        ),
+    ]
+}
+
+fn vortex_generalized_encoded_primitive_gate_fields(
+    report: &VortexGeneralizedEncodedPrimitiveGateReport,
+) -> Vec<(String, String)> {
+    let mut fields = vortex_generalized_encoded_primitive_gate_identity_fields(report);
+    fields.extend(vortex_generalized_encoded_primitive_gate_evidence_fields(
+        report,
+    ));
+    fields.extend(vortex_generalized_encoded_primitive_gate_requirement_fields(report));
+    fields.extend(vortex_generalized_encoded_primitive_gate_side_effect_fields(report));
+    fields
+}
+
+fn vortex_generalized_encoded_primitive_gate_identity_fields(
+    report: &VortexGeneralizedEncodedPrimitiveGateReport,
+) -> Vec<(String, String)> {
+    vec![
+        (
+            "mode".to_string(),
+            "vortex_generalized_encoded_primitive_gate".to_string(),
+        ),
+        ("execution".to_string(), "not_performed".to_string()),
+        ("plan_only".to_string(), "true".to_string()),
+        (
+            "schema_version".to_string(),
+            report.schema_version.to_string(),
+        ),
+        ("report_id".to_string(), report.report_id.clone()),
+        (
+            "gate_status".to_string(),
+            report.status.as_str().to_string(),
+        ),
+        ("entry_count".to_string(), report.entry_count().to_string()),
+        (
+            "primitive_order".to_string(),
+            report.primitive_order().join(","),
+        ),
+        (
+            "primitive_statuses".to_string(),
+            report.primitive_statuses().join(","),
+        ),
+    ]
+}
+
+fn vortex_generalized_encoded_primitive_gate_evidence_fields(
+    report: &VortexGeneralizedEncodedPrimitiveGateReport,
+) -> Vec<(String, String)> {
+    vec![
+        (
+            "local_count_all_only".to_string(),
+            report.local_count_all_only.to_string(),
+        ),
+        (
+            "entries_with_local_count_support".to_string(),
+            report.entries_with_local_count_support().to_string(),
+        ),
+        (
+            "entries_with_metadata_proof".to_string(),
+            report.entries_with_metadata_proof().to_string(),
+        ),
+        (
+            "entries_with_readiness_contract".to_string(),
+            report.entries_with_readiness_contract().to_string(),
+        ),
+        (
+            "implementation_blocker_count".to_string(),
+            report.implementation_blocker_count().to_string(),
+        ),
+        (
+            "required_next_evidence_count".to_string(),
+            report.required_next_evidence_count().to_string(),
+        ),
+        (
+            "generalized_count_ready".to_string(),
+            report.generalized_count_ready.to_string(),
+        ),
+        (
+            "filtered_count_execution_ready".to_string(),
+            report.filtered_count_execution_ready.to_string(),
+        ),
+        (
+            "projection_execution_ready".to_string(),
+            report.projection_execution_ready.to_string(),
+        ),
+    ]
+}
+
+fn vortex_generalized_encoded_primitive_gate_requirement_fields(
+    report: &VortexGeneralizedEncodedPrimitiveGateReport,
+) -> Vec<(String, String)> {
+    vec![
+        (
+            "requires_public_scan_or_read_start_path".to_string(),
+            report.requires_public_scan_or_read_start_path.to_string(),
+        ),
+        (
+            "requires_encoded_predicate_path".to_string(),
+            report.requires_encoded_predicate_path.to_string(),
+        ),
+        (
+            "requires_encoded_projection_path".to_string(),
+            report.requires_encoded_projection_path.to_string(),
+        ),
+        (
+            "requires_selection_vector_pipeline".to_string(),
+            report.requires_selection_vector_pipeline.to_string(),
+        ),
+        (
+            "requires_native_io_certificate".to_string(),
+            report.requires_native_io_certificate.to_string(),
+        ),
+        (
+            "requires_execution_certificate".to_string(),
+            report.requires_execution_certificate.to_string(),
+        ),
+        (
+            "requires_correctness_evidence".to_string(),
+            report.requires_correctness_evidence.to_string(),
+        ),
+        (
+            "requires_benchmark_evidence".to_string(),
+            report.requires_benchmark_evidence.to_string(),
+        ),
+    ]
+}
+
+fn vortex_generalized_encoded_primitive_gate_side_effect_fields(
+    report: &VortexGeneralizedEncodedPrimitiveGateReport,
 ) -> Vec<(String, String)> {
     vec![
         ("data_read".to_string(), report.data_read.to_string()),
@@ -15910,6 +16092,28 @@ fn run(args: Vec<String>) -> ExitCode {
                 ExitCode::SUCCESS
             }
         }
+        Some("vortex-generalized-encoded-primitive-gate") => {
+            let command = "vortex-generalized-encoded-primitive-gate";
+            let report = plan_vortex_generalized_encoded_primitive_gate();
+            emit(
+                command,
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "vortex generalized encoded primitive gate".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                vortex_generalized_encoded_primitive_gate_fields(&report),
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
         Some("vortex-encoded-read-api") => {
             let command = "vortex-encoded-read-api";
             let report = vortex_encoded_read_public_api_boundary();
@@ -20630,6 +20834,17 @@ mod tests {
     #[test]
     fn vortex_encoded_path_selection_plan_returns_success() {
         let code = run(vec!["vortex-encoded-path-selection-plan".to_string()]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+    #[test]
+    fn usage_includes_vortex_generalized_encoded_primitive_gate() {
+        assert!(cli_usage_line().contains("vortex-generalized-encoded-primitive-gate"));
+    }
+    #[test]
+    fn vortex_generalized_encoded_primitive_gate_returns_success() {
+        let code = run(vec![
+            "vortex-generalized-encoded-primitive-gate".to_string(),
+        ]);
         assert_eq!(code, ExitCode::SUCCESS);
     }
     #[test]

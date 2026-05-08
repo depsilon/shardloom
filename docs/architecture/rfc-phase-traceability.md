@@ -532,6 +532,15 @@ No fallback execution.
 - CLI output records local scan target URI, readiness source URI, source-match evidence, arrays read, rows counted, count result, local execution status, side-effect flags, and `fallback_execution_allowed=false`.
 - This does not approve broad scan/read-start execution, adapters, non-local sources, object-store IO, encoded predicates, projections, row reads, requested decode/materialization, Arrow conversion, writes, spill IO, benchmarks, external baselines, CG closeout, or fallback execution.
 
+## CG-2.1e.23 generalized encoded primitive execution gate
+
+- Primary RFC linkage: RFC 0012 Diagnostics/Capabilities, RFC 0013 Streaming/Zero-Copy Boundary, RFC 0015 Correctness/testing, RFC 0025 Competitive/no-fallback, RFC 0026 Vortex encoded-read/query-readiness boundaries, RFC 0029 Correctness/Benchmarks/Execution Certificates, RFC 0031 Universal Native I/O Envelope, and RFC 0032 World-Class Capability Surface.
+- `shardloom-vortex/src/generalized_encoded_primitive_gate.rs` adds `VortexGeneralizedEncodedPrimitiveGateReport`, a report-only gate for direct count, filtered count, and projection primitive execution readiness.
+- `shardloom vortex-generalized-encoded-primitive-gate` emits stable text/JSON fields for primitive state, current evidence, required next evidence, blockers, side-effect flags, and no-fallback evidence.
+- The gate records that only explicit local `.vortex` `CountAll` execution is proven; metadata-proof filtered count and projection readiness remain distinct from encoded predicate/projection execution.
+- Generalized count/filter/project execution remains blocked until public data-path approval, encoded predicate/projection paths, selection-vector pipeline proof, native I/O certificates, execution certificates, correctness fixtures, and benchmark evidence exist.
+- This phase adds no broad scan/read-start approval, generalized encoded-data execution, encoded predicate execution, projection execution, adapter runtime, non-local source read, object-store IO, row read, requested decode/materialization, Arrow conversion, write IO, spill IO, benchmark/superiority claim, CG-1/CG-2/CG-13 closeout, external engine invocation, or fallback execution.
+
 ## CG-5.1 metadata query primitive correctness fixtures
 
 - Primary RFC linkage: RFC 0015 Correctness/Semantics/Differential Testing, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.

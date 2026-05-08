@@ -263,6 +263,26 @@ Supporting docs:
   - Blockers:
     - None known.
 
+- [x] Follow-up: CG-2.1e.23 generalized encoded primitive gate
+  - Why: The approved local `.vortex` `CountAll` path is real, but generalized count/filter/project execution needs an explicit blocker/evidence gate before runtime widening.
+  - Files:
+    - `shardloom-vortex/src/generalized_encoded_primitive_gate.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/generalized_encoded_primitive_gate_snapshots.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Acceptance:
+    - `vortex-generalized-encoded-primitive-gate` reports direct count, filtered count, and projection primitive states in a stable text/JSON surface.
+    - The report distinguishes proven local `CountAll`, metadata-proof filtered count, and projection readiness from generalized execution.
+    - Required next evidence includes public Vortex data-path approval, encoded predicate/projection paths, selection-vector preservation, native I/O certificates, execution certificates, correctness evidence, and benchmark evidence.
+    - No broad scan/read-start approval, generalized count/filter/project execution, parser, adapter runtime, non-local source read, object-store IO, row read, requested decode/materialization, Arrow conversion, write IO, spill IO, benchmark/superiority claim, or fallback execution is added.
+  - Local validation status:
+    - focused `shardloom-vortex` generalized gate tests passed
+    - focused `shardloom-cli` generalized gate tests passed
+    - full Rust validation passed with toolchain `1.91.1`
+  - Blockers:
+    - Generalized execution remains blocked until the evidence listed by the gate lands.
+
 - [x] Follow-up: R5.4.10 user-surface RFC hardening
   - Why: SQL/operator/function/adapter details are deep enough for current planning, but best-default certification also needs explicit API, BI/server, observability, deployment, extension, and security/governance evidence.
   - Files:
@@ -657,6 +677,14 @@ Supporting docs:
     - The stable command reuses encoded-read readiness, encoded-count approval, approved local scan/count execution, and the local execution bridge.
     - CLI output reports the local scan target, readiness source, source-match evidence, arrays read, rows counted, count result, local execution status, side-effect flags, and `fallback_execution_allowed=false`.
     - No broad scan/read-start approval, adapters, non-local sources, object-store IO, encoded predicates, projection execution, row reads, requested decode/materialization, Arrow conversion, writes, spill IO, external baseline invocation, fallback execution, benchmarks, CG-1 closeout, or CG-2 closeout are added.
+- [x] CG-2.1e.23 generalized encoded primitive execution gate
+  - Why: make the remaining generalized count/filter/project blocker explicit and machine-readable before any runtime path is widened beyond the approved local `CountAll` scope.
+  - Acceptance:
+    - `VortexGeneralizedEncodedPrimitiveGateReport` names the current states for direct count, filtered count, and projection.
+    - The stable `vortex-generalized-encoded-primitive-gate` CLI emits text/JSON evidence without executing work.
+    - The gate keeps local `CountAll` proof separate from generalized count readiness, encoded predicate execution readiness, and encoded projection execution readiness.
+    - Required evidence lists public data-path approval, encoded predicate/projection paths, selection-vector pipeline proof, native I/O certificates, execution certificates, correctness fixtures, and benchmark evidence.
+    - No generalized encoded-data execution, adapters, non-local sources, object-store IO, encoded predicates, projection execution, row reads, requested decode/materialization, Arrow conversion, writes, spill IO, external baseline invocation, fallback execution, benchmark claim, CG-1 closeout, CG-2 closeout, or CG-13 closeout is added.
 - [ ] CG-2.1e generalized encoded-data count execution path beyond explicit local `.vortex` count (planned)
   - Why: turn the local fixture scan/count proof into a generalized native count path only after the public Vortex data path and representation guarantees are approved.
   - Acceptance:
@@ -1217,6 +1245,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.20 approved local scan naming normalization
 - [x] CG-2.1e.21 approved local scan result bridge
 - [x] CG-2.1e.22 stable explicit local encoded `CountAll` execution surface
+- [x] CG-2.1e.23 generalized encoded primitive execution gate
 - [x] CG-2.2a filtered-count readiness core contract
 - [x] CG-2.2a.1 filtered-count blocker precision hardening
 - [x] CG-2.2b filtered-count readiness CLI integration
@@ -1376,6 +1405,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 ### CG-13 detailed checklist
 - [x] CG-13.1 encoding-aware execution path selection report
 - [x] CG-13.2 decode/materialization avoided proof/report requirements
+- [x] CG-13.3 generalized encoded primitive gate blocks runtime widening until count/filter/project evidence is complete
 - [ ] generalized direct count/filter/project encoded execution
 - [ ] broad compressed-kernel correctness and benchmark certification
 
