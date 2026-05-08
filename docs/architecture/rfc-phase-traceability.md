@@ -404,6 +404,14 @@ No fallback execution.
 - Even approved reports construct no `LayoutReader`, start no driver, call no scan/evaluation API, read no data or rows, decode/materialize nothing, convert nothing to `Arrow`, perform no object-store IO or writes, and do not allow fallback.
 - This pass adds no runtime invocation, dependency, parser, adapter runtime, object-store IO, write behavior, or fallback execution.
 
+## CG-2.1e.11 layout-driver approval CLI surfacing
+
+- Primary RFC linkage: RFC 0010 Developer Experience, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
+- `shardloom vortex-layout-driver-approval-plan <signals> [--format text|json]` exposes the layout-driver approval report for human and agent inspection.
+- The command consumes only explicit signal text and the static encoded-read public API boundary report; it performs no filesystem, network, catalog, adapter, scan, evaluation, or data-read probing.
+- Missing/unknown signals fail deterministically, and the current public API boundary remains unsupported unless runtime-driver permission is explicit.
+- This pass adds no runtime invocation, dependency, parser, adapter runtime, object-store IO, write behavior, or fallback execution.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.

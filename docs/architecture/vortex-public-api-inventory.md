@@ -748,6 +748,13 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - Even an approved report is still report-only and records `layout_reader_constructed=false`, `runtime_driver_started=false`, `scan_called=false`, `data_read=false`, and `fallback_execution_allowed=false`.
 - This introduces no `LayoutReader` construction, driver start, scan/read-start invocation, array stream/evaluation call, encoded-data traversal, row read, decode/materialization, `Arrow` conversion, object-store IO, write, or fallback execution.
 
+## CG-2.1e.11 layout-driver approval CLI surfacing
+
+- `shardloom vortex-layout-driver-approval-plan <signals> [--format text|json]` now exposes the layout-driver approval report and side-effect fields.
+- The command uses the static public API inventory and caller-provided signals only; it does not inspect files, open Vortex data, construct `LayoutReader`, or start a driver.
+- Current inventory remains blocked without `runtime-driver-start-allowed`; a complete approved signal set still reports `layout_reader_constructed=false`, `runtime_driver_started=false`, `scan_called=false`, `data_read=false`, and `fallback_execution_allowed=false`.
+- This introduces no scan/read-start invocation, array stream/evaluation call, encoded-data traversal, row read, decode/materialization, `Arrow` conversion, object-store IO, write, or fallback execution.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.

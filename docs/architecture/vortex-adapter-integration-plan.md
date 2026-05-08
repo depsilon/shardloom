@@ -861,6 +861,13 @@ CG-2.1c metadata-footer `CountAll` execution is wired; non-metadata execution re
 - Even approved reports perform no construction, driver start, scan/evaluation, encoded-data traversal, row read, decode/materialization, `Arrow` conversion, object-store IO, write, or fallback execution.
 - This is a planning contract only and does not make any adapter execute counts through `LayoutReader`.
 
+## CG-2.1e.11 layout-driver approval CLI surfacing
+
+- Adapter planning can now inspect the layout-driver approval boundary through `shardloom vortex-layout-driver-approval-plan <signals> [--format text|json]`.
+- The command surfaces explicit local fixture, caller session, runtime-driver permission, row-count-only, no-scan/no-evaluation/no-read/no-decode/no-materialization/no-Arrow/no-object-store/no-write/no-fallback signals.
+- CLI output remains report-only and records construction, driver start, scan/evaluation, data read, row read, decode/materialization, `Arrow`, object-store, write, and fallback fields as false.
+- This is a planning/diagnostic surface only and does not make any adapter execute counts through `LayoutReader`.
+
 
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.
