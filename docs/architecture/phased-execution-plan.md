@@ -349,6 +349,24 @@ Supporting docs:
   - Blockers:
     - Capability-checked imported-plan execution remains open until imported native plans are validated against real SQL/operator/function/adapter capability reports.
 
+- [x] Follow-up: CG-12.5 imported-plan capability execution gate
+  - Why: Native plan import now validates serialized payloads, but imported plans must still be blocked from execution until capability certification evidence proves every required surface.
+  - Files:
+    - `shardloom-plan/src/plan_ir.rs`
+    - `shardloom-plan/src/lib.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/plan_portability_snapshots.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Acceptance:
+    - `ImportedPlanCapabilityGateReport` maps imported native plan nodes and boundaries to required certification surfaces.
+    - `plan-import native <payload>` surfaces the gate status, required/certified/missing surfaces, unsupported/effect counts, execution-allowed flag, and no-parser/no-probe/no-runtime/no-IO/no-fallback fields.
+    - Current contract-only capability certification keeps imported-plan execution blocked as `blocked_missing_capability_evidence`.
+    - Effectful imported plans block as `blocked_effect_boundary` before capability evidence can authorize execution.
+    - No imported-plan execution, SQL parser, external format parser, filesystem/network/catalog/adapter probing, data read, write IO, external engine execution, dependency, or fallback execution is added.
+  - Blockers:
+    - Real imported-plan execution remains open until the gate can consume certified SQL/operator/function/adapter/native-I/O/execution-certificate evidence for a declared workload.
+
 - [x] Follow-up: R5.4.10 user-surface RFC hardening
   - Why: SQL/operator/function/adapter details are deep enough for current planning, but best-default certification also needs explicit API, BI/server, observability, deployment, extension, and security/governance evidence.
   - Files:
@@ -1198,12 +1216,13 @@ Status legend:
   - [x] CG-12.2 explicit unsupported/lossy/residual construct reporting
   - [x] CG-12.3 import/export commands remain validation-only and side-effect-free
   - [x] CG-12.4 native plan import/export serialization
+  - [x] CG-12.5 imported-plan capability execution gate
   - Scope:
     - native-first plan portability reports for `plan-ir`, `plan-import`, and `plan-export`
     - explicit unsupported/lossy/residual construct reporting
     - no import/export execution side effects
     - native ShardLoom plan serialization/import/export is in-memory and side-effect-free
-    - imported-plan execution remains deferred until capability checks are wired
+    - imported-plan execution remains deferred until capability checks are certified
 
 - [ ] CG-13 — Encoded-native compressed execution (**planned**)
   - [x] CG-13.1 encoded execution path selection report foundation
@@ -1475,7 +1494,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] explicit unsupported/lossy/residual construct reporting
 - [x] no import/export execution side effects
 - [x] real plan import/export serialization
-- [ ] capability-checked imported-plan execution gate
+- [x] capability-checked imported-plan execution gate
 
 ### CG-13 detailed checklist
 - [x] CG-13.1 encoding-aware execution path selection report
@@ -1673,6 +1692,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-11.1 stable CLI/API JSON protocol foundation adds `CliApiJsonProtocolReport` and `api-compat-plan` fields for `OutputEnvelope` schema keys, command statuses, fallback and diagnostic keys, thin Python wrapper boundary, no PyO3/maturin, no parser/runtime/probe/write/publish side effects, and no fallback.
 - [x] CG-11.2 thin Python wrapper foundation adds `PythonWrapperFoundationReport` and `python-wrapper-plan` fields for a future subprocess CLI JSON client, required diagnostics/fallback/materialization passthrough behavior, deferred package/native binding/DataFrame/notebook/Python UDF surfaces, no probes, no runtime/parser execution, no writes, no publish, and no fallback.
 - [x] CG-12.4 native plan import/export serialization adds deterministic `shardloom.native_plan.v1` in-memory serialization for native plan documents, `plan-export native` payload emission, and `plan-import native <payload>` validation without file IO, external format parsers, imported-plan execution, external engines, or fallback behavior.
+- [x] CG-12.5 imported-plan capability execution gate adds `ImportedPlanCapabilityGateReport` and `plan-import native` fields that map imported nodes/boundaries to required certification surfaces and keep imported execution blocked without certified SQL/operator/function/adapter/native-I/O/execution-certificate evidence, runtime execution, probes, reads, writes, external engines, or fallback.
 - [x] CG-18.1 universal harness report adds `UniversalHarnessReport` and `universal-harness-plan` surfacing for CLI JSON runner fields, import/deployment surfaces, optional Foundry examples, external-only Spark/DataFusion/Polars baseline requirements, comparison dataset requirements, portability-check requirements, and no-import/no-deployment/no-baseline-execution/no-probe/no-publish/no-fallback side-effect fields.
 - [x] CG-19.1 native I/O envelope report adds `NativeIoEnvelopeReport` and `native-io-envelope-plan` surfacing for RFC 0031 contract surfaces, representation state contracts, transition examples, per-source/sink-path certificate requirements, no-default-decoded-Arrow requirements, materialization boundary requirements, and no-runtime/no-probe/no-read/no-decode/no-materialization/no-write/no-fallback side-effect fields.
 - [x] CG-20.2 user-surface capability discovery adds report-only `capabilities` scopes for common ETL, Python, DataFrame/notebook, UDFs, universal/event/API adapters, unstructured/media, API, observability, deployment, extension, and security/governance surfaces with `WorldClassSufficiencyReport` dimension evidence gates and no parser/runtime/probe/read/write/external-engine/fallback behavior.

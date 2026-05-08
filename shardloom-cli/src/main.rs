@@ -58,8 +58,8 @@ use shardloom_exec::{
     spill_payload_fs_feature_enabled,
 };
 use shardloom_plan::{
-    AdaptiveOptimizerMemoryReport, EstimateReport, ExplainReport, NativePlanDocument,
-    NativePlanNode, NativePlanNodeKind, ObjectStoreCheckpointRetryInput,
+    AdaptiveOptimizerMemoryReport, EstimateReport, ExplainReport, ImportedPlanCapabilityGateReport,
+    NativePlanDocument, NativePlanNode, NativePlanNodeKind, ObjectStoreCheckpointRetryInput,
     ObjectStoreCheckpointRetryReport, ObjectStoreCommitProtocolInput,
     ObjectStoreCommitProtocolReport, ObjectStoreDistributedSchedulingPolicy,
     ObjectStoreDistributedSchedulingReport, ObjectStoreRangePlanningPolicy,
@@ -3775,6 +3775,93 @@ fn plan_portability_fields(report: &PlanPortabilityReport, mode: &str) -> Vec<(S
     push_bool_field(&mut fields, "fallback_attempted", report.fallback_attempted);
     push_count_field(&mut fields, "diagnostic_count", report.diagnostics.len());
     fields
+}
+
+fn imported_plan_capability_gate_fields(
+    report: &ImportedPlanCapabilityGateReport,
+) -> Vec<(String, String)> {
+    vec![
+        (
+            "imported_plan_capability_gate_schema_version".to_string(),
+            report.schema_version.to_string(),
+        ),
+        (
+            "imported_plan_capability_gate_status".to_string(),
+            report.status.as_str().to_string(),
+        ),
+        (
+            "imported_plan_capability_checked".to_string(),
+            report.capability_checked.to_string(),
+        ),
+        (
+            "imported_plan_execution_allowed".to_string(),
+            report.execution_allowed.to_string(),
+        ),
+        (
+            "imported_plan_required_capability_surfaces".to_string(),
+            report.required_capability_surfaces.join(","),
+        ),
+        (
+            "imported_plan_certified_capability_surfaces".to_string(),
+            report.certified_capability_surfaces.join(","),
+        ),
+        (
+            "imported_plan_missing_certification_surfaces".to_string(),
+            report.missing_certification_surfaces.join(","),
+        ),
+        (
+            "imported_plan_unsupported_node_count".to_string(),
+            report.unsupported_node_count.to_string(),
+        ),
+        (
+            "imported_plan_effect_boundary_count".to_string(),
+            report.effect_boundary_count.to_string(),
+        ),
+        (
+            "imported_plan_gate_runtime_execution".to_string(),
+            report.runtime_execution.to_string(),
+        ),
+        (
+            "imported_plan_gate_parser_executed".to_string(),
+            report.parser_executed.to_string(),
+        ),
+        (
+            "imported_plan_gate_filesystem_probe".to_string(),
+            report.filesystem_probe.to_string(),
+        ),
+        (
+            "imported_plan_gate_network_probe".to_string(),
+            report.network_probe.to_string(),
+        ),
+        (
+            "imported_plan_gate_catalog_probe".to_string(),
+            report.catalog_probe.to_string(),
+        ),
+        (
+            "imported_plan_gate_adapter_probe".to_string(),
+            report.adapter_probe.to_string(),
+        ),
+        (
+            "imported_plan_gate_external_engine_execution".to_string(),
+            report.external_engine_execution.to_string(),
+        ),
+        (
+            "imported_plan_gate_read_io".to_string(),
+            report.read_io.to_string(),
+        ),
+        (
+            "imported_plan_gate_write_io".to_string(),
+            report.write_io.to_string(),
+        ),
+        (
+            "imported_plan_gate_fallback_execution_allowed".to_string(),
+            report.fallback_execution_allowed.to_string(),
+        ),
+        (
+            "imported_plan_gate_fallback_attempted".to_string(),
+            report.fallback_attempted.to_string(),
+        ),
+    ]
 }
 
 fn native_plan_export_document() -> Result<NativePlanDocument, ShardLoomError> {
@@ -11696,12 +11783,16 @@ fn run(args: Vec<String>) -> ExitCode {
             let report = PlanPortabilityReport::for_import_request(&request);
             let mut fields = plan_portability_fields(&report, "plan_import");
             if let Some(document) = &request.imported_document {
+                let certification = CapabilityCertificationReport::contract_only();
+                let gate =
+                    ImportedPlanCapabilityGateReport::for_import_request(&request, &certification);
                 push_field(&mut fields, "imported_plan_id", document.id.as_str());
                 push_count_field(
                     &mut fields,
                     "imported_plan_node_count",
                     document.node_count(),
                 );
+                fields.extend(imported_plan_capability_gate_fields(&gate));
             }
             let command_status = if report.has_errors() {
                 CommandStatus::Unsupported

@@ -4,9 +4,12 @@
 //! serialization helpers. It does not execute plans, touch files, or delegate to
 //! external engines.
 
+use std::collections::BTreeSet;
+
 use shardloom_core::{
-    Diagnostic, DiagnosticCode, DiagnosticSeverity, EffectLevel, FidelityLevel,
-    MaterializationRequirement, OutputTargetKind, Result, ShardLoomError,
+    CapabilityCertificationReport, CapabilityCertificationStatus, Diagnostic, DiagnosticCode,
+    DiagnosticSeverity, EffectLevel, FidelityLevel, MaterializationRequirement,
+    OperatorCertificationStatus, OutputTargetKind, Result, ShardLoomError,
 };
 
 /// Stable identifier for a native plan document.
@@ -1098,6 +1101,296 @@ impl PlanImportRequest {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ImportedPlanCapabilityGateStatus {
+    NoImportedPlan,
+    BlockedInvalidPlan,
+    BlockedEffectBoundary,
+    BlockedMissingCapabilityEvidence,
+    CapabilityChecked,
+}
+
+impl ImportedPlanCapabilityGateStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::NoImportedPlan => "no_imported_plan",
+            Self::BlockedInvalidPlan => "blocked_invalid_plan",
+            Self::BlockedEffectBoundary => "blocked_effect_boundary",
+            Self::BlockedMissingCapabilityEvidence => "blocked_missing_capability_evidence",
+            Self::CapabilityChecked => "capability_checked",
+        }
+    }
+
+    #[must_use]
+    pub const fn allows_execution(&self) -> bool {
+        matches!(self, Self::CapabilityChecked)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct ImportedPlanCapabilityGateReport {
+    pub schema_version: &'static str,
+    pub report_id: String,
+    pub status: ImportedPlanCapabilityGateStatus,
+    pub imported_plan_id: Option<String>,
+    pub imported_plan_node_count: usize,
+    pub capability_checked: bool,
+    pub required_capability_surfaces: Vec<String>,
+    pub certified_capability_surfaces: Vec<String>,
+    pub missing_certification_surfaces: Vec<String>,
+    pub unsupported_node_count: usize,
+    pub effect_boundary_count: usize,
+    pub execution_allowed: bool,
+    pub runtime_execution: bool,
+    pub parser_executed: bool,
+    pub filesystem_probe: bool,
+    pub network_probe: bool,
+    pub catalog_probe: bool,
+    pub adapter_probe: bool,
+    pub external_engine_execution: bool,
+    pub read_io: bool,
+    pub write_io: bool,
+    pub fallback_execution_allowed: bool,
+    pub fallback_attempted: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl ImportedPlanCapabilityGateReport {
+    #[must_use]
+    pub fn for_import_request(
+        request: &PlanImportRequest,
+        certification: &CapabilityCertificationReport,
+    ) -> Self {
+        let mut report = Self::base(request);
+        let Some(document) = &request.imported_document else {
+            report.status = ImportedPlanCapabilityGateStatus::NoImportedPlan;
+            report
+                .missing_certification_surfaces
+                .push("native_plan_document".to_string());
+            return report;
+        };
+
+        report.imported_plan_id = Some(document.id.as_str().to_string());
+        report.imported_plan_node_count = document.node_count();
+        report.unsupported_node_count = document
+            .nodes
+            .iter()
+            .filter(|node| node.kind == NativePlanNodeKind::Unsupported)
+            .count();
+        report.effect_boundary_count = document
+            .nodes
+            .iter()
+            .filter(|node| {
+                node.kind.is_effectful() || node.boundaries.contains(&PlanBoundaryKind::Effect)
+            })
+            .count();
+        report.required_capability_surfaces = imported_plan_required_surfaces(document);
+        report.certified_capability_surfaces = report
+            .required_capability_surfaces
+            .iter()
+            .filter(|surface| imported_plan_surface_certified(certification, surface))
+            .cloned()
+            .collect();
+        report.missing_certification_surfaces = report
+            .required_capability_surfaces
+            .iter()
+            .filter(|surface| !imported_plan_surface_certified(certification, surface))
+            .cloned()
+            .collect();
+
+        report.capability_checked = true;
+        report.status =
+            if request.has_errors() || document.has_errors() || report.unsupported_node_count > 0 {
+                ImportedPlanCapabilityGateStatus::BlockedInvalidPlan
+            } else if report.effect_boundary_count > 0 {
+                ImportedPlanCapabilityGateStatus::BlockedEffectBoundary
+            } else if report.missing_certification_surfaces.is_empty() {
+                ImportedPlanCapabilityGateStatus::CapabilityChecked
+            } else {
+                ImportedPlanCapabilityGateStatus::BlockedMissingCapabilityEvidence
+            };
+        report.execution_allowed = report.status.allows_execution();
+        report
+    }
+
+    #[must_use]
+    fn base(request: &PlanImportRequest) -> Self {
+        Self {
+            schema_version: "shardloom.imported_plan_capability_gate.v1",
+            report_id: format!("imported-plan-capability-gate-{}", request.format.as_str()),
+            status: ImportedPlanCapabilityGateStatus::NoImportedPlan,
+            imported_plan_id: None,
+            imported_plan_node_count: 0,
+            capability_checked: false,
+            required_capability_surfaces: Vec::new(),
+            certified_capability_surfaces: Vec::new(),
+            missing_certification_surfaces: Vec::new(),
+            unsupported_node_count: 0,
+            effect_boundary_count: 0,
+            execution_allowed: false,
+            runtime_execution: false,
+            parser_executed: false,
+            filesystem_probe: false,
+            network_probe: false,
+            catalog_probe: false,
+            adapter_probe: false,
+            external_engine_execution: false,
+            read_io: false,
+            write_io: false,
+            fallback_execution_allowed: false,
+            fallback_attempted: false,
+            diagnostics: Vec::new(),
+        }
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        !self.execution_allowed
+            || self.runtime_execution
+            || self.parser_executed
+            || self.filesystem_probe
+            || self.network_probe
+            || self.catalog_probe
+            || self.adapter_probe
+            || self.external_engine_execution
+            || self.read_io
+            || self.write_io
+            || self.fallback_execution_allowed
+            || self.fallback_attempted
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    #[must_use]
+    pub fn summary(&self) -> String {
+        format!(
+            "imported_plan_capability_gate status={} capability_checked={} imported_plan_node_count={} execution_allowed={} missing_certification_surfaces={} fallback_execution_allowed=false",
+            self.status.as_str(),
+            self.capability_checked,
+            self.imported_plan_node_count,
+            self.execution_allowed,
+            format_list(&self.missing_certification_surfaces)
+        )
+    }
+}
+
+fn imported_plan_required_surfaces(document: &NativePlanDocument) -> Vec<String> {
+    let mut surfaces = BTreeSet::from(["native_plan_validation".to_string()]);
+    for node in &document.nodes {
+        for surface in imported_plan_node_required_surfaces(node.kind) {
+            surfaces.insert((*surface).to_string());
+        }
+        for boundary in &node.boundaries {
+            for surface in imported_plan_boundary_required_surfaces(*boundary) {
+                surfaces.insert((*surface).to_string());
+            }
+        }
+    }
+    surfaces.into_iter().collect()
+}
+
+fn imported_plan_node_required_surfaces(kind: NativePlanNodeKind) -> &'static [&'static str] {
+    match kind {
+        NativePlanNodeKind::Scan => &["adapter_certification", "native_io_certificate_coverage"],
+        NativePlanNodeKind::Filter
+        | NativePlanNodeKind::Projection
+        | NativePlanNodeKind::Aggregate
+        | NativePlanNodeKind::Join
+        | NativePlanNodeKind::Sort
+        | NativePlanNodeKind::Limit => &["operator_coverage", "execution_certificate_coverage"],
+        NativePlanNodeKind::Udf
+        | NativePlanNodeKind::ModelCall
+        | NativePlanNodeKind::EmbeddingGeneration
+        | NativePlanNodeKind::VectorSearch => &[
+            "function_coverage",
+            "extension_safety",
+            "security_governance",
+        ],
+        NativePlanNodeKind::ExternalRead
+        | NativePlanNodeKind::ExternalWrite
+        | NativePlanNodeKind::Translation => &[
+            "adapter_certification",
+            "native_io_certificate_coverage",
+            "security_governance",
+        ],
+        NativePlanNodeKind::Write | NativePlanNodeKind::Commit => &[
+            "adapter_certification",
+            "native_io_certificate_coverage",
+            "execution_certificate_coverage",
+        ],
+        NativePlanNodeKind::Unsupported => &["unsupported_node_rewrite"],
+    }
+}
+
+fn imported_plan_boundary_required_surfaces(boundary: PlanBoundaryKind) -> &'static [&'static str] {
+    match boundary {
+        PlanBoundaryKind::NativeVortexInput | PlanBoundaryKind::NativeVortexOutput => {
+            &["native_io_certificate_coverage"]
+        }
+        PlanBoundaryKind::CompatibilityOutput | PlanBoundaryKind::Translation => {
+            &["adapter_certification", "semantic_profile_coverage"]
+        }
+        PlanBoundaryKind::Effect => &["extension_safety", "security_governance"],
+        PlanBoundaryKind::Materialization | PlanBoundaryKind::ZeroCopyInterop => &[
+            "native_io_certificate_coverage",
+            "materialization_boundary_evidence",
+        ],
+        PlanBoundaryKind::ZeroDecode => &["native_io_certificate_coverage"],
+        PlanBoundaryKind::Spill | PlanBoundaryKind::Shuffle | PlanBoundaryKind::Distributed => &[
+            "operator_coverage",
+            "execution_certificate_coverage",
+            "memory_spill",
+        ],
+        PlanBoundaryKind::Unsupported => &["unsupported_boundary_rewrite"],
+    }
+}
+
+fn imported_plan_surface_certified(
+    certification: &CapabilityCertificationReport,
+    surface: &str,
+) -> bool {
+    match surface {
+        "adapter_certification" => {
+            !certification.adapter_certification.entries.is_empty()
+                && certification
+                    .adapter_certification
+                    .entries
+                    .iter()
+                    .all(|entry| entry.status == CapabilityCertificationStatus::Certified)
+        }
+        "function_coverage" => {
+            !certification.function_coverage.entries.is_empty()
+                && certification
+                    .function_coverage
+                    .entries
+                    .iter()
+                    .all(|entry| entry.status == CapabilityCertificationStatus::Certified)
+        }
+        "operator_coverage" => {
+            !certification.operator_coverage.entries.is_empty()
+                && certification
+                    .operator_coverage
+                    .entries
+                    .iter()
+                    .all(|entry| entry.status == OperatorCertificationStatus::ProductionCertified)
+        }
+        "semantic_profile_coverage" => {
+            !certification.semantic_profiles.is_empty()
+                && certification
+                    .semantic_profiles
+                    .iter()
+                    .all(|entry| entry.status == CapabilityCertificationStatus::Certified)
+        }
+        _ => false,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PlanExportStatus {
     Planned,
     Serialized,
@@ -1802,6 +2095,74 @@ mod tests {
             vec!["scan_0:scan".to_string()]
         );
         assert!(!report.has_errors());
+    }
+    #[test]
+    fn imported_plan_capability_gate_blocks_missing_certification() {
+        let mut document =
+            NativePlanDocument::new(PlanId::new("imported").expect("id"), PlanLayer::Logical);
+        document.add_node(NativePlanNode::new(
+            PlanNodeId::new("scan_0").expect("node id"),
+            PlanLayer::Logical,
+            NativePlanNodeKind::Scan,
+            "scan",
+        ));
+        document.validate_skeleton();
+        let request = PlanImportRequest::from_native_serialized(document.to_native_serialized())
+            .expect("native import");
+        let gate = ImportedPlanCapabilityGateReport::for_import_request(
+            &request,
+            &CapabilityCertificationReport::contract_only(),
+        );
+
+        assert_eq!(
+            gate.status,
+            ImportedPlanCapabilityGateStatus::BlockedMissingCapabilityEvidence
+        );
+        assert!(gate.capability_checked);
+        assert!(!gate.execution_allowed);
+        assert_eq!(gate.imported_plan_id.as_deref(), Some("imported"));
+        assert!(
+            gate.required_capability_surfaces
+                .contains(&"adapter_certification".to_string())
+        );
+        assert!(
+            gate.required_capability_surfaces
+                .contains(&"native_io_certificate_coverage".to_string())
+        );
+        assert!(
+            gate.missing_certification_surfaces
+                .contains(&"native_plan_validation".to_string())
+        );
+        assert!(!gate.runtime_execution);
+        assert!(!gate.external_engine_execution);
+        assert!(!gate.fallback_attempted);
+    }
+    #[test]
+    fn imported_plan_capability_gate_blocks_effect_boundaries_first() {
+        let mut document =
+            NativePlanDocument::new(PlanId::new("effectful").expect("id"), PlanLayer::Logical);
+        let mut udf = NativePlanNode::new(
+            PlanNodeId::new("udf_0").expect("node id"),
+            PlanLayer::Logical,
+            NativePlanNodeKind::Udf,
+            "python udf",
+        );
+        udf.add_boundary(PlanBoundaryKind::Effect);
+        document.add_node(udf);
+        document.validate_skeleton();
+        let request = PlanImportRequest::from_native_serialized(document.to_native_serialized())
+            .expect("native import");
+        let gate = ImportedPlanCapabilityGateReport::for_import_request(
+            &request,
+            &CapabilityCertificationReport::contract_only(),
+        );
+
+        assert_eq!(
+            gate.status,
+            ImportedPlanCapabilityGateStatus::BlockedEffectBoundary
+        );
+        assert_eq!(gate.effect_boundary_count, 1);
+        assert!(!gate.execution_allowed);
     }
     #[test]
     fn portability_report_classifies_native_nodes_and_boundaries() {

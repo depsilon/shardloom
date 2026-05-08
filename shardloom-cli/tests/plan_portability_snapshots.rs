@@ -96,6 +96,37 @@ fn plan_import_json_accepts_native_serialized_payload_without_side_effects() {
     assert!(output.contains(&field("substrait_like_representable_nodes", "scan_0:scan")));
     assert!(output.contains(&field("imported_plan_id", "cli-import-fixture")));
     assert!(output.contains(&field("imported_plan_node_count", "1")));
+    assert!(output.contains(&field(
+        "imported_plan_capability_gate_schema_version",
+        "shardloom.imported_plan_capability_gate.v1"
+    )));
+    assert!(output.contains(&field(
+        "imported_plan_capability_gate_status",
+        "blocked_missing_capability_evidence"
+    )));
+    assert!(output.contains(&field("imported_plan_capability_checked", "true")));
+    assert!(output.contains(&field("imported_plan_execution_allowed", "false")));
+    assert!(output.contains(&field(
+        "imported_plan_missing_certification_surfaces",
+        "adapter_certification,native_io_certificate_coverage,native_plan_validation"
+    )));
+    assert!(output.contains(&field("imported_plan_gate_runtime_execution", "false")));
+    assert!(output.contains(&field("imported_plan_gate_parser_executed", "false")));
+    assert!(output.contains(&field("imported_plan_gate_filesystem_probe", "false")));
+    assert!(output.contains(&field("imported_plan_gate_network_probe", "false")));
+    assert!(output.contains(&field("imported_plan_gate_catalog_probe", "false")));
+    assert!(output.contains(&field("imported_plan_gate_adapter_probe", "false")));
+    assert!(output.contains(&field(
+        "imported_plan_gate_external_engine_execution",
+        "false"
+    )));
+    assert!(output.contains(&field("imported_plan_gate_read_io", "false")));
+    assert!(output.contains(&field("imported_plan_gate_write_io", "false")));
+    assert!(output.contains(&field(
+        "imported_plan_gate_fallback_execution_allowed",
+        "false"
+    )));
+    assert!(output.contains(&field("imported_plan_gate_fallback_attempted", "false")));
     assert!(output.contains(&field("import_export_serialization_performed", "true")));
     assert!(output.contains(&field("runtime_execution", "false")));
     assert!(output.contains(&field("external_engine_execution", "false")));
