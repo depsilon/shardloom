@@ -551,6 +551,16 @@ No fallback execution.
 - `shardloom-vortex/src/encoded_read_executor.rs` feature-gated tests verify the approved local encoded count path and local execution bridge return the manifest count without decode/materialization/row/Arrow/object-store/write/spill/external/fallback effects.
 - This pass adds no new fixture generation, decoded reference engine execution, external baseline invocation, generalized encoded-data execution, non-local adapter, object-store IO, encoded predicate, projection execution, row read, requested decode/materialization, Arrow conversion, write behavior, benchmark claim, superiority claim, or fallback execution.
 
+## CG-16.1 local encoded `CountAll` execution certificate
+
+- Primary RFC linkage: RFC 0029 Correctness/Benchmarks/Execution Certificates, RFC 0015 Correctness/Semantics/Differential Testing, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
+- `ExecutionCertificateInput`, `ExecutionCertificate`, and `ExecutionCertificateStatus` define the first generic CG-16 execution certificate surface in `shardloom-core`.
+- Certificate evaluation requires matching expected/actual correctness output, explicit correctness-passed evidence, no fallback attempt, no fallback availability, no unsafe effect flag, and no error diagnostics before certification.
+- `local_encoded_count_execution_certificate` derives a certificate from the approved local encoded count report and local execution bridge report, preserving input/output refs, fixture id, data-read flags, unsafe-effect flags, and no-fallback fields.
+- `shardloom-contract-tests/tests/execution_certificate_contracts.rs` verifies certified, fallback-blocked, unsafe-effect-blocked, and diagnostic-blocked certificate outcomes.
+- The feature-gated local encoded count test verifies the actual approved local `.vortex` path emits a certified, fallback-free certificate for the CG-5.5 fixture.
+- This pass adds no generalized execution certificate system, native I/O certificate implementation, benchmark certificate, external baseline invocation, generalized encoded-data execution, non-local adapter, object-store IO, encoded predicate, projection execution, row read, requested decode/materialization, Arrow conversion, write behavior, benchmark claim, superiority claim, or fallback execution.
+
 ## CG-6.1 benchmark evidence manifest
 
 - Primary RFC linkage: RFC 0029 Correctness/Benchmarks/Execution Certificates, RFC 0015 Correctness/Semantics/Differential Testing, RFC 0025 Competitive/no-fallback, and RFC 0032 capability certification gates.

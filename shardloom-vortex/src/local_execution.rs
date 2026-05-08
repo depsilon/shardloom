@@ -3,7 +3,10 @@
 
 use std::fmt::Write as _;
 
-use shardloom_core::{Diagnostic, DiagnosticCode, DiagnosticSeverity, Result};
+use shardloom_core::{
+    CorrectnessFixture, Diagnostic, DiagnosticCode, DiagnosticSeverity, ExecutionCertificate,
+    ExecutionCertificateInput, ExpectedOutcome, Result,
+};
 
 use crate::{
     VortexCountCandidateSource, VortexCountReadinessReport, VortexCountReadinessStatus,
@@ -817,6 +820,129 @@ pub fn execute_vortex_count_all_from_approved_local_scan_result(
     let mut report = VortexLocalExecutionReport::local_encoded_count_executed(input, count_result);
     report.diagnostics.extend(encoded_read.diagnostics.clone());
     Ok(report)
+}
+
+/// Builds a CG-16 execution certificate for the approved local encoded
+/// `CountAll` path.
+///
+/// This certificate is intentionally scoped to the local encoded count proof.
+/// It records the correctness fixture reference, expected/actual count output,
+/// data-read evidence, unsafe-effect flags, and no-fallback evidence without
+/// broadening encoded-data execution.
+///
+/// # Errors
+/// Returns an error if the certificate input cannot be constructed.
+pub fn local_encoded_count_execution_certificate(
+    fixture: &CorrectnessFixture,
+    encoded_read: &VortexEncodedReadExecutionReport,
+    local_execution: &VortexLocalExecutionReport,
+) -> Result<ExecutionCertificate> {
+    let certificate_id = format!("{}.execution-certificate", fixture.id.as_str());
+    let mut input = ExecutionCertificateInput::new(certificate_id, "vortex.local_encoded_count")?;
+    input.plan_ref = Some("vortex-count:local-encoded-count".to_string());
+    input.input_ref = encoded_read
+        .local_scan_target_uri
+        .as_ref()
+        .map(|uri| uri.as_str().to_string());
+    input.output_ref = encoded_read
+        .count_result
+        .map(|count| format!("count_all_result={count}"));
+    input.correctness_fixture_id = Some(fixture.id.as_str().to_string());
+    input.expected_outcome = Some(fixture.expected.clone());
+    input.actual_outcome = local_encoded_count_actual_outcome(local_execution);
+    if encoded_read.upstream_scan_called {
+        input
+            .side_effects_performed
+            .push("local_vortex_scan".to_string());
+    }
+    if local_execution.tasks_executed {
+        input
+            .side_effects_performed
+            .push("local_execution_task".to_string());
+    }
+    input.data_read = encoded_read.data_read || local_execution.data_read;
+    input.data_decoded = encoded_read.data_decoded || local_execution.data_decoded;
+    input.data_materialized = encoded_read.data_materialized || local_execution.data_materialized;
+    input.row_read = encoded_read.row_read;
+    input.arrow_converted = encoded_read.arrow_converted;
+    input.object_store_io = encoded_read.object_store_io || local_execution.object_store_io;
+    input.write_io = encoded_read.write_io || local_execution.write_io;
+    input.spill_io_performed =
+        encoded_read.spill_io_performed || local_execution.spill_io_performed;
+    input.external_effects_executed =
+        encoded_read.external_effects_executed || local_execution.external_effects_executed;
+    input.fallback_attempted = encoded_read
+        .diagnostics
+        .iter()
+        .chain(local_execution.diagnostics.iter())
+        .any(|diagnostic| diagnostic.fallback.attempted);
+    input.fallback_execution_allowed =
+        encoded_read.fallback_execution_allowed || local_execution.fallback_execution_allowed;
+    input.unsafe_effect_detected =
+        local_encoded_count_unsafe_effect_detected(encoded_read, local_execution);
+    input.correctness_passed = local_encoded_count_correctness_passed(
+        &fixture.expected,
+        encoded_read,
+        local_execution,
+        input.actual_outcome.as_ref(),
+    );
+    input.diagnostics.extend(encoded_read.diagnostics.clone());
+    input
+        .diagnostics
+        .extend(local_execution.diagnostics.clone());
+    Ok(ExecutionCertificate::evaluate(input))
+}
+
+fn local_encoded_count_actual_outcome(
+    local_execution: &VortexLocalExecutionReport,
+) -> Option<ExpectedOutcome> {
+    match local_execution.value {
+        VortexLocalExecutionValue::QueryPrimitive(VortexQueryPrimitiveValue::Count(count)) => {
+            Some(ExpectedOutcome::EncodedCount { count })
+        }
+        _ => None,
+    }
+}
+
+fn local_encoded_count_correctness_passed(
+    expected: &ExpectedOutcome,
+    encoded_read: &VortexEncodedReadExecutionReport,
+    local_execution: &VortexLocalExecutionReport,
+    actual: Option<&ExpectedOutcome>,
+) -> bool {
+    let ExpectedOutcome::EncodedCount { count } = expected else {
+        return false;
+    };
+    matches!(actual, Some(ExpectedOutcome::EncodedCount { count: actual }) if actual == count)
+        && encoded_read.count_result == Some(*count)
+        && encoded_read.rows_counted == *count
+        && encoded_read.status == VortexEncodedReadExecutionStatus::LocalScanEncodedCountExecuted
+        && local_execution.status == VortexLocalExecutionStatus::LocalEncodedCountExecuted
+        && !encoded_read.has_errors()
+        && !local_execution.has_errors()
+}
+
+fn local_encoded_count_unsafe_effect_detected(
+    encoded_read: &VortexEncodedReadExecutionReport,
+    local_execution: &VortexLocalExecutionReport,
+) -> bool {
+    encoded_read.data_decoded
+        || encoded_read.data_materialized
+        || encoded_read.row_read
+        || encoded_read.arrow_converted
+        || encoded_read.object_store_io
+        || encoded_read.write_io
+        || encoded_read.spill_io_performed
+        || encoded_read.external_effects_executed
+        || encoded_read.fallback_execution_allowed
+        || !encoded_read.local_scan_source_uri_matches_target
+        || local_execution.data_decoded
+        || local_execution.data_materialized
+        || local_execution.object_store_io
+        || local_execution.write_io
+        || local_execution.spill_io_performed
+        || local_execution.external_effects_executed
+        || local_execution.fallback_execution_allowed
 }
 
 /// Executes metadata-proven `CountWhere` through the filtered-count readiness guard.
