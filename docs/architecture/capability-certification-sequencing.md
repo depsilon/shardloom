@@ -115,6 +115,10 @@ Future commands:
 - `shardloom capabilities functions`
 - `shardloom capabilities operators`
 - `shardloom capabilities adapters`
+- `shardloom capabilities universal-adapters`
+- `shardloom capabilities data-etl`
+- `shardloom capabilities python`
+- `shardloom capabilities unstructured-media`
 - `shardloom capabilities semantic-profiles`
 - `shardloom capabilities migration`
 - `shardloom capabilities certification`
@@ -132,6 +136,7 @@ R5.4.2 outcome:
 
 - Scoped capability discovery uses existing `shardloom capabilities <scope>` commands instead of adding separate top-level commands.
 - Implemented scopes: `sql`, `functions`, `operators`, `adapters`, `semantic-profiles`, `migration`, and `certification`.
+- Additional CG-20 user-surface scopes such as `data-etl`, `python`, `unstructured-media`, `universal-adapters`, `api-surfaces`, `observability`, `deployment`, `extensions`, and `security-governance` remain planned until report-only contracts and snapshot coverage are added.
 - Existing `shardloom capabilities` remains the engine-level capability summary.
 - JSON output uses stable output-envelope fields including `scope`, `schema_version`, `fallback_execution_allowed=false`, `fallback_attempted=false`, and side-effect/probe flags.
 - Discovery is report-only and does not parse SQL, execute runtime work, probe adapters, inspect catalogs, read files, perform network I/O, or infer capability from external baseline availability.
@@ -395,10 +400,13 @@ Goal: make CG-20 broad enough for world-class common analytical and ETL adoption
 Checklist:
 
 - [x] Define common data/ETL coverage beyond SQL clauses.
-- [x] Define `DataEtlCapabilityReport` fields for ingestion, transformation, cleaning, incremental processing, writes/exports, partition/layout behavior, bounded streaming, memory/spill, and pipeline observability.
+- [x] Define common data/ETL coverage families for ingestion, schema contracts, cleaning/quality, transformation, enrichment, incremental state, write/export, and pipeline operations.
+- [x] Define `DataEtlCoverageEntry` fields for per-capability source/sink/operator/function/adapter/Python/UDF/unstructured requirements.
+- [x] Define `DataEtlCapabilityReport` fields for ingestion, transformation, cleaning, data quality, incremental processing, writes/exports, partition/layout behavior, state/checkpoint behavior, bounded streaming, memory/spill, lineage/provenance, orchestration, and pipeline observability.
 - [x] Define Python wrapper/API ownership under CG-20 with a thin CLI/API JSON wrapper first.
 - [x] Define `PythonSurfaceReport` fields for wrapper mode, protocol versions, DataFrame/query-builder status, notebook support, materialization/export boundaries, UDF boundaries, packaging, diagnostics, and no-fallback behavior.
-- [x] Expand universal adapter roadmap to relational/warehouse sources, partitioned datasets, compressed wrappers, and unstructured/media source references.
+- [x] Clarify that CG-11 may establish API/protocol foundations while CG-20 owns mature Python wrapper, DataFrame/query-builder, notebook, Python UDF, and packaging certification.
+- [x] Expand universal adapter roadmap to relational/warehouse sources, event/API/SaaS sources, partitioned datasets, compressed wrappers, and unstructured/media source references.
 - [x] Define unstructured/media capability boundaries for typed references, extracted text/chunks/metadata, extractor provenance, redaction, effect permissions, and materialization cost.
 - [x] Add ETL/Python/unstructured-media dimensions to workload constitutions, scorecards, best-default dossiers, sufficiency status, and disqualifiers.
 
@@ -406,8 +414,9 @@ R5.4.12 outcome:
 
 - RFC 0032 now treats SQL as one part of common data/ETL support, not the whole CG-20 surface.
 - Python wrapper/API work is explicitly owned by CG-20 user capability, starting with a thin stable JSON client and preserving no-fallback/materialization diagnostics.
+- CG-11 is the API/protocol foundation gate; CG-20 is the mature Python/user-capability certification gate.
 - UDFs, Python UDFs, unstructured media extraction, OCR/LLM/embedding/vector paths, and external APIs remain explicit effectful/materialization boundaries until later certified native paths exist.
-- Universal adapters include tabular files, table/lakehouse metadata, object stores, catalogs, relational/warehouse sources, client/server bridges, Python/notebook surfaces, and unstructured/media references.
+- Universal adapters include tabular files, table/lakehouse metadata, object stores, catalogs, relational/warehouse sources, event/API/SaaS sources, client/server bridges, Python/notebook surfaces, and unstructured/media references.
 - No parser, Python package, adapter runtime, media runtime, OCR/LLM/embedding dependency, execution behavior, external probing, or fallback behavior is added.
 
 Acceptance:
@@ -432,5 +441,6 @@ Recommended order:
 - [x] Harden user-surface certification for API, BI/server, observability, deployment, extension safety, and security/governance. Complete in R5.4.10.
 - [x] Expand common data/ETL, Python wrapper, universal adapter, and unstructured/media coverage. Complete in R5.4.12.
 - [ ] Add SQL/operator/function/adapter/API/observability/deployment coverage entries incrementally as real implementation appears.
+- [ ] Add report-only discovery scopes for data/ETL, Python, unstructured media, universal adapters, API surfaces, observability, deployment, extensions, and security/governance after the current scoped capability surface is stable.
 
 Do not start with a parser, adapter runtime, or kernel implementation before the report contracts and capability discovery surfaces exist.

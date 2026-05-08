@@ -55,15 +55,15 @@ use shardloom_vortex::{
     VortexFinalizedManifestFileName, VortexFinalizedManifestFileRef,
     VortexLayoutReaderDriverApprovalInput, VortexLayoutReaderDriverApprovalSignal,
     VortexLocalCommitExecutionRequest, VortexLocalCommitExecutionSignal,
-    VortexLocalExecutionReport, VortexManifestFinalizationRequest,
-    VortexManifestFinalizationSignal, VortexMetadataOpenRequest, VortexMetadataProbeReport,
-    VortexNativeOutputPayloadWriteReport, VortexOutputPayloadContentDescriptor,
-    VortexOutputPayloadFileName, VortexOutputPayloadFileRef, VortexOutputPayloadReport,
-    VortexOutputPayloadRequest, VortexOutputPayloadSignal, VortexProjectionCandidateSource,
-    VortexProjectionReadinessSignal, VortexQueryPrimitiveRequest, VortexQueryPrimitiveResult,
-    VortexQueryPrimitiveSignal, VortexQueryPrimitiveValue, VortexReadPlan,
-    VortexStagedManifestDraftContent, VortexStagedManifestFileEffect, VortexStagedManifestFileRef,
-    VortexStagedManifestFileReport, VortexStagedManifestFileRequest,
+    VortexLocalCommitRecoveryRequest, VortexLocalCommitRecoverySignal, VortexLocalExecutionReport,
+    VortexManifestFinalizationRequest, VortexManifestFinalizationSignal, VortexMetadataOpenRequest,
+    VortexMetadataProbeReport, VortexNativeOutputPayloadWriteReport,
+    VortexOutputPayloadContentDescriptor, VortexOutputPayloadFileName, VortexOutputPayloadFileRef,
+    VortexOutputPayloadReport, VortexOutputPayloadRequest, VortexOutputPayloadSignal,
+    VortexProjectionCandidateSource, VortexProjectionReadinessSignal, VortexQueryPrimitiveRequest,
+    VortexQueryPrimitiveResult, VortexQueryPrimitiveSignal, VortexQueryPrimitiveValue,
+    VortexReadPlan, VortexStagedManifestDraftContent, VortexStagedManifestFileEffect,
+    VortexStagedManifestFileRef, VortexStagedManifestFileReport, VortexStagedManifestFileRequest,
     VortexStagedManifestFileSignal, VortexStagedManifestFileWriteEffect,
     VortexStagedManifestFileWriteOption, VortexStagedManifestFileWriteRequest,
     VortexStagedManifestFileWriteSignal, VortexStagedMarkerOption, VortexStagedMarkerRequest,
@@ -89,8 +89,9 @@ use shardloom_vortex::{
     plan_vortex_encoded_count_data_path_approval_with_layout_driver,
     plan_vortex_encoded_read_boundary, plan_vortex_encoded_read_probe,
     plan_vortex_filtered_count_readiness, plan_vortex_layout_reader_driver_approval,
-    plan_vortex_manifest_finalization, plan_vortex_memory_safety, plan_vortex_metadata_pruning,
-    plan_vortex_output_payload, plan_vortex_projection_readiness, plan_vortex_query_primitive,
+    plan_vortex_local_commit_recovery, plan_vortex_manifest_finalization,
+    plan_vortex_memory_safety, plan_vortex_metadata_pruning, plan_vortex_output_payload,
+    plan_vortex_projection_readiness, plan_vortex_query_primitive,
     plan_vortex_query_primitive_result_physical_operators_with_evidence,
     plan_vortex_read_from_universal_input, plan_vortex_scheduler_queue,
     plan_vortex_staged_manifest_file, plan_vortex_write_intent, probe_vortex_encoded_read_metadata,
@@ -142,7 +143,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|write-intent|scan-plan|runtime-plan|task-plan|sizing-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|explain|estimate|benchmark-plan|correctness-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -920,6 +921,49 @@ fn parse_vortex_local_commit_execution_signals(
             _ => {
                 return Err(ShardLoomError::InvalidOperation(format!(
                     "unknown local commit execution signal token: {token}"
+                )));
+            }
+        };
+        if !signals.contains(&signal) {
+            signals.push(signal);
+        }
+    }
+    Ok(signals)
+}
+
+fn parse_vortex_local_commit_recovery_signals(
+    signals_raw: &str,
+) -> Result<Vec<VortexLocalCommitRecoverySignal>, ShardLoomError> {
+    if signals_raw.trim().is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "local commit recovery signals must not be empty".to_string(),
+        ));
+    }
+    let mut signals = Vec::new();
+    for token in signals_raw.split(',') {
+        let token = token.trim();
+        if token.is_empty() {
+            return Err(ShardLoomError::InvalidOperation(
+                "local commit recovery signals must not contain empty tokens".to_string(),
+            ));
+        }
+        let signal = match token {
+            "rollback-requested" => VortexLocalCommitRecoverySignal::RollbackRequested,
+            "committed-manifest-written" => {
+                VortexLocalCommitRecoverySignal::CommittedManifestWritten
+            }
+            "committed-manifest-missing" => {
+                VortexLocalCommitRecoverySignal::CommittedManifestMissing
+            }
+            "already-committed" => VortexLocalCommitRecoverySignal::AlreadyCommitted,
+            "ambiguous-commit" => VortexLocalCommitRecoverySignal::AmbiguousCommittedManifest,
+            "local-workspace" => VortexLocalCommitRecoverySignal::LocalWorkspace,
+            "object-store-target" => VortexLocalCommitRecoverySignal::ObjectStoreTarget,
+            "cleanup-allowed" => VortexLocalCommitRecoverySignal::CleanupAllowed,
+            "cleanup-blocked" => VortexLocalCommitRecoverySignal::CleanupBlocked,
+            _ => {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "unknown local commit recovery signal token: {token}"
                 )));
             }
         };
@@ -6758,6 +6802,141 @@ fn run(args: Vec<String>) -> ExitCode {
                 ExitCode::SUCCESS
             }
         }
+        Some("vortex-local-commit-recovery-plan") => {
+            let Some(target_uri_raw) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-local-commit-recovery-plan <target_uri> <workspace_path> <signals>"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(workspace_path_raw) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-local-commit-recovery-plan <target_uri> <workspace_path> <signals>"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(signals_raw) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-local-commit-recovery-plan <target_uri> <workspace_path> <signals>"
+                );
+                return ExitCode::from(2);
+            };
+            let target_uri = match DatasetUri::new(target_uri_raw) {
+                Ok(uri) => uri,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-local-commit-recovery-plan",
+                        format,
+                        "invalid dataset uri",
+                        &error,
+                    );
+                }
+            };
+            let workspace_path = match VortexStagedWorkspacePath::new(workspace_path_raw) {
+                Ok(path) => path,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-local-commit-recovery-plan",
+                        format,
+                        "invalid workspace path",
+                        &error,
+                    );
+                }
+            };
+            let signals = match parse_vortex_local_commit_recovery_signals(&signals_raw) {
+                Ok(signals) => signals,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-local-commit-recovery-plan",
+                        format,
+                        "invalid local commit recovery signals",
+                        &error,
+                    );
+                }
+            };
+            let mut request = VortexLocalCommitRecoveryRequest::new(target_uri, workspace_path);
+            for signal in signals {
+                request.add_signal(signal, true);
+            }
+            let report = match plan_vortex_local_commit_recovery(request) {
+                Ok(report) => report,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-local-commit-recovery-plan",
+                        format,
+                        "local commit recovery planning failed",
+                        &error,
+                    );
+                }
+            };
+            emit(
+                "vortex-local-commit-recovery-plan",
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "vortex local commit recovery plan".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                vec![
+                    (
+                        "fallback_execution_allowed".to_string(),
+                        "false".to_string(),
+                    ),
+                    (
+                        "mode".to_string(),
+                        "vortex_local_commit_recovery_plan".to_string(),
+                    ),
+                    (
+                        "rollback_required".to_string(),
+                        report.rollback_required().to_string(),
+                    ),
+                    (
+                        "rollback_planned".to_string(),
+                        report.rollback_planned().to_string(),
+                    ),
+                    (
+                        "ambiguous_commit".to_string(),
+                        report.ambiguous_commit().to_string(),
+                    ),
+                    (
+                        "cleanup_required".to_string(),
+                        report.cleanup_required().to_string(),
+                    ),
+                    (
+                        "cleanup_target_count".to_string(),
+                        report.cleanup_target_count().to_string(),
+                    ),
+                    (
+                        "rollback_executed".to_string(),
+                        report.rollback_executed().to_string(),
+                    ),
+                    (
+                        "cleanup_performed".to_string(),
+                        report.cleanup_performed().to_string(),
+                    ),
+                    (
+                        "object_store_io".to_string(),
+                        report.object_store_io().to_string(),
+                    ),
+                    (
+                        "upstream_vortex_write_called".to_string(),
+                        report.upstream_vortex_write_called().to_string(),
+                    ),
+                    (
+                        "execution".to_string(),
+                        "local_commit_recovery_planning_only".to_string(),
+                    ),
+                ],
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
         Some("vortex-staged-workspace-setup") => {
             let Some(workspace_id_raw) = args.next() else {
                 eprintln!(
@@ -12478,6 +12657,40 @@ mod tests {
     }
 
     #[test]
+    fn vortex_local_commit_recovery_plan_ready_returns_success() {
+        let code = run(vec![
+            "vortex-local-commit-recovery-plan".to_string(),
+            "file://tmp/out.vortex".to_string(),
+            "/tmp/stage".to_string(),
+            "rollback-requested,committed-manifest-written,local-workspace,cleanup-allowed"
+                .to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_local_commit_recovery_plan_invalid_inputs_return_non_zero() {
+        assert_ne!(
+            run(vec!["vortex-local-commit-recovery-plan".to_string()]),
+            ExitCode::SUCCESS
+        );
+        let unknown_signal = run(vec![
+            "vortex-local-commit-recovery-plan".to_string(),
+            "file://tmp/out.vortex".to_string(),
+            "/tmp/stage".to_string(),
+            "committed-manifest-written,unknown".to_string(),
+        ]);
+        assert_ne!(unknown_signal, ExitCode::SUCCESS);
+        let ambiguous = run(vec![
+            "vortex-local-commit-recovery-plan".to_string(),
+            "file://tmp/out.vortex".to_string(),
+            "/tmp/stage".to_string(),
+            "committed-manifest-written,ambiguous-commit,local-workspace".to_string(),
+        ]);
+        assert_ne!(ambiguous, ExitCode::SUCCESS);
+    }
+
+    #[test]
     fn vortex_commit_marker_plan_ready_returns_success() {
         let code = run(vec![
             "vortex-commit-marker-plan".to_string(),
@@ -13994,6 +14207,7 @@ mod tests {
         assert!(usage.contains("|vortex-output-payload-artifact-write|"));
         assert!(usage.contains("|vortex-native-count-payload-write|"));
         assert!(usage.contains("|vortex-local-commit-execute|"));
+        assert!(usage.contains("|vortex-local-commit-recovery-plan|"));
     }
 
     #[test]

@@ -147,10 +147,11 @@ See `docs/architecture/terminology-consolidation-backlog.md` for the full audit 
 - **migration compatibility report**: structured report mapping supported/unsupported constructs and semantic deltas for migration planning.
 - **source pushdown exactness**: the declared guarantee quality for source pushdown (exact, exact with residual, conservative, unsupported, unsafe rejected).
 - **native I/O certificate**: structured evidence object capturing source/sink capability, transitions, materialization boundaries, and no-fallback status.
-- **data/ETL capability report**: structured evidence for ingestion, transformation, cleaning, incremental processing, write/export, memory/spill, and pipeline observability coverage.
-- **Python surface report**: structured evidence for the Python wrapper/API, including protocol version, notebook/DataFrame status, materialization boundaries, packaging, diagnostics, and no-fallback behavior.
+- **data/ETL coverage entry**: per-capability evidence row for an ETL family such as ingestion, schema contracts, cleaning/quality, transformation, enrichment, incremental state, write/export, or pipeline operations.
+- **data/ETL capability report**: structured evidence for ingestion, schema contracts, transformation, cleaning, data quality, incremental processing, write/export, lineage/provenance, memory/spill, orchestration, governance, and pipeline observability coverage.
+- **Python surface report**: structured evidence for the Python wrapper/API, including protocol version, notebook/DataFrame/query-builder status, materialization boundaries, UDF boundaries, packaging, diagnostics, and no-fallback behavior.
 - **unstructured media capability report**: structured evidence for document, text, image, audio, video, archive, extracted-field, chunk, and metadata handling with explicit effect/materialization boundaries.
-- **universal adapter catalog**: workload-scoped inventory of source, sink, catalog, object-store, relational, warehouse, client/server, and unstructured/media adapters with maturity and certificate status.
+- **universal adapter catalog**: workload-scoped inventory of source, sink, catalog, object-store, relational, warehouse, event/API/SaaS, client/server, Python/notebook, and unstructured/media adapters with maturity and certificate status.
 - **API surface certification**: evidence that a CLI, Rust, Python, DataFrame, notebook, server, BI, or agent surface exposes native capability safely and explicitly.
 - **observability certification**: evidence that explain, estimate, profile, metrics, certificates, and diagnostics reveal what ShardLoom did, avoided, or rejected.
 - **deployment readiness report**: structured evidence for packaging, configuration, resource limits, reproducibility, compatibility, and operational constraints.

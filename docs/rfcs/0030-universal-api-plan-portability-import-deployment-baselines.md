@@ -3,7 +3,7 @@
 ## Scope
 
 This RFC defines implementation contracts for:
-- CG-11 Python/API surface later.
+- CG-11 Python/API foundation surface later.
 - CG-12 plan portability / semantic IR.
 - CG-18 universal import/deployment/baseline harness.
 
@@ -13,6 +13,7 @@ This RFC defines implementation contracts for:
 - Stable command schema.
 - No PyO3/maturin unless explicitly approved.
 - No Spark fallback.
+- CG-11 establishes the API/protocol foundation for Python and other clients. Mature Python wrapper, DataFrame/query-builder, notebook, Python UDF, packaging, and workload-certification evidence belongs to CG-20.
 
 ## Plan portability contract
 

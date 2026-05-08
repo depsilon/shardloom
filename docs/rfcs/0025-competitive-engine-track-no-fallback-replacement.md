@@ -30,7 +30,7 @@ Competitive success gates (CG) are roadmap gates, not canonical phase-ID aliases
 8. CG-8: streaming/parallel/adaptive execution.
 9. CG-9: lakehouse/table intelligence.
 10. CG-10: object-store/distributed execution.
-11. CG-11: Python/API surface later.
+11. CG-11: Python/API foundation surface later.
 12. CG-12: plan portability / semantic IR.
 13. CG-13: encoded-native compressed execution.
 14. CG-14: runtime-adaptive optimizer and execution memory.
@@ -106,9 +106,11 @@ If any required evidence is absent, the only allowed publication status is `not_
 Define and adopt ShardLoom-native universal I/O contracts that preserve encoded representation, statistics, selection vectors, pushdown proof, materialization state, and sink requirements without defaulting to decoded Arrow batches.
 
 ### CG-20 — World-Class SQL, Operator, Function, Adapter, and User Capability Surface
-Define and validate a full capability-certification surface across SQL, operators, functions, adapters, semantic compatibility, migration tooling, and user capability discovery.
+Define and validate a full capability-certification surface across SQL, operators, functions, adapters, semantic compatibility, migration tooling, Python/API, UDFs, common data/ETL, universal adapters, unstructured/media data, and user capability discovery.
 
 CG-20 is the final user-capability gate. It is broader than SQL support alone.
+
+CG-11 can establish stable API/protocol foundations, but mature Python wrapper, DataFrame/query-builder, notebook, Python UDF, packaging, common ETL, and universal-adapter certification belong to CG-20.
 
 ShardLoom's competitive target is best-default-engine certification for declared workloads, not merely a narrow Vortex accelerator. That certification target must remain evidence-gated and workload-scoped.
 

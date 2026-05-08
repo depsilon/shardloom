@@ -63,9 +63,9 @@ These systems are pressure tests for ShardLoom-native architecture and diagnosti
   - ShardLoom vocabulary: `PlanPortabilityReport`, native-only nodes, representable nodes, lossy nodes, unsupported nodes, portability diagnostics.
 - Spark and DataFusion capability lessons
   - Spark and DataFusion are capability baselines, not fallback engines.
-  - Spark lesson: broad platform capability across SQL, APIs, deployment, monitoring, streaming, and lakehouse workflows.
-  - DataFusion lesson: extensible local SQL/DataFrame capability with operators, functions, adapters, and Arrow-oriented ecosystem habits.
-  - ShardLoom translation: SQL coverage matrix, operator coverage matrix, function coverage matrix, adapter certification, semantic profiles, migration analyzers, capability discovery.
+  - Spark lesson: broad platform capability across SQL, Python-style workflows, APIs, deployment, monitoring, streaming, ETL, lakehouse workflows, and operational integrations.
+  - DataFusion lesson: extensible local SQL/DataFrame capability with operators, functions, adapters, UDFs, and Arrow-oriented ecosystem habits.
+  - ShardLoom translation: SQL coverage matrix, operator coverage matrix, function coverage matrix, adapter certification, data/ETL capability reports, Python surface reports, unstructured/media capability reports, semantic profiles, migration analyzers, capability discovery.
 
 ## Placement Guidance
 
@@ -100,11 +100,15 @@ These systems are pressure tests for ShardLoom-native architecture and diagnosti
 - API ergonomics, notebook access, BI/server access, observability, deployment posture, security/governance, and extension safety all affect default-engine adoption.
 - ShardLoom translates those lessons into native certification reports rather than hidden integration shortcuts:
   - `ApiSurfaceReport`
+  - `DataEtlCapabilityReport`
+  - `PythonSurfaceReport`
+  - `UnstructuredMediaCapabilityReport`
+  - `UniversalAdapterCatalog`
   - `ObservabilityCertificationReport`
   - `DeploymentReadinessReport`
   - `ExtensionCapabilityReport`
   - `SecurityGovernanceReport`
-- Client/server, notebook, BI, UDF/plugin, and external-effect surfaces must expose capability checks and diagnostics before execution.
+- Client/server, Python/notebook, BI, UDF/plugin, common ETL, unstructured/media, universal-adapter, and external-effect surfaces must expose capability checks and diagnostics before execution.
 - External systems can be sources, sinks, baselines, or effect boundaries, but not fallback execution engines.
 
 ## Guardrails
@@ -115,4 +119,4 @@ These systems are pressure tests for ShardLoom-native architecture and diagnosti
 - No new dependencies from this document alone.
 - Vortex remains native first-class input and output.
 - ShardLoom owns runtime, optimizer, diagnostics, and policy.
-- CG-20 covers capability breadth across SQL, operators, functions, adapters, semantics, migration, and user-facing certification; it is not SQL-only.
+- CG-20 covers capability breadth across SQL, operators, functions, adapters, semantics, migration, Python, UDFs, common ETL, unstructured/media, and user-facing certification; it is not SQL-only.

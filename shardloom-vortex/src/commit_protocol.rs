@@ -12,6 +12,10 @@ use shardloom_core::{
     DatasetUri, Diagnostic, DiagnosticCode, DiagnosticSeverity, FallbackStatus, Result,
     ShardLoomError,
 };
+use shardloom_exec::{
+    AmbiguousCommitRecord, CleanupRequirement, CleanupTargetKind, FaultToleranceLevel,
+    RecoveryAction, RecoveryActionKind, RecoveryPlan,
+};
 
 use crate::VortexStagedWorkspacePath;
 
@@ -384,6 +388,120 @@ impl VortexLocalCommitExecutionSignal {
                 | Self::CommitMarkerMissing
                 | Self::OutputPayloadMissing
                 | Self::ObjectStoreTarget
+        )
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexLocalCommitRecoveryStatus {
+    Planned,
+    RecoveryNotRequired,
+    RollbackRequired,
+    RollbackPlanned,
+    AmbiguousCommit,
+    BlockedByObjectStoreTarget,
+    BlockedByMissingCommittedManifest,
+    BlockedByCleanupPolicy,
+    Unsupported,
+}
+impl VortexLocalCommitRecoveryStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Planned => "planned",
+            Self::RecoveryNotRequired => "recovery_not_required",
+            Self::RollbackRequired => "rollback_required",
+            Self::RollbackPlanned => "rollback_planned",
+            Self::AmbiguousCommit => "ambiguous_commit",
+            Self::BlockedByObjectStoreTarget => "blocked_by_object_store_target",
+            Self::BlockedByMissingCommittedManifest => "blocked_by_missing_committed_manifest",
+            Self::BlockedByCleanupPolicy => "blocked_by_cleanup_policy",
+            Self::Unsupported => "unsupported",
+        }
+    }
+    #[must_use]
+    pub const fn is_error(self) -> bool {
+        matches!(
+            self,
+            Self::AmbiguousCommit
+                | Self::BlockedByObjectStoreTarget
+                | Self::BlockedByMissingCommittedManifest
+                | Self::BlockedByCleanupPolicy
+                | Self::Unsupported
+        )
+    }
+    #[must_use]
+    pub const fn rollback_required(self) -> bool {
+        matches!(
+            self,
+            Self::RollbackRequired | Self::RollbackPlanned | Self::AmbiguousCommit
+        )
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexLocalCommitRecoveryMode {
+    ReportOnly,
+    RollbackPlanning,
+    AmbiguousCommitDiagnostics,
+    Unsupported,
+}
+impl VortexLocalCommitRecoveryMode {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::ReportOnly => "report_only",
+            Self::RollbackPlanning => "rollback_planning",
+            Self::AmbiguousCommitDiagnostics => "ambiguous_commit_diagnostics",
+            Self::Unsupported => "unsupported",
+        }
+    }
+    #[must_use]
+    pub const fn executes_rollback(self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn executes_cleanup(self) -> bool {
+        false
+    }
+    #[must_use]
+    pub const fn writes_object_store(self) -> bool {
+        false
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexLocalCommitRecoverySignal {
+    RollbackRequested,
+    CommittedManifestWritten,
+    CommittedManifestMissing,
+    AlreadyCommitted,
+    AmbiguousCommittedManifest,
+    LocalWorkspace,
+    ObjectStoreTarget,
+    CleanupAllowed,
+    CleanupBlocked,
+}
+impl VortexLocalCommitRecoverySignal {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::RollbackRequested => "rollback_requested",
+            Self::CommittedManifestWritten => "committed_manifest_written",
+            Self::CommittedManifestMissing => "committed_manifest_missing",
+            Self::AlreadyCommitted => "already_committed",
+            Self::AmbiguousCommittedManifest => "ambiguous_committed_manifest",
+            Self::LocalWorkspace => "local_workspace",
+            Self::ObjectStoreTarget => "object_store_target",
+            Self::CleanupAllowed => "cleanup_allowed",
+            Self::CleanupBlocked => "cleanup_blocked",
+        }
+    }
+    #[must_use]
+    pub const fn is_blocking(self) -> bool {
+        matches!(
+            self,
+            Self::CommittedManifestMissing | Self::ObjectStoreTarget | Self::CleanupBlocked
         )
     }
 }
@@ -1104,6 +1222,428 @@ impl VortexLocalCommitExecutionReport {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct VortexLocalCommitRecoveryRequest {
+    pub target_uri: DatasetUri,
+    pub workspace_path: VortexStagedWorkspacePath,
+    pub committed_manifest_ref: VortexCommittedManifestFileRef,
+    pub signals: Vec<VortexLocalCommitRecoverySignal>,
+    pub commit_execution_summary: Option<String>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl VortexLocalCommitRecoveryRequest {
+    #[must_use]
+    pub fn new(target_uri: DatasetUri, workspace_path: VortexStagedWorkspacePath) -> Self {
+        let committed_manifest_ref =
+            VortexCommittedManifestFileRef::default_for_workspace(workspace_path.clone());
+        Self {
+            target_uri,
+            workspace_path,
+            committed_manifest_ref,
+            signals: Vec::new(),
+            commit_execution_summary: None,
+            diagnostics: Vec::new(),
+        }
+    }
+    pub fn add_signal(&mut self, signal: VortexLocalCommitRecoverySignal, value: bool) {
+        if value {
+            if !self.signals.contains(&signal) {
+                self.signals.push(signal);
+            }
+        } else {
+            self.signals.retain(|s| *s != signal);
+        }
+    }
+    #[must_use]
+    pub fn rollback_requested(mut self, value: bool) -> Self {
+        self.add_signal(VortexLocalCommitRecoverySignal::RollbackRequested, value);
+        self
+    }
+    #[must_use]
+    pub fn committed_manifest_written(mut self, value: bool) -> Self {
+        self.add_signal(
+            VortexLocalCommitRecoverySignal::CommittedManifestWritten,
+            value,
+        );
+        self
+    }
+    #[must_use]
+    pub fn committed_manifest_missing(mut self, value: bool) -> Self {
+        self.add_signal(
+            VortexLocalCommitRecoverySignal::CommittedManifestMissing,
+            value,
+        );
+        self
+    }
+    #[must_use]
+    pub fn already_committed(mut self, value: bool) -> Self {
+        self.add_signal(VortexLocalCommitRecoverySignal::AlreadyCommitted, value);
+        self
+    }
+    #[must_use]
+    pub fn ambiguous_committed_manifest(mut self, value: bool) -> Self {
+        self.add_signal(
+            VortexLocalCommitRecoverySignal::AmbiguousCommittedManifest,
+            value,
+        );
+        self
+    }
+    #[must_use]
+    pub fn local_workspace(mut self, value: bool) -> Self {
+        self.add_signal(VortexLocalCommitRecoverySignal::LocalWorkspace, value);
+        self
+    }
+    #[must_use]
+    pub fn object_store_target(mut self, value: bool) -> Self {
+        self.add_signal(VortexLocalCommitRecoverySignal::ObjectStoreTarget, value);
+        self
+    }
+    #[must_use]
+    pub fn cleanup_allowed(mut self, value: bool) -> Self {
+        self.add_signal(VortexLocalCommitRecoverySignal::CleanupAllowed, value);
+        self
+    }
+    #[must_use]
+    pub fn cleanup_blocked(mut self, value: bool) -> Self {
+        self.add_signal(VortexLocalCommitRecoverySignal::CleanupBlocked, value);
+        self
+    }
+    #[must_use]
+    pub fn with_commit_execution_summary(mut self, summary: impl Into<String>) -> Self {
+        self.commit_execution_summary = Some(summary.into());
+        self
+    }
+    #[must_use]
+    pub fn has_signal(&self, signal: VortexLocalCommitRecoverySignal) -> bool {
+        self.signals.contains(&signal)
+    }
+    pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
+    }
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.diagnostics.iter().any(|d| {
+            matches!(
+                d.severity,
+                DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+            )
+        })
+    }
+    #[must_use]
+    pub fn summary(&self) -> String {
+        format!(
+            "target_uri={} workspace_path={} committed_manifest_path={} rollback_requested={}",
+            self.target_uri.as_str(),
+            self.workspace_path.as_str(),
+            self.committed_manifest_ref.path_string(),
+            self.has_signal(VortexLocalCommitRecoverySignal::RollbackRequested)
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct VortexLocalCommitRecoveryReport {
+    pub status: VortexLocalCommitRecoveryStatus,
+    pub mode: VortexLocalCommitRecoveryMode,
+    pub request: VortexLocalCommitRecoveryRequest,
+    pub recovery_plan: RecoveryPlan,
+    pub effects_performed: Vec<VortexCommitProtocolEffect>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl VortexLocalCommitRecoveryReport {
+    /// # Errors
+    /// Returns errors when recovery cleanup requirements cannot be represented.
+    pub fn from_request(request: VortexLocalCommitRecoveryRequest) -> Result<Self> {
+        let status = derive_local_commit_recovery_status(&request);
+        let mode = derive_local_commit_recovery_mode(status);
+        let recovery_plan = build_local_commit_recovery_plan(&request, status)?;
+        Ok(Self {
+            status,
+            mode,
+            request,
+            diagnostics: local_commit_recovery_plan_diagnostics(&recovery_plan),
+            recovery_plan,
+            effects_performed: Vec::new(),
+        })
+    }
+    #[must_use]
+    pub fn unsupported(
+        request: VortexLocalCommitRecoveryRequest,
+        feature: impl Into<String>,
+        reason: impl Into<String>,
+    ) -> Self {
+        Self {
+            status: VortexLocalCommitRecoveryStatus::Unsupported,
+            mode: VortexLocalCommitRecoveryMode::Unsupported,
+            request,
+            recovery_plan: RecoveryPlan::unsupported(feature, reason),
+            effects_performed: Vec::new(),
+            diagnostics: Vec::new(),
+        }
+    }
+    pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
+    }
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.status.is_error()
+            || self.request.has_errors()
+            || self.recovery_plan.has_errors()
+            || self.diagnostics.iter().any(|d| {
+                matches!(
+                    d.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+    #[must_use]
+    pub fn rollback_required(&self) -> bool {
+        self.status.rollback_required()
+    }
+    #[must_use]
+    pub fn rollback_planned(&self) -> bool {
+        matches!(
+            self.status,
+            VortexLocalCommitRecoveryStatus::RollbackPlanned
+        )
+    }
+    #[must_use]
+    pub fn ambiguous_commit(&self) -> bool {
+        matches!(
+            self.status,
+            VortexLocalCommitRecoveryStatus::AmbiguousCommit
+        )
+    }
+    #[must_use]
+    pub fn cleanup_required(&self) -> bool {
+        self.recovery_plan.requires_cleanup()
+    }
+    #[must_use]
+    pub fn cleanup_target_count(&self) -> usize {
+        self.recovery_plan.cleanup.len()
+    }
+    #[must_use]
+    pub fn rollback_executed(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub fn cleanup_performed(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub fn object_store_io(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub fn upstream_vortex_write_called(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub fn fallback_execution_allowed(&self) -> bool {
+        false
+    }
+    #[must_use]
+    pub fn is_side_effect_free(&self) -> bool {
+        self.effects_performed.is_empty()
+            && !self.rollback_executed()
+            && !self.cleanup_performed()
+            && !self.object_store_io()
+            && !self.upstream_vortex_write_called()
+            && !self.fallback_execution_allowed()
+    }
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        let mut out = String::new();
+        let _ = writeln!(
+            out,
+            "local commit recovery status: {}",
+            self.status.as_str()
+        );
+        let _ = writeln!(out, "mode: {}", self.mode.as_str());
+        let _ = writeln!(out, "target URI: {}", self.request.target_uri.as_str());
+        let _ = writeln!(
+            out,
+            "workspace path: {}",
+            self.request.workspace_path.as_str()
+        );
+        let _ = writeln!(
+            out,
+            "committed manifest path: {}",
+            self.request.committed_manifest_ref.path_string()
+        );
+        let _ = writeln!(out, "rollback required: {}", self.rollback_required());
+        let _ = writeln!(out, "rollback planned: {}", self.rollback_planned());
+        let _ = writeln!(out, "ambiguous commit: {}", self.ambiguous_commit());
+        let _ = writeln!(out, "cleanup required: {}", self.cleanup_required());
+        let _ = writeln!(out, "cleanup targets: {}", self.cleanup_target_count());
+        let _ = writeln!(out, "rollback executed: false");
+        let _ = writeln!(out, "cleanup performed: false");
+        let _ = writeln!(out, "object-store IO: false");
+        let _ = writeln!(out, "upstream Vortex write called: false");
+        let _ = writeln!(out, "fallback execution disabled");
+        if !self.recovery_plan.actions.is_empty() {
+            let _ = writeln!(out, "recovery actions:");
+            for action in &self.recovery_plan.actions {
+                let _ = writeln!(out, "- {}", action.summary());
+            }
+        }
+        if !self.request.diagnostics.is_empty()
+            || !self.recovery_plan.diagnostics.is_empty()
+            || !self.diagnostics.is_empty()
+        {
+            let _ = writeln!(out, "diagnostics:");
+            for diagnostic in self
+                .request
+                .diagnostics
+                .iter()
+                .chain(self.recovery_plan.diagnostics.iter())
+                .chain(self.diagnostics.iter())
+            {
+                let _ = writeln!(
+                    out,
+                    "- [{}] {}",
+                    diagnostic.code.as_str(),
+                    diagnostic.message
+                );
+            }
+        }
+        out
+    }
+}
+
+fn derive_local_commit_recovery_status(
+    request: &VortexLocalCommitRecoveryRequest,
+) -> VortexLocalCommitRecoveryStatus {
+    use VortexLocalCommitRecoverySignal as S;
+    if request.has_signal(S::ObjectStoreTarget) {
+        return VortexLocalCommitRecoveryStatus::BlockedByObjectStoreTarget;
+    }
+    if request.has_signal(S::AmbiguousCommittedManifest) {
+        return VortexLocalCommitRecoveryStatus::AmbiguousCommit;
+    }
+    if request.has_signal(S::RollbackRequested) && request.has_signal(S::CommittedManifestMissing) {
+        return VortexLocalCommitRecoveryStatus::BlockedByMissingCommittedManifest;
+    }
+    if request.has_signal(S::CleanupBlocked) {
+        return VortexLocalCommitRecoveryStatus::BlockedByCleanupPolicy;
+    }
+    if request.has_signal(S::RollbackRequested)
+        && request.has_signal(S::CommittedManifestWritten)
+        && request.has_signal(S::CleanupAllowed)
+    {
+        return VortexLocalCommitRecoveryStatus::RollbackPlanned;
+    }
+    if request.has_signal(S::RollbackRequested) && request.has_signal(S::CommittedManifestWritten) {
+        return VortexLocalCommitRecoveryStatus::RollbackRequired;
+    }
+    if request.has_signal(S::CommittedManifestWritten) || request.has_signal(S::AlreadyCommitted) {
+        return VortexLocalCommitRecoveryStatus::RecoveryNotRequired;
+    }
+    VortexLocalCommitRecoveryStatus::Planned
+}
+
+fn derive_local_commit_recovery_mode(
+    status: VortexLocalCommitRecoveryStatus,
+) -> VortexLocalCommitRecoveryMode {
+    match status {
+        VortexLocalCommitRecoveryStatus::RollbackRequired
+        | VortexLocalCommitRecoveryStatus::RollbackPlanned => {
+            VortexLocalCommitRecoveryMode::RollbackPlanning
+        }
+        VortexLocalCommitRecoveryStatus::AmbiguousCommit => {
+            VortexLocalCommitRecoveryMode::AmbiguousCommitDiagnostics
+        }
+        VortexLocalCommitRecoveryStatus::Unsupported => VortexLocalCommitRecoveryMode::Unsupported,
+        _ => VortexLocalCommitRecoveryMode::ReportOnly,
+    }
+}
+
+fn build_local_commit_recovery_plan(
+    request: &VortexLocalCommitRecoveryRequest,
+    status: VortexLocalCommitRecoveryStatus,
+) -> Result<RecoveryPlan> {
+    let manifest_path = request.committed_manifest_ref.path_string();
+    let mut plan = RecoveryPlan::diagnostic_only();
+    match status {
+        VortexLocalCommitRecoveryStatus::RecoveryNotRequired => {
+            plan.fault_tolerance_level = FaultToleranceLevel::Idempotent;
+        }
+        VortexLocalCommitRecoveryStatus::RollbackRequired
+        | VortexLocalCommitRecoveryStatus::RollbackPlanned => {
+            plan.add_action(RecoveryAction::new(
+                RecoveryActionKind::AbortWrite,
+                "rollback would remove the local committed-manifest artifact in a later execution phase",
+            ));
+            plan.add_cleanup(CleanupRequirement::required(
+                CleanupTargetKind::PartialCommit,
+                manifest_path,
+            )?);
+        }
+        VortexLocalCommitRecoveryStatus::AmbiguousCommit => {
+            let ambiguous = AmbiguousCommitRecord::new(
+                manifest_path.clone(),
+                "existing committed-manifest artifact differs from finalized-manifest candidate",
+            )?;
+            plan = plan.with_ambiguous_commit(ambiguous);
+            plan.add_action(RecoveryAction::new(
+                RecoveryActionKind::MarkCommitAmbiguous,
+                "manual validation is required before local committed-manifest cleanup",
+            ));
+            plan.add_cleanup(CleanupRequirement::unsupported(
+                CleanupTargetKind::PartialCommit,
+                manifest_path,
+                "ambiguous committed manifest cannot be cleaned up automatically",
+            )?);
+        }
+        VortexLocalCommitRecoveryStatus::BlockedByObjectStoreTarget => {
+            plan = RecoveryPlan::unsupported(
+                "local_commit_recovery_object_store",
+                "local commit recovery planning does not support object-store targets",
+            );
+        }
+        VortexLocalCommitRecoveryStatus::BlockedByMissingCommittedManifest => {
+            plan = RecoveryPlan::unsupported(
+                "local_commit_recovery_missing_manifest",
+                "rollback was requested but no committed-manifest artifact was reported",
+            );
+        }
+        VortexLocalCommitRecoveryStatus::BlockedByCleanupPolicy => {
+            plan = RecoveryPlan::unsupported(
+                "local_commit_recovery_cleanup_policy",
+                "cleanup policy blocks rollback planning",
+            );
+        }
+        VortexLocalCommitRecoveryStatus::Unsupported => {
+            plan = RecoveryPlan::unsupported(
+                "local_commit_recovery",
+                "local commit recovery planning is unsupported",
+            );
+        }
+        VortexLocalCommitRecoveryStatus::Planned => {}
+    }
+    Ok(plan)
+}
+
+fn local_commit_recovery_plan_diagnostics(plan: &RecoveryPlan) -> Vec<Diagnostic> {
+    let mut diagnostics = plan.diagnostics.clone();
+    for action in &plan.actions {
+        diagnostics.extend(action.diagnostics.iter().cloned());
+    }
+    for cleanup in &plan.cleanup {
+        diagnostics.extend(cleanup.diagnostics.iter().cloned());
+    }
+    if let Some(ambiguous) = &plan.ambiguous_commit {
+        diagnostics.extend(ambiguous.diagnostics.iter().cloned());
+        if let Some(output) = &ambiguous.output {
+            diagnostics.extend(output.diagnostics.iter().cloned());
+            for cleanup in &output.cleanup {
+                diagnostics.extend(cleanup.diagnostics.iter().cloned());
+            }
+        }
+    }
+    diagnostics
+}
+
 fn derive_status(request: &VortexCommitProtocolRequest) -> VortexCommitProtocolStatus {
     if matches!(request.transition, VortexCommitProtocolTransition::Abort) {
         return VortexCommitProtocolStatus::TransitionAllowed;
@@ -1299,6 +1839,81 @@ pub fn plan_vortex_commit_protocol_from_commit_intent(
         commit_intent,
     );
     plan_vortex_commit_protocol(request)
+}
+
+/// Plans local committed-manifest recovery and rollback diagnostics without
+/// deleting artifacts, touching object stores, calling upstream `Vortex`, or
+/// attempting fallback execution.
+///
+/// # Errors
+/// Returns an error when recovery cleanup requirements cannot be represented.
+pub fn plan_vortex_local_commit_recovery(
+    request: VortexLocalCommitRecoveryRequest,
+) -> Result<VortexLocalCommitRecoveryReport> {
+    VortexLocalCommitRecoveryReport::from_request(request)
+}
+
+#[must_use]
+pub fn local_commit_recovery_request_from_execution_report(
+    execution: &VortexLocalCommitExecutionReport,
+    rollback_requested: bool,
+    cleanup_allowed: bool,
+) -> VortexLocalCommitRecoveryRequest {
+    let mut request = VortexLocalCommitRecoveryRequest::new(
+        execution.request.target_uri.clone(),
+        execution.request.workspace_path.clone(),
+    )
+    .with_commit_execution_summary(execution.to_human_text())
+    .rollback_requested(rollback_requested)
+    .cleanup_allowed(cleanup_allowed)
+    .cleanup_blocked(rollback_requested && !cleanup_allowed)
+    .local_workspace(
+        execution
+            .request
+            .has_signal(VortexLocalCommitExecutionSignal::LocalWorkspace),
+    )
+    .object_store_target(execution.object_store_io());
+
+    match execution.status {
+        VortexLocalCommitExecutionStatus::CommitExecuted => {
+            request = request.committed_manifest_written(true);
+        }
+        VortexLocalCommitExecutionStatus::AlreadyCommitted => {
+            request = request
+                .committed_manifest_written(true)
+                .already_committed(true);
+        }
+        VortexLocalCommitExecutionStatus::AmbiguousCommit => {
+            request = request
+                .committed_manifest_written(true)
+                .ambiguous_committed_manifest(true);
+        }
+        VortexLocalCommitExecutionStatus::BlockedByMissingFinalizedManifest
+        | VortexLocalCommitExecutionStatus::BlockedByMissingCommitMarker
+        | VortexLocalCommitExecutionStatus::BlockedByMissingOutputPayload
+        | VortexLocalCommitExecutionStatus::BlockedByMissingWorkspace
+        | VortexLocalCommitExecutionStatus::FeatureDisabled
+        | VortexLocalCommitExecutionStatus::Planned
+        | VortexLocalCommitExecutionStatus::BlockedByCommitProtocol
+        | VortexLocalCommitExecutionStatus::BlockedByFinalizedManifest
+        | VortexLocalCommitExecutionStatus::BlockedByCommitMarker
+        | VortexLocalCommitExecutionStatus::BlockedByOutputPayload
+        | VortexLocalCommitExecutionStatus::BlockedByObjectStoreTarget
+        | VortexLocalCommitExecutionStatus::BlockedByExistingCommittedManifest
+        | VortexLocalCommitExecutionStatus::BlockedByExistingNonDirectory
+        | VortexLocalCommitExecutionStatus::BlockedByFeatureGate
+        | VortexLocalCommitExecutionStatus::Unsupported => {
+            request = request.committed_manifest_missing(true);
+        }
+    }
+
+    for diagnostic in &execution.request.diagnostics {
+        request.add_diagnostic(diagnostic.clone());
+    }
+    for diagnostic in &execution.diagnostics {
+        request.add_diagnostic(diagnostic.clone());
+    }
+    request
 }
 
 /// Executes the first local-only commit step by copying a finalized-manifest
@@ -1614,6 +2229,13 @@ pub const fn vortex_local_commit_execution_feature_enabled() -> bool {
 #[must_use]
 pub fn vortex_local_commit_execution_is_side_effect_free(
     report: &VortexLocalCommitExecutionReport,
+) -> bool {
+    report.is_side_effect_free()
+}
+
+#[must_use]
+pub fn vortex_local_commit_recovery_is_side_effect_free(
+    report: &VortexLocalCommitRecoveryReport,
 ) -> bool {
     report.is_side_effect_free()
 }
@@ -2003,6 +2625,126 @@ mod tests {
             .commit_protocol_ready(false);
         assert!(!request.has_signal(VortexLocalCommitExecutionSignal::CommitProtocolReady));
         assert!(VortexLocalCommitExecutionSignal::CommitProtocolBlocked.is_blocking());
+    }
+
+    fn local_commit_recovery_request(path: &str) -> VortexLocalCommitRecoveryRequest {
+        VortexLocalCommitRecoveryRequest::new(
+            uri(),
+            VortexStagedWorkspacePath::new(path).expect("workspace path"),
+        )
+        .local_workspace(true)
+    }
+
+    #[test]
+    fn local_commit_recovery_statuses_and_side_effects() {
+        assert_eq!(
+            VortexLocalCommitRecoveryStatus::RollbackPlanned.as_str(),
+            "rollback_planned"
+        );
+        assert!(VortexLocalCommitRecoveryStatus::AmbiguousCommit.is_error());
+        assert!(VortexLocalCommitRecoveryStatus::RollbackRequired.rollback_required());
+        assert!(!VortexLocalCommitRecoveryMode::RollbackPlanning.executes_rollback());
+        assert!(VortexLocalCommitRecoverySignal::CleanupBlocked.is_blocking());
+
+        let stable = plan_vortex_local_commit_recovery(
+            local_commit_recovery_request("/tmp/stage").committed_manifest_written(true),
+        )
+        .expect("stable recovery report");
+        assert_eq!(
+            stable.status,
+            VortexLocalCommitRecoveryStatus::RecoveryNotRequired
+        );
+        assert!(!stable.rollback_required());
+        assert!(!stable.cleanup_required());
+        assert!(stable.is_side_effect_free());
+        assert!(vortex_local_commit_recovery_is_side_effect_free(&stable));
+
+        let rollback = plan_vortex_local_commit_recovery(
+            local_commit_recovery_request("/tmp/stage")
+                .committed_manifest_written(true)
+                .rollback_requested(true)
+                .cleanup_allowed(true),
+        )
+        .expect("rollback recovery report");
+        assert_eq!(
+            rollback.status,
+            VortexLocalCommitRecoveryStatus::RollbackPlanned
+        );
+        assert!(rollback.rollback_required());
+        assert!(rollback.rollback_planned());
+        assert!(rollback.cleanup_required());
+        assert_eq!(rollback.cleanup_target_count(), 1);
+        assert!(!rollback.rollback_executed());
+        assert!(
+            rollback
+                .to_human_text()
+                .contains("fallback execution disabled")
+        );
+    }
+
+    #[test]
+    fn local_commit_recovery_blocks_ambiguous_missing_and_object_store() {
+        let ambiguous = plan_vortex_local_commit_recovery(
+            local_commit_recovery_request("/tmp/stage")
+                .committed_manifest_written(true)
+                .ambiguous_committed_manifest(true),
+        )
+        .expect("ambiguous recovery report");
+        assert_eq!(
+            ambiguous.status,
+            VortexLocalCommitRecoveryStatus::AmbiguousCommit
+        );
+        assert!(ambiguous.has_errors());
+        assert!(ambiguous.ambiguous_commit());
+        assert!(ambiguous.cleanup_required());
+        assert!(!ambiguous.diagnostics.is_empty());
+        assert!(!ambiguous.cleanup_performed());
+
+        let missing = plan_vortex_local_commit_recovery(
+            local_commit_recovery_request("/tmp/stage")
+                .rollback_requested(true)
+                .committed_manifest_missing(true),
+        )
+        .expect("missing recovery report");
+        assert_eq!(
+            missing.status,
+            VortexLocalCommitRecoveryStatus::BlockedByMissingCommittedManifest
+        );
+        assert!(missing.has_errors());
+
+        let object_store = plan_vortex_local_commit_recovery(
+            local_commit_recovery_request("s3://bucket/stage").object_store_target(true),
+        )
+        .expect("object-store recovery report");
+        assert_eq!(
+            object_store.status,
+            VortexLocalCommitRecoveryStatus::BlockedByObjectStoreTarget
+        );
+        assert!(object_store.has_errors());
+        assert!(!object_store.object_store_io());
+        assert!(!object_store.fallback_execution_allowed());
+    }
+
+    #[test]
+    fn local_commit_recovery_request_can_derive_from_execution_report() {
+        let execution = VortexLocalCommitExecutionReport::committed(
+            local_commit_request("/tmp/stage"),
+            VortexLocalCommitExecutionStatus::CommitExecuted,
+            12,
+            99,
+        );
+        let request = local_commit_recovery_request_from_execution_report(&execution, true, true);
+        assert!(request.has_signal(VortexLocalCommitRecoverySignal::RollbackRequested));
+        assert!(request.has_signal(VortexLocalCommitRecoverySignal::CommittedManifestWritten));
+        assert!(request.has_signal(VortexLocalCommitRecoverySignal::CleanupAllowed));
+
+        let report = plan_vortex_local_commit_recovery(request).expect("derived recovery report");
+        assert_eq!(
+            report.status,
+            VortexLocalCommitRecoveryStatus::RollbackPlanned
+        );
+        assert!(report.cleanup_required());
+        assert!(report.is_side_effect_free());
     }
 
     #[cfg(not(feature = "vortex-staged-output-fs"))]
