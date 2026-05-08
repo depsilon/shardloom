@@ -36,32 +36,26 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: R5.4.11 architecture document ownership cleanup
-  - Current cleanup/implementation step: Close remaining R5 architecture-file cleanup before returning to CG implementation.
+- [x] Session label: CG-2.1e.19 explicit local encoded-count execution boundary
   - Primary files:
+    - `shardloom-vortex/src/encoded_read_api.rs`
+    - `shardloom-vortex/src/encoded_read_executor.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `shardloom-cli/src/main.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-    - `docs/architecture/repo-cleanup-backlog.md`
-    - `docs/architecture/diagnostics-normalization-backlog.md`
-    - `docs/architecture/terminology-consolidation-backlog.md`
-    - `docs/architecture/feature-footprint-doctor-plan.md`
-    - `docs/architecture/capability-certification-sequencing.md`
-    - `docs/architecture/incumbent-gap-opportunity-map.md`
-    - `docs/architecture/systems-learning-map.md`
-    - `docs/architecture/universal-input-contract.md`
-    - `docs/architecture/spill-reservation-lifecycle-integration.md`
-    - `docs/architecture/lakehouse-value-prop-compatibility.md`
     - `docs/architecture/vortex-public-api-inventory.md`
     - `docs/architecture/vortex-adapter-integration-plan.md`
-    - `docs/architecture/canonical-terminology.md`
-  - Scope: Make `phased-execution-plan.md` the explicit active status source, convert cleanup/sequence docs to checklist ledgers where applicable, and keep conceptual/reference docs as structured maps rather than competing current-status plans.
-  - Explicitly included: architecture doc ownership rules, R5 closeout entry, supporting-doc role clarification, stale current-status removal, docs hygiene scans.
-  - Explicitly not included: Runtime behavior, Vortex IO expansion, SQL parser/runtime, adapter implementation, operator/function kernels, dependencies, object-store IO, writes, spill execution, external baseline execution, fallback execution, benchmarks, or CG closeout changes.
-  - Validation required:
-    - `cargo fmt --all -- --check`
-    - `cargo clippy --workspace --all-targets -- -D warnings`
-    - `cargo test --workspace --all-targets`
-  - Completion notes: Architecture docs now identify phase-plan ownership for active status and avoid treating reference maps as CG completion evidence.
+  - Scope: Add an explicit, feature-gated local `.vortex` `CountAll` execution boundary that owns upstream Vortex runtime/session setup after approval and source-match evidence pass.
+  - Checklist:
+    - [x] Add a narrow execution-usable API boundary for `OpenOptionsSessionExt::open_path`, `VortexFile::scan`, and `ScanBuilder::into_array_iter`.
+    - [x] Add an approval-gated helper that counts scanned Vortex arrays by `ArrayRef::len()` for local `.vortex` targets.
+    - [x] Add explicit CLI opt-in through `shardloom vortex-encoded-read-spike ... --execute-local-count`.
+    - [x] Emit count result, array count, row count, scan target, readiness source, and source-match evidence in CLI output.
+    - [x] Record phase-plan, traceability, Vortex API inventory, and adapter-boundary docs.
+    - [x] Run focused feature-gated Vortex and CLI tests.
+    - [x] Run full required validation.
+  - Explicitly not included: generalized encoded-data count execution, adapters, non-local sources, object-store IO, encoded predicates, projection execution, row reads, decode/materialization, Arrow conversion, writes, spill IO, external baseline execution, fallback execution, benchmarks, CG-1 closeout, or CG-2 closeout.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -555,6 +549,15 @@ Supporting docs:
     - Reports expose whether readiness source URI matches scan target URI.
     - Successful local fixture reports, blocked approval reports, target-mismatch reports, and object-store blocked reports preserve these evidence fields.
     - No row read, requested decode/materialization, Arrow conversion, object-store IO expansion, writes, spill IO, external baseline invocation, or fallback execution is added.
+- [x] CG-2.1e.19 explicit local encoded-count execution boundary
+  - Why: expose the previously internal local fixture scan/count proof through a narrowly approved local-count API boundary and explicit CLI opt-in without making broad scan/read-start execution generally available.
+  - Acceptance:
+    - `vortex_encoded_read_local_scan_count_api_boundary` marks only `OpenOptionsSessionExt::open_path`, `VortexFile::scan`, and `ScanBuilder::into_array_iter` as execution-usable for local `.vortex` `CountAll`.
+    - `execute_vortex_count_all_from_approved_local_scan` owns the upstream Vortex runtime/session setup and still requires an approved encoded-count data-path report plus matching encoded-read readiness source evidence.
+    - `shardloom vortex-encoded-read-spike <dataset_uri> <memory_gb> <max_parallelism> --execute-local-count` is the only CLI path that attempts this local count execution.
+    - CLI output reports count result, arrays read, rows counted, local scan target, readiness source, and source-match status.
+    - The broad public API boundary remains conservative; generalized encoded-data count execution stays planned.
+    - No adapters, non-local sources, object-store IO, encoded predicates, projection execution, row reads, requested decode/materialization, Arrow conversion, writes, spill IO, external baseline invocation, fallback execution, benchmarks, CG-1 closeout, or CG-2 closeout are added.
 - [ ] CG-2.1e generalized encoded-data count execution path (planned)
   - Why: turn the local fixture scan/count proof into a generalized native count path only after the public Vortex data path and representation guarantees are approved.
   - Acceptance:
@@ -609,6 +612,7 @@ Status legend:
   - [x] CG-2.1e.16 approval-gated local fixture scan/count
   - [x] CG-2.1e.17 local fixture scan target consistency
   - [x] CG-2.1e.18 local fixture scan source evidence reporting
+  - [x] CG-2.1e.19 explicit local encoded-count execution boundary
   - [~] CG-2.1+ generalized non-metadata primitive execution remains deferred pending broader encoded-data execution guarantees
   - [x] CG-2.2c filtered-count metadata proof local guard
   - [x] CG-2.2d filtered-count metadata proof report
@@ -806,6 +810,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.16 approval-gated local fixture scan/count
 - [x] CG-2.1e.17 local fixture scan target consistency
 - [x] CG-2.1e.18 local fixture scan source evidence reporting
+- [x] CG-2.1e.19 explicit local encoded-count execution boundary
 - [x] CG-2.2a filtered-count readiness core contract
 - [x] CG-2.2a.1 filtered-count blocker precision hardening
 - [x] CG-2.2b filtered-count readiness CLI integration
@@ -1016,6 +1021,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.16 approval-gated local fixture scan/count requires approved encoded-count data-path approval before any local fixture scan is called.
 - [x] CG-2.1e.17 local fixture scan target consistency requires approval target URI and encoded-read readiness source URI evidence to match before any local fixture scan is called.
 - [x] CG-2.1e.18 local fixture scan source evidence reporting adds scan-target/readiness-source fields to local fixture execution reports without broadening execution.
+- [x] CG-2.1e.19 explicit local encoded-count execution boundary exposes the approved local `.vortex` `CountAll` scan/count path through a narrow API boundary and CLI opt-in while generalized encoded-data count execution remains deferred.
 - [x] CG-2.2c filtered-count metadata proof local guard admits only metadata-proof `CountWhere` requests into metadata-only local execution and rejects encoded predicate candidates without fallback.
 - [x] CG-2.2d filtered-count metadata proof report classifies proof-ready, encoded-predicate-needed, missing-metadata, and unsupported filtered counts without IO or fallback.
 - [x] CG-5.1 metadata query primitive correctness fixtures cover supported metadata answers and deferred unsupported paths without side effects.

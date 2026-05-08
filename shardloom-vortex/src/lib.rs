@@ -94,7 +94,7 @@ pub use encoded_read_api::{
     VortexEncodedReadApiArea, VortexEncodedReadApiBoundaryReport,
     VortexEncodedReadApiBoundaryStatus, VortexEncodedReadApiItem, VortexEncodedReadApiRisk,
     VortexEncodedReadApiStatus, vortex_encoded_read_api_allows_future_probe,
-    vortex_encoded_read_public_api_boundary,
+    vortex_encoded_read_local_scan_count_api_boundary, vortex_encoded_read_public_api_boundary,
 };
 pub use encoded_read_boundary::{
     VortexEncodedReadBoundaryEffect, VortexEncodedReadBoundaryMode,
@@ -124,8 +124,9 @@ pub use encoded_read_executor::{
     VortexEncodedReadExecutionDecision, VortexEncodedReadExecutionDecisionKind,
     VortexEncodedReadExecutionInput, VortexEncodedReadExecutionMode,
     VortexEncodedReadExecutionReport, VortexEncodedReadExecutionStatus,
-    VortexEncodedReadExecutorFeatureStatus, execute_vortex_encoded_read_contract,
-    execute_vortex_encoded_read_spike, vortex_encoded_read_execution_is_side_effect_free,
+    VortexEncodedReadExecutorFeatureStatus, execute_vortex_count_all_from_approved_local_scan,
+    execute_vortex_encoded_read_contract, execute_vortex_encoded_read_spike,
+    vortex_encoded_read_execution_is_side_effect_free,
     vortex_encoded_read_executor_feature_enabled, vortex_encoded_read_spike_feature_enabled,
 };
 

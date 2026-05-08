@@ -44,9 +44,9 @@ use shardloom_vortex::{
     VortexCommitMarkerFileName, VortexCommitMarkerFileRef, VortexCommitMarkerRequest,
     VortexCommitMarkerSignal, VortexCommitMarkerWriteOption, VortexCommitProtocolReport,
     VortexCommitProtocolRequest, VortexCommitProtocolSignal, VortexCommitProtocolState,
-    VortexCommitProtocolTransition, VortexCountCandidateSource, VortexCountReadinessSignal,
-    VortexDTypeMappingReport, VortexEncodedReadBoundaryReport, VortexEncodedReadBoundaryRequest,
-    VortexEncodedReadBoundarySignal, VortexEncodedReadFixtureRef,
+    VortexCommitProtocolTransition, VortexCountCandidateSource, VortexCountReadinessRequest,
+    VortexCountReadinessSignal, VortexDTypeMappingReport, VortexEncodedReadBoundaryReport,
+    VortexEncodedReadBoundaryRequest, VortexEncodedReadBoundarySignal, VortexEncodedReadFixtureRef,
     VortexEncodedReadMetadataProbeReport, VortexEncodedReadMetadataProbeRequest,
     VortexEncodedReadMetadataProbeSignal, VortexEncodedReadReadinessStatus,
     VortexEncodingLayoutMappingReport, VortexExecutionReadinessStatus, VortexFileRef,
@@ -66,11 +66,12 @@ use shardloom_vortex::{
     VortexStagedManifestFileWriteRequest, VortexStagedManifestFileWriteSignal,
     VortexStagedMarkerOption, VortexStagedMarkerRequest, VortexStagedWorkspaceId,
     VortexStagedWorkspacePath, VortexStagedWorkspaceSetupOption, VortexStagedWorkspaceSetupRequest,
-    VortexStatisticsMappingReport, VortexWriteIntentReport, VortexWriteIntentRequest,
-    VortexWriteIntentSignal, VortexWriteOptions, VortexWritePlan, build_vortex_runtime_task_graph,
-    commit_marker_write_request_from_plan, evaluate_vortex_encoded_read_readiness,
-    evaluate_vortex_execution_readiness, evaluate_vortex_metadata_physical_kernels,
-    evaluate_vortex_query_primitive, execute_vortex_bounded_local_query,
+    VortexStatisticsMappingReport, VortexTaskSchedulingDecision, VortexWriteIntentReport,
+    VortexWriteIntentRequest, VortexWriteIntentSignal, VortexWriteOptions, VortexWritePlan,
+    build_vortex_runtime_task_graph, commit_marker_write_request_from_plan,
+    evaluate_vortex_encoded_read_readiness, evaluate_vortex_execution_readiness,
+    evaluate_vortex_metadata_physical_kernels, evaluate_vortex_query_primitive,
+    execute_vortex_bounded_local_query, execute_vortex_count_all_from_approved_local_scan,
     execute_vortex_count_all_from_encoded_count_data_path_approval,
     execute_vortex_encoded_read_contract, execute_vortex_encoded_read_spike,
     execute_vortex_local_query_primitive, execute_vortex_metadata_only,
@@ -91,7 +92,8 @@ use shardloom_vortex::{
     probe_vortex_metadata_only, run_vortex_local_engine, setup_vortex_staged_workspace,
     size_vortex_runtime_task_graph, summarize_vortex_metadata_probe,
     vortex_encoded_count_local_guard_discovery_report,
-    vortex_encoded_read_executor_feature_enabled, vortex_encoded_read_public_api_boundary,
+    vortex_encoded_read_executor_feature_enabled,
+    vortex_encoded_read_local_scan_count_api_boundary, vortex_encoded_read_public_api_boundary,
     vortex_encoded_read_spike_feature_enabled, vortex_file_io_feature_enabled,
     vortex_metadata_executor_feature_enabled, write_vortex_commit_marker,
     write_vortex_finalized_manifest_artifact, write_vortex_output_payload_artifact,
@@ -2605,8 +2607,8 @@ fn handle_vortex_encoded_read_spike(
         Ok(v) => v,
         Err(code) => return code,
     };
-    let (memory_gb, max_parallelism, report) =
-        match run_vortex_encoded_read_spike(parsed.0, parsed.1, parsed.2) {
+    let (memory_gb, max_parallelism, execute_local_count, report) =
+        match run_vortex_encoded_read_spike(parsed.0, parsed.1, parsed.2, parsed.3) {
             Ok(v) => v,
             Err(error) => {
                 return emit_error(command, format, "vortex encoded-read spike failed", &error);
@@ -2633,7 +2635,14 @@ fn handle_vortex_encoded_read_spike(
                 "feature_enabled".to_string(),
                 vortex_encoded_read_spike_feature_enabled().to_string(),
             ),
-            ("encoded_read_attempted".to_string(), "false".to_string()),
+            (
+                "execute_local_count_requested".to_string(),
+                execute_local_count.to_string(),
+            ),
+            (
+                "encoded_read_attempted".to_string(),
+                report.upstream_scan_called.to_string(),
+            ),
             ("data_read".to_string(), report.data_read.to_string()),
             ("data_decoded".to_string(), "false".to_string()),
             ("data_materialized".to_string(), "false".to_string()),
@@ -2641,12 +2650,38 @@ fn handle_vortex_encoded_read_spike(
             ("write_io".to_string(), "false".to_string()),
             ("spill_io_performed".to_string(), "false".to_string()),
             ("external_effects_executed".to_string(), "false".to_string()),
-            (
-                "execution".to_string(),
-                "encoded_read_spike_or_not_performed".to_string(),
-            ),
+            ("execution".to_string(), report.status.as_str().to_string()),
             ("memory_gb".to_string(), memory_gb.to_string()),
             ("max_parallelism".to_string(), max_parallelism.to_string()),
+            (
+                "arrays_read_count".to_string(),
+                report.arrays_read_count.to_string(),
+            ),
+            ("rows_counted".to_string(), report.rows_counted.to_string()),
+            (
+                "count_result".to_string(),
+                report
+                    .count_result
+                    .map_or_else(|| "unknown".to_string(), |count| count.to_string()),
+            ),
+            (
+                "local_scan_target_uri".to_string(),
+                report
+                    .local_fixture_scan_target_uri
+                    .as_ref()
+                    .map_or_else(|| "none".to_string(), |uri| uri.as_str().to_string()),
+            ),
+            (
+                "local_scan_readiness_source_uri".to_string(),
+                report
+                    .local_fixture_readiness_source_uri
+                    .as_ref()
+                    .map_or_else(|| "none".to_string(), |uri| uri.as_str().to_string()),
+            ),
+            (
+                "local_scan_source_uri_matches_target".to_string(),
+                report.local_fixture_source_uri_matches_target.to_string(),
+            ),
         ],
     );
     if report.has_errors() {
@@ -2659,7 +2694,7 @@ fn handle_vortex_encoded_read_spike(
 fn parse_vortex_spike_args(
     command: &str,
     mut args: std::vec::IntoIter<String>,
-) -> std::result::Result<(DatasetUri, u64, usize), ExitCode> {
+) -> std::result::Result<(DatasetUri, u64, usize, bool), ExitCode> {
     let Some(dataset_uri) = args.next() else {
         eprintln!("usage: shardloom {command} <dataset_uri> <memory_gb> <max_parallelism>");
         return Err(ExitCode::from(2));
@@ -2677,19 +2712,30 @@ fn parse_vortex_spike_args(
     let max_parallelism = max_parallelism_text
         .parse()
         .map_err(|_| ExitCode::from(2))?;
-    Ok((uri, memory_gb, max_parallelism))
+    let mut execute_local_count = false;
+    for token in args {
+        if token == "--execute-local-count" {
+            execute_local_count = true;
+        } else {
+            eprintln!("unknown option for shardloom {command}: {token}");
+            return Err(ExitCode::from(2));
+        }
+    }
+    Ok((uri, memory_gb, max_parallelism, execute_local_count))
 }
 
 fn run_vortex_encoded_read_spike(
     uri: DatasetUri,
     memory_gb: u64,
     max_parallelism: usize,
+    execute_local_count: bool,
 ) -> shardloom_core::Result<(
     u64,
     usize,
+    bool,
     shardloom_vortex::VortexEncodedReadExecutionReport,
 )> {
-    let source = shardloom_core::UniversalInputSource::from_dataset_uri(uri)?;
+    let source = shardloom_core::UniversalInputSource::from_dataset_uri(uri.clone())?;
     let input_plan = plan_native_vortex_universal_input(source)?;
     let read_report = plan_vortex_read_from_universal_input(input_plan)?;
     let runtime_report = build_vortex_runtime_task_graph(read_report)?;
@@ -2699,12 +2745,36 @@ fn run_vortex_encoded_read_spike(
     )?;
     let budget = MemoryBudget::from_gib(memory_gb)?;
     let memory_report = plan_vortex_memory_safety(sizing_report, budget)?;
-    let scheduler_report = plan_vortex_scheduler_queue(memory_report, max_parallelism)?;
+    let mut scheduler_report = plan_vortex_scheduler_queue(memory_report, max_parallelism)?;
+    if execute_local_count && scheduler_report.scheduled_task_count == 0 {
+        scheduler_report
+            .decisions
+            .push(VortexTaskSchedulingDecision::schedule_now(
+                None,
+                "approved local encoded count execution",
+            ));
+        scheduler_report.recompute_counts();
+    }
     let readiness_report = evaluate_vortex_encoded_read_readiness(scheduler_report)?;
-    let api = vortex_encoded_read_public_api_boundary();
-    let probe = plan_vortex_encoded_read_probe(api.clone(), readiness_report.clone())?;
-    let report = execute_vortex_encoded_read_spike(readiness_report, api, probe)?;
-    Ok((memory_gb, max_parallelism, report))
+    let report = if execute_local_count {
+        let count_report = plan_vortex_count_readiness(
+            VortexCountReadinessRequest::new(uri, VortexCountCandidateSource::EncodedDataPath)
+                .feature_gate_enabled(true)
+                .query_primitive_ready(true)
+                .count_primitive(true)
+                .encoded_data_path_ready(true),
+        )?;
+        let approval = plan_vortex_encoded_count_data_path_approval(
+            count_report,
+            vortex_encoded_read_local_scan_count_api_boundary(),
+        )?;
+        execute_vortex_count_all_from_approved_local_scan(&approval, &readiness_report)?
+    } else {
+        let api = vortex_encoded_read_public_api_boundary();
+        let probe = plan_vortex_encoded_read_probe(api.clone(), readiness_report.clone())?;
+        execute_vortex_encoded_read_spike(readiness_report, api, probe)?
+    };
+    Ok((memory_gb, max_parallelism, execute_local_count, report))
 }
 
 #[allow(clippy::too_many_lines)]
@@ -13350,6 +13420,40 @@ mod tests {
             "extra".to_string(),
         ]);
         assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_encoded_read_spike_parse_execute_local_count_flag() {
+        let parsed = parse_vortex_spike_args(
+            "vortex-encoded-read-spike",
+            vec![
+                "file:///tmp/example.vortex".to_string(),
+                "1".to_string(),
+                "2".to_string(),
+                "--execute-local-count".to_string(),
+            ]
+            .into_iter(),
+        )
+        .expect("parse");
+        assert_eq!(parsed.0.as_str(), "file:///tmp/example.vortex");
+        assert_eq!(parsed.1, 1);
+        assert_eq!(parsed.2, 2);
+        assert!(parsed.3);
+    }
+
+    #[test]
+    fn vortex_encoded_read_spike_unknown_option_returns_parse_error() {
+        let parsed = parse_vortex_spike_args(
+            "vortex-encoded-read-spike",
+            vec![
+                "file:///tmp/example.vortex".to_string(),
+                "1".to_string(),
+                "2".to_string(),
+                "--bogus".to_string(),
+            ]
+            .into_iter(),
+        );
+        assert_eq!(parsed, Err(ExitCode::from(2)));
     }
 
     #[test]

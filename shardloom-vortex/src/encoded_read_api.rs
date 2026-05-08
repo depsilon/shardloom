@@ -161,6 +161,7 @@ impl VortexEncodedReadApiArea {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VortexEncodedReadApiStatus {
     ConfirmedPublic,
+    ConfirmedPublicForLocalCountExecution,
     ConfirmedPublicButDeferred,
     Planned,
     ApiUnclear,
@@ -172,6 +173,9 @@ impl VortexEncodedReadApiStatus {
     pub const fn as_str(&self) -> &'static str {
         match self {
             Self::ConfirmedPublic => "confirmed_public",
+            Self::ConfirmedPublicForLocalCountExecution => {
+                "confirmed_public_for_local_count_execution"
+            }
             Self::ConfirmedPublicButDeferred => "confirmed_public_but_deferred",
             Self::Planned => "planned",
             Self::ApiUnclear => "api_unclear",
@@ -181,10 +185,13 @@ impl VortexEncodedReadApiStatus {
         }
     }
     pub const fn is_usable_for_contract(&self) -> bool {
-        matches!(self, Self::ConfirmedPublic)
+        matches!(
+            self,
+            Self::ConfirmedPublic | Self::ConfirmedPublicForLocalCountExecution
+        )
     }
     pub const fn is_usable_for_execution(&self) -> bool {
-        false
+        matches!(self, Self::ConfirmedPublicForLocalCountExecution)
     }
 }
 
@@ -281,9 +288,12 @@ impl VortexEncodedReadApiItem {
         self.status.is_usable_for_contract() && !self.risk.is_blocking()
     }
     pub const fn is_execution_usable(&self) -> bool {
-        false
+        self.status.is_usable_for_execution() && !self.risk.is_blocking()
     }
     pub const fn is_blocked(&self) -> bool {
+        if self.is_execution_usable() {
+            return false;
+        }
         self.risk.is_blocking()
             || matches!(
                 self.status,
@@ -450,7 +460,6 @@ impl VortexEncodedReadApiBoundaryReport {
         } else {
             VortexEncodedReadApiBoundaryStatus::ContractPartiallyReady
         };
-        self.execution_usable_count = 0;
         self.fallback_execution_allowed = false;
     }
     pub fn has_errors(&self) -> bool {
@@ -659,6 +668,55 @@ pub fn vortex_encoded_read_public_api_boundary() -> VortexEncodedReadApiBoundary
     report
 }
 
+/// Returns the narrow public API boundary approved for local `CountAll` execution.
+///
+/// This boundary is intentionally smaller than `vortex_encoded_read_public_api_boundary`.
+/// It approves only caller-owned local `.vortex` scans that count returned Vortex arrays
+/// by length. It does not approve projection, predicate evaluation, object-store reads,
+/// writes, decode, materialization, Arrow conversion, or fallback execution.
+#[must_use]
+pub fn vortex_encoded_read_local_scan_count_api_boundary() -> VortexEncodedReadApiBoundaryReport {
+    let mut report = VortexEncodedReadApiBoundaryReport::default_deferred();
+    for item in [
+        VortexEncodedReadApiItem::new(
+            VortexEncodedReadApiArea::FileOpen,
+            "OpenOptionsSessionExt::open_path",
+            VortexEncodedReadApiStatus::ConfirmedPublicForLocalCountExecution,
+        )
+        .map(|item| {
+            item.with_notes(
+                "Approved only for caller-owned local `.vortex` count execution with no object-store IO.",
+            )
+        }),
+        VortexEncodedReadApiItem::new(
+            VortexEncodedReadApiArea::ScanSetup,
+            "VortexFile::scan",
+            VortexEncodedReadApiStatus::ConfirmedPublicForLocalCountExecution,
+        )
+        .map(|item| {
+            item.with_notes(
+                "Approved only for local `CountAll` array-length counting; not a general scan/read-start approval.",
+            )
+        }),
+        VortexEncodedReadApiItem::new(
+            VortexEncodedReadApiArea::DataRead,
+            "ScanBuilder::into_array_iter",
+            VortexEncodedReadApiStatus::ConfirmedPublicForLocalCountExecution,
+        )
+        .map(|item| {
+            item.with_notes(
+                "Approved only to iterate Vortex arrays and sum `ArrayRef::len()` for local `CountAll`.",
+            )
+        }),
+    ]
+    .into_iter()
+    .flatten()
+    {
+        report.add_item(item);
+    }
+    report
+}
+
 pub fn vortex_encoded_read_api_allows_future_probe(
     report: &VortexEncodedReadApiBoundaryReport,
 ) -> bool {
@@ -690,6 +748,14 @@ mod tests {
     fn status_contract_not_exec() {
         assert!(VortexEncodedReadApiStatus::ConfirmedPublic.is_usable_for_contract());
         assert!(!VortexEncodedReadApiStatus::ConfirmedPublic.is_usable_for_execution());
+        assert!(
+            VortexEncodedReadApiStatus::ConfirmedPublicForLocalCountExecution
+                .is_usable_for_contract()
+        );
+        assert!(
+            VortexEncodedReadApiStatus::ConfirmedPublicForLocalCountExecution
+                .is_usable_for_execution()
+        );
     }
     #[test]
     fn risk_blocking() {
@@ -728,7 +794,7 @@ mod tests {
         assert!(i.is_blocked());
     }
     #[test]
-    fn item_execution_always_false() {
+    fn item_execution_requires_explicit_local_count_status() {
         let i = VortexEncodedReadApiItem::new(
             VortexEncodedReadApiArea::FileOpen,
             "x",
@@ -736,6 +802,15 @@ mod tests {
         )
         .unwrap();
         assert!(!i.is_execution_usable());
+
+        let i = VortexEncodedReadApiItem::new(
+            VortexEncodedReadApiArea::DataRead,
+            "local_count",
+            VortexEncodedReadApiStatus::ConfirmedPublicForLocalCountExecution,
+        )
+        .unwrap();
+        assert!(i.is_execution_usable());
+        assert!(!i.is_blocked());
     }
     #[test]
     fn report_default_deferred_exec_zero() {
@@ -789,6 +864,21 @@ mod tests {
     fn boundary_does_not_allow_execution() {
         let r = vortex_encoded_read_public_api_boundary();
         assert_eq!(r.execution_usable_count, 0);
+    }
+    #[test]
+    fn local_scan_count_boundary_is_narrowly_execution_usable() {
+        let r = vortex_encoded_read_local_scan_count_api_boundary();
+        assert_eq!(r.status, VortexEncodedReadApiBoundaryStatus::ContractReady);
+        assert_eq!(r.blocked_count, 0);
+        assert_eq!(r.execution_usable_count, 3);
+        assert_eq!(r.decode_api_count, 0);
+        assert_eq!(r.materialization_api_count, 0);
+        assert_eq!(r.arrow_default_risk_count, 0);
+        assert_eq!(r.object_store_api_count, 0);
+        assert_eq!(r.write_api_count, 0);
+        assert!(!r.fallback_execution_allowed);
+        assert!(item_named(&r, "VortexFile::scan").is_execution_usable());
+        assert!(item_named(&r, "ScanBuilder::into_array_iter").is_execution_usable());
     }
     #[test]
     fn boundary_lists_exact_vortex_data_access_surfaces() {

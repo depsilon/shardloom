@@ -798,6 +798,14 @@ This update does not introduce scans, decode, materialization, writes, object-st
 - The evidence does not make scan/read-start broadly execution-usable; it documents the exact source authorization for the existing local fixture exception.
 - This inventory update keeps non-fixture sources, object stores beyond deterministic rejection, encoded predicates, projections, writes, external baselines, and superiority claims out of scope.
 
+## CG-2.1e.19 explicit local encoded-count execution boundary
+
+- `vortex_encoded_read_local_scan_count_api_boundary` is a separate narrow boundary from `vortex_encoded_read_public_api_boundary`.
+- Only `OpenOptionsSessionExt::open_path`, `VortexFile::scan`, and `ScanBuilder::into_array_iter` are execution-usable, and only for approved local `.vortex` `CountAll` scans that sum returned Vortex array lengths.
+- The CLI opt-in path is `shardloom vortex-encoded-read-spike ... --execute-local-count`; the default spike path remains report/probe-only.
+- The broad public API inventory remains conservative for general scan/read-start, adapters, object-store targets, encoded predicates, projections, writes, external baselines, and superiority claims.
+- This inventory update does not approve row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, or fallback execution.
+
 ## CG-2.2a filtered-count readiness core contract
 - CG-2.1, CG-2.1a, and CG-2.1b are complete.
 - CG-2.2a adds `VortexFilteredCountReadinessRequest` and `VortexFilteredCountReadinessReport` planning/reporting only.

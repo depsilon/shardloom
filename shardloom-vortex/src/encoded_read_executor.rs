@@ -15,11 +15,9 @@ use shardloom_core::{
 };
 use shardloom_exec::TaskId;
 
-#[cfg(feature = "vortex-encoded-read-spike")]
-use crate::VortexEncodedCountDataPathApprovalReport;
 use crate::{
-    VortexEncodedReadApiBoundaryStatus, VortexEncodedReadCandidateKind,
-    VortexEncodedReadReadinessReport,
+    VortexEncodedCountDataPathApprovalReport, VortexEncodedReadApiBoundaryStatus,
+    VortexEncodedReadCandidateKind, VortexEncodedReadReadinessReport,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1345,6 +1343,55 @@ where
     )
 }
 
+/// Executes approved local `.vortex` `CountAll` by scanning Vortex arrays and
+/// summing their lengths.
+///
+/// This convenience entry point owns the local Vortex runtime/session setup so
+/// callers can use the narrow local-count execution boundary without depending
+/// on upstream Vortex runtime types. It remains feature-gated, local-path only,
+/// approval-gated, and source-match-gated.
+///
+/// # Errors
+/// Returns an error only if deterministic report construction fails.
+pub fn execute_vortex_count_all_from_approved_local_scan(
+    approval_report: &VortexEncodedCountDataPathApprovalReport,
+    readiness_report: &VortexEncodedReadReadinessReport,
+) -> Result<VortexEncodedReadExecutionReport> {
+    #[cfg(feature = "vortex-encoded-read-spike")]
+    {
+        use vortex::VortexSessionDefault as _;
+        use vortex::io::runtime::BlockingRuntime as _;
+        use vortex::io::runtime::single::SingleThreadRuntime;
+        use vortex::io::session::RuntimeSessionExt as _;
+        use vortex::session::VortexSession;
+
+        let runtime = SingleThreadRuntime::default();
+        let session = VortexSession::default().with_handle(runtime.handle());
+        execute_vortex_count_all_from_local_scan_with_session(
+            approval_report,
+            readiness_report,
+            &runtime,
+            &session,
+        )
+    }
+    #[cfg(not(feature = "vortex-encoded-read-spike"))]
+    {
+        let mut report = VortexEncodedReadExecutionReport::feature_disabled(
+            VortexEncodedReadExecutionInput::new(readiness_report.clone())
+                .allow_encoded_read_execution(true),
+        );
+        report.local_fixture_scan_target_uri = Some(
+            approval_report
+                .input
+                .count_readiness_report
+                .request
+                .target_uri
+                .clone(),
+        );
+        Ok(report)
+    }
+}
+
 pub fn vortex_encoded_read_execution_is_side_effect_free(
     report: &VortexEncodedReadExecutionReport,
 ) -> bool {
@@ -1549,6 +1596,43 @@ mod tests {
         assert!(!report.fallback_execution_allowed);
         assert!(!report.has_errors());
         assert!(!report.is_side_effect_free());
+    }
+
+    #[cfg(feature = "vortex-encoded-read-spike")]
+    #[test]
+    fn approved_local_scan_helper_owns_runtime_and_counts() {
+        use shardloom_core::DatasetUri;
+
+        let fixture_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
+            .join("metadata_footer_u64_20000.vortex");
+        let target_uri = DatasetUri::new(fixture_path.to_string_lossy().to_string()).expect("uri");
+        let approval = approved_encoded_count_path_for_uri(target_uri.clone());
+
+        let report = execute_vortex_count_all_from_approved_local_scan(
+            &approval,
+            &ready_readiness_for_uri(target_uri),
+        )
+        .expect("approved local scan/count");
+
+        assert_eq!(
+            report.status,
+            VortexEncodedReadExecutionStatus::LocalFixtureEncodedCountExecuted
+        );
+        assert_eq!(report.count_result, Some(20_000));
+        assert!(report.data_read);
+        assert!(report.upstream_scan_called);
+        assert!(report.local_fixture_source_uri_matches_target);
+        assert!(!report.data_decoded);
+        assert!(!report.data_materialized);
+        assert!(!report.row_read);
+        assert!(!report.arrow_converted);
+        assert!(!report.object_store_io);
+        assert!(!report.write_io);
+        assert!(!report.spill_io_performed);
+        assert!(!report.fallback_execution_allowed);
+        assert!(!report.has_errors());
     }
 
     #[cfg(feature = "vortex-encoded-read-spike")]
