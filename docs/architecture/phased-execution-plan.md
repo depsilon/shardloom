@@ -10,21 +10,21 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 ## Active Session Checklist
-- [x] Session label: CG-6.4 benchmark reproducibility manifest
-  - Current cleanup/implementation step: Add a report-only benchmark run manifest that records dataset shape, engine versions, hardware, operating system, runtime configuration, cache state, reproduction steps, correctness evidence, and no-fallback state before any benchmark runner exists.
+- [x] Session label: CG-6.5 reproducibility-aware benchmark claim gate
+  - Current cleanup/implementation step: Require reproducible benchmark run metadata in the claim gate and add a report-only benchmark evidence bundle that ties comparison reports to run manifests.
   - Primary files:
     - `shardloom-core/src/benchmark.rs`
     - `shardloom-core/src/lib.rs`
     - `shardloom-contract-tests/tests/benchmark_evidence_manifest.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-  - Scope: Benchmark reproducibility metadata, dataset/environment/version completeness, required metric policy, reproduction-step tracking, correctness evidence state, and no-fallback benchmark planning.
+  - Scope: Benchmark claim publication metadata, reproducibility gating, comparison-report readiness, evidence bundle assembly, and no-fallback benchmark planning.
   - Explicitly not included: New query execution, encoded-data traversal, scan/read-start APIs, row reads, decode/materialization, Arrow conversion, object-store IO, writes, external baseline execution, fallback execution, benchmarks, SQL/API/adapter expansion, or superiority claims.
   - Validation required:
     - `cargo fmt --all -- --check`
     - `cargo clippy --workspace --all-targets -- -D warnings`
     - `cargo test --workspace --all-targets`
-  - Completion notes: `BenchmarkRunManifest` keeps benchmark evidence incomplete until dataset profiles, engine-version labels, hardware/OS/runtime/cache metadata, reproduction steps, correctness evidence, and no-fallback evidence are all present.
+  - Completion notes: `BenchmarkClaimGate` now requires reproducibility evidence, and `BenchmarkEvidenceBundle` keeps publication blocked unless the comparison report and reproducible run manifest are both complete.
 
 ## Current Queue
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -514,6 +514,7 @@ Status legend:
   - [x] CG-6.2 benchmark claim gate
   - [x] CG-6.3 benchmark comparison report contract
   - [x] CG-6.4 benchmark reproducibility manifest
+  - [x] CG-6.5 reproducibility-aware benchmark claim gate
   - Expected evidence:
     - runtime latency and startup latency
     - peak memory and spill-required/avoided reporting
@@ -690,6 +691,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-6.2 benchmark claim gate
 - [x] CG-6.3 benchmark comparison report contract
 - [x] CG-6.4 benchmark reproducibility manifest
+- [x] CG-6.5 reproducibility-aware benchmark claim gate
 - [ ] runtime benchmarks
 - [ ] peak-memory benchmarks
 - [ ] bytes read/written benchmarks
@@ -839,6 +841,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-6.2 benchmark claim gate blocks publication without correctness, benchmark, comparison, metric, and no-fallback evidence.
 - [x] CG-6.3 benchmark comparison report contract records missing scenario/baseline results and metric gaps without running benchmarks or invoking external baselines.
 - [x] CG-6.4 benchmark reproducibility manifest records dataset, engine-version, hardware, OS, runtime, cache, reproduction-step, correctness, and no-fallback metadata requirements before any benchmark evidence can count.
+- [x] CG-6.5 reproducibility-aware benchmark claim gate blocks publication unless comparison evidence and reproducible run metadata are both present.
 - [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
 - [~] CG-3 real Vortex payload writes remain deferred; placeholder artifact paths are not completion evidence.
 

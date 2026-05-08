@@ -258,7 +258,7 @@ impl BenchmarkFallbackState {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BenchmarkComparisonStatus {
     EvidenceMissing,
-    ReadyForClaimReview,
+    ReadyForComparisonReview,
 }
 
 impl BenchmarkComparisonStatus {
@@ -266,13 +266,13 @@ impl BenchmarkComparisonStatus {
     pub const fn as_str(&self) -> &'static str {
         match self {
             Self::EvidenceMissing => "evidence_missing",
-            Self::ReadyForClaimReview => "ready_for_claim_review",
+            Self::ReadyForComparisonReview => "ready_for_comparison_review",
         }
     }
 
     #[must_use]
-    pub const fn is_ready_for_claim_review(&self) -> bool {
-        matches!(self, Self::ReadyForClaimReview)
+    pub const fn is_ready_for_comparison_review(&self) -> bool {
+        matches!(self, Self::ReadyForComparisonReview)
     }
 }
 
@@ -547,6 +547,15 @@ impl BenchmarkRunManifest {
     }
 
     #[must_use]
+    pub const fn evidence_state(&self) -> BenchmarkEvidenceState {
+        if self.status.is_reproducible() {
+            BenchmarkEvidenceState::Present
+        } else {
+            BenchmarkEvidenceState::Missing
+        }
+    }
+
+    #[must_use]
     pub fn to_human_text(&self) -> String {
         format!(
             "benchmark run manifest\nmanifest: {}\nreproducibility status: {}\nscenarios: {}\nrequired metrics: {}\nengine versions: {}\nmissing engine versions: {}\ncache state: {}\nfallback execution: disabled",
@@ -567,6 +576,7 @@ pub struct BenchmarkClaimGate {
     pub benchmark_evidence: BenchmarkEvidenceState,
     pub required_metrics: BenchmarkEvidenceState,
     pub comparison_report: BenchmarkEvidenceState,
+    pub reproducibility_evidence: BenchmarkEvidenceState,
     pub fallback: BenchmarkFallbackState,
     pub status: BenchmarkClaimStatus,
 }
@@ -578,12 +588,14 @@ impl BenchmarkClaimGate {
         benchmark_evidence: BenchmarkEvidenceState,
         required_metrics: BenchmarkEvidenceState,
         comparison_report: BenchmarkEvidenceState,
+        reproducibility_evidence: BenchmarkEvidenceState,
         fallback: BenchmarkFallbackState,
     ) -> Self {
         let status = if correctness_evidence.is_present()
             && benchmark_evidence.is_present()
             && required_metrics.is_present()
             && comparison_report.is_present()
+            && reproducibility_evidence.is_present()
             && !fallback.attempted()
         {
             BenchmarkClaimStatus::ReadyToPublish
@@ -595,6 +607,7 @@ impl BenchmarkClaimGate {
             benchmark_evidence,
             required_metrics,
             comparison_report,
+            reproducibility_evidence,
             fallback,
             status,
         }
@@ -607,6 +620,7 @@ impl BenchmarkClaimGate {
             && self.benchmark_evidence.is_present()
             && self.required_metrics.is_present()
             && self.comparison_report.is_present()
+            && self.reproducibility_evidence.is_present()
             && !self.fallback.attempted()
     }
 }
@@ -843,24 +857,22 @@ impl BenchmarkComparisonReport {
         } else {
             BenchmarkFallbackState::NotAttempted
         };
-        let gate = BenchmarkClaimGate::new(
-            correctness_evidence,
-            benchmark_evidence,
-            if required_metrics.is_empty() {
-                BenchmarkEvidenceState::Missing
-            } else {
-                BenchmarkEvidenceState::Present
-            },
-            BenchmarkEvidenceState::Present,
-            fallback,
-        );
-        let status = if gate.can_publish_performance_claim() {
-            BenchmarkComparisonStatus::ReadyForClaimReview
+        let required_metrics_evidence = if required_metrics.is_empty() {
+            BenchmarkEvidenceState::Missing
+        } else {
+            BenchmarkEvidenceState::Present
+        };
+        let status = if correctness_evidence.is_present()
+            && benchmark_evidence.is_present()
+            && required_metrics_evidence.is_present()
+            && !fallback.attempted()
+        {
+            BenchmarkComparisonStatus::ReadyForComparisonReview
         } else {
             BenchmarkComparisonStatus::EvidenceMissing
         };
         let mut diagnostics = Vec::new();
-        if !status.is_ready_for_claim_review() {
+        if !status.is_ready_for_comparison_review() {
             diagnostics.push(Diagnostic::not_implemented(
                 "benchmark comparison evidence",
                 "Benchmark execution and comparison evidence has not been collected for every required scenario, baseline, and metric.",
@@ -894,6 +906,7 @@ impl BenchmarkComparisonReport {
                 BenchmarkEvidenceState::Present
             },
             BenchmarkEvidenceState::Present,
+            BenchmarkEvidenceState::Missing,
             self.fallback,
         )
     }
@@ -914,6 +927,75 @@ impl BenchmarkComparisonReport {
             self.results.len(),
             self.missing_results.len(),
             self.missing_metrics.len(),
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BenchmarkEvidenceBundle {
+    pub run_manifest: BenchmarkRunManifest,
+    pub comparison_report: BenchmarkComparisonReport,
+    pub claim_gate: BenchmarkClaimGate,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl BenchmarkEvidenceBundle {
+    #[must_use]
+    pub fn from_reports(
+        run_manifest: BenchmarkRunManifest,
+        comparison_report: BenchmarkComparisonReport,
+    ) -> Self {
+        let fallback =
+            if run_manifest.fallback.attempted() || comparison_report.fallback.attempted() {
+                BenchmarkFallbackState::Attempted
+            } else {
+                BenchmarkFallbackState::NotAttempted
+            };
+        let required_metrics = if run_manifest.required_metrics.is_empty()
+            || comparison_report.required_metrics.is_empty()
+        {
+            BenchmarkEvidenceState::Missing
+        } else {
+            BenchmarkEvidenceState::Present
+        };
+        let claim_gate = BenchmarkClaimGate::new(
+            comparison_report.correctness_evidence,
+            comparison_report.benchmark_evidence,
+            required_metrics,
+            BenchmarkEvidenceState::Present,
+            run_manifest.evidence_state(),
+            fallback,
+        );
+        let mut diagnostics = run_manifest.diagnostics.clone();
+        diagnostics.extend(comparison_report.diagnostics.clone());
+        if !claim_gate.can_publish_performance_claim() {
+            diagnostics.push(Diagnostic::not_implemented(
+                "benchmark claim evidence bundle",
+                "Benchmark claim evidence is incomplete because correctness, benchmark results, required metrics, comparison reports, reproducibility metadata, and no-fallback evidence are not all present.",
+                "Complete the reproducible benchmark run manifest and comparison report before publishing performance or superiority claims.",
+            ));
+        }
+
+        Self {
+            run_manifest,
+            comparison_report,
+            claim_gate,
+            diagnostics,
+        }
+    }
+
+    #[must_use]
+    pub const fn can_publish_performance_claim(&self) -> bool {
+        self.claim_gate.can_publish_performance_claim()
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "benchmark evidence bundle\nclaim gate: {}\nreproducibility: {}\ncomparison: {}\nfallback execution: disabled",
+            self.claim_gate.status.as_str(),
+            self.run_manifest.status.as_str(),
+            self.comparison_report.status.as_str(),
         )
     }
 }
@@ -1090,6 +1172,7 @@ impl BenchmarkPlan {
             } else {
                 BenchmarkEvidenceState::Present
             },
+            BenchmarkEvidenceState::Missing,
             BenchmarkEvidenceState::Missing,
             BenchmarkFallbackState::NotAttempted,
         )
