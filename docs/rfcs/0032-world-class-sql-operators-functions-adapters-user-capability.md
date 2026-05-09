@@ -1265,6 +1265,17 @@ API surface families:
 - `error_mapping_status`
 - `schema_version`
 - `packaging_status`
+- `package_version`
+- `wheel_build_status`
+- `sdist_build_status`
+- `fresh_environment_import_status`
+- `fresh_environment_smoke_status`
+- `cli_binary_resolution_status`
+- `missing_binary_diagnostic_status`
+- `conda_python_package_status`
+- `conda_cli_package_requirement`
+- `conda_metapackage_status`
+- `benchmark_extras_status`
 - `diagnostics`
 - `fallback_attempted=false`
 
@@ -1279,6 +1290,11 @@ API surface families:
 Python wrapper acceptance boundaries:
 - The wrapper belongs under CG-20 user capability because it is a primary adoption surface, not an execution shortcut.
 - The first acceptable wrapper is thin over stable CLI/API JSON and preserves machine-readable diagnostics.
+- Python importability is allowed to advance before broad SQL/DataFrame/UDF runtime if it remains a distribution and diagnostics surface only.
+- One-command Conda usability requires a split package model: platform-specific `shardloom-cli` for the Rust binary, pure-Python `shardloom`/`shardloom-python` wrapper package, and an optional metapackage that depends on both.
+- Fresh-environment certification must prove `import shardloom`, CLI binary resolution, `ShardLoomClient.from_env().smoke_check()`, protocol/version reporting, and `fallback_attempted=false`.
+- Missing or misconfigured CLI binaries must produce deterministic Python diagnostics, not raw subprocess failures.
+- Spark, DataFusion, Polars, DuckDB, pandas, Dask, and similar packages may appear only in optional benchmark extras/environments, not in the default runtime package.
 - Python must not call pandas, Polars, Spark, DuckDB, DataFusion, or another engine to execute unsupported ShardLoom plans.
 - Python object conversion, pandas/Arrow/NumPy export, row iteration, and UDF calls are materialization/effect boundaries.
 - Python package status cannot be `workload_certified` until the underlying CLI/API, SQL/operator/function/adapter, correctness, benchmark, observability, and no-fallback evidence is certified for the declared workload.
@@ -1458,6 +1474,11 @@ Deployment readiness is part of "best default" certification because production 
 - `report_id`
 - `deployment_profile`
 - `package_surface`
+- `conda_cli_package_status`
+- `conda_python_package_status`
+- `conda_metapackage_status`
+- `fresh_environment_certification_status`
+- `benchmark_extras_dependency_status`
 - `platform_targets`
 - `configuration_surface`
 - `resource_limit_surface`

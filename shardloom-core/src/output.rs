@@ -289,6 +289,13 @@ pub struct PythonWrapperFoundationReport {
     pub required_client_behaviors: Vec<&'static str>,
     pub package_status: &'static str,
     pub native_binding_status: &'static str,
+    pub wheel_sdist_build_ready: bool,
+    pub fresh_environment_smoke_required: bool,
+    pub missing_binary_diagnostic_ready: bool,
+    pub conda_cli_package_required: bool,
+    pub conda_python_package_planned: bool,
+    pub conda_metapackage_planned: bool,
+    pub benchmark_extras_optional: bool,
     pub pyo3_maturin_allowed: bool,
     pub python_package_created: bool,
     pub native_extension_required: bool,
@@ -344,11 +351,19 @@ impl PythonWrapperFoundationReport {
                 "surface_materialization_boundaries",
                 "do_not_probe_on_import",
                 "resolve_local_binary_only_on_explicit_client_use",
+                "raise_deterministic_missing_binary_error",
                 "treat_runtime_commands_as_explicit_user_invocations",
                 "do_not_retry_as_fallback_engine",
             ],
-            package_status: "source_tree_created",
+            package_status: "source_tree_wheel_sdist_ready",
             native_binding_status: "not_created",
+            wheel_sdist_build_ready: true,
+            fresh_environment_smoke_required: true,
+            missing_binary_diagnostic_ready: true,
+            conda_cli_package_required: true,
+            conda_python_package_planned: true,
+            conda_metapackage_planned: true,
+            benchmark_extras_optional: true,
             pyo3_maturin_allowed: false,
             python_package_created: true,
             native_extension_required: false,
@@ -410,7 +425,7 @@ impl PythonWrapperFoundationReport {
     #[must_use]
     pub fn to_human_text(&self) -> String {
         format!(
-            "python wrapper foundation\nschema_version: {}\nwrapper_id: {}\nwrapper_status: {}\ntransport_protocol_id: {}\noutput_envelope_schema_version: {}\ninvocation_model: {}\ninitial command scope: {}\nrequired client behaviors: {}\npackage_status: {}\nnative_binding_status: {}\npyo3/maturin allowed: {}\npython package created: {}\nruntime execution: disabled\nwrite io: disabled\nfallback execution: disabled",
+            "python wrapper foundation\nschema_version: {}\nwrapper_id: {}\nwrapper_status: {}\ntransport_protocol_id: {}\noutput_envelope_schema_version: {}\ninvocation_model: {}\ninitial command scope: {}\nrequired client behaviors: {}\npackage_status: {}\nnative_binding_status: {}\nwheel/sdist build ready: {}\nmissing binary diagnostics: {}\npyo3/maturin allowed: {}\npython package created: {}\nruntime execution: disabled\nwrite io: disabled\nfallback execution: disabled",
             self.schema_version,
             self.wrapper_id,
             self.wrapper_status,
@@ -421,6 +436,8 @@ impl PythonWrapperFoundationReport {
             self.required_client_behaviors.join(", "),
             self.package_status,
             self.native_binding_status,
+            self.wheel_sdist_build_ready,
+            self.missing_binary_diagnostic_ready,
             self.pyo3_maturin_allowed,
             self.python_package_created,
         )
@@ -889,7 +906,14 @@ mod tests {
                 .contains(&"parse_output_envelope")
         );
         assert!(report.python_package_created);
-        assert_eq!(report.package_status, "source_tree_created");
+        assert_eq!(report.package_status, "source_tree_wheel_sdist_ready");
+        assert!(report.wheel_sdist_build_ready);
+        assert!(report.fresh_environment_smoke_required);
+        assert!(report.missing_binary_diagnostic_ready);
+        assert!(report.conda_cli_package_required);
+        assert!(report.conda_python_package_planned);
+        assert!(report.conda_metapackage_planned);
+        assert!(report.benchmark_extras_optional);
         assert!(!report.pyo3_maturin_allowed);
         assert!(!report.native_extension_required);
         assert!(!report.has_errors());

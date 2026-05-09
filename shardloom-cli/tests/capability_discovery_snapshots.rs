@@ -450,7 +450,7 @@ fn cg20_user_surface_capabilities_expose_evidence_gates() {
         (
             "python",
             "python_surface",
-            "thin_cli_json_wrapper,python_api,diagnostics,materialization_boundaries,python_udf_boundaries,packaging",
+            "thin_cli_json_wrapper,python_api,diagnostics,materialization_boundaries,python_udf_boundaries,package_metadata,wheel_sdist_build,fresh_environment_smoke,conda_wrapper_cli_split",
             false,
             false,
         ),

@@ -10,7 +10,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping, Sequence
 
-from .errors import ShardLoomCommandError, ShardLoomProtocolError
+from .errors import (
+    ShardLoomBinaryNotFoundError,
+    ShardLoomCommandError,
+    ShardLoomProtocolError,
+)
 from .models import OutputEnvelope
 
 CommandPart = str | os.PathLike[str]
@@ -19,6 +23,7 @@ DEFAULT_PROFILE_ORDER = ("release", "debug")
 ETL_INPUT_FORMATS = frozenset(
     {"csv", "jsonl", "ndjson", "parquet", "arrow-ipc", "arrow_ipc", "avro", "orc", "vortex"}
 )
+ENV_BINARY = "SHARDLOOM_BIN"
 ENV_REPO_ROOT = "SHARDLOOM_REPO_ROOT"
 ENV_PROFILE_ORDER = "SHARDLOOM_PROFILE_ORDER"
 ENV_TIMEOUT_SECONDS = "SHARDLOOM_TIMEOUT_SECONDS"
@@ -66,6 +71,7 @@ class PythonClientSmokeReport:
 
     status: OutputEnvelope
     python_capabilities: OutputEnvelope
+    deployment_capabilities: OutputEnvelope
     input_adapters: OutputEnvelope
 
     @property
@@ -75,6 +81,7 @@ class PythonClientSmokeReport:
         return (
             self.status.fallback.attempted
             or self.python_capabilities.fallback.attempted
+            or self.deployment_capabilities.fallback.attempted
             or self.input_adapters.fallback.attempted
         )
 
@@ -85,6 +92,7 @@ class PythonClientSmokeReport:
         return (
             self.status.command,
             self.python_capabilities.command,
+            self.deployment_capabilities.command,
             self.input_adapters.command,
         )
 
@@ -419,6 +427,7 @@ class ShardLoomClient:
         return PythonClientSmokeReport(
             status=self.status(check=check),
             python_capabilities=self.capabilities("python", check=check),
+            deployment_capabilities=self.capabilities("deployment", check=check),
             input_adapters=self.input_adapters(check=check),
         )
 
@@ -426,15 +435,22 @@ class ShardLoomClient:
         """Invoke a ShardLoom CLI command with JSON output enabled."""
 
         command = self._command(args)
-        completed = subprocess.run(
-            command,
-            cwd=self._cwd,
-            env=self._env,
-            text=True,
-            capture_output=True,
-            timeout=self._timeout,
-            check=False,
-        )
+        try:
+            completed = subprocess.run(
+                command,
+                cwd=self._cwd,
+                env=self._env,
+                text=True,
+                capture_output=True,
+                timeout=self._timeout,
+                check=False,
+            )
+        except FileNotFoundError as exc:
+            raise ShardLoomBinaryNotFoundError(
+                "ShardLoom CLI binary was not found while running "
+                f"{command[0]!r}. Install the ShardLoom CLI package, put "
+                "`shardloom` on PATH, or set SHARDLOOM_BIN to a valid binary."
+            ) from exc
         envelope = self._parse_stdout(completed.stdout, command)
         if check and (completed.returncode != 0 or envelope.is_error):
             raise ShardLoomCommandError(
@@ -463,23 +479,52 @@ class ShardLoomClient:
         if self._binary is not None:
             return self._binary
 
-        env_binary = self._effective_env().get("SHARDLOOM_BIN")
+        effective_env = self._effective_env()
+        env_binary = effective_env.get(ENV_BINARY)
         if env_binary:
-            return env_binary
+            return self._resolve_configured_binary(env_binary, effective_env)
 
         if self._repo_root is not None:
             candidate = self._repo_binary_candidate()
             if candidate is not None:
                 return candidate
 
-        path_binary = shutil.which("shardloom", path=self._effective_env().get("PATH"))
+        path_binary = shutil.which("shardloom", path=effective_env.get("PATH"))
         if path_binary is not None:
             return path_binary
 
-        return "shardloom"
+        raise ShardLoomBinaryNotFoundError(
+            "ShardLoom CLI binary could not be resolved. Install the "
+            "ShardLoom CLI package, put `shardloom` on PATH, set "
+            "SHARDLOOM_BIN to a valid binary, or set SHARDLOOM_REPO_ROOT to a "
+            "checkout with target/release or target/debug binaries."
+        )
 
     def _effective_env(self) -> Mapping[str, str]:
         return self._env if self._env is not None else os.environ
+
+    @staticmethod
+    def _resolve_configured_binary(value: str, env: Mapping[str, str]) -> str:
+        configured = value.strip()
+        if configured == "":
+            raise ShardLoomBinaryNotFoundError(f"{ENV_BINARY} must not be empty")
+        if _looks_like_path(configured):
+            candidate = Path(configured).expanduser()
+            if candidate.is_file():
+                return str(candidate)
+            raise ShardLoomBinaryNotFoundError(
+                f"{ENV_BINARY} points to {configured!r}, but that file does "
+                "not exist. Set SHARDLOOM_BIN to the compiled ShardLoom CLI "
+                "binary or remove it to use PATH discovery."
+            )
+        resolved = shutil.which(configured, path=env.get("PATH"))
+        if resolved is not None:
+            return resolved
+        raise ShardLoomBinaryNotFoundError(
+            f"{ENV_BINARY}={configured!r} was not found on PATH. Install the "
+            "ShardLoom CLI package, put the binary on PATH, or set "
+            "SHARDLOOM_BIN to an absolute binary path."
+        )
 
     def _repo_binary_candidate(self) -> Path | None:
         suffixes = (".exe", "") if os.name == "nt" else ("",)
@@ -531,6 +576,14 @@ def _required_field(envelope: OutputEnvelope, key: str) -> str:
             f"ShardLoom command {envelope.command!r} did not emit required field {key!r}"
         )
     return value
+
+
+def _looks_like_path(value: str) -> bool:
+    path = Path(value)
+    separators = [os.sep]
+    if os.altsep is not None:
+        separators.append(os.altsep)
+    return path.is_absolute() or any(separator in value for separator in separators)
 
 
 def _profile_order_from_env(env: Mapping[str, str]) -> tuple[str, ...]:

@@ -25,6 +25,10 @@ Foundry-style imports:
 python -m pip install -e python
 ```
 
+The package exposes a non-placeholder development version through
+`shardloom.__version__`. It is still pre-release and is not published from this
+repository session.
+
 Use `SHARDLOOM_BIN` to point at a specific CLI binary:
 
 ```powershell
@@ -53,6 +57,7 @@ from shardloom import ShardLoomClient
 client = ShardLoomClient.from_env()
 smoke = client.smoke_check()
 print(smoke.commands)
+print(smoke.deployment_capabilities.field("surface_components"))
 print(smoke.fallback_attempted)
 ```
 
@@ -62,6 +67,38 @@ Supported environment variables:
 - `SHARDLOOM_REPO_ROOT`: source checkout containing `target/<profile>/shardloom`.
 - `SHARDLOOM_PROFILE_ORDER`: comma-separated target profile order, for example `release,debug`.
 - `SHARDLOOM_TIMEOUT_SECONDS`: per-command subprocess timeout.
+
+If no CLI binary is available, explicit client commands raise
+`ShardLoomBinaryNotFoundError` with installation/configuration guidance instead
+of leaking a raw subprocess error. Importing the package and constructing
+`ShardLoomClient.from_env()` remain side-effect-free.
+
+## Package Build Smoke
+
+The current package is pure Python and has no runtime dependencies. Release
+readiness can be checked locally without publishing:
+
+```powershell
+python -m pip install build
+python -m build python
+python -m venv $env:TEMP\shardloom-wheel-smoke
+$wheel = Get-ChildItem python\dist\shardloom-*.whl | Select-Object -First 1
+& $env:TEMP\shardloom-wheel-smoke\Scripts\python -m pip install $wheel.FullName
+& $env:TEMP\shardloom-wheel-smoke\Scripts\python -c "import shardloom; print(shardloom.__version__)"
+```
+
+Conda packaging should stay split so the pure Python wrapper can remain
+`noarch: python` while the Rust CLI binary is built as a platform-specific
+package:
+
+- `shardloom-cli`: compiled Rust `shardloom` binary.
+- `shardloom` or `shardloom-python`: pure Python wrapper/import surface.
+- Optional `shardloom` metapackage: depends on both the wrapper and CLI for a
+  one-command install path.
+
+Spark, DataFusion, Polars, DuckDB, pandas, and Dask belong only in optional
+benchmark environments; they are not ShardLoom runtime dependencies or fallback
+engines.
 
 ## Live ETL Smoke
 

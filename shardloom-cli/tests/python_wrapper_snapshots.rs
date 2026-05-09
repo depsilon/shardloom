@@ -55,8 +55,15 @@ fn python_wrapper_plan_json_exposes_cli_json_foundation() {
 fn python_wrapper_plan_json_defers_mature_python_surfaces() {
     let output = run_python_wrapper_plan();
 
-    assert!(output.contains(&field("package_status", "source_tree_created")));
+    assert!(output.contains(&field("package_status", "source_tree_wheel_sdist_ready")));
     assert!(output.contains(&field("native_binding_status", "not_created")));
+    assert!(output.contains(&field("wheel_sdist_build_ready", "true")));
+    assert!(output.contains(&field("fresh_environment_smoke_required", "true")));
+    assert!(output.contains(&field("missing_binary_diagnostic_ready", "true")));
+    assert!(output.contains(&field("conda_cli_package_required", "true")));
+    assert!(output.contains(&field("conda_python_package_planned", "true")));
+    assert!(output.contains(&field("conda_metapackage_planned", "true")));
+    assert!(output.contains(&field("benchmark_extras_optional", "true")));
     assert!(output.contains(&field("pyo3_maturin_allowed", "false")));
     assert!(output.contains(&field("python_package_created", "true")));
     assert!(output.contains(&field("native_extension_required", "false")));
