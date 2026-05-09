@@ -10,12 +10,13 @@ use shardloom_plan::ProjectionRequest;
 
 use crate::{
     VortexBoundedExecutionPolicy, VortexBoundedExecutionReport, VortexBoundedExecutionStatus,
-    VortexLocalExecutionReport, VortexLocalExecutionStatus, VortexLocalPrimitiveExecutionReport,
-    VortexLocalPrimitiveExecutionStatus, VortexMetadataOpenReport, VortexMetadataOpenRequest,
-    VortexMetadataOpenStatus, VortexMetadataProbeReport, VortexQueryPrimitiveAnalysisReport,
-    VortexQueryPrimitiveRequest, VortexQueryPrimitiveResult, VortexQueryPrimitiveStatus,
-    VortexQueryPrimitiveValue, VortexWorkAvoidedMetric, VortexWorkAvoidedMetricKind,
-    VortexWorkAvoidedReport, execute_vortex_bounded_local_query, execute_vortex_local_primitive,
+    VortexLocalExecutionReport, VortexLocalExecutionStatus, VortexLocalPrimitiveExecutionPolicy,
+    VortexLocalPrimitiveExecutionReport, VortexLocalPrimitiveExecutionStatus,
+    VortexMetadataOpenReport, VortexMetadataOpenRequest, VortexMetadataOpenStatus,
+    VortexMetadataProbeReport, VortexQueryPrimitiveAnalysisReport, VortexQueryPrimitiveRequest,
+    VortexQueryPrimitiveResult, VortexQueryPrimitiveStatus, VortexQueryPrimitiveValue,
+    VortexWorkAvoidedMetric, VortexWorkAvoidedMetricKind, VortexWorkAvoidedReport,
+    execute_vortex_bounded_local_query, execute_vortex_local_primitive_with_policy,
     execute_vortex_local_query_primitive, open_vortex_metadata_only,
     summarize_vortex_metadata_probe,
 };
@@ -276,7 +277,7 @@ impl VortexLocalEngineReport {
             None
         };
         let local_primitive_execution_report =
-            execute_local_primitive_when_needed(&query_request, &query_result)?;
+            execute_local_primitive_when_needed(&query_request, &query_result, &request)?;
         let status = map_status(
             metadata_open_report.as_ref(),
             local_execution_report.as_ref(),
@@ -439,23 +440,7 @@ impl VortexLocalEngineReport {
         if let Some(v) = &self.value_summary {
             let _ = writeln!(out, "value summary: {v}");
         }
-        if let Some(report) = &self.local_primitive_execution_report {
-            let _ = writeln!(out, "local primitive status: {}", report.status.as_str());
-            let _ = writeln!(out, "local primitive mode: {}", report.mode.as_str());
-            let _ = writeln!(out, "local primitive rows scanned: {}", report.rows_scanned);
-            let _ = writeln!(
-                out,
-                "local primitive rows selected: {}",
-                report
-                    .rows_selected
-                    .map_or_else(|| "none".to_string(), |value| value.to_string())
-            );
-            let _ = writeln!(
-                out,
-                "local primitive projected columns: {}",
-                report.projected_columns.join(",")
-            );
-        }
+        append_local_primitive_human_text(&mut out, self.local_primitive_execution_report.as_ref());
         let _ = writeln!(out, "result known: {}", self.result_known);
         let _ = writeln!(out, "task count: {}", self.task_count);
         let _ = writeln!(
@@ -591,6 +576,55 @@ fn local_engine_claim_gate_status(report: &VortexLocalEngineReport) -> &'static 
     } else {
         "not_claim_grade"
     }
+}
+
+fn append_local_primitive_human_text(
+    out: &mut String,
+    report: Option<&VortexLocalPrimitiveExecutionReport>,
+) {
+    let Some(report) = report else {
+        return;
+    };
+    let _ = writeln!(out, "local primitive status: {}", report.status.as_str());
+    let _ = writeln!(out, "local primitive mode: {}", report.mode.as_str());
+    let _ = writeln!(out, "local primitive rows scanned: {}", report.rows_scanned);
+    let _ = writeln!(
+        out,
+        "local primitive rows selected: {}",
+        report
+            .rows_selected
+            .map_or_else(|| "none".to_string(), |value| value.to_string())
+    );
+    let _ = writeln!(
+        out,
+        "local primitive projected columns: {}",
+        report.projected_columns.join(",")
+    );
+    let _ = writeln!(
+        out,
+        "local primitive arrays read count: {}",
+        report.arrays_read_count
+    );
+    let _ = writeln!(
+        out,
+        "local primitive max chunk rows: {}",
+        report.max_chunk_rows
+    );
+    let _ = writeln!(
+        out,
+        "local primitive streaming scan used: {}",
+        report.streaming_scan_used
+    );
+    let _ = writeln!(
+        out,
+        "local primitive full stream collected: {}",
+        report.full_stream_collected
+    );
+    let _ = writeln!(
+        out,
+        "local primitive scan concurrency per worker: {}",
+        report.scan_concurrency_per_worker
+    );
 }
 
 fn local_engine_why_blockers(
@@ -860,11 +894,15 @@ fn append_runtime_rows_not_scanned_metric(
 fn execute_local_primitive_when_needed(
     query_request: &VortexQueryPrimitiveRequest,
     query_result: &VortexQueryPrimitiveResult,
+    engine_request: &VortexLocalEngineRequest,
 ) -> Result<Option<VortexLocalPrimitiveExecutionReport>> {
     if query_result.value.is_known() {
         return Ok(None);
     }
-    let report = execute_vortex_local_primitive(query_request)?;
+    let report = execute_vortex_local_primitive_with_policy(
+        query_request,
+        VortexLocalPrimitiveExecutionPolicy::new(engine_request.max_parallelism)?,
+    )?;
     if matches!(
         report.status,
         VortexLocalPrimitiveExecutionStatus::FeatureDisabled
@@ -1598,7 +1636,7 @@ mod tests {
             uri,
             VortexLocalEnginePrimitive::CountWhere("gte:value:3".to_string()),
             4,
-            1,
+            3,
         )
         .expect("request");
 
@@ -1621,6 +1659,12 @@ mod tests {
             .as_ref()
             .expect("local primitive report");
         assert_eq!(local.rows_scanned, 5);
+        assert!(local.streaming_scan_used);
+        assert!(!local.full_stream_collected);
+        assert_eq!(local.max_parallelism_requested, 3);
+        assert_eq!(local.scan_concurrency_per_worker, 3);
+        assert!(local.arrays_read_count > 0);
+        assert!(local.max_chunk_rows > 0);
         assert!(local.filter_pushdown_applied);
         assert!(local.upstream_filter_expression_used);
         assert!(!local.materialization_boundary_reported);
@@ -1687,6 +1731,10 @@ mod tests {
         assert!(local.projection_pushdown_applied);
         assert!(local.upstream_projection_expression_used);
         assert_eq!(local.projected_columns, vec!["value".to_string()]);
+        assert!(local.streaming_scan_used);
+        assert!(!local.full_stream_collected);
+        assert_eq!(local.max_parallelism_requested, 1);
+        assert_eq!(local.scan_concurrency_per_worker, 1);
         assert!(!local.materialization_boundary_reported);
         let work = report.runtime_work_avoided_report();
         assert_eq!(

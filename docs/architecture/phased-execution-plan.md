@@ -45,6 +45,31 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
+- [x] Session label: CG-8.9 / CG-13.9 local Vortex streaming scan execution policy
+  - Primary files:
+    - `shardloom-vortex/src/local_primitives.rs`
+    - `shardloom-vortex/src/local_engine.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `shardloom-cli/src/main.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: Move the feature-gated local `.vortex` primitive path from whole-stream collection to chunk-by-chunk Vortex scan iteration, pass the `vortex-run` bounded parallelism request into the local scan builder, and expose the applied streaming/concurrency evidence in local engine and CLI reports.
+  - Checklist:
+    - [x] Iterate upstream Vortex scan chunks instead of calling `read_all()` for the local primitive path.
+    - [x] Preserve filter/projection pushdown through upstream Vortex scan expressions.
+    - [x] Pass requested `max_parallelism` into the local primitive scan policy as scan concurrency evidence.
+    - [x] Report chunk count, max chunk rows, streaming scan usage, full-stream collection status, requested parallelism, and scan concurrency per worker.
+    - [x] Preserve no row reads, no Arrow conversion, no object-store IO, no writes, no spill IO, and no fallback execution.
+    - [x] Run focused local Vortex primitive and local engine tests.
+    - [x] Run required full validation before PR.
+  - Local validation status:
+    - Focused `cargo test -p shardloom-vortex --features vortex-local-primitives local_primitives -- --nocapture` passed locally.
+    - Focused `cargo test -p shardloom-vortex --features vortex-local-primitives local_engine_executes_feature_gated_count_where_primitive -- --nocapture` passed locally.
+    - Focused `cargo test -p shardloom-vortex --features vortex-local-primitives local_engine_project_primitive_reports_schema_only_no_materialization -- --nocapture` passed locally.
+    - Required `cargo fmt --all -- --check` passed locally with Rust toolchain `1.91.1`.
+    - Required `cargo clippy --workspace --all-targets -- -D warnings` passed locally with Rust toolchain `1.91.1`.
+    - Required `cargo test --workspace --all-targets` passed locally with Rust toolchain `1.91.1`.
+  - Explicitly not included: benchmark report/layout changes, CSV universal-I/O optimization, object-store reads, distributed execution, runtime spill, mature SQL/DataFrame/API/adapters, production operator certification, benchmark/superiority claim, CG-8 closeout, CG-13 closeout, or fallback execution.
+
 - [x] Session label: CG-2.1e.27 / CG-6.20 / CG-13.8 local Vortex scan pushdown and benchmark storage expansion
   - Primary files:
     - `shardloom-vortex/src/local_primitives.rs`
