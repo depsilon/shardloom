@@ -69,8 +69,8 @@ counting, and a temporary comparison predicate. The report includes each row's
 timing scope so in-command repeated timings are not mixed up with CLI-process
 wall-time smoke measurements.
 
-The ShardLoom work-avoidance table is based on final `vortex-run` runtime
-effects, not only plan analysis. It exposes decode avoided, materialization
+The ShardLoom work-avoidance table is based on final `vortex-run` runtime effects,
+not only plan analysis. It exposes decode avoided, materialization
 avoided, rows not scanned, segment prune count, bytes not read, spill avoided,
 and fallback blocked. Segment-prune and bytes-not-read values remain `unknown`
 until the local primitive path can measure them safely.

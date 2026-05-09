@@ -51,20 +51,22 @@ It does not implement runtime behavior, authorize fallback execution, or add dep
   - `vortex_object_store`
   - `vortex_output_payload`
   - `vortex_commit_execution`
-- [ ] Doctor/capabilities alignment
-  - `doctor` eventually reports environment/readiness through `FeatureFootprintReport`.
-  - `capabilities` eventually reports supported/planned/disabled features using normalized names.
-  - CLI JSON fields use consistent keys.
-  - Output envelope fallback state matches feature-footprint fallback fields.
+- [~] Doctor/capabilities alignment
+  - [x] `doctor` reports deterministic readiness through `FeatureFootprintReport`.
+  - [x] `feature-footprint` exposes the same no-probe report directly.
+  - [~] `capabilities` reports supported/planned/disabled features using normalized names.
+  - [~] CLI JSON fields use consistent keys across capability surfaces.
+  - [ ] Output envelope fallback state matches feature-footprint fallback fields.
 - [x] No-fallback dependency checks
   - No direct or transitive Spark runtime dependency.
   - No direct or transitive DataFusion runtime dependency.
   - No direct or transitive `vortex-datafusion` runtime dependency.
   - No direct or transitive DuckDB, Polars, or Velox runtime dependency.
   - External engines may appear only in external baseline scopes and must not be runtime dependencies.
-- [ ] Future tests
+- [~] Future tests
   - Default `shardloom-vortex` feature graph remains lightweight.
   - `FeatureFootprintReport` fallback allowed false.
+  - Doctor/feature-footprint share normalized feature keys.
   - Doctor/capabilities share normalized feature keys.
   - Feature-gated Vortex status is stable.
   - Toolchain mismatch is reported, not ignored.
@@ -85,6 +87,10 @@ It does not implement runtime behavior, authorize fallback execution, or add dep
 - [x] CG-1.2d note
   - CG-1.2d uses feature-specific validation before local metadata/footer IO.
   - `FeatureFootprintReport` behavior remains unchanged by that phase.
+- [x] R3.5e
+  - Added direct `feature-footprint` CLI exposure for the no-probe report.
+  - Routed `doctor` through `FeatureFootprintReport`.
+  - Kept behavior deterministic with no environment probes, dependencies, runtime execution, or fallback execution.
 
 ## Guardrails
 

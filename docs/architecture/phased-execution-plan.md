@@ -478,6 +478,9 @@ Supporting docs:
 - [x] R3.5 Feature-footprint/doctor centralization plan
 - [x] R3.5a FeatureFootprintReport core contract
 - [x] R3.5d No-fallback dependency invariant tests
+- [x] R3.5e FeatureFootprint doctor alignment
+  - Why: expose the canonical no-probe feature footprint through CLI surfaces before expanding doctor/capability readiness checks.
+  - Acceptance: `feature-footprint` and `doctor` emit `FeatureFootprintReport` fields with fallback execution disabled, no environment probes, no runtime behavior, no dependencies, and no fallback execution.
 - [x] R5.1 Systems-learning contract pass
 - [x] R5.2 Competitive track extension to CG-19/CG-20
 - [x] R5.3 RFC 0031/0032 deepening
@@ -1641,7 +1644,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [~] Epic A — DecisionTrace / WhyReport
 - [~] Epic B — WorkAvoidedReport
 - [x] Epic C — LayoutHealthReport
-- [ ] Epic D — FeatureFootprintReport
+- [~] Epic D — FeatureFootprintReport
 - [ ] Epic E — EffectBudgetReport
 - [ ] Epic F — Agent Contract Pack
 - [ ] Epic G — Table Intelligence Layer
