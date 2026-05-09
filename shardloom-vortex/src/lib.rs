@@ -440,6 +440,10 @@ pub use local_execution::{
     execute_vortex_local_query_primitive, local_encoded_count_execution_certificate,
     vortex_encoded_count_local_guard_discovery_report, vortex_local_execution_is_side_effect_free,
 };
+pub use local_primitives::{
+    VortexLocalPrimitiveExecutionMode, VortexLocalPrimitiveExecutionReport,
+    VortexLocalPrimitiveExecutionStatus, execute_vortex_local_primitive,
+};
 pub use streaming_batch_runtime::{
     VortexStreamingBatchRuntimeMode, VortexStreamingBatchRuntimeReport,
     VortexStreamingBatchRuntimeStatus, execute_vortex_streaming_batches_from_local_encoded_count,
@@ -459,6 +463,7 @@ pub mod input_bridge;
 pub mod layout_driver_approval;
 pub mod local_engine;
 pub mod local_execution;
+pub mod local_primitives;
 
 use std::fmt::Write as _;
 
