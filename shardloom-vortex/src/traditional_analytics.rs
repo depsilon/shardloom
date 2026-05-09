@@ -1,6 +1,13 @@
 use std::path::PathBuf;
 
-use shardloom_core::{Diagnostic, Result, ShardLoomError};
+use shardloom_core::{Diagnostic, NativeIoCertificate, Result, ShardLoomError};
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+use shardloom_core::{
+    NativeIoAdapterFidelityReport, NativeIoMaterializationBoundaryReport,
+    NativeIoRepresentationTransition, NativeIoSideEffectReport, NativeIoSinkRequirementReport,
+    NativeIoSourceCapabilityReport, NativeIoSourcePushdownReport, RepresentationState,
+};
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 const BENCHMARK_FLOAT_DIGITS: i32 = 4;
@@ -98,8 +105,13 @@ pub struct TraditionalAnalyticsReport {
     pub workspace_dir: PathBuf,
     pub fact_vortex_path: PathBuf,
     pub dim_vortex_path: PathBuf,
+    pub fact_csv_bytes: u64,
+    pub dim_csv_bytes: u64,
+    pub source_bytes_read: u64,
     pub fact_vortex_bytes: u64,
     pub dim_vortex_bytes: u64,
+    pub materialization_boundary_rows: u64,
+    pub native_io_certificate: NativeIoCertificate,
     pub native_work_envelope_created: bool,
     pub native_work_stream_created: bool,
     pub native_result_stream_created: bool,
@@ -137,8 +149,9 @@ impl TraditionalAnalyticsReport {
     }
 
     #[must_use]
+    #[allow(clippy::too_many_lines)]
     pub fn fields(&self) -> Vec<(String, String)> {
-        vec![
+        let mut fields = vec![
             (
                 "fallback_execution_allowed".to_string(),
                 self.fallback_execution_allowed.to_string(),
@@ -169,12 +182,25 @@ impl TraditionalAnalyticsReport {
                 self.dim_vortex_path.display().to_string(),
             ),
             (
+                "fact_csv_bytes".to_string(),
+                self.fact_csv_bytes.to_string(),
+            ),
+            ("dim_csv_bytes".to_string(), self.dim_csv_bytes.to_string()),
+            (
+                "source_bytes_read".to_string(),
+                self.source_bytes_read.to_string(),
+            ),
+            (
                 "fact_vortex_bytes".to_string(),
                 self.fact_vortex_bytes.to_string(),
             ),
             (
                 "dim_vortex_bytes".to_string(),
                 self.dim_vortex_bytes.to_string(),
+            ),
+            (
+                "materialization_boundary_rows".to_string(),
+                self.materialization_boundary_rows.to_string(),
             ),
             (
                 "native_work_envelope_created".to_string(),
@@ -235,8 +261,314 @@ impl TraditionalAnalyticsReport {
                 "spill_io_performed".to_string(),
                 self.spill_io_performed.to_string(),
             ),
-        ]
+        ];
+        fields.extend(native_io_certificate_fields(&self.native_io_certificate));
+        fields
     }
+}
+
+#[allow(clippy::too_many_lines)]
+fn native_io_certificate_fields(certificate: &NativeIoCertificate) -> Vec<(String, String)> {
+    let source = &certificate.source_capability_report;
+    let pushdown = &certificate.source_pushdown_report;
+    let sink = &certificate.sink_requirement_report;
+    let fidelity = &certificate.adapter_fidelity_report;
+    let side_effects = &certificate.side_effects;
+    let boundary = certificate.materialization_boundaries.first();
+    vec![
+        (
+            "native_io_certificate_schema_version".to_string(),
+            certificate.schema_version.to_string(),
+        ),
+        (
+            "native_io_certificate_id".to_string(),
+            certificate.certificate_id.clone(),
+        ),
+        (
+            "native_io_certificate_path_id".to_string(),
+            certificate.path_id.clone(),
+        ),
+        (
+            "native_io_certificate_status".to_string(),
+            certificate.status().to_string(),
+        ),
+        (
+            "native_io_per_path_certificate_emitted".to_string(),
+            certificate.is_certified().to_string(),
+        ),
+        (
+            "native_io_representation_transition_order".to_string(),
+            certificate.representation_transition_order(),
+        ),
+        (
+            "native_io_materialization_boundary_order".to_string(),
+            certificate.materialization_boundary_order(),
+        ),
+        (
+            "native_io_materializing_transitions_have_boundaries".to_string(),
+            certificate
+                .materializing_transitions_have_boundaries()
+                .to_string(),
+        ),
+        (
+            "source_capability_source_kind".to_string(),
+            source.source_kind.clone(),
+        ),
+        (
+            "source_capability_adapter_id".to_string(),
+            source.adapter_id.clone(),
+        ),
+        (
+            "source_capability_schema_discovery_status".to_string(),
+            source.schema_discovery_status.clone(),
+        ),
+        (
+            "source_capability_statistics_availability".to_string(),
+            source.statistics_availability.clone(),
+        ),
+        (
+            "source_capability_pushdown_capabilities".to_string(),
+            source.pushdown_capabilities.clone(),
+        ),
+        (
+            "source_capability_encoded_representation_preserved".to_string(),
+            source.encoded_representation_preserved.to_string(),
+        ),
+        (
+            "source_capability_range_read_capability".to_string(),
+            source.range_read_capability.to_string(),
+        ),
+        (
+            "source_capability_streaming_capability".to_string(),
+            source.streaming_capability.to_string(),
+        ),
+        (
+            "source_capability_object_store_capability".to_string(),
+            source.object_store_capability.to_string(),
+        ),
+        (
+            "source_capability_fallback_attempted".to_string(),
+            source.fallback_attempted.to_string(),
+        ),
+        (
+            "source_pushdown_accepted_operations".to_string(),
+            pushdown.accepted_operation_order(),
+        ),
+        (
+            "source_pushdown_rejected_operations".to_string(),
+            pushdown.rejected_operation_order(),
+        ),
+        (
+            "source_pushdown_guarantee".to_string(),
+            pushdown.guarantee.clone(),
+        ),
+        (
+            "source_pushdown_proof_basis".to_string(),
+            pushdown.proof_basis.clone(),
+        ),
+        (
+            "source_pushdown_residual_expression".to_string(),
+            pushdown
+                .residual_expression
+                .clone()
+                .unwrap_or_else(|| "none".to_string()),
+        ),
+        (
+            "source_pushdown_conservative_false_positive_policy".to_string(),
+            pushdown.conservative_false_positive_policy.to_string(),
+        ),
+        (
+            "source_pushdown_unsafe_rejected_reason".to_string(),
+            pushdown
+                .unsafe_rejected_reason
+                .clone()
+                .unwrap_or_else(|| "none".to_string()),
+        ),
+        (
+            "source_pushdown_fallback_attempted".to_string(),
+            pushdown.fallback_attempted.to_string(),
+        ),
+        (
+            "sink_requirement_target_format".to_string(),
+            sink.target_format.clone(),
+        ),
+        (
+            "sink_requirement_accepts_encoded".to_string(),
+            sink.accepts_encoded.to_string(),
+        ),
+        (
+            "sink_requirement_requires_decoded_columnar".to_string(),
+            sink.requires_decoded_columnar.to_string(),
+        ),
+        (
+            "sink_requirement_requires_rows".to_string(),
+            sink.requires_rows.to_string(),
+        ),
+        (
+            "sink_requirement_preserves_metadata".to_string(),
+            sink.preserves_metadata.to_string(),
+        ),
+        (
+            "sink_requirement_requires_ordering".to_string(),
+            sink.requires_ordering.to_string(),
+        ),
+        (
+            "sink_requirement_requires_partitioning".to_string(),
+            sink.requires_partitioning.to_string(),
+        ),
+        (
+            "sink_requirement_requires_commit".to_string(),
+            sink.requires_commit.to_string(),
+        ),
+        (
+            "sink_requirement_supports_streaming".to_string(),
+            sink.supports_streaming.to_string(),
+        ),
+        (
+            "sink_requirement_max_chunk_size".to_string(),
+            sink.max_chunk_size
+                .map_or_else(|| "none".to_string(), |value| value.to_string()),
+        ),
+        (
+            "sink_requirement_backpressure_policy".to_string(),
+            sink.backpressure_policy.clone(),
+        ),
+        (
+            "adapter_fidelity_adapter_id".to_string(),
+            fidelity.adapter_id.clone(),
+        ),
+        (
+            "adapter_fidelity_source_kind".to_string(),
+            fidelity.source_kind.clone(),
+        ),
+        (
+            "adapter_fidelity_sink_kind".to_string(),
+            fidelity.sink_kind.clone(),
+        ),
+        (
+            "adapter_fidelity_metadata_preserved".to_string(),
+            fidelity.metadata_preserved.to_string(),
+        ),
+        (
+            "adapter_fidelity_statistics_preserved".to_string(),
+            fidelity.statistics_preserved.to_string(),
+        ),
+        (
+            "adapter_fidelity_encoded_representation_preserved".to_string(),
+            fidelity.encoded_representation_preserved.to_string(),
+        ),
+        (
+            "adapter_fidelity_materialization_required".to_string(),
+            fidelity.materialization_required.to_string(),
+        ),
+        (
+            "adapter_fidelity_fidelity_loss".to_string(),
+            fidelity.fidelity_loss.clone(),
+        ),
+        (
+            "adapter_fidelity_metadata_loss".to_string(),
+            fidelity.metadata_loss.clone(),
+        ),
+        (
+            "adapter_fidelity_fallback_attempted".to_string(),
+            fidelity.fallback_attempted.to_string(),
+        ),
+        (
+            "materialization_boundary_id".to_string(),
+            boundary.map_or_else(|| "none".to_string(), |report| report.boundary_id.clone()),
+        ),
+        (
+            "materialization_boundary_from_state".to_string(),
+            boundary.map_or_else(
+                || "none".to_string(),
+                |report| report.from_state.as_str().to_string(),
+            ),
+        ),
+        (
+            "materialization_boundary_to_state".to_string(),
+            boundary.map_or_else(
+                || "none".to_string(),
+                |report| report.to_state.as_str().to_string(),
+            ),
+        ),
+        (
+            "materialization_boundary_required_by".to_string(),
+            boundary.map_or_else(|| "none".to_string(), |report| report.required_by.clone()),
+        ),
+        (
+            "materialization_boundary_reason".to_string(),
+            boundary.map_or_else(|| "none".to_string(), |report| report.reason.clone()),
+        ),
+        (
+            "materialization_boundary_bytes_decoded".to_string(),
+            boundary.map_or_else(
+                || "0".to_string(),
+                |report| report.bytes_decoded.to_string(),
+            ),
+        ),
+        (
+            "materialization_boundary_rows_materialized".to_string(),
+            boundary.map_or_else(
+                || "0".to_string(),
+                |report| report.rows_materialized.to_string(),
+            ),
+        ),
+        (
+            "materialization_boundary_fidelity_loss".to_string(),
+            boundary.map_or_else(|| "none".to_string(), |report| report.fidelity_loss.clone()),
+        ),
+        (
+            "materialization_boundary_fallback_attempted".to_string(),
+            boundary.map_or_else(
+                || "false".to_string(),
+                |report| report.fallback_attempted.to_string(),
+            ),
+        ),
+        (
+            "native_io_side_effects_data_read".to_string(),
+            side_effects.data_read.to_string(),
+        ),
+        (
+            "native_io_side_effects_data_decoded".to_string(),
+            side_effects.data_decoded.to_string(),
+        ),
+        (
+            "native_io_side_effects_data_materialized".to_string(),
+            side_effects.data_materialized.to_string(),
+        ),
+        (
+            "native_io_side_effects_row_read".to_string(),
+            side_effects.row_read.to_string(),
+        ),
+        (
+            "native_io_side_effects_arrow_converted".to_string(),
+            side_effects.arrow_converted.to_string(),
+        ),
+        (
+            "native_io_side_effects_object_store_io".to_string(),
+            side_effects.object_store_io.to_string(),
+        ),
+        (
+            "native_io_side_effects_write_io".to_string(),
+            side_effects.write_io.to_string(),
+        ),
+        (
+            "native_io_side_effects_spill_io_performed".to_string(),
+            side_effects.spill_io_performed.to_string(),
+        ),
+        (
+            "native_io_side_effects_external_effects_executed".to_string(),
+            side_effects.external_effects_executed.to_string(),
+        ),
+        (
+            "native_io_side_effects_fallback_attempted".to_string(),
+            side_effects.fallback_attempted.to_string(),
+        ),
+        (
+            "native_io_side_effects_fallback_execution_allowed".to_string(),
+            side_effects.fallback_execution_allowed.to_string(),
+        ),
+    ]
 }
 
 /// Runs a local traditional analytics scenario through CSV import into Vortex files.
@@ -344,8 +676,16 @@ fn run_traditional_analytics_benchmark_enabled(
             request.workspace_dir.display()
         ))
     })?;
+    let fact_csv_bytes = file_len(&request.fact_csv, "fact CSV")?;
+    let dim_csv_bytes = file_len(&request.dim_csv, "dimension CSV")?;
+    let source_bytes_read = fact_csv_bytes.checked_add(dim_csv_bytes).ok_or_else(|| {
+        ShardLoomError::InvalidOperation(
+            "traditional analytics source byte count overflow".to_string(),
+        )
+    })?;
     let fact_rows = read_traditional_fact_csv(&request.fact_csv)?;
     let dim_rows = read_traditional_dim_csv(&request.dim_csv)?;
+    let source_rows_materialized = checked_usize_sum_to_u64(fact_rows.len(), dim_rows.len())?;
     let fact_vortex_path = request.workspace_dir.join("fact.vortex");
     let dim_vortex_path = request.workspace_dir.join("dim.vortex");
     write_fact_vortex(&fact_rows, &fact_vortex_path)?;
@@ -362,22 +702,18 @@ fn run_traditional_analytics_benchmark_enabled(
         }
         _ => usize_to_u64(fact.len())?,
     };
-    let fact_vortex_bytes = fs::metadata(&fact_vortex_path)
-        .map_err(|error| {
-            ShardLoomError::InvalidOperation(format!(
-                "failed to stat fact Vortex file '{}': {error}",
-                fact_vortex_path.display()
-            ))
-        })?
-        .len();
-    let dim_vortex_bytes = fs::metadata(&dim_vortex_path)
-        .map_err(|error| {
-            ShardLoomError::InvalidOperation(format!(
-                "failed to stat dimension Vortex file '{}': {error}",
-                dim_vortex_path.display()
-            ))
-        })?
-        .len();
+    let fact_vortex_bytes = file_len(&fact_vortex_path, "fact Vortex file")?;
+    let dim_vortex_bytes = file_len(&dim_vortex_path, "dimension Vortex file")?;
+    let native_io_certificate = traditional_native_io_certificate(
+        request.scenario,
+        source_bytes_read,
+        source_rows_materialized,
+    )?;
+    if !native_io_certificate.is_certified() {
+        return Err(ShardLoomError::InvalidOperation(
+            "traditional analytics native I/O certificate was not certified".to_string(),
+        ));
+    }
 
     Ok(TraditionalAnalyticsReport {
         scenario: request.scenario,
@@ -389,8 +725,13 @@ fn run_traditional_analytics_benchmark_enabled(
         workspace_dir: request.workspace_dir,
         fact_vortex_path,
         dim_vortex_path,
+        fact_csv_bytes,
+        dim_csv_bytes,
+        source_bytes_read,
         fact_vortex_bytes,
         dim_vortex_bytes,
+        materialization_boundary_rows: source_rows_materialized,
+        native_io_certificate,
         native_work_envelope_created: true,
         native_work_stream_created: true,
         native_result_stream_created: true,
@@ -403,7 +744,7 @@ fn run_traditional_analytics_benchmark_enabled(
         data_decoded: true,
         data_materialized: true,
         materialization_boundary_report_emitted: true,
-        row_read: false,
+        row_read: true,
         arrow_converted: false,
         object_store_io: false,
         write_io: true,
@@ -411,6 +752,118 @@ fn run_traditional_analytics_benchmark_enabled(
         fallback_execution_allowed: false,
         diagnostics: Vec::new(),
     })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn traditional_native_io_certificate(
+    scenario: TraditionalAnalyticsScenario,
+    source_bytes_read: u64,
+    source_rows_materialized: u64,
+) -> Result<NativeIoCertificate> {
+    NativeIoCertificate::new(
+        format!(
+            "cg19.traditional_analytics.{}",
+            scenario.as_str().replace(['/', ' '], "-")
+        ),
+        "compatibility_source_to_native_vortex_sink",
+        NativeIoSourceCapabilityReport {
+            source_kind: "csv".to_string(),
+            adapter_id: "shardloom.adapter.csv.local_benchmark.v1".to_string(),
+            schema_discovery_status: "declared_schema_validated".to_string(),
+            statistics_availability: "none".to_string(),
+            pushdown_capabilities: "none".to_string(),
+            encoded_representation_preserved: false,
+            range_read_capability: false,
+            streaming_capability: false,
+            object_store_capability: false,
+            fallback_attempted: false,
+        },
+        NativeIoSourcePushdownReport {
+            accepted_operations: Vec::new(),
+            rejected_operations: vec![scenario.as_str().to_string()],
+            guarantee: "unsupported".to_string(),
+            proof_basis: "local CSV benchmark adapter performs deterministic schema validation and parses source rows before Vortex import".to_string(),
+            residual_expression: Some(scenario.as_str().to_string()),
+            conservative_false_positive_policy: false,
+            unsafe_rejected_reason: None,
+            fallback_attempted: false,
+        },
+        vec![
+            NativeIoRepresentationTransition::new(
+                RepresentationState::ForeignEncoded,
+                RepresentationState::DecodedColumnar,
+                true,
+            ),
+            NativeIoRepresentationTransition::new(
+                RepresentationState::DecodedColumnar,
+                RepresentationState::VortexEncoded,
+                false,
+            ),
+        ],
+        NativeIoSinkRequirementReport {
+            target_format: "vortex".to_string(),
+            accepts_encoded: true,
+            requires_decoded_columnar: false,
+            requires_rows: false,
+            preserves_metadata: true,
+            requires_ordering: false,
+            requires_partitioning: false,
+            requires_commit: false,
+            supports_streaming: false,
+            max_chunk_size: Some(source_rows_materialized),
+            backpressure_policy: "not_applicable_local_smoke".to_string(),
+        },
+        NativeIoAdapterFidelityReport {
+            adapter_id: "shardloom.adapter.csv.local_benchmark.v1".to_string(),
+            source_kind: "csv".to_string(),
+            sink_kind: "vortex".to_string(),
+            metadata_preserved: false,
+            statistics_preserved: false,
+            encoded_representation_preserved: false,
+            materialization_required: true,
+            fidelity_loss: "none_for_declared_benchmark_schema".to_string(),
+            metadata_loss: "csv_source_has_no_vortex_encoding_statistics_or_layout_metadata"
+                .to_string(),
+            fallback_attempted: false,
+        },
+        vec![NativeIoMaterializationBoundaryReport {
+            boundary_id: "cg19.csv_to_vortex_source_parse".to_string(),
+            from_state: RepresentationState::ForeignEncoded,
+            to_state: RepresentationState::DecodedColumnar,
+            required_by: "csv_to_vortex_import".to_string(),
+            reason: "CSV text must be parsed into typed columnar values before native Vortex persistence in the current benchmark smoke path".to_string(),
+            bytes_decoded: source_bytes_read,
+            rows_materialized: source_rows_materialized,
+            fidelity_loss: "none_for_declared_benchmark_schema".to_string(),
+            fallback_attempted: false,
+        }],
+        NativeIoSideEffectReport {
+            data_read: true,
+            data_decoded: true,
+            data_materialized: true,
+            row_read: true,
+            arrow_converted: false,
+            object_store_io: false,
+            write_io: true,
+            spill_io_performed: false,
+            external_effects_executed: false,
+            fallback_attempted: false,
+            fallback_execution_allowed: false,
+        },
+        Vec::new(),
+    )
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn file_len(path: &std::path::Path, label: &str) -> Result<u64> {
+    std::fs::metadata(path)
+        .map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to stat {label} '{}': {error}",
+                path.display()
+            ))
+        })
+        .map(|metadata| metadata.len())
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -1119,12 +1572,29 @@ mod tests {
         assert!(report.native_work_stream_created);
         assert!(report.native_result_stream_created);
         assert!(report.native_io_certificate_emitted);
+        assert!(report.native_io_certificate.is_certified());
+        assert_eq!(
+            report.native_io_certificate.path_id,
+            "compatibility_source_to_native_vortex_sink"
+        );
+        assert_eq!(
+            report
+                .native_io_certificate
+                .representation_transition_order(),
+            "foreign_encoded->decoded_columnar,decoded_columnar->vortex_encoded"
+        );
+        assert_eq!(report.materialization_boundary_rows, 5);
+        assert_eq!(
+            report.native_io_certificate.materialization_boundaries[0].rows_materialized,
+            5
+        );
         assert!(report.csv_source_adapter_used);
         assert!(report.csv_to_vortex_import_performed);
         assert!(report.vortex_file_written);
         assert!(report.vortex_file_read);
         assert!(report.upstream_vortex_scan_called);
         assert!(report.materialization_boundary_report_emitted);
+        assert!(report.row_read);
         assert!(!report.fallback_execution_allowed);
 
         let _ = std::fs::remove_dir_all(root);

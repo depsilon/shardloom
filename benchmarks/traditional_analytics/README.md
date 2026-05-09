@@ -51,8 +51,10 @@ Each result artifact records engine versions, Python/runtime details, dataset
 shape, file sizes, wall/query time, sampled peak RSS when `psutil` is available,
 rows scanned, rows materialized, bytes read, object-store request count, and a
 correctness digest. ShardLoom rows also retain the emitted native I/O evidence
-fields for decode, materialization, row reads, Arrow conversion, writes, spill,
-and NativeIoCertificate status.
+fields for per-path certificate id/status, source capability, pushdown,
+sink requirement, adapter fidelity, materialization boundary, decode,
+materialization, row reads, Arrow conversion, writes, spill, and
+NativeIoCertificate status.
 
 ShardLoom's reported benchmark version appends `-dirty` when the workspace has
 uncommitted tracked changes, so local bring-up reports do not look like clean
@@ -79,6 +81,12 @@ adapter/import, local Vortex file write, Vortex file reopen, Vortex scan, and
 temporary benchmark operators over Vortex-derived arrays. These rows prove a
 universal-I/O smoke path, not the future SQL parser/DataFrame API or mature
 encoded-native operator surface.
+
+ShardLoom's traditional CSV rows now report `row_read=true` because the
+benchmark CSV source adapter parses local text rows before Vortex import. That
+is intentionally conservative: native Vortex microbenchmark rows remain
+separate and expose the currently available zero-decode/no-row-read primitive
+evidence.
 
 Dask is sensitive to partitioning, scheduler choice, file count, and dataset
 size. The harness records `--dask-blocksize` and `--dask-scheduler`; small

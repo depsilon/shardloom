@@ -119,8 +119,11 @@ pub use manifest::{
     evaluate_compaction_planning, evaluate_layout_health,
 };
 pub use native_io::{
-    NativeIoCertificatePathRequirement, NativeIoContractKind, NativeIoContractSurface,
-    NativeIoEnvelopeReport, NativeIoEnvelopeStatus, NativeIoTransitionExample, RepresentationState,
+    NativeIoAdapterFidelityReport, NativeIoCertificate, NativeIoCertificatePathRequirement,
+    NativeIoContractKind, NativeIoContractSurface, NativeIoEnvelopeReport, NativeIoEnvelopeStatus,
+    NativeIoMaterializationBoundaryReport, NativeIoRepresentationTransition,
+    NativeIoSideEffectReport, NativeIoSinkRequirementReport, NativeIoSourceCapabilityReport,
+    NativeIoSourcePushdownReport, NativeIoTransitionExample, RepresentationState,
     RepresentationStateContract, plan_native_io_envelope,
 };
 pub use observability::{
