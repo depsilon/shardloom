@@ -509,7 +509,9 @@ fn collect_report_diagnostics(
     let mut diagnostics = request.diagnostics.clone();
     diagnostics.extend(query_result.diagnostics.clone());
     if let Some(report) = metadata_open_report {
-        diagnostics.extend(report.diagnostics.clone());
+        if metadata_open_diagnostics_are_blocking(local_primitive_execution_report, report) {
+            diagnostics.extend(report.diagnostics.clone());
+        }
     }
     if let Some(report) = local_execution_report {
         diagnostics.extend(report.diagnostics.clone());
@@ -769,10 +771,12 @@ fn diagnostics_have_errors(diagnostics: &[Diagnostic]) -> bool {
 fn report_has_error_diagnostics(report: &VortexLocalEngineReport) -> bool {
     diagnostics_have_errors(&report.diagnostics)
         || diagnostics_have_errors(&report.request.diagnostics)
-        || report
-            .metadata_open_report
-            .as_ref()
-            .is_some_and(|r| diagnostics_have_errors(&r.diagnostics))
+        || report.metadata_open_report.as_ref().is_some_and(|r| {
+            metadata_open_diagnostics_are_blocking(
+                report.local_primitive_execution_report.as_ref(),
+                r,
+            ) && diagnostics_have_errors(&r.diagnostics)
+        })
         || report
             .query_result
             .as_ref()
@@ -793,6 +797,21 @@ fn report_has_error_diagnostics(report: &VortexLocalEngineReport) -> bool {
             .local_primitive_execution_report
             .as_ref()
             .is_some_and(|r| r.has_errors() || diagnostics_have_errors(&r.diagnostics))
+}
+
+fn metadata_open_diagnostics_are_blocking(
+    local_primitive_execution_report: Option<&VortexLocalPrimitiveExecutionReport>,
+    metadata_open_report: &VortexMetadataOpenReport,
+) -> bool {
+    let primitive_completed = local_primitive_execution_report.is_some_and(|report| {
+        matches!(report.status, VortexLocalPrimitiveExecutionStatus::Executed)
+            && report.result_summary.is_some()
+    });
+    !primitive_completed
+        || !matches!(
+            metadata_open_report.open_status,
+            VortexMetadataOpenStatus::ApiDeferred | VortexMetadataOpenStatus::FeatureDisabled
+        )
 }
 
 fn primitive_to_query_request(
@@ -1204,5 +1223,54 @@ mod tests {
         assert!(report.data_materialized);
         assert!(!report.fallback_execution_allowed);
         assert!(report.local_primitive_execution_report.is_some());
+    }
+
+    #[cfg(feature = "vortex-local-primitives")]
+    #[test]
+    fn local_engine_project_primitive_reports_schema_only_no_materialization() {
+        let path = unique_vortex_path("project");
+        write_local_engine_struct_fixture(&path);
+        let uri = DatasetUri::new(path.display().to_string()).expect("uri");
+        let request = VortexLocalEngineRequest::new(
+            uri,
+            VortexLocalEnginePrimitive::Project("value".to_string()),
+            4,
+            1,
+        )
+        .expect("request");
+
+        let report = run_vortex_local_engine(request).expect("report");
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(
+            report.status,
+            VortexLocalEngineStatus::LocalPrimitiveCompleted
+        );
+        assert!(!report.has_errors());
+        assert!(report.result_known);
+        assert!(report.data_read);
+        assert!(!report.data_decoded);
+        assert!(!report.data_materialized);
+        assert!(!report.fallback_execution_allowed);
+        let metadata_open = report
+            .metadata_open_report
+            .as_ref()
+            .expect("metadata open report");
+        assert_eq!(
+            metadata_open.open_status,
+            VortexMetadataOpenStatus::ApiDeferred
+        );
+        assert!(
+            !report
+                .diagnostics
+                .iter()
+                .any(|diagnostic| matches!(diagnostic.code, DiagnosticCode::ConfigurationError))
+        );
+        let local = report
+            .local_primitive_execution_report
+            .as_ref()
+            .expect("local primitive report");
+        assert_eq!(local.projected_columns, vec!["value".to_string()]);
+        assert!(!local.materialization_boundary_reported);
     }
 }
