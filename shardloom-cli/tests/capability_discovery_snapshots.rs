@@ -45,7 +45,7 @@ const FUNCTION_FIELD_KEYS: [&str; 13] = [
     "planned_count",
 ];
 
-const OPERATOR_FIELD_KEYS: [&str; 164] = [
+const OPERATOR_FIELD_KEYS: [&str; 178] = [
     "scope",
     "schema_version",
     "fallback_execution_allowed",
@@ -210,6 +210,20 @@ const OPERATOR_FIELD_KEYS: [&str; 164] = [
     "encoded_count_local_guard_data_materialized",
     "encoded_count_local_guard_runtime_execution",
     "encoded_count_local_guard_fallback_execution_allowed",
+    "local_vortex_primitive_execution_schema_version",
+    "local_vortex_primitive_execution_feature_gate",
+    "local_vortex_primitive_execution_supported_primitives",
+    "local_vortex_primitive_execution_local_only",
+    "local_vortex_primitive_execution_count_all_decode_required",
+    "local_vortex_primitive_execution_filter_project_decode_boundary_reported",
+    "local_vortex_primitive_execution_row_read",
+    "local_vortex_primitive_execution_arrow_converted",
+    "local_vortex_primitive_execution_object_store_io",
+    "local_vortex_primitive_execution_write_io",
+    "local_vortex_primitive_execution_spill_io",
+    "local_vortex_primitive_execution_requires_correctness_evidence",
+    "local_vortex_primitive_execution_requires_benchmark_for_production",
+    "local_vortex_primitive_execution_fallback_execution_allowed",
 ];
 
 const ADAPTER_FIELD_KEYS: [&str; 13] = [
@@ -487,6 +501,7 @@ fn operator_capability_discovery_includes_physical_plan_blockers() {
     assert_operator_discovery_encoded_predicate_evaluation(&output);
     assert_operator_discovery_selection_vector_filter_kernel(&output);
     assert_operator_discovery_encoded_count_guard(&output);
+    assert_operator_discovery_local_vortex_primitive_execution(&output);
 }
 
 fn assert_operator_discovery_physical_plan(output: &str) {
@@ -930,6 +945,59 @@ fn assert_operator_discovery_encoded_count_guard(output: &str) {
     );
     assert!(output.contains(
         "{\"key\":\"encoded_count_local_guard_fallback_execution_allowed\",\"value\":\"false\"}"
+    ));
+}
+
+fn assert_operator_discovery_local_vortex_primitive_execution(output: &str) {
+    assert!(output.contains(
+        "{\"key\":\"local_vortex_primitive_execution_schema_version\",\"value\":\"shardloom.vortex_local_primitive_execution.v1\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"local_vortex_primitive_execution_feature_gate\",\"value\":\"vortex-local-primitives\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"local_vortex_primitive_execution_supported_primitives\",\"value\":\"count_all,count_where,filter_predicate,project_columns\"}"
+    ));
+    assert!(
+        output.contains(
+            "{\"key\":\"local_vortex_primitive_execution_local_only\",\"value\":\"true\"}"
+        )
+    );
+    assert!(output.contains(
+        "{\"key\":\"local_vortex_primitive_execution_count_all_decode_required\",\"value\":\"false\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"local_vortex_primitive_execution_filter_project_decode_boundary_reported\",\"value\":\"true\"}"
+    ));
+    assert!(
+        output.contains(
+            "{\"key\":\"local_vortex_primitive_execution_row_read\",\"value\":\"false\"}"
+        )
+    );
+    assert!(output.contains(
+        "{\"key\":\"local_vortex_primitive_execution_arrow_converted\",\"value\":\"false\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"local_vortex_primitive_execution_object_store_io\",\"value\":\"false\"}"
+    ));
+    assert!(
+        output.contains(
+            "{\"key\":\"local_vortex_primitive_execution_write_io\",\"value\":\"false\"}"
+        )
+    );
+    assert!(
+        output.contains(
+            "{\"key\":\"local_vortex_primitive_execution_spill_io\",\"value\":\"false\"}"
+        )
+    );
+    assert!(output.contains(
+        "{\"key\":\"local_vortex_primitive_execution_requires_correctness_evidence\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"local_vortex_primitive_execution_requires_benchmark_for_production\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"local_vortex_primitive_execution_fallback_execution_allowed\",\"value\":\"false\"}"
     ));
 }
 

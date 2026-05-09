@@ -15,7 +15,12 @@ upstream-vortex = ["dep:vortex"]
 vortex-file-io = ["upstream-vortex"]
 vortex-object-store = ["vortex-file-io"]
 vortex-write = ["vortex-file-io"]
-vortex-traditional-analytics-benchmark = ["vortex-write", "vortex-encoded-read-spike"]
+vortex-local-primitives = ["vortex-file-io"]
+vortex-traditional-analytics-benchmark = [
+    "vortex-write",
+    "vortex-encoded-read-spike",
+    "vortex-local-primitives",
+]
 vortex-staged-output-fs = []
 vortex-metadata-executor = []
 vortex-encoded-read-executor = []

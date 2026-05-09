@@ -6198,6 +6198,7 @@ fn append_operator_certification_fields(
     append_selection_vector_filter_kernel_discovery_fields(fields);
     append_selection_vector_filter_kernel_admission_discovery_fields(fields);
     append_encoded_count_local_guard_discovery_fields(fields);
+    append_local_vortex_primitive_execution_discovery_fields(fields);
 }
 
 fn append_physical_operator_execution_level_fields(
@@ -6900,6 +6901,63 @@ fn append_encoded_count_local_guard_discovery_fields(fields: &mut Vec<(String, S
     );
 }
 
+fn append_local_vortex_primitive_execution_discovery_fields(fields: &mut Vec<(String, String)>) {
+    push_field(
+        fields,
+        "local_vortex_primitive_execution_schema_version",
+        "shardloom.vortex_local_primitive_execution.v1",
+    );
+    push_field(
+        fields,
+        "local_vortex_primitive_execution_feature_gate",
+        "vortex-local-primitives",
+    );
+    push_field(
+        fields,
+        "local_vortex_primitive_execution_supported_primitives",
+        "count_all,count_where,filter_predicate,project_columns",
+    );
+    push_bool_field(fields, "local_vortex_primitive_execution_local_only", true);
+    push_bool_field(
+        fields,
+        "local_vortex_primitive_execution_count_all_decode_required",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "local_vortex_primitive_execution_filter_project_decode_boundary_reported",
+        true,
+    );
+    push_bool_field(fields, "local_vortex_primitive_execution_row_read", false);
+    push_bool_field(
+        fields,
+        "local_vortex_primitive_execution_arrow_converted",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "local_vortex_primitive_execution_object_store_io",
+        false,
+    );
+    push_bool_field(fields, "local_vortex_primitive_execution_write_io", false);
+    push_bool_field(fields, "local_vortex_primitive_execution_spill_io", false);
+    push_bool_field(
+        fields,
+        "local_vortex_primitive_execution_requires_correctness_evidence",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "local_vortex_primitive_execution_requires_benchmark_for_production",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "local_vortex_primitive_execution_fallback_execution_allowed",
+        false,
+    );
+}
+
 fn append_adapter_certification_fields(
     report: &CapabilityCertificationReport,
     fields: &mut Vec<(String, String)>,
@@ -7076,7 +7134,7 @@ fn operator_certification_text(
     let execution_profiles = PhysicalOperatorExecutionProfileMatrix::cg7_foundation();
     let encoded_count_local_guard = vortex_encoded_count_local_guard_discovery_report();
     format!(
-        "{}\noperator coverage families:\n{}\n{}\n{}\n{}",
+        "{}\noperator coverage families:\n{}\n{}\n{}\n{}\nlocal Vortex primitive execution: feature-gated count/filter/project surface; count_all avoids decode, filter/project report materialization boundaries; fallback disabled",
         certification_summary_header(report, scope),
         report
             .operator_coverage
@@ -21181,21 +21239,109 @@ fn run(args: Vec<String>) -> ExitCode {
                             |open| open.file_io_performed.to_string(),
                         ),
                     ),
-                    ("data_io_performed".to_string(), "false".to_string()),
-                    ("object_store_io_performed".to_string(), "false".to_string()),
-                    ("write_io_performed".to_string(), "false".to_string()),
+                    (
+                        "data_io_performed".to_string(),
+                        report.data_read.to_string(),
+                    ),
+                    (
+                        "object_store_io_performed".to_string(),
+                        report.object_store_io.to_string(),
+                    ),
+                    (
+                        "write_io_performed".to_string(),
+                        report.write_io.to_string(),
+                    ),
                     ("result_known".to_string(), report.result_known.to_string()),
-                    ("tasks_executed".to_string(), "false".to_string()),
-                    ("data_read".to_string(), "false".to_string()),
-                    ("data_decoded".to_string(), "false".to_string()),
-                    ("data_materialized".to_string(), "false".to_string()),
-                    ("object_store_io".to_string(), "false".to_string()),
-                    ("write_io".to_string(), "false".to_string()),
-                    ("spill_io_performed".to_string(), "false".to_string()),
-                    ("external_effects_executed".to_string(), "false".to_string()),
+                    (
+                        "tasks_executed".to_string(),
+                        report.tasks_executed.to_string(),
+                    ),
+                    ("data_read".to_string(), report.data_read.to_string()),
+                    ("data_decoded".to_string(), report.data_decoded.to_string()),
+                    (
+                        "data_materialized".to_string(),
+                        report.data_materialized.to_string(),
+                    ),
+                    (
+                        "object_store_io".to_string(),
+                        report.object_store_io.to_string(),
+                    ),
+                    ("write_io".to_string(), report.write_io.to_string()),
+                    (
+                        "spill_io_performed".to_string(),
+                        report.spill_io_performed.to_string(),
+                    ),
+                    (
+                        "external_effects_executed".to_string(),
+                        report.external_effects_executed.to_string(),
+                    ),
+                    (
+                        "local_primitive_report_present".to_string(),
+                        report
+                            .local_primitive_execution_report
+                            .is_some()
+                            .to_string(),
+                    ),
+                    (
+                        "local_primitive_status".to_string(),
+                        report
+                            .local_primitive_execution_report
+                            .as_ref()
+                            .map_or_else(
+                                || "none".to_string(),
+                                |local| local.status.as_str().to_string(),
+                            ),
+                    ),
+                    (
+                        "local_primitive_mode".to_string(),
+                        report
+                            .local_primitive_execution_report
+                            .as_ref()
+                            .map_or_else(
+                                || "none".to_string(),
+                                |local| local.mode.as_str().to_string(),
+                            ),
+                    ),
+                    (
+                        "local_primitive_rows_scanned".to_string(),
+                        report
+                            .local_primitive_execution_report
+                            .as_ref()
+                            .map_or_else(
+                                || "0".to_string(),
+                                |local| local.rows_scanned.to_string(),
+                            ),
+                    ),
+                    (
+                        "local_primitive_rows_selected".to_string(),
+                        report
+                            .local_primitive_execution_report
+                            .as_ref()
+                            .and_then(|local| local.rows_selected)
+                            .map_or_else(|| "none".to_string(), |rows| rows.to_string()),
+                    ),
+                    (
+                        "local_primitive_projected_columns".to_string(),
+                        report
+                            .local_primitive_execution_report
+                            .as_ref()
+                            .map_or_else(String::new, |local| local.projected_columns.join(",")),
+                    ),
+                    (
+                        "local_primitive_materialization_boundary_reported".to_string(),
+                        report
+                            .local_primitive_execution_report
+                            .as_ref()
+                            .is_some_and(|local| local.materialization_boundary_reported)
+                            .to_string(),
+                    ),
                     (
                         "execution".to_string(),
-                        "metadata_only_or_not_performed".to_string(),
+                        if report.data_read {
+                            "local_vortex_primitive_performed".to_string()
+                        } else {
+                            "metadata_only_or_not_performed".to_string()
+                        },
                     ),
                 ],
             );

@@ -45,28 +45,31 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-20.1 world-class sufficiency report
+- [x] Session label: CG-2.1e.25 local Vortex primitive execution surface
   - Primary files:
-    - `shardloom-core/src/certification.rs`
-    - `shardloom-core/src/lib.rs`
+    - `shardloom-vortex/src/local_primitives.rs`
+    - `shardloom-vortex/src/local_engine.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `shardloom-vortex/Cargo.toml`
     - `shardloom-cli/src/main.rs`
-    - `shardloom-cli/tests/world_class_sufficiency_plan_snapshots.rs`
+    - `shardloom-cli/Cargo.toml`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
     - `docs/architecture/phased-execution-plan.md`
-    - `docs/architecture/rfc-phase-traceability.md`
-  - Scope: Add a report-only CG-20 world-class sufficiency surface that turns RFC 0032's best-default evidence gate into deterministic core and CLI evidence across SQL, operators, functions, adapters, semantic profiles, migration, Python/API, DataFrame/query builder, notebook, UDF/plugin, common ETL, universal adapters, event/API/SaaS adapters, unstructured/media, observability, deployment, security/governance, certificates, snapshots, and no-fallback integrity.
+  - Scope: Add a feature-gated local `.vortex` primitive execution surface through `vortex-run` for actual Vortex data. `CountAll` reads Vortex arrays and sums lengths without decode/materialization. `CountWhere`, `FilterPredicate`, and `ProjectColumns` execute over Vortex-derived arrays and report decode/materialization boundaries explicitly until deeper encoded kernels exist.
   - Checklist:
-    - [x] Add `WorldClassSufficiencyReport` with required CG-20 dimensions, sufficiency/publication decisions, evidence-insufficient defaults, best-choice/dossier refs, baseline refs, blocking gaps, and no-fallback/side-effect fields.
-    - [x] Surface `world-class-sufficiency-plan --format json` with dimension counts, dimension order, key surface statuses, certificate coverage statuses, rates, blocking evidence counts, and side-effect fields.
-    - [x] Keep the report-only boundary explicit: no parser execution, runtime execution, adapter probing, filesystem/network/catalog probing, data read, decode, materialization, row read, Arrow conversion, object-store IO, writes, spills, external engine execution, fallback execution, or production/best-default claim publication.
-    - [x] Add focused unit and CLI JSON snapshot coverage.
-    - [x] Update phase plan and RFC traceability.
+    - [x] Add `VortexLocalPrimitiveExecutionReport` and feature-gated local `.vortex` execution helper.
+    - [x] Wire the helper into `run_vortex_local_engine`/`vortex-run` without enabling fallback engines.
+    - [x] Preserve no-decode/no-materialization evidence for `CountAll`.
+    - [x] Report materialization boundaries for temporary filter/project/count-where paths.
+    - [x] Add focused Vortex fixture tests for count, count-where, projection, and local-engine integration.
+    - [x] Surface local primitive execution capability in operator discovery.
     - [x] Run full required validation.
   - Local validation status:
-    - focused `shardloom-core` `world_class` tests passed
-    - focused `shardloom-cli` `world_class` and `world_class_sufficiency_plan_snapshots` tests passed
+    - focused `shardloom-vortex` `local_primitives` tests passed with `vortex-local-primitives`
+    - focused `shardloom-vortex` local-engine integration test passed with `vortex-local-primitives`
+    - `shardloom-vortex` and `shardloom-cli` focused checks passed
     - full Rust validation passed with toolchain `1.91.1`
-    - docs hygiene scans passed for `git diff --check` and hidden/bidi controls
-  - Explicitly not included: SQL parser, SQL execution, DataFrame runtime, Python package, UDF runtime, adapter runtime, function registry implementation, operator kernels, source/sink runtime certificate emission, filesystem/network/catalog/adapter probing, data reads, decode/materialization, row reads, Arrow conversion, object-store IO, writes, spill IO, package publication, performance claims, superiority claims, best-default publication, or fallback execution.
+  - Explicitly not included: SQL parser, SQL execution, DataFrame runtime, Python package, UDF runtime, adapter runtime, generalized zero-decode encoded filter/project kernels, object-store IO, row reads, Arrow conversion, writes, spill IO, external engine execution, benchmark/superiority claims, CG-2 closeout, CG-13 closeout, or fallback execution.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -788,6 +791,13 @@ Supporting docs:
     - Production claims, CG-2 closeout, and CG-13 closeout remain disabled for both fixture and non-fixture local count paths.
     - The `shardloom-cli` feature surface forwards `vortex-encoded-read-spike` so the stable CLI command can be validated directly under the same explicit local execution gate.
     - No generalized encoded filter/projection execution, adapters, non-local sources, object-store IO, row reads, requested decode/materialization, Arrow conversion, writes, spill IO, external baseline invocation, benchmark claim, superiority claim, or fallback execution is added.
+- [x] CG-2.1e.25 local Vortex primitive execution surface
+  - Why: move beyond count-only smoke by making local `.vortex` count/filter/project primitives executable through the native local-engine surface while keeping evidence honest about temporary decode/materialization.
+  - Acceptance:
+    - `vortex-run` can execute feature-gated local `.vortex` `count`, `count-where:<predicate>`, `filter:<predicate>`, and `project:<columns>` primitives over actual Vortex arrays.
+    - `CountAll` preserves no-decode/no-materialization/no-row/no-Arrow/no-object-store/no-write/no-spill/no-fallback evidence.
+    - Filter, projection, and filtered-count paths emit materialization-boundary evidence instead of claiming encoded-native completion.
+    - Operator capability discovery records the local primitive surface and keeps correctness/benchmark gates required for production claims.
 - [ ] CG-2.1e generalized encoded-data count execution path beyond explicit local `.vortex` count (planned)
   - Why: turn the local fixture scan/count proof into a generalized native count path only after the public Vortex data path and representation guarantees are approved.
   - Acceptance:
@@ -1086,7 +1096,8 @@ Status legend:
   - [x] CG-2.1e.22 stable explicit local encoded `CountAll` execution surface
   - [x] CG-2.1e.23 generalized encoded primitive execution gate
   - [x] CG-2.1e.24 local encoded `CountAll` target policy evidence
-  - [~] CG-2.1+ generalized non-metadata primitive execution remains deferred pending broader encoded-data execution guarantees
+  - [x] CG-2.1e.25 local Vortex primitive execution surface
+  - [~] CG-2.1+ broader zero-decode encoded primitive execution remains deferred pending filter/project encoded-kernel guarantees
   - [x] CG-2.2c filtered-count metadata proof local guard
   - [x] CG-2.2d filtered-count metadata proof report
   - [x] CG-2.2e count-where selection-vector filter evidence surfacing
@@ -1246,6 +1257,7 @@ Status legend:
 - [ ] CG-13 — Encoded-native compressed execution (**planned**)
   - [x] CG-13.1 encoded execution path selection report foundation
   - [x] CG-13.2 decode/materialization avoided proof fields in path-selection output
+  - [x] CG-13.6 local primitive execution reports decode/materialization boundaries without claiming encoded-native filter/project completion
   - Scope:
     - encoding-aware execution-path selection through `vortex-encoded-path-selection-plan`
     - direct count/filter/project over encoded segments
@@ -1358,6 +1370,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.22 stable explicit local encoded `CountAll` execution surface
 - [x] CG-2.1e.23 generalized encoded primitive execution gate
 - [x] CG-2.1e.24 local encoded `CountAll` target policy evidence
+- [x] CG-2.1e.25 local Vortex primitive execution surface
 - [x] CG-2.2a filtered-count readiness core contract
 - [x] CG-2.2a.1 filtered-count blocker precision hardening
 - [x] CG-2.2b filtered-count readiness CLI integration
@@ -1366,8 +1379,8 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.2e count-where selection-vector filter evidence surfacing
 - [x] CG-2.3a projection readiness semantic hardening
 - [x] CG-2.3b projection readiness CLI integration
-- [~] CG-2.1+ generalized non-metadata query primitive execution remains deferred pending broader encoded-data execution guarantees
-- [ ] CG-2 closeout requires generalized count plus filtered-count/projection execution over actual Vortex data
+- [~] CG-2.1+ broader zero-decode encoded query primitive execution remains deferred pending filter/project encoded-kernel guarantees
+- [ ] CG-2 closeout requires generalized count plus filtered-count/projection execution over actual Vortex data with correctness, benchmark, and certificate evidence
 
 ### CG-3 detailed checklist
 - [x] CG-3 contract/readiness scaffolding represented in phase-12 planning artifacts
@@ -1527,6 +1540,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-13.3 generalized encoded primitive gate blocks runtime widening until count/filter/project evidence is complete
 - [x] CG-13.4 local encoded `CountAll` target policy evidence
 - [x] CG-13.5 count-where selection-vector filter evidence surfacing
+- [x] CG-13.6 local primitive execution reports decode/materialization boundaries for filter/project/count-where
 - [ ] generalized direct count/filter/project encoded execution
 - [ ] broad compressed-kernel correctness and benchmark certification
 
@@ -1656,6 +1670,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.22 stable explicit local encoded `CountAll` execution surface adds `shardloom vortex-count <dataset_uri> --execute-local-encoded-count <memory_gb> <max_parallelism>` over the same approved local scan/count and local execution bridge while keeping default `vortex-count` metadata-only.
 - [x] CG-2.1e.23 generalized encoded primitive execution gate keeps direct count, filtered count, and projection readiness machine-readable while broad count/filter/project execution stays blocked.
 - [x] CG-2.1e.24 local encoded `CountAll` target policy evidence distinguishes certified fixture targets from uncertified local `.vortex` targets, keeps production and CG closeout claims disabled, and forwards the CLI feature gate for direct validation.
+- [x] CG-2.1e.25 local Vortex primitive execution adds feature-gated `vortex-run` execution for local `.vortex` count/filter/project primitives, preserves no-decode count evidence, and reports materialization boundaries for temporary filter/project/count-where paths without claiming encoded-native completion.
 - [x] CG-4.2 local committed-manifest recovery/rollback diagnostics represent recovery-not-required, rollback-required/planned, ambiguous-commit, missing-manifest, cleanup-policy, and object-store blocker states without executing cleanup, rollback, object-store IO, or fallback.
 - [x] CG-4.3 local committed-manifest rollback cleanup execution deletes only `_shardloom_committed_manifest.json` behind `vortex-staged-output-fs` after rollback-planned recovery evidence; finalized manifests, commit markers, output payloads, object-store IO, upstream `Vortex` APIs, and fallback remain untouched.
 - [x] CG-2.2c filtered-count metadata proof local guard admits only metadata-proof `CountWhere` requests into metadata-only local execution and rejects encoded predicate candidates without fallback.
@@ -1730,7 +1745,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-18.1 universal harness report adds `UniversalHarnessReport` and `universal-harness-plan` surfacing for CLI JSON runner fields, import/deployment surfaces, optional Foundry examples, external-only Spark/DataFusion/Polars baseline requirements, comparison dataset requirements, portability-check requirements, and no-import/no-deployment/no-baseline-execution/no-probe/no-publish/no-fallback side-effect fields.
 - [x] CG-19.1 native I/O envelope report adds `NativeIoEnvelopeReport` and `native-io-envelope-plan` surfacing for RFC 0031 contract surfaces, representation state contracts, transition examples, per-source/sink-path certificate requirements, no-default-decoded-Arrow requirements, materialization boundary requirements, and no-runtime/no-probe/no-read/no-decode/no-materialization/no-write/no-fallback side-effect fields.
 - [x] CG-20.2 user-surface capability discovery adds report-only `capabilities` scopes for common ETL, Python, DataFrame/notebook, UDFs, universal/event/API adapters, unstructured/media, API, observability, deployment, extension, and security/governance surfaces with `WorldClassSufficiencyReport` dimension evidence gates and no parser/runtime/probe/read/write/external-engine/fallback behavior.
-- [~] CG-2.1+ non-metadata execution remains blocked pending actual encoded data execution.
+- [~] CG-2.1+ broader zero-decode encoded primitive execution remains blocked pending filter/project encoded-kernel guarantees, correctness, benchmark, and certificate evidence.
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind `vortex-write`; placeholder artifact paths remain readiness-only.
 - [~] CG-3 broader output payload shapes remain deferred.
 

@@ -10,10 +10,11 @@ use shardloom_plan::ProjectionRequest;
 
 use crate::{
     VortexBoundedExecutionPolicy, VortexBoundedExecutionReport, VortexBoundedExecutionStatus,
-    VortexLocalExecutionReport, VortexLocalExecutionStatus, VortexMetadataOpenReport,
-    VortexMetadataOpenRequest, VortexMetadataOpenStatus, VortexMetadataProbeReport,
-    VortexQueryPrimitiveAnalysisReport, VortexQueryPrimitiveRequest, VortexQueryPrimitiveResult,
-    VortexQueryPrimitiveStatus, execute_vortex_bounded_local_query,
+    VortexLocalExecutionReport, VortexLocalExecutionStatus, VortexLocalPrimitiveExecutionReport,
+    VortexLocalPrimitiveExecutionStatus, VortexMetadataOpenReport, VortexMetadataOpenRequest,
+    VortexMetadataOpenStatus, VortexMetadataProbeReport, VortexQueryPrimitiveAnalysisReport,
+    VortexQueryPrimitiveRequest, VortexQueryPrimitiveResult, VortexQueryPrimitiveStatus,
+    execute_vortex_bounded_local_query, execute_vortex_local_primitive,
     execute_vortex_local_query_primitive, open_vortex_metadata_only,
     summarize_vortex_metadata_probe,
 };
@@ -24,6 +25,7 @@ pub enum VortexLocalEngineStatus {
     Planned,
     MetadataCompleted,
     LocalEncodedCountCompleted,
+    LocalPrimitiveCompleted,
     NoOpCompleted,
     DeferredEncodedRead,
     DeferredPredicateEvaluation,
@@ -44,6 +46,7 @@ impl VortexLocalEngineStatus {
             Self::Planned => "planned",
             Self::MetadataCompleted => "metadata_completed",
             Self::LocalEncodedCountCompleted => "local_encoded_count_completed",
+            Self::LocalPrimitiveCompleted => "local_primitive_completed",
             Self::NoOpCompleted => "no_op_completed",
             Self::DeferredEncodedRead => "deferred_encoded_read",
             Self::DeferredPredicateEvaluation => "deferred_predicate_evaluation",
@@ -82,6 +85,7 @@ impl VortexLocalEngineStatus {
 pub enum VortexLocalEngineMode {
     MetadataOnly,
     LocalEncodedCount,
+    LocalPrimitive,
     NoOp,
     PlanOnly,
     BoundedLocal,
@@ -93,6 +97,7 @@ impl VortexLocalEngineMode {
         match self {
             Self::MetadataOnly => "metadata_only",
             Self::LocalEncodedCount => "local_encoded_count",
+            Self::LocalPrimitive => "local_primitive",
             Self::NoOp => "no_op",
             Self::PlanOnly => "plan_only",
             Self::BoundedLocal => "bounded_local",
@@ -101,7 +106,7 @@ impl VortexLocalEngineMode {
         }
     }
     pub const fn reads_data(&self) -> bool {
-        matches!(self, Self::LocalEncodedCount)
+        matches!(self, Self::LocalEncodedCount | Self::LocalPrimitive)
     }
     pub const fn decodes_data(&self) -> bool {
         false
@@ -213,6 +218,7 @@ pub struct VortexLocalEngineReport {
     pub analysis_report: Option<VortexQueryPrimitiveAnalysisReport>,
     pub local_execution_report: Option<VortexLocalExecutionReport>,
     pub bounded_execution_report: Option<VortexBoundedExecutionReport>,
+    pub local_primitive_execution_report: Option<VortexLocalPrimitiveExecutionReport>,
     pub value_summary: Option<String>,
     pub result_known: bool,
     pub task_count: usize,
@@ -268,30 +274,28 @@ impl VortexLocalEngineReport {
         } else {
             None
         };
+        let local_primitive_execution_report =
+            execute_local_primitive_when_needed(&query_request, &query_result)?;
         let status = map_status(
             metadata_open_report.as_ref(),
             local_execution_report.as_ref(),
             bounded_execution_report.as_ref(),
+            local_primitive_execution_report.as_ref(),
             &query_result,
         );
         let mode = map_mode(status);
-        let mut diagnostics = request.diagnostics.clone();
-        diagnostics.extend(query_result.diagnostics.clone());
-        if let Some(r) = &metadata_open_report {
-            diagnostics.extend(r.diagnostics.clone());
-        }
-        if let Some(r) = &local_execution_report {
-            diagnostics.extend(r.diagnostics.clone());
-        }
-        if let Some(r) = &bounded_execution_report {
-            diagnostics.extend(r.diagnostics.clone());
-        }
-        let value_summary = if query_result.value.is_known() {
-            Some(query_result.value.as_str())
-        } else {
-            None
-        };
-        let result_known = query_result.value.is_known();
+        let diagnostics = collect_report_diagnostics(
+            &request,
+            &query_result,
+            metadata_open_report.as_ref(),
+            local_execution_report.as_ref(),
+            bounded_execution_report.as_ref(),
+            local_primitive_execution_report.as_ref(),
+        );
+        let value_summary =
+            local_engine_value_summary(&query_result, local_primitive_execution_report.as_ref());
+        let result_known =
+            local_engine_result_known(&query_result, local_primitive_execution_report.as_ref());
         let task_count = bounded_execution_report
             .as_ref()
             .map_or(0, |r| r.decisions.len());
@@ -304,6 +308,7 @@ impl VortexLocalEngineReport {
         let effects = VortexLocalEngineEffectSummary::from_reports(
             local_execution_report.as_ref(),
             bounded_execution_report.as_ref(),
+            local_primitive_execution_report.as_ref(),
         );
         Ok(Self {
             status,
@@ -315,6 +320,7 @@ impl VortexLocalEngineReport {
             analysis_report,
             local_execution_report,
             bounded_execution_report,
+            local_primitive_execution_report,
             value_summary,
             result_known,
             task_count,
@@ -347,6 +353,7 @@ impl VortexLocalEngineReport {
             analysis_report: None,
             local_execution_report: None,
             bounded_execution_report: None,
+            local_primitive_execution_report: None,
             value_summary: None,
             result_known: false,
             task_count: 0,
@@ -429,6 +436,23 @@ impl VortexLocalEngineReport {
         if let Some(v) = &self.value_summary {
             let _ = writeln!(out, "value summary: {v}");
         }
+        if let Some(report) = &self.local_primitive_execution_report {
+            let _ = writeln!(out, "local primitive status: {}", report.status.as_str());
+            let _ = writeln!(out, "local primitive mode: {}", report.mode.as_str());
+            let _ = writeln!(out, "local primitive rows scanned: {}", report.rows_scanned);
+            let _ = writeln!(
+                out,
+                "local primitive rows selected: {}",
+                report
+                    .rows_selected
+                    .map_or_else(|| "none".to_string(), |value| value.to_string())
+            );
+            let _ = writeln!(
+                out,
+                "local primitive projected columns: {}",
+                report.projected_columns.join(",")
+            );
+        }
         let _ = writeln!(out, "result known: {}", self.result_known);
         let _ = writeln!(out, "task count: {}", self.task_count);
         let _ = writeln!(
@@ -456,12 +480,78 @@ impl VortexLocalEngineReport {
     }
 }
 
+fn execute_local_primitive_when_needed(
+    query_request: &VortexQueryPrimitiveRequest,
+    query_result: &VortexQueryPrimitiveResult,
+) -> Result<Option<VortexLocalPrimitiveExecutionReport>> {
+    if query_result.value.is_known() {
+        return Ok(None);
+    }
+    let report = execute_vortex_local_primitive(query_request)?;
+    if matches!(
+        report.status,
+        VortexLocalPrimitiveExecutionStatus::FeatureDisabled
+    ) {
+        Ok(None)
+    } else {
+        Ok(Some(report))
+    }
+}
+
+fn collect_report_diagnostics(
+    request: &VortexLocalEngineRequest,
+    query_result: &VortexQueryPrimitiveResult,
+    metadata_open_report: Option<&VortexMetadataOpenReport>,
+    local_execution_report: Option<&VortexLocalExecutionReport>,
+    bounded_execution_report: Option<&VortexBoundedExecutionReport>,
+    local_primitive_execution_report: Option<&VortexLocalPrimitiveExecutionReport>,
+) -> Vec<Diagnostic> {
+    let mut diagnostics = request.diagnostics.clone();
+    diagnostics.extend(query_result.diagnostics.clone());
+    if let Some(report) = metadata_open_report {
+        diagnostics.extend(report.diagnostics.clone());
+    }
+    if let Some(report) = local_execution_report {
+        diagnostics.extend(report.diagnostics.clone());
+    }
+    if let Some(report) = bounded_execution_report {
+        diagnostics.extend(report.diagnostics.clone());
+    }
+    if let Some(report) = local_primitive_execution_report {
+        diagnostics.extend(report.diagnostics.clone());
+    }
+    diagnostics
+}
+
+fn local_engine_value_summary(
+    query_result: &VortexQueryPrimitiveResult,
+    local_primitive_execution_report: Option<&VortexLocalPrimitiveExecutionReport>,
+) -> Option<String> {
+    if query_result.value.is_known() {
+        Some(query_result.value.as_str())
+    } else {
+        local_primitive_execution_report.and_then(|report| report.result_summary.clone())
+    }
+}
+
+fn local_engine_result_known(
+    query_result: &VortexQueryPrimitiveResult,
+    local_primitive_execution_report: Option<&VortexLocalPrimitiveExecutionReport>,
+) -> bool {
+    query_result.value.is_known()
+        || local_primitive_execution_report.is_some_and(|report| {
+            matches!(report.status, VortexLocalPrimitiveExecutionStatus::Executed)
+                && report.result_summary.is_some()
+        })
+}
+
 fn map_mode(status: VortexLocalEngineStatus) -> VortexLocalEngineMode {
     match status {
         VortexLocalEngineStatus::MetadataCompleted => VortexLocalEngineMode::MetadataOnly,
         VortexLocalEngineStatus::LocalEncodedCountCompleted => {
             VortexLocalEngineMode::LocalEncodedCount
         }
+        VortexLocalEngineStatus::LocalPrimitiveCompleted => VortexLocalEngineMode::LocalPrimitive,
         VortexLocalEngineStatus::NoOpCompleted => VortexLocalEngineMode::NoOp,
         VortexLocalEngineStatus::DeferredEncodedRead
         | VortexLocalEngineStatus::DeferredPredicateEvaluation
@@ -482,10 +572,16 @@ fn map_status(
     metadata_open_report: Option<&VortexMetadataOpenReport>,
     local: Option<&VortexLocalExecutionReport>,
     bounded: Option<&VortexBoundedExecutionReport>,
+    local_primitive: Option<&VortexLocalPrimitiveExecutionReport>,
     query: &VortexQueryPrimitiveResult,
 ) -> VortexLocalEngineStatus {
     if let Some(status) = metadata_open_report.and_then(map_metadata_open_status) {
         return status;
+    }
+    if let Some(report) = local_primitive {
+        if let Some(status) = map_local_primitive_status(report.status) {
+            return status;
+        }
     }
     if let Some(b) = bounded {
         return map_bounded_execution_status(b.status);
@@ -504,6 +600,22 @@ fn map_status(
         VortexQueryPrimitiveStatus::Unsupported => VortexLocalEngineStatus::Unsupported,
         VortexQueryPrimitiveStatus::MetadataAnswered => VortexLocalEngineStatus::MetadataCompleted,
         _ => VortexLocalEngineStatus::Planned,
+    }
+}
+fn map_local_primitive_status(
+    status: VortexLocalPrimitiveExecutionStatus,
+) -> Option<VortexLocalEngineStatus> {
+    match status {
+        VortexLocalPrimitiveExecutionStatus::Executed => {
+            Some(VortexLocalEngineStatus::LocalPrimitiveCompleted)
+        }
+        VortexLocalPrimitiveExecutionStatus::BlockedByUnsupportedInput
+        | VortexLocalPrimitiveExecutionStatus::BlockedByUnsupportedPrimitive
+        | VortexLocalPrimitiveExecutionStatus::BlockedByUnsupportedDType
+        | VortexLocalPrimitiveExecutionStatus::Unsupported => {
+            Some(VortexLocalEngineStatus::Unsupported)
+        }
+        VortexLocalPrimitiveExecutionStatus::FeatureDisabled => None,
     }
 }
 fn map_metadata_open_status(report: &VortexMetadataOpenReport) -> Option<VortexLocalEngineStatus> {
@@ -610,24 +722,37 @@ impl VortexLocalEngineEffectSummary {
     fn from_reports(
         local: Option<&VortexLocalExecutionReport>,
         bounded: Option<&VortexBoundedExecutionReport>,
+        local_primitive: Option<&VortexLocalPrimitiveExecutionReport>,
     ) -> Self {
         Self {
             tasks_executed: local.is_some_and(|r| r.tasks_executed)
-                || bounded.is_some_and(|r| r.tasks_executed),
-            data_read: local.is_some_and(|r| r.data_read) || bounded.is_some_and(|r| r.data_read),
+                || bounded.is_some_and(|r| r.tasks_executed)
+                || local_primitive
+                    .is_some_and(|r| r.status == VortexLocalPrimitiveExecutionStatus::Executed),
+            data_read: local.is_some_and(|r| r.data_read)
+                || bounded.is_some_and(|r| r.data_read)
+                || local_primitive.is_some_and(|r| r.data_read),
             data_decoded: local.is_some_and(|r| r.data_decoded)
-                || bounded.is_some_and(|r| r.data_decoded),
+                || bounded.is_some_and(|r| r.data_decoded)
+                || local_primitive.is_some_and(|r| r.data_decoded),
             data_materialized: local.is_some_and(|r| r.data_materialized)
-                || bounded.is_some_and(|r| r.data_materialized),
+                || bounded.is_some_and(|r| r.data_materialized)
+                || local_primitive.is_some_and(|r| r.data_materialized),
             object_store_io: local.is_some_and(|r| r.object_store_io)
-                || bounded.is_some_and(|r| r.object_store_io),
-            write_io: local.is_some_and(|r| r.write_io) || bounded.is_some_and(|r| r.write_io),
+                || bounded.is_some_and(|r| r.object_store_io)
+                || local_primitive.is_some_and(|r| r.object_store_io),
+            write_io: local.is_some_and(|r| r.write_io)
+                || bounded.is_some_and(|r| r.write_io)
+                || local_primitive.is_some_and(|r| r.write_io),
             spill_io_performed: local.is_some_and(|r| r.spill_io_performed)
-                || bounded.is_some_and(|r| r.spill_io_performed),
+                || bounded.is_some_and(|r| r.spill_io_performed)
+                || local_primitive.is_some_and(|r| r.spill_io_performed),
             external_effects_executed: local.is_some_and(|r| r.external_effects_executed)
-                || bounded.is_some_and(|r| r.external_effects_executed),
+                || bounded.is_some_and(|r| r.external_effects_executed)
+                || local_primitive.is_some_and(|r| r.external_effects_executed),
             fallback_execution_allowed: local.is_some_and(|r| r.fallback_execution_allowed)
-                || bounded.is_some_and(|r| r.fallback_execution_allowed),
+                || bounded.is_some_and(|r| r.fallback_execution_allowed)
+                || local_primitive.is_some_and(|r| r.fallback_execution_allowed),
         }
     }
 }
@@ -664,6 +789,10 @@ fn report_has_error_diagnostics(report: &VortexLocalEngineReport) -> bool {
             .bounded_execution_report
             .as_ref()
             .is_some_and(|r| diagnostics_have_errors(&r.diagnostics))
+        || report
+            .local_primitive_execution_report
+            .as_ref()
+            .is_some_and(|r| r.has_errors() || diagnostics_have_errors(&r.diagnostics))
 }
 
 fn primitive_to_query_request(
@@ -889,7 +1018,8 @@ mod tests {
             ),
         )
         .expect("bounded report");
-        let effects = VortexLocalEngineEffectSummary::from_reports(Some(&local), Some(&bounded));
+        let effects =
+            VortexLocalEngineEffectSummary::from_reports(Some(&local), Some(&bounded), None);
 
         assert!(effects.tasks_executed);
         assert!(!effects.data_read);
@@ -992,5 +1122,87 @@ mod tests {
         let rep = run_vortex_local_engine(req).unwrap();
         let open = rep.metadata_open_report.expect("metadata open report");
         assert_eq!(open.open_status, VortexMetadataOpenStatus::FeatureDisabled);
+    }
+
+    #[cfg(feature = "vortex-local-primitives")]
+    fn unique_vortex_path(name: &str) -> std::path::PathBuf {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "shardloom-local-engine-{name}-{}-{nanos}.vortex",
+            std::process::id()
+        ))
+    }
+
+    #[cfg(feature = "vortex-local-primitives")]
+    fn write_local_engine_struct_fixture(path: &std::path::Path) {
+        use vortex::VortexSessionDefault as _;
+        use vortex::array::IntoArray as _;
+        use vortex::array::arrays::{PrimitiveArray, StructArray};
+        use vortex::array::dtype::FieldNames;
+        use vortex::array::validity::Validity;
+        use vortex::file::WriteOptionsSessionExt as _;
+        use vortex::io::runtime::BlockingRuntime as _;
+        use vortex::io::runtime::single::SingleThreadRuntime;
+        use vortex::io::session::RuntimeSessionExt as _;
+        use vortex::session::VortexSession;
+
+        let array = StructArray::try_new(
+            FieldNames::from(["value"]),
+            vec![
+                [1_u32, 2, 3, 4, 5]
+                    .into_iter()
+                    .collect::<PrimitiveArray>()
+                    .into_array(),
+            ],
+            5,
+            Validity::NonNullable,
+        )
+        .expect("struct array")
+        .into_array();
+        let runtime = SingleThreadRuntime::default();
+        let session = VortexSession::default().with_handle(runtime.handle());
+        let mut bytes = Vec::new();
+        let summary = runtime
+            .block_on(
+                session
+                    .write_options()
+                    .write(&mut bytes, array.to_array_stream()),
+            )
+            .expect("write vortex");
+        assert_eq!(summary.row_count(), 5);
+        std::fs::write(path, bytes).expect("write fixture");
+    }
+
+    #[cfg(feature = "vortex-local-primitives")]
+    #[test]
+    fn local_engine_executes_feature_gated_count_where_primitive() {
+        let path = unique_vortex_path("count-where");
+        write_local_engine_struct_fixture(&path);
+        let uri = DatasetUri::new(path.display().to_string()).expect("uri");
+        let request = VortexLocalEngineRequest::new(
+            uri,
+            VortexLocalEnginePrimitive::CountWhere("gte:value:3".to_string()),
+            4,
+            1,
+        )
+        .expect("request");
+
+        let report = run_vortex_local_engine(request).expect("report");
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(
+            report.status,
+            VortexLocalEngineStatus::LocalPrimitiveCompleted
+        );
+        assert_eq!(report.value_summary.as_deref(), Some("3"));
+        assert!(report.result_known);
+        assert!(report.data_read);
+        assert!(report.data_decoded);
+        assert!(report.data_materialized);
+        assert!(!report.fallback_execution_allowed);
+        assert!(report.local_primitive_execution_report.is_some());
     }
 }
