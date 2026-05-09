@@ -1,6 +1,7 @@
 use shardloom_core::{
-    DatasetRef, DatasetUri, EffectBudgetReport, ExtensionId, ExtensionLicenseKind,
-    ExtensionManifest, ExtensionProvenance, ExtensionVersion, OutputTarget, SecurityPlan,
+    AgentContractPack, DatasetRef, DatasetUri, EffectBudgetReport, ExtensionId,
+    ExtensionLicenseKind, ExtensionManifest, ExtensionProvenance, ExtensionVersion, OutputTarget,
+    SecurityPlan,
 };
 use shardloom_exec::{RecoveryPlan, RecoveryReport, RuntimePlanSkeleton, StreamingPlanSkeleton};
 use shardloom_plan::{ScanMode, ScanRequest};
@@ -61,6 +62,11 @@ fn plan_only_types_do_not_imply_execution_or_side_effects() {
     assert!(effect_budget.side_effect_free());
     assert_eq!(effect_budget.approved_scope_count(), 0);
     assert!(!effect_budget.fallback_execution_allowed);
+
+    let agent_contract = AgentContractPack::default_pack();
+    assert!(agent_contract.side_effect_free());
+    assert_eq!(agent_contract.fallback_allowed_surface_count(), 0);
+    assert!(!agent_contract.text_is_authoritative);
 
     let manifest = ExtensionManifest::new(
         ExtensionId::new("ext.sample").expect("id"),

@@ -33,6 +33,7 @@ Use this skill for tasks involving:
 - APIs should feel familiar to data engineers and application developers.
 - CLI commands should be scriptable.
 - Agent-facing output should be deterministic and machine-readable where possible.
+- Agents should use `agent-contract-pack --format json` to discover stable command surfaces and inspection order before relying on human text.
 - Errors should be specific, actionable, and stable.
 - Unsupported behavior must fail explicitly.
 - Diagnostics should explain that no fallback execution occurred.

@@ -24,6 +24,7 @@ Concept groups:
 - **Capability and certification**: `capability certification surface`, `workload constitution`, `operator certification`, `function certification`, `SQL coverage tier`, `adapter maturity level`, `semantic compatibility profile`, `migration compatibility report`, `delete/tombstone compatibility report`, `table compatibility aggregation report`, `CDC incremental planning report`, `best-choice scorecard`.
 - **User capability surfaces**: `data/ETL capability report`, `Python surface report`, `unstructured media capability report`, `universal adapter catalog`, `API surface certification`, `observability certification`, `deployment readiness report`, `extension capability report`, `security governance report`.
 - **Agent/context capability**: `functional context scope`, `evidence routing`, `context structure preservation`, `stateful certificate history`.
+- **agent contract pack**: machine-readable inventory of agent-safe command surfaces, schemas, recommended inspection order, no-probe defaults, effect defaults, fallback status, and JSON authority.
 
 Primary governing references:
 

@@ -10,10 +10,10 @@ use std::{
 };
 
 use shardloom_core::{
-    BaselineEngine, BenchmarkComparisonReport, BenchmarkEvidenceState, BenchmarkFallbackState,
-    BenchmarkMetric, BenchmarkPlan, BenchmarkResult, BenchmarkScenario, ByteRange,
-    CapabilityCertificationReport, CapabilityCertificationStatus, CatalogKind, CatalogRef,
-    CdcEventKind, CdcEventSummary, CdcIncrementalPlanningReport, ChangeSet,
+    AgentContractPack, BaselineEngine, BenchmarkComparisonReport, BenchmarkEvidenceState,
+    BenchmarkFallbackState, BenchmarkMetric, BenchmarkPlan, BenchmarkResult, BenchmarkScenario,
+    ByteRange, CapabilityCertificationReport, CapabilityCertificationStatus, CatalogKind,
+    CatalogRef, CdcEventKind, CdcEventSummary, CdcIncrementalPlanningReport, ChangeSet,
     CliApiJsonProtocolReport, ColumnRef, CommandStatus, CompactionPlanningPolicy,
     CompactionPlanningReport, ComparisonOp, CorrectnessFixture, CorrectnessValidationMode,
     CorrectnessValidationPlan, CpuOperatorSpecializationReport, DatasetFormat, DatasetManifest,
@@ -204,7 +204,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance]|security-plan|effect-budget-plan|agent-safety-plan|redaction-plan|kernel-registry|feature-footprint|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|layout-health-plan|compaction-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|traditional-analytics-run|vortex-count-benchmark|correctness-plan|execution-certificate-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|agent-contract-pack|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance]|security-plan|effect-budget-plan|agent-safety-plan|redaction-plan|kernel-registry|feature-footprint|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|layout-health-plan|compaction-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|traditional-analytics-run|vortex-count-benchmark|correctness-plan|execution-certificate-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -1179,6 +1179,77 @@ fn effect_budget_fields(report: &EffectBudgetReport) -> Vec<(String, String)> {
         (
             "fallback_attempted".to_string(),
             report.fallback_attempted.to_string(),
+        ),
+        (
+            "diagnostic_count".to_string(),
+            report.diagnostics.len().to_string(),
+        ),
+    ]
+}
+
+fn agent_contract_pack_fields(report: &AgentContractPack) -> Vec<(String, String)> {
+    vec![
+        ("mode".to_string(), "agent_contract_pack".to_string()),
+        (
+            "schema_version".to_string(),
+            report.schema_version.to_string(),
+        ),
+        ("pack_id".to_string(), report.pack_id.to_string()),
+        (
+            "surface_count".to_string(),
+            report.surfaces.len().to_string(),
+        ),
+        (
+            "available_surface_count".to_string(),
+            report.available_surface_count().to_string(),
+        ),
+        (
+            "side_effect_free_surface_count".to_string(),
+            report.side_effect_free_surface_count().to_string(),
+        ),
+        (
+            "fallback_allowed_surface_count".to_string(),
+            report.fallback_allowed_surface_count().to_string(),
+        ),
+        (
+            "surface_order".to_string(),
+            report.surface_order().join(","),
+        ),
+        (
+            "recommended_sequence".to_string(),
+            report.recommended_sequence.join(" -> "),
+        ),
+        (
+            "deterministic_json_required".to_string(),
+            report.deterministic_json_required.to_string(),
+        ),
+        (
+            "text_is_authoritative".to_string(),
+            report.text_is_authoritative.to_string(),
+        ),
+        (
+            "no_probe_default".to_string(),
+            report.no_probe_default.to_string(),
+        ),
+        (
+            "external_effects_default_denied".to_string(),
+            report.external_effects_default_denied.to_string(),
+        ),
+        (
+            "destructive_effects_default_denied".to_string(),
+            report.destructive_effects_default_denied.to_string(),
+        ),
+        (
+            "fallback_execution_allowed".to_string(),
+            report.fallback_execution_allowed.to_string(),
+        ),
+        (
+            "fallback_attempted".to_string(),
+            report.fallback_attempted.to_string(),
+        ),
+        (
+            "side_effect_free".to_string(),
+            report.side_effect_free().to_string(),
         ),
         (
             "diagnostic_count".to_string(),
@@ -12642,6 +12713,28 @@ fn run(args: Vec<String>) -> ExitCode {
                 api_protocol_fields(&protocol),
             );
             ExitCode::SUCCESS
+        }
+        Some("agent-contract-pack") => {
+            let report = AgentContractPack::default_pack();
+            let status = if report.has_errors() {
+                CommandStatus::Unsupported
+            } else {
+                CommandStatus::Success
+            };
+            emit(
+                "agent-contract-pack",
+                format,
+                status,
+                "agent contract pack".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                agent_contract_pack_fields(&report),
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
         }
         Some("python-wrapper-plan") => {
             let report = PythonWrapperFoundationReport::contract_only();
@@ -24485,6 +24578,12 @@ mod tests {
     }
 
     #[test]
+    fn agent_contract_pack_returns_success() {
+        let code = run(vec!["agent-contract-pack".to_string()]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
     fn security_plan_returns_success() {
         let code = run(vec!["security-plan".to_string()]);
         assert_eq!(code, ExitCode::SUCCESS);
@@ -25687,6 +25786,7 @@ mod tests {
             for command in [
                 "status",
                 "capabilities",
+                "agent-contract-pack",
                 "feature-footprint",
                 "effect-budget-plan",
                 "doctor",
@@ -25712,6 +25812,31 @@ mod tests {
     #[test]
     fn usage_includes_effect_budget_plan() {
         assert!(cli_usage_line().contains("effect-budget-plan"));
+    }
+
+    #[test]
+    fn usage_includes_agent_contract_pack() {
+        assert!(cli_usage_line().contains("agent-contract-pack"));
+    }
+
+    #[test]
+    fn agent_contract_pack_fields_include_no_probe_and_no_fallback() {
+        let report = AgentContractPack::default_pack();
+        let fields = agent_contract_pack_fields(&report);
+
+        assert_eq!(
+            output_field(&fields, "schema_version"),
+            "shardloom.agent_contract_pack.v1"
+        );
+        assert_eq!(output_field(&fields, "fallback_execution_allowed"), "false");
+        assert_eq!(output_field(&fields, "fallback_attempted"), "false");
+        assert_eq!(output_field(&fields, "fallback_allowed_surface_count"), "0");
+        assert_eq!(output_field(&fields, "text_is_authoritative"), "false");
+        assert_eq!(output_field(&fields, "no_probe_default"), "true");
+        assert_eq!(output_field(&fields, "side_effect_free"), "true");
+        assert!(output_field(&fields, "surface_order").contains("feature_footprint"));
+        assert!(output_field(&fields, "surface_order").contains("effect_budget"));
+        assert!(output_field(&fields, "recommended_sequence").contains("doctor --format json"));
     }
 
     #[test]
