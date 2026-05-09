@@ -45,31 +45,30 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-6.13 benchmark correctness and all-engine rerun hygiene
+- [x] Session label: CG-2.1e.26/CG-13.7 local primitive materialization-effect tightening
   - Primary files:
-    - `benchmarks/traditional_analytics/run.py`
-    - `benchmarks/traditional_analytics/README.md`
-    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
-    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `shardloom-vortex/src/local_primitives.rs`
+    - `shardloom-vortex/src/local_engine.rs`
     - `docs/architecture/phased-execution-plan.md`
-  - Scope: Make the traditional analytics harness produce non-misleading all-engine reports by using the benchmark venv consistently, canonicalizing float correctness across engines, labeling dirty ShardLoom revisions, and rerunning the strict all-engine benchmark.
+  - Scope: Tighten feature-gated local `.vortex` primitive effect evidence so metadata predicates, validity predicates, and schema-only projection do not claim decode/materialization or materialization-boundary work.
   - Checklist:
-    - [x] Route documented benchmark commands through `benchmarks/traditional_analytics/.venv`.
-    - [x] Canonicalize benchmark float output to four decimals in Python and feature-gated Rust benchmark JSON.
-    - [x] Append `-dirty` to ShardLoom benchmark version labels when tracked working-tree changes exist.
-    - [x] Update benchmark README and contract tests for numeric correctness and dirty-version behavior.
-    - [x] Run focused ShardLoom version smoke, focused multi-stage ETL all-engine correctness rerun, and full strict all-engine benchmark rerun.
+    - [x] Distinguish predicate outcomes that require value decoding from metadata/validity-only predicate outcomes.
+    - [x] Keep comparison predicates explicitly marked as temporary decoded/materialized evidence until encoded value kernels land.
+    - [x] Report projection as schema/projection evidence without a materialization boundary.
+    - [x] Treat deferred metadata-open sidecar diagnostics as non-blocking when a local primitive has completed with a result.
+    - [x] Add feature-gated tests for metadata/validity/projection no-materialization evidence.
+    - [x] Run public `vortex-run` CLI smoke for projection and validity predicate evidence.
     - [x] Run full required validation.
   - Local validation status:
-    - `benchmarks/traditional_analytics/.venv/Scripts/python -m py_compile benchmarks/traditional_analytics/run.py` passed
-    - focused ShardLoom dirty-version smoke reported `workspace-local-release-<hash>-dirty`
-    - focused multi-stage ETL all-engine rerun passed correctness for ShardLoom, pandas, Polars, DuckDB, Spark default, Spark tuned-local, DataFusion, and Dask
-    - full strict all-engine benchmark rerun produced `benchmarks/traditional_analytics/results/traditional_analytics_20260509T052133Z.md` and `.json` with 9/9 successful scenarios for every engine, no errors, and all correctness rows passed
-    - feature-gated `cargo clippy -p shardloom-cli --features vortex-traditional-analytics-benchmark --all-targets -- -D warnings` passed with Rust toolchain `1.91.1`
     - `cargo fmt --all -- --check` passed with Rust toolchain `1.91.1`
+    - focused `cargo test -p shardloom-vortex --features vortex-local-primitives local_ -- --nocapture` passed with Rust toolchain `1.91.1`
+    - `vortex-run ... project:value ... --format json` exited success and reported `data_decoded=false`, `data_materialized=false`, and `local_primitive_materialization_boundary_reported=false`
+    - `vortex-run ... count-where:is_not_null:value ... --format json` exited success and reported `data_decoded=false`, `data_materialized=false`, and `local_primitive_materialization_boundary_reported=false`
+    - feature-gated `cargo clippy -p shardloom-cli --features vortex-local-primitives --all-targets -- -D warnings` passed with Rust toolchain `1.91.1`
     - `cargo clippy --workspace --all-targets -- -D warnings` passed with Rust toolchain `1.91.1`
     - `cargo test --workspace --all-targets` passed with Rust toolchain `1.91.1`
-  - Explicitly not included: benchmark result promotion as claim-grade evidence, performance/superiority claims, external engine runtime fallback, ShardLoom query execution changes beyond feature-gated benchmark JSON formatting, SQL/DataFrame/API execution, mature encoded operator coverage, object-store IO beyond declared evidence fields, new writes beyond the existing benchmark temporary Vortex artifacts, or fallback execution.
+    - `git diff --check` and hidden/bidi scan passed
+  - Explicitly not included: generalized encoded filter/project kernels, SQL/DataFrame/API execution, adapter runtime, object-store IO, row reads, Arrow conversion, writes, spill IO, production certification, benchmark/superiority claims, CG-2 closeout, CG-13 closeout, or fallback execution.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -798,6 +797,15 @@ Supporting docs:
     - `CountAll` preserves no-decode/no-materialization/no-row/no-Arrow/no-object-store/no-write/no-spill/no-fallback evidence.
     - Filter, projection, and filtered-count paths emit materialization-boundary evidence instead of claiming encoded-native completion.
     - Operator capability discovery records the local primitive surface and keeps correctness/benchmark gates required for production claims.
+- [x] CG-2.1e.26 local primitive materialization-effect tightening
+  - Why: prevent temporary local primitive evidence from overstating decode/materialization when the operation only uses metadata, validity, or schema/projection structure.
+  - Acceptance:
+    - Metadata predicates such as `AlwaysTrue` and `AlwaysFalse` report selected rows without decode, materialization, row reads, Arrow conversion, writes, spill, or fallback.
+    - Validity-only predicates such as `is_null` and `is_not_null` can count validity without claiming data decode or row materialization.
+    - Projection reports projected columns and row counts as schema/projection evidence without a materialization boundary.
+    - Value comparison predicates continue to report temporary decode/materialization and materialization-boundary evidence until encoded value kernels exist.
+    - `vortex-run` treats deferred metadata-open sidecar diagnostics as non-blocking when a local primitive has completed with a result, while invalid targets and missing result paths remain blocking.
+    - No generalized encoded filter/projection kernels, adapters, SQL/DataFrame/API runtime, object-store IO, row reads, Arrow conversion, writes, spill IO, benchmark claim, superiority claim, CG-2 closeout, CG-13 closeout, or fallback execution is added.
 - [ ] CG-2.1e generalized encoded-data count execution path beyond explicit local `.vortex` count (planned)
   - Why: turn the local fixture scan/count proof into a generalized native count path only after the public Vortex data path and representation guarantees are approved.
   - Acceptance:
@@ -1258,10 +1266,12 @@ Status legend:
   - [x] CG-13.1 encoded execution path selection report foundation
   - [x] CG-13.2 decode/materialization avoided proof fields in path-selection output
   - [x] CG-13.6 local primitive execution reports decode/materialization boundaries without claiming encoded-native filter/project completion
+  - [x] CG-13.7 local primitive metadata/validity/projection no-materialization evidence
   - Scope:
     - encoding-aware execution-path selection through `vortex-encoded-path-selection-plan`
     - direct count/filter/project over encoded segments
     - decode-avoided proof/report requirements
+    - temporary local primitive evidence distinguishes metadata/validity/schema-only work from value decode/materialization
     - generalized direct encoded count/filter/project execution remains deferred
 
 - [ ] CG-14 — Runtime-adaptive optimizer and execution memory (**planned**)
@@ -1371,6 +1381,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.23 generalized encoded primitive execution gate
 - [x] CG-2.1e.24 local encoded `CountAll` target policy evidence
 - [x] CG-2.1e.25 local Vortex primitive execution surface
+- [x] CG-2.1e.26 local primitive materialization-effect tightening
 - [x] CG-2.2a filtered-count readiness core contract
 - [x] CG-2.2a.1 filtered-count blocker precision hardening
 - [x] CG-2.2b filtered-count readiness CLI integration
@@ -1544,6 +1555,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-13.4 local encoded `CountAll` target policy evidence
 - [x] CG-13.5 count-where selection-vector filter evidence surfacing
 - [x] CG-13.6 local primitive execution reports decode/materialization boundaries for filter/project/count-where
+- [x] CG-13.7 local primitive metadata/validity/projection evidence avoids false materialization claims
 - [ ] generalized direct count/filter/project encoded execution
 - [ ] broad compressed-kernel correctness and benchmark certification
 
@@ -1674,6 +1686,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.23 generalized encoded primitive execution gate keeps direct count, filtered count, and projection readiness machine-readable while broad count/filter/project execution stays blocked.
 - [x] CG-2.1e.24 local encoded `CountAll` target policy evidence distinguishes certified fixture targets from uncertified local `.vortex` targets, keeps production and CG closeout claims disabled, and forwards the CLI feature gate for direct validation.
 - [x] CG-2.1e.25 local Vortex primitive execution adds feature-gated `vortex-run` execution for local `.vortex` count/filter/project primitives, preserves no-decode count evidence, and reports materialization boundaries for temporary filter/project/count-where paths without claiming encoded-native completion.
+- [x] CG-2.1e.26/CG-13.7 local primitive materialization-effect tightening makes metadata predicates, validity predicates, and schema-only projection report no decode/materialization/materialization boundary while leaving value comparisons marked as temporary decoded/materialized evidence.
 - [x] CG-4.2 local committed-manifest recovery/rollback diagnostics represent recovery-not-required, rollback-required/planned, ambiguous-commit, missing-manifest, cleanup-policy, and object-store blocker states without executing cleanup, rollback, object-store IO, or fallback.
 - [x] CG-4.3 local committed-manifest rollback cleanup execution deletes only `_shardloom_committed_manifest.json` behind `vortex-staged-output-fs` after rollback-planned recovery evidence; finalized manifests, commit markers, output payloads, object-store IO, upstream `Vortex` APIs, and fallback remain untouched.
 - [x] CG-2.2c filtered-count metadata proof local guard admits only metadata-proof `CountWhere` requests into metadata-only local execution and rejects encoded predicate candidates without fallback.

@@ -282,6 +282,15 @@ struct LocalVortexScan {
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct PredicateEvaluationOutcome {
+    selected_rows: u64,
+    data_decoded: bool,
+    data_materialized: bool,
+    materialization_boundary_reported: bool,
+}
+
+#[cfg(feature = "vortex-local-primitives")]
 fn local_vortex_path(
     target_uri: &DatasetUri,
     primitive_kind: VortexQueryPrimitiveKind,
@@ -389,21 +398,21 @@ fn predicate_report(
     scan: &LocalVortexScan,
     predicate: &PredicateExpr,
 ) -> Result<VortexLocalPrimitiveExecutionReport> {
-    let selected_rows = evaluate_predicate(scan, predicate, primitive_kind)?;
+    let outcome = evaluate_predicate(scan, predicate, primitive_kind)?;
     let rows_scanned = usize_to_u64(scan.row_count)?;
     Ok(VortexLocalPrimitiveExecutionReport {
         status: VortexLocalPrimitiveExecutionStatus::Executed,
         mode: VortexLocalPrimitiveExecutionMode::VortexArrayPrimitive,
         primitive_kind,
-        result_summary: Some(selected_rows.to_string()),
+        result_summary: Some(outcome.selected_rows.to_string()),
         rows_scanned,
-        rows_selected: Some(selected_rows),
+        rows_selected: Some(outcome.selected_rows),
         rows_projected: None,
         projected_columns: Vec::new(),
         arrays_read_count: scan.arrays_read_count,
         data_read: true,
-        data_decoded: true,
-        data_materialized: true,
+        data_decoded: outcome.data_decoded,
+        data_materialized: outcome.data_materialized,
         upstream_scan_called: true,
         row_read: false,
         arrow_converted: false,
@@ -412,7 +421,7 @@ fn predicate_report(
         spill_io_performed: false,
         external_effects_executed: false,
         fallback_execution_allowed: false,
-        materialization_boundary_reported: true,
+        materialization_boundary_reported: outcome.materialization_boundary_reported,
         diagnostics: Vec::new(),
     })
 }
@@ -440,8 +449,8 @@ fn projection_report(
         projected_columns,
         arrays_read_count: scan.arrays_read_count,
         data_read: true,
-        data_decoded: true,
-        data_materialized: true,
+        data_decoded: false,
+        data_materialized: false,
         upstream_scan_called: true,
         row_read: false,
         arrow_converted: false,
@@ -450,7 +459,7 @@ fn projection_report(
         spill_io_performed: false,
         external_effects_executed: false,
         fallback_execution_allowed: false,
-        materialization_boundary_reported: true,
+        materialization_boundary_reported: false,
         diagnostics: Vec::new(),
     })
 }
@@ -521,10 +530,20 @@ fn evaluate_predicate(
     scan: &LocalVortexScan,
     predicate: &PredicateExpr,
     primitive_kind: VortexQueryPrimitiveKind,
-) -> Result<u64> {
+) -> Result<PredicateEvaluationOutcome> {
     match predicate {
-        PredicateExpr::AlwaysTrue => usize_to_u64(scan.row_count),
-        PredicateExpr::AlwaysFalse => Ok(0),
+        PredicateExpr::AlwaysTrue => Ok(PredicateEvaluationOutcome {
+            selected_rows: usize_to_u64(scan.row_count)?,
+            data_decoded: false,
+            data_materialized: false,
+            materialization_boundary_reported: false,
+        }),
+        PredicateExpr::AlwaysFalse => Ok(PredicateEvaluationOutcome {
+            selected_rows: 0,
+            data_decoded: false,
+            data_materialized: false,
+            materialization_boundary_reported: false,
+        }),
         PredicateExpr::IsNull { column } | PredicateExpr::IsNotNull { column } => {
             let field = local_field(scan, column.as_str(), primitive_kind)?;
             let validity = field.validity().map_err(vortex_error)?;
@@ -544,11 +563,21 @@ fn evaluate_predicate(
                     })?;
                 }
             }
-            Ok(count)
+            Ok(PredicateEvaluationOutcome {
+                selected_rows: count,
+                data_decoded: false,
+                data_materialized: false,
+                materialization_boundary_reported: false,
+            })
         }
         PredicateExpr::Compare { column, op, value } => {
             let field = local_field(scan, column.as_str(), primitive_kind)?;
-            compare_field(&field, *op, value, primitive_kind)
+            Ok(PredicateEvaluationOutcome {
+                selected_rows: compare_field(&field, *op, value, primitive_kind)?,
+                data_decoded: true,
+                data_materialized: true,
+                materialization_boundary_reported: true,
+            })
         }
     }
 }
@@ -894,6 +923,28 @@ mod tests {
     }
 
     #[test]
+    fn count_where_metadata_predicate_avoids_decode_and_materialization() {
+        let path = unique_vortex_path("count-where-always-false");
+        write_struct_fixture(&path).expect("fixture");
+        let uri = DatasetUri::new(path.display().to_string()).expect("uri");
+        let request = VortexQueryPrimitiveRequest::count_where(uri, PredicateExpr::AlwaysFalse);
+
+        let report = execute_vortex_local_primitive(&request).expect("report");
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(report.rows_selected, Some(0));
+        assert_eq!(report.result_summary.as_deref(), Some("0"));
+        assert!(report.data_read);
+        assert!(!report.data_decoded);
+        assert!(!report.data_materialized);
+        assert!(!report.materialization_boundary_reported);
+        assert!(!report.row_read);
+        assert!(!report.arrow_converted);
+        assert!(!report.fallback_execution_allowed);
+    }
+
+    #[test]
     fn projection_reports_projected_columns_from_local_vortex() {
         let path = unique_vortex_path("project");
         write_struct_fixture(&path).expect("fixture");
@@ -910,9 +961,9 @@ mod tests {
         assert_eq!(report.rows_projected, Some(5));
         assert_eq!(report.projected_columns, vec!["metric".to_string()]);
         assert!(report.data_read);
-        assert!(report.data_decoded);
-        assert!(report.data_materialized);
-        assert!(report.materialization_boundary_reported);
+        assert!(!report.data_decoded);
+        assert!(!report.data_materialized);
+        assert!(!report.materialization_boundary_reported);
         assert!(!report.fallback_execution_allowed);
     }
 }
