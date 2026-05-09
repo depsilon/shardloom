@@ -258,6 +258,342 @@ impl NativeIoCertificatePathRequirement {
     }
 }
 
+/// Runtime source capability evidence for one native I/O path.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct NativeIoSourceCapabilityReport {
+    pub source_kind: String,
+    pub adapter_id: String,
+    pub schema_discovery_status: String,
+    pub statistics_availability: String,
+    pub pushdown_capabilities: String,
+    pub encoded_representation_preserved: bool,
+    pub range_read_capability: bool,
+    pub streaming_capability: bool,
+    pub object_store_capability: bool,
+    pub fallback_attempted: bool,
+}
+
+impl NativeIoSourceCapabilityReport {
+    /// Returns whether the source capability report violates no-fallback policy.
+    #[must_use]
+    pub const fn has_errors(&self) -> bool {
+        self.fallback_attempted
+    }
+}
+
+/// Runtime pushdown evidence for one source path.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct NativeIoSourcePushdownReport {
+    pub accepted_operations: Vec<String>,
+    pub rejected_operations: Vec<String>,
+    pub guarantee: String,
+    pub proof_basis: String,
+    pub residual_expression: Option<String>,
+    pub conservative_false_positive_policy: bool,
+    pub unsafe_rejected_reason: Option<String>,
+    pub fallback_attempted: bool,
+}
+
+impl NativeIoSourcePushdownReport {
+    /// Returns whether the pushdown report violates no-fallback policy.
+    #[must_use]
+    pub const fn has_errors(&self) -> bool {
+        self.fallback_attempted
+    }
+
+    /// Stable comma-separated accepted operation order.
+    #[must_use]
+    pub fn accepted_operation_order(&self) -> String {
+        self.accepted_operations.join(",")
+    }
+
+    /// Stable comma-separated rejected operation order.
+    #[must_use]
+    pub fn rejected_operation_order(&self) -> String {
+        self.rejected_operations.join(",")
+    }
+}
+
+/// Runtime sink requirement evidence for one native I/O path.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct NativeIoSinkRequirementReport {
+    pub target_format: String,
+    pub accepts_encoded: bool,
+    pub requires_decoded_columnar: bool,
+    pub requires_rows: bool,
+    pub preserves_metadata: bool,
+    pub requires_ordering: bool,
+    pub requires_partitioning: bool,
+    pub requires_commit: bool,
+    pub supports_streaming: bool,
+    pub max_chunk_size: Option<u64>,
+    pub backpressure_policy: String,
+}
+
+impl NativeIoSinkRequirementReport {
+    /// Returns whether the sink requirement forces row materialization.
+    #[must_use]
+    pub const fn requires_row_materialization(&self) -> bool {
+        self.requires_rows
+    }
+}
+
+/// Runtime fidelity evidence for one source-to-sink adapter path.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct NativeIoAdapterFidelityReport {
+    pub adapter_id: String,
+    pub source_kind: String,
+    pub sink_kind: String,
+    pub metadata_preserved: bool,
+    pub statistics_preserved: bool,
+    pub encoded_representation_preserved: bool,
+    pub materialization_required: bool,
+    pub fidelity_loss: String,
+    pub metadata_loss: String,
+    pub fallback_attempted: bool,
+}
+
+impl NativeIoAdapterFidelityReport {
+    /// Returns whether the adapter fidelity report violates no-fallback policy.
+    #[must_use]
+    pub const fn has_errors(&self) -> bool {
+        self.fallback_attempted
+    }
+}
+
+/// Runtime representation transition evidence for one native I/O path.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct NativeIoRepresentationTransition {
+    pub from_state: RepresentationState,
+    pub to_state: RepresentationState,
+    pub materialization_boundary_reported: bool,
+}
+
+impl NativeIoRepresentationTransition {
+    /// Creates a runtime representation transition.
+    #[must_use]
+    pub const fn new(
+        from_state: RepresentationState,
+        to_state: RepresentationState,
+        materialization_boundary_reported: bool,
+    ) -> Self {
+        Self {
+            from_state,
+            to_state,
+            materialization_boundary_reported,
+        }
+    }
+
+    /// Stable transition label for CLI and benchmark reporting.
+    #[must_use]
+    pub fn transition_label(&self) -> String {
+        format!("{}->{}", self.from_state.as_str(), self.to_state.as_str())
+    }
+
+    /// Returns whether this transition requires materialization boundary evidence.
+    #[must_use]
+    pub const fn requires_materialization_boundary(&self) -> bool {
+        matches!(
+            self.to_state,
+            RepresentationState::PartiallyDecoded
+                | RepresentationState::DecodedColumnar
+                | RepresentationState::MaterializedRows
+        )
+    }
+
+    /// Returns whether the transition is missing required boundary evidence.
+    #[must_use]
+    pub const fn has_errors(&self) -> bool {
+        self.requires_materialization_boundary() && !self.materialization_boundary_reported
+    }
+}
+
+/// Runtime materialization boundary evidence for one native I/O path.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct NativeIoMaterializationBoundaryReport {
+    pub boundary_id: String,
+    pub from_state: RepresentationState,
+    pub to_state: RepresentationState,
+    pub required_by: String,
+    pub reason: String,
+    pub bytes_decoded: u64,
+    pub rows_materialized: u64,
+    pub fidelity_loss: String,
+    pub fallback_attempted: bool,
+}
+
+impl NativeIoMaterializationBoundaryReport {
+    /// Returns whether the boundary report violates no-fallback policy.
+    #[must_use]
+    pub const fn has_errors(&self) -> bool {
+        self.fallback_attempted
+    }
+}
+
+/// Runtime side-effect evidence for one native I/O path.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct NativeIoSideEffectReport {
+    pub data_read: bool,
+    pub data_decoded: bool,
+    pub data_materialized: bool,
+    pub row_read: bool,
+    pub arrow_converted: bool,
+    pub object_store_io: bool,
+    pub write_io: bool,
+    pub spill_io_performed: bool,
+    pub external_effects_executed: bool,
+    pub fallback_attempted: bool,
+    pub fallback_execution_allowed: bool,
+}
+
+impl NativeIoSideEffectReport {
+    /// Returns whether side effects violate `ShardLoom`'s no-fallback policy.
+    #[must_use]
+    pub const fn has_errors(&self) -> bool {
+        self.fallback_attempted || self.fallback_execution_allowed
+    }
+}
+
+/// Runtime certificate emitted for a specific source/sink native I/O path.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct NativeIoCertificate {
+    pub schema_version: &'static str,
+    pub certificate_id: String,
+    pub path_id: String,
+    pub source_capability_report: NativeIoSourceCapabilityReport,
+    pub source_pushdown_report: NativeIoSourcePushdownReport,
+    pub representation_transitions: Vec<NativeIoRepresentationTransition>,
+    pub sink_requirement_report: NativeIoSinkRequirementReport,
+    pub adapter_fidelity_report: NativeIoAdapterFidelityReport,
+    pub materialization_boundaries: Vec<NativeIoMaterializationBoundaryReport>,
+    pub side_effects: NativeIoSideEffectReport,
+    pub diagnostics: Vec<Diagnostic>,
+    pub fallback_attempted: bool,
+}
+
+impl NativeIoCertificate {
+    /// Creates a runtime native I/O certificate.
+    ///
+    /// # Errors
+    /// Returns an error when the certificate or path id is empty.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        certificate_id: impl Into<String>,
+        path_id: impl Into<String>,
+        source_capability_report: NativeIoSourceCapabilityReport,
+        source_pushdown_report: NativeIoSourcePushdownReport,
+        representation_transitions: Vec<NativeIoRepresentationTransition>,
+        sink_requirement_report: NativeIoSinkRequirementReport,
+        adapter_fidelity_report: NativeIoAdapterFidelityReport,
+        materialization_boundaries: Vec<NativeIoMaterializationBoundaryReport>,
+        side_effects: NativeIoSideEffectReport,
+        diagnostics: Vec<Diagnostic>,
+    ) -> crate::Result<Self> {
+        let certificate_id = certificate_id.into();
+        if certificate_id.trim().is_empty() {
+            return Err(crate::ShardLoomError::InvalidOperation(
+                "native I/O certificate id cannot be empty".to_string(),
+            ));
+        }
+        let path_id = path_id.into();
+        if path_id.trim().is_empty() {
+            return Err(crate::ShardLoomError::InvalidOperation(
+                "native I/O certificate path id cannot be empty".to_string(),
+            ));
+        }
+        Ok(Self {
+            schema_version: "shardloom.native_io_certificate.v1",
+            certificate_id,
+            path_id,
+            source_capability_report,
+            source_pushdown_report,
+            representation_transitions,
+            sink_requirement_report,
+            adapter_fidelity_report,
+            materialization_boundaries,
+            side_effects,
+            diagnostics,
+            fallback_attempted: false,
+        })
+    }
+
+    /// Stable certificate status label.
+    #[must_use]
+    pub fn status(&self) -> &'static str {
+        if self.has_errors() {
+            "blocked"
+        } else {
+            "certified"
+        }
+    }
+
+    /// Returns whether the certificate is certified.
+    #[must_use]
+    pub fn is_certified(&self) -> bool {
+        !self.has_errors()
+    }
+
+    /// Stable comma-separated transition order.
+    #[must_use]
+    pub fn representation_transition_order(&self) -> String {
+        self.representation_transitions
+            .iter()
+            .map(NativeIoRepresentationTransition::transition_label)
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    /// Stable comma-separated materialization boundary order.
+    #[must_use]
+    pub fn materialization_boundary_order(&self) -> String {
+        self.materialization_boundaries
+            .iter()
+            .map(|boundary| boundary.boundary_id.as_str())
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    /// Returns whether required materialization-boundary transitions have evidence.
+    #[must_use]
+    pub fn materializing_transitions_have_boundaries(&self) -> bool {
+        self.representation_transitions
+            .iter()
+            .filter(|transition| transition.requires_materialization_boundary())
+            .all(|transition| transition.materialization_boundary_reported)
+    }
+
+    /// Returns whether the runtime certificate is invalid.
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.fallback_attempted
+            || self.source_capability_report.has_errors()
+            || self.source_pushdown_report.has_errors()
+            || self
+                .representation_transitions
+                .iter()
+                .any(NativeIoRepresentationTransition::has_errors)
+            || self.adapter_fidelity_report.has_errors()
+            || self
+                .materialization_boundaries
+                .iter()
+                .any(NativeIoMaterializationBoundaryReport::has_errors)
+            || self.side_effects.has_errors()
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+}
+
 /// Report-only CG-19 universal native I/O envelope plan.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(clippy::struct_excessive_bools)]
@@ -710,6 +1046,7 @@ fn cg19_representation_states() -> Vec<RepresentationStateContract> {
             state: RepresentationState::DecodedColumnar,
             meaning: "values are decoded into columnar buffers at an explicit materialization boundary",
             allowed_transitions: vec![
+                RepresentationState::VortexEncoded,
                 RepresentationState::MaterializedRows,
                 RepresentationState::ExternalEffect,
                 RepresentationState::Unsupported,
@@ -952,5 +1289,128 @@ mod tests {
         requirement.fallback_attempted = true;
 
         assert!(requirement.has_errors());
+    }
+
+    #[test]
+    fn runtime_native_io_certificate_requires_materialization_boundary_evidence() {
+        let mut certificate = sample_runtime_certificate();
+
+        assert!(certificate.is_certified());
+        assert_eq!(certificate.status(), "certified");
+        assert_eq!(
+            certificate.representation_transition_order(),
+            "foreign_encoded->decoded_columnar,decoded_columnar->vortex_encoded"
+        );
+        assert_eq!(
+            certificate.materialization_boundary_order(),
+            "cg19.csv_to_vortex_source_parse"
+        );
+        assert!(certificate.materializing_transitions_have_boundaries());
+
+        certificate.representation_transitions[0].materialization_boundary_reported = false;
+
+        assert!(certificate.has_errors());
+        assert_eq!(certificate.status(), "blocked");
+        assert!(!certificate.materializing_transitions_have_boundaries());
+    }
+
+    #[test]
+    fn runtime_native_io_certificate_rejects_fallback_attempts() {
+        let mut certificate = sample_runtime_certificate();
+        certificate.side_effects.fallback_attempted = true;
+
+        assert!(certificate.has_errors());
+    }
+
+    fn sample_runtime_certificate() -> NativeIoCertificate {
+        NativeIoCertificate::new(
+            "cg19.test.certificate",
+            "compatibility_source_to_native_vortex_sink",
+            NativeIoSourceCapabilityReport {
+                source_kind: "csv".to_string(),
+                adapter_id: "test.csv".to_string(),
+                schema_discovery_status: "declared_schema_validated".to_string(),
+                statistics_availability: "none".to_string(),
+                pushdown_capabilities: "none".to_string(),
+                encoded_representation_preserved: false,
+                range_read_capability: false,
+                streaming_capability: false,
+                object_store_capability: false,
+                fallback_attempted: false,
+            },
+            NativeIoSourcePushdownReport {
+                accepted_operations: Vec::new(),
+                rejected_operations: vec!["group by aggregation".to_string()],
+                guarantee: "unsupported".to_string(),
+                proof_basis: "test-only CSV parser".to_string(),
+                residual_expression: Some("group by aggregation".to_string()),
+                conservative_false_positive_policy: false,
+                unsafe_rejected_reason: None,
+                fallback_attempted: false,
+            },
+            vec![
+                NativeIoRepresentationTransition::new(
+                    RepresentationState::ForeignEncoded,
+                    RepresentationState::DecodedColumnar,
+                    true,
+                ),
+                NativeIoRepresentationTransition::new(
+                    RepresentationState::DecodedColumnar,
+                    RepresentationState::VortexEncoded,
+                    false,
+                ),
+            ],
+            NativeIoSinkRequirementReport {
+                target_format: "vortex".to_string(),
+                accepts_encoded: true,
+                requires_decoded_columnar: false,
+                requires_rows: false,
+                preserves_metadata: true,
+                requires_ordering: false,
+                requires_partitioning: false,
+                requires_commit: false,
+                supports_streaming: false,
+                max_chunk_size: Some(3),
+                backpressure_policy: "not_applicable_local_smoke".to_string(),
+            },
+            NativeIoAdapterFidelityReport {
+                adapter_id: "test.csv".to_string(),
+                source_kind: "csv".to_string(),
+                sink_kind: "vortex".to_string(),
+                metadata_preserved: false,
+                statistics_preserved: false,
+                encoded_representation_preserved: false,
+                materialization_required: true,
+                fidelity_loss: "none_for_declared_schema".to_string(),
+                metadata_loss: "csv_source_has_no_vortex_metadata".to_string(),
+                fallback_attempted: false,
+            },
+            vec![NativeIoMaterializationBoundaryReport {
+                boundary_id: "cg19.csv_to_vortex_source_parse".to_string(),
+                from_state: RepresentationState::ForeignEncoded,
+                to_state: RepresentationState::DecodedColumnar,
+                required_by: "csv_to_vortex_import".to_string(),
+                reason: "CSV parse boundary".to_string(),
+                bytes_decoded: 128,
+                rows_materialized: 3,
+                fidelity_loss: "none_for_declared_schema".to_string(),
+                fallback_attempted: false,
+            }],
+            NativeIoSideEffectReport {
+                data_read: true,
+                data_decoded: true,
+                data_materialized: true,
+                row_read: true,
+                arrow_converted: false,
+                object_store_io: false,
+                write_io: true,
+                spill_io_performed: false,
+                external_effects_executed: false,
+                fallback_attempted: false,
+                fallback_execution_allowed: false,
+            },
+            Vec::new(),
+        )
+        .expect("sample runtime certificate")
     }
 }

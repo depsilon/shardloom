@@ -356,6 +356,8 @@ def shardloom_runner() -> EngineRunner:
             "vortex_file_read",
             "upstream_vortex_scan_called",
             "materialization_boundary_report_emitted",
+            "native_io_per_path_certificate_emitted",
+            "native_io_materializing_transitions_have_boundaries",
         ]
         missing_evidence = [
             field for field in required_true_fields if fields.get(field) != "true"
@@ -364,6 +366,19 @@ def shardloom_runner() -> EngineRunner:
             raise RuntimeError(
                 "ShardLoom universal I/O evidence was missing: "
                 + ", ".join(missing_evidence)
+            )
+        if fields.get("native_io_certificate_status") != "certified":
+            raise RuntimeError(
+                "ShardLoom NativeIoCertificate was not certified: "
+                + str(fields.get("native_io_certificate_status", "missing"))
+            )
+        if (
+            fields.get("native_io_certificate_path_id")
+            != "compatibility_source_to_native_vortex_sink"
+        ):
+            raise RuntimeError(
+                "ShardLoom NativeIoCertificate path was unexpected: "
+                + str(fields.get("native_io_certificate_path_id", "missing"))
             )
         result_json = fields.get("result_json")
         if result_json is None:
@@ -1748,7 +1763,7 @@ def universal_io_lanes() -> list[dict[str, Any]]:
             "name": "CSV -> ShardLoom NativeWorkStream -> Vortex",
             "status": "smoke_supported",
             "reason": "ShardLoom benchmark rows use a deterministic CSV source adapter/import, emit native work/native result evidence fields, write local Vortex files, reopen them through Vortex, and scan Vortex arrays. The path still materializes Vortex-derived arrays for the temporary operators.",
-            "expected_report": "SourceCapabilityReport plus NativeIoCertificate evidence fields",
+            "expected_report": "per-path NativeIoCertificate with SourceCapabilityReport, SourcePushdownReport, SinkRequirementReport, AdapterFidelityReport, MaterializationBoundaryReport, and side-effect evidence",
         },
         {
             "name": "CSV -> Vortex import -> encoded CountAll",
@@ -1975,7 +1990,7 @@ def render_read_this_first(artifact: dict[str, Any]) -> str:
     notes = [
         "This is a local smoke/bring-up report, not a claim-grade benchmark.",
         "External baseline rows measure each engine's local CSV path. ShardLoom rows use a CSV source adapter into local Vortex files, reopen those files through Vortex, scan Vortex arrays, and then run the temporary benchmark operators over Vortex-derived arrays.",
-        "ShardLoom's current traditional rows report a materialization boundary; they prove universal I/O viability, not mature encoded-native SQL/operator coverage.",
+        "ShardLoom's current traditional rows report a concrete per-path NativeIoCertificate and a CSV parse materialization boundary; they prove universal I/O viability, not mature encoded-native SQL/operator coverage.",
         "Dask results depend heavily on partitioning, scheduler, file count, and dataset size; small single-file CSV tests can make scheduler overhead dominate.",
         "Spark rows are split into spark-default and spark-local-tuned so default behavior is not mixed with local tuning; each Spark profile starts and warms its own session immediately before its scenario rows.",
         "Spark rows require Java/JDK. Missing Spark rows mean local setup is incomplete, not that Spark failed the workload.",
@@ -2056,7 +2071,11 @@ def render_shardloom_effects_table(artifact: dict[str, Any]) -> str:
                 format_bool(metrics.get("object_store_io")),
                 format_bool(metrics.get("write_io")),
                 format_bool(metrics.get("spill_io_performed")),
+                str(evidence.get("native_io_certificate_path_id", "n/a")),
                 str(evidence.get("native_io_certificate_emitted", "n/a")),
+                str(evidence.get("native_io_certificate_status", "n/a")),
+                str(evidence.get("materialization_boundary_rows", "n/a")),
+                format_bytes(parse_optional_int(evidence.get("source_bytes_read"))),
             ]
         )
     if not rows:
@@ -2064,6 +2083,10 @@ def render_shardloom_effects_table(artifact: dict[str, Any]) -> str:
             [
                 "not run",
                 "missing",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
                 "n/a",
                 "n/a",
                 "n/a",
@@ -2085,7 +2108,11 @@ def render_shardloom_effects_table(artifact: dict[str, Any]) -> str:
             "Object store",
             "Write IO",
             "Spill IO",
+            "Native I/O path",
             "Native I/O cert",
+            "Cert status",
+            "Boundary rows",
+            "Source bytes",
         ],
         rows,
     )

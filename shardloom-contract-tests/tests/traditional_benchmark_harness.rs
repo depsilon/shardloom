@@ -24,6 +24,10 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("\"startup_time_millis\""));
     assert!(script.contains("\"bytes_written\""));
     assert!(script.contains("\"shardloom_evidence\""));
+    assert!(script.contains("\"native_io_certificate_status\""));
+    assert!(script.contains("\"native_io_certificate_path_id\""));
+    assert!(script.contains("\"native_io_per_path_certificate_emitted\""));
+    assert!(script.contains("\"native_io_materializing_transitions_have_boundaries\""));
     assert!(script.contains("CORRECTNESS_FLOAT_DIGITS = 4"));
     assert!(script.contains("\"status\", \"--short\", \"--untracked-files=no\""));
     assert!(script.contains("traditional-analytics-run"));
@@ -77,6 +81,9 @@ fn traditional_benchmark_harness_records_fairness_and_universal_io_boundaries() 
         "CSV -> ShardLoom NativeWorkStream -> Vortex",
         "CSV -> Vortex import -> encoded CountAll",
         "NativeIoCertificate",
+        "SourceCapabilityReport",
+        "AdapterFidelityReport",
+        "MaterializationBoundaryReport",
     ] {
         assert!(
             script.contains(required_text),
@@ -118,6 +125,8 @@ fn traditional_benchmark_docs_state_no_fallback_and_markdown_outputs() {
     assert!(readme.contains("fairness parameters"));
     assert!(readme.contains("resource metrics"));
     assert!(readme.contains("runtime-effect evidence"));
+    assert!(readme.contains("per-path certificate id/status"));
+    assert!(readme.contains("row_read=true"));
     assert!(normalized.contains("never execute unsupported ShardLoom plans as fallback engines"));
     assert!(readme.contains("shardloom traditional-analytics-run"));
     assert!(readme.contains("vortex-traditional-analytics-benchmark"));
@@ -133,7 +142,7 @@ fn traditional_benchmark_docs_state_no_fallback_and_markdown_outputs() {
     assert!(readme.contains("Dask is sensitive to partitioning"));
     assert!(readme.contains("rounded to four decimal places"));
     assert!(readme.contains("appends `-dirty`"));
-    assert!(normalized.contains("local `vortex-run` primitive evidence"));
+    assert!(readme.contains("`vortex-run` primitive evidence"));
     assert!(readme.contains("timing scope"));
     assert!(readme.contains("benchmarks\\traditional_analytics\\.venv\\Scripts\\python"));
 }
