@@ -2161,6 +2161,15 @@ def run_shardloom_native_microbenchmarks(iterations: int) -> list[dict[str, Any]
             "local primitive comparison count",
             "count-where:gte:value:10000",
         ),
+        run_shardloom_vortex_run_microbenchmark(
+            root,
+            env,
+            binary,
+            fixture,
+            iterations,
+            "local primitive filter projection",
+            "filter-project:gte:value:10000|value",
+        ),
         run_shardloom_commit_microbenchmark(root, env, binary, iterations),
     ]
     return rows

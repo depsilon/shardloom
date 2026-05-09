@@ -133,6 +133,8 @@ fn traditional_benchmark_harness_includes_shardloom_native_microbenchmark() {
     assert!(script.contains("count-where:is_not_null:value"));
     assert!(script.contains("local primitive comparison count"));
     assert!(script.contains("count-where:gte:value:10000"));
+    assert!(script.contains("local primitive filter projection"));
+    assert!(script.contains("filter-project:gte:value:10000|value"));
     assert!(script.contains("\"timing_scope\""));
     assert!(script.contains("\"materialization_boundary_reported\""));
     assert!(script.contains("\"data_decoded\""));
