@@ -45,29 +45,31 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-6.12 benchmark resource and effect evidence reporting
+- [x] Session label: CG-6.13 benchmark correctness and all-engine rerun hygiene
   - Primary files:
     - `benchmarks/traditional_analytics/run.py`
     - `benchmarks/traditional_analytics/README.md`
     - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+    - `shardloom-vortex/src/traditional_analytics.rs`
     - `docs/architecture/phased-execution-plan.md`
-  - Scope: Make benchmark resource metrics and ShardLoom runtime-effect evidence visible in JSON and Markdown results before the next full benchmark rerun.
+  - Scope: Make the traditional analytics harness produce non-misleading all-engine reports by using the benchmark venv consistently, canonicalizing float correctness across engines, labeling dirty ShardLoom revisions, and rerunning the strict all-engine benchmark.
   - Checklist:
-    - [x] Preserve ShardLoom CLI evidence fields in result artifacts without changing correctness digests.
-    - [x] Add bytes-written, decode, materialization, row-read, Arrow, object-store, write, and spill effect fields to benchmark metrics.
-    - [x] Add human-readable resource metrics and ShardLoom runtime-effect Markdown tables.
-    - [x] Update benchmark README and contract tests for the expanded result surface.
-    - [x] Run focused benchmark harness smoke and contract tests.
+    - [x] Route documented benchmark commands through `benchmarks/traditional_analytics/.venv`.
+    - [x] Canonicalize benchmark float output to four decimals in Python and feature-gated Rust benchmark JSON.
+    - [x] Append `-dirty` to ShardLoom benchmark version labels when tracked working-tree changes exist.
+    - [x] Update benchmark README and contract tests for numeric correctness and dirty-version behavior.
+    - [x] Run focused ShardLoom version smoke, focused multi-stage ETL all-engine correctness rerun, and full strict all-engine benchmark rerun.
     - [x] Run full required validation.
   - Local validation status:
-    - `python -m py_compile benchmarks/traditional_analytics/run.py` passed
-    - focused ShardLoom+pandas benchmark smoke wrote `bytes_written` and ShardLoom effect evidence
-    - focused Markdown smoke contained resource metrics and ShardLoom runtime-effect sections
-    - focused `shardloom-contract-tests` traditional benchmark harness tests passed
+    - `benchmarks/traditional_analytics/.venv/Scripts/python -m py_compile benchmarks/traditional_analytics/run.py` passed
+    - focused ShardLoom dirty-version smoke reported `workspace-local-release-<hash>-dirty`
+    - focused multi-stage ETL all-engine rerun passed correctness for ShardLoom, pandas, Polars, DuckDB, Spark default, Spark tuned-local, DataFusion, and Dask
+    - full strict all-engine benchmark rerun produced `benchmarks/traditional_analytics/results/traditional_analytics_20260509T052133Z.md` and `.json` with 9/9 successful scenarios for every engine, no errors, and all correctness rows passed
+    - feature-gated `cargo clippy -p shardloom-cli --features vortex-traditional-analytics-benchmark --all-targets -- -D warnings` passed with Rust toolchain `1.91.1`
     - `cargo fmt --all -- --check` passed with Rust toolchain `1.91.1`
     - `cargo clippy --workspace --all-targets -- -D warnings` passed with Rust toolchain `1.91.1`
     - `cargo test --workspace --all-targets` passed with Rust toolchain `1.91.1`
-  - Explicitly not included: benchmark result promotion as claim-grade evidence, performance/superiority claims, external engine runtime fallback, ShardLoom query execution changes, SQL/DataFrame/API execution, object-store IO beyond declared evidence fields, new writes beyond the existing benchmark temporary Vortex artifacts, or fallback execution.
+  - Explicitly not included: benchmark result promotion as claim-grade evidence, performance/superiority claims, external engine runtime fallback, ShardLoom query execution changes beyond feature-gated benchmark JSON formatting, SQL/DataFrame/API execution, mature encoded operator coverage, object-store IO beyond declared evidence fields, new writes beyond the existing benchmark temporary Vortex artifacts, or fallback execution.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -1435,6 +1437,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-6.10 ShardLoom traditional analytics universal-I/O smoke path imports deterministic CSV into local Vortex files, reopens and scans those files through upstream Vortex, emits native work/result/certificate evidence fields, and reports the materialization boundary for temporary operators without SQL/DataFrame/API, mature adapter, production claim, or fallback execution coverage
 - [x] CG-6.11 benchmark startup/warmup accounting records per-engine startup time and warms Spark profiles before scenario timing
 - [x] CG-6.12 benchmark resource/effect reporting surfaces memory, read/write bytes, rows, and ShardLoom decode/materialization/effect evidence in JSON and Markdown reports
+- [x] CG-6.13 benchmark correctness canonicalization and all-engine rerun hygiene route documented commands through the benchmark venv, align Python/Rust float output for stable correctness hashes, label dirty ShardLoom revisions, and produce a strict all-engine local report with Spark-default, Spark-local-tuned, pandas, Polars, DuckDB, DataFusion, Dask, and ShardLoom all passing current scenario correctness
 - [~] runtime benchmarks started with local encoded count, ShardLoom universal-I/O smoke rows, and traditional analytics external harness; committed claim-grade comparative results remain planned
 - [x] peak-memory benchmark reporting
 - [x] bytes read/written benchmark reporting
@@ -1696,6 +1699,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-6.10 `shardloom traditional-analytics-run` behind `vortex-traditional-analytics-benchmark` imports deterministic CSV rows into local Vortex files, reopens and scans those files through upstream Vortex, verifies required native work/result/certificate evidence fields, and records the current decoded/materialized temporary operator boundary without broad SQL/DataFrame/API, adapter, object-store, production-claim, or fallback execution coverage.
 - [x] CG-6.11 benchmark startup/warmup accounting adds per-engine `startup_time_millis`, report surfacing, and Spark per-profile warmup before scenario timing so default and tuned-local profiles remain explicit and comparable without runtime fallback.
 - [x] CG-6.12 benchmark resource/effect reporting retains ShardLoom evidence fields in result artifacts and adds Markdown resource/effect tables for peak memory, bytes read/written, rows scanned/materialized, decode/materialization, row-read, Arrow, object-store, write, spill, and NativeIoCertificate status without making performance claims.
+- [x] CG-6.13 benchmark correctness/all-engine hygiene aligns feature-gated Rust and Python benchmark float canonicalization, routes README commands through the populated benchmark venv, labels dirty ShardLoom revisions in result artifacts, and records a strict local all-engine rerun where all current scenarios pass correctness without external runtime fallback.
 - [x] CG-7.1 physical operator/kernel contract foundation declares filter, projection, and count aggregate kernel blockers without implementing kernels or execution.
 - [x] CG-7.2 physical operator capability discovery exposes missing-kernel/readiness counts through `shardloom capabilities operators` without executing operators or probing runtime inputs.
 - [x] CG-7.3 physical kernel registry plan exposes required native kernel slots through `shardloom kernel-registry` without registering kernels or executing runtime paths.

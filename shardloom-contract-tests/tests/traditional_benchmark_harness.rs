@@ -24,6 +24,8 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("\"startup_time_millis\""));
     assert!(script.contains("\"bytes_written\""));
     assert!(script.contains("\"shardloom_evidence\""));
+    assert!(script.contains("CORRECTNESS_FLOAT_DIGITS = 4"));
+    assert!(script.contains("\"status\", \"--short\", \"--untracked-files=no\""));
     assert!(script.contains("traditional-analytics-run"));
     assert!(script.contains("vortex-traditional-analytics-benchmark"));
     assert!(script.contains("--shardloom-build-profile"));
@@ -117,6 +119,9 @@ fn traditional_benchmark_docs_state_no_fallback_and_markdown_outputs() {
     assert!(readme.contains("spark-local-tuned"));
     assert!(readme.contains("startup/warmup time"));
     assert!(readme.contains("Dask is sensitive to partitioning"));
+    assert!(readme.contains("rounded to four decimal places"));
+    assert!(readme.contains("appends `-dirty`"));
+    assert!(readme.contains("benchmarks\\traditional_analytics\\.venv\\Scripts\\python"));
 }
 
 fn read_workspace_file(relative: &str) -> String {

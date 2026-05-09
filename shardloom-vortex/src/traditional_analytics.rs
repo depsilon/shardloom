@@ -2,6 +2,9 @@ use std::path::PathBuf;
 
 use shardloom_core::{Diagnostic, Result, ShardLoomError};
 
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const BENCHMARK_FLOAT_DIGITS: i32 = 4;
+
 /// Benchmark scenarios used by the local traditional analytics harness.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TraditionalAnalyticsScenario {
@@ -1008,8 +1011,9 @@ fn json_string_literal(value: &str) -> String {
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn json_float(value: f64) -> String {
-    let rounded = (value * 1_000_000.0).round() / 1_000_000.0;
-    let mut text = format!("{rounded:.6}");
+    let scale = 10_f64.powi(BENCHMARK_FLOAT_DIGITS);
+    let rounded = (value * scale).round() / scale;
+    let mut text = format!("{rounded:.4}");
     while text.contains('.') && text.ends_with('0') {
         text.pop();
     }
