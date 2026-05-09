@@ -719,6 +719,16 @@ No fallback execution.
 - The local runner preserves the existing local encoded count guardrails: no decode/materialization, no row reads, no Arrow conversion, no object-store IO, no writes, no spill IO, no external engine invocation, and no fallback.
 - This phase adds no broad benchmark suite execution, external baseline runner, generalized encoded filter/project execution, SQL parser, dataframe API, adapter runtime, performance/superiority/best-default claim, production certification, or fallback execution.
 
+## CG-6.9 traditional analytics external benchmark harness
+
+- Primary RFC linkage: RFC 0029 benchmark evidence requirements, RFC 0015 correctness-before-performance requirements, RFC 0025 competitive/no-fallback guardrails, RFC 0009 benchmark methodology, RFC 0012 diagnostics/capability reporting, and RFC 0032 world-class user capability requirements.
+- `benchmarks/traditional_analytics/run.py` creates deterministic local CSV fact/dimension data and runs `csv/file ingest`, `selective filter`, `group by aggregation`, `sort and top-k`, `hash join`, `wide projection`, `distinct count`, and optional scale-stress skewed-join and multi-stage ETL scenarios independently per engine and scenario.
+- The harness emits machine-readable JSON and human-readable Markdown reports with fairness parameters, engine availability/version, scenario timing matrix, fastest-row table, ASCII timing bars, correctness digests, unsupported/failure rows, raw metrics, environment metadata, and limitations.
+- ShardLoom is included as a first-class engine row and is allowed to report `unsupported` for traditional analytics scenarios until native CSV/SQL/operator/adapter execution lands; that does not block pandas, Polars, DuckDB, Spark/PySpark, DataFusion, or Dask baselines from running.
+- ShardLoom native encoded microbenchmarks and universal-I/O/CSV-to-Vortex blocker lanes are included so current Vortex-native capability and missing universal-I/O work are visible in the same report.
+- External engines remain benchmark-only tooling. They are not Cargo dependencies, runtime dependencies, ShardLoom execution delegates, or fallback engines.
+- This phase adds no ShardLoom SQL parser, dataframe API, adapter runtime, production dependency, broad claim publication, superiority claim, best-default claim, or fallback execution.
+
 ## CG-12.4 native plan import/export serialization
 
 - Primary RFC linkage: RFC 0030 Universal API/Plan Portability/Import/Deployment/Baselines, RFC 0022 Plan IR interoperability, RFC 0010 Developer Experience, RFC 0012 Diagnostics, and RFC 0024 release/API compatibility.
