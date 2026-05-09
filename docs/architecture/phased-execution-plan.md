@@ -45,36 +45,29 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [ ] Session label: CG-11.3 Python CLI JSON client source-tree package
+- [x] Session label: CG-6.11 benchmark startup and warmup accounting
   - Primary files:
-    - `python/pyproject.toml`
-    - `python/README.md`
-    - `python/src/shardloom/__init__.py`
-    - `python/src/shardloom/client.py`
-    - `python/src/shardloom/errors.py`
-    - `python/src/shardloom/models.py`
-    - `python/tests/test_cli_client.py`
-    - `shardloom-core/src/output.rs`
-    - `shardloom-cli/tests/python_wrapper_snapshots.rs`
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
     - `docs/architecture/phased-execution-plan.md`
-    - `README.md`
-  - Scope: Convert the previous report-only Python wrapper plan into a real source-tree Python client over the stable CLI JSON protocol. The client parses `OutputEnvelope`, preserves diagnostics/fallback/materialization fields, and invokes only explicit ShardLoom CLI commands with `--format json`.
+  - Scope: Make benchmark startup/warmup costs explicit and keep Spark session initialization out of first-scenario timings by warming each Spark profile immediately before its own scenario rows.
   - Checklist:
-    - [x] Add zero-dependency Python package metadata without publishing.
-    - [x] Add typed models for CLI `OutputEnvelope`, diagnostics, fields, and fallback status.
-    - [x] Add `ShardLoomClient` helpers for status, capabilities, API plan, Python wrapper plan, `vortex-run`, and traditional analytics universal-I/O smoke execution.
-    - [x] Add deterministic Python unit tests using a fake CLI process.
-    - [x] Update `PythonWrapperFoundationReport` from planned-only to source-tree package created, while keeping no native binding, no PyO3/maturin, no DataFrame/notebook/Python UDF runtime, no publish, no hidden probing, and no fallback.
-    - [x] Run focused Python and Rust snapshot checks.
+    - [x] Add per-engine `startup_time_millis` artifact/report field.
+    - [x] Add explicit runner warmup hook separate from per-scenario timing.
+    - [x] Warm Spark sessions per profile immediately before scenario rows, then close before the next engine.
+    - [x] Update benchmark README/report text so Spark startup and local tuning are not misleading.
+    - [x] Update contract tests for startup/warmup accounting.
+    - [x] Run focused benchmark harness smoke and contract tests.
     - [x] Run full required validation.
   - Local validation status:
-    - focused Python unit tests passed with Python 3.11.4
-    - focused `shardloom-core` Python wrapper report tests passed
-    - focused `shardloom-cli` Python wrapper snapshot tests passed
+    - `python -m py_compile benchmarks/traditional_analytics/run.py` passed
+    - focused pandas benchmark smoke wrote `startup_time_millis`
+    - focused `shardloom-contract-tests` traditional benchmark harness tests passed
     - `cargo fmt --all -- --check` passed with Rust toolchain `1.91.1`
     - `cargo clippy --workspace --all-targets -- -D warnings` passed with Rust toolchain `1.91.1`
     - `cargo test --workspace --all-targets` passed with Rust toolchain `1.91.1`
-  - Explicitly not included: package publication, native Python binding, PyO3/maturin, DataFrame runtime, notebook runtime, Python UDF runtime, SQL parser, SQL execution, adapter runtime, filesystem/network/catalog/adapter probing on import, external engine execution, benchmark/superiority claims, or fallback execution.
+  - Explicitly not included: benchmark result promotion as claim-grade evidence, performance/superiority claims, external engine runtime fallback, ShardLoom query execution changes, SQL/DataFrame/API execution, object-store IO, writes, or fallback execution.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -1440,6 +1433,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-6.8 local encoded `CountAll` benchmark runner for the approved local Vortex path
 - [x] CG-6.9 traditional analytics external benchmark harness with fairness parameters, JSON and Markdown result artifacts, per-engine/per-scenario isolation, native encoded microbenchmark rows, universal-I/O evidence lanes, optional skewed-join and multi-stage ETL stress scenarios, and pandas/Polars/DuckDB/Spark-default/Spark-local-tuned/DataFusion/Dask runners
 - [x] CG-6.10 ShardLoom traditional analytics universal-I/O smoke path imports deterministic CSV into local Vortex files, reopens and scans those files through upstream Vortex, emits native work/result/certificate evidence fields, and reports the materialization boundary for temporary operators without SQL/DataFrame/API, mature adapter, production claim, or fallback execution coverage
+- [x] CG-6.11 benchmark startup/warmup accounting records per-engine startup time and warms Spark profiles before scenario timing
 - [~] runtime benchmarks started with local encoded count, ShardLoom universal-I/O smoke rows, and traditional analytics external harness; committed claim-grade comparative results remain planned
 - [ ] peak-memory benchmarks
 - [ ] bytes read/written benchmarks
@@ -1448,7 +1442,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [ ] segments-skipped evidence
 - [ ] work-avoided evidence
 - [ ] spill-required/avoided evidence
-- [ ] startup latency benchmarks
+- [x] startup latency benchmark accounting
 - [ ] query runtime benchmarks
 - [ ] write/commit latency benchmarks
 
@@ -1700,6 +1694,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-6.8 `vortex-count-benchmark` runs the approved local encoded `CountAll` path repeatedly and emits ShardLoom timing/count/effect metrics while external baseline results, reproducibility evidence, performance claims, and superiority claims remain blocked.
 - [x] CG-6.9 `benchmarks/traditional_analytics/run.py` generates deterministic local CSV data, runs ShardLoom plus pandas, Polars, DuckDB, Spark/PySpark default, Spark/PySpark tuned-local, DataFusion, and Dask independently per scenario, writes JSON plus human-readable Markdown reports, records fairness parameters, includes ShardLoom native encoded-count microbenchmarks, and exposes universal-I/O/CSV-to-Vortex evidence lanes without adding external runtime dependencies or fallback execution.
 - [x] CG-6.10 `shardloom traditional-analytics-run` behind `vortex-traditional-analytics-benchmark` imports deterministic CSV rows into local Vortex files, reopens and scans those files through upstream Vortex, verifies required native work/result/certificate evidence fields, and records the current decoded/materialized temporary operator boundary without broad SQL/DataFrame/API, adapter, object-store, production-claim, or fallback execution coverage.
+- [x] CG-6.11 benchmark startup/warmup accounting adds per-engine `startup_time_millis`, report surfacing, and Spark per-profile warmup before scenario timing so default and tuned-local profiles remain explicit and comparable without runtime fallback.
 - [x] CG-7.1 physical operator/kernel contract foundation declares filter, projection, and count aggregate kernel blockers without implementing kernels or execution.
 - [x] CG-7.2 physical operator capability discovery exposes missing-kernel/readiness counts through `shardloom capabilities operators` without executing operators or probing runtime inputs.
 - [x] CG-7.3 physical kernel registry plan exposes required native kernel slots through `shardloom kernel-registry` without registering kernels or executing runtime paths.

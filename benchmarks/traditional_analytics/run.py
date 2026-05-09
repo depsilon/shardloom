@@ -21,7 +21,7 @@ import statistics
 import sys
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
@@ -81,7 +81,9 @@ class EngineRunner:
     name: str
     version: str
     scenarios: dict[str, Callable[[DatasetPaths], Any]]
+    warmup: Callable[[], None] | None = None
     close: Callable[[], None] | None = None
+    startup_time_millis: float | None = None
 
 
 class BenchmarkUnsupported(RuntimeError):
@@ -400,10 +402,23 @@ def available_runners(engine_names: tuple[str, ...]) -> tuple[dict[str, EngineRu
     missing: dict[str, str] = {}
     for engine in engine_names:
         try:
-            runners[engine] = ENGINE_FACTORIES[engine]()
+            started = time.perf_counter()
+            runner = ENGINE_FACTORIES[engine]()
+            startup_time = (time.perf_counter() - started) * 1000.0
+            runners[engine] = replace(runner, startup_time_millis=round(startup_time, 4))
         except Exception as exc:
             missing[engine] = f"{type(exc).__name__}: {exc}"
     return runners, missing
+
+
+def warmup_runner(runner: EngineRunner) -> EngineRunner:
+    if runner.warmup is None:
+        return runner
+    started = time.perf_counter()
+    runner.warmup()
+    warmup_time = (time.perf_counter() - started) * 1000.0
+    startup_time = (runner.startup_time_millis or 0.0) + warmup_time
+    return replace(runner, startup_time_millis=round(startup_time, 4))
 
 
 def round_float(value: Any) -> float:
@@ -914,6 +929,9 @@ def spark_runner(profile: str) -> EngineRunner:
             spark_session.stop()
             spark_session = None
 
+    def warmup_spark() -> None:
+        spark_instance()
+
     def read_fact(paths: DatasetPaths) -> Any:
         return spark_instance().read.option("header", True).option("inferSchema", True).csv(
             str(paths.fact_csv)
@@ -1025,6 +1043,7 @@ def spark_runner(profile: str) -> EngineRunner:
             "scale stress skewed join aggregation": scale_stress,
             "scale stress multi-stage etl": complex_etl,
         },
+        warmup=warmup_spark,
         close=close_spark,
     )
 
@@ -1647,12 +1666,20 @@ def render_engine_overview(artifact: dict[str, Any]) -> str:
                 engine,
                 "yes" if version_info.get("available") else "no",
                 str(version_info.get("version") or version_info.get("reason") or "n/a"),
+                format_metric(version_info.get("startup_time_millis"), " ms"),
                 str(sum(1 for result in engine_results if result["status"] == "success")),
                 str(sum(1 for result in engine_results if result["status"] != "success")),
             ]
         )
     return markdown_table(
-        ["Engine", "Available", "Version / reason", "Successful scenarios", "Failed scenarios"],
+        [
+            "Engine",
+            "Available",
+            "Version / reason",
+            "Startup / warmup",
+            "Successful scenarios",
+            "Failed scenarios",
+        ],
         rows,
     )
 
@@ -1697,7 +1724,7 @@ def render_read_this_first(artifact: dict[str, Any]) -> str:
         "External baseline rows measure each engine's local CSV path. ShardLoom rows use a CSV source adapter into local Vortex files, reopen those files through Vortex, scan Vortex arrays, and then run the temporary benchmark operators over Vortex-derived arrays.",
         "ShardLoom's current traditional rows report a materialization boundary; they prove universal I/O viability, not mature encoded-native SQL/operator coverage.",
         "Dask results depend heavily on partitioning, scheduler, file count, and dataset size; small single-file CSV tests can make scheduler overhead dominate.",
-        "Spark rows are split into spark-default and spark-local-tuned so default behavior is not mixed with local tuning.",
+        "Spark rows are split into spark-default and spark-local-tuned so default behavior is not mixed with local tuning; each Spark profile starts and warms its own session immediately before its scenario rows.",
         "Spark rows require Java/JDK. Missing Spark rows mean local setup is incomplete, not that Spark failed the workload.",
         "Stress rows are opt-in; they become meaningful Spark-style scale tests only with larger-than-memory data, stable cache policy, and explicit hardware/runtime settings.",
         "ShardLoom benchmark build time is excluded from per-scenario timing; CSV-to-Vortex import, Vortex file write/read, scan, and the temporary benchmark operator are included.",
@@ -1971,6 +1998,30 @@ def main() -> int:
                 )
             continue
         try:
+            try:
+                runner = warmup_runner(runner)
+                runners[engine] = runner
+            except Exception as exc:
+                reason = f"{type(exc).__name__}: {exc}"
+                for scenario in args.scenario_list:
+                    result = failed_result(
+                        engine,
+                        scenario,
+                        "engine_startup_error",
+                        reason,
+                        paths,
+                        args.iterations,
+                    )
+                    results.append(result)
+                    errors.append(
+                        {
+                            "engine": engine,
+                            "scenario": scenario,
+                            "status": "engine_startup_error",
+                            "reason": reason,
+                        }
+                    )
+                continue
             for scenario in args.scenario_list:
                 result = run_one(runner, paths, scenario, args.iterations)
                 results.append(result)
@@ -1988,11 +2039,20 @@ def main() -> int:
                 runner.close()
 
     engine_versions = {
-        engine: {"available": engine in runners, "version": runners[engine].version}
+        engine: {
+            "available": engine in runners,
+            "version": runners[engine].version,
+            "startup_time_millis": runners[engine].startup_time_millis,
+        }
         for engine in runners
     }
     for engine, reason in missing.items():
-        engine_versions[engine] = {"available": False, "version": None, "reason": reason}
+        engine_versions[engine] = {
+            "available": False,
+            "version": None,
+            "reason": reason,
+            "startup_time_millis": None,
+        }
 
     artifact = {
         "schema_version": "shardloom.traditional_analytics_benchmark.v1",
@@ -2026,7 +2086,7 @@ def main() -> int:
             "CSV workloads include local file read cost and do not represent object-store behavior.",
             "ShardLoom traditional rows include local CSV-to-Vortex import and Vortex scan, but current temporary operators materialize Vortex-derived arrays instead of executing the full mature encoded SQL/operator surface.",
             "Dask performance is sensitive to partitioning and scheduler settings; this report records the selected blocksize and scheduler.",
-            "Spark session startup is excluded from per-scenario timing after runner initialization; Spark default and tuned-local profiles are reported as separate engines.",
+            "Engine startup/warmup time is recorded separately from per-scenario timing. Spark profiles warm an isolated Spark session before their scenario rows and are closed before the next engine runs.",
             "Peak memory is sampled process RSS when psutil is available and may miss short-lived spikes.",
             "ShardLoom traditional rows use the native Rust benchmark command, not the future SQL parser/dataframe API.",
             "This artifact is benchmark evidence only and does not permit performance or superiority claims by itself.",
