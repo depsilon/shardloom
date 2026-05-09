@@ -28,6 +28,7 @@ pub mod release;
 pub mod schema;
 pub mod security;
 pub mod stateful_reuse;
+pub mod table_intelligence;
 pub mod translation;
 pub mod universal_harness;
 
@@ -188,6 +189,11 @@ pub use security::{
 pub use stateful_reuse::{
     InvalidationProofRequirement, InvalidationSignalKind, ReuseBoundaryStatus, ReuseCacheKind,
     StatefulReuseBoundary, StatefulReuseReport, StatefulReuseStatus, plan_stateful_reuse,
+};
+
+pub use table_intelligence::{
+    TableIntelligenceReport, TableIntelligenceSurface, TableIntelligenceSurfaceKind,
+    TableIntelligenceSurfaceStatus,
 };
 
 pub use translation::{

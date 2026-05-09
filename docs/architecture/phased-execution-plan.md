@@ -45,38 +45,32 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-19.2 ShardLoom traditional benchmark Native I/O runtime certificate
+- [x] Session label: CG-9.8 TableIntelligenceReport aggregate surface
   - Primary files:
-    - `shardloom-core/src/native_io.rs`
+    - `shardloom-core/src/table_intelligence.rs`
     - `shardloom-core/src/lib.rs`
-    - `shardloom-vortex/src/traditional_analytics.rs`
-    - `benchmarks/traditional_analytics/run.py`
-    - `benchmarks/traditional_analytics/README.md`
-    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/table_intelligence_plan_snapshots.rs`
+    - `shardloom-contract-tests/tests/plan_only_invariants.rs`
+    - `docs/architecture/table-intelligence-layer.md`
+    - `docs/architecture/canonical-terminology.md`
     - `docs/architecture/phased-execution-plan.md`
-  - Scope: Promote the existing ShardLoom traditional CSV-to-Vortex smoke path from boolean Native I/O evidence to a concrete per-path `NativeIoCertificate` shape with source capability, source pushdown, sink requirement, adapter fidelity, representation transition, materialization boundary, side-effect, and no-fallback fields.
+  - Scope: Aggregate CG-9 schema/table/CDC/layout/compaction evidence into one deterministic report-only surface before table-format/catalog runtime work.
   - Checklist:
-    - [x] Add typed runtime Native I/O certificate/report structs to `shardloom-core`.
-    - [x] Emit a certified `compatibility_source_to_native_vortex_sink` certificate from `traditional-analytics-run`.
-    - [x] Make CSV source parsing explicit as row-read/materialization evidence instead of hiding it behind generic booleans.
-    - [x] Require certificate status/path evidence in the Python benchmark harness before a ShardLoom traditional row can pass.
-    - [x] Surface certificate path/status, source bytes, and materialization-boundary rows in the Markdown effects table.
-    - [x] Update benchmark docs and contract tests for the richer runtime certificate.
-    - [x] Run focused benchmark validation and full required validation.
+    - [x] Add typed `TableIntelligenceReport` and table-intelligence surface structs to `shardloom-core`.
+    - [x] Expose `table-intelligence-plan` CLI JSON/text output.
+    - [x] Add CLI snapshot and contract-test invariants for no catalog IO, table metadata IO, data IO, writes, dependencies, or fallback execution.
+    - [x] Add architecture docs and terminology for the aggregate table intelligence layer.
+    - [x] Run focused validation and full required validation.
   - Local validation status:
-    - `benchmarks\traditional_analytics\.venv\Scripts\python -m py_compile benchmarks\traditional_analytics\run.py` passed
-    - ShardLoom-only smoke benchmark passed for `csv/file ingest` with `--rows 1000 --iterations 1 --shardloom-native-iterations 1`
-    - Smoke artifact `benchmarks/traditional_analytics/results/traditional_analytics_20260509T063612Z.md` shows certified `compatibility_source_to_native_vortex_sink` Native I/O certificate fields, `row_read=true`, `Boundary rows`, and `Source bytes`
-    - Focused `cargo test -p shardloom-core native_io -- --nocapture` passed with Rust toolchain `1.91.1`
-    - Focused `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark traditional_analytics -- --nocapture` passed with Rust toolchain `1.91.1`
-    - Focused `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness -- --nocapture` passed with Rust toolchain `1.91.1`
-    - `cargo fmt --all -- --check` passed with Rust toolchain `1.91.1`
-    - `cargo clippy --workspace --all-targets -- -D warnings` passed with Rust toolchain `1.91.1`
-    - Feature-gated `cargo clippy -p shardloom-vortex --features vortex-traditional-analytics-benchmark --all-targets -- -D warnings` passed with Rust toolchain `1.91.1`
-    - Feature-gated `cargo clippy -p shardloom-cli --features vortex-traditional-analytics-benchmark --all-targets -- -D warnings` passed with Rust toolchain `1.91.1`
-    - `cargo test --workspace --all-targets` passed with Rust toolchain `1.91.1`
-    - `git diff --check` and hidden/bidi scan passed
-  - Explicitly not included: promotion of local results as claim-grade benchmark evidence, performance/superiority claims, external engine runtime fallback, SQL/DataFrame/API execution, mature encoded filter/project kernels, generalized adapter runtime, object-store IO, production source/sink certification, or fallback execution.
+    - Focused `cargo test -p shardloom-core table_intelligence -- --nocapture` passed with Rust toolchain `1.91.1`.
+    - Focused `cargo test -p shardloom-cli table_intelligence -- --nocapture` passed with Rust toolchain `1.91.1`.
+    - Focused `cargo test -p shardloom-contract-tests plan_only_types_do_not_imply_execution_or_side_effects -- --nocapture` passed with Rust toolchain `1.91.1`.
+    - `cargo fmt --all -- --check` passed with Rust toolchain `1.91.1`.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed with Rust toolchain `1.91.1`.
+    - `cargo test --workspace --all-targets` passed with Rust toolchain `1.91.1`.
+    - `git diff --check` and hidden/bidi scan passed.
+  - Explicitly not included: catalog IO, table metadata IO, data IO, writes, table-format runtime behavior, table-format dependencies, object-store IO, benchmark claims, external-engine execution, or fallback execution.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -487,6 +481,9 @@ Supporting docs:
 - [x] R3.7 AgentContractPack foundation
   - Why: give autonomous agents one deterministic inventory of JSON-first command surfaces, schemas, safety defaults, and recommended inspection order before execution or benchmark work.
   - Acceptance: core `AgentContractPack`, `agent-contract-pack` CLI JSON/text output, snapshot/contract tests, and architecture checklist are report-only with no probes, external effects, text-scraping authority, runtime execution, dependency changes, or fallback execution.
+- [x] R3.8 TableIntelligenceReport foundation
+  - Why: aggregate CG-9 schema/table/CDC/layout/compaction evidence before table-format/catalog runtime work.
+  - Acceptance: core `TableIntelligenceReport`, `table-intelligence-plan` CLI JSON/text output, snapshot/contract tests, and architecture checklist are report-only with no catalog IO, table metadata IO, data IO, writes, dependencies, or fallback execution.
 - [x] R5.1 Systems-learning contract pass
 - [x] R5.2 Competitive track extension to CG-19/CG-20
 - [x] R5.3 RFC 0031/0032 deepening
@@ -1238,12 +1235,14 @@ Status legend:
   - [x] CG-9.5 CDC incremental planning evidence
   - [x] CG-9.6 layout health planning evidence
   - [x] CG-9.7 compaction planning evidence
+  - [x] CG-9.8 table intelligence aggregate surface
   - Scope:
     - schema evolution and partition evolution
     - delete/tombstone semantics and native handling requirements
     - aggregate compatibility report before catalog/table metadata IO
     - CDC/incremental planning
     - layout-health and compaction planning
+    - aggregate table intelligence report before table-format/catalog runtime behavior
 
 - [ ] CG-10 — Object-store/distributed execution (**planned**)
   - [x] CG-10.1 object-store range planning evidence
@@ -1653,7 +1652,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [~] Epic D — FeatureFootprintReport
 - [~] Epic E — EffectBudgetReport
 - [~] Epic F — Agent Contract Pack
-- [ ] Epic G — Table Intelligence Layer
+- [~] Epic G — Table Intelligence Layer
 - [ ] Epic H — Object Store Request Planner
 - [ ] Epic I — Correctness and Differential Harness
 - [ ] Epic J — Benchmark and Competitive Claims
@@ -1781,6 +1780,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-9.5 CDC incremental planning evidence adds `CdcIncrementalPlanningReport` and `incremental-plan cdc` surfacing for append-only/metadata-only plan routing and unsupported update/delete/tombstone/schema/partition/unknown cases while keeping catalog access, table metadata reads, IO, writes, CDC execution, and fallback disabled.
 - [x] CG-9.6 layout health planning evidence adds `LayoutHealthReport` and `layout-health-plan` surfacing for small files/segments, missing stats/byte ranges, mixed formats/layouts/encodings, and compaction recommendations while keeping layout-reader construction, catalog access, table metadata reads, IO, writes, compaction execution, and fallback disabled.
 - [x] CG-9.7 compaction planning evidence adds `CompactionPlanningReport` and `compaction-plan` surfacing for future small-file/small-segment maintenance recommendations, metadata/layout blockers, and estimated report-only groups while keeping layout-reader construction, catalog access, table metadata reads, IO, writes, compaction execution, and fallback disabled.
+- [x] CG-9.8 table intelligence aggregate surface adds `TableIntelligenceReport` and `table-intelligence-plan` surfacing across schema, partition, delete/tombstone, compatibility, CDC, layout health, compaction, snapshot/manifest, catalog compatibility, and commit/recovery surfaces while keeping catalog IO, table metadata IO, data reads, writes, dependencies, and fallback disabled.
 - [x] CG-10.1 object-store range planning evidence adds `ObjectStoreRangePlanningReport` and `object-store-range-plan` surfacing for declared S3/GCS/ADLS byte ranges, request-shape counts, coalesced range evidence, missing/invalid/oversized range blockers, no full-file-read permission, no object-store IO, and no fallback.
 - [x] CG-10.2 object-store request coalescing evidence adds `ObjectStoreRequestCoalescingReport` and `object-store-coalesce-plan` surfacing for uncoalesced/coalesced request-shape comparison, request reduction, range-planning blockers, no object-store IO, and no fallback.
 - [x] CG-10.3 object-store commit protocol planning evidence adds `ObjectStoreCommitProtocolReport` and `object-store-commit-plan` surfacing for declared staging, manifest pointer, commit record, idempotency, cleanup, atomicity, non-object-store blockers, no commit execution, no object-store IO, and no fallback.
