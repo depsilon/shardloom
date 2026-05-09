@@ -62,7 +62,7 @@ fn correctness_plan_json_exposes_reference_and_gap_counts() {
     assert!(output.contains(&field("not_yet_defined_fixture_count", "8")));
     assert!(output.contains(&field("diagnostic_expected_output_count", "1")));
     assert!(output.contains(&field("unsupported_expected_output_count", "1")));
-    assert!(output.contains(&field("baseline_count", "5")));
+    assert!(output.contains(&field("baseline_count", "7")));
     assert!(output.contains(&field("covered_required_foundation_edge_case_count", "7")));
     assert!(output.contains(&field("required_foundation_edge_case_count", "7")));
     assert!(output.contains(&field("missing_required_foundation_edge_cases", "")));

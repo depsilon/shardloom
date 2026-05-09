@@ -10,6 +10,8 @@ fn foundation_plan_declares_external_oracles_as_comparison_only() {
         BaselineEngine::DataFusion,
         BaselineEngine::DuckDb,
         BaselineEngine::Polars,
+        BaselineEngine::Pandas,
+        BaselineEngine::Dask,
         BaselineEngine::Velox,
     ];
 

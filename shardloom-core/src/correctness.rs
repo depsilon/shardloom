@@ -14,7 +14,7 @@
 
 use crate::{
     BaselineEngine, CorrectnessValidationMode, Diagnostic, DiagnosticCategory, DiagnosticCode,
-    DiagnosticSeverity, Result, ShardLoomError,
+    DiagnosticSeverity, FallbackStatus, Result, ShardLoomError,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -455,6 +455,8 @@ fn default_external_oracle_baselines() -> Vec<DifferentialBaseline> {
         BaselineEngine::DataFusion,
         BaselineEngine::DuckDb,
         BaselineEngine::Polars,
+        BaselineEngine::Pandas,
+        BaselineEngine::Dask,
         BaselineEngine::Velox,
     ]
     .into_iter()
@@ -669,6 +671,12 @@ impl CorrectnessValidationPlan {
         }
         roles
     }
+    pub fn baseline_engine_order(&self) -> Vec<&'static str> {
+        self.baselines
+            .iter()
+            .map(|baseline| baseline.engine.as_str())
+            .collect()
+    }
     pub fn fixtures_with_source_ref_count(&self) -> usize {
         self.fixtures
             .iter()
@@ -679,6 +687,18 @@ impl CorrectnessValidationPlan {
         self.fixtures
             .iter()
             .filter(|fixture| fixture.has_reference_role(ReferenceRole::GoldenFixture))
+            .count()
+    }
+    pub fn decoded_reference_output_count(&self) -> usize {
+        self.fixtures
+            .iter()
+            .filter(|fixture| fixture.has_reference_role(ReferenceRole::DecodedReference))
+            .count()
+    }
+    pub fn generated_property_fixture_count(&self) -> usize {
+        self.fixtures
+            .iter()
+            .filter(|fixture| fixture.has_reference_role(ReferenceRole::GeneratedProperty))
             .count()
     }
     pub fn executable_expected_output_count(&self) -> usize {
@@ -704,6 +724,9 @@ impl CorrectnessValidationPlan {
             .iter()
             .filter(|fixture| matches!(fixture.expected, ExpectedOutcome::Unsupported { .. }))
             .count()
+    }
+    pub fn unsupported_diagnostic_fixture_count(&self) -> usize {
+        self.diagnostic_expected_output_count() + self.unsupported_expected_output_count()
     }
     pub fn required_foundation_edge_cases() -> &'static [EdgeCase] {
         &[
@@ -783,6 +806,345 @@ impl CorrectnessValidationPlan {
             self.fixtures.len()
         )
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CorrectnessDifferentialHarnessStatus {
+    EvidenceComplete,
+    NeedsEvidence,
+    UnsafeFallbackPolicy,
+}
+impl CorrectnessDifferentialHarnessStatus {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::EvidenceComplete => "evidence_complete",
+            Self::NeedsEvidence => "needs_evidence",
+            Self::UnsafeFallbackPolicy => "unsafe_fallback_policy",
+        }
+    }
+    pub const fn is_error(&self) -> bool {
+        matches!(self, Self::UnsafeFallbackPolicy)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct CorrectnessDifferentialHarnessReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub plan_name: String,
+    pub plan_mode: CorrectnessValidationMode,
+    pub status: CorrectnessDifferentialHarnessStatus,
+    pub fixture_count: usize,
+    pub fixtures_with_source_ref_count: usize,
+    pub golden_fixture_count: usize,
+    pub decoded_reference_output_count: usize,
+    pub executable_expected_output_count: usize,
+    pub not_yet_defined_fixture_count: usize,
+    pub unsupported_diagnostic_fixture_count: usize,
+    pub required_edge_case_count: usize,
+    pub covered_required_edge_case_count: usize,
+    pub missing_required_edge_cases: Vec<String>,
+    pub baseline_count: usize,
+    pub baseline_engine_order: Vec<String>,
+    pub reference_role_order: Vec<String>,
+    pub generated_property_fixture_count: usize,
+    pub fuzz_seed_count: usize,
+    pub planned_surface_count: usize,
+    pub blocked_surface_count: usize,
+    pub blocked_surface_order: Vec<String>,
+    pub decoded_reference_outputs_required: bool,
+    pub differential_oracles_required: bool,
+    pub property_fuzzing_required: bool,
+    pub benchmark_claim_gate_required: bool,
+    pub reference_roles_test_only: bool,
+    pub baselines_fallback_free: bool,
+    pub production_claim_allowed: bool,
+    pub benchmark_claims_blocked_by_correctness: bool,
+    pub query_execution: bool,
+    pub decoded_reference_execution_performed: bool,
+    pub external_engine_execution: bool,
+    pub data_read: bool,
+    pub object_store_io: bool,
+    pub write_io: bool,
+    pub fallback_execution_allowed: bool,
+    pub fallback_attempted: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl CorrectnessDifferentialHarnessReport {
+    pub fn surface_order() -> Vec<&'static str> {
+        vec![
+            "fixture_manifest",
+            "golden_fixtures",
+            "decoded_reference_outputs",
+            "differential_oracles",
+            "semantic_edge_cases",
+            "unsupported_diagnostics",
+            "property_fuzzing",
+            "benchmark_claim_gate",
+        ]
+    }
+    pub fn required_validation_mode_order() -> Vec<&'static str> {
+        vec![
+            CorrectnessValidationMode::ExpectedOutput.as_str(),
+            CorrectnessValidationMode::DecodedReference.as_str(),
+            CorrectnessValidationMode::DifferentialComparison.as_str(),
+            CorrectnessValidationMode::PropertyBased.as_str(),
+            CorrectnessValidationMode::Fuzz.as_str(),
+            CorrectnessValidationMode::GoldenDiagnostic.as_str(),
+            CorrectnessValidationMode::UnsupportedDiagnosticOnly.as_str(),
+        ]
+    }
+    pub fn missing_validation_mode_order(&self) -> Vec<&'static str> {
+        let mut missing = Vec::new();
+        if self.decoded_reference_output_count == 0 {
+            missing.push(CorrectnessValidationMode::DecodedReference.as_str());
+        }
+        if self.generated_property_fixture_count == 0 {
+            missing.push(CorrectnessValidationMode::PropertyBased.as_str());
+        }
+        if self.fuzz_seed_count == 0 {
+            missing.push(CorrectnessValidationMode::Fuzz.as_str());
+        }
+        if self.baseline_count == 0 {
+            missing.push(CorrectnessValidationMode::DifferentialComparison.as_str());
+        }
+        missing
+    }
+    pub fn has_errors(&self) -> bool {
+        self.status.is_error()
+            || self.diagnostics.iter().any(|d| {
+                matches!(
+                    d.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+    pub const fn side_effect_free(&self) -> bool {
+        !self.query_execution
+            && !self.decoded_reference_execution_performed
+            && !self.external_engine_execution
+            && !self.data_read
+            && !self.object_store_io
+            && !self.write_io
+            && !self.fallback_attempted
+            && !self.fallback_execution_allowed
+    }
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "correctness_differential_harness(status={}, planned_surfaces={}, blocked_surfaces={}, fixtures={}, golden_fixtures={}, decoded_reference_outputs={}, external_oracles={}, production_claim_allowed={}, fallback_execution=disabled)",
+            self.status.as_str(),
+            self.planned_surface_count,
+            self.blocked_surface_count,
+            self.fixture_count,
+            self.golden_fixture_count,
+            self.decoded_reference_output_count,
+            self.baseline_count,
+            self.production_claim_allowed
+        )
+    }
+}
+
+#[must_use]
+#[allow(clippy::too_many_lines)]
+pub fn plan_correctness_differential_harness(
+    plan: CorrectnessValidationPlan,
+) -> CorrectnessDifferentialHarnessReport {
+    let reference_roles_test_only = plan.reference_roles_are_test_only();
+    let baselines_fallback_free = plan.baselines_are_fallback_free();
+    let fixture_count = plan.fixture_count();
+    let fixtures_with_source_ref_count = plan.fixtures_with_source_ref_count();
+    let golden_fixture_count = plan.golden_fixture_count();
+    let decoded_reference_output_count = plan.decoded_reference_output_count();
+    let executable_expected_output_count = plan.executable_expected_output_count();
+    let not_yet_defined_fixture_count = plan.not_yet_defined_fixture_count();
+    let unsupported_diagnostic_fixture_count = plan.unsupported_diagnostic_fixture_count();
+    let required_edge_case_count =
+        CorrectnessValidationPlan::required_foundation_edge_cases().len();
+    let covered_required_edge_case_count = plan.covered_required_foundation_edge_case_count();
+    let missing_required_edge_cases = plan
+        .missing_required_foundation_edge_cases()
+        .into_iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>();
+    let baseline_count = plan.baseline_count();
+    let baseline_engine_order = plan
+        .baseline_engine_order()
+        .into_iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>();
+    let reference_role_order = plan
+        .reference_role_order()
+        .into_iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>();
+    let generated_property_fixture_count = plan.generated_property_fixture_count();
+    let fuzz_seed_count = plan.fuzz_seeds.len();
+
+    let blocked_surface_order = correctness_harness_blocked_surfaces(
+        fixture_count,
+        golden_fixture_count,
+        decoded_reference_output_count,
+        unsupported_diagnostic_fixture_count,
+        covered_required_edge_case_count,
+        required_edge_case_count,
+        baseline_count,
+        generated_property_fixture_count,
+        fuzz_seed_count,
+        not_yet_defined_fixture_count,
+        reference_roles_test_only,
+        baselines_fallback_free,
+    );
+    let blocked_surface_count = blocked_surface_order.len();
+    let planned_surface_count =
+        CorrectnessDifferentialHarnessReport::surface_order().len() - blocked_surface_count;
+    let production_claim_allowed = blocked_surface_count == 0
+        && not_yet_defined_fixture_count == 0
+        && reference_roles_test_only
+        && baselines_fallback_free;
+    let status = if !reference_roles_test_only || !baselines_fallback_free {
+        CorrectnessDifferentialHarnessStatus::UnsafeFallbackPolicy
+    } else if production_claim_allowed {
+        CorrectnessDifferentialHarnessStatus::EvidenceComplete
+    } else {
+        CorrectnessDifferentialHarnessStatus::NeedsEvidence
+    };
+    let diagnostics = correctness_harness_diagnostics(
+        &blocked_surface_order,
+        not_yet_defined_fixture_count,
+        status,
+    );
+
+    CorrectnessDifferentialHarnessReport {
+        schema_version: "shardloom.correctness_differential_harness.v1",
+        report_id: "cg5.correctness_differential_harness.aggregate",
+        plan_name: plan.name,
+        plan_mode: plan.mode,
+        status,
+        fixture_count,
+        fixtures_with_source_ref_count,
+        golden_fixture_count,
+        decoded_reference_output_count,
+        executable_expected_output_count,
+        not_yet_defined_fixture_count,
+        unsupported_diagnostic_fixture_count,
+        required_edge_case_count,
+        covered_required_edge_case_count,
+        missing_required_edge_cases,
+        baseline_count,
+        baseline_engine_order,
+        reference_role_order,
+        generated_property_fixture_count,
+        fuzz_seed_count,
+        planned_surface_count,
+        blocked_surface_count,
+        blocked_surface_order,
+        decoded_reference_outputs_required: true,
+        differential_oracles_required: true,
+        property_fuzzing_required: true,
+        benchmark_claim_gate_required: true,
+        reference_roles_test_only,
+        baselines_fallback_free,
+        production_claim_allowed,
+        benchmark_claims_blocked_by_correctness: !production_claim_allowed,
+        query_execution: false,
+        decoded_reference_execution_performed: false,
+        external_engine_execution: false,
+        data_read: false,
+        object_store_io: false,
+        write_io: false,
+        fallback_execution_allowed: false,
+        fallback_attempted: false,
+        diagnostics,
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn correctness_harness_blocked_surfaces(
+    fixture_count: usize,
+    golden_fixture_count: usize,
+    decoded_reference_output_count: usize,
+    unsupported_diagnostic_fixture_count: usize,
+    covered_required_edge_case_count: usize,
+    required_edge_case_count: usize,
+    baseline_count: usize,
+    generated_property_fixture_count: usize,
+    fuzz_seed_count: usize,
+    not_yet_defined_fixture_count: usize,
+    reference_roles_test_only: bool,
+    baselines_fallback_free: bool,
+) -> Vec<String> {
+    let mut blocked = Vec::new();
+    if fixture_count == 0 {
+        blocked.push("fixture_manifest".to_string());
+    }
+    if golden_fixture_count == 0 {
+        blocked.push("golden_fixtures".to_string());
+    }
+    if decoded_reference_output_count == 0 {
+        blocked.push("decoded_reference_outputs".to_string());
+    }
+    if baseline_count == 0 || !baselines_fallback_free {
+        blocked.push("differential_oracles".to_string());
+    }
+    if covered_required_edge_case_count < required_edge_case_count {
+        blocked.push("semantic_edge_cases".to_string());
+    }
+    if unsupported_diagnostic_fixture_count == 0 {
+        blocked.push("unsupported_diagnostics".to_string());
+    }
+    if generated_property_fixture_count == 0 || fuzz_seed_count == 0 {
+        blocked.push("property_fuzzing".to_string());
+    }
+    if not_yet_defined_fixture_count > 0
+        || decoded_reference_output_count == 0
+        || generated_property_fixture_count == 0
+        || fuzz_seed_count == 0
+        || !reference_roles_test_only
+        || !baselines_fallback_free
+    {
+        blocked.push("benchmark_claim_gate".to_string());
+    }
+    blocked
+}
+
+fn correctness_harness_diagnostics(
+    blocked_surfaces: &[String],
+    not_yet_defined_fixture_count: usize,
+    status: CorrectnessDifferentialHarnessStatus,
+) -> Vec<Diagnostic> {
+    if status == CorrectnessDifferentialHarnessStatus::UnsafeFallbackPolicy {
+        return vec![Diagnostic::new(
+            DiagnosticCode::NoFallbackExecution,
+            DiagnosticSeverity::Error,
+            DiagnosticCategory::NoFallbackPolicy,
+            "correctness harness contains a fallback-capable reference path",
+            Some("correctness_differential_harness".to_string()),
+            Some("Correctness references and external engines may be test oracles only.".to_string()),
+            Some("Remove fallback-capable references before enabling any correctness or benchmark claim.".to_string()),
+            FallbackStatus::disabled_by_policy(),
+        )];
+    }
+    if blocked_surfaces.is_empty() {
+        return Vec::new();
+    }
+
+    vec![Diagnostic::new(
+        DiagnosticCode::NotImplemented,
+        DiagnosticSeverity::Warning,
+        DiagnosticCategory::Planning,
+        "correctness harness evidence is incomplete",
+        Some("correctness_differential_harness".to_string()),
+        Some(format!(
+            "blocked_surfaces={}; not_yet_defined_fixtures={}",
+            blocked_surfaces.join(","),
+            not_yet_defined_fixture_count
+        )),
+        Some(
+            "Add decoded reference outputs, property/fuzz evidence, and resolved fixture expectations before opening production or competitive benchmark claims.".to_string(),
+        ),
+        FallbackStatus::disabled_by_policy(),
+    )]
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -997,7 +1359,7 @@ mod tests {
         assert_eq!(plan.not_yet_defined_fixture_count(), 8);
         assert_eq!(plan.diagnostic_expected_output_count(), 1);
         assert_eq!(plan.unsupported_expected_output_count(), 1);
-        assert_eq!(plan.baseline_count(), 5);
+        assert_eq!(plan.baseline_count(), 7);
         assert!(plan.required_foundation_edge_cases_covered());
         assert_eq!(plan.covered_required_foundation_edge_case_count(), 7);
         assert!(plan.missing_required_foundation_edge_cases().is_empty());
@@ -1006,6 +1368,82 @@ mod tests {
         assert_eq!(
             plan.reference_role_order(),
             vec!["golden_fixture", "external_oracle"]
+        );
+    }
+    #[test]
+    fn correctness_harness_surfaces_evidence_gaps_without_execution() {
+        let report = plan_correctness_differential_harness(
+            CorrectnessValidationPlan::default_foundation_plan(),
+        );
+
+        assert_eq!(
+            report.status,
+            CorrectnessDifferentialHarnessStatus::NeedsEvidence
+        );
+        assert_eq!(
+            report.schema_version,
+            "shardloom.correctness_differential_harness.v1"
+        );
+        assert_eq!(
+            report.report_id,
+            "cg5.correctness_differential_harness.aggregate"
+        );
+        assert_eq!(report.fixture_count, 14);
+        assert_eq!(report.golden_fixture_count, 2);
+        assert_eq!(report.decoded_reference_output_count, 0);
+        assert_eq!(report.generated_property_fixture_count, 0);
+        assert_eq!(report.fuzz_seed_count, 0);
+        assert_eq!(report.baseline_count, 7);
+        assert_eq!(report.planned_surface_count, 5);
+        assert_eq!(report.blocked_surface_count, 3);
+        assert_eq!(
+            report.blocked_surface_order,
+            vec![
+                "decoded_reference_outputs".to_string(),
+                "property_fuzzing".to_string(),
+                "benchmark_claim_gate".to_string()
+            ]
+        );
+        assert!(report.benchmark_claims_blocked_by_correctness);
+        assert!(!report.production_claim_allowed);
+        assert!(report.side_effect_free());
+        assert!(!report.has_errors());
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_execution);
+    }
+    #[test]
+    fn correctness_harness_records_required_validation_modes() {
+        let report = plan_correctness_differential_harness(
+            CorrectnessValidationPlan::default_foundation_plan(),
+        );
+
+        assert_eq!(
+            CorrectnessDifferentialHarnessReport::required_validation_mode_order(),
+            vec![
+                "expected_output",
+                "decoded_reference",
+                "differential_comparison",
+                "property_based",
+                "fuzz",
+                "golden_diagnostic",
+                "unsupported_diagnostic_only"
+            ]
+        );
+        assert_eq!(
+            report.missing_validation_mode_order(),
+            vec!["decoded_reference", "property_based", "fuzz"]
+        );
+        assert_eq!(
+            report.baseline_engine_order,
+            vec![
+                "spark".to_string(),
+                "datafusion".to_string(),
+                "duckdb".to_string(),
+                "polars".to_string(),
+                "pandas".to_string(),
+                "dask".to_string(),
+                "velox".to_string()
+            ]
         );
     }
     #[test]

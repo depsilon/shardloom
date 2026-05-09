@@ -15,19 +15,20 @@ use shardloom_core::{
     ByteRange, CapabilityCertificationReport, CapabilityCertificationStatus, CatalogKind,
     CatalogRef, CdcEventKind, CdcEventSummary, CdcIncrementalPlanningReport, ChangeSet,
     CliApiJsonProtocolReport, ColumnRef, CommandStatus, CompactionPlanningPolicy,
-    CompactionPlanningReport, ComparisonOp, CorrectnessFixture, CorrectnessValidationMode,
-    CorrectnessValidationPlan, CpuOperatorSpecializationReport, DatasetFormat, DatasetManifest,
-    DatasetRef, DatasetUri, DeleteModel, DeleteTombstoneCompatibilityReport, Diagnostic,
-    EffectBudgetReport, EncodedSegment, EncodingKind, ExecutionCertificate,
-    ExecutionCertificateEvidenceSurfaceReport, ExecutionEvidenceArtifactKind, ExpectedOutcome,
-    ExtensionId, ExtensionInspectionReport, ExtensionLicenseKind, ExtensionManifest,
-    ExtensionProvenance, ExtensionRegistrySnapshot, ExtensionVersion, FeatureFootprintReport,
-    FieldId, FieldName, FieldPath, FileDescriptor, FileRole, IncrementalPlanSkeleton,
-    InputAdapterRegistrySnapshot, KernelRegistrySnapshot, LayoutHealthPolicy, LayoutHealthReport,
-    LayoutKind, LogicalDType, ManifestId, ManifestSegment, MetricValue, NativeIoEnvelopeReport,
-    Nullability, ObservabilityPlan, OperatorMemoryCertification, OutputEnvelope, OutputFormat,
-    OutputTarget, PartitionEvolutionCompatibilityReport, PartitionField, PartitionSpec,
-    PartitionTransform, PhysicalKernelRegistryPlan, PhysicalOperatorExecutionLevel,
+    CompactionPlanningReport, ComparisonOp, CorrectnessDifferentialHarnessReport,
+    CorrectnessFixture, CorrectnessValidationMode, CorrectnessValidationPlan,
+    CpuOperatorSpecializationReport, DatasetFormat, DatasetManifest, DatasetRef, DatasetUri,
+    DeleteModel, DeleteTombstoneCompatibilityReport, Diagnostic, EffectBudgetReport,
+    EncodedSegment, EncodingKind, ExecutionCertificate, ExecutionCertificateEvidenceSurfaceReport,
+    ExecutionEvidenceArtifactKind, ExpectedOutcome, ExtensionId, ExtensionInspectionReport,
+    ExtensionLicenseKind, ExtensionManifest, ExtensionProvenance, ExtensionRegistrySnapshot,
+    ExtensionVersion, FeatureFootprintReport, FieldId, FieldName, FieldPath, FileDescriptor,
+    FileRole, IncrementalPlanSkeleton, InputAdapterRegistrySnapshot, KernelRegistrySnapshot,
+    LayoutHealthPolicy, LayoutHealthReport, LayoutKind, LogicalDType, ManifestId, ManifestSegment,
+    MetricValue, NativeIoEnvelopeReport, Nullability, ObservabilityPlan,
+    OperatorMemoryCertification, OutputEnvelope, OutputFormat, OutputTarget,
+    PartitionEvolutionCompatibilityReport, PartitionField, PartitionSpec, PartitionTransform,
+    PhysicalKernelRegistryPlan, PhysicalOperatorExecutionLevel,
     PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorKind, PhysicalOperatorPlan,
     PredicateExpr, PythonWrapperFoundationReport, RedactionPolicy, ReleasePlan,
     RuntimeObservabilityReport, SchemaDefinition, SchemaEvolutionCompatibilityReport,
@@ -39,9 +40,9 @@ use shardloom_core::{
     WorldClassSufficiencyReport, WriteIntent, evaluate_cdc_incremental_planning,
     evaluate_compaction_planning, evaluate_delete_tombstone_compatibility, evaluate_layout_health,
     evaluate_partition_evolution_compatibility, evaluate_schema_evolution_compatibility,
-    plan_cpu_operator_specialization, plan_execution_certificate_evidence_surface,
-    plan_native_io_envelope, plan_stateful_reuse, plan_universal_harness,
-    plan_world_class_sufficiency,
+    plan_correctness_differential_harness, plan_cpu_operator_specialization,
+    plan_execution_certificate_evidence_surface, plan_native_io_envelope, plan_stateful_reuse,
+    plan_universal_harness, plan_world_class_sufficiency,
 };
 use shardloom_exec::{
     AdaptiveSizer, AdaptiveSizingPolicy, AttemptId, BackpressurePlanInput, BackpressurePlanReport,
@@ -206,7 +207,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|agent-contract-pack|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance]|security-plan|effect-budget-plan|agent-safety-plan|redaction-plan|kernel-registry|feature-footprint|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|layout-health-plan|compaction-plan|table-intelligence-plan|object-store-request-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|traditional-analytics-run|vortex-count-benchmark|correctness-plan|execution-certificate-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|agent-contract-pack|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance]|security-plan|effect-budget-plan|agent-safety-plan|redaction-plan|kernel-registry|feature-footprint|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|layout-health-plan|compaction-plan|table-intelligence-plan|object-store-request-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|traditional-analytics-run|vortex-count-benchmark|correctness-plan|correctness-harness-plan|execution-certificate-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -994,6 +995,180 @@ fn correctness_plan_fields(plan: &CorrectnessValidationPlan) -> Vec<(String, Str
             plan.baselines_are_fallback_free().to_string(),
         ),
     ]
+}
+
+#[allow(clippy::too_many_lines)]
+fn correctness_harness_fields(
+    report: &CorrectnessDifferentialHarnessReport,
+) -> Vec<(String, String)> {
+    let mut fields = Vec::new();
+    push_field(&mut fields, "mode", "correctness_differential_harness");
+    push_field(&mut fields, "schema_version", report.schema_version);
+    push_field(&mut fields, "report_id", report.report_id);
+    push_field(&mut fields, "plan_name", &report.plan_name);
+    push_field(&mut fields, "plan_mode", report.plan_mode.as_str());
+    push_field(&mut fields, "harness_status", report.status.as_str());
+    push_field(
+        &mut fields,
+        "surface_order",
+        &CorrectnessDifferentialHarnessReport::surface_order().join(","),
+    );
+    push_count_field(
+        &mut fields,
+        "surface_count",
+        CorrectnessDifferentialHarnessReport::surface_order().len(),
+    );
+    push_count_field(
+        &mut fields,
+        "planned_surface_count",
+        report.planned_surface_count,
+    );
+    push_count_field(
+        &mut fields,
+        "blocked_surface_count",
+        report.blocked_surface_count,
+    );
+    push_field(
+        &mut fields,
+        "blocked_surface_order",
+        &report.blocked_surface_order.join(","),
+    );
+    push_field(
+        &mut fields,
+        "required_validation_mode_order",
+        &CorrectnessDifferentialHarnessReport::required_validation_mode_order().join(","),
+    );
+    push_field(
+        &mut fields,
+        "missing_validation_mode_order",
+        &report.missing_validation_mode_order().join(","),
+    );
+    push_count_field(&mut fields, "fixture_count", report.fixture_count);
+    push_count_field(
+        &mut fields,
+        "fixtures_with_source_ref_count",
+        report.fixtures_with_source_ref_count,
+    );
+    push_count_field(
+        &mut fields,
+        "golden_fixture_count",
+        report.golden_fixture_count,
+    );
+    push_count_field(
+        &mut fields,
+        "decoded_reference_output_count",
+        report.decoded_reference_output_count,
+    );
+    push_count_field(
+        &mut fields,
+        "executable_expected_output_count",
+        report.executable_expected_output_count,
+    );
+    push_count_field(
+        &mut fields,
+        "not_yet_defined_fixture_count",
+        report.not_yet_defined_fixture_count,
+    );
+    push_count_field(
+        &mut fields,
+        "unsupported_diagnostic_fixture_count",
+        report.unsupported_diagnostic_fixture_count,
+    );
+    push_count_field(
+        &mut fields,
+        "required_edge_case_count",
+        report.required_edge_case_count,
+    );
+    push_count_field(
+        &mut fields,
+        "covered_required_edge_case_count",
+        report.covered_required_edge_case_count,
+    );
+    push_field(
+        &mut fields,
+        "missing_required_edge_cases",
+        &report.missing_required_edge_cases.join(","),
+    );
+    push_count_field(&mut fields, "baseline_count", report.baseline_count);
+    push_field(
+        &mut fields,
+        "baseline_engine_order",
+        &report.baseline_engine_order.join(","),
+    );
+    push_field(
+        &mut fields,
+        "reference_role_order",
+        &report.reference_role_order.join(","),
+    );
+    push_count_field(
+        &mut fields,
+        "generated_property_fixture_count",
+        report.generated_property_fixture_count,
+    );
+    push_count_field(&mut fields, "fuzz_seed_count", report.fuzz_seed_count);
+    push_bool_field(
+        &mut fields,
+        "decoded_reference_outputs_required",
+        report.decoded_reference_outputs_required,
+    );
+    push_bool_field(
+        &mut fields,
+        "differential_oracles_required",
+        report.differential_oracles_required,
+    );
+    push_bool_field(
+        &mut fields,
+        "property_fuzzing_required",
+        report.property_fuzzing_required,
+    );
+    push_bool_field(
+        &mut fields,
+        "benchmark_claim_gate_required",
+        report.benchmark_claim_gate_required,
+    );
+    push_bool_field(
+        &mut fields,
+        "reference_roles_test_only",
+        report.reference_roles_test_only,
+    );
+    push_bool_field(
+        &mut fields,
+        "baselines_fallback_free",
+        report.baselines_fallback_free,
+    );
+    push_bool_field(
+        &mut fields,
+        "production_claim_allowed",
+        report.production_claim_allowed,
+    );
+    push_bool_field(
+        &mut fields,
+        "benchmark_claims_blocked_by_correctness",
+        report.benchmark_claims_blocked_by_correctness,
+    );
+    push_bool_field(&mut fields, "query_execution", report.query_execution);
+    push_bool_field(
+        &mut fields,
+        "decoded_reference_execution_performed",
+        report.decoded_reference_execution_performed,
+    );
+    push_bool_field(
+        &mut fields,
+        "external_engine_execution",
+        report.external_engine_execution,
+    );
+    push_bool_field(&mut fields, "data_read", report.data_read);
+    push_bool_field(&mut fields, "object_store_io", report.object_store_io);
+    push_bool_field(&mut fields, "write_io", report.write_io);
+    push_bool_field(
+        &mut fields,
+        "fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(&mut fields, "fallback_attempted", report.fallback_attempted);
+    push_bool_field(&mut fields, "side_effect_free", report.side_effect_free());
+    push_count_field(&mut fields, "diagnostic_count", report.diagnostics.len());
+    fields
 }
 
 fn feature_footprint_fields(report: &FeatureFootprintReport) -> Vec<(String, String)> {
@@ -14024,6 +14199,30 @@ fn run(args: Vec<String>) -> ExitCode {
             );
             ExitCode::SUCCESS
         }
+        Some("correctness-harness-plan") => {
+            let command = "correctness-harness-plan";
+            let report = plan_correctness_differential_harness(
+                CorrectnessValidationPlan::default_foundation_plan(),
+            );
+            emit(
+                command,
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "correctness and differential harness plan".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                correctness_harness_fields(&report),
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
         Some("execution-certificate-plan") => {
             let command = "execution-certificate-plan";
             let report = plan_execution_certificate_evidence_surface();
@@ -24014,6 +24213,10 @@ mod tests {
         assert_eq!(code, ExitCode::SUCCESS);
     }
     #[test]
+    fn usage_includes_correctness_harness_plan() {
+        assert!(cli_usage_line().contains("correctness-harness-plan"));
+    }
+    #[test]
     fn usage_includes_execution_certificate_plan() {
         assert!(cli_usage_line().contains("execution-certificate-plan"));
     }
@@ -25281,6 +25484,12 @@ mod tests {
     }
 
     #[test]
+    fn correctness_harness_plan_returns_success() {
+        let code = run(vec!["correctness-harness-plan".to_string()]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
     fn execution_certificate_plan_returns_success() {
         let code = run(vec!["execution-certificate-plan".to_string()]);
         assert_eq!(code, ExitCode::SUCCESS);
@@ -26300,6 +26509,42 @@ mod tests {
         assert_eq!(output_field(&fields, "side_effect_free"), "true");
         assert!(output_field(&fields, "surface_order").contains("schema_evolution"));
         assert!(output_field(&fields, "surface_order").contains("commit_recovery"));
+    }
+
+    #[test]
+    fn correctness_harness_fields_include_claim_blockers_and_no_execution() {
+        let report = plan_correctness_differential_harness(
+            CorrectnessValidationPlan::default_foundation_plan(),
+        );
+        let fields = correctness_harness_fields(&report);
+
+        assert_eq!(
+            output_field(&fields, "schema_version"),
+            "shardloom.correctness_differential_harness.v1"
+        );
+        assert_eq!(
+            output_field(&fields, "report_id"),
+            "cg5.correctness_differential_harness.aggregate"
+        );
+        assert_eq!(output_field(&fields, "harness_status"), "needs_evidence");
+        assert_eq!(output_field(&fields, "planned_surface_count"), "5");
+        assert_eq!(output_field(&fields, "blocked_surface_count"), "3");
+        assert_eq!(
+            output_field(&fields, "blocked_surface_order"),
+            "decoded_reference_outputs,property_fuzzing,benchmark_claim_gate"
+        );
+        assert_eq!(output_field(&fields, "baseline_count"), "7");
+        assert!(output_field(&fields, "baseline_engine_order").contains("dask"));
+        assert_eq!(output_field(&fields, "production_claim_allowed"), "false");
+        assert_eq!(
+            output_field(&fields, "benchmark_claims_blocked_by_correctness"),
+            "true"
+        );
+        assert_eq!(output_field(&fields, "query_execution"), "false");
+        assert_eq!(output_field(&fields, "external_engine_execution"), "false");
+        assert_eq!(output_field(&fields, "fallback_execution_allowed"), "false");
+        assert_eq!(output_field(&fields, "fallback_attempted"), "false");
+        assert_eq!(output_field(&fields, "side_effect_free"), "true");
     }
 
     #[test]
