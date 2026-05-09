@@ -45,6 +45,31 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
+- [x] Session label: CG-5.8 / CG-16.3 local primitive correctness and certificate evidence
+  - Primary files:
+    - `shardloom-core/src/correctness.rs`
+    - `shardloom-vortex/src/local_primitives.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `shardloom-contract-tests/tests/correctness_fixture_manifest.rs`
+    - `shardloom-contract-tests/tests/correctness_differential_harness.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: Make broader local `.vortex` primitive execution count toward CG-5 and CG-16 evidence by adding generated row-count fixtures for count-where, project, and filter-project paths and by certifying executed local primitive reports against those fixtures.
+  - Checklist:
+    - [x] Add generated correctness fixtures for local count-where, project, and filter-project reference outputs.
+    - [x] Add a generic local primitive execution certificate builder that records request, output, side-effect, no-decode/no-row/no-Arrow/no-object-store/no-write/no-spill/no-fallback, and correctness evidence.
+    - [x] Add feature-gated runtime tests proving count-where, project, and filter-project certificates certify only matching fixture outputs and block unsafe materialization evidence.
+    - [x] Update correctness manifest and harness contract counts.
+    - [x] Run required full validation before PR.
+  - Local validation status:
+    - Focused `cargo test -p shardloom-vortex --features vortex-local-primitives local_primitive_certificate -- --nocapture` passed locally with Rust toolchain `1.91.1`.
+    - Focused `cargo test -p shardloom-contract-tests --test correctness_fixture_manifest -- --nocapture` passed locally with Rust toolchain `1.91.1`.
+    - Focused `cargo test -p shardloom-contract-tests --test correctness_differential_harness -- --nocapture` passed locally with Rust toolchain `1.91.1`.
+    - Required `cargo fmt --all -- --check` passed locally with Rust toolchain `1.91.1`.
+    - Required `cargo clippy --workspace --all-targets -- -D warnings` passed locally with Rust toolchain `1.91.1`.
+    - Required `cargo test --workspace --all-targets` passed locally with Rust toolchain `1.91.1`.
+    - Feature `cargo clippy -p shardloom-vortex --features vortex-local-primitives --all-targets -- -D warnings` passed locally with Rust toolchain `1.91.1`.
+  - Explicitly not included: decoded reference execution, external engine invocation, SQL parser/execution, DataFrame runtime, mature adapter runtime, row reads, Arrow conversion, object-store IO, writes, spill IO, production operator certification, superiority/best-default claim, or fallback execution.
+
 - [x] Session label: CG-2.1e.28 / CG-6.22 / CG-8.11 / CG-13.10 local filter-project Vortex scan pushdown
   - Primary files:
     - `shardloom-vortex/src/query_primitive.rs`
@@ -1399,6 +1424,7 @@ Status legend:
   - [x] CG-5.5 local encoded `CountAll` golden fixture/reference-output proof
   - [x] CG-5.6 correctness coverage inventory surfacing
   - [x] CG-5.7 correctness/differential harness aggregate surface
+  - [x] CG-5.8 broader local primitive generated fixtures for count-where/project/filter-project runtime evidence
   - Expected evidence:
     - golden Vortex fixtures
     - decoded reference outputs
@@ -1557,6 +1583,7 @@ Status legend:
 - [ ] CG-16 — Evidence-first execution certificates (**planned**)
   - [x] CG-16.1 local encoded `CountAll` execution certificate
   - [x] CG-16.2 execution certificate evidence surface
+  - [x] CG-16.3 broader local primitive execution certificate evidence
   - Scope:
     - plan/input/output evidence artifacts through `execution-certificate-plan`
     - reproducibility metadata and segment traces
@@ -1990,7 +2017,9 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-5.5 local encoded `CountAll` fixture/reference-output proof declares `ExpectedOutcome::EncodedCount { count: 20000 }` for the checked-in Vortex fixture and verifies the approved local encoded count path returns that value without decode/materialization/row/Arrow/object-store/write/spill/external/fallback effects.
 - [x] CG-5.6 correctness coverage inventory surfaces fixture IDs, semantic areas, edge cases, reference roles, required edge-case coverage, source-backed/golden/executable/not-yet-defined counts, and no-fallback/test-only fields through `correctness-plan`.
 - [x] CG-5.7 correctness/differential harness aggregate surface adds `CorrectnessDifferentialHarnessReport` and `correctness-harness-plan` surfacing across fixture inventory, golden/reference coverage, semantic edge cases, unsupported diagnostics, external correctness oracles, property/fuzz gaps, and benchmark claim blockers while keeping query execution, decoded-reference execution, external engine invocation, data reads, object-store IO, writes, and fallback disabled.
+- [x] CG-5.8 broader local primitive generated fixtures add expected row-count outputs for local count-where, project, and filter-project execution over generated struct `.vortex` fixtures without adding external engine or decoded-reference execution.
 - [x] CG-16.1 local encoded `CountAll` execution certificate adds a deterministic core certificate contract and Vortex adapter helper that certify the approved local encoded count path only when expected/actual correctness output matches and fallback/unsafe-effect evidence is absent.
+- [x] CG-16.3 broader local primitive execution certificates certify count-where, project, and filter-project reports only when generated CG-5 fixture outputs match and decode/materialization/row/Arrow/object-store/write/spill/external/fallback effects are absent.
 - [x] CG-17.1 stateful reuse boundary report adds `StatefulReuseReport` and `stateful-reuse-plan` surfacing for typed cache/reuse boundaries, invalidation signals, deterministic key requirements, correctness proof requirements, execution-certificate linkage, manifest-diff requirements, and no-cache/no-runtime/no-fallback side-effect fields.
 - [x] CG-6.1 benchmark evidence manifest covers required metric categories without running benchmarks.
 - [x] CG-6.2 benchmark claim gate blocks publication without correctness, benchmark, comparison, metric, and no-fallback evidence.
