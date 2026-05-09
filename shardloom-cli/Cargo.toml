@@ -18,6 +18,9 @@ shardloom-vortex = { path = "../shardloom-vortex" }
 [features]
 default = []
 vortex-encoded-read-spike = ["shardloom-vortex/vortex-encoded-read-spike"]
+vortex-traditional-analytics-benchmark = [
+    "shardloom-vortex/vortex-traditional-analytics-benchmark",
+]
 
 [[bin]]
 name = "shardloom"

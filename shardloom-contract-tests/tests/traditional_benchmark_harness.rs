@@ -5,9 +5,11 @@ use std::path::PathBuf;
 fn traditional_benchmark_harness_lists_all_required_engines() {
     let script = read_workspace_file("benchmarks/traditional_analytics/run.py");
 
-    assert!(script.contains(
-        "ENGINE_ORDER = (\"shardloom\", \"pandas\", \"polars\", \"duckdb\", \"spark\", \"datafusion\", \"dask\")"
-    ));
+    assert!(script.contains("\"spark-default\""));
+    assert!(script.contains("\"spark-local-tuned\""));
+    assert!(
+        script.contains("ENGINE_ALIASES = {\"spark\": (\"spark-default\", \"spark-local-tuned\")}")
+    );
     assert!(script.contains("\"fallback_execution_allowed\": False"));
     assert!(script.contains("\"external_engines_are_fallback\": False"));
     assert!(script.contains("\"performance_claim_allowed\": False"));
@@ -16,6 +18,9 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("def render_read_this_first("));
     assert!(script.contains("def render_shardloom_native_table("));
     assert!(script.contains("def render_universal_io_table("));
+    assert!(script.contains("traditional-analytics-run"));
+    assert!(script.contains("vortex-traditional-analytics-benchmark"));
+    assert!(script.contains("--shardloom-build-profile"));
     assert!(script.contains("failed_result("));
 }
 
@@ -47,11 +52,15 @@ fn traditional_benchmark_harness_records_fairness_and_universal_io_boundaries() 
         "\"cache_mode\"",
         "\"timing_scope\"",
         "\"stress_lane_included\"",
+        "\"shardloom_build_profile\"",
+        "\"shardloom_build_time_excluded\"",
         "\"dask_blocksize\"",
         "\"dask_scheduler\"",
         "\"spark_requires_java\"",
+        "\"spark_profiles\"",
         "\"object_store_included\": False",
-        "\"csv_to_vortex_included\": False",
+        "\"csv_to_vortex_included\": True",
+        "\"shardloom_universal_io_smoke_included\": True",
         "\"claim_grade_requirements\"",
         "CSV -> ShardLoom NativeWorkStream -> Vortex",
         "CSV -> Vortex import -> encoded CountAll",
@@ -84,14 +93,16 @@ fn traditional_benchmark_docs_state_no_fallback_and_markdown_outputs() {
     assert!(readme.contains("human-readable Markdown"));
     assert!(readme.contains("fairness parameters"));
     assert!(normalized.contains("never execute unsupported ShardLoom plans as fallback engines"));
-    assert!(
-        readme
-            .contains("ShardLoom traditional analytics rows are expected to report `unsupported`")
-    );
+    assert!(readme.contains("shardloom traditional-analytics-run"));
+    assert!(readme.contains("vortex-traditional-analytics-benchmark"));
+    assert!(readme.contains("universal-I/O smoke path"));
+    assert!(readme.contains("--shardloom-build-profile"));
     assert!(readme.contains("--scenario \"group by aggregation\""));
     assert!(readme.contains("--include-stress"));
     assert!(readme.contains("scale stress multi-stage etl"));
     assert!(readme.contains("Spark-style engines"));
+    assert!(readme.contains("spark-default"));
+    assert!(readme.contains("spark-local-tuned"));
     assert!(readme.contains("Dask is sensitive to partitioning"));
 }
 

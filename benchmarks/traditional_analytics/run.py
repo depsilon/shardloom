@@ -27,7 +27,17 @@ from pathlib import Path
 from typing import Any, Callable
 
 
-ENGINE_ORDER = ("shardloom", "pandas", "polars", "duckdb", "spark", "datafusion", "dask")
+ENGINE_ORDER = (
+    "shardloom",
+    "pandas",
+    "polars",
+    "duckdb",
+    "spark-default",
+    "spark-local-tuned",
+    "datafusion",
+    "dask",
+)
+ENGINE_ALIASES = {"spark": ("spark-default", "spark-local-tuned")}
 SCENARIO_ORDER = (
     "csv/file ingest",
     "selective filter",
@@ -54,6 +64,7 @@ SCENARIO_BYTES = {
 }
 DASK_BLOCKSIZE = "16MB"
 DASK_SCHEDULER = "threads"
+SHARDLOOM_BUILD_PROFILE = "release"
 
 
 @dataclass(frozen=True)
@@ -75,6 +86,15 @@ class EngineRunner:
 
 class BenchmarkUnsupported(RuntimeError):
     """Raised when an engine cannot execute a benchmark scenario yet."""
+
+
+def expand_engine_aliases(engine_names: tuple[str, ...]) -> tuple[str, ...]:
+    expanded: list[str] = []
+    for engine in engine_names:
+        for name in ENGINE_ALIASES.get(engine, (engine,)):
+            if name not in expanded:
+                expanded.append(name)
+    return tuple(expanded)
 
 
 class MemorySampler:
@@ -134,7 +154,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--engines",
         default=",".join(ENGINE_ORDER),
-        help="Comma-separated engines: shardloom,pandas,polars,duckdb,spark,datafusion,dask.",
+        help="Comma-separated engines: shardloom,pandas,polars,duckdb,spark-default,spark-local-tuned,datafusion,dask. Alias: spark expands to both Spark profiles.",
     )
     parser.add_argument(
         "--scenario",
@@ -183,6 +203,12 @@ def parse_args() -> argparse.Namespace:
         help="Skip ShardLoom native encoded microbenchmarks in the report.",
     )
     parser.add_argument(
+        "--shardloom-build-profile",
+        default=SHARDLOOM_BUILD_PROFILE,
+        choices=("debug", "release"),
+        help="Build profile for the ShardLoom CLI used by benchmark rows. Build time is excluded from per-scenario timing.",
+    )
+    parser.add_argument(
         "--cache-mode",
         default="warm-ish-local-filesystem",
         help="Declared cache mode for the report. The harness does not clear OS file cache.",
@@ -210,7 +236,10 @@ def parse_args() -> argparse.Namespace:
         parser.error("--dim-rows must be greater than zero")
     if args.iterations <= 0:
         parser.error("--iterations must be greater than zero")
-    engines = tuple(engine.strip().lower() for engine in args.engines.split(",") if engine.strip())
+    requested_engines = tuple(
+        engine.strip().lower() for engine in args.engines.split(",") if engine.strip()
+    )
+    engines = expand_engine_aliases(requested_engines)
     unknown = sorted(set(engines) - set(ENGINE_ORDER))
     if unknown:
         parser.error(f"unknown engines: {','.join(unknown)}")
@@ -280,18 +309,89 @@ def module_version(name: str) -> str:
 
 
 def shardloom_runner() -> EngineRunner:
-    reason = (
-        "ShardLoom traditional analytics SQL/dataframe execution is not implemented yet; "
-        "this is expected until native CSV/SQL/operator/adapter coverage lands."
-    )
+    root = workspace_root()
+    cargo = shutil.which("cargo")
+    if cargo is None:
+        raise BenchmarkUnsupported("cargo was not found on PATH, so ShardLoom could not be built")
+    build_command = [
+        cargo,
+        "build",
+        "-q",
+        "-p",
+        "shardloom-cli",
+        "--features",
+        "vortex-traditional-analytics-benchmark",
+    ]
+    if SHARDLOOM_BUILD_PROFILE == "release":
+        build_command.append("--release")
+    env = os.environ.copy()
+    env["RUSTUP_TOOLCHAIN"] = env.get("RUSTUP_TOOLCHAIN", "1.91.1")
+    completed = subprocess_run(build_command, root, env)
+    if completed["returncode"] != 0:
+        raise BenchmarkUnsupported(
+            "ShardLoom CLI build failed before benchmark timing began: "
+            + (completed["stderr"] or completed["stdout"] or "unknown failure")
+        )
+    binary = shardloom_binary_path(root, SHARDLOOM_BUILD_PROFILE)
+    if not binary.exists():
+        raise BenchmarkUnsupported(f"ShardLoom binary was not found after build: {binary}")
 
-    def unsupported(_paths: DatasetPaths) -> Any:
-        raise BenchmarkUnsupported(reason)
+    def run_scenario(scenario: str, paths: DatasetPaths) -> Any:
+        workspace = paths.root / "shardloom_universal_io" / scenario_slug(scenario)
+        command = [
+            str(binary),
+            "traditional-analytics-run",
+            scenario,
+            str(paths.fact_csv),
+            str(paths.dim_csv),
+            "--workspace",
+            str(workspace),
+            "--format",
+            "json",
+        ]
+        completed = subprocess_run(command, root, env)
+        if completed["returncode"] != 0:
+            raise RuntimeError(completed["stderr"] or completed["stdout"] or "unknown failure")
+        try:
+            payload = json.loads(completed["stdout"].splitlines()[0])
+        except (json.JSONDecodeError, IndexError) as exc:
+            raise RuntimeError(f"ShardLoom emitted invalid JSON: {exc}") from exc
+        fields = parse_output_fields(payload)
+        if payload.get("status") != "success":
+            reason = fields.get("reason") or payload.get("human_text") or "unsupported"
+            raise BenchmarkUnsupported(str(reason))
+        required_true_fields = [
+            "native_work_envelope_created",
+            "native_work_stream_created",
+            "native_result_stream_created",
+            "native_io_certificate_emitted",
+            "csv_source_adapter_used",
+            "csv_to_vortex_import_performed",
+            "vortex_file_written",
+            "vortex_file_read",
+            "upstream_vortex_scan_called",
+            "materialization_boundary_report_emitted",
+        ]
+        missing_evidence = [
+            field for field in required_true_fields if fields.get(field) != "true"
+        ]
+        if missing_evidence:
+            raise RuntimeError(
+                "ShardLoom universal I/O evidence was missing: "
+                + ", ".join(missing_evidence)
+            )
+        result_json = fields.get("result_json")
+        if result_json is None:
+            raise RuntimeError("ShardLoom result_json field was missing")
+        return json.loads(result_json)
 
     return EngineRunner(
         "shardloom",
-        "workspace-local",
-        {scenario: unsupported for scenario in SCENARIO_ORDER + STRESS_SCENARIO_ORDER},
+        shardloom_version(root, SHARDLOOM_BUILD_PROFILE),
+        {
+            scenario: (lambda paths, scenario=scenario: run_scenario(scenario, paths))
+            for scenario in SCENARIO_ORDER + STRESS_SCENARIO_ORDER
+        },
     )
 
 
@@ -329,6 +429,31 @@ def parse_output_fields(payload: dict[str, Any]) -> dict[str, str]:
 
 def workspace_root() -> Path:
     return Path(__file__).resolve().parents[2]
+
+
+def shardloom_binary_path(root: Path, profile: str) -> Path:
+    binary_name = "shardloom.exe" if os.name == "nt" else "shardloom"
+    target_profile = "release" if profile == "release" else "debug"
+    return root / "target" / target_profile / binary_name
+
+
+def shardloom_version(root: Path, profile: str) -> str:
+    git = shutil.which("git")
+    if git is None:
+        return f"workspace-local-{profile}"
+    completed = subprocess_run([git, "rev-parse", "--short", "HEAD"], root, os.environ.copy())
+    if completed["returncode"] != 0:
+        return f"workspace-local-{profile}"
+    return f"workspace-local-{profile}-{completed['stdout'].strip()}"
+
+
+def scenario_slug(scenario: str) -> str:
+    return (
+        scenario.lower()
+        .replace("/", "-")
+        .replace(" ", "-")
+        .replace("_", "-")
+    )
 
 
 def normalize_group_rows(rows: list[dict[str, Any]], key: str) -> list[dict[str, Any]]:
@@ -383,6 +508,28 @@ def pyarrow_rows(batches: list[Any]) -> list[dict[str, Any]]:
     if not batches:
         return []
     return pa.Table.from_batches(batches).to_pylist()
+
+
+def configure_java_home() -> None:
+    if shutil.which("java") is not None and os.environ.get("JAVA_HOME"):
+        return
+    candidates = []
+    env_java_home = os.environ.get("JAVA_HOME")
+    if env_java_home:
+        candidates.append(Path(env_java_home))
+    if os.name == "nt":
+        adoptium_root = Path("C:/Program Files/Eclipse Adoptium")
+        if adoptium_root.exists():
+            candidates.extend(sorted(adoptium_root.glob("jdk-*-hotspot"), reverse=True))
+        java_root = Path("C:/Program Files/Java")
+        if java_root.exists():
+            candidates.extend(sorted(java_root.glob("jdk-*"), reverse=True))
+    for candidate in candidates:
+        java_exe = candidate / "bin" / ("java.exe" if os.name == "nt" else "java")
+        if java_exe.exists():
+            os.environ["JAVA_HOME"] = str(candidate)
+            os.environ["PATH"] = str(candidate / "bin") + os.pathsep + os.environ.get("PATH", "")
+            return
 
 
 def pandas_runner() -> EngineRunner:
@@ -718,7 +865,7 @@ def duckdb_runner() -> EngineRunner:
     )
 
 
-def spark_runner() -> EngineRunner:
+def spark_runner(profile: str) -> EngineRunner:
     if shutil.which("java") is None and not os.environ.get("JAVA_HOME"):
         raise BenchmarkUnsupported(
             "Spark/PySpark requires a local JDK. Install JDK 17 or newer, set JAVA_HOME, "
@@ -727,22 +874,53 @@ def spark_runner() -> EngineRunner:
     import pyspark  # type: ignore
     from pyspark.sql import SparkSession, functions as F  # type: ignore
 
-    spark = (
-        SparkSession.builder.master("local[*]")
-        .appName("shardloom-traditional-analytics-benchmark")
-        .config("spark.ui.enabled", "false")
-        .config("spark.sql.shuffle.partitions", "8")
-        .getOrCreate()
+    builder = SparkSession.builder.master("local[*]").appName(
+        f"shardloom-traditional-analytics-benchmark-{profile}"
     )
-    spark.sparkContext.setLogLevel("ERROR")
+    builder = builder.config("spark.ui.enabled", "false")
+    profile_notes = ["master=local[*]", "spark.ui.enabled=false"]
+    if profile == "local-tuned":
+        local_threads = os.cpu_count() or 1
+        shuffle_partitions = max(1, min(local_threads, 8))
+        builder = (
+            builder.config("spark.sql.shuffle.partitions", str(shuffle_partitions))
+            .config("spark.default.parallelism", str(shuffle_partitions))
+            .config("spark.sql.adaptive.enabled", "true")
+            .config("spark.sql.adaptive.coalescePartitions.enabled", "true")
+        )
+        profile_notes.extend(
+            [
+                f"spark.sql.shuffle.partitions={shuffle_partitions}",
+                f"spark.default.parallelism={shuffle_partitions}",
+                "spark.sql.adaptive.enabled=true",
+                "spark.sql.adaptive.coalescePartitions.enabled=true",
+            ]
+        )
+    elif profile != "default":
+        raise BenchmarkUnsupported(f"unknown Spark benchmark profile: {profile}")
+
+    spark_session: Any | None = None
+
+    def spark_instance() -> Any:
+        nonlocal spark_session
+        if spark_session is None:
+            spark_session = builder.getOrCreate()
+            spark_session.sparkContext.setLogLevel("ERROR")
+        return spark_session
+
+    def close_spark() -> None:
+        nonlocal spark_session
+        if spark_session is not None:
+            spark_session.stop()
+            spark_session = None
 
     def read_fact(paths: DatasetPaths) -> Any:
-        return spark.read.option("header", True).option("inferSchema", True).csv(
+        return spark_instance().read.option("header", True).option("inferSchema", True).csv(
             str(paths.fact_csv)
         )
 
     def read_dim(paths: DatasetPaths) -> Any:
-        return spark.read.option("header", True).option("inferSchema", True).csv(
+        return spark_instance().read.option("header", True).option("inferSchema", True).csv(
             str(paths.dim_csv)
         )
 
@@ -834,8 +1012,8 @@ def spark_runner() -> EngineRunner:
         return normalize_complex_etl_rows(rows)
 
     return EngineRunner(
-        "spark",
-        module_version("pyspark"),
+        "spark-default" if profile == "default" else "spark-local-tuned",
+        f"{module_version('pyspark')} ({'; '.join(profile_notes)})",
         {
             "csv/file ingest": ingest,
             "selective filter": selective_filter,
@@ -847,8 +1025,16 @@ def spark_runner() -> EngineRunner:
             "scale stress skewed join aggregation": scale_stress,
             "scale stress multi-stage etl": complex_etl,
         },
-        close=spark.stop,
+        close=close_spark,
     )
+
+
+def spark_default_runner() -> EngineRunner:
+    return spark_runner("default")
+
+
+def spark_local_tuned_runner() -> EngineRunner:
+    return spark_runner("local-tuned")
 
 
 def datafusion_runner() -> EngineRunner:
@@ -1064,7 +1250,8 @@ ENGINE_FACTORIES: dict[str, Callable[[], EngineRunner]] = {
     "pandas": pandas_runner,
     "polars": polars_runner,
     "duckdb": duckdb_runner,
-    "spark": spark_runner,
+    "spark-default": spark_default_runner,
+    "spark-local-tuned": spark_local_tuned_runner,
     "datafusion": datafusion_runner,
     "dask": dask_runner,
 }
@@ -1309,15 +1496,15 @@ def universal_io_lanes() -> list[dict[str, Any]]:
     return [
         {
             "name": "CSV -> ShardLoom NativeWorkStream -> Vortex",
-            "status": "blocked",
-            "reason": "CSV adapter, CSV-to-native work envelopes, and Vortex sink/write path are not implemented yet.",
-            "expected_report": "NativeIoCertificate",
+            "status": "smoke_supported",
+            "reason": "ShardLoom benchmark rows use a deterministic CSV source adapter/import, emit native work/native result evidence fields, write local Vortex files, reopen them through Vortex, and scan Vortex arrays. The path still materializes Vortex-derived arrays for the temporary operators.",
+            "expected_report": "SourceCapabilityReport plus NativeIoCertificate evidence fields",
         },
         {
             "name": "CSV -> Vortex import -> encoded CountAll",
-            "status": "blocked",
-            "reason": "CSV import-to-Vortex conversion and reusable layout/payback evidence are not implemented yet.",
-            "expected_report": "NativeIoCertificate plus benchmark comparison row",
+            "status": "partial_smoke_supported",
+            "reason": "CSV-to-Vortex import and Vortex scan are exercised by ShardLoom traditional rows. Fully encoded CountAll over the imported artifact remains a separate CG-2/CG-19 follow-up because current traditional rows materialize Vortex-derived arrays for operator evaluation.",
+            "expected_report": "NativeIoCertificate plus encoded-count execution certificate",
         },
     ]
 
@@ -1384,8 +1571,8 @@ def fairness_parameters(args: argparse.Namespace, paths: DatasetPaths) -> dict[s
         "status": "local_smoke_not_claim_grade",
         "rows": paths.rows,
         "dim_rows": paths.dim_rows,
-        "storage_format": "csv",
-        "compression": "none",
+        "storage_format": "csv baselines; ShardLoom CSV source adapter into local Vortex files",
+        "compression": "engine defaults; ShardLoom uses upstream Vortex writer defaults",
         "iterations": args.iterations,
         "stress_lane_included": any(
             scenario in STRESS_SCENARIO_ORDER for scenario in args.scenario_list
@@ -1394,20 +1581,25 @@ def fairness_parameters(args: argparse.Namespace, paths: DatasetPaths) -> dict[s
         "timing_scope": args.timing_scope,
         "engines_requested": list(args.engine_list),
         "scenarios_requested": list(args.scenario_list),
+        "shardloom_build_profile": args.shardloom_build_profile,
+        "shardloom_build_time_excluded": True,
+        "shardloom_feature_gate": "vortex-traditional-analytics-benchmark",
         "dask_blocksize": args.dask_blocksize,
         "dask_scheduler": args.dask_scheduler,
         "spark_requires_java": True,
+        "spark_profiles": "spark-default local[*] with Spark defaults; spark-local-tuned local[*] with shuffle/default parallelism capped to local CPU count and AQE enabled",
         "java_on_path": shutil.which("java") is not None,
         "java_home_set": bool(os.environ.get("JAVA_HOME")),
         "object_store_included": False,
-        "csv_to_vortex_included": False,
+        "csv_to_vortex_included": True,
+        "shardloom_universal_io_smoke_included": True,
         "shardloom_native_microbenchmarks_included": not args.skip_shardloom_native,
         "claim_grade_requirements": [
             "pin engine versions",
             "declare hardware profile",
             "separate cold-cache and warm-cache runs",
             "use larger-than-memory and object-store datasets where relevant",
-            "record ShardLoom native and universal-I/O rows",
+            "record ShardLoom native and universal-I/O rows separately from external CSV baselines",
             "run multiple repetitions under the same process isolation policy",
         ],
     }
@@ -1473,6 +1665,10 @@ def render_fairness_parameters(artifact: dict[str, Any]) -> str:
         ["Storage", f"{params['storage_format']} ({params['compression']})"],
         ["Iterations", str(params["iterations"])],
         ["Stress lane included", str(params["stress_lane_included"])],
+        [
+            "ShardLoom build",
+            f"profile={params['shardloom_build_profile']}, feature={params['shardloom_feature_gate']}, build_time_excluded={params['shardloom_build_time_excluded']}",
+        ],
         ["Cache mode", str(params["cache_mode"])],
         ["Timing scope", str(params["timing_scope"])],
         ["Dask mode", f"blocksize={params['dask_blocksize']}, scheduler={params['dask_scheduler']}"],
@@ -1480,8 +1676,13 @@ def render_fairness_parameters(artifact: dict[str, Any]) -> str:
             "Spark prerequisite",
             f"requires Java; java_on_path={params['java_on_path']}, JAVA_HOME={params['java_home_set']}",
         ],
+        ["Spark profiles", str(params["spark_profiles"])],
         ["Object store included", str(params["object_store_included"])],
         ["CSV to Vortex included", str(params["csv_to_vortex_included"])],
+        [
+            "ShardLoom universal I/O smoke",
+            str(params["shardloom_universal_io_smoke_included"]),
+        ],
         [
             "ShardLoom native microbenchmarks",
             str(params["shardloom_native_microbenchmarks_included"]),
@@ -1493,11 +1694,13 @@ def render_fairness_parameters(artifact: dict[str, Any]) -> str:
 def render_read_this_first(artifact: dict[str, Any]) -> str:
     notes = [
         "This is a local smoke/bring-up report, not a claim-grade benchmark.",
-        "The CSV workloads measure each engine's local CSV path; they do not yet measure ShardLoom universal I/O through Vortex.",
+        "External baseline rows measure each engine's local CSV path. ShardLoom rows use a CSV source adapter into local Vortex files, reopen those files through Vortex, scan Vortex arrays, and then run the temporary benchmark operators over Vortex-derived arrays.",
+        "ShardLoom's current traditional rows report a materialization boundary; they prove universal I/O viability, not mature encoded-native SQL/operator coverage.",
         "Dask results depend heavily on partitioning, scheduler, file count, and dataset size; small single-file CSV tests can make scheduler overhead dominate.",
+        "Spark rows are split into spark-default and spark-local-tuned so default behavior is not mixed with local tuning.",
         "Spark rows require Java/JDK. Missing Spark rows mean local setup is incomplete, not that Spark failed the workload.",
         "Stress rows are opt-in; they become meaningful Spark-style scale tests only with larger-than-memory data, stable cache policy, and explicit hardware/runtime settings.",
-        "ShardLoom `unsupported` rows are expected until native SQL/dataframe/adapters/operators exist for these traditional workloads.",
+        "ShardLoom benchmark build time is excluded from per-scenario timing; CSV-to-Vortex import, Vortex file write/read, scan, and the temporary benchmark operator are included.",
     ]
     return "\n".join(f"- {note}" for note in notes)
 
@@ -1738,10 +1941,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
 
 
 def main() -> int:
-    global DASK_BLOCKSIZE, DASK_SCHEDULER
+    global DASK_BLOCKSIZE, DASK_SCHEDULER, SHARDLOOM_BUILD_PROFILE
     args = parse_args()
     DASK_BLOCKSIZE = args.dask_blocksize
     DASK_SCHEDULER = args.dask_scheduler
+    SHARDLOOM_BUILD_PROFILE = args.shardloom_build_profile
+    configure_java_home()
     paths = ensure_dataset(args.data_dir, args.rows, args.dim_rows, args.regenerate)
     runners, missing = available_runners(args.engine_list)
 
@@ -1819,11 +2024,11 @@ def main() -> int:
         "errors": errors,
         "limitations": [
             "CSV workloads include local file read cost and do not represent object-store behavior.",
-            "CSV-to-Vortex conversion and universal native I/O are not included until the ShardLoom adapter path exists.",
+            "ShardLoom traditional rows include local CSV-to-Vortex import and Vortex scan, but current temporary operators materialize Vortex-derived arrays instead of executing the full mature encoded SQL/operator surface.",
             "Dask performance is sensitive to partitioning and scheduler settings; this report records the selected blocksize and scheduler.",
-            "Spark session startup is excluded from per-scenario timing after runner initialization.",
+            "Spark session startup is excluded from per-scenario timing after runner initialization; Spark default and tuned-local profiles are reported as separate engines.",
             "Peak memory is sampled process RSS when psutil is available and may miss short-lived spikes.",
-            "ShardLoom traditional SQL/dataframe execution is not represented until native operators/adapters exist.",
+            "ShardLoom traditional rows use the native Rust benchmark command, not the future SQL parser/dataframe API.",
             "This artifact is benchmark evidence only and does not permit performance or superiority claims by itself.",
         ],
     }

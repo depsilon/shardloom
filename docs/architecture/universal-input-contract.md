@@ -46,6 +46,10 @@
   - It does not scan, decode, materialize, write, or inspect object stores.
 - Compatibility adapter bridge
   - Future adapters must emit source capability, pushdown proof, fidelity loss, materialization risk, and native I/O certificate evidence.
+- Benchmark-only CSV-to-Vortex smoke bridge
+  - `vortex-traditional-analytics-benchmark` enables a narrow local benchmark path that parses the deterministic traditional analytics CSV fixture, writes local Vortex files, reopens and scans those files through upstream Vortex, and emits native I/O evidence fields.
+  - This bridge exists to make universal-I/O benchmark work visible while broad CSV adapter, SQL, DataFrame/API, object-store, and production adapter coverage remain deferred.
+  - Temporary traditional analytics operators currently consume Vortex-derived arrays after an explicit materialization boundary; this bridge is not mature encoded-native operator coverage.
 - Effectful input bridge
   - Future effectful inputs must participate in `EffectBudgetReport` and security/governance reporting.
 
@@ -69,6 +73,7 @@
 - `input-llm`
 - `input-embeddings`
 - `input-vector`
+- `vortex-traditional-analytics-benchmark` (benchmark-only CSV-to-local-Vortex smoke path)
 
 ## Guardrails
 
