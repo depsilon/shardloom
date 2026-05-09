@@ -737,6 +737,139 @@ impl ObjectStoreCommitProtocolReport {
     }
 }
 
+/// Aggregate object-store request planner status.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ObjectStoreRequestPlannerStatus {
+    Planned,
+    BlockedByRangePlanning,
+    BlockedByCoalescing,
+    BlockedByScheduling,
+    BlockedByReliability,
+    BlockedByCommit,
+    UnsafeSideEffect,
+}
+
+impl ObjectStoreRequestPlannerStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Planned => "planned",
+            Self::BlockedByRangePlanning => "blocked_by_range_planning",
+            Self::BlockedByCoalescing => "blocked_by_coalescing",
+            Self::BlockedByScheduling => "blocked_by_scheduling",
+            Self::BlockedByReliability => "blocked_by_reliability",
+            Self::BlockedByCommit => "blocked_by_commit",
+            Self::UnsafeSideEffect => "unsafe_side_effect",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_error(&self) -> bool {
+        !matches!(self, Self::Planned)
+    }
+}
+
+/// Machine-readable CG-10 aggregate request planner evidence.
+#[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct ObjectStoreRequestPlannerReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub status: ObjectStoreRequestPlannerStatus,
+    pub range_report: ObjectStoreRangePlanningReport,
+    pub coalescing_report: ObjectStoreRequestCoalescingReport,
+    pub scheduling_report: ObjectStoreDistributedSchedulingReport,
+    pub checkpoint_retry_report: ObjectStoreCheckpointRetryReport,
+    pub commit_report: ObjectStoreCommitProtocolReport,
+    pub diagnostics: Vec<Diagnostic>,
+    pub planned_surface_count: usize,
+    pub blocked_surface_count: usize,
+    pub planned_request_count: usize,
+    pub coalesced_request_count: usize,
+    pub planned_task_count: usize,
+    pub retryable_task_count: usize,
+    pub planned_checkpoint_record_count: usize,
+    pub planned_attempt_record_count: usize,
+    pub estimated_request_bytes: u64,
+    pub requires_byte_ranges: bool,
+    pub requires_request_budget_review: bool,
+    pub requires_checkpoint_plan: bool,
+    pub requires_retry_policy: bool,
+    pub requires_idempotency_keys: bool,
+    pub requires_attempt_records: bool,
+    pub requires_cleanup_policy: bool,
+    pub requires_atomic_commit_evidence: bool,
+    pub full_file_read_allowed: bool,
+    pub coordinator_started: bool,
+    pub worker_started: bool,
+    pub task_execution_allowed: bool,
+    pub retry_execution_allowed: bool,
+    pub checkpoint_write_allowed: bool,
+    pub cleanup_execution_allowed: bool,
+    pub commit_execution_allowed: bool,
+    pub data_read: bool,
+    pub object_store_io: bool,
+    pub write_io: bool,
+    pub fallback_execution_allowed: bool,
+}
+
+impl ObjectStoreRequestPlannerReport {
+    #[must_use]
+    pub fn surface_order() -> Vec<&'static str> {
+        vec![
+            "range_planning",
+            "request_coalescing",
+            "distributed_scheduling",
+            "checkpoint_retry",
+            "commit_protocol",
+        ]
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.status.is_error()
+            || !self.side_effect_free()
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    #[must_use]
+    pub const fn side_effect_free(&self) -> bool {
+        !self.full_file_read_allowed
+            && !self.coordinator_started
+            && !self.worker_started
+            && !self.task_execution_allowed
+            && !self.retry_execution_allowed
+            && !self.checkpoint_write_allowed
+            && !self.cleanup_execution_allowed
+            && !self.commit_execution_allowed
+            && !self.data_read
+            && !self.object_store_io
+            && !self.write_io
+            && !self.fallback_execution_allowed
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "object_store_request_planner(status={}, planned_surfaces={}, blocked_surfaces={}, planned_requests={}, coalesced_requests={}, planned_tasks={}, retryable_tasks={}, checkpoint_records={}, commit_status={}, data_read=false, object_store_io=false, write_io=false, fallback_execution=disabled)",
+            self.status.as_str(),
+            self.planned_surface_count,
+            self.blocked_surface_count,
+            self.planned_request_count,
+            self.coalesced_request_count,
+            self.planned_task_count,
+            self.retryable_task_count,
+            self.planned_checkpoint_record_count,
+            self.commit_report.status.as_str(),
+        )
+    }
+}
+
 /// Plans object-store byte-range request shapes from declared manifest metadata only.
 #[must_use]
 pub fn plan_object_store_ranges(
@@ -816,6 +949,147 @@ pub fn plan_object_store_commit_protocol(
         diagnostics,
         object_store_target,
     }
+}
+
+/// Aggregates object-store request, scheduling, reliability, and commit evidence.
+#[must_use]
+pub fn plan_object_store_request_planner(
+    range_report: ObjectStoreRangePlanningReport,
+    coalescing_report: ObjectStoreRequestCoalescingReport,
+    scheduling_report: ObjectStoreDistributedSchedulingReport,
+    checkpoint_retry_report: ObjectStoreCheckpointRetryReport,
+    commit_report: ObjectStoreCommitProtocolReport,
+) -> ObjectStoreRequestPlannerReport {
+    let status = object_store_request_planner_status(
+        &range_report,
+        &coalescing_report,
+        &scheduling_report,
+        &checkpoint_retry_report,
+        &commit_report,
+    );
+    let diagnostics = object_store_request_planner_diagnostics(
+        &range_report,
+        &coalescing_report,
+        &scheduling_report,
+        &checkpoint_retry_report,
+        &commit_report,
+    );
+    let planned_surface_count = [
+        !range_report.has_errors(),
+        !coalescing_report.has_errors(),
+        !scheduling_report.has_errors(),
+        !checkpoint_retry_report.has_errors(),
+        !commit_report.has_errors(),
+    ]
+    .into_iter()
+    .filter(|planned| *planned)
+    .count();
+    let blocked_surface_count =
+        ObjectStoreRequestPlannerReport::surface_order().len() - planned_surface_count;
+
+    ObjectStoreRequestPlannerReport {
+        schema_version: "shardloom.object_store_request_planner.v1",
+        report_id: "cg10.object_store_request_planner.aggregate",
+        planned_surface_count,
+        blocked_surface_count,
+        planned_request_count: range_report.planned_request_count,
+        coalesced_request_count: coalescing_report.output_request_count,
+        planned_task_count: scheduling_report.planned_task_count,
+        retryable_task_count: checkpoint_retry_report.retryable_task_count,
+        planned_checkpoint_record_count: checkpoint_retry_report.planned_checkpoint_record_count,
+        planned_attempt_record_count: checkpoint_retry_report.planned_attempt_record_count,
+        estimated_request_bytes: scheduling_report.estimated_request_bytes,
+        requires_byte_ranges: range_report.requires_byte_ranges,
+        requires_request_budget_review: range_report.requires_request_budget_review,
+        requires_checkpoint_plan: scheduling_report.requires_checkpoint_plan
+            || checkpoint_retry_report.requires_checkpoint_plan,
+        requires_retry_policy: scheduling_report.requires_retry_policy
+            || checkpoint_retry_report.requires_retry_policy,
+        requires_idempotency_keys: scheduling_report.requires_idempotency_keys
+            || checkpoint_retry_report.requires_idempotency_keys
+            || commit_report.requires_idempotency_key,
+        requires_attempt_records: checkpoint_retry_report.requires_attempt_records,
+        requires_cleanup_policy: checkpoint_retry_report.requires_cleanup_policy
+            || commit_report.requires_cleanup_plan,
+        requires_atomic_commit_evidence: commit_report.requires_atomic_commit_evidence,
+        full_file_read_allowed: range_report.full_file_read_allowed,
+        coordinator_started: scheduling_report.coordinator_started
+            || checkpoint_retry_report.coordinator_started,
+        worker_started: scheduling_report.worker_started || checkpoint_retry_report.worker_started,
+        task_execution_allowed: scheduling_report.task_execution_allowed,
+        retry_execution_allowed: checkpoint_retry_report.retry_execution_allowed,
+        checkpoint_write_allowed: checkpoint_retry_report.checkpoint_write_allowed,
+        cleanup_execution_allowed: checkpoint_retry_report.cleanup_execution_allowed,
+        commit_execution_allowed: commit_report.commit_execution_allowed,
+        data_read: range_report.data_read || coalescing_report.data_read,
+        object_store_io: range_report.object_store_io
+            || coalescing_report.object_store_io
+            || scheduling_report.object_store_io
+            || checkpoint_retry_report.object_store_io
+            || commit_report.object_store_io,
+        write_io: range_report.write_io
+            || coalescing_report.write_io
+            || scheduling_report.write_io
+            || checkpoint_retry_report.write_io
+            || commit_report.write_io,
+        fallback_execution_allowed: range_report.fallback_execution_allowed
+            || coalescing_report.fallback_execution_allowed
+            || scheduling_report.fallback_execution_allowed
+            || checkpoint_retry_report.fallback_execution_allowed
+            || commit_report.fallback_execution_allowed,
+        status,
+        range_report,
+        coalescing_report,
+        scheduling_report,
+        checkpoint_retry_report,
+        commit_report,
+        diagnostics,
+    }
+}
+
+fn object_store_request_planner_status(
+    range_report: &ObjectStoreRangePlanningReport,
+    coalescing_report: &ObjectStoreRequestCoalescingReport,
+    scheduling_report: &ObjectStoreDistributedSchedulingReport,
+    checkpoint_retry_report: &ObjectStoreCheckpointRetryReport,
+    commit_report: &ObjectStoreCommitProtocolReport,
+) -> ObjectStoreRequestPlannerStatus {
+    if !range_report.side_effect_free()
+        || !coalescing_report.side_effect_free()
+        || !scheduling_report.side_effect_free()
+        || !checkpoint_retry_report.side_effect_free()
+        || !commit_report.side_effect_free()
+    {
+        ObjectStoreRequestPlannerStatus::UnsafeSideEffect
+    } else if range_report.has_errors() {
+        ObjectStoreRequestPlannerStatus::BlockedByRangePlanning
+    } else if coalescing_report.has_errors() {
+        ObjectStoreRequestPlannerStatus::BlockedByCoalescing
+    } else if scheduling_report.has_errors() {
+        ObjectStoreRequestPlannerStatus::BlockedByScheduling
+    } else if checkpoint_retry_report.has_errors() {
+        ObjectStoreRequestPlannerStatus::BlockedByReliability
+    } else if commit_report.has_errors() {
+        ObjectStoreRequestPlannerStatus::BlockedByCommit
+    } else {
+        ObjectStoreRequestPlannerStatus::Planned
+    }
+}
+
+fn object_store_request_planner_diagnostics(
+    range_report: &ObjectStoreRangePlanningReport,
+    coalescing_report: &ObjectStoreRequestCoalescingReport,
+    scheduling_report: &ObjectStoreDistributedSchedulingReport,
+    checkpoint_retry_report: &ObjectStoreCheckpointRetryReport,
+    commit_report: &ObjectStoreCommitProtocolReport,
+) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    diagnostics.extend(range_report.diagnostics.clone());
+    diagnostics.extend(coalescing_report.diagnostics.clone());
+    diagnostics.extend(scheduling_report.diagnostics.clone());
+    diagnostics.extend(checkpoint_retry_report.diagnostics.clone());
+    diagnostics.extend(commit_report.diagnostics.clone());
+    diagnostics
 }
 
 fn object_store_commit_protocol_status(
@@ -1939,6 +2213,144 @@ mod tests {
         .with_idempotency_key(true)
         .with_cleanup_plan(true)
         .with_provider_atomic_commit(true)
+    }
+
+    fn ready_request_planner_report() -> ObjectStoreRequestPlannerReport {
+        let manifest = manifest_with_uri(
+            "s3://bucket/table.vortex",
+            vec![
+                ByteRange::new(0, 1024),
+                ByteRange::new(8192, 1024),
+                ByteRange::new(16_384, 1024),
+            ],
+        );
+        let range_policy = ObjectStoreRangePlanningPolicy {
+            max_coalesce_gap_bytes: 0,
+            ..ObjectStoreRangePlanningPolicy::default()
+        };
+        let range_report = plan_object_store_ranges(manifest.clone(), range_policy);
+        let coalescing_report = plan_object_store_request_coalescing(manifest, range_policy);
+        let scheduling_report = plan_object_store_distributed_scheduling(
+            coalescing_report.clone(),
+            ObjectStoreDistributedSchedulingPolicy {
+                max_requests_per_task: 1,
+                max_task_count: 4,
+            },
+        );
+        let checkpoint_retry_report = plan_object_store_checkpoint_retry(
+            ObjectStoreCheckpointRetryInput::new(scheduling_report.clone())
+                .with_retry_policy(true)
+                .with_checkpoint_plan(true)
+                .with_idempotency_keys(true)
+                .with_attempt_record(true)
+                .with_cleanup_policy(true),
+        );
+        let commit_report = plan_object_store_commit_protocol(ready_commit_input());
+
+        plan_object_store_request_planner(
+            range_report,
+            coalescing_report,
+            scheduling_report,
+            checkpoint_retry_report,
+            commit_report,
+        )
+    }
+
+    #[test]
+    fn request_planner_aggregates_ready_surfaces_without_io() {
+        let report = ready_request_planner_report();
+
+        assert_eq!(report.status, ObjectStoreRequestPlannerStatus::Planned);
+        assert_eq!(
+            report.schema_version,
+            "shardloom.object_store_request_planner.v1"
+        );
+        assert_eq!(report.planned_surface_count, 5);
+        assert_eq!(report.blocked_surface_count, 0);
+        assert_eq!(report.planned_request_count, 3);
+        assert_eq!(report.coalesced_request_count, 3);
+        assert_eq!(report.planned_task_count, 3);
+        assert_eq!(report.retryable_task_count, 3);
+        assert_eq!(report.planned_checkpoint_record_count, 3);
+        assert!(report.requires_checkpoint_plan);
+        assert!(report.requires_retry_policy);
+        assert!(report.requires_idempotency_keys);
+        assert!(!report.requires_atomic_commit_evidence);
+        assert!(report.side_effect_free());
+        assert!(!report.has_errors());
+        assert_eq!(
+            ObjectStoreRequestPlannerReport::surface_order(),
+            vec![
+                "range_planning",
+                "request_coalescing",
+                "distributed_scheduling",
+                "checkpoint_retry",
+                "commit_protocol"
+            ]
+        );
+    }
+
+    #[test]
+    fn request_planner_blocks_on_range_planning() {
+        let manifest = manifest_with_uri("s3://bucket/table.vortex", Vec::new());
+        let range_policy = ObjectStoreRangePlanningPolicy::default();
+        let range_report = plan_object_store_ranges(manifest.clone(), range_policy);
+        let coalescing_report = plan_object_store_request_coalescing(manifest, range_policy);
+        let scheduling_report = plan_object_store_distributed_scheduling(
+            coalescing_report.clone(),
+            ObjectStoreDistributedSchedulingPolicy::default(),
+        );
+        let checkpoint_retry_report = plan_object_store_checkpoint_retry(
+            ObjectStoreCheckpointRetryInput::new(scheduling_report.clone())
+                .with_retry_policy(true)
+                .with_checkpoint_plan(true)
+                .with_idempotency_keys(true)
+                .with_attempt_record(true)
+                .with_cleanup_policy(true),
+        );
+        let commit_report = plan_object_store_commit_protocol(ready_commit_input());
+
+        let report = plan_object_store_request_planner(
+            range_report,
+            coalescing_report,
+            scheduling_report,
+            checkpoint_retry_report,
+            commit_report,
+        );
+
+        assert_eq!(
+            report.status,
+            ObjectStoreRequestPlannerStatus::BlockedByRangePlanning
+        );
+        assert!(report.requires_byte_ranges);
+        assert_eq!(report.planned_surface_count, 1);
+        assert_eq!(report.blocked_surface_count, 4);
+        assert!(report.has_errors());
+        assert!(report.side_effect_free());
+    }
+
+    #[test]
+    fn request_planner_blocks_on_commit_evidence() {
+        let ready = ready_request_planner_report();
+        let commit_report =
+            plan_object_store_commit_protocol(ready_commit_input().with_idempotency_key(false));
+        let report = plan_object_store_request_planner(
+            ready.range_report,
+            ready.coalescing_report,
+            ready.scheduling_report,
+            ready.checkpoint_retry_report,
+            commit_report,
+        );
+
+        assert_eq!(
+            report.status,
+            ObjectStoreRequestPlannerStatus::BlockedByCommit
+        );
+        assert!(report.requires_idempotency_keys);
+        assert_eq!(report.planned_surface_count, 4);
+        assert_eq!(report.blocked_surface_count, 1);
+        assert!(report.has_errors());
+        assert!(report.side_effect_free());
     }
 
     #[test]
