@@ -587,7 +587,7 @@ No fallback execution.
 ## CG-5.4 external baseline oracle policy
 
 - Primary RFC linkage: RFC 0015 Correctness/Semantics/Differential Testing, RFC 0029 Correctness/Benchmarks/Execution Certificates, RFC 0025 Competitive/no-fallback, and RFC 0032 capability certification gates.
-- `CorrectnessValidationPlan::default_foundation_plan` now declares Spark, DataFusion, DuckDB, Polars, and Velox as external correctness oracles only.
+- `CorrectnessValidationPlan::default_foundation_plan` now declares Spark, DataFusion, DuckDB, Polars, pandas, Dask, and Velox as external correctness oracles only.
 - `DifferentialBaseline::external_correctness_oracle` records comparison-only notes and remains fallback-disabled.
 - `shardloom-contract-tests/tests/external_baseline_oracles.rs` verifies all declared baselines are present, reference-only, non-fallback-capable, and not runtime execution paths.
 - This pass adds no external engine dependency, external baseline invocation, query execution behavior, benchmark claim, parser, adapter runtime, object-store IO, write behavior, or fallback execution.
@@ -608,6 +608,15 @@ No fallback execution.
 - `shardloom correctness-plan` now emits these fields in deterministic text/JSON output so humans and agents can see which CG-5 fixture families are present versus still only planned.
 - Contract and CLI snapshot tests verify required null, nested, dictionary, sparse-validity, run-length, temporal, and unsupported-plan-shape fixture families are tracked, while reference roles and external baselines remain non-production and fallback-free.
 - This pass adds no new query execution, decoded reference execution, external baseline invocation, fixture generation, parser, adapter runtime, object-store IO, write IO, benchmark/superiority claim, or fallback execution.
+
+## CG-5.7 correctness/differential harness aggregate surface
+
+- Primary RFC linkage: RFC 0015 Correctness/Semantics/Differential Testing, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, RFC 0029 Correctness/Benchmarks/Execution Certificates, and RFC 0032 capability certification gates.
+- `CorrectnessDifferentialHarnessReport` aggregates fixture manifest coverage, golden/reference coverage, decoded-reference output gaps, external oracle policy, semantic edge-case coverage, unsupported diagnostic fixtures, property/fuzz gaps, and benchmark claim blockers.
+- `correctness-harness-plan` exposes stable JSON/text fields for surface order, planned/blocked surface counts, required validation modes, missing validation modes, baseline engine order, no-execution boundaries, no-fallback boundaries, and production-claim blockers.
+- The external correctness oracle inventory now includes Spark, DataFusion, DuckDB, Polars, pandas, Dask, and Velox as comparison-only baselines, never runtime fallback engines.
+- Contract and CLI snapshot tests verify the aggregate remains side-effect-free and that decoded-reference execution, external engine execution, data reads, object-store IO, writes, production claims, and fallback execution are disabled.
+- This pass adds no decoded-reference execution, external engine invocation, query execution, fixture generation, parser, adapter runtime, object-store IO, write IO, benchmark/superiority claim, production certification, or fallback execution.
 
 ## CG-16.1 local encoded `CountAll` execution certificate
 

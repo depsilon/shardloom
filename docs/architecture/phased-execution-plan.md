@@ -45,32 +45,35 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-10.6 ObjectStoreRequestPlanner aggregate surface
+- [x] Session label: CG-5.7 CorrectnessDifferentialHarness aggregate surface
   - Primary files:
-    - `shardloom-plan/src/object_store.rs`
-    - `shardloom-plan/src/lib.rs`
+    - `shardloom-core/src/correctness.rs`
+    - `shardloom-core/src/lib.rs`
     - `shardloom-cli/src/main.rs`
-    - `shardloom-cli/tests/object_store_request_plan_snapshots.rs`
-    - `shardloom-contract-tests/tests/plan_only_invariants.rs`
-    - `docs/architecture/object-store-request-planner.md`
+    - `shardloom-cli/tests/correctness_harness_plan_snapshots.rs`
+    - `shardloom-contract-tests/tests/correctness_differential_harness.rs`
+    - `docs/architecture/correctness-differential-harness.md`
     - `docs/architecture/canonical-terminology.md`
     - `docs/architecture/phased-execution-plan.md`
-  - Scope: Aggregate CG-10 range/coalescing/scheduling/checkpoint-retry/commit evidence into one deterministic report-only request planner before object-store IO or distributed runtime work.
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: Aggregate CG-5 fixture inventory, golden/reference coverage, edge-case coverage, external oracle policy, property/fuzz gaps, and benchmark-claim blockers into one deterministic report-only correctness harness before decoded-reference execution, external-engine invocation, broader query execution, or performance claims.
   - Checklist:
-    - [x] Add typed `ObjectStoreRequestPlannerReport` aggregate to `shardloom-plan`.
-    - [x] Expose `object-store-request-plan` CLI JSON/text output.
-    - [x] Add CLI snapshot and contract-test invariants for no full-file reads, coordinator/worker startup, task execution, retry execution, checkpoint writes, object-store IO, writes, or fallback execution.
-    - [x] Add architecture docs and terminology for the aggregate object-store request planner.
+    - [x] Add typed `CorrectnessDifferentialHarnessReport` aggregate to `shardloom-core`.
+    - [x] Expose `correctness-harness-plan` CLI JSON/text output.
+    - [x] Expand comparison-only correctness baselines to include pandas and Dask alongside Spark, DataFusion, DuckDB, Polars, and Velox.
+    - [x] Add CLI snapshot and contract-test invariants for no query execution, decoded-reference execution, external-engine invocation, data reads, object-store IO, writes, benchmark claim, or fallback execution.
+    - [x] Add architecture docs, terminology, and traceability for the aggregate correctness/differential harness.
     - [x] Run focused validation and full required validation.
   - Local validation status:
-    - Focused `cargo test -p shardloom-plan request_planner -- --nocapture` passed with Rust toolchain `1.91.1`.
-    - Focused `cargo test -p shardloom-cli object_store_request -- --nocapture` passed with Rust toolchain `1.91.1`.
-    - Focused `cargo test -p shardloom-contract-tests plan_only_types_do_not_imply_execution_or_side_effects -- --nocapture` passed with Rust toolchain `1.91.1`.
+    - Focused `cargo test -p shardloom-core correctness_harness -- --nocapture` passed with Rust toolchain `1.91.1`.
+    - Focused `cargo test -p shardloom-cli correctness_harness -- --nocapture` passed with Rust toolchain `1.91.1`.
+    - Focused `cargo test -p shardloom-contract-tests correctness_harness -- --nocapture` passed with Rust toolchain `1.91.1`.
+    - Focused regression checks for `correctness-plan` reference/gap fields and fixture manifest counts passed with Rust toolchain `1.91.1`.
     - `cargo fmt --all -- --check` passed with Rust toolchain `1.91.1`.
     - `cargo clippy --workspace --all-targets -- -D warnings` passed with Rust toolchain `1.91.1`.
     - `cargo test --workspace --all-targets` passed with Rust toolchain `1.91.1`.
     - `git diff --check` and hidden/bidi scan passed.
-  - Explicitly not included: full-file reads, object-store IO, coordinator/worker startup, task execution, retry execution, checkpoint writes, cleanup execution, object-store commit execution, provider probing, cloud credentials, benchmark claims, external-engine execution, or fallback execution.
+  - Explicitly not included: query execution, decoded-reference execution, external engine invocation, fixture generation, SQL parser, adapter runtime, object-store IO, data reads, write IO, benchmark/superiority claim, production certification, or fallback execution.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -487,6 +490,9 @@ Supporting docs:
 - [x] R3.9 ObjectStoreRequestPlannerReport foundation
   - Why: aggregate CG-10 range/coalescing/scheduling/checkpoint-retry/commit evidence before object-store IO or distributed runtime work.
   - Acceptance: `ObjectStoreRequestPlannerReport`, `object-store-request-plan` CLI JSON/text output, snapshot/contract tests, and architecture checklist are report-only with no full-file reads, coordinator/worker startup, task execution, retry execution, checkpoint writes, object-store IO, writes, or fallback execution.
+- [x] R3.10 CorrectnessDifferentialHarnessReport foundation
+  - Why: aggregate CG-5 fixture, reference, edge-case, external-oracle, property/fuzz, and benchmark-claim blocker evidence before decoded-reference execution, external engine invocation, broader query execution, or competitive claims.
+  - Acceptance: `CorrectnessDifferentialHarnessReport`, `correctness-harness-plan` CLI JSON/text output, snapshot/contract tests, and architecture checklist are report-only with no query execution, decoded-reference execution, external engine invocation, data reads, object-store IO, writes, benchmark claim, production certification, or fallback execution.
 - [x] R5.1 Systems-learning contract pass
 - [x] R5.2 Competitive track extension to CG-19/CG-20
 - [x] R5.3 RFC 0031/0032 deepening
@@ -1163,11 +1169,13 @@ Status legend:
   - [x] CG-5.4 external baseline oracle policy
   - [x] CG-5.5 local encoded `CountAll` golden fixture/reference-output proof
   - [x] CG-5.6 correctness coverage inventory surfacing
+  - [x] CG-5.7 correctness/differential harness aggregate surface
   - Expected evidence:
     - golden Vortex fixtures
     - decoded reference outputs
     - null/nested/dictionary/sparse/run-length/temporal edge-case coverage
     - external engine baselines used only as correctness oracles (never runtime fallback)
+    - property/fuzz fixtures and reproducible seeds before broad encoded execution claims
 
 - [ ] CG-6 — Benchmarks (**planned**)
   - [x] CG-6.1 benchmark evidence manifest
@@ -1453,9 +1461,13 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [~] reference outputs
 - [~] null/nested/dictionary/sparse/run-length/temporal edge-case coverage
 - [x] CG-5.3 correctness fixture manifest contract
-- [x] CG-5.4 Spark/Polars/DataFusion external baselines only, never fallback
+- [x] CG-5.4 Spark/DataFusion/DuckDB/Polars/pandas/Dask/Velox external baselines only, never fallback
 - [x] CG-5.5 local encoded `CountAll` golden fixture/reference-output proof
 - [x] CG-5.6 correctness coverage inventory surfacing
+- [x] CG-5.7 correctness/differential harness aggregate surface
+- [~] decoded-reference output artifacts
+- [~] property/fuzz fixture families and reproducible seeds
+- [~] external-oracle result artifacts remain deferred; engines are policy-only baselines until explicit benchmark/correctness runs
 
 ### CG-6 detailed checklist
 - [x] CG-6.1 benchmark evidence manifest
@@ -1659,7 +1671,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [~] Epic F — Agent Contract Pack
 - [~] Epic G — Table Intelligence Layer
 - [~] Epic H — Object Store Request Planner
-- [ ] Epic I — Correctness and Differential Harness
+- [~] Epic I — Correctness and Differential Harness
 - [ ] Epic J — Benchmark and Competitive Claims
 - [ ] Epic K — Dynamic Work Shaping
 
@@ -1726,6 +1738,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-5.4 external baseline oracle policy declares comparison-only baselines and blocks runtime fallback.
 - [x] CG-5.5 local encoded `CountAll` fixture/reference-output proof declares `ExpectedOutcome::EncodedCount { count: 20000 }` for the checked-in Vortex fixture and verifies the approved local encoded count path returns that value without decode/materialization/row/Arrow/object-store/write/spill/external/fallback effects.
 - [x] CG-5.6 correctness coverage inventory surfaces fixture IDs, semantic areas, edge cases, reference roles, required edge-case coverage, source-backed/golden/executable/not-yet-defined counts, and no-fallback/test-only fields through `correctness-plan`.
+- [x] CG-5.7 correctness/differential harness aggregate surface adds `CorrectnessDifferentialHarnessReport` and `correctness-harness-plan` surfacing across fixture inventory, golden/reference coverage, semantic edge cases, unsupported diagnostics, external correctness oracles, property/fuzz gaps, and benchmark claim blockers while keeping query execution, decoded-reference execution, external engine invocation, data reads, object-store IO, writes, and fallback disabled.
 - [x] CG-16.1 local encoded `CountAll` execution certificate adds a deterministic core certificate contract and Vortex adapter helper that certify the approved local encoded count path only when expected/actual correctness output matches and fallback/unsafe-effect evidence is absent.
 - [x] CG-17.1 stateful reuse boundary report adds `StatefulReuseReport` and `stateful-reuse-plan` surfacing for typed cache/reuse boundaries, invalidation signals, deterministic key requirements, correctness proof requirements, execution-certificate linkage, manifest-diff requirements, and no-cache/no-runtime/no-fallback side-effect fields.
 - [x] CG-6.1 benchmark evidence manifest covers required metric categories without running benchmarks.

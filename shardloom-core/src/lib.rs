@@ -58,10 +58,11 @@ pub use certification::{
     plan_world_class_sufficiency,
 };
 pub use correctness::{
-    CorrectnessFixture, CorrectnessPlanStatus, CorrectnessValidationPlan,
-    CorrectnessValidationReport, DiagnosticExpectation, DifferentialBaseline, EdgeCase,
-    ExpectedOutcome, FixtureFormat, FixtureId, FuzzSeed, ReferenceRole, SemanticArea,
-    ValidationResultStatus,
+    CorrectnessDifferentialHarnessReport, CorrectnessDifferentialHarnessStatus, CorrectnessFixture,
+    CorrectnessPlanStatus, CorrectnessValidationPlan, CorrectnessValidationReport,
+    DiagnosticExpectation, DifferentialBaseline, EdgeCase, ExpectedOutcome, FixtureFormat,
+    FixtureId, FuzzSeed, ReferenceRole, SemanticArea, ValidationResultStatus,
+    plan_correctness_differential_harness,
 };
 pub use cpu_specialization::{
     CpuInstructionClass, CpuOperatorSpecializationEntry, CpuOperatorSpecializationReport,

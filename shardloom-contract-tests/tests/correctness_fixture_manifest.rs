@@ -137,6 +137,6 @@ fn foundation_plan_reports_reference_and_gap_counts() {
     assert_eq!(plan.not_yet_defined_fixture_count(), 8);
     assert_eq!(plan.diagnostic_expected_output_count(), 1);
     assert_eq!(plan.unsupported_expected_output_count(), 1);
-    assert_eq!(plan.baseline_count(), 5);
+    assert_eq!(plan.baseline_count(), 7);
     assert!(plan.baselines_are_fallback_free());
 }
