@@ -63,6 +63,7 @@ pub mod selection_vector_filter_kernel;
 pub mod staged_manifest;
 pub mod staged_output;
 pub mod streaming_batch_runtime;
+pub mod traditional_analytics;
 pub mod write_intent;
 
 pub use filtered_count_readiness::*;
@@ -375,6 +376,10 @@ pub use output_payload::{
     vortex_output_payload_artifact_write_is_side_effect_free,
     vortex_output_payload_is_side_effect_free, write_vortex_native_count_output_payload,
     write_vortex_output_payload_artifact,
+};
+pub use traditional_analytics::{
+    TraditionalAnalyticsReport, TraditionalAnalyticsRequest, TraditionalAnalyticsScenario,
+    run_traditional_analytics_benchmark,
 };
 
 pub use write_intent::{

@@ -722,12 +722,21 @@ No fallback execution.
 ## CG-6.9 traditional analytics external benchmark harness
 
 - Primary RFC linkage: RFC 0029 benchmark evidence requirements, RFC 0015 correctness-before-performance requirements, RFC 0025 competitive/no-fallback guardrails, RFC 0009 benchmark methodology, RFC 0012 diagnostics/capability reporting, and RFC 0032 world-class user capability requirements.
-- `benchmarks/traditional_analytics/run.py` creates deterministic local CSV fact/dimension data and runs `csv/file ingest`, `selective filter`, `group by aggregation`, `sort and top-k`, `hash join`, `wide projection`, `distinct count`, and optional scale-stress skewed-join and multi-stage ETL scenarios independently per engine and scenario.
+- `benchmarks/traditional_analytics/run.py` creates deterministic local CSV fact/dimension data and runs `csv/file ingest`, `selective filter`, `group by aggregation`, `sort and top-k`, `hash join`, `wide projection`, `distinct count`, and optional scale-stress skewed-join and multi-stage ETL scenarios independently per engine and scenario, including separate `spark-default` and `spark-local-tuned` rows.
 - The harness emits machine-readable JSON and human-readable Markdown reports with fairness parameters, engine availability/version, scenario timing matrix, fastest-row table, ASCII timing bars, correctness digests, unsupported/failure rows, raw metrics, environment metadata, and limitations.
-- ShardLoom is included as a first-class engine row and is allowed to report `unsupported` for traditional analytics scenarios until native CSV/SQL/operator/adapter execution lands; that does not block pandas, Polars, DuckDB, Spark/PySpark, DataFusion, or Dask baselines from running.
-- ShardLoom native encoded microbenchmarks and universal-I/O/CSV-to-Vortex blocker lanes are included so current Vortex-native capability and missing universal-I/O work are visible in the same report.
+- ShardLoom is included as a first-class engine row; failures are captured per scenario and do not block pandas, Polars, DuckDB, Spark/PySpark, DataFusion, or Dask baselines from running.
+- ShardLoom native encoded microbenchmarks and universal-I/O/CSV-to-Vortex evidence lanes are included so current Vortex-native capability and remaining encoded-operator gaps are visible in the same report.
 - External engines remain benchmark-only tooling. They are not Cargo dependencies, runtime dependencies, ShardLoom execution delegates, or fallback engines.
 - This phase adds no ShardLoom SQL parser, dataframe API, adapter runtime, production dependency, broad claim publication, superiority claim, best-default claim, or fallback execution.
+
+## CG-6.10 ShardLoom traditional analytics universal-I/O smoke row
+
+- Primary RFC linkage: RFC 0031 native work envelopes/native I/O certificates, RFC 0029 benchmark evidence requirements, RFC 0015 correctness-before-performance requirements, RFC 0025 competitive/no-fallback guardrails, and RFC 0032 user-capability benchmark-gated claim requirements.
+- `shardloom traditional-analytics-run <scenario> <fact_csv> <dim_csv> --workspace <dir>` is feature-gated behind `vortex-traditional-analytics-benchmark` and is used by the traditional analytics harness for ShardLoom rows.
+- The feature-gated path parses the deterministic benchmark CSV fixture as a benchmark-only CSV source adapter, writes local Vortex files with upstream Vortex writer APIs isolated in `shardloom-vortex`, reopens those files, scans through upstream Vortex, and runs temporary benchmark operators over Vortex-derived arrays.
+- ShardLoom rows must emit native work envelope, native work stream, native result stream, native I/O certificate, CSV source adapter, CSV-to-Vortex import, Vortex write/read/scan, and materialization-boundary evidence fields before the harness accepts them.
+- The current traditional analytics path explicitly reports decode/materialization for temporary operators. It is universal-I/O smoke evidence, not mature encoded-native SQL/operator/function/adapter coverage.
+- This phase adds no SQL parser, DataFrame API, production CSV adapter, object-store IO, Arrow conversion, row-read path, external engine dependency, performance/superiority/best-default claim, or fallback execution.
 
 ## CG-12.4 native plan import/export serialization
 

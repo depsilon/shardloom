@@ -718,6 +718,14 @@ Default builds remain report-only/feature-disabled. Feature-enabled builds call 
 - CG-3.1 is the first approved real native Vortex payload path and is limited to a local count-result payload.
 - Broader payload shapes, manifest commits, and object-store writes remain deferred.
 
+## Traditional analytics universal-I/O smoke path
+
+`vortex-traditional-analytics-benchmark` adds a benchmark-only local path for the traditional analytics harness. The path keeps upstream `Vortex` API usage isolated in `shardloom-vortex`: deterministic CSV fixture rows are imported into local `Vortex` files, reopened, scanned through upstream `Vortex`, and evaluated by temporary benchmark operators over Vortex-derived arrays.
+
+The path records native work envelope, native work stream, native result stream, native I/O certificate, CSV source adapter, CSV-to-Vortex import, Vortex write/read/scan, and materialization-boundary evidence fields. It remains local-only and feature-gated, does not add a production CSV adapter, does not add SQL/DataFrame/API coverage, does not perform object-store IO, does not convert to Arrow, does not use a Vortex row-read path, and does not enable fallback execution.
+
+Current traditional benchmark operators decode/materialize Vortex-derived arrays after an explicit materialization boundary. This is universal-I/O smoke evidence only; mature encoded-native operator coverage remains CG-2/CG-7/CG-13/CG-20 work.
+
 
 ## CG-1.2b metadata/footer probe
 

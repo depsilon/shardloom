@@ -7,13 +7,13 @@ external comparison engines:
 - pandas
 - Polars
 - DuckDB
-- Spark/PySpark
+- Spark/PySpark default local profile
+- Spark/PySpark tuned local profile
 - DataFusion Python
 - Dask
 
 The external engines are benchmark tooling only. They are never ShardLoom
-runtime dependencies and never execute unsupported ShardLoom plans as fallback
-engines.
+runtime dependencies and never execute unsupported ShardLoom plans as fallback engines.
 
 ## Workloads
 
@@ -43,7 +43,7 @@ same hardware/cache settings before drawing conclusions.
 Each run writes a machine-readable JSON artifact and a human-readable Markdown
 report. The report begins with fairness parameters, then includes an engine
 overview, scenario timing matrix, fastest-row table, ASCII timing bars,
-ShardLoom native microbenchmarks, universal-I/O blocker lanes, correctness
+ShardLoom native microbenchmarks, universal-I/O evidence lanes, correctness
 summary, and separate failure/unsupported rows.
 
 Each result artifact records engine versions, Python/runtime details, dataset
@@ -51,9 +51,15 @@ shape, file sizes, wall/query time, sampled peak RSS when `psutil` is available,
 rows scanned, rows materialized, bytes read, object-store request count, and a
 correctness digest.
 
-ShardLoom traditional analytics rows are expected to report `unsupported` until
-native CSV/SQL/operator/adapter execution exists. That does not block the six
-external baselines from running.
+ShardLoom traditional analytics rows call the workspace-local native Rust
+command `shardloom traditional-analytics-run`. Build time is excluded from
+per-scenario timing and the selected `--shardloom-build-profile` is recorded in
+the fairness parameters. The harness builds ShardLoom with the
+`vortex-traditional-analytics-benchmark` feature and times CSV source
+adapter/import, local Vortex file write, Vortex file reopen, Vortex scan, and
+temporary benchmark operators over Vortex-derived arrays. These rows prove a
+universal-I/O smoke path, not the future SQL parser/DataFrame API or mature
+encoded-native operator surface.
 
 Dask is sensitive to partitioning, scheduler choice, file count, and dataset
 size. The harness records `--dask-blocksize` and `--dask-scheduler`; small
@@ -61,8 +67,9 @@ single-file CSV runs can make scheduler overhead dominate.
 
 This benchmark is intentionally explicit about fairness parameters. Before
 interpreting results, check row count, storage format, cache mode, timing scope,
-Dask partitioning, Spark Java status, and whether universal I/O or object-store
-lanes were included.
+Dask partitioning, Spark Java status, Spark default/tuned-local profile split,
+ShardLoom build profile/feature gate, and whether object-store lanes were
+included.
 
 ## Setup
 
@@ -76,8 +83,17 @@ benchmarks\traditional_analytics\.venv\Scripts\python -m pip install -r benchmar
 
 Spark/PySpark also requires a local JDK. Install JDK 17 or newer, set
 `JAVA_HOME`, and ensure `java` is on `PATH` before expecting Spark rows to run.
-Without Java, the harness records Spark as a missing dependency while still
-running the other engines.
+Without Java, the harness records Spark profiles as missing dependencies while
+still running the other engines.
+
+Spark rows are split into `spark-default` and `spark-local-tuned`. The default
+profile uses `local[*]` plus Spark defaults, while the tuned profile caps
+shuffle/default parallelism to the local CPU count and enables AQE. The `spark`
+engine alias expands to both profiles.
+
+On Windows the harness also checks common Temurin/Eclipse Adoptium install
+paths and will set `JAVA_HOME` for the benchmark process when it finds a local
+JDK there.
 
 ## Run
 
@@ -100,6 +116,13 @@ Run one engine or one scenario while troubleshooting:
 
 ```powershell
 python benchmarks\traditional_analytics\run.py --engines polars --scenario "group by aggregation" --rows 10000 --iterations 1
+```
+
+Run only ShardLoom's universal-I/O smoke row while troubleshooting its local
+Vortex artifacts:
+
+```powershell
+python benchmarks\traditional_analytics\run.py --engines shardloom --scenario "group by aggregation" --rows 10000 --iterations 1
 ```
 
 Run the optional stress lane:
