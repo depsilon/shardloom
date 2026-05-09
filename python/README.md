@@ -18,6 +18,13 @@ $env:PYTHONPATH = "python\src"
 python -c "from shardloom import ShardLoomClient; print(ShardLoomClient.from_repo().status().status)"
 ```
 
+Or install the source-tree package in editable mode for notebook, job, or
+Foundry-style imports:
+
+```powershell
+python -m pip install -e python
+```
+
 Use `SHARDLOOM_BIN` to point at a specific CLI binary:
 
 ```powershell
@@ -36,6 +43,25 @@ print(client.status().status)
 `ShardLoomClient.from_repo()` looks for `target/release/shardloom` and then
 `target/debug/shardloom` when a command is invoked. It does not run commands or
 probe the repository at import time.
+
+`ShardLoomClient.from_env()` is the import-friendly constructor for managed
+Python environments. It reads configuration only and does not run commands:
+
+```python
+from shardloom import ShardLoomClient
+
+client = ShardLoomClient.from_env()
+smoke = client.smoke_check()
+print(smoke.commands)
+print(smoke.fallback_attempted)
+```
+
+Supported environment variables:
+
+- `SHARDLOOM_BIN`: explicit `shardloom` CLI binary path.
+- `SHARDLOOM_REPO_ROOT`: source checkout containing `target/<profile>/shardloom`.
+- `SHARDLOOM_PROFILE_ORDER`: comma-separated target profile order, for example `release,debug`.
+- `SHARDLOOM_TIMEOUT_SECONDS`: per-command subprocess timeout.
 
 ## Live ETL Smoke
 

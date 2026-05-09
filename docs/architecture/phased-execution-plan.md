@@ -45,6 +45,33 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
+- [x] Session label: CG-11.5 / CG-20.6 Python import environment and no-dataset smoke check
+  - Primary files:
+    - `python/src/shardloom/client.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/tests/test_cli_client.py`
+    - `python/README.md`
+    - `README.md`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: Make the thin Python CLI JSON client easier to import from managed Python environments by adding environment-driven construction and a no-dataset smoke check before live ETL runs.
+  - Checklist:
+    - [x] Add `ShardLoomClient.from_env()` for `SHARDLOOM_BIN`, `SHARDLOOM_REPO_ROOT`, `SHARDLOOM_PROFILE_ORDER`, and `SHARDLOOM_TIMEOUT_SECONDS`.
+    - [x] Add a no-dataset `smoke_check()` that runs `status`, Python capability discovery, and input adapter discovery.
+    - [x] Export the smoke-check report type through the Python package.
+    - [x] Document editable install, environment configuration, and smoke-check usage for notebook/job/Foundry-style imports.
+    - [x] Preserve thin subprocess CLI JSON transport, no import-time side effects, no native bindings, no SQL/DataFrame/UDF runtime, no package publication, and no fallback execution.
+    - [x] Add Python unit coverage for environment construction, invalid timeout handling, and smoke-check command dispatch.
+    - [x] Run required validation before PR.
+  - Local validation status:
+    - Focused `python -m unittest discover python\tests` passed locally with `PYTHONPATH=python\src`.
+    - `python -m compileall python\src python\examples` passed locally.
+    - Required `cargo fmt --all -- --check` passed locally with Rust toolchain `1.91.1`.
+    - Required `cargo clippy --workspace --all-targets -- -D warnings` passed locally with Rust toolchain `1.91.1`.
+    - Required `cargo test --workspace --all-targets` passed locally with Rust toolchain `1.91.1`.
+    - `git diff --check` passed locally.
+    - Hidden/bidi control scan over changed files passed locally.
+  - Explicitly not included: package publication, PyPI release, PyO3/maturin/native bindings, DataFrame runtime, notebook runtime, Python UDF runtime, SQL parser/execution, adapter runtime, object-store IO, benchmark changes, or fallback execution.
+
 - [x] Session label: CG-11.4 / CG-19.4 / CG-20.5 Python replay helper and universal input adapter matrix
   - Primary files:
     - `python/src/shardloom/client.py`

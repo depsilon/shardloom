@@ -69,6 +69,79 @@ class ShardLoomClientTests(unittest.TestCase):
 
         self.assertEqual(result.field_map["scope"], "python")
 
+    def test_from_env_reads_client_configuration_without_running_commands(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == ["status", "--format", "json"], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v1",
+                    "command": "status",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [{"key": "engine", "value": "shardloom"}],
+                }))
+                """
+            )
+        )
+
+        client = ShardLoomClient.from_env(
+            {
+                "SHARDLOOM_REPO_ROOT": "repo",
+                "SHARDLOOM_PROFILE_ORDER": "debug,release",
+                "SHARDLOOM_TIMEOUT_SECONDS": "5",
+            },
+            binary=binary,
+        )
+
+        self.assertEqual(client.status().field("engine"), "shardloom")
+
+    def test_from_env_rejects_invalid_timeout(self) -> None:
+        with self.assertRaises(ValueError):
+            ShardLoomClient.from_env({"SHARDLOOM_TIMEOUT_SECONDS": "soon"})
+
+    def test_smoke_check_runs_no_dataset_commands(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                args = sys.argv[1:]
+                if args == ["status", "--format", "json"]:
+                    command = "status"
+                    fields = [{"key": "engine", "value": "shardloom"}]
+                elif args == ["capabilities", "python", "--format", "json"]:
+                    command = "capabilities"
+                    fields = [{"key": "scope", "value": "python"}]
+                elif args == ["input-adapters", "--format", "json"]:
+                    command = "input-adapters"
+                    fields = [{"key": "plan_only", "value": "true"}]
+                else:
+                    raise AssertionError(args)
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v1",
+                    "command": command,
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": fields,
+                }))
+                """
+            )
+        )
+
+        report = ShardLoomClient(binary=binary).smoke_check()
+
+        self.assertEqual(report.commands, ("status", "capabilities", "input-adapters"))
+        self.assertFalse(report.fallback_attempted)
+        self.assertEqual(report.python_capabilities.field("scope"), "python")
+        self.assertTrue(report.input_adapters.field_bool("plan_only"))
+
     def test_vortex_run_passes_explicit_runtime_command(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(

@@ -17,6 +17,9 @@ CommandPart = str | os.PathLike[str]
 Binary = CommandPart | Sequence[CommandPart]
 DEFAULT_PROFILE_ORDER = ("release", "debug")
 ETL_INPUT_FORMATS = frozenset({"csv", "vortex"})
+ENV_REPO_ROOT = "SHARDLOOM_REPO_ROOT"
+ENV_PROFILE_ORDER = "SHARDLOOM_PROFILE_ORDER"
+ENV_TIMEOUT_SECONDS = "SHARDLOOM_TIMEOUT_SECONDS"
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,6 +56,35 @@ class LiveEtlReplayResult:
         """Whether the native Vortex replay command was executed."""
 
         return self.native_vortex is not None
+
+
+@dataclass(frozen=True, slots=True)
+class PythonClientSmokeReport:
+    """No-dataset Python client smoke-check envelopes."""
+
+    status: OutputEnvelope
+    python_capabilities: OutputEnvelope
+    input_adapters: OutputEnvelope
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether any smoke-check command reported attempted fallback execution."""
+
+        return (
+            self.status.fallback.attempted
+            or self.python_capabilities.fallback.attempted
+            or self.input_adapters.fallback.attempted
+        )
+
+    @property
+    def commands(self) -> tuple[str, ...]:
+        """Return the commands executed by the smoke check."""
+
+        return (
+            self.status.command,
+            self.python_capabilities.command,
+            self.input_adapters.command,
+        )
 
 
 class ShardLoomClient:
@@ -96,6 +128,34 @@ class ShardLoomClient:
 
         root = Path.cwd() if repo_root is None else Path(repo_root)
         return cls(repo_root=root, profile_order=profile_order, **kwargs)
+
+    @classmethod
+    def from_env(
+        cls,
+        env: Mapping[str, str] | None = None,
+        *,
+        profile_order: Sequence[str] | None = None,
+        **kwargs: object,
+    ) -> "ShardLoomClient":
+        """Create a client from ShardLoom Python environment variables.
+
+        Supported variables:
+        `SHARDLOOM_BIN`, `SHARDLOOM_REPO_ROOT`, `SHARDLOOM_PROFILE_ORDER`, and
+        `SHARDLOOM_TIMEOUT_SECONDS`. The method only reads configuration; it
+        does not run the CLI or inspect datasets.
+        """
+
+        effective_env = dict(os.environ if env is None else env)
+        repo_root = effective_env.get(ENV_REPO_ROOT)
+        configured_profile_order = profile_order or _profile_order_from_env(effective_env)
+        timeout = kwargs.pop("timeout", _timeout_from_env(effective_env))
+        return cls(
+            env=effective_env,
+            repo_root=repo_root,
+            profile_order=configured_profile_order,
+            timeout=timeout,
+            **kwargs,
+        )
 
     def status(self, *, check: bool = True) -> OutputEnvelope:
         """Return the CLI status envelope."""
@@ -324,6 +384,15 @@ class ShardLoomClient:
 
         return self.run(["input-plan", str(dataset_uri)], check=check)
 
+    def smoke_check(self, *, check: bool = True) -> PythonClientSmokeReport:
+        """Run no-dataset commands that verify the Python client can reach ShardLoom."""
+
+        return PythonClientSmokeReport(
+            status=self.status(check=check),
+            python_capabilities=self.capabilities("python", check=check),
+            input_adapters=self.input_adapters(check=check),
+        )
+
     def run(self, args: Sequence[CommandPart], *, check: bool = True) -> OutputEnvelope:
         """Invoke a ShardLoom CLI command with JSON output enabled."""
 
@@ -433,3 +502,21 @@ def _required_field(envelope: OutputEnvelope, key: str) -> str:
             f"ShardLoom command {envelope.command!r} did not emit required field {key!r}"
         )
     return value
+
+
+def _profile_order_from_env(env: Mapping[str, str]) -> tuple[str, ...]:
+    raw = env.get(ENV_PROFILE_ORDER)
+    if raw is None or raw.strip() == "":
+        return DEFAULT_PROFILE_ORDER
+    values = tuple(part.strip() for part in raw.split(",") if part.strip())
+    return values or DEFAULT_PROFILE_ORDER
+
+
+def _timeout_from_env(env: Mapping[str, str]) -> float | None:
+    raw = env.get(ENV_TIMEOUT_SECONDS)
+    if raw is None or raw.strip() == "":
+        return None
+    try:
+        return float(raw)
+    except ValueError as exc:
+        raise ValueError(f"{ENV_TIMEOUT_SECONDS} must be a number of seconds") from exc
