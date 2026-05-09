@@ -6,7 +6,10 @@ use std::fmt::Write as _;
 use shardloom_core::UriScheme;
 #[cfg(feature = "vortex-local-primitives")]
 use shardloom_core::{ComparisonOp, DatasetUri, DiagnosticCode, PredicateExpr, StatValue};
-use shardloom_core::{Diagnostic, Result, ShardLoomError};
+use shardloom_core::{
+    CorrectnessFixture, Diagnostic, DiagnosticSeverity, ExecutionCertificate,
+    ExecutionCertificateInput, ExpectedOutcome, Result, ShardLoomError,
+};
 #[cfg(feature = "vortex-local-primitives")]
 use shardloom_plan::ProjectionRequest;
 
@@ -246,6 +249,176 @@ impl VortexLocalPrimitiveExecutionPolicy {
     pub const fn scan_concurrency_per_worker(&self) -> usize {
         self.max_parallelism
     }
+}
+
+/// Builds a CG-16 execution certificate for a completed local `.vortex`
+/// primitive report.
+///
+/// The certificate is intentionally narrow: it verifies one local primitive
+/// report against one correctness fixture, records pushdown/scan side effects,
+/// and blocks certification whenever decode, materialization, row reads, Arrow
+/// conversion, object-store IO, writes, spill, external effects, diagnostics, or
+/// fallback evidence appear.
+///
+/// # Errors
+/// Returns an error if the certificate input cannot be constructed.
+pub fn local_primitive_execution_certificate(
+    fixture: &CorrectnessFixture,
+    request: &VortexQueryPrimitiveRequest,
+    report: &VortexLocalPrimitiveExecutionReport,
+) -> Result<ExecutionCertificate> {
+    let certificate_id = format!(
+        "{}.{}.execution-certificate",
+        fixture.id.as_str(),
+        report.primitive_kind.as_str()
+    );
+    let execution_kind = format!("vortex.local_primitive.{}", report.primitive_kind.as_str());
+    let mut input = ExecutionCertificateInput::new(certificate_id, execution_kind)?;
+    input.plan_ref = Some(format!("vortex-run:{}", report.primitive_kind.as_str()));
+    input.input_ref = request
+        .source_uri
+        .as_ref()
+        .map(|uri| uri.as_str().to_string())
+        .or_else(|| fixture.source_ref.clone());
+    input.output_ref = local_primitive_output_ref(report);
+    input.correctness_fixture_id = Some(fixture.id.as_str().to_string());
+    input.expected_outcome = Some(fixture.expected.clone());
+    input.actual_outcome = local_primitive_actual_outcome(report, &fixture.expected);
+    input.selected_segment_count = 0;
+    input.skipped_segment_count = 0;
+    input.side_effects_performed = local_primitive_side_effects(report);
+    input.data_read = report.data_read;
+    input.data_decoded = report.data_decoded;
+    input.data_materialized = report.data_materialized;
+    input.row_read = report.row_read;
+    input.arrow_converted = report.arrow_converted;
+    input.object_store_io = report.object_store_io;
+    input.write_io = report.write_io;
+    input.spill_io_performed = report.spill_io_performed;
+    input.external_effects_executed = report.external_effects_executed;
+    input.fallback_attempted = request
+        .diagnostics
+        .iter()
+        .chain(report.diagnostics.iter())
+        .any(|diagnostic| diagnostic.fallback.attempted);
+    input.fallback_execution_allowed = report.fallback_execution_allowed;
+    input.unsafe_effect_detected =
+        request.kind != report.primitive_kind || local_primitive_unsafe_effect_detected(report);
+    input.correctness_passed = local_primitive_correctness_passed(
+        &fixture.expected,
+        request,
+        report,
+        input.actual_outcome.as_ref(),
+    );
+    input.diagnostics.extend(request.diagnostics.clone());
+    input.diagnostics.extend(report.diagnostics.clone());
+    Ok(ExecutionCertificate::evaluate(input))
+}
+
+fn local_primitive_output_ref(report: &VortexLocalPrimitiveExecutionReport) -> Option<String> {
+    match report.primitive_kind {
+        VortexQueryPrimitiveKind::CountAll => Some(format!("count_result={}", report.rows_scanned)),
+        VortexQueryPrimitiveKind::CountWhere => report
+            .rows_selected
+            .map(|row_count| format!("count_result={row_count}")),
+        VortexQueryPrimitiveKind::FilterPredicate => report
+            .rows_selected
+            .map(|rows| format!("rows_selected={rows}")),
+        VortexQueryPrimitiveKind::ProjectColumns => report
+            .rows_projected
+            .map(|rows| format!("rows_projected={rows}")),
+        VortexQueryPrimitiveKind::FilterAndProject => {
+            local_primitive_row_count(report).map(|rows| {
+                format!(
+                    "rows_selected={rows};rows_projected={rows};projected_columns={}",
+                    report.projected_columns.join(",")
+                )
+            })
+        }
+        VortexQueryPrimitiveKind::SimpleAggregate | VortexQueryPrimitiveKind::Unsupported => None,
+    }
+}
+
+fn local_primitive_actual_outcome(
+    report: &VortexLocalPrimitiveExecutionReport,
+    expected: &ExpectedOutcome,
+) -> Option<ExpectedOutcome> {
+    let row_count = local_primitive_row_count(report)?;
+    match expected {
+        ExpectedOutcome::EncodedCount { .. } => {
+            Some(ExpectedOutcome::EncodedCount { count: row_count })
+        }
+        ExpectedOutcome::Rows { .. } => Some(ExpectedOutcome::Rows {
+            row_count: Some(row_count),
+        }),
+        ExpectedOutcome::NoSideEffects if !local_primitive_unsafe_effect_detected(report) => {
+            Some(ExpectedOutcome::NoSideEffects)
+        }
+        _ => None,
+    }
+}
+
+fn local_primitive_row_count(report: &VortexLocalPrimitiveExecutionReport) -> Option<u64> {
+    match report.primitive_kind {
+        VortexQueryPrimitiveKind::CountAll => Some(report.rows_scanned),
+        VortexQueryPrimitiveKind::CountWhere | VortexQueryPrimitiveKind::FilterPredicate => {
+            report.rows_selected
+        }
+        VortexQueryPrimitiveKind::ProjectColumns => report.rows_projected,
+        VortexQueryPrimitiveKind::FilterAndProject => {
+            match (report.rows_selected, report.rows_projected) {
+                (Some(selected), Some(projected)) if selected == projected => Some(selected),
+                _ => None,
+            }
+        }
+        VortexQueryPrimitiveKind::SimpleAggregate | VortexQueryPrimitiveKind::Unsupported => None,
+    }
+}
+
+fn local_primitive_side_effects(report: &VortexLocalPrimitiveExecutionReport) -> Vec<String> {
+    let mut effects = Vec::new();
+    if report.upstream_scan_called {
+        effects.push("local_vortex_scan".to_string());
+    }
+    if report.filter_pushdown_applied {
+        effects.push("vortex_filter_pushdown".to_string());
+    }
+    if report.projection_pushdown_applied {
+        effects.push("vortex_projection_pushdown".to_string());
+    }
+    effects
+}
+
+fn local_primitive_unsafe_effect_detected(report: &VortexLocalPrimitiveExecutionReport) -> bool {
+    report.has_errors()
+        || report.diagnostics.iter().any(|d| {
+            matches!(
+                d.severity,
+                DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+            )
+        })
+        || report.data_decoded
+        || report.data_materialized
+        || report.row_read
+        || report.arrow_converted
+        || report.object_store_io
+        || report.write_io
+        || report.spill_io_performed
+        || report.external_effects_executed
+        || report.fallback_execution_allowed
+}
+
+fn local_primitive_correctness_passed(
+    expected: &ExpectedOutcome,
+    request: &VortexQueryPrimitiveRequest,
+    report: &VortexLocalPrimitiveExecutionReport,
+    actual: Option<&ExpectedOutcome>,
+) -> bool {
+    report.status == VortexLocalPrimitiveExecutionStatus::Executed
+        && request.kind == report.primitive_kind
+        && Some(expected) == actual
+        && request.diagnostics.is_empty()
+        && !local_primitive_unsafe_effect_detected(report)
 }
 
 /// Executes a narrow local Vortex query primitive when the feature gate is enabled.
@@ -954,7 +1127,9 @@ fn vortex_error(error: impl std::fmt::Display) -> ShardLoomError {
 #[cfg(all(test, feature = "vortex-local-primitives"))]
 mod tests {
     use super::*;
-    use shardloom_core::ColumnRef;
+    use shardloom_core::{
+        ColumnRef, CorrectnessFixture, CorrectnessValidationPlan, ExecutionCertificateStatus,
+    };
 
     fn unique_vortex_path(name: &str) -> std::path::PathBuf {
         let nanos = std::time::SystemTime::now()
@@ -1031,6 +1206,14 @@ mod tests {
             .collect::<PrimitiveArray>()
             .into_array();
         write_array(path, &array)
+    }
+
+    fn correctness_fixture(id: &str) -> CorrectnessFixture {
+        CorrectnessValidationPlan::default_foundation_plan()
+            .fixtures
+            .into_iter()
+            .find(|fixture| fixture.id.as_str() == id)
+            .expect("fixture")
     }
 
     #[test]
@@ -1204,5 +1387,111 @@ mod tests {
         assert!(!report.row_read);
         assert!(!report.arrow_converted);
         assert!(!report.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn local_primitive_certificates_cover_broader_runtime_fixtures() {
+        let cases = [
+            (
+                "count-where-certificate",
+                "vortex-local-count-where-struct-five",
+                VortexQueryPrimitiveRequest::count_where(
+                    DatasetUri::new("placeholder.vortex").expect("uri"),
+                    PredicateExpr::Compare {
+                        column: ColumnRef::new("value").expect("column"),
+                        op: ComparisonOp::GtEq,
+                        value: StatValue::Int64(3),
+                    },
+                ),
+            ),
+            (
+                "project-certificate",
+                "vortex-local-project-struct-five",
+                VortexQueryPrimitiveRequest::project(
+                    DatasetUri::new("placeholder.vortex").expect("uri"),
+                    ProjectionRequest::columns(vec![ColumnRef::new("metric").expect("column")]),
+                ),
+            ),
+            (
+                "filter-project-certificate",
+                "vortex-local-filter-project-struct-five",
+                VortexQueryPrimitiveRequest::filter_and_project(
+                    DatasetUri::new("placeholder.vortex").expect("uri"),
+                    PredicateExpr::Compare {
+                        column: ColumnRef::new("value").expect("column"),
+                        op: ComparisonOp::GtEq,
+                        value: StatValue::Int64(3),
+                    },
+                    ProjectionRequest::columns(vec![ColumnRef::new("metric").expect("column")]),
+                ),
+            ),
+        ];
+
+        for (name, fixture_id, mut request) in cases {
+            let path = unique_vortex_path(name);
+            write_struct_fixture(&path).expect("fixture");
+            request.source_uri = Some(DatasetUri::new(path.display().to_string()).expect("uri"));
+
+            let report = execute_vortex_local_primitive(&request).expect("report");
+            let certificate = local_primitive_execution_certificate(
+                &correctness_fixture(fixture_id),
+                &request,
+                &report,
+            )
+            .expect("certificate");
+            let _ = std::fs::remove_file(&path);
+
+            assert_eq!(
+                certificate.status,
+                ExecutionCertificateStatus::Certified,
+                "{fixture_id}"
+            );
+            assert!(certificate.is_certified(), "{fixture_id}");
+            assert_eq!(
+                certificate.correctness_fixture_id.as_deref(),
+                Some(fixture_id)
+            );
+            assert_eq!(certificate.expected_outcome, certificate.actual_outcome);
+            assert!(certificate.data_read);
+            assert!(!certificate.data_decoded);
+            assert!(!certificate.data_materialized);
+            assert!(!certificate.row_read);
+            assert!(!certificate.arrow_converted);
+            assert!(!certificate.object_store_io);
+            assert!(!certificate.write_io);
+            assert!(!certificate.spill_io_performed);
+            assert!(!certificate.external_effects_executed);
+            assert!(certificate.fallback_free());
+        }
+    }
+
+    #[test]
+    fn local_primitive_certificate_blocks_unsafe_effects() {
+        let path = unique_vortex_path("certificate-blocked");
+        write_struct_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::filter_and_project(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            PredicateExpr::Compare {
+                column: ColumnRef::new("value").expect("column"),
+                op: ComparisonOp::GtEq,
+                value: StatValue::Int64(3),
+            },
+            ProjectionRequest::columns(vec![ColumnRef::new("metric").expect("column")]),
+        );
+
+        let mut report = execute_vortex_local_primitive(&request).expect("report");
+        let _ = std::fs::remove_file(&path);
+        report.data_materialized = true;
+
+        let certificate = local_primitive_execution_certificate(
+            &correctness_fixture("vortex-local-filter-project-struct-five"),
+            &request,
+            &report,
+        )
+        .expect("certificate");
+
+        assert_eq!(certificate.status, ExecutionCertificateStatus::Blocked);
+        assert!(!certificate.is_certified());
+        assert!(certificate.data_materialized);
     }
 }

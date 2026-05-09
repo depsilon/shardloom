@@ -447,6 +447,7 @@ pub use local_primitives::{
     VortexLocalPrimitiveExecutionMode, VortexLocalPrimitiveExecutionPolicy,
     VortexLocalPrimitiveExecutionReport, VortexLocalPrimitiveExecutionStatus,
     execute_vortex_local_primitive, execute_vortex_local_primitive_with_policy,
+    local_primitive_execution_certificate,
 };
 pub use streaming_batch_runtime::{
     VortexStreamingBatchRuntimeMode, VortexStreamingBatchRuntimeReport,
