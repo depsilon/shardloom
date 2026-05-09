@@ -5,10 +5,13 @@ use std::fmt::Write as _;
 #[cfg(feature = "vortex-local-primitives")]
 use shardloom_core::UriScheme;
 #[cfg(feature = "vortex-local-primitives")]
-use shardloom_core::{ComparisonOp, DatasetUri, DiagnosticCode, PredicateExpr, StatValue};
+use shardloom_core::{ComparisonOp, DatasetUri, StatValue};
 use shardloom_core::{
-    CorrectnessFixture, Diagnostic, DiagnosticSeverity, ExecutionCertificate,
-    ExecutionCertificateInput, ExpectedOutcome, Result, ShardLoomError,
+    CorrectnessFixture, Diagnostic, DiagnosticCode, DiagnosticSeverity, ExecutionCertificate,
+    ExecutionCertificateInput, ExpectedOutcome, NativeIoAdapterFidelityReport, NativeIoCertificate,
+    NativeIoRepresentationTransition, NativeIoSideEffectReport, NativeIoSinkRequirementReport,
+    NativeIoSourceCapabilityReport, NativeIoSourcePushdownReport, PredicateExpr,
+    RepresentationState, Result, ShardLoomError,
 };
 #[cfg(feature = "vortex-local-primitives")]
 use shardloom_plan::ProjectionRequest;
@@ -313,6 +316,373 @@ pub fn local_primitive_execution_certificate(
     input.diagnostics.extend(request.diagnostics.clone());
     input.diagnostics.extend(report.diagnostics.clone());
     Ok(ExecutionCertificate::evaluate(input))
+}
+
+/// Builds a CG-19 runtime native I/O certificate for an executed local
+/// `.vortex` primitive path.
+///
+/// This certificate wraps the already-executed local primitive report with
+/// source capability, pushdown, representation, sink, fidelity, side-effect,
+/// and no-fallback evidence. It does not execute a scan itself, add adapter
+/// behavior, decode values, materialize rows, convert to Arrow, touch object
+/// stores, write outputs, spill data, or permit fallback execution.
+///
+/// # Errors
+/// Returns an error if the native I/O certificate input is invalid.
+pub fn local_primitive_native_io_certificate(
+    request: &VortexQueryPrimitiveRequest,
+    report: &VortexLocalPrimitiveExecutionReport,
+) -> Result<NativeIoCertificate> {
+    let safe = local_primitive_native_io_safe(request, report);
+    let diagnostics = local_primitive_native_io_diagnostics(safe, request, report);
+    let mut certificate = NativeIoCertificate::new(
+        format!(
+            "cg19.local_primitive.{}.native_io",
+            report.primitive_kind.as_str()
+        ),
+        local_primitive_native_io_path_id(report),
+        local_primitive_source_capability_report(safe, request, report),
+        local_primitive_source_pushdown_report(safe, request, report),
+        local_primitive_representation_transitions(safe, report),
+        local_primitive_sink_requirement_report(safe, report),
+        local_primitive_adapter_fidelity_report(safe, report),
+        Vec::new(),
+        local_primitive_native_io_side_effect_report(report, &diagnostics),
+        diagnostics,
+    )?;
+    certificate.fallback_attempted = certificate
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.fallback.attempted);
+    Ok(certificate)
+}
+
+fn local_primitive_native_io_path_id(report: &VortexLocalPrimitiveExecutionReport) -> &'static str {
+    match report.primitive_kind {
+        VortexQueryPrimitiveKind::CountAll | VortexQueryPrimitiveKind::CountWhere => {
+            "native_vortex_source_to_scalar_count_result"
+        }
+        VortexQueryPrimitiveKind::FilterPredicate => "native_vortex_source_to_filtered_result",
+        VortexQueryPrimitiveKind::ProjectColumns => "native_vortex_source_to_projected_result",
+        VortexQueryPrimitiveKind::FilterAndProject => {
+            "native_vortex_source_to_filtered_projected_result"
+        }
+        VortexQueryPrimitiveKind::SimpleAggregate | VortexQueryPrimitiveKind::Unsupported => {
+            "native_vortex_source_to_unsupported_result"
+        }
+    }
+}
+
+fn local_primitive_native_io_safe(
+    request: &VortexQueryPrimitiveRequest,
+    report: &VortexLocalPrimitiveExecutionReport,
+) -> bool {
+    request.kind == report.primitive_kind
+        && request.diagnostics.iter().all(|diagnostic| {
+            !matches!(
+                diagnostic.severity,
+                DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+            ) && !diagnostic.fallback.attempted
+        })
+        && report.status == VortexLocalPrimitiveExecutionStatus::Executed
+        && report.upstream_scan_called
+        && report.data_read
+        && report.streaming_scan_used
+        && !report.full_stream_collected
+        && local_primitive_row_count(report).is_some()
+        && local_primitive_pushdown_evidence_is_sufficient(report)
+        && !local_primitive_unsafe_effect_detected(report)
+}
+
+fn local_primitive_pushdown_evidence_is_sufficient(
+    report: &VortexLocalPrimitiveExecutionReport,
+) -> bool {
+    match report.primitive_kind {
+        VortexQueryPrimitiveKind::CountAll => true,
+        VortexQueryPrimitiveKind::CountWhere | VortexQueryPrimitiveKind::FilterPredicate => {
+            report.filter_pushdown_applied && report.upstream_filter_expression_used
+        }
+        VortexQueryPrimitiveKind::ProjectColumns => {
+            report.projection_pushdown_applied
+                && report.upstream_projection_expression_used
+                && !report.projected_columns.is_empty()
+        }
+        VortexQueryPrimitiveKind::FilterAndProject => {
+            report.filter_pushdown_applied
+                && report.projection_pushdown_applied
+                && report.upstream_filter_expression_used
+                && report.upstream_projection_expression_used
+                && !report.projected_columns.is_empty()
+        }
+        VortexQueryPrimitiveKind::SimpleAggregate | VortexQueryPrimitiveKind::Unsupported => false,
+    }
+}
+
+fn local_primitive_native_io_diagnostics(
+    safe: bool,
+    request: &VortexQueryPrimitiveRequest,
+    report: &VortexLocalPrimitiveExecutionReport,
+) -> Vec<Diagnostic> {
+    let mut diagnostics = request.diagnostics.clone();
+    diagnostics.extend(report.diagnostics.clone());
+    if !safe {
+        diagnostics.push(Diagnostic::unsupported(
+            DiagnosticCode::NoFallbackExecution,
+            "vortex_local_primitive_native_io_certificate",
+            "local primitive native I/O certificate requires a successful local Vortex scan-pushdown report with no decode, materialization, row reads, Arrow conversion, object-store IO, writes, spill, external effects, or fallback",
+            Some("Fallback attempted: false".to_string()),
+        ));
+    }
+    diagnostics
+}
+
+fn local_primitive_source_capability_report(
+    safe: bool,
+    request: &VortexQueryPrimitiveRequest,
+    report: &VortexLocalPrimitiveExecutionReport,
+) -> NativeIoSourceCapabilityReport {
+    NativeIoSourceCapabilityReport {
+        source_kind: request
+            .source_uri
+            .as_ref()
+            .filter(|uri| uri.looks_like_vortex())
+            .map_or_else(|| "unknown".to_string(), |_| "vortex".to_string()),
+        adapter_id: "shardloom.adapter.vortex.local_primitive.v1".to_string(),
+        schema_discovery_status: if report.upstream_scan_called {
+            "vortex_scan_schema_available".to_string()
+        } else {
+            "not_available".to_string()
+        },
+        statistics_availability: if report.rows_scanned > 0 {
+            "row_count_available".to_string()
+        } else {
+            "unknown".to_string()
+        },
+        pushdown_capabilities: if safe {
+            local_primitive_accepted_operations(report).join(",")
+        } else {
+            "none".to_string()
+        },
+        encoded_representation_preserved: safe,
+        range_read_capability: false,
+        streaming_capability: safe && report.streaming_scan_used,
+        object_store_capability: false,
+        fallback_attempted: false,
+    }
+}
+
+fn local_primitive_source_pushdown_report(
+    safe: bool,
+    request: &VortexQueryPrimitiveRequest,
+    report: &VortexLocalPrimitiveExecutionReport,
+) -> NativeIoSourcePushdownReport {
+    NativeIoSourcePushdownReport {
+        accepted_operations: if safe {
+            local_primitive_accepted_operations(report)
+        } else {
+            Vec::new()
+        },
+        rejected_operations: if safe {
+            Vec::new()
+        } else {
+            vec![report.primitive_kind.as_str().to_string()]
+        },
+        guarantee: if safe {
+            local_primitive_pushdown_guarantee(report).to_string()
+        } else {
+            "unsupported".to_string()
+        },
+        proof_basis: if safe {
+            local_primitive_pushdown_proof_basis(report).to_string()
+        } else {
+            "native I/O certificate blocked before accepting local primitive pushdown".to_string()
+        },
+        residual_expression: if safe {
+            None
+        } else {
+            request.predicate.as_ref().map(PredicateExpr::summary)
+        },
+        conservative_false_positive_policy: false,
+        unsafe_rejected_reason: (!safe)
+            .then(|| "missing safe local primitive scan-pushdown evidence".to_string()),
+        fallback_attempted: false,
+    }
+}
+
+fn local_primitive_accepted_operations(
+    report: &VortexLocalPrimitiveExecutionReport,
+) -> Vec<String> {
+    match report.primitive_kind {
+        VortexQueryPrimitiveKind::CountAll => vec!["count_all".to_string()],
+        VortexQueryPrimitiveKind::CountWhere => vec!["filter".to_string(), "count".to_string()],
+        VortexQueryPrimitiveKind::FilterPredicate => vec!["filter".to_string()],
+        VortexQueryPrimitiveKind::ProjectColumns => vec!["project".to_string()],
+        VortexQueryPrimitiveKind::FilterAndProject => {
+            vec!["filter".to_string(), "project".to_string()]
+        }
+        VortexQueryPrimitiveKind::SimpleAggregate | VortexQueryPrimitiveKind::Unsupported => {
+            Vec::new()
+        }
+    }
+}
+
+fn local_primitive_pushdown_guarantee(
+    report: &VortexLocalPrimitiveExecutionReport,
+) -> &'static str {
+    match report.primitive_kind {
+        VortexQueryPrimitiveKind::CountAll => "exact_array_length_count",
+        VortexQueryPrimitiveKind::CountWhere => "exact_filtered_count_from_vortex_scan_pushdown",
+        VortexQueryPrimitiveKind::FilterPredicate => "exact_filter_from_vortex_scan_pushdown",
+        VortexQueryPrimitiveKind::ProjectColumns => "exact_projection_from_vortex_scan_pushdown",
+        VortexQueryPrimitiveKind::FilterAndProject => {
+            "exact_filter_project_from_single_vortex_scan_pushdown"
+        }
+        VortexQueryPrimitiveKind::SimpleAggregate | VortexQueryPrimitiveKind::Unsupported => {
+            "unsupported"
+        }
+    }
+}
+
+fn local_primitive_pushdown_proof_basis(
+    report: &VortexLocalPrimitiveExecutionReport,
+) -> &'static str {
+    match report.primitive_kind {
+        VortexQueryPrimitiveKind::CountAll => {
+            "local Vortex scan yielded arrays and ShardLoom counted array lengths without decoding or row materialization"
+        }
+        VortexQueryPrimitiveKind::CountWhere => {
+            "local Vortex scan applied filter pushdown and ShardLoom counted selected array lengths without row reads"
+        }
+        VortexQueryPrimitiveKind::FilterPredicate => {
+            "local Vortex scan applied filter pushdown without ShardLoom row reads or Arrow conversion"
+        }
+        VortexQueryPrimitiveKind::ProjectColumns => {
+            "local Vortex scan applied projection pushdown or exact single-column passthrough without materialization"
+        }
+        VortexQueryPrimitiveKind::FilterAndProject => {
+            "local Vortex scan applied filter and projection pushdown in one scan without row reads"
+        }
+        VortexQueryPrimitiveKind::SimpleAggregate | VortexQueryPrimitiveKind::Unsupported => {
+            "unsupported local primitive"
+        }
+    }
+}
+
+fn local_primitive_representation_transitions(
+    safe: bool,
+    report: &VortexLocalPrimitiveExecutionReport,
+) -> Vec<NativeIoRepresentationTransition> {
+    if !safe {
+        return vec![NativeIoRepresentationTransition::new(
+            RepresentationState::VortexEncoded,
+            RepresentationState::Unsupported,
+            false,
+        )];
+    }
+    let to_state = match report.primitive_kind {
+        VortexQueryPrimitiveKind::CountWhere
+        | VortexQueryPrimitiveKind::FilterPredicate
+        | VortexQueryPrimitiveKind::FilterAndProject => RepresentationState::SelectionVectorEncoded,
+        VortexQueryPrimitiveKind::CountAll | VortexQueryPrimitiveKind::ProjectColumns => {
+            RepresentationState::VortexEncoded
+        }
+        VortexQueryPrimitiveKind::SimpleAggregate | VortexQueryPrimitiveKind::Unsupported => {
+            RepresentationState::Unsupported
+        }
+    };
+    vec![NativeIoRepresentationTransition::new(
+        RepresentationState::VortexEncoded,
+        to_state,
+        false,
+    )]
+}
+
+fn local_primitive_sink_requirement_report(
+    safe: bool,
+    report: &VortexLocalPrimitiveExecutionReport,
+) -> NativeIoSinkRequirementReport {
+    NativeIoSinkRequirementReport {
+        target_format: local_primitive_sink_target_format(report).to_string(),
+        accepts_encoded: safe,
+        requires_decoded_columnar: false,
+        requires_rows: false,
+        preserves_metadata: !matches!(
+            report.primitive_kind,
+            VortexQueryPrimitiveKind::CountAll | VortexQueryPrimitiveKind::CountWhere
+        ),
+        requires_ordering: false,
+        requires_partitioning: false,
+        requires_commit: false,
+        supports_streaming: safe && report.streaming_scan_used,
+        max_chunk_size: (report.max_chunk_rows > 0).then_some(report.max_chunk_rows as u64),
+        backpressure_policy: "bounded_local_scan_chunks".to_string(),
+    }
+}
+
+fn local_primitive_sink_target_format(
+    report: &VortexLocalPrimitiveExecutionReport,
+) -> &'static str {
+    match report.primitive_kind {
+        VortexQueryPrimitiveKind::CountAll | VortexQueryPrimitiveKind::CountWhere => {
+            "scalar_count_result"
+        }
+        VortexQueryPrimitiveKind::FilterPredicate => "local_filtered_stream_summary",
+        VortexQueryPrimitiveKind::ProjectColumns => "local_projected_stream_summary",
+        VortexQueryPrimitiveKind::FilterAndProject => "local_filtered_projected_stream_summary",
+        VortexQueryPrimitiveKind::SimpleAggregate | VortexQueryPrimitiveKind::Unsupported => {
+            "unsupported_result"
+        }
+    }
+}
+
+fn local_primitive_adapter_fidelity_report(
+    safe: bool,
+    report: &VortexLocalPrimitiveExecutionReport,
+) -> NativeIoAdapterFidelityReport {
+    NativeIoAdapterFidelityReport {
+        adapter_id: "shardloom.adapter.vortex.local_primitive.v1".to_string(),
+        source_kind: "vortex".to_string(),
+        sink_kind: local_primitive_sink_target_format(report).to_string(),
+        metadata_preserved: safe,
+        statistics_preserved: safe,
+        encoded_representation_preserved: safe,
+        materialization_required: false,
+        fidelity_loss: if safe {
+            "none_for_local_primitive_summary".to_string()
+        } else {
+            "unsupported".to_string()
+        },
+        metadata_loss: if matches!(
+            report.primitive_kind,
+            VortexQueryPrimitiveKind::CountAll | VortexQueryPrimitiveKind::CountWhere
+        ) {
+            "scalar_count_result_has_no_column_metadata".to_string()
+        } else {
+            "none".to_string()
+        },
+        fallback_attempted: false,
+    }
+}
+
+fn local_primitive_native_io_side_effect_report(
+    report: &VortexLocalPrimitiveExecutionReport,
+    diagnostics: &[Diagnostic],
+) -> NativeIoSideEffectReport {
+    NativeIoSideEffectReport {
+        data_read: report.data_read,
+        data_decoded: report.data_decoded,
+        data_materialized: report.data_materialized,
+        row_read: report.row_read,
+        arrow_converted: report.arrow_converted,
+        object_store_io: report.object_store_io,
+        write_io: report.write_io,
+        spill_io_performed: report.spill_io_performed,
+        external_effects_executed: report.external_effects_executed,
+        fallback_attempted: diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.fallback.attempted),
+        fallback_execution_allowed: report.fallback_execution_allowed,
+    }
 }
 
 fn local_primitive_output_ref(report: &VortexLocalPrimitiveExecutionReport) -> Option<String> {
@@ -1387,6 +1757,147 @@ mod tests {
         assert!(!report.row_read);
         assert!(!report.arrow_converted);
         assert!(!report.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn local_primitive_native_io_certificate_covers_filter_project_path() {
+        let path = unique_vortex_path("native-io-filter-project");
+        write_struct_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::filter_and_project(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            PredicateExpr::Compare {
+                column: ColumnRef::new("value").expect("column"),
+                op: ComparisonOp::GtEq,
+                value: StatValue::Int64(3),
+            },
+            ProjectionRequest::columns(vec![ColumnRef::new("metric").expect("column")]),
+        );
+
+        let report = execute_vortex_local_primitive(&request).expect("report");
+        let certificate =
+            local_primitive_native_io_certificate(&request, &report).expect("certificate");
+        let _ = std::fs::remove_file(&path);
+
+        assert!(certificate.is_certified());
+        assert_eq!(certificate.status(), "certified");
+        assert_eq!(
+            certificate.certificate_id,
+            "cg19.local_primitive.filter_and_project.native_io"
+        );
+        assert_eq!(
+            certificate.path_id,
+            "native_vortex_source_to_filtered_projected_result"
+        );
+        assert_eq!(
+            certificate
+                .source_pushdown_report
+                .accepted_operation_order(),
+            "filter,project"
+        );
+        assert_eq!(
+            certificate.representation_transition_order(),
+            "vortex_encoded->selection_vector_encoded"
+        );
+        assert_eq!(
+            certificate.sink_requirement_report.target_format,
+            "local_filtered_projected_stream_summary"
+        );
+        assert!(certificate.source_capability_report.streaming_capability);
+        assert!(
+            certificate
+                .source_capability_report
+                .encoded_representation_preserved
+        );
+        assert!(
+            certificate
+                .adapter_fidelity_report
+                .encoded_representation_preserved
+        );
+        assert!(certificate.materializing_transitions_have_boundaries());
+        assert_eq!(certificate.materialization_boundary_order(), "");
+        assert!(certificate.side_effects.data_read);
+        assert!(!certificate.side_effects.data_decoded);
+        assert!(!certificate.side_effects.data_materialized);
+        assert!(!certificate.side_effects.row_read);
+        assert!(!certificate.side_effects.arrow_converted);
+        assert!(!certificate.side_effects.object_store_io);
+        assert!(!certificate.side_effects.write_io);
+        assert!(!certificate.side_effects.spill_io_performed);
+        assert!(!certificate.side_effects.fallback_attempted);
+        assert!(!certificate.side_effects.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn local_primitive_native_io_certificate_covers_project_path() {
+        let path = unique_vortex_path("native-io-project");
+        write_struct_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::project(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            ProjectionRequest::columns(vec![ColumnRef::new("metric").expect("column")]),
+        );
+
+        let report = execute_vortex_local_primitive(&request).expect("report");
+        let certificate =
+            local_primitive_native_io_certificate(&request, &report).expect("certificate");
+        let _ = std::fs::remove_file(&path);
+
+        assert!(certificate.is_certified());
+        assert_eq!(
+            certificate
+                .source_pushdown_report
+                .accepted_operation_order(),
+            "project"
+        );
+        assert_eq!(
+            certificate.representation_transition_order(),
+            "vortex_encoded->vortex_encoded"
+        );
+        assert_eq!(
+            certificate.sink_requirement_report.target_format,
+            "local_projected_stream_summary"
+        );
+        assert!(certificate.sink_requirement_report.accepts_encoded);
+        assert!(!certificate.sink_requirement_report.requires_rows);
+    }
+
+    #[test]
+    fn local_primitive_native_io_certificate_blocks_unsafe_effects() {
+        let path = unique_vortex_path("native-io-blocked");
+        write_struct_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::filter_and_project(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            PredicateExpr::Compare {
+                column: ColumnRef::new("value").expect("column"),
+                op: ComparisonOp::GtEq,
+                value: StatValue::Int64(3),
+            },
+            ProjectionRequest::columns(vec![ColumnRef::new("metric").expect("column")]),
+        );
+
+        let mut report = execute_vortex_local_primitive(&request).expect("report");
+        let _ = std::fs::remove_file(&path);
+        report.data_materialized = true;
+
+        let certificate =
+            local_primitive_native_io_certificate(&request, &report).expect("certificate");
+
+        assert_eq!(certificate.status(), "blocked");
+        assert!(!certificate.is_certified());
+        assert_eq!(
+            certificate.representation_transition_order(),
+            "vortex_encoded->unsupported"
+        );
+        assert_eq!(
+            certificate
+                .source_pushdown_report
+                .rejected_operation_order(),
+            "filter_and_project"
+        );
+        assert!(certificate.side_effects.data_materialized);
+        assert!(certificate.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == DiagnosticCode::NoFallbackExecution
+                && diagnostic.severity == DiagnosticSeverity::Error
+        }));
     }
 
     #[test]
