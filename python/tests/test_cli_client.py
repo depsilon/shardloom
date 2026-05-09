@@ -356,6 +356,8 @@ class ShardLoomClientTests(unittest.TestCase):
                     "dim.csv",
                     "--workspace",
                     "work",
+                    "--input-format",
+                    "csv",
                     "--format",
                     "json",
                 ], sys.argv
@@ -414,10 +416,60 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertEqual(vortex_result.command, "traditional-analytics-vortex-run")
 
+    def test_live_etl_smoke_accepts_common_compatibility_formats(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == [
+                    "traditional-analytics-run",
+                    "hash join",
+                    "fact.parquet",
+                    "dim.parquet",
+                    "--workspace",
+                    "work",
+                    "--input-format",
+                    "parquet",
+                    "--compat-output-format",
+                    "orc",
+                    "--memory-gb",
+                    "8",
+                    "--max-parallelism",
+                    "4",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v1",
+                    "command": "traditional-analytics-run",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [{"key": "source_format", "value": "parquet"}],
+                }))
+                """
+            )
+        )
+
+        result = ShardLoomClient(binary=binary).live_etl_smoke(
+            "hash join",
+            "fact.parquet",
+            "dim.parquet",
+            input_format="parquet",
+            workspace="work",
+            compatibility_output_format="orc",
+            memory_gb=8,
+            max_parallelism=4,
+        )
+
+        self.assertEqual(result.field("source_format"), "parquet")
+
     def test_live_etl_smoke_rejects_unknown_format(self) -> None:
         with self.assertRaises(ValueError):
             ShardLoomClient(binary=["shardloom"]).live_etl_smoke(
-                "csv/file ingest", "fact.parquet", "dim.parquet", input_format="parquet"
+                "csv/file ingest", "fact.unknown", "dim.unknown", input_format="unknown"
             )
 
     def test_live_etl_csv_to_vortex_replay_runs_import_then_native_replay(self) -> None:
@@ -433,6 +485,8 @@ class ShardLoomClientTests(unittest.TestCase):
                     "dim.csv",
                     "--workspace",
                     "work",
+                    "--input-format",
+                    "csv",
                     "--format",
                     "json",
                 ]:
@@ -502,6 +556,8 @@ class ShardLoomClientTests(unittest.TestCase):
                     "dim.csv",
                     "--workspace",
                     "work",
+                    "--input-format",
+                    "csv",
                     "--format",
                     "json",
                 ], sys.argv

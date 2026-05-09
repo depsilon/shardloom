@@ -7,7 +7,7 @@
 ## Core Principles
 
 - `Vortex` is native input.
-- Compatibility inputs are explicit and feature-gated later.
+- Compatibility inputs are explicit and feature-gated.
 - Effectful inputs require explicit enablement.
 - Input adapters normalize metadata into `ShardLoom` domain types.
 - Input adapters do not imply fallback execution.
@@ -20,7 +20,8 @@
   - Native bridge is represented through `shardloom-vortex` planning/reporting surfaces.
   - Approved IO remains narrow and feature-gated.
 - Compatibility structured files
-  - Parquet, Arrow IPC, CSV, JSON/NDJSON, Avro, and ORC require explicit adapter phases.
+  - CSV, JSON/NDJSON, Parquet, Arrow IPC, Avro, and ORC have feature-gated local benchmark bridge coverage.
+  - Production-certified adapters remain separate phases and must emit full capability, pushdown, fidelity, and certificate evidence.
 - Catalog/table refs
   - Iceberg-compatible metadata, Delta-compatible metadata, Hive-style partitions, snapshots, catalogs, and schema evolution require explicit metadata and security/governance contracts.
 - Object-store manifests
@@ -46,9 +47,11 @@
   - It does not scan, decode, materialize, write, or inspect object stores.
 - Compatibility adapter bridge
   - Future adapters must emit source capability, pushdown proof, fidelity loss, materialization risk, and native I/O certificate evidence.
-- Benchmark-only CSV-to-Vortex smoke bridge
-  - `vortex-traditional-analytics-benchmark` enables a narrow local benchmark path that parses the deterministic traditional analytics CSV fixture, writes local Vortex files, reopens and scans those files through upstream Vortex, and emits native I/O evidence fields.
-  - This bridge exists to make universal-I/O benchmark work visible while broad CSV adapter, SQL, DataFrame/API, object-store, and production adapter coverage remain deferred.
+- Benchmark-only local compatibility-to-Vortex smoke bridge
+  - `vortex-traditional-analytics-benchmark` enables a narrow local benchmark path that parses deterministic traditional analytics fixtures in CSV, JSONL/NDJSON, Parquet, Arrow IPC, Avro, or ORC form, writes local Vortex files, reopens and scans those files through upstream Vortex, and emits native I/O evidence fields.
+  - The same feature-gated bridge can emit compatibility outputs in CSV, JSONL, Parquet, Arrow IPC, Avro, or ORC from Vortex-derived tables for roundtrip and troubleshooting evidence.
+  - This bridge exists to make universal-I/O benchmark work visible while production adapter certification, SQL, DataFrame/API, object-store, catalog, table-format, and distributed adapter coverage remain deferred.
+  - Resource sizing is automatic by default: applied parallelism is derived from local parallelism, and batch/partition sizing is derived from resource budget and source footprint unless memory or parallelism caps are provided.
   - Temporary traditional analytics operators currently consume Vortex-derived arrays after an explicit materialization boundary; this bridge is not mature encoded-native operator coverage.
 - Effectful input bridge
   - Future effectful inputs must participate in the core `EffectBudgetReport` and security/governance reporting.
@@ -64,10 +67,10 @@
 
 - `input-vortex`
 - `input-vortex-file-io`
-- `input-parquet`
-- `input-arrow-ipc`
 - `input-csv`
 - `input-jsonl`
+- `input-parquet`
+- `input-arrow-ipc`
 - `input-avro`
 - `input-orc`
 - `input-iceberg-compatible`
@@ -92,7 +95,7 @@
 - `input-llm`
 - `input-embeddings`
 - `input-vector`
-- `vortex-traditional-analytics-benchmark` (benchmark-only CSV-to-local-Vortex smoke path)
+- `vortex-traditional-analytics-benchmark` (benchmark-only local compatibility-file-to-Vortex smoke path)
 
 ## Guardrails
 

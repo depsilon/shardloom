@@ -323,7 +323,7 @@ fn execute_vortex_local_primitive_enabled(
             let scan = read_local_vortex_scan(&path, request.kind, policy, |_| {
                 Ok(LocalVortexScanPlan::passthrough())
             })?;
-            Ok(count_all_report(request.kind, &scan)?)
+            Ok(count_all_report(request.kind, &scan))
         }
         VortexQueryPrimitiveKind::CountWhere | VortexQueryPrimitiveKind::FilterPredicate => {
             let Some(predicate) = request.predicate.as_ref() else {
@@ -508,9 +508,9 @@ fn read_local_vortex_scan(
 fn count_all_report(
     primitive_kind: VortexQueryPrimitiveKind,
     scan: &LocalVortexScan,
-) -> Result<VortexLocalPrimitiveExecutionReport> {
+) -> VortexLocalPrimitiveExecutionReport {
     let rows = scan.source_row_count;
-    Ok(VortexLocalPrimitiveExecutionReport {
+    VortexLocalPrimitiveExecutionReport {
         status: VortexLocalPrimitiveExecutionStatus::Executed,
         mode: VortexLocalPrimitiveExecutionMode::MetadataPreservingCount,
         primitive_kind,
@@ -542,7 +542,7 @@ fn count_all_report(
         fallback_execution_allowed: false,
         materialization_boundary_reported: false,
         diagnostics: Vec::new(),
-    })
+    }
 }
 
 #[cfg(feature = "vortex-local-primitives")]

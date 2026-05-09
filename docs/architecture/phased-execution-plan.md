@@ -45,6 +45,46 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
+- [x] Session label: CG-6.21 / CG-8.10 / CG-19.5 / CG-20.7 universal-format local ETL adapters and auto resource sizing
+  - Primary files:
+    - `shardloom-vortex/Cargo.toml`
+    - `shardloom-vortex/src/local_primitives.rs`
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `shardloom-cli/src/main.rs`
+    - `python/src/shardloom/client.py`
+    - `python/tests/test_cli_client.py`
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `benchmarks/traditional_analytics/requirements.txt`
+    - `docs/architecture/universal-input-contract.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/dependencies/vortex-upstream-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: Turn the benchmark-only universal-I/O bridge from CSV-only into a feature-gated local structured-file adapter bridge for CSV, JSONL/NDJSON, Parquet, Arrow IPC, Avro, and ORC; preserve Vortex as the native midpoint; emit compatibility outputs; and make resource sizing automatic by default with optional memory/parallelism caps.
+  - Checklist:
+    - [x] Add explicit input-format parsing/inference for CSV, JSONL/NDJSON, Parquet, Arrow IPC, Avro, and ORC under the existing `vortex-traditional-analytics-benchmark` path.
+    - [x] Add feature-gated local readers for JSONL, Parquet, Arrow IPC, Avro, and ORC that feed the existing Vortex write/read/scan bridge instead of delegating execution to another engine.
+    - [x] Add compatibility outputs for CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC from Vortex-derived tables, with compatibility output metadata kept separate from native Vortex output.
+    - [x] Add Python client arguments for generic compatibility-file inputs, compatibility output format, memory cap, and parallelism cap.
+    - [x] Expand the traditional analytics benchmark harness to generate selected local formats, run ShardLoom rows per supported format, and capture unsupported external rows without aborting the report.
+    - [x] Treat `--memory-gb` and `--max-parallelism` as optional caps; by default derive applied parallelism from available local parallelism and derive batch/partition sizing from resource budget plus source footprint.
+    - [x] Document the feature-gated dependency/provenance boundary for Apache Arrow Rust crates, `orc-rust`, and benchmark-only `fastavro`.
+    - [x] Run focused Rust, Python, and benchmark smoke validation.
+    - [x] Run required full validation before PR.
+  - Local validation status:
+    - Focused `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark enabled_build_runs_csv_through_local_vortex_io -- --nocapture` passed locally with Rust toolchain `1.91.1`.
+    - Focused `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark enabled_build_roundtrips_common_formats_through_vortex_outputs -- --nocapture` passed locally with Rust toolchain `1.91.1`.
+    - Focused `cargo test -p shardloom-vortex --features vortex-local-primitives local_primitives -- --nocapture` passed locally with Rust toolchain `1.91.1`.
+    - Focused `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness -- --nocapture` passed locally with Rust toolchain `1.91.1`.
+    - Focused `python -m unittest python.tests.test_cli_client` passed locally with `PYTHONPATH=python\src`.
+    - `python -m compileall python\src python\tests benchmarks\traditional_analytics\run.py` passed locally.
+    - Tiny ShardLoom benchmark smoke across `csv,jsonl,parquet,arrow-ipc,avro,orc` passed locally and wrote JSON/Markdown artifacts under `benchmarks/traditional_analytics/results/`.
+    - Required `cargo fmt --all -- --check` passed locally with Rust toolchain `1.91.1`.
+    - Required `cargo clippy --workspace --all-targets -- -D warnings` passed locally with Rust toolchain `1.91.1`.
+    - Required `cargo test --workspace --all-targets` passed locally with Rust toolchain `1.91.1`.
+  - Explicitly not included: production adapter certification, object-store IO, catalog probing, table-format metadata IO, SQL parser/execution, DataFrame runtime, UDF runtime, mature encoded SQL/operator coverage, distributed execution, spill IO, claim-grade benchmark publication, superiority/best-default claim, package publication, or fallback execution.
+
 - [x] Session label: CG-11.5 / CG-20.6 Python import environment and no-dataset smoke check
   - Primary files:
     - `python/src/shardloom/client.py`
@@ -1644,6 +1684,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-6.18 ShardLoom native DecisionTrace/WhyReport benchmark evidence exposes local-engine claim blockers, primary reason, decision-trace counts, and next actions in `vortex-run` output and Markdown so runtime rows explain why they are or are not claim-grade
 - [x] CG-6.19 `benchmark-claim-evidence-plan` aggregates benchmark-plan, result-row, external-comparison, reproducibility, claim-gate, and no-fallback evidence gaps before any performance, superiority, cost, replacement, or best-default claim can be treated as publishable
 - [x] CG-6.20 traditional analytics harness storage expansion adds Parquet comparison rows and ShardLoom native Vortex rows with explicit unsupported-format capture, while keeping all external engines comparison-only and all performance/superiority claims disabled
+- [x] CG-6.21 universal-format benchmark smoke rows add ShardLoom CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC compatibility-to-Vortex lanes with JSON/Markdown resource-sizing evidence while preserving explicit unsupported rows for external engines and no performance/superiority claims
 - [~] runtime benchmarks started with local encoded count, ShardLoom universal-I/O smoke rows, and traditional analytics external harness; committed claim-grade comparative results remain planned
 - [x] peak-memory benchmark reporting
 - [x] bytes read/written benchmark reporting
@@ -1696,6 +1737,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-8.6 bounded metadata/no-op local task execution
 - [x] CG-8.7 approved local encoded streaming-batch runtime evidence
 - [x] CG-8.8 `dynamic-work-shaping-plan` aggregates adaptive sizing, runtime feedback signals, target-task policy, bounded-memory backpressure, scheduler queue policy, runtime-application blockers, benchmark evidence blockers, and no-fallback policy before live feedback-loop policy mutation is allowed
+- [x] CG-8.10 universal-format local ETL bridge derives applied parallelism from local resource availability and reports auto batch/partition sizing from source footprint plus resource budget, while keeping mature scheduler mutation, object-store request shaping, spill, and distributed execution deferred
 - [ ] broader streaming encoded batch runtime execution
 - [ ] bounded parallel encoded/read local execution
 - [x] adaptive split/coalesce planning surface
@@ -1799,7 +1841,8 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] Vortex Scan API source/sink/split/range-I/O alignment note documented as a design reference, not fallback execution
 - [x] CG-19.1 report-only native I/O envelope contract foundation implemented through `NativeIoEnvelopeReport` and `native-io-envelope-plan`
 - [x] CG-19.2 first benchmark runtime Native I/O certificate emits source capability, source pushdown, sink requirement, adapter fidelity, representation transition, materialization boundary, side-effect, and no-fallback evidence for the local CSV-to-Vortex smoke path
-- [~] generalized source/sink runtime certificate emission pending beyond the benchmark-only CSV-to-Vortex path
+- [x] CG-19.5 local compatibility-file runtime certificates cover CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC source paths into native Vortex output with materialization-boundary, adapter-fidelity, auto-sizing, and no-fallback evidence
+- [~] generalized source/sink runtime certificate emission pending beyond the benchmark-only local compatibility-file-to-Vortex path
 - [x] representation state, pushdown proof, materialization boundary, sink requirement, adapter fidelity, per-path certificate, no-default-Arrow, and no-fallback report fields are exposed without reads, decode, materialization, IO, writes, or fallback
 
 ### CG-20 detailed checklist
@@ -1814,6 +1857,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-20.1 report-only `WorldClassSufficiencyReport` foundation and `world-class-sufficiency-plan` CLI surface
 - [x] CG-20.2 report-only user-surface capability discovery for common ETL, Python, DataFrame/notebook, UDFs, universal/event/API adapters, unstructured/media, API, observability, deployment, extension, and security/governance scopes
 - [x] CG-20.3 Python live ETL smoke client surface for explicit CSV-to-Vortex and native Vortex local testing
+- [x] CG-20.7 local structured ETL usability bridge supports CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC inputs/outputs through the Python/CLI smoke surface with auto resource sizing, while production adapter certification, SQL/DataFrame/UDF runtime, and best-default certification remain deferred
 - [~] implementation pending
 - [ ] capability certification surface implementation across real SQL/operators/functions/adapters/semantic profiles/migration/Python/API/DataFrame/notebook/UDF/ETL/universal-adapter/unstructured-media certification evidence
 

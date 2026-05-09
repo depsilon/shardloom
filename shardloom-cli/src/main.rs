@@ -3275,29 +3275,35 @@ fn emit_error(
     ExitCode::from(2)
 }
 
+#[allow(clippy::too_many_lines)]
 fn handle_traditional_analytics_run(
     mut args: std::vec::IntoIter<String>,
     format: OutputFormat,
 ) -> ExitCode {
     let Some(scenario_text) = args.next() else {
         eprintln!(
-            "usage: shardloom traditional-analytics-run <scenario> <fact_csv> <dim_csv> [--workspace <dir>]"
+            "usage: shardloom traditional-analytics-run <scenario> <fact_input> <dim_input> [--workspace <dir>] [--input-format auto|csv|jsonl|parquet|arrow-ipc|avro|orc] [--compat-output-format csv|jsonl|parquet|arrow-ipc|avro|orc] [--memory-gb <cap>] [--max-parallelism <cap>]"
         );
         return ExitCode::from(2);
     };
     let Some(fact_csv) = args.next() else {
         eprintln!(
-            "usage: shardloom traditional-analytics-run <scenario> <fact_csv> <dim_csv> [--workspace <dir>]"
+            "usage: shardloom traditional-analytics-run <scenario> <fact_input> <dim_input> [--workspace <dir>] [--input-format auto|csv|jsonl|parquet|arrow-ipc|avro|orc] [--compat-output-format csv|jsonl|parquet|arrow-ipc|avro|orc] [--memory-gb <cap>] [--max-parallelism <cap>]"
         );
         return ExitCode::from(2);
     };
     let Some(dim_csv) = args.next() else {
         eprintln!(
-            "usage: shardloom traditional-analytics-run <scenario> <fact_csv> <dim_csv> [--workspace <dir>]"
+            "usage: shardloom traditional-analytics-run <scenario> <fact_input> <dim_input> [--workspace <dir>] [--input-format auto|csv|jsonl|parquet|arrow-ipc|avro|orc] [--compat-output-format csv|jsonl|parquet|arrow-ipc|avro|orc] [--memory-gb <cap>] [--max-parallelism <cap>]"
         );
         return ExitCode::from(2);
     };
     let mut workspace_dir: Option<PathBuf> = None;
+    let mut input_format: Option<shardloom_vortex::TraditionalAnalyticsInputFormat> = None;
+    let mut compatibility_output_format: Option<shardloom_vortex::TraditionalAnalyticsInputFormat> =
+        None;
+    let mut memory_gb: Option<u32> = None;
+    let mut max_parallelism: Option<usize> = None;
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--workspace" => {
@@ -3306,6 +3312,86 @@ fn handle_traditional_analytics_run(
                     return ExitCode::from(2);
                 };
                 workspace_dir = Some(PathBuf::from(value));
+            }
+            "--input-format" => {
+                let Some(value) = args.next() else {
+                    eprintln!(
+                        "usage: shardloom traditional-analytics-run ... --input-format auto|csv|jsonl|parquet|arrow-ipc|avro|orc"
+                    );
+                    return ExitCode::from(2);
+                };
+                if value != "auto" {
+                    match shardloom_vortex::TraditionalAnalyticsInputFormat::parse(&value) {
+                        Ok(parsed) => input_format = Some(parsed),
+                        Err(error) => {
+                            return emit_error(
+                                "traditional-analytics-run",
+                                format,
+                                "traditional analytics run failed",
+                                &error,
+                            );
+                        }
+                    }
+                }
+            }
+            "--compat-output-format" => {
+                let Some(value) = args.next() else {
+                    eprintln!(
+                        "usage: shardloom traditional-analytics-run ... --compat-output-format csv|jsonl|parquet|arrow-ipc|avro|orc"
+                    );
+                    return ExitCode::from(2);
+                };
+                match shardloom_vortex::TraditionalAnalyticsInputFormat::parse(&value) {
+                    Ok(parsed) => compatibility_output_format = Some(parsed),
+                    Err(error) => {
+                        return emit_error(
+                            "traditional-analytics-run",
+                            format,
+                            "traditional analytics run failed",
+                            &error,
+                        );
+                    }
+                }
+            }
+            "--memory-gb" => {
+                let Some(value) = args.next() else {
+                    eprintln!("usage: shardloom traditional-analytics-run ... --memory-gb <cap>");
+                    return ExitCode::from(2);
+                };
+                match value.parse::<u32>() {
+                    Ok(parsed) if parsed > 0 => memory_gb = Some(parsed),
+                    _ => {
+                        return emit_error(
+                            "traditional-analytics-run",
+                            format,
+                            "traditional analytics run failed",
+                            &ShardLoomError::InvalidOperation(format!(
+                                "traditional-analytics-run invalid --memory-gb value: {value}"
+                            )),
+                        );
+                    }
+                }
+            }
+            "--max-parallelism" => {
+                let Some(value) = args.next() else {
+                    eprintln!(
+                        "usage: shardloom traditional-analytics-run ... --max-parallelism <cap>"
+                    );
+                    return ExitCode::from(2);
+                };
+                match value.parse::<usize>() {
+                    Ok(parsed) if parsed > 0 => max_parallelism = Some(parsed),
+                    _ => {
+                        return emit_error(
+                            "traditional-analytics-run",
+                            format,
+                            "traditional analytics run failed",
+                            &ShardLoomError::InvalidOperation(format!(
+                                "traditional-analytics-run invalid --max-parallelism value: {value}"
+                            )),
+                        );
+                    }
+                }
             }
             extra => {
                 return emit_error(
@@ -3335,11 +3421,24 @@ fn handle_traditional_analytics_run(
             std::process::id()
         ))
     });
+    let fact_path = PathBuf::from(fact_csv);
+    let dim_path = PathBuf::from(dim_csv);
+    let input_format = input_format.unwrap_or_else(|| {
+        shardloom_vortex::TraditionalAnalyticsInputFormat::infer_from_paths(&fact_path, &dim_path)
+    });
     let request = shardloom_vortex::TraditionalAnalyticsRequest::new(
         scenario,
-        PathBuf::from(fact_csv),
-        PathBuf::from(dim_csv),
+        fact_path,
+        dim_path,
         workspace_dir,
+    )
+    .with_input_format(input_format)
+    .with_compatibility_output_format(compatibility_output_format)
+    .with_resource_policy(
+        shardloom_vortex::TraditionalAnalyticsResourcePolicy::from_hints(
+            memory_gb,
+            max_parallelism,
+        ),
     );
     let report = match shardloom_vortex::run_traditional_analytics_benchmark(request) {
         Ok(report) => report,
