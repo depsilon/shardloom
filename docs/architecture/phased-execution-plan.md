@@ -53,18 +53,20 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: phase-plan authoritative status cleanup
+- [x] Session label: CG-2.1e.30 / CG-13.13 / CG-16.5 / CG-19.8 local primitive Native I/O certificates
   - Primary files:
+    - `shardloom-vortex/src/local_primitives.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `shardloom-cli/src/main.rs`
     - `docs/architecture/phased-execution-plan.md`
-  - Scope: Make the phased execution plan easier to use as the single status source before the next engine implementation batch by separating active work from completed history and verifying the recently flagged CG rollups.
+  - Scope: Attach runtime `NativeIoCertificate` evidence to existing feature-gated local `.vortex` primitive scan-pushdown paths (`count`, `count-where`, `filter`, `project`, and `filter-project`) without widening runtime behavior.
   - Checklist:
-    - [x] Keep completed session detail under a completed-session ledger instead of treating it as active work.
-    - [x] Confirm CG-2.1e.28 is present in the CG-2 high-level rollup, detailed checklist, and historical ledger.
-    - [x] Confirm CG-6.7-CG-6.23 benchmark evidence is represented in the CG-6 high-level rollup, detailed checklist, and historical ledger.
-    - [x] Confirm CG-8.9-CG-8.12 and CG-11.5 are represented in their high-level rollups, detailed checklists, and historical ledgers.
-    - [x] Clarify that broad CG-20 work should not jump ahead of the generalized encoded primitive plus CG-5/CG-6 evidence loop.
-    - [x] Relabel mixed completed/deferred historical notes so they do not read as the current queue.
-  - Explicitly not included: runtime behavior, new readers, adapter execution, SQL/DataFrame/UDF implementation, benchmark reruns, dependency changes, superiority claims, or fallback execution.
+    - [x] Build a `local_primitive_native_io_certificate` helper from the already-executed local primitive report and original query primitive request.
+    - [x] Certify safe local scan-pushdown reports with source capability, accepted pushdown operations, representation transitions, sink requirements, adapter fidelity, side effects, and no-fallback evidence.
+    - [x] Block certificates for unsafe effects such as decode, materialization, row reads, Arrow conversion, object-store IO, writes, spill, external effects, diagnostics, or fallback evidence.
+    - [x] Emit stable `vortex-run` fields for local primitive Native I/O certificate status, path id, pushdown operations, representation transition, sink target, side effects, and no-fallback state.
+    - [x] Keep CG-2, CG-13, production claims, benchmark claims, non-local sources, object-store IO, writes, spill, SQL/DataFrame/API runtime, adapters, and fallback execution blocked.
+  - Explicitly not included: new reader/runtime behavior, new native operator work, object-store/non-local Vortex sources, universal adapter execution, SQL/DataFrame/Python runtime expansion, benchmark reruns, superiority or best-default claims, CG-2 closeout, CG-13 closeout, or fallback execution.
 
 ## Near-term Implementation Priority
 - [ ] Priority 1 - generalized encoded primitive execution loop
@@ -83,6 +85,19 @@ Supporting docs:
   - [ ] CG-20 SQL/Python/DataFrame/UDF/unstructured/media/adapters once the encoded primitive evidence loop is no longer the bottleneck.
 
 ## Recent Completed Session Ledger
+- [x] Session label: phase-plan authoritative status cleanup
+  - Primary files:
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: Make the phased execution plan easier to use as the single status source before the next engine implementation batch by separating active work from completed history and verifying the recently flagged CG rollups.
+  - Checklist:
+    - [x] Keep completed session detail under a completed-session ledger instead of treating it as active work.
+    - [x] Confirm CG-2.1e.28 is present in the CG-2 high-level rollup, detailed checklist, and historical ledger.
+    - [x] Confirm CG-6.7-CG-6.23 benchmark evidence is represented in the CG-6 high-level rollup, detailed checklist, and historical ledger.
+    - [x] Confirm CG-8.9-CG-8.12 and CG-11.5 are represented in their high-level rollups, detailed checklists, and historical ledgers.
+    - [x] Clarify that broad CG-20 work should not jump ahead of the generalized encoded primitive plus CG-5/CG-6 evidence loop.
+    - [x] Relabel mixed completed/deferred historical notes so they do not read as the current queue.
+  - Explicitly not included: runtime behavior, new readers, adapter execution, SQL/DataFrame/UDF implementation, benchmark reruns, dependency changes, superiority claims, or fallback execution.
+
 - [x] Session label: CG-2.1e.29 / CG-13.12 / CG-16.4 / CG-19.7 local direct CountAll Native I/O certification
   - Primary files:
     - `shardloom-vortex/src/local_execution.rs`
@@ -1486,6 +1501,7 @@ Status legend:
   - [x] CG-2.1e.27 local Vortex scan filter/project pushdown
   - [x] CG-2.1e.28 local Vortex filter-project scan pushdown
   - [x] CG-2.1e.29 local direct CountAll Native I/O certification
+  - [x] CG-2.1e.30 local primitive Native I/O certification
   - [~] CG-2.1+ broader zero-decode encoded primitive execution remains deferred pending filter/project encoded-kernel guarantees
   - [x] CG-2.2c filtered-count metadata proof local guard
   - [x] CG-2.2d filtered-count metadata proof report
@@ -1672,6 +1688,7 @@ Status legend:
   - [x] CG-13.10 local Vortex filter-project scan pushdown evidence
   - [x] CG-13.11 streaming benchmark scenarios avoid full-table materialization for projected native Vortex scans
   - [x] CG-13.12 local direct CountAll `vortex_encoded->vortex_encoded` Native I/O evidence
+  - [x] CG-13.13 local primitive scan-pushdown Native I/O evidence
   - Scope:
     - encoding-aware execution-path selection through `vortex-encoded-path-selection-plan`
     - direct count/filter/project over encoded segments
@@ -1701,6 +1718,7 @@ Status legend:
   - [x] CG-16.2 execution certificate evidence surface
   - [x] CG-16.3 broader local primitive execution certificate evidence
   - [x] CG-16.4 local encoded `CountAll` Native I/O certificate evidence
+  - [x] CG-16.5 local primitive Native I/O certificate evidence
   - Scope:
     - plan/input/output evidence artifacts through `execution-certificate-plan`
     - reproducibility metadata and segment traces
@@ -1728,7 +1746,8 @@ Status legend:
   - [x] CG-19.5 local compatibility-file runtime certificates
   - [x] CG-19.6 native Vortex streaming scenario certificates
   - [x] CG-19.7 local direct CountAll Native I/O certificate
-  - [~] generalized source/sink runtime certificate emission pending beyond local compatibility-file, benchmark native Vortex, and local direct-count paths
+  - [x] CG-19.8 local primitive scan-pushdown Native I/O certificates
+  - [~] generalized source/sink runtime certificate emission pending beyond local compatibility-file, benchmark native Vortex, local direct-count, and local primitive paths
   - Scope:
     - preserve representation state, pushdown evidence, materialization boundaries, and sink constraints without default decode
 
@@ -1802,6 +1821,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.27 local Vortex scan filter/project pushdown
 - [x] CG-2.1e.28 local Vortex filter-project scan pushdown
 - [x] CG-2.1e.29 local direct CountAll Native I/O certification
+- [x] CG-2.1e.30 local primitive Native I/O certification
 - [x] CG-2.2a filtered-count readiness core contract
 - [x] CG-2.2a.1 filtered-count blocker precision hardening
 - [x] CG-2.2b filtered-count readiness CLI integration
@@ -2003,6 +2023,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-13.10 local Vortex filter-project scan pushdown evidence combines predicate and projection pushdown in one feature-gated local scan for supported struct-array cases
 - [x] CG-13.11 native Vortex benchmark scenario execution records `vortex_encoded->partially_decoded` evidence for projected streaming scans and avoids claiming generalized encoded-native SQL/operator execution
 - [x] CG-13.12 local direct CountAll Native I/O certificate records encoded representation preservation for successful local encoded count reports without claiming filtered-count/projection encoded-kernel completion
+- [x] CG-13.13 local primitive Native I/O certificates record `vortex_encoded->vortex_encoded` or `vortex_encoded->selection_vector_encoded` evidence for successful local scan-pushdown primitive reports without claiming generalized encoded-kernel completion
 - [ ] generalized direct count/filter/project encoded execution
 - [ ] broad compressed-kernel correctness and benchmark certification
 
@@ -2027,6 +2048,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-16.2 execution certificate evidence surface
 - [x] CG-16.3 broader local primitive execution certificate evidence
 - [x] CG-16.4 local encoded `CountAll` Native I/O certificate evidence
+- [x] CG-16.5 local primitive Native I/O certificate evidence
 - [x] plan/input/output evidence artifacts for reproducibility
 - [x] deterministic, machine-readable certificate surfaces
 
@@ -2053,7 +2075,8 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-19.5 local compatibility-file runtime certificates cover CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC source paths into native Vortex output with materialization-boundary, adapter-fidelity, auto-sizing, and no-fallback evidence
 - [x] CG-19.6 native Vortex benchmark scenario certificates distinguish streaming projected scans from temporary full-table operators with per-path pushdown, sink-streaming, materialization-boundary, side-effect, and no-fallback evidence
 - [x] CG-19.7 local direct CountAll Native I/O certificate covers native Vortex source to scalar count result with exact `count_all` pushdown, `vortex_encoded->vortex_encoded` representation preservation, scalar sink requirements, no materialization boundaries, side-effect evidence, and no fallback
-- [~] generalized source/sink runtime certificate emission pending beyond local compatibility-file, benchmark native Vortex, and local direct-count paths
+- [x] CG-19.8 local primitive Native I/O certificates cover existing `vortex-run` count, count-where, filter, project, and filter-project local scan-pushdown reports with accepted pushdown operations, source capability, representation transition, sink requirement, adapter fidelity, side-effect, and no-fallback evidence
+- [~] generalized source/sink runtime certificate emission pending beyond local compatibility-file, benchmark native Vortex, local direct-count, and local primitive paths
 - [x] representation state, pushdown proof, materialization boundary, sink requirement, adapter fidelity, per-path certificate, no-default-Arrow, and no-fallback report fields are exposed without reads, decode, materialization, IO, writes, or fallback
 
 ### CG-20 detailed checklist
@@ -2151,6 +2174,7 @@ This section preserves older attribution notes that predate the compact CG rollu
 - [x] CG-2.1e.27/CG-13.8 local Vortex scan filter/project pushdown moves supported local filter/project/count-where primitives onto upstream Vortex scan expressions and exposes filter/projection pushdown evidence without row reads, Arrow conversion, object-store IO, writes, spill, or fallback execution.
 - [x] CG-2.1e.28/CG-13.10 local Vortex filter-project scan pushdown adds `FilterAndProject` construction, CLI parsing, local-engine execution, and native microbenchmark coverage for supported local `.vortex` filter+projection requests in one upstream scan without row reads, Arrow conversion, object-store IO, writes, spill, or fallback execution.
 - [x] CG-2.1e.29/CG-13.12/CG-16.4/CG-19.7 local direct CountAll Native I/O certification emits a runtime `NativeIoCertificate` for successful local encoded `CountAll` reports, covering local Vortex source capability, accepted `count_all` pushdown, `vortex_encoded->vortex_encoded` preservation, scalar-count sink requirements, no materialization boundaries, side-effect evidence, and no fallback.
+- [x] CG-2.1e.30/CG-13.13/CG-16.5/CG-19.8 local primitive Native I/O certification emits runtime `NativeIoCertificate` evidence for existing `vortex-run` count, count-where, filter, project, and filter-project local scan-pushdown reports, covering accepted pushdown operations, `vortex_encoded` representation transitions, sink requirements, side effects, and no fallback without widening runtime behavior.
 - [x] CG-4.2 local committed-manifest recovery/rollback diagnostics represent recovery-not-required, rollback-required/planned, ambiguous-commit, missing-manifest, cleanup-policy, and object-store blocker states without executing cleanup, rollback, object-store IO, or fallback.
 - [x] CG-4.3 local committed-manifest rollback cleanup execution deletes only `_shardloom_committed_manifest.json` behind `vortex-staged-output-fs` after rollback-planned recovery evidence; finalized manifests, commit markers, output payloads, object-store IO, upstream `Vortex` APIs, and fallback remain untouched.
 - [x] CG-2.2c filtered-count metadata proof local guard admits only metadata-proof `CountWhere` requests into metadata-only local execution and rejects encoded predicate candidates without fallback.

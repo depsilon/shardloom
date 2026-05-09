@@ -140,13 +140,14 @@ use shardloom_vortex::{
     execute_vortex_local_query_primitive, execute_vortex_metadata_only,
     execute_vortex_streaming_batches_from_local_encoded_count,
     finalized_manifest_artifact_write_request_from_plan, local_encoded_count_execution_certificate,
-    local_encoded_count_native_io_certificate, metadata_planning_is_side_effect_free,
-    metadata_pruning_is_side_effect_free, metadata_summary_is_plan_only,
-    native_output_payload_write_request_from_plan, open_vortex_metadata_only,
-    output_payload_artifact_write_request_from_plan, parse_vortex_local_engine_primitive,
-    plan_from_vortex_metadata_summary, plan_native_vortex_universal_input,
-    plan_vortex_commit_intent, plan_vortex_commit_marker, plan_vortex_commit_protocol,
-    plan_vortex_count_readiness, plan_vortex_encoded_count_data_path_approval,
+    local_encoded_count_native_io_certificate, local_primitive_native_io_certificate,
+    metadata_planning_is_side_effect_free, metadata_pruning_is_side_effect_free,
+    metadata_summary_is_plan_only, native_output_payload_write_request_from_plan,
+    open_vortex_metadata_only, output_payload_artifact_write_request_from_plan,
+    parse_vortex_local_engine_primitive, plan_from_vortex_metadata_summary,
+    plan_native_vortex_universal_input, plan_vortex_commit_intent, plan_vortex_commit_marker,
+    plan_vortex_commit_protocol, plan_vortex_count_readiness,
+    plan_vortex_encoded_count_data_path_approval,
     plan_vortex_encoded_count_data_path_approval_with_layout_driver,
     plan_vortex_encoded_execution_path_selection, plan_vortex_encoded_read_boundary,
     plan_vortex_encoded_read_probe, plan_vortex_filtered_count_readiness,
@@ -11115,6 +11116,238 @@ fn append_vortex_count_local_native_io_side_effect_fields(
     push_bool_field(
         fields,
         "local_count_native_io_fallback_execution_allowed",
+        side_effects.fallback_execution_allowed,
+    );
+}
+
+fn append_vortex_local_primitive_native_io_certificate_fields(
+    fields: &mut Vec<(String, String)>,
+    certificate: Option<&NativeIoCertificate>,
+) {
+    let Some(certificate) = certificate else {
+        push_bool_field(
+            fields,
+            "local_primitive_native_io_certificate_emitted",
+            false,
+        );
+        push_field(
+            fields,
+            "local_primitive_native_io_certificate_status",
+            "evidence_unavailable",
+        );
+        push_bool_field(fields, "local_primitive_native_io_certified", false);
+        return;
+    };
+
+    append_vortex_local_primitive_native_io_identity_fields(fields, certificate);
+    append_vortex_local_primitive_native_io_source_fields(fields, certificate);
+    append_vortex_local_primitive_native_io_pushdown_fields(fields, certificate);
+    append_vortex_local_primitive_native_io_sink_fields(fields, certificate);
+    append_vortex_local_primitive_native_io_side_effect_fields(fields, certificate);
+}
+
+fn append_vortex_local_primitive_native_io_identity_fields(
+    fields: &mut Vec<(String, String)>,
+    certificate: &NativeIoCertificate,
+) {
+    push_bool_field(
+        fields,
+        "local_primitive_native_io_certificate_emitted",
+        true,
+    );
+    push_field(
+        fields,
+        "local_primitive_native_io_certificate_schema_version",
+        certificate.schema_version,
+    );
+    push_field(
+        fields,
+        "local_primitive_native_io_certificate_id",
+        &certificate.certificate_id,
+    );
+    push_field(
+        fields,
+        "local_primitive_native_io_certificate_path_id",
+        &certificate.path_id,
+    );
+    push_field(
+        fields,
+        "local_primitive_native_io_certificate_status",
+        certificate.status(),
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_native_io_certified",
+        certificate.is_certified(),
+    );
+}
+
+fn append_vortex_local_primitive_native_io_source_fields(
+    fields: &mut Vec<(String, String)>,
+    certificate: &NativeIoCertificate,
+) {
+    push_field(
+        fields,
+        "local_primitive_native_io_source_kind",
+        &certificate.source_capability_report.source_kind,
+    );
+    push_field(
+        fields,
+        "local_primitive_native_io_adapter_id",
+        &certificate.source_capability_report.adapter_id,
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_native_io_encoded_representation_preserved",
+        certificate
+            .source_capability_report
+            .encoded_representation_preserved,
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_native_io_streaming_capability",
+        certificate.source_capability_report.streaming_capability,
+    );
+}
+
+fn append_vortex_local_primitive_native_io_pushdown_fields(
+    fields: &mut Vec<(String, String)>,
+    certificate: &NativeIoCertificate,
+) {
+    push_field(
+        fields,
+        "local_primitive_native_io_pushdown_accepted_operations",
+        &certificate
+            .source_pushdown_report
+            .accepted_operation_order(),
+    );
+    push_field(
+        fields,
+        "local_primitive_native_io_pushdown_rejected_operations",
+        &certificate
+            .source_pushdown_report
+            .rejected_operation_order(),
+    );
+    push_field(
+        fields,
+        "local_primitive_native_io_pushdown_guarantee",
+        &certificate.source_pushdown_report.guarantee,
+    );
+    push_field(
+        fields,
+        "local_primitive_native_io_representation_transitions",
+        &certificate.representation_transition_order(),
+    );
+    push_field(
+        fields,
+        "local_primitive_native_io_materialization_boundaries",
+        &certificate.materialization_boundary_order(),
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_native_io_materializing_transitions_have_boundaries",
+        certificate.materializing_transitions_have_boundaries(),
+    );
+}
+
+fn append_vortex_local_primitive_native_io_sink_fields(
+    fields: &mut Vec<(String, String)>,
+    certificate: &NativeIoCertificate,
+) {
+    push_field(
+        fields,
+        "local_primitive_native_io_sink_target_format",
+        &certificate.sink_requirement_report.target_format,
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_native_io_sink_accepts_encoded",
+        certificate.sink_requirement_report.accepts_encoded,
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_native_io_sink_requires_decoded_columnar",
+        certificate
+            .sink_requirement_report
+            .requires_decoded_columnar,
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_native_io_sink_requires_rows",
+        certificate.sink_requirement_report.requires_rows,
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_native_io_sink_supports_streaming",
+        certificate.sink_requirement_report.supports_streaming,
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_native_io_adapter_materialization_required",
+        certificate.adapter_fidelity_report.materialization_required,
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_native_io_adapter_encoded_representation_preserved",
+        certificate
+            .adapter_fidelity_report
+            .encoded_representation_preserved,
+    );
+}
+
+fn append_vortex_local_primitive_native_io_side_effect_fields(
+    fields: &mut Vec<(String, String)>,
+    certificate: &NativeIoCertificate,
+) {
+    let side_effects = &certificate.side_effects;
+    push_bool_field(
+        fields,
+        "local_primitive_native_io_data_read",
+        side_effects.data_read,
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_native_io_data_decoded",
+        side_effects.data_decoded,
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_native_io_data_materialized",
+        side_effects.data_materialized,
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_native_io_row_read",
+        side_effects.row_read,
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_native_io_arrow_converted",
+        side_effects.arrow_converted,
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_native_io_object_store_io",
+        side_effects.object_store_io,
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_native_io_write_io",
+        side_effects.write_io,
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_native_io_spill_io_performed",
+        side_effects.spill_io_performed,
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_native_io_fallback_attempted",
+        side_effects.fallback_attempted || certificate.fallback_attempted,
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_native_io_fallback_execution_allowed",
         side_effects.fallback_execution_allowed,
     );
 }
@@ -23471,6 +23704,25 @@ fn run(args: Vec<String>) -> ExitCode {
             };
             let runtime_work_avoided = report.runtime_work_avoided_report();
             let why_report = report.why_report();
+            let local_primitive_native_io_certificate = match (
+                report.query_request.as_ref(),
+                report.local_primitive_execution_report.as_ref(),
+            ) {
+                (Some(query_request), Some(local_report)) => {
+                    match local_primitive_native_io_certificate(query_request, local_report) {
+                        Ok(certificate) => Some(certificate),
+                        Err(error) => {
+                            return emit_error(
+                                "vortex-run",
+                                format,
+                                "vortex local primitive native I/O certificate failed",
+                                &error,
+                            );
+                        }
+                    }
+                }
+                _ => None,
+            };
             let row_read = report
                 .local_primitive_execution_report
                 .as_ref()
@@ -23703,6 +23955,10 @@ fn run(args: Vec<String>) -> ExitCode {
                 ),
             ];
             append_vortex_work_avoided_fields(&mut fields, Some(&runtime_work_avoided));
+            append_vortex_local_primitive_native_io_certificate_fields(
+                &mut fields,
+                local_primitive_native_io_certificate.as_ref(),
+            );
             append_vortex_local_engine_why_fields(&mut fields, &why_report);
             emit(
                 "vortex-run",
@@ -24181,7 +24437,11 @@ fn run(args: Vec<String>) -> ExitCode {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use shardloom_core::{DiagnosticCategory, DiagnosticCode};
+    use shardloom_core::{
+        DiagnosticCategory, DiagnosticCode, NativeIoAdapterFidelityReport,
+        NativeIoRepresentationTransition, NativeIoSideEffectReport, NativeIoSinkRequirementReport,
+        NativeIoSourceCapabilityReport, NativeIoSourcePushdownReport, RepresentationState,
+    };
     fn run_test_with_larger_stack(test_name: &str, test_fn: impl FnOnce() + Send + 'static) {
         let handle = std::thread::Builder::new()
             .name(test_name.to_string())
@@ -24273,6 +24533,139 @@ mod tests {
         assert!(output_field(&fields, "why_blockers").contains("CG-5 global correctness"));
         assert!(output_field(&fields, "why_next_actions").contains("CG-6 comparison"));
         assert_eq!(output_field(&fields, "why_fallback_attempted"), "false");
+    }
+
+    fn sample_local_primitive_native_io_certificate() -> NativeIoCertificate {
+        NativeIoCertificate::new(
+            "cg19.local_primitive.filter_and_project.native_io",
+            "native_vortex_source_to_filtered_projected_result",
+            sample_local_primitive_source_capability_report(),
+            sample_local_primitive_source_pushdown_report(),
+            vec![NativeIoRepresentationTransition::new(
+                RepresentationState::VortexEncoded,
+                RepresentationState::SelectionVectorEncoded,
+                false,
+            )],
+            sample_local_primitive_sink_requirement_report(),
+            sample_local_primitive_adapter_fidelity_report(),
+            Vec::new(),
+            sample_local_primitive_side_effect_report(),
+            Vec::new(),
+        )
+        .expect("certificate")
+    }
+
+    fn sample_local_primitive_source_capability_report() -> NativeIoSourceCapabilityReport {
+        NativeIoSourceCapabilityReport {
+            source_kind: "vortex".to_string(),
+            adapter_id: "shardloom.adapter.vortex.local_primitive.v1".to_string(),
+            schema_discovery_status: "vortex_scan_schema_available".to_string(),
+            statistics_availability: "row_count_available".to_string(),
+            pushdown_capabilities: "filter,project".to_string(),
+            encoded_representation_preserved: true,
+            range_read_capability: false,
+            streaming_capability: true,
+            object_store_capability: false,
+            fallback_attempted: false,
+        }
+    }
+
+    fn sample_local_primitive_source_pushdown_report() -> NativeIoSourcePushdownReport {
+        NativeIoSourcePushdownReport {
+            accepted_operations: vec!["filter".to_string(), "project".to_string()],
+            rejected_operations: Vec::new(),
+            guarantee: "exact_filter_project_from_single_vortex_scan_pushdown".to_string(),
+            proof_basis: "test".to_string(),
+            residual_expression: None,
+            conservative_false_positive_policy: false,
+            unsafe_rejected_reason: None,
+            fallback_attempted: false,
+        }
+    }
+
+    fn sample_local_primitive_sink_requirement_report() -> NativeIoSinkRequirementReport {
+        NativeIoSinkRequirementReport {
+            target_format: "local_filtered_projected_stream_summary".to_string(),
+            accepts_encoded: true,
+            requires_decoded_columnar: false,
+            requires_rows: false,
+            preserves_metadata: true,
+            requires_ordering: false,
+            requires_partitioning: false,
+            requires_commit: false,
+            supports_streaming: true,
+            max_chunk_size: Some(3),
+            backpressure_policy: "bounded_local_scan_chunks".to_string(),
+        }
+    }
+
+    fn sample_local_primitive_adapter_fidelity_report() -> NativeIoAdapterFidelityReport {
+        NativeIoAdapterFidelityReport {
+            adapter_id: "shardloom.adapter.vortex.local_primitive.v1".to_string(),
+            source_kind: "vortex".to_string(),
+            sink_kind: "local_filtered_projected_stream_summary".to_string(),
+            metadata_preserved: true,
+            statistics_preserved: true,
+            encoded_representation_preserved: true,
+            materialization_required: false,
+            fidelity_loss: "none".to_string(),
+            metadata_loss: "none".to_string(),
+            fallback_attempted: false,
+        }
+    }
+
+    fn sample_local_primitive_side_effect_report() -> NativeIoSideEffectReport {
+        NativeIoSideEffectReport {
+            data_read: true,
+            data_decoded: false,
+            data_materialized: false,
+            row_read: false,
+            arrow_converted: false,
+            object_store_io: false,
+            write_io: false,
+            spill_io_performed: false,
+            external_effects_executed: false,
+            fallback_attempted: false,
+            fallback_execution_allowed: false,
+        }
+    }
+
+    #[test]
+    fn vortex_local_primitive_native_io_fields_include_certificate_evidence() {
+        let certificate = sample_local_primitive_native_io_certificate();
+        let mut fields = Vec::new();
+        append_vortex_local_primitive_native_io_certificate_fields(&mut fields, Some(&certificate));
+
+        assert_eq!(
+            output_field(&fields, "local_primitive_native_io_certificate_status"),
+            "certified"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "local_primitive_native_io_pushdown_accepted_operations"
+            ),
+            "filter,project"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "local_primitive_native_io_representation_transitions"
+            ),
+            "vortex_encoded->selection_vector_encoded"
+        );
+        assert_eq!(
+            output_field(&fields, "local_primitive_native_io_sink_target_format"),
+            "local_filtered_projected_stream_summary"
+        );
+        assert_eq!(
+            output_field(&fields, "local_primitive_native_io_data_materialized"),
+            "false"
+        );
+        assert_eq!(
+            output_field(&fields, "local_primitive_native_io_fallback_attempted"),
+            "false"
+        );
     }
 
     #[test]
