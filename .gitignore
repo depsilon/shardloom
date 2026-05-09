@@ -13,6 +13,15 @@ target
 # Contains mutation testing data
 **/mutants.out*/
 
+# Generated benchmark environments, data, and local result artifacts
+__pycache__/
+*.pyc
+benchmarks/**/.venv/
+benchmarks/**/.generated/
+benchmarks/**/results/*.json
+benchmarks/**/results/*.md
+!benchmarks/**/results/README.md
+
 # RustRover
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
 #  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
