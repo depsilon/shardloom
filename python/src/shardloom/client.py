@@ -6,6 +6,7 @@ import json
 import os
 import shutil
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping, Sequence
 
@@ -16,6 +17,42 @@ CommandPart = str | os.PathLike[str]
 Binary = CommandPart | Sequence[CommandPart]
 DEFAULT_PROFILE_ORDER = ("release", "debug")
 ETL_INPUT_FORMATS = frozenset({"csv", "vortex"})
+
+
+@dataclass(frozen=True, slots=True)
+class LiveEtlReplayResult:
+    """Result of a CSV universal-I/O run and optional native Vortex replay."""
+
+    csv_import: OutputEnvelope
+    native_vortex: OutputEnvelope | None
+
+    @property
+    def fact_vortex_path(self) -> str:
+        """Return the fact-table Vortex artifact path emitted by CSV import."""
+
+        return _required_field(self.csv_import, "fact_vortex_path")
+
+    @property
+    def dim_vortex_path(self) -> str:
+        """Return the dimension-table Vortex artifact path emitted by CSV import."""
+
+        return _required_field(self.csv_import, "dim_vortex_path")
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether either step reported attempted fallback execution."""
+
+        return self.csv_import.fallback.attempted or (
+            self.native_vortex.fallback.attempted
+            if self.native_vortex is not None
+            else False
+        )
+
+    @property
+    def native_replay_ran(self) -> bool:
+        """Whether the native Vortex replay command was executed."""
+
+        return self.native_vortex is not None
 
 
 class ShardLoomClient:
@@ -187,6 +224,41 @@ class ShardLoomClient:
             check=check,
         )
 
+    def live_etl_csv_to_vortex_replay(
+        self,
+        scenario: str,
+        fact_csv: str | os.PathLike[str],
+        dim_csv: str | os.PathLike[str],
+        *,
+        workspace: str | os.PathLike[str],
+        replay_native: bool = True,
+        check: bool = True,
+    ) -> LiveEtlReplayResult:
+        """Run CSV universal I/O, then optionally replay from native Vortex artifacts.
+
+        This helper keeps the two timing/behavior surfaces distinct: CSV import
+        is the current universal-I/O boundary path, while native replay starts
+        from the emitted `.vortex` files and reflects the current steady-state
+        Vortex path more closely.
+        """
+
+        csv_import = self.traditional_analytics_run(
+            scenario,
+            fact_csv,
+            dim_csv,
+            workspace=workspace,
+            check=check,
+        )
+        native_vortex = None
+        if replay_native:
+            native_vortex = self.traditional_analytics_vortex_run(
+                scenario,
+                _required_field(csv_import, "fact_vortex_path"),
+                _required_field(csv_import, "dim_vortex_path"),
+                check=check,
+            )
+        return LiveEtlReplayResult(csv_import=csv_import, native_vortex=native_vortex)
+
     def dynamic_work_shaping_plan(
         self, profile: str | None = None, *, check: bool = True
     ) -> OutputEnvelope:
@@ -239,6 +311,18 @@ class ShardLoomClient:
         """Return the current CG-20 world-class sufficiency evidence envelope."""
 
         return self.run(["world-class-sufficiency-plan"], check=check)
+
+    def input_adapters(self, *, check: bool = True) -> OutputEnvelope:
+        """Return the universal input adapter registry snapshot."""
+
+        return self.run(["input-adapters"], check=check)
+
+    def input_plan(
+        self, dataset_uri: str | os.PathLike[str], *, check: bool = True
+    ) -> OutputEnvelope:
+        """Return a side-effect-free universal input plan for a dataset URI."""
+
+        return self.run(["input-plan", str(dataset_uri)], check=check)
 
     def run(self, args: Sequence[CommandPart], *, check: bool = True) -> OutputEnvelope:
         """Invoke a ShardLoom CLI command with JSON output enabled."""
@@ -340,3 +424,12 @@ class ShardLoomClient:
             return OutputEnvelope.from_json(payload)
         except ValueError as exc:
             raise ShardLoomProtocolError(str(exc)) from exc
+
+
+def _required_field(envelope: OutputEnvelope, key: str) -> str:
+    value = envelope.field(key)
+    if value is None or value == "":
+        raise ShardLoomProtocolError(
+            f"ShardLoom command {envelope.command!r} did not emit required field {key!r}"
+        )
+    return value

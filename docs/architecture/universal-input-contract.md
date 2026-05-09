@@ -22,9 +22,9 @@
 - Compatibility structured files
   - Parquet, Arrow IPC, CSV, JSON/NDJSON, Avro, and ORC require explicit adapter phases.
 - Catalog/table refs
-  - Catalog and table references require explicit metadata and security/governance contracts.
+  - Iceberg-compatible metadata, Delta-compatible metadata, Hive-style partitions, snapshots, catalogs, and schema evolution require explicit metadata and security/governance contracts.
 - Object-store manifests
-  - Object-store reads require request budgets, range policy, retries, and no-fallback diagnostics.
+  - Local filesystem, S3-compatible, Google Cloud Storage, Azure Blob/ADLS, and safe HTTP range reads require request budgets, range policy, retries, credentials policy where applicable, and no-fallback diagnostics.
 - Unstructured data
   - Requires typed references, extracted-field contracts, and effect/security policy.
 - API/LLM/embedding/vector effectful inputs
@@ -68,8 +68,26 @@
 - `input-arrow-ipc`
 - `input-csv`
 - `input-jsonl`
+- `input-avro`
+- `input-orc`
 - `input-iceberg-compatible`
 - `input-delta-compatible`
+- `input-local-filesystem`
+- `input-s3-compatible`
+- `input-gcs`
+- `input-azure-blob-adls`
+- `input-http-range`
+- `input-local-catalog`
+- `input-hive-compatible-catalog`
+- `input-iceberg-rest-compatible-catalog`
+- `input-glue-like-catalog`
+- `input-nessie-like-catalog`
+- `input-unstructured-text`
+- `input-document`
+- `input-image`
+- `input-audio`
+- `input-video`
+- `input-binary-blob`
 - `input-api`
 - `input-llm`
 - `input-embeddings`
