@@ -3,22 +3,27 @@
 //! The `CLI` remains intentionally small in setup phase and exposes basic
 //! introspection commands for workspace bring-up.
 
-use std::process::ExitCode;
+use std::{
+    process::ExitCode,
+    time::{Duration, Instant},
+};
 
 use shardloom_core::{
-    BenchmarkEvidenceState, BenchmarkFallbackState, BenchmarkPlan, ByteRange,
+    BaselineEngine, BenchmarkComparisonReport, BenchmarkEvidenceState, BenchmarkFallbackState,
+    BenchmarkMetric, BenchmarkPlan, BenchmarkResult, BenchmarkScenario, ByteRange,
     CapabilityCertificationReport, CapabilityCertificationStatus, CatalogKind, CatalogRef,
     CdcEventKind, CdcEventSummary, CdcIncrementalPlanningReport, ChangeSet,
     CliApiJsonProtocolReport, ColumnRef, CommandStatus, CompactionPlanningPolicy,
-    CompactionPlanningReport, ComparisonOp, CorrectnessFixture, CorrectnessValidationPlan,
-    CpuOperatorSpecializationReport, DatasetFormat, DatasetManifest, DatasetRef, DatasetUri,
-    DeleteModel, DeleteTombstoneCompatibilityReport, Diagnostic, EncodedSegment, EncodingKind,
-    ExecutionCertificate, ExecutionCertificateEvidenceSurfaceReport, ExecutionEvidenceArtifactKind,
-    ExtensionId, ExtensionInspectionReport, ExtensionLicenseKind, ExtensionManifest,
-    ExtensionProvenance, ExtensionRegistrySnapshot, ExtensionVersion, FieldId, FieldName,
-    FieldPath, FileDescriptor, FileRole, IncrementalPlanSkeleton, InputAdapterRegistrySnapshot,
-    KernelRegistrySnapshot, LayoutHealthPolicy, LayoutHealthReport, LayoutKind, LogicalDType,
-    ManifestId, ManifestSegment, NativeIoEnvelopeReport, Nullability, ObservabilityPlan,
+    CompactionPlanningReport, ComparisonOp, CorrectnessFixture, CorrectnessValidationMode,
+    CorrectnessValidationPlan, CpuOperatorSpecializationReport, DatasetFormat, DatasetManifest,
+    DatasetRef, DatasetUri, DeleteModel, DeleteTombstoneCompatibilityReport, Diagnostic,
+    EncodedSegment, EncodingKind, ExecutionCertificate, ExecutionCertificateEvidenceSurfaceReport,
+    ExecutionEvidenceArtifactKind, ExpectedOutcome, ExtensionId, ExtensionInspectionReport,
+    ExtensionLicenseKind, ExtensionManifest, ExtensionProvenance, ExtensionRegistrySnapshot,
+    ExtensionVersion, FieldId, FieldName, FieldPath, FileDescriptor, FileRole,
+    IncrementalPlanSkeleton, InputAdapterRegistrySnapshot, KernelRegistrySnapshot,
+    LayoutHealthPolicy, LayoutHealthReport, LayoutKind, LogicalDType, ManifestId, ManifestSegment,
+    MetricValue, NativeIoEnvelopeReport, Nullability, ObservabilityPlan,
     OperatorMemoryCertification, OutputEnvelope, OutputFormat, OutputTarget,
     PartitionEvolutionCompatibilityReport, PartitionField, PartitionSpec, PartitionTransform,
     PhysicalKernelRegistryPlan, PhysicalOperatorExecutionLevel,
@@ -28,7 +33,7 @@ use shardloom_core::{
     SchemaEvolutionPolicy, SchemaField, SchemaId, SchemaVersion, SecurityPlan, SegmentChange,
     SegmentChangeKind, SegmentId, SegmentLayout, SegmentStats, ShardLoomError, SnapshotId,
     SnapshotRef, StatValue, StatefulReuseReport, TableCompatibilityPlan, TableCompatibilityReport,
-    TableFormatKind, TranslationPlan, UdfRuntimeKind, UniversalHarnessReport,
+    TableFormatKind, TranslationPlan, UdfRuntimeKind, UniversalHarnessReport, WorkloadClass,
     WorldClassSufficiencyDimensionKind, WorldClassSufficiencyReport, WriteIntent,
     evaluate_cdc_incremental_planning, evaluate_compaction_planning,
     evaluate_delete_tombstone_compatibility, evaluate_layout_health,
@@ -197,7 +202,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|layout-health-plan|compaction-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|correctness-plan|execution-certificate-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|layout-health-plan|compaction-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|vortex-count-benchmark|correctness-plan|execution-certificate-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -1179,6 +1184,551 @@ fn append_benchmark_plan_claim_fields(fields: &mut Vec<(String, String)>, plan: 
         fields,
         "baselines_fallback_free",
         plan.baselines_are_fallback_free(),
+    );
+}
+
+fn benchmark_plan_for_scope(scope: Option<&str>) -> shardloom_core::Result<BenchmarkPlan> {
+    match scope {
+        None | Some("foundation") => Ok(BenchmarkPlan::default_foundation_plan()),
+        Some("traditional-analytics" | "traditional_analytics") => {
+            Ok(BenchmarkPlan::traditional_analytics_plan())
+        }
+        Some(other) => Err(ShardLoomError::InvalidOperation(format!(
+            "unknown benchmark plan scope: {other}"
+        ))),
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+struct VortexCountBenchmarkIterationSummary {
+    duration_micros: u64,
+    count_result: Option<u64>,
+    arrays_read_count: usize,
+    rows_counted: u64,
+    data_read: bool,
+    data_decoded: bool,
+    data_materialized: bool,
+    row_read: bool,
+    arrow_converted: bool,
+    object_store_io: bool,
+    write_io: bool,
+    spill_io_performed: bool,
+    external_effects_executed: bool,
+    fallback_execution_allowed: bool,
+    diagnostics: Vec<Diagnostic>,
+}
+
+impl VortexCountBenchmarkIterationSummary {
+    fn from_reports(
+        duration: Duration,
+        encoded_report: &shardloom_vortex::VortexEncodedReadExecutionReport,
+        local_report: &VortexLocalExecutionReport,
+    ) -> Self {
+        let mut diagnostics = encoded_report.diagnostics.clone();
+        diagnostics.extend(local_report.diagnostics.clone());
+        Self {
+            duration_micros: duration_micros(duration),
+            count_result: encoded_report.count_result,
+            arrays_read_count: encoded_report.arrays_read_count,
+            rows_counted: encoded_report.rows_counted,
+            data_read: encoded_report.data_read || local_report.data_read,
+            data_decoded: encoded_report.data_decoded || local_report.data_decoded,
+            data_materialized: encoded_report.data_materialized || local_report.data_materialized,
+            row_read: encoded_report.row_read,
+            arrow_converted: encoded_report.arrow_converted,
+            object_store_io: encoded_report.object_store_io || local_report.object_store_io,
+            write_io: encoded_report.write_io || local_report.write_io,
+            spill_io_performed: encoded_report.spill_io_performed
+                || local_report.spill_io_performed,
+            external_effects_executed: encoded_report.external_effects_executed
+                || local_report.external_effects_executed,
+            fallback_execution_allowed: encoded_report.fallback_execution_allowed
+                || local_report.fallback_execution_allowed,
+            diagnostics,
+        }
+    }
+
+    #[cfg(test)]
+    fn synthetic_success(duration_micros: u64, count: u64) -> Self {
+        Self {
+            duration_micros,
+            count_result: Some(count),
+            arrays_read_count: 1,
+            rows_counted: count,
+            data_read: true,
+            data_decoded: false,
+            data_materialized: false,
+            row_read: false,
+            arrow_converted: false,
+            object_store_io: false,
+            write_io: false,
+            spill_io_performed: false,
+            external_effects_executed: false,
+            fallback_execution_allowed: false,
+            diagnostics: Vec::new(),
+        }
+    }
+
+    fn has_errors(&self) -> bool {
+        self.count_result.is_none()
+            || !self.data_read
+            || self.data_decoded
+            || self.data_materialized
+            || self.row_read
+            || self.arrow_converted
+            || self.object_store_io
+            || self.write_io
+            || self.spill_io_performed
+            || self.external_effects_executed
+            || self.fallback_execution_allowed
+            || diagnostics_have_errors(&self.diagnostics)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct VortexCountBenchmarkReport {
+    dataset_uri: DatasetUri,
+    memory_gb: u64,
+    max_parallelism: usize,
+    iterations_requested: usize,
+    iterations: Vec<VortexCountBenchmarkIterationSummary>,
+    correctness_evidence: BenchmarkEvidenceState,
+    benchmark_result: BenchmarkResult,
+    comparison_report: BenchmarkComparisonReport,
+    diagnostics: Vec<Diagnostic>,
+}
+
+impl VortexCountBenchmarkReport {
+    fn from_iterations(
+        dataset_uri: DatasetUri,
+        memory_gb: u64,
+        max_parallelism: usize,
+        iterations_requested: usize,
+        iterations: Vec<VortexCountBenchmarkIterationSummary>,
+    ) -> shardloom_core::Result<Self> {
+        let count_result = consistent_count_result(&iterations);
+        let correctness_evidence =
+            local_count_benchmark_correctness_evidence(&dataset_uri, count_result);
+        let benchmark_result = local_count_benchmark_result(&iterations)?;
+        let plan = local_count_benchmark_plan(&dataset_uri);
+        let comparison_report = BenchmarkComparisonReport::from_plan_and_results(
+            &plan,
+            vec![benchmark_result.clone()],
+            correctness_evidence,
+        );
+        let diagnostics = iterations
+            .iter()
+            .flat_map(|iteration| iteration.diagnostics.clone())
+            .collect::<Vec<_>>();
+        Ok(Self {
+            dataset_uri,
+            memory_gb,
+            max_parallelism,
+            iterations_requested,
+            iterations,
+            correctness_evidence,
+            benchmark_result,
+            comparison_report,
+            diagnostics,
+        })
+    }
+
+    fn iterations_completed(&self) -> usize {
+        self.iterations.len()
+    }
+
+    fn count_result(&self) -> Option<u64> {
+        consistent_count_result(&self.iterations)
+    }
+
+    fn result_consistent(&self) -> bool {
+        self.count_result().is_some()
+            && self
+                .iterations
+                .iter()
+                .all(|iteration| iteration.count_result == self.count_result())
+    }
+
+    fn total_duration_micros(&self) -> u64 {
+        saturating_u128_to_u64(
+            self.iterations
+                .iter()
+                .map(|iteration| u128::from(iteration.duration_micros))
+                .sum(),
+        )
+    }
+
+    fn min_duration_micros(&self) -> Option<u64> {
+        self.iterations
+            .iter()
+            .map(|iteration| iteration.duration_micros)
+            .min()
+    }
+
+    fn max_duration_micros(&self) -> Option<u64> {
+        self.iterations
+            .iter()
+            .map(|iteration| iteration.duration_micros)
+            .max()
+    }
+
+    fn avg_duration_micros(&self) -> Option<u64> {
+        (!self.iterations.is_empty()).then(|| {
+            saturating_u128_to_u64(
+                u128::from(self.total_duration_micros()) / self.iterations.len() as u128,
+            )
+        })
+    }
+
+    fn total_rows_counted(&self) -> u64 {
+        saturating_u128_to_u64(
+            self.iterations
+                .iter()
+                .map(|iteration| u128::from(iteration.rows_counted))
+                .sum(),
+        )
+    }
+
+    fn total_arrays_read(&self) -> usize {
+        self.iterations
+            .iter()
+            .map(|iteration| iteration.arrays_read_count)
+            .sum()
+    }
+
+    fn has_unsafe_effects(&self) -> bool {
+        self.iterations.iter().any(|iteration| {
+            iteration.data_decoded
+                || iteration.data_materialized
+                || iteration.row_read
+                || iteration.arrow_converted
+                || iteration.object_store_io
+                || iteration.write_io
+                || iteration.spill_io_performed
+                || iteration.external_effects_executed
+                || iteration.fallback_execution_allowed
+        })
+    }
+
+    fn has_errors(&self) -> bool {
+        self.iterations_completed() != self.iterations_requested
+            || self.iterations.is_empty()
+            || !self.result_consistent()
+            || self.has_unsafe_effects()
+            || self
+                .iterations
+                .iter()
+                .any(VortexCountBenchmarkIterationSummary::has_errors)
+    }
+
+    fn to_human_text(&self) -> String {
+        format!(
+            "vortex local encoded count benchmark\nengine: shardloom\nscenario: local encoded count\ndataset: {}\niterations: {}/{}\ncount: {}\ntotal query runtime micros: {}\navg query runtime micros: {}\nexternal baselines: pandas,polars,duckdb,spark,datafusion,dask comparison-only not executed\ncomparison status: {}\nclaim gate: {}\nfallback execution: disabled",
+            self.dataset_uri.as_str(),
+            self.iterations_completed(),
+            self.iterations_requested,
+            self.count_result()
+                .map_or_else(|| "unknown".to_string(), |count| count.to_string()),
+            self.total_duration_micros(),
+            self.avg_duration_micros()
+                .map_or_else(|| "unknown".to_string(), |duration| duration.to_string()),
+            self.comparison_report.status.as_str(),
+            self.comparison_report.claim_gate().status.as_str(),
+        )
+    }
+}
+
+fn duration_micros(duration: Duration) -> u64 {
+    saturating_u128_to_u64(duration.as_micros())
+}
+
+fn micros_to_millis(micros: u64) -> u64 {
+    micros / 1_000
+}
+
+fn saturating_u128_to_u64(value: u128) -> u64 {
+    u64::try_from(value).unwrap_or(u64::MAX)
+}
+
+fn diagnostics_have_errors(diagnostics: &[Diagnostic]) -> bool {
+    diagnostics
+        .iter()
+        .any(|diagnostic| matches!(diagnostic.severity.as_str(), "error" | "fatal"))
+}
+
+fn consistent_count_result(iterations: &[VortexCountBenchmarkIterationSummary]) -> Option<u64> {
+    let first = iterations.first()?.count_result?;
+    iterations
+        .iter()
+        .all(|iteration| iteration.count_result == Some(first))
+        .then_some(first)
+}
+
+fn local_count_benchmark_correctness_evidence(
+    dataset_uri: &DatasetUri,
+    count_result: Option<u64>,
+) -> BenchmarkEvidenceState {
+    let Some(count_result) = count_result else {
+        return BenchmarkEvidenceState::Missing;
+    };
+    if local_encoded_count_correctness_fixture_for_target(dataset_uri).is_some_and(|fixture| {
+        matches!(
+            fixture.expected,
+            ExpectedOutcome::EncodedCount { count } if count == count_result
+        )
+    }) {
+        BenchmarkEvidenceState::Present
+    } else {
+        BenchmarkEvidenceState::Missing
+    }
+}
+
+fn local_count_benchmark_result(
+    iterations: &[VortexCountBenchmarkIterationSummary],
+) -> shardloom_core::Result<BenchmarkResult> {
+    let mut result = BenchmarkResult::new("local encoded count", BaselineEngine::ShardLoom)?;
+    let total_micros = iterations
+        .iter()
+        .map(|iteration| u128::from(iteration.duration_micros))
+        .sum();
+    let rows_scanned = iterations
+        .iter()
+        .map(|iteration| u128::from(iteration.rows_counted))
+        .sum();
+    result.add_metric(
+        BenchmarkMetric::WallTimeMillis,
+        MetricValue::U64(micros_to_millis(saturating_u128_to_u64(total_micros))),
+    );
+    result.add_metric(
+        BenchmarkMetric::QueryRuntimeMillis,
+        MetricValue::U64(micros_to_millis(saturating_u128_to_u64(total_micros))),
+    );
+    result.add_metric(
+        BenchmarkMetric::RowsScanned,
+        MetricValue::U64(saturating_u128_to_u64(rows_scanned)),
+    );
+    result.add_metric(BenchmarkMetric::BytesDecoded, MetricValue::U64(0));
+    result.add_metric(BenchmarkMetric::RowsMaterialized, MetricValue::U64(0));
+    result.add_metric(BenchmarkMetric::SpillRequiredBytes, MetricValue::U64(0));
+    result.add_metric(BenchmarkMetric::ObjectStoreRequests, MetricValue::U64(0));
+    Ok(result)
+}
+
+fn local_count_benchmark_plan(dataset_uri: &DatasetUri) -> BenchmarkPlan {
+    let mut plan = BenchmarkPlan::new();
+    let mut scenario = BenchmarkScenario::new(
+        "local encoded count",
+        WorkloadClass::SingleNodeEncodedExecution,
+    )
+    .expect("valid local count benchmark scenario");
+    scenario.dataset_name = Some(dataset_uri.as_str().to_string());
+    scenario.dataset_scale = Some("runtime_input".to_string());
+    scenario.storage_format = Some("vortex".to_string());
+    scenario.query_or_operation = Some("count_all".to_string());
+    scenario.correctness_validation = CorrectnessValidationMode::ExpectedOutput;
+    for engine in [
+        BaselineEngine::ShardLoom,
+        BaselineEngine::Pandas,
+        BaselineEngine::Polars,
+        BaselineEngine::DuckDb,
+        BaselineEngine::Spark,
+        BaselineEngine::DataFusion,
+        BaselineEngine::Dask,
+    ] {
+        scenario.add_baseline(engine);
+    }
+    for metric in [
+        BenchmarkMetric::WallTimeMillis,
+        BenchmarkMetric::QueryRuntimeMillis,
+        BenchmarkMetric::RowsScanned,
+        BenchmarkMetric::BytesDecoded,
+        BenchmarkMetric::RowsMaterialized,
+        BenchmarkMetric::SpillRequiredBytes,
+        BenchmarkMetric::ObjectStoreRequests,
+    ] {
+        scenario.add_required_metric(metric);
+    }
+    plan.add_scenario(scenario);
+    plan
+}
+
+fn vortex_count_benchmark_fields(report: &VortexCountBenchmarkReport) -> Vec<(String, String)> {
+    let mut fields = Vec::new();
+    append_vortex_count_benchmark_identity_fields(&mut fields, report);
+    append_vortex_count_benchmark_claim_fields(&mut fields, report);
+    append_vortex_count_benchmark_timing_fields(&mut fields, report);
+    append_vortex_count_benchmark_effect_fields(&mut fields, report);
+    fields
+}
+
+fn append_vortex_count_benchmark_identity_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &VortexCountBenchmarkReport,
+) {
+    push_field(fields, "mode", "vortex_count_benchmark");
+    push_field(fields, "benchmark_engine", "shardloom");
+    push_field(fields, "benchmark_scope", "local_encoded_count");
+    push_field(fields, "dataset_uri", report.dataset_uri.as_str());
+    push_u64_field(fields, "memory_gb", report.memory_gb);
+    push_count_field(fields, "max_parallelism", report.max_parallelism);
+    push_count_field(fields, "iterations_requested", report.iterations_requested);
+    push_count_field(
+        fields,
+        "iterations_completed",
+        report.iterations_completed(),
+    );
+    push_bool_field(fields, "benchmark_execution_implemented", true);
+    push_field(
+        fields,
+        "external_baselines",
+        "pandas,polars,duckdb,spark,datafusion,dask",
+    );
+    push_bool_field(fields, "external_baseline_execution", false);
+    push_bool_field(fields, "external_baselines_comparison_only", true);
+    push_bool_field(fields, "external_baseline_results_required", true);
+}
+
+fn append_vortex_count_benchmark_claim_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &VortexCountBenchmarkReport,
+) {
+    let claim_gate = report.comparison_report.claim_gate();
+    push_field(
+        fields,
+        "comparison_status",
+        report.comparison_report.status.as_str(),
+    );
+    push_count_field(
+        fields,
+        "comparison_missing_result_count",
+        report.comparison_report.missing_results.len(),
+    );
+    push_field(fields, "claim_gate_status", claim_gate.status.as_str());
+    push_field(
+        fields,
+        "correctness_evidence",
+        report.correctness_evidence.as_str(),
+    );
+    push_field(
+        fields,
+        "benchmark_evidence_for_claims",
+        report.comparison_report.benchmark_evidence.as_str(),
+    );
+    push_count_field(
+        fields,
+        "shardloom_metric_count",
+        report.benchmark_result.metrics.len(),
+    );
+    push_bool_field(
+        fields,
+        "performance_claim_allowed",
+        claim_gate.can_publish_performance_claim(),
+    );
+    push_bool_field(fields, "fallback_execution_allowed", false);
+}
+
+fn append_vortex_count_benchmark_timing_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &VortexCountBenchmarkReport,
+) {
+    push_field(
+        fields,
+        "count",
+        &report
+            .count_result()
+            .map_or_else(|| "unknown".to_string(), |count| count.to_string()),
+    );
+    push_bool_field(fields, "result_consistent", report.result_consistent());
+    push_u64_field(
+        fields,
+        "total_query_runtime_micros",
+        report.total_duration_micros(),
+    );
+    push_field(
+        fields,
+        "avg_query_runtime_micros",
+        &report
+            .avg_duration_micros()
+            .map_or_else(|| "unknown".to_string(), |duration| duration.to_string()),
+    );
+    push_field(
+        fields,
+        "min_query_runtime_micros",
+        &report
+            .min_duration_micros()
+            .map_or_else(|| "unknown".to_string(), |duration| duration.to_string()),
+    );
+    push_field(
+        fields,
+        "max_query_runtime_micros",
+        &report
+            .max_duration_micros()
+            .map_or_else(|| "unknown".to_string(), |duration| duration.to_string()),
+    );
+    push_u64_field(
+        fields,
+        "total_query_runtime_millis",
+        micros_to_millis(report.total_duration_micros()),
+    );
+    push_field(
+        fields,
+        "avg_query_runtime_millis",
+        &report.avg_duration_micros().map_or_else(
+            || "unknown".to_string(),
+            |duration| micros_to_millis(duration).to_string(),
+        ),
+    );
+    push_bool_field(fields, "startup_latency_measured", false);
+    push_u64_field(fields, "total_rows_counted", report.total_rows_counted());
+    push_count_field(fields, "total_arrays_read", report.total_arrays_read());
+}
+
+fn append_vortex_count_benchmark_effect_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &VortexCountBenchmarkReport,
+) {
+    let any = |predicate: fn(&VortexCountBenchmarkIterationSummary) -> bool| {
+        report.iterations.iter().any(predicate)
+    };
+    push_bool_field(fields, "data_read", any(|iteration| iteration.data_read));
+    push_bool_field(
+        fields,
+        "data_decoded",
+        any(|iteration| iteration.data_decoded),
+    );
+    push_bool_field(
+        fields,
+        "data_materialized",
+        any(|iteration| iteration.data_materialized),
+    );
+    push_bool_field(fields, "row_read", any(|iteration| iteration.row_read));
+    push_bool_field(
+        fields,
+        "arrow_converted",
+        any(|iteration| iteration.arrow_converted),
+    );
+    push_bool_field(
+        fields,
+        "object_store_io",
+        any(|iteration| iteration.object_store_io),
+    );
+    push_bool_field(fields, "write_io", any(|iteration| iteration.write_io));
+    push_bool_field(
+        fields,
+        "spill_io_performed",
+        any(|iteration| iteration.spill_io_performed),
+    );
+    push_bool_field(
+        fields,
+        "external_effects_executed",
+        any(|iteration| iteration.external_effects_executed),
+    );
+    push_bool_field(fields, "fallback_attempted", false);
+    push_bool_field(
+        fields,
+        "unsafe_effects_observed",
+        report.has_unsafe_effects(),
     );
 }
 
@@ -7917,6 +8467,51 @@ fn parse_vortex_count_args(
     ))
 }
 
+fn parse_vortex_count_benchmark_args(
+    mut args: std::vec::IntoIter<String>,
+) -> std::result::Result<(DatasetUri, u64, usize, usize), ExitCode> {
+    let Some(dataset_uri) = args.next() else {
+        eprintln!(
+            "usage: shardloom vortex-count-benchmark <dataset_uri> <memory_gb> <max_parallelism> [--iterations <n>]"
+        );
+        return Err(ExitCode::from(2));
+    };
+    let Some(memory_gb_text) = args.next() else {
+        eprintln!(
+            "usage: shardloom vortex-count-benchmark <dataset_uri> <memory_gb> <max_parallelism> [--iterations <n>]"
+        );
+        return Err(ExitCode::from(2));
+    };
+    let Some(max_parallelism_text) = args.next() else {
+        eprintln!(
+            "usage: shardloom vortex-count-benchmark <dataset_uri> <memory_gb> <max_parallelism> [--iterations <n>]"
+        );
+        return Err(ExitCode::from(2));
+    };
+    let uri = DatasetUri::new(dataset_uri).map_err(|_| ExitCode::from(2))?;
+    let memory_gb = memory_gb_text.parse().map_err(|_| ExitCode::from(2))?;
+    let max_parallelism = max_parallelism_text
+        .parse()
+        .map_err(|_| ExitCode::from(2))?;
+    let mut iterations = 3_usize;
+    while let Some(option) = args.next() {
+        if option != "--iterations" {
+            eprintln!("unknown option for shardloom vortex-count-benchmark: {option}");
+            return Err(ExitCode::from(2));
+        }
+        let Some(iterations_text) = args.next() else {
+            eprintln!("usage: shardloom vortex-count-benchmark ... --iterations <n>");
+            return Err(ExitCode::from(2));
+        };
+        iterations = iterations_text.parse().map_err(|_| ExitCode::from(2))?;
+        if iterations == 0 {
+            eprintln!("shardloom vortex-count-benchmark requires at least one iteration");
+            return Err(ExitCode::from(2));
+        }
+    }
+    Ok((uri, memory_gb, max_parallelism, iterations))
+}
+
 fn run_vortex_encoded_read_spike(
     uri: DatasetUri,
     memory_gb: u64,
@@ -8203,6 +8798,78 @@ fn handle_vortex_count_local_encoded(
         || streaming_report.has_errors()
         || evidence.has_errors()
     {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+fn handle_vortex_count_benchmark(
+    args: std::vec::IntoIter<String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let (uri, memory_gb, max_parallelism, iteration_count) =
+        match parse_vortex_count_benchmark_args(args) {
+            Ok(parsed) => parsed,
+            Err(code) => return code,
+        };
+    let mut iterations = Vec::new();
+    for _ in 0..iteration_count {
+        let started = Instant::now();
+        let (encoded_report, local_report) = match run_vortex_approved_local_encoded_count(
+            uri.clone(),
+            memory_gb,
+            max_parallelism,
+        ) {
+            Ok(reports) => reports,
+            Err(error) => {
+                return emit_error(
+                    "vortex-count-benchmark",
+                    format,
+                    "vortex count benchmark failed",
+                    &error,
+                );
+            }
+        };
+        let duration = started.elapsed();
+        iterations.push(VortexCountBenchmarkIterationSummary::from_reports(
+            duration,
+            &encoded_report,
+            &local_report,
+        ));
+    }
+    let report = match VortexCountBenchmarkReport::from_iterations(
+        uri,
+        memory_gb,
+        max_parallelism,
+        iteration_count,
+        iterations,
+    ) {
+        Ok(report) => report,
+        Err(error) => {
+            return emit_error(
+                "vortex-count-benchmark",
+                format,
+                "vortex count benchmark report failed",
+                &error,
+            );
+        }
+    };
+    let has_errors = report.has_errors();
+    emit(
+        "vortex-count-benchmark",
+        format,
+        if has_errors {
+            CommandStatus::Unsupported
+        } else {
+            CommandStatus::Success
+        },
+        "vortex local encoded count benchmark".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        vortex_count_benchmark_fields(&report),
+    );
+    if has_errors {
         ExitCode::from(1)
     } else {
         ExitCode::SUCCESS
@@ -13362,7 +14029,23 @@ fn run(args: Vec<String>) -> ExitCode {
             }
         }
         Some("benchmark-plan") => {
-            let plan = BenchmarkPlan::default_foundation_plan();
+            let scope = args.next();
+            if let Some(extra) = args.next() {
+                return emit_error(
+                    "benchmark-plan",
+                    format,
+                    "benchmark plan failed",
+                    &ShardLoomError::InvalidOperation(format!(
+                        "unknown extra benchmark-plan argument: {extra}"
+                    )),
+                );
+            }
+            let plan = match benchmark_plan_for_scope(scope.as_deref()) {
+                Ok(plan) => plan,
+                Err(error) => {
+                    return emit_error("benchmark-plan", format, "benchmark plan failed", &error);
+                }
+            };
             emit(
                 "benchmark-plan",
                 format,
@@ -19832,6 +20515,7 @@ fn run(args: Vec<String>) -> ExitCode {
         }
 
         Some("vortex-count") => handle_vortex_count(args, format),
+        Some("vortex-count-benchmark") => handle_vortex_count_benchmark(args, format),
         Some("vortex-count-where") => {
             let Some(uri_arg) = args.next() else {
                 eprintln!("usage: shardloom vortex-count-where <dataset_uri> <predicate>");
@@ -24082,6 +24766,52 @@ mod tests {
             output_field(&fields, "generalized_local_count_cg13_closeout_allowed"),
             "false"
         );
+    }
+
+    #[test]
+    fn vortex_count_benchmark_report_blocks_claims_without_external_results() {
+        let fixture_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("workspace crate parent")
+            .join("shardloom-vortex")
+            .join("tests")
+            .join("fixtures")
+            .join("metadata_footer_u64_20000.vortex");
+        let uri = DatasetUri::new(fixture_path.to_string_lossy().to_string()).expect("uri");
+        let iterations = vec![
+            VortexCountBenchmarkIterationSummary::synthetic_success(1_000, 20_000),
+            VortexCountBenchmarkIterationSummary::synthetic_success(2_000, 20_000),
+        ];
+
+        let report =
+            VortexCountBenchmarkReport::from_iterations(uri, 1, 2, 2, iterations).expect("report");
+        let fields = vortex_count_benchmark_fields(&report);
+
+        assert!(!report.has_errors());
+        assert_eq!(report.count_result(), Some(20_000));
+        assert_eq!(report.correctness_evidence, BenchmarkEvidenceState::Present);
+        assert_eq!(
+            output_field(&fields, "benchmark_execution_implemented"),
+            "true"
+        );
+        assert_eq!(
+            output_field(&fields, "external_baselines"),
+            "pandas,polars,duckdb,spark,datafusion,dask"
+        );
+        assert_eq!(
+            output_field(&fields, "external_baseline_execution"),
+            "false"
+        );
+        assert_eq!(
+            output_field(&fields, "comparison_missing_result_count"),
+            "6"
+        );
+        assert_eq!(
+            output_field(&fields, "claim_gate_status"),
+            "evidence_missing"
+        );
+        assert_eq!(output_field(&fields, "performance_claim_allowed"), "false");
+        assert_eq!(output_field(&fields, "fallback_execution_allowed"), "false");
     }
 
     #[test]

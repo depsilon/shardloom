@@ -1418,7 +1418,9 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-6.4 benchmark reproducibility manifest
 - [x] CG-6.5 reproducibility-aware benchmark claim gate
 - [x] CG-6.6 benchmark coverage inventory surfacing
-- [ ] runtime benchmarks
+- [x] CG-6.7 traditional analytics benchmark plan for CSV/file ingest, filters, aggregations, sort/top-k, and joins with pandas/Polars/DuckDB/Spark/DataFusion/Dask external comparison targets
+- [x] CG-6.8 local encoded `CountAll` benchmark runner for the approved local Vortex path
+- [~] runtime benchmarks started with local encoded count; traditional analytics runtime benchmarks remain planned
 - [ ] peak-memory benchmarks
 - [ ] bytes read/written benchmarks
 - [ ] decode-avoided evidence
@@ -1671,6 +1673,8 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-6.4 benchmark reproducibility manifest records dataset, engine-version, hardware, OS, runtime, cache, reproduction-step, correctness, and no-fallback metadata requirements before any benchmark evidence can count.
 - [x] CG-6.5 reproducibility-aware benchmark claim gate blocks publication unless comparison evidence and reproducible run metadata are both present.
 - [x] CG-6.6 benchmark coverage inventory surfaces scenario names, workload classes, correctness-validation modes, metric families, baseline engine order, expected result slots, claim-gate state, and no-fallback/comparison-only fields through `benchmark-plan`.
+- [x] CG-6.7 `benchmark-plan traditional-analytics` records conventional dataframe/SQL benchmark scenarios for CSV/file ingest, selective filters, group-by aggregation, sort/top-k, and hash joins with pandas, Polars, DuckDB, Spark/PySpark, DataFusion, and Dask as comparison-only baselines.
+- [x] CG-6.8 `vortex-count-benchmark` runs the approved local encoded `CountAll` path repeatedly and emits ShardLoom timing/count/effect metrics while external baseline results, reproducibility evidence, performance claims, and superiority claims remain blocked.
 - [x] CG-7.1 physical operator/kernel contract foundation declares filter, projection, and count aggregate kernel blockers without implementing kernels or execution.
 - [x] CG-7.2 physical operator capability discovery exposes missing-kernel/readiness counts through `shardloom capabilities operators` without executing operators or probing runtime inputs.
 - [x] CG-7.3 physical kernel registry plan exposes required native kernel slots through `shardloom kernel-registry` without registering kernels or executing runtime paths.
