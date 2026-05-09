@@ -54,7 +54,7 @@ fn generalized_encoded_primitive_gate_json_exposes_current_boundary() {
     )));
     assert!(output.contains(&field(
         "primitive_statuses",
-        "local_count_all_only,metadata_proof_only,readiness_only"
+        "local_direct_count_evidence,metadata_proof_only,readiness_only"
     )));
 }
 
