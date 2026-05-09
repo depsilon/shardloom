@@ -53,6 +53,43 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
+- [x] Session label: CG-2.2f / CG-13.14 / CG-16.9 / CG-19.11 local `CountWhere` execution evidence
+  - Primary files:
+    - `shardloom-cli/src/main.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: Add an opt-in `vortex-count-where --execute-local-primitive <memory_gb> <max_parallelism>` path that runs the existing feature-gated local Vortex `CountWhere` primitive, emits filtered-count execution evidence, and surfaces CG-16/CG-19 certificates for the checked-in struct fixture without broadening readers, adapters, SQL, writes, spill, or fallback.
+  - Checklist:
+    - [x] Add strict optional argument parsing for `--execute-local-primitive <memory_gb> <max_parallelism>` while leaving default `vortex-count-where` metadata/selection-vector evidence behavior unchanged.
+    - [x] Execute `CountWhere` through the existing `execute_vortex_local_primitive_with_policy` path when explicitly requested.
+    - [x] Emit local filtered-count execution fields for rows scanned/selected, chunk/concurrency policy, filter pushdown, `vortex_encoded->selection_vector_encoded` guarantee, side effects, and no-fallback state.
+    - [x] Emit local primitive Native I/O certificate fields and execution-certificate fields for the checked-in `local_primitive_struct_five.vortex` `gte:value:3` fixture.
+    - [x] Keep non-fixture local `CountWhere` executable but explicitly uncertified for correctness and production claims.
+    - [x] Keep generalized encoded predicate kernels, projection execution, non-local sources, adapters, SQL/DataFrame/Python runtime, benchmarks, writes, spill, and fallback execution blocked.
+  - Local validation status:
+    - [x] Focused default CLI `vortex_count_where` tests passed locally with Rust toolchain `1.91.1`.
+    - [x] Feature-gated CLI local `CountWhere` certificate test and live `vortex-count-where ... --execute-local-primitive 1 2 --format json` smoke passed locally with Rust toolchain `1.91.1`.
+    - [x] Feature-gated `cargo clippy -p shardloom-cli --features vortex-local-primitives --all-targets -- -D warnings` and `cargo clippy -p shardloom-vortex --features vortex-local-primitives --all-targets -- -D warnings` passed locally with Rust toolchain `1.91.1`.
+    - [x] Required full `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, and `cargo test --workspace --all-targets` validation passed locally with Rust toolchain `1.91.1`.
+  - Explicitly not included: new readers, non-local/object-store Vortex sources, Parquet/Arrow/JSON/Avro/ORC runtime, adapter execution, SQL/DataFrame/Python runtime expansion, generalized encoded predicate kernels, broad projection/filter-project certification, benchmark reruns, superiority or best-default claims, CG-2 closeout, CG-13 closeout, or fallback execution.
+
+## Near-term Implementation Priority
+- [ ] Priority 1 - generalized encoded primitive execution loop
+  - [ ] Generalized direct encoded `CountAll` execution beyond the current local direct-count proof path.
+  - [x] Fixture-backed local `CountWhere` execution evidence through `vortex-count-where` with explicit selection-vector guarantee.
+  - [ ] Generalized encoded-value predicate/filter execution beyond the fixture-backed local path.
+  - [ ] Encoded projection and filter-project execution with no row reads, no Arrow conversion, no object-store IO, no writes, no spill, and no fallback.
+- [ ] Priority 2 - evidence loop paired with every execution expansion
+  - [ ] CG-5 fixtures, reference outputs, correctness certificates, and edge-case coverage for each new primitive path.
+  - [ ] CG-6 query-runtime benchmark rows, reproducibility metadata, work-avoidance evidence, and claim-gate blockers for each new primitive path.
+  - [ ] CG-16 execution certificates and CG-19 per-path Native I/O certificates for each supported source/sink path.
+- [ ] Priority 3 - broader platform work after the primitive/evidence loop advances
+  - [ ] CG-4 broader commit execution.
+  - [ ] CG-8 dynamic sizing feedback execution and bounded parallel encoded/read runtime.
+  - [ ] CG-9 catalog/table metadata integration.
+  - [ ] CG-10 object-store/distributed runtime execution.
+  - [ ] CG-20 SQL/Python/DataFrame/UDF/unstructured/media/adapters once the encoded primitive evidence loop is no longer the bottleneck.
+
+## Recent Completed Session Ledger
 - [x] Session label: CG-2.1e.33 / CG-5.10 / CG-16.8 / CG-19.10 multi-layout local `CountAll` certification
   - Primary files:
     - `shardloom-core/src/correctness.rs`
@@ -73,24 +110,6 @@ Supporting docs:
     - [x] Focused correctness manifest, correctness snapshot, CLI fixture matching, feature-gated local primitive certificate tests, and live `vortex-count`/`vortex-run count` struct-fixture smokes passed locally with Rust toolchain `1.91.1`.
     - [x] Required full `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, and `cargo test --workspace --all-targets` validation passed locally with Rust toolchain `1.91.1`.
   - Explicitly not included: new readers, non-local/object-store Vortex sources, Parquet/Arrow/JSON/Avro/ORC runtime, adapter execution, SQL/DataFrame/Python runtime expansion, broad encoded predicate/projection certification, benchmark reruns, superiority or best-default claims, CG-2 closeout, CG-13 closeout, or fallback execution.
-
-## Near-term Implementation Priority
-- [ ] Priority 1 - generalized encoded primitive execution loop
-  - [ ] Generalized direct encoded `CountAll` execution beyond the current local direct-count proof path.
-  - [ ] Encoded-value predicate/filter execution with explicit selection-vector guarantees.
-  - [ ] Encoded projection and filter-project execution with no row reads, no Arrow conversion, no object-store IO, no writes, no spill, and no fallback.
-- [ ] Priority 2 - evidence loop paired with every execution expansion
-  - [ ] CG-5 fixtures, reference outputs, correctness certificates, and edge-case coverage for each new primitive path.
-  - [ ] CG-6 query-runtime benchmark rows, reproducibility metadata, work-avoidance evidence, and claim-gate blockers for each new primitive path.
-  - [ ] CG-16 execution certificates and CG-19 per-path Native I/O certificates for each supported source/sink path.
-- [ ] Priority 3 - broader platform work after the primitive/evidence loop advances
-  - [ ] CG-4 broader commit execution.
-  - [ ] CG-8 dynamic sizing feedback execution and bounded parallel encoded/read runtime.
-  - [ ] CG-9 catalog/table metadata integration.
-  - [ ] CG-10 object-store/distributed runtime execution.
-  - [ ] CG-20 SQL/Python/DataFrame/UDF/unstructured/media/adapters once the encoded primitive evidence loop is no longer the bottleneck.
-
-## Recent Completed Session Ledger
 - [x] Session label: CG-2.1e.32 / CG-5.9 / CG-16.7 / CG-19.9 checked-in local primitive struct fixture certification
   - Primary files:
     - `shardloom-core/src/correctness.rs`
@@ -1129,6 +1148,13 @@ Supporting docs:
     - Inconclusive predicates keep reporting the encoded-value-kernel blocker.
     - CG-2, CG-13, generalized filtered-count execution, benchmark claims, production claims, and superiority claims remain blocked.
     - No encoded value reads, scan/read-start invocation, encoded-data traversal, row read, decode/materialization, Arrow conversion, object-store IO, write, spill, external baseline invocation, or fallback execution is added.
+- [x] CG-2.2f/CG-13.14/CG-16.9/CG-19.11 local `CountWhere` execution evidence
+  - Why: expose the already-approved feature-gated local Vortex `CountWhere` scan-pushdown path through `vortex-count-where` so filtered-count users can see actual local execution, selection-vector transition evidence, and certificates without using the broader `vortex-run` surface.
+  - Acceptance:
+    - `shardloom vortex-count-where <dataset_uri> <predicate> --execute-local-primitive <memory_gb> <max_parallelism>` executes only the existing local primitive path.
+    - Matching `local_primitive_struct_five.vortex` with `gte:value:3` emits count `3`, local execution fields, `vortex_encoded->selection_vector_encoded` Native I/O evidence, and a certified CG-16 execution certificate.
+    - Non-fixture local runs remain executable but uncertified for correctness and production claims.
+    - No new readers, non-local/object-store sources, Parquet/Arrow/JSON/Avro/ORC runtime, adapter execution, SQL/DataFrame/Python runtime expansion, generalized encoded predicate kernels, benchmark reruns, writes, spill, superiority claims, or fallback execution is added.
 - [x] CG-1.4/CG-2.1e.15 local fixture Vortex array scan/count proof
   - Why: move beyond metadata/footer count by proving a tightly scoped local Vortex data scan can produce `CountAll` from scanned array lengths.
   - Acceptance:
@@ -1560,6 +1586,7 @@ Status legend:
   - [x] CG-2.2c filtered-count metadata proof local guard
   - [x] CG-2.2d filtered-count metadata proof report
   - [x] CG-2.2e count-where selection-vector filter evidence surfacing
+  - [x] CG-2.2f fixture-backed local `CountWhere` execution evidence through `vortex-count-where`
   - [x] CG-2.3b projection readiness CLI integration
   - Required capabilities for completion:
     - encoded-first selection vectors
@@ -1746,6 +1773,7 @@ Status legend:
   - [x] CG-13.11 streaming benchmark scenarios avoid full-table materialization for projected native Vortex scans
   - [x] CG-13.12 local direct CountAll `vortex_encoded->vortex_encoded` Native I/O evidence
   - [x] CG-13.13 local primitive scan-pushdown Native I/O evidence
+  - [x] CG-13.14 local `CountWhere` scan-pushdown evidence surfaces `vortex_encoded->selection_vector_encoded` through `vortex-count-where`
   - Scope:
     - encoding-aware execution-path selection through `vortex-encoded-path-selection-plan`
     - direct count/filter/project over encoded segments
@@ -1779,6 +1807,7 @@ Status legend:
   - [x] CG-16.6 `vortex-run` local primitive execution certificate fields for known CountAll fixture runs
   - [x] CG-16.7 `vortex-run` local primitive execution certificate fields for checked-in struct fixture count-where/project/filter-project runs
   - [x] CG-16.8 multi-layout local `CountAll` execution certificate fields for checked-in u64 and struct fixtures
+  - [x] CG-16.9 `vortex-count-where` local primitive execution certificate fields for the checked-in struct fixture
   - Scope:
     - plan/input/output evidence artifacts through `execution-certificate-plan`
     - reproducibility metadata and segment traces
@@ -1809,7 +1838,8 @@ Status legend:
   - [x] CG-19.8 local primitive scan-pushdown Native I/O certificates
   - [x] CG-19.9 checked-in local primitive struct fixture Native I/O certificate surfacing through `vortex-run`
   - [x] CG-19.10 multi-layout local `CountAll` Native I/O evidence stays certified while correctness certification expands to the struct fixture
-  - [~] generalized source/sink runtime certificate emission pending beyond local compatibility-file, benchmark native Vortex, local direct-count, and local primitive paths
+  - [x] CG-19.11 local `CountWhere` Native I/O evidence through `vortex-count-where`
+  - [~] generalized source/sink runtime certificate emission pending beyond local compatibility-file, benchmark native Vortex, local direct-count, local primitive, and fixture-backed local `CountWhere` paths
   - Scope:
     - preserve representation state, pushdown evidence, materialization boundaries, and sink constraints without default decode
 
@@ -1893,6 +1923,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.2c filtered-count metadata proof local guard
 - [x] CG-2.2d filtered-count metadata proof report
 - [x] CG-2.2e count-where selection-vector filter evidence surfacing
+- [x] CG-2.2f fixture-backed local `CountWhere` execution evidence through `vortex-count-where`
 - [x] CG-2.3a projection readiness semantic hardening
 - [x] CG-2.3b projection readiness CLI integration
 - [~] CG-2.1+ broader zero-decode encoded query primitive execution remains deferred pending filter/project encoded-kernel guarantees
@@ -2092,6 +2123,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-13.11 native Vortex benchmark scenario execution records `vortex_encoded->partially_decoded` evidence for projected streaming scans and avoids claiming generalized encoded-native SQL/operator execution
 - [x] CG-13.12 local direct CountAll Native I/O certificate records encoded representation preservation for successful local encoded count reports without claiming filtered-count/projection encoded-kernel completion
 - [x] CG-13.13 local primitive Native I/O certificates record `vortex_encoded->vortex_encoded` or `vortex_encoded->selection_vector_encoded` evidence for successful local scan-pushdown primitive reports without claiming generalized encoded-kernel completion
+- [x] CG-13.14 `vortex-count-where` local primitive execution records fixture-backed `vortex_encoded->selection_vector_encoded` evidence without claiming generalized encoded-value predicate-kernel completion
 - [ ] generalized direct count/filter/project encoded execution
 - [ ] broad compressed-kernel correctness and benchmark certification
 
@@ -2120,6 +2152,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-16.6 `vortex-run` local primitive execution certificate fields for known CountAll fixture runs
 - [x] CG-16.7 `vortex-run` local primitive execution certificate fields for checked-in struct fixture count-where/project/filter-project runs
 - [x] CG-16.8 multi-layout local `CountAll` execution certificate fields for checked-in u64 and struct fixtures
+- [x] CG-16.9 `vortex-count-where` local primitive execution certificate fields for the checked-in struct fixture
 - [x] plan/input/output evidence artifacts for reproducibility
 - [x] deterministic, machine-readable certificate surfaces
 
@@ -2149,7 +2182,8 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-19.8 local primitive Native I/O certificates cover existing `vortex-run` count, count-where, filter, project, and filter-project local scan-pushdown reports with accepted pushdown operations, source capability, representation transition, sink requirement, adapter fidelity, side-effect, and no-fallback evidence
 - [x] CG-19.9 checked-in local primitive struct fixture Native I/O certificate surfacing through `vortex-run`
 - [x] CG-19.10 multi-layout local `CountAll` Native I/O evidence stays certified while correctness certification expands to the struct fixture
-- [~] generalized source/sink runtime certificate emission pending beyond local compatibility-file, benchmark native Vortex, local direct-count, and local primitive paths
+- [x] CG-19.11 local `CountWhere` Native I/O evidence through `vortex-count-where` covers accepted filter/count pushdown, `vortex_encoded->selection_vector_encoded`, scalar-count sink requirements, side effects, and no fallback
+- [~] generalized source/sink runtime certificate emission pending beyond local compatibility-file, benchmark native Vortex, local direct-count, local primitive, and fixture-backed local `CountWhere` paths
 - [x] representation state, pushdown proof, materialization boundary, sink requirement, adapter fidelity, per-path certificate, no-default-Arrow, and no-fallback report fields are exposed without reads, decode, materialization, IO, writes, or fallback
 
 ### CG-20 detailed checklist
@@ -2256,6 +2290,7 @@ This section preserves older attribution notes that predate the compact CG rollu
 - [x] CG-2.2c filtered-count metadata proof local guard admits only metadata-proof `CountWhere` requests into metadata-only local execution and rejects encoded predicate candidates without fallback.
 - [x] CG-2.2d filtered-count metadata proof report classifies proof-ready, encoded-predicate-needed, missing-metadata, and unsupported filtered counts without IO or fallback.
 - [x] CG-2.2e/CG-13.5 `vortex-count-where` surfaces encoded predicate evaluation, selection-vector filter-kernel evidence, and encoded filter admission while leaving encoded-value reads, generalized filtered-count execution, benchmarks, production claims, CG-2 closeout, CG-13 closeout, and fallback blocked.
+- [x] CG-2.2f/CG-13.14/CG-16.9/CG-19.11 `vortex-count-where --execute-local-primitive` executes the existing feature-gated local `CountWhere` scan-pushdown path, reports selection-vector transition evidence, and emits Native I/O and execution certificates for the checked-in struct fixture while leaving broader encoded-value predicate kernels, non-local sources, adapters, SQL, writes, spill, claims, and fallback blocked.
 - [x] CG-5.1 metadata query primitive correctness fixtures cover supported metadata answers and deferred unsupported paths without side effects.
 - [x] CG-5.2 metadata query primitive edge and diagnostic fixtures cover missing/unsupported metadata primitive paths without side effects.
 - [x] CG-5.3 correctness fixture manifest declares initial golden fixture/reference output and required edge-case fixture families without execution.
