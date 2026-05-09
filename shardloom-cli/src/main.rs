@@ -25,13 +25,13 @@ use shardloom_core::{
     ExtensionProvenance, ExtensionRegistrySnapshot, ExtensionVersion, FeatureFootprintReport,
     FieldId, FieldName, FieldPath, FileDescriptor, FileRole, IncrementalPlanSkeleton,
     InputAdapterRegistrySnapshot, KernelRegistrySnapshot, LayoutHealthPolicy, LayoutHealthReport,
-    LayoutKind, LogicalDType, ManifestId, ManifestSegment, MetricValue, NativeIoEnvelopeReport,
-    Nullability, ObservabilityPlan, OperatorMemoryCertification, OutputEnvelope, OutputFormat,
-    OutputTarget, PartitionEvolutionCompatibilityReport, PartitionField, PartitionSpec,
-    PartitionTransform, PhysicalKernelRegistryPlan, PhysicalOperatorExecutionLevel,
-    PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorKind, PhysicalOperatorPlan,
-    PredicateExpr, PythonWrapperFoundationReport, RedactionPolicy, ReleasePlan,
-    RuntimeObservabilityReport, SchemaDefinition, SchemaEvolutionCompatibilityReport,
+    LayoutKind, LogicalDType, ManifestId, ManifestSegment, MetricValue, NativeIoCertificate,
+    NativeIoEnvelopeReport, Nullability, ObservabilityPlan, OperatorMemoryCertification,
+    OutputEnvelope, OutputFormat, OutputTarget, PartitionEvolutionCompatibilityReport,
+    PartitionField, PartitionSpec, PartitionTransform, PhysicalKernelRegistryPlan,
+    PhysicalOperatorExecutionLevel, PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorKind,
+    PhysicalOperatorPlan, PredicateExpr, PythonWrapperFoundationReport, RedactionPolicy,
+    ReleasePlan, RuntimeObservabilityReport, SchemaDefinition, SchemaEvolutionCompatibilityReport,
     SchemaEvolutionPolicy, SchemaField, SchemaId, SchemaVersion, SecurityPlan, SegmentChange,
     SegmentChangeKind, SegmentId, SegmentLayout, SegmentStats, ShardLoomError, SnapshotId,
     SnapshotRef, StatValue, StatefulReuseReport, TableCompatibilityPlan, TableCompatibilityReport,
@@ -140,13 +140,13 @@ use shardloom_vortex::{
     execute_vortex_local_query_primitive, execute_vortex_metadata_only,
     execute_vortex_streaming_batches_from_local_encoded_count,
     finalized_manifest_artifact_write_request_from_plan, local_encoded_count_execution_certificate,
-    metadata_planning_is_side_effect_free, metadata_pruning_is_side_effect_free,
-    metadata_summary_is_plan_only, native_output_payload_write_request_from_plan,
-    open_vortex_metadata_only, output_payload_artifact_write_request_from_plan,
-    parse_vortex_local_engine_primitive, plan_from_vortex_metadata_summary,
-    plan_native_vortex_universal_input, plan_vortex_commit_intent, plan_vortex_commit_marker,
-    plan_vortex_commit_protocol, plan_vortex_count_readiness,
-    plan_vortex_encoded_count_data_path_approval,
+    local_encoded_count_native_io_certificate, metadata_planning_is_side_effect_free,
+    metadata_pruning_is_side_effect_free, metadata_summary_is_plan_only,
+    native_output_payload_write_request_from_plan, open_vortex_metadata_only,
+    output_payload_artifact_write_request_from_plan, parse_vortex_local_engine_primitive,
+    plan_from_vortex_metadata_summary, plan_native_vortex_universal_input,
+    plan_vortex_commit_intent, plan_vortex_commit_marker, plan_vortex_commit_protocol,
+    plan_vortex_count_readiness, plan_vortex_encoded_count_data_path_approval,
     plan_vortex_encoded_count_data_path_approval_with_layout_driver,
     plan_vortex_encoded_execution_path_selection, plan_vortex_encoded_read_boundary,
     plan_vortex_encoded_read_probe, plan_vortex_filtered_count_readiness,
@@ -10265,6 +10265,7 @@ struct VortexCountLocalEncodedEvidence {
     target_policy: VortexCountLocalEncodedTargetPolicy,
     fixture_id: Option<String>,
     fixture_source_ref: Option<String>,
+    native_io_certificate: Option<NativeIoCertificate>,
     certificate: Option<ExecutionCertificate>,
     physical_kernel: Option<VortexEncodedCountPhysicalKernelReport>,
     kernel_admission: Option<VortexEncodedCountKernelAdmissionReport>,
@@ -10316,26 +10317,31 @@ impl VortexCountLocalEncodedEvidence {
     fn unavailable(
         encoded_report: &shardloom_vortex::VortexEncodedReadExecutionReport,
         local_report: &VortexLocalExecutionReport,
-    ) -> Self {
-        Self {
-            target_policy: if local_encoded_count_target_execution_allowed(
-                encoded_report,
-                local_report,
-            ) {
+    ) -> shardloom_core::Result<Self> {
+        let target_policy =
+            if local_encoded_count_target_execution_allowed(encoded_report, local_report) {
                 VortexCountLocalEncodedTargetPolicy::LocalVortexUncertified
             } else {
                 VortexCountLocalEncodedTargetPolicy::Blocked
-            },
+            };
+        let native_io_certificate = target_policy
+            .execution_allowed()
+            .then(|| local_encoded_count_native_io_certificate(encoded_report, local_report))
+            .transpose()?;
+        Ok(Self {
+            target_policy,
             fixture_id: None,
             fixture_source_ref: None,
+            native_io_certificate,
             certificate: None,
             physical_kernel: None,
             kernel_admission: None,
-        }
+        })
     }
 
     fn from_fixture(
         fixture: &CorrectnessFixture,
+        native_io_certificate: NativeIoCertificate,
         certificate: ExecutionCertificate,
         physical_kernel: VortexEncodedCountPhysicalKernelReport,
         kernel_admission: VortexEncodedCountKernelAdmissionReport,
@@ -10349,6 +10355,7 @@ impl VortexCountLocalEncodedEvidence {
             target_policy,
             fixture_id: Some(fixture.id.as_str().to_string()),
             fixture_source_ref: fixture.source_ref.clone(),
+            native_io_certificate: Some(native_io_certificate),
             certificate: Some(certificate),
             physical_kernel: Some(physical_kernel),
             kernel_admission: Some(kernel_admission),
@@ -10357,6 +10364,10 @@ impl VortexCountLocalEncodedEvidence {
 
     fn has_errors(&self) -> bool {
         self.target_policy == VortexCountLocalEncodedTargetPolicy::Blocked
+            || self
+                .native_io_certificate
+                .as_ref()
+                .is_some_and(NativeIoCertificate::has_errors)
             || self
                 .certificate
                 .as_ref()
@@ -10373,6 +10384,9 @@ impl VortexCountLocalEncodedEvidence {
 
     fn diagnostics(&self) -> Vec<shardloom_core::Diagnostic> {
         let mut diagnostics = Vec::new();
+        if let Some(native_io_certificate) = &self.native_io_certificate {
+            diagnostics.extend(native_io_certificate.diagnostics.clone());
+        }
         if let Some(certificate) = &self.certificate {
             diagnostics.extend(certificate.diagnostics.clone());
         }
@@ -10395,6 +10409,11 @@ impl VortexCountLocalEncodedEvidence {
                 .as_ref()
                 .is_some_and(ExecutionCertificate::is_certified)
         )];
+        if let Some(native_io_certificate) = &self.native_io_certificate {
+            sections.push(local_count_native_io_certificate_human_text(
+                native_io_certificate,
+            ));
+        }
         if let Some(certificate) = &self.certificate {
             sections.push(certificate.to_human_text());
         }
@@ -10413,11 +10432,10 @@ fn vortex_count_local_encoded_evidence(
     local_report: &VortexLocalExecutionReport,
 ) -> shardloom_core::Result<VortexCountLocalEncodedEvidence> {
     let Some(fixture) = local_encoded_count_correctness_fixture_for_report(encoded_report) else {
-        return Ok(VortexCountLocalEncodedEvidence::unavailable(
-            encoded_report,
-            local_report,
-        ));
+        return VortexCountLocalEncodedEvidence::unavailable(encoded_report, local_report);
     };
+    let native_io_certificate =
+        local_encoded_count_native_io_certificate(encoded_report, local_report)?;
     let certificate =
         local_encoded_count_execution_certificate(&fixture, encoded_report, local_report)?;
     let physical_kernel = evaluate_vortex_local_encoded_count_physical_kernel(
@@ -10428,6 +10446,7 @@ fn vortex_count_local_encoded_evidence(
     let kernel_admission = admit_vortex_encoded_count_kernel(&physical_kernel)?;
     Ok(VortexCountLocalEncodedEvidence::from_fixture(
         &fixture,
+        native_io_certificate,
         certificate,
         physical_kernel,
         kernel_admission,
@@ -10555,6 +10574,20 @@ fn normalized_local_fixture_ref(value: &str) -> String {
         .replace('\\', "/")
         .trim_start_matches("./")
         .to_string()
+}
+
+fn local_count_native_io_certificate_human_text(certificate: &NativeIoCertificate) -> String {
+    format!(
+        "Vortex local encoded CountAll Native I/O certificate\ncertificate: {}\npath: {}\nstatus: {}\nsource adapter: {}\npushdown guarantee: {}\nrepresentation transitions: {}\nmaterialization boundaries: {}\nfallback execution allowed: {}",
+        certificate.certificate_id,
+        certificate.path_id,
+        certificate.status(),
+        certificate.source_capability_report.adapter_id,
+        certificate.source_pushdown_report.guarantee,
+        certificate.representation_transition_order(),
+        certificate.materialization_boundary_order(),
+        certificate.side_effects.fallback_execution_allowed
+    )
 }
 
 fn vortex_count_local_encoded_fields(
@@ -10813,6 +10846,7 @@ fn append_vortex_count_local_encoded_evidence_fields(
     evidence: &VortexCountLocalEncodedEvidence,
 ) {
     append_vortex_count_local_encoded_target_policy_fields(fields, evidence);
+    append_vortex_count_local_native_io_certificate_fields(fields, evidence);
     push_bool_field(
         fields,
         "correctness_fixture_matched",
@@ -10886,6 +10920,203 @@ fn append_vortex_count_local_encoded_evidence_fields(
             false,
         );
     }
+}
+
+fn append_vortex_count_local_native_io_certificate_fields(
+    fields: &mut Vec<(String, String)>,
+    evidence: &VortexCountLocalEncodedEvidence,
+) {
+    let Some(certificate) = &evidence.native_io_certificate else {
+        push_bool_field(fields, "local_count_native_io_certificate_emitted", false);
+        push_field(
+            fields,
+            "local_count_native_io_certificate_status",
+            "evidence_unavailable",
+        );
+        push_bool_field(fields, "local_count_native_io_certified", false);
+        return;
+    };
+    append_vortex_count_local_native_io_identity_fields(fields, certificate);
+    append_vortex_count_local_native_io_source_fields(fields, certificate);
+    append_vortex_count_local_native_io_pushdown_fields(fields, certificate);
+    append_vortex_count_local_native_io_sink_fields(fields, certificate);
+    append_vortex_count_local_native_io_side_effect_fields(fields, certificate);
+}
+
+fn append_vortex_count_local_native_io_identity_fields(
+    fields: &mut Vec<(String, String)>,
+    certificate: &NativeIoCertificate,
+) {
+    push_bool_field(fields, "local_count_native_io_certificate_emitted", true);
+    push_field(
+        fields,
+        "local_count_native_io_certificate_schema_version",
+        certificate.schema_version,
+    );
+    push_field(
+        fields,
+        "local_count_native_io_certificate_id",
+        &certificate.certificate_id,
+    );
+    push_field(
+        fields,
+        "local_count_native_io_certificate_path_id",
+        &certificate.path_id,
+    );
+    push_field(
+        fields,
+        "local_count_native_io_certificate_status",
+        certificate.status(),
+    );
+    push_bool_field(
+        fields,
+        "local_count_native_io_certified",
+        certificate.is_certified(),
+    );
+}
+
+fn append_vortex_count_local_native_io_source_fields(
+    fields: &mut Vec<(String, String)>,
+    certificate: &NativeIoCertificate,
+) {
+    let source = &certificate.source_capability_report;
+    push_field(
+        fields,
+        "local_count_native_io_source_kind",
+        &source.source_kind,
+    );
+    push_field(
+        fields,
+        "local_count_native_io_adapter_id",
+        &source.adapter_id,
+    );
+    push_bool_field(
+        fields,
+        "local_count_native_io_encoded_representation_preserved",
+        source.encoded_representation_preserved,
+    );
+    push_bool_field(
+        fields,
+        "local_count_native_io_streaming_capability",
+        source.streaming_capability,
+    );
+}
+
+fn append_vortex_count_local_native_io_pushdown_fields(
+    fields: &mut Vec<(String, String)>,
+    certificate: &NativeIoCertificate,
+) {
+    let pushdown = &certificate.source_pushdown_report;
+    push_field(
+        fields,
+        "local_count_native_io_pushdown_accepted_operations",
+        &pushdown.accepted_operation_order(),
+    );
+    push_field(
+        fields,
+        "local_count_native_io_pushdown_rejected_operations",
+        &pushdown.rejected_operation_order(),
+    );
+    push_field(
+        fields,
+        "local_count_native_io_pushdown_guarantee",
+        &pushdown.guarantee,
+    );
+    push_field(
+        fields,
+        "local_count_native_io_representation_transitions",
+        &certificate.representation_transition_order(),
+    );
+    push_field(
+        fields,
+        "local_count_native_io_materialization_boundaries",
+        &certificate.materialization_boundary_order(),
+    );
+    push_bool_field(
+        fields,
+        "local_count_native_io_materializing_transitions_have_boundaries",
+        certificate.materializing_transitions_have_boundaries(),
+    );
+}
+
+fn append_vortex_count_local_native_io_sink_fields(
+    fields: &mut Vec<(String, String)>,
+    certificate: &NativeIoCertificate,
+) {
+    let sink = &certificate.sink_requirement_report;
+    let fidelity = &certificate.adapter_fidelity_report;
+    push_field(
+        fields,
+        "local_count_native_io_sink_target_format",
+        &sink.target_format,
+    );
+    push_bool_field(
+        fields,
+        "local_count_native_io_sink_accepts_encoded",
+        sink.accepts_encoded,
+    );
+    push_bool_field(
+        fields,
+        "local_count_native_io_adapter_materialization_required",
+        fidelity.materialization_required,
+    );
+}
+
+fn append_vortex_count_local_native_io_side_effect_fields(
+    fields: &mut Vec<(String, String)>,
+    certificate: &NativeIoCertificate,
+) {
+    let side_effects = &certificate.side_effects;
+    push_bool_field(
+        fields,
+        "local_count_native_io_data_read",
+        side_effects.data_read,
+    );
+    push_bool_field(
+        fields,
+        "local_count_native_io_data_decoded",
+        side_effects.data_decoded,
+    );
+    push_bool_field(
+        fields,
+        "local_count_native_io_data_materialized",
+        side_effects.data_materialized,
+    );
+    push_bool_field(
+        fields,
+        "local_count_native_io_row_read",
+        side_effects.row_read,
+    );
+    push_bool_field(
+        fields,
+        "local_count_native_io_arrow_converted",
+        side_effects.arrow_converted,
+    );
+    push_bool_field(
+        fields,
+        "local_count_native_io_object_store_io",
+        side_effects.object_store_io,
+    );
+    push_bool_field(
+        fields,
+        "local_count_native_io_write_io",
+        side_effects.write_io,
+    );
+    push_bool_field(
+        fields,
+        "local_count_native_io_spill_io_performed",
+        side_effects.spill_io_performed,
+    );
+    push_bool_field(
+        fields,
+        "local_count_native_io_fallback_attempted",
+        side_effects.fallback_attempted || certificate.fallback_attempted,
+    );
+    push_bool_field(
+        fields,
+        "local_count_native_io_fallback_execution_allowed",
+        side_effects.fallback_execution_allowed,
+    );
 }
 
 fn append_vortex_count_local_encoded_target_policy_fields(
@@ -27234,6 +27465,36 @@ mod tests {
             "true"
         );
         assert_eq!(
+            output_field(&fields, "local_count_native_io_certificate_status"),
+            "certified"
+        );
+        assert_eq!(
+            output_field(&fields, "local_count_native_io_certificate_path_id"),
+            "native_vortex_source_to_scalar_count_result"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "local_count_native_io_pushdown_accepted_operations"
+            ),
+            "count_all"
+        );
+        assert_eq!(
+            output_field(&fields, "local_count_native_io_representation_transitions"),
+            "vortex_encoded->vortex_encoded"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "local_count_native_io_encoded_representation_preserved"
+            ),
+            "true"
+        );
+        assert_eq!(
+            output_field(&fields, "local_count_native_io_data_decoded"),
+            "false"
+        );
+        assert_eq!(
             output_field(&fields, "generalized_local_count_non_fixture_target"),
             "true"
         );
@@ -27289,6 +27550,18 @@ mod tests {
         assert_eq!(
             output_field(&fields, "generalized_local_count_execution_allowed"),
             "true"
+        );
+        assert_eq!(
+            output_field(&fields, "local_count_native_io_certificate_status"),
+            "certified"
+        );
+        assert_eq!(
+            output_field(&fields, "local_count_native_io_certified"),
+            "true"
+        );
+        assert_eq!(
+            output_field(&fields, "local_count_native_io_pushdown_guarantee"),
+            "exact_array_length_count"
         );
         assert_eq!(
             output_field(&fields, "generalized_local_count_non_fixture_target"),

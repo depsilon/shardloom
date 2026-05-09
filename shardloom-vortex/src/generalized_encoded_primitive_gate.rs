@@ -46,6 +46,7 @@ impl VortexGeneralizedEncodedPrimitiveKind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VortexGeneralizedEncodedPrimitiveStatus {
     LocalCountAllOnly,
+    LocalDirectCountEvidence,
     MetadataProofOnly,
     ReadinessOnly,
     GeneralizedBlocked,
@@ -56,6 +57,7 @@ impl VortexGeneralizedEncodedPrimitiveStatus {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::LocalCountAllOnly => "local_count_all_only",
+            Self::LocalDirectCountEvidence => "local_direct_count_evidence",
             Self::MetadataProofOnly => "metadata_proof_only",
             Self::ReadinessOnly => "readiness_only",
             Self::GeneralizedBlocked => "generalized_blocked",
@@ -102,23 +104,28 @@ impl VortexGeneralizedEncodedPrimitiveGateEntry {
     fn direct_count() -> Self {
         Self {
             primitive: VortexGeneralizedEncodedPrimitiveKind::DirectCount,
-            status: VortexGeneralizedEncodedPrimitiveStatus::LocalCountAllOnly,
-            current_scope: "explicit local .vortex CountAll scan only".to_string(),
+            status: VortexGeneralizedEncodedPrimitiveStatus::LocalDirectCountEvidence,
+            current_scope:
+                "feature-gated local file/file:// .vortex direct CountAll execution evidence"
+                    .to_string(),
             current_evidence: vec![
                 "vortex-encoded-count-approval-plan".to_string(),
                 "vortex-count --execute-local-encoded-count".to_string(),
+                "local CountAll target policy for certified fixture and non-fixture local Vortex targets"
+                    .to_string(),
+                "cg19.local_encoded_count.native_io".to_string(),
                 "local_encoded_count.execution_certificate".to_string(),
                 "local_encoded_count.physical_kernel_evidence".to_string(),
             ],
             implementation_blockers: vec![
-                "generalized public scan/read-start contract is not approved".to_string(),
                 "non-local sources and object-store reads are not approved".to_string(),
-                "generalized execution certificate coverage does not exist".to_string(),
+                "cross-target correctness fixture families are not complete".to_string(),
+                "claim-grade comparative benchmark evidence is not complete".to_string(),
             ],
             required_next_evidence: vec![
-                "public Vortex data-path approval beyond local CountAll".to_string(),
-                "native I/O certificate coverage for each source/sink path".to_string(),
-                "CG-5 correctness fixtures for generalized encoded count".to_string(),
+                "object-store and non-local Vortex source authorization".to_string(),
+                "CG-5 correctness fixtures across empty, null-heavy, chunked, and generated local Vortex counts".to_string(),
+                "CG-19 native I/O certificates for every widened source/sink path".to_string(),
                 "CG-6 benchmark evidence before production or superiority claims".to_string(),
             ],
             local_vortex_count_all_execution_supported: true,
@@ -481,11 +488,11 @@ fn generalized_execution_blocked_diagnostic() -> Diagnostic {
         "Generalized encoded primitive execution remains blocked.",
         Some("vortex.generalized_encoded_primitive_execution".to_string()),
         Some(
-            "Only explicit local `.vortex` CountAll execution is proven; generalized count, filtered-count, and projection execution need public data-path, native I/O certificate, correctness, and benchmark evidence."
+            "Local file/file:// `.vortex` direct CountAll execution has runtime and native I/O evidence, but non-local count, filtered-count, and projection execution still need source widening, correctness, and benchmark evidence."
                 .to_string(),
         ),
         Some(
-            "Keep using the local CountAll path for proven execution and land the generalized data-path evidence before widening runtime behavior."
+            "Keep using the local direct CountAll path for proven execution and land correctness/benchmark/source-widening evidence before broader runtime behavior."
                 .to_string(),
         ),
         FallbackStatus::disabled_by_policy(),
@@ -512,7 +519,7 @@ mod tests {
         assert_eq!(
             report.primitive_statuses(),
             vec![
-                "local_count_all_only",
+                "local_direct_count_evidence",
                 "metadata_proof_only",
                 "readiness_only"
             ]

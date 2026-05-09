@@ -45,6 +45,27 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
+- [x] Session label: CG-2.1e.29 / CG-13.12 / CG-16.4 / CG-19.7 local direct CountAll Native I/O certification
+  - Primary files:
+    - `shardloom-vortex/src/local_execution.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-vortex/src/generalized_encoded_primitive_gate.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: Attach a runtime `NativeIoCertificate` to the feature-gated local `.vortex` encoded `CountAll` path so direct-count evidence covers local source capability, pushdown proof, representation preservation, sink requirement, side effects, and no-fallback state for both fixture and non-fixture local targets.
+  - Checklist:
+    - [x] Build `local_encoded_count_native_io_certificate` from the approved local scan/count report plus local execution bridge report.
+    - [x] Emit CLI fields and human text for local CountAll native I/O certificate status, path id, accepted pushdown operation, representation transition, materialization boundary order, side effects, and no-fallback state.
+    - [x] Update generalized encoded primitive gate wording so direct count reflects local direct-count evidence instead of fixture-only wording.
+    - [x] Keep CG-2, CG-13, production claims, performance claims, non-local sources, object-store IO, writes, spill, SQL/DataFrame/API runtime, adapters, and fallback execution blocked.
+  - Local validation status:
+    - Focused `cargo test -p shardloom-vortex --features vortex-encoded-read-spike local_encoded_count_native_io -- --nocapture` passed locally with Rust toolchain `1.91.1`.
+    - Focused `cargo test -p shardloom-cli vortex_count_local_encoded_evidence_reports -- --nocapture` passed locally with Rust toolchain `1.91.1`.
+    - Focused `cargo test -p shardloom-cli --test generalized_encoded_primitive_gate_snapshots -- --nocapture` passed locally with Rust toolchain `1.91.1`.
+    - Required `cargo fmt --all -- --check` passed locally with Rust toolchain `1.91.1`.
+    - Required `cargo clippy --workspace --all-targets -- -D warnings` passed locally with Rust toolchain `1.91.1`.
+    - Required `cargo test --workspace --all-targets` passed locally with Rust toolchain `1.91.1`.
+  - Explicitly not included: filtered-count/projection encoded-kernel generalization, object-store/non-local Vortex sources, universal adapter execution, SQL/DataFrame/Python runtime expansion, benchmark reruns, superiority or best-default claims, CG-2 closeout, CG-13 closeout, or fallback execution.
+
 - [x] Session label: phase-plan status hygiene and CG rollup consistency
   - Primary files:
     - `docs/architecture/phased-execution-plan.md`
@@ -1120,11 +1141,13 @@ Supporting docs:
     - Predicate planning treats missing segment stats as inconclusive, not as a false-match proof.
     - Native microbenchmarks include a local filter-projection row.
     - No SQL/DataFrame/API runtime, adapters, non-local sources, object-store IO, row reads, Arrow conversion, writes, spill IO, benchmark/superiority claim, production certification, or fallback execution is added.
-- [ ] CG-2.1e generalized encoded-data count execution path beyond explicit local `.vortex` count (planned)
-  - Why: turn the local fixture scan/count proof into a generalized native count path only after the public Vortex data path and representation guarantees are approved.
+- [x] CG-2.1e.29 / CG-13.12 / CG-16.4 / CG-19.7 local direct CountAll Native I/O certification
+  - Why: turn the local fixture scan/count proof into a broader local direct-count evidence path by attaching source/sink native I/O certification to every successful local `.vortex` encoded `CountAll` report.
   - Acceptance:
-    - Real encoded data traversal remains feature-gated and still avoids rows, decode/materialization requests, Arrow conversion, object-store IO, writes, and fallback.
-    - Representation guarantees, segment/chunk boundaries, and non-fixture target policy are explicit before broad execution is allowed.
+    - Real encoded data traversal remains feature-gated and still avoids rows, decode/materialization requests, Arrow conversion, object-store IO, writes, spill, and fallback.
+    - `vortex-count --execute-local-encoded-count` emits local CountAll `NativeIoCertificate` fields for certified fixture and non-fixture local targets.
+    - The certificate records `vortex_encoded->vortex_encoded`, accepted `count_all` pushdown, scalar-count sink requirements, no materialization boundaries, and no-fallback side effects.
+    - Non-local/object-store sources, filtered-count/projection encoded kernels, benchmark/superiority claims, CG-2 closeout, and CG-13 closeout remain blocked.
 - [x] CG-7.15 local encoded `CountAll` physical kernel evidence
   - Why: connect the approved local encoded `CountAll` path to CG-7 physical-kernel evidence before expanding additional primitives.
   - Acceptance:
@@ -1422,6 +1445,7 @@ Status legend:
   - [x] CG-2.1e.26 local primitive materialization-effect tightening
   - [x] CG-2.1e.27 local Vortex scan filter/project pushdown
   - [x] CG-2.1e.28 local Vortex filter-project scan pushdown
+  - [x] CG-2.1e.29 local direct CountAll Native I/O certification
   - [~] CG-2.1+ broader zero-decode encoded primitive execution remains deferred pending filter/project encoded-kernel guarantees
   - [x] CG-2.2c filtered-count metadata proof local guard
   - [x] CG-2.2d filtered-count metadata proof report
@@ -1607,6 +1631,7 @@ Status legend:
   - [x] CG-13.9 local Vortex streaming scan execution policy
   - [x] CG-13.10 local Vortex filter-project scan pushdown evidence
   - [x] CG-13.11 streaming benchmark scenarios avoid full-table materialization for projected native Vortex scans
+  - [x] CG-13.12 local direct CountAll `vortex_encoded->vortex_encoded` Native I/O evidence
   - Scope:
     - encoding-aware execution-path selection through `vortex-encoded-path-selection-plan`
     - direct count/filter/project over encoded segments
@@ -1635,6 +1660,7 @@ Status legend:
   - [x] CG-16.1 local encoded `CountAll` execution certificate
   - [x] CG-16.2 execution certificate evidence surface
   - [x] CG-16.3 broader local primitive execution certificate evidence
+  - [x] CG-16.4 local encoded `CountAll` Native I/O certificate evidence
   - Scope:
     - plan/input/output evidence artifacts through `execution-certificate-plan`
     - reproducibility metadata and segment traces
@@ -1661,7 +1687,8 @@ Status legend:
   - [x] CG-19.4 Python replay helper and universal input adapter matrix
   - [x] CG-19.5 local compatibility-file runtime certificates
   - [x] CG-19.6 native Vortex streaming scenario certificates
-  - [~] generalized source/sink runtime certificate emission pending beyond the benchmark-only path
+  - [x] CG-19.7 local direct CountAll Native I/O certificate
+  - [~] generalized source/sink runtime certificate emission pending beyond local compatibility-file, benchmark native Vortex, and local direct-count paths
   - Scope:
     - preserve representation state, pushdown evidence, materialization boundaries, and sink constraints without default decode
 
@@ -1734,6 +1761,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.26 local primitive materialization-effect tightening
 - [x] CG-2.1e.27 local Vortex scan filter/project pushdown
 - [x] CG-2.1e.28 local Vortex filter-project scan pushdown
+- [x] CG-2.1e.29 local direct CountAll Native I/O certification
 - [x] CG-2.2a filtered-count readiness core contract
 - [x] CG-2.2a.1 filtered-count blocker precision hardening
 - [x] CG-2.2b filtered-count readiness CLI integration
@@ -1934,6 +1962,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-13.9 local Vortex streaming scan execution policy records chunk iteration and bounded concurrency evidence without claiming generalized encoded-native completion
 - [x] CG-13.10 local Vortex filter-project scan pushdown evidence combines predicate and projection pushdown in one feature-gated local scan for supported struct-array cases
 - [x] CG-13.11 native Vortex benchmark scenario execution records `vortex_encoded->partially_decoded` evidence for projected streaming scans and avoids claiming generalized encoded-native SQL/operator execution
+- [x] CG-13.12 local direct CountAll Native I/O certificate records encoded representation preservation for successful local encoded count reports without claiming filtered-count/projection encoded-kernel completion
 - [ ] generalized direct count/filter/project encoded execution
 - [ ] broad compressed-kernel correctness and benchmark certification
 
@@ -1956,6 +1985,8 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 ### CG-16 detailed checklist
 - [x] CG-16.1 local encoded `CountAll` execution certificate
 - [x] CG-16.2 execution certificate evidence surface
+- [x] CG-16.3 broader local primitive execution certificate evidence
+- [x] CG-16.4 local encoded `CountAll` Native I/O certificate evidence
 - [x] plan/input/output evidence artifacts for reproducibility
 - [x] deterministic, machine-readable certificate surfaces
 
@@ -1981,7 +2012,8 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-19.4 Python replay helper and universal input adapter matrix keep live replay paths and adapter discovery tied to explicit native input/output contracts
 - [x] CG-19.5 local compatibility-file runtime certificates cover CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC source paths into native Vortex output with materialization-boundary, adapter-fidelity, auto-sizing, and no-fallback evidence
 - [x] CG-19.6 native Vortex benchmark scenario certificates distinguish streaming projected scans from temporary full-table operators with per-path pushdown, sink-streaming, materialization-boundary, side-effect, and no-fallback evidence
-- [~] generalized source/sink runtime certificate emission pending beyond the benchmark-only local compatibility-file-to-Vortex path
+- [x] CG-19.7 local direct CountAll Native I/O certificate covers native Vortex source to scalar count result with exact `count_all` pushdown, `vortex_encoded->vortex_encoded` representation preservation, scalar sink requirements, no materialization boundaries, side-effect evidence, and no fallback
+- [~] generalized source/sink runtime certificate emission pending beyond local compatibility-file, benchmark native Vortex, and local direct-count paths
 - [x] representation state, pushdown proof, materialization boundary, sink requirement, adapter fidelity, per-path certificate, no-default-Arrow, and no-fallback report fields are exposed without reads, decode, materialization, IO, writes, or fallback
 
 ### CG-20 detailed checklist
@@ -2075,6 +2107,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.26/CG-13.7 local primitive materialization-effect tightening makes metadata predicates, validity predicates, and schema-only projection report no decode/materialization/materialization boundary before broader scan-pushdown work.
 - [x] CG-2.1e.27/CG-13.8 local Vortex scan filter/project pushdown moves supported local filter/project/count-where primitives onto upstream Vortex scan expressions and exposes filter/projection pushdown evidence without row reads, Arrow conversion, object-store IO, writes, spill, or fallback execution.
 - [x] CG-2.1e.28/CG-13.10 local Vortex filter-project scan pushdown adds `FilterAndProject` construction, CLI parsing, local-engine execution, and native microbenchmark coverage for supported local `.vortex` filter+projection requests in one upstream scan without row reads, Arrow conversion, object-store IO, writes, spill, or fallback execution.
+- [x] CG-2.1e.29/CG-13.12/CG-16.4/CG-19.7 local direct CountAll Native I/O certification emits a runtime `NativeIoCertificate` for successful local encoded `CountAll` reports, covering local Vortex source capability, accepted `count_all` pushdown, `vortex_encoded->vortex_encoded` preservation, scalar-count sink requirements, no materialization boundaries, side-effect evidence, and no fallback.
 - [x] CG-4.2 local committed-manifest recovery/rollback diagnostics represent recovery-not-required, rollback-required/planned, ambiguous-commit, missing-manifest, cleanup-policy, and object-store blocker states without executing cleanup, rollback, object-store IO, or fallback.
 - [x] CG-4.3 local committed-manifest rollback cleanup execution deletes only `_shardloom_committed_manifest.json` behind `vortex-staged-output-fs` after rollback-planned recovery evidence; finalized manifests, commit markers, output payloads, object-store IO, upstream `Vortex` APIs, and fallback remain untouched.
 - [x] CG-2.2c filtered-count metadata proof local guard admits only metadata-proof `CountWhere` requests into metadata-only local execution and rejects encoded predicate candidates without fallback.

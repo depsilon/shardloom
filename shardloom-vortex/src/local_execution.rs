@@ -5,7 +5,9 @@ use std::fmt::Write as _;
 
 use shardloom_core::{
     CorrectnessFixture, Diagnostic, DiagnosticCode, DiagnosticSeverity, ExecutionCertificate,
-    ExecutionCertificateInput, ExpectedOutcome, Result,
+    ExecutionCertificateInput, ExpectedOutcome, NativeIoAdapterFidelityReport, NativeIoCertificate,
+    NativeIoRepresentationTransition, NativeIoSideEffectReport, NativeIoSinkRequirementReport,
+    NativeIoSourceCapabilityReport, NativeIoSourcePushdownReport, RepresentationState, Result,
 };
 
 use crate::{
@@ -893,6 +895,191 @@ pub fn local_encoded_count_execution_certificate(
     Ok(ExecutionCertificate::evaluate(input))
 }
 
+/// Builds a CG-19 runtime native I/O certificate for the local encoded
+/// `CountAll` path.
+///
+/// This certificate is intentionally scoped to local Vortex source-to-scalar
+/// count-result execution. It records that the source representation stays
+/// Vortex-encoded, no decoded columnar or row materialization boundary is
+/// crossed, object-store and write paths are untouched, and fallback remains
+/// disabled. Correctness and benchmark claim evidence remain separate gates.
+///
+/// # Errors
+/// Returns an error if the native I/O certificate input is invalid.
+pub fn local_encoded_count_native_io_certificate(
+    encoded_read: &VortexEncodedReadExecutionReport,
+    local_execution: &VortexLocalExecutionReport,
+) -> Result<NativeIoCertificate> {
+    let safe = local_encoded_count_native_io_safe(encoded_read, local_execution);
+    let diagnostics =
+        local_encoded_count_native_io_diagnostics(safe, encoded_read, local_execution);
+    let mut certificate = NativeIoCertificate::new(
+        "cg19.local_encoded_count.native_io",
+        "native_vortex_source_to_scalar_count_result",
+        local_encoded_count_source_capability_report(safe, encoded_read),
+        local_encoded_count_source_pushdown_report(safe),
+        vec![NativeIoRepresentationTransition::new(
+            RepresentationState::VortexEncoded,
+            RepresentationState::VortexEncoded,
+            false,
+        )],
+        local_encoded_count_sink_requirement_report(safe, encoded_read),
+        local_encoded_count_adapter_fidelity_report(safe),
+        Vec::new(),
+        local_encoded_count_side_effect_report(encoded_read, local_execution, &diagnostics),
+        diagnostics,
+    )?;
+    certificate.fallback_attempted = certificate
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.fallback.attempted);
+    Ok(certificate)
+}
+
+fn local_encoded_count_native_io_diagnostics(
+    safe: bool,
+    encoded_read: &VortexEncodedReadExecutionReport,
+    local_execution: &VortexLocalExecutionReport,
+) -> Vec<Diagnostic> {
+    let mut diagnostics = encoded_read.diagnostics.clone();
+    diagnostics.extend(local_execution.diagnostics.clone());
+    if !safe {
+        diagnostics.push(Diagnostic::unsupported(
+            DiagnosticCode::NoFallbackExecution,
+            "vortex_local_encoded_count_native_io_certificate",
+            "local encoded CountAll native I/O certificate requires successful local scan/count execution with no decode, materialization, row reads, Arrow conversion, object-store IO, writes, spill, external effects, or fallback",
+            Some("Fallback attempted: false".to_string()),
+        ));
+    }
+    diagnostics
+}
+
+fn local_encoded_count_source_capability_report(
+    safe: bool,
+    encoded_read: &VortexEncodedReadExecutionReport,
+) -> NativeIoSourceCapabilityReport {
+    NativeIoSourceCapabilityReport {
+        source_kind: if encoded_read.local_scan_target_uri.is_some() {
+            "vortex".to_string()
+        } else {
+            "unknown".to_string()
+        },
+        adapter_id: "shardloom.adapter.vortex.local_count.v1".to_string(),
+        schema_discovery_status: if encoded_read.upstream_scan_called {
+            "vortex_schema_read".to_string()
+        } else {
+            "not_available".to_string()
+        },
+        statistics_availability: if encoded_read.count_result.is_some() {
+            "row_count_available".to_string()
+        } else {
+            "unknown".to_string()
+        },
+        pushdown_capabilities: if safe {
+            "count_all_array_length".to_string()
+        } else {
+            "none".to_string()
+        },
+        encoded_representation_preserved: safe,
+        range_read_capability: false,
+        streaming_capability: safe,
+        object_store_capability: false,
+        fallback_attempted: false,
+    }
+}
+
+fn local_encoded_count_source_pushdown_report(safe: bool) -> NativeIoSourcePushdownReport {
+    NativeIoSourcePushdownReport {
+        accepted_operations: if safe {
+            vec!["count_all".to_string()]
+        } else {
+            Vec::new()
+        },
+        rejected_operations: if safe {
+            Vec::new()
+        } else {
+            vec!["count_all".to_string()]
+        },
+        guarantee: if safe {
+            "exact_array_length_count".to_string()
+        } else {
+            "unsupported".to_string()
+        },
+        proof_basis: if safe {
+            "local Vortex scan yielded arrays and ShardLoom summed array lengths without decoding or row materialization".to_string()
+        } else {
+            "native I/O certificate blocked before accepting source pushdown".to_string()
+        },
+        residual_expression: None,
+        conservative_false_positive_policy: false,
+        unsafe_rejected_reason: (!safe)
+            .then(|| "missing safe local encoded count execution evidence".to_string()),
+        fallback_attempted: false,
+    }
+}
+
+fn local_encoded_count_sink_requirement_report(
+    safe: bool,
+    encoded_read: &VortexEncodedReadExecutionReport,
+) -> NativeIoSinkRequirementReport {
+    NativeIoSinkRequirementReport {
+        target_format: "scalar_count_result".to_string(),
+        accepts_encoded: true,
+        requires_decoded_columnar: false,
+        requires_rows: false,
+        preserves_metadata: false,
+        requires_ordering: false,
+        requires_partitioning: false,
+        requires_commit: false,
+        supports_streaming: safe,
+        max_chunk_size: Some(
+            encoded_read
+                .count_result
+                .unwrap_or(encoded_read.rows_counted),
+        ),
+        backpressure_policy: "not_applicable_local_scalar_count".to_string(),
+    }
+}
+
+fn local_encoded_count_adapter_fidelity_report(safe: bool) -> NativeIoAdapterFidelityReport {
+    NativeIoAdapterFidelityReport {
+        adapter_id: "shardloom.adapter.vortex.local_count.v1".to_string(),
+        source_kind: "vortex".to_string(),
+        sink_kind: "scalar_count_result".to_string(),
+        metadata_preserved: true,
+        statistics_preserved: true,
+        encoded_representation_preserved: safe,
+        materialization_required: false,
+        fidelity_loss: "none_for_count_result".to_string(),
+        metadata_loss: "scalar_count_result_has_no_column_metadata".to_string(),
+        fallback_attempted: false,
+    }
+}
+
+fn local_encoded_count_side_effect_report(
+    encoded_read: &VortexEncodedReadExecutionReport,
+    local_execution: &VortexLocalExecutionReport,
+    diagnostics: &[Diagnostic],
+) -> NativeIoSideEffectReport {
+    NativeIoSideEffectReport {
+        data_read: encoded_read.data_read || local_execution.data_read,
+        data_decoded: encoded_read.data_decoded || local_execution.data_decoded,
+        data_materialized: encoded_read.data_materialized || local_execution.data_materialized,
+        row_read: encoded_read.row_read,
+        arrow_converted: encoded_read.arrow_converted,
+        object_store_io: encoded_read.object_store_io || local_execution.object_store_io,
+        write_io: encoded_read.write_io || local_execution.write_io,
+        spill_io_performed: encoded_read.spill_io_performed || local_execution.spill_io_performed,
+        external_effects_executed: encoded_read.external_effects_executed
+            || local_execution.external_effects_executed,
+        fallback_attempted: diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.fallback.attempted),
+        fallback_execution_allowed: encoded_read.fallback_execution_allowed
+            || local_execution.fallback_execution_allowed,
+    }
+}
+
 fn local_encoded_count_actual_outcome(
     local_execution: &VortexLocalExecutionReport,
 ) -> Option<ExpectedOutcome> {
@@ -943,6 +1130,27 @@ fn local_encoded_count_unsafe_effect_detected(
         || local_execution.spill_io_performed
         || local_execution.external_effects_executed
         || local_execution.fallback_execution_allowed
+}
+
+fn local_encoded_count_native_io_safe(
+    encoded_read: &VortexEncodedReadExecutionReport,
+    local_execution: &VortexLocalExecutionReport,
+) -> bool {
+    encoded_read.feature_status == VortexEncodedReadExecutorFeatureStatus::Enabled
+        && encoded_read.status == VortexEncodedReadExecutionStatus::LocalScanEncodedCountExecuted
+        && encoded_read.mode == VortexEncodedReadExecutionMode::LocalScanEncodedArrayLengthCount
+        && encoded_read.count_result == Some(encoded_read.rows_counted)
+        && encoded_read.local_scan_target_uri.is_some()
+        && encoded_read.local_scan_readiness_source_uri == encoded_read.local_scan_target_uri
+        && encoded_read.local_scan_source_uri_matches_target
+        && encoded_read.data_read
+        && encoded_read.upstream_scan_called
+        && local_execution.status == VortexLocalExecutionStatus::LocalEncodedCountExecuted
+        && local_execution.tasks_executed
+        && local_execution.data_read
+        && !encoded_read.has_errors()
+        && !local_execution.has_errors()
+        && !local_encoded_count_unsafe_effect_detected(encoded_read, local_execution)
 }
 
 /// Executes metadata-proven `CountWhere` through the filtered-count readiness guard.
@@ -1436,6 +1644,70 @@ mod tests {
                 .steps
                 .iter()
                 .any(|step| step.kind == VortexLocalExecutionStepKind::ReturnEncodedCountResult)
+        );
+    }
+
+    #[test]
+    fn local_encoded_count_native_io_certificate_covers_direct_count_path() {
+        let approval = approved_encoded_count_path_for_uri(uri());
+        let encoded = local_scan_count_result_report(&approval, 42);
+        let local = execute_vortex_count_all_from_approved_local_scan_result(&approval, &encoded)
+            .expect("bridge");
+
+        let certificate =
+            local_encoded_count_native_io_certificate(&encoded, &local).expect("native io");
+
+        assert_eq!(certificate.status(), "certified");
+        assert!(certificate.is_certified());
+        assert_eq!(
+            certificate.path_id,
+            "native_vortex_source_to_scalar_count_result"
+        );
+        assert_eq!(certificate.source_capability_report.source_kind, "vortex");
+        assert_eq!(
+            certificate
+                .source_pushdown_report
+                .accepted_operation_order(),
+            "count_all"
+        );
+        assert_eq!(
+            certificate.representation_transition_order(),
+            "vortex_encoded->vortex_encoded"
+        );
+        assert_eq!(certificate.materialization_boundary_order(), "");
+        assert!(!certificate.has_errors());
+        assert!(certificate.side_effects.data_read);
+        assert!(!certificate.side_effects.data_decoded);
+        assert!(!certificate.side_effects.data_materialized);
+        assert!(!certificate.side_effects.row_read);
+        assert!(!certificate.side_effects.arrow_converted);
+        assert!(!certificate.side_effects.object_store_io);
+        assert!(!certificate.side_effects.write_io);
+        assert!(!certificate.side_effects.spill_io_performed);
+        assert!(!certificate.side_effects.fallback_attempted);
+        assert!(!certificate.side_effects.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn local_encoded_count_native_io_certificate_blocks_unsafe_reports() {
+        let approval = approved_encoded_count_path_for_uri(uri());
+        let mut encoded = local_scan_count_result_report(&approval, 42);
+        encoded.row_read = true;
+        let local = execute_vortex_count_all_from_approved_local_scan_result(&approval, &encoded)
+            .expect("bridge");
+
+        let certificate =
+            local_encoded_count_native_io_certificate(&encoded, &local).expect("native io");
+
+        assert_eq!(certificate.status(), "blocked");
+        assert!(!certificate.is_certified());
+        assert!(certificate.has_errors());
+        assert!(certificate.side_effects.row_read);
+        assert_eq!(
+            certificate
+                .source_pushdown_report
+                .rejected_operation_order(),
+            "count_all"
         );
     }
 
