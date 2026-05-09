@@ -21,3 +21,33 @@
   decode/materialization, Arrow conversion, writes, spill IO, external baseline
   execution, or fallback execution.
 
+## `local_primitive_struct_five.vortex`
+
+- Purpose: feature-gated local primitive scan-pushdown coverage for
+  `count-where`, `project`, and `filter-project` correctness/certificate
+  evidence.
+- Provenance: generated locally with upstream Apache-2.0 `vortex` crate version
+  `0.70.0` using the ignored
+  `regenerate_checked_in_local_primitive_struct_fixture` test helper.
+- Data shape: one non-nullable struct array with fields `value: u32` and
+  `metric: i64`.
+- Values:
+  - `value`: `1, 2, 3, 4, 5`
+  - `metric`: `10, 20, 30, 40, 50`
+- Expected local primitive outputs:
+  - `count-where:gte:value:3` => `row_count=3`
+  - `project:metric` => `row_count=5`
+  - `filter-project:gte:value:3|metric` => `row_count=3`
+- Correctness manifest: `CorrectnessValidationPlan::default_foundation_plan`
+  declares fixture ids `vortex-local-count-where-struct-five`,
+  `vortex-local-project-struct-five`, and
+  `vortex-local-filter-project-struct-five` with `ExpectedOutcome::Rows`
+  counts matching the outputs above.
+- Scope: tests and feature-gated local CLI smoke runs may open the file and run
+  upstream Vortex scan filter/projection pushdown through ShardLoom's local
+  primitive path.
+- Not allowed: production SQL/operator certification, non-local or object-store
+  reads, generalized adapter execution, row reads, requested
+  decode/materialization, Arrow conversion, writes, spill IO, external baseline
+  execution, or fallback execution.
+

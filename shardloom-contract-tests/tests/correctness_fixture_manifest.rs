@@ -75,7 +75,16 @@ fn foundation_plan_declares_broader_local_primitive_reference_outputs() {
 
     for (id, row_count) in cases {
         let fixture = fixture(&plan, id);
-        assert_eq!(fixture.format, FixtureFormat::Generated);
+        assert_eq!(fixture.format, FixtureFormat::ShardLoomNative);
+        assert_eq!(
+            fixture.source_ref.as_deref(),
+            Some("shardloom-vortex/tests/fixtures/local_primitive_struct_five.vortex")
+        );
+        let workspace_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("workspace root");
+        let fixture_path = workspace_root.join(fixture.source_ref.as_ref().expect("source ref"));
+        assert!(fixture_path.is_file(), "{fixture_path:?}");
         assert_eq!(fixture.expected, ExpectedOutcome::Rows { row_count });
         assert!(fixture.expected.requires_execution());
         assert!(fixture.covers_area(SemanticArea::EncodedExecution));
@@ -152,7 +161,7 @@ fn foundation_plan_reports_reference_and_gap_counts() {
     let plan = CorrectnessValidationPlan::default_foundation_plan();
 
     assert_eq!(plan.fixture_count(), 17);
-    assert_eq!(plan.fixtures_with_source_ref_count(), 2);
+    assert_eq!(plan.fixtures_with_source_ref_count(), 5);
     assert_eq!(plan.golden_fixture_count(), 5);
     assert_eq!(plan.executable_expected_output_count(), 4);
     assert_eq!(plan.not_yet_defined_fixture_count(), 8);
