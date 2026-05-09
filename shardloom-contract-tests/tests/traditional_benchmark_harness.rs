@@ -18,8 +18,12 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("def render_read_this_first("));
     assert!(script.contains("def render_shardloom_native_table("));
     assert!(script.contains("def render_universal_io_table("));
+    assert!(script.contains("def render_resource_metrics_table("));
+    assert!(script.contains("def render_shardloom_effects_table("));
     assert!(script.contains("def warmup_runner("));
     assert!(script.contains("\"startup_time_millis\""));
+    assert!(script.contains("\"bytes_written\""));
+    assert!(script.contains("\"shardloom_evidence\""));
     assert!(script.contains("traditional-analytics-run"));
     assert!(script.contains("vortex-traditional-analytics-benchmark"));
     assert!(script.contains("--shardloom-build-profile"));
@@ -61,6 +65,9 @@ fn traditional_benchmark_harness_records_fairness_and_universal_io_boundaries() 
         "\"spark_requires_java\"",
         "\"spark_profiles\"",
         "\"startup_time_millis\"",
+        "\"bytes_written\"",
+        "\"data_decoded\"",
+        "\"data_materialized\"",
         "\"object_store_included\": False",
         "\"csv_to_vortex_included\": True",
         "\"shardloom_universal_io_smoke_included\": True",
@@ -95,6 +102,8 @@ fn traditional_benchmark_docs_state_no_fallback_and_markdown_outputs() {
 
     assert!(readme.contains("human-readable Markdown"));
     assert!(readme.contains("fairness parameters"));
+    assert!(readme.contains("resource metrics"));
+    assert!(readme.contains("runtime-effect evidence"));
     assert!(normalized.contains("never execute unsupported ShardLoom plans as fallback engines"));
     assert!(readme.contains("shardloom traditional-analytics-run"));
     assert!(readme.contains("vortex-traditional-analytics-benchmark"));

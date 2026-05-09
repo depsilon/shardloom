@@ -42,14 +42,17 @@ same hardware/cache settings before drawing conclusions.
 
 Each run writes a machine-readable JSON artifact and a human-readable Markdown
 report. The report begins with fairness parameters, then includes an engine
-overview with startup/warmup timing, scenario timing matrix, fastest-row table, ASCII timing bars,
+overview with startup/warmup timing, scenario timing matrix, resource metrics,
+ShardLoom runtime-effect evidence, fastest-row table, ASCII timing bars,
 ShardLoom native microbenchmarks, universal-I/O evidence lanes, correctness
 summary, and separate failure/unsupported rows.
 
 Each result artifact records engine versions, Python/runtime details, dataset
 shape, file sizes, wall/query time, sampled peak RSS when `psutil` is available,
 rows scanned, rows materialized, bytes read, object-store request count, and a
-correctness digest.
+correctness digest. ShardLoom rows also retain the emitted native I/O evidence
+fields for decode, materialization, row reads, Arrow conversion, writes, spill,
+and NativeIoCertificate status.
 
 ShardLoom traditional analytics rows call the workspace-local native Rust
 command `shardloom traditional-analytics-run`. Build time is excluded from

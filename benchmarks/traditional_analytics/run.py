@@ -385,7 +385,10 @@ def shardloom_runner() -> EngineRunner:
         result_json = fields.get("result_json")
         if result_json is None:
             raise RuntimeError("ShardLoom result_json field was missing")
-        return json.loads(result_json)
+        return {
+            "__benchmark_result": json.loads(result_json),
+            "__shardloom_evidence": fields,
+        }
 
     return EngineRunner(
         "shardloom",
@@ -440,6 +443,39 @@ def parse_output_fields(payload: dict[str, Any]) -> dict[str, str]:
         for field in payload.get("fields", [])
         if isinstance(field, dict) and "key" in field
     }
+
+
+def parse_optional_int(value: Any) -> int | None:
+    if value is None or value == "none" or value == "":
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def parse_optional_bool(value: Any) -> bool | None:
+    if value is None or value == "none" or value == "":
+        return None
+    text = str(value).strip().lower()
+    if text == "true":
+        return True
+    if text == "false":
+        return False
+    return None
+
+
+def unwrap_engine_value(value: Any) -> tuple[Any, dict[str, str]]:
+    if (
+        isinstance(value, dict)
+        and "__benchmark_result" in value
+        and isinstance(value.get("__shardloom_evidence"), dict)
+    ):
+        return value["__benchmark_result"], {
+            str(key): str(field_value)
+            for key, field_value in value["__shardloom_evidence"].items()
+        }
+    return value, {}
 
 
 def workspace_root() -> Path:
@@ -1315,8 +1351,16 @@ def failed_result(
         "query_runtime_millis": round(elapsed_millis, 4) if elapsed_millis is not None else None,
         "peak_memory_bytes": None,
         "bytes_read": scenario_bytes(paths, scenario),
+        "bytes_written": None,
         "rows_scanned": rows_scanned(paths, scenario),
         "rows_materialized": 0,
+        "data_decoded": None,
+        "data_materialized": None,
+        "row_read": None,
+        "arrow_converted": None,
+        "object_store_io": None,
+        "write_io": None,
+        "spill_io_performed": None,
         "object_store_requests": 0,
         "spill_required_bytes": None,
     }
@@ -1330,6 +1374,7 @@ def failed_result(
         "metrics": metrics,
         "correctness_digest": None,
         "output_preview": None,
+        "shardloom_evidence": {},
         "fallback_attempted": False,
         "external_baseline_only": engine != "shardloom",
     }
@@ -1343,13 +1388,14 @@ def run_one(
 ) -> dict[str, Any]:
     scenario_fn = runner.scenarios[scenario]
     values = []
+    evidence_rows = []
     timings = []
     peak_memory = []
     for _ in range(iterations):
         started = time.perf_counter()
         with MemorySampler() as sampler:
             try:
-                value = scenario_fn(paths)
+                value, evidence = unwrap_engine_value(scenario_fn(paths))
             except BenchmarkUnsupported as exc:
                 elapsed = (time.perf_counter() - started) * 1000.0
                 return failed_result(
@@ -1375,12 +1421,20 @@ def run_one(
             else:
                 elapsed = time.perf_counter() - started
         values.append(value)
+        evidence_rows.append(evidence)
         timings.append(elapsed * 1000.0)
         if sampler.peak_bytes is not None:
             peak_memory.append(sampler.peak_bytes)
 
     digest = canonical_digest(values[-1])
     stable = all(canonical_digest(value) == digest for value in values)
+    evidence = evidence_rows[-1] if evidence_rows else {}
+    bytes_written = None
+    if evidence:
+        fact_vortex_bytes = parse_optional_int(evidence.get("fact_vortex_bytes"))
+        dim_vortex_bytes = parse_optional_int(evidence.get("dim_vortex_bytes"))
+        if fact_vortex_bytes is not None or dim_vortex_bytes is not None:
+            bytes_written = (fact_vortex_bytes or 0) + (dim_vortex_bytes or 0)
     return {
         "scenario_name": scenario,
         "engine": runner.name,
@@ -1392,13 +1446,24 @@ def run_one(
             "query_runtime_millis": round(statistics.mean(timings), 4),
             "peak_memory_bytes": max(peak_memory) if peak_memory else None,
             "bytes_read": scenario_bytes(paths, scenario),
+            "bytes_written": bytes_written,
             "rows_scanned": rows_scanned(paths, scenario),
-            "rows_materialized": rows_materialized(values[-1]),
+            "rows_materialized": parse_optional_int(evidence.get("rows_materialized"))
+            if evidence
+            else rows_materialized(values[-1]),
+            "data_decoded": parse_optional_bool(evidence.get("data_decoded")),
+            "data_materialized": parse_optional_bool(evidence.get("data_materialized")),
+            "row_read": parse_optional_bool(evidence.get("row_read")),
+            "arrow_converted": parse_optional_bool(evidence.get("arrow_converted")),
+            "object_store_io": parse_optional_bool(evidence.get("object_store_io")),
+            "write_io": parse_optional_bool(evidence.get("write_io")),
+            "spill_io_performed": parse_optional_bool(evidence.get("spill_io_performed")),
             "object_store_requests": 0,
             "spill_required_bytes": None,
         },
         "correctness_digest": digest,
         "output_preview": values[-1] if not isinstance(values[-1], list) else values[-1][:5],
+        "shardloom_evidence": evidence,
         "fallback_attempted": False,
         "external_baseline_only": runner.name != "shardloom",
     }
@@ -1643,6 +1708,28 @@ def format_metric(value: Any, suffix: str = "") -> str:
     return f"{value}{suffix}"
 
 
+def format_bytes(value: Any) -> str:
+    if value is None:
+        return "n/a"
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+    units = ["B", "KiB", "MiB", "GiB", "TiB"]
+    unit = units[0]
+    for unit in units:
+        if abs(number) < 1024.0 or unit == units[-1]:
+            break
+        number /= 1024.0
+    return f"{number:.2f} {unit}"
+
+
+def format_bool(value: Any) -> str:
+    if value is None:
+        return "n/a"
+    return str(value).lower()
+
+
 def result_lookup(results: list[dict[str, Any]]) -> dict[tuple[str, str], dict[str, Any]]:
     return {(result["scenario_name"], result["engine"]): result for result in results}
 
@@ -1750,6 +1837,92 @@ def render_scenario_matrix(artifact: dict[str, Any]) -> str:
                 row.append(result["status"])
         rows.append(row)
     return markdown_table(headers, rows)
+
+
+def render_resource_metrics_table(artifact: dict[str, Any]) -> str:
+    rows = []
+    for result in artifact["results"]:
+        metrics = result["metrics"]
+        rows.append(
+            [
+                result["scenario_name"],
+                result["engine"],
+                result["status"],
+                format_metric(metrics.get("query_runtime_millis"), " ms"),
+                format_bytes(metrics.get("peak_memory_bytes")),
+                format_bytes(metrics.get("bytes_read")),
+                format_bytes(metrics.get("bytes_written")),
+                format_metric(metrics.get("rows_scanned")),
+                format_metric(metrics.get("rows_materialized")),
+            ]
+        )
+    return markdown_table(
+        [
+            "Scenario",
+            "Engine",
+            "Status",
+            "Runtime",
+            "Peak RSS",
+            "Bytes read",
+            "Bytes written",
+            "Rows scanned",
+            "Rows materialized",
+        ],
+        rows,
+    )
+
+
+def render_shardloom_effects_table(artifact: dict[str, Any]) -> str:
+    rows = []
+    for result in artifact["results"]:
+        if result["engine"] != "shardloom":
+            continue
+        metrics = result["metrics"]
+        evidence = result.get("shardloom_evidence", {})
+        rows.append(
+            [
+                result["scenario_name"],
+                result["status"],
+                format_bool(metrics.get("data_decoded")),
+                format_bool(metrics.get("data_materialized")),
+                format_bool(metrics.get("row_read")),
+                format_bool(metrics.get("arrow_converted")),
+                format_bool(metrics.get("object_store_io")),
+                format_bool(metrics.get("write_io")),
+                format_bool(metrics.get("spill_io_performed")),
+                str(evidence.get("native_io_certificate_emitted", "n/a")),
+            ]
+        )
+    if not rows:
+        rows.append(
+            [
+                "not run",
+                "missing",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
+            ]
+        )
+    return markdown_table(
+        [
+            "Scenario",
+            "Status",
+            "Decoded",
+            "Materialized",
+            "Row read",
+            "Arrow",
+            "Object store",
+            "Write IO",
+            "Spill IO",
+            "Native I/O cert",
+        ],
+        rows,
+    )
 
 
 def render_correctness_table(artifact: dict[str, Any]) -> str:
@@ -1929,6 +2102,18 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "Values are mean per-iteration query/runtime milliseconds for successful rows. Failed rows show their status.",
         "",
         render_scenario_matrix(artifact),
+        "",
+        "## Resource Metrics",
+        "",
+        "Memory is sampled process RSS when `psutil` is available. Bytes read and written are declared local file bytes for the scenario; ShardLoom bytes written include temporary Vortex artifacts from the universal-I/O smoke path.",
+        "",
+        render_resource_metrics_table(artifact),
+        "",
+        "## ShardLoom Runtime Effects",
+        "",
+        "These fields come from ShardLoom's CLI evidence and make decode, materialization, row-read, Arrow, object-store, write, spill, and native-I/O-certificate status explicit.",
+        "",
+        render_shardloom_effects_table(artifact),
         "",
         "## Fastest Successful Rows",
         "",
