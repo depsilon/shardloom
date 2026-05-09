@@ -105,7 +105,8 @@ use shardloom_vortex::{
     VortexLayoutReaderDriverApprovalInput, VortexLayoutReaderDriverApprovalSignal,
     VortexLocalCommitExecutionRequest, VortexLocalCommitExecutionSignal,
     VortexLocalCommitRecoveryRequest, VortexLocalCommitRecoverySignal, VortexLocalEngineWhyReport,
-    VortexLocalExecutionReport, VortexLocalExecutionStatus, VortexManifestFinalizationRequest,
+    VortexLocalExecutionReport, VortexLocalExecutionStatus, VortexLocalPrimitiveExecutionPolicy,
+    VortexLocalPrimitiveExecutionReport, VortexManifestFinalizationRequest,
     VortexManifestFinalizationSignal, VortexMemoryBridgeReport,
     VortexMetadataCountKernelAdmissionReport, VortexMetadataFilterKernelAdmissionReport,
     VortexMetadataOpenRequest, VortexMetadataProbeReport, VortexMetadataSummaryReport,
@@ -137,8 +138,8 @@ use shardloom_vortex::{
     execute_vortex_count_all_from_encoded_count_data_path_approval,
     execute_vortex_encoded_read_contract, execute_vortex_encoded_read_spike,
     execute_vortex_local_commit, execute_vortex_local_commit_rollback,
-    execute_vortex_local_query_primitive, execute_vortex_metadata_only,
-    execute_vortex_streaming_batches_from_local_encoded_count,
+    execute_vortex_local_primitive_with_policy, execute_vortex_local_query_primitive,
+    execute_vortex_metadata_only, execute_vortex_streaming_batches_from_local_encoded_count,
     finalized_manifest_artifact_write_request_from_plan, local_encoded_count_execution_certificate,
     local_encoded_count_native_io_certificate, local_primitive_execution_certificate,
     local_primitive_native_io_certificate, metadata_planning_is_side_effect_free,
@@ -8930,6 +8931,90 @@ struct VortexCountWhereFilterEvidence {
     filter_kernel_admission: VortexSelectionVectorFilterKernelAdmissionReport,
 }
 
+struct VortexCountWhereLocalExecutionRequest {
+    memory_gb: u64,
+    max_parallelism: usize,
+}
+
+struct VortexCountWhereLocalExecutionEvidence {
+    memory_gb: u64,
+    max_parallelism: usize,
+    report: VortexLocalPrimitiveExecutionReport,
+    native_io_certificate: NativeIoCertificate,
+    execution_certificate: Option<ExecutionCertificate>,
+}
+impl VortexCountWhereLocalExecutionEvidence {
+    fn has_errors(&self) -> bool {
+        self.report.has_errors() || !self.native_io_certificate.is_certified()
+    }
+
+    fn count(&self) -> Option<u64> {
+        self.report.rows_selected
+    }
+
+    fn selection_vector_guaranteed(&self) -> bool {
+        self.native_io_certificate.is_certified()
+            && self.native_io_certificate.representation_transition_order()
+                == "vortex_encoded->selection_vector_encoded"
+            && self.report.filter_pushdown_applied
+            && self.report.upstream_filter_expression_used
+            && self.report.rows_selected.is_some()
+            && !self.report.data_decoded
+            && !self.report.data_materialized
+            && !self.report.row_read
+            && !self.report.arrow_converted
+            && !self.report.object_store_io
+            && !self.report.write_io
+            && !self.report.spill_io_performed
+            && !self.report.external_effects_executed
+            && !self.report.fallback_execution_allowed
+    }
+}
+
+fn parse_vortex_count_where_local_execution_args(
+    mut args: impl Iterator<Item = String>,
+) -> shardloom_core::Result<Option<VortexCountWhereLocalExecutionRequest>> {
+    let Some(option) = args.next() else {
+        return Ok(None);
+    };
+    if option != "--execute-local-primitive" {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "unknown option: {option}"
+        )));
+    }
+    let Some(memory_gb_text) = args.next() else {
+        return Err(ShardLoomError::InvalidOperation(
+            "missing memory_gb after --execute-local-primitive".to_string(),
+        ));
+    };
+    let Some(max_parallelism_text) = args.next() else {
+        return Err(ShardLoomError::InvalidOperation(
+            "missing max_parallelism after --execute-local-primitive".to_string(),
+        ));
+    };
+    if let Some(extra) = args.next() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "unknown option: {extra}"
+        )));
+    }
+    let memory_gb = memory_gb_text.parse::<u64>().map_err(|_| {
+        ShardLoomError::InvalidOperation("memory_gb must be an unsigned integer".to_string())
+    })?;
+    if memory_gb == 0 {
+        return Err(ShardLoomError::InvalidOperation(
+            "memory_gb must be >= 1".to_string(),
+        ));
+    }
+    let max_parallelism = max_parallelism_text.parse::<usize>().map_err(|_| {
+        ShardLoomError::InvalidOperation("max_parallelism must be an unsigned integer".to_string())
+    })?;
+    VortexLocalPrimitiveExecutionPolicy::new(max_parallelism)?;
+    Ok(Some(VortexCountWhereLocalExecutionRequest {
+        memory_gb,
+        max_parallelism,
+    }))
+}
+
 fn vortex_count_where_filter_evidence(
     predicate: &PredicateExpr,
     summary: &VortexMetadataSummaryReport,
@@ -8944,17 +9029,46 @@ fn vortex_count_where_filter_evidence(
     })
 }
 
+fn vortex_count_where_local_execution_evidence(
+    request: &VortexQueryPrimitiveRequest,
+    local_request: &VortexCountWhereLocalExecutionRequest,
+) -> shardloom_core::Result<VortexCountWhereLocalExecutionEvidence> {
+    let policy = VortexLocalPrimitiveExecutionPolicy::new(local_request.max_parallelism)?;
+    let report = execute_vortex_local_primitive_with_policy(request, policy)?;
+    let native_io_certificate = local_primitive_native_io_certificate(request, &report)?;
+    let execution_certificate = local_primitive_correctness_fixture_for_request(request, &report)
+        .map(|fixture| local_primitive_execution_certificate(&fixture, request, &report))
+        .transpose()?;
+    Ok(VortexCountWhereLocalExecutionEvidence {
+        memory_gb: local_request.memory_gb,
+        max_parallelism: local_request.max_parallelism,
+        report,
+        native_io_certificate,
+        execution_certificate,
+    })
+}
+
 fn vortex_count_where_human_text(
     result: &VortexQueryPrimitiveResult,
     evidence: &VortexCountWhereFilterEvidence,
+    local_execution: Option<&VortexCountWhereLocalExecutionEvidence>,
 ) -> String {
-    [
+    let mut sections = vec![
         result.to_human_text(),
         evidence.predicate_evaluation.to_human_text(),
         evidence.filter_kernel.to_human_text(),
         evidence.filter_kernel_admission.to_human_text(),
-    ]
-    .join("\n\n")
+    ];
+    if let Some(local) = local_execution {
+        sections.push(local.report.to_human_text());
+        sections.push(local_primitive_native_io_certificate_human_text(
+            &local.native_io_certificate,
+        ));
+        if let Some(certificate) = &local.execution_certificate {
+            sections.push(certificate.to_human_text());
+        }
+    }
+    sections.join("\n\n")
 }
 
 fn vortex_count_where_fields(
@@ -8962,7 +9076,30 @@ fn vortex_count_where_fields(
     count: Option<u64>,
     predicate_arg: String,
     evidence: &VortexCountWhereFilterEvidence,
+    local_execution: Option<&VortexCountWhereLocalExecutionEvidence>,
 ) -> Vec<(String, String)> {
+    let data_read = local_execution.map_or(result.data_read, |local| local.report.data_read);
+    let data_decoded =
+        local_execution.map_or(result.data_decoded, |local| local.report.data_decoded);
+    let data_materialized = local_execution.map_or(result.data_materialized, |local| {
+        local.report.data_materialized
+    });
+    let object_store_io =
+        local_execution.map_or(result.object_store_io, |local| local.report.object_store_io);
+    let write_io = local_execution.map_or(result.write_io, |local| local.report.write_io);
+    let spill_io_performed = local_execution.map_or(result.spill_io_performed, |local| {
+        local.report.spill_io_performed
+    });
+    let execution = local_execution.map_or(
+        "metadata_or_selection_vector_evidence_only".to_string(),
+        |local| {
+            if local.report.data_read {
+                "local_vortex_count_where_primitive_performed".to_string()
+            } else {
+                "local_vortex_count_where_primitive_not_performed".to_string()
+            }
+        },
+    );
     let mut fields = vec![
         (
             "fallback_execution_allowed".to_string(),
@@ -8970,18 +9107,25 @@ fn vortex_count_where_fields(
         ),
         ("mode".to_string(), "vortex_count_where".to_string()),
         ("primitive".to_string(), "count_where".to_string()),
-        ("data_read".to_string(), "false".to_string()),
-        ("data_decoded".to_string(), "false".to_string()),
-        ("data_materialized".to_string(), "false".to_string()),
-        ("object_store_io".to_string(), "false".to_string()),
-        ("write_io".to_string(), "false".to_string()),
-        ("spill_io_performed".to_string(), "false".to_string()),
+        ("data_read".to_string(), data_read.to_string()),
+        ("data_decoded".to_string(), data_decoded.to_string()),
         (
-            "execution".to_string(),
-            "metadata_or_selection_vector_evidence_only".to_string(),
+            "data_materialized".to_string(),
+            data_materialized.to_string(),
         ),
+        ("object_store_io".to_string(), object_store_io.to_string()),
+        ("write_io".to_string(), write_io.to_string()),
+        (
+            "spill_io_performed".to_string(),
+            spill_io_performed.to_string(),
+        ),
+        ("execution".to_string(), execution),
         (
             "query_primitive_status".to_string(),
+            result.status.as_str().to_string(),
+        ),
+        (
+            "metadata_query_primitive_status".to_string(),
             result.status.as_str().to_string(),
         ),
         ("result_known".to_string(), count.is_some().to_string()),
@@ -8992,6 +9136,7 @@ fn vortex_count_where_fields(
         ("predicate".to_string(), predicate_arg),
     ];
     append_vortex_count_where_filter_evidence_fields(&mut fields, evidence);
+    append_vortex_count_where_local_execution_fields(&mut fields, local_execution);
     fields
 }
 
@@ -9024,6 +9169,318 @@ fn append_vortex_count_where_filter_evidence_fields(
     push_bool_field(fields, "filtered_count_requires_benchmark_evidence", true);
     push_bool_field(fields, "filtered_count_cg2_closeout_allowed", false);
     push_bool_field(fields, "filtered_count_cg13_closeout_allowed", false);
+}
+
+fn append_vortex_count_where_local_execution_fields(
+    fields: &mut Vec<(String, String)>,
+    local_execution: Option<&VortexCountWhereLocalExecutionEvidence>,
+) {
+    append_vortex_count_where_local_execution_request_fields(fields, local_execution);
+    match local_execution {
+        Some(local) => append_vortex_count_where_local_execution_present_fields(fields, local),
+        None => append_vortex_count_where_local_execution_absent_fields(fields),
+    }
+}
+
+fn append_vortex_count_where_local_execution_request_fields(
+    fields: &mut Vec<(String, String)>,
+    local_execution: Option<&VortexCountWhereLocalExecutionEvidence>,
+) {
+    push_bool_field(
+        fields,
+        "filtered_count_local_execution_requested",
+        local_execution.is_some(),
+    );
+    push_field(
+        fields,
+        "filtered_count_local_execution_feature_gate",
+        "vortex-local-primitives",
+    );
+    push_bool_field(
+        fields,
+        "filtered_count_local_execution_feature_enabled",
+        cfg!(feature = "vortex-local-primitives"),
+    );
+}
+
+fn append_vortex_count_where_local_execution_absent_fields(fields: &mut Vec<(String, String)>) {
+    push_field(
+        fields,
+        "filtered_count_local_execution_status",
+        "not_requested",
+    );
+    push_field(
+        fields,
+        "filtered_count_local_execution_mode",
+        "not_requested",
+    );
+    push_u64_field(fields, "filtered_count_local_execution_memory_gb", 0);
+    push_count_field(fields, "filtered_count_local_execution_max_parallelism", 0);
+    push_bool_field(fields, "filtered_count_local_execution_result_known", false);
+    push_field(fields, "filtered_count_local_execution_count", "unknown");
+    append_vortex_count_where_local_execution_absent_effect_fields(fields);
+    append_vortex_count_where_local_execution_claim_fields(fields, false, false, false);
+    append_vortex_local_primitive_native_io_certificate_fields(fields, None);
+    append_vortex_local_primitive_execution_certificate_fields(fields, None);
+}
+
+fn append_vortex_count_where_local_execution_present_fields(
+    fields: &mut Vec<(String, String)>,
+    local: &VortexCountWhereLocalExecutionEvidence,
+) {
+    append_vortex_count_where_local_execution_report_fields(fields, local);
+    append_vortex_count_where_local_execution_effect_fields(fields, local);
+    append_vortex_count_where_local_execution_claim_fields(
+        fields,
+        local.selection_vector_guaranteed(),
+        local.native_io_certificate.is_certified(),
+        local
+            .execution_certificate
+            .as_ref()
+            .is_some_and(ExecutionCertificate::is_certified),
+    );
+    append_vortex_local_primitive_native_io_certificate_fields(
+        fields,
+        Some(&local.native_io_certificate),
+    );
+    append_vortex_local_primitive_execution_certificate_fields(
+        fields,
+        local.execution_certificate.as_ref(),
+    );
+}
+
+fn append_vortex_count_where_local_execution_report_fields(
+    fields: &mut Vec<(String, String)>,
+    local: &VortexCountWhereLocalExecutionEvidence,
+) {
+    push_field(
+        fields,
+        "filtered_count_local_execution_status",
+        local.report.status.as_str(),
+    );
+    push_field(
+        fields,
+        "filtered_count_local_execution_mode",
+        local.report.mode.as_str(),
+    );
+    push_u64_field(
+        fields,
+        "filtered_count_local_execution_memory_gb",
+        local.memory_gb,
+    );
+    push_count_field(
+        fields,
+        "filtered_count_local_execution_max_parallelism",
+        local.max_parallelism,
+    );
+    push_bool_field(
+        fields,
+        "filtered_count_local_execution_result_known",
+        local.count().is_some(),
+    );
+    push_field(
+        fields,
+        "filtered_count_local_execution_count",
+        &local
+            .count()
+            .map_or_else(|| "unknown".to_string(), |value| value.to_string()),
+    );
+    push_u64_field(
+        fields,
+        "filtered_count_local_execution_rows_scanned",
+        local.report.rows_scanned,
+    );
+    push_field(
+        fields,
+        "filtered_count_local_execution_rows_selected",
+        &local
+            .report
+            .rows_selected
+            .map_or_else(|| "unknown".to_string(), |value| value.to_string()),
+    );
+    push_count_field(
+        fields,
+        "filtered_count_local_execution_arrays_read_count",
+        local.report.arrays_read_count,
+    );
+    push_count_field(
+        fields,
+        "filtered_count_local_execution_max_chunk_rows",
+        local.report.max_chunk_rows,
+    );
+    push_count_field(
+        fields,
+        "filtered_count_local_execution_scan_concurrency_per_worker",
+        local.report.scan_concurrency_per_worker,
+    );
+    push_bool_field(
+        fields,
+        "filtered_count_local_execution_streaming_scan_used",
+        local.report.streaming_scan_used,
+    );
+    push_bool_field(
+        fields,
+        "filtered_count_local_execution_full_stream_collected",
+        local.report.full_stream_collected,
+    );
+    push_bool_field(
+        fields,
+        "filtered_count_local_execution_filter_pushdown_applied",
+        local.report.filter_pushdown_applied,
+    );
+    push_bool_field(
+        fields,
+        "filtered_count_local_execution_upstream_filter_expression_used",
+        local.report.upstream_filter_expression_used,
+    );
+}
+
+fn append_vortex_count_where_local_execution_absent_effect_fields(
+    fields: &mut Vec<(String, String)>,
+) {
+    push_bool_field(fields, "filtered_count_local_execution_data_read", false);
+    push_bool_field(fields, "filtered_count_local_execution_data_decoded", false);
+    push_bool_field(
+        fields,
+        "filtered_count_local_execution_data_materialized",
+        false,
+    );
+    push_bool_field(fields, "filtered_count_local_execution_row_read", false);
+    push_bool_field(
+        fields,
+        "filtered_count_local_execution_arrow_converted",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "filtered_count_local_execution_object_store_io",
+        false,
+    );
+    push_bool_field(fields, "filtered_count_local_execution_write_io", false);
+    push_bool_field(
+        fields,
+        "filtered_count_local_execution_spill_io_performed",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "filtered_count_local_execution_fallback_attempted",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "filtered_count_local_execution_fallback_execution_allowed",
+        false,
+    );
+}
+
+fn append_vortex_count_where_local_execution_effect_fields(
+    fields: &mut Vec<(String, String)>,
+    local: &VortexCountWhereLocalExecutionEvidence,
+) {
+    push_bool_field(
+        fields,
+        "filtered_count_local_execution_data_read",
+        local.report.data_read,
+    );
+    push_bool_field(
+        fields,
+        "filtered_count_local_execution_data_decoded",
+        local.report.data_decoded,
+    );
+    push_bool_field(
+        fields,
+        "filtered_count_local_execution_data_materialized",
+        local.report.data_materialized,
+    );
+    push_bool_field(
+        fields,
+        "filtered_count_local_execution_row_read",
+        local.report.row_read,
+    );
+    push_bool_field(
+        fields,
+        "filtered_count_local_execution_arrow_converted",
+        local.report.arrow_converted,
+    );
+    push_bool_field(
+        fields,
+        "filtered_count_local_execution_object_store_io",
+        local.report.object_store_io,
+    );
+    push_bool_field(
+        fields,
+        "filtered_count_local_execution_write_io",
+        local.report.write_io,
+    );
+    push_bool_field(
+        fields,
+        "filtered_count_local_execution_spill_io_performed",
+        local.report.spill_io_performed,
+    );
+    push_bool_field(
+        fields,
+        "filtered_count_local_execution_external_effects_executed",
+        local.report.external_effects_executed,
+    );
+    push_bool_field(
+        fields,
+        "filtered_count_local_execution_fallback_attempted",
+        local.native_io_certificate.side_effects.fallback_attempted
+            || local.native_io_certificate.fallback_attempted
+            || local
+                .execution_certificate
+                .as_ref()
+                .is_some_and(|certificate| certificate.fallback_attempted),
+    );
+    push_bool_field(
+        fields,
+        "filtered_count_local_execution_fallback_execution_allowed",
+        local.report.fallback_execution_allowed,
+    );
+}
+
+fn append_vortex_count_where_local_execution_claim_fields(
+    fields: &mut Vec<(String, String)>,
+    selection_vector_guarantee: bool,
+    native_io_certified: bool,
+    correctness_certified: bool,
+) {
+    push_bool_field(
+        fields,
+        "filtered_count_local_execution_selection_vector_guarantee",
+        selection_vector_guarantee,
+    );
+    push_bool_field(
+        fields,
+        "filtered_count_local_execution_native_io_certified",
+        native_io_certified,
+    );
+    push_bool_field(
+        fields,
+        "filtered_count_local_execution_correctness_certified",
+        correctness_certified,
+    );
+    push_bool_field(
+        fields,
+        "filtered_count_local_execution_production_claim_allowed",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "filtered_count_local_execution_generalized_claim_allowed",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "filtered_count_local_execution_cg2_closeout_allowed",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "filtered_count_local_execution_cg13_closeout_allowed",
+        false,
+    );
 }
 
 fn append_vortex_count_where_predicate_evidence_fields(
@@ -10689,6 +11146,23 @@ fn local_count_native_io_certificate_human_text(certificate: &NativeIoCertificat
         certificate.status(),
         certificate.source_capability_report.adapter_id,
         certificate.source_pushdown_report.guarantee,
+        certificate.representation_transition_order(),
+        certificate.materialization_boundary_order(),
+        certificate.side_effects.fallback_execution_allowed
+    )
+}
+
+fn local_primitive_native_io_certificate_human_text(certificate: &NativeIoCertificate) -> String {
+    format!(
+        "Vortex local primitive Native I/O certificate\ncertificate: {}\npath: {}\nstatus: {}\nsource adapter: {}\npushdown guarantee: {}\naccepted operations: {}\nrepresentation transitions: {}\nmaterialization boundaries: {}\nfallback execution allowed: {}",
+        certificate.certificate_id,
+        certificate.path_id,
+        certificate.status(),
+        certificate.source_capability_report.adapter_id,
+        certificate.source_pushdown_report.guarantee,
+        certificate
+            .source_pushdown_report
+            .accepted_operation_order(),
         certificate.representation_transition_order(),
         certificate.materialization_boundary_order(),
         certificate.side_effects.fallback_execution_allowed
@@ -23421,11 +23895,15 @@ fn run(args: Vec<String>) -> ExitCode {
         Some("vortex-count-benchmark") => handle_vortex_count_benchmark(args, format),
         Some("vortex-count-where") => {
             let Some(uri_arg) = args.next() else {
-                eprintln!("usage: shardloom vortex-count-where <dataset_uri> <predicate>");
+                eprintln!(
+                    "usage: shardloom vortex-count-where <dataset_uri> <predicate> [--execute-local-primitive <memory_gb> <max_parallelism>]"
+                );
                 return ExitCode::from(2);
             };
             let Some(predicate_arg) = args.next() else {
-                eprintln!("usage: shardloom vortex-count-where <dataset_uri> <predicate>");
+                eprintln!(
+                    "usage: shardloom vortex-count-where <dataset_uri> <predicate> [--execute-local-primitive <memory_gb> <max_parallelism>]"
+                );
                 return ExitCode::from(2);
             };
             let uri = match DatasetUri::new(uri_arg) {
@@ -23450,6 +23928,18 @@ fn run(args: Vec<String>) -> ExitCode {
                     );
                 }
             };
+            let local_execution_request = match parse_vortex_count_where_local_execution_args(args)
+            {
+                Ok(request) => request,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-count-where",
+                        format,
+                        "vortex count where failed",
+                        &error,
+                    );
+                }
+            };
             let request = shardloom_vortex::VortexQueryPrimitiveRequest::count_where(
                 uri.clone(),
                 predicate.clone(),
@@ -23464,7 +23954,7 @@ fn run(args: Vec<String>) -> ExitCode {
             } else {
                 summarize_vortex_metadata_probe(&VortexMetadataProbeReport::deferred_api_unclear())
             };
-            let result = match evaluate_vortex_query_primitive(request, &summary) {
+            let result = match evaluate_vortex_query_primitive(request.clone(), &summary) {
                 Ok(result) => result,
                 Err(error) => {
                     return emit_error(
@@ -23474,6 +23964,22 @@ fn run(args: Vec<String>) -> ExitCode {
                         &error,
                     );
                 }
+            };
+            let local_execution = match local_execution_request.as_ref() {
+                Some(local_request) => {
+                    match vortex_count_where_local_execution_evidence(&request, local_request) {
+                        Ok(evidence) => Some(evidence),
+                        Err(error) => {
+                            return emit_error(
+                                "vortex-count-where",
+                                format,
+                                "vortex count where local primitive execution failed",
+                                &error,
+                            );
+                        }
+                    }
+                }
+                None => None,
             };
             let evidence = match vortex_count_where_filter_evidence(&predicate, &summary) {
                 Ok(evidence) => evidence,
@@ -23486,25 +23992,47 @@ fn run(args: Vec<String>) -> ExitCode {
                     );
                 }
             };
-            let status = if result.has_errors() {
+            let command_has_errors = local_execution.as_ref().map_or_else(
+                || result.has_errors(),
+                VortexCountWhereLocalExecutionEvidence::has_errors,
+            );
+            let status = if command_has_errors {
                 CommandStatus::Unsupported
             } else {
                 CommandStatus::Success
             };
-            let count = match result.value {
+            let metadata_count = match result.value {
                 shardloom_vortex::VortexQueryPrimitiveValue::Count(v) => Some(v),
                 _ => None,
             };
+            let count = local_execution
+                .as_ref()
+                .and_then(VortexCountWhereLocalExecutionEvidence::count)
+                .or(metadata_count);
+            let mut diagnostics = result.diagnostics.clone();
+            if let Some(local) = &local_execution {
+                diagnostics.extend(local.report.diagnostics.clone());
+                diagnostics.extend(local.native_io_certificate.diagnostics.clone());
+                if let Some(certificate) = &local.execution_certificate {
+                    diagnostics.extend(certificate.diagnostics.clone());
+                }
+            }
             emit(
                 "vortex-count-where",
                 format,
                 status,
                 "vortex count where primitive".to_string(),
-                vortex_count_where_human_text(&result, &evidence),
-                result.diagnostics.clone(),
-                vortex_count_where_fields(&result, count, predicate_arg, &evidence),
+                vortex_count_where_human_text(&result, &evidence, local_execution.as_ref()),
+                diagnostics,
+                vortex_count_where_fields(
+                    &result,
+                    count,
+                    predicate_arg,
+                    &evidence,
+                    local_execution.as_ref(),
+                ),
             );
-            if result.has_errors() {
+            if command_has_errors {
                 ExitCode::from(1)
             } else {
                 ExitCode::SUCCESS
@@ -28205,7 +28733,7 @@ mod tests {
         assert!(evidence.filter_kernel_admission.slot_marked_present);
 
         let fields =
-            vortex_count_where_fields(&result, count, "is_not_null:x".to_string(), &evidence);
+            vortex_count_where_fields(&result, count, "is_not_null:x".to_string(), &evidence, None);
 
         assert_eq!(
             output_field(&fields, "encoded_predicate_status"),
@@ -28229,6 +28757,14 @@ mod tests {
         );
         assert_eq!(
             output_field(&fields, "filtered_count_cg13_closeout_allowed"),
+            "false"
+        );
+        assert_eq!(
+            output_field(&fields, "filtered_count_local_execution_requested"),
+            "false"
+        );
+        assert_eq!(
+            output_field(&fields, "local_primitive_native_io_certificate_emitted"),
             "false"
         );
     }
@@ -28264,7 +28800,8 @@ mod tests {
         );
         assert!(!evidence.filter_kernel_admission.slot_marked_present);
 
-        let fields = vortex_count_where_fields(&result, count, "eq:x:4".to_string(), &evidence);
+        let fields =
+            vortex_count_where_fields(&result, count, "eq:x:4".to_string(), &evidence, None);
 
         assert_eq!(
             output_field(&fields, "encoded_predicate_status"),
@@ -28285,6 +28822,141 @@ mod tests {
         assert_eq!(
             output_field(&fields, "filtered_count_cg2_closeout_allowed"),
             "false"
+        );
+    }
+
+    #[test]
+    fn vortex_count_where_local_execution_arg_parser_accepts_optional_execution() {
+        let none = parse_vortex_count_where_local_execution_args(Vec::<String>::new().into_iter())
+            .expect("none");
+        assert!(none.is_none());
+
+        let parsed = parse_vortex_count_where_local_execution_args(
+            [
+                "--execute-local-primitive".to_string(),
+                "2".to_string(),
+                "4".to_string(),
+            ]
+            .into_iter(),
+        )
+        .expect("parsed")
+        .expect("request");
+
+        assert_eq!(parsed.memory_gb, 2);
+        assert_eq!(parsed.max_parallelism, 4);
+    }
+
+    #[test]
+    fn vortex_count_where_local_execution_arg_parser_rejects_bad_values() {
+        assert!(
+            parse_vortex_count_where_local_execution_args(["--bad".to_string()].into_iter())
+                .is_err()
+        );
+        assert!(
+            parse_vortex_count_where_local_execution_args(
+                ["--execute-local-primitive".to_string(), "1".to_string()].into_iter(),
+            )
+            .is_err()
+        );
+        assert!(
+            parse_vortex_count_where_local_execution_args(
+                [
+                    "--execute-local-primitive".to_string(),
+                    "0".to_string(),
+                    "1".to_string(),
+                ]
+                .into_iter(),
+            )
+            .is_err()
+        );
+        assert!(
+            parse_vortex_count_where_local_execution_args(
+                [
+                    "--execute-local-primitive".to_string(),
+                    "1".to_string(),
+                    "0".to_string(),
+                ]
+                .into_iter(),
+            )
+            .is_err()
+        );
+        assert!(
+            parse_vortex_count_where_local_execution_args(
+                [
+                    "--execute-local-primitive".to_string(),
+                    "1".to_string(),
+                    "1".to_string(),
+                    "--execute-local-primitive".to_string(),
+                ]
+                .into_iter(),
+            )
+            .is_err()
+        );
+    }
+
+    #[cfg(feature = "vortex-local-primitives")]
+    #[test]
+    fn vortex_count_where_local_execution_certifies_checked_in_struct_fixture() {
+        let fixture_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("workspace root")
+            .join("shardloom-vortex")
+            .join("tests")
+            .join("fixtures")
+            .join("local_primitive_struct_five.vortex");
+        let request = VortexQueryPrimitiveRequest::count_where(
+            DatasetUri::new(fixture_path.display().to_string()).expect("uri"),
+            PredicateExpr::Compare {
+                column: ColumnRef::new("value").expect("column"),
+                op: ComparisonOp::GtEq,
+                value: StatValue::Int64(3),
+            },
+        );
+        let local_request = VortexCountWhereLocalExecutionRequest {
+            memory_gb: 1,
+            max_parallelism: 2,
+        };
+
+        let evidence = vortex_count_where_local_execution_evidence(&request, &local_request)
+            .expect("evidence");
+        let mut fields = Vec::new();
+        append_vortex_count_where_local_execution_fields(&mut fields, Some(&evidence));
+
+        assert_eq!(evidence.report.status.as_str(), "executed");
+        assert_eq!(evidence.count(), Some(3));
+        assert!(evidence.selection_vector_guaranteed());
+        assert!(evidence.native_io_certificate.is_certified());
+        assert!(
+            evidence
+                .execution_certificate
+                .as_ref()
+                .is_some_and(ExecutionCertificate::is_certified)
+        );
+        assert_eq!(
+            output_field(&fields, "filtered_count_local_execution_status"),
+            "executed"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "filtered_count_local_execution_selection_vector_guarantee"
+            ),
+            "true"
+        );
+        assert_eq!(
+            output_field(&fields, "local_primitive_native_io_certificate_status"),
+            "certified"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "local_primitive_native_io_representation_transitions"
+            ),
+            "vortex_encoded->selection_vector_encoded"
+        );
+        assert_eq!(
+            output_field(&fields, "local_primitive_execution_certificate_fixture_id"),
+            "vortex-local-count-where-struct-five"
         );
     }
 
