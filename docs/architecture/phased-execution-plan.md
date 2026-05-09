@@ -772,6 +772,14 @@ Supporting docs:
     - The gate keeps local `CountAll` proof separate from generalized count readiness, encoded predicate execution readiness, and encoded projection execution readiness.
     - Required evidence lists public data-path approval, encoded predicate/projection paths, selection-vector pipeline proof, native I/O certificates, execution certificates, correctness fixtures, and benchmark evidence.
     - No generalized encoded-data execution, adapters, non-local sources, object-store IO, encoded predicates, projection execution, row reads, requested decode/materialization, Arrow conversion, writes, spill IO, external baseline invocation, fallback execution, benchmark claim, CG-1 closeout, CG-2 closeout, or CG-13 closeout is added.
+- [x] CG-2.1e.24 local encoded `CountAll` target policy evidence
+  - Why: make non-fixture local `.vortex` count execution explicitly usable but uncertified before broadening the path into generalized encoded count/filter/project execution.
+  - Acceptance:
+    - `vortex-count --execute-local-encoded-count` emits a target-policy report distinguishing `known_fixture_certified`, `local_vortex_uncertified`, and `blocked`.
+    - Fixture-backed targets can surface certified correctness evidence; arbitrary local `.vortex` targets remain feature-gated and explicitly require correctness-fixture and benchmark evidence.
+    - Production claims, CG-2 closeout, and CG-13 closeout remain disabled for both fixture and non-fixture local count paths.
+    - The `shardloom-cli` feature surface forwards `vortex-encoded-read-spike` so the stable CLI command can be validated directly under the same explicit local execution gate.
+    - No generalized encoded filter/projection execution, adapters, non-local sources, object-store IO, row reads, requested decode/materialization, Arrow conversion, writes, spill IO, external baseline invocation, benchmark claim, superiority claim, or fallback execution is added.
 - [ ] CG-2.1e generalized encoded-data count execution path beyond explicit local `.vortex` count (planned)
   - Why: turn the local fixture scan/count proof into a generalized native count path only after the public Vortex data path and representation guarantees are approved.
   - Acceptance:
@@ -1068,6 +1076,8 @@ Status legend:
   - [x] CG-2.1e.20 approved local scan naming normalization
   - [x] CG-2.1e.21 approved local scan result bridge
   - [x] CG-2.1e.22 stable explicit local encoded `CountAll` execution surface
+  - [x] CG-2.1e.23 generalized encoded primitive execution gate
+  - [x] CG-2.1e.24 local encoded `CountAll` target policy evidence
   - [~] CG-2.1+ generalized non-metadata primitive execution remains deferred pending broader encoded-data execution guarantees
   - [x] CG-2.2c filtered-count metadata proof local guard
   - [x] CG-2.2d filtered-count metadata proof report
@@ -1338,6 +1348,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.21 approved local scan result bridge
 - [x] CG-2.1e.22 stable explicit local encoded `CountAll` execution surface
 - [x] CG-2.1e.23 generalized encoded primitive execution gate
+- [x] CG-2.1e.24 local encoded `CountAll` target policy evidence
 - [x] CG-2.2a filtered-count readiness core contract
 - [x] CG-2.2a.1 filtered-count blocker precision hardening
 - [x] CG-2.2b filtered-count readiness CLI integration
@@ -1500,6 +1511,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-13.1 encoding-aware execution path selection report
 - [x] CG-13.2 decode/materialization avoided proof/report requirements
 - [x] CG-13.3 generalized encoded primitive gate blocks runtime widening until count/filter/project evidence is complete
+- [x] CG-13.4 local encoded `CountAll` target policy evidence
 - [ ] generalized direct count/filter/project encoded execution
 - [ ] broad compressed-kernel correctness and benchmark certification
 
@@ -1627,6 +1639,8 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.20 approved local scan naming normalization updates public report and diagnostic names from fixture wording to local-scan wording without widening behavior.
 - [x] CG-2.1e.21 approved local scan result bridge connects the successful approved local scan/count report to local query-primitive execution evidence with known count value, target/source-match validation, no decode/materialization/row/Arrow/object-store/write/spill/external effects, and no fallback.
 - [x] CG-2.1e.22 stable explicit local encoded `CountAll` execution surface adds `shardloom vortex-count <dataset_uri> --execute-local-encoded-count <memory_gb> <max_parallelism>` over the same approved local scan/count and local execution bridge while keeping default `vortex-count` metadata-only.
+- [x] CG-2.1e.23 generalized encoded primitive execution gate keeps direct count, filtered count, and projection readiness machine-readable while broad count/filter/project execution stays blocked.
+- [x] CG-2.1e.24 local encoded `CountAll` target policy evidence distinguishes certified fixture targets from uncertified local `.vortex` targets, keeps production and CG closeout claims disabled, and forwards the CLI feature gate for direct validation.
 - [x] CG-4.2 local committed-manifest recovery/rollback diagnostics represent recovery-not-required, rollback-required/planned, ambiguous-commit, missing-manifest, cleanup-policy, and object-store blocker states without executing cleanup, rollback, object-store IO, or fallback.
 - [x] CG-4.3 local committed-manifest rollback cleanup execution deletes only `_shardloom_committed_manifest.json` behind `vortex-staged-output-fs` after rollback-planned recovery evidence; finalized manifests, commit markers, output payloads, object-store IO, upstream `Vortex` APIs, and fallback remain untouched.
 - [x] CG-2.2c filtered-count metadata proof local guard admits only metadata-proof `CountWhere` requests into metadata-only local execution and rejects encoded predicate candidates without fallback.
