@@ -56,6 +56,14 @@ Engineering work is organized around evidence-backed gates:
 
 Performance, superiority, or best-default-engine claims require correctness and benchmark evidence before publication.
 
+## Python Client
+
+The source-tree Python client in [`python/`](python/) is a thin wrapper over the
+ShardLoom CLI JSON protocol. It parses `OutputEnvelope` responses and preserves
+diagnostics, fields, and fallback status. It is not a native binding, DataFrame
+runtime, SQL engine, UDF runtime, package publication, or fallback execution
+path.
+
 ## License
 
 ShardLoom is licensed under the Apache License 2.0.

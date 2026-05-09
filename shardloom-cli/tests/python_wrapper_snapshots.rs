@@ -38,7 +38,7 @@ fn python_wrapper_plan_json_exposes_cli_json_foundation() {
         "shardloom.python_wrapper_foundation.v1"
     )));
     assert!(output.contains(&field("wrapper_id", "shardloom_python_cli_json_client")));
-    assert!(output.contains(&field("wrapper_status", "planned_foundation")));
+    assert!(output.contains(&field("wrapper_status", "source_tree_foundation")));
     assert!(output.contains(&field("transport_protocol_id", "shardloom.cli_json.v1")));
     assert!(output.contains(&field(
         "output_envelope_schema_version",
@@ -47,7 +47,7 @@ fn python_wrapper_plan_json_exposes_cli_json_foundation() {
     assert!(output.contains(&field("invocation_model", "subprocess_cli_json")));
     assert!(output.contains(&field(
         "initial_command_scope",
-        "status,capabilities,api-compat-plan,python-wrapper-plan"
+        "status,capabilities,api-compat-plan,python-wrapper-plan,vortex-run,traditional-analytics-run"
     )));
 }
 
@@ -55,10 +55,10 @@ fn python_wrapper_plan_json_exposes_cli_json_foundation() {
 fn python_wrapper_plan_json_defers_mature_python_surfaces() {
     let output = run_python_wrapper_plan();
 
-    assert!(output.contains(&field("package_status", "not_created")));
+    assert!(output.contains(&field("package_status", "source_tree_created")));
     assert!(output.contains(&field("native_binding_status", "not_created")));
     assert!(output.contains(&field("pyo3_maturin_allowed", "false")));
-    assert!(output.contains(&field("python_package_created", "false")));
+    assert!(output.contains(&field("python_package_created", "true")));
     assert!(output.contains(&field("native_extension_required", "false")));
     assert!(output.contains(&field("dataframe_api_implemented", "false")));
     assert!(output.contains(&field("notebook_api_implemented", "false")));

@@ -273,9 +273,9 @@ pub struct CliApiJsonProtocolReport {
 
 /// Report-only CG-11 contract for the first thin Python wrapper boundary.
 ///
-/// The foundation wrapper is a future client over the CLI JSON protocol, not a
-/// native Python binding, package publication, `DataFrame` implementation, UDF
-/// runtime, or hidden fallback execution path.
+/// The foundation wrapper is a source-tree client over the CLI JSON protocol,
+/// not a native Python binding, package publication, `DataFrame`
+/// implementation, UDF runtime, or hidden fallback execution path.
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PythonWrapperFoundationReport {
@@ -312,14 +312,14 @@ pub struct PythonWrapperFoundationReport {
 }
 
 impl PythonWrapperFoundationReport {
-    /// Builds the static Python wrapper foundation report without creating
-    /// Python files, invoking Python, probing the host, or executing runtime work.
+    /// Builds the static Python wrapper foundation report without invoking
+    /// Python, probing the host, publishing packages, or executing runtime work.
     #[must_use]
     pub fn contract_only() -> Self {
         Self {
             schema_version: "shardloom.python_wrapper_foundation.v1",
             wrapper_id: "shardloom_python_cli_json_client",
-            wrapper_status: "planned_foundation",
+            wrapper_status: "source_tree_foundation",
             transport_protocol_id: "shardloom.cli_json.v1",
             output_envelope_schema_version: "shardloom.output.v1",
             invocation_model: "subprocess_cli_json",
@@ -328,6 +328,8 @@ impl PythonWrapperFoundationReport {
                 "capabilities",
                 "api-compat-plan",
                 "python-wrapper-plan",
+                "vortex-run",
+                "traditional-analytics-run",
             ],
             required_client_behaviors: vec![
                 "invoke_shardloom_with_format_json",
@@ -335,12 +337,14 @@ impl PythonWrapperFoundationReport {
                 "preserve_diagnostics",
                 "preserve_fallback_status",
                 "surface_materialization_boundaries",
+                "do_not_probe_on_import",
+                "treat_runtime_commands_as_explicit_user_invocations",
                 "do_not_retry_as_fallback_engine",
             ],
-            package_status: "not_created",
+            package_status: "source_tree_created",
             native_binding_status: "not_created",
             pyo3_maturin_allowed: false,
-            python_package_created: false,
+            python_package_created: true,
             native_extension_required: false,
             dataframe_api_implemented: false,
             notebook_api_implemented: false,
@@ -373,8 +377,7 @@ impl PythonWrapperFoundationReport {
 
     #[must_use]
     pub fn has_errors(&self) -> bool {
-        self.python_package_created
-            || self.pyo3_maturin_allowed
+        self.pyo3_maturin_allowed
             || self.native_extension_required
             || self.dataframe_api_implemented
             || self.notebook_api_implemented
@@ -873,12 +876,14 @@ mod tests {
         assert_eq!(report.transport_protocol_id, "shardloom.cli_json.v1");
         assert_eq!(report.invocation_model, "subprocess_cli_json");
         assert!(report.initial_command_scope.contains(&"api-compat-plan"));
+        assert!(report.initial_command_scope.contains(&"vortex-run"));
         assert!(
             report
                 .required_client_behaviors
                 .contains(&"parse_output_envelope")
         );
-        assert!(!report.python_package_created);
+        assert!(report.python_package_created);
+        assert_eq!(report.package_status, "source_tree_created");
         assert!(!report.pyo3_maturin_allowed);
         assert!(!report.native_extension_required);
         assert!(!report.has_errors());
