@@ -23001,6 +23001,59 @@ fn run(args: Vec<String>) -> ExitCode {
                         .map_or_else(String::new, |local| local.projected_columns.join(",")),
                 ),
                 (
+                    "local_primitive_arrays_read_count".to_string(),
+                    report
+                        .local_primitive_execution_report
+                        .as_ref()
+                        .map_or_else(
+                            || "0".to_string(),
+                            |local| local.arrays_read_count.to_string(),
+                        ),
+                ),
+                (
+                    "local_primitive_max_chunk_rows".to_string(),
+                    report
+                        .local_primitive_execution_report
+                        .as_ref()
+                        .map_or_else(|| "0".to_string(), |local| local.max_chunk_rows.to_string()),
+                ),
+                (
+                    "local_primitive_streaming_scan_used".to_string(),
+                    report
+                        .local_primitive_execution_report
+                        .as_ref()
+                        .is_some_and(|local| local.streaming_scan_used)
+                        .to_string(),
+                ),
+                (
+                    "local_primitive_full_stream_collected".to_string(),
+                    report
+                        .local_primitive_execution_report
+                        .as_ref()
+                        .is_some_and(|local| local.full_stream_collected)
+                        .to_string(),
+                ),
+                (
+                    "local_primitive_max_parallelism_requested".to_string(),
+                    report
+                        .local_primitive_execution_report
+                        .as_ref()
+                        .map_or_else(
+                            || "0".to_string(),
+                            |local| local.max_parallelism_requested.to_string(),
+                        ),
+                ),
+                (
+                    "local_primitive_scan_concurrency_per_worker".to_string(),
+                    report
+                        .local_primitive_execution_report
+                        .as_ref()
+                        .map_or_else(
+                            || "0".to_string(),
+                            |local| local.scan_concurrency_per_worker.to_string(),
+                        ),
+                ),
+                (
                     "local_primitive_filter_pushdown_applied".to_string(),
                     report
                         .local_primitive_execution_report

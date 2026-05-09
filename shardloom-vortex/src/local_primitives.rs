@@ -5,10 +5,8 @@ use std::fmt::Write as _;
 #[cfg(feature = "vortex-local-primitives")]
 use shardloom_core::UriScheme;
 #[cfg(feature = "vortex-local-primitives")]
-use shardloom_core::{
-    ComparisonOp, DatasetUri, DiagnosticCode, PredicateExpr, ShardLoomError, StatValue,
-};
-use shardloom_core::{Diagnostic, Result};
+use shardloom_core::{ComparisonOp, DatasetUri, DiagnosticCode, PredicateExpr, StatValue};
+use shardloom_core::{Diagnostic, Result, ShardLoomError};
 #[cfg(feature = "vortex-local-primitives")]
 use shardloom_plan::ProjectionRequest;
 
@@ -81,6 +79,11 @@ pub struct VortexLocalPrimitiveExecutionReport {
     pub rows_projected: Option<u64>,
     pub projected_columns: Vec<String>,
     pub arrays_read_count: usize,
+    pub max_chunk_rows: usize,
+    pub streaming_scan_used: bool,
+    pub full_stream_collected: bool,
+    pub max_parallelism_requested: usize,
+    pub scan_concurrency_per_worker: usize,
     pub filter_pushdown_applied: bool,
     pub projection_pushdown_applied: bool,
     pub upstream_filter_expression_used: bool,
@@ -111,6 +114,11 @@ impl VortexLocalPrimitiveExecutionReport {
             rows_projected: None,
             projected_columns: Vec::new(),
             arrays_read_count: 0,
+            max_chunk_rows: 0,
+            streaming_scan_used: false,
+            full_stream_collected: false,
+            max_parallelism_requested: 1,
+            scan_concurrency_per_worker: 1,
             filter_pushdown_applied: false,
             projection_pushdown_applied: false,
             upstream_filter_expression_used: false,
@@ -175,6 +183,19 @@ impl VortexLocalPrimitiveExecutionReport {
             self.projected_columns.join(",")
         );
         let _ = writeln!(out, "arrays read count: {}", self.arrays_read_count);
+        let _ = writeln!(out, "max chunk rows: {}", self.max_chunk_rows);
+        let _ = writeln!(out, "streaming scan used: {}", self.streaming_scan_used);
+        let _ = writeln!(out, "full stream collected: {}", self.full_stream_collected);
+        let _ = writeln!(
+            out,
+            "max parallelism requested: {}",
+            self.max_parallelism_requested
+        );
+        let _ = writeln!(
+            out,
+            "scan concurrency per worker: {}",
+            self.scan_concurrency_per_worker
+        );
         let _ = writeln!(
             out,
             "filter pushdown applied: {}",
@@ -201,6 +222,32 @@ impl VortexLocalPrimitiveExecutionReport {
     }
 }
 
+/// Bounded execution policy applied to local Vortex primitive scans.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct VortexLocalPrimitiveExecutionPolicy {
+    pub max_parallelism: usize,
+}
+impl VortexLocalPrimitiveExecutionPolicy {
+    /// # Errors
+    /// Returns an error when max parallelism is zero.
+    pub fn new(max_parallelism: usize) -> Result<Self> {
+        if max_parallelism == 0 {
+            return Err(ShardLoomError::InvalidOperation(
+                "max_parallelism must be >= 1".to_string(),
+            ));
+        }
+        Ok(Self { max_parallelism })
+    }
+
+    pub const fn single_threaded() -> Self {
+        Self { max_parallelism: 1 }
+    }
+
+    pub const fn scan_concurrency_per_worker(&self) -> usize {
+        self.max_parallelism
+    }
+}
+
 /// Executes a narrow local Vortex query primitive when the feature gate is enabled.
 ///
 /// The executor is intentionally limited to local `.vortex` files. `CountAll`
@@ -214,12 +261,27 @@ impl VortexLocalPrimitiveExecutionReport {
 pub fn execute_vortex_local_primitive(
     request: &VortexQueryPrimitiveRequest,
 ) -> Result<VortexLocalPrimitiveExecutionReport> {
+    execute_vortex_local_primitive_with_policy(
+        request,
+        VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+    )
+}
+
+/// Executes a local Vortex query primitive using an explicit bounded scan policy.
+///
+/// # Errors
+/// Returns an error only when internal report construction fails.
+pub fn execute_vortex_local_primitive_with_policy(
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+) -> Result<VortexLocalPrimitiveExecutionReport> {
     #[cfg(feature = "vortex-local-primitives")]
     {
-        execute_vortex_local_primitive_enabled(request)
+        execute_vortex_local_primitive_enabled(request, policy)
     }
     #[cfg(not(feature = "vortex-local-primitives"))]
     {
+        let _ = policy;
         Ok(VortexLocalPrimitiveExecutionReport::feature_disabled(
             request.kind,
         ))
@@ -229,6 +291,7 @@ pub fn execute_vortex_local_primitive(
 #[cfg(feature = "vortex-local-primitives")]
 fn execute_vortex_local_primitive_enabled(
     request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
 ) -> Result<VortexLocalPrimitiveExecutionReport> {
     let Some(uri) = request.source_uri.as_ref() else {
         return Ok(VortexLocalPrimitiveExecutionReport::blocked(
@@ -257,7 +320,7 @@ fn execute_vortex_local_primitive_enabled(
     };
     match request.kind {
         VortexQueryPrimitiveKind::CountAll => {
-            let scan = read_local_vortex_scan(&path, request.kind, |_| {
+            let scan = read_local_vortex_scan(&path, request.kind, policy, |_| {
                 Ok(LocalVortexScanPlan::passthrough())
             })?;
             Ok(count_all_report(request.kind, &scan)?)
@@ -274,7 +337,7 @@ fn execute_vortex_local_primitive_enabled(
                     ),
                 ));
             };
-            let scan = read_local_vortex_scan(&path, request.kind, |dtype| {
+            let scan = read_local_vortex_scan(&path, request.kind, policy, |dtype| {
                 Ok(LocalVortexScanPlan::filter(predicate_to_vortex_expr(
                     predicate,
                     dtype,
@@ -284,7 +347,7 @@ fn execute_vortex_local_primitive_enabled(
             predicate_report(request.kind, &scan, predicate)
         }
         VortexQueryPrimitiveKind::ProjectColumns => {
-            let scan = read_local_vortex_scan(&path, request.kind, |dtype| {
+            let scan = read_local_vortex_scan(&path, request.kind, policy, |dtype| {
                 projection_scan_plan(dtype, &request.projection, request.kind)
             })?;
             projection_report(request.kind, &scan)
@@ -314,6 +377,9 @@ struct LocalVortexScan {
     source_row_count: u64,
     result_row_count: usize,
     arrays_read_count: usize,
+    max_chunk_rows: usize,
+    max_parallelism_requested: usize,
+    scan_concurrency_per_worker: usize,
     projected_columns: Vec<String>,
     filter_pushdown_applied: bool,
     projection_pushdown_applied: bool,
@@ -379,10 +445,10 @@ fn local_vortex_path(
 fn read_local_vortex_scan(
     path: &std::path::Path,
     primitive_kind: VortexQueryPrimitiveKind,
+    policy: VortexLocalPrimitiveExecutionPolicy,
     configure: impl FnOnce(&vortex::array::dtype::DType) -> Result<LocalVortexScanPlan>,
 ) -> Result<LocalVortexScan> {
     use vortex::VortexSessionDefault as _;
-    use vortex::array::stream::ArrayStreamExt as _;
     use vortex::file::OpenOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
     use vortex::io::runtime::single::SingleThreadRuntime;
@@ -410,13 +476,28 @@ fn read_local_vortex_scan(
     if let Some(projection) = plan.projection {
         scan = scan.with_projection(projection);
     }
-    let array = runtime
-        .block_on(scan.into_array_stream().map_err(vortex_error)?.read_all())
-        .map_err(vortex_error)?;
+    scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
+    let mut result_row_count = 0usize;
+    let mut arrays_read_count = 0usize;
+    let mut max_chunk_rows = 0usize;
+    for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
+        let chunk = chunk.map_err(vortex_error)?;
+        let rows = chunk.len();
+        result_row_count = result_row_count.checked_add(rows).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex primitive result row count overflowed usize".to_string(),
+            )
+        })?;
+        max_chunk_rows = max_chunk_rows.max(rows);
+        arrays_read_count += 1;
+    }
     Ok(LocalVortexScan {
         source_row_count,
-        result_row_count: array.len(),
-        arrays_read_count: 1,
+        result_row_count,
+        arrays_read_count,
+        max_chunk_rows,
+        max_parallelism_requested: policy.max_parallelism,
+        scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
         projected_columns: plan.projected_columns,
         filter_pushdown_applied,
         projection_pushdown_applied,
@@ -439,6 +520,11 @@ fn count_all_report(
         rows_projected: None,
         projected_columns: Vec::new(),
         arrays_read_count: scan.arrays_read_count,
+        max_chunk_rows: scan.max_chunk_rows,
+        streaming_scan_used: true,
+        full_stream_collected: false,
+        max_parallelism_requested: scan.max_parallelism_requested,
+        scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
         filter_pushdown_applied: scan.filter_pushdown_applied,
         projection_pushdown_applied: scan.projection_pushdown_applied,
         upstream_filter_expression_used: scan.filter_pushdown_applied,
@@ -476,6 +562,11 @@ fn predicate_report(
         rows_projected: None,
         projected_columns: Vec::new(),
         arrays_read_count: scan.arrays_read_count,
+        max_chunk_rows: scan.max_chunk_rows,
+        streaming_scan_used: true,
+        full_stream_collected: false,
+        max_parallelism_requested: scan.max_parallelism_requested,
+        scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
         filter_pushdown_applied: scan.filter_pushdown_applied,
         projection_pushdown_applied: scan.projection_pushdown_applied,
         upstream_filter_expression_used: scan.filter_pushdown_applied,
@@ -516,6 +607,11 @@ fn projection_report(
         rows_projected: Some(rows),
         projected_columns: scan.projected_columns.clone(),
         arrays_read_count: scan.arrays_read_count,
+        max_chunk_rows: scan.max_chunk_rows,
+        streaming_scan_used: true,
+        full_stream_collected: false,
+        max_parallelism_requested: scan.max_parallelism_requested,
+        scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
         filter_pushdown_applied: scan.filter_pushdown_applied,
         projection_pushdown_applied: scan.projection_pushdown_applied,
         upstream_filter_expression_used: scan.filter_pushdown_applied,
@@ -888,6 +984,12 @@ mod tests {
         assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
         assert_eq!(report.result_summary.as_deref(), Some("3"));
         assert!(report.data_read);
+        assert!(report.streaming_scan_used);
+        assert!(!report.full_stream_collected);
+        assert_eq!(report.max_parallelism_requested, 1);
+        assert_eq!(report.scan_concurrency_per_worker, 1);
+        assert!(report.arrays_read_count > 0);
+        assert!(report.max_chunk_rows > 0);
         assert!(!report.filter_pushdown_applied);
         assert!(!report.projection_pushdown_applied);
         assert!(!report.data_decoded);
@@ -921,6 +1023,12 @@ mod tests {
         assert_eq!(report.rows_selected, Some(3));
         assert_eq!(report.result_summary.as_deref(), Some("3"));
         assert!(report.data_read);
+        assert!(report.streaming_scan_used);
+        assert!(!report.full_stream_collected);
+        assert_eq!(report.max_parallelism_requested, 1);
+        assert_eq!(report.scan_concurrency_per_worker, 1);
+        assert!(report.arrays_read_count > 0);
+        assert!(report.max_chunk_rows > 0);
         assert!(report.filter_pushdown_applied);
         assert!(report.upstream_filter_expression_used);
         assert!(!report.data_decoded);
@@ -945,6 +1053,8 @@ mod tests {
         assert_eq!(report.rows_selected, Some(0));
         assert_eq!(report.result_summary.as_deref(), Some("0"));
         assert!(report.data_read);
+        assert!(report.streaming_scan_used);
+        assert!(!report.full_stream_collected);
         assert!(report.filter_pushdown_applied);
         assert!(!report.data_decoded);
         assert!(!report.data_materialized);
@@ -976,6 +1086,8 @@ mod tests {
         assert_eq!(report.rows_projected, Some(5));
         assert_eq!(report.projected_columns, vec!["metric".to_string()]);
         assert!(report.data_read);
+        assert!(report.streaming_scan_used);
+        assert!(!report.full_stream_collected);
         assert!(report.projection_pushdown_applied);
         assert!(report.upstream_projection_expression_used);
         assert!(!report.data_decoded);

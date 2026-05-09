@@ -443,8 +443,9 @@ pub use local_execution::{
     vortex_encoded_count_local_guard_discovery_report, vortex_local_execution_is_side_effect_free,
 };
 pub use local_primitives::{
-    VortexLocalPrimitiveExecutionMode, VortexLocalPrimitiveExecutionReport,
-    VortexLocalPrimitiveExecutionStatus, execute_vortex_local_primitive,
+    VortexLocalPrimitiveExecutionMode, VortexLocalPrimitiveExecutionPolicy,
+    VortexLocalPrimitiveExecutionReport, VortexLocalPrimitiveExecutionStatus,
+    execute_vortex_local_primitive, execute_vortex_local_primitive_with_policy,
 };
 pub use streaming_batch_runtime::{
     VortexStreamingBatchRuntimeMode, VortexStreamingBatchRuntimeReport,
