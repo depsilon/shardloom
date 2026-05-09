@@ -1,7 +1,7 @@
 use shardloom_core::{
     AgentContractPack, DatasetRef, DatasetUri, EffectBudgetReport, ExtensionId,
     ExtensionLicenseKind, ExtensionManifest, ExtensionProvenance, ExtensionVersion, OutputTarget,
-    SecurityPlan,
+    SecurityPlan, TableIntelligenceReport,
 };
 use shardloom_exec::{RecoveryPlan, RecoveryReport, RuntimePlanSkeleton, StreamingPlanSkeleton};
 use shardloom_plan::{ScanMode, ScanRequest};
@@ -67,6 +67,14 @@ fn plan_only_types_do_not_imply_execution_or_side_effects() {
     assert!(agent_contract.side_effect_free());
     assert_eq!(agent_contract.fallback_allowed_surface_count(), 0);
     assert!(!agent_contract.text_is_authoritative);
+
+    let table_intelligence = TableIntelligenceReport::report_only_foundation();
+    assert!(table_intelligence.side_effect_free());
+    assert_eq!(table_intelligence.required_cg9_surface_count(), 10);
+    assert_eq!(table_intelligence.report_only_available_surface_count(), 7);
+    assert!(!table_intelligence.catalog_io_performed);
+    assert!(!table_intelligence.table_metadata_io_performed);
+    assert!(!table_intelligence.fallback_execution_allowed);
 
     let manifest = ExtensionManifest::new(
         ExtensionId::new("ext.sample").expect("id"),

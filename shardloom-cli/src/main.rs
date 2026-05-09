@@ -34,10 +34,10 @@ use shardloom_core::{
     SchemaEvolutionPolicy, SchemaField, SchemaId, SchemaVersion, SecurityPlan, SegmentChange,
     SegmentChangeKind, SegmentId, SegmentLayout, SegmentStats, ShardLoomError, SnapshotId,
     SnapshotRef, StatValue, StatefulReuseReport, TableCompatibilityPlan, TableCompatibilityReport,
-    TableFormatKind, TranslationPlan, UdfRuntimeKind, UniversalHarnessReport, WorkloadClass,
-    WorldClassSufficiencyDimensionKind, WorldClassSufficiencyReport, WriteIntent,
-    evaluate_cdc_incremental_planning, evaluate_compaction_planning,
-    evaluate_delete_tombstone_compatibility, evaluate_layout_health,
+    TableFormatKind, TableIntelligenceReport, TranslationPlan, UdfRuntimeKind,
+    UniversalHarnessReport, WorkloadClass, WorldClassSufficiencyDimensionKind,
+    WorldClassSufficiencyReport, WriteIntent, evaluate_cdc_incremental_planning,
+    evaluate_compaction_planning, evaluate_delete_tombstone_compatibility, evaluate_layout_health,
     evaluate_partition_evolution_compatibility, evaluate_schema_evolution_compatibility,
     plan_cpu_operator_specialization, plan_execution_certificate_evidence_surface,
     plan_native_io_envelope, plan_stateful_reuse, plan_universal_harness,
@@ -204,7 +204,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|agent-contract-pack|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance]|security-plan|effect-budget-plan|agent-safety-plan|redaction-plan|kernel-registry|feature-footprint|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|layout-health-plan|compaction-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|traditional-analytics-run|vortex-count-benchmark|correctness-plan|execution-certificate-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|agent-contract-pack|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance]|security-plan|effect-budget-plan|agent-safety-plan|redaction-plan|kernel-registry|feature-footprint|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|layout-health-plan|compaction-plan|table-intelligence-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|traditional-analytics-run|vortex-count-benchmark|correctness-plan|execution-certificate-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -10930,6 +10930,90 @@ fn append_compaction_side_effect_fields(
     );
 }
 
+fn emit_table_intelligence_plan(format: OutputFormat) -> ExitCode {
+    let report = TableIntelligenceReport::report_only_foundation();
+    let status = if report.has_errors() {
+        CommandStatus::Unsupported
+    } else {
+        CommandStatus::Success
+    };
+    emit(
+        "table-intelligence-plan",
+        format,
+        status,
+        "table intelligence plan".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        table_intelligence_output_fields(&report),
+    );
+    if report.has_errors() {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+fn table_intelligence_output_fields(report: &TableIntelligenceReport) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    push_field(&mut fields, "mode", "table_intelligence_plan");
+    push_field(&mut fields, "schema_version", report.schema_version);
+    push_field(&mut fields, "report_id", report.report_id);
+    push_count_field(&mut fields, "surface_count", report.surfaces.len());
+    push_count_field(
+        &mut fields,
+        "report_only_available_surface_count",
+        report.report_only_available_surface_count(),
+    );
+    push_count_field(
+        &mut fields,
+        "required_cg9_surface_count",
+        report.required_cg9_surface_count(),
+    );
+    push_count_field(
+        &mut fields,
+        "snapshot_boundary_surface_count",
+        report.snapshot_boundary_surface_count(),
+    );
+    push_field(
+        &mut fields,
+        "compatibility_profiles",
+        &report.compatibility_profiles.join(","),
+    );
+    push_field(
+        &mut fields,
+        "surface_order",
+        &report.surface_order().join(","),
+    );
+    push_bool_field(
+        &mut fields,
+        "catalog_io_performed",
+        report.catalog_io_performed,
+    );
+    push_bool_field(
+        &mut fields,
+        "table_metadata_io_performed",
+        report.table_metadata_io_performed,
+    );
+    push_bool_field(&mut fields, "data_io_performed", report.data_io_performed);
+    push_bool_field(&mut fields, "write_io_performed", report.write_io_performed);
+    push_bool_field(
+        &mut fields,
+        "external_table_format_dependency_added",
+        report.external_table_format_dependency_added,
+    );
+    push_bool_field(&mut fields, "fallback_attempted", report.fallback_attempted);
+    push_bool_field(
+        &mut fields,
+        "fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(&mut fields, "side_effect_free", report.side_effect_free());
+    push_count_field(&mut fields, "diagnostic_count", report.diagnostics.len());
+    push_field(&mut fields, "execution", "not_performed");
+    push_field(&mut fields, "plan_only", "true");
+    fields
+}
+
 fn emit_object_store_range_plan(format: OutputFormat, scenario: &str) -> ExitCode {
     let manifest = match object_store_range_fixture(scenario) {
         Ok(manifest) => manifest,
@@ -14743,6 +14827,17 @@ fn run(args: Vec<String>) -> ExitCode {
                 );
             }
             emit_compaction_plan(format, &scenario)
+        }
+        Some("table-intelligence-plan") => {
+            if let Some(extra) = args.next() {
+                return emit_error(
+                    "table-intelligence-plan",
+                    format,
+                    "table intelligence planning failed",
+                    &cli_unknown_arg_error("table-intelligence-plan", &extra),
+                );
+            }
+            emit_table_intelligence_plan(format)
         }
         Some("object-store-range-plan") => {
             let scenario = args.next().unwrap_or_else(|| "s3-ranges".to_string());
@@ -22499,6 +22594,21 @@ mod tests {
     }
 
     #[test]
+    fn table_intelligence_plan_returns_success() {
+        let code = run(vec!["table-intelligence-plan".to_string()]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn table_intelligence_plan_rejects_extra_args() {
+        let code = run(vec![
+            "table-intelligence-plan".to_string(),
+            "extra".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
     fn object_store_range_plan_s3_ranges_returns_success() {
         let code = run(vec![
             "object-store-range-plan".to_string(),
@@ -23572,6 +23682,10 @@ mod tests {
     #[test]
     fn usage_includes_compaction_plan() {
         assert!(cli_usage_line().contains("compaction-plan"));
+    }
+    #[test]
+    fn usage_includes_table_intelligence_plan() {
+        assert!(cli_usage_line().contains("table-intelligence-plan"));
     }
     #[test]
     fn usage_includes_object_store_range_plan() {
@@ -25860,6 +25974,39 @@ mod tests {
         assert_eq!(output_field(&fields, "side_effect_free"), "true");
         assert!(output_field(&fields, "scope_order").contains("llm_call"));
         assert!(output_field(&fields, "scope_order").contains("network_egress"));
+    }
+
+    #[test]
+    fn table_intelligence_fields_include_report_only_no_io_no_fallback() {
+        let report = TableIntelligenceReport::report_only_foundation();
+        let fields = table_intelligence_output_fields(&report);
+
+        assert_eq!(
+            output_field(&fields, "schema_version"),
+            "shardloom.table_intelligence.v1"
+        );
+        assert_eq!(
+            output_field(&fields, "report_id"),
+            "cg9.table_intelligence.foundation"
+        );
+        assert_eq!(output_field(&fields, "surface_count"), "10");
+        assert_eq!(
+            output_field(&fields, "report_only_available_surface_count"),
+            "7"
+        );
+        assert_eq!(output_field(&fields, "required_cg9_surface_count"), "10");
+        assert_eq!(output_field(&fields, "catalog_io_performed"), "false");
+        assert_eq!(
+            output_field(&fields, "table_metadata_io_performed"),
+            "false"
+        );
+        assert_eq!(output_field(&fields, "data_io_performed"), "false");
+        assert_eq!(output_field(&fields, "write_io_performed"), "false");
+        assert_eq!(output_field(&fields, "fallback_execution_allowed"), "false");
+        assert_eq!(output_field(&fields, "fallback_attempted"), "false");
+        assert_eq!(output_field(&fields, "side_effect_free"), "true");
+        assert!(output_field(&fields, "surface_order").contains("schema_evolution"));
+        assert!(output_field(&fields, "surface_order").contains("commit_recovery"));
     }
 
     #[test]
