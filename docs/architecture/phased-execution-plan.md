@@ -45,31 +45,36 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-2.1e.25 local Vortex primitive execution surface
+- [ ] Session label: CG-11.3 Python CLI JSON client source-tree package
   - Primary files:
-    - `shardloom-vortex/src/local_primitives.rs`
-    - `shardloom-vortex/src/local_engine.rs`
-    - `shardloom-vortex/src/lib.rs`
-    - `shardloom-vortex/Cargo.toml`
-    - `shardloom-cli/src/main.rs`
-    - `shardloom-cli/Cargo.toml`
-    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `python/pyproject.toml`
+    - `python/README.md`
+    - `python/src/shardloom/__init__.py`
+    - `python/src/shardloom/client.py`
+    - `python/src/shardloom/errors.py`
+    - `python/src/shardloom/models.py`
+    - `python/tests/test_cli_client.py`
+    - `shardloom-core/src/output.rs`
+    - `shardloom-cli/tests/python_wrapper_snapshots.rs`
     - `docs/architecture/phased-execution-plan.md`
-  - Scope: Add a feature-gated local `.vortex` primitive execution surface through `vortex-run` for actual Vortex data. `CountAll` reads Vortex arrays and sums lengths without decode/materialization. `CountWhere`, `FilterPredicate`, and `ProjectColumns` execute over Vortex-derived arrays and report decode/materialization boundaries explicitly until deeper encoded kernels exist.
+    - `README.md`
+  - Scope: Convert the previous report-only Python wrapper plan into a real source-tree Python client over the stable CLI JSON protocol. The client parses `OutputEnvelope`, preserves diagnostics/fallback/materialization fields, and invokes only explicit ShardLoom CLI commands with `--format json`.
   - Checklist:
-    - [x] Add `VortexLocalPrimitiveExecutionReport` and feature-gated local `.vortex` execution helper.
-    - [x] Wire the helper into `run_vortex_local_engine`/`vortex-run` without enabling fallback engines.
-    - [x] Preserve no-decode/no-materialization evidence for `CountAll`.
-    - [x] Report materialization boundaries for temporary filter/project/count-where paths.
-    - [x] Add focused Vortex fixture tests for count, count-where, projection, and local-engine integration.
-    - [x] Surface local primitive execution capability in operator discovery.
+    - [x] Add zero-dependency Python package metadata without publishing.
+    - [x] Add typed models for CLI `OutputEnvelope`, diagnostics, fields, and fallback status.
+    - [x] Add `ShardLoomClient` helpers for status, capabilities, API plan, Python wrapper plan, `vortex-run`, and traditional analytics universal-I/O smoke execution.
+    - [x] Add deterministic Python unit tests using a fake CLI process.
+    - [x] Update `PythonWrapperFoundationReport` from planned-only to source-tree package created, while keeping no native binding, no PyO3/maturin, no DataFrame/notebook/Python UDF runtime, no publish, no hidden probing, and no fallback.
+    - [x] Run focused Python and Rust snapshot checks.
     - [x] Run full required validation.
   - Local validation status:
-    - focused `shardloom-vortex` `local_primitives` tests passed with `vortex-local-primitives`
-    - focused `shardloom-vortex` local-engine integration test passed with `vortex-local-primitives`
-    - `shardloom-vortex` and `shardloom-cli` focused checks passed
-    - full Rust validation passed with toolchain `1.91.1`
-  - Explicitly not included: SQL parser, SQL execution, DataFrame runtime, Python package, UDF runtime, adapter runtime, generalized zero-decode encoded filter/project kernels, object-store IO, row reads, Arrow conversion, writes, spill IO, external engine execution, benchmark/superiority claims, CG-2 closeout, CG-13 closeout, or fallback execution.
+    - focused Python unit tests passed with Python 3.11.4
+    - focused `shardloom-core` Python wrapper report tests passed
+    - focused `shardloom-cli` Python wrapper snapshot tests passed
+    - `cargo fmt --all -- --check` passed with Rust toolchain `1.91.1`
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed with Rust toolchain `1.91.1`
+    - `cargo test --workspace --all-targets` passed with Rust toolchain `1.91.1`
+  - Explicitly not included: package publication, native Python binding, PyO3/maturin, DataFrame runtime, notebook runtime, Python UDF runtime, SQL parser, SQL execution, adapter runtime, filesystem/network/catalog/adapter probing on import, external engine execution, benchmark/superiority claims, or fallback execution.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -1522,6 +1527,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 ### CG-11 detailed checklist
 - [x] CG-11.1 stable CLI/API JSON protocol foundation
 - [x] CG-11.2 thin Python wrapper foundation over CLI JSON first
+- [x] CG-11.3 source-tree Python CLI JSON client package
 - [~] Foundry-friendly later
 - [x] no PyO3/maturin unless explicitly approved
 - [x] no Spark fallback
@@ -1740,6 +1746,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-10.5 object-store checkpoint/retry/idempotency planning evidence adds `ObjectStoreCheckpointRetryReport` and `object-store-checkpoint-retry-plan` surfacing for retry policy, checkpoint plan, idempotency keys, attempt records, cleanup policy, scheduling blockers, no retry execution, no checkpoint writes, no cleanup execution, and no fallback.
 - [x] CG-11.1 stable CLI/API JSON protocol foundation adds `CliApiJsonProtocolReport` and `api-compat-plan` fields for `OutputEnvelope` schema keys, command statuses, fallback and diagnostic keys, thin Python wrapper boundary, no PyO3/maturin, no parser/runtime/probe/write/publish side effects, and no fallback.
 - [x] CG-11.2 thin Python wrapper foundation adds `PythonWrapperFoundationReport` and `python-wrapper-plan` fields for a future subprocess CLI JSON client, required diagnostics/fallback/materialization passthrough behavior, deferred package/native binding/DataFrame/notebook/Python UDF surfaces, no probes, no runtime/parser execution, no writes, no publish, and no fallback.
+- [x] CG-11.3 source-tree Python CLI JSON client package adds `python/src/shardloom` as a zero-dependency subprocess client for explicit CLI JSON commands, with typed `OutputEnvelope` parsing, diagnostics/fallback passthrough, local unit tests, no package publish, no native binding, no DataFrame/notebook/Python UDF runtime, and no fallback.
 - [x] CG-12.4 native plan import/export serialization adds deterministic `shardloom.native_plan.v1` in-memory serialization for native plan documents, `plan-export native` payload emission, and `plan-import native <payload>` validation without file IO, external format parsers, imported-plan execution, external engines, or fallback behavior.
 - [x] CG-12.5 imported-plan capability execution gate adds `ImportedPlanCapabilityGateReport` and `plan-import native` fields that map imported nodes/boundaries to required certification surfaces and keep imported execution blocked without certified SQL/operator/function/adapter/native-I/O/execution-certificate evidence, runtime execution, probes, reads, writes, external engines, or fallback.
 - [x] CG-18.1 universal harness report adds `UniversalHarnessReport` and `universal-harness-plan` surfacing for CLI JSON runner fields, import/deployment surfaces, optional Foundry examples, external-only Spark/DataFusion/Polars baseline requirements, comparison dataset requirements, portability-check requirements, and no-import/no-deployment/no-baseline-execution/no-probe/no-publish/no-fallback side-effect fields.
