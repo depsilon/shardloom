@@ -1,13 +1,21 @@
 # ShardLoom Phased Execution Plan
 
 ## How to maintain this file
-- One active session checklist should be updated per PR/session.
-- Detailed phase history should stay below the active queue.
+- Keep only the current PR/session in the Active Session Checklist.
+- Move completed session blocks into the Recent Completed Session Ledger.
+- Keep detailed phase history below the active queue.
 - Do not duplicate "current" status in multiple places.
 - Do not use stale percentage estimates.
 - CG-1 through CG-20 remain competitive gates, not replacement phase IDs.
 - External engines are baselines only, never fallback execution.
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
+
+Status reading order:
+1. Active Session Checklist: current PR/session scope only.
+2. Near-term Implementation Priority: next unfinished work sequence.
+3. Competitive Engine Gates: high-level CG closeout rollup.
+4. Competitive Engine Gate Detailed Checklist Ledger: authoritative CG substep checklist.
+5. Completed and historical ledgers: provenance only, not active queues.
 
 ## Architecture Document Ownership
 - This file is the only mutable source of truth for active status, active queue, completed phase ledger, deferred work, and CG closeout state.
@@ -45,6 +53,36 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
+- [x] Session label: phase-plan authoritative status cleanup
+  - Primary files:
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: Make the phased execution plan easier to use as the single status source before the next engine implementation batch by separating active work from completed history and verifying the recently flagged CG rollups.
+  - Checklist:
+    - [x] Keep completed session detail under a completed-session ledger instead of treating it as active work.
+    - [x] Confirm CG-2.1e.28 is present in the CG-2 high-level rollup, detailed checklist, and historical ledger.
+    - [x] Confirm CG-6.7-CG-6.23 benchmark evidence is represented in the CG-6 high-level rollup, detailed checklist, and historical ledger.
+    - [x] Confirm CG-8.9-CG-8.12 and CG-11.5 are represented in their high-level rollups, detailed checklists, and historical ledgers.
+    - [x] Clarify that broad CG-20 work should not jump ahead of the generalized encoded primitive plus CG-5/CG-6 evidence loop.
+    - [x] Relabel mixed completed/deferred historical notes so they do not read as the current queue.
+  - Explicitly not included: runtime behavior, new readers, adapter execution, SQL/DataFrame/UDF implementation, benchmark reruns, dependency changes, superiority claims, or fallback execution.
+
+## Near-term Implementation Priority
+- [ ] Priority 1 - generalized encoded primitive execution loop
+  - [ ] Generalized direct encoded `CountAll` execution beyond the current local direct-count proof path.
+  - [ ] Encoded-value predicate/filter execution with explicit selection-vector guarantees.
+  - [ ] Encoded projection and filter-project execution with no row reads, no Arrow conversion, no object-store IO, no writes, no spill, and no fallback.
+- [ ] Priority 2 - evidence loop paired with every execution expansion
+  - [ ] CG-5 fixtures, reference outputs, correctness certificates, and edge-case coverage for each new primitive path.
+  - [ ] CG-6 query-runtime benchmark rows, reproducibility metadata, work-avoidance evidence, and claim-gate blockers for each new primitive path.
+  - [ ] CG-16 execution certificates and CG-19 per-path Native I/O certificates for each supported source/sink path.
+- [ ] Priority 3 - broader platform work after the primitive/evidence loop advances
+  - [ ] CG-4 broader commit execution.
+  - [ ] CG-8 dynamic sizing feedback execution and bounded parallel encoded/read runtime.
+  - [ ] CG-9 catalog/table metadata integration.
+  - [ ] CG-10 object-store/distributed runtime execution.
+  - [ ] CG-20 SQL/Python/DataFrame/UDF/unstructured/media/adapters once the encoded primitive evidence loop is no longer the bottleneck.
+
+## Recent Completed Session Ledger
 - [x] Session label: CG-2.1e.29 / CG-13.12 / CG-16.4 / CG-19.7 local direct CountAll Native I/O certification
   - Primary files:
     - `shardloom-vortex/src/local_execution.rs`
@@ -1389,9 +1427,11 @@ Supporting docs:
 
 ## Competitive Engine Gates CG-1 through CG-20
 
+This section is a high-level rollup. Use it to check whether each competitive gate is open, partially complete, or closed; use the detailed checklist ledger below for attributable substeps.
+
 Status legend:
 - **[x] complete**
-- **[ ] current/planned**
+- **[ ] open/planned**
 - **[~] blocked/deferred**
 
 - [ ] CG-1 — Real encoded read path (**partially complete; broader closeout deferred**)
@@ -1467,7 +1507,7 @@ Status legend:
     - CG-3 payload writes do not by themselves create committed state; committed-manifest state is owned by CG-4
     - no object-store writes initially
 
-- [ ] CG-4 — Commit protocol execution (**current; local commit/recovery/rollback cleanup partially complete**)
+- [ ] CG-4 — Commit protocol execution (**partially complete; broader closeout deferred**)
   - [x] report-only planning/state-machine and marker/finalization readiness contracts
   - [x] first feature-gated local committed-manifest execution path
   - [x] idempotent identical committed-manifest detection
@@ -2075,7 +2115,10 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
   - Note: CG-4.2 adds report-only local committed-manifest recovery/rollback diagnostics.
   - Note: CG-4.3 adds the first feature-gated local committed-manifest rollback cleanup path; generalized recovery and object-store writes remain separate work.
 
-## Deferred / Blocked Work
+## Historical CG Completion And Deferred Notes
+
+This section preserves older attribution notes that predate the compact CG rollups above. It is not the active queue; promote any actionable unfinished work into the Near-term Implementation Priority or the relevant detailed CG checklist before implementation.
+
 - [x] CG-1.2 metadata/footer execution path has a feature-gated local fixture invocation helper.
 - [x] CG-2.1 metadata-footer count execution bridge consumes the local fixture footer summary.
 - [x] CG-2.1d encoded-data count candidate bridge can defer approved count candidates to `NeedsEncodedRead`.
