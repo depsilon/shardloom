@@ -17,6 +17,8 @@ use shardloom_core::{
     Diagnostic, DiagnosticSeverity, MaterializationPolicy, Result, SegmentId, ShardLoomError,
 };
 
+use crate::streaming::BackpressurePlanReport;
+
 /// Byte size helper for deterministic planning arithmetic.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ByteSize(u64);
@@ -826,12 +828,257 @@ pub fn plan_dynamic_sizing_feedback(
     DynamicSizingFeedbackReport::from_input(input)
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DynamicWorkShapingStatus {
+    PlanReady,
+    NeedsRuntimeIntegration,
+    UnsafeFallbackPolicy,
+}
+
+impl DynamicWorkShapingStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::PlanReady => "plan_ready",
+            Self::NeedsRuntimeIntegration => "needs_runtime_integration",
+            Self::UnsafeFallbackPolicy => "unsafe_fallback_policy",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_error(&self) -> bool {
+        matches!(self, Self::UnsafeFallbackPolicy)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct DynamicWorkShapingReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub profile: String,
+    pub status: DynamicWorkShapingStatus,
+    pub planned_surface_count: usize,
+    pub blocked_surface_count: usize,
+    pub blocked_surface_order: Vec<String>,
+    pub feedback_status: DynamicSizingFeedbackStatus,
+    pub feedback_mode: DynamicSizingFeedbackMode,
+    pub signal_count: usize,
+    pub reduce_signal_count: usize,
+    pub increase_signal_count: usize,
+    pub stable_signal_count: usize,
+    pub target_task_bytes_changed: bool,
+    pub current_target_task_bytes: ByteSize,
+    pub recommended_target_task_bytes: ByteSize,
+    pub adaptive_splitting_allowed: bool,
+    pub adaptive_coalescing_allowed: bool,
+    pub backpressure_status: crate::streaming::BackpressurePlanStatus,
+    pub backpressure_mode: crate::streaming::BackpressurePlanMode,
+    pub bounded_backpressure: bool,
+    pub max_parallelism: usize,
+    pub max_in_flight_chunks: Option<usize>,
+    pub max_buffered_bytes: Option<ByteSize>,
+    pub estimated_chunk_bytes: Option<ByteSize>,
+    pub bounded_memory_required: bool,
+    pub spill_allowed: bool,
+    pub runtime_feedback_loop_ready: bool,
+    pub policy_application_ready: bool,
+    pub benchmark_evidence_ready: bool,
+    pub streams_executed: bool,
+    pub tasks_executed: bool,
+    pub feedback_applied: bool,
+    pub policy_mutated: bool,
+    pub data_read: bool,
+    pub data_materialized: bool,
+    pub object_store_io: bool,
+    pub write_io: bool,
+    pub spill_io_performed: bool,
+    pub fallback_execution_allowed: bool,
+    pub fallback_attempted: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl DynamicWorkShapingReport {
+    #[must_use]
+    pub fn surface_order() -> Vec<&'static str> {
+        vec![
+            "adaptive_sizing_policy",
+            "feedback_signals",
+            "target_task_policy",
+            "backpressure_policy",
+            "bounded_memory_policy",
+            "scheduler_queue_policy",
+            "runtime_application_loop",
+            "benchmark_evidence",
+            "no_fallback_policy",
+        ]
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.status.is_error()
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    #[must_use]
+    pub const fn is_side_effect_free(&self) -> bool {
+        !self.streams_executed
+            && !self.tasks_executed
+            && !self.feedback_applied
+            && !self.policy_mutated
+            && !self.data_read
+            && !self.data_materialized
+            && !self.object_store_io
+            && !self.write_io
+            && !self.spill_io_performed
+            && !self.fallback_execution_allowed
+            && !self.fallback_attempted
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "dynamic work shaping status: {}\nprofile: {}\nplanned surfaces: {}\nblocked surfaces: {}\nfeedback status: {}\nbackpressure status: {}\ncurrent target task bytes: {}\nrecommended target task bytes: {}\nruntime feedback loop ready: {}\npolicy application ready: {}\nbenchmark evidence ready: {}\nstreams executed: false\ntasks executed: false\ndata read: false\nobject-store IO: false\nwrite IO: false\nspill IO performed: false\nfeedback applied: false\nfallback execution: disabled",
+            self.status.as_str(),
+            self.profile,
+            self.planned_surface_count,
+            self.blocked_surface_count,
+            self.feedback_status.as_str(),
+            self.backpressure_status.as_str(),
+            self.current_target_task_bytes.as_bytes(),
+            self.recommended_target_task_bytes.as_bytes(),
+            self.runtime_feedback_loop_ready,
+            self.policy_application_ready,
+            self.benchmark_evidence_ready,
+        )
+    }
+}
+
+#[must_use]
+pub fn plan_dynamic_work_shaping(
+    profile: impl Into<String>,
+    feedback: &DynamicSizingFeedbackReport,
+    backpressure: &BackpressurePlanReport,
+) -> DynamicWorkShapingReport {
+    let fallback_attempted = false;
+    let fallback_execution_allowed =
+        feedback.fallback_execution_allowed || backpressure.fallback_execution_allowed;
+    let runtime_feedback_loop_ready = false;
+    let policy_application_ready = false;
+    let benchmark_evidence_ready = false;
+    let mut blocked_surface_order = Vec::new();
+    if feedback.has_errors() {
+        blocked_surface_order.push("feedback_signals".to_string());
+    }
+    if backpressure.has_errors() {
+        blocked_surface_order.push("backpressure_policy".to_string());
+    }
+    if !runtime_feedback_loop_ready {
+        blocked_surface_order.push("runtime_application_loop".to_string());
+    }
+    if !benchmark_evidence_ready {
+        blocked_surface_order.push("benchmark_evidence".to_string());
+    }
+    if fallback_execution_allowed || fallback_attempted {
+        blocked_surface_order.push("no_fallback_policy".to_string());
+    }
+    let blocked_surface_count = blocked_surface_order.len();
+    let planned_surface_count = DynamicWorkShapingReport::surface_order()
+        .len()
+        .saturating_sub(blocked_surface_count);
+    let mut diagnostics = feedback.diagnostics.clone();
+    diagnostics.extend(backpressure.diagnostics.clone());
+    let status = if fallback_execution_allowed || fallback_attempted {
+        DynamicWorkShapingStatus::UnsafeFallbackPolicy
+    } else if runtime_feedback_loop_ready && policy_application_ready && benchmark_evidence_ready {
+        DynamicWorkShapingStatus::PlanReady
+    } else {
+        DynamicWorkShapingStatus::NeedsRuntimeIntegration
+    };
+
+    DynamicWorkShapingReport {
+        schema_version: "shardloom.dynamic_work_shaping.v1",
+        report_id: "cg8.dynamic_work_shaping.aggregate",
+        profile: profile.into(),
+        status,
+        planned_surface_count,
+        blocked_surface_count,
+        blocked_surface_order,
+        feedback_status: feedback.status,
+        feedback_mode: feedback.mode,
+        signal_count: feedback.signal_count,
+        reduce_signal_count: feedback.reduce_signal_count,
+        increase_signal_count: feedback.increase_signal_count,
+        stable_signal_count: feedback.stable_signal_count,
+        target_task_bytes_changed: feedback.current_target_task_bytes
+            != feedback.recommended_target_task_bytes,
+        current_target_task_bytes: feedback.current_target_task_bytes,
+        recommended_target_task_bytes: feedback.recommended_target_task_bytes,
+        adaptive_splitting_allowed: feedback.recommended_policy.allow_splitting,
+        adaptive_coalescing_allowed: feedback.recommended_policy.allow_coalescing,
+        backpressure_status: backpressure.status,
+        backpressure_mode: backpressure.mode,
+        bounded_backpressure: backpressure.bounded,
+        max_parallelism: backpressure.input.max_parallelism,
+        max_in_flight_chunks: backpressure.max_in_flight_chunks,
+        max_buffered_bytes: backpressure.max_buffered_bytes,
+        estimated_chunk_bytes: backpressure.estimated_chunk_bytes,
+        bounded_memory_required: backpressure.memory_required,
+        spill_allowed: backpressure.spill_allowed,
+        runtime_feedback_loop_ready,
+        policy_application_ready,
+        benchmark_evidence_ready,
+        streams_executed: feedback.tasks_executed || backpressure.streams_executed,
+        tasks_executed: feedback.tasks_executed || backpressure.tasks_executed,
+        feedback_applied: feedback.feedback_applied,
+        policy_mutated: false,
+        data_read: feedback.data_read || backpressure.data_read,
+        data_materialized: backpressure.data_materialized,
+        object_store_io: feedback.object_store_io || backpressure.object_store_io,
+        write_io: feedback.write_io || backpressure.write_io,
+        spill_io_performed: feedback.spill_io_performed || backpressure.spill_io_performed,
+        fallback_execution_allowed,
+        fallback_attempted,
+        diagnostics,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::streaming::{BackpressurePlanInput, BoundedMemoryPolicy, plan_backpressure};
+
     fn seg() -> SegmentId {
         SegmentId::new("s1").expect("valid")
     }
+
+    fn dynamic_feedback_with_signal(
+        signal: SizingFeedbackSignalKind,
+    ) -> DynamicSizingFeedbackReport {
+        let mut input = DynamicSizingFeedbackInput::new(AdaptiveSizingPolicy::memory_limited(
+            ByteSize::from_gib(8),
+        ));
+        input.add_signal(SizingFeedbackSignal::new(signal, signal.as_str()));
+        plan_dynamic_sizing_feedback(input)
+    }
+
+    fn bounded_backpressure() -> BackpressurePlanReport {
+        plan_backpressure(
+            BackpressurePlanInput::new(
+                BoundedMemoryPolicy::required(ByteSize::from_gib(8)).with_spill(true),
+                4,
+            )
+            .expect("backpressure input")
+            .with_estimated_chunk_bytes(ByteSize::from_mib(256)),
+        )
+        .expect("backpressure report")
+    }
+
     #[test]
     fn byte_size_from_gib_expected() {
         assert_eq!(ByteSize::from_gib(1).as_bytes(), 1024 * 1024 * 1024);
@@ -1066,6 +1313,82 @@ mod tests {
         assert_eq!(
             report.recommended_target_task_bytes,
             ByteSize::from_mib(128)
+        );
+    }
+
+    #[test]
+    fn dynamic_work_shaping_aggregates_feedback_and_backpressure() {
+        let feedback = dynamic_feedback_with_signal(SizingFeedbackSignalKind::MemoryPressureHigh);
+        let backpressure = bounded_backpressure();
+        let report = plan_dynamic_work_shaping("memory-pressure", &feedback, &backpressure);
+
+        assert_eq!(report.schema_version, "shardloom.dynamic_work_shaping.v1");
+        assert_eq!(report.report_id, "cg8.dynamic_work_shaping.aggregate");
+        assert_eq!(
+            report.status,
+            DynamicWorkShapingStatus::NeedsRuntimeIntegration
+        );
+        assert_eq!(
+            report.feedback_status,
+            DynamicSizingFeedbackStatus::TargetReduced
+        );
+        assert_eq!(
+            report.backpressure_status,
+            crate::streaming::BackpressurePlanStatus::Bounded
+        );
+        assert!(report.target_task_bytes_changed);
+        assert!(report.bounded_backpressure);
+        assert_eq!(report.max_parallelism, 4);
+        assert_eq!(report.max_in_flight_chunks, Some(4));
+        assert_eq!(report.max_buffered_bytes, Some(ByteSize::from_gib(8)));
+        assert_eq!(report.estimated_chunk_bytes, Some(ByteSize::from_mib(256)));
+        assert_eq!(
+            report.blocked_surface_order,
+            vec!["runtime_application_loop", "benchmark_evidence"]
+        );
+        assert_eq!(report.blocked_surface_count, 2);
+        assert_eq!(report.planned_surface_count, 7);
+        assert!(!report.runtime_feedback_loop_ready);
+        assert!(!report.policy_application_ready);
+        assert!(!report.benchmark_evidence_ready);
+        assert!(report.is_side_effect_free());
+    }
+
+    #[test]
+    fn dynamic_work_shaping_preserves_no_fallback_boundary() {
+        let feedback = dynamic_feedback_with_signal(SizingFeedbackSignalKind::ObjectStoreThrottled);
+        let backpressure = bounded_backpressure();
+        let report = plan_dynamic_work_shaping("object-store-throttled", &feedback, &backpressure);
+
+        assert_eq!(
+            DynamicWorkShapingReport::surface_order(),
+            vec![
+                "adaptive_sizing_policy",
+                "feedback_signals",
+                "target_task_policy",
+                "backpressure_policy",
+                "bounded_memory_policy",
+                "scheduler_queue_policy",
+                "runtime_application_loop",
+                "benchmark_evidence",
+                "no_fallback_policy"
+            ]
+        );
+        assert!(!report.streams_executed);
+        assert!(!report.tasks_executed);
+        assert!(!report.feedback_applied);
+        assert!(!report.policy_mutated);
+        assert!(!report.data_read);
+        assert!(!report.data_materialized);
+        assert!(!report.object_store_io);
+        assert!(!report.write_io);
+        assert!(!report.spill_io_performed);
+        assert!(!report.fallback_execution_allowed);
+        assert!(!report.fallback_attempted);
+        assert!(
+            report
+                .to_human_text()
+                .contains("fallback execution: disabled")
         );
     }
 }

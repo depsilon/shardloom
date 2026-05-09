@@ -1394,6 +1394,15 @@ No fallback execution.
 - Related RFCs: RFC 0008, RFC 0017, RFC 0021, RFC 0029, RFC 0031, and RFC 0032.
 - This phase adds no broad streaming runtime execution for arbitrary query plans, bounded parallel encoded/read execution, new scan/read-start API, new encoded data read path beyond the approved local count scan, filtered-count/projection execution, row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, dynamic sizing feedback execution, benchmark claim, production/superiority claim, CG-8 closeout, or fallback behavior.
 
+## CG-8.8 dynamic work shaping aggregate surface
+
+- `DynamicWorkShapingReport` aggregates adaptive sizing policy, runtime feedback signals, target-task policy, bounded-memory backpressure, scheduler queue policy, runtime-application blockers, benchmark evidence blockers, and no-fallback policy into one deterministic report.
+- `dynamic-work-shaping-plan [balanced|memory-pressure|object-store-throttled|small-tasks]` exposes stable JSON/text fields for profile, surface order, blocked surfaces, feedback status/mode, signal counts, target task bytes, backpressure status/mode, bounded memory, side-effect boundaries, and no-fallback status.
+- Current profiles remain report-only. Runtime feedback-loop application, live policy mutation, and benchmark evidence remain explicit blockers before dynamic shaping can affect real execution.
+- Primary RFC linkage: RFC 0013, RFC 0014, RFC 0016, RFC 0018, RFC 0025, and RFC 0027.
+- Related RFCs: RFC 0008, RFC 0017, RFC 0029, RFC 0031, and RFC 0032.
+- This phase adds no live feedback-loop execution, policy mutation, broad streaming runtime, bounded parallel encoded/read execution, read-start API, encoded data reads, row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, benchmark claim, production/superiority claim, CG-8 closeout, or fallback behavior.
+
 ## CG-9.1 schema evolution compatibility evidence
 
 - `SchemaEvolutionCompatibilityReport` records compatibility level, safe/unsafe change counts, field-id requirements, projection/cast/default requirements, metadata-loss reporting, read/write support, no-IO fields, diagnostics, and fallback-disabled evidence.
