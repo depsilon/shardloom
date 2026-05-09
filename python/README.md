@@ -65,8 +65,9 @@ Supported environment variables:
 
 ## Live ETL Smoke
 
-The current live ETL surface is intentionally narrow and explicit. CSV mode
-runs `traditional-analytics-run`, which imports CSV inputs into temporary local
+The current live ETL surface is intentionally narrow and explicit.
+Compatibility-file mode runs `traditional-analytics-run`, which imports CSV,
+JSONL/NDJSON, Parquet, Arrow IPC, Avro, or ORC inputs into temporary local
 Vortex files before running the temporary benchmark operator. Native Vortex mode
 runs `traditional-analytics-vortex-run` from existing `.vortex` inputs.
 
@@ -88,9 +89,14 @@ print(result.field("materialization_boundary_reported"))
 print(result.fallback.attempted)
 ```
 
-For the current CSV universal-I/O path, use the replay helper when you want to
-see both parts separately: boundary import into Vortex, then steady-state native
-Vortex execution from the emitted artifacts.
+Resource sizing is automatic by default. ShardLoom derives applied parallelism,
+batch rows, and target partition count from the local machine and source
+footprint. Pass `memory_gb=` or `max_parallelism=` only when a job or benchmark
+needs explicit caps.
+
+For the current compatibility-file universal-I/O path, use the replay helper
+when you want to see both parts separately: boundary import into Vortex, then
+steady-state native Vortex execution from the emitted artifacts.
 
 ```python
 from shardloom import ShardLoomClient
@@ -108,9 +114,9 @@ print(result.native_vortex.field("source_format") if result.native_vortex else N
 print(result.fallback_attempted)
 ```
 
-Universal I/O is broader than CSV. The current adapter registry is still
-plan-only, but it makes the common format, object-store, catalog, effectful,
-and unstructured queues visible from Python:
+Universal I/O is broader than local compatibility files. The current adapter
+registry also makes object-store, catalog, effectful, and unstructured queues
+visible from Python:
 
 ```python
 adapters = client.input_adapters()
@@ -129,9 +135,10 @@ print(plan.field("plan_only"))
 Common structured inputs are tracked as `native_vortex`, `parquet`,
 `arrow_ipc`, `csv`, JSON/NDJSON through `jsonl`, `avro`, and `orc`.
 Lakehouse/table, object-store, catalog, effectful, and unstructured/media
-families are also represented in the registry. Planned means no reader/runtime
-behavior is implied yet; the current implemented live path remains the local
-CSV-to-Vortex benchmark smoke and native `.vortex` replay.
+families are also represented in the registry. The current implemented live
+path is the feature-gated local compatibility-file-to-Vortex benchmark smoke
+and native `.vortex` replay; production adapter certification, object-store
+runtime, catalogs, SQL, DataFrame runtime, and UDF runtime remain future work.
 
 The client also exposes advisory optimization reports:
 

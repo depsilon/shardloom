@@ -16,7 +16,9 @@ from .models import OutputEnvelope
 CommandPart = str | os.PathLike[str]
 Binary = CommandPart | Sequence[CommandPart]
 DEFAULT_PROFILE_ORDER = ("release", "debug")
-ETL_INPUT_FORMATS = frozenset({"csv", "vortex"})
+ETL_INPUT_FORMATS = frozenset(
+    {"csv", "jsonl", "ndjson", "parquet", "arrow-ipc", "arrow_ipc", "avro", "orc", "vortex"}
+)
 ENV_REPO_ROOT = "SHARDLOOM_REPO_ROOT"
 ENV_PROFILE_ORDER = "SHARDLOOM_PROFILE_ORDER"
 ENV_TIMEOUT_SECONDS = "SHARDLOOM_TIMEOUT_SECONDS"
@@ -205,10 +207,14 @@ class ShardLoomClient:
     def traditional_analytics_run(
         self,
         scenario: str,
-        fact_csv: str | os.PathLike[str],
-        dim_csv: str | os.PathLike[str],
+        fact_input: str | os.PathLike[str],
+        dim_input: str | os.PathLike[str],
         *,
         workspace: str | os.PathLike[str] | None = None,
+        input_format: str | None = None,
+        compatibility_output_format: str | None = None,
+        memory_gb: int | None = None,
+        max_parallelism: int | None = None,
         check: bool = True,
     ) -> OutputEnvelope:
         """Run the explicit traditional analytics universal-I/O smoke command."""
@@ -216,11 +222,19 @@ class ShardLoomClient:
         args = [
             "traditional-analytics-run",
             scenario,
-            str(fact_csv),
-            str(dim_csv),
+            str(fact_input),
+            str(dim_input),
         ]
         if workspace is not None:
             args.extend(["--workspace", str(workspace)])
+        if input_format is not None:
+            args.extend(["--input-format", input_format])
+        if compatibility_output_format is not None:
+            args.extend(["--compat-output-format", compatibility_output_format])
+        if memory_gb is not None:
+            args.extend(["--memory-gb", str(memory_gb)])
+        if max_parallelism is not None:
+            args.extend(["--max-parallelism", str(max_parallelism)])
         return self.run(args, check=check)
 
     def traditional_analytics_vortex_run(
@@ -251,14 +265,18 @@ class ShardLoomClient:
         *,
         input_format: str = "csv",
         workspace: str | os.PathLike[str] | None = None,
+        compatibility_output_format: str | None = None,
+        memory_gb: int | None = None,
+        max_parallelism: int | None = None,
         check: bool = True,
     ) -> OutputEnvelope:
         """Run the current live ETL smoke surface for CSV or native Vortex inputs.
 
-        CSV mode imports deterministic local CSV files into temporary Vortex
-        files, reopens them, and runs the temporary benchmark operator. Vortex
-        mode starts from existing `.vortex` inputs. Both modes are explicit CLI
-        invocations and preserve the returned materialization/certificate fields.
+        Compatibility-file modes import deterministic local inputs into
+        temporary Vortex files, reopen them, and run the temporary benchmark
+        operator. Vortex mode starts from existing `.vortex` inputs. All modes
+        are explicit CLI invocations and preserve returned materialization and
+        certificate fields.
         """
 
         normalized_format = input_format.lower().replace("_", "-")
@@ -267,16 +285,20 @@ class ShardLoomClient:
                 f"input_format must be one of {sorted(ETL_INPUT_FORMATS)}; "
                 f"got {input_format!r}"
             )
-        if normalized_format == "csv":
+        if normalized_format != "vortex":
             return self.traditional_analytics_run(
                 scenario,
                 fact_input,
                 dim_input,
                 workspace=workspace,
+                input_format=normalized_format,
+                compatibility_output_format=compatibility_output_format,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
                 check=check,
             )
         if workspace is not None:
-            raise ValueError("workspace is only supported for CSV live ETL smoke runs")
+            raise ValueError("workspace is only supported for compatibility-file live ETL smoke runs")
         return self.traditional_analytics_vortex_run(
             scenario,
             fact_input,
@@ -292,6 +314,9 @@ class ShardLoomClient:
         *,
         workspace: str | os.PathLike[str],
         replay_native: bool = True,
+        compatibility_output_format: str | None = None,
+        memory_gb: int | None = None,
+        max_parallelism: int | None = None,
         check: bool = True,
     ) -> LiveEtlReplayResult:
         """Run CSV universal I/O, then optionally replay from native Vortex artifacts.
@@ -307,6 +332,10 @@ class ShardLoomClient:
             fact_csv,
             dim_csv,
             workspace=workspace,
+            input_format="csv",
+            compatibility_output_format=compatibility_output_format,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
             check=check,
         )
         native_vortex = None

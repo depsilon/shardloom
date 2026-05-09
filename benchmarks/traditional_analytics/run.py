@@ -48,7 +48,8 @@ SCENARIO_ORDER = (
     "wide projection",
     "distinct count",
 )
-FORMAT_ORDER = ("csv", "parquet")
+FORMAT_ORDER = ("csv", "jsonl", "parquet", "arrow-ipc", "avro", "orc")
+DEFAULT_FORMAT_ORDER = ("csv", "parquet")
 SHARDLOOM_VORTEX_FORMAT = "vortex"
 STRESS_SCENARIO_ORDER = (
     "scale stress skewed join aggregation",
@@ -76,8 +77,16 @@ class DatasetPaths:
     root: Path
     fact_csv: Path
     dim_csv: Path
+    fact_jsonl: Path
+    dim_jsonl: Path
     fact_parquet: Path
     dim_parquet: Path
+    fact_arrow_ipc: Path
+    dim_arrow_ipc: Path
+    fact_avro: Path
+    dim_avro: Path
+    fact_orc: Path
+    dim_orc: Path
     rows: int
     dim_rows: int
 
@@ -168,8 +177,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--formats",
-        default=",".join(FORMAT_ORDER),
-        help="Comma-separated external storage formats to run where supported: csv,parquet. ShardLoom native Vortex rows use the shardloom-vortex engine.",
+        default=",".join(DEFAULT_FORMAT_ORDER),
+        help="Comma-separated external storage formats to run where supported: csv,jsonl,parquet,arrow-ipc,avro,orc. ShardLoom native Vortex rows use the shardloom-vortex engine.",
     )
     parser.add_argument(
         "--scenario",
@@ -282,27 +291,68 @@ def parse_args() -> argparse.Namespace:
     return args
 
 
-def ensure_dataset(root: Path, rows: int, dim_rows: int, regenerate: bool) -> DatasetPaths:
+def ensure_dataset(
+    root: Path,
+    rows: int,
+    dim_rows: int,
+    regenerate: bool,
+    requested_formats: tuple[str, ...],
+) -> DatasetPaths:
     fact_csv = root / "fact.csv"
     dim_csv = root / "dim.csv"
+    fact_jsonl = root / "fact.jsonl"
+    dim_jsonl = root / "dim.jsonl"
     fact_parquet = root / "fact.parquet"
     dim_parquet = root / "dim.parquet"
+    fact_arrow_ipc = root / "fact.arrow"
+    dim_arrow_ipc = root / "dim.arrow"
+    fact_avro = root / "fact.avro"
+    dim_avro = root / "dim.avro"
+    fact_orc = root / "fact.orc"
+    dim_orc = root / "dim.orc"
     metadata_json = root / "dataset.json"
     if regenerate and root.exists():
         shutil.rmtree(root)
     root.mkdir(parents=True, exist_ok=True)
-    expected_metadata = {"rows": rows, "dim_rows": dim_rows, "schema_version": 2}
+    expected_metadata = {
+        "rows": rows,
+        "dim_rows": dim_rows,
+        "schema_version": 3,
+        "formats": sorted(requested_formats),
+    }
+    required_paths = [fact_csv, dim_csv]
+    if "jsonl" in requested_formats:
+        required_paths.extend([fact_jsonl, dim_jsonl])
+    if "parquet" in requested_formats:
+        required_paths.extend([fact_parquet, dim_parquet])
+    if "arrow-ipc" in requested_formats:
+        required_paths.extend([fact_arrow_ipc, dim_arrow_ipc])
+    if "avro" in requested_formats:
+        required_paths.extend([fact_avro, dim_avro])
+    if "orc" in requested_formats:
+        required_paths.extend([fact_orc, dim_orc])
     if (
-        fact_csv.exists()
-        and dim_csv.exists()
-        and fact_parquet.exists()
-        and dim_parquet.exists()
+        all(path.exists() for path in required_paths)
         and metadata_json.exists()
     ):
         with metadata_json.open("r", encoding="utf-8") as handle:
             if json.load(handle) == expected_metadata:
                 return DatasetPaths(
-                    root, fact_csv, dim_csv, fact_parquet, dim_parquet, rows, dim_rows
+                    root,
+                    fact_csv,
+                    dim_csv,
+                    fact_jsonl,
+                    dim_jsonl,
+                    fact_parquet,
+                    dim_parquet,
+                    fact_arrow_ipc,
+                    dim_arrow_ipc,
+                    fact_avro,
+                    dim_avro,
+                    fact_orc,
+                    dim_orc,
+                    rows,
+                    dim_rows,
                 )
 
     with fact_csv.open("w", newline="", encoding="utf-8") as handle:
@@ -332,28 +382,198 @@ def ensure_dataset(root: Path, rows: int, dim_rows: int, regenerate: bool) -> Da
         for idx in range(dim_rows):
             writer.writerow([idx, f"d{idx % 50}", (idx * 3) % 100])
 
+    if "jsonl" in requested_formats:
+        write_jsonl_copies(fact_csv, dim_csv, fact_jsonl, dim_jsonl)
+
     with metadata_json.open("w", encoding="utf-8") as handle:
         json.dump(expected_metadata, handle, indent=2, sort_keys=True)
         handle.write("\n")
 
-    write_parquet_copies(fact_csv, dim_csv, fact_parquet, dim_parquet)
+    if {"parquet", "arrow-ipc", "orc"} & set(requested_formats):
+        write_arrow_family_copies(
+            fact_csv,
+            dim_csv,
+            fact_parquet if "parquet" in requested_formats else None,
+            dim_parquet if "parquet" in requested_formats else None,
+            fact_arrow_ipc if "arrow-ipc" in requested_formats else None,
+            dim_arrow_ipc if "arrow-ipc" in requested_formats else None,
+            fact_orc if "orc" in requested_formats else None,
+            dim_orc if "orc" in requested_formats else None,
+        )
+    if "avro" in requested_formats:
+        write_avro_copies(fact_csv, dim_csv, fact_avro, dim_avro)
 
-    return DatasetPaths(root, fact_csv, dim_csv, fact_parquet, dim_parquet, rows, dim_rows)
+    return DatasetPaths(
+        root,
+        fact_csv,
+        dim_csv,
+        fact_jsonl,
+        dim_jsonl,
+        fact_parquet,
+        dim_parquet,
+        fact_arrow_ipc,
+        dim_arrow_ipc,
+        fact_avro,
+        dim_avro,
+        fact_orc,
+        dim_orc,
+        rows,
+        dim_rows,
+    )
 
 
-def write_parquet_copies(
-    fact_csv: Path, dim_csv: Path, fact_parquet: Path, dim_parquet: Path
+def write_jsonl_copies(fact_csv: Path, dim_csv: Path, fact_jsonl: Path, dim_jsonl: Path) -> None:
+    write_jsonl_copy(
+        fact_csv,
+        fact_jsonl,
+        {
+            "id": int,
+            "group_key": int,
+            "dim_key": int,
+            "value": int,
+            "metric": float,
+            "flag": int,
+            "category": str,
+        },
+    )
+    write_jsonl_copy(
+        dim_csv,
+        dim_jsonl,
+        {"dim_key": int, "dim_label": str, "weight": float},
+    )
+
+
+def write_jsonl_copy(source_csv: Path, target_jsonl: Path, converters: dict[str, Callable[[str], Any]]) -> None:
+    with source_csv.open("r", newline="", encoding="utf-8") as source:
+        reader = csv.DictReader(source)
+        with target_jsonl.open("w", encoding="utf-8") as target:
+            for row in reader:
+                typed = {
+                    key: converters[key](value)
+                    for key, value in row.items()
+                    if key is not None and value is not None
+                }
+                target.write(json.dumps(typed, separators=(",", ":")))
+                target.write("\n")
+
+
+def write_arrow_family_copies(
+    fact_csv: Path,
+    dim_csv: Path,
+    fact_parquet: Path | None,
+    dim_parquet: Path | None,
+    fact_arrow_ipc: Path | None,
+    dim_arrow_ipc: Path | None,
+    fact_orc: Path | None,
+    dim_orc: Path | None,
 ) -> None:
     try:
+        import pyarrow as pa  # type: ignore
         import pyarrow.csv as arrow_csv  # type: ignore
+        import pyarrow.ipc as ipc  # type: ignore
+        import pyarrow.orc as orc  # type: ignore
         import pyarrow.parquet as pq  # type: ignore
     except ImportError as exc:
         raise BenchmarkUnsupported(
-            "pyarrow is required to generate Parquet benchmark inputs"
+            "pyarrow is required to generate Arrow-family benchmark inputs"
         ) from exc
 
-    pq.write_table(arrow_csv.read_csv(fact_csv), fact_parquet)
-    pq.write_table(arrow_csv.read_csv(dim_csv), dim_parquet)
+    fact_table = arrow_csv.read_csv(fact_csv)
+    dim_table = arrow_csv.read_csv(dim_csv)
+    if fact_parquet is not None and dim_parquet is not None:
+        pq.write_table(fact_table, fact_parquet)
+        pq.write_table(dim_table, dim_parquet)
+    if fact_arrow_ipc is not None and dim_arrow_ipc is not None:
+        write_arrow_ipc_table(ipc, fact_table, fact_arrow_ipc)
+        write_arrow_ipc_table(ipc, dim_table, dim_arrow_ipc)
+    if fact_orc is not None and dim_orc is not None:
+        orc.write_table(fact_table, fact_orc)
+        orc.write_table(dim_table, dim_orc)
+    _ = pa
+
+
+def write_arrow_ipc_table(ipc: Any, table: Any, path: Path) -> None:
+    with path.open("wb") as handle:
+        with ipc.new_file(handle, table.schema) as writer:
+            writer.write_table(table)
+
+
+def write_avro_copies(fact_csv: Path, dim_csv: Path, fact_avro: Path, dim_avro: Path) -> None:
+    try:
+        import fastavro  # type: ignore
+    except ImportError as exc:
+        raise BenchmarkUnsupported(
+            "fastavro is required to generate Avro benchmark inputs"
+        ) from exc
+
+    fact_schema = fastavro.parse_schema(
+        {
+            "type": "record",
+            "name": "fact",
+            "fields": [
+                {"name": "id", "type": "long"},
+                {"name": "group_key", "type": "int"},
+                {"name": "dim_key", "type": "int"},
+                {"name": "value", "type": "int"},
+                {"name": "metric", "type": "double"},
+                {"name": "flag", "type": "int"},
+                {"name": "category", "type": "string"},
+            ],
+        }
+    )
+    dim_schema = fastavro.parse_schema(
+        {
+            "type": "record",
+            "name": "dim",
+            "fields": [
+                {"name": "dim_key", "type": "int"},
+                {"name": "dim_label", "type": "string"},
+                {"name": "weight", "type": "double"},
+            ],
+        }
+    )
+    write_avro_copy(
+        fastavro,
+        fact_csv,
+        fact_avro,
+        fact_schema,
+        {
+            "id": int,
+            "group_key": int,
+            "dim_key": int,
+            "value": int,
+            "metric": float,
+            "flag": int,
+            "category": str,
+        },
+    )
+    write_avro_copy(
+        fastavro,
+        dim_csv,
+        dim_avro,
+        dim_schema,
+        {"dim_key": int, "dim_label": str, "weight": float},
+    )
+
+
+def write_avro_copy(
+    fastavro: Any,
+    source_csv: Path,
+    target_avro: Path,
+    schema: dict[str, Any],
+    converters: dict[str, Callable[[str], Any]],
+) -> None:
+    with source_csv.open("r", newline="", encoding="utf-8") as source:
+        records = [
+            {
+                key: converters[key](value)
+                for key, value in row.items()
+                if key is not None and value is not None
+            }
+            for row in csv.DictReader(source)
+        ]
+    with target_avro.open("wb") as target:
+        fastavro.writer(target, schema, records)
 
 
 def module_version(name: str) -> str:
@@ -372,19 +592,19 @@ def shardloom_runner() -> EngineRunner:
     env["RUSTUP_TOOLCHAIN"] = env.get("RUSTUP_TOOLCHAIN", "1.91.1")
 
     def run_scenario(scenario: str, paths: DatasetPaths, data_format: str) -> Any:
-        if data_format != "csv":
-            raise BenchmarkUnsupported(
-                "ShardLoom traditional benchmark row currently supports CSV source import only; use shardloom-vortex for native .vortex input rows"
-            )
-        workspace = paths.root / "shardloom_universal_io" / scenario_slug(scenario)
+        workspace = (
+            paths.root / "shardloom_universal_io" / data_format / scenario_slug(scenario)
+        )
         command = [
             str(binary),
             "traditional-analytics-run",
             scenario,
-            str(paths.fact_csv),
-            str(paths.dim_csv),
+            str(fact_path(paths, data_format)),
+            str(dim_path(paths, data_format)),
             "--workspace",
             str(workspace),
+            "--input-format",
+            data_format,
             "--format",
             "json",
         ]
@@ -404,8 +624,11 @@ def shardloom_runner() -> EngineRunner:
             "native_work_stream_created",
             "native_result_stream_created",
             "native_io_certificate_emitted",
-            "csv_source_adapter_used",
-            "csv_to_vortex_import_performed",
+            "compatibility_source_adapter_used",
+            "compatibility_to_vortex_import_performed",
+            "resource_auto_sizing_enabled",
+            "dynamic_sizing_applied",
+            "partitioning_auto_derived",
             "vortex_file_written",
             "vortex_file_read",
             "upstream_vortex_scan_called",
@@ -434,6 +657,11 @@ def shardloom_runner() -> EngineRunner:
                 "ShardLoom NativeIoCertificate path was unexpected: "
                 + str(fields.get("native_io_certificate_path_id", "missing"))
             )
+        if fields.get("source_format") != shardloom_source_format(data_format):
+            raise RuntimeError(
+                "ShardLoom source format was unexpected: "
+                + str(fields.get("source_format", "missing"))
+            )
         result_json = fields.get("result_json")
         if result_json is None:
             raise RuntimeError("ShardLoom result_json field was missing")
@@ -453,7 +681,7 @@ def shardloom_runner() -> EngineRunner:
             )
             for scenario in SCENARIO_ORDER + STRESS_SCENARIO_ORDER
         },
-        formats=("csv",),
+        formats=FORMAT_ORDER,
     )
 
 
@@ -793,21 +1021,41 @@ def sql_literal(path: Path) -> str:
 def fact_path(paths: DatasetPaths, data_format: str) -> Path:
     if data_format == "csv":
         return paths.fact_csv
+    if data_format == "jsonl":
+        return paths.fact_jsonl
     if data_format == "parquet":
         return paths.fact_parquet
+    if data_format == "arrow-ipc":
+        return paths.fact_arrow_ipc
+    if data_format == "avro":
+        return paths.fact_avro
+    if data_format == "orc":
+        return paths.fact_orc
     raise BenchmarkUnsupported(f"unsupported fact storage format: {data_format}")
 
 
 def dim_path(paths: DatasetPaths, data_format: str) -> Path:
     if data_format == "csv":
         return paths.dim_csv
+    if data_format == "jsonl":
+        return paths.dim_jsonl
     if data_format == "parquet":
         return paths.dim_parquet
+    if data_format == "arrow-ipc":
+        return paths.dim_arrow_ipc
+    if data_format == "avro":
+        return paths.dim_avro
+    if data_format == "orc":
+        return paths.dim_orc
     raise BenchmarkUnsupported(f"unsupported dimension storage format: {data_format}")
 
 
 def scenario_display_name(data_format: str, scenario: str) -> str:
     return f"{data_format}: {scenario}"
+
+
+def shardloom_source_format(data_format: str) -> str:
+    return "arrow_ipc" if data_format == "arrow-ipc" else data_format
 
 
 def pyarrow_rows(batches: list[Any]) -> list[dict[str, Any]]:
@@ -845,11 +1093,27 @@ def pandas_runner() -> EngineRunner:
 
     def read_fact(paths: DatasetPaths, data_format: str) -> Any:
         path = fact_path(paths, data_format)
-        return pd.read_parquet(path) if data_format == "parquet" else pd.read_csv(path)
+        if data_format == "parquet":
+            return pd.read_parquet(path)
+        if data_format == "jsonl":
+            return pd.read_json(path, lines=True)
+        if data_format == "arrow-ipc":
+            return pd.read_feather(path)
+        if data_format == "orc":
+            return pd.read_orc(path)
+        return pd.read_csv(path)
 
     def read_dim(paths: DatasetPaths, data_format: str) -> Any:
         path = dim_path(paths, data_format)
-        return pd.read_parquet(path) if data_format == "parquet" else pd.read_csv(path)
+        if data_format == "parquet":
+            return pd.read_parquet(path)
+        if data_format == "jsonl":
+            return pd.read_json(path, lines=True)
+        if data_format == "arrow-ipc":
+            return pd.read_feather(path)
+        if data_format == "orc":
+            return pd.read_orc(path)
+        return pd.read_csv(path)
 
     def ingest(paths: DatasetPaths, data_format: str) -> Any:
         frame = read_fact(paths, data_format)
@@ -943,7 +1207,7 @@ def pandas_runner() -> EngineRunner:
             "scale stress skewed join aggregation": scale_stress,
             "scale stress multi-stage etl": complex_etl,
         },
-        formats=FORMAT_ORDER,
+        formats=("csv", "jsonl", "parquet", "arrow-ipc", "orc"),
     )
 
 
@@ -952,11 +1216,27 @@ def polars_runner() -> EngineRunner:
 
     def read_fact(paths: DatasetPaths, data_format: str) -> Any:
         path = fact_path(paths, data_format)
-        return pl.read_parquet(path) if data_format == "parquet" else pl.read_csv(path)
+        if data_format == "parquet":
+            return pl.read_parquet(path)
+        if data_format == "jsonl":
+            return pl.read_ndjson(path)
+        if data_format == "arrow-ipc":
+            return pl.read_ipc(path)
+        if data_format == "avro":
+            return pl.read_avro(path)
+        return pl.read_csv(path)
 
     def read_dim(paths: DatasetPaths, data_format: str) -> Any:
         path = dim_path(paths, data_format)
-        return pl.read_parquet(path) if data_format == "parquet" else pl.read_csv(path)
+        if data_format == "parquet":
+            return pl.read_parquet(path)
+        if data_format == "jsonl":
+            return pl.read_ndjson(path)
+        if data_format == "arrow-ipc":
+            return pl.read_ipc(path)
+        if data_format == "avro":
+            return pl.read_avro(path)
+        return pl.read_csv(path)
 
     def ingest(paths: DatasetPaths, data_format: str) -> Any:
         frame = read_fact(paths, data_format)
@@ -1073,7 +1353,7 @@ def polars_runner() -> EngineRunner:
             "scale stress skewed join aggregation": scale_stress,
             "scale stress multi-stage etl": complex_etl,
         },
-        formats=FORMAT_ORDER,
+        formats=("csv", "jsonl", "parquet", "arrow-ipc", "avro"),
     )
 
 
@@ -1084,7 +1364,12 @@ def duckdb_runner() -> EngineRunner:
 
     def table_expr(paths: DatasetPaths, table: str, data_format: str) -> str:
         path = fact_path(paths, data_format) if table == "fact" else dim_path(paths, data_format)
-        function = "read_parquet" if data_format == "parquet" else "read_csv_auto"
+        if data_format == "parquet":
+            function = "read_parquet"
+        elif data_format == "jsonl":
+            function = "read_json_auto"
+        else:
+            function = "read_csv_auto"
         return f"{function}({sql_literal(path)})"
 
     def query(paths: DatasetPaths, data_format: str, sql: str) -> list[dict[str, Any]]:
@@ -1201,7 +1486,7 @@ def duckdb_runner() -> EngineRunner:
             "scale stress skewed join aggregation": scale_stress,
             "scale stress multi-stage etl": complex_etl,
         },
-        formats=FORMAT_ORDER,
+        formats=("csv", "jsonl", "parquet"),
         close=con.close,
     )
 
@@ -1261,6 +1546,10 @@ def spark_runner(profile: str) -> EngineRunner:
     def read_fact(paths: DatasetPaths, data_format: str) -> Any:
         if data_format == "parquet":
             return spark_instance().read.parquet(str(paths.fact_parquet))
+        if data_format == "jsonl":
+            return spark_instance().read.json(str(paths.fact_jsonl))
+        if data_format == "orc":
+            return spark_instance().read.orc(str(paths.fact_orc))
         return spark_instance().read.option("header", True).option("inferSchema", True).csv(
             str(paths.fact_csv)
         )
@@ -1268,6 +1557,10 @@ def spark_runner(profile: str) -> EngineRunner:
     def read_dim(paths: DatasetPaths, data_format: str) -> Any:
         if data_format == "parquet":
             return spark_instance().read.parquet(str(paths.dim_parquet))
+        if data_format == "jsonl":
+            return spark_instance().read.json(str(paths.dim_jsonl))
+        if data_format == "orc":
+            return spark_instance().read.orc(str(paths.dim_orc))
         return spark_instance().read.option("header", True).option("inferSchema", True).csv(
             str(paths.dim_csv)
         )
@@ -1373,7 +1666,7 @@ def spark_runner(profile: str) -> EngineRunner:
             "scale stress skewed join aggregation": scale_stress,
             "scale stress multi-stage etl": complex_etl,
         },
-        formats=FORMAT_ORDER,
+        formats=("csv", "jsonl", "parquet", "orc"),
         warmup=warmup_spark,
         close=close_spark,
     )
@@ -1491,7 +1784,7 @@ def datafusion_runner() -> EngineRunner:
             "scale stress skewed join aggregation": scale_stress,
             "scale stress multi-stage etl": complex_etl,
         },
-        formats=FORMAT_ORDER,
+        formats=("csv", "parquet"),
     )
 
 
@@ -1504,11 +1797,15 @@ def dask_runner() -> EngineRunner:
     def read_fact(paths: DatasetPaths, data_format: str) -> Any:
         if data_format == "parquet":
             return dd.read_parquet(paths.fact_parquet)
+        if data_format == "jsonl":
+            return dd.read_json(paths.fact_jsonl, lines=True, blocksize=blocksize)
         return dd.read_csv(paths.fact_csv, blocksize=blocksize)
 
     def read_dim(paths: DatasetPaths, data_format: str) -> Any:
         if data_format == "parquet":
             return dd.read_parquet(paths.dim_parquet)
+        if data_format == "jsonl":
+            return dd.read_json(paths.dim_jsonl, lines=True, blocksize=blocksize)
         return dd.read_csv(paths.dim_csv, blocksize=blocksize)
 
     def compute_one(*values: Any) -> tuple[Any, ...]:
@@ -1607,7 +1904,7 @@ def dask_runner() -> EngineRunner:
             "scale stress skewed join aggregation": scale_stress,
             "scale stress multi-stage etl": complex_etl,
         },
-        formats=FORMAT_ORDER,
+        formats=("csv", "jsonl", "parquet"),
     )
 
 
@@ -1622,6 +1919,10 @@ ENGINE_FACTORIES: dict[str, Callable[[], EngineRunner]] = {
     "datafusion": datafusion_runner,
     "dask": dask_runner,
 }
+
+
+def maybe_path_size(path: Path) -> int | None:
+    return path.stat().st_size if path.exists() else None
 
 
 def scenario_bytes(paths: DatasetPaths, scenario: str, data_format: str) -> int:
@@ -2212,15 +2513,15 @@ def subprocess_run(command: list[str], cwd: Path, env: dict[str, str]) -> dict[s
 def universal_io_lanes() -> list[dict[str, Any]]:
     return [
         {
-            "name": "CSV -> ShardLoom NativeWorkStream -> Vortex",
+            "name": "CSV/JSONL/Parquet/Arrow IPC/Avro/ORC -> NativeWorkStream -> Vortex",
             "status": "smoke_supported",
-            "reason": "ShardLoom benchmark rows use a deterministic CSV source adapter/import, emit native work/native result evidence fields, write local Vortex files, reopen them through Vortex, and scan Vortex arrays. The path still materializes Vortex-derived arrays for the temporary operators.",
+            "reason": "ShardLoom benchmark rows use deterministic local compatibility source adapters, emit native work/native result evidence fields, write local Vortex files, reopen them through Vortex, and scan Vortex arrays. The path still materializes Vortex-derived arrays for the temporary operators.",
             "expected_report": "per-path NativeIoCertificate with SourceCapabilityReport, SourcePushdownReport, SinkRequirementReport, AdapterFidelityReport, MaterializationBoundaryReport, and side-effect evidence",
         },
         {
-            "name": "CSV -> Vortex import -> encoded CountAll",
+            "name": "Compatibility source -> Vortex import -> encoded CountAll",
             "status": "partial_smoke_supported",
-            "reason": "CSV-to-Vortex import and Vortex scan are exercised by ShardLoom traditional rows. The native microbenchmark lane separately exercises local Vortex scan filter/projection pushdown. Fully integrated CSV-to-Vortex encoded operator execution over imported artifacts remains a CG-2/CG-13/CG-19 follow-up.",
+            "reason": "Compatibility-to-Vortex import and Vortex scan are exercised by ShardLoom traditional rows. The native microbenchmark lane separately exercises local Vortex scan filter/projection pushdown. Fully integrated compatibility-to-Vortex encoded operator execution over imported artifacts remains a CG-2/CG-13/CG-19 follow-up.",
             "expected_report": "NativeIoCertificate plus encoded-count execution certificate",
         },
     ]
@@ -2288,7 +2589,7 @@ def fairness_parameters(args: argparse.Namespace, paths: DatasetPaths) -> dict[s
         "status": "local_smoke_not_claim_grade",
         "rows": paths.rows,
         "dim_rows": paths.dim_rows,
-        "storage_format": "CSV and Parquet baselines where supported; ShardLoom CSV source adapter into local Vortex files; shardloom-vortex native .vortex rows",
+        "storage_format": "CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC where supported; ShardLoom compatibility source adapters import into local Vortex files; shardloom-vortex native .vortex rows",
         "formats_requested": list(args.format_list),
         "formats_reported": list(report_format_order(args)),
         "compression": "engine defaults; Parquet uses pyarrow defaults; ShardLoom uses upstream Vortex writer defaults",
@@ -2310,8 +2611,14 @@ def fairness_parameters(args: argparse.Namespace, paths: DatasetPaths) -> dict[s
         "java_on_path": shutil.which("java") is not None,
         "java_home_set": bool(os.environ.get("JAVA_HOME")),
         "object_store_included": False,
-        "csv_to_vortex_included": True,
+        "compatibility_to_vortex_included": True,
+        "csv_to_vortex_included": "csv" in args.format_list,
         "parquet_included": "parquet" in args.format_list,
+        "jsonl_included": "jsonl" in args.format_list,
+        "arrow_ipc_included": "arrow-ipc" in args.format_list,
+        "avro_included": "avro" in args.format_list,
+        "orc_included": "orc" in args.format_list,
+        "shardloom_resource_sizing": "auto by default; optional --memory-gb and --max-parallelism caps are reflected in ShardLoom evidence fields",
         "native_vortex_included": "shardloom-vortex" in args.engine_list,
         "shardloom_universal_io_smoke_included": True,
         "shardloom_native_microbenchmarks_included": not args.skip_shardloom_native,
@@ -2320,7 +2627,7 @@ def fairness_parameters(args: argparse.Namespace, paths: DatasetPaths) -> dict[s
             "declare hardware profile",
             "separate cold-cache and warm-cache runs",
             "use larger-than-memory and object-store datasets where relevant",
-            "record ShardLoom native and universal-I/O rows separately from external CSV baselines",
+            "record ShardLoom native and universal-I/O rows separately from external compatibility-file baselines",
             "run multiple repetitions under the same process isolation policy",
         ],
     }
@@ -2460,8 +2767,14 @@ def render_fairness_parameters(artifact: dict[str, Any]) -> str:
         ],
         ["Spark profiles", str(params["spark_profiles"])],
         ["Object store included", str(params["object_store_included"])],
+        ["Compatibility to Vortex included", str(params["compatibility_to_vortex_included"])],
         ["CSV to Vortex included", str(params["csv_to_vortex_included"])],
         ["Parquet included", str(params["parquet_included"])],
+        ["JSONL included", str(params["jsonl_included"])],
+        ["Arrow IPC included", str(params["arrow_ipc_included"])],
+        ["Avro included", str(params["avro_included"])],
+        ["ORC included", str(params["orc_included"])],
+        ["ShardLoom resource sizing", str(params["shardloom_resource_sizing"])],
         ["Native Vortex included", str(params["native_vortex_included"])],
         [
             "ShardLoom universal I/O smoke",
@@ -2478,15 +2791,16 @@ def render_fairness_parameters(artifact: dict[str, Any]) -> str:
 def render_read_this_first(artifact: dict[str, Any]) -> str:
     notes = [
         "This is a local smoke/bring-up report, not a claim-grade benchmark.",
-        "External baseline rows measure each engine's local CSV and Parquet paths where supported. Unsupported format rows are captured explicitly instead of blocking the report.",
-        "ShardLoom rows use a CSV source adapter into local Vortex files, reopen those files through Vortex, scan Vortex arrays, and then run the temporary benchmark operators over Vortex-derived arrays.",
+        "External baseline rows measure each engine's local compatibility-file paths where supported. Unsupported format rows are captured explicitly instead of blocking the report.",
+        "ShardLoom rows use compatibility source adapters into local Vortex files, reopen those files through Vortex, scan Vortex arrays, and then run the temporary benchmark operators over Vortex-derived arrays.",
         "ShardLoom native Vortex rows start timing from existing `.vortex` inputs prepared before scenario timing; they still use temporary benchmark operators and are not mature SQL/DataFrame/API evidence.",
-        "ShardLoom's current traditional rows report a concrete per-path NativeIoCertificate and a CSV parse materialization boundary; they prove universal I/O viability, not mature encoded-native SQL/operator coverage.",
+        "ShardLoom's current traditional rows report a concrete per-path NativeIoCertificate and a compatibility-format materialization boundary; they prove universal I/O viability, not mature encoded-native SQL/operator coverage.",
+        "ShardLoom derives resource sizing automatically by default. Evidence fields show policy mode, detected/applied parallelism, batch rows, target partition bytes, and target partition count.",
         "Dask results depend heavily on partitioning, scheduler, file count, and dataset size; small single-file CSV tests can make scheduler overhead dominate.",
         "Spark rows are split into spark-default and spark-local-tuned so default behavior is not mixed with local tuning; each Spark profile starts and warms its own session immediately before its scenario rows.",
         "Spark rows require Java/JDK. Missing Spark rows mean local setup is incomplete, not that Spark failed the workload.",
         "Stress rows are opt-in; they become meaningful Spark-style scale tests only with larger-than-memory data, stable cache policy, and explicit hardware/runtime settings.",
-        "ShardLoom benchmark build time is excluded from per-scenario timing; CSV-to-Vortex import, Vortex file write/read, scan, and the temporary benchmark operator are included.",
+        "ShardLoom benchmark build time is excluded from per-scenario timing; compatibility-to-Vortex import, Vortex file write/read, scan, and the temporary benchmark operator are included.",
     ]
     return "\n".join(f"- {note}" for note in notes)
 
@@ -2565,6 +2879,12 @@ def render_shardloom_effects_table(artifact: dict[str, Any]) -> str:
                 str(evidence.get("native_io_certificate_path_id", "n/a")),
                 str(evidence.get("native_io_certificate_emitted", "n/a")),
                 str(evidence.get("native_io_certificate_status", "n/a")),
+                str(evidence.get("resource_policy_mode", "n/a")),
+                str(evidence.get("detected_parallelism", "n/a")),
+                str(evidence.get("applied_max_parallelism", "n/a")),
+                str(evidence.get("applied_batch_rows", "n/a")),
+                format_bytes(parse_optional_int(evidence.get("target_partition_bytes"))),
+                str(evidence.get("target_partition_count", "n/a")),
                 str(evidence.get("materialization_boundary_rows", "n/a")),
                 format_bytes(parse_optional_int(evidence.get("source_bytes_read"))),
             ]
@@ -2574,6 +2894,12 @@ def render_shardloom_effects_table(artifact: dict[str, Any]) -> str:
             [
                 "not run",
                 "missing",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
                 "n/a",
                 "n/a",
                 "n/a",
@@ -2602,6 +2928,12 @@ def render_shardloom_effects_table(artifact: dict[str, Any]) -> str:
             "Native I/O path",
             "Native I/O cert",
             "Cert status",
+            "Sizing",
+            "Detected par",
+            "Applied par",
+            "Batch rows",
+            "Target part bytes",
+            "Target parts",
             "Boundary rows",
             "Source bytes",
         ],
@@ -2929,6 +3261,10 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         f"- Rows: `{dataset['rows']}` fact rows, `{dataset['dim_rows']}` dimension rows",
         f"- CSV files: `{dataset['fact_csv_bytes']}` fact bytes, `{dataset['dim_csv_bytes']}` dimension bytes",
         f"- Parquet files: `{dataset['fact_parquet_bytes']}` fact bytes, `{dataset['dim_parquet_bytes']}` dimension bytes",
+        f"- JSONL files: `{dataset['fact_jsonl_bytes']}` fact bytes, `{dataset['dim_jsonl_bytes']}` dimension bytes",
+        f"- Arrow IPC files: `{dataset['fact_arrow_ipc_bytes']}` fact bytes, `{dataset['dim_arrow_ipc_bytes']}` dimension bytes",
+        f"- Avro files: `{dataset['fact_avro_bytes']}` fact bytes, `{dataset['dim_avro_bytes']}` dimension bytes",
+        f"- ORC files: `{dataset['fact_orc_bytes']}` fact bytes, `{dataset['dim_orc_bytes']}` dimension bytes",
         f"- Python: `{env['python_version']}`",
         f"- Platform: `{env['platform']}`",
         f"- CPU count: `{env['cpu_count']}`",
@@ -2971,7 +3307,7 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "",
         "## ShardLoom Native Microbenchmarks",
         "",
-        "These rows are not directly comparable to CSV engine rows. They show the current native encoded/Vortex path that ShardLoom can execute today.",
+        "These rows are not directly comparable to compatibility-file engine rows. They show the current native encoded/Vortex path that ShardLoom can execute today.",
         "",
         render_shardloom_native_table(artifact),
         "",
@@ -2993,9 +3329,9 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "",
         render_shardloom_commit_table(artifact),
         "",
-        "## Universal I/O And CSV-To-Vortex Lanes",
+        "## Universal I/O And Compatibility-To-Vortex Lanes",
         "",
-        "These lanes make the missing ShardLoom universal-I/O work explicit instead of hiding it behind the CSV comparison.",
+        "These lanes make the ShardLoom universal-I/O boundary explicit instead of hiding compatibility-format import behind external baseline rows.",
         "",
         render_universal_io_table(artifact),
         "",
@@ -3027,7 +3363,9 @@ def main() -> int:
     DASK_SCHEDULER = args.dask_scheduler
     SHARDLOOM_BUILD_PROFILE = args.shardloom_build_profile
     configure_java_home()
-    paths = ensure_dataset(args.data_dir, args.rows, args.dim_rows, args.regenerate)
+    paths = ensure_dataset(
+        args.data_dir, args.rows, args.dim_rows, args.regenerate, args.format_list
+    )
     report_formats = report_format_order(args)
     scenario_order = expanded_scenario_order(report_formats, args.scenario_list)
     runners, missing = available_runners(args.engine_list)
@@ -3144,12 +3482,28 @@ def main() -> int:
             "dim_rows": paths.dim_rows,
             "fact_csv": str(paths.fact_csv),
             "dim_csv": str(paths.dim_csv),
+            "fact_jsonl": str(paths.fact_jsonl),
+            "dim_jsonl": str(paths.dim_jsonl),
             "fact_parquet": str(paths.fact_parquet),
             "dim_parquet": str(paths.dim_parquet),
+            "fact_arrow_ipc": str(paths.fact_arrow_ipc),
+            "dim_arrow_ipc": str(paths.dim_arrow_ipc),
+            "fact_avro": str(paths.fact_avro),
+            "dim_avro": str(paths.dim_avro),
+            "fact_orc": str(paths.fact_orc),
+            "dim_orc": str(paths.dim_orc),
             "fact_csv_bytes": paths.fact_csv.stat().st_size,
             "dim_csv_bytes": paths.dim_csv.stat().st_size,
-            "fact_parquet_bytes": paths.fact_parquet.stat().st_size,
-            "dim_parquet_bytes": paths.dim_parquet.stat().st_size,
+            "fact_jsonl_bytes": maybe_path_size(paths.fact_jsonl),
+            "dim_jsonl_bytes": maybe_path_size(paths.dim_jsonl),
+            "fact_parquet_bytes": maybe_path_size(paths.fact_parquet),
+            "dim_parquet_bytes": maybe_path_size(paths.dim_parquet),
+            "fact_arrow_ipc_bytes": maybe_path_size(paths.fact_arrow_ipc),
+            "dim_arrow_ipc_bytes": maybe_path_size(paths.dim_arrow_ipc),
+            "fact_avro_bytes": maybe_path_size(paths.fact_avro),
+            "dim_avro_bytes": maybe_path_size(paths.dim_avro),
+            "fact_orc_bytes": maybe_path_size(paths.fact_orc),
+            "dim_orc_bytes": maybe_path_size(paths.dim_orc),
             "deterministic_generator": "benchmarks/traditional_analytics/run.py",
         },
         "environment": environment_report(),
@@ -3166,10 +3520,10 @@ def main() -> int:
         "correctness": correctness_summary(results, tuple(scenario_order)),
         "errors": errors,
         "limitations": [
-            "CSV workloads include local file read cost and do not represent object-store behavior.",
-            "Parquet workloads use pyarrow-generated Parquet files with engine-default read settings; they do not represent tuned lakehouse/table-format layouts.",
-            "ShardLoom traditional rows include local CSV-to-Vortex import and Vortex scan, but current temporary operators materialize Vortex-derived arrays instead of executing the full mature encoded SQL/operator surface.",
-            "ShardLoom native Vortex rows exclude CSV-to-Vortex setup from scenario timing but still use the current temporary benchmark operators after Vortex scan.",
+            "Compatibility-file workloads include local file read cost and do not represent object-store behavior.",
+            "Parquet, Arrow IPC, Avro, and ORC workloads use generated local files with engine-default read settings; they do not represent tuned lakehouse/table-format layouts.",
+            "ShardLoom traditional rows include local compatibility-to-Vortex import and Vortex scan, but current temporary operators materialize Vortex-derived arrays instead of executing the full mature encoded SQL/operator surface.",
+            "ShardLoom native Vortex rows exclude compatibility-to-Vortex setup from scenario timing but still use the current temporary benchmark operators after Vortex scan.",
             "ShardLoom native microbenchmark rows separately expose local Vortex scan filter/projection pushdown evidence; those rows are not a mature SQL/DataFrame/API benchmark surface.",
             "Dask performance is sensitive to partitioning and scheduler settings; this report records the selected blocksize and scheduler.",
             "Engine startup/warmup time is recorded separately from per-scenario timing. Spark profiles warm an isolated Spark session before their scenario rows and are closed before the next engine runs.",

@@ -18,11 +18,15 @@ runtime dependencies and never execute unsupported ShardLoom plans as fallback e
 
 ## Workloads
 
-The deterministic CSV generator creates a fact table and a dimension table, then
-also writes Parquet copies with `pyarrow`. The harness runs each selected
-scenario over CSV and Parquet for engines that support those formats. The
-`shardloom-vortex` lane runs the same scenario labels from native `.vortex`
-inputs prepared before scenario timing. The scenarios are:
+The deterministic generator creates a fact table and a dimension table as CSV,
+then writes requested compatibility-format copies. The default run covers CSV
+and Parquet; `--formats` can also include JSONL/NDJSON, Arrow IPC, Avro, and
+ORC. Each engine runs only the formats it declares support for, and unsupported
+rows are captured without aborting the report. The `shardloom` lane imports
+each selected compatibility format into local Vortex files before running the
+temporary benchmark operator. The `shardloom-vortex` lane runs the same
+scenario labels from native `.vortex` inputs prepared before scenario timing.
+The scenarios are:
 
 - `csv/file ingest`
 - `selective filter`
@@ -54,20 +58,21 @@ universal-I/O evidence lanes, correctness summary, and separate
 failure/unsupported rows.
 
 Each result artifact records engine versions, Python/runtime details, dataset
-shape, CSV/Parquet file sizes, wall/query time, sampled peak RSS when `psutil` is available,
-rows scanned, rows materialized, bytes read, object-store request count, and a
-correctness digest. ShardLoom rows also retain the emitted native I/O evidence
-fields for per-path certificate id/status, source capability, pushdown,
-sink requirement, adapter fidelity, materialization boundary, decode,
-materialization, row reads, Arrow conversion, writes, spill, and
-NativeIoCertificate status.
+shape, selected source file sizes, wall/query time, sampled peak RSS when
+`psutil` is available, rows scanned, rows materialized, bytes read, object-store
+request count, and a correctness digest. ShardLoom rows also retain the emitted
+native I/O evidence fields for per-path certificate id/status, source
+capability, pushdown, sink requirement, adapter fidelity, materialization
+boundary, decode, materialization, row reads, Arrow conversion, writes, spill,
+auto-derived resource sizing, and NativeIoCertificate status.
 
 ShardLoom's reported benchmark version appends `-dirty` when the workspace has
 uncommitted tracked changes, so local bring-up reports do not look like clean
 revision evidence by accident.
 
-ShardLoom native microbenchmark rows are separated from the traditional CSV
-engine rows. They include the approved local encoded `CountAll` path plus local
+ShardLoom native microbenchmark rows are separated from the traditional
+compatibility-file engine rows. They include the approved local encoded
+`CountAll` path plus local
 `vortex-run` primitive evidence for count, projection, validity-filter
 counting, and scan-pushdown comparison predicates. The report includes each
 row's timing scope plus filter/projection pushdown fields so in-command
@@ -99,22 +104,29 @@ ShardLoom traditional analytics rows call the workspace-local native Rust
 command `shardloom traditional-analytics-run`. Build time is excluded from
 per-scenario timing and the selected `--shardloom-build-profile` is recorded in
 the fairness parameters. The harness builds ShardLoom with the
-`vortex-traditional-analytics-benchmark` feature and times CSV source
+`vortex-traditional-analytics-benchmark` feature and times compatibility source
 adapter/import, local Vortex file write, Vortex file reopen, Vortex scan, and
 temporary benchmark operators over Vortex-derived arrays. These rows prove a
-universal-I/O smoke path, not the future SQL parser/DataFrame API or mature
+feature-gated universal-I/O smoke path for CSV, JSONL/NDJSON, Parquet, Arrow
+IPC, Avro, and ORC, not the future SQL parser/DataFrame API or mature
 encoded-native operator surface.
 
 ShardLoom native Vortex rows call `shardloom traditional-analytics-vortex-run`
 against `.vortex` files produced before scenario timing. This separates native
-Vortex input timing from CSV import timing, while still reporting that the
+Vortex input timing from compatibility-file import timing, while still reporting that the
 current benchmark operators materialize Vortex-derived arrays after scan.
 
-ShardLoom's traditional CSV rows now report `row_read=true` because the
-benchmark CSV source adapter parses local text rows before Vortex import. That
-is intentionally conservative: native Vortex microbenchmark rows remain
-separate and expose the currently available zero-decode/no-row-read primitive
-evidence.
+ShardLoom's compatibility-format rows report `row_read=true` and
+`data_materialized=true` because the benchmark source adapters parse or convert
+local compatibility files before Vortex import. That is intentionally
+conservative: native Vortex microbenchmark rows remain separate and expose the
+currently available zero-decode/no-row-read primitive evidence.
+
+ShardLoom resource sizing is automatic by default. The CLI derives applied
+parallelism from local CPU availability and derives batch/partition sizing from
+the source footprint plus the resource budget. `--memory-gb` and
+`--max-parallelism` are optional caps for reproducible troubleshooting, not
+required user tuning knobs.
 
 Dask is sensitive to partitioning, scheduler choice, file count, and dataset
 size. The harness records `--dask-blocksize` and `--dask-scheduler`; small
@@ -123,8 +135,9 @@ single-file CSV runs can make scheduler overhead dominate.
 This benchmark is intentionally explicit about fairness parameters. Before
 interpreting results, check row count, storage format, cache mode, timing scope,
 Dask partitioning, Spark Java status, Spark default/tuned-local profile split,
-ShardLoom build profile/feature gate, whether CSV/Parquet/native Vortex rows
-were included, and whether object-store lanes were included.
+ShardLoom build profile/feature gate, whether CSV/Parquet/JSONL/Arrow IPC/Avro/ORC/native
+Vortex rows were included, the applied ShardLoom resource policy, and whether
+object-store lanes were included.
 
 ## Setup
 
@@ -135,6 +148,10 @@ workspace.
 python -m venv benchmarks\traditional_analytics\.venv
 benchmarks\traditional_analytics\.venv\Scripts\python -m pip install -r benchmarks\traditional_analytics\requirements.txt
 ```
+
+Avro fixture generation uses `fastavro` from the benchmark virtual environment
+only. Rust runtime Avro coverage is feature-gated in `shardloom-vortex` through
+Apache Arrow's `arrow-avro` crate.
 
 Spark/PySpark also requires a local JDK. Install JDK 17 or newer, set
 `JAVA_HOME`, and ensure `java` is on `PATH` before expecting Spark rows to run.
@@ -180,6 +197,12 @@ Vortex artifacts:
 
 ```powershell
 benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --engines shardloom --scenario "group by aggregation" --rows 10000 --iterations 1
+```
+
+Run ShardLoom across all currently supported local compatibility formats:
+
+```powershell
+benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --engines shardloom --scenario "csv/file ingest" --formats csv,jsonl,parquet,arrow-ipc,avro,orc --rows 10000 --iterations 1
 ```
 
 Run the optional stress lane:

@@ -378,7 +378,8 @@ pub use output_payload::{
     write_vortex_output_payload_artifact,
 };
 pub use traditional_analytics::{
-    TraditionalAnalyticsReport, TraditionalAnalyticsRequest, TraditionalAnalyticsScenario,
+    TraditionalAnalyticsInputFormat, TraditionalAnalyticsReport, TraditionalAnalyticsRequest,
+    TraditionalAnalyticsResourcePolicy, TraditionalAnalyticsScenario,
     TraditionalAnalyticsVortexReport, TraditionalAnalyticsVortexRequest,
     run_traditional_analytics_benchmark, run_traditional_analytics_vortex_benchmark,
 };

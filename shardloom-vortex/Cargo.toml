@@ -12,11 +12,20 @@ workspace = true
 [features]
 default = []
 upstream-vortex = ["dep:vortex"]
+universal-format-io = [
+    "dep:arrow-array",
+    "dep:arrow-avro",
+    "dep:arrow-ipc",
+    "dep:arrow-schema",
+    "dep:orc-rust",
+    "dep:parquet",
+]
 vortex-file-io = ["upstream-vortex"]
 vortex-object-store = ["vortex-file-io"]
 vortex-write = ["vortex-file-io"]
 vortex-local-primitives = ["vortex-file-io"]
 vortex-traditional-analytics-benchmark = [
+    "universal-format-io",
     "vortex-write",
     "vortex-encoded-read-spike",
     "vortex-local-primitives",
@@ -27,6 +36,12 @@ vortex-encoded-read-executor = []
 vortex-encoded-read-spike = ["vortex-file-io", "vortex-encoded-read-executor"]
 
 [dependencies]
+arrow-array = { version = "58.2.0", optional = true }
+arrow-avro = { version = "58.2.0", default-features = false, features = ["deflate", "snappy"], optional = true }
+arrow-ipc = { version = "58.2.0", optional = true }
+arrow-schema = { version = "58.2.0", optional = true }
+orc-rust = { version = "0.8.0", default-features = false, optional = true }
+parquet = { version = "58.2.0", optional = true }
 shardloom-core = { path = "../shardloom-core" }
 shardloom-exec = { path = "../shardloom-exec" }
 shardloom-plan = { path = "../shardloom-plan" }

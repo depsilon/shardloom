@@ -6,3 +6,4 @@ dask[dataframe]
 pyspark
 pyarrow
 psutil
+fastavro
