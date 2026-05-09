@@ -1,11 +1,50 @@
 use shardloom_core::{
-    AgentContractPack, DatasetRef, DatasetUri, EffectBudgetReport, ExtensionId,
-    ExtensionLicenseKind, ExtensionManifest, ExtensionProvenance, ExtensionVersion, OutputTarget,
-    SecurityPlan, TableIntelligenceReport,
+    AgentContractPack, ByteRange, ColumnRef, DatasetFormat, DatasetManifest, DatasetRef,
+    DatasetUri, EffectBudgetReport, EncodedSegment, EncodingKind, ExtensionId,
+    ExtensionLicenseKind, ExtensionManifest, ExtensionProvenance, ExtensionVersion, FileDescriptor,
+    FileRole, LayoutKind, LogicalDType, ManifestId, ManifestSegment, Nullability, OutputTarget,
+    SecurityPlan, SegmentId, SegmentLayout, SegmentStats, SnapshotId, SnapshotRef,
+    TableIntelligenceReport,
 };
 use shardloom_exec::{RecoveryPlan, RecoveryReport, RuntimePlanSkeleton, StreamingPlanSkeleton};
+use shardloom_plan::{
+    ObjectStoreCheckpointRetryInput, ObjectStoreCommitProtocolInput,
+    ObjectStoreDistributedSchedulingPolicy, ObjectStoreRangePlanningPolicy,
+    plan_object_store_checkpoint_retry, plan_object_store_commit_protocol,
+    plan_object_store_distributed_scheduling, plan_object_store_ranges,
+    plan_object_store_request_coalescing, plan_object_store_request_planner,
+};
 use shardloom_plan::{ScanMode, ScanRequest};
 use shardloom_vortex::{VortexFileRef, VortexReadPlan, VortexWriteOptions, VortexWritePlan};
+
+fn object_store_manifest_fixture() -> DatasetManifest {
+    let uri = DatasetUri::new("s3://bucket/table.vortex").expect("uri");
+    let mut manifest = DatasetManifest::new(
+        ManifestId::new("object-store-plan").expect("manifest id"),
+        DatasetRef::from_uri(uri.clone()).expect("dataset ref"),
+        SnapshotRef::new(SnapshotId::new("object-store-snapshot").expect("snapshot id")),
+    );
+    let file = FileDescriptor::new(uri, DatasetFormat::Vortex, FileRole::NativeVortexData)
+        .with_size_bytes(128 * 1024 * 1024);
+
+    for (index, start) in [0, 8192, 16_384].into_iter().enumerate() {
+        let mut layout = SegmentLayout::new(EncodingKind::Plain, LayoutKind::Flat);
+        layout.byte_ranges = vec![ByteRange::new(start, 1024)];
+        layout.physical_size_bytes = Some(1024);
+        let segment = EncodedSegment::new(
+            SegmentId::new(format!("s{index}")).expect("segment id"),
+            ColumnRef::new("c").expect("column"),
+            LogicalDType::Int64,
+            Nullability::Nullable,
+            layout,
+            SegmentStats::with_row_count(1024),
+        );
+        manifest.add_segment(ManifestSegment::new(segment, file.clone()));
+    }
+
+    manifest.add_file(file);
+    manifest
+}
 
 #[test]
 fn plan_only_types_do_not_imply_execution_or_side_effects() {
@@ -75,6 +114,53 @@ fn plan_only_types_do_not_imply_execution_or_side_effects() {
     assert!(!table_intelligence.catalog_io_performed);
     assert!(!table_intelligence.table_metadata_io_performed);
     assert!(!table_intelligence.fallback_execution_allowed);
+
+    let object_store_manifest = object_store_manifest_fixture();
+    let range_policy = ObjectStoreRangePlanningPolicy {
+        max_coalesce_gap_bytes: 0,
+        ..ObjectStoreRangePlanningPolicy::default()
+    };
+    let range_report = plan_object_store_ranges(object_store_manifest.clone(), range_policy);
+    let coalescing_report =
+        plan_object_store_request_coalescing(object_store_manifest, range_policy);
+    let scheduling_report = plan_object_store_distributed_scheduling(
+        coalescing_report.clone(),
+        ObjectStoreDistributedSchedulingPolicy {
+            max_requests_per_task: 1,
+            max_task_count: 4,
+        },
+    );
+    let checkpoint_retry_report = plan_object_store_checkpoint_retry(
+        ObjectStoreCheckpointRetryInput::new(scheduling_report.clone())
+            .with_retry_policy(true)
+            .with_checkpoint_plan(true)
+            .with_idempotency_keys(true)
+            .with_attempt_record(true)
+            .with_cleanup_policy(true),
+    );
+    let commit_report = plan_object_store_commit_protocol(
+        ObjectStoreCommitProtocolInput::new(
+            DatasetUri::new("s3://bucket/table/_commit").expect("uri"),
+        )
+        .with_staging_prefix(true)
+        .with_manifest_pointer_update(true)
+        .with_commit_record(true)
+        .with_idempotency_key(true)
+        .with_cleanup_plan(true)
+        .with_provider_atomic_commit(true),
+    );
+    let object_store_request = plan_object_store_request_planner(
+        range_report,
+        coalescing_report,
+        scheduling_report,
+        checkpoint_retry_report,
+        commit_report,
+    );
+    assert!(object_store_request.side_effect_free());
+    assert_eq!(object_store_request.planned_surface_count, 5);
+    assert!(!object_store_request.object_store_io);
+    assert!(!object_store_request.write_io);
+    assert!(!object_store_request.fallback_execution_allowed);
 
     let manifest = ExtensionManifest::new(
         ExtensionId::new("ext.sample").expect("id"),

@@ -45,32 +45,32 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-9.8 TableIntelligenceReport aggregate surface
+- [x] Session label: CG-10.6 ObjectStoreRequestPlanner aggregate surface
   - Primary files:
-    - `shardloom-core/src/table_intelligence.rs`
-    - `shardloom-core/src/lib.rs`
+    - `shardloom-plan/src/object_store.rs`
+    - `shardloom-plan/src/lib.rs`
     - `shardloom-cli/src/main.rs`
-    - `shardloom-cli/tests/table_intelligence_plan_snapshots.rs`
+    - `shardloom-cli/tests/object_store_request_plan_snapshots.rs`
     - `shardloom-contract-tests/tests/plan_only_invariants.rs`
-    - `docs/architecture/table-intelligence-layer.md`
+    - `docs/architecture/object-store-request-planner.md`
     - `docs/architecture/canonical-terminology.md`
     - `docs/architecture/phased-execution-plan.md`
-  - Scope: Aggregate CG-9 schema/table/CDC/layout/compaction evidence into one deterministic report-only surface before table-format/catalog runtime work.
+  - Scope: Aggregate CG-10 range/coalescing/scheduling/checkpoint-retry/commit evidence into one deterministic report-only request planner before object-store IO or distributed runtime work.
   - Checklist:
-    - [x] Add typed `TableIntelligenceReport` and table-intelligence surface structs to `shardloom-core`.
-    - [x] Expose `table-intelligence-plan` CLI JSON/text output.
-    - [x] Add CLI snapshot and contract-test invariants for no catalog IO, table metadata IO, data IO, writes, dependencies, or fallback execution.
-    - [x] Add architecture docs and terminology for the aggregate table intelligence layer.
+    - [x] Add typed `ObjectStoreRequestPlannerReport` aggregate to `shardloom-plan`.
+    - [x] Expose `object-store-request-plan` CLI JSON/text output.
+    - [x] Add CLI snapshot and contract-test invariants for no full-file reads, coordinator/worker startup, task execution, retry execution, checkpoint writes, object-store IO, writes, or fallback execution.
+    - [x] Add architecture docs and terminology for the aggregate object-store request planner.
     - [x] Run focused validation and full required validation.
   - Local validation status:
-    - Focused `cargo test -p shardloom-core table_intelligence -- --nocapture` passed with Rust toolchain `1.91.1`.
-    - Focused `cargo test -p shardloom-cli table_intelligence -- --nocapture` passed with Rust toolchain `1.91.1`.
+    - Focused `cargo test -p shardloom-plan request_planner -- --nocapture` passed with Rust toolchain `1.91.1`.
+    - Focused `cargo test -p shardloom-cli object_store_request -- --nocapture` passed with Rust toolchain `1.91.1`.
     - Focused `cargo test -p shardloom-contract-tests plan_only_types_do_not_imply_execution_or_side_effects -- --nocapture` passed with Rust toolchain `1.91.1`.
     - `cargo fmt --all -- --check` passed with Rust toolchain `1.91.1`.
     - `cargo clippy --workspace --all-targets -- -D warnings` passed with Rust toolchain `1.91.1`.
     - `cargo test --workspace --all-targets` passed with Rust toolchain `1.91.1`.
     - `git diff --check` and hidden/bidi scan passed.
-  - Explicitly not included: catalog IO, table metadata IO, data IO, writes, table-format runtime behavior, table-format dependencies, object-store IO, benchmark claims, external-engine execution, or fallback execution.
+  - Explicitly not included: full-file reads, object-store IO, coordinator/worker startup, task execution, retry execution, checkpoint writes, cleanup execution, object-store commit execution, provider probing, cloud credentials, benchmark claims, external-engine execution, or fallback execution.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -484,6 +484,9 @@ Supporting docs:
 - [x] R3.8 TableIntelligenceReport foundation
   - Why: aggregate CG-9 schema/table/CDC/layout/compaction evidence before table-format/catalog runtime work.
   - Acceptance: core `TableIntelligenceReport`, `table-intelligence-plan` CLI JSON/text output, snapshot/contract tests, and architecture checklist are report-only with no catalog IO, table metadata IO, data IO, writes, dependencies, or fallback execution.
+- [x] R3.9 ObjectStoreRequestPlannerReport foundation
+  - Why: aggregate CG-10 range/coalescing/scheduling/checkpoint-retry/commit evidence before object-store IO or distributed runtime work.
+  - Acceptance: `ObjectStoreRequestPlannerReport`, `object-store-request-plan` CLI JSON/text output, snapshot/contract tests, and architecture checklist are report-only with no full-file reads, coordinator/worker startup, task execution, retry execution, checkpoint writes, object-store IO, writes, or fallback execution.
 - [x] R5.1 Systems-learning contract pass
 - [x] R5.2 Competitive track extension to CG-19/CG-20
 - [x] R5.3 RFC 0031/0032 deepening
@@ -1250,10 +1253,12 @@ Status legend:
   - [x] CG-10.3 object-store commit protocol planning evidence
   - [x] CG-10.4 object-store distributed scheduling planning evidence
   - [x] CG-10.5 object-store checkpoint/retry/idempotency planning evidence
+  - [x] CG-10.6 object-store request planner aggregate surface
   - Scope:
     - object-store range planning and request coalescing
     - object-store commit protocol planning before commit execution
     - distributed scheduling task-shape planning with checkpoint/retry/idempotency readiness recorded before execution
+    - aggregate request planner before object-store IO or distributed runtime behavior
 
 - [ ] CG-11 — Python/API foundation surface later (**planned**)
   - [x] CG-11.1 stable CLI/API JSON protocol foundation
@@ -1653,7 +1658,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [~] Epic E — EffectBudgetReport
 - [~] Epic F — Agent Contract Pack
 - [~] Epic G — Table Intelligence Layer
-- [ ] Epic H — Object Store Request Planner
+- [~] Epic H — Object Store Request Planner
 - [ ] Epic I — Correctness and Differential Harness
 - [ ] Epic J — Benchmark and Competitive Claims
 - [ ] Epic K — Dynamic Work Shaping
@@ -1786,6 +1791,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-10.3 object-store commit protocol planning evidence adds `ObjectStoreCommitProtocolReport` and `object-store-commit-plan` surfacing for declared staging, manifest pointer, commit record, idempotency, cleanup, atomicity, non-object-store blockers, no commit execution, no object-store IO, and no fallback.
 - [x] CG-10.4 object-store distributed scheduling planning evidence adds `ObjectStoreDistributedSchedulingReport` and `object-store-schedule-plan` surfacing for task-shape grouping over coalesced requests, task-budget blockers, checkpoint/retry/idempotency requirements, no coordinator/worker/task execution, no object-store IO, and no fallback.
 - [x] CG-10.5 object-store checkpoint/retry/idempotency planning evidence adds `ObjectStoreCheckpointRetryReport` and `object-store-checkpoint-retry-plan` surfacing for retry policy, checkpoint plan, idempotency keys, attempt records, cleanup policy, scheduling blockers, no retry execution, no checkpoint writes, no cleanup execution, and no fallback.
+- [x] CG-10.6 object-store request planner aggregate surface adds `ObjectStoreRequestPlannerReport` and `object-store-request-plan` surfacing across range planning, coalescing, distributed scheduling, checkpoint/retry/idempotency, and commit protocol status while keeping full-file reads, coordinator/worker startup, task execution, retry execution, checkpoint writes, object-store IO, writes, and fallback disabled.
 - [x] CG-11.1 stable CLI/API JSON protocol foundation adds `CliApiJsonProtocolReport` and `api-compat-plan` fields for `OutputEnvelope` schema keys, command statuses, fallback and diagnostic keys, thin Python wrapper boundary, no PyO3/maturin, no parser/runtime/probe/write/publish side effects, and no fallback.
 - [x] CG-11.2 thin Python wrapper foundation adds `PythonWrapperFoundationReport` and `python-wrapper-plan` fields for a future subprocess CLI JSON client, required diagnostics/fallback/materialization passthrough behavior, deferred package/native binding/DataFrame/notebook/Python UDF surfaces, no probes, no runtime/parser execution, no writes, no publish, and no fallback.
 - [x] CG-11.3 source-tree Python CLI JSON client package adds `python/src/shardloom` as a zero-dependency subprocess client for explicit CLI JSON commands, with typed `OutputEnvelope` parsing, diagnostics/fallback passthrough, local unit tests, no package publish, no native binding, no DataFrame/notebook/Python UDF runtime, and no fallback.

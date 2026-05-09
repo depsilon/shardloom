@@ -30,9 +30,11 @@ pub use object_store::{
     ObjectStoreRangePlanningPolicy, ObjectStoreRangePlanningReport, ObjectStoreRangePlanningStatus,
     ObjectStoreRangeRequest, ObjectStoreRequestCoalescingDecision,
     ObjectStoreRequestCoalescingDecisionKind, ObjectStoreRequestCoalescingReport,
-    ObjectStoreRequestCoalescingStatus, plan_object_store_checkpoint_retry,
+    ObjectStoreRequestCoalescingStatus, ObjectStoreRequestPlannerReport,
+    ObjectStoreRequestPlannerStatus, plan_object_store_checkpoint_retry,
     plan_object_store_commit_protocol, plan_object_store_distributed_scheduling,
     plan_object_store_ranges, plan_object_store_request_coalescing,
+    plan_object_store_request_planner,
 };
 pub use optimizer::{
     AdaptiveDecisionKind, AdaptiveExecutionDecision, AdaptiveOptimizerMemoryReport,
