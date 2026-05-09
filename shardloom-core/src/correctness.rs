@@ -494,6 +494,11 @@ fn add_local_primitive_foundation_fixtures(plan: &mut CorrectnessValidationPlan)
         5,
     ));
     plan.add_fixture(local_primitive_struct_rows_fixture(
+        "vortex-local-filter-struct-five",
+        EdgeCase::NoNulls,
+        3,
+    ));
+    plan.add_fixture(local_primitive_struct_rows_fixture(
         "vortex-local-filter-project-struct-five",
         EdgeCase::NoNulls,
         3,
@@ -1404,10 +1409,10 @@ mod tests {
     fn foundation_plan_exposes_coverage_inventory() {
         let plan = CorrectnessValidationPlan::default_foundation_plan();
 
-        assert_eq!(plan.fixture_count(), 18);
-        assert_eq!(plan.fixtures_with_source_ref_count(), 6);
-        assert_eq!(plan.golden_fixture_count(), 6);
-        assert_eq!(plan.executable_expected_output_count(), 5);
+        assert_eq!(plan.fixture_count(), 19);
+        assert_eq!(plan.fixtures_with_source_ref_count(), 7);
+        assert_eq!(plan.golden_fixture_count(), 7);
+        assert_eq!(plan.executable_expected_output_count(), 6);
         assert_eq!(plan.not_yet_defined_fixture_count(), 8);
         assert_eq!(plan.diagnostic_expected_output_count(), 1);
         assert_eq!(plan.unsupported_expected_output_count(), 1);
@@ -1440,9 +1445,9 @@ mod tests {
             report.report_id,
             "cg5.correctness_differential_harness.aggregate"
         );
-        assert_eq!(report.fixture_count, 18);
-        assert_eq!(report.golden_fixture_count, 6);
-        assert_eq!(report.executable_expected_output_count, 5);
+        assert_eq!(report.fixture_count, 19);
+        assert_eq!(report.golden_fixture_count, 7);
+        assert_eq!(report.executable_expected_output_count, 6);
         assert_eq!(report.decoded_reference_output_count, 0);
         assert_eq!(report.generated_property_fixture_count, 0);
         assert_eq!(report.fuzz_seed_count, 0);
