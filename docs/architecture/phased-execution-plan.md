@@ -53,25 +53,26 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-2.3c / CG-13.16 / CG-16.11 / CG-19.13 local `ProjectColumns` execution evidence
+- [x] Session label: CG-2.3d / CG-13.17 / CG-16.12 / CG-19.14 local `FilterAndProject` execution evidence
   - Primary files:
     - `shardloom-cli/src/main.rs`
     - `docs/architecture/phased-execution-plan.md`
-  - Scope: Add an opt-in `vortex-project --execute-local-primitive <memory_gb> <max_parallelism>` path that runs the existing feature-gated local Vortex `ProjectColumns` primitive, emits projected-row execution evidence, and surfaces CG-16/CG-19 certificates for the checked-in struct fixture without broadening readers, adapters, SQL, writes, spill, or fallback.
+  - Scope: Add a direct `vortex-filter-project <dataset_uri> <predicate> <columns> [--execute-local-primitive <memory_gb> <max_parallelism>]` path that runs the existing feature-gated local Vortex `FilterAndProject` primitive, emits combined filter/projection execution evidence, and surfaces CG-16/CG-19 certificates for the checked-in struct fixture without broadening readers, adapters, SQL, writes, spill, or fallback.
   - Checklist:
-    - [x] Move the completed `vortex-filter` local execution session from Active into the completed ledger.
-    - [x] Add strict optional argument parsing for `vortex-project --execute-local-primitive <memory_gb> <max_parallelism>` while leaving default `vortex-project` behavior as plan/metadata evidence only.
-    - [x] Execute `ProjectColumns` through the existing `execute_vortex_local_primitive_with_policy` path when explicitly requested.
-    - [x] Emit local projected-row execution fields for rows scanned/projected, projected columns, chunk/concurrency policy, projection pushdown, `vortex_encoded->vortex_encoded` guarantee, side effects, and no-fallback state.
-    - [x] Reuse the checked-in local `ProjectColumns` correctness fixture mapping for `local_primitive_struct_five.vortex` `metric`.
-    - [x] Emit local primitive Native I/O certificate fields and execution-certificate fields for the checked-in projection fixture.
-    - [x] Keep non-fixture local `ProjectColumns` executable but explicitly uncertified for correctness and production claims.
-    - [x] Keep generalized encoded projection kernels, filter-project certification, non-local sources, adapters, SQL/DataFrame/Python runtime, benchmarks, writes, spill, and fallback execution blocked.
+    - [x] Move the completed `vortex-project` local execution session from Active into the completed ledger.
+    - [x] Add strict argument parsing for `vortex-filter-project <dataset_uri> <predicate> <columns> [--execute-local-primitive <memory_gb> <max_parallelism>]`.
+    - [x] Leave default `vortex-filter-project` behavior as plan/metadata evidence only unless local execution is explicitly requested.
+    - [x] Execute `FilterAndProject` through the existing `execute_vortex_local_primitive_with_policy` path when explicitly requested.
+    - [x] Emit local combined execution fields for rows scanned/selected/projected, projected columns, chunk/concurrency policy, filter pushdown, projection pushdown, `vortex_encoded->selection_vector_encoded` guarantee, side effects, and no-fallback state.
+    - [x] Reuse the checked-in local `FilterAndProject` correctness fixture mapping for `local_primitive_struct_five.vortex` `gte:value:3|metric`.
+    - [x] Emit local primitive Native I/O certificate fields and execution-certificate fields for the checked-in filter-project fixture.
+    - [x] Keep non-fixture local `FilterAndProject` executable but explicitly uncertified for correctness and production claims.
+    - [x] Keep generalized encoded predicate/projection kernels, non-local sources, adapters, SQL/DataFrame/Python runtime, benchmarks, writes, spill, and fallback execution blocked.
   - Local validation status:
-    - [x] Focused CLI project tests passed locally with Rust toolchain `1.91.1`.
-    - [x] Feature-gated CLI local `ProjectColumns` certificate test and live `vortex-project ... --execute-local-primitive 1 2 --format json` smoke passed locally with Rust toolchain `1.91.1`.
+    - [x] Focused CLI filter-project tests passed locally with Rust toolchain `1.91.1`.
+    - [x] Feature-gated CLI local `FilterAndProject` certificate test and live `vortex-filter-project ... --execute-local-primitive 1 2 --format json` smoke passed locally with Rust toolchain `1.91.1`.
     - [x] Required full `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, and `cargo test --workspace --all-targets` validation passed locally with Rust toolchain `1.91.1`; the final test run used `CARGO_BUILD_JOBS=1` to avoid transient Windows linker artifact locks.
-  - Explicitly not included: new readers, non-local/object-store Vortex sources, Parquet/Arrow/JSON/Avro/ORC runtime, adapter execution, SQL/DataFrame/Python runtime expansion, generalized encoded projection kernels, broad filter-project certification, benchmark reruns, superiority or best-default claims, CG-2 closeout, CG-13 closeout, or fallback execution.
+  - Explicitly not included: new readers, non-local/object-store Vortex sources, Parquet/Arrow/JSON/Avro/ORC runtime, adapter execution, SQL/DataFrame/Python runtime expansion, generalized encoded predicate/projection kernels, benchmark reruns, superiority or best-default claims, CG-2 closeout, CG-13 closeout, or fallback execution.
 
 ## Near-term Implementation Priority
 - [ ] Priority 1 - generalized encoded primitive execution loop
@@ -79,6 +80,7 @@ Supporting docs:
   - [x] Fixture-backed local `CountWhere` execution evidence through `vortex-count-where` with explicit selection-vector guarantee.
   - [x] Fixture-backed and non-fixture local `FilterPredicate` execution evidence through `vortex-filter` with explicit selection-vector guarantee and correctness-certification split.
   - [x] Fixture-backed and non-fixture local `ProjectColumns` execution evidence through `vortex-project` with explicit encoded-projection guarantee and correctness-certification split.
+  - [x] Fixture-backed and non-fixture local `FilterAndProject` execution evidence through `vortex-filter-project` with explicit selection-vector/projection guarantee and correctness-certification split.
   - [ ] Broader generalized encoded-value predicate/filter execution beyond local scan-pushdown and explicit CLI primitive paths.
   - [ ] Broader encoded projection and filter-project execution beyond local scan-pushdown and explicit CLI primitive paths, with no row reads, no Arrow conversion, no object-store IO, no writes, no spill, and no fallback.
 - [ ] Priority 1.5 - CG-20 distribution/importability certification lane
@@ -99,6 +101,25 @@ Supporting docs:
   - [ ] CG-20 SQL/DataFrame/UDF/unstructured/media/adapters once the encoded primitive evidence loop and importability lane are no longer the bottleneck.
 
 ## Recent Completed Session Ledger
+- [x] Session label: CG-2.3c / CG-13.16 / CG-16.11 / CG-19.13 local `ProjectColumns` execution evidence
+  - Primary files:
+    - `shardloom-cli/src/main.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: Add an opt-in `vortex-project --execute-local-primitive <memory_gb> <max_parallelism>` path that runs the existing feature-gated local Vortex `ProjectColumns` primitive, emits projected-row execution evidence, and surfaces CG-16/CG-19 certificates for the checked-in struct fixture without broadening readers, adapters, SQL, writes, spill, or fallback.
+  - Checklist:
+    - [x] Move the completed `vortex-filter` local execution session from Active into the completed ledger.
+    - [x] Add strict optional argument parsing for `vortex-project --execute-local-primitive <memory_gb> <max_parallelism>` while leaving default `vortex-project` behavior as plan/metadata evidence only.
+    - [x] Execute `ProjectColumns` through the existing `execute_vortex_local_primitive_with_policy` path when explicitly requested.
+    - [x] Emit local projected-row execution fields for rows scanned/projected, projected columns, chunk/concurrency policy, projection pushdown, `vortex_encoded->vortex_encoded` guarantee, side effects, and no-fallback state.
+    - [x] Reuse the checked-in local `ProjectColumns` correctness fixture mapping for `local_primitive_struct_five.vortex` `metric`.
+    - [x] Emit local primitive Native I/O certificate fields and execution-certificate fields for the checked-in projection fixture.
+    - [x] Keep non-fixture local `ProjectColumns` executable but explicitly uncertified for correctness and production claims.
+    - [x] Keep generalized encoded projection kernels, filter-project certification, non-local sources, adapters, SQL/DataFrame/Python runtime, benchmarks, writes, spill, and fallback execution blocked.
+  - Local validation status:
+    - [x] Focused CLI project tests passed locally with Rust toolchain `1.91.1`.
+    - [x] Feature-gated CLI local `ProjectColumns` certificate test and live `vortex-project ... --execute-local-primitive 1 2 --format json` smoke passed locally with Rust toolchain `1.91.1`.
+    - [x] Required full `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, and `cargo test --workspace --all-targets` validation passed locally with Rust toolchain `1.91.1`; the final test run used `CARGO_BUILD_JOBS=1` to avoid transient Windows linker artifact locks.
+  - Explicitly not included: new readers, non-local/object-store Vortex sources, Parquet/Arrow/JSON/Avro/ORC runtime, adapter execution, SQL/DataFrame/Python runtime expansion, generalized encoded projection kernels, broad filter-project certification, benchmark reruns, superiority or best-default claims, CG-2 closeout, CG-13 closeout, or fallback execution.
 - [x] Session label: CG-2.2g / CG-13.15 / CG-16.10 / CG-19.12 local `FilterPredicate` execution evidence
   - Primary files:
     - `shardloom-core/src/correctness.rs`
@@ -1679,6 +1700,7 @@ Status legend:
   - [x] CG-2.2g local `FilterPredicate` execution evidence through `vortex-filter`
   - [x] CG-2.3b projection readiness CLI integration
   - [x] CG-2.3c local `ProjectColumns` execution evidence through `vortex-project`
+  - [x] CG-2.3d local `FilterAndProject` execution evidence through `vortex-filter-project`
   - Required capabilities for completion:
     - encoded-first selection vectors
     - decode only when explicitly allowed
@@ -1867,6 +1889,7 @@ Status legend:
   - [x] CG-13.14 local `CountWhere` scan-pushdown evidence surfaces `vortex_encoded->selection_vector_encoded` through `vortex-count-where`
   - [x] CG-13.15 local `FilterPredicate` scan-pushdown evidence surfaces `vortex_encoded->selection_vector_encoded` through `vortex-filter`
   - [x] CG-13.16 local `ProjectColumns` scan-pushdown evidence surfaces `vortex_encoded->vortex_encoded` through `vortex-project`
+  - [x] CG-13.17 local `FilterAndProject` scan-pushdown evidence surfaces `vortex_encoded->selection_vector_encoded` through `vortex-filter-project`
   - Scope:
     - encoding-aware execution-path selection through `vortex-encoded-path-selection-plan`
     - direct count/filter/project over encoded segments
@@ -1903,6 +1926,7 @@ Status legend:
   - [x] CG-16.9 `vortex-count-where` local primitive execution certificate fields for the checked-in struct fixture
   - [x] CG-16.10 `vortex-filter` local primitive execution certificate fields for the checked-in struct fixture
   - [x] CG-16.11 `vortex-project` local primitive execution certificate fields for the checked-in struct fixture
+  - [x] CG-16.12 `vortex-filter-project` local primitive execution certificate fields for the checked-in struct fixture
   - Scope:
     - plan/input/output evidence artifacts through `execution-certificate-plan`
     - reproducibility metadata and segment traces
@@ -1936,7 +1960,8 @@ Status legend:
   - [x] CG-19.11 local `CountWhere` Native I/O evidence through `vortex-count-where`
   - [x] CG-19.12 local `FilterPredicate` Native I/O evidence through `vortex-filter`
   - [x] CG-19.13 local `ProjectColumns` Native I/O evidence through `vortex-project`
-  - [~] generalized source/sink runtime certificate emission pending beyond local compatibility-file, benchmark native Vortex, local direct-count, local primitive, fixture-backed local `CountWhere`, fixture-backed local `FilterPredicate`, and fixture-backed local `ProjectColumns` paths
+  - [x] CG-19.14 local `FilterAndProject` Native I/O evidence through `vortex-filter-project`
+  - [~] generalized source/sink runtime certificate emission pending beyond local compatibility-file, benchmark native Vortex, local direct-count, local primitive, fixture-backed local `CountWhere`, fixture-backed local `FilterPredicate`, fixture-backed local `ProjectColumns`, and fixture-backed local `FilterAndProject` paths
   - Scope:
     - preserve representation state, pushdown evidence, materialization boundaries, and sink constraints without default decode
 
@@ -2026,6 +2051,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.3a projection readiness semantic hardening
 - [x] CG-2.3b projection readiness CLI integration
 - [x] CG-2.3c fixture-backed local `ProjectColumns` execution evidence through `vortex-project`
+- [x] CG-2.3d fixture-backed local `FilterAndProject` execution evidence through `vortex-filter-project`
 - [~] CG-2.1+ broader zero-decode encoded query primitive execution remains deferred pending filter/project encoded-kernel guarantees
 - [ ] CG-2 closeout requires generalized count plus filtered-count/projection execution over actual Vortex data with correctness, benchmark, and certificate evidence
 
@@ -2226,6 +2252,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-13.14 `vortex-count-where` local primitive execution records fixture-backed `vortex_encoded->selection_vector_encoded` evidence without claiming generalized encoded-value predicate-kernel completion
 - [x] CG-13.15 `vortex-filter` local primitive execution records fixture-backed `vortex_encoded->selection_vector_encoded` evidence without claiming generalized encoded-value predicate-kernel completion
 - [x] CG-13.16 `vortex-project` local primitive execution records fixture-backed `vortex_encoded->vortex_encoded` evidence without claiming generalized encoded-projection kernel completion
+- [x] CG-13.17 `vortex-filter-project` local primitive execution records fixture-backed `vortex_encoded->selection_vector_encoded` evidence without claiming generalized encoded predicate/projection-kernel completion
 - [ ] generalized direct count/filter/project encoded execution
 - [ ] broad compressed-kernel correctness and benchmark certification
 
@@ -2257,6 +2284,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-16.9 `vortex-count-where` local primitive execution certificate fields for the checked-in struct fixture
 - [x] CG-16.10 `vortex-filter` local primitive execution certificate fields for the checked-in struct fixture
 - [x] CG-16.11 `vortex-project` local primitive execution certificate fields for the checked-in struct fixture
+- [x] CG-16.12 `vortex-filter-project` local primitive execution certificate fields for the checked-in struct fixture
 - [x] plan/input/output evidence artifacts for reproducibility
 - [x] deterministic, machine-readable certificate surfaces
 
@@ -2289,7 +2317,8 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-19.11 local `CountWhere` Native I/O evidence through `vortex-count-where` covers accepted filter/count pushdown, `vortex_encoded->selection_vector_encoded`, scalar-count sink requirements, side effects, and no fallback
 - [x] CG-19.12 local `FilterPredicate` Native I/O evidence through `vortex-filter` covers accepted filter pushdown, `vortex_encoded->selection_vector_encoded`, filtered-stream sink requirements, side effects, and no fallback
 - [x] CG-19.13 local `ProjectColumns` Native I/O evidence through `vortex-project` covers accepted project pushdown, `vortex_encoded->vortex_encoded`, projected-stream sink requirements, side effects, and no fallback
-- [~] generalized source/sink runtime certificate emission pending beyond local compatibility-file, benchmark native Vortex, local direct-count, local primitive, fixture-backed local `CountWhere`, fixture-backed local `FilterPredicate`, and fixture-backed local `ProjectColumns` paths
+- [x] CG-19.14 local `FilterAndProject` Native I/O evidence through `vortex-filter-project` covers accepted filter/project pushdown, `vortex_encoded->selection_vector_encoded`, filtered-projected-stream sink requirements, side effects, and no fallback
+- [~] generalized source/sink runtime certificate emission pending beyond local compatibility-file, benchmark native Vortex, local direct-count, local primitive, fixture-backed local `CountWhere`, fixture-backed local `FilterPredicate`, fixture-backed local `ProjectColumns`, and fixture-backed local `FilterAndProject` paths
 - [x] representation state, pushdown proof, materialization boundary, sink requirement, adapter fidelity, per-path certificate, no-default-Arrow, and no-fallback report fields are exposed without reads, decode, materialization, IO, writes, or fallback
 
 ### CG-20 detailed checklist
@@ -2400,6 +2429,7 @@ This section preserves older attribution notes that predate the compact CG rollu
 - [x] CG-2.2f/CG-13.14/CG-16.9/CG-19.11 `vortex-count-where --execute-local-primitive` executes the existing feature-gated local `CountWhere` scan-pushdown path, reports selection-vector transition evidence, and emits Native I/O and execution certificates for the checked-in struct fixture while leaving broader encoded-value predicate kernels, non-local sources, adapters, SQL, writes, spill, claims, and fallback blocked.
 - [x] CG-2.2g/CG-13.15/CG-16.10/CG-19.12 `vortex-filter --execute-local-primitive` executes the existing feature-gated local `FilterPredicate` scan-pushdown path, reports selection-vector transition evidence, and emits Native I/O and execution certificates for the checked-in struct fixture while leaving broader encoded-value predicate kernels, non-local sources, adapters, SQL, writes, spill, claims, and fallback blocked.
 - [x] CG-2.3c/CG-13.16/CG-16.11/CG-19.13 `vortex-project --execute-local-primitive` executes the existing feature-gated local `ProjectColumns` scan-pushdown path, reports encoded projection preservation evidence, and emits Native I/O and execution certificates for the checked-in struct fixture while leaving broader encoded projection kernels, filter-project certification, non-local sources, adapters, SQL, writes, spill, claims, and fallback blocked.
+- [x] CG-2.3d/CG-13.17/CG-16.12/CG-19.14 `vortex-filter-project --execute-local-primitive` executes the existing feature-gated local `FilterAndProject` scan-pushdown path, reports combined filter/projection evidence, and emits Native I/O and execution certificates for the checked-in struct fixture while leaving broader encoded predicate/projection kernels, non-local sources, adapters, SQL, writes, spill, claims, and fallback blocked.
 - [x] CG-5.1 metadata query primitive correctness fixtures cover supported metadata answers and deferred unsupported paths without side effects.
 - [x] CG-5.2 metadata query primitive edge and diagnostic fixtures cover missing/unsupported metadata primitive paths without side effects.
 - [x] CG-5.3 correctness fixture manifest declares initial golden fixture/reference output and required edge-case fixture families without execution.

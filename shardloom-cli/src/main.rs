@@ -210,7 +210,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|agent-contract-pack|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance]|security-plan|effect-budget-plan|agent-safety-plan|redaction-plan|kernel-registry|feature-footprint|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|layout-health-plan|compaction-plan|table-intelligence-plan|object-store-request-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|dynamic-work-shaping-plan [balanced|memory-pressure|object-store-throttled|small-tasks]|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|benchmark-claim-evidence-plan [foundation|traditional-analytics]|traditional-analytics-run|traditional-analytics-vortex-run|vortex-count-benchmark|correctness-plan|correctness-harness-plan|execution-certificate-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|agent-contract-pack|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance]|security-plan|effect-budget-plan|agent-safety-plan|redaction-plan|kernel-registry|feature-footprint|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|layout-health-plan|compaction-plan|table-intelligence-plan|object-store-request-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|dynamic-work-shaping-plan [balanced|memory-pressure|object-store-throttled|small-tasks]|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|benchmark-claim-evidence-plan [foundation|traditional-analytics]|traditional-analytics-run|traditional-analytics-vortex-run|vortex-count-benchmark|correctness-plan|correctness-harness-plan|execution-certificate-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-filter-project|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -9073,6 +9073,29 @@ impl VortexLocalPrimitiveCliExecutionEvidence {
             && !self.report.external_effects_executed
             && !self.report.fallback_execution_allowed
     }
+
+    fn filter_project_encoded_guaranteed(&self) -> bool {
+        self.native_io_certificate.is_certified()
+            && self.native_io_certificate.representation_transition_order()
+                == "vortex_encoded->selection_vector_encoded"
+            && self.report.filter_pushdown_applied
+            && self.report.projection_pushdown_applied
+            && self.report.upstream_filter_expression_used
+            && self.report.upstream_projection_expression_used
+            && self.report.rows_selected.is_some()
+            && self.report.rows_projected.is_some()
+            && self.report.rows_selected == self.report.rows_projected
+            && !self.report.projected_columns.is_empty()
+            && !self.report.data_decoded
+            && !self.report.data_materialized
+            && !self.report.row_read
+            && !self.report.arrow_converted
+            && !self.report.object_store_io
+            && !self.report.write_io
+            && !self.report.spill_io_performed
+            && !self.report.external_effects_executed
+            && !self.report.fallback_execution_allowed
+    }
 }
 
 fn parse_vortex_count_where_local_execution_args(
@@ -9947,6 +9970,441 @@ fn append_vortex_project_local_execution_claim_fields(
     push_bool_field(
         fields,
         "project_local_execution_cg13_closeout_allowed",
+        false,
+    );
+}
+
+fn vortex_filter_project_human_text(
+    result: &VortexQueryPrimitiveResult,
+    local_execution: Option<&VortexLocalPrimitiveCliExecutionEvidence>,
+) -> String {
+    let mut sections = vec![result.to_human_text()];
+    if let Some(local) = local_execution {
+        sections.push(local.report.to_human_text());
+        sections.push(local_primitive_native_io_certificate_human_text(
+            &local.native_io_certificate,
+        ));
+        if let Some(certificate) = &local.execution_certificate {
+            sections.push(certificate.to_human_text());
+        }
+    }
+    sections.join("\n\n")
+}
+
+fn vortex_filter_project_fields(
+    result: &VortexQueryPrimitiveResult,
+    predicate_arg: String,
+    columns_arg: String,
+    local_execution: Option<&VortexLocalPrimitiveCliExecutionEvidence>,
+) -> Vec<(String, String)> {
+    let data_read = local_execution.map_or(result.data_read, |local| local.report.data_read);
+    let data_decoded =
+        local_execution.map_or(result.data_decoded, |local| local.report.data_decoded);
+    let data_materialized = local_execution.map_or(result.data_materialized, |local| {
+        local.report.data_materialized
+    });
+    let row_read = local_execution.is_some_and(|local| local.report.row_read);
+    let arrow_converted = local_execution.is_some_and(|local| local.report.arrow_converted);
+    let object_store_io =
+        local_execution.map_or(result.object_store_io, |local| local.report.object_store_io);
+    let write_io = local_execution.map_or(result.write_io, |local| local.report.write_io);
+    let spill_io_performed = local_execution.map_or(result.spill_io_performed, |local| {
+        local.report.spill_io_performed
+    });
+    let result_known = local_execution
+        .and_then(VortexLocalPrimitiveCliExecutionEvidence::projected_rows)
+        .is_some()
+        || result.value.is_known();
+    let execution = local_execution.map_or(
+        "metadata_filter_project_evidence_only".to_string(),
+        |local| {
+            if local.report.data_read {
+                "local_vortex_filter_project_primitive_performed".to_string()
+            } else {
+                "local_vortex_filter_project_primitive_not_performed".to_string()
+            }
+        },
+    );
+    let mut fields = vec![
+        (
+            "fallback_execution_allowed".to_string(),
+            "false".to_string(),
+        ),
+        ("mode".to_string(), "vortex_filter_project".to_string()),
+        ("primitive".to_string(), "filter_and_project".to_string()),
+        ("data_read".to_string(), data_read.to_string()),
+        ("data_decoded".to_string(), data_decoded.to_string()),
+        (
+            "data_materialized".to_string(),
+            data_materialized.to_string(),
+        ),
+        ("row_read".to_string(), row_read.to_string()),
+        ("arrow_converted".to_string(), arrow_converted.to_string()),
+        ("object_store_io".to_string(), object_store_io.to_string()),
+        ("write_io".to_string(), write_io.to_string()),
+        (
+            "spill_io_performed".to_string(),
+            spill_io_performed.to_string(),
+        ),
+        ("execution".to_string(), execution),
+        (
+            "query_primitive_status".to_string(),
+            result.status.as_str().to_string(),
+        ),
+        ("result_known".to_string(), result_known.to_string()),
+        (
+            "rows_selected".to_string(),
+            local_execution
+                .and_then(VortexLocalPrimitiveCliExecutionEvidence::selected_rows)
+                .map_or_else(|| "unknown".to_string(), |value| value.to_string()),
+        ),
+        (
+            "rows_projected".to_string(),
+            local_execution
+                .and_then(VortexLocalPrimitiveCliExecutionEvidence::projected_rows)
+                .map_or_else(|| "unknown".to_string(), |value| value.to_string()),
+        ),
+        ("predicate".to_string(), predicate_arg),
+        ("columns".to_string(), columns_arg),
+    ];
+    append_vortex_filter_project_local_execution_fields(&mut fields, local_execution);
+    fields
+}
+
+fn append_vortex_filter_project_local_execution_fields(
+    fields: &mut Vec<(String, String)>,
+    local_execution: Option<&VortexLocalPrimitiveCliExecutionEvidence>,
+) {
+    push_bool_field(
+        fields,
+        "filter_project_local_execution_requested",
+        local_execution.is_some(),
+    );
+    push_field(
+        fields,
+        "filter_project_local_execution_feature_gate",
+        "vortex-local-primitives",
+    );
+    push_bool_field(
+        fields,
+        "filter_project_local_execution_feature_enabled",
+        cfg!(feature = "vortex-local-primitives"),
+    );
+    match local_execution {
+        Some(local) => append_vortex_filter_project_local_execution_present_fields(fields, local),
+        None => append_vortex_filter_project_local_execution_absent_fields(fields),
+    }
+}
+
+fn append_vortex_filter_project_local_execution_absent_fields(fields: &mut Vec<(String, String)>) {
+    push_field(
+        fields,
+        "filter_project_local_execution_status",
+        "not_requested",
+    );
+    push_field(
+        fields,
+        "filter_project_local_execution_mode",
+        "not_requested",
+    );
+    push_u64_field(fields, "filter_project_local_execution_memory_gb", 0);
+    push_count_field(fields, "filter_project_local_execution_max_parallelism", 0);
+    push_bool_field(fields, "filter_project_local_execution_result_known", false);
+    push_field(
+        fields,
+        "filter_project_local_execution_rows_selected",
+        "unknown",
+    );
+    push_field(
+        fields,
+        "filter_project_local_execution_rows_projected",
+        "unknown",
+    );
+    push_field(
+        fields,
+        "filter_project_local_execution_projected_columns",
+        "",
+    );
+    append_vortex_filter_project_local_execution_absent_effect_fields(fields);
+    append_vortex_filter_project_local_execution_claim_fields(fields, None);
+    append_vortex_local_primitive_native_io_certificate_fields(fields, None);
+    append_vortex_local_primitive_execution_certificate_fields(fields, None);
+}
+
+fn append_vortex_filter_project_local_execution_present_fields(
+    fields: &mut Vec<(String, String)>,
+    local: &VortexLocalPrimitiveCliExecutionEvidence,
+) {
+    push_field(
+        fields,
+        "filter_project_local_execution_status",
+        local.report.status.as_str(),
+    );
+    push_field(
+        fields,
+        "filter_project_local_execution_mode",
+        local.report.mode.as_str(),
+    );
+    push_u64_field(
+        fields,
+        "filter_project_local_execution_memory_gb",
+        local.memory_gb,
+    );
+    push_count_field(
+        fields,
+        "filter_project_local_execution_max_parallelism",
+        local.max_parallelism,
+    );
+    push_bool_field(
+        fields,
+        "filter_project_local_execution_result_known",
+        local.projected_rows().is_some(),
+    );
+    push_field(
+        fields,
+        "filter_project_local_execution_rows_selected",
+        &local
+            .selected_rows()
+            .map_or_else(|| "unknown".to_string(), |value| value.to_string()),
+    );
+    push_field(
+        fields,
+        "filter_project_local_execution_rows_projected",
+        &local
+            .projected_rows()
+            .map_or_else(|| "unknown".to_string(), |value| value.to_string()),
+    );
+    push_field(
+        fields,
+        "filter_project_local_execution_projected_columns",
+        &local.report.projected_columns.join(","),
+    );
+    append_vortex_filter_project_local_execution_scan_fields(fields, local);
+    append_vortex_filter_project_local_execution_effect_fields(fields, local);
+    append_vortex_filter_project_local_execution_claim_fields(fields, Some(local));
+    append_vortex_local_primitive_native_io_certificate_fields(
+        fields,
+        Some(&local.native_io_certificate),
+    );
+    append_vortex_local_primitive_execution_certificate_fields(
+        fields,
+        local.execution_certificate.as_ref(),
+    );
+}
+
+fn append_vortex_filter_project_local_execution_scan_fields(
+    fields: &mut Vec<(String, String)>,
+    local: &VortexLocalPrimitiveCliExecutionEvidence,
+) {
+    push_u64_field(
+        fields,
+        "filter_project_local_execution_rows_scanned",
+        local.report.rows_scanned,
+    );
+    push_count_field(
+        fields,
+        "filter_project_local_execution_arrays_read_count",
+        local.report.arrays_read_count,
+    );
+    push_count_field(
+        fields,
+        "filter_project_local_execution_max_chunk_rows",
+        local.report.max_chunk_rows,
+    );
+    push_count_field(
+        fields,
+        "filter_project_local_execution_scan_concurrency_per_worker",
+        local.report.scan_concurrency_per_worker,
+    );
+    push_bool_field(
+        fields,
+        "filter_project_local_execution_streaming_scan_used",
+        local.report.streaming_scan_used,
+    );
+    push_bool_field(
+        fields,
+        "filter_project_local_execution_full_stream_collected",
+        local.report.full_stream_collected,
+    );
+    push_bool_field(
+        fields,
+        "filter_project_local_execution_filter_pushdown_applied",
+        local.report.filter_pushdown_applied,
+    );
+    push_bool_field(
+        fields,
+        "filter_project_local_execution_projection_pushdown_applied",
+        local.report.projection_pushdown_applied,
+    );
+    push_bool_field(
+        fields,
+        "filter_project_local_execution_upstream_filter_expression_used",
+        local.report.upstream_filter_expression_used,
+    );
+    push_bool_field(
+        fields,
+        "filter_project_local_execution_upstream_projection_expression_used",
+        local.report.upstream_projection_expression_used,
+    );
+}
+
+fn append_vortex_filter_project_local_execution_absent_effect_fields(
+    fields: &mut Vec<(String, String)>,
+) {
+    push_bool_field(fields, "filter_project_local_execution_data_read", false);
+    push_bool_field(fields, "filter_project_local_execution_data_decoded", false);
+    push_bool_field(
+        fields,
+        "filter_project_local_execution_data_materialized",
+        false,
+    );
+    push_bool_field(fields, "filter_project_local_execution_row_read", false);
+    push_bool_field(
+        fields,
+        "filter_project_local_execution_arrow_converted",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "filter_project_local_execution_object_store_io",
+        false,
+    );
+    push_bool_field(fields, "filter_project_local_execution_write_io", false);
+    push_bool_field(
+        fields,
+        "filter_project_local_execution_spill_io_performed",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "filter_project_local_execution_fallback_attempted",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "filter_project_local_execution_fallback_execution_allowed",
+        false,
+    );
+}
+
+fn append_vortex_filter_project_local_execution_effect_fields(
+    fields: &mut Vec<(String, String)>,
+    local: &VortexLocalPrimitiveCliExecutionEvidence,
+) {
+    push_bool_field(
+        fields,
+        "filter_project_local_execution_data_read",
+        local.report.data_read,
+    );
+    push_bool_field(
+        fields,
+        "filter_project_local_execution_data_decoded",
+        local.report.data_decoded,
+    );
+    push_bool_field(
+        fields,
+        "filter_project_local_execution_data_materialized",
+        local.report.data_materialized,
+    );
+    push_bool_field(
+        fields,
+        "filter_project_local_execution_row_read",
+        local.report.row_read,
+    );
+    push_bool_field(
+        fields,
+        "filter_project_local_execution_arrow_converted",
+        local.report.arrow_converted,
+    );
+    push_bool_field(
+        fields,
+        "filter_project_local_execution_object_store_io",
+        local.report.object_store_io,
+    );
+    push_bool_field(
+        fields,
+        "filter_project_local_execution_write_io",
+        local.report.write_io,
+    );
+    push_bool_field(
+        fields,
+        "filter_project_local_execution_spill_io_performed",
+        local.report.spill_io_performed,
+    );
+    push_bool_field(
+        fields,
+        "filter_project_local_execution_external_effects_executed",
+        local.report.external_effects_executed,
+    );
+    push_bool_field(
+        fields,
+        "filter_project_local_execution_fallback_attempted",
+        local.native_io_certificate.side_effects.fallback_attempted
+            || local.native_io_certificate.fallback_attempted
+            || local
+                .execution_certificate
+                .as_ref()
+                .is_some_and(|certificate| certificate.fallback_attempted),
+    );
+    push_bool_field(
+        fields,
+        "filter_project_local_execution_fallback_execution_allowed",
+        local.report.fallback_execution_allowed,
+    );
+}
+
+fn append_vortex_filter_project_local_execution_claim_fields(
+    fields: &mut Vec<(String, String)>,
+    local_execution: Option<&VortexLocalPrimitiveCliExecutionEvidence>,
+) {
+    let encoded_guarantee = local_execution
+        .is_some_and(VortexLocalPrimitiveCliExecutionEvidence::filter_project_encoded_guaranteed);
+    let native_io_certified =
+        local_execution.is_some_and(|local| local.native_io_certificate.is_certified());
+    let correctness_certified = local_execution.is_some_and(|local| {
+        local
+            .execution_certificate
+            .as_ref()
+            .is_some_and(ExecutionCertificate::is_certified)
+    });
+    push_bool_field(
+        fields,
+        "filter_project_local_execution_selection_vector_guarantee",
+        encoded_guarantee,
+    );
+    push_bool_field(
+        fields,
+        "filter_project_local_execution_projection_pushdown_guarantee",
+        encoded_guarantee,
+    );
+    push_bool_field(
+        fields,
+        "filter_project_local_execution_native_io_certified",
+        native_io_certified,
+    );
+    push_bool_field(
+        fields,
+        "filter_project_local_execution_correctness_certified",
+        correctness_certified,
+    );
+    push_bool_field(
+        fields,
+        "filter_project_local_execution_production_claim_allowed",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "filter_project_local_execution_generalized_claim_allowed",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "filter_project_local_execution_cg2_closeout_allowed",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "filter_project_local_execution_cg13_closeout_allowed",
         false,
     );
 }
@@ -24947,6 +25405,146 @@ fn run(args: Vec<String>) -> ExitCode {
                 ExitCode::SUCCESS
             }
         }
+        Some("vortex-filter-project") => {
+            let Some(uri_arg) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-filter-project <dataset_uri> <predicate> <columns> [--execute-local-primitive <memory_gb> <max_parallelism>]"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(predicate_arg) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-filter-project <dataset_uri> <predicate> <columns> [--execute-local-primitive <memory_gb> <max_parallelism>]"
+                );
+                return ExitCode::from(2);
+            };
+            let Some(columns_arg) = args.next() else {
+                eprintln!(
+                    "usage: shardloom vortex-filter-project <dataset_uri> <predicate> <columns> [--execute-local-primitive <memory_gb> <max_parallelism>]"
+                );
+                return ExitCode::from(2);
+            };
+            let uri = match DatasetUri::new(uri_arg) {
+                Ok(uri) => uri,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-filter-project",
+                        format,
+                        "vortex filter project failed",
+                        &error,
+                    );
+                }
+            };
+            let predicate = match parse_tiny_predicate(&predicate_arg) {
+                Ok(predicate) => predicate,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-filter-project",
+                        format,
+                        "vortex filter project failed",
+                        &error,
+                    );
+                }
+            };
+            let projection = match parse_projection_columns(&columns_arg) {
+                Ok(projection) => projection,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-filter-project",
+                        format,
+                        "vortex filter project failed",
+                        &error,
+                    );
+                }
+            };
+            let local_execution_request =
+                match parse_vortex_local_primitive_cli_execution_args(&mut args) {
+                    Ok(request) => request,
+                    Err(error) => {
+                        return emit_error(
+                            "vortex-filter-project",
+                            format,
+                            "vortex filter project failed",
+                            &error,
+                        );
+                    }
+                };
+            let request = shardloom_vortex::VortexQueryPrimitiveRequest::filter_and_project(
+                uri.clone(),
+                predicate,
+                projection,
+            );
+            let summary = open_vortex_metadata_only(VortexMetadataOpenRequest::metadata_only(uri))
+                .ok()
+                .and_then(|report| report.metadata_summary)
+                .unwrap_or_else(|| {
+                    summarize_vortex_metadata_probe(
+                        &VortexMetadataProbeReport::deferred_api_unclear(),
+                    )
+                });
+            let result = match evaluate_vortex_query_primitive(request.clone(), &summary) {
+                Ok(result) => result,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-filter-project",
+                        format,
+                        "vortex filter project failed",
+                        &error,
+                    );
+                }
+            };
+            let local_execution = match local_execution_request.as_ref() {
+                Some(local_request) => {
+                    match vortex_local_primitive_cli_execution_evidence(&request, local_request) {
+                        Ok(evidence) => Some(evidence),
+                        Err(error) => {
+                            return emit_error(
+                                "vortex-filter-project",
+                                format,
+                                "vortex filter project local primitive execution failed",
+                                &error,
+                            );
+                        }
+                    }
+                }
+                None => None,
+            };
+            let command_has_errors = local_execution.as_ref().map_or_else(
+                || result.has_errors(),
+                VortexLocalPrimitiveCliExecutionEvidence::has_errors,
+            );
+            let mut diagnostics = result.diagnostics.clone();
+            if let Some(local) = &local_execution {
+                diagnostics.extend(local.report.diagnostics.clone());
+                diagnostics.extend(local.native_io_certificate.diagnostics.clone());
+                if let Some(certificate) = &local.execution_certificate {
+                    diagnostics.extend(certificate.diagnostics.clone());
+                }
+            }
+            emit(
+                "vortex-filter-project",
+                format,
+                if command_has_errors {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "vortex filter project primitive".to_string(),
+                vortex_filter_project_human_text(&result, local_execution.as_ref()),
+                diagnostics,
+                vortex_filter_project_fields(
+                    &result,
+                    predicate_arg,
+                    columns_arg,
+                    local_execution.as_ref(),
+                ),
+            );
+            if command_has_errors {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
         Some("vortex-filter") => {
             let Some(uri_arg) = args.next() else {
                 eprintln!(
@@ -29938,6 +30536,141 @@ mod tests {
 
     #[cfg(feature = "vortex-local-primitives")]
     #[test]
+    fn vortex_filter_project_local_execution_certifies_checked_in_struct_fixture() {
+        let fixture_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("workspace root")
+            .join("shardloom-vortex")
+            .join("tests")
+            .join("fixtures")
+            .join("local_primitive_struct_five.vortex");
+        let request = VortexQueryPrimitiveRequest::filter_and_project(
+            DatasetUri::new(fixture_path.display().to_string()).expect("uri"),
+            PredicateExpr::Compare {
+                column: ColumnRef::new("value").expect("column"),
+                op: ComparisonOp::GtEq,
+                value: StatValue::Int64(3),
+            },
+            ProjectionRequest::columns(vec![ColumnRef::new("metric").expect("column")]),
+        );
+        let local_request = VortexLocalPrimitiveCliExecutionRequest {
+            memory_gb: 1,
+            max_parallelism: 2,
+        };
+
+        let evidence = vortex_local_primitive_cli_execution_evidence(&request, &local_request)
+            .expect("evidence");
+        let mut fields = Vec::new();
+        append_vortex_filter_project_local_execution_fields(&mut fields, Some(&evidence));
+
+        assert_eq!(evidence.report.status.as_str(), "executed");
+        assert_eq!(evidence.selected_rows(), Some(3));
+        assert_eq!(evidence.projected_rows(), Some(3));
+        assert!(evidence.filter_project_encoded_guaranteed());
+        assert!(evidence.native_io_certificate.is_certified());
+        assert!(
+            evidence
+                .execution_certificate
+                .as_ref()
+                .is_some_and(ExecutionCertificate::is_certified)
+        );
+        assert_eq!(
+            output_field(&fields, "filter_project_local_execution_status"),
+            "executed"
+        );
+        assert_eq!(
+            output_field(&fields, "filter_project_local_execution_rows_selected"),
+            "3"
+        );
+        assert_eq!(
+            output_field(&fields, "filter_project_local_execution_rows_projected"),
+            "3"
+        );
+        assert_eq!(
+            output_field(&fields, "filter_project_local_execution_projected_columns"),
+            "metric"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "filter_project_local_execution_selection_vector_guarantee"
+            ),
+            "true"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "filter_project_local_execution_projection_pushdown_guarantee"
+            ),
+            "true"
+        );
+        assert_eq!(
+            output_field(&fields, "local_primitive_native_io_certificate_status"),
+            "certified"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "local_primitive_native_io_representation_transitions"
+            ),
+            "vortex_encoded->selection_vector_encoded"
+        );
+        assert_eq!(
+            output_field(&fields, "local_primitive_execution_certificate_fixture_id"),
+            "vortex-local-filter-project-struct-five"
+        );
+    }
+
+    #[cfg(feature = "vortex-local-primitives")]
+    #[test]
+    fn vortex_filter_project_local_execution_leaves_non_fixture_shape_uncertified() {
+        let fixture_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("workspace root")
+            .join("shardloom-vortex")
+            .join("tests")
+            .join("fixtures")
+            .join("local_primitive_struct_five.vortex");
+        let request = VortexQueryPrimitiveRequest::filter_and_project(
+            DatasetUri::new(fixture_path.display().to_string()).expect("uri"),
+            PredicateExpr::Compare {
+                column: ColumnRef::new("value").expect("column"),
+                op: ComparisonOp::GtEq,
+                value: StatValue::Int64(4),
+            },
+            ProjectionRequest::columns(vec![ColumnRef::new("metric").expect("column")]),
+        );
+        let local_request = VortexLocalPrimitiveCliExecutionRequest {
+            memory_gb: 1,
+            max_parallelism: 2,
+        };
+
+        let evidence = vortex_local_primitive_cli_execution_evidence(&request, &local_request)
+            .expect("evidence");
+        let mut fields = Vec::new();
+        append_vortex_filter_project_local_execution_fields(&mut fields, Some(&evidence));
+
+        assert_eq!(evidence.report.status.as_str(), "executed");
+        assert_eq!(evidence.selected_rows(), Some(2));
+        assert_eq!(evidence.projected_rows(), Some(2));
+        assert!(evidence.filter_project_encoded_guaranteed());
+        assert!(evidence.native_io_certificate.is_certified());
+        assert!(evidence.execution_certificate.is_none());
+        assert_eq!(
+            output_field(
+                &fields,
+                "filter_project_local_execution_correctness_certified"
+            ),
+            "false"
+        );
+        assert_eq!(
+            output_field(&fields, "local_primitive_execution_certificate_emitted"),
+            "false"
+        );
+    }
+
+    #[cfg(feature = "vortex-local-primitives")]
+    #[test]
     fn vortex_filter_local_execution_certifies_checked_in_struct_fixture() {
         let fixture_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .parent()
@@ -30357,6 +31090,34 @@ mod tests {
         let code = run(vec![
             "vortex-project".to_string(),
             fixture_path.to_string_lossy().to_string(),
+            "metric".to_string(),
+            "--execute-local-primitive".to_string(),
+            "1".to_string(),
+            "2".to_string(),
+            "--format".to_string(),
+            "json".to_string(),
+        ]);
+
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn vortex_filter_project_local_primitive_bridges_when_feature_enabled() {
+        if !vortex_encoded_read_spike_feature_enabled() {
+            return;
+        }
+        let fixture_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("workspace crate parent")
+            .join("shardloom-vortex")
+            .join("tests")
+            .join("fixtures")
+            .join("local_primitive_struct_five.vortex");
+
+        let code = run(vec![
+            "vortex-filter-project".to_string(),
+            fixture_path.to_string_lossy().to_string(),
+            "gte:value:3".to_string(),
             "metric".to_string(),
             "--execute-local-primitive".to_string(),
             "1".to_string(),
