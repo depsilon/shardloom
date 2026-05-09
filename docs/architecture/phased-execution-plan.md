@@ -80,6 +80,37 @@ Supporting docs:
     - [x] Required full validation before PR: `cargo test --workspace --all-targets` passed with Rust toolchain `1.91.1`.
   - Explicitly not included: mature SQL/DataFrame/API/adapters, broad encoded operator surface, non-local sources, object-store IO, row reads, Arrow conversion, writes, spill IO, distributed execution, benchmark/superiority claim, production certification, CG-2 closeout, CG-13 closeout, or fallback execution.
 
+- [x] Session label: CG-11.3 / CG-20.3 source-tree Python live ETL client and advisory optimization hooks
+  - Primary files:
+    - `python/src/shardloom/client.py`
+    - `python/src/shardloom/models.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/tests/test_cli_client.py`
+    - `python/examples/live_etl_smoke.py`
+    - `python/README.md`
+    - `shardloom-core/src/output.rs`
+    - `shardloom-cli/tests/python_wrapper_snapshots.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: Make the source-tree Python wrapper practical for local live ETL testing by adding explicit CSV and native Vortex smoke helpers, opt-in source-tree binary discovery, field parsing helpers, and advisory dynamic sizing/work-shaping plan calls.
+  - Checklist:
+    - [x] Preserve side-effect-free import and require explicit client method calls for runtime work.
+    - [x] Add opt-in source-tree binary discovery through `ShardLoomClient.from_repo()` while preserving `SHARDLOOM_BIN` and explicit binary overrides.
+    - [x] Add native Vortex live ETL smoke dispatch through `traditional-analytics-vortex-run`.
+    - [x] Add `live_etl_smoke()` for explicit CSV-to-Vortex and native Vortex local runs.
+    - [x] Add advisory optimization wrappers for `dynamic-work-shaping-plan` and `sizing-feedback-plan`.
+    - [x] Add benchmark evidence helper methods for plan/evidence discovery.
+    - [x] Add typed field helpers for common Python inspection of CLI output fields.
+    - [x] Add Python unit coverage for command construction, binary resolution, ETL dispatch, advisory optimization helpers, and field parsing.
+    - [x] Update Python docs/example for live ETL testing without implying a mature DataFrame, SQL, UDF, adapter, packaging, or native binding surface.
+    - [x] Update the CG-11 wrapper report command scope and snapshot tests.
+    - [x] Keep PyO3/maturin, native Python bindings, package publication, mature DataFrame/notebook/Python UDF runtime, SQL parsing/execution, external-engine execution, object-store IO, writes, and fallback execution out of scope.
+  - Local validation status:
+    - [x] Python compile and unit tests passed locally.
+    - [x] Real client smoke for `status`, `dynamic-work-shaping-plan`, `sizing-feedback-plan`, and `benchmark-claim-evidence-plan traditional-analytics` passed locally.
+    - [x] Required Rust validation passed locally.
+  - Explicitly not included: mature Python API certification, DataFrame/query-builder runtime, notebook runtime, Python UDF runtime, SQL parser/execution, production adapters, object-store IO, writes, package publication, native bindings, PyO3/maturin, benchmark/superiority claim, best-default publication, or fallback execution.
+
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
   - Why: Keep CG-19/CG-20 canonical across RFCs, phase docs, agent instructions, and Vortex planning docs before additional queue movement.
@@ -1295,9 +1326,12 @@ Status legend:
 - [ ] CG-11 — Python/API foundation surface later (**planned**)
   - [x] CG-11.1 stable CLI/API JSON protocol foundation
   - [x] CG-11.2 thin Python wrapper foundation
+  - [x] CG-11.3 source-tree Python CLI JSON client package
+  - [x] CG-11.4 Python live ETL client helpers and advisory optimization hooks
   - Scope:
     - API/protocol foundation for stable CLI JSON and future clients
     - thin Python wrapper foundation over stable CLI JSON first
+    - source-tree Python client for explicit live ETL smoke commands
     - Foundry-friendly integration later
     - no PyO3/maturin unless explicitly approved
     - mature Python wrapper/DataFrame/notebook/Python UDF certification belongs to CG-20
@@ -1604,6 +1638,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-11.1 stable CLI/API JSON protocol foundation
 - [x] CG-11.2 thin Python wrapper foundation over CLI JSON first
 - [x] CG-11.3 source-tree Python CLI JSON client package
+- [x] CG-11.4 Python live ETL client helpers and advisory optimization hooks
 - [~] Foundry-friendly later
 - [x] no PyO3/maturin unless explicitly approved
 - [x] no Spark fallback
@@ -1683,6 +1718,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] unstructured/media capability boundaries documented
 - [x] CG-20.1 report-only `WorldClassSufficiencyReport` foundation and `world-class-sufficiency-plan` CLI surface
 - [x] CG-20.2 report-only user-surface capability discovery for common ETL, Python, DataFrame/notebook, UDFs, universal/event/API adapters, unstructured/media, API, observability, deployment, extension, and security/governance scopes
+- [x] CG-20.3 Python live ETL smoke client surface for explicit CSV-to-Vortex and native Vortex local testing
 - [~] implementation pending
 - [ ] capability certification surface implementation across real SQL/operators/functions/adapters/semantic profiles/migration/Python/API/DataFrame/notebook/UDF/ETL/universal-adapter/unstructured-media certification evidence
 
@@ -1842,12 +1878,14 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-11.1 stable CLI/API JSON protocol foundation adds `CliApiJsonProtocolReport` and `api-compat-plan` fields for `OutputEnvelope` schema keys, command statuses, fallback and diagnostic keys, thin Python wrapper boundary, no PyO3/maturin, no parser/runtime/probe/write/publish side effects, and no fallback.
 - [x] CG-11.2 thin Python wrapper foundation adds `PythonWrapperFoundationReport` and `python-wrapper-plan` fields for a future subprocess CLI JSON client, required diagnostics/fallback/materialization passthrough behavior, deferred package/native binding/DataFrame/notebook/Python UDF surfaces, no probes, no runtime/parser execution, no writes, no publish, and no fallback.
 - [x] CG-11.3 source-tree Python CLI JSON client package adds `python/src/shardloom` as a zero-dependency subprocess client for explicit CLI JSON commands, with typed `OutputEnvelope` parsing, diagnostics/fallback passthrough, local unit tests, no package publish, no native binding, no DataFrame/notebook/Python UDF runtime, and no fallback.
+- [x] CG-11.4 Python live ETL client helpers and advisory optimization hooks add `ShardLoomClient.from_repo`, `live_etl_smoke`, native Vortex ETL smoke dispatch, dynamic sizing/work-shaping advisory calls, benchmark evidence helpers, field parsing helpers, docs/example coverage, and real local CLI smoke checks while preserving no package publish, no native binding, no DataFrame/notebook/Python UDF runtime, no SQL runtime, and no fallback.
 - [x] CG-12.4 native plan import/export serialization adds deterministic `shardloom.native_plan.v1` in-memory serialization for native plan documents, `plan-export native` payload emission, and `plan-import native <payload>` validation without file IO, external format parsers, imported-plan execution, external engines, or fallback behavior.
 - [x] CG-12.5 imported-plan capability execution gate adds `ImportedPlanCapabilityGateReport` and `plan-import native` fields that map imported nodes/boundaries to required certification surfaces and keep imported execution blocked without certified SQL/operator/function/adapter/native-I/O/execution-certificate evidence, runtime execution, probes, reads, writes, external engines, or fallback.
 - [x] CG-18.1 universal harness report adds `UniversalHarnessReport` and `universal-harness-plan` surfacing for CLI JSON runner fields, import/deployment surfaces, optional Foundry examples, external-only Spark/DataFusion/Polars baseline requirements, comparison dataset requirements, portability-check requirements, and no-import/no-deployment/no-baseline-execution/no-probe/no-publish/no-fallback side-effect fields.
 - [x] CG-19.1 native I/O envelope report adds `NativeIoEnvelopeReport` and `native-io-envelope-plan` surfacing for RFC 0031 contract surfaces, representation state contracts, transition examples, per-source/sink-path certificate requirements, no-default-decoded-Arrow requirements, materialization boundary requirements, and no-runtime/no-probe/no-read/no-decode/no-materialization/no-write/no-fallback side-effect fields.
 - [x] CG-19.2 first benchmark runtime Native I/O certificate adds typed `NativeIoCertificate` runtime reports and emits a certified `compatibility_source_to_native_vortex_sink` certificate for the local CSV-to-Vortex benchmark path without external engine fallback or performance claims.
 - [x] CG-20.2 user-surface capability discovery adds report-only `capabilities` scopes for common ETL, Python, DataFrame/notebook, UDFs, universal/event/API adapters, unstructured/media, API, observability, deployment, extension, and security/governance surfaces with `WorldClassSufficiencyReport` dimension evidence gates and no parser/runtime/probe/read/write/external-engine/fallback behavior.
+- [x] CG-20.3 Python live ETL smoke client surface exposes current CSV-to-Vortex and native Vortex local testing helpers through the source-tree Python client without certifying mature ETL, SQL, DataFrame, adapter, UDF, package, or best-default capability.
 - [~] CG-2.1+ broader zero-decode encoded primitive execution remains blocked pending filter/project encoded-kernel guarantees, correctness, benchmark, and certificate evidence.
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind `vortex-write`; placeholder artifact paths remain readiness-only.
 - [~] CG-3 broader output payload shapes remain deferred.

@@ -105,9 +105,9 @@ Status categories:
 | RFC 0027 | Partially implemented | CG-7, CG-8, CG-14, CG-15 | CG-14.1 adaptive optimizer/memory decision evidence and CG-15.1 CPU specialization report evidence exist; runtime adaptivity, CPU probing, SIMD dispatch, and specialized kernel execution remain planned. |
 | RFC 0028 | Partially implemented | CG-3, CG-4, CG-9, CG-10 | Output/commit readiness contracts exist; first native count-result payload path is complete; first local committed-manifest execution path is complete; local committed-manifest recovery diagnostics and first local rollback cleanup path are complete; broader payloads, generalized recovery, table/catalog commits, and object-store commits remain incomplete. |
 | RFC 0029 | Partially implemented | CG-5, CG-6, CG-16, CG-17 | CG-16.1 local encoded count certificate, CG-16.2 execution-certificate evidence surface, and CG-17.1 stateful reuse boundary report exist; broader correctness, benchmark, certificate, cache read/write/replay, and incremental execution evidence remain future gate work. |
-| RFC 0030 | Partially implemented | CG-11, CG-12, CG-18 | CG-11.1 stable CLI/API JSON protocol foundation and CG-11.2 thin Python wrapper foundation exist through `CliApiJsonProtocolReport`, `PythonWrapperFoundationReport`, `api-compat-plan`, and `python-wrapper-plan`; CG-12.1 plan portability report foundation, CG-12.4 native plan serialization, and CG-12.5 imported-plan capability gate exist through `PlanPortabilityReport`, `NativePlanDocument`, `ImportedPlanCapabilityGateReport`, `plan-ir`, `plan-import native`, and `plan-export native`; CG-18.1 universal harness report exists through `UniversalHarnessReport` and `universal-harness-plan`; imported-plan execution, non-native format parsers/exporters, deployment/import, baseline runner execution, and comparison dataset materialization remain staged. |
+| RFC 0030 | Partially implemented | CG-11, CG-12, CG-18 | CG-11.1 stable CLI/API JSON protocol foundation, CG-11.2 thin Python wrapper foundation, and CG-11.3/CG-11.4 source-tree Python client surfaces exist through `CliApiJsonProtocolReport`, `PythonWrapperFoundationReport`, `api-compat-plan`, `python-wrapper-plan`, and the zero-dependency `python/` client; CG-12.1 plan portability report foundation, CG-12.4 native plan serialization, and CG-12.5 imported-plan capability gate exist through `PlanPortabilityReport`, `NativePlanDocument`, `ImportedPlanCapabilityGateReport`, `plan-ir`, `plan-import native`, and `plan-export native`; CG-18.1 universal harness report exists through `UniversalHarnessReport` and `universal-harness-plan`; imported-plan execution, non-native format parsers/exporters, deployment/import, baseline runner execution, and comparison dataset materialization remain staged. |
 | RFC 0031 | Partially implemented | CG-19 | CG-19.1 native I/O envelope report exists through `NativeIoEnvelopeReport` and `native-io-envelope-plan`; source/sink runtime certificate emission, adapter runtime, reads, decode/materialization, writes, object-store I/O, and fallback remain absent. |
-| RFC 0032 | Partially implemented | CG-20 | CG-20.1 world-class sufficiency reporting exists through `WorldClassSufficiencyReport` and `world-class-sufficiency-plan`; CG-20.2 user-surface capability discovery exposes report-only `capabilities` scopes for ETL, Python, DataFrame/notebook, UDF, universal/event/API adapters, unstructured/media, API, observability, deployment, extension, and security/governance dimensions; real SQL, operators, functions, adapters, semantic conformance, migration analyzers, Python/API, DataFrame/notebook, UDF, ETL, universal-adapter, unstructured/media, correctness, benchmark, and best-default certification evidence remain staged. |
+| RFC 0032 | Partially implemented | CG-20 | CG-20.1 world-class sufficiency reporting exists through `WorldClassSufficiencyReport` and `world-class-sufficiency-plan`; CG-20.2 user-surface capability discovery exposes report-only `capabilities` scopes for ETL, Python, DataFrame/notebook, UDF, universal/event/API adapters, unstructured/media, API, observability, deployment, extension, and security/governance dimensions; CG-20.3 adds Python live ETL smoke helpers for current CSV-to-Vortex and native Vortex local test surfaces; real SQL, operators, functions, adapters, semantic conformance, migration analyzers, mature Python/API, DataFrame/notebook, UDF, production ETL/adapters, universal-adapter, unstructured/media, correctness, benchmark, and best-default certification evidence remain staged. |
 
 ## Drift policy
 
@@ -191,7 +191,15 @@ Competitive gate coverage:
   - CG-11.2 thin Python wrapper foundation: complete
     - primary RFC: RFC 0030
     - secondary RFCs: RFC 0010, RFC 0012, RFC 0032
-    - constraints: subprocess CLI JSON contract only; no Python package, native bindings, DataFrame/notebook/Python UDF runtime, parser/runtime execution, probes, writes, package publication, or fallback
+    - constraints: source-tree subprocess CLI JSON client only; no native bindings, DataFrame/notebook/Python UDF runtime, parser/runtime execution, probes, writes, package publication, or fallback
+  - CG-11.3 source-tree Python CLI JSON client package: complete
+    - primary RFC: RFC 0030
+    - secondary RFCs: RFC 0010, RFC 0012, RFC 0024, RFC 0032
+    - constraints: zero-dependency source-tree Python package only; no package publication, native extension, PyO3/maturin, DataFrame/notebook/Python UDF runtime, parser/runtime execution during import, external engine execution, or fallback
+  - CG-11.4 Python live ETL client helpers and advisory optimization hooks: active
+    - primary RFC: RFC 0030
+    - secondary RFCs: RFC 0010, RFC 0012, RFC 0016, RFC 0024, RFC 0029, RFC 0031, RFC 0032
+    - constraints: explicit CLI JSON invocations only; no package publication, native extension, DataFrame/notebook/Python UDF runtime, SQL parser/execution, production adapter runtime, object-store IO, writes, external engine execution, or fallback
 - CG-12: plan portability / semantic IR
   - CG-12.4 native plan import/export serialization: complete
     - primary RFC: RFC 0030
@@ -1192,6 +1200,18 @@ No fallback execution.
 - Primary RFC linkage: RFC 0032.
 - Related RFCs: RFC 0010, RFC 0011, RFC 0012, RFC 0013, RFC 0018, RFC 0019, RFC 0023, RFC 0030, and RFC 0031.
 - This phase adds no SQL parser, SQL execution, Python package, DataFrame runtime, notebook runtime, UDF/plugin runtime, adapter runtime, media extraction, filesystem/network/catalog/adapter probing, data reads, decode/materialization, row reads, Arrow conversion, object-store IO, writes, external-engine execution, superiority claim, best-default publication, or fallback execution.
+
+## CG-11.4 / CG-20.3 Python live ETL client helpers
+
+- `python/src/shardloom/client.py` exposes explicit source-tree client methods for `traditional-analytics-run`, `traditional-analytics-vortex-run`, `live_etl_smoke`, `dynamic-work-shaping-plan`, `sizing-feedback-plan`, `benchmark-plan`, and `benchmark-claim-evidence-plan`.
+- `ShardLoomClient.from_repo()` provides opt-in local source-tree binary discovery for `target/release/shardloom` and `target/debug/shardloom` while preserving explicit binary and `SHARDLOOM_BIN` overrides.
+- Importing the package remains side-effect-free; local binary discovery and runtime commands happen only when a caller creates a client and invokes a method.
+- Successful planning/evidence envelopes remain inspectable even when they carry error-severity diagnostics for blockers; nonzero CLI results and `error`/`unsupported` statuses still raise through `ShardLoomCommandError` by default.
+- `python/examples/live_etl_smoke.py` documents the current CSV-to-Vortex and native Vortex live ETL smoke surfaces without representing them as mature SQL, DataFrame, adapter, UDF, or production ETL certification.
+- `PythonWrapperFoundationReport` expands the initial command scope to include native Vortex ETL smoke, dynamic sizing/work-shaping advisory reports, and benchmark evidence plan discovery.
+- Primary RFC linkage: RFC 0030 and RFC 0032.
+- Related RFCs: RFC 0010, RFC 0012, RFC 0016, RFC 0024, RFC 0029, and RFC 0031.
+- This phase adds no package publication, native binding, PyO3/maturin, DataFrame runtime, notebook runtime, Python UDF runtime, SQL parser/execution, production adapter runtime, object-store IO, writes, external-engine execution, superiority claim, best-default publication, or fallback behavior.
 
 ## R5.4.13 README roadmap source-of-truth cleanup
 

@@ -64,6 +64,11 @@ diagnostics, fields, and fallback status. It is not a native binding, DataFrame
 runtime, SQL engine, UDF runtime, package publication, or fallback execution
 path.
 
+It also exposes the current local live ETL smoke commands for explicit testing:
+CSV-to-Vortex through `traditional-analytics-run` and existing native Vortex
+inputs through `traditional-analytics-vortex-run`. See
+[`python/README.md`](python/README.md) for local usage.
+
 ## License
 
 ShardLoom is licensed under the Apache License 2.0.
