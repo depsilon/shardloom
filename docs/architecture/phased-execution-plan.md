@@ -697,6 +697,14 @@ Supporting docs:
     - Proof-ready reports carry the metadata-only count result without reading data.
     - Inconclusive metadata reports request encoded predicate evaluation without executing it.
     - No encoded predicate evaluation, scan/read-start invocation, encoded-data traversal, row read, decode/materialization, Arrow conversion, object-store IO, write, spill, external baseline invocation, or fallback execution is added.
+- [x] CG-2.2e count-where selection-vector filter evidence surfacing
+  - Why: make the existing encoded predicate and selection-vector filter evidence visible on `vortex-count-where` before filtered count execution is widened beyond metadata-proven answers.
+  - Acceptance:
+    - `shardloom vortex-count-where` emits encoded predicate evaluation fields, selection-vector filter-kernel fields, and encoded filter admission fields.
+    - Metadata-proven predicates can report selection-vector evidence and registry-ready filter admission without claiming production readiness.
+    - Inconclusive predicates keep reporting the encoded-value-kernel blocker.
+    - CG-2, CG-13, generalized filtered-count execution, benchmark claims, production claims, and superiority claims remain blocked.
+    - No encoded value reads, scan/read-start invocation, encoded-data traversal, row read, decode/materialization, Arrow conversion, object-store IO, write, spill, external baseline invocation, or fallback execution is added.
 - [x] CG-1.4/CG-2.1e.15 local fixture Vortex array scan/count proof
   - Why: move beyond metadata/footer count by proving a tightly scoped local Vortex data scan can produce `CountAll` from scanned array lengths.
   - Acceptance:
@@ -1081,6 +1089,7 @@ Status legend:
   - [~] CG-2.1+ generalized non-metadata primitive execution remains deferred pending broader encoded-data execution guarantees
   - [x] CG-2.2c filtered-count metadata proof local guard
   - [x] CG-2.2d filtered-count metadata proof report
+  - [x] CG-2.2e count-where selection-vector filter evidence surfacing
   - [x] CG-2.3b projection readiness CLI integration
   - Required capabilities for completion:
     - encoded-first selection vectors
@@ -1354,6 +1363,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.2b filtered-count readiness CLI integration
 - [x] CG-2.2c filtered-count metadata proof local guard
 - [x] CG-2.2d filtered-count metadata proof report
+- [x] CG-2.2e count-where selection-vector filter evidence surfacing
 - [x] CG-2.3a projection readiness semantic hardening
 - [x] CG-2.3b projection readiness CLI integration
 - [~] CG-2.1+ generalized non-metadata query primitive execution remains deferred pending broader encoded-data execution guarantees
@@ -1512,6 +1522,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-13.2 decode/materialization avoided proof/report requirements
 - [x] CG-13.3 generalized encoded primitive gate blocks runtime widening until count/filter/project evidence is complete
 - [x] CG-13.4 local encoded `CountAll` target policy evidence
+- [x] CG-13.5 count-where selection-vector filter evidence surfacing
 - [ ] generalized direct count/filter/project encoded execution
 - [ ] broad compressed-kernel correctness and benchmark certification
 
@@ -1645,6 +1656,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-4.3 local committed-manifest rollback cleanup execution deletes only `_shardloom_committed_manifest.json` behind `vortex-staged-output-fs` after rollback-planned recovery evidence; finalized manifests, commit markers, output payloads, object-store IO, upstream `Vortex` APIs, and fallback remain untouched.
 - [x] CG-2.2c filtered-count metadata proof local guard admits only metadata-proof `CountWhere` requests into metadata-only local execution and rejects encoded predicate candidates without fallback.
 - [x] CG-2.2d filtered-count metadata proof report classifies proof-ready, encoded-predicate-needed, missing-metadata, and unsupported filtered counts without IO or fallback.
+- [x] CG-2.2e/CG-13.5 `vortex-count-where` surfaces encoded predicate evaluation, selection-vector filter-kernel evidence, and encoded filter admission while leaving encoded-value reads, generalized filtered-count execution, benchmarks, production claims, CG-2 closeout, CG-13 closeout, and fallback blocked.
 - [x] CG-5.1 metadata query primitive correctness fixtures cover supported metadata answers and deferred unsupported paths without side effects.
 - [x] CG-5.2 metadata query primitive edge and diagnostic fixtures cover missing/unsupported metadata primitive paths without side effects.
 - [x] CG-5.3 correctness fixture manifest declares initial golden fixture/reference output and required edge-case fixture families without execution.

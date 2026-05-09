@@ -873,6 +873,14 @@ No fallback execution.
 - Inconclusive metadata reports request encoded predicate evaluation without executing it.
 - This pass adds no encoded predicate evaluation, scan/read-start invocation, encoded-data traversal, row read, decode/materialization, Arrow conversion, object-store IO, write behavior, spill IO, external baseline invocation, or fallback execution.
 
+## CG-2.2e / CG-13.5 count-where selection-vector filter evidence surfacing
+
+- Primary RFC linkage: RFC 0012 Diagnostics/Capabilities, RFC 0013 Streaming/Zero-Copy Boundary, RFC 0015 Correctness/testing, RFC 0021 Expression/kernel registry, RFC 0025 Competitive/no-fallback, RFC 0026 Vortex query-readiness boundaries, and RFC 0029 Correctness/benchmarks/certificates.
+- `shardloom vortex-count-where` now surfaces encoded predicate evaluation evidence, selection-vector filter-kernel evidence, and encoded filter admission fields in text/JSON output.
+- Metadata-proven predicates can report selection-vector evidence and registry-ready encoded filter admission while keeping benchmark evidence, production claims, CG-2 closeout, and CG-13 closeout disabled.
+- Inconclusive predicates still report the encoded-value-kernel blocker instead of attempting hidden reads or fallback execution.
+- This phase adds no encoded value reads, generalized filtered-count execution, projection execution, adapter runtime, non-local source read, object-store IO, row read, requested decode/materialization, Arrow conversion, write IO, spill IO, benchmark/superiority claim, CG-2 closeout, CG-13 closeout, external engine invocation, or fallback execution.
+
 ## CG-2.3a projection readiness semantic hardening
 
 - CG-2.2, CG-2.2a.1, and CG-2.2b are complete.

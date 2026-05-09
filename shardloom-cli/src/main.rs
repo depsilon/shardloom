@@ -81,6 +81,7 @@ use shardloom_vortex::{
     VortexCountCandidateSource, VortexCountReadinessRequest, VortexCountReadinessSignal,
     VortexDTypeMappingReport, VortexEncodedCountKernelAdmissionReport,
     VortexEncodedCountPhysicalKernelReport, VortexEncodedExecutionPathSelectionReport,
+    VortexEncodedPredicateEvaluationReport, VortexEncodedPredicateEvaluationStatus,
     VortexEncodedReadBoundaryReport, VortexEncodedReadBoundaryRequest,
     VortexEncodedReadBoundarySignal, VortexEncodedReadExecutionMode,
     VortexEncodedReadExecutionStatus, VortexEncodedReadExecutorFeatureStatus,
@@ -97,12 +98,14 @@ use shardloom_vortex::{
     VortexLocalExecutionStatus, VortexManifestFinalizationRequest,
     VortexManifestFinalizationSignal, VortexMemoryBridgeReport,
     VortexMetadataCountKernelAdmissionReport, VortexMetadataFilterKernelAdmissionReport,
-    VortexMetadataOpenRequest, VortexMetadataProbeReport, VortexNativeOutputPayloadWriteReport,
-    VortexOutputPayloadContentDescriptor, VortexOutputPayloadFileName, VortexOutputPayloadFileRef,
-    VortexOutputPayloadReport, VortexOutputPayloadRequest, VortexOutputPayloadSignal,
-    VortexProjectionCandidateSource, VortexProjectionReadinessSignal, VortexQueryPrimitiveRequest,
-    VortexQueryPrimitiveResult, VortexQueryPrimitiveSignal, VortexQueryPrimitiveValue,
-    VortexReadPlan, VortexSchedulerBridgeReport, VortexStagedManifestDraftContent,
+    VortexMetadataOpenRequest, VortexMetadataProbeReport, VortexMetadataSummaryReport,
+    VortexNativeOutputPayloadWriteReport, VortexOutputPayloadContentDescriptor,
+    VortexOutputPayloadFileName, VortexOutputPayloadFileRef, VortexOutputPayloadReport,
+    VortexOutputPayloadRequest, VortexOutputPayloadSignal, VortexProjectionCandidateSource,
+    VortexProjectionReadinessSignal, VortexQueryPrimitiveRequest, VortexQueryPrimitiveResult,
+    VortexQueryPrimitiveSignal, VortexQueryPrimitiveValue, VortexReadPlan,
+    VortexSchedulerBridgeReport, VortexSelectionVectorFilterKernelAdmissionReport,
+    VortexSelectionVectorFilterKernelReport, VortexStagedManifestDraftContent,
     VortexStagedManifestFileEffect, VortexStagedManifestFileRef, VortexStagedManifestFileReport,
     VortexStagedManifestFileRequest, VortexStagedManifestFileSignal,
     VortexStagedManifestFileWriteEffect, VortexStagedManifestFileWriteOption,
@@ -112,11 +115,13 @@ use shardloom_vortex::{
     VortexStatisticsMappingReport, VortexStreamingBatchRuntimeReport, VortexTaskSchedulingDecision,
     VortexWriteIntentReport, VortexWriteIntentRequest, VortexWriteIntentSignal, VortexWriteOptions,
     VortexWritePlan, admit_vortex_encoded_count_kernel, admit_vortex_metadata_count_kernel,
-    admit_vortex_metadata_filter_kernel, build_vortex_runtime_task_graph,
-    commit_marker_write_request_from_plan, evaluate_vortex_encoded_read_readiness,
+    admit_vortex_metadata_filter_kernel, admit_vortex_selection_vector_filter_kernel,
+    build_vortex_runtime_task_graph, commit_marker_write_request_from_plan,
+    evaluate_vortex_encoded_predicate_segments, evaluate_vortex_encoded_read_readiness,
     evaluate_vortex_execution_readiness, evaluate_vortex_local_encoded_count_physical_kernel,
     evaluate_vortex_metadata_physical_kernels, evaluate_vortex_query_primitive,
-    execute_vortex_bounded_local_query, execute_vortex_count_all_from_approved_local_scan,
+    evaluate_vortex_selection_vector_filter_kernel, execute_vortex_bounded_local_query,
+    execute_vortex_count_all_from_approved_local_scan,
     execute_vortex_count_all_from_approved_local_scan_result,
     execute_vortex_count_all_from_encoded_count_data_path_approval,
     execute_vortex_encoded_read_contract, execute_vortex_encoded_read_spike,
@@ -7001,6 +7006,281 @@ fn parse_tiny_predicate(value: &str) -> Result<PredicateExpr, ShardLoomError> {
             "invalid predicate format; expected is_null:<column>, is_not_null:<column>, or <op>:<column>:<integer>".to_string(),
         )),
     }
+}
+
+struct VortexCountWhereFilterEvidence {
+    predicate_evaluation: VortexEncodedPredicateEvaluationReport,
+    filter_kernel: VortexSelectionVectorFilterKernelReport,
+    filter_kernel_admission: VortexSelectionVectorFilterKernelAdmissionReport,
+}
+
+fn vortex_count_where_filter_evidence(
+    predicate: &PredicateExpr,
+    summary: &VortexMetadataSummaryReport,
+) -> shardloom_core::Result<VortexCountWhereFilterEvidence> {
+    let predicate_evaluation = evaluate_vortex_encoded_predicate_segments(predicate, summary);
+    let filter_kernel = evaluate_vortex_selection_vector_filter_kernel(&predicate_evaluation);
+    let filter_kernel_admission = admit_vortex_selection_vector_filter_kernel(&filter_kernel)?;
+    Ok(VortexCountWhereFilterEvidence {
+        predicate_evaluation,
+        filter_kernel,
+        filter_kernel_admission,
+    })
+}
+
+fn vortex_count_where_human_text(
+    result: &VortexQueryPrimitiveResult,
+    evidence: &VortexCountWhereFilterEvidence,
+) -> String {
+    [
+        result.to_human_text(),
+        evidence.predicate_evaluation.to_human_text(),
+        evidence.filter_kernel.to_human_text(),
+        evidence.filter_kernel_admission.to_human_text(),
+    ]
+    .join("\n\n")
+}
+
+fn vortex_count_where_fields(
+    result: &VortexQueryPrimitiveResult,
+    count: Option<u64>,
+    predicate_arg: String,
+    evidence: &VortexCountWhereFilterEvidence,
+) -> Vec<(String, String)> {
+    let mut fields = vec![
+        (
+            "fallback_execution_allowed".to_string(),
+            "false".to_string(),
+        ),
+        ("mode".to_string(), "vortex_count_where".to_string()),
+        ("primitive".to_string(), "count_where".to_string()),
+        ("data_read".to_string(), "false".to_string()),
+        ("data_decoded".to_string(), "false".to_string()),
+        ("data_materialized".to_string(), "false".to_string()),
+        ("object_store_io".to_string(), "false".to_string()),
+        ("write_io".to_string(), "false".to_string()),
+        ("spill_io_performed".to_string(), "false".to_string()),
+        (
+            "execution".to_string(),
+            "metadata_or_selection_vector_evidence_only".to_string(),
+        ),
+        (
+            "query_primitive_status".to_string(),
+            result.status.as_str().to_string(),
+        ),
+        ("result_known".to_string(), count.is_some().to_string()),
+        (
+            "count".to_string(),
+            count.map_or_else(|| "unknown".to_string(), |v| v.to_string()),
+        ),
+        ("predicate".to_string(), predicate_arg),
+    ];
+    append_vortex_count_where_filter_evidence_fields(&mut fields, evidence);
+    fields
+}
+
+fn append_vortex_count_where_filter_evidence_fields(
+    fields: &mut Vec<(String, String)>,
+    evidence: &VortexCountWhereFilterEvidence,
+) {
+    append_vortex_count_where_predicate_evidence_fields(fields, &evidence.predicate_evaluation);
+    append_vortex_count_where_filter_kernel_fields(fields, &evidence.filter_kernel);
+    append_vortex_count_where_filter_admission_fields(fields, &evidence.filter_kernel_admission);
+    push_bool_field(
+        fields,
+        "filtered_count_selection_vector_evidence_present",
+        evidence
+            .filter_kernel
+            .is_safe_native_filter_kernel_evidence(),
+    );
+    push_bool_field(
+        fields,
+        "filtered_count_generalized_execution_allowed",
+        false,
+    );
+    push_bool_field(fields, "filtered_count_production_claim_allowed", false);
+    push_bool_field(
+        fields,
+        "filtered_count_requires_encoded_value_kernel",
+        evidence.predicate_evaluation.status
+            == VortexEncodedPredicateEvaluationStatus::NeedsEncodedValues,
+    );
+    push_bool_field(fields, "filtered_count_requires_benchmark_evidence", true);
+    push_bool_field(fields, "filtered_count_cg2_closeout_allowed", false);
+    push_bool_field(fields, "filtered_count_cg13_closeout_allowed", false);
+}
+
+fn append_vortex_count_where_predicate_evidence_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &VortexEncodedPredicateEvaluationReport,
+) {
+    push_bool_field(fields, "encoded_predicate_evidence_emitted", true);
+    push_field(fields, "encoded_predicate_status", report.status.as_str());
+    push_count_field(
+        fields,
+        "encoded_predicate_segment_report_count",
+        report.segment_report_count,
+    );
+    push_count_field(
+        fields,
+        "encoded_predicate_selected_all_count",
+        report.selected_all_count,
+    );
+    push_count_field(
+        fields,
+        "encoded_predicate_selected_none_count",
+        report.selected_none_count,
+    );
+    push_count_field(
+        fields,
+        "encoded_predicate_needs_encoded_values_count",
+        report.needs_encoded_values_count,
+    );
+    push_count_field(
+        fields,
+        "encoded_predicate_selection_vectors_emitted",
+        report.selection_vectors_emitted,
+    );
+    push_field(
+        fields,
+        "encoded_predicate_selected_rows_metadata_count",
+        &report
+            .selected_rows_metadata_count
+            .map_or_else(|| "unknown".to_string(), |count| count.to_string()),
+    );
+    push_bool_field(fields, "encoded_predicate_data_read", report.data_read);
+    push_bool_field(
+        fields,
+        "encoded_predicate_data_decoded",
+        report.data_decoded,
+    );
+    push_bool_field(
+        fields,
+        "encoded_predicate_data_materialized",
+        report.data_materialized,
+    );
+    push_bool_field(fields, "encoded_predicate_row_read", report.row_read);
+    push_bool_field(
+        fields,
+        "encoded_predicate_arrow_converted",
+        report.arrow_converted,
+    );
+    push_bool_field(
+        fields,
+        "encoded_predicate_fallback_attempted",
+        report.fallback_attempted,
+    );
+    push_bool_field(
+        fields,
+        "encoded_predicate_fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+}
+
+fn append_vortex_count_where_filter_kernel_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &VortexSelectionVectorFilterKernelReport,
+) {
+    push_bool_field(fields, "selection_vector_filter_kernel_emitted", true);
+    push_field(
+        fields,
+        "selection_vector_filter_kernel_status",
+        report.status.as_str(),
+    );
+    push_count_field(
+        fields,
+        "selection_vector_filter_kernel_segment_count",
+        report.segment_count,
+    );
+    push_count_field(
+        fields,
+        "selection_vector_filter_kernel_selection_vector_count",
+        report.selection_vector_count,
+    );
+    push_field(
+        fields,
+        "selection_vector_filter_kernel_selected_row_count",
+        &report
+            .selected_row_count
+            .map_or_else(|| "unknown".to_string(), |count| count.to_string()),
+    );
+    push_bool_field(
+        fields,
+        "selection_vector_filter_kernel_safe_evidence",
+        report.is_safe_native_filter_kernel_evidence(),
+    );
+    push_bool_field(
+        fields,
+        "selection_vector_filter_kernel_production_claim_allowed",
+        report.production_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "selection_vector_filter_kernel_data_read",
+        report.data_read,
+    );
+    push_bool_field(
+        fields,
+        "selection_vector_filter_kernel_data_decoded",
+        report.data_decoded,
+    );
+    push_bool_field(
+        fields,
+        "selection_vector_filter_kernel_data_materialized",
+        report.data_materialized,
+    );
+    push_bool_field(
+        fields,
+        "selection_vector_filter_kernel_fallback_attempted",
+        report.fallback_attempted,
+    );
+    push_bool_field(
+        fields,
+        "selection_vector_filter_kernel_fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+}
+
+fn append_vortex_count_where_filter_admission_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &VortexSelectionVectorFilterKernelAdmissionReport,
+) {
+    push_bool_field(fields, "selection_vector_filter_admission_emitted", true);
+    push_field(
+        fields,
+        "selection_vector_filter_admission_status",
+        report.status.as_str(),
+    );
+    push_bool_field(
+        fields,
+        "selection_vector_filter_admission_slot_marked_present",
+        report.slot_marked_present,
+    );
+    push_field(
+        fields,
+        "selection_vector_filter_admission_correctness_evidence",
+        report.correctness_evidence.as_str(),
+    );
+    push_field(
+        fields,
+        "selection_vector_filter_admission_benchmark_evidence",
+        report.benchmark_evidence.as_str(),
+    );
+    push_bool_field(
+        fields,
+        "selection_vector_filter_admission_production_claim_allowed",
+        report.production_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "selection_vector_filter_admission_runtime_execution_allowed",
+        report.runtime_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "selection_vector_filter_admission_fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
 }
 
 fn parse_projection_columns(value: &str) -> Result<ProjectionRequest, ShardLoomError> {
@@ -19583,8 +19863,10 @@ fn run(args: Vec<String>) -> ExitCode {
                     );
                 }
             };
-            let request =
-                shardloom_vortex::VortexQueryPrimitiveRequest::count_where(uri.clone(), predicate);
+            let request = shardloom_vortex::VortexQueryPrimitiveRequest::count_where(
+                uri.clone(),
+                predicate.clone(),
+            );
             let open = open_vortex_metadata_only(VortexMetadataOpenRequest::metadata_only(uri));
             let summary = if let Ok(report) = open {
                 report.metadata_summary.unwrap_or_else(|| {
@@ -19606,6 +19888,17 @@ fn run(args: Vec<String>) -> ExitCode {
                     );
                 }
             };
+            let evidence = match vortex_count_where_filter_evidence(&predicate, &summary) {
+                Ok(evidence) => evidence,
+                Err(error) => {
+                    return emit_error(
+                        "vortex-count-where",
+                        format,
+                        "vortex count where filter evidence failed",
+                        &error,
+                    );
+                }
+            };
             let status = if result.has_errors() {
                 CommandStatus::Unsupported
             } else {
@@ -19620,32 +19913,9 @@ fn run(args: Vec<String>) -> ExitCode {
                 format,
                 status,
                 "vortex count where primitive".to_string(),
-                result.to_human_text(),
+                vortex_count_where_human_text(&result, &evidence),
                 result.diagnostics.clone(),
-                vec![
-                    (
-                        "fallback_execution_allowed".to_string(),
-                        "false".to_string(),
-                    ),
-                    ("mode".to_string(), "vortex_count_where".to_string()),
-                    ("primitive".to_string(), "count_where".to_string()),
-                    ("data_read".to_string(), "false".to_string()),
-                    ("data_decoded".to_string(), "false".to_string()),
-                    ("data_materialized".to_string(), "false".to_string()),
-                    ("object_store_io".to_string(), "false".to_string()),
-                    ("write_io".to_string(), "false".to_string()),
-                    ("spill_io_performed".to_string(), "false".to_string()),
-                    (
-                        "execution".to_string(),
-                        "metadata_only_or_not_performed".to_string(),
-                    ),
-                    ("result_known".to_string(), count.is_some().to_string()),
-                    (
-                        "count".to_string(),
-                        count.map_or_else(|| "unknown".to_string(), |v| v.to_string()),
-                    ),
-                    ("predicate".to_string(), predicate_arg),
-                ],
+                vortex_count_where_fields(&result, count, predicate_arg, &evidence),
             );
             if result.has_errors() {
                 ExitCode::from(1)
@@ -23571,6 +23841,140 @@ mod tests {
             || panic!("missing output field {key}"),
             |(_, value)| value.as_str(),
         )
+    }
+
+    fn vortex_count_where_filter_summary(stats: SegmentStats) -> VortexMetadataSummaryReport {
+        let mut segment =
+            shardloom_vortex::VortexSegmentMetadataSummary::unknown().with_row_count(5);
+        segment.add_column(
+            shardloom_vortex::VortexColumnMetadataSummary::new(
+                ColumnRef::new("x").expect("column"),
+            )
+            .with_dtype(LogicalDType::Int64)
+            .with_encoding(EncodingKind::VortexNative("test".to_string()))
+            .with_layout(LayoutKind::Flat)
+            .with_stats(stats)
+            .with_statistics_available(true),
+        );
+        let mut summary = shardloom_vortex::VortexFileMetadataSummary::empty();
+        summary.add_segment(segment);
+        VortexMetadataSummaryReport {
+            status: shardloom_vortex::VortexMetadataSummaryStatus::Summarized,
+            summary,
+            diagnostics: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn vortex_count_where_filter_evidence_reports_selection_vector_admission() {
+        let uri = DatasetUri::new("file:///tmp/filter-evidence.vortex").expect("uri");
+        let mut stats = SegmentStats::with_row_count(5);
+        stats.null_count = Some(0);
+        let summary = vortex_count_where_filter_summary(stats);
+        let predicate = PredicateExpr::IsNotNull {
+            column: ColumnRef::new("x").expect("column"),
+        };
+        let request = VortexQueryPrimitiveRequest::count_where(uri, predicate.clone());
+        let result = evaluate_vortex_query_primitive(request, &summary).expect("result");
+        let evidence = vortex_count_where_filter_evidence(&predicate, &summary).expect("evidence");
+        let count = match &result.value {
+            VortexQueryPrimitiveValue::Count(value) => Some(*value),
+            _ => None,
+        };
+
+        assert_eq!(
+            evidence.predicate_evaluation.status,
+            VortexEncodedPredicateEvaluationStatus::EvaluatedSelections
+        );
+        assert!(
+            evidence
+                .filter_kernel
+                .is_safe_native_filter_kernel_evidence()
+        );
+        assert!(evidence.filter_kernel_admission.slot_marked_present);
+
+        let fields =
+            vortex_count_where_fields(&result, count, "is_not_null:x".to_string(), &evidence);
+
+        assert_eq!(
+            output_field(&fields, "encoded_predicate_status"),
+            "evaluated_selections"
+        );
+        assert_eq!(
+            output_field(&fields, "selection_vector_filter_kernel_status"),
+            "evaluated_selection_vectors"
+        );
+        assert_eq!(
+            output_field(&fields, "selection_vector_filter_admission_status"),
+            "registry_ready"
+        );
+        assert_eq!(
+            output_field(&fields, "filtered_count_selection_vector_evidence_present"),
+            "true"
+        );
+        assert_eq!(
+            output_field(&fields, "filtered_count_generalized_execution_allowed"),
+            "false"
+        );
+        assert_eq!(
+            output_field(&fields, "filtered_count_cg13_closeout_allowed"),
+            "false"
+        );
+    }
+
+    #[test]
+    fn vortex_count_where_filter_evidence_reports_encoded_value_blocker() {
+        let uri = DatasetUri::new("file:///tmp/filter-evidence.vortex").expect("uri");
+        let mut stats = SegmentStats::with_row_count(5);
+        stats.min_value = Some(StatValue::Int64(1));
+        stats.max_value = Some(StatValue::Int64(9));
+        let summary = vortex_count_where_filter_summary(stats);
+        let predicate = PredicateExpr::Compare {
+            column: ColumnRef::new("x").expect("column"),
+            op: ComparisonOp::Eq,
+            value: StatValue::Int64(4),
+        };
+        let request = VortexQueryPrimitiveRequest::count_where(uri, predicate.clone());
+        let result = evaluate_vortex_query_primitive(request, &summary).expect("result");
+        let evidence = vortex_count_where_filter_evidence(&predicate, &summary).expect("evidence");
+        let count = match &result.value {
+            VortexQueryPrimitiveValue::Count(value) => Some(*value),
+            _ => None,
+        };
+
+        assert_eq!(
+            evidence.predicate_evaluation.status,
+            VortexEncodedPredicateEvaluationStatus::NeedsEncodedValues
+        );
+        assert!(
+            !evidence
+                .filter_kernel
+                .is_safe_native_filter_kernel_evidence()
+        );
+        assert!(!evidence.filter_kernel_admission.slot_marked_present);
+
+        let fields = vortex_count_where_fields(&result, count, "eq:x:4".to_string(), &evidence);
+
+        assert_eq!(
+            output_field(&fields, "encoded_predicate_status"),
+            "needs_encoded_values"
+        );
+        assert_eq!(
+            output_field(&fields, "selection_vector_filter_kernel_status"),
+            "needs_encoded_values"
+        );
+        assert_eq!(
+            output_field(&fields, "selection_vector_filter_kernel_safe_evidence"),
+            "false"
+        );
+        assert_eq!(
+            output_field(&fields, "filtered_count_requires_encoded_value_kernel"),
+            "true"
+        );
+        assert_eq!(
+            output_field(&fields, "filtered_count_cg2_closeout_allowed"),
+            "false"
+        );
     }
 
     #[test]
