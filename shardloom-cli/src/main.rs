@@ -140,14 +140,14 @@ use shardloom_vortex::{
     execute_vortex_local_query_primitive, execute_vortex_metadata_only,
     execute_vortex_streaming_batches_from_local_encoded_count,
     finalized_manifest_artifact_write_request_from_plan, local_encoded_count_execution_certificate,
-    local_encoded_count_native_io_certificate, local_primitive_native_io_certificate,
-    metadata_planning_is_side_effect_free, metadata_pruning_is_side_effect_free,
-    metadata_summary_is_plan_only, native_output_payload_write_request_from_plan,
-    open_vortex_metadata_only, output_payload_artifact_write_request_from_plan,
-    parse_vortex_local_engine_primitive, plan_from_vortex_metadata_summary,
-    plan_native_vortex_universal_input, plan_vortex_commit_intent, plan_vortex_commit_marker,
-    plan_vortex_commit_protocol, plan_vortex_count_readiness,
-    plan_vortex_encoded_count_data_path_approval,
+    local_encoded_count_native_io_certificate, local_primitive_execution_certificate,
+    local_primitive_native_io_certificate, metadata_planning_is_side_effect_free,
+    metadata_pruning_is_side_effect_free, metadata_summary_is_plan_only,
+    native_output_payload_write_request_from_plan, open_vortex_metadata_only,
+    output_payload_artifact_write_request_from_plan, parse_vortex_local_engine_primitive,
+    plan_from_vortex_metadata_summary, plan_native_vortex_universal_input,
+    plan_vortex_commit_intent, plan_vortex_commit_marker, plan_vortex_commit_protocol,
+    plan_vortex_count_readiness, plan_vortex_encoded_count_data_path_approval,
     plan_vortex_encoded_count_data_path_approval_with_layout_driver,
     plan_vortex_encoded_execution_path_selection, plan_vortex_encoded_read_boundary,
     plan_vortex_encoded_read_probe, plan_vortex_filtered_count_readiness,
@@ -5470,6 +5470,27 @@ fn append_vortex_work_avoided_metric_fields(
     );
 }
 
+fn reconcile_vortex_local_engine_why_with_execution_certificate(
+    report: &mut VortexLocalEngineWhyReport,
+    certificate: Option<&ExecutionCertificate>,
+) {
+    if !certificate.is_some_and(ExecutionCertificate::is_certified) {
+        return;
+    }
+    report
+        .next_actions
+        .retain(|action| action != "attach CG-16 execution certificate evidence");
+    if !report
+        .supporting_evidence
+        .iter()
+        .any(|evidence| evidence == "cg16_execution_certificate=certified")
+    {
+        report
+            .supporting_evidence
+            .push("cg16_execution_certificate=certified".to_string());
+    }
+}
+
 fn append_vortex_local_engine_why_fields(
     fields: &mut Vec<(String, String)>,
     report: &VortexLocalEngineWhyReport,
@@ -10518,6 +10539,27 @@ fn local_encoded_count_correctness_fixture_for_target(
         })
 }
 
+fn local_primitive_correctness_fixture_for_request(
+    request: &VortexQueryPrimitiveRequest,
+    report: &shardloom_vortex::VortexLocalPrimitiveExecutionReport,
+) -> Option<CorrectnessFixture> {
+    if request.kind != report.primitive_kind || report.has_errors() {
+        return None;
+    }
+    match request.kind {
+        shardloom_vortex::VortexQueryPrimitiveKind::CountAll => request
+            .source_uri
+            .as_ref()
+            .and_then(local_encoded_count_correctness_fixture_for_target),
+        shardloom_vortex::VortexQueryPrimitiveKind::CountWhere
+        | shardloom_vortex::VortexQueryPrimitiveKind::FilterPredicate
+        | shardloom_vortex::VortexQueryPrimitiveKind::ProjectColumns
+        | shardloom_vortex::VortexQueryPrimitiveKind::FilterAndProject
+        | shardloom_vortex::VortexQueryPrimitiveKind::SimpleAggregate
+        | shardloom_vortex::VortexQueryPrimitiveKind::Unsupported => None,
+    }
+}
+
 fn local_fixture_ref_matches(target_uri: &DatasetUri, source_ref: &str) -> bool {
     let Some(target_ref) = canonical_local_fixture_ref(target_uri.as_str()) else {
         return false;
@@ -11349,6 +11391,148 @@ fn append_vortex_local_primitive_native_io_side_effect_fields(
         fields,
         "local_primitive_native_io_fallback_execution_allowed",
         side_effects.fallback_execution_allowed,
+    );
+}
+
+fn append_vortex_local_primitive_execution_certificate_fields(
+    fields: &mut Vec<(String, String)>,
+    certificate: Option<&ExecutionCertificate>,
+) {
+    let Some(certificate) = certificate else {
+        push_bool_field(
+            fields,
+            "local_primitive_execution_certificate_emitted",
+            false,
+        );
+        push_field(
+            fields,
+            "local_primitive_execution_certificate_status",
+            "not_available",
+        );
+        push_bool_field(
+            fields,
+            "local_primitive_execution_certificate_correctness_passed",
+            false,
+        );
+        push_bool_field(
+            fields,
+            "local_primitive_execution_certificate_fallback_attempted",
+            false,
+        );
+        return;
+    };
+
+    append_vortex_local_primitive_execution_certificate_identity_fields(fields, certificate);
+    append_vortex_local_primitive_execution_certificate_effect_fields(fields, certificate);
+}
+
+fn append_vortex_local_primitive_execution_certificate_identity_fields(
+    fields: &mut Vec<(String, String)>,
+    certificate: &ExecutionCertificate,
+) {
+    push_bool_field(
+        fields,
+        "local_primitive_execution_certificate_emitted",
+        true,
+    );
+    push_field(
+        fields,
+        "local_primitive_execution_certificate_schema_version",
+        certificate.schema_version,
+    );
+    push_field(
+        fields,
+        "local_primitive_execution_certificate_id",
+        &certificate.certificate_id,
+    );
+    push_field(
+        fields,
+        "local_primitive_execution_certificate_execution_kind",
+        &certificate.execution_kind,
+    );
+    push_field(
+        fields,
+        "local_primitive_execution_certificate_status",
+        certificate.status.as_str(),
+    );
+    push_field(
+        fields,
+        "local_primitive_execution_certificate_fixture_id",
+        certificate
+            .correctness_fixture_id
+            .as_deref()
+            .unwrap_or("none"),
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_execution_certificate_correctness_passed",
+        certificate.correctness_passed,
+    );
+}
+
+fn append_vortex_local_primitive_execution_certificate_effect_fields(
+    fields: &mut Vec<(String, String)>,
+    certificate: &ExecutionCertificate,
+) {
+    push_bool_field(
+        fields,
+        "local_primitive_execution_certificate_data_read",
+        certificate.data_read,
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_execution_certificate_data_decoded",
+        certificate.data_decoded,
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_execution_certificate_data_materialized",
+        certificate.data_materialized,
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_execution_certificate_row_read",
+        certificate.row_read,
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_execution_certificate_arrow_converted",
+        certificate.arrow_converted,
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_execution_certificate_object_store_io",
+        certificate.object_store_io,
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_execution_certificate_write_io",
+        certificate.write_io,
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_execution_certificate_spill_io_performed",
+        certificate.spill_io_performed,
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_execution_certificate_external_effects_executed",
+        certificate.external_effects_executed,
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_execution_certificate_unsafe_effect_detected",
+        certificate.unsafe_effect_detected,
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_execution_certificate_fallback_attempted",
+        certificate.fallback_attempted,
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_execution_certificate_fallback_execution_allowed",
+        certificate.fallback_execution_allowed,
     );
 }
 
@@ -23703,7 +23887,7 @@ fn run(args: Vec<String>) -> ExitCode {
                 Err(error) => return emit_error("vortex-run", format, "vortex run failed", &error),
             };
             let runtime_work_avoided = report.runtime_work_avoided_report();
-            let why_report = report.why_report();
+            let mut why_report = report.why_report();
             let local_primitive_native_io_certificate = match (
                 report.query_request.as_ref(),
                 report.local_primitive_execution_report.as_ref(),
@@ -23723,6 +23907,41 @@ fn run(args: Vec<String>) -> ExitCode {
                 }
                 _ => None,
             };
+            let local_primitive_execution_certificate = match (
+                report.query_request.as_ref(),
+                report.local_primitive_execution_report.as_ref(),
+            ) {
+                (Some(query_request), Some(local_report)) => {
+                    match local_primitive_correctness_fixture_for_request(
+                        query_request,
+                        local_report,
+                    ) {
+                        Some(fixture) => {
+                            match local_primitive_execution_certificate(
+                                &fixture,
+                                query_request,
+                                local_report,
+                            ) {
+                                Ok(certificate) => Some(certificate),
+                                Err(error) => {
+                                    return emit_error(
+                                        "vortex-run",
+                                        format,
+                                        "vortex local primitive execution certificate failed",
+                                        &error,
+                                    );
+                                }
+                            }
+                        }
+                        None => None,
+                    }
+                }
+                _ => None,
+            };
+            reconcile_vortex_local_engine_why_with_execution_certificate(
+                &mut why_report,
+                local_primitive_execution_certificate.as_ref(),
+            );
             let row_read = report
                 .local_primitive_execution_report
                 .as_ref()
@@ -23959,7 +24178,16 @@ fn run(args: Vec<String>) -> ExitCode {
                 &mut fields,
                 local_primitive_native_io_certificate.as_ref(),
             );
+            append_vortex_local_primitive_execution_certificate_fields(
+                &mut fields,
+                local_primitive_execution_certificate.as_ref(),
+            );
             append_vortex_local_engine_why_fields(&mut fields, &why_report);
+            let execution_certificate_text = local_primitive_execution_certificate
+                .as_ref()
+                .map_or_else(String::new, |certificate| {
+                    format!("\n\n{}", certificate.to_human_text())
+                });
             emit(
                 "vortex-run",
                 format,
@@ -23969,7 +24197,12 @@ fn run(args: Vec<String>) -> ExitCode {
                     CommandStatus::Success
                 },
                 "vortex local engine surface".to_string(),
-                format!("{}\n{}", report.to_human_text(), why_report.to_human_text()),
+                format!(
+                    "{}\n{}{}",
+                    report.to_human_text(),
+                    why_report.to_human_text(),
+                    execution_certificate_text
+                ),
                 report.diagnostics.clone(),
                 fields,
             );
@@ -24438,9 +24671,10 @@ fn run(args: Vec<String>) -> ExitCode {
 mod tests {
     use super::*;
     use shardloom_core::{
-        DiagnosticCategory, DiagnosticCode, NativeIoAdapterFidelityReport,
-        NativeIoRepresentationTransition, NativeIoSideEffectReport, NativeIoSinkRequirementReport,
-        NativeIoSourceCapabilityReport, NativeIoSourcePushdownReport, RepresentationState,
+        DiagnosticCategory, DiagnosticCode, ExecutionCertificateInput,
+        NativeIoAdapterFidelityReport, NativeIoRepresentationTransition, NativeIoSideEffectReport,
+        NativeIoSinkRequirementReport, NativeIoSourceCapabilityReport,
+        NativeIoSourcePushdownReport, RepresentationState,
     };
     fn run_test_with_larger_stack(test_name: &str, test_fn: impl FnOnce() + Send + 'static) {
         let handle = std::thread::Builder::new()
@@ -24630,6 +24864,25 @@ mod tests {
         }
     }
 
+    fn sample_local_primitive_execution_certificate() -> ExecutionCertificate {
+        let mut input = ExecutionCertificateInput::new(
+            "vortex-local-encoded-count-u64-20000.count_all.execution-certificate",
+            "vortex.local_primitive.count_all",
+        )
+        .expect("input");
+        input.plan_ref = Some("vortex-run:count_all".to_string());
+        input.input_ref =
+            Some("shardloom-vortex/tests/fixtures/metadata_footer_u64_20000.vortex".to_string());
+        input.output_ref = Some("count_result=20000".to_string());
+        input.correctness_fixture_id = Some("vortex-local-encoded-count-u64-20000".to_string());
+        input.expected_outcome = Some(ExpectedOutcome::EncodedCount { count: 20000 });
+        input.actual_outcome = Some(ExpectedOutcome::EncodedCount { count: 20000 });
+        input.side_effects_performed = vec!["local_vortex_scan".to_string()];
+        input.data_read = true;
+        input.correctness_passed = true;
+        ExecutionCertificate::evaluate(input)
+    }
+
     #[test]
     fn vortex_local_primitive_native_io_fields_include_certificate_evidence() {
         let certificate = sample_local_primitive_native_io_certificate();
@@ -24664,6 +24917,47 @@ mod tests {
         );
         assert_eq!(
             output_field(&fields, "local_primitive_native_io_fallback_attempted"),
+            "false"
+        );
+    }
+
+    #[test]
+    fn vortex_local_primitive_execution_certificate_fields_include_correctness_evidence() {
+        let certificate = sample_local_primitive_execution_certificate();
+        let mut fields = Vec::new();
+        append_vortex_local_primitive_execution_certificate_fields(&mut fields, Some(&certificate));
+
+        assert_eq!(
+            output_field(&fields, "local_primitive_execution_certificate_emitted"),
+            "true"
+        );
+        assert_eq!(
+            output_field(&fields, "local_primitive_execution_certificate_status"),
+            "certified"
+        );
+        assert_eq!(
+            output_field(&fields, "local_primitive_execution_certificate_fixture_id"),
+            "vortex-local-encoded-count-u64-20000"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "local_primitive_execution_certificate_correctness_passed"
+            ),
+            "true"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "local_primitive_execution_certificate_data_decoded"
+            ),
+            "false"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "local_primitive_execution_certificate_fallback_attempted"
+            ),
             "false"
         );
     }
