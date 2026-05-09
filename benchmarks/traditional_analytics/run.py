@@ -1544,6 +1544,15 @@ def run_shardloom_native_microbenchmarks(iterations: int) -> list[dict[str, Any]
             binary,
             fixture,
             iterations,
+            "local primitive count",
+            "count",
+        ),
+        run_shardloom_vortex_run_microbenchmark(
+            root,
+            env,
+            binary,
+            fixture,
+            iterations,
             "local primitive projection",
             "project:value",
         ),
@@ -1712,6 +1721,25 @@ def run_shardloom_vortex_run_microbenchmark(
         "materialization_boundary_reported": fields.get(
             "local_primitive_materialization_boundary_reported"
         ),
+        "work_avoided_metrics": fields.get("work_avoided_metrics"),
+        "work_avoided_known_metrics": fields.get("work_avoided_known_metrics"),
+        "work_avoided_unknown_metrics": fields.get("work_avoided_unknown_metrics"),
+        "work_avoided_decode_avoided": fields.get("work_avoided_decode_avoided"),
+        "work_avoided_materialization_avoided": fields.get(
+            "work_avoided_materialization_avoided"
+        ),
+        "work_avoided_rows_not_scanned": fields.get("work_avoided_rows_not_scanned"),
+        "work_avoided_rows_not_scanned_known": fields.get(
+            "work_avoided_rows_not_scanned_known"
+        ),
+        "work_avoided_segments_pruned": fields.get("work_avoided_segments_pruned"),
+        "work_avoided_segments_pruned_known": fields.get(
+            "work_avoided_segments_pruned_known"
+        ),
+        "work_avoided_bytes_not_read": fields.get("work_avoided_bytes_not_read"),
+        "work_avoided_bytes_not_read_known": fields.get("work_avoided_bytes_not_read_known"),
+        "work_avoided_spill_avoided": fields.get("work_avoided_spill_avoided"),
+        "work_avoided_fallback_blocked": fields.get("work_avoided_fallback_blocked"),
         "fallback_attempted": str(
             (payload or {}).get("fallback", {}).get("attempted", False)
         ).lower(),
@@ -2176,6 +2204,58 @@ def render_shardloom_native_table(artifact: dict[str, Any]) -> str:
     )
 
 
+def render_shardloom_work_avoidance_table(artifact: dict[str, Any]) -> str:
+    rows = []
+    for result in artifact.get("shardloom_native_microbenchmarks", []):
+        rows.append(
+            [
+                result.get("name", "n/a"),
+                str(result.get("status", "n/a")),
+                str(result.get("primitive", "n/a")),
+                str(result.get("work_avoided_metrics", "n/a")),
+                str(result.get("work_avoided_decode_avoided", "n/a")),
+                str(result.get("work_avoided_materialization_avoided", "n/a")),
+                str(result.get("work_avoided_rows_not_scanned", "n/a")),
+                str(result.get("work_avoided_segments_pruned", "n/a")),
+                str(result.get("work_avoided_bytes_not_read", "n/a")),
+                str(result.get("work_avoided_spill_avoided", "n/a")),
+                str(result.get("work_avoided_fallback_blocked", "n/a")),
+            ]
+        )
+    if not rows:
+        rows.append(
+            [
+                "not run",
+                "skipped",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
+            ]
+        )
+    return markdown_table(
+        [
+            "Microbenchmark",
+            "Status",
+            "Primitive",
+            "Metrics",
+            "Decode",
+            "Materialize",
+            "Rows skipped",
+            "Segments pruned",
+            "Bytes avoided",
+            "Spill",
+            "Fallback",
+        ],
+        rows,
+    )
+
+
 def render_universal_io_table(artifact: dict[str, Any]) -> str:
     rows = []
     for lane in artifact.get("universal_io_lanes", []):
@@ -2325,6 +2405,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "These rows are not directly comparable to CSV engine rows. They show the current native encoded/Vortex path that ShardLoom can execute today.",
         "",
         render_shardloom_native_table(artifact),
+        "",
+        "## ShardLoom Work-Avoidance Evidence",
+        "",
+        "These fields come from `vortex-run` runtime effects. Unknown segment-prune and bytes-not-read values stay explicit until the runtime can measure them safely.",
+        "",
+        render_shardloom_work_avoidance_table(artifact),
         "",
         "## Universal I/O And CSV-To-Vortex Lanes",
         "",

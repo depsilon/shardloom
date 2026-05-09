@@ -327,6 +327,22 @@ impl VortexWorkAvoidedReport {
     pub fn metric_count(&self) -> usize {
         self.metrics.len()
     }
+    pub fn metric(&self, kind: VortexWorkAvoidedMetricKind) -> Option<&VortexWorkAvoidedMetric> {
+        self.metrics.iter().find(|metric| metric.kind == kind)
+    }
+    pub fn metric_value_summary(&self, kind: VortexWorkAvoidedMetricKind) -> String {
+        self.metric(kind)
+            .map_or_else(|| "none".to_string(), |metric| metric.value.summary())
+    }
+    pub fn metric_known_summary(&self, kind: VortexWorkAvoidedMetricKind) -> String {
+        self.metric(kind)
+            .is_some_and(VortexWorkAvoidedMetric::is_known)
+            .to_string()
+    }
+    pub fn metric_reason_summary(&self, kind: VortexWorkAvoidedMetricKind) -> String {
+        self.metric(kind)
+            .map_or_else(|| "none".to_string(), |metric| metric.reason.clone())
+    }
     pub fn known_metric_count(&self) -> usize {
         self.metrics.iter().filter(|m| m.is_known()).count()
     }
@@ -626,6 +642,36 @@ mod tests {
             "x",
         ));
         assert_eq!(r.known_metric_count(), 1);
+    }
+    #[test]
+    fn metric_lookup_summaries_are_stable_for_known_unknown_and_missing() {
+        let mut r = VortexWorkAvoidedReport::empty();
+        r.add_metric(VortexWorkAvoidedMetric::known_bool(
+            VortexWorkAvoidedMetricKind::DecodeAvoided,
+            true,
+            "decode skipped",
+        ));
+        r.add_metric(VortexWorkAvoidedMetric::unknown(
+            VortexWorkAvoidedMetricKind::BytesNotRead,
+            "not safely estimated",
+        ));
+
+        assert_eq!(
+            r.metric_value_summary(VortexWorkAvoidedMetricKind::DecodeAvoided),
+            "true"
+        );
+        assert_eq!(
+            r.metric_known_summary(VortexWorkAvoidedMetricKind::BytesNotRead),
+            "false"
+        );
+        assert_eq!(
+            r.metric_reason_summary(VortexWorkAvoidedMetricKind::BytesNotRead),
+            "not safely estimated"
+        );
+        assert_eq!(
+            r.metric_value_summary(VortexWorkAvoidedMetricKind::RowsNotScanned),
+            "none"
+        );
     }
     #[test]
     fn human_text_mentions_fallback_disabled() {

@@ -14,7 +14,8 @@ use crate::{
     VortexLocalPrimitiveExecutionStatus, VortexMetadataOpenReport, VortexMetadataOpenRequest,
     VortexMetadataOpenStatus, VortexMetadataProbeReport, VortexQueryPrimitiveAnalysisReport,
     VortexQueryPrimitiveRequest, VortexQueryPrimitiveResult, VortexQueryPrimitiveStatus,
-    execute_vortex_bounded_local_query, execute_vortex_local_primitive,
+    VortexQueryPrimitiveValue, VortexWorkAvoidedMetric, VortexWorkAvoidedMetricKind,
+    VortexWorkAvoidedReport, execute_vortex_bounded_local_query, execute_vortex_local_primitive,
     execute_vortex_local_query_primitive, open_vortex_metadata_only,
     summarize_vortex_metadata_probe,
 };
@@ -302,13 +303,15 @@ impl VortexLocalEngineReport {
         let decision_trace_entries = analysis_report
             .as_ref()
             .map_or(0, |r| r.decision_trace.entry_count());
-        let work_avoided_metrics = analysis_report
-            .as_ref()
-            .map_or(0, |r| r.work_avoided.metric_count());
         let effects = VortexLocalEngineEffectSummary::from_reports(
             local_execution_report.as_ref(),
             bounded_execution_report.as_ref(),
             local_primitive_execution_report.as_ref(),
+        );
+        let work_avoided_metrics = runtime_work_avoided_metric_count(
+            &query_result,
+            local_primitive_execution_report.as_ref(),
+            &effects,
         );
         Ok(Self {
             status,
@@ -478,6 +481,120 @@ impl VortexLocalEngineReport {
         let _ = writeln!(out, "fallback execution disabled");
         out
     }
+
+    pub fn runtime_work_avoided_report(&self) -> VortexWorkAvoidedReport {
+        runtime_work_avoided_report(
+            self.query_result.as_ref(),
+            self.local_primitive_execution_report.as_ref(),
+            &VortexLocalEngineEffectSummary {
+                tasks_executed: self.tasks_executed,
+                data_read: self.data_read,
+                data_decoded: self.data_decoded,
+                data_materialized: self.data_materialized,
+                object_store_io: self.object_store_io,
+                write_io: self.write_io,
+                spill_io_performed: self.spill_io_performed,
+                external_effects_executed: self.external_effects_executed,
+                fallback_execution_allowed: self.fallback_execution_allowed,
+            },
+        )
+    }
+}
+
+fn runtime_work_avoided_report(
+    query_result: Option<&VortexQueryPrimitiveResult>,
+    local_primitive: Option<&VortexLocalPrimitiveExecutionReport>,
+    effects: &VortexLocalEngineEffectSummary,
+) -> VortexWorkAvoidedReport {
+    let mut work = VortexWorkAvoidedReport::empty();
+    work.data_read = effects.data_read;
+    work.data_decoded = effects.data_decoded;
+    work.data_materialized = effects.data_materialized;
+    work.object_store_io = effects.object_store_io;
+    work.write_io = effects.write_io;
+    work.spill_io_performed = effects.spill_io_performed;
+    work.fallback_execution_allowed = effects.fallback_execution_allowed;
+    work.add_metric(VortexWorkAvoidedMetric::known_bool(
+        VortexWorkAvoidedMetricKind::DecodeAvoided,
+        !effects.data_decoded,
+        "final local-engine effects indicate whether decode was avoided",
+    ));
+    work.add_metric(VortexWorkAvoidedMetric::known_bool(
+        VortexWorkAvoidedMetricKind::MaterializationAvoided,
+        !effects.data_materialized,
+        "final local-engine effects indicate whether materialization was avoided",
+    ));
+    work.add_metric(VortexWorkAvoidedMetric::known_bool(
+        VortexWorkAvoidedMetricKind::ObjectStoreRequestsAvoided,
+        !effects.object_store_io,
+        "final local-engine effects indicate whether object-store requests were avoided",
+    ));
+    work.add_metric(VortexWorkAvoidedMetric::known_bool(
+        VortexWorkAvoidedMetricKind::SpillAvoided,
+        !effects.spill_io_performed,
+        "final local-engine effects indicate whether spill IO was avoided",
+    ));
+    work.add_metric(VortexWorkAvoidedMetric::known_bool(
+        VortexWorkAvoidedMetricKind::FallbackBlocked,
+        !effects.fallback_execution_allowed,
+        "fallback remains disabled by policy",
+    ));
+    append_runtime_rows_not_scanned_metric(&mut work, query_result, local_primitive);
+    work.add_metric(VortexWorkAvoidedMetric::unknown(
+        VortexWorkAvoidedMetricKind::SegmentsPruned,
+        "runtime segment prune count is not yet available from the local primitive path",
+    ));
+    work.add_metric(VortexWorkAvoidedMetric::unknown(
+        VortexWorkAvoidedMetricKind::BytesNotRead,
+        "runtime bytes-not-read is unknown until safe source byte accounting lands",
+    ));
+    work
+}
+
+fn runtime_work_avoided_metric_count(
+    query_result: &VortexQueryPrimitiveResult,
+    local_primitive: Option<&VortexLocalPrimitiveExecutionReport>,
+    effects: &VortexLocalEngineEffectSummary,
+) -> usize {
+    runtime_work_avoided_report(Some(query_result), local_primitive, effects).metric_count()
+}
+
+fn append_runtime_rows_not_scanned_metric(
+    work: &mut VortexWorkAvoidedReport,
+    query_result: Option<&VortexQueryPrimitiveResult>,
+    local_primitive: Option<&VortexLocalPrimitiveExecutionReport>,
+) {
+    if let Some(local) = local_primitive {
+        if matches!(local.status, VortexLocalPrimitiveExecutionStatus::Executed) {
+            work.add_metric(VortexWorkAvoidedMetric::known_u64(
+                VortexWorkAvoidedMetricKind::RowsNotScanned,
+                0,
+                format!(
+                    "local primitive scanned {} rows; row-skip accounting is not yet implemented for this runtime path",
+                    local.rows_scanned
+                ),
+            ));
+            return;
+        }
+    }
+    if let Some(query_result) = query_result {
+        if matches!(
+            query_result.status,
+            VortexQueryPrimitiveStatus::MetadataAnswered
+        ) && let VortexQueryPrimitiveValue::Count(count) = query_result.value
+        {
+            work.add_metric(VortexWorkAvoidedMetric::known_u64(
+                VortexWorkAvoidedMetricKind::RowsNotScanned,
+                count,
+                "metadata result avoided scanning rows at runtime",
+            ));
+            return;
+        }
+    }
+    work.add_metric(VortexWorkAvoidedMetric::unknown(
+        VortexWorkAvoidedMetricKind::RowsNotScanned,
+        "runtime rows-not-scanned is unknown for this status",
+    ));
 }
 
 fn execute_local_primitive_when_needed(
@@ -1080,6 +1197,15 @@ mod tests {
         assert!(rep.to_human_text().contains("decision trace entries"));
         assert!(rep.to_human_text().contains("work avoided metrics"));
         assert!(vortex_local_engine_is_side_effect_free(&rep));
+        let work = rep.runtime_work_avoided_report();
+        assert_eq!(
+            work.metric_value_summary(VortexWorkAvoidedMetricKind::DecodeAvoided),
+            "true"
+        );
+        assert_eq!(
+            work.metric_value_summary(VortexWorkAvoidedMetricKind::RowsNotScanned),
+            "unknown"
+        );
     }
     #[test]
     fn from_request_preserves_metadata_open_diag_missing_path() {
@@ -1223,6 +1349,19 @@ mod tests {
         assert!(report.data_materialized);
         assert!(!report.fallback_execution_allowed);
         assert!(report.local_primitive_execution_report.is_some());
+        let work = report.runtime_work_avoided_report();
+        assert_eq!(
+            work.metric_value_summary(VortexWorkAvoidedMetricKind::DecodeAvoided),
+            "false"
+        );
+        assert_eq!(
+            work.metric_value_summary(VortexWorkAvoidedMetricKind::MaterializationAvoided),
+            "false"
+        );
+        assert_eq!(
+            work.metric_value_summary(VortexWorkAvoidedMetricKind::RowsNotScanned),
+            "0"
+        );
     }
 
     #[cfg(feature = "vortex-local-primitives")]
@@ -1272,5 +1411,18 @@ mod tests {
             .expect("local primitive report");
         assert_eq!(local.projected_columns, vec!["value".to_string()]);
         assert!(!local.materialization_boundary_reported);
+        let work = report.runtime_work_avoided_report();
+        assert_eq!(
+            work.metric_value_summary(VortexWorkAvoidedMetricKind::DecodeAvoided),
+            "true"
+        );
+        assert_eq!(
+            work.metric_value_summary(VortexWorkAvoidedMetricKind::MaterializationAvoided),
+            "true"
+        );
+        assert_eq!(
+            work.metric_value_summary(VortexWorkAvoidedMetricKind::RowsNotScanned),
+            "0"
+        );
     }
 }

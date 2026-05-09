@@ -44,8 +44,9 @@ Each run writes a machine-readable JSON artifact and a human-readable Markdown
 report. The report begins with fairness parameters, then includes an engine
 overview with startup/warmup timing, scenario timing matrix, resource metrics,
 ShardLoom runtime-effect evidence, fastest-row table, ASCII timing bars,
-ShardLoom native microbenchmarks, universal-I/O evidence lanes, correctness
-summary, and separate failure/unsupported rows.
+ShardLoom native microbenchmarks, ShardLoom work-avoidance evidence,
+universal-I/O evidence lanes, correctness summary, and separate
+failure/unsupported rows.
 
 Each result artifact records engine versions, Python/runtime details, dataset
 shape, file sizes, wall/query time, sampled peak RSS when `psutil` is available,
@@ -62,10 +63,16 @@ revision evidence by accident.
 
 ShardLoom native microbenchmark rows are separated from the traditional CSV
 engine rows. They include the approved local encoded `CountAll` path plus local
-`vortex-run` primitive evidence for projection, validity-filter counting, and a
-temporary comparison predicate. The report includes each row's timing scope so
-in-command repeated timings are not mixed up with CLI-process wall-time smoke
-measurements.
+`vortex-run` primitive evidence for count, projection, validity-filter
+counting, and a temporary comparison predicate. The report includes each row's
+timing scope so in-command repeated timings are not mixed up with CLI-process
+wall-time smoke measurements.
+
+The ShardLoom work-avoidance table is based on final `vortex-run` runtime
+effects, not only plan analysis. It exposes decode avoided, materialization
+avoided, rows not scanned, segment prune count, bytes not read, spill avoided,
+and fallback blocked. Segment-prune and bytes-not-read values remain `unknown`
+until the local primitive path can measure them safely.
 
 Numeric benchmark outputs are rounded to four decimal places before correctness
 hashing. This keeps result comparison stable across engines with different
