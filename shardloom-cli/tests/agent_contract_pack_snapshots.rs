@@ -40,8 +40,9 @@ fn agent_contract_pack_json_exposes_machine_contract_inventory() {
     )));
     assert!(output.contains(&field(
         "recommended_sequence",
-        "feature-footprint --format json -> effect-budget-plan --format json -> doctor --format json -> capabilities certification --format json -> world-class-sufficiency-plan --format json -> benchmark-plan --format json"
+        "feature-footprint --format json -> effect-budget-plan --format json -> doctor --format json -> capabilities certification --format json -> world-class-sufficiency-plan --format json -> benchmark-plan --format json -> benchmark-claim-evidence-plan --format json"
     )));
+    assert!(output.contains("benchmark-claim-evidence-plan"));
 }
 
 #[test]

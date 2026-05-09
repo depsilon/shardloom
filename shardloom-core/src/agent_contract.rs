@@ -191,8 +191,10 @@ impl AgentContractPack {
                 ),
                 AgentContractSurface::available(
                     AgentContractSurfaceKind::BenchmarkEvidence,
-                    Some("benchmark-plan,vortex-count-benchmark,traditional-analytics-run"),
-                    "shardloom.benchmark_plan.v1",
+                    Some(
+                        "benchmark-plan,benchmark-claim-evidence-plan,vortex-count-benchmark,traditional-analytics-run",
+                    ),
+                    "shardloom.benchmark_claim_evidence.v1",
                 ),
                 AgentContractSurface::available(
                     AgentContractSurfaceKind::WorldClassSufficiency,
@@ -212,6 +214,7 @@ impl AgentContractPack {
                 "capabilities certification --format json",
                 "world-class-sufficiency-plan --format json",
                 "benchmark-plan --format json",
+                "benchmark-claim-evidence-plan --format json",
             ],
             deterministic_json_required: true,
             text_is_authoritative: false,

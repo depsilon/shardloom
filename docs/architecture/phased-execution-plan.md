@@ -45,35 +45,37 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-5.7 CorrectnessDifferentialHarness aggregate surface
+- [x] Session label: CG-6.19 BenchmarkClaimEvidence aggregate surface
   - Primary files:
-    - `shardloom-core/src/correctness.rs`
+    - `shardloom-core/src/benchmark.rs`
     - `shardloom-core/src/lib.rs`
     - `shardloom-cli/src/main.rs`
-    - `shardloom-cli/tests/correctness_harness_plan_snapshots.rs`
-    - `shardloom-contract-tests/tests/correctness_differential_harness.rs`
-    - `docs/architecture/correctness-differential-harness.md`
+    - `shardloom-cli/tests/benchmark_claim_evidence_plan_snapshots.rs`
+    - `shardloom-contract-tests/tests/benchmark_claim_evidence.rs`
+    - `docs/architecture/benchmark-competitive-claim-evidence.md`
     - `docs/architecture/canonical-terminology.md`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-  - Scope: Aggregate CG-5 fixture inventory, golden/reference coverage, edge-case coverage, external oracle policy, property/fuzz gaps, and benchmark-claim blockers into one deterministic report-only correctness harness before decoded-reference execution, external-engine invocation, broader query execution, or performance claims.
+  - Scope: Aggregate CG-6 benchmark plans, required metrics, result-row gaps, external comparison gaps, reproducibility gaps, claim-gate state, and no-fallback policy into one deterministic report-only benchmark claim evidence surface before additional benchmark runners or publication gates.
   - Checklist:
-    - [x] Add typed `CorrectnessDifferentialHarnessReport` aggregate to `shardloom-core`.
-    - [x] Expose `correctness-harness-plan` CLI JSON/text output.
-    - [x] Expand comparison-only correctness baselines to include pandas and Dask alongside Spark, DataFusion, DuckDB, Polars, and Velox.
-    - [x] Add CLI snapshot and contract-test invariants for no query execution, decoded-reference execution, external-engine invocation, data reads, object-store IO, writes, benchmark claim, or fallback execution.
-    - [x] Add architecture docs, terminology, and traceability for the aggregate correctness/differential harness.
+    - [x] Add typed `BenchmarkClaimEvidenceReport` aggregate to `shardloom-core`.
+    - [x] Expose `benchmark-claim-evidence-plan [foundation|traditional-analytics]` CLI JSON/text output.
+    - [x] Keep benchmark execution, query execution, external-engine execution, data reads, object-store IO, writes, and fallback execution disabled.
+    - [x] Add CLI snapshot and contract-test invariants for missing correctness, result-row, external-comparison, reproducibility, and claim-publication evidence.
+    - [x] Add architecture docs, terminology, and traceability for the aggregate benchmark claim evidence report.
     - [x] Run focused validation and full required validation.
   - Local validation status:
-    - Focused `cargo test -p shardloom-core correctness_harness -- --nocapture` passed with Rust toolchain `1.91.1`.
-    - Focused `cargo test -p shardloom-cli correctness_harness -- --nocapture` passed with Rust toolchain `1.91.1`.
-    - Focused `cargo test -p shardloom-contract-tests correctness_harness -- --nocapture` passed with Rust toolchain `1.91.1`.
-    - Focused regression checks for `correctness-plan` reference/gap fields and fixture manifest counts passed with Rust toolchain `1.91.1`.
+    - Focused `cargo test -p shardloom-core benchmark_claim -- --nocapture` passed with Rust toolchain `1.91.1`.
+    - Focused `cargo test -p shardloom-cli benchmark_claim -- --nocapture` passed with Rust toolchain `1.91.1`.
+    - Focused `cargo test -p shardloom-cli --test benchmark_claim_evidence_plan_snapshots -- --nocapture` passed with Rust toolchain `1.91.1`.
+    - Focused `cargo test -p shardloom-cli --test agent_contract_pack_snapshots -- --nocapture` passed with Rust toolchain `1.91.1`.
+    - Focused `cargo test -p shardloom-contract-tests benchmark_claim -- --nocapture` passed with Rust toolchain `1.91.1`.
+    - Focused `cargo test -p shardloom-contract-tests --test benchmark_claim_evidence -- --nocapture` passed with Rust toolchain `1.91.1`.
     - `cargo fmt --all -- --check` passed with Rust toolchain `1.91.1`.
     - `cargo clippy --workspace --all-targets -- -D warnings` passed with Rust toolchain `1.91.1`.
     - `cargo test --workspace --all-targets` passed with Rust toolchain `1.91.1`.
     - `git diff --check` and hidden/bidi scan passed.
-  - Explicitly not included: query execution, decoded-reference execution, external engine invocation, fixture generation, SQL parser, adapter runtime, object-store IO, data reads, write IO, benchmark/superiority claim, production certification, or fallback execution.
+  - Explicitly not included: benchmark execution, external baseline invocation, query execution, SQL parser, dataframe API, adapter runtime, object-store IO, data reads, write IO, performance/superiority/best-default claim, production certification, or fallback execution.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -493,6 +495,9 @@ Supporting docs:
 - [x] R3.10 CorrectnessDifferentialHarnessReport foundation
   - Why: aggregate CG-5 fixture, reference, edge-case, external-oracle, property/fuzz, and benchmark-claim blocker evidence before decoded-reference execution, external engine invocation, broader query execution, or competitive claims.
   - Acceptance: `CorrectnessDifferentialHarnessReport`, `correctness-harness-plan` CLI JSON/text output, snapshot/contract tests, and architecture checklist are report-only with no query execution, decoded-reference execution, external engine invocation, data reads, object-store IO, writes, benchmark claim, production certification, or fallback execution.
+- [x] R3.11 BenchmarkClaimEvidenceReport foundation
+  - Why: aggregate CG-6 benchmark-plan, required-metric, result-row, external-comparison, reproducibility, claim-gate, and no-fallback evidence before benchmark publication or broader comparison claims.
+  - Acceptance: `BenchmarkClaimEvidenceReport`, `benchmark-claim-evidence-plan` CLI JSON/text output, snapshot/contract tests, and architecture checklist are report-only with no benchmark execution, external engine invocation, query execution, data reads, object-store IO, writes, performance/superiority/best-default claim, production certification, or fallback execution.
 - [x] R5.1 Systems-learning contract pass
 - [x] R5.2 Competitive track extension to CG-19/CG-20
 - [x] R5.3 RFC 0031/0032 deepening
@@ -1488,6 +1493,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-6.16 ShardLoom native work-avoidance evidence exposes final `vortex-run` runtime metrics for decode avoided, materialization avoided, rows not scanned, segment pruning, bytes not read, spill avoided, and fallback blocked in machine-readable output and Markdown, with unknown segment/byte values left explicit
 - [x] CG-6.17 ShardLoom local write/commit latency evidence measures the current committed-manifest step in the native benchmark lane, emits write/commit latency and bytes-written fields, and keeps object-store/table-format/recovery commit benchmarking deferred
 - [x] CG-6.18 ShardLoom native DecisionTrace/WhyReport benchmark evidence exposes local-engine claim blockers, primary reason, decision-trace counts, and next actions in `vortex-run` output and Markdown so runtime rows explain why they are or are not claim-grade
+- [x] CG-6.19 `benchmark-claim-evidence-plan` aggregates benchmark-plan, result-row, external-comparison, reproducibility, claim-gate, and no-fallback evidence gaps before any performance, superiority, cost, replacement, or best-default claim can be treated as publishable
 - [~] runtime benchmarks started with local encoded count, ShardLoom universal-I/O smoke rows, and traditional analytics external harness; committed claim-grade comparative results remain planned
 - [x] peak-memory benchmark reporting
 - [x] bytes read/written benchmark reporting
@@ -1672,7 +1678,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [~] Epic G — Table Intelligence Layer
 - [~] Epic H — Object Store Request Planner
 - [~] Epic I — Correctness and Differential Harness
-- [ ] Epic J — Benchmark and Competitive Claims
+- [~] Epic J — Benchmark and Competitive Claims
 - [ ] Epic K — Dynamic Work Shaping
 
 ## Completed Phase Ledger
@@ -1759,6 +1765,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-6.16 ShardLoom native work-avoidance benchmark evidence adds final `vortex-run` runtime work-avoidance fields and a Markdown table for decode/materialization/spill/fallback avoidance plus explicit unknown segment-prune and bytes-not-read values.
 - [x] CG-6.17 ShardLoom local write/commit benchmark evidence records committed-manifest write latency, bytes written, and commit status in the native benchmark lane while leaving object-store/table-format/recovery commit timing for later CG-4/CG-10 work.
 - [x] CG-6.18 ShardLoom native DecisionTrace/WhyReport benchmark evidence adds a local-engine why report, exposes claim blockers and next actions through `vortex-run`, and renders the evidence in the traditional analytics Markdown report without allowing performance claims.
+- [x] CG-6.19 BenchmarkClaimEvidence aggregate surface adds `BenchmarkClaimEvidenceReport` and `benchmark-claim-evidence-plan` surfacing across benchmark plans, required metrics, result-row gaps, external comparison gaps, reproducibility gaps, claim-gate state, and no-fallback policy while keeping benchmark execution, external engine invocation, query execution, data reads, object-store IO, writes, and performance/superiority/best-default claims disabled.
 - [x] CG-7.1 physical operator/kernel contract foundation declares filter, projection, and count aggregate kernel blockers without implementing kernels or execution.
 - [x] CG-7.2 physical operator capability discovery exposes missing-kernel/readiness counts through `shardloom capabilities operators` without executing operators or probing runtime inputs.
 - [x] CG-7.3 physical kernel registry plan exposes required native kernel slots through `shardloom kernel-registry` without registering kernels or executing runtime paths.
