@@ -8101,7 +8101,7 @@ fn append_local_vortex_primitive_execution_discovery_fields(fields: &mut Vec<(St
     push_field(
         fields,
         "local_vortex_primitive_execution_supported_primitives",
-        "count_all,count_where,filter_predicate,project_columns",
+        "count_all,count_where,filter_predicate,project_columns,filter_and_project",
     );
     push_bool_field(fields, "local_vortex_primitive_execution_local_only", true);
     push_bool_field(
@@ -8330,7 +8330,7 @@ fn operator_certification_text(
     let execution_profiles = PhysicalOperatorExecutionProfileMatrix::cg7_foundation();
     let encoded_count_local_guard = vortex_encoded_count_local_guard_discovery_report();
     format!(
-        "{}\noperator coverage families:\n{}\n{}\n{}\n{}\nlocal Vortex primitive execution: feature-gated count/filter/project surface; count_all avoids decode, filter/project report materialization boundaries; fallback disabled",
+        "{}\noperator coverage families:\n{}\n{}\n{}\n{}\nlocal Vortex primitive execution: feature-gated count/filter/project/filter-and-project surface; count_all avoids decode, filter/project report materialization boundaries; fallback disabled",
         certification_summary_header(report, scope),
         report
             .operator_coverage
@@ -9220,7 +9220,33 @@ fn parse_vortex_primitive_request(
             parse_tiny_predicate(pred)?,
         ))
     } else {
-        Err(ShardLoomError::InvalidOperation("invalid primitive; expected count, count-where:<predicate>, project:<columns>, filter:<predicate>".to_string()))
+        for prefix in ["filter-project:", "filter-and-project:"] {
+            if let Some(value) = primitive_arg.strip_prefix(prefix) {
+                let Some((predicate, columns)) = value.split_once('|') else {
+                    return Err(ShardLoomError::InvalidOperation(
+                        "filter-project requires <predicate>|<columns>".to_string(),
+                    ));
+                };
+                if predicate.is_empty() {
+                    return Err(ShardLoomError::InvalidOperation(
+                        "filter-project predicate must not be empty".to_string(),
+                    ));
+                }
+                if columns.is_empty() {
+                    return Err(ShardLoomError::InvalidOperation(
+                        "filter-project columns must not be empty".to_string(),
+                    ));
+                }
+                return Ok(
+                    shardloom_vortex::VortexQueryPrimitiveRequest::filter_and_project(
+                        uri,
+                        parse_tiny_predicate(predicate)?,
+                        parse_projection_columns(columns)?,
+                    ),
+                );
+            }
+        }
+        Err(ShardLoomError::InvalidOperation("invalid primitive; expected count, count-where:<predicate>, project:<columns>, filter:<predicate>, filter-project:<predicate>|<columns>".to_string()))
     }
 }
 

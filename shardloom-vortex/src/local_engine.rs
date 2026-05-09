@@ -127,6 +127,7 @@ pub enum VortexLocalEnginePrimitive {
     CountWhere(String),
     Project(String),
     Filter(String),
+    FilterAndProject { predicate: String, columns: String },
     Unsupported(String),
 }
 impl VortexLocalEnginePrimitive {
@@ -136,6 +137,7 @@ impl VortexLocalEnginePrimitive {
             Self::CountWhere(_) => "count-where",
             Self::Project(_) => "project",
             Self::Filter(_) => "filter",
+            Self::FilterAndProject { .. } => "filter-and-project",
             Self::Unsupported(_) => "unsupported",
         }
     }
@@ -145,6 +147,9 @@ impl VortexLocalEnginePrimitive {
             Self::CountWhere(v) => format!("count-where:{v}"),
             Self::Project(v) => format!("project:{v}"),
             Self::Filter(v) => format!("filter:{v}"),
+            Self::FilterAndProject { predicate, columns } => {
+                format!("filter-project:{predicate}|{columns}")
+            }
             Self::Unsupported(v) => format!("unsupported:{v}"),
         }
     }
@@ -746,6 +751,13 @@ fn append_local_engine_primitive_next_action(
         VortexLocalEnginePrimitive::Project(_) => {
             push_unique(actions, "complete encoded projection kernel certification");
         }
+        VortexLocalEnginePrimitive::FilterAndProject { .. } => {
+            push_unique(
+                actions,
+                "complete encoded predicate/filter kernel certification",
+            );
+            push_unique(actions, "complete encoded projection kernel certification");
+        }
         VortexLocalEnginePrimitive::Count => {
             push_unique(
                 actions,
@@ -1250,6 +1262,13 @@ fn primitive_to_query_request(
             request.uri.clone(),
             parse_tiny_predicate(pred)?,
         )),
+        VortexLocalEnginePrimitive::FilterAndProject { predicate, columns } => {
+            Ok(VortexQueryPrimitiveRequest::filter_and_project(
+                request.uri.clone(),
+                parse_tiny_predicate(predicate)?,
+                parse_projection_columns(columns)?,
+            ))
+        }
         VortexLocalEnginePrimitive::Unsupported(raw) => {
             Ok(VortexQueryPrimitiveRequest::unsupported(
                 raw.clone(),
@@ -1340,7 +1359,30 @@ pub fn parse_vortex_local_engine_primitive(input: &str) -> Result<VortexLocalEng
         }
         return Ok(VortexLocalEnginePrimitive::Filter(v.to_string()));
     }
-    Err(ShardLoomError::InvalidOperation("invalid primitive; expected count, count-where:<predicate>, project:<columns>, filter:<predicate>".to_string()))
+    for prefix in ["filter-project:", "filter-and-project:"] {
+        if let Some(v) = input.strip_prefix(prefix) {
+            let Some((predicate, columns)) = v.split_once('|') else {
+                return Err(ShardLoomError::InvalidOperation(
+                    "filter-project requires <predicate>|<columns>".to_string(),
+                ));
+            };
+            if predicate.is_empty() {
+                return Err(ShardLoomError::InvalidOperation(
+                    "filter-project predicate must not be empty".to_string(),
+                ));
+            }
+            if columns.is_empty() {
+                return Err(ShardLoomError::InvalidOperation(
+                    "filter-project columns must not be empty".to_string(),
+                ));
+            }
+            return Ok(VortexLocalEnginePrimitive::FilterAndProject {
+                predicate: predicate.to_string(),
+                columns: columns.to_string(),
+            });
+        }
+    }
+    Err(ShardLoomError::InvalidOperation("invalid primitive; expected count, count-where:<predicate>, project:<columns>, filter:<predicate>, filter-project:<predicate>|<columns>".to_string()))
 }
 
 /// # Errors
@@ -1754,5 +1796,65 @@ mod tests {
         assert!(why.primary_reason.contains("local primitive evidence"));
         assert!(why.blockers_summary().contains("not mature SQL/operator"));
         assert!(why.next_actions_summary().contains("encoded projection"));
+    }
+
+    #[cfg(feature = "vortex-local-primitives")]
+    #[test]
+    fn local_engine_filter_project_primitive_executes_with_pushdown() {
+        let path = unique_vortex_path("filter-project");
+        write_local_engine_struct_fixture(&path);
+        let uri = DatasetUri::new(path.display().to_string()).expect("uri");
+        let request = VortexLocalEngineRequest::new(
+            uri,
+            VortexLocalEnginePrimitive::FilterAndProject {
+                predicate: "gte:value:3".to_string(),
+                columns: "value".to_string(),
+            },
+            4,
+            2,
+        )
+        .expect("request");
+
+        let report = run_vortex_local_engine(request).expect("report");
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(
+            report.status,
+            VortexLocalEngineStatus::LocalPrimitiveCompleted
+        );
+        assert!(report.result_known);
+        assert!(report.data_read);
+        assert!(!report.data_decoded);
+        assert!(!report.data_materialized);
+        assert!(!report.fallback_execution_allowed);
+        let local = report
+            .local_primitive_execution_report
+            .as_ref()
+            .expect("local primitive report");
+        assert_eq!(local.rows_scanned, 5);
+        assert_eq!(local.rows_selected, Some(3));
+        assert_eq!(local.rows_projected, Some(3));
+        assert_eq!(local.projected_columns, vec!["value".to_string()]);
+        assert_eq!(local.max_parallelism_requested, 2);
+        assert_eq!(local.scan_concurrency_per_worker, 2);
+        assert!(local.streaming_scan_used);
+        assert!(!local.full_stream_collected);
+        assert!(local.filter_pushdown_applied);
+        assert!(local.projection_pushdown_applied);
+        assert!(local.upstream_filter_expression_used);
+        assert!(local.upstream_projection_expression_used);
+        assert!(!local.materialization_boundary_reported);
+    }
+
+    #[test]
+    fn parse_filter_project_primitive_requires_predicate_and_columns() {
+        assert!(matches!(
+            parse_vortex_local_engine_primitive("filter-project:gte:value:3|value")
+                .expect("primitive"),
+            VortexLocalEnginePrimitive::FilterAndProject { .. }
+        ));
+        assert!(parse_vortex_local_engine_primitive("filter-project:gte:value:3").is_err());
+        assert!(parse_vortex_local_engine_primitive("filter-project:|value").is_err());
+        assert!(parse_vortex_local_engine_primitive("filter-project:gte:value:3|").is_err());
     }
 }

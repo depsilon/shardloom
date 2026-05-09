@@ -958,7 +958,7 @@ fn assert_operator_discovery_local_vortex_primitive_execution(output: &str) {
         "{\"key\":\"local_vortex_primitive_execution_feature_gate\",\"value\":\"vortex-local-primitives\"}"
     ));
     assert!(output.contains(
-        "{\"key\":\"local_vortex_primitive_execution_supported_primitives\",\"value\":\"count_all,count_where,filter_predicate,project_columns\"}"
+        "{\"key\":\"local_vortex_primitive_execution_supported_primitives\",\"value\":\"count_all,count_where,filter_predicate,project_columns,filter_and_project\"}"
     ));
     assert!(
         output.contains(

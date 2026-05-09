@@ -45,6 +45,39 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
+- [x] Session label: CG-2.1e.28 / CG-6.22 / CG-8.11 / CG-13.10 local filter-project Vortex scan pushdown
+  - Primary files:
+    - `shardloom-vortex/src/query_primitive.rs`
+    - `shardloom-vortex/src/local_primitives.rs`
+    - `shardloom-vortex/src/local_engine.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `benchmarks/traditional_analytics/run.py`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: Add a real local `.vortex` `filter_and_project` primitive that applies filter and projection in one upstream Vortex scan where the current API supports it; expose it through CLI parsing and native benchmark micro rows; and fix predicate planning so missing segment stats remain inconclusive instead of being treated as proof that no rows match.
+  - Checklist:
+    - [x] Add `VortexQueryPrimitiveRequest::filter_and_project`.
+    - [x] Execute `FilterAndProject` through the feature-gated local primitive scan path with filter pushdown, projection pushdown, bounded scan concurrency, streaming chunk iteration, no row reads, no Arrow conversion, no object-store IO, no writes, no spill IO, and no fallback execution.
+    - [x] Extend local engine and CLI primitive parsing with `filter-project:<predicate>|<columns>` / `filter-and-project:<predicate>|<columns>`.
+    - [x] Add runtime tests for combined filter/project pushdown and parser validation.
+    - [x] Correct predicate planning so an empty segment-stat set is inconclusive and falls through to encoded/local execution instead of returning a false metadata proof.
+    - [x] Add a native benchmark micro row for local filter projection and update contract coverage.
+    - [x] Run focused validation before broad validation.
+  - Local validation status:
+    - Focused `cargo test -p shardloom-vortex --features vortex-local-primitives filter_and_project -- --nocapture` passed locally with Rust toolchain `1.91.1`.
+    - Focused `cargo test -p shardloom-vortex --features vortex-local-primitives local_engine_filter_project_primitive_executes_with_pushdown -- --nocapture` passed locally with Rust toolchain `1.91.1`.
+    - Focused `cargo test -p shardloom-vortex --features vortex-local-primitives eval_filter_without_segment_stats_needs_encoded_predicate -- --nocapture` passed locally with Rust toolchain `1.91.1`.
+    - Focused `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness -- --nocapture` passed locally with Rust toolchain `1.91.1`.
+    - CLI smoke `cargo run -p shardloom-cli --features vortex-local-primitives -- vortex-run shardloom-vortex\tests\fixtures\metadata_footer_u64_20000.vortex "filter-project:gte:value:10000|value" 1 2 --format json` passed locally.
+    - Required `cargo fmt --all -- --check` passed locally with Rust toolchain `1.91.1`.
+    - Required `cargo clippy --workspace --all-targets -- -D warnings` passed locally with Rust toolchain `1.91.1`.
+    - Required `cargo test --workspace --all-targets` passed locally with Rust toolchain `1.91.1`.
+    - Feature `cargo clippy -p shardloom-vortex --features vortex-local-primitives --all-targets -- -D warnings` passed locally with Rust toolchain `1.91.1`.
+    - Feature `cargo clippy -p shardloom-cli --features vortex-local-primitives --all-targets -- -D warnings` passed locally with Rust toolchain `1.91.1`.
+    - Tiny benchmark smoke `python benchmarks\traditional_analytics\run.py --engines shardloom --scenario "csv/file ingest" --formats csv --rows 10 --dim-rows 3 --iterations 1 --shardloom-native-iterations 1 --shardloom-build-profile debug --regenerate` passed locally.
+  - Explicitly not included: SQL parser/execution, DataFrame runtime, mature adapter runtime, non-local/object-store reads, table/catalog IO, row reads, Arrow conversion, writes, spill IO, distributed execution, production operator certification, claim-grade benchmark publication, superiority/best-default claim, or fallback execution.
+
 - [x] Session label: CG-6.21 / CG-8.10 / CG-19.5 / CG-20.7 universal-format local ETL adapters and auto resource sizing
   - Primary files:
     - `shardloom-vortex/Cargo.toml`
@@ -1015,6 +1048,14 @@ Supporting docs:
     - Supported local filter/project/count-where paths preserve no row reads, no Arrow conversion, no object-store IO, no writes, no spill IO, and no fallback execution.
     - Benchmark Markdown native microbenchmark rows surface filter/projection pushdown fields.
     - No mature SQL/DataFrame/API/adapters, generalized encoded operator certification, non-local source support, object-store IO, distributed execution, benchmark/superiority claim, CG-2 closeout, CG-13 closeout, or fallback execution is added.
+- [x] CG-2.1e.28 / CG-13.10 local Vortex filter-project scan pushdown
+  - Why: close the next local primitive gap by making a combined filter+projection request execute through one upstream Vortex scan rather than separate or decoded ShardLoom-side paths.
+  - Acceptance:
+    - `FilterAndProject` requests can be constructed, parsed from CLI strings, and executed by the feature-gated local primitive path.
+    - Supported struct-array requests apply both filter and projection pushdown in a single upstream Vortex scan.
+    - Predicate planning treats missing segment stats as inconclusive, not as a false-match proof.
+    - Native microbenchmarks include a local filter-projection row.
+    - No SQL/DataFrame/API runtime, adapters, non-local sources, object-store IO, row reads, Arrow conversion, writes, spill IO, benchmark/superiority claim, production certification, or fallback execution is added.
 - [ ] CG-2.1e generalized encoded-data count execution path beyond explicit local `.vortex` count (planned)
   - Why: turn the local fixture scan/count proof into a generalized native count path only after the public Vortex data path and representation guarantees are approved.
   - Acceptance:
@@ -1685,6 +1726,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-6.19 `benchmark-claim-evidence-plan` aggregates benchmark-plan, result-row, external-comparison, reproducibility, claim-gate, and no-fallback evidence gaps before any performance, superiority, cost, replacement, or best-default claim can be treated as publishable
 - [x] CG-6.20 traditional analytics harness storage expansion adds Parquet comparison rows and ShardLoom native Vortex rows with explicit unsupported-format capture, while keeping all external engines comparison-only and all performance/superiority claims disabled
 - [x] CG-6.21 universal-format benchmark smoke rows add ShardLoom CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC compatibility-to-Vortex lanes with JSON/Markdown resource-sizing evidence while preserving explicit unsupported rows for external engines and no performance/superiority claims
+- [x] CG-6.22 native microbenchmark rows add local filter-projection evidence through `vortex-run` while keeping timing scoped to local CLI process wall time and claim status `not_claim_grade`
 - [~] runtime benchmarks started with local encoded count, ShardLoom universal-I/O smoke rows, and traditional analytics external harness; committed claim-grade comparative results remain planned
 - [x] peak-memory benchmark reporting
 - [x] bytes read/written benchmark reporting
@@ -1738,6 +1780,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-8.7 approved local encoded streaming-batch runtime evidence
 - [x] CG-8.8 `dynamic-work-shaping-plan` aggregates adaptive sizing, runtime feedback signals, target-task policy, bounded-memory backpressure, scheduler queue policy, runtime-application blockers, benchmark evidence blockers, and no-fallback policy before live feedback-loop policy mutation is allowed
 - [x] CG-8.10 universal-format local ETL bridge derives applied parallelism from local resource availability and reports auto batch/partition sizing from source footprint plus resource budget, while keeping mature scheduler mutation, object-store request shaping, spill, and distributed execution deferred
+- [x] CG-8.11 local filter-project primitive carries bounded scan concurrency through the single upstream Vortex scan path and reports streaming chunk iteration without collecting the full stream
 - [ ] broader streaming encoded batch runtime execution
 - [ ] bounded parallel encoded/read local execution
 - [x] adaptive split/coalesce planning surface
@@ -1797,6 +1840,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-13.6 local primitive execution reports decode/materialization boundaries for filter/project/count-where
 - [x] CG-13.7 local primitive metadata/validity/projection evidence avoids false materialization claims
 - [x] CG-13.8 local Vortex scan filter/project pushdown evidence
+- [x] CG-13.10 local Vortex filter-project scan pushdown evidence combines predicate and projection pushdown in one feature-gated local scan for supported struct-array cases
 - [ ] generalized direct count/filter/project encoded execution
 - [ ] broad compressed-kernel correctness and benchmark certification
 
@@ -1933,6 +1977,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.25 local Vortex primitive execution adds feature-gated `vortex-run` execution for local `.vortex` count/filter/project primitives, preserves no-decode count evidence, and reports materialization boundaries for temporary filter/project/count-where paths without claiming encoded-native completion.
 - [x] CG-2.1e.26/CG-13.7 local primitive materialization-effect tightening makes metadata predicates, validity predicates, and schema-only projection report no decode/materialization/materialization boundary before broader scan-pushdown work.
 - [x] CG-2.1e.27/CG-13.8 local Vortex scan filter/project pushdown moves supported local filter/project/count-where primitives onto upstream Vortex scan expressions and exposes filter/projection pushdown evidence without row reads, Arrow conversion, object-store IO, writes, spill, or fallback execution.
+- [x] CG-2.1e.28/CG-13.10 local Vortex filter-project scan pushdown adds `FilterAndProject` construction, CLI parsing, local-engine execution, and native microbenchmark coverage for supported local `.vortex` filter+projection requests in one upstream scan without row reads, Arrow conversion, object-store IO, writes, spill, or fallback execution.
 - [x] CG-4.2 local committed-manifest recovery/rollback diagnostics represent recovery-not-required, rollback-required/planned, ambiguous-commit, missing-manifest, cleanup-policy, and object-store blocker states without executing cleanup, rollback, object-store IO, or fallback.
 - [x] CG-4.3 local committed-manifest rollback cleanup execution deletes only `_shardloom_committed_manifest.json` behind `vortex-staged-output-fs` after rollback-planned recovery evidence; finalized manifests, commit markers, output payloads, object-store IO, upstream `Vortex` APIs, and fallback remain untouched.
 - [x] CG-2.2c filtered-count metadata proof local guard admits only metadata-proof `CountWhere` requests into metadata-only local execution and rejects encoded predicate candidates without fallback.

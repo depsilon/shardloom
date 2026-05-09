@@ -352,9 +352,26 @@ fn execute_vortex_local_primitive_enabled(
             })?;
             projection_report(request.kind, &scan)
         }
-        VortexQueryPrimitiveKind::FilterAndProject
-        | VortexQueryPrimitiveKind::SimpleAggregate
-        | VortexQueryPrimitiveKind::Unsupported => {
+        VortexQueryPrimitiveKind::FilterAndProject => {
+            let Some(predicate) = request.predicate.as_ref() else {
+                return Ok(VortexLocalPrimitiveExecutionReport::blocked(
+                    request.kind,
+                    VortexLocalPrimitiveExecutionStatus::BlockedByUnsupportedPrimitive,
+                    Diagnostic::invalid_input(
+                        "vortex_local_primitive",
+                        "filter-and-project primitive was missing its predicate",
+                        "use filter-project:<predicate>|<columns>",
+                    ),
+                ));
+            };
+            let scan = read_local_vortex_scan(&path, request.kind, policy, |dtype| {
+                let mut plan = projection_scan_plan(dtype, &request.projection, request.kind)?;
+                plan.filter = Some(predicate_to_vortex_expr(predicate, dtype, request.kind)?);
+                Ok(plan)
+            })?;
+            filter_and_project_report(request.kind, &scan)
+        }
+        VortexQueryPrimitiveKind::SimpleAggregate | VortexQueryPrimitiveKind::Unsupported => {
             Ok(VortexLocalPrimitiveExecutionReport::blocked(
                 request.kind,
                 VortexLocalPrimitiveExecutionStatus::BlockedByUnsupportedPrimitive,
@@ -604,6 +621,51 @@ fn projection_report(
         )),
         rows_scanned: scan.source_row_count,
         rows_selected: None,
+        rows_projected: Some(rows),
+        projected_columns: scan.projected_columns.clone(),
+        arrays_read_count: scan.arrays_read_count,
+        max_chunk_rows: scan.max_chunk_rows,
+        streaming_scan_used: true,
+        full_stream_collected: false,
+        max_parallelism_requested: scan.max_parallelism_requested,
+        scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
+        filter_pushdown_applied: scan.filter_pushdown_applied,
+        projection_pushdown_applied: scan.projection_pushdown_applied,
+        upstream_filter_expression_used: scan.filter_pushdown_applied,
+        upstream_projection_expression_used: scan.projection_pushdown_applied,
+        data_read: true,
+        data_decoded: false,
+        data_materialized: false,
+        upstream_scan_called: true,
+        row_read: false,
+        arrow_converted: false,
+        object_store_io: false,
+        write_io: false,
+        spill_io_performed: false,
+        external_effects_executed: false,
+        fallback_execution_allowed: false,
+        materialization_boundary_reported: false,
+        diagnostics: Vec::new(),
+    })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn filter_and_project_report(
+    primitive_kind: VortexQueryPrimitiveKind,
+    scan: &LocalVortexScan,
+) -> Result<VortexLocalPrimitiveExecutionReport> {
+    let rows = usize_to_u64(scan.result_row_count)?;
+    Ok(VortexLocalPrimitiveExecutionReport {
+        status: VortexLocalPrimitiveExecutionStatus::Executed,
+        mode: VortexLocalPrimitiveExecutionMode::VortexScanPushdown,
+        primitive_kind,
+        result_summary: Some(format!(
+            "projected_columns={} rows={}",
+            scan.projected_columns.join(","),
+            rows
+        )),
+        rows_scanned: scan.source_row_count,
+        rows_selected: Some(rows),
         rows_projected: Some(rows),
         projected_columns: scan.projected_columns.clone(),
         arrays_read_count: scan.arrays_read_count,
@@ -1093,6 +1155,54 @@ mod tests {
         assert!(!report.data_decoded);
         assert!(!report.data_materialized);
         assert!(!report.materialization_boundary_reported);
+        assert!(!report.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn filter_and_project_uses_single_vortex_scan_pushdown_path() {
+        let path = unique_vortex_path("filter-project");
+        write_struct_fixture(&path).expect("fixture");
+        let uri = DatasetUri::new(path.display().to_string()).expect("uri");
+        let request = VortexQueryPrimitiveRequest::filter_and_project(
+            uri,
+            PredicateExpr::Compare {
+                column: ColumnRef::new("value").expect("column"),
+                op: ComparisonOp::GtEq,
+                value: StatValue::Int64(3),
+            },
+            ProjectionRequest::columns(vec![ColumnRef::new("metric").expect("column")]),
+        );
+
+        let report = execute_vortex_local_primitive_with_policy(
+            &request,
+            VortexLocalPrimitiveExecutionPolicy::new(2).expect("policy"),
+        )
+        .expect("report");
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(
+            report.mode,
+            VortexLocalPrimitiveExecutionMode::VortexScanPushdown
+        );
+        assert_eq!(report.rows_scanned, 5);
+        assert_eq!(report.rows_selected, Some(3));
+        assert_eq!(report.rows_projected, Some(3));
+        assert_eq!(report.projected_columns, vec!["metric".to_string()]);
+        assert!(report.data_read);
+        assert!(report.streaming_scan_used);
+        assert!(!report.full_stream_collected);
+        assert_eq!(report.max_parallelism_requested, 2);
+        assert_eq!(report.scan_concurrency_per_worker, 2);
+        assert!(report.filter_pushdown_applied);
+        assert!(report.projection_pushdown_applied);
+        assert!(report.upstream_filter_expression_used);
+        assert!(report.upstream_projection_expression_used);
+        assert!(!report.data_decoded);
+        assert!(!report.data_materialized);
+        assert!(!report.materialization_boundary_reported);
+        assert!(!report.row_read);
+        assert!(!report.arrow_converted);
         assert!(!report.fallback_execution_allowed);
     }
 }

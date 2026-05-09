@@ -161,6 +161,20 @@ impl VortexQueryPrimitiveRequest {
         }
     }
     #[must_use]
+    pub fn filter_and_project(
+        uri: DatasetUri,
+        predicate: PredicateExpr,
+        projection: ProjectionRequest,
+    ) -> Self {
+        Self {
+            kind: VortexQueryPrimitiveKind::FilterAndProject,
+            source_uri: Some(uri),
+            projection,
+            predicate: Some(predicate),
+            diagnostics: vec![],
+        }
+    }
+    #[must_use]
     pub fn unsupported(feature: impl Into<String>, reason: impl Into<String>) -> Self {
         let mut request = Self {
             kind: VortexQueryPrimitiveKind::Unsupported,
@@ -601,8 +615,10 @@ pub fn plan_vortex_encoded_predicate(
             "missing `PredicateExpr` for filter request",
         ));
     };
+    let mut saw_segment = false;
     let mut saw_inconclusive = false;
     for segment in &summary.summary.segments {
+        saw_segment = true;
         match crate::prove_predicate_from_segment_stats(predicate, segment) {
             shardloom_core::PredicateProof::AlwaysFalse { .. } => {}
             shardloom_core::PredicateProof::AlwaysTrue { .. }
@@ -617,7 +633,7 @@ pub fn plan_vortex_encoded_predicate(
             }
         }
     }
-    if !saw_inconclusive {
+    if saw_segment && !saw_inconclusive {
         return Ok(VortexQueryPrimitiveResult::metadata_answered(
             request,
             VortexQueryPrimitiveValue::Boolean(false),
@@ -831,6 +847,28 @@ mod tests {
             out.status,
             VortexQueryPrimitiveStatus::NeedsEncodedPredicate
         );
+        assert!(out.is_side_effect_free());
+    }
+    #[test]
+    fn eval_filter_without_segment_stats_needs_encoded_predicate() {
+        let s = empty_summary();
+        let out = evaluate_vortex_query_primitive(
+            VortexQueryPrimitiveRequest::filter(
+                uri(),
+                PredicateExpr::Compare {
+                    column: ColumnRef::new("x").expect("column"),
+                    op: shardloom_core::ComparisonOp::Eq,
+                    value: shardloom_core::StatValue::Int64(7),
+                },
+            ),
+            &s,
+        )
+        .expect("ok");
+        assert_eq!(
+            out.status,
+            VortexQueryPrimitiveStatus::NeedsEncodedPredicate
+        );
+        assert_eq!(out.value, VortexQueryPrimitiveValue::Unknown);
         assert!(out.is_side_effect_free());
     }
     #[test]
