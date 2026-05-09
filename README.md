@@ -67,10 +67,11 @@ path.
 It also exposes the current local live ETL smoke commands for explicit testing:
 CSV-to-Vortex through `traditional-analytics-run` and existing native Vortex
 inputs through `traditional-analytics-vortex-run`. The Python client can also
-query the side-effect-free universal input adapter registry, where common
-structured formats, lakehouse/table refs, object-store adapters, catalogs,
-effectful inputs, and unstructured/media inputs are tracked as explicit
-planned/enablement statuses before runtime readers exist. See
+be installed in editable mode, configured through environment variables, run a
+no-dataset smoke check, and query the side-effect-free universal input adapter
+registry, where common structured formats, lakehouse/table refs, object-store
+adapters, catalogs, effectful inputs, and unstructured/media inputs are tracked
+as explicit planned/enablement statuses before runtime readers exist. See
 [`python/README.md`](python/README.md) for local usage.
 
 ## License

@@ -4,7 +4,12 @@ The package does not provide a native binding or fallback execution engine.
 It invokes explicit ShardLoom CLI commands and parses their JSON envelopes.
 """
 
-from .client import ETL_INPUT_FORMATS, LiveEtlReplayResult, ShardLoomClient
+from .client import (
+    ETL_INPUT_FORMATS,
+    LiveEtlReplayResult,
+    PythonClientSmokeReport,
+    ShardLoomClient,
+)
 from .errors import ShardLoomCommandError, ShardLoomProtocolError
 from .models import Diagnostic, FieldEntry, FallbackStatus, OutputEnvelope
 
@@ -15,6 +20,7 @@ __all__ = [
     "OutputEnvelope",
     "ETL_INPUT_FORMATS",
     "LiveEtlReplayResult",
+    "PythonClientSmokeReport",
     "ShardLoomClient",
     "ShardLoomCommandError",
     "ShardLoomProtocolError",
