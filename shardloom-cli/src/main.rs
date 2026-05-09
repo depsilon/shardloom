@@ -21,8 +21,8 @@ use shardloom_core::{
     EncodedSegment, EncodingKind, ExecutionCertificate, ExecutionCertificateEvidenceSurfaceReport,
     ExecutionEvidenceArtifactKind, ExpectedOutcome, ExtensionId, ExtensionInspectionReport,
     ExtensionLicenseKind, ExtensionManifest, ExtensionProvenance, ExtensionRegistrySnapshot,
-    ExtensionVersion, FieldId, FieldName, FieldPath, FileDescriptor, FileRole,
-    IncrementalPlanSkeleton, InputAdapterRegistrySnapshot, KernelRegistrySnapshot,
+    ExtensionVersion, FeatureFootprintReport, FieldId, FieldName, FieldPath, FileDescriptor,
+    FileRole, IncrementalPlanSkeleton, InputAdapterRegistrySnapshot, KernelRegistrySnapshot,
     LayoutHealthPolicy, LayoutHealthReport, LayoutKind, LogicalDType, ManifestId, ManifestSegment,
     MetricValue, NativeIoEnvelopeReport, Nullability, ObservabilityPlan,
     OperatorMemoryCertification, OutputEnvelope, OutputFormat, OutputTarget,
@@ -204,7 +204,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|layout-health-plan|compaction-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|traditional-analytics-run|vortex-count-benchmark|correctness-plan|execution-certificate-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance]|security-plan|agent-safety-plan|redaction-plan|kernel-registry|feature-footprint|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|layout-health-plan|compaction-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|traditional-analytics-run|vortex-count-benchmark|correctness-plan|execution-certificate-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -990,6 +990,103 @@ fn correctness_plan_fields(plan: &CorrectnessValidationPlan) -> Vec<(String, Str
         (
             "baselines_fallback_free".to_string(),
             plan.baselines_are_fallback_free().to_string(),
+        ),
+    ]
+}
+
+fn feature_footprint_fields(report: &FeatureFootprintReport) -> Vec<(String, String)> {
+    let all_gates = report.all_gates();
+    vec![
+        ("mode".to_string(), "feature_footprint".to_string()),
+        (
+            "schema_version".to_string(),
+            report.schema_version.to_string(),
+        ),
+        ("engine_version".to_string(), report.engine_version.clone()),
+        (
+            "crate_version_count".to_string(),
+            report.crate_versions.len().to_string(),
+        ),
+        (
+            "compiled_feature_count".to_string(),
+            report.compiled_features.len().to_string(),
+        ),
+        (
+            "enabled_feature_count".to_string(),
+            report.enabled_features.len().to_string(),
+        ),
+        (
+            "disabled_feature_count".to_string(),
+            report.disabled_features.len().to_string(),
+        ),
+        (
+            "upstream_vortex_dependency_status".to_string(),
+            report.upstream_vortex_dependency_status.clone(),
+        ),
+        (
+            "upstream_vortex_version".to_string(),
+            report
+                .upstream_vortex_version
+                .clone()
+                .unwrap_or_else(|| "none".to_string()),
+        ),
+        ("all_gate_count".to_string(), all_gates.len().to_string()),
+        (
+            "vortex_gate_count".to_string(),
+            report.vortex_gates.len().to_string(),
+        ),
+        (
+            "encoded_read_gate_count".to_string(),
+            report.encoded_read_gates.len().to_string(),
+        ),
+        (
+            "metadata_io_gate_count".to_string(),
+            report.metadata_io_gates.len().to_string(),
+        ),
+        (
+            "write_gate_count".to_string(),
+            report.write_gates.len().to_string(),
+        ),
+        (
+            "object_store_gate_count".to_string(),
+            report.object_store_gates.len().to_string(),
+        ),
+        (
+            "distributed_execution_gate_count".to_string(),
+            report.distributed_execution_gates.len().to_string(),
+        ),
+        (
+            "gate_status_order".to_string(),
+            all_gates
+                .iter()
+                .map(|gate| format!("{}:{}", gate.name, gate.status.as_str()))
+                .collect::<Vec<_>>()
+                .join(","),
+        ),
+        (
+            "external_baseline_count".to_string(),
+            report.external_baseline_availability.len().to_string(),
+        ),
+        (
+            "external_baseline_runtime_fallback_count".to_string(),
+            report
+                .external_baseline_availability
+                .iter()
+                .filter(|baseline| baseline.runtime_fallback_allowed)
+                .count()
+                .to_string(),
+        ),
+        (
+            "fallback_engines_absent".to_string(),
+            report.fallback_engines_absent.to_string(),
+        ),
+        (
+            "fallback_execution_allowed".to_string(),
+            report.fallback_execution_allowed.to_string(),
+        ),
+        (
+            "diagnostic_count".to_string(),
+            report.diagnostics.len().to_string(),
         ),
     ]
 }
@@ -14267,9 +14364,56 @@ fn run(args: Vec<String>) -> ExitCode {
             );
             ExitCode::SUCCESS
         }
+        Some("feature-footprint") => {
+            let report = FeatureFootprintReport::contract_only();
+            let status = if report.has_errors() {
+                CommandStatus::Unsupported
+            } else {
+                CommandStatus::Success
+            };
+            emit(
+                "feature-footprint",
+                format,
+                status,
+                "feature footprint report".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                feature_footprint_fields(&report),
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
         Some("doctor") => {
-            emit("doctor", format, CommandStatus::Success, "doctor checks".to_string(), "ShardLoom doctor\nfallback execution: disabled\nnative input target: vortex\nnative output target: vortex\nstatus: early implementation skeleton".to_string(), vec![], vec![("native_input".to_string(), "vortex".to_string()), ("native_output".to_string(), "vortex".to_string())]);
-            ExitCode::SUCCESS
+            let report = FeatureFootprintReport::contract_only();
+            let status = if report.has_errors() {
+                CommandStatus::Unsupported
+            } else {
+                CommandStatus::Success
+            };
+            let mut fields = feature_footprint_fields(&report);
+            fields.push(("native_input".to_string(), "vortex".to_string()));
+            fields.push(("native_output".to_string(), "vortex".to_string()));
+            fields.push((
+                "doctor_uses_feature_footprint".to_string(),
+                "true".to_string(),
+            ));
+            emit(
+                "doctor",
+                format,
+                status,
+                "doctor checks".to_string(),
+                format!("ShardLoom doctor\n{}", report.to_human_text()),
+                report.diagnostics.clone(),
+                fields,
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
         }
         Some("explain") => {
             let operation = args
@@ -25419,6 +25563,7 @@ mod tests {
             for command in [
                 "status",
                 "capabilities",
+                "feature-footprint",
                 "doctor",
                 "release-plan",
                 "optimizer-plan",
@@ -25432,6 +25577,43 @@ mod tests {
                 );
             }
         });
+    }
+
+    #[test]
+    fn usage_includes_feature_footprint() {
+        assert!(cli_usage_line().contains("feature-footprint"));
+    }
+
+    #[test]
+    fn feature_footprint_fields_include_no_fallback_and_gate_counts() {
+        let report = FeatureFootprintReport::contract_only();
+        let fields = feature_footprint_fields(&report);
+
+        assert_eq!(
+            output_field(&fields, "schema_version"),
+            "shardloom.feature_footprint.v1"
+        );
+        assert_eq!(output_field(&fields, "fallback_execution_allowed"), "false");
+        assert_eq!(
+            output_field(&fields, "external_baseline_runtime_fallback_count"),
+            "0"
+        );
+        assert!(
+            output_field(&fields, "gate_status_order").contains("vortex_file_io"),
+            "gate_status_order should expose deterministic feature gate names"
+        );
+    }
+
+    #[test]
+    fn feature_footprint_command_returns_success() {
+        let code = run(vec!["feature-footprint".to_string()]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn doctor_command_returns_success_through_feature_footprint() {
+        let code = run(vec!["doctor".to_string()]);
+        assert_eq!(code, ExitCode::SUCCESS);
     }
 
     #[test]
