@@ -130,7 +130,13 @@ class OutputEnvelope:
     def is_error(self) -> bool:
         """Whether the command status represents an error or unsupported result."""
 
-        return self.status in {"error", "unsupported"} or any(
+        return self.status in {"error", "unsupported"}
+
+    @property
+    def has_error_diagnostics(self) -> bool:
+        """Whether the report includes error/fatal diagnostics for inspection."""
+
+        return any(
             diagnostic.severity in {"error", "fatal"} for diagnostic in self.diagnostics
         )
 
@@ -139,6 +145,35 @@ class OutputEnvelope:
         """Return envelope fields as a convenience mapping."""
 
         return {entry.key: entry.value for entry in self.fields}
+
+    def field(self, key: str, default: str | None = None) -> str | None:
+        """Return a field value by key, preserving the CLI string value."""
+
+        return self.field_map.get(key, default)
+
+    def field_bool(self, key: str, default: bool | None = None) -> bool | None:
+        """Return a boolean field parsed from ShardLoom's stable string values."""
+
+        value = self.field(key)
+        if value is None:
+            return default
+        normalized = value.strip().lower()
+        if normalized == "true":
+            return True
+        if normalized == "false":
+            return False
+        raise ValueError(f"field {key!r} is not a boolean value: {value!r}")
+
+    def field_int(self, key: str, default: int | None = None) -> int | None:
+        """Return an integer field parsed from ShardLoom's stable string values."""
+
+        value = self.field(key)
+        if value is None:
+            return default
+        try:
+            return int(value)
+        except ValueError as exc:
+            raise ValueError(f"field {key!r} is not an integer value: {value!r}") from exc
 
 
 def _optional_str(value: Any) -> str | None:

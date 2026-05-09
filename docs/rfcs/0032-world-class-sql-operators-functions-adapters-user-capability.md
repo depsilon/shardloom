@@ -20,7 +20,8 @@ Real users choose engines for end-to-end capability: SQL/function/operator bread
 - no external engine execution
 - no SQL execution delegation
 - no adapter runtime implementation
-- no Python wrapper implementation
+- no mature Python API, DataFrame, notebook, Python UDF, package publication, or
+  native binding implementation
 - no unstructured media runtime implementation
 - no OCR, LLM, embedding, vector, image, audio, or video processing dependency additions
 - no broad dependency additions
@@ -875,6 +876,8 @@ Unstructured/media boundaries:
 
 ### Python and notebook
 - thin Python wrapper over stable CLI JSON first
+- source-tree Python live ETL smoke helpers for current CSV-to-Vortex and native Vortex local test paths
+- Python advisory helpers for dynamic sizing/work-shaping and benchmark evidence discovery
 - Python query builder/DataFrame-like API later
 - notebook display helpers
 - Python capability discovery helpers
@@ -884,6 +887,9 @@ Unstructured/media boundaries:
 
 Python boundaries:
 - The first Python wrapper should be a stable, thin, machine-readable client over CLI/API JSON, not a hidden execution engine.
+- Current source-tree live ETL helpers are smoke-test conveniences only; they do
+  not certify mature ETL, adapter, SQL, DataFrame, or production workload
+  capability.
 - CG-11 may establish the low-level API/protocol foundation, but CG-20 owns mature Python wrapper, DataFrame/query-builder, notebook, Python UDF, and Python packaging certification.
 - Python APIs must not imply pandas/Polars/Spark/DataFusion execution fallback.
 - DataFrame-like APIs must lower into ShardLoom-native capability checks and plans.

@@ -226,15 +226,18 @@ Acceptance:
   output envelope.
 - The protocol contract documents the envelope, fallback, diagnostic, and field
   entry keys that clients can consume.
-- A future Python wrapper starts as a thin CLI JSON subprocess/client boundary.
-- CG-11 does not add PyO3, maturin, a Python package, a DataFrame API, runtime
-  execution, parser execution, adapter probing, filesystem/network probing,
+- The Python wrapper starts as a thin source-tree CLI JSON subprocess/client
+  boundary.
+- CG-11 does not add PyO3, maturin, native Python bindings, a DataFrame API,
+  parser execution, adapter probing, filesystem/network probing at import time,
   external publication, or fallback execution.
 
 ### CG-11 thin Python wrapper foundation
 
-The first Python-wrapper milestone is still report-only. It defines the allowed
-client boundary for a future wrapper before a Python package exists.
+The first Python-wrapper implementation is a source-tree, zero-dependency Python
+package over the CLI JSON protocol. It is intentionally not a native binding,
+published package, DataFrame API, notebook runtime, Python UDF runtime, SQL
+runtime, adapter runtime, or fallback execution path.
 
 Required report fields:
 - `schema_version`
@@ -245,10 +248,10 @@ Required report fields:
 - `invocation_model`
 - `initial_command_scope`
 - `required_client_behaviors`
-- `package_status=not_created`
+- `package_status=source_tree_created`
 - `native_binding_status=not_created`
 - `pyo3_maturin_allowed=false`
-- `python_package_created=false`
+- `python_package_created=true`
 - `native_extension_required=false`
 - `dataframe_api_implemented=false`
 - `notebook_api_implemented=false`
@@ -273,14 +276,46 @@ Acceptance:
 - `python-wrapper-plan --format json` emits the wrapper foundation contract.
 - The wrapper foundation starts as a CLI JSON subprocess/client over
   `shardloom ... --format json`.
-- The future wrapper must preserve `OutputEnvelope` diagnostics, fallback status,
-  and materialization-boundary fields instead of translating them into lossy
-  Python exceptions only.
+- The source-tree wrapper preserves `OutputEnvelope` diagnostics, fallback
+  status, and materialization-boundary fields instead of translating them into
+  lossy Python exceptions only.
 - Mature Python API, DataFrame/query-builder, notebook behavior, Python UDF,
   packaging, and distribution certification remain CG-20 work.
-- CG-11 does not create a Python package, add PyO3/maturin, add a native
-  extension, invoke Python, execute runtime work, run a parser, probe adapters,
-  read files, contact networks, publish packages, or attempt fallback execution.
+- Importing the wrapper must not execute ShardLoom commands, read datasets,
+  contact networks, probe adapters/catalogs, or attempt fallback execution.
+- CG-11 does not add PyO3/maturin, add a native extension, run a parser, publish
+  packages, or attempt fallback execution.
+
+### CG-11 Python live ETL helper surface
+
+The source-tree wrapper may expose explicit helpers for currently supported CLI
+smoke commands so users can run local live tests without memorizing long command
+lines. These helpers must remain thin subprocess calls over `OutputEnvelope`.
+
+Allowed initial helpers:
+- `status`
+- `capabilities`
+- `api-compat-plan`
+- `python-wrapper-plan`
+- `vortex-run`
+- `traditional-analytics-run`
+- `traditional-analytics-vortex-run`
+- `dynamic-work-shaping-plan`
+- `sizing-feedback-plan`
+- `benchmark-plan`
+- `benchmark-claim-evidence-plan`
+
+Helper boundaries:
+- CSV live ETL smoke may invoke the existing CSV-to-Vortex local benchmark path
+  only when called explicitly by the user.
+- Native Vortex live ETL smoke may invoke existing `.vortex` inputs through the
+  current benchmark-only native Vortex path.
+- Dynamic sizing and dynamic work shaping helpers are advisory reports only and
+  must not mutate runtime policy.
+- Binary discovery may use explicit `SHARDLOOM_BIN`, an explicit binary path, or
+  an explicit source-tree root, but must not run on import.
+- These helpers are not mature DataFrame, SQL, UDF, adapter, notebook, package
+  publication, benchmark-certification, or best-default evidence.
 
 ### ExternalBaselineRun
 
