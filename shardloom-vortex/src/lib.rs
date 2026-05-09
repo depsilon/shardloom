@@ -379,7 +379,8 @@ pub use output_payload::{
 };
 pub use traditional_analytics::{
     TraditionalAnalyticsReport, TraditionalAnalyticsRequest, TraditionalAnalyticsScenario,
-    run_traditional_analytics_benchmark,
+    TraditionalAnalyticsVortexReport, TraditionalAnalyticsVortexRequest,
+    run_traditional_analytics_benchmark, run_traditional_analytics_vortex_benchmark,
 };
 
 pub use write_intent::{

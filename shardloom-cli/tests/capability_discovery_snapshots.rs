@@ -45,7 +45,7 @@ const FUNCTION_FIELD_KEYS: [&str; 13] = [
     "planned_count",
 ];
 
-const OPERATOR_FIELD_KEYS: [&str; 178] = [
+const OPERATOR_FIELD_KEYS: [&str; 180] = [
     "scope",
     "schema_version",
     "fallback_execution_allowed",
@@ -216,6 +216,8 @@ const OPERATOR_FIELD_KEYS: [&str; 178] = [
     "local_vortex_primitive_execution_local_only",
     "local_vortex_primitive_execution_count_all_decode_required",
     "local_vortex_primitive_execution_filter_project_decode_boundary_reported",
+    "local_vortex_primitive_execution_scan_filter_pushdown",
+    "local_vortex_primitive_execution_scan_projection_pushdown",
     "local_vortex_primitive_execution_row_read",
     "local_vortex_primitive_execution_arrow_converted",
     "local_vortex_primitive_execution_object_store_io",
@@ -967,7 +969,13 @@ fn assert_operator_discovery_local_vortex_primitive_execution(output: &str) {
         "{\"key\":\"local_vortex_primitive_execution_count_all_decode_required\",\"value\":\"false\"}"
     ));
     assert!(output.contains(
-        "{\"key\":\"local_vortex_primitive_execution_filter_project_decode_boundary_reported\",\"value\":\"true\"}"
+        "{\"key\":\"local_vortex_primitive_execution_filter_project_decode_boundary_reported\",\"value\":\"false\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"local_vortex_primitive_execution_scan_filter_pushdown\",\"value\":\"true\"}"
+    ));
+    assert!(output.contains(
+        "{\"key\":\"local_vortex_primitive_execution_scan_projection_pushdown\",\"value\":\"true\"}"
     ));
     assert!(
         output.contains(

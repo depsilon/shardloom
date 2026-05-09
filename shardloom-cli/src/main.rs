@@ -208,7 +208,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|agent-contract-pack|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance]|security-plan|effect-budget-plan|agent-safety-plan|redaction-plan|kernel-registry|feature-footprint|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|layout-health-plan|compaction-plan|table-intelligence-plan|object-store-request-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|dynamic-work-shaping-plan [balanced|memory-pressure|object-store-throttled|small-tasks]|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|benchmark-claim-evidence-plan [foundation|traditional-analytics]|traditional-analytics-run|vortex-count-benchmark|correctness-plan|correctness-harness-plan|execution-certificate-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|agent-contract-pack|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance]|security-plan|effect-budget-plan|agent-safety-plan|redaction-plan|kernel-registry|feature-footprint|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|layout-health-plan|compaction-plan|table-intelligence-plan|object-store-request-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|dynamic-work-shaping-plan [balanced|memory-pressure|object-store-throttled|small-tasks]|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|benchmark-claim-evidence-plan [foundation|traditional-analytics]|traditional-analytics-run|traditional-analytics-vortex-run|vortex-count-benchmark|correctness-plan|correctness-harness-plan|execution-certificate-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -3357,6 +3357,76 @@ fn handle_traditional_analytics_run(
         format,
         CommandStatus::Success,
         "traditional analytics universal I/O smoke".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        report.fields(),
+    );
+    ExitCode::SUCCESS
+}
+
+fn handle_traditional_analytics_vortex_run(
+    mut args: std::vec::IntoIter<String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let Some(scenario_text) = args.next() else {
+        eprintln!(
+            "usage: shardloom traditional-analytics-vortex-run <scenario> <fact_vortex> <dim_vortex>"
+        );
+        return ExitCode::from(2);
+    };
+    let Some(fact_vortex) = args.next() else {
+        eprintln!(
+            "usage: shardloom traditional-analytics-vortex-run <scenario> <fact_vortex> <dim_vortex>"
+        );
+        return ExitCode::from(2);
+    };
+    let Some(dim_vortex) = args.next() else {
+        eprintln!(
+            "usage: shardloom traditional-analytics-vortex-run <scenario> <fact_vortex> <dim_vortex>"
+        );
+        return ExitCode::from(2);
+    };
+    if let Some(extra) = args.next() {
+        return emit_error(
+            "traditional-analytics-vortex-run",
+            format,
+            "traditional analytics native Vortex run failed",
+            &cli_unknown_arg_error("traditional-analytics-vortex-run", &extra),
+        );
+    }
+
+    let scenario = match shardloom_vortex::TraditionalAnalyticsScenario::parse(&scenario_text) {
+        Ok(scenario) => scenario,
+        Err(error) => {
+            return emit_error(
+                "traditional-analytics-vortex-run",
+                format,
+                "traditional analytics native Vortex run failed",
+                &error,
+            );
+        }
+    };
+    let request = shardloom_vortex::TraditionalAnalyticsVortexRequest::new(
+        scenario,
+        PathBuf::from(fact_vortex),
+        PathBuf::from(dim_vortex),
+    );
+    let report = match shardloom_vortex::run_traditional_analytics_vortex_benchmark(request) {
+        Ok(report) => report,
+        Err(error) => {
+            return emit_error(
+                "traditional-analytics-vortex-run",
+                format,
+                "traditional analytics native Vortex run failed",
+                &error,
+            );
+        }
+    };
+    emit(
+        "traditional-analytics-vortex-run",
+        format,
+        CommandStatus::Success,
+        "traditional analytics native Vortex smoke".to_string(),
         report.to_human_text(),
         report.diagnostics.clone(),
         report.fields(),
@@ -7943,6 +8013,16 @@ fn append_local_vortex_primitive_execution_discovery_fields(fields: &mut Vec<(St
     push_bool_field(
         fields,
         "local_vortex_primitive_execution_filter_project_decode_boundary_reported",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "local_vortex_primitive_execution_scan_filter_pushdown",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "local_vortex_primitive_execution_scan_projection_pushdown",
         true,
     );
     push_bool_field(fields, "local_vortex_primitive_execution_row_read", false);
@@ -22255,6 +22335,9 @@ fn run(args: Vec<String>) -> ExitCode {
         }
 
         Some("traditional-analytics-run") => handle_traditional_analytics_run(args, format),
+        Some("traditional-analytics-vortex-run") => {
+            handle_traditional_analytics_vortex_run(args, format)
+        }
         Some("vortex-count") => handle_vortex_count(args, format),
         Some("vortex-count-benchmark") => handle_vortex_count_benchmark(args, format),
         Some("vortex-count-where") => {
@@ -22916,6 +22999,38 @@ fn run(args: Vec<String>) -> ExitCode {
                         .local_primitive_execution_report
                         .as_ref()
                         .map_or_else(String::new, |local| local.projected_columns.join(",")),
+                ),
+                (
+                    "local_primitive_filter_pushdown_applied".to_string(),
+                    report
+                        .local_primitive_execution_report
+                        .as_ref()
+                        .is_some_and(|local| local.filter_pushdown_applied)
+                        .to_string(),
+                ),
+                (
+                    "local_primitive_projection_pushdown_applied".to_string(),
+                    report
+                        .local_primitive_execution_report
+                        .as_ref()
+                        .is_some_and(|local| local.projection_pushdown_applied)
+                        .to_string(),
+                ),
+                (
+                    "local_primitive_upstream_filter_expression_used".to_string(),
+                    report
+                        .local_primitive_execution_report
+                        .as_ref()
+                        .is_some_and(|local| local.upstream_filter_expression_used)
+                        .to_string(),
+                ),
+                (
+                    "local_primitive_upstream_projection_expression_used".to_string(),
+                    report
+                        .local_primitive_execution_report
+                        .as_ref()
+                        .is_some_and(|local| local.upstream_projection_expression_used)
+                        .to_string(),
                 ),
                 (
                     "local_primitive_materialization_boundary_reported".to_string(),

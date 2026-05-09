@@ -29,6 +29,7 @@ from typing import Any, Callable
 
 ENGINE_ORDER = (
     "shardloom",
+    "shardloom-vortex",
     "pandas",
     "polars",
     "duckdb",
@@ -47,6 +48,8 @@ SCENARIO_ORDER = (
     "wide projection",
     "distinct count",
 )
+FORMAT_ORDER = ("csv", "parquet")
+SHARDLOOM_VORTEX_FORMAT = "vortex"
 STRESS_SCENARIO_ORDER = (
     "scale stress skewed join aggregation",
     "scale stress multi-stage etl",
@@ -73,6 +76,8 @@ class DatasetPaths:
     root: Path
     fact_csv: Path
     dim_csv: Path
+    fact_parquet: Path
+    dim_parquet: Path
     rows: int
     dim_rows: int
 
@@ -81,7 +86,9 @@ class DatasetPaths:
 class EngineRunner:
     name: str
     version: str
-    scenarios: dict[str, Callable[[DatasetPaths], Any]]
+    scenarios: dict[str, Callable[[DatasetPaths, str], Any]]
+    formats: tuple[str, ...] = ("csv",)
+    prepare: Callable[[DatasetPaths], None] | None = None
     warmup: Callable[[], None] | None = None
     close: Callable[[], None] | None = None
     startup_time_millis: float | None = None
@@ -157,7 +164,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--engines",
         default=",".join(ENGINE_ORDER),
-        help="Comma-separated engines: shardloom,pandas,polars,duckdb,spark-default,spark-local-tuned,datafusion,dask. Alias: spark expands to both Spark profiles.",
+        help="Comma-separated engines: shardloom,shardloom-vortex,pandas,polars,duckdb,spark-default,spark-local-tuned,datafusion,dask. Alias: spark expands to both Spark profiles.",
+    )
+    parser.add_argument(
+        "--formats",
+        default=",".join(FORMAT_ORDER),
+        help="Comma-separated external storage formats to run where supported: csv,parquet. ShardLoom native Vortex rows use the shardloom-vortex engine.",
     )
     parser.add_argument(
         "--scenario",
@@ -247,6 +259,17 @@ def parse_args() -> argparse.Namespace:
     if unknown:
         parser.error(f"unknown engines: {','.join(unknown)}")
     args.engine_list = engines
+    requested_formats = tuple(
+        data_format.strip().lower()
+        for data_format in args.formats.split(",")
+        if data_format.strip()
+    )
+    unknown_formats = sorted(set(requested_formats) - set(FORMAT_ORDER))
+    if unknown_formats:
+        parser.error(f"unknown formats: {','.join(unknown_formats)}")
+    if not requested_formats:
+        parser.error("--formats must include at least one format")
+    args.format_list = requested_formats
     if args.scenario:
         args.scenario_list = tuple(args.scenario)
     elif args.include_stress:
@@ -262,15 +285,25 @@ def parse_args() -> argparse.Namespace:
 def ensure_dataset(root: Path, rows: int, dim_rows: int, regenerate: bool) -> DatasetPaths:
     fact_csv = root / "fact.csv"
     dim_csv = root / "dim.csv"
+    fact_parquet = root / "fact.parquet"
+    dim_parquet = root / "dim.parquet"
     metadata_json = root / "dataset.json"
     if regenerate and root.exists():
         shutil.rmtree(root)
     root.mkdir(parents=True, exist_ok=True)
-    expected_metadata = {"rows": rows, "dim_rows": dim_rows, "schema_version": 1}
-    if fact_csv.exists() and dim_csv.exists() and metadata_json.exists():
+    expected_metadata = {"rows": rows, "dim_rows": dim_rows, "schema_version": 2}
+    if (
+        fact_csv.exists()
+        and dim_csv.exists()
+        and fact_parquet.exists()
+        and dim_parquet.exists()
+        and metadata_json.exists()
+    ):
         with metadata_json.open("r", encoding="utf-8") as handle:
             if json.load(handle) == expected_metadata:
-                return DatasetPaths(root, fact_csv, dim_csv, rows, dim_rows)
+                return DatasetPaths(
+                    root, fact_csv, dim_csv, fact_parquet, dim_parquet, rows, dim_rows
+                )
 
     with fact_csv.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle)
@@ -303,7 +336,24 @@ def ensure_dataset(root: Path, rows: int, dim_rows: int, regenerate: bool) -> Da
         json.dump(expected_metadata, handle, indent=2, sort_keys=True)
         handle.write("\n")
 
-    return DatasetPaths(root, fact_csv, dim_csv, rows, dim_rows)
+    write_parquet_copies(fact_csv, dim_csv, fact_parquet, dim_parquet)
+
+    return DatasetPaths(root, fact_csv, dim_csv, fact_parquet, dim_parquet, rows, dim_rows)
+
+
+def write_parquet_copies(
+    fact_csv: Path, dim_csv: Path, fact_parquet: Path, dim_parquet: Path
+) -> None:
+    try:
+        import pyarrow.csv as arrow_csv  # type: ignore
+        import pyarrow.parquet as pq  # type: ignore
+    except ImportError as exc:
+        raise BenchmarkUnsupported(
+            "pyarrow is required to generate Parquet benchmark inputs"
+        ) from exc
+
+    pq.write_table(arrow_csv.read_csv(fact_csv), fact_parquet)
+    pq.write_table(arrow_csv.read_csv(dim_csv), dim_parquet)
 
 
 def module_version(name: str) -> str:
@@ -321,7 +371,11 @@ def shardloom_runner() -> EngineRunner:
     env = os.environ.copy()
     env["RUSTUP_TOOLCHAIN"] = env.get("RUSTUP_TOOLCHAIN", "1.91.1")
 
-    def run_scenario(scenario: str, paths: DatasetPaths) -> Any:
+    def run_scenario(scenario: str, paths: DatasetPaths, data_format: str) -> Any:
+        if data_format != "csv":
+            raise BenchmarkUnsupported(
+                "ShardLoom traditional benchmark row currently supports CSV source import only; use shardloom-vortex for native .vortex input rows"
+            )
         workspace = paths.root / "shardloom_universal_io" / scenario_slug(scenario)
         command = [
             str(binary),
@@ -392,9 +446,142 @@ def shardloom_runner() -> EngineRunner:
         "shardloom",
         shardloom_version(root, SHARDLOOM_BUILD_PROFILE),
         {
-            scenario: (lambda paths, scenario=scenario: run_scenario(scenario, paths))
+            scenario: (
+                lambda paths, data_format, scenario=scenario: run_scenario(
+                    scenario, paths, data_format
+                )
+            )
             for scenario in SCENARIO_ORDER + STRESS_SCENARIO_ORDER
         },
+        formats=("csv",),
+    )
+
+
+def shardloom_vortex_runner() -> EngineRunner:
+    root = workspace_root()
+    binary = build_shardloom_cli(
+        root,
+        "vortex-traditional-analytics-benchmark",
+        SHARDLOOM_BUILD_PROFILE,
+    )
+    env = os.environ.copy()
+    env["RUSTUP_TOOLCHAIN"] = env.get("RUSTUP_TOOLCHAIN", "1.91.1")
+    prepared_paths: dict[str, Path] = {}
+
+    def prepare(paths: DatasetPaths) -> None:
+        if prepared_paths:
+            return
+        workspace = paths.root / "shardloom_native_vortex_inputs"
+        command = [
+            str(binary),
+            "traditional-analytics-run",
+            "csv/file ingest",
+            str(paths.fact_csv),
+            str(paths.dim_csv),
+            "--workspace",
+            str(workspace),
+            "--format",
+            "json",
+        ]
+        completed = subprocess_run(command, root, env)
+        if completed["returncode"] != 0:
+            raise BenchmarkUnsupported(
+                completed["stderr"] or completed["stdout"] or "native Vortex input setup failed"
+            )
+        try:
+            payload = json.loads(completed["stdout"].splitlines()[0])
+        except (json.JSONDecodeError, IndexError) as exc:
+            raise BenchmarkUnsupported(
+                f"ShardLoom native Vortex setup emitted invalid JSON: {exc}"
+            ) from exc
+        fields = parse_output_fields(payload)
+        fact_vortex = Path(fields.get("fact_vortex_path", ""))
+        dim_vortex = Path(fields.get("dim_vortex_path", ""))
+        if not fact_vortex.exists() or not dim_vortex.exists():
+            raise BenchmarkUnsupported(
+                "ShardLoom native Vortex setup did not produce fact/dim .vortex files"
+            )
+        prepared_paths["fact"] = fact_vortex
+        prepared_paths["dim"] = dim_vortex
+
+    def run_scenario(scenario: str, paths: DatasetPaths, data_format: str) -> Any:
+        if data_format != SHARDLOOM_VORTEX_FORMAT:
+            raise BenchmarkUnsupported("shardloom-vortex only runs native .vortex inputs")
+        prepare(paths)
+        command = [
+            str(binary),
+            "traditional-analytics-vortex-run",
+            scenario,
+            str(prepared_paths["fact"]),
+            str(prepared_paths["dim"]),
+            "--format",
+            "json",
+        ]
+        completed = subprocess_run(command, root, env)
+        if completed["returncode"] != 0:
+            raise RuntimeError(completed["stderr"] or completed["stdout"] or "unknown failure")
+        try:
+            payload = json.loads(completed["stdout"].splitlines()[0])
+        except (json.JSONDecodeError, IndexError) as exc:
+            raise RuntimeError(f"ShardLoom emitted invalid JSON: {exc}") from exc
+        fields = parse_output_fields(payload)
+        if payload.get("status") != "success":
+            reason = fields.get("reason") or payload.get("human_text") or "unsupported"
+            raise BenchmarkUnsupported(str(reason))
+        required_true_fields = [
+            "native_work_envelope_created",
+            "native_work_stream_created",
+            "native_result_stream_created",
+            "native_io_certificate_emitted",
+            "vortex_source_adapter_used",
+            "vortex_file_read",
+            "upstream_vortex_scan_called",
+            "materialization_boundary_report_emitted",
+            "native_io_per_path_certificate_emitted",
+            "native_io_materializing_transitions_have_boundaries",
+        ]
+        missing_evidence = [
+            field for field in required_true_fields if fields.get(field) != "true"
+        ]
+        if missing_evidence:
+            raise RuntimeError(
+                "ShardLoom native Vortex evidence was missing: "
+                + ", ".join(missing_evidence)
+            )
+        if fields.get("native_io_certificate_status") != "certified":
+            raise RuntimeError(
+                "ShardLoom NativeIoCertificate was not certified: "
+                + str(fields.get("native_io_certificate_status", "missing"))
+            )
+        if (
+            fields.get("native_io_certificate_path_id")
+            != "native_vortex_source_to_native_runtime_result"
+        ):
+            raise RuntimeError(
+                "ShardLoom NativeIoCertificate path was unexpected: "
+                + str(fields.get("native_io_certificate_path_id", "missing"))
+            )
+        result_json = fields.get("result_json")
+        if result_json is None:
+            raise RuntimeError("ShardLoom result_json field was missing")
+        return {
+            "__benchmark_result": json.loads(result_json),
+            "__shardloom_evidence": fields,
+        }
+
+    return EngineRunner(
+        "shardloom-vortex",
+        shardloom_version(root, SHARDLOOM_BUILD_PROFILE),
+        {
+            scenario: (
+                lambda paths, data_format, scenario=scenario: run_scenario(
+                    scenario, paths, data_format
+                )
+            )
+            for scenario in SCENARIO_ORDER + STRESS_SCENARIO_ORDER
+        },
+        formats=(SHARDLOOM_VORTEX_FORMAT,),
+        prepare=prepare,
     )
 
 
@@ -419,6 +606,16 @@ def warmup_runner(runner: EngineRunner) -> EngineRunner:
     runner.warmup()
     warmup_time = (time.perf_counter() - started) * 1000.0
     startup_time = (runner.startup_time_millis or 0.0) + warmup_time
+    return replace(runner, startup_time_millis=round(startup_time, 4))
+
+
+def prepare_runner(runner: EngineRunner, paths: DatasetPaths) -> EngineRunner:
+    if runner.prepare is None:
+        return runner
+    started = time.perf_counter()
+    runner.prepare(paths)
+    prepare_time = (time.perf_counter() - started) * 1000.0
+    startup_time = (runner.startup_time_millis or 0.0) + prepare_time
     return replace(runner, startup_time_millis=round(startup_time, 4))
 
 
@@ -593,6 +790,26 @@ def sql_literal(path: Path) -> str:
     return "'" + str(path).replace("\\", "/").replace("'", "''") + "'"
 
 
+def fact_path(paths: DatasetPaths, data_format: str) -> Path:
+    if data_format == "csv":
+        return paths.fact_csv
+    if data_format == "parquet":
+        return paths.fact_parquet
+    raise BenchmarkUnsupported(f"unsupported fact storage format: {data_format}")
+
+
+def dim_path(paths: DatasetPaths, data_format: str) -> Path:
+    if data_format == "csv":
+        return paths.dim_csv
+    if data_format == "parquet":
+        return paths.dim_parquet
+    raise BenchmarkUnsupported(f"unsupported dimension storage format: {data_format}")
+
+
+def scenario_display_name(data_format: str, scenario: str) -> str:
+    return f"{data_format}: {scenario}"
+
+
 def pyarrow_rows(batches: list[Any]) -> list[dict[str, Any]]:
     import pyarrow as pa  # type: ignore
 
@@ -626,17 +843,25 @@ def configure_java_home() -> None:
 def pandas_runner() -> EngineRunner:
     import pandas as pd  # type: ignore
 
-    def ingest(paths: DatasetPaths) -> Any:
-        frame = pd.read_csv(paths.fact_csv)
+    def read_fact(paths: DatasetPaths, data_format: str) -> Any:
+        path = fact_path(paths, data_format)
+        return pd.read_parquet(path) if data_format == "parquet" else pd.read_csv(path)
+
+    def read_dim(paths: DatasetPaths, data_format: str) -> Any:
+        path = dim_path(paths, data_format)
+        return pd.read_parquet(path) if data_format == "parquet" else pd.read_csv(path)
+
+    def ingest(paths: DatasetPaths, data_format: str) -> Any:
+        frame = read_fact(paths, data_format)
         return normalize_scalar_result(len(frame), frame["metric"].sum())
 
-    def selective_filter(paths: DatasetPaths) -> Any:
-        frame = pd.read_csv(paths.fact_csv)
+    def selective_filter(paths: DatasetPaths, data_format: str) -> Any:
+        frame = read_fact(paths, data_format)
         filtered = frame[(frame["flag"] == 1) & (frame["value"] >= 5000)]
         return normalize_scalar_result(len(filtered), filtered["metric"].sum())
 
-    def group_by(paths: DatasetPaths) -> Any:
-        frame = pd.read_csv(paths.fact_csv)
+    def group_by(paths: DatasetPaths, data_format: str) -> Any:
+        frame = read_fact(paths, data_format)
         grouped = (
             frame.groupby("group_key", as_index=False)
             .agg(row_count=("id", "count"), metric_sum=("metric", "sum"))
@@ -644,8 +869,8 @@ def pandas_runner() -> EngineRunner:
         )
         return normalize_group_rows(grouped, "group_key")
 
-    def top_k(paths: DatasetPaths) -> Any:
-        frame = pd.read_csv(paths.fact_csv)
+    def top_k(paths: DatasetPaths, data_format: str) -> Any:
+        frame = read_fact(paths, data_format)
         rows = (
             frame.sort_values(["metric", "id"], ascending=[False, True])
             .head(10)[["id", "metric"]]
@@ -653,9 +878,9 @@ def pandas_runner() -> EngineRunner:
         )
         return normalize_top_rows(rows)
 
-    def hash_join(paths: DatasetPaths) -> Any:
-        fact = pd.read_csv(paths.fact_csv)
-        dim = pd.read_csv(paths.dim_csv)
+    def hash_join(paths: DatasetPaths, data_format: str) -> Any:
+        fact = read_fact(paths, data_format)
+        dim = read_dim(paths, data_format)
         joined = fact.merge(dim, on="dim_key", how="inner")
         grouped = (
             joined.groupby("dim_label", as_index=False)
@@ -664,18 +889,18 @@ def pandas_runner() -> EngineRunner:
         )
         return normalize_group_rows(grouped, "dim_label")
 
-    def wide_projection(paths: DatasetPaths) -> Any:
-        frame = pd.read_csv(paths.fact_csv)
+    def wide_projection(paths: DatasetPaths, data_format: str) -> Any:
+        frame = read_fact(paths, data_format)
         projected = frame[["id", "group_key", "category"]]
         return normalize_scalar_result(len(projected), projected["group_key"].sum())
 
-    def distinct_count(paths: DatasetPaths) -> Any:
-        frame = pd.read_csv(paths.fact_csv)
+    def distinct_count(paths: DatasetPaths, data_format: str) -> Any:
+        frame = read_fact(paths, data_format)
         return {"distinct_category_count": int(frame["category"].nunique())}
 
-    def scale_stress(paths: DatasetPaths) -> Any:
-        fact = pd.read_csv(paths.fact_csv)
-        dim = pd.read_csv(paths.dim_csv)
+    def scale_stress(paths: DatasetPaths, data_format: str) -> Any:
+        fact = read_fact(paths, data_format)
+        dim = read_dim(paths, data_format)
         expanded = fact.merge(dim, on="dim_key", how="inner")
         expanded["skew_key"] = expanded["group_key"] % 10
         grouped = (
@@ -685,9 +910,9 @@ def pandas_runner() -> EngineRunner:
         )
         return normalize_group_rows(grouped, "skew_key")
 
-    def complex_etl(paths: DatasetPaths) -> Any:
-        fact = pd.read_csv(paths.fact_csv)
-        dim = pd.read_csv(paths.dim_csv)
+    def complex_etl(paths: DatasetPaths, data_format: str) -> Any:
+        fact = read_fact(paths, data_format)
+        dim = read_dim(paths, data_format)
         joined = fact[fact["value"] >= 2500].merge(dim, on="dim_key", how="inner")
         joined["bucket"] = joined["group_key"] % 10
         joined["weighted_metric"] = joined["metric"] * (joined["weight"] + 1)
@@ -718,23 +943,32 @@ def pandas_runner() -> EngineRunner:
             "scale stress skewed join aggregation": scale_stress,
             "scale stress multi-stage etl": complex_etl,
         },
+        formats=FORMAT_ORDER,
     )
 
 
 def polars_runner() -> EngineRunner:
     import polars as pl  # type: ignore
 
-    def ingest(paths: DatasetPaths) -> Any:
-        frame = pl.read_csv(paths.fact_csv)
+    def read_fact(paths: DatasetPaths, data_format: str) -> Any:
+        path = fact_path(paths, data_format)
+        return pl.read_parquet(path) if data_format == "parquet" else pl.read_csv(path)
+
+    def read_dim(paths: DatasetPaths, data_format: str) -> Any:
+        path = dim_path(paths, data_format)
+        return pl.read_parquet(path) if data_format == "parquet" else pl.read_csv(path)
+
+    def ingest(paths: DatasetPaths, data_format: str) -> Any:
+        frame = read_fact(paths, data_format)
         return normalize_scalar_result(frame.height, frame["metric"].sum())
 
-    def selective_filter(paths: DatasetPaths) -> Any:
-        frame = pl.read_csv(paths.fact_csv)
+    def selective_filter(paths: DatasetPaths, data_format: str) -> Any:
+        frame = read_fact(paths, data_format)
         filtered = frame.filter((pl.col("flag") == 1) & (pl.col("value") >= 5000))
         return normalize_scalar_result(filtered.height, filtered["metric"].sum())
 
-    def group_by(paths: DatasetPaths) -> Any:
-        frame = pl.read_csv(paths.fact_csv)
+    def group_by(paths: DatasetPaths, data_format: str) -> Any:
+        frame = read_fact(paths, data_format)
         rows = (
             frame.group_by("group_key")
             .agg(
@@ -747,8 +981,8 @@ def polars_runner() -> EngineRunner:
         )
         return normalize_group_rows(rows, "group_key")
 
-    def top_k(paths: DatasetPaths) -> Any:
-        frame = pl.read_csv(paths.fact_csv)
+    def top_k(paths: DatasetPaths, data_format: str) -> Any:
+        frame = read_fact(paths, data_format)
         rows = (
             frame.sort(["metric", "id"], descending=[True, False])
             .head(10)
@@ -757,9 +991,9 @@ def polars_runner() -> EngineRunner:
         )
         return normalize_top_rows(rows)
 
-    def hash_join(paths: DatasetPaths) -> Any:
-        fact = pl.read_csv(paths.fact_csv)
-        dim = pl.read_csv(paths.dim_csv)
+    def hash_join(paths: DatasetPaths, data_format: str) -> Any:
+        fact = read_fact(paths, data_format)
+        dim = read_dim(paths, data_format)
         rows = (
             fact.join(dim, on="dim_key", how="inner")
             .group_by("dim_label")
@@ -773,18 +1007,18 @@ def polars_runner() -> EngineRunner:
         )
         return normalize_group_rows(rows, "dim_label")
 
-    def wide_projection(paths: DatasetPaths) -> Any:
-        frame = pl.read_csv(paths.fact_csv)
+    def wide_projection(paths: DatasetPaths, data_format: str) -> Any:
+        frame = read_fact(paths, data_format)
         projected = frame.select(["id", "group_key", "category"])
         return normalize_scalar_result(projected.height, projected["group_key"].sum())
 
-    def distinct_count(paths: DatasetPaths) -> Any:
-        frame = pl.read_csv(paths.fact_csv)
+    def distinct_count(paths: DatasetPaths, data_format: str) -> Any:
+        frame = read_fact(paths, data_format)
         return {"distinct_category_count": int(frame["category"].n_unique())}
 
-    def scale_stress(paths: DatasetPaths) -> Any:
-        fact = pl.read_csv(paths.fact_csv)
-        dim = pl.read_csv(paths.dim_csv)
+    def scale_stress(paths: DatasetPaths, data_format: str) -> Any:
+        fact = read_fact(paths, data_format)
+        dim = read_dim(paths, data_format)
         rows = (
             fact.join(dim, on="dim_key", how="inner")
             .with_columns((pl.col("group_key") % 10).alias("skew_key"))
@@ -799,9 +1033,9 @@ def polars_runner() -> EngineRunner:
         )
         return normalize_group_rows(rows, "skew_key")
 
-    def complex_etl(paths: DatasetPaths) -> Any:
-        fact = pl.read_csv(paths.fact_csv)
-        dim = pl.read_csv(paths.dim_csv)
+    def complex_etl(paths: DatasetPaths, data_format: str) -> Any:
+        fact = read_fact(paths, data_format)
+        dim = read_dim(paths, data_format)
         rows = (
             fact.filter(pl.col("value") >= 2500)
             .join(dim, on="dim_key", how="inner")
@@ -839,6 +1073,7 @@ def polars_runner() -> EngineRunner:
             "scale stress skewed join aggregation": scale_stress,
             "scale stress multi-stage etl": complex_etl,
         },
+        formats=FORMAT_ORDER,
     )
 
 
@@ -847,91 +1082,105 @@ def duckdb_runner() -> EngineRunner:
 
     con = duckdb.connect(database=":memory:")
 
-    def query(paths: DatasetPaths, sql: str) -> list[dict[str, Any]]:
-        sql = sql.replace("{fact}", sql_literal(paths.fact_csv)).replace(
-            "{dim}", sql_literal(paths.dim_csv)
+    def table_expr(paths: DatasetPaths, table: str, data_format: str) -> str:
+        path = fact_path(paths, data_format) if table == "fact" else dim_path(paths, data_format)
+        function = "read_parquet" if data_format == "parquet" else "read_csv_auto"
+        return f"{function}({sql_literal(path)})"
+
+    def query(paths: DatasetPaths, data_format: str, sql: str) -> list[dict[str, Any]]:
+        sql = sql.replace("{fact}", table_expr(paths, "fact", data_format)).replace(
+            "{dim}", table_expr(paths, "dim", data_format)
         )
         columns = [column[0] for column in con.execute(sql).description]
         return [dict(zip(columns, row)) for row in con.fetchall()]
 
-    def ingest(paths: DatasetPaths) -> Any:
+    def ingest(paths: DatasetPaths, data_format: str) -> Any:
         rows = query(
             paths,
-            "select count(*) as row_count, sum(metric) as metric_sum from read_csv_auto({fact})",
+            data_format,
+            "select count(*) as row_count, sum(metric) as metric_sum from {fact}",
         )
         return normalize_scalar_result(rows[0]["row_count"], rows[0]["metric_sum"])
 
-    def selective_filter(paths: DatasetPaths) -> Any:
+    def selective_filter(paths: DatasetPaths, data_format: str) -> Any:
         rows = query(
             paths,
+            data_format,
             "select count(*) as row_count, sum(metric) as metric_sum "
-            "from read_csv_auto({fact}) where flag = 1 and value >= 5000",
+            "from {fact} where flag = 1 and value >= 5000",
         )
         return normalize_scalar_result(rows[0]["row_count"], rows[0]["metric_sum"])
 
-    def group_by(paths: DatasetPaths) -> Any:
+    def group_by(paths: DatasetPaths, data_format: str) -> Any:
         return normalize_group_rows(
             query(
                 paths,
+                data_format,
                 "select group_key, count(*) as row_count, sum(metric) as metric_sum "
-                "from read_csv_auto({fact}) group by group_key",
+                "from {fact} group by group_key",
             ),
             "group_key",
         )
 
-    def top_k(paths: DatasetPaths) -> Any:
+    def top_k(paths: DatasetPaths, data_format: str) -> Any:
         return normalize_top_rows(
             query(
                 paths,
-                "select id, metric from read_csv_auto({fact}) "
+                data_format,
+                "select id, metric from {fact} "
                 "order by metric desc, id asc limit 10",
             )
         )
 
-    def hash_join(paths: DatasetPaths) -> Any:
+    def hash_join(paths: DatasetPaths, data_format: str) -> Any:
         return normalize_group_rows(
             query(
                 paths,
+                data_format,
                 "select d.dim_label, count(*) as row_count, sum(f.metric) as metric_sum "
-                "from read_csv_auto({fact}) f join read_csv_auto({dim}) d "
+                "from {fact} f join {dim} d "
                 "on f.dim_key = d.dim_key group by d.dim_label",
             ),
             "dim_label",
         )
 
-    def wide_projection(paths: DatasetPaths) -> Any:
+    def wide_projection(paths: DatasetPaths, data_format: str) -> Any:
         rows = query(
             paths,
+            data_format,
             "select count(*) as row_count, sum(group_key) as metric_sum "
-            "from (select id, group_key, category from read_csv_auto({fact}))",
+            "from (select id, group_key, category from {fact})",
         )
         return normalize_scalar_result(rows[0]["row_count"], rows[0]["metric_sum"])
 
-    def distinct_count(paths: DatasetPaths) -> Any:
+    def distinct_count(paths: DatasetPaths, data_format: str) -> Any:
         rows = query(
             paths,
-            "select count(distinct category) as distinct_category_count from read_csv_auto({fact})",
+            data_format,
+            "select count(distinct category) as distinct_category_count from {fact}",
         )
         return {"distinct_category_count": int(rows[0]["distinct_category_count"])}
 
-    def scale_stress(paths: DatasetPaths) -> Any:
+    def scale_stress(paths: DatasetPaths, data_format: str) -> Any:
         return normalize_group_rows(
             query(
                 paths,
+                data_format,
                 "select f.group_key % 10 as skew_key, count(*) as row_count, sum(f.metric) as metric_sum "
-                "from read_csv_auto({fact}) f join read_csv_auto({dim}) d "
+                "from {fact} f join {dim} d "
                 "on f.dim_key = d.dim_key group by skew_key",
             ),
             "skew_key",
         )
 
-    def complex_etl(paths: DatasetPaths) -> Any:
+    def complex_etl(paths: DatasetPaths, data_format: str) -> Any:
         return normalize_complex_etl_rows(
             query(
                 paths,
+                data_format,
                 "select d.dim_label, f.group_key % 10 as bucket, count(*) as row_count, "
                 "sum(f.metric) as metric_sum, sum(f.metric * (d.weight + 1)) as weighted_sum "
-                "from read_csv_auto({fact}) f join read_csv_auto({dim}) d "
+                "from {fact} f join {dim} d "
                 "on f.dim_key = d.dim_key where f.value >= 2500 "
                 "group by d.dim_label, bucket "
                 "order by weighted_sum desc, d.dim_label asc, bucket asc limit 20",
@@ -952,6 +1201,7 @@ def duckdb_runner() -> EngineRunner:
             "scale stress skewed join aggregation": scale_stress,
             "scale stress multi-stage etl": complex_etl,
         },
+        formats=FORMAT_ORDER,
         close=con.close,
     )
 
@@ -1008,40 +1258,44 @@ def spark_runner(profile: str) -> EngineRunner:
     def warmup_spark() -> None:
         spark_instance()
 
-    def read_fact(paths: DatasetPaths) -> Any:
+    def read_fact(paths: DatasetPaths, data_format: str) -> Any:
+        if data_format == "parquet":
+            return spark_instance().read.parquet(str(paths.fact_parquet))
         return spark_instance().read.option("header", True).option("inferSchema", True).csv(
             str(paths.fact_csv)
         )
 
-    def read_dim(paths: DatasetPaths) -> Any:
+    def read_dim(paths: DatasetPaths, data_format: str) -> Any:
+        if data_format == "parquet":
+            return spark_instance().read.parquet(str(paths.dim_parquet))
         return spark_instance().read.option("header", True).option("inferSchema", True).csv(
             str(paths.dim_csv)
         )
 
-    def ingest(paths: DatasetPaths) -> Any:
-        frame = read_fact(paths)
+    def ingest(paths: DatasetPaths, data_format: str) -> Any:
+        frame = read_fact(paths, data_format)
         row = frame.agg(F.count("*").alias("row_count"), F.sum("metric").alias("metric_sum")).first()
         return normalize_scalar_result(row["row_count"], row["metric_sum"])
 
-    def selective_filter(paths: DatasetPaths) -> Any:
-        frame = read_fact(paths).where((F.col("flag") == 1) & (F.col("value") >= 5000))
+    def selective_filter(paths: DatasetPaths, data_format: str) -> Any:
+        frame = read_fact(paths, data_format).where((F.col("flag") == 1) & (F.col("value") >= 5000))
         row = frame.agg(F.count("*").alias("row_count"), F.sum("metric").alias("metric_sum")).first()
         return normalize_scalar_result(row["row_count"], row["metric_sum"])
 
-    def group_by(paths: DatasetPaths) -> Any:
+    def group_by(paths: DatasetPaths, data_format: str) -> Any:
         rows = [
             row.asDict()
-            for row in read_fact(paths)
+            for row in read_fact(paths, data_format)
             .groupBy("group_key")
             .agg(F.count("*").alias("row_count"), F.sum("metric").alias("metric_sum"))
             .collect()
         ]
         return normalize_group_rows(rows, "group_key")
 
-    def top_k(paths: DatasetPaths) -> Any:
+    def top_k(paths: DatasetPaths, data_format: str) -> Any:
         rows = [
             row.asDict()
-            for row in read_fact(paths)
+            for row in read_fact(paths, data_format)
             .orderBy(F.col("metric").desc(), F.col("id").asc())
             .select("id", "metric")
             .limit(10)
@@ -1049,33 +1303,33 @@ def spark_runner(profile: str) -> EngineRunner:
         ]
         return normalize_top_rows(rows)
 
-    def hash_join(paths: DatasetPaths) -> Any:
+    def hash_join(paths: DatasetPaths, data_format: str) -> Any:
         rows = [
             row.asDict()
-            for row in read_fact(paths)
-            .join(read_dim(paths), on="dim_key", how="inner")
+            for row in read_fact(paths, data_format)
+            .join(read_dim(paths, data_format), on="dim_key", how="inner")
             .groupBy("dim_label")
             .agg(F.count("*").alias("row_count"), F.sum("metric").alias("metric_sum"))
             .collect()
         ]
         return normalize_group_rows(rows, "dim_label")
 
-    def wide_projection(paths: DatasetPaths) -> Any:
-        frame = read_fact(paths).select("id", "group_key", "category")
+    def wide_projection(paths: DatasetPaths, data_format: str) -> Any:
+        frame = read_fact(paths, data_format).select("id", "group_key", "category")
         row = frame.agg(
             F.count("*").alias("row_count"), F.sum("group_key").alias("metric_sum")
         ).first()
         return normalize_scalar_result(row["row_count"], row["metric_sum"])
 
-    def distinct_count(paths: DatasetPaths) -> Any:
-        row = read_fact(paths).agg(F.countDistinct("category").alias("distinct_category_count")).first()
+    def distinct_count(paths: DatasetPaths, data_format: str) -> Any:
+        row = read_fact(paths, data_format).agg(F.countDistinct("category").alias("distinct_category_count")).first()
         return {"distinct_category_count": int(row["distinct_category_count"])}
 
-    def scale_stress(paths: DatasetPaths) -> Any:
+    def scale_stress(paths: DatasetPaths, data_format: str) -> Any:
         rows = [
             row.asDict()
-            for row in read_fact(paths)
-            .join(read_dim(paths), on="dim_key", how="inner")
+            for row in read_fact(paths, data_format)
+            .join(read_dim(paths, data_format), on="dim_key", how="inner")
             .withColumn("skew_key", F.col("group_key") % F.lit(10))
             .groupBy("skew_key")
             .agg(F.count("*").alias("row_count"), F.sum("metric").alias("metric_sum"))
@@ -1083,11 +1337,11 @@ def spark_runner(profile: str) -> EngineRunner:
         ]
         return normalize_group_rows(rows, "skew_key")
 
-    def complex_etl(paths: DatasetPaths) -> Any:
+    def complex_etl(paths: DatasetPaths, data_format: str) -> Any:
         joined = (
-            read_fact(paths)
+            read_fact(paths, data_format)
             .where(F.col("value") >= 2500)
-            .join(read_dim(paths), on="dim_key", how="inner")
+            .join(read_dim(paths, data_format), on="dim_key", how="inner")
             .withColumn("bucket", F.col("group_key") % F.lit(10))
             .withColumn("weighted_metric", F.col("metric") * (F.col("weight") + F.lit(1)))
         )
@@ -1119,6 +1373,7 @@ def spark_runner(profile: str) -> EngineRunner:
             "scale stress skewed join aggregation": scale_stress,
             "scale stress multi-stage etl": complex_etl,
         },
+        formats=FORMAT_ORDER,
         warmup=warmup_spark,
         close=close_spark,
     )
@@ -1135,75 +1390,85 @@ def spark_local_tuned_runner() -> EngineRunner:
 def datafusion_runner() -> EngineRunner:
     import datafusion  # type: ignore
 
-    def query(paths: DatasetPaths, sql: str) -> list[dict[str, Any]]:
+    def query(paths: DatasetPaths, data_format: str, sql: str) -> list[dict[str, Any]]:
         ctx = datafusion.SessionContext()
-        ctx.register_csv("fact", paths.fact_csv, has_header=True)
-        ctx.register_csv("dim", paths.dim_csv, has_header=True)
+        if data_format == "parquet":
+            ctx.register_parquet("fact", paths.fact_parquet)
+            ctx.register_parquet("dim", paths.dim_parquet)
+        else:
+            ctx.register_csv("fact", paths.fact_csv, has_header=True)
+            ctx.register_csv("dim", paths.dim_csv, has_header=True)
         return pyarrow_rows(ctx.sql(sql).collect())
 
-    def ingest(paths: DatasetPaths) -> Any:
-        rows = query(paths, "select count(*) as row_count, sum(metric) as metric_sum from fact")
+    def ingest(paths: DatasetPaths, data_format: str) -> Any:
+        rows = query(paths, data_format, "select count(*) as row_count, sum(metric) as metric_sum from fact")
         return normalize_scalar_result(rows[0]["row_count"], rows[0]["metric_sum"])
 
-    def selective_filter(paths: DatasetPaths) -> Any:
+    def selective_filter(paths: DatasetPaths, data_format: str) -> Any:
         rows = query(
             paths,
+            data_format,
             "select count(*) as row_count, sum(metric) as metric_sum "
             "from fact where flag = 1 and value >= 5000",
         )
         return normalize_scalar_result(rows[0]["row_count"], rows[0]["metric_sum"])
 
-    def group_by(paths: DatasetPaths) -> Any:
+    def group_by(paths: DatasetPaths, data_format: str) -> Any:
         return normalize_group_rows(
             query(
                 paths,
+                data_format,
                 "select group_key, count(*) as row_count, sum(metric) as metric_sum "
                 "from fact group by group_key",
             ),
             "group_key",
         )
 
-    def top_k(paths: DatasetPaths) -> Any:
+    def top_k(paths: DatasetPaths, data_format: str) -> Any:
         return normalize_top_rows(
-            query(paths, "select id, metric from fact order by metric desc, id asc limit 10")
+            query(paths, data_format, "select id, metric from fact order by metric desc, id asc limit 10")
         )
 
-    def hash_join(paths: DatasetPaths) -> Any:
+    def hash_join(paths: DatasetPaths, data_format: str) -> Any:
         return normalize_group_rows(
             query(
                 paths,
+                data_format,
                 "select d.dim_label, count(*) as row_count, sum(f.metric) as metric_sum "
                 "from fact f join dim d on f.dim_key = d.dim_key group by d.dim_label",
             ),
             "dim_label",
         )
 
-    def wide_projection(paths: DatasetPaths) -> Any:
+    def wide_projection(paths: DatasetPaths, data_format: str) -> Any:
         rows = query(
             paths,
+            data_format,
             "select count(*) as row_count, sum(group_key) as metric_sum "
             "from (select id, group_key, category from fact)",
         )
         return normalize_scalar_result(rows[0]["row_count"], rows[0]["metric_sum"])
 
-    def distinct_count(paths: DatasetPaths) -> Any:
-        rows = query(paths, "select count(distinct category) as distinct_category_count from fact")
+    def distinct_count(paths: DatasetPaths, data_format: str) -> Any:
+        rows = query(paths, data_format, "select count(distinct category) as distinct_category_count from fact")
         return {"distinct_category_count": int(rows[0]["distinct_category_count"])}
 
-    def scale_stress(paths: DatasetPaths) -> Any:
+    def scale_stress(paths: DatasetPaths, data_format: str) -> Any:
         return normalize_group_rows(
             query(
                 paths,
+                data_format,
                 "select f.group_key % 10 as skew_key, count(*) as row_count, sum(f.metric) as metric_sum "
                 "from fact f join dim d on f.dim_key = d.dim_key group by skew_key",
             ),
             "skew_key",
         )
 
-    def complex_etl(paths: DatasetPaths) -> Any:
+    def complex_etl(paths: DatasetPaths, data_format: str) -> Any:
         return normalize_complex_etl_rows(
             query(
                 paths,
+                data_format,
                 "select d.dim_label, f.group_key % 10 as bucket, count(*) as row_count, "
                 "sum(f.metric) as metric_sum, sum(f.metric * (d.weight + 1)) as weighted_sum "
                 "from fact f join dim d on f.dim_key = d.dim_key "
@@ -1226,6 +1491,7 @@ def datafusion_runner() -> EngineRunner:
             "scale stress skewed join aggregation": scale_stress,
             "scale stress multi-stage etl": complex_etl,
         },
+        formats=FORMAT_ORDER,
     )
 
 
@@ -1235,10 +1501,14 @@ def dask_runner() -> EngineRunner:
 
     blocksize = None if DASK_BLOCKSIZE == "default" else DASK_BLOCKSIZE
 
-    def read_fact(paths: DatasetPaths) -> Any:
+    def read_fact(paths: DatasetPaths, data_format: str) -> Any:
+        if data_format == "parquet":
+            return dd.read_parquet(paths.fact_parquet)
         return dd.read_csv(paths.fact_csv, blocksize=blocksize)
 
-    def read_dim(paths: DatasetPaths) -> Any:
+    def read_dim(paths: DatasetPaths, data_format: str) -> Any:
+        if data_format == "parquet":
+            return dd.read_parquet(paths.dim_parquet)
         return dd.read_csv(paths.dim_csv, blocksize=blocksize)
 
     def compute_one(*values: Any) -> tuple[Any, ...]:
@@ -1247,26 +1517,26 @@ def dask_runner() -> EngineRunner:
     def compute_frame(value: Any) -> Any:
         return value.compute(scheduler=DASK_SCHEDULER)
 
-    def ingest(paths: DatasetPaths) -> Any:
-        frame = read_fact(paths)
+    def ingest(paths: DatasetPaths, data_format: str) -> Any:
+        frame = read_fact(paths, data_format)
         row_count, metric_sum = compute_one(frame.id.count(), frame.metric.sum())
         return normalize_scalar_result(row_count, metric_sum)
 
-    def selective_filter(paths: DatasetPaths) -> Any:
-        frame = read_fact(paths)
+    def selective_filter(paths: DatasetPaths, data_format: str) -> Any:
+        frame = read_fact(paths, data_format)
         filtered = frame[(frame.flag == 1) & (frame.value >= 5000)]
         row_count, metric_sum = compute_one(filtered.id.count(), filtered.metric.sum())
         return normalize_scalar_result(row_count, metric_sum)
 
-    def group_by(paths: DatasetPaths) -> Any:
-        frame = read_fact(paths)
+    def group_by(paths: DatasetPaths, data_format: str) -> Any:
+        frame = read_fact(paths, data_format)
         counts = frame.groupby("group_key").id.count().rename("row_count")
         sums = frame.groupby("group_key").metric.sum().rename("metric_sum")
         rows = compute_frame(dd.concat([counts, sums], axis=1).reset_index()).to_dict("records")
         return normalize_group_rows(rows, "group_key")
 
-    def top_k(paths: DatasetPaths) -> Any:
-        frame = read_fact(paths)
+    def top_k(paths: DatasetPaths, data_format: str) -> Any:
+        frame = read_fact(paths, data_format)
         rows = (
             compute_frame(frame.nlargest(10, "metric")[["id", "metric"]])
             .sort_values(["metric", "id"], ascending=[False, True])
@@ -1274,28 +1544,28 @@ def dask_runner() -> EngineRunner:
         )
         return normalize_top_rows(rows)
 
-    def hash_join(paths: DatasetPaths) -> Any:
-        fact = read_fact(paths)
-        dim = read_dim(paths)
+    def hash_join(paths: DatasetPaths, data_format: str) -> Any:
+        fact = read_fact(paths, data_format)
+        dim = read_dim(paths, data_format)
         joined = fact.merge(dim, on="dim_key", how="inner")
         counts = joined.groupby("dim_label").id.count().rename("row_count")
         sums = joined.groupby("dim_label").metric.sum().rename("metric_sum")
         rows = compute_frame(dd.concat([counts, sums], axis=1).reset_index()).to_dict("records")
         return normalize_group_rows(rows, "dim_label")
 
-    def wide_projection(paths: DatasetPaths) -> Any:
-        frame = read_fact(paths)[["id", "group_key", "category"]]
+    def wide_projection(paths: DatasetPaths, data_format: str) -> Any:
+        frame = read_fact(paths, data_format)[["id", "group_key", "category"]]
         row_count, metric_sum = compute_one(frame.id.count(), frame.group_key.sum())
         return normalize_scalar_result(row_count, metric_sum)
 
-    def distinct_count(paths: DatasetPaths) -> Any:
-        frame = read_fact(paths)
+    def distinct_count(paths: DatasetPaths, data_format: str) -> Any:
+        frame = read_fact(paths, data_format)
         distinct = compute_frame(frame.category.nunique())
         return {"distinct_category_count": int(distinct)}
 
-    def scale_stress(paths: DatasetPaths) -> Any:
-        fact = read_fact(paths)
-        dim = read_dim(paths)
+    def scale_stress(paths: DatasetPaths, data_format: str) -> Any:
+        fact = read_fact(paths, data_format)
+        dim = read_dim(paths, data_format)
         joined = fact.merge(dim, on="dim_key", how="inner")
         joined = joined.assign(skew_key=joined.group_key % 10)
         counts = joined.groupby("skew_key").id.count().rename("row_count")
@@ -1303,9 +1573,9 @@ def dask_runner() -> EngineRunner:
         rows = compute_frame(dd.concat([counts, sums], axis=1).reset_index()).to_dict("records")
         return normalize_group_rows(rows, "skew_key")
 
-    def complex_etl(paths: DatasetPaths) -> Any:
-        fact = read_fact(paths)
-        dim = read_dim(paths)
+    def complex_etl(paths: DatasetPaths, data_format: str) -> Any:
+        fact = read_fact(paths, data_format)
+        dim = read_dim(paths, data_format)
         joined = fact[fact.value >= 2500].merge(dim, on="dim_key", how="inner")
         joined = joined.assign(
             bucket=joined.group_key % 10,
@@ -1337,11 +1607,13 @@ def dask_runner() -> EngineRunner:
             "scale stress skewed join aggregation": scale_stress,
             "scale stress multi-stage etl": complex_etl,
         },
+        formats=FORMAT_ORDER,
     )
 
 
 ENGINE_FACTORIES: dict[str, Callable[[], EngineRunner]] = {
     "shardloom": shardloom_runner,
+    "shardloom-vortex": shardloom_vortex_runner,
     "pandas": pandas_runner,
     "polars": polars_runner,
     "duckdb": duckdb_runner,
@@ -1352,10 +1624,13 @@ ENGINE_FACTORIES: dict[str, Callable[[], EngineRunner]] = {
 }
 
 
-def scenario_bytes(paths: DatasetPaths, scenario: str) -> int:
+def scenario_bytes(paths: DatasetPaths, scenario: str, data_format: str) -> int:
+    if data_format == SHARDLOOM_VORTEX_FORMAT:
+        return 0
     total = 0
     for name in SCENARIO_BYTES[scenario]:
-        total += (paths.fact_csv if name == "fact" else paths.dim_csv).stat().st_size
+        path = fact_path(paths, data_format) if name == "fact" else dim_path(paths, data_format)
+        total += path.stat().st_size
     return total
 
 
@@ -1380,6 +1655,7 @@ def rows_materialized(value: Any) -> int:
 def failed_result(
     engine: str,
     scenario: str,
+    data_format: str,
     status: str,
     reason: str,
     paths: DatasetPaths,
@@ -1390,7 +1666,7 @@ def failed_result(
         "wall_time_millis": round(elapsed_millis, 4) if elapsed_millis is not None else None,
         "query_runtime_millis": round(elapsed_millis, 4) if elapsed_millis is not None else None,
         "peak_memory_bytes": None,
-        "bytes_read": scenario_bytes(paths, scenario),
+        "bytes_read": scenario_bytes(paths, scenario, data_format),
         "bytes_written": None,
         "rows_scanned": rows_scanned(paths, scenario),
         "rows_materialized": 0,
@@ -1405,7 +1681,9 @@ def failed_result(
         "spill_required_bytes": None,
     }
     return {
-        "scenario_name": scenario,
+        "scenario_name": scenario_display_name(data_format, scenario),
+        "scenario_base": scenario,
+        "storage_format": data_format,
         "engine": engine,
         "status": status,
         "reason": reason,
@@ -1424,6 +1702,7 @@ def run_one(
     runner: EngineRunner,
     paths: DatasetPaths,
     scenario: str,
+    data_format: str,
     iterations: int,
 ) -> dict[str, Any]:
     scenario_fn = runner.scenarios[scenario]
@@ -1435,12 +1714,13 @@ def run_one(
         started = time.perf_counter()
         with MemorySampler() as sampler:
             try:
-                value, evidence = unwrap_engine_value(scenario_fn(paths))
+                value, evidence = unwrap_engine_value(scenario_fn(paths, data_format))
             except BenchmarkUnsupported as exc:
                 elapsed = (time.perf_counter() - started) * 1000.0
                 return failed_result(
                     runner.name,
                     scenario,
+                    data_format,
                     "unsupported",
                     str(exc),
                     paths,
@@ -1452,6 +1732,7 @@ def run_one(
                 return failed_result(
                     runner.name,
                     scenario,
+                    data_format,
                     "execution_error",
                     f"{type(exc).__name__}: {exc}",
                     paths,
@@ -1475,8 +1756,11 @@ def run_one(
         dim_vortex_bytes = parse_optional_int(evidence.get("dim_vortex_bytes"))
         if fact_vortex_bytes is not None or dim_vortex_bytes is not None:
             bytes_written = (fact_vortex_bytes or 0) + (dim_vortex_bytes or 0)
+    bytes_read = parse_optional_int(evidence.get("source_bytes_read")) if evidence else None
     return {
-        "scenario_name": scenario,
+        "scenario_name": scenario_display_name(data_format, scenario),
+        "scenario_base": scenario,
+        "storage_format": data_format,
         "engine": runner.name,
         "status": "success" if stable else "unstable_output",
         "iterations": iterations,
@@ -1485,7 +1769,9 @@ def run_one(
             "wall_time_millis": round(sum(timings), 4),
             "query_runtime_millis": round(statistics.mean(timings), 4),
             "peak_memory_bytes": max(peak_memory) if peak_memory else None,
-            "bytes_read": scenario_bytes(paths, scenario),
+            "bytes_read": bytes_read
+            if bytes_read is not None
+            else scenario_bytes(paths, scenario, data_format),
             "bytes_written": bytes_written,
             "rows_scanned": rows_scanned(paths, scenario),
             "rows_materialized": parse_optional_int(evidence.get("rows_materialized"))
@@ -1714,6 +2000,16 @@ def run_shardloom_vortex_run_microbenchmark(
         "claim_gate_status": "not_claim_grade",
         "result_known": fields.get("result_known"),
         "projected_columns": fields.get("local_primitive_projected_columns"),
+        "filter_pushdown_applied": fields.get("local_primitive_filter_pushdown_applied"),
+        "projection_pushdown_applied": fields.get(
+            "local_primitive_projection_pushdown_applied"
+        ),
+        "upstream_filter_expression_used": fields.get(
+            "local_primitive_upstream_filter_expression_used"
+        ),
+        "upstream_projection_expression_used": fields.get(
+            "local_primitive_upstream_projection_expression_used"
+        ),
         "data_read": fields.get("data_read"),
         "data_decoded": fields.get("data_decoded"),
         "data_materialized": fields.get("data_materialized"),
@@ -1924,7 +2220,7 @@ def universal_io_lanes() -> list[dict[str, Any]]:
         {
             "name": "CSV -> Vortex import -> encoded CountAll",
             "status": "partial_smoke_supported",
-            "reason": "CSV-to-Vortex import and Vortex scan are exercised by ShardLoom traditional rows. Fully encoded CountAll over the imported artifact remains a separate CG-2/CG-19 follow-up because current traditional rows materialize Vortex-derived arrays for operator evaluation.",
+            "reason": "CSV-to-Vortex import and Vortex scan are exercised by ShardLoom traditional rows. The native microbenchmark lane separately exercises local Vortex scan filter/projection pushdown. Fully integrated CSV-to-Vortex encoded operator execution over imported artifacts remains a CG-2/CG-13/CG-19 follow-up.",
             "expected_report": "NativeIoCertificate plus encoded-count execution certificate",
         },
     ]
@@ -1992,8 +2288,10 @@ def fairness_parameters(args: argparse.Namespace, paths: DatasetPaths) -> dict[s
         "status": "local_smoke_not_claim_grade",
         "rows": paths.rows,
         "dim_rows": paths.dim_rows,
-        "storage_format": "csv baselines; ShardLoom CSV source adapter into local Vortex files",
-        "compression": "engine defaults; ShardLoom uses upstream Vortex writer defaults",
+        "storage_format": "CSV and Parquet baselines where supported; ShardLoom CSV source adapter into local Vortex files; shardloom-vortex native .vortex rows",
+        "formats_requested": list(args.format_list),
+        "formats_reported": list(report_format_order(args)),
+        "compression": "engine defaults; Parquet uses pyarrow defaults; ShardLoom uses upstream Vortex writer defaults",
         "iterations": args.iterations,
         "stress_lane_included": any(
             scenario in STRESS_SCENARIO_ORDER for scenario in args.scenario_list
@@ -2013,6 +2311,8 @@ def fairness_parameters(args: argparse.Namespace, paths: DatasetPaths) -> dict[s
         "java_home_set": bool(os.environ.get("JAVA_HOME")),
         "object_store_included": False,
         "csv_to_vortex_included": True,
+        "parquet_included": "parquet" in args.format_list,
+        "native_vortex_included": "shardloom-vortex" in args.engine_list,
         "shardloom_universal_io_smoke_included": True,
         "shardloom_native_microbenchmarks_included": not args.skip_shardloom_native,
         "claim_grade_requirements": [
@@ -2029,6 +2329,35 @@ def fairness_parameters(args: argparse.Namespace, paths: DatasetPaths) -> dict[s
 def default_output_path() -> Path:
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     return Path(__file__).resolve().parent / "results" / f"traditional_analytics_{timestamp}.json"
+
+
+def report_format_order(args: argparse.Namespace) -> tuple[str, ...]:
+    formats = list(args.format_list) if any(
+        engine != "shardloom-vortex" for engine in args.engine_list
+    ) else []
+    if "shardloom-vortex" in args.engine_list and SHARDLOOM_VORTEX_FORMAT not in formats:
+        formats.append(SHARDLOOM_VORTEX_FORMAT)
+    return tuple(formats)
+
+
+def formats_for_engine_report(
+    engine: str, runner: EngineRunner | None, report_formats: tuple[str, ...]
+) -> tuple[str, ...]:
+    if engine == "shardloom-vortex":
+        return (SHARDLOOM_VORTEX_FORMAT,)
+    if runner is not None and runner.formats == (SHARDLOOM_VORTEX_FORMAT,):
+        return (SHARDLOOM_VORTEX_FORMAT,)
+    return tuple(data_format for data_format in report_formats if data_format != SHARDLOOM_VORTEX_FORMAT)
+
+
+def expanded_scenario_order(
+    formats: tuple[str, ...], scenarios: tuple[str, ...]
+) -> list[str]:
+    return [
+        scenario_display_name(data_format, scenario)
+        for data_format in formats
+        for scenario in scenarios
+    ]
 
 
 def markdown_output_path(json_path: Path, requested: Path | None) -> Path:
@@ -2114,6 +2443,8 @@ def render_fairness_parameters(artifact: dict[str, Any]) -> str:
         ["Status", str(params["status"])],
         ["Rows", f"{params['rows']} fact / {params['dim_rows']} dimension"],
         ["Storage", f"{params['storage_format']} ({params['compression']})"],
+        ["Formats requested", ", ".join(params["formats_requested"])],
+        ["Formats reported", ", ".join(params["formats_reported"])],
         ["Iterations", str(params["iterations"])],
         ["Stress lane included", str(params["stress_lane_included"])],
         [
@@ -2130,6 +2461,8 @@ def render_fairness_parameters(artifact: dict[str, Any]) -> str:
         ["Spark profiles", str(params["spark_profiles"])],
         ["Object store included", str(params["object_store_included"])],
         ["CSV to Vortex included", str(params["csv_to_vortex_included"])],
+        ["Parquet included", str(params["parquet_included"])],
+        ["Native Vortex included", str(params["native_vortex_included"])],
         [
             "ShardLoom universal I/O smoke",
             str(params["shardloom_universal_io_smoke_included"]),
@@ -2145,7 +2478,9 @@ def render_fairness_parameters(artifact: dict[str, Any]) -> str:
 def render_read_this_first(artifact: dict[str, Any]) -> str:
     notes = [
         "This is a local smoke/bring-up report, not a claim-grade benchmark.",
-        "External baseline rows measure each engine's local CSV path. ShardLoom rows use a CSV source adapter into local Vortex files, reopen those files through Vortex, scan Vortex arrays, and then run the temporary benchmark operators over Vortex-derived arrays.",
+        "External baseline rows measure each engine's local CSV and Parquet paths where supported. Unsupported format rows are captured explicitly instead of blocking the report.",
+        "ShardLoom rows use a CSV source adapter into local Vortex files, reopen those files through Vortex, scan Vortex arrays, and then run the temporary benchmark operators over Vortex-derived arrays.",
+        "ShardLoom native Vortex rows start timing from existing `.vortex` inputs prepared before scenario timing; they still use temporary benchmark operators and are not mature SQL/DataFrame/API evidence.",
         "ShardLoom's current traditional rows report a concrete per-path NativeIoCertificate and a CSV parse materialization boundary; they prove universal I/O viability, not mature encoded-native SQL/operator coverage.",
         "Dask results depend heavily on partitioning, scheduler, file count, and dataset size; small single-file CSV tests can make scheduler overhead dominate.",
         "Spark rows are split into spark-default and spark-local-tuned so default behavior is not mixed with local tuning; each Spark profile starts and warms its own session immediately before its scenario rows.",
@@ -2212,7 +2547,7 @@ def render_resource_metrics_table(artifact: dict[str, Any]) -> str:
 def render_shardloom_effects_table(artifact: dict[str, Any]) -> str:
     rows = []
     for result in artifact["results"]:
-        if result["engine"] != "shardloom":
+        if not str(result["engine"]).startswith("shardloom"):
             continue
         metrics = result["metrics"]
         evidence = result.get("shardloom_evidence", {})
@@ -2305,6 +2640,8 @@ def render_shardloom_native_table(artifact: dict[str, Any]) -> str:
                 str(result.get("timing_scope", "n/a")),
                 str(result.get("data_decoded", "n/a")),
                 str(result.get("data_materialized", "n/a")),
+                str(result.get("filter_pushdown_applied", "n/a")),
+                str(result.get("projection_pushdown_applied", "n/a")),
                 str(result.get("materialization_boundary_reported", "n/a")),
                 str(result.get("fallback_attempted", "n/a")),
                 str(result.get("claim_gate_status", "n/a")),
@@ -2312,7 +2649,21 @@ def render_shardloom_native_table(artifact: dict[str, Any]) -> str:
         )
     if not rows:
         rows.append(
-            ["not run", "skipped", "n/a", "n/a", "n/a", "n/a", "n/a", "n/a", "n/a", "n/a", "n/a"]
+            [
+                "not run",
+                "skipped",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
+                "n/a",
+            ]
         )
     return markdown_table(
         [
@@ -2324,6 +2675,8 @@ def render_shardloom_native_table(artifact: dict[str, Any]) -> str:
             "Timing scope",
             "Decoded",
             "Materialized",
+            "Filter pushdown",
+            "Projection pushdown",
             "Boundary",
             "Fallback",
             "Claim gate",
@@ -2574,7 +2927,8 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         f"- Generated: `{artifact['generated_at_utc']}`",
         f"- Scope: `{artifact['benchmark_scope']}`",
         f"- Rows: `{dataset['rows']}` fact rows, `{dataset['dim_rows']}` dimension rows",
-        f"- Files: `{dataset['fact_csv_bytes']}` fact CSV bytes, `{dataset['dim_csv_bytes']}` dimension CSV bytes",
+        f"- CSV files: `{dataset['fact_csv_bytes']}` fact bytes, `{dataset['dim_csv_bytes']}` dimension bytes",
+        f"- Parquet files: `{dataset['fact_parquet_bytes']}` fact bytes, `{dataset['dim_parquet_bytes']}` dimension bytes",
         f"- Python: `{env['python_version']}`",
         f"- Platform: `{env['platform']}`",
         f"- CPU count: `{env['cpu_count']}`",
@@ -2674,39 +3028,24 @@ def main() -> int:
     SHARDLOOM_BUILD_PROFILE = args.shardloom_build_profile
     configure_java_home()
     paths = ensure_dataset(args.data_dir, args.rows, args.dim_rows, args.regenerate)
+    report_formats = report_format_order(args)
+    scenario_order = expanded_scenario_order(report_formats, args.scenario_list)
     runners, missing = available_runners(args.engine_list)
 
     results: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
     for engine in args.engine_list:
         runner = runners.get(engine)
+        engine_formats = formats_for_engine_report(engine, runner, report_formats)
         if runner is None:
             reason = missing.get(engine, "engine was not initialized")
-            for scenario in args.scenario_list:
-                result = failed_result(
-                    engine, scenario, "missing_dependency", reason, paths, args.iterations
-                )
-                results.append(result)
-                errors.append(
-                    {
-                        "engine": engine,
-                        "scenario": scenario,
-                        "status": "missing_dependency",
-                        "reason": reason,
-                    }
-                )
-            continue
-        try:
-            try:
-                runner = warmup_runner(runner)
-                runners[engine] = runner
-            except Exception as exc:
-                reason = f"{type(exc).__name__}: {exc}"
+            for data_format in engine_formats:
                 for scenario in args.scenario_list:
                     result = failed_result(
                         engine,
                         scenario,
-                        "engine_startup_error",
+                        data_format,
+                        "missing_dependency",
                         reason,
                         paths,
                         args.iterations,
@@ -2715,23 +3054,63 @@ def main() -> int:
                     errors.append(
                         {
                             "engine": engine,
-                            "scenario": scenario,
-                            "status": "engine_startup_error",
+                            "scenario": result["scenario_name"],
+                            "status": "missing_dependency",
                             "reason": reason,
                         }
                     )
+            continue
+        try:
+            try:
+                runner = warmup_runner(runner)
+                runner = prepare_runner(runner, paths)
+                runners[engine] = runner
+            except Exception as exc:
+                reason = f"{type(exc).__name__}: {exc}"
+                for data_format in engine_formats:
+                    for scenario in args.scenario_list:
+                        result = failed_result(
+                            engine,
+                            scenario,
+                            data_format,
+                            "engine_startup_error",
+                            reason,
+                            paths,
+                            args.iterations,
+                        )
+                        results.append(result)
+                        errors.append(
+                            {
+                                "engine": engine,
+                                "scenario": result["scenario_name"],
+                                "status": "engine_startup_error",
+                                "reason": reason,
+                            }
+                        )
                 continue
-            for scenario in args.scenario_list:
-                result = run_one(runner, paths, scenario, args.iterations)
-                results.append(result)
-                if result["status"] != "success":
-                    errors.append(
-                        {
-                            "engine": engine,
-                            "scenario": scenario,
-                            "status": result["status"],
-                            "reason": result.get("reason", "scenario did not complete"),
-                        }
+            for data_format in engine_formats:
+                for scenario in args.scenario_list:
+                    if data_format not in runner.formats:
+                        result = failed_result(
+                            engine,
+                            scenario,
+                            data_format,
+                            "unsupported_format",
+                            f"{engine} does not support {data_format} in this harness",
+                            paths,
+                            args.iterations,
+                        )
+                    else:
+                        result = run_one(runner, paths, scenario, data_format, args.iterations)
+                    results.append(result)
+                    if result["status"] != "success":
+                        errors.append(
+                            {
+                                "engine": engine,
+                                "scenario": result["scenario_name"],
+                                "status": result["status"],
+                                "reason": result.get("reason", "scenario did not complete"),
+                            }
                     )
         finally:
             if runner.close is not None:
@@ -2765,25 +3144,33 @@ def main() -> int:
             "dim_rows": paths.dim_rows,
             "fact_csv": str(paths.fact_csv),
             "dim_csv": str(paths.dim_csv),
+            "fact_parquet": str(paths.fact_parquet),
+            "dim_parquet": str(paths.dim_parquet),
             "fact_csv_bytes": paths.fact_csv.stat().st_size,
             "dim_csv_bytes": paths.dim_csv.stat().st_size,
+            "fact_parquet_bytes": paths.fact_parquet.stat().st_size,
+            "dim_parquet_bytes": paths.dim_parquet.stat().st_size,
             "deterministic_generator": "benchmarks/traditional_analytics/run.py",
         },
         "environment": environment_report(),
         "fairness_parameters": fairness_parameters(args, paths),
         "engine_order": list(args.engine_list),
         "engine_versions": engine_versions,
-        "scenario_order": list(args.scenario_list),
+        "format_order": list(report_formats),
+        "scenario_order": scenario_order,
         "results": results,
         "shardloom_native_microbenchmarks": []
         if args.skip_shardloom_native
         else run_shardloom_native_microbenchmarks(args.shardloom_native_iterations),
         "universal_io_lanes": universal_io_lanes(),
-        "correctness": correctness_summary(results, args.scenario_list),
+        "correctness": correctness_summary(results, tuple(scenario_order)),
         "errors": errors,
         "limitations": [
             "CSV workloads include local file read cost and do not represent object-store behavior.",
+            "Parquet workloads use pyarrow-generated Parquet files with engine-default read settings; they do not represent tuned lakehouse/table-format layouts.",
             "ShardLoom traditional rows include local CSV-to-Vortex import and Vortex scan, but current temporary operators materialize Vortex-derived arrays instead of executing the full mature encoded SQL/operator surface.",
+            "ShardLoom native Vortex rows exclude CSV-to-Vortex setup from scenario timing but still use the current temporary benchmark operators after Vortex scan.",
+            "ShardLoom native microbenchmark rows separately expose local Vortex scan filter/projection pushdown evidence; those rows are not a mature SQL/DataFrame/API benchmark surface.",
             "Dask performance is sensitive to partitioning and scheduler settings; this report records the selected blocksize and scheduler.",
             "Engine startup/warmup time is recorded separately from per-scenario timing. Spark profiles warm an isolated Spark session before their scenario rows and are closed before the next engine runs.",
             "Peak memory is sampled process RSS when psutil is available and may miss short-lived spikes.",

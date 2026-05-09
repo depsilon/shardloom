@@ -560,6 +560,16 @@ No fallback execution.
 - `shardloom-cli` now forwards the `vortex-encoded-read-spike` feature to `shardloom-vortex`, allowing the stable CLI command to be validated directly under the same local-only encoded-read gate.
 - This phase adds no generalized encoded filter/projection execution, adapter runtime, non-local source read, object-store IO, row read, requested decode/materialization, Arrow conversion, write IO, spill IO, benchmark/superiority claim, CG-2/CG-13 closeout, external engine invocation, or fallback execution.
 
+## CG-2.1e.25-CG-2.1e.27 / CG-13.6-CG-13.8 local Vortex primitive execution
+
+- Primary RFC linkage: RFC 0012 Diagnostics/Capabilities, RFC 0013 Streaming/Zero-Copy Boundary, RFC 0015 Correctness/testing, RFC 0021 Expression/Kernel Registry, RFC 0025 Competitive/no-fallback, RFC 0026 Vortex encoded-read/query-readiness boundaries, RFC 0029 Correctness/Benchmarks/Execution Certificates, RFC 0031 Universal Native I/O Envelope, and RFC 0032 World-Class Capability Surface.
+- `shardloom-vortex/src/local_primitives.rs` and `shardloom-vortex/src/local_engine.rs` expose the feature-gated local `.vortex` primitive surface for `count`, `count-where:<predicate>`, `filter:<predicate>`, and `project:<columns>`.
+- CG-2.1e.25 established the executable local primitive surface while preserving honest materialization-boundary reporting for temporary decoded paths.
+- CG-2.1e.26 tightened effect reporting so metadata predicates, validity predicates, and schema-only projection do not falsely report decode/materialization.
+- CG-2.1e.27 / CG-13.8 moves supported local filter/project/count-where primitives onto upstream Vortex scan filter/projection expressions and records filter/projection pushdown evidence in runtime and CLI output.
+- `benchmarks/traditional_analytics/run.py` surfaces the new pushdown fields in ShardLoom native microbenchmark rows so comparison reports distinguish scan-pushdown evidence from traditional CSV rows that still use temporary operators.
+- These phases keep mature SQL/DataFrame/API/adapters, generalized encoded operator certification, non-local source support, object-store IO, row reads, Arrow conversion, writes, spill IO, distributed execution, benchmark/superiority claims, CG-2 closeout, CG-13 closeout, external engine invocation, and fallback execution out of scope.
+
 ## CG-5.1 metadata query primitive correctness fixtures
 
 - Primary RFC linkage: RFC 0015 Correctness/Semantics/Differential Testing, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
@@ -754,6 +764,15 @@ No fallback execution.
 - `benchmark-claim-evidence-plan [foundation|traditional-analytics]` exposes stable JSON/text fields for surface order, planned/blocked surfaces, scenario order, metric order, baseline order, expected/missing result counts, manifest/comparison statuses, claim-gate evidence states, and no-execution/no-fallback fields.
 - Performance, superiority, cost, replacement, and best-default claims remain blocked until correctness evidence, benchmark result rows, external comparison rows, reproducible run metadata, and no-fallback evidence are all present.
 - This phase adds no benchmark runner, external baseline invocation, query execution, parser, dataframe API, adapter runtime, object-store IO, data reads, writes, dependency, performance/superiority/best-default claim, production certification, or fallback execution.
+
+## CG-6.20 traditional analytics storage expansion
+
+- Primary RFC linkage: RFC 0029 benchmark evidence requirements, RFC 0031 native I/O certificates, RFC 0032 world-class user capability/adapters requirements, RFC 0015 correctness-before-performance requirements, and RFC 0025 competitive/no-fallback guardrails.
+- `benchmarks/traditional_analytics/run.py` now writes Parquet copies of deterministic benchmark fixtures with `pyarrow` and runs CSV/Parquet rows for engines that support those formats.
+- The harness adds a separate `shardloom-vortex` engine lane that prepares local native `.vortex` inputs before scenario timing and then invokes `shardloom traditional-analytics-vortex-run` for the same scenario labels.
+- Unsupported format rows are recorded explicitly, so ShardLoom Parquet gaps and non-Vortex engine native-Vortex gaps are visible without aborting JSON/Markdown artifact generation.
+- ShardLoom native Vortex rows emit a certified native-Vortex source certificate while still reporting temporary-operator materialization boundaries.
+- This phase adds no production Parquet adapter, SQL parser, DataFrame API, external engine dependency, object-store IO, mature encoded operator certification, performance/superiority/best-default claim, or fallback execution.
 
 ## CG-12.4 native plan import/export serialization
 
