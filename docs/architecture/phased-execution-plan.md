@@ -45,6 +45,23 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
+- [x] Session label: phase-plan status hygiene and CG rollup consistency
+  - Primary files:
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: Synchronize high-level CG summaries, detailed checklists, and completed ledger entries for recently completed work so the phase plan remains the single source of truth before the next implementation batch.
+  - Checklist:
+    - [x] Add CG-2.1e.28 to the CG-2 high-level summary and detailed checklist.
+    - [x] Reflect CG-6.7-CG-6.23 benchmark evidence in the high-level CG-6 summary and completed ledger.
+    - [x] Reflect CG-8.9, CG-8.10, CG-8.11, and CG-8.12 consistently across CG-8 summary, detailed checklist, and completed ledger.
+    - [x] Reflect CG-11.5 in CG-11 summary, detailed checklist, and completed ledger.
+    - [x] Reflect related CG-13, CG-19, and CG-20 cross-gate items consistently across summary, detailed checklist, and completed ledger.
+    - [x] Run docs-safe validation before PR.
+  - Local validation status:
+    - Required `cargo fmt --all -- --check` passed locally with Rust toolchain `1.91.1`.
+    - Required `cargo clippy --workspace --all-targets -- -D warnings` passed locally with Rust toolchain `1.91.1`.
+    - Required `cargo test --workspace --all-targets` passed locally with Rust toolchain `1.91.1`.
+  - Explicitly not included: runtime behavior, readers, adapters, SQL/DataFrame/UDF work, benchmark reruns, dependency changes, or fallback execution.
+
 - [x] Session label: CG-6.23 / CG-8.12 / CG-13.11 / CG-19.6 streaming native Vortex benchmark scenario execution
   - Primary files:
     - `shardloom-vortex/src/traditional_analytics.rs`
@@ -1404,6 +1421,7 @@ Status legend:
   - [x] CG-2.1e.25 local Vortex primitive execution surface
   - [x] CG-2.1e.26 local primitive materialization-effect tightening
   - [x] CG-2.1e.27 local Vortex scan filter/project pushdown
+  - [x] CG-2.1e.28 local Vortex filter-project scan pushdown
   - [~] CG-2.1+ broader zero-decode encoded primitive execution remains deferred pending filter/project encoded-kernel guarantees
   - [x] CG-2.2c filtered-count metadata proof local guard
   - [x] CG-2.2d filtered-count metadata proof report
@@ -1461,6 +1479,7 @@ Status legend:
   - [x] CG-6.4 benchmark reproducibility manifest
   - [x] CG-6.5 reproducibility-aware benchmark claim gate
   - [x] CG-6.6 benchmark coverage inventory surfacing
+  - [x] CG-6.7-CG-6.23 traditional analytics harness, native microbenchmarks, universal-I/O rows, external comparison rows, work-avoidance evidence, write/commit latency evidence, and streaming native Vortex evidence lanes
   - [x] CG-6.23 streaming native Vortex benchmark scenarios
   - Expected evidence:
     - runtime latency and startup latency
@@ -1510,6 +1529,9 @@ Status legend:
   - [x] CG-8.6 bounded metadata/no-op local task execution
   - [x] CG-8.7 approved local encoded streaming-batch runtime evidence
   - [x] CG-8.8 dynamic work shaping aggregate surface
+  - [x] CG-8.9 local Vortex streaming scan execution policy
+  - [x] CG-8.10 universal-format local ETL auto resource sizing
+  - [x] CG-8.11 local filter-project primitive bounded scan evidence
   - [x] CG-8.12 streaming projected Vortex scenario execution
   - Scope:
     - encoded streaming-batch planning surface
@@ -1554,6 +1576,7 @@ Status legend:
   - [x] CG-11.2 thin Python wrapper foundation
   - [x] CG-11.3 source-tree Python CLI JSON client package
   - [x] CG-11.4 Python live ETL client helpers and advisory optimization hooks
+  - [x] CG-11.5 Python import environment and no-dataset smoke check
   - Scope:
     - API/protocol foundation for stable CLI JSON and future clients
     - thin Python wrapper foundation over stable CLI JSON first
@@ -1580,6 +1603,9 @@ Status legend:
   - [x] CG-13.2 decode/materialization avoided proof fields in path-selection output
   - [x] CG-13.6 local primitive execution reports decode/materialization boundaries without claiming encoded-native filter/project completion
   - [x] CG-13.7 local primitive metadata/validity/projection no-materialization evidence
+  - [x] CG-13.8 local Vortex scan filter/project pushdown evidence
+  - [x] CG-13.9 local Vortex streaming scan execution policy
+  - [x] CG-13.10 local Vortex filter-project scan pushdown evidence
   - [x] CG-13.11 streaming benchmark scenarios avoid full-table materialization for projected native Vortex scans
   - Scope:
     - encoding-aware execution-path selection through `vortex-encoded-path-selection-plan`
@@ -1632,6 +1658,8 @@ Status legend:
   - [x] RFC 0031 contract deepening complete
   - [x] CG-19.1 native I/O envelope report
   - [x] CG-19.2 benchmark CSV-to-Vortex runtime Native I/O certificate
+  - [x] CG-19.4 Python replay helper and universal input adapter matrix
+  - [x] CG-19.5 local compatibility-file runtime certificates
   - [x] CG-19.6 native Vortex streaming scenario certificates
   - [~] generalized source/sink runtime certificate emission pending beyond the benchmark-only path
   - Scope:
@@ -1641,6 +1669,11 @@ Status legend:
   - [x] RFC 0032 contract deepening complete
   - [x] common data/ETL, Python wrapper/API, UDF, universal adapter, and unstructured/media evidence scope documented
   - [x] CG-20.1 world-class sufficiency report
+  - [x] CG-20.2 user-surface capability discovery
+  - [x] CG-20.3 Python live ETL smoke client surface
+  - [x] CG-20.5 Python replay helper and universal input adapter matrix
+  - [x] CG-20.6 Python import environment and no-dataset smoke check
+  - [x] CG-20.7 local structured ETL usability bridge
   - [~] implementation pending
   - Scope:
     - capability certification surface across SQL/operators/functions/adapters/semantic profiles, migration, Python/API, DataFrame/query builder, notebook, UDF/plugin, common ETL, universal adapters, event/API/SaaS adapters, unstructured/media, and certification reporting
@@ -1700,6 +1733,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.25 local Vortex primitive execution surface
 - [x] CG-2.1e.26 local primitive materialization-effect tightening
 - [x] CG-2.1e.27 local Vortex scan filter/project pushdown
+- [x] CG-2.1e.28 local Vortex filter-project scan pushdown
 - [x] CG-2.2a filtered-count readiness core contract
 - [x] CG-2.2a.1 filtered-count blocker precision hardening
 - [x] CG-2.2b filtered-count readiness CLI integration
@@ -1833,6 +1867,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-8.6 bounded metadata/no-op local task execution
 - [x] CG-8.7 approved local encoded streaming-batch runtime evidence
 - [x] CG-8.8 `dynamic-work-shaping-plan` aggregates adaptive sizing, runtime feedback signals, target-task policy, bounded-memory backpressure, scheduler queue policy, runtime-application blockers, benchmark evidence blockers, and no-fallback policy before live feedback-loop policy mutation is allowed
+- [x] CG-8.9 local Vortex streaming scan execution policy moves feature-gated local `.vortex` primitives to chunk-by-chunk scan iteration and reports bounded scan concurrency evidence
 - [x] CG-8.10 universal-format local ETL bridge derives applied parallelism from local resource availability and reports auto batch/partition sizing from source footprint plus resource budget, while keeping mature scheduler mutation, object-store request shaping, spill, and distributed execution deferred
 - [x] CG-8.11 local filter-project primitive carries bounded scan concurrency through the single upstream Vortex scan path and reports streaming chunk iteration without collecting the full stream
 - [x] CG-8.12 benchmark-only native Vortex scenario execution streams projected scan chunks for CSV/file-ingest, selective-filter, and wide-projection paths when no compatibility output forces full-table export
@@ -1874,6 +1909,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-11.2 thin Python wrapper foundation over CLI JSON first
 - [x] CG-11.3 source-tree Python CLI JSON client package
 - [x] CG-11.4 Python live ETL client helpers and advisory optimization hooks
+- [x] CG-11.5 Python import environment and no-dataset smoke check
 - [~] Foundry-friendly later
 - [x] no PyO3/maturin unless explicitly approved
 - [x] no Spark fallback
@@ -1895,6 +1931,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-13.6 local primitive execution reports decode/materialization boundaries for filter/project/count-where
 - [x] CG-13.7 local primitive metadata/validity/projection evidence avoids false materialization claims
 - [x] CG-13.8 local Vortex scan filter/project pushdown evidence
+- [x] CG-13.9 local Vortex streaming scan execution policy records chunk iteration and bounded concurrency evidence without claiming generalized encoded-native completion
 - [x] CG-13.10 local Vortex filter-project scan pushdown evidence combines predicate and projection pushdown in one feature-gated local scan for supported struct-array cases
 - [x] CG-13.11 native Vortex benchmark scenario execution records `vortex_encoded->partially_decoded` evidence for projected streaming scans and avoids claiming generalized encoded-native SQL/operator execution
 - [ ] generalized direct count/filter/project encoded execution
@@ -1941,6 +1978,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] Vortex Scan API source/sink/split/range-I/O alignment note documented as a design reference, not fallback execution
 - [x] CG-19.1 report-only native I/O envelope contract foundation implemented through `NativeIoEnvelopeReport` and `native-io-envelope-plan`
 - [x] CG-19.2 first benchmark runtime Native I/O certificate emits source capability, source pushdown, sink requirement, adapter fidelity, representation transition, materialization boundary, side-effect, and no-fallback evidence for the local CSV-to-Vortex smoke path
+- [x] CG-19.4 Python replay helper and universal input adapter matrix keep live replay paths and adapter discovery tied to explicit native input/output contracts
 - [x] CG-19.5 local compatibility-file runtime certificates cover CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC source paths into native Vortex output with materialization-boundary, adapter-fidelity, auto-sizing, and no-fallback evidence
 - [x] CG-19.6 native Vortex benchmark scenario certificates distinguish streaming projected scans from temporary full-table operators with per-path pushdown, sink-streaming, materialization-boundary, side-effect, and no-fallback evidence
 - [~] generalized source/sink runtime certificate emission pending beyond the benchmark-only local compatibility-file-to-Vortex path
@@ -1958,6 +1996,8 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-20.1 report-only `WorldClassSufficiencyReport` foundation and `world-class-sufficiency-plan` CLI surface
 - [x] CG-20.2 report-only user-surface capability discovery for common ETL, Python, DataFrame/notebook, UDFs, universal/event/API adapters, unstructured/media, API, observability, deployment, extension, and security/governance scopes
 - [x] CG-20.3 Python live ETL smoke client surface for explicit CSV-to-Vortex and native Vortex local testing
+- [x] CG-20.5 Python replay helper and universal input adapter matrix tie Python live ETL helpers to explicit adapter discovery without certifying mature SQL/DataFrame/UDF/runtime adapters
+- [x] CG-20.6 Python import environment and no-dataset smoke check improve managed-environment usability while keeping mature Python/DataFrame/notebook certification deferred
 - [x] CG-20.7 local structured ETL usability bridge supports CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC inputs/outputs through the Python/CLI smoke surface with auto resource sizing, while production adapter certification, SQL/DataFrame/UDF runtime, and best-default certification remain deferred
 - [~] implementation pending
 - [ ] capability certification surface implementation across real SQL/operators/functions/adapters/semantic profiles/migration/Python/API/DataFrame/notebook/UDF/ETL/universal-adapter/unstructured-media certification evidence
@@ -2071,6 +2111,9 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-6.18 ShardLoom native DecisionTrace/WhyReport benchmark evidence adds a local-engine why report, exposes claim blockers and next actions through `vortex-run`, and renders the evidence in the traditional analytics Markdown report without allowing performance claims.
 - [x] CG-6.19 BenchmarkClaimEvidence aggregate surface adds `BenchmarkClaimEvidenceReport` and `benchmark-claim-evidence-plan` surfacing across benchmark plans, required metrics, result-row gaps, external comparison gaps, reproducibility gaps, claim-gate state, and no-fallback policy while keeping benchmark execution, external engine invocation, query execution, data reads, object-store IO, writes, and performance/superiority/best-default claims disabled.
 - [x] CG-6.20 Traditional analytics storage expansion makes the harness generate Parquet copies, run CSV/Parquet rows per supported external engine, add a `shardloom-vortex` native `.vortex` lane, and record unsupported-format rows without aborting benchmark artifacts.
+- [x] CG-6.21 universal-format benchmark smoke rows add ShardLoom CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC compatibility-to-Vortex lanes with resource-sizing evidence while preserving unsupported rows for external engines.
+- [x] CG-6.22 native microbenchmark rows add local filter-projection evidence through `vortex-run` while keeping timing scoped to local CLI process wall time and claim status `not_claim_grade`.
+- [x] CG-6.23 streaming native Vortex benchmark scenario execution adds selective-filter and wide-projection evidence fields for projected scan chunks, filter/projection pushdown, zero source-boundary row materialization, and full-table materialization avoidance while keeping claim status non-publishable.
 - [x] CG-7.1 physical operator/kernel contract foundation declares filter, projection, and count aggregate kernel blockers without implementing kernels or execution.
 - [x] CG-7.2 physical operator capability discovery exposes missing-kernel/readiness counts through `shardloom capabilities operators` without executing operators or probing runtime inputs.
 - [x] CG-7.3 physical kernel registry plan exposes required native kernel slots through `shardloom kernel-registry` without registering kernels or executing runtime paths.
@@ -2104,6 +2147,10 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-8.6 bounded metadata/no-op local task execution makes completed bounded metadata-only and no-op decisions report `tasks_executed=true` while preserving no data reads, decode, materialization, object-store IO, writes, spill IO, external effects, or fallback execution.
 - [x] CG-8.7 approved local encoded streaming-batch runtime evidence exposes the approved local encoded `CountAll` scan as executed streaming batches with source-match, bounded-memory/backpressure, batch-count, row-count, no-decode/no-materialization/no-row/no-Arrow/no-object-store/no-write/no-spill/no-fallback evidence while broader streaming runtime remains deferred.
 - [x] CG-8.8 dynamic work shaping aggregate surface adds `DynamicWorkShapingReport` and `dynamic-work-shaping-plan` surfacing across adaptive sizing, runtime feedback signals, target-task policy, bounded-memory backpressure, scheduler queue policy, runtime-application blockers, benchmark evidence blockers, and no-fallback policy while keeping live feedback-loop execution, policy mutation, streams/tasks, data reads, object-store IO, writes, spill IO, and fallback disabled.
+- [x] CG-8.9/CG-13.9 local Vortex streaming scan execution policy moves feature-gated local `.vortex` primitives to chunk-by-chunk scan iteration, passes bounded concurrency into the scan policy, and reports chunk/concurrency evidence without row reads, Arrow conversion, object-store IO, writes, spill, or fallback.
+- [x] CG-8.10 universal-format local ETL bridge derives applied parallelism from local resource availability and reports auto batch/partition sizing from source footprint plus resource budget.
+- [x] CG-8.11 local filter-project primitive carries bounded scan concurrency through one upstream Vortex scan and reports streaming chunk iteration without collecting the full stream.
+- [x] CG-8.12/CG-13.11 benchmark-only native Vortex scenario execution streams projected scan chunks for CSV/file-ingest, selective-filter, and wide-projection paths when no compatibility output forces full-table export.
 - [x] CG-9.1 schema evolution compatibility evidence adds a typed no-IO/no-fallback report for schema add/drop/rename/type/nullability/identity/metadata changes, field-id rename safety, metadata-loss diagnostics, and `schema-plan evolution` surfacing while broader catalog/table integration remains deferred.
 - [x] CG-9.2 partition evolution compatibility evidence adds a typed no-IO/no-fallback report for partition field add/drop/transform/reorder/unknown-transform changes, partition routing, metadata rewrite, repartition requirements, and `table-compat-plan partition-evolution` surfacing while broader catalog/table integration remains deferred.
 - [x] CG-9.3 delete/tombstone compatibility evidence adds a typed no-IO/no-fallback report for declared delete models, file-level deletes, segment tombstones, row/position/equality deletes, external table metadata requirements, metadata-loss rejection, and `table-compat-plan delete-semantics` surfacing while broader catalog/table integration and delete execution remain deferred.
@@ -2122,13 +2169,20 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-11.2 thin Python wrapper foundation adds `PythonWrapperFoundationReport` and `python-wrapper-plan` fields for a future subprocess CLI JSON client, required diagnostics/fallback/materialization passthrough behavior, deferred package/native binding/DataFrame/notebook/Python UDF surfaces, no probes, no runtime/parser execution, no writes, no publish, and no fallback.
 - [x] CG-11.3 source-tree Python CLI JSON client package adds `python/src/shardloom` as a zero-dependency subprocess client for explicit CLI JSON commands, with typed `OutputEnvelope` parsing, diagnostics/fallback passthrough, local unit tests, no package publish, no native binding, no DataFrame/notebook/Python UDF runtime, and no fallback.
 - [x] CG-11.4 Python live ETL client helpers and advisory optimization hooks add `ShardLoomClient.from_repo`, `live_etl_smoke`, native Vortex ETL smoke dispatch, dynamic sizing/work-shaping advisory calls, benchmark evidence helpers, field parsing helpers, docs/example coverage, and real local CLI smoke checks while preserving no package publish, no native binding, no DataFrame/notebook/Python UDF runtime, no SQL runtime, and no fallback.
+- [x] CG-11.5 Python import environment and no-dataset smoke check adds environment-driven client construction and no-dataset capability smoke checks for managed Python environments while preserving thin subprocess CLI JSON transport.
 - [x] CG-12.4 native plan import/export serialization adds deterministic `shardloom.native_plan.v1` in-memory serialization for native plan documents, `plan-export native` payload emission, and `plan-import native <payload>` validation without file IO, external format parsers, imported-plan execution, external engines, or fallback behavior.
 - [x] CG-12.5 imported-plan capability execution gate adds `ImportedPlanCapabilityGateReport` and `plan-import native` fields that map imported nodes/boundaries to required certification surfaces and keep imported execution blocked without certified SQL/operator/function/adapter/native-I/O/execution-certificate evidence, runtime execution, probes, reads, writes, external engines, or fallback.
 - [x] CG-18.1 universal harness report adds `UniversalHarnessReport` and `universal-harness-plan` surfacing for CLI JSON runner fields, import/deployment surfaces, optional Foundry examples, external-only Spark/DataFusion/Polars baseline requirements, comparison dataset requirements, portability-check requirements, and no-import/no-deployment/no-baseline-execution/no-probe/no-publish/no-fallback side-effect fields.
 - [x] CG-19.1 native I/O envelope report adds `NativeIoEnvelopeReport` and `native-io-envelope-plan` surfacing for RFC 0031 contract surfaces, representation state contracts, transition examples, per-source/sink-path certificate requirements, no-default-decoded-Arrow requirements, materialization boundary requirements, and no-runtime/no-probe/no-read/no-decode/no-materialization/no-write/no-fallback side-effect fields.
 - [x] CG-19.2 first benchmark runtime Native I/O certificate adds typed `NativeIoCertificate` runtime reports and emits a certified `compatibility_source_to_native_vortex_sink` certificate for the local CSV-to-Vortex benchmark path without external engine fallback or performance claims.
+- [x] CG-19.4 Python replay helper and universal input adapter matrix keep live replay paths and adapter discovery tied to explicit native input/output contracts.
+- [x] CG-19.5 local compatibility-file runtime certificates cover CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC source paths into native Vortex output with materialization-boundary, adapter-fidelity, auto-sizing, and no-fallback evidence.
+- [x] CG-19.6 native Vortex benchmark scenario certificates distinguish streaming projected scans from temporary full-table operators with per-path pushdown, sink-streaming, materialization-boundary, side-effect, and no-fallback evidence.
 - [x] CG-20.2 user-surface capability discovery adds report-only `capabilities` scopes for common ETL, Python, DataFrame/notebook, UDFs, universal/event/API adapters, unstructured/media, API, observability, deployment, extension, and security/governance surfaces with `WorldClassSufficiencyReport` dimension evidence gates and no parser/runtime/probe/read/write/external-engine/fallback behavior.
 - [x] CG-20.3 Python live ETL smoke client surface exposes current CSV-to-Vortex and native Vortex local testing helpers through the source-tree Python client without certifying mature ETL, SQL, DataFrame, adapter, UDF, package, or best-default capability.
+- [x] CG-20.5 Python replay helper and universal input adapter matrix tie Python live ETL helpers to explicit adapter discovery without certifying mature SQL/DataFrame/UDF/runtime adapters.
+- [x] CG-20.6 Python import environment and no-dataset smoke check improves managed-environment usability while keeping mature Python/DataFrame/notebook certification deferred.
+- [x] CG-20.7 local structured ETL usability bridge supports CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC inputs/outputs through the Python/CLI smoke surface with auto resource sizing while production adapter certification remains deferred.
 - [~] CG-2.1+ broader zero-decode encoded primitive execution remains blocked pending filter/project encoded-kernel guarantees, correctness, benchmark, and certificate evidence.
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind `vortex-write`; placeholder artifact paths remain readiness-only.
 - [~] CG-3 broader output payload shapes remain deferred.
