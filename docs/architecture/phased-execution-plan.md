@@ -45,37 +45,35 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-6.19 BenchmarkClaimEvidence aggregate surface
+- [x] Session label: CG-8.8 DynamicWorkShaping aggregate surface
   - Primary files:
-    - `shardloom-core/src/benchmark.rs`
-    - `shardloom-core/src/lib.rs`
+    - `shardloom-exec/src/sizing.rs`
+    - `shardloom-exec/src/lib.rs`
     - `shardloom-cli/src/main.rs`
-    - `shardloom-cli/tests/benchmark_claim_evidence_plan_snapshots.rs`
-    - `shardloom-contract-tests/tests/benchmark_claim_evidence.rs`
-    - `docs/architecture/benchmark-competitive-claim-evidence.md`
+    - `shardloom-cli/tests/dynamic_work_shaping_plan_snapshots.rs`
+    - `shardloom-contract-tests/tests/dynamic_work_shaping.rs`
+    - `docs/architecture/dynamic-work-shaping.md`
     - `docs/architecture/canonical-terminology.md`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-  - Scope: Aggregate CG-6 benchmark plans, required metrics, result-row gaps, external comparison gaps, reproducibility gaps, claim-gate state, and no-fallback policy into one deterministic report-only benchmark claim evidence surface before additional benchmark runners or publication gates.
+  - Scope: Aggregate CG-8 adaptive sizing, runtime feedback signals, target-task policy, bounded-memory backpressure, scheduler queue policy, runtime application blockers, benchmark evidence blockers, and no-fallback policy into one deterministic report-only dynamic work shaping surface before live feedback-loop policy mutation.
   - Checklist:
-    - [x] Add typed `BenchmarkClaimEvidenceReport` aggregate to `shardloom-core`.
-    - [x] Expose `benchmark-claim-evidence-plan [foundation|traditional-analytics]` CLI JSON/text output.
-    - [x] Keep benchmark execution, query execution, external-engine execution, data reads, object-store IO, writes, and fallback execution disabled.
-    - [x] Add CLI snapshot and contract-test invariants for missing correctness, result-row, external-comparison, reproducibility, and claim-publication evidence.
-    - [x] Add architecture docs, terminology, and traceability for the aggregate benchmark claim evidence report.
+    - [x] Add typed `DynamicWorkShapingReport` aggregate to `shardloom-exec`.
+    - [x] Expose `dynamic-work-shaping-plan [balanced|memory-pressure|object-store-throttled|small-tasks]` CLI JSON/text output.
+    - [x] Keep runtime feedback-loop application, policy mutation, stream/task execution, data reads, object-store IO, writes, spill IO, benchmark claims, and fallback execution disabled.
+    - [x] Add CLI snapshot and contract-test invariants for adaptive sizing, feedback, backpressure, runtime-application blockers, benchmark blockers, no side effects, and no fallback.
+    - [x] Add architecture docs, terminology, and traceability for the aggregate dynamic work shaping report.
     - [x] Run focused validation and full required validation.
   - Local validation status:
-    - Focused `cargo test -p shardloom-core benchmark_claim -- --nocapture` passed with Rust toolchain `1.91.1`.
-    - Focused `cargo test -p shardloom-cli benchmark_claim -- --nocapture` passed with Rust toolchain `1.91.1`.
-    - Focused `cargo test -p shardloom-cli --test benchmark_claim_evidence_plan_snapshots -- --nocapture` passed with Rust toolchain `1.91.1`.
-    - Focused `cargo test -p shardloom-cli --test agent_contract_pack_snapshots -- --nocapture` passed with Rust toolchain `1.91.1`.
-    - Focused `cargo test -p shardloom-contract-tests benchmark_claim -- --nocapture` passed with Rust toolchain `1.91.1`.
-    - Focused `cargo test -p shardloom-contract-tests --test benchmark_claim_evidence -- --nocapture` passed with Rust toolchain `1.91.1`.
+    - Focused `cargo test -p shardloom-exec dynamic_work_shaping -- --nocapture` passed with Rust toolchain `1.91.1`.
+    - Focused `cargo test -p shardloom-cli dynamic_work_shaping -- --nocapture` passed with Rust toolchain `1.91.1`.
+    - Focused `cargo test -p shardloom-cli --test dynamic_work_shaping_plan_snapshots -- --nocapture` passed with Rust toolchain `1.91.1`.
+    - Focused `cargo test -p shardloom-contract-tests dynamic_work_shaping -- --nocapture` passed with Rust toolchain `1.91.1`.
+    - Focused `cargo test -p shardloom-contract-tests --test dynamic_work_shaping -- --nocapture` passed with Rust toolchain `1.91.1`.
     - `cargo fmt --all -- --check` passed with Rust toolchain `1.91.1`.
     - `cargo clippy --workspace --all-targets -- -D warnings` passed with Rust toolchain `1.91.1`.
     - `cargo test --workspace --all-targets` passed with Rust toolchain `1.91.1`.
-    - `git diff --check` and hidden/bidi scan passed.
-  - Explicitly not included: benchmark execution, external baseline invocation, query execution, SQL parser, dataframe API, adapter runtime, object-store IO, data reads, write IO, performance/superiority/best-default claim, production certification, or fallback execution.
+  - Explicitly not included: runtime feedback-loop execution, policy mutation, broad stream/task execution, read-start API, encoded data reads, row reads, requested decode/materialization, Arrow conversion, object-store IO, writes, spill IO, benchmark/superiority claim, production certification, or fallback execution.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -498,6 +496,9 @@ Supporting docs:
 - [x] R3.11 BenchmarkClaimEvidenceReport foundation
   - Why: aggregate CG-6 benchmark-plan, required-metric, result-row, external-comparison, reproducibility, claim-gate, and no-fallback evidence before benchmark publication or broader comparison claims.
   - Acceptance: `BenchmarkClaimEvidenceReport`, `benchmark-claim-evidence-plan` CLI JSON/text output, snapshot/contract tests, and architecture checklist are report-only with no benchmark execution, external engine invocation, query execution, data reads, object-store IO, writes, performance/superiority/best-default claim, production certification, or fallback execution.
+- [x] R3.12 DynamicWorkShapingReport foundation
+  - Why: aggregate CG-8 adaptive sizing, runtime feedback, target-task, backpressure, bounded-memory, scheduler-queue, runtime-application, benchmark-evidence, and no-fallback surfaces before live feedback loops can mutate execution policy.
+  - Acceptance: `DynamicWorkShapingReport`, `dynamic-work-shaping-plan` CLI JSON/text output, snapshot/contract tests, and architecture checklist are report-only with no runtime feedback-loop execution, policy mutation, stream/task execution, data reads, object-store IO, writes, spill IO, benchmark claim, production certification, or fallback execution.
 - [x] R5.1 Systems-learning contract pass
 - [x] R5.2 Competitive track extension to CG-19/CG-20
 - [x] R5.3 RFC 0031/0032 deepening
@@ -1236,11 +1237,13 @@ Status legend:
   - [x] CG-8.5 encoded streaming-batch planning surface
   - [x] CG-8.6 bounded metadata/no-op local task execution
   - [x] CG-8.7 approved local encoded streaming-batch runtime evidence
+  - [x] CG-8.8 dynamic work shaping aggregate surface
   - Scope:
     - encoded streaming-batch planning surface
     - streaming encoded batch runtime execution
     - bounded parallel local execution
     - adaptive split/coalesce
+    - dynamic work shaping aggregate evidence
     - backpressure and memory/spill-aware scheduling
 
 - [ ] CG-9 — Lakehouse/table intelligence (**planned**)
@@ -1545,11 +1548,13 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-8.5 encoded streaming-batch planning surface
 - [x] CG-8.6 bounded metadata/no-op local task execution
 - [x] CG-8.7 approved local encoded streaming-batch runtime evidence
+- [x] CG-8.8 `dynamic-work-shaping-plan` aggregates adaptive sizing, runtime feedback signals, target-task policy, bounded-memory backpressure, scheduler queue policy, runtime-application blockers, benchmark evidence blockers, and no-fallback policy before live feedback-loop policy mutation is allowed
 - [ ] broader streaming encoded batch runtime execution
 - [ ] bounded parallel encoded/read local execution
 - [x] adaptive split/coalesce planning surface
 - [x] dynamic sizing feedback planning surface
 - [ ] dynamic sizing feedback execution loop
+- [x] dynamic work shaping aggregate surface
 - [x] backpressure planning surface
 - [x] memory/spill-aware scheduler planning surface
 
@@ -1679,7 +1684,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [~] Epic H — Object Store Request Planner
 - [~] Epic I — Correctness and Differential Harness
 - [~] Epic J — Benchmark and Competitive Claims
-- [ ] Epic K — Dynamic Work Shaping
+- [~] Epic K — Dynamic Work Shaping
 
 ## Completed Phase Ledger
 - [x] Phase 0 — Project setup, licensing, naming, repo foundation
@@ -1798,6 +1803,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-8.5 encoded streaming-batch planning surface adds report/CLI evidence for Vortex encoded batch representation, compatibility materialization boundaries, object-store blockers, bounded memory/backpressure, and no-IO/no-fallback side-effect fields without enabling stream runtime execution.
 - [x] CG-8.6 bounded metadata/no-op local task execution makes completed bounded metadata-only and no-op decisions report `tasks_executed=true` while preserving no data reads, decode, materialization, object-store IO, writes, spill IO, external effects, or fallback execution.
 - [x] CG-8.7 approved local encoded streaming-batch runtime evidence exposes the approved local encoded `CountAll` scan as executed streaming batches with source-match, bounded-memory/backpressure, batch-count, row-count, no-decode/no-materialization/no-row/no-Arrow/no-object-store/no-write/no-spill/no-fallback evidence while broader streaming runtime remains deferred.
+- [x] CG-8.8 dynamic work shaping aggregate surface adds `DynamicWorkShapingReport` and `dynamic-work-shaping-plan` surfacing across adaptive sizing, runtime feedback signals, target-task policy, bounded-memory backpressure, scheduler queue policy, runtime-application blockers, benchmark evidence blockers, and no-fallback policy while keeping live feedback-loop execution, policy mutation, streams/tasks, data reads, object-store IO, writes, spill IO, and fallback disabled.
 - [x] CG-9.1 schema evolution compatibility evidence adds a typed no-IO/no-fallback report for schema add/drop/rename/type/nullability/identity/metadata changes, field-id rename safety, metadata-loss diagnostics, and `schema-plan evolution` surfacing while broader catalog/table integration remains deferred.
 - [x] CG-9.2 partition evolution compatibility evidence adds a typed no-IO/no-fallback report for partition field add/drop/transform/reorder/unknown-transform changes, partition routing, metadata rewrite, repartition requirements, and `table-compat-plan partition-evolution` surfacing while broader catalog/table integration remains deferred.
 - [x] CG-9.3 delete/tombstone compatibility evidence adds a typed no-IO/no-fallback report for declared delete models, file-level deletes, segment tombstones, row/position/equality deletes, external table metadata requirements, metadata-loss rejection, and `table-compat-plan delete-semantics` surfacing while broader catalog/table integration and delete execution remain deferred.
