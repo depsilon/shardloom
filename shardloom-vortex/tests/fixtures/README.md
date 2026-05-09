@@ -35,14 +35,15 @@
   - `value`: `1, 2, 3, 4, 5`
   - `metric`: `10, 20, 30, 40, 50`
 - Expected local primitive outputs:
+  - `count_all` => `count=5`
   - `count-where:gte:value:3` => `row_count=3`
   - `project:metric` => `row_count=5`
   - `filter-project:gte:value:3|metric` => `row_count=3`
 - Correctness manifest: `CorrectnessValidationPlan::default_foundation_plan`
-  declares fixture ids `vortex-local-count-where-struct-five`,
-  `vortex-local-project-struct-five`, and
+  declares fixture ids `vortex-local-count-all-struct-five`,
+  `vortex-local-count-where-struct-five`, `vortex-local-project-struct-five`, and
   `vortex-local-filter-project-struct-five` with `ExpectedOutcome::Rows`
-  counts matching the outputs above.
+  or `ExpectedOutcome::EncodedCount` counts matching the outputs above.
 - Scope: tests and feature-gated local CLI smoke runs may open the file and run
   upstream Vortex scan filter/projection pushdown through ShardLoom's local
   primitive path.

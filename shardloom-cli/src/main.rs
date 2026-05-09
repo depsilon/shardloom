@@ -10527,7 +10527,16 @@ fn local_encoded_count_correctness_fixture_for_report(
 fn local_encoded_count_correctness_fixture_for_target(
     target_uri: &DatasetUri,
 ) -> Option<CorrectnessFixture> {
-    local_foundation_fixture_for_target(target_uri, "vortex-local-encoded-count-u64-20000")
+    CorrectnessValidationPlan::default_foundation_plan()
+        .fixtures
+        .into_iter()
+        .find(|fixture| {
+            matches!(fixture.expected, ExpectedOutcome::EncodedCount { .. })
+                && fixture
+                    .source_ref
+                    .as_deref()
+                    .is_some_and(|source_ref| local_fixture_ref_matches(target_uri, source_ref))
+        })
 }
 
 fn local_foundation_fixture_for_target(
@@ -28005,6 +28014,16 @@ mod tests {
         std::fs::remove_dir_all(outside_root).expect("outside fixture cleanup");
     }
 
+    #[test]
+    fn vortex_count_local_encoded_evidence_matches_struct_count_fixture() {
+        let fixture =
+            local_encoded_count_correctness_fixture_for_target(&local_struct_fixture_uri())
+                .expect("fixture match");
+
+        assert_eq!(fixture.id.as_str(), "vortex-local-count-all-struct-five");
+        assert_eq!(fixture.expected, ExpectedOutcome::EncodedCount { count: 5 });
+    }
+
     fn local_struct_fixture_uri() -> DatasetUri {
         let fixture_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()
@@ -28029,6 +28048,10 @@ mod tests {
     fn vortex_run_local_primitive_fixture_matching_covers_struct_count_project_paths() {
         let uri = local_struct_fixture_uri();
         let cases = [
+            (
+                VortexQueryPrimitiveRequest::count_all(uri.clone()),
+                "vortex-local-count-all-struct-five",
+            ),
             (
                 VortexQueryPrimitiveRequest::count_where(
                     uri.clone(),
@@ -28411,6 +28434,44 @@ mod tests {
         assert_eq!(
             output_field(&fields, "generalized_local_count_cg13_closeout_allowed"),
             "false"
+        );
+    }
+
+    #[test]
+    fn vortex_count_local_encoded_evidence_certifies_struct_count_fixture() {
+        let uri = local_struct_fixture_uri();
+        let (encoded_report, local_report) = synthetic_local_encoded_count_reports(uri, 5);
+
+        let evidence =
+            vortex_count_local_encoded_evidence(&encoded_report, &local_report).expect("evidence");
+
+        assert_eq!(
+            evidence.target_policy,
+            VortexCountLocalEncodedTargetPolicy::KnownFixtureCertified
+        );
+        assert_eq!(
+            evidence
+                .certificate
+                .as_ref()
+                .and_then(|certificate| certificate.correctness_fixture_id.as_deref()),
+            Some("vortex-local-count-all-struct-five")
+        );
+        assert!(!evidence.has_errors());
+
+        let mut fields = Vec::new();
+        append_vortex_count_local_encoded_evidence_fields(&mut fields, &evidence);
+
+        assert_eq!(
+            output_field(&fields, "generalized_local_count_target_policy"),
+            "known_fixture_certified"
+        );
+        assert_eq!(
+            output_field(&fields, "generalized_local_count_correctness_certified"),
+            "true"
+        );
+        assert_eq!(
+            output_field(&fields, "correctness_fixture_id"),
+            "vortex-local-count-all-struct-five"
         );
     }
 

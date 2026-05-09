@@ -1914,6 +1914,13 @@ mod tests {
     fn local_primitive_certificates_cover_broader_runtime_fixtures() {
         let cases = [
             (
+                "count-all-certificate",
+                "vortex-local-count-all-struct-five",
+                VortexQueryPrimitiveRequest::count_all(
+                    DatasetUri::new("placeholder.vortex").expect("uri"),
+                ),
+            ),
+            (
                 "count-where-certificate",
                 "vortex-local-count-where-struct-five",
                 VortexQueryPrimitiveRequest::count_where(
