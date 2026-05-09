@@ -10,10 +10,16 @@ from .client import (
     PythonClientSmokeReport,
     ShardLoomClient,
 )
-from .errors import ShardLoomCommandError, ShardLoomProtocolError
+from ._version import __version__
+from .errors import (
+    ShardLoomBinaryNotFoundError,
+    ShardLoomCommandError,
+    ShardLoomProtocolError,
+)
 from .models import Diagnostic, FieldEntry, FallbackStatus, OutputEnvelope
 
 __all__ = [
+    "__version__",
     "Diagnostic",
     "FallbackStatus",
     "FieldEntry",
@@ -22,6 +28,7 @@ __all__ = [
     "LiveEtlReplayResult",
     "PythonClientSmokeReport",
     "ShardLoomClient",
+    "ShardLoomBinaryNotFoundError",
     "ShardLoomCommandError",
     "ShardLoomProtocolError",
 ]

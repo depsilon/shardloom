@@ -1,19 +1,42 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "shardloom"
-version = "0.0.0"
+dynamic = ["version"]
 description = "Thin Python client for the ShardLoom CLI JSON protocol"
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "Apache-2.0" }
+license = "Apache-2.0"
 authors = [{ name = "ShardLoom contributors" }]
 dependencies = []
+keywords = ["analytics", "columnar", "vortex", "cli", "etl"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://github.com/depsilon/shardloom"
+Repository = "https://github.com/depsilon/shardloom"
+Issues = "https://github.com/depsilon/shardloom/issues"
+Documentation = "https://github.com/depsilon/shardloom/tree/main/docs"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
 shardloom = ["py.typed"]
+
+[tool.setuptools.dynamic]
+version = { attr = "shardloom._version.__version__" }

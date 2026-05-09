@@ -1430,7 +1430,7 @@ impl WorldClassSufficiencyReport {
             known_limits: vec![
                 "CG-20 is not implemented; this report declares required evidence only."
                     .to_string(),
-                "SQL parsing, adapter runtime, Python packaging, UDF runtime, media extraction, and execution remain deferred."
+                "SQL parsing, adapter runtime, Conda package publication, UDF runtime, media extraction, and execution remain deferred."
                     .to_string(),
             ],
             blocking_gaps: vec![

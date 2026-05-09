@@ -420,7 +420,7 @@ Checklist:
 - [x] Define `DataEtlCoverageEntry` fields for per-capability source/sink/operator/function/adapter/Python/UDF/unstructured requirements.
 - [x] Define `DataEtlCapabilityReport` fields for ingestion, transformation, cleaning, data quality, incremental processing, writes/exports, partition/layout behavior, state/checkpoint behavior, bounded streaming, memory/spill, lineage/provenance, orchestration, and pipeline observability.
 - [x] Define Python wrapper/API ownership under CG-20 with a thin CLI/API JSON wrapper first.
-- [x] Define `PythonSurfaceReport` fields for wrapper mode, protocol versions, DataFrame/query-builder status, notebook support, materialization/export boundaries, UDF boundaries, packaging, diagnostics, and no-fallback behavior.
+- [x] Define `PythonSurfaceReport` fields for wrapper mode, protocol versions, DataFrame/query-builder status, notebook support, materialization/export boundaries, UDF boundaries, wheel/sdist build readiness, Conda package split, fresh-environment smoke status, deterministic missing-binary diagnostics, optional benchmark extras, diagnostics, and no-fallback behavior.
 - [x] Clarify that CG-11 may establish API/protocol foundations while CG-20 owns mature Python wrapper, DataFrame/query-builder, notebook, Python UDF, and packaging certification.
 - [x] Expand universal adapter roadmap to relational/warehouse sources, event/API/SaaS sources, partitioned datasets, compressed wrappers, and unstructured/media source references.
 - [x] Define unstructured/media capability boundaries for typed references, extracted text/chunks/metadata, extractor provenance, redaction, effect permissions, and materialization cost.

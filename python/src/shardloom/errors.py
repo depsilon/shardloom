@@ -12,6 +12,10 @@ class ShardLoomProtocolError(RuntimeError):
     """Raised when CLI output does not match the expected JSON protocol."""
 
 
+class ShardLoomBinaryNotFoundError(RuntimeError):
+    """Raised when an explicit ShardLoom CLI command cannot resolve a binary."""
+
+
 @dataclass(slots=True)
 class ShardLoomCommandError(RuntimeError):
     """Raised when an explicit ShardLoom CLI command returns an error envelope."""

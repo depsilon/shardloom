@@ -53,6 +53,63 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
+- [x] Session label: CG-20.8 Python package release readiness and deterministic CLI resolution
+  - Primary files:
+    - `python/pyproject.toml`
+    - `python/src/shardloom`
+    - `python/tests/test_cli_client.py`
+    - `python/README.md`
+    - `shardloom-core/src/output.rs`
+    - `shardloom-core/src/certification.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/python_wrapper_snapshots.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `shardloom-cli/tests/world_class_sufficiency_plan_snapshots.rs`
+    - `docs/rfcs/0032-world-class-sql-operators-functions-adapters-user-capability.md`
+    - `docs/architecture/capability-certification-sequencing.md`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: Pull forward the distribution/importability layer of CG-20 without broadening runtime behavior: make the thin Python wrapper buildable as wheel/sdist, expose non-placeholder package metadata, raise deterministic missing-binary diagnostics, and document the Conda split between the platform-specific Rust CLI package, pure-Python wrapper package, and optional metapackage.
+  - Checklist:
+    - [x] Replace placeholder Python package metadata with dynamic package version, project URLs, classifiers, typed package marker, and release-readiness metadata.
+    - [x] Export `shardloom.__version__` while preserving import-time side-effect freedom.
+    - [x] Raise deterministic `ShardLoomBinaryNotFoundError` for missing or invalid CLI binaries instead of raw subprocess failures.
+    - [x] Extend `python-wrapper-plan`, `capabilities python`, `capabilities deployment`, and `world-class-sufficiency-plan` report-only surfaces with wheel/sdist, fresh-environment smoke, missing-binary diagnostic, Conda split, and optional benchmark-extras fields.
+    - [x] Update RFC/architecture docs so CG-20 has a near-term distribution/importability lane distinct from later SQL/DataFrame/UDF/adapter/runtime maturity.
+    - [x] Build wheel and sdist locally and install the wheel in a fresh virtual environment.
+    - [x] Run focused Python tests, Rust snapshot tests, full Rust validation, docs hygiene, and hidden/bidi scan before PR.
+  - Local validation status:
+    - [x] Focused Python `python -m unittest discover python\tests` and `python -m compileall python\src python\tests` passed locally.
+    - [x] Isolated temp-build-env `python -m build python` produced wheel and sdist after installing `build` outside the repo.
+    - [x] Fresh temp virtualenv installed the built wheel, imported `shardloom`, ran `ShardLoomClient.from_env().smoke_check()` against the local CLI binary, and verified deterministic `ShardLoomBinaryNotFoundError` for an invalid `SHARDLOOM_BIN`.
+    - [x] Focused Rust `shardloom-core` Python wrapper tests, `shardloom-cli` Python wrapper snapshot tests, and CG-20 user-surface capability snapshot test passed locally with Rust toolchain `1.91.1`.
+    - [x] Required full `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, and `cargo test --workspace --all-targets` validation passed locally with Rust toolchain `1.91.1`.
+    - [x] `git diff --check` and changed-file hidden/bidi scan passed locally.
+  - Explicitly not included: package publication, release creation, PyO3/maturin/native bindings, SQL parser/execution, DataFrame runtime, notebook runtime, Python UDF runtime, adapter runtime, object-store IO, benchmark harness changes, optional baseline dependencies in the default package, superiority or best-default claims, or fallback execution.
+
+## Near-term Implementation Priority
+- [ ] Priority 1 - generalized encoded primitive execution loop
+  - [ ] Generalized direct encoded `CountAll` execution beyond the current local direct-count proof path.
+  - [x] Fixture-backed local `CountWhere` execution evidence through `vortex-count-where` with explicit selection-vector guarantee.
+  - [ ] Generalized encoded-value predicate/filter execution beyond the fixture-backed local path.
+  - [ ] Encoded projection and filter-project execution with no row reads, no Arrow conversion, no object-store IO, no writes, no spill, and no fallback.
+- [ ] Priority 1.5 - CG-20 distribution/importability certification lane
+  - [x] Publishable pure-Python wrapper package with wheel/sdist build evidence.
+  - [ ] Platform-specific Conda CLI binary recipe/package, pure-Python wrapper recipe/package, and optional one-command metapackage.
+  - [x] Fresh-environment import/run smoke evidence for `import shardloom`, CLI binary resolution, `smoke_check()`, protocol/version reporting, and `fallback_attempted=false`.
+  - [x] `python-wrapper-plan`, `capabilities python`, `capabilities deployment`, and `world-class-sufficiency-plan` expose packaging/importability state without probes or runtime expansion.
+  - [x] Benchmark extras remain optional comparison-only environments and are not dependencies of `conda install shardloom`.
+- [ ] Priority 2 - evidence loop paired with every execution expansion
+  - [ ] CG-5 fixtures, reference outputs, correctness certificates, and edge-case coverage for each new primitive path.
+  - [ ] CG-6 query-runtime benchmark rows, reproducibility metadata, work-avoidance evidence, and claim-gate blockers for each new primitive path.
+  - [ ] CG-16 execution certificates and CG-19 per-path Native I/O certificates for each supported source/sink path.
+- [ ] Priority 3 - broader platform work after the primitive/evidence loop advances
+  - [ ] CG-4 broader commit execution.
+  - [ ] CG-8 dynamic sizing feedback execution and bounded parallel encoded/read runtime.
+  - [ ] CG-9 catalog/table metadata integration.
+  - [ ] CG-10 object-store/distributed runtime execution.
+  - [ ] CG-20 SQL/DataFrame/UDF/unstructured/media/adapters once the encoded primitive evidence loop and importability lane are no longer the bottleneck.
+
+## Recent Completed Session Ledger
 - [x] Session label: CG-2.2f / CG-13.14 / CG-16.9 / CG-19.11 local `CountWhere` execution evidence
   - Primary files:
     - `shardloom-cli/src/main.rs`
@@ -71,25 +128,6 @@ Supporting docs:
     - [x] Feature-gated `cargo clippy -p shardloom-cli --features vortex-local-primitives --all-targets -- -D warnings` and `cargo clippy -p shardloom-vortex --features vortex-local-primitives --all-targets -- -D warnings` passed locally with Rust toolchain `1.91.1`.
     - [x] Required full `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, and `cargo test --workspace --all-targets` validation passed locally with Rust toolchain `1.91.1`.
   - Explicitly not included: new readers, non-local/object-store Vortex sources, Parquet/Arrow/JSON/Avro/ORC runtime, adapter execution, SQL/DataFrame/Python runtime expansion, generalized encoded predicate kernels, broad projection/filter-project certification, benchmark reruns, superiority or best-default claims, CG-2 closeout, CG-13 closeout, or fallback execution.
-
-## Near-term Implementation Priority
-- [ ] Priority 1 - generalized encoded primitive execution loop
-  - [ ] Generalized direct encoded `CountAll` execution beyond the current local direct-count proof path.
-  - [x] Fixture-backed local `CountWhere` execution evidence through `vortex-count-where` with explicit selection-vector guarantee.
-  - [ ] Generalized encoded-value predicate/filter execution beyond the fixture-backed local path.
-  - [ ] Encoded projection and filter-project execution with no row reads, no Arrow conversion, no object-store IO, no writes, no spill, and no fallback.
-- [ ] Priority 2 - evidence loop paired with every execution expansion
-  - [ ] CG-5 fixtures, reference outputs, correctness certificates, and edge-case coverage for each new primitive path.
-  - [ ] CG-6 query-runtime benchmark rows, reproducibility metadata, work-avoidance evidence, and claim-gate blockers for each new primitive path.
-  - [ ] CG-16 execution certificates and CG-19 per-path Native I/O certificates for each supported source/sink path.
-- [ ] Priority 3 - broader platform work after the primitive/evidence loop advances
-  - [ ] CG-4 broader commit execution.
-  - [ ] CG-8 dynamic sizing feedback execution and bounded parallel encoded/read runtime.
-  - [ ] CG-9 catalog/table metadata integration.
-  - [ ] CG-10 object-store/distributed runtime execution.
-  - [ ] CG-20 SQL/Python/DataFrame/UDF/unstructured/media/adapters once the encoded primitive evidence loop is no longer the bottleneck.
-
-## Recent Completed Session Ledger
 - [x] Session label: CG-2.1e.33 / CG-5.10 / CG-16.8 / CG-19.10 multi-layout local `CountAll` certification
   - Primary files:
     - `shardloom-core/src/correctness.rs`
@@ -1852,9 +1890,10 @@ Status legend:
   - [x] CG-20.5 Python replay helper and universal input adapter matrix
   - [x] CG-20.6 Python import environment and no-dataset smoke check
   - [x] CG-20.7 local structured ETL usability bridge
-  - [~] implementation pending
+  - [x] CG-20.8 Python package release readiness and deterministic CLI resolution
+  - [~] mature SQL/DataFrame/UDF/adapter/runtime implementation pending
   - Scope:
-    - capability certification surface across SQL/operators/functions/adapters/semantic profiles, migration, Python/API, DataFrame/query builder, notebook, UDF/plugin, common ETL, universal adapters, event/API/SaaS adapters, unstructured/media, and certification reporting
+    - capability certification surface across SQL/operators/functions/adapters/semantic profiles, migration, Python/API packaging, DataFrame/query builder, notebook, UDF/plugin, common ETL, universal adapters, event/API/SaaS adapters, unstructured/media, deployment/importability, and certification reporting
 
 
 ## Competitive Engine Gate Detailed Checklist Ledger
@@ -2201,7 +2240,8 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-20.5 Python replay helper and universal input adapter matrix tie Python live ETL helpers to explicit adapter discovery without certifying mature SQL/DataFrame/UDF/runtime adapters
 - [x] CG-20.6 Python import environment and no-dataset smoke check improve managed-environment usability while keeping mature Python/DataFrame/notebook certification deferred
 - [x] CG-20.7 local structured ETL usability bridge supports CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC inputs/outputs through the Python/CLI smoke surface with auto resource sizing, while production adapter certification, SQL/DataFrame/UDF runtime, and best-default certification remain deferred
-- [~] implementation pending
+- [x] CG-20.8 Python package release readiness and deterministic CLI resolution make the thin wrapper buildable as wheel/sdist, expose non-placeholder metadata, document the Conda CLI/Python/metapackage split, and add deterministic missing-binary diagnostics without package publication or runtime expansion
+- [~] mature implementation pending
 - [ ] capability certification surface implementation across real SQL/operators/functions/adapters/semantic profiles/migration/Python/API/DataFrame/notebook/UDF/ETL/universal-adapter/unstructured-media certification evidence
 
 ### CG attribution and evidence notes

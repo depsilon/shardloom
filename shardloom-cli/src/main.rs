@@ -5073,99 +5073,158 @@ fn api_protocol_fields(report: &CliApiJsonProtocolReport) -> Vec<(String, String
 
 fn python_wrapper_fields(report: &PythonWrapperFoundationReport) -> Vec<(String, String)> {
     let mut fields = vec![];
-    push_field(&mut fields, "mode", "python_wrapper_plan");
-    push_field(&mut fields, "schema_version", report.schema_version);
-    push_field(&mut fields, "wrapper_id", report.wrapper_id);
-    push_field(&mut fields, "wrapper_status", report.wrapper_status);
+    append_python_wrapper_identity_fields(&mut fields, report);
+    append_python_wrapper_distribution_fields(&mut fields, report);
+    append_python_wrapper_runtime_boundary_fields(&mut fields, report);
+    append_python_wrapper_side_effect_fields(&mut fields, report);
+    fields
+}
+
+fn append_python_wrapper_identity_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &PythonWrapperFoundationReport,
+) {
+    push_field(fields, "mode", "python_wrapper_plan");
+    push_field(fields, "schema_version", report.schema_version);
+    push_field(fields, "wrapper_id", report.wrapper_id);
+    push_field(fields, "wrapper_status", report.wrapper_status);
     push_field(
-        &mut fields,
+        fields,
         "transport_protocol_id",
         report.transport_protocol_id,
     );
     push_field(
-        &mut fields,
+        fields,
         "output_envelope_schema_version",
         report.output_envelope_schema_version,
     );
-    push_field(&mut fields, "invocation_model", report.invocation_model);
+    push_field(fields, "invocation_model", report.invocation_model);
     push_field(
-        &mut fields,
+        fields,
         "initial_command_scope",
         &report.initial_command_scope.join(","),
     );
     push_field(
-        &mut fields,
+        fields,
         "required_client_behaviors",
         &report.required_client_behaviors.join(","),
     );
-    push_field(&mut fields, "package_status", report.package_status);
+}
+
+fn append_python_wrapper_distribution_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &PythonWrapperFoundationReport,
+) {
+    push_field(fields, "package_status", report.package_status);
     push_field(
-        &mut fields,
+        fields,
         "native_binding_status",
         report.native_binding_status,
     );
     push_bool_field(
-        &mut fields,
-        "pyo3_maturin_allowed",
-        report.pyo3_maturin_allowed,
+        fields,
+        "wheel_sdist_build_ready",
+        report.wheel_sdist_build_ready,
     );
     push_bool_field(
-        &mut fields,
+        fields,
+        "fresh_environment_smoke_required",
+        report.fresh_environment_smoke_required,
+    );
+    push_bool_field(
+        fields,
+        "missing_binary_diagnostic_ready",
+        report.missing_binary_diagnostic_ready,
+    );
+    push_bool_field(
+        fields,
+        "conda_cli_package_required",
+        report.conda_cli_package_required,
+    );
+    push_bool_field(
+        fields,
+        "conda_python_package_planned",
+        report.conda_python_package_planned,
+    );
+    push_bool_field(
+        fields,
+        "conda_metapackage_planned",
+        report.conda_metapackage_planned,
+    );
+    push_bool_field(
+        fields,
+        "benchmark_extras_optional",
+        report.benchmark_extras_optional,
+    );
+}
+
+fn append_python_wrapper_runtime_boundary_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &PythonWrapperFoundationReport,
+) {
+    push_bool_field(fields, "pyo3_maturin_allowed", report.pyo3_maturin_allowed);
+    push_bool_field(
+        fields,
         "python_package_created",
         report.python_package_created,
     );
     push_bool_field(
-        &mut fields,
+        fields,
         "native_extension_required",
         report.native_extension_required,
     );
     push_bool_field(
-        &mut fields,
+        fields,
         "dataframe_api_implemented",
         report.dataframe_api_implemented,
     );
     push_bool_field(
-        &mut fields,
+        fields,
         "notebook_api_implemented",
         report.notebook_api_implemented,
     );
     push_bool_field(
-        &mut fields,
+        fields,
         "python_udf_runtime_implemented",
         report.python_udf_runtime_implemented,
     );
     push_bool_field(
-        &mut fields,
+        fields,
         "materialization_boundary_reporting_required",
         report.materialization_boundary_reporting_required,
     );
     push_bool_field(
-        &mut fields,
+        fields,
         "diagnostics_passthrough_required",
         report.diagnostics_passthrough_required,
     );
-    push_bool_field(&mut fields, "side_effect_free", report.side_effect_free);
-    push_bool_field(&mut fields, "filesystem_probe", report.filesystem_probe);
-    push_bool_field(&mut fields, "network_probe", report.network_probe);
-    push_bool_field(&mut fields, "catalog_probe", report.catalog_probe);
-    push_bool_field(&mut fields, "adapter_probe", report.adapter_probe);
-    push_bool_field(&mut fields, "parser_executed", report.parser_executed);
-    push_bool_field(&mut fields, "runtime_execution", report.runtime_execution);
-    push_bool_field(&mut fields, "write_io", report.write_io);
-    push_field(&mut fields, "external_publish", "not_performed");
+}
+
+fn append_python_wrapper_side_effect_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &PythonWrapperFoundationReport,
+) {
+    push_bool_field(fields, "side_effect_free", report.side_effect_free);
+    push_bool_field(fields, "filesystem_probe", report.filesystem_probe);
+    push_bool_field(fields, "network_probe", report.network_probe);
+    push_bool_field(fields, "catalog_probe", report.catalog_probe);
+    push_bool_field(fields, "adapter_probe", report.adapter_probe);
+    push_bool_field(fields, "parser_executed", report.parser_executed);
+    push_bool_field(fields, "runtime_execution", report.runtime_execution);
+    push_bool_field(fields, "write_io", report.write_io);
+    push_field(fields, "external_publish", "not_performed");
     push_bool_field(
-        &mut fields,
+        fields,
         "external_publish_performed",
         report.external_publish,
     );
     push_bool_field(
-        &mut fields,
+        fields,
         "fallback_execution_allowed",
         report.fallback_execution_allowed,
     );
-    push_bool_field(&mut fields, "fallback_attempted", report.fallback_attempted);
-    push_count_field(&mut fields, "diagnostic_count", report.diagnostics.len());
-    fields
+    push_bool_field(fields, "fallback_attempted", report.fallback_attempted);
+    push_count_field(fields, "diagnostic_count", report.diagnostics.len());
 }
 
 fn plan_portability_fields(report: &PlanPortabilityReport, mode: &str) -> Vec<(String, String)> {
@@ -6310,6 +6369,21 @@ fn append_world_class_sufficiency_surface_status_fields(
         report,
         WorldClassSufficiencyDimensionKind::UniversalAdapterCatalog,
     );
+    push_field(
+        fields,
+        "python_package_status",
+        "source_tree_wheel_sdist_ready",
+    );
+    push_field(
+        fields,
+        "fresh_environment_smoke_status",
+        "local_smoke_ready",
+    );
+    push_field(fields, "conda_package_split_status", "planned");
+    push_field(fields, "conda_cli_package_status", "planned");
+    push_field(fields, "conda_python_package_status", "planned");
+    push_field(fields, "conda_metapackage_status", "planned");
+    push_field(fields, "benchmark_extras_status", "optional_planned");
 }
 
 fn append_world_class_sufficiency_evidence_status_fields(
@@ -8464,7 +8538,7 @@ fn world_class_surface_components(scope: CapabilityDiscoveryScope) -> &'static s
             "ingestion,schema_contracts,data_quality,cleaning,transformation,enrichment,incremental_state,writes_exports,lineage_observability,governance"
         }
         CapabilityDiscoveryScope::Python => {
-            "thin_cli_json_wrapper,python_api,diagnostics,materialization_boundaries,python_udf_boundaries,packaging"
+            "thin_cli_json_wrapper,python_api,diagnostics,materialization_boundaries,python_udf_boundaries,package_metadata,wheel_sdist_build,fresh_environment_smoke,conda_wrapper_cli_split"
         }
         CapabilityDiscoveryScope::DataFrame => {
             "dataframe_query_builder,expressions,lazy_plans,explain,materialization_boundaries"
@@ -8491,7 +8565,7 @@ fn world_class_surface_components(scope: CapabilityDiscoveryScope) -> &'static s
             "explain,estimate,profile,diagnostics,certificates,lineage,metrics"
         }
         CapabilityDiscoveryScope::Deployment => {
-            "cli_local,server,container,foundry,cloud_storage,catalog_config,release_packaging"
+            "cli_local,conda_cli_package,conda_python_package,conda_metapackage,server,container,cloud_storage,catalog_config,release_packaging,optional_benchmark_extras"
         }
         CapabilityDiscoveryScope::Extensions => {
             "plugin_manifest,udf_registry,wasm_runtime,python_boundary,permissions,sandboxing"

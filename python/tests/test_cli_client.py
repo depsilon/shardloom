@@ -7,7 +7,13 @@ import textwrap
 import unittest
 from pathlib import Path
 
-from shardloom import ShardLoomClient, ShardLoomCommandError, ShardLoomProtocolError
+from shardloom import (
+    __version__,
+    ShardLoomBinaryNotFoundError,
+    ShardLoomClient,
+    ShardLoomCommandError,
+    ShardLoomProtocolError,
+)
 
 
 class ShardLoomClientTests(unittest.TestCase):
@@ -17,6 +23,10 @@ class ShardLoomClientTests(unittest.TestCase):
         path = Path(tempdir.name) / "fake_shardloom.py"
         path.write_text(body, encoding="utf-8")
         return [sys.executable, str(path)]
+
+    def test_package_exports_non_placeholder_version(self) -> None:
+        self.assertRegex(__version__, r"^\d+\.\d+\.\d+")
+        self.assertNotEqual(__version__, "0.0.0")
 
     def test_status_appends_json_format_and_parses_fields(self) -> None:
         binary = self.fake_cli(
@@ -116,6 +126,9 @@ class ShardLoomClientTests(unittest.TestCase):
                 elif args == ["capabilities", "python", "--format", "json"]:
                     command = "capabilities"
                     fields = [{"key": "scope", "value": "python"}]
+                elif args == ["capabilities", "deployment", "--format", "json"]:
+                    command = "capabilities"
+                    fields = [{"key": "scope", "value": "deployment"}]
                 elif args == ["input-adapters", "--format", "json"]:
                     command = "input-adapters"
                     fields = [{"key": "plan_only", "value": "true"}]
@@ -137,9 +150,13 @@ class ShardLoomClientTests(unittest.TestCase):
 
         report = ShardLoomClient(binary=binary).smoke_check()
 
-        self.assertEqual(report.commands, ("status", "capabilities", "input-adapters"))
+        self.assertEqual(
+            report.commands,
+            ("status", "capabilities", "capabilities", "input-adapters"),
+        )
         self.assertFalse(report.fallback_attempted)
         self.assertEqual(report.python_capabilities.field("scope"), "python")
+        self.assertEqual(report.deployment_capabilities.field("scope"), "deployment")
         self.assertTrue(report.input_adapters.field_bool("plan_only"))
 
     def test_vortex_run_passes_explicit_runtime_command(self) -> None:
@@ -290,11 +307,34 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(result.command, "api-compat-plan")
 
     def test_env_binary_is_resolved_from_client_environment(self) -> None:
-        client = ShardLoomClient(env={"SHARDLOOM_BIN": "custom-shardloom", "PATH": ""})
+        client = ShardLoomClient(env={"SHARDLOOM_BIN": sys.executable, "PATH": ""})
 
         command = client._command(["status"])
 
-        self.assertEqual(command[0], "custom-shardloom")
+        self.assertEqual(command[0], sys.executable)
+
+    def test_missing_binary_raises_deterministic_error(self) -> None:
+        client = ShardLoomClient(env={"PATH": ""})
+
+        with self.assertRaises(ShardLoomBinaryNotFoundError) as raised:
+            client.status()
+
+        message = str(raised.exception)
+        self.assertIn("ShardLoom CLI binary could not be resolved", message)
+        self.assertIn("SHARDLOOM_BIN", message)
+
+    def test_invalid_env_binary_raises_deterministic_error(self) -> None:
+        tempdir = tempfile.TemporaryDirectory()
+        self.addCleanup(tempdir.cleanup)
+        missing = Path(tempdir.name) / "missing-shardloom"
+        client = ShardLoomClient.from_env(
+            {"SHARDLOOM_BIN": str(missing), "PATH": ""}
+        )
+
+        with self.assertRaises(ShardLoomBinaryNotFoundError) as raised:
+            client.status()
+
+        self.assertIn("SHARDLOOM_BIN points to", str(raised.exception))
 
     def test_from_repo_resolves_target_binary_lazily(self) -> None:
         tempdir = tempfile.TemporaryDirectory()
