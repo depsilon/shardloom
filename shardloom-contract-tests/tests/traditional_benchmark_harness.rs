@@ -90,8 +90,20 @@ fn traditional_benchmark_harness_includes_shardloom_native_microbenchmark() {
     let script = read_workspace_file("benchmarks/traditional_analytics/run.py");
 
     assert!(script.contains("def run_shardloom_native_microbenchmarks("));
+    assert!(script.contains("def run_shardloom_count_microbenchmark("));
+    assert!(script.contains("def run_shardloom_vortex_run_microbenchmark("));
+    assert!(script.contains("def first_meaningful_field("));
     assert!(script.contains("vortex-count-benchmark"));
+    assert!(script.contains("vortex-run"));
     assert!(script.contains("metadata_footer_u64_20000.vortex"));
+    assert!(script.contains("local primitive projection"));
+    assert!(script.contains("project:value"));
+    assert!(script.contains("local primitive validity count"));
+    assert!(script.contains("count-where:is_not_null:value"));
+    assert!(script.contains("local primitive comparison count"));
+    assert!(script.contains("count-where:gte:value:10000"));
+    assert!(script.contains("\"timing_scope\""));
+    assert!(script.contains("\"materialization_boundary_reported\""));
     assert!(script.contains("\"data_decoded\""));
     assert!(script.contains("\"data_materialized\""));
     assert!(script.contains("\"fallback_attempted\""));
@@ -121,6 +133,8 @@ fn traditional_benchmark_docs_state_no_fallback_and_markdown_outputs() {
     assert!(readme.contains("Dask is sensitive to partitioning"));
     assert!(readme.contains("rounded to four decimal places"));
     assert!(readme.contains("appends `-dirty`"));
+    assert!(normalized.contains("local `vortex-run` primitive evidence"));
+    assert!(readme.contains("timing scope"));
     assert!(readme.contains("benchmarks\\traditional_analytics\\.venv\\Scripts\\python"));
 }
 

@@ -45,30 +45,31 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-2.1e.26/CG-13.7 local primitive materialization-effect tightening
+- [x] Session label: CG-6.14 ShardLoom native microbenchmark lane expansion
   - Primary files:
-    - `shardloom-vortex/src/local_primitives.rs`
-    - `shardloom-vortex/src/local_engine.rs`
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
     - `docs/architecture/phased-execution-plan.md`
-  - Scope: Tighten feature-gated local `.vortex` primitive effect evidence so metadata predicates, validity predicates, and schema-only projection do not claim decode/materialization or materialization-boundary work.
+  - Scope: Expand the benchmark report's ShardLoom-native section so it separates the approved local encoded count path from local `vortex-run` projection, validity-predicate, and temporary comparison-predicate evidence.
   - Checklist:
-    - [x] Distinguish predicate outcomes that require value decoding from metadata/validity-only predicate outcomes.
-    - [x] Keep comparison predicates explicitly marked as temporary decoded/materialized evidence until encoded value kernels land.
-    - [x] Report projection as schema/projection evidence without a materialization boundary.
-    - [x] Treat deferred metadata-open sidecar diagnostics as non-blocking when a local primitive has completed with a result.
-    - [x] Add feature-gated tests for metadata/validity/projection no-materialization evidence.
-    - [x] Run public `vortex-run` CLI smoke for projection and validity predicate evidence.
-    - [x] Run full required validation.
+    - [x] Build the ShardLoom CLI once for native benchmark rows instead of invoking `cargo run` per microbenchmark.
+    - [x] Keep the existing local encoded `CountAll` benchmark row.
+    - [x] Add local primitive projection and validity-predicate rows that expose no-decode/no-materialization evidence.
+    - [x] Add a temporary comparison-predicate row that explicitly exposes decode/materialization boundary evidence.
+    - [x] Add timing-scope and materialization-boundary columns to the native microbenchmark Markdown table.
+    - [x] Update benchmark docs and contract tests for the expanded native rows.
+    - [x] Run focused benchmark validation and full required validation.
   - Local validation status:
+    - `benchmarks\traditional_analytics\.venv\Scripts\python -m py_compile benchmarks\traditional_analytics\run.py` passed
+    - ShardLoom-only smoke benchmark passed for `csv/file ingest` with `--rows 1000 --iterations 1 --shardloom-native-iterations 1`
+    - Smoke artifact `benchmarks/traditional_analytics/results/traditional_analytics_20260509T060938Z.md` shows four ShardLoom native rows: local encoded `CountAll`, local primitive projection, local primitive validity count, and local primitive comparison count
+    - Focused `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness -- --nocapture` passed with Rust toolchain `1.91.1`
     - `cargo fmt --all -- --check` passed with Rust toolchain `1.91.1`
-    - focused `cargo test -p shardloom-vortex --features vortex-local-primitives local_ -- --nocapture` passed with Rust toolchain `1.91.1`
-    - `vortex-run ... project:value ... --format json` exited success and reported `data_decoded=false`, `data_materialized=false`, and `local_primitive_materialization_boundary_reported=false`
-    - `vortex-run ... count-where:is_not_null:value ... --format json` exited success and reported `data_decoded=false`, `data_materialized=false`, and `local_primitive_materialization_boundary_reported=false`
-    - feature-gated `cargo clippy -p shardloom-cli --features vortex-local-primitives --all-targets -- -D warnings` passed with Rust toolchain `1.91.1`
     - `cargo clippy --workspace --all-targets -- -D warnings` passed with Rust toolchain `1.91.1`
     - `cargo test --workspace --all-targets` passed with Rust toolchain `1.91.1`
     - `git diff --check` and hidden/bidi scan passed
-  - Explicitly not included: generalized encoded filter/project kernels, SQL/DataFrame/API execution, adapter runtime, object-store IO, row reads, Arrow conversion, writes, spill IO, production certification, benchmark/superiority claims, CG-2 closeout, CG-13 closeout, or fallback execution.
+  - Explicitly not included: promotion of local results as claim-grade benchmark evidence, performance/superiority claims, external engine runtime fallback, SQL/DataFrame/API execution, mature encoded filter/project kernels, adapter runtime, object-store IO, new runtime behavior outside benchmark tooling, or fallback execution.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -1449,6 +1450,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-6.11 benchmark startup/warmup accounting records per-engine startup time and warms Spark profiles before scenario timing
 - [x] CG-6.12 benchmark resource/effect reporting surfaces memory, read/write bytes, rows, and ShardLoom decode/materialization/effect evidence in JSON and Markdown reports
 - [x] CG-6.13 benchmark correctness canonicalization and all-engine rerun hygiene route documented commands through the benchmark venv, align Python/Rust float output for stable correctness hashes, label dirty ShardLoom revisions, and produce a strict all-engine local report with Spark-default, Spark-local-tuned, pandas, Polars, DuckDB, DataFusion, Dask, and ShardLoom all passing current scenario correctness
+- [x] CG-6.14 ShardLoom native microbenchmark lane expansion separates local encoded `CountAll`, local primitive projection, validity-predicate count, and temporary comparison-predicate evidence with explicit timing-scope and materialization-boundary fields
 - [~] runtime benchmarks started with local encoded count, ShardLoom universal-I/O smoke rows, and traditional analytics external harness; committed claim-grade comparative results remain planned
 - [x] peak-memory benchmark reporting
 - [x] bytes read/written benchmark reporting
@@ -1713,6 +1715,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-6.11 benchmark startup/warmup accounting adds per-engine `startup_time_millis`, report surfacing, and Spark per-profile warmup before scenario timing so default and tuned-local profiles remain explicit and comparable without runtime fallback.
 - [x] CG-6.12 benchmark resource/effect reporting retains ShardLoom evidence fields in result artifacts and adds Markdown resource/effect tables for peak memory, bytes read/written, rows scanned/materialized, decode/materialization, row-read, Arrow, object-store, write, spill, and NativeIoCertificate status without making performance claims.
 - [x] CG-6.13 benchmark correctness/all-engine hygiene aligns feature-gated Rust and Python benchmark float canonicalization, routes README commands through the populated benchmark venv, labels dirty ShardLoom revisions in result artifacts, and records a strict local all-engine rerun where all current scenarios pass correctness without external runtime fallback.
+- [x] CG-6.14 ShardLoom native microbenchmark lane expansion adds separate native report rows for local encoded `CountAll`, local primitive projection, validity-predicate count, and temporary comparison-predicate count, with timing-scope and materialization-boundary columns to keep evidence readable and non-misleading.
 - [x] CG-7.1 physical operator/kernel contract foundation declares filter, projection, and count aggregate kernel blockers without implementing kernels or execution.
 - [x] CG-7.2 physical operator capability discovery exposes missing-kernel/readiness counts through `shardloom capabilities operators` without executing operators or probing runtime inputs.
 - [x] CG-7.3 physical kernel registry plan exposes required native kernel slots through `shardloom kernel-registry` without registering kernels or executing runtime paths.
