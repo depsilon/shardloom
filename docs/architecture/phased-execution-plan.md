@@ -1461,6 +1461,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-6.14 ShardLoom native microbenchmark lane expansion separates local encoded `CountAll`, local primitive projection, validity-predicate count, and temporary comparison-predicate evidence with explicit timing-scope and materialization-boundary fields
 - [x] CG-6.15 ShardLoom traditional benchmark certificate surfacing requires the CSV-to-Vortex row to emit a certified per-path Native I/O certificate, exposes certificate path/status/source bytes/materialization-boundary rows in Markdown, and marks CSV source parsing as row-read/materialization evidence without making performance claims
 - [x] CG-6.16 ShardLoom native work-avoidance evidence exposes final `vortex-run` runtime metrics for decode avoided, materialization avoided, rows not scanned, segment pruning, bytes not read, spill avoided, and fallback blocked in machine-readable output and Markdown, with unknown segment/byte values left explicit
+- [x] CG-6.17 ShardLoom local write/commit latency evidence measures the current committed-manifest step in the native benchmark lane, emits write/commit latency and bytes-written fields, and keeps object-store/table-format/recovery commit benchmarking deferred
 - [~] runtime benchmarks started with local encoded count, ShardLoom universal-I/O smoke rows, and traditional analytics external harness; committed claim-grade comparative results remain planned
 - [x] peak-memory benchmark reporting
 - [x] bytes read/written benchmark reporting
@@ -1470,7 +1471,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [~] spill-required/avoided evidence surfaces spill avoided for current native paths; spill-required byte accounting remains planned
 - [x] startup latency benchmark accounting
 - [ ] query runtime benchmarks
-- [ ] write/commit latency benchmarks
+- [~] write/commit latency benchmarks started with local committed-manifest smoke evidence; object-store/table-format commit latency remains planned
 
 ### CG-7 detailed checklist
 - [x] CG-7.1 physical operator/kernel contract foundation
@@ -1729,6 +1730,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-6.14 ShardLoom native microbenchmark lane expansion adds separate native report rows for local encoded `CountAll`, local primitive projection, validity-predicate count, and temporary comparison-predicate count, with timing-scope and materialization-boundary columns to keep evidence readable and non-misleading.
 - [x] CG-6.15 ShardLoom traditional benchmark certificate surfacing upgrades the CSV-to-Vortex smoke row from boolean Native I/O evidence to certified per-path certificate fields, including path/status/source bytes/materialization-boundary rows, and conservatively reports CSV source parsing as row-read/materialization evidence.
 - [x] CG-6.16 ShardLoom native work-avoidance benchmark evidence adds final `vortex-run` runtime work-avoidance fields and a Markdown table for decode/materialization/spill/fallback avoidance plus explicit unknown segment-prune and bytes-not-read values.
+- [x] CG-6.17 ShardLoom local write/commit benchmark evidence records committed-manifest write latency, bytes written, and commit status in the native benchmark lane while leaving object-store/table-format/recovery commit timing for later CG-4/CG-10 work.
 - [x] CG-7.1 physical operator/kernel contract foundation declares filter, projection, and count aggregate kernel blockers without implementing kernels or execution.
 - [x] CG-7.2 physical operator capability discovery exposes missing-kernel/readiness counts through `shardloom capabilities operators` without executing operators or probing runtime inputs.
 - [x] CG-7.3 physical kernel registry plan exposes required native kernel slots through `shardloom kernel-registry` without registering kernels or executing runtime paths.

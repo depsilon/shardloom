@@ -45,8 +45,8 @@ report. The report begins with fairness parameters, then includes an engine
 overview with startup/warmup timing, scenario timing matrix, resource metrics,
 ShardLoom runtime-effect evidence, fastest-row table, ASCII timing bars,
 ShardLoom native microbenchmarks, ShardLoom work-avoidance evidence,
-universal-I/O evidence lanes, correctness summary, and separate
-failure/unsupported rows.
+ShardLoom write/commit evidence, universal-I/O evidence lanes, correctness
+summary, and separate failure/unsupported rows.
 
 Each result artifact records engine versions, Python/runtime details, dataset
 shape, file sizes, wall/query time, sampled peak RSS when `psutil` is available,
@@ -73,6 +73,12 @@ effects, not only plan analysis. It exposes decode avoided, materialization
 avoided, rows not scanned, segment prune count, bytes not read, spill avoided,
 and fallback blocked. Segment-prune and bytes-not-read values remain `unknown`
 until the local primitive path can measure them safely.
+
+The ShardLoom write/commit evidence table runs the current local
+committed-manifest step against a synthetic staged workspace and records commit
+execution, manifest-commit status, bytes written, and average commit latency.
+It is a local smoke benchmark only; object-store commit, table-format commit,
+and recovery timing remain separate future work.
 
 Numeric benchmark outputs are rounded to four decimal places before correctness
 hashing. This keeps result comparison stable across engines with different

@@ -18,6 +18,7 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("def render_read_this_first("));
     assert!(script.contains("def render_shardloom_native_table("));
     assert!(script.contains("def render_shardloom_work_avoidance_table("));
+    assert!(script.contains("def render_shardloom_commit_table("));
     assert!(script.contains("def render_universal_io_table("));
     assert!(script.contains("def render_resource_metrics_table("));
     assert!(script.contains("def render_shardloom_effects_table("));
@@ -112,6 +113,13 @@ fn traditional_benchmark_harness_includes_shardloom_native_microbenchmark() {
     assert!(script.contains("\"work_avoided_segments_pruned\""));
     assert!(script.contains("\"work_avoided_bytes_not_read\""));
     assert!(script.contains("ShardLoom Work-Avoidance Evidence"));
+    assert!(script.contains("def run_shardloom_commit_microbenchmark("));
+    assert!(script.contains("def prepare_shardloom_commit_workspace("));
+    assert!(script.contains("local commit manifest"));
+    assert!(script.contains("vortex-local-commit-execute"));
+    assert!(script.contains("\"write_commit_latency_micros\""));
+    assert!(script.contains("\"commit_executed\""));
+    assert!(script.contains("ShardLoom Write/Commit Evidence"));
     assert!(script.contains("project:value"));
     assert!(script.contains("local primitive validity count"));
     assert!(script.contains("count-where:is_not_null:value"));
@@ -134,6 +142,7 @@ fn traditional_benchmark_docs_state_no_fallback_and_markdown_outputs() {
     assert!(readme.contains("resource metrics"));
     assert!(readme.contains("runtime-effect evidence"));
     assert!(readme.contains("work-avoidance evidence"));
+    assert!(readme.contains("write/commit evidence"));
     assert!(readme.contains("per-path certificate id/status"));
     assert!(readme.contains("row_read=true"));
     assert!(normalized.contains("never execute unsupported ShardLoom plans as fallback engines"));
@@ -154,6 +163,8 @@ fn traditional_benchmark_docs_state_no_fallback_and_markdown_outputs() {
     assert!(readme.contains("`vortex-run` primitive evidence"));
     assert!(normalized.contains("final `vortex-run` runtime effects"));
     assert!(readme.contains("Segment-prune and bytes-not-read values remain `unknown`"));
+    assert!(readme.contains("average commit latency"));
+    assert!(readme.contains("object-store commit"));
     assert!(readme.contains("timing scope"));
     assert!(readme.contains("benchmarks\\traditional_analytics\\.venv\\Scripts\\python"));
 }
