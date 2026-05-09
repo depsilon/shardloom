@@ -449,16 +449,19 @@ fn vortex_local_encoded_count_fixture() -> CorrectnessFixture {
     fixture
 }
 
-fn generated_local_primitive_rows_fixture(
+fn local_primitive_struct_rows_fixture(
     id: &str,
     edge_case: EdgeCase,
     row_count: u64,
 ) -> CorrectnessFixture {
-    let mut fixture =
-        CorrectnessFixture::new(FixtureId::new(id).expect("valid"), FixtureFormat::Generated)
-            .with_expected(ExpectedOutcome::Rows {
-                row_count: Some(row_count),
-            });
+    let mut fixture = CorrectnessFixture::new(
+        FixtureId::new(id).expect("valid"),
+        FixtureFormat::ShardLoomNative,
+    )
+    .with_source_ref("shardloom-vortex/tests/fixtures/local_primitive_struct_five.vortex")
+    .with_expected(ExpectedOutcome::Rows {
+        row_count: Some(row_count),
+    });
     fixture.add_semantic_area(SemanticArea::EncodedExecution);
     fixture.add_edge_case(edge_case);
     fixture.add_reference_role(ReferenceRole::GoldenFixture);
@@ -466,17 +469,17 @@ fn generated_local_primitive_rows_fixture(
 }
 
 fn add_local_primitive_foundation_fixtures(plan: &mut CorrectnessValidationPlan) {
-    plan.add_fixture(generated_local_primitive_rows_fixture(
+    plan.add_fixture(local_primitive_struct_rows_fixture(
         "vortex-local-count-where-struct-five",
         EdgeCase::NoNulls,
         3,
     ));
-    plan.add_fixture(generated_local_primitive_rows_fixture(
+    plan.add_fixture(local_primitive_struct_rows_fixture(
         "vortex-local-project-struct-five",
         EdgeCase::NoNulls,
         5,
     ));
-    plan.add_fixture(generated_local_primitive_rows_fixture(
+    plan.add_fixture(local_primitive_struct_rows_fixture(
         "vortex-local-filter-project-struct-five",
         EdgeCase::NoNulls,
         3,
@@ -1388,7 +1391,7 @@ mod tests {
         let plan = CorrectnessValidationPlan::default_foundation_plan();
 
         assert_eq!(plan.fixture_count(), 17);
-        assert_eq!(plan.fixtures_with_source_ref_count(), 2);
+        assert_eq!(plan.fixtures_with_source_ref_count(), 5);
         assert_eq!(plan.golden_fixture_count(), 5);
         assert_eq!(plan.executable_expected_output_count(), 4);
         assert_eq!(plan.not_yet_defined_fixture_count(), 8);

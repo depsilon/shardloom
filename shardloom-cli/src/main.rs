@@ -10527,11 +10527,18 @@ fn local_encoded_count_correctness_fixture_for_report(
 fn local_encoded_count_correctness_fixture_for_target(
     target_uri: &DatasetUri,
 ) -> Option<CorrectnessFixture> {
+    local_foundation_fixture_for_target(target_uri, "vortex-local-encoded-count-u64-20000")
+}
+
+fn local_foundation_fixture_for_target(
+    target_uri: &DatasetUri,
+    fixture_id: &str,
+) -> Option<CorrectnessFixture> {
     CorrectnessValidationPlan::default_foundation_plan()
         .fixtures
         .into_iter()
         .find(|fixture| {
-            fixture.id.as_str() == "vortex-local-encoded-count-u64-20000"
+            fixture.id.as_str() == fixture_id
                 && fixture
                     .source_ref
                     .as_deref()
@@ -10543,7 +10550,10 @@ fn local_primitive_correctness_fixture_for_request(
     request: &VortexQueryPrimitiveRequest,
     report: &shardloom_vortex::VortexLocalPrimitiveExecutionReport,
 ) -> Option<CorrectnessFixture> {
-    if request.kind != report.primitive_kind || report.has_errors() {
+    if request.kind != report.primitive_kind
+        || report.status != shardloom_vortex::VortexLocalPrimitiveExecutionStatus::Executed
+        || report.has_errors()
+    {
         return None;
     }
     match request.kind {
@@ -10551,13 +10561,56 @@ fn local_primitive_correctness_fixture_for_request(
             .source_uri
             .as_ref()
             .and_then(local_encoded_count_correctness_fixture_for_target),
-        shardloom_vortex::VortexQueryPrimitiveKind::CountWhere
-        | shardloom_vortex::VortexQueryPrimitiveKind::FilterPredicate
-        | shardloom_vortex::VortexQueryPrimitiveKind::ProjectColumns
-        | shardloom_vortex::VortexQueryPrimitiveKind::FilterAndProject
+        shardloom_vortex::VortexQueryPrimitiveKind::CountWhere => local_primitive_fixture_if(
+            request,
+            local_struct_value_gte_three_predicate(request),
+            "vortex-local-count-where-struct-five",
+        ),
+        shardloom_vortex::VortexQueryPrimitiveKind::ProjectColumns => local_primitive_fixture_if(
+            request,
+            local_struct_metric_projection(request),
+            "vortex-local-project-struct-five",
+        ),
+        shardloom_vortex::VortexQueryPrimitiveKind::FilterAndProject => local_primitive_fixture_if(
+            request,
+            local_struct_value_gte_three_predicate(request)
+                && local_struct_metric_projection(request),
+            "vortex-local-filter-project-struct-five",
+        ),
+        shardloom_vortex::VortexQueryPrimitiveKind::FilterPredicate
         | shardloom_vortex::VortexQueryPrimitiveKind::SimpleAggregate
         | shardloom_vortex::VortexQueryPrimitiveKind::Unsupported => None,
     }
+}
+
+fn local_primitive_fixture_if(
+    request: &VortexQueryPrimitiveRequest,
+    matches_fixture_shape: bool,
+    fixture_id: &str,
+) -> Option<CorrectnessFixture> {
+    matches_fixture_shape
+        .then_some(request.source_uri.as_ref())
+        .flatten()
+        .and_then(|source_uri| local_foundation_fixture_for_target(source_uri, fixture_id))
+}
+
+fn local_struct_value_gte_three_predicate(request: &VortexQueryPrimitiveRequest) -> bool {
+    matches!(
+        request.predicate.as_ref(),
+        Some(PredicateExpr::Compare {
+            column,
+            op: ComparisonOp::GtEq,
+            value: StatValue::Int64(3)
+        }) if column.as_str() == "value"
+    )
+}
+
+fn local_struct_metric_projection(request: &VortexQueryPrimitiveRequest) -> bool {
+    matches!(
+        &request.projection,
+        ProjectionRequest::Columns(columns)
+            if columns.len() == 1 && columns[0].as_str() == "metric"
+    )
 }
 
 fn local_fixture_ref_matches(target_uri: &DatasetUri, source_ref: &str) -> bool {
@@ -27950,6 +28003,92 @@ mod tests {
 
         assert!(fixture.is_none());
         std::fs::remove_dir_all(outside_root).expect("outside fixture cleanup");
+    }
+
+    fn local_struct_fixture_uri() -> DatasetUri {
+        let fixture_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("workspace crate parent")
+            .join("shardloom-vortex")
+            .join("tests")
+            .join("fixtures")
+            .join("local_primitive_struct_five.vortex");
+        DatasetUri::new(fixture_path.to_string_lossy().to_string()).expect("uri")
+    }
+
+    fn executed_local_primitive_report(
+        kind: shardloom_vortex::VortexQueryPrimitiveKind,
+    ) -> shardloom_vortex::VortexLocalPrimitiveExecutionReport {
+        let mut report =
+            shardloom_vortex::VortexLocalPrimitiveExecutionReport::feature_disabled(kind);
+        report.status = shardloom_vortex::VortexLocalPrimitiveExecutionStatus::Executed;
+        report
+    }
+
+    #[test]
+    fn vortex_run_local_primitive_fixture_matching_covers_struct_count_project_paths() {
+        let uri = local_struct_fixture_uri();
+        let cases = [
+            (
+                VortexQueryPrimitiveRequest::count_where(
+                    uri.clone(),
+                    PredicateExpr::Compare {
+                        column: ColumnRef::new("value").expect("column"),
+                        op: ComparisonOp::GtEq,
+                        value: StatValue::Int64(3),
+                    },
+                ),
+                "vortex-local-count-where-struct-five",
+            ),
+            (
+                VortexQueryPrimitiveRequest::project(
+                    uri.clone(),
+                    ProjectionRequest::columns(vec![ColumnRef::new("metric").expect("column")]),
+                ),
+                "vortex-local-project-struct-five",
+            ),
+            (
+                VortexQueryPrimitiveRequest::filter_and_project(
+                    uri,
+                    PredicateExpr::Compare {
+                        column: ColumnRef::new("value").expect("column"),
+                        op: ComparisonOp::GtEq,
+                        value: StatValue::Int64(3),
+                    },
+                    ProjectionRequest::columns(vec![ColumnRef::new("metric").expect("column")]),
+                ),
+                "vortex-local-filter-project-struct-five",
+            ),
+        ];
+
+        for (request, expected_fixture_id) in cases {
+            let report = executed_local_primitive_report(request.kind);
+            let fixture = local_primitive_correctness_fixture_for_request(&request, &report)
+                .expect("fixture match");
+
+            assert_eq!(fixture.id.as_str(), expected_fixture_id);
+            assert_eq!(
+                fixture.source_ref.as_deref(),
+                Some("shardloom-vortex/tests/fixtures/local_primitive_struct_five.vortex")
+            );
+        }
+    }
+
+    #[test]
+    fn vortex_run_local_primitive_fixture_matching_rejects_non_fixture_shape() {
+        let request = VortexQueryPrimitiveRequest::count_where(
+            local_struct_fixture_uri(),
+            PredicateExpr::Compare {
+                column: ColumnRef::new("value").expect("column"),
+                op: ComparisonOp::GtEq,
+                value: StatValue::Int64(4),
+            },
+        );
+        let report = executed_local_primitive_report(request.kind);
+
+        let fixture = local_primitive_correctness_fixture_for_request(&request, &report);
+
+        assert!(fixture.is_none());
     }
 
     fn synthetic_local_encoded_count_reports(

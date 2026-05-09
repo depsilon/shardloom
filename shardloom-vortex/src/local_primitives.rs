@@ -1567,6 +1567,16 @@ mod tests {
         write_array(path, &array.into_array())
     }
 
+    #[test]
+    #[ignore = "fixture regeneration helper; writes shardloom-vortex/tests/fixtures/local_primitive_struct_five.vortex"]
+    fn regenerate_checked_in_local_primitive_struct_fixture() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
+            .join("local_primitive_struct_five.vortex");
+        write_struct_fixture(&path).expect("fixture");
+    }
+
     fn write_primitive_fixture(path: &std::path::Path) -> Result<()> {
         use vortex::array::IntoArray as _;
         use vortex::array::arrays::PrimitiveArray;

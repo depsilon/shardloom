@@ -53,18 +53,24 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-2.1e.31 / CG-16.6 `vortex-run` local primitive execution certificate surfacing
+- [x] Session label: CG-2.1e.32 / CG-5.9 / CG-16.7 / CG-19.9 checked-in local primitive struct fixture certification
   - Primary files:
+    - `shardloom-core/src/correctness.rs`
+    - `shardloom-vortex/src/local_primitives.rs`
+    - `shardloom-vortex/tests/fixtures/local_primitive_struct_five.vortex`
     - `shardloom-cli/src/main.rs`
     - `docs/architecture/phased-execution-plan.md`
-  - Scope: Surface CG-16 execution-certificate fields from `vortex-run` when an existing local primitive report matches a known correctness fixture, starting with the repository encoded `CountAll` fixture.
+  - Scope: Promote the generated local primitive count-where/project/filter-project correctness fixtures into a checked-in native Vortex struct fixture and surface `vortex-run` execution certificates for matching fixture runs.
   - Checklist:
-    - [x] Reuse `local_primitive_execution_certificate` for safe `vortex-run` local primitive reports that match known correctness fixtures.
-    - [x] Keep non-fixture local primitive runs successful but explicitly uncertified for correctness.
-    - [x] Emit stable `vortex-run` fields for local primitive execution-certificate status, fixture id, correctness result, side effects, unsafe-effect state, and no-fallback state.
-    - [x] Include execution-certificate human text when the certificate is emitted.
-    - [x] Keep CG-2, CG-13, production claims, benchmark claims, non-local sources, object-store IO, writes, spill, SQL/DataFrame/API runtime, adapters, and fallback execution blocked.
-  - Explicitly not included: new runtime behavior, new readers, new correctness fixtures, generalized filter/project correctness certification, object-store/non-local Vortex sources, universal adapter execution, SQL/DataFrame/Python runtime expansion, benchmark reruns, superiority or best-default claims, CG-2 closeout, CG-13 closeout, or fallback execution.
+    - [x] Add a checked-in `local_primitive_struct_five.vortex` fixture with deterministic `value` and `metric` columns.
+    - [x] Attach source refs to the local primitive count-where, project, and filter-project correctness fixtures.
+    - [x] Match `vortex-run` local primitive requests for `count-where:gte:value:3`, `project:metric`, and `filter-project:gte:value:3|metric` to the checked-in fixture.
+    - [x] Emit CG-16 execution-certificate fields and CG-19 Native I/O fields for those checked-in local primitive runs when no unsafe effects are present.
+    - [x] Keep non-fixture shapes, broad generalized source support, production claims, SQL/DataFrame/API runtime, adapters, object-store IO, writes, spill, and fallback execution blocked.
+  - Local validation status:
+    - [x] Focused fixture manifest, CLI fixture matching, Vortex certificate, correctness snapshot, and feature-gated live `vortex-run` smokes passed locally with Rust toolchain `1.91.1`.
+    - [x] Required full `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, and `cargo test --workspace --all-targets` validation passed locally with Rust toolchain `1.91.1`.
+  - Explicitly not included: new readers, non-local/object-store Vortex sources, Parquet/Arrow/JSON/Avro/ORC runtime, adapter execution, SQL/DataFrame/Python runtime expansion, broad encoded-kernel certification, benchmark reruns, superiority or best-default claims, CG-2 closeout, CG-13 closeout, or fallback execution.
 
 ## Near-term Implementation Priority
 - [ ] Priority 1 - generalized encoded primitive execution loop
@@ -83,6 +89,18 @@ Supporting docs:
   - [ ] CG-20 SQL/Python/DataFrame/UDF/unstructured/media/adapters once the encoded primitive evidence loop is no longer the bottleneck.
 
 ## Recent Completed Session Ledger
+- [x] Session label: CG-2.1e.31 / CG-16.6 `vortex-run` local primitive execution certificate surfacing
+  - Primary files:
+    - `shardloom-cli/src/main.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: Surface CG-16 execution-certificate fields from `vortex-run` when an existing local primitive report matches a known correctness fixture, starting with the repository encoded `CountAll` fixture.
+  - Checklist:
+    - [x] Reuse `local_primitive_execution_certificate` for safe `vortex-run` local primitive reports that match known correctness fixtures.
+    - [x] Keep non-fixture local primitive runs successful but explicitly uncertified for correctness.
+    - [x] Emit stable `vortex-run` fields for local primitive execution-certificate status, fixture id, correctness result, side effects, unsafe-effect state, and no-fallback state.
+    - [x] Include execution-certificate human text when the certificate is emitted.
+    - [x] Keep CG-2, CG-13, production claims, benchmark claims, non-local sources, object-store IO, writes, spill, SQL/DataFrame/API runtime, adapters, and fallback execution blocked.
+  - Explicitly not included: new runtime behavior, new readers, new correctness fixtures, generalized filter/project correctness certification, object-store/non-local Vortex sources, universal adapter execution, SQL/DataFrame/Python runtime expansion, benchmark reruns, superiority or best-default claims, CG-2 closeout, CG-13 closeout, or fallback execution.
 - [x] Session label: CG-2.1e.30 / CG-13.13 / CG-16.5 / CG-19.8 local primitive Native I/O certificates
   - Primary files:
     - `shardloom-vortex/src/local_primitives.rs`
@@ -1516,6 +1534,7 @@ Status legend:
   - [x] CG-2.1e.29 local direct CountAll Native I/O certification
   - [x] CG-2.1e.30 local primitive Native I/O certification
   - [x] CG-2.1e.31 `vortex-run` local primitive CountAll execution certificate surfacing
+  - [x] CG-2.1e.32 checked-in local primitive struct fixture certification
   - [~] CG-2.1+ broader zero-decode encoded primitive execution remains deferred pending filter/project encoded-kernel guarantees
   - [x] CG-2.2c filtered-count metadata proof local guard
   - [x] CG-2.2d filtered-count metadata proof report
@@ -1559,6 +1578,7 @@ Status legend:
   - [x] CG-5.6 correctness coverage inventory surfacing
   - [x] CG-5.7 correctness/differential harness aggregate surface
   - [x] CG-5.8 broader local primitive generated fixtures for count-where/project/filter-project runtime evidence
+  - [x] CG-5.9 checked-in local primitive struct fixture source refs for count-where/project/filter-project evidence
   - Expected evidence:
     - golden Vortex fixtures
     - decoded reference outputs
@@ -1584,6 +1604,7 @@ Status legend:
     - no superiority claims before CG-5 and CG-6 are satisfied
 
 - [x] CG-7 — Physical operator/kernel layer (**complete**)
+  - Completion means the operator/kernel admission and evidence layer is complete; generalized runtime encoded primitive execution remains owned by CG-2 and CG-13.
   - [x] CG-7.1 physical operator/kernel contract foundation
   - [x] CG-7.2 physical operator capability discovery
   - [x] CG-7.3 physical kernel registry plan
@@ -1734,6 +1755,7 @@ Status legend:
   - [x] CG-16.4 local encoded `CountAll` Native I/O certificate evidence
   - [x] CG-16.5 local primitive Native I/O certificate evidence
   - [x] CG-16.6 `vortex-run` local primitive execution certificate fields for known CountAll fixture runs
+  - [x] CG-16.7 `vortex-run` local primitive execution certificate fields for checked-in struct fixture count-where/project/filter-project runs
   - Scope:
     - plan/input/output evidence artifacts through `execution-certificate-plan`
     - reproducibility metadata and segment traces
@@ -1762,6 +1784,7 @@ Status legend:
   - [x] CG-19.6 native Vortex streaming scenario certificates
   - [x] CG-19.7 local direct CountAll Native I/O certificate
   - [x] CG-19.8 local primitive scan-pushdown Native I/O certificates
+  - [x] CG-19.9 checked-in local primitive struct fixture Native I/O certificate surfacing through `vortex-run`
   - [~] generalized source/sink runtime certificate emission pending beyond local compatibility-file, benchmark native Vortex, local direct-count, and local primitive paths
   - Scope:
     - preserve representation state, pushdown evidence, materialization boundaries, and sink constraints without default decode
@@ -1838,6 +1861,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.29 local direct CountAll Native I/O certification
 - [x] CG-2.1e.30 local primitive Native I/O certification
 - [x] CG-2.1e.31 `vortex-run` local primitive CountAll execution certificate surfacing
+- [x] CG-2.1e.32 checked-in local primitive struct fixture certification
 - [x] CG-2.2a filtered-count readiness core contract
 - [x] CG-2.2a.1 filtered-count blocker precision hardening
 - [x] CG-2.2b filtered-count readiness CLI integration
@@ -1891,6 +1915,8 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-5.5 local encoded `CountAll` golden fixture/reference-output proof
 - [x] CG-5.6 correctness coverage inventory surfacing
 - [x] CG-5.7 correctness/differential harness aggregate surface
+- [x] CG-5.8 broader local primitive generated fixtures for count-where/project/filter-project runtime evidence
+- [x] CG-5.9 checked-in local primitive struct fixture source refs for count-where/project/filter-project evidence
 - [~] decoded-reference output artifacts
 - [~] property/fuzz fixture families and reproducible seeds
 - [~] external-oracle result artifacts remain deferred; engines are policy-only baselines until explicit benchmark/correctness runs
@@ -2066,6 +2092,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-16.4 local encoded `CountAll` Native I/O certificate evidence
 - [x] CG-16.5 local primitive Native I/O certificate evidence
 - [x] CG-16.6 `vortex-run` local primitive execution certificate fields for known CountAll fixture runs
+- [x] CG-16.7 `vortex-run` local primitive execution certificate fields for checked-in struct fixture count-where/project/filter-project runs
 - [x] plan/input/output evidence artifacts for reproducibility
 - [x] deterministic, machine-readable certificate surfaces
 
@@ -2093,6 +2120,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-19.6 native Vortex benchmark scenario certificates distinguish streaming projected scans from temporary full-table operators with per-path pushdown, sink-streaming, materialization-boundary, side-effect, and no-fallback evidence
 - [x] CG-19.7 local direct CountAll Native I/O certificate covers native Vortex source to scalar count result with exact `count_all` pushdown, `vortex_encoded->vortex_encoded` representation preservation, scalar sink requirements, no materialization boundaries, side-effect evidence, and no fallback
 - [x] CG-19.8 local primitive Native I/O certificates cover existing `vortex-run` count, count-where, filter, project, and filter-project local scan-pushdown reports with accepted pushdown operations, source capability, representation transition, sink requirement, adapter fidelity, side-effect, and no-fallback evidence
+- [x] CG-19.9 checked-in local primitive struct fixture Native I/O certificate surfacing through `vortex-run`
 - [~] generalized source/sink runtime certificate emission pending beyond local compatibility-file, benchmark native Vortex, local direct-count, and local primitive paths
 - [x] representation state, pushdown proof, materialization boundary, sink requirement, adapter fidelity, per-path certificate, no-default-Arrow, and no-fallback report fields are exposed without reads, decode, materialization, IO, writes, or fallback
 
@@ -2193,6 +2221,7 @@ This section preserves older attribution notes that predate the compact CG rollu
 - [x] CG-2.1e.29/CG-13.12/CG-16.4/CG-19.7 local direct CountAll Native I/O certification emits a runtime `NativeIoCertificate` for successful local encoded `CountAll` reports, covering local Vortex source capability, accepted `count_all` pushdown, `vortex_encoded->vortex_encoded` preservation, scalar-count sink requirements, no materialization boundaries, side-effect evidence, and no fallback.
 - [x] CG-2.1e.30/CG-13.13/CG-16.5/CG-19.8 local primitive Native I/O certification emits runtime `NativeIoCertificate` evidence for existing `vortex-run` count, count-where, filter, project, and filter-project local scan-pushdown reports, covering accepted pushdown operations, `vortex_encoded` representation transitions, sink requirements, side effects, and no fallback without widening runtime behavior.
 - [x] CG-2.1e.31/CG-16.6 `vortex-run` local primitive execution-certificate surfacing emits CG-16 correctness and side-effect fields for known local primitive `CountAll` fixture runs while keeping non-fixture local primitive runs explicit and uncertified.
+- [x] CG-2.1e.32/CG-5.9/CG-16.7/CG-19.9 checked-in local primitive struct fixture certification adds a native Vortex struct fixture for count-where/project/filter-project reference outputs and lets matching `vortex-run` fixture runs emit CG-16 execution-certificate and CG-19 Native I/O evidence without broadening non-local sources, adapters, SQL, writes, spill, or fallback.
 - [x] CG-4.2 local committed-manifest recovery/rollback diagnostics represent recovery-not-required, rollback-required/planned, ambiguous-commit, missing-manifest, cleanup-policy, and object-store blocker states without executing cleanup, rollback, object-store IO, or fallback.
 - [x] CG-4.3 local committed-manifest rollback cleanup execution deletes only `_shardloom_committed_manifest.json` behind `vortex-staged-output-fs` after rollback-planned recovery evidence; finalized manifests, commit markers, output payloads, object-store IO, upstream `Vortex` APIs, and fallback remain untouched.
 - [x] CG-2.2c filtered-count metadata proof local guard admits only metadata-proof `CountWhere` requests into metadata-only local execution and rejects encoded predicate candidates without fallback.

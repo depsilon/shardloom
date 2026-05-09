@@ -56,7 +56,7 @@ fn correctness_plan_json_exposes_reference_and_gap_counts() {
         "reference_role_order",
         "golden_fixture,external_oracle"
     )));
-    assert!(output.contains(&field("fixtures_with_source_ref_count", "2")));
+    assert!(output.contains(&field("fixtures_with_source_ref_count", "5")));
     assert!(output.contains(&field("golden_fixture_count", "5")));
     assert!(output.contains(&field("executable_expected_output_count", "4")));
     assert!(output.contains(&field("not_yet_defined_fixture_count", "8")));
