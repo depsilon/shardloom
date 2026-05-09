@@ -4,6 +4,7 @@
 //! identifiers, errors, diagnostics, and capability metadata for native
 //! `Vortex`-first execution.
 
+pub mod agent_contract;
 pub mod benchmark;
 pub mod capabilities;
 pub mod certification;
@@ -30,6 +31,9 @@ pub mod stateful_reuse;
 pub mod translation;
 pub mod universal_harness;
 
+pub use agent_contract::{
+    AgentContractPack, AgentContractSurface, AgentContractSurfaceKind, AgentContractSurfaceStatus,
+};
 pub use benchmark::{
     BaselineEngine, BenchmarkCacheState, BenchmarkClaimGate, BenchmarkClaimStatus,
     BenchmarkComparisonReport, BenchmarkComparisonStatus, BenchmarkDatasetProfile,

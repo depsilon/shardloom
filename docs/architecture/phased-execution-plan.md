@@ -484,6 +484,9 @@ Supporting docs:
 - [x] R3.6 EffectBudgetReport foundation
   - Why: centralize effect/cost/egress/credential boundaries before Python, UDF, plugin, object-store, catalog, API/SaaS, LLM, embedding, vector, and unstructured/media work becomes executable.
   - Acceptance: core `EffectBudgetReport`, `effect-budget-plan` CLI JSON/text output, snapshot/contract tests, and architecture checklist are report-only with no probes, credential resolution, runtime execution, network egress, writes, dependencies, or fallback execution.
+- [x] R3.7 AgentContractPack foundation
+  - Why: give autonomous agents one deterministic inventory of JSON-first command surfaces, schemas, safety defaults, and recommended inspection order before execution or benchmark work.
+  - Acceptance: core `AgentContractPack`, `agent-contract-pack` CLI JSON/text output, snapshot/contract tests, and architecture checklist are report-only with no probes, external effects, text-scraping authority, runtime execution, dependency changes, or fallback execution.
 - [x] R5.1 Systems-learning contract pass
 - [x] R5.2 Competitive track extension to CG-19/CG-20
 - [x] R5.3 RFC 0031/0032 deepening
@@ -1649,7 +1652,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] Epic C — LayoutHealthReport
 - [~] Epic D — FeatureFootprintReport
 - [~] Epic E — EffectBudgetReport
-- [ ] Epic F — Agent Contract Pack
+- [~] Epic F — Agent Contract Pack
 - [ ] Epic G — Table Intelligence Layer
 - [ ] Epic H — Object Store Request Planner
 - [ ] Epic I — Correctness and Differential Harness
