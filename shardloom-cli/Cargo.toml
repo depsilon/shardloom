@@ -15,6 +15,10 @@ shardloom-exec = { path = "../shardloom-exec" }
 shardloom-plan = { path = "../shardloom-plan" }
 shardloom-vortex = { path = "../shardloom-vortex" }
 
+[features]
+default = []
+vortex-encoded-read-spike = ["shardloom-vortex/vortex-encoded-read-spike"]
+
 [[bin]]
 name = "shardloom"
 path = "src/main.rs"

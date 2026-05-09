@@ -82,17 +82,19 @@ use shardloom_vortex::{
     VortexDTypeMappingReport, VortexEncodedCountKernelAdmissionReport,
     VortexEncodedCountPhysicalKernelReport, VortexEncodedExecutionPathSelectionReport,
     VortexEncodedReadBoundaryReport, VortexEncodedReadBoundaryRequest,
-    VortexEncodedReadBoundarySignal, VortexEncodedReadFixtureRef,
-    VortexEncodedReadMetadataProbeReport, VortexEncodedReadMetadataProbeRequest,
-    VortexEncodedReadMetadataProbeSignal, VortexEncodedReadReadinessStatus,
-    VortexEncodingLayoutMappingReport, VortexExecutionReadinessStatus, VortexFileRef,
-    VortexFilteredCountCandidateSource, VortexFilteredCountReadinessSignal,
-    VortexFinalizedManifestArtifactWriteOption, VortexFinalizedManifestContent,
-    VortexFinalizedManifestFileName, VortexFinalizedManifestFileRef,
-    VortexGeneralizedEncodedPrimitiveGateReport, VortexLayoutReaderDriverApprovalInput,
-    VortexLayoutReaderDriverApprovalSignal, VortexLocalCommitExecutionRequest,
-    VortexLocalCommitExecutionSignal, VortexLocalCommitRecoveryRequest,
-    VortexLocalCommitRecoverySignal, VortexLocalExecutionReport, VortexManifestFinalizationRequest,
+    VortexEncodedReadBoundarySignal, VortexEncodedReadExecutionMode,
+    VortexEncodedReadExecutionStatus, VortexEncodedReadExecutorFeatureStatus,
+    VortexEncodedReadFixtureRef, VortexEncodedReadMetadataProbeReport,
+    VortexEncodedReadMetadataProbeRequest, VortexEncodedReadMetadataProbeSignal,
+    VortexEncodedReadReadinessStatus, VortexEncodingLayoutMappingReport,
+    VortexExecutionReadinessStatus, VortexFileRef, VortexFilteredCountCandidateSource,
+    VortexFilteredCountReadinessSignal, VortexFinalizedManifestArtifactWriteOption,
+    VortexFinalizedManifestContent, VortexFinalizedManifestFileName,
+    VortexFinalizedManifestFileRef, VortexGeneralizedEncodedPrimitiveGateReport,
+    VortexLayoutReaderDriverApprovalInput, VortexLayoutReaderDriverApprovalSignal,
+    VortexLocalCommitExecutionRequest, VortexLocalCommitExecutionSignal,
+    VortexLocalCommitRecoveryRequest, VortexLocalCommitRecoverySignal, VortexLocalExecutionReport,
+    VortexLocalExecutionStatus, VortexManifestFinalizationRequest,
     VortexManifestFinalizationSignal, VortexMemoryBridgeReport,
     VortexMetadataCountKernelAdmissionReport, VortexMetadataFilterKernelAdmissionReport,
     VortexMetadataOpenRequest, VortexMetadataProbeReport, VortexNativeOutputPayloadWriteReport,
@@ -7943,6 +7945,7 @@ fn build_vortex_count_local_streaming_batch_plan(
 }
 
 struct VortexCountLocalEncodedEvidence {
+    target_policy: VortexCountLocalEncodedTargetPolicy,
     fixture_id: Option<String>,
     fixture_source_ref: Option<String>,
     certificate: Option<ExecutionCertificate>,
@@ -7950,9 +7953,62 @@ struct VortexCountLocalEncodedEvidence {
     kernel_admission: Option<VortexEncodedCountKernelAdmissionReport>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum VortexCountLocalEncodedTargetPolicy {
+    KnownFixtureCertified,
+    LocalVortexUncertified,
+    Blocked,
+}
+
+impl VortexCountLocalEncodedTargetPolicy {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::KnownFixtureCertified => "known_fixture_certified",
+            Self::LocalVortexUncertified => "local_vortex_uncertified",
+            Self::Blocked => "blocked",
+        }
+    }
+
+    const fn reason(self) -> &'static str {
+        match self {
+            Self::KnownFixtureCertified => {
+                "target matches the repository encoded CountAll correctness fixture and has certified execution evidence"
+            }
+            Self::LocalVortexUncertified => {
+                "target is an approved local .vortex CountAll execution but lacks fixture correctness and benchmark certification"
+            }
+            Self::Blocked => {
+                "target does not have successful side-effect-free local encoded CountAll execution evidence"
+            }
+        }
+    }
+
+    const fn execution_allowed(self) -> bool {
+        matches!(
+            self,
+            Self::KnownFixtureCertified | Self::LocalVortexUncertified
+        )
+    }
+
+    const fn non_fixture_target(self) -> bool {
+        matches!(self, Self::LocalVortexUncertified)
+    }
+}
+
 impl VortexCountLocalEncodedEvidence {
-    fn unavailable() -> Self {
+    fn unavailable(
+        encoded_report: &shardloom_vortex::VortexEncodedReadExecutionReport,
+        local_report: &VortexLocalExecutionReport,
+    ) -> Self {
         Self {
+            target_policy: if local_encoded_count_target_execution_allowed(
+                encoded_report,
+                local_report,
+            ) {
+                VortexCountLocalEncodedTargetPolicy::LocalVortexUncertified
+            } else {
+                VortexCountLocalEncodedTargetPolicy::Blocked
+            },
             fixture_id: None,
             fixture_source_ref: None,
             certificate: None,
@@ -7967,7 +8023,13 @@ impl VortexCountLocalEncodedEvidence {
         physical_kernel: VortexEncodedCountPhysicalKernelReport,
         kernel_admission: VortexEncodedCountKernelAdmissionReport,
     ) -> Self {
+        let target_policy = if certificate.is_certified() {
+            VortexCountLocalEncodedTargetPolicy::KnownFixtureCertified
+        } else {
+            VortexCountLocalEncodedTargetPolicy::Blocked
+        };
         Self {
+            target_policy,
             fixture_id: Some(fixture.id.as_str().to_string()),
             fixture_source_ref: fixture.source_ref.clone(),
             certificate: Some(certificate),
@@ -7977,9 +8039,11 @@ impl VortexCountLocalEncodedEvidence {
     }
 
     fn has_errors(&self) -> bool {
-        self.certificate
-            .as_ref()
-            .is_some_and(|certificate| !certificate.is_certified())
+        self.target_policy == VortexCountLocalEncodedTargetPolicy::Blocked
+            || self
+                .certificate
+                .as_ref()
+                .is_some_and(|certificate| !certificate.is_certified())
             || self
                 .physical_kernel
                 .as_ref()
@@ -8005,7 +8069,15 @@ impl VortexCountLocalEncodedEvidence {
     }
 
     fn human_sections(&self) -> Vec<String> {
-        let mut sections = Vec::new();
+        let mut sections = vec![format!(
+            "Vortex local encoded CountAll target policy\npolicy: {}\nreason: {}\nexecution allowed: {}\ncorrectness certified: {}\nproduction claim allowed: false\nCG-2 closeout allowed: false\nCG-13 closeout allowed: false",
+            self.target_policy.as_str(),
+            self.target_policy.reason(),
+            self.target_policy.execution_allowed(),
+            self.certificate
+                .as_ref()
+                .is_some_and(ExecutionCertificate::is_certified)
+        )];
         if let Some(certificate) = &self.certificate {
             sections.push(certificate.to_human_text());
         }
@@ -8024,7 +8096,10 @@ fn vortex_count_local_encoded_evidence(
     local_report: &VortexLocalExecutionReport,
 ) -> shardloom_core::Result<VortexCountLocalEncodedEvidence> {
     let Some(fixture) = local_encoded_count_correctness_fixture_for_report(encoded_report) else {
-        return Ok(VortexCountLocalEncodedEvidence::unavailable());
+        return Ok(VortexCountLocalEncodedEvidence::unavailable(
+            encoded_report,
+            local_report,
+        ));
     };
     let certificate =
         local_encoded_count_execution_certificate(&fixture, encoded_report, local_report)?;
@@ -8040,6 +8115,45 @@ fn vortex_count_local_encoded_evidence(
         physical_kernel,
         kernel_admission,
     ))
+}
+
+fn local_encoded_count_target_execution_allowed(
+    encoded_report: &shardloom_vortex::VortexEncodedReadExecutionReport,
+    local_report: &VortexLocalExecutionReport,
+) -> bool {
+    let count_result_matches = encoded_report
+        .count_result
+        .is_some_and(|count| encoded_report.rows_counted == count);
+    encoded_report.feature_status == VortexEncodedReadExecutorFeatureStatus::Enabled
+        && encoded_report.status == VortexEncodedReadExecutionStatus::LocalScanEncodedCountExecuted
+        && encoded_report.mode == VortexEncodedReadExecutionMode::LocalScanEncodedArrayLengthCount
+        && !encoded_report.has_errors()
+        && encoded_report.data_read
+        && encoded_report.upstream_scan_called
+        && !encoded_report.data_decoded
+        && !encoded_report.data_materialized
+        && !encoded_report.row_read
+        && !encoded_report.arrow_converted
+        && !encoded_report.object_store_io
+        && !encoded_report.write_io
+        && !encoded_report.spill_io_performed
+        && !encoded_report.external_effects_executed
+        && !encoded_report.fallback_execution_allowed
+        && encoded_report.local_scan_source_uri_matches_target
+        && encoded_report.local_scan_target_uri.is_some()
+        && encoded_report.local_scan_readiness_source_uri == encoded_report.local_scan_target_uri
+        && count_result_matches
+        && local_report.status == VortexLocalExecutionStatus::LocalEncodedCountExecuted
+        && !local_report.has_errors()
+        && local_report.tasks_executed
+        && local_report.data_read
+        && !local_report.data_decoded
+        && !local_report.data_materialized
+        && !local_report.object_store_io
+        && !local_report.write_io
+        && !local_report.spill_io_performed
+        && !local_report.external_effects_executed
+        && !local_report.fallback_execution_allowed
 }
 
 fn local_encoded_count_correctness_fixture_for_report(
@@ -8381,6 +8495,7 @@ fn append_vortex_count_local_encoded_evidence_fields(
     fields: &mut Vec<(String, String)>,
     evidence: &VortexCountLocalEncodedEvidence,
 ) {
+    append_vortex_count_local_encoded_target_policy_fields(fields, evidence);
     push_bool_field(
         fields,
         "correctness_fixture_matched",
@@ -8454,6 +8569,73 @@ fn append_vortex_count_local_encoded_evidence_fields(
             false,
         );
     }
+}
+
+fn append_vortex_count_local_encoded_target_policy_fields(
+    fields: &mut Vec<(String, String)>,
+    evidence: &VortexCountLocalEncodedEvidence,
+) {
+    push_bool_field(
+        fields,
+        "generalized_local_count_target_policy_report_emitted",
+        true,
+    );
+    push_field(
+        fields,
+        "generalized_local_count_target_policy",
+        evidence.target_policy.as_str(),
+    );
+    push_field(
+        fields,
+        "generalized_local_count_target_policy_reason",
+        evidence.target_policy.reason(),
+    );
+    push_bool_field(
+        fields,
+        "generalized_local_count_execution_allowed",
+        evidence.target_policy.execution_allowed(),
+    );
+    push_bool_field(
+        fields,
+        "generalized_local_count_non_fixture_target",
+        evidence.target_policy.non_fixture_target(),
+    );
+    push_bool_field(
+        fields,
+        "generalized_local_count_correctness_certified",
+        evidence
+            .certificate
+            .as_ref()
+            .is_some_and(ExecutionCertificate::is_certified),
+    );
+    push_bool_field(
+        fields,
+        "generalized_local_count_requires_correctness_fixture",
+        !evidence
+            .certificate
+            .as_ref()
+            .is_some_and(ExecutionCertificate::is_certified),
+    );
+    push_bool_field(
+        fields,
+        "generalized_local_count_requires_benchmark_evidence",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "generalized_local_count_production_claim_allowed",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "generalized_local_count_cg2_closeout_allowed",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "generalized_local_count_cg13_closeout_allowed",
+        false,
+    );
 }
 
 fn append_execution_certificate_fields(
@@ -23349,6 +23531,153 @@ mod tests {
 
         assert!(fixture.is_none());
         std::fs::remove_dir_all(outside_root).expect("outside fixture cleanup");
+    }
+
+    fn synthetic_local_encoded_count_reports(
+        uri: DatasetUri,
+        count: u64,
+    ) -> (
+        shardloom_vortex::VortexEncodedReadExecutionReport,
+        VortexLocalExecutionReport,
+    ) {
+        let readiness = build_vortex_encoded_count_readiness(uri.clone(), 1, 1).expect("readiness");
+        let mut encoded_report =
+            shardloom_vortex::VortexEncodedReadExecutionReport::feature_disabled(
+                shardloom_vortex::VortexEncodedReadExecutionInput::new(readiness)
+                    .allow_encoded_read_execution(true),
+            );
+        encoded_report.feature_status = VortexEncodedReadExecutorFeatureStatus::Enabled;
+        encoded_report.status = VortexEncodedReadExecutionStatus::LocalScanEncodedCountExecuted;
+        encoded_report.mode = VortexEncodedReadExecutionMode::LocalScanEncodedArrayLengthCount;
+        encoded_report.data_read = true;
+        encoded_report.upstream_scan_called = true;
+        encoded_report.arrays_read_count = 1;
+        encoded_report.rows_counted = count;
+        encoded_report.count_result = Some(count);
+        encoded_report.local_scan_target_uri = Some(uri.clone());
+        encoded_report.local_scan_readiness_source_uri = Some(uri.clone());
+        encoded_report.local_scan_source_uri_matches_target = true;
+
+        let input = shardloom_vortex::VortexLocalExecutionInput::new(
+            VortexQueryPrimitiveRequest::count_all(uri),
+        )
+        .allow_encoded_read(true);
+        let local_report = VortexLocalExecutionReport::local_encoded_count_executed(input, count);
+        (encoded_report, local_report)
+    }
+
+    fn output_field<'a>(fields: &'a [(String, String)], key: &str) -> &'a str {
+        fields.iter().find(|(name, _)| name == key).map_or_else(
+            || panic!("missing output field {key}"),
+            |(_, value)| value.as_str(),
+        )
+    }
+
+    #[test]
+    fn vortex_count_local_encoded_evidence_reports_uncertified_non_fixture_policy() {
+        let uri = DatasetUri::new("file:///tmp/non-fixture.vortex").expect("uri");
+        let (encoded_report, local_report) = synthetic_local_encoded_count_reports(uri, 42);
+
+        let evidence =
+            vortex_count_local_encoded_evidence(&encoded_report, &local_report).expect("evidence");
+
+        assert_eq!(
+            evidence.target_policy,
+            VortexCountLocalEncodedTargetPolicy::LocalVortexUncertified
+        );
+        assert!(!evidence.has_errors());
+
+        let mut fields = Vec::new();
+        append_vortex_count_local_encoded_evidence_fields(&mut fields, &evidence);
+
+        assert_eq!(
+            output_field(&fields, "generalized_local_count_target_policy"),
+            "local_vortex_uncertified"
+        );
+        assert_eq!(
+            output_field(&fields, "generalized_local_count_execution_allowed"),
+            "true"
+        );
+        assert_eq!(
+            output_field(&fields, "generalized_local_count_non_fixture_target"),
+            "true"
+        );
+        assert_eq!(
+            output_field(&fields, "generalized_local_count_correctness_certified"),
+            "false"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "generalized_local_count_requires_correctness_fixture"
+            ),
+            "true"
+        );
+        assert_eq!(
+            output_field(&fields, "generalized_local_count_production_claim_allowed"),
+            "false"
+        );
+        assert_eq!(
+            output_field(&fields, "generalized_local_count_cg13_closeout_allowed"),
+            "false"
+        );
+    }
+
+    #[test]
+    fn vortex_count_local_encoded_evidence_reports_certified_fixture_policy() {
+        let fixture_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("workspace crate parent")
+            .join("shardloom-vortex")
+            .join("tests")
+            .join("fixtures")
+            .join("metadata_footer_u64_20000.vortex");
+        let uri = DatasetUri::new(fixture_path.to_string_lossy().to_string()).expect("uri");
+        let (encoded_report, local_report) = synthetic_local_encoded_count_reports(uri, 20_000);
+
+        let evidence =
+            vortex_count_local_encoded_evidence(&encoded_report, &local_report).expect("evidence");
+
+        assert_eq!(
+            evidence.target_policy,
+            VortexCountLocalEncodedTargetPolicy::KnownFixtureCertified
+        );
+        assert!(!evidence.has_errors());
+
+        let mut fields = Vec::new();
+        append_vortex_count_local_encoded_evidence_fields(&mut fields, &evidence);
+
+        assert_eq!(
+            output_field(&fields, "generalized_local_count_target_policy"),
+            "known_fixture_certified"
+        );
+        assert_eq!(
+            output_field(&fields, "generalized_local_count_execution_allowed"),
+            "true"
+        );
+        assert_eq!(
+            output_field(&fields, "generalized_local_count_non_fixture_target"),
+            "false"
+        );
+        assert_eq!(
+            output_field(&fields, "generalized_local_count_correctness_certified"),
+            "true"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "generalized_local_count_requires_correctness_fixture"
+            ),
+            "false"
+        );
+        assert_eq!(
+            output_field(&fields, "generalized_local_count_cg2_closeout_allowed"),
+            "false"
+        );
+        assert_eq!(
+            output_field(&fields, "generalized_local_count_cg13_closeout_allowed"),
+            "false"
+        );
     }
 
     #[test]
