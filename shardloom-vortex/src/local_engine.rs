@@ -1612,18 +1612,26 @@ mod tests {
         assert_eq!(report.value_summary.as_deref(), Some("3"));
         assert!(report.result_known);
         assert!(report.data_read);
-        assert!(report.data_decoded);
-        assert!(report.data_materialized);
+        assert!(!report.data_decoded);
+        assert!(!report.data_materialized);
         assert!(!report.fallback_execution_allowed);
         assert!(report.local_primitive_execution_report.is_some());
+        let local = report
+            .local_primitive_execution_report
+            .as_ref()
+            .expect("local primitive report");
+        assert_eq!(local.rows_scanned, 5);
+        assert!(local.filter_pushdown_applied);
+        assert!(local.upstream_filter_expression_used);
+        assert!(!local.materialization_boundary_reported);
         let work = report.runtime_work_avoided_report();
         assert_eq!(
             work.metric_value_summary(VortexWorkAvoidedMetricKind::DecodeAvoided),
-            "false"
+            "true"
         );
         assert_eq!(
             work.metric_value_summary(VortexWorkAvoidedMetricKind::MaterializationAvoided),
-            "false"
+            "true"
         );
         assert_eq!(
             work.metric_value_summary(VortexWorkAvoidedMetricKind::RowsNotScanned),
@@ -1676,6 +1684,8 @@ mod tests {
             .local_primitive_execution_report
             .as_ref()
             .expect("local primitive report");
+        assert!(local.projection_pushdown_applied);
+        assert!(local.upstream_projection_expression_used);
         assert_eq!(local.projected_columns, vec!["value".to_string()]);
         assert!(!local.materialization_boundary_reported);
         let work = report.runtime_work_avoided_report();

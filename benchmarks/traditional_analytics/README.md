@@ -4,6 +4,7 @@ This harness runs conventional dataframe/SQL workloads against ShardLoom plus
 external comparison engines:
 
 - ShardLoom
+- ShardLoom native Vortex
 - pandas
 - Polars
 - DuckDB
@@ -18,7 +19,10 @@ runtime dependencies and never execute unsupported ShardLoom plans as fallback e
 ## Workloads
 
 The deterministic CSV generator creates a fact table and a dimension table, then
-runs:
+also writes Parquet copies with `pyarrow`. The harness runs each selected
+scenario over CSV and Parquet for engines that support those formats. The
+`shardloom-vortex` lane runs the same scenario labels from native `.vortex`
+inputs prepared before scenario timing. The scenarios are:
 
 - `csv/file ingest`
 - `selective filter`
@@ -50,7 +54,7 @@ universal-I/O evidence lanes, correctness summary, and separate
 failure/unsupported rows.
 
 Each result artifact records engine versions, Python/runtime details, dataset
-shape, file sizes, wall/query time, sampled peak RSS when `psutil` is available,
+shape, CSV/Parquet file sizes, wall/query time, sampled peak RSS when `psutil` is available,
 rows scanned, rows materialized, bytes read, object-store request count, and a
 correctness digest. ShardLoom rows also retain the emitted native I/O evidence
 fields for per-path certificate id/status, source capability, pushdown,
@@ -65,9 +69,9 @@ revision evidence by accident.
 ShardLoom native microbenchmark rows are separated from the traditional CSV
 engine rows. They include the approved local encoded `CountAll` path plus local
 `vortex-run` primitive evidence for count, projection, validity-filter
-counting, and a temporary comparison predicate. The report includes each row's
-timing scope so in-command repeated timings are not mixed up with CLI-process
-wall-time smoke measurements.
+counting, and scan-pushdown comparison predicates. The report includes each
+row's timing scope plus filter/projection pushdown fields so in-command
+repeated timings are not mixed up with CLI-process wall-time smoke measurements.
 
 The ShardLoom work-avoidance table is based on final `vortex-run` runtime effects,
 not only plan analysis. It exposes decode avoided, materialization
@@ -101,6 +105,11 @@ temporary benchmark operators over Vortex-derived arrays. These rows prove a
 universal-I/O smoke path, not the future SQL parser/DataFrame API or mature
 encoded-native operator surface.
 
+ShardLoom native Vortex rows call `shardloom traditional-analytics-vortex-run`
+against `.vortex` files produced before scenario timing. This separates native
+Vortex input timing from CSV import timing, while still reporting that the
+current benchmark operators materialize Vortex-derived arrays after scan.
+
 ShardLoom's traditional CSV rows now report `row_read=true` because the
 benchmark CSV source adapter parses local text rows before Vortex import. That
 is intentionally conservative: native Vortex microbenchmark rows remain
@@ -114,8 +123,8 @@ single-file CSV runs can make scheduler overhead dominate.
 This benchmark is intentionally explicit about fairness parameters. Before
 interpreting results, check row count, storage format, cache mode, timing scope,
 Dask partitioning, Spark Java status, Spark default/tuned-local profile split,
-ShardLoom build profile/feature gate, and whether object-store lanes were
-included.
+ShardLoom build profile/feature gate, whether CSV/Parquet/native Vortex rows
+were included, and whether object-store lanes were included.
 
 ## Setup
 
@@ -146,7 +155,7 @@ JDK there.
 ## Run
 
 ```powershell
-benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --rows 100000 --iterations 3 --require-all-engines
+benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --rows 100000 --iterations 3 --formats csv,parquet --require-all-engines
 ```
 
 `--require-all-engines` is strict for automation: it still writes JSON and

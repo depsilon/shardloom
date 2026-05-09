@@ -92,6 +92,29 @@ impl TraditionalAnalyticsRequest {
     }
 }
 
+/// Request for the feature-gated native Vortex traditional analytics runner.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TraditionalAnalyticsVortexRequest {
+    pub scenario: TraditionalAnalyticsScenario,
+    pub fact_vortex: PathBuf,
+    pub dim_vortex: PathBuf,
+}
+
+impl TraditionalAnalyticsVortexRequest {
+    #[must_use]
+    pub fn new(
+        scenario: TraditionalAnalyticsScenario,
+        fact_vortex: PathBuf,
+        dim_vortex: PathBuf,
+    ) -> Self {
+        Self {
+            scenario,
+            fact_vortex,
+            dim_vortex,
+        }
+    }
+}
+
 /// Report emitted by the local CSV-to-Vortex benchmark smoke runner.
 #[derive(Debug, Clone, PartialEq)]
 #[allow(clippy::struct_excessive_bools)]
@@ -229,6 +252,158 @@ impl TraditionalAnalyticsReport {
             (
                 "vortex_file_written".to_string(),
                 self.vortex_file_written.to_string(),
+            ),
+            (
+                "vortex_file_read".to_string(),
+                self.vortex_file_read.to_string(),
+            ),
+            (
+                "upstream_vortex_scan_called".to_string(),
+                self.upstream_vortex_scan_called.to_string(),
+            ),
+            ("data_decoded".to_string(), self.data_decoded.to_string()),
+            (
+                "data_materialized".to_string(),
+                self.data_materialized.to_string(),
+            ),
+            (
+                "materialization_boundary_report_emitted".to_string(),
+                self.materialization_boundary_report_emitted.to_string(),
+            ),
+            ("row_read".to_string(), self.row_read.to_string()),
+            (
+                "arrow_converted".to_string(),
+                self.arrow_converted.to_string(),
+            ),
+            (
+                "object_store_io".to_string(),
+                self.object_store_io.to_string(),
+            ),
+            ("write_io".to_string(), self.write_io.to_string()),
+            (
+                "spill_io_performed".to_string(),
+                self.spill_io_performed.to_string(),
+            ),
+        ];
+        fields.extend(native_io_certificate_fields(&self.native_io_certificate));
+        fields
+    }
+}
+
+/// Report emitted by the native Vortex benchmark smoke runner.
+#[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct TraditionalAnalyticsVortexReport {
+    pub scenario: TraditionalAnalyticsScenario,
+    pub result_json: String,
+    pub fact_rows: u64,
+    pub dim_rows: u64,
+    pub rows_scanned: u64,
+    pub rows_materialized: u64,
+    pub fact_vortex_path: PathBuf,
+    pub dim_vortex_path: PathBuf,
+    pub fact_vortex_bytes: u64,
+    pub dim_vortex_bytes: u64,
+    pub source_bytes_read: u64,
+    pub materialization_boundary_rows: u64,
+    pub native_io_certificate: NativeIoCertificate,
+    pub native_work_envelope_created: bool,
+    pub native_work_stream_created: bool,
+    pub native_result_stream_created: bool,
+    pub native_io_certificate_emitted: bool,
+    pub vortex_source_adapter_used: bool,
+    pub vortex_file_read: bool,
+    pub upstream_vortex_scan_called: bool,
+    pub data_decoded: bool,
+    pub data_materialized: bool,
+    pub materialization_boundary_report_emitted: bool,
+    pub row_read: bool,
+    pub arrow_converted: bool,
+    pub object_store_io: bool,
+    pub write_io: bool,
+    pub spill_io_performed: bool,
+    pub fallback_execution_allowed: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl TraditionalAnalyticsVortexReport {
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "ShardLoom traditional analytics native Vortex smoke\nscenario: {}\nfact Vortex: {}\ndim Vortex: {}\nrows scanned: {}\nrows materialized: {}\nVortex source adapter: true\nVortex read/scan: true\nmaterialization boundary reported: {}\nexternal engine fallback: disabled",
+            self.scenario.as_str(),
+            self.fact_vortex_path.display(),
+            self.dim_vortex_path.display(),
+            self.rows_scanned,
+            self.rows_materialized,
+            self.materialization_boundary_report_emitted
+        )
+    }
+
+    #[must_use]
+    pub fn fields(&self) -> Vec<(String, String)> {
+        let mut fields = vec![
+            (
+                "fallback_execution_allowed".to_string(),
+                self.fallback_execution_allowed.to_string(),
+            ),
+            (
+                "external_engines_are_fallback".to_string(),
+                "false".to_string(),
+            ),
+            ("scenario".to_string(), self.scenario.as_str().to_string()),
+            ("source_format".to_string(), "vortex".to_string()),
+            ("result_json".to_string(), self.result_json.clone()),
+            ("fact_rows".to_string(), self.fact_rows.to_string()),
+            ("dim_rows".to_string(), self.dim_rows.to_string()),
+            ("rows_scanned".to_string(), self.rows_scanned.to_string()),
+            (
+                "rows_materialized".to_string(),
+                self.rows_materialized.to_string(),
+            ),
+            (
+                "fact_vortex_path".to_string(),
+                self.fact_vortex_path.display().to_string(),
+            ),
+            (
+                "dim_vortex_path".to_string(),
+                self.dim_vortex_path.display().to_string(),
+            ),
+            (
+                "fact_vortex_bytes".to_string(),
+                self.fact_vortex_bytes.to_string(),
+            ),
+            (
+                "dim_vortex_bytes".to_string(),
+                self.dim_vortex_bytes.to_string(),
+            ),
+            (
+                "source_bytes_read".to_string(),
+                self.source_bytes_read.to_string(),
+            ),
+            (
+                "materialization_boundary_rows".to_string(),
+                self.materialization_boundary_rows.to_string(),
+            ),
+            (
+                "native_work_envelope_created".to_string(),
+                self.native_work_envelope_created.to_string(),
+            ),
+            (
+                "native_work_stream_created".to_string(),
+                self.native_work_stream_created.to_string(),
+            ),
+            (
+                "native_result_stream_created".to_string(),
+                self.native_result_stream_created.to_string(),
+            ),
+            (
+                "native_io_certificate_emitted".to_string(),
+                self.native_io_certificate_emitted.to_string(),
+            ),
+            (
+                "vortex_source_adapter_used".to_string(),
+                self.vortex_source_adapter_used.to_string(),
             ),
             (
                 "vortex_file_read".to_string(),
@@ -592,6 +767,27 @@ pub fn run_traditional_analytics_benchmark(
     }
 }
 
+/// Runs a local traditional analytics scenario directly from native Vortex files.
+///
+/// # Errors
+/// Returns an error when the feature gate is disabled, the Vortex files cannot be
+/// read, or the benchmark scenario is unsupported.
+pub fn run_traditional_analytics_vortex_benchmark(
+    request: TraditionalAnalyticsVortexRequest,
+) -> Result<TraditionalAnalyticsVortexReport> {
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    {
+        run_traditional_analytics_vortex_benchmark_enabled(request)
+    }
+    #[cfg(not(feature = "vortex-traditional-analytics-benchmark"))]
+    {
+        std::mem::drop(request);
+        Err(ShardLoomError::InvalidOperation(
+            "native Vortex traditional analytics benchmark requires feature `vortex-traditional-analytics-benchmark`; fallback execution was not attempted".to_string(),
+        ))
+    }
+}
+
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 #[derive(Debug, Clone)]
 struct TraditionalFactRow {
@@ -755,6 +951,78 @@ fn run_traditional_analytics_benchmark_enabled(
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_traditional_analytics_vortex_benchmark_enabled(
+    request: TraditionalAnalyticsVortexRequest,
+) -> Result<TraditionalAnalyticsVortexReport> {
+    let fact_vortex_bytes = file_len(&request.fact_vortex, "fact Vortex file")?;
+    let dim_vortex_bytes = file_len(&request.dim_vortex, "dimension Vortex file")?;
+    let source_bytes_read = fact_vortex_bytes
+        .checked_add(dim_vortex_bytes)
+        .ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "native Vortex traditional analytics source byte count overflow".to_string(),
+            )
+        })?;
+    let fact = read_fact_vortex(&request.fact_vortex)?;
+    let dim = read_dim_vortex(&request.dim_vortex)?;
+    let result_json = run_vortex_derived_scenario(request.scenario, &fact, &dim)?;
+    let rows_materialized = result_rows_materialized(&result_json)?;
+    let rows_scanned = match request.scenario {
+        TraditionalAnalyticsScenario::HashJoin
+        | TraditionalAnalyticsScenario::ScaleStressSkewedJoinAggregation
+        | TraditionalAnalyticsScenario::ScaleStressMultiStageEtl => {
+            checked_usize_sum_to_u64(fact.len(), dim.len())?
+        }
+        _ => usize_to_u64(fact.len())?,
+    };
+    let materialization_boundary_rows = checked_usize_sum_to_u64(fact.len(), dim.len())?;
+    let native_io_certificate = traditional_native_vortex_io_certificate(
+        request.scenario,
+        source_bytes_read,
+        materialization_boundary_rows,
+    )?;
+    if !native_io_certificate.is_certified() {
+        return Err(ShardLoomError::InvalidOperation(
+            "native Vortex traditional analytics native I/O certificate was not certified"
+                .to_string(),
+        ));
+    }
+
+    Ok(TraditionalAnalyticsVortexReport {
+        scenario: request.scenario,
+        result_json,
+        fact_rows: usize_to_u64(fact.len())?,
+        dim_rows: usize_to_u64(dim.len())?,
+        rows_scanned,
+        rows_materialized,
+        fact_vortex_path: request.fact_vortex,
+        dim_vortex_path: request.dim_vortex,
+        fact_vortex_bytes,
+        dim_vortex_bytes,
+        source_bytes_read,
+        materialization_boundary_rows,
+        native_io_certificate,
+        native_work_envelope_created: true,
+        native_work_stream_created: true,
+        native_result_stream_created: true,
+        native_io_certificate_emitted: true,
+        vortex_source_adapter_used: true,
+        vortex_file_read: true,
+        upstream_vortex_scan_called: true,
+        data_decoded: true,
+        data_materialized: true,
+        materialization_boundary_report_emitted: true,
+        row_read: false,
+        arrow_converted: false,
+        object_store_io: false,
+        write_io: false,
+        spill_io_performed: false,
+        fallback_execution_allowed: false,
+        diagnostics: Vec::new(),
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn traditional_native_io_certificate(
     scenario: TraditionalAnalyticsScenario,
     source_bytes_read: u64,
@@ -845,6 +1113,99 @@ fn traditional_native_io_certificate(
             arrow_converted: false,
             object_store_io: false,
             write_io: true,
+            spill_io_performed: false,
+            external_effects_executed: false,
+            fallback_attempted: false,
+            fallback_execution_allowed: false,
+        },
+        Vec::new(),
+    )
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn traditional_native_vortex_io_certificate(
+    scenario: TraditionalAnalyticsScenario,
+    source_bytes_read: u64,
+    source_rows_materialized: u64,
+) -> Result<NativeIoCertificate> {
+    NativeIoCertificate::new(
+        format!(
+            "cg19.traditional_analytics.native_vortex.{}",
+            scenario.as_str().replace(['/', ' '], "-")
+        ),
+        "native_vortex_source_to_native_runtime_result",
+        NativeIoSourceCapabilityReport {
+            source_kind: "vortex".to_string(),
+            adapter_id: "shardloom.adapter.vortex.local_benchmark.v1".to_string(),
+            schema_discovery_status: "vortex_schema_read".to_string(),
+            statistics_availability: "vortex_metadata_available".to_string(),
+            pushdown_capabilities: "vortex_scan_available".to_string(),
+            encoded_representation_preserved: true,
+            range_read_capability: false,
+            streaming_capability: false,
+            object_store_capability: false,
+            fallback_attempted: false,
+        },
+        NativeIoSourcePushdownReport {
+            accepted_operations: vec!["vortex_file_scan".to_string()],
+            rejected_operations: vec![scenario.as_str().to_string()],
+            guarantee: "exact_scan_then_temporary_operator".to_string(),
+            proof_basis: "local native Vortex benchmark path reads Vortex files and runs current temporary benchmark operators after scan".to_string(),
+            residual_expression: Some(scenario.as_str().to_string()),
+            conservative_false_positive_policy: false,
+            unsafe_rejected_reason: None,
+            fallback_attempted: false,
+        },
+        vec![NativeIoRepresentationTransition::new(
+            RepresentationState::VortexEncoded,
+            RepresentationState::MaterializedRows,
+            true,
+        )],
+        NativeIoSinkRequirementReport {
+            target_format: "benchmark_result_json".to_string(),
+            accepts_encoded: false,
+            requires_decoded_columnar: true,
+            requires_rows: false,
+            preserves_metadata: false,
+            requires_ordering: false,
+            requires_partitioning: false,
+            requires_commit: false,
+            supports_streaming: false,
+            max_chunk_size: Some(source_rows_materialized),
+            backpressure_policy: "not_applicable_local_smoke".to_string(),
+        },
+        NativeIoAdapterFidelityReport {
+            adapter_id: "shardloom.adapter.vortex.local_benchmark.v1".to_string(),
+            source_kind: "vortex".to_string(),
+            sink_kind: "benchmark_result_json".to_string(),
+            metadata_preserved: false,
+            statistics_preserved: false,
+            encoded_representation_preserved: false,
+            materialization_required: true,
+            fidelity_loss: "none_for_declared_benchmark_schema".to_string(),
+            metadata_loss: "current temporary benchmark result does not preserve Vortex layout metadata"
+                .to_string(),
+            fallback_attempted: false,
+        },
+        vec![NativeIoMaterializationBoundaryReport {
+            boundary_id: "cg19.native_vortex_temporary_operator".to_string(),
+            from_state: RepresentationState::VortexEncoded,
+            to_state: RepresentationState::MaterializedRows,
+            required_by: "traditional_analytics_temporary_operator".to_string(),
+            reason: "Current traditional analytics benchmark operators read native Vortex inputs but still materialize benchmark columns before producing result JSON".to_string(),
+            bytes_decoded: source_bytes_read,
+            rows_materialized: source_rows_materialized,
+            fidelity_loss: "none_for_declared_benchmark_schema".to_string(),
+            fallback_attempted: false,
+        }],
+        NativeIoSideEffectReport {
+            data_read: true,
+            data_decoded: true,
+            data_materialized: true,
+            row_read: false,
+            arrow_converted: false,
+            object_store_io: false,
+            write_io: false,
             spill_io_performed: false,
             external_effects_executed: false,
             fallback_attempted: false,
@@ -1596,6 +1957,29 @@ mod tests {
         assert!(report.materialization_boundary_report_emitted);
         assert!(report.row_read);
         assert!(!report.fallback_execution_allowed);
+
+        let native_report =
+            run_traditional_analytics_vortex_benchmark(TraditionalAnalyticsVortexRequest::new(
+                TraditionalAnalyticsScenario::SelectiveFilter,
+                report.fact_vortex_path.clone(),
+                report.dim_vortex_path.clone(),
+            ))
+            .unwrap();
+        assert_eq!(
+            native_report.result_json,
+            "{\"row_count\":2,\"metric_sum\":6.5}"
+        );
+        assert_eq!(
+            native_report.native_io_certificate.path_id,
+            "native_vortex_source_to_native_runtime_result"
+        );
+        assert!(native_report.vortex_source_adapter_used);
+        assert!(native_report.vortex_file_read);
+        assert!(native_report.upstream_vortex_scan_called);
+        assert!(native_report.materialization_boundary_report_emitted);
+        assert!(!native_report.row_read);
+        assert!(!native_report.write_io);
+        assert!(!native_report.fallback_execution_allowed);
 
         let _ = std::fs::remove_dir_all(root);
     }
