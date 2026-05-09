@@ -68,12 +68,25 @@ fn foundation_plan_declares_local_encoded_count_reference_output() {
 fn foundation_plan_declares_broader_local_primitive_reference_outputs() {
     let plan = CorrectnessValidationPlan::default_foundation_plan();
     let cases = [
-        ("vortex-local-count-where-struct-five", Some(3)),
-        ("vortex-local-project-struct-five", Some(5)),
-        ("vortex-local-filter-project-struct-five", Some(3)),
+        (
+            "vortex-local-count-all-struct-five",
+            ExpectedOutcome::EncodedCount { count: 5 },
+        ),
+        (
+            "vortex-local-count-where-struct-five",
+            ExpectedOutcome::Rows { row_count: Some(3) },
+        ),
+        (
+            "vortex-local-project-struct-five",
+            ExpectedOutcome::Rows { row_count: Some(5) },
+        ),
+        (
+            "vortex-local-filter-project-struct-five",
+            ExpectedOutcome::Rows { row_count: Some(3) },
+        ),
     ];
 
-    for (id, row_count) in cases {
+    for (id, expected) in cases {
         let fixture = fixture(&plan, id);
         assert_eq!(fixture.format, FixtureFormat::ShardLoomNative);
         assert_eq!(
@@ -85,7 +98,7 @@ fn foundation_plan_declares_broader_local_primitive_reference_outputs() {
             .expect("workspace root");
         let fixture_path = workspace_root.join(fixture.source_ref.as_ref().expect("source ref"));
         assert!(fixture_path.is_file(), "{fixture_path:?}");
-        assert_eq!(fixture.expected, ExpectedOutcome::Rows { row_count });
+        assert_eq!(fixture.expected, expected);
         assert!(fixture.expected.requires_execution());
         assert!(fixture.covers_area(SemanticArea::EncodedExecution));
         assert!(fixture.covers_edge_case(EdgeCase::NoNulls));
@@ -160,10 +173,10 @@ fn reference_roles_remain_test_only_not_production_fallback() {
 fn foundation_plan_reports_reference_and_gap_counts() {
     let plan = CorrectnessValidationPlan::default_foundation_plan();
 
-    assert_eq!(plan.fixture_count(), 17);
-    assert_eq!(plan.fixtures_with_source_ref_count(), 5);
-    assert_eq!(plan.golden_fixture_count(), 5);
-    assert_eq!(plan.executable_expected_output_count(), 4);
+    assert_eq!(plan.fixture_count(), 18);
+    assert_eq!(plan.fixtures_with_source_ref_count(), 6);
+    assert_eq!(plan.golden_fixture_count(), 6);
+    assert_eq!(plan.executable_expected_output_count(), 5);
     assert_eq!(plan.not_yet_defined_fixture_count(), 8);
     assert_eq!(plan.diagnostic_expected_output_count(), 1);
     assert_eq!(plan.unsupported_expected_output_count(), 1);
