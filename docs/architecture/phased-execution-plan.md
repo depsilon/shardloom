@@ -481,6 +481,9 @@ Supporting docs:
 - [x] R3.5e FeatureFootprint doctor alignment
   - Why: expose the canonical no-probe feature footprint through CLI surfaces before expanding doctor/capability readiness checks.
   - Acceptance: `feature-footprint` and `doctor` emit `FeatureFootprintReport` fields with fallback execution disabled, no environment probes, no runtime behavior, no dependencies, and no fallback execution.
+- [x] R3.6 EffectBudgetReport foundation
+  - Why: centralize effect/cost/egress/credential boundaries before Python, UDF, plugin, object-store, catalog, API/SaaS, LLM, embedding, vector, and unstructured/media work becomes executable.
+  - Acceptance: core `EffectBudgetReport`, `effect-budget-plan` CLI JSON/text output, snapshot/contract tests, and architecture checklist are report-only with no probes, credential resolution, runtime execution, network egress, writes, dependencies, or fallback execution.
 - [x] R5.1 Systems-learning contract pass
 - [x] R5.2 Competitive track extension to CG-19/CG-20
 - [x] R5.3 RFC 0031/0032 deepening
@@ -1645,7 +1648,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [~] Epic B — WorkAvoidedReport
 - [x] Epic C — LayoutHealthReport
 - [~] Epic D — FeatureFootprintReport
-- [ ] Epic E — EffectBudgetReport
+- [~] Epic E — EffectBudgetReport
 - [ ] Epic F — Agent Contract Pack
 - [ ] Epic G — Table Intelligence Layer
 - [ ] Epic H — Object Store Request Planner

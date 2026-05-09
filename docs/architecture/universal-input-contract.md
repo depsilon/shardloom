@@ -51,7 +51,8 @@
   - This bridge exists to make universal-I/O benchmark work visible while broad CSV adapter, SQL, DataFrame/API, object-store, and production adapter coverage remain deferred.
   - Temporary traditional analytics operators currently consume Vortex-derived arrays after an explicit materialization boundary; this bridge is not mature encoded-native operator coverage.
 - Effectful input bridge
-  - Future effectful inputs must participate in `EffectBudgetReport` and security/governance reporting.
+  - Future effectful inputs must participate in the core `EffectBudgetReport` and security/governance reporting.
+  - Default `EffectBudgetReport` creation remains no-probe and denies external effects, destructive effects, network egress, credential resolution, and fallback execution.
 
 ## Symmetry With Output Contract
 

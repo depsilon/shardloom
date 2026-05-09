@@ -196,6 +196,7 @@ See `docs/architecture/terminology-consolidation-backlog.md` for the full audit 
 - **deployment readiness report**: structured evidence for packaging, configuration, resource limits, reproducibility, compatibility, and operational constraints.
 - **extension capability report**: structured UDF/plugin evidence for type metadata, effect level, sandboxing, permissions, materialization, and no-fallback behavior.
 - **security governance report**: structured evidence for credentials, permissions, external effects, destructive-operation policy, redaction, audit, and agent safety.
+- **effect budget report**: no-probe planning evidence for allowed or denied external effects, destructive effects, network egress, credentials, redaction, audit, materialization boundaries, cost, and fallback status.
 - **functional context scope**: the declared amount and shape of source, plan, history, and evidence context a user/API/agent surface can reliably use, not merely accept as input.
 - **evidence routing**: content- and capability-dependent selection of sources, segments, fields, operators, or artifacts to inspect or skip, backed by proof, uncertainty, or explicit unsupported diagnostics.
 - **context structure preservation**: keeping source references, field paths, row/segment identity, ordering, partitioning, provenance, and neighboring context visible across planning, migration, and agent-facing reports.
