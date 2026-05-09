@@ -703,6 +703,22 @@ No fallback execution.
 - `shardloom-cli/tests/benchmark_plan_snapshots.rs` and `shardloom-contract-tests/tests/benchmark_evidence_manifest.rs` verify the inventory fields without executing benchmarks or invoking external baselines.
 - This pass adds no benchmark runner, external baseline invocation, query execution behavior, performance/superiority/best-default claim, dependency, parser, adapter runtime, object-store IO, write behavior, or fallback execution.
 
+## CG-6.7 traditional analytics benchmark plan
+
+- Primary RFC linkage: RFC 0029 benchmark evidence requirements, RFC 0015 correctness-before-performance requirements, RFC 0025 competitive/no-fallback guardrails, RFC 0012 diagnostics/capability reporting, and RFC 0032 world-class user capability requirements.
+- `BenchmarkPlan::traditional_analytics_plan` records conventional dataframe/SQL benchmark scenarios for CSV/file ingest, selective filters, group-by aggregation, sort/top-k, and hash joins.
+- Traditional analytics baselines include `ShardLoom`, pandas, Polars, DuckDB, Spark/PySpark, DataFusion, and Dask as comparison targets only.
+- `benchmark-plan traditional-analytics` exposes the scenario/baseline/metric inventory without running benchmarks or adding external dependencies.
+- This phase adds no external baseline invocation, pandas/Polars/DuckDB/Spark/DataFusion/Dask dependency, SQL parser, dataframe API, adapter runtime, benchmark claim, superiority claim, production certification, or fallback execution.
+
+## CG-6.8 local encoded count benchmark runner
+
+- Primary RFC linkage: RFC 0029 benchmark evidence requirements, RFC 0015 correctness-before-performance requirements, RFC 0025 competitive/no-fallback guardrails, RFC 0026 Vortex encoded-read/query-readiness boundaries, and RFC 0032 benchmark-gated claim publication requirements.
+- `shardloom vortex-count-benchmark <dataset_uri> <memory_gb> <max_parallelism> [--iterations <n>]` runs the approved local encoded `CountAll` path repeatedly and emits ShardLoom timing/count/effect metrics.
+- The runner records Spark, DataFusion, Polars, pandas, DuckDB, and Dask as required external comparison results, but does not invoke them; comparison and claim gates remain blocked until external baseline results and reproducibility evidence exist.
+- The local runner preserves the existing local encoded count guardrails: no decode/materialization, no row reads, no Arrow conversion, no object-store IO, no writes, no spill IO, no external engine invocation, and no fallback.
+- This phase adds no broad benchmark suite execution, external baseline runner, generalized encoded filter/project execution, SQL parser, dataframe API, adapter runtime, performance/superiority/best-default claim, production certification, or fallback execution.
+
 ## CG-12.4 native plan import/export serialization
 
 - Primary RFC linkage: RFC 0030 Universal API/Plan Portability/Import/Deployment/Baselines, RFC 0022 Plan IR interoperability, RFC 0010 Developer Experience, RFC 0012 Diagnostics, and RFC 0024 release/API compatibility.

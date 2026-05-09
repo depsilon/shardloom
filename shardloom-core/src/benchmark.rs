@@ -17,6 +17,8 @@ pub enum BaselineEngine {
     DataFusion,
     DuckDb,
     Polars,
+    Pandas,
+    Dask,
     Velox,
     VortexIntegration,
     Other,
@@ -31,6 +33,8 @@ impl BaselineEngine {
             Self::DataFusion => "datafusion",
             Self::DuckDb => "duckdb",
             Self::Polars => "polars",
+            Self::Pandas => "pandas",
+            Self::Dask => "dask",
             Self::Velox => "velox",
             Self::VortexIntegration => "vortex_integration",
             Self::Other => "other",
@@ -55,6 +59,7 @@ pub enum WorkloadClass {
     IncrementalRecomputation,
     LargeJoin,
     AggregationAndGrouping,
+    TraditionalAnalytics,
     NativeOutputAndTranslation,
     FailureAndUnsupportedBehavior,
 }
@@ -68,6 +73,7 @@ impl WorkloadClass {
             Self::IncrementalRecomputation => "incremental_recomputation",
             Self::LargeJoin => "large_join",
             Self::AggregationAndGrouping => "aggregation_and_grouping",
+            Self::TraditionalAnalytics => "traditional_analytics",
             Self::NativeOutputAndTranslation => "native_output_and_translation",
             Self::FailureAndUnsupportedBehavior => "failure_and_unsupported_behavior",
         }
@@ -1073,6 +1079,27 @@ fn benchmark_comparison_scenario_names(comparison_report: &BenchmarkComparisonRe
     names
 }
 
+fn traditional_analytics_scenario(name: &str) -> BenchmarkScenario {
+    let mut scenario = BenchmarkScenario::new(name, WorkloadClass::TraditionalAnalytics)
+        .expect("valid traditional analytics benchmark scenario");
+    scenario.dataset_name = Some("traditional_analytics_100m_rows".to_string());
+    scenario.dataset_scale = Some("100m_rows_5gb_family".to_string());
+    scenario.storage_format = Some("csv/parquet/vortex".to_string());
+    scenario.query_or_operation = Some(name.replace(' ', "_"));
+    for engine in [
+        BaselineEngine::ShardLoom,
+        BaselineEngine::Pandas,
+        BaselineEngine::Polars,
+        BaselineEngine::DuckDb,
+        BaselineEngine::Spark,
+        BaselineEngine::DataFusion,
+        BaselineEngine::Dask,
+    ] {
+        scenario.add_baseline(engine);
+    }
+    scenario
+}
+
 /// Collection of benchmark scenarios for foundation planning.
 #[derive(Debug, Clone, PartialEq)]
 pub struct BenchmarkPlan {
@@ -1187,6 +1214,93 @@ impl BenchmarkPlan {
         scenario.add_baseline(BaselineEngine::Other);
         scenario.add_required_metric(BenchmarkMetric::SegmentsMetadataAnswered);
         plan.add_scenario(scenario);
+
+        plan
+    }
+
+    /// Constructs the traditional single-node analytics benchmark plan.
+    ///
+    /// The plan is modeled after common dataframe/SQL benchmark tasks: ingest,
+    /// filter, group-by aggregation, sort/top-k, join, and repeated-run
+    /// measurement. External engines are comparison targets only and are never
+    /// fallback execution paths.
+    ///
+    /// # Panics
+    /// Panics only if hard-coded internal scenario names are invalid, which would
+    /// indicate a programming error in this crate.
+    #[must_use]
+    pub fn traditional_analytics_plan() -> Self {
+        let mut plan = Self::new();
+
+        let mut ingest = traditional_analytics_scenario("csv/file ingest");
+        ingest.correctness_validation = CorrectnessValidationMode::ExpectedOutput;
+        for metric in [
+            BenchmarkMetric::StartupLatencyMillis,
+            BenchmarkMetric::WallTimeMillis,
+            BenchmarkMetric::PeakMemoryBytes,
+            BenchmarkMetric::BytesRead,
+            BenchmarkMetric::RowsScanned,
+            BenchmarkMetric::ObjectStoreRequests,
+        ] {
+            ingest.add_required_metric(metric);
+        }
+        plan.add_scenario(ingest);
+
+        let mut filter = traditional_analytics_scenario("selective filter");
+        filter.correctness_validation = CorrectnessValidationMode::ExpectedOutput;
+        for metric in [
+            BenchmarkMetric::QueryRuntimeMillis,
+            BenchmarkMetric::PeakMemoryBytes,
+            BenchmarkMetric::BytesRead,
+            BenchmarkMetric::RowsScanned,
+            BenchmarkMetric::RowsMaterialized,
+            BenchmarkMetric::RowsMaterializationAvoided,
+            BenchmarkMetric::BytesDecoded,
+        ] {
+            filter.add_required_metric(metric);
+        }
+        plan.add_scenario(filter);
+
+        let mut aggregate = traditional_analytics_scenario("group by aggregation");
+        aggregate.correctness_validation = CorrectnessValidationMode::DifferentialComparison;
+        for metric in [
+            BenchmarkMetric::QueryRuntimeMillis,
+            BenchmarkMetric::PeakMemoryBytes,
+            BenchmarkMetric::RowsScanned,
+            BenchmarkMetric::RowsMaterialized,
+            BenchmarkMetric::BytesDecoded,
+            BenchmarkMetric::SpillRequiredBytes,
+        ] {
+            aggregate.add_required_metric(metric);
+        }
+        plan.add_scenario(aggregate);
+
+        let mut sort = traditional_analytics_scenario("sort and top-k");
+        sort.correctness_validation = CorrectnessValidationMode::DifferentialComparison;
+        for metric in [
+            BenchmarkMetric::QueryRuntimeMillis,
+            BenchmarkMetric::PeakMemoryBytes,
+            BenchmarkMetric::RowsScanned,
+            BenchmarkMetric::RowsMaterialized,
+            BenchmarkMetric::SpillRequiredBytes,
+        ] {
+            sort.add_required_metric(metric);
+        }
+        plan.add_scenario(sort);
+
+        let mut join = traditional_analytics_scenario("hash join");
+        join.correctness_validation = CorrectnessValidationMode::DifferentialComparison;
+        for metric in [
+            BenchmarkMetric::QueryRuntimeMillis,
+            BenchmarkMetric::PeakMemoryBytes,
+            BenchmarkMetric::RowsScanned,
+            BenchmarkMetric::RowsMaterialized,
+            BenchmarkMetric::BytesRead,
+            BenchmarkMetric::SpillRequiredBytes,
+        ] {
+            join.add_required_metric(metric);
+        }
+        plan.add_scenario(join);
 
         plan
     }
@@ -1675,5 +1789,39 @@ mod tests {
     fn plan_human_text_has_baseline_comparison_language() {
         let text = BenchmarkPlan::default_foundation_plan().to_human_text();
         assert!(text.contains("baselines are comparison targets only"));
+    }
+
+    #[test]
+    fn traditional_analytics_plan_includes_dask_and_common_operations() {
+        let plan = BenchmarkPlan::traditional_analytics_plan();
+
+        assert_eq!(plan.scenario_count(), 5);
+        assert_eq!(
+            plan.scenario_name_order(),
+            vec![
+                "csv/file ingest",
+                "selective filter",
+                "group by aggregation",
+                "sort and top-k",
+                "hash join"
+            ]
+        );
+        assert_eq!(
+            plan.baseline_engine_order(),
+            vec![
+                "shardloom",
+                "pandas",
+                "polars",
+                "duckdb",
+                "spark",
+                "datafusion",
+                "dask"
+            ]
+        );
+        assert_eq!(plan.workload_class_order(), vec!["traditional_analytics"]);
+        assert!(plan.baselines_are_fallback_free());
+        assert!(plan.runtime_metrics_covered());
+        assert!(plan.peak_memory_metric_covered());
+        assert!(plan.materialization_metrics_covered());
     }
 }

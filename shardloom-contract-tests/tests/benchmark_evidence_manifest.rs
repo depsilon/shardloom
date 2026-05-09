@@ -349,6 +349,43 @@ fn benchmark_engine_version_labels_are_comparison_only() {
     assert!(BenchmarkEngineVersion::new(BaselineEngine::Spark, " ").is_err());
 }
 
+#[test]
+fn traditional_analytics_plan_covers_dataframe_sql_baselines() {
+    let plan = BenchmarkPlan::traditional_analytics_plan();
+
+    assert_eq!(plan.scenario_count(), 5);
+    assert_eq!(
+        plan.scenario_name_order(),
+        vec![
+            "csv/file ingest",
+            "selective filter",
+            "group by aggregation",
+            "sort and top-k",
+            "hash join"
+        ]
+    );
+    assert_eq!(
+        plan.baseline_engine_order(),
+        vec![
+            "shardloom",
+            "pandas",
+            "polars",
+            "duckdb",
+            "spark",
+            "datafusion",
+            "dask"
+        ]
+    );
+    assert_eq!(plan.external_baseline_count(), 6);
+    assert!(plan.baselines_are_fallback_free());
+    assert!(plan.covers_metric(BenchmarkMetric::PeakMemoryBytes));
+    assert!(plan.covers_metric(BenchmarkMetric::RowsScanned));
+    assert!(plan.covers_metric(BenchmarkMetric::RowsMaterialized));
+    assert!(plan.covers_metric(BenchmarkMetric::SpillRequiredBytes));
+    assert!(plan.covers_metric(BenchmarkMetric::ObjectStoreRequests));
+    assert!(!plan.benchmark_execution_implemented());
+}
+
 fn one_scenario_benchmark_plan() -> BenchmarkPlan {
     let mut plan = BenchmarkPlan::new();
     let mut scenario =

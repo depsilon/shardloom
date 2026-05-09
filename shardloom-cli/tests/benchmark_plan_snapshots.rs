@@ -1,8 +1,13 @@
 use std::process::Command;
 
-fn run_benchmark_plan_json() -> String {
+fn run_benchmark_plan_json(scope: Option<&str>) -> String {
+    let mut args = vec!["benchmark-plan"];
+    if let Some(scope) = scope {
+        args.push(scope);
+    }
+    args.extend(["--format", "json"]);
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["benchmark-plan", "--format", "json"])
+        .args(args)
         .output()
         .expect("benchmark plan command runs");
 
@@ -27,7 +32,7 @@ fn field(key: &str, value: &str) -> String {
 
 #[test]
 fn benchmark_plan_json_exposes_scenario_inventory() {
-    let output = run_benchmark_plan_json();
+    let output = run_benchmark_plan_json(None);
 
     assert!(output.contains("\"command\":\"benchmark-plan\""));
     assert!(output.contains("\"status\":\"success\""));
@@ -53,7 +58,7 @@ fn benchmark_plan_json_exposes_scenario_inventory() {
 
 #[test]
 fn benchmark_plan_json_exposes_metric_coverage_inventory() {
-    let output = run_benchmark_plan_json();
+    let output = run_benchmark_plan_json(None);
 
     assert!(output.contains(&field("required_metric_count", "21")));
     assert!(output.contains(&field(
@@ -77,7 +82,7 @@ fn benchmark_plan_json_exposes_metric_coverage_inventory() {
 
 #[test]
 fn benchmark_plan_json_preserves_no_claim_no_fallback_boundaries() {
-    let output = run_benchmark_plan_json();
+    let output = run_benchmark_plan_json(None);
 
     assert!(output.contains(&field("benchmark_execution_implemented", "false")));
     assert!(output.contains(&field("performance_claim_allowed", "false")));
@@ -101,4 +106,29 @@ fn benchmark_plan_json_preserves_no_claim_no_fallback_boundaries() {
     assert!(output.contains(&field("claim_gate_reproducibility_evidence", "missing")));
     assert!(output.contains(&field("claim_gate_fallback", "not_attempted")));
     assert!(output.contains(&field("baselines_fallback_free", "true")));
+}
+
+#[test]
+fn traditional_analytics_benchmark_plan_lists_external_dataframe_baselines() {
+    let output = run_benchmark_plan_json(Some("traditional-analytics"));
+
+    assert!(output.contains("\"command\":\"benchmark-plan\""));
+    assert!(output.contains(&field("scenario_count", "5")));
+    assert!(output.contains(&field(
+        "scenario_name_order",
+        "csv/file ingest,selective filter,group by aggregation,sort and top-k,hash join"
+    )));
+    assert!(output.contains(&field("workload_class_order", "traditional_analytics")));
+    assert!(output.contains(&field(
+        "baseline_engine_order",
+        "shardloom,pandas,polars,duckdb,spark,datafusion,dask"
+    )));
+    assert!(output.contains(&field(
+        "external_baseline_engine_order",
+        "pandas,polars,duckdb,spark,datafusion,dask"
+    )));
+    assert!(output.contains(&field("external_baseline_count", "6")));
+    assert!(output.contains(&field("expected_result_count", "35")));
+    assert!(output.contains(&field("benchmark_execution_implemented", "false")));
+    assert!(output.contains(&field("fallback_execution_allowed", "false")));
 }
