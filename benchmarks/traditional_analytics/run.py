@@ -1741,6 +1741,12 @@ def run_shardloom_vortex_run_microbenchmark(
         "work_avoided_bytes_not_read_known": fields.get("work_avoided_bytes_not_read_known"),
         "work_avoided_spill_avoided": fields.get("work_avoided_spill_avoided"),
         "work_avoided_fallback_blocked": fields.get("work_avoided_fallback_blocked"),
+        "decision_trace_entries": fields.get("decision_trace_entries"),
+        "why_claim_gate_status": fields.get("why_claim_gate_status"),
+        "why_primary_reason": fields.get("why_primary_reason"),
+        "why_blocker_count": fields.get("why_blocker_count"),
+        "why_blockers": fields.get("why_blockers"),
+        "why_next_actions": fields.get("why_next_actions"),
         "fallback_attempted": str(
             (payload or {}).get("fallback", {}).get("attempted", False)
         ).lower(),
@@ -2378,6 +2384,59 @@ def render_shardloom_work_avoidance_table(artifact: dict[str, Any]) -> str:
     )
 
 
+def render_shardloom_why_table(artifact: dict[str, Any]) -> str:
+    rows = []
+    details = []
+    for result in artifact.get("shardloom_native_microbenchmarks", []):
+        if result.get("why_claim_gate_status") is None:
+            continue
+        name = str(result.get("name", "n/a"))
+        rows.append(
+            [
+                name,
+                str(result.get("status", "n/a")),
+                str(result.get("why_claim_gate_status", "n/a")),
+                str(result.get("decision_trace_entries", "n/a")),
+                str(result.get("why_blocker_count", "n/a")),
+                str(result.get("why_primary_reason", "n/a")).replace("|", "\\|"),
+                final_summary_item(result.get("why_next_actions")),
+            ]
+        )
+        details.append(
+            f"- **{name}** blockers: {summary_list_text(result.get('why_blockers'))}"
+        )
+        details.append(
+            f"  next: {summary_list_text(result.get('why_next_actions'))}"
+        )
+    if not rows:
+        rows.append(["not run", "skipped", "n/a", "n/a", "n/a", "n/a", "n/a"])
+    table = markdown_table(
+        [
+            "Microbenchmark",
+            "Status",
+            "Claim gate",
+            "Trace entries",
+            "Blockers",
+            "Primary reason",
+            "Next focus",
+        ],
+        rows,
+    )
+    if details:
+        return table + "\n\n" + "\n".join(details)
+    return table
+
+
+def final_summary_item(value: Any) -> str:
+    text = str(value or "n/a")
+    return text.rsplit(" | ", maxsplit=1)[-1].replace("|", "\\|")
+
+
+def summary_list_text(value: Any) -> str:
+    text = str(value or "n/a")
+    return text.replace(" | ", "; ").replace("|", "\\|")
+
+
 def render_shardloom_commit_table(artifact: dict[str, Any]) -> str:
     rows = []
     for result in artifact.get("shardloom_native_microbenchmarks", []):
@@ -2561,6 +2620,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "These rows are not directly comparable to CSV engine rows. They show the current native encoded/Vortex path that ShardLoom can execute today.",
         "",
         render_shardloom_native_table(artifact),
+        "",
+        "## ShardLoom Decision / Why Evidence",
+        "",
+        "These fields explain why each native runtime row is or is not claim-grade. They are derived from `vortex-run` DecisionTrace/WhyReport evidence.",
+        "",
+        render_shardloom_why_table(artifact),
         "",
         "## ShardLoom Work-Avoidance Evidence",
         "",

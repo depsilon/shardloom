@@ -499,6 +499,266 @@ impl VortexLocalEngineReport {
             },
         )
     }
+
+    pub fn why_report(&self) -> VortexLocalEngineWhyReport {
+        VortexLocalEngineWhyReport::from_report(self)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VortexLocalEngineWhyReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub primitive: String,
+    pub status: VortexLocalEngineStatus,
+    pub mode: VortexLocalEngineMode,
+    pub claim_gate_status: &'static str,
+    pub primary_reason: String,
+    pub blockers: Vec<String>,
+    pub supporting_evidence: Vec<String>,
+    pub next_actions: Vec<String>,
+    pub decision_trace_entries: usize,
+    pub work_avoided_metrics: usize,
+    pub fallback_attempted: bool,
+}
+
+impl VortexLocalEngineWhyReport {
+    pub fn from_report(report: &VortexLocalEngineReport) -> Self {
+        let runtime_work = report.runtime_work_avoided_report();
+
+        Self {
+            schema_version: "shardloom.vortex_local_engine_why_report.v1",
+            report_id: "vortex.local_engine.why",
+            primitive: report.request.primitive.summary(),
+            status: report.status,
+            mode: report.mode,
+            claim_gate_status: local_engine_claim_gate_status(report),
+            primary_reason: primary_why_reason(report, &runtime_work),
+            blockers: local_engine_why_blockers(report, &runtime_work),
+            supporting_evidence: local_engine_supporting_evidence(report, &runtime_work),
+            next_actions: local_engine_next_actions(report),
+            decision_trace_entries: report.decision_trace_entries,
+            work_avoided_metrics: runtime_work.metric_count(),
+            fallback_attempted: false,
+        }
+    }
+
+    pub fn blocker_count(&self) -> usize {
+        self.blockers.len()
+    }
+
+    pub fn supporting_evidence_count(&self) -> usize {
+        self.supporting_evidence.len()
+    }
+
+    pub fn next_action_count(&self) -> usize {
+        self.next_actions.len()
+    }
+
+    pub fn blockers_summary(&self) -> String {
+        join_report_list(&self.blockers)
+    }
+
+    pub fn supporting_evidence_summary(&self) -> String {
+        join_report_list(&self.supporting_evidence)
+    }
+
+    pub fn next_actions_summary(&self) -> String {
+        join_report_list(&self.next_actions)
+    }
+
+    pub fn to_human_text(&self) -> String {
+        let mut out = String::new();
+        let _ = writeln!(
+            out,
+            "Vortex local engine why report\nschema: {}\nclaim gate: {}\nprimary reason: {}",
+            self.schema_version, self.claim_gate_status, self.primary_reason
+        );
+        let _ = writeln!(out, "blockers: {}", self.blockers_summary());
+        let _ = writeln!(
+            out,
+            "supporting evidence: {}",
+            self.supporting_evidence_summary()
+        );
+        let _ = write!(out, "next actions: {}", self.next_actions_summary());
+        out
+    }
+}
+
+fn local_engine_claim_gate_status(report: &VortexLocalEngineReport) -> &'static str {
+    if report.has_errors() {
+        "unsupported"
+    } else {
+        "not_claim_grade"
+    }
+}
+
+fn local_engine_why_blockers(
+    report: &VortexLocalEngineReport,
+    runtime_work: &VortexWorkAvoidedReport,
+) -> Vec<String> {
+    let mut blockers = Vec::new();
+    push_unique(
+        &mut blockers,
+        "CG-5 global correctness and differential evidence is not complete",
+    );
+    push_unique(
+        &mut blockers,
+        "CG-6 claim-grade comparative benchmark evidence is not complete",
+    );
+    push_unique(
+        &mut blockers,
+        "production operator certification is not attached to this local row",
+    );
+    append_local_engine_effect_blockers(report, runtime_work, &mut blockers);
+    blockers
+}
+
+fn append_local_engine_effect_blockers(
+    report: &VortexLocalEngineReport,
+    runtime_work: &VortexWorkAvoidedReport,
+    blockers: &mut Vec<String>,
+) {
+    if report.has_errors() {
+        push_unique(
+            blockers,
+            format!("local engine status is {}", report.status.as_str()),
+        );
+    }
+    if !report.result_known {
+        push_unique(blockers, "result value is not known");
+    }
+    for (condition, message) in [
+        (report.data_decoded, "runtime path decoded data"),
+        (report.data_materialized, "runtime path materialized data"),
+        (
+            report.object_store_io,
+            "runtime path performed object-store IO",
+        ),
+        (report.write_io, "runtime path performed write IO"),
+        (report.spill_io_performed, "runtime path performed spill IO"),
+        (
+            runtime_work.unknown_metric_count() > 0,
+            "some work-avoidance metrics remain unknown",
+        ),
+        (
+            matches!(report.mode, VortexLocalEngineMode::LocalPrimitive),
+            "local primitive execution is not mature SQL/operator certification",
+        ),
+    ] {
+        if condition {
+            push_unique(blockers, message);
+        }
+    }
+}
+
+fn local_engine_supporting_evidence(
+    report: &VortexLocalEngineReport,
+    runtime_work: &VortexWorkAvoidedReport,
+) -> Vec<String> {
+    let mut evidence = Vec::new();
+    push_unique(&mut evidence, format!("status={}", report.status.as_str()));
+    push_unique(&mut evidence, format!("mode={}", report.mode.as_str()));
+    push_unique(
+        &mut evidence,
+        format!("decision_trace_entries={}", report.decision_trace_entries),
+    );
+    push_unique(
+        &mut evidence,
+        format!("work_avoided_metrics={}", runtime_work.metric_count()),
+    );
+    if report.result_known {
+        push_unique(&mut evidence, "result known");
+    }
+    if !report.fallback_execution_allowed {
+        push_unique(&mut evidence, "fallback execution disabled");
+    }
+    if let Some(local) = &report.local_primitive_execution_report {
+        push_unique(
+            &mut evidence,
+            format!("local_primitive_status={}", local.status.as_str()),
+        );
+        push_unique(
+            &mut evidence,
+            format!("local_primitive_mode={}", local.mode.as_str()),
+        );
+    }
+    evidence
+}
+
+fn local_engine_next_actions(report: &VortexLocalEngineReport) -> Vec<String> {
+    let mut actions = Vec::new();
+    push_unique(
+        &mut actions,
+        "attach CG-5 correctness and differential evidence",
+    );
+    push_unique(&mut actions, "attach CG-6 comparison benchmark certificate");
+    push_unique(&mut actions, "attach CG-16 execution certificate evidence");
+    append_local_engine_primitive_next_action(&report.request.primitive, &mut actions);
+    actions
+}
+
+fn append_local_engine_primitive_next_action(
+    primitive: &VortexLocalEnginePrimitive,
+    actions: &mut Vec<String>,
+) {
+    match primitive {
+        VortexLocalEnginePrimitive::CountWhere(_) | VortexLocalEnginePrimitive::Filter(_) => {
+            push_unique(
+                actions,
+                "complete encoded predicate/filter kernel certification",
+            );
+        }
+        VortexLocalEnginePrimitive::Project(_) => {
+            push_unique(actions, "complete encoded projection kernel certification");
+        }
+        VortexLocalEnginePrimitive::Count => {
+            push_unique(
+                actions,
+                "generalize encoded CountAll beyond the current local path",
+            );
+        }
+        VortexLocalEnginePrimitive::Unsupported(_) => {
+            push_unique(actions, "replace unsupported primitive");
+        }
+    }
+}
+
+fn primary_why_reason(
+    report: &VortexLocalEngineReport,
+    runtime_work: &VortexWorkAvoidedReport,
+) -> String {
+    if report.has_errors() {
+        return "local engine did not produce supported runtime evidence".to_string();
+    }
+    if report.data_decoded || report.data_materialized {
+        return "runtime evidence uses a temporary decoded or materialized local primitive path"
+            .to_string();
+    }
+    if matches!(report.mode, VortexLocalEngineMode::LocalPrimitive) {
+        return "runtime evidence is local primitive evidence, not mature SQL/operator certification"
+            .to_string();
+    }
+    if runtime_work.unknown_metric_count() > 0 {
+        return "runtime evidence still has unknown work-avoidance metrics".to_string();
+    }
+    "runtime evidence is valid but not claim-grade until CG-5/CG-6/CG-16 evidence is attached"
+        .to_string()
+}
+
+fn push_unique(items: &mut Vec<String>, value: impl Into<String>) {
+    let value = value.into();
+    if !items.iter().any(|item| item == &value) {
+        items.push(value);
+    }
+}
+
+fn join_report_list(items: &[String]) -> String {
+    if items.is_empty() {
+        "none".to_string()
+    } else {
+        items.join(" | ")
+    }
 }
 
 fn runtime_work_avoided_report(
@@ -1175,6 +1435,13 @@ mod tests {
         let rep = VortexLocalEngineReport::unsupported(req, "x", "y");
         assert!(rep.has_errors());
         assert!(!rep.fallback_execution_allowed);
+        let why = rep.why_report();
+        assert_eq!(why.claim_gate_status, "unsupported");
+        assert_eq!(why.status, VortexLocalEngineStatus::Unsupported);
+        assert!(!why.fallback_attempted);
+        assert!(why.blockers_summary().contains("CG-5 global correctness"));
+        assert!(why.next_actions_summary().contains("CG-6 comparison"));
+        assert!(why.to_human_text().contains("primary reason"));
     }
     #[test]
     fn run_missing_metadata_is_safe() {
@@ -1424,5 +1691,10 @@ mod tests {
             work.metric_value_summary(VortexWorkAvoidedMetricKind::RowsNotScanned),
             "0"
         );
+        let why = report.why_report();
+        assert_eq!(why.claim_gate_status, "not_claim_grade");
+        assert!(why.primary_reason.contains("local primitive evidence"));
+        assert!(why.blockers_summary().contains("not mature SQL/operator"));
+        assert!(why.next_actions_summary().contains("encoded projection"));
     }
 }

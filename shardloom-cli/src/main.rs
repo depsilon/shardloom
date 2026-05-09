@@ -100,8 +100,8 @@ use shardloom_vortex::{
     VortexFinalizedManifestFileRef, VortexGeneralizedEncodedPrimitiveGateReport,
     VortexLayoutReaderDriverApprovalInput, VortexLayoutReaderDriverApprovalSignal,
     VortexLocalCommitExecutionRequest, VortexLocalCommitExecutionSignal,
-    VortexLocalCommitRecoveryRequest, VortexLocalCommitRecoverySignal, VortexLocalExecutionReport,
-    VortexLocalExecutionStatus, VortexManifestFinalizationRequest,
+    VortexLocalCommitRecoveryRequest, VortexLocalCommitRecoverySignal, VortexLocalEngineWhyReport,
+    VortexLocalExecutionReport, VortexLocalExecutionStatus, VortexManifestFinalizationRequest,
     VortexManifestFinalizationSignal, VortexMemoryBridgeReport,
     VortexMetadataCountKernelAdmissionReport, VortexMetadataFilterKernelAdmissionReport,
     VortexMetadataOpenRequest, VortexMetadataProbeReport, VortexMetadataSummaryReport,
@@ -4629,6 +4629,42 @@ fn append_vortex_work_avoided_metric_fields(
         &format!("{stem}_reason"),
         &report.metric_reason_summary(kind),
     );
+}
+
+fn append_vortex_local_engine_why_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &VortexLocalEngineWhyReport,
+) {
+    push_field(fields, "why_report_present", "true");
+    push_field(fields, "why_schema_version", report.schema_version);
+    push_field(fields, "why_report_id", report.report_id);
+    push_field(fields, "why_claim_gate_status", report.claim_gate_status);
+    push_field(fields, "why_primary_reason", &report.primary_reason);
+    push_count_field(fields, "why_blocker_count", report.blocker_count());
+    push_field(fields, "why_blockers", &report.blockers_summary());
+    push_count_field(
+        fields,
+        "why_supporting_evidence_count",
+        report.supporting_evidence_count(),
+    );
+    push_field(
+        fields,
+        "why_supporting_evidence",
+        &report.supporting_evidence_summary(),
+    );
+    push_count_field(fields, "why_next_action_count", report.next_action_count());
+    push_field(fields, "why_next_actions", &report.next_actions_summary());
+    push_count_field(
+        fields,
+        "decision_trace_entries",
+        report.decision_trace_entries,
+    );
+    push_count_field(
+        fields,
+        "why_work_avoided_metrics",
+        report.work_avoided_metrics,
+    );
+    push_bool_field(fields, "why_fallback_attempted", report.fallback_attempted);
 }
 
 fn adaptive_optimizer_memory_fields(
@@ -21288,6 +21324,7 @@ fn run(args: Vec<String>) -> ExitCode {
                 Err(error) => return emit_error("vortex-run", format, "vortex run failed", &error),
             };
             let runtime_work_avoided = report.runtime_work_avoided_report();
+            let why_report = report.why_report();
             let row_read = report
                 .local_primitive_execution_report
                 .as_ref()
@@ -21435,6 +21472,7 @@ fn run(args: Vec<String>) -> ExitCode {
                 ),
             ];
             append_vortex_work_avoided_fields(&mut fields, Some(&runtime_work_avoided));
+            append_vortex_local_engine_why_fields(&mut fields, &why_report);
             emit(
                 "vortex-run",
                 format,
@@ -21444,7 +21482,7 @@ fn run(args: Vec<String>) -> ExitCode {
                     CommandStatus::Success
                 },
                 "vortex local engine surface".to_string(),
-                report.to_human_text(),
+                format!("{}\n{}", report.to_human_text(), why_report.to_human_text()),
                 report.diagnostics.clone(),
                 fields,
             );
@@ -21978,6 +22016,32 @@ mod tests {
             "work_avoided_bytes_not_read_known".to_string(),
             "false".to_string()
         )));
+    }
+
+    #[test]
+    fn vortex_local_engine_why_fields_include_claim_blockers() {
+        let uri = DatasetUri::new("file://tmp/data.vortex").expect("uri");
+        let request = shardloom_vortex::VortexLocalEngineRequest::new(
+            uri,
+            shardloom_vortex::VortexLocalEnginePrimitive::Count,
+            1,
+            1,
+        )
+        .expect("request");
+        let report =
+            shardloom_vortex::VortexLocalEngineReport::unsupported(request, "test", "blocked");
+        let why = report.why_report();
+        let mut fields = Vec::new();
+        append_vortex_local_engine_why_fields(&mut fields, &why);
+
+        assert!(fields.contains(&("why_report_present".to_string(), "true".to_string())));
+        assert!(fields.contains(&(
+            "why_claim_gate_status".to_string(),
+            "unsupported".to_string()
+        )));
+        assert!(output_field(&fields, "why_blockers").contains("CG-5 global correctness"));
+        assert!(output_field(&fields, "why_next_actions").contains("CG-6 comparison"));
+        assert_eq!(output_field(&fields, "why_fallback_attempted"), "false");
     }
 
     #[test]
