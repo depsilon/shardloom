@@ -21,6 +21,7 @@ vortex-encoded-read-spike = ["shardloom-vortex/vortex-encoded-read-spike"]
 vortex-local-primitives = ["shardloom-vortex/vortex-local-primitives"]
 vortex-traditional-analytics-benchmark = [
     "shardloom-vortex/vortex-traditional-analytics-benchmark",
+    "shardloom-vortex/vortex-staged-output-fs",
 ]
 
 [[bin]]

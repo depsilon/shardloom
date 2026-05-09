@@ -2192,16 +2192,13 @@ fn local_commit_rollback_execution_blocker(
 fn execute_vortex_local_commit_rollback_fs(
     recovery_report: VortexLocalCommitRecoveryReport,
 ) -> Result<VortexLocalCommitRollbackExecutionReport> {
-    let workspace_path = match local_commit_workspace_path(&recovery_report.request.workspace_path)
-    {
-        Ok(path) => path,
-        Err(_) => {
-            return Ok(VortexLocalCommitRollbackExecutionReport::blocked(
-                recovery_report,
-                VortexLocalCommitRollbackExecutionStatus::BlockedByObjectStoreTarget,
-                "workspace path is not a local filesystem path",
-            ));
-        }
+    let Ok(workspace_path) = local_commit_workspace_path(&recovery_report.request.workspace_path)
+    else {
+        return Ok(VortexLocalCommitRollbackExecutionReport::blocked(
+            recovery_report,
+            VortexLocalCommitRollbackExecutionStatus::BlockedByObjectStoreTarget,
+            "workspace path is not a local filesystem path",
+        ));
     };
     if !workspace_path.exists() {
         return Ok(VortexLocalCommitRollbackExecutionReport::blocked(
@@ -2623,8 +2620,8 @@ fn local_commit_workspace_path(path: &VortexStagedWorkspacePath) -> Result<PathB
 
 #[cfg(feature = "vortex-staged-output-fs")]
 fn checksum_bytes(bytes: &[u8]) -> u64 {
-    const FNV_OFFSET_BASIS: u64 = 0xcbf29ce484222325;
-    const FNV_PRIME: u64 = 0x00000100000001b3;
+    const FNV_OFFSET_BASIS: u64 = 0xcbf2_9ce4_8422_2325;
+    const FNV_PRIME: u64 = 0x0000_0100_0000_01b3;
 
     bytes.iter().fold(FNV_OFFSET_BASIS, |checksum, byte| {
         (checksum ^ u64::from(*byte)).wrapping_mul(FNV_PRIME)

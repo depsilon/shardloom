@@ -1574,6 +1574,7 @@ def run_shardloom_native_microbenchmarks(iterations: int) -> list[dict[str, Any]
             "local primitive comparison count",
             "count-where:gte:value:10000",
         ),
+        run_shardloom_commit_microbenchmark(root, env, binary, iterations),
     ]
     return rows
 
@@ -1765,6 +1766,127 @@ def native_microbenchmark_error(
     if elapsed_millis is not None:
         result["elapsed_millis"] = round(elapsed_millis, 4)
     return result
+
+
+def run_shardloom_commit_microbenchmark(
+    root: Path,
+    env: dict[str, str],
+    binary: Path,
+    iterations: int,
+) -> dict[str, Any]:
+    command_template = [
+        str(binary),
+        "vortex-local-commit-execute",
+        "<target-uri>",
+        "<workspace>",
+        "commit-protocol-ready,finalized-manifest-written,commit-marker-written,output-payload-written,local-workspace,feature-gate-enabled",
+        "--format",
+        "json",
+    ]
+    timings: list[float] = []
+    bytes_written: list[int] = []
+    commit_latencies: list[int] = []
+    payload: dict[str, Any] | None = None
+    generated_root = root / "benchmarks" / "traditional_analytics" / ".generated"
+    generated_root.mkdir(parents=True, exist_ok=True)
+    for iteration in range(iterations):
+        workspace = generated_root / f"commit-{os.getpid()}-{time.time_ns()}-{iteration}"
+        workspace.mkdir(parents=True, exist_ok=False)
+        try:
+            prepare_shardloom_commit_workspace(workspace, iteration)
+            target_uri = (workspace / "target.vortex").resolve().as_uri()
+            command = [
+                str(binary),
+                "vortex-local-commit-execute",
+                target_uri,
+                str(workspace),
+                command_template[4],
+                "--format",
+                "json",
+            ]
+            started = time.perf_counter()
+            completed = subprocess_run(command, root, env)
+            elapsed_ms = (time.perf_counter() - started) * 1000.0
+            timings.append(elapsed_ms)
+            if completed["returncode"] != 0:
+                return native_microbenchmark_error(
+                    "local commit manifest",
+                    "execution_error",
+                    completed["stderr"] or completed["stdout"] or "unknown failure",
+                    command,
+                    elapsed_ms,
+                )
+            try:
+                payload = json.loads(completed["stdout"].splitlines()[0])
+            except (json.JSONDecodeError, IndexError) as exc:
+                return native_microbenchmark_error(
+                    "local commit manifest",
+                    "invalid_output",
+                    f"{type(exc).__name__}: {exc}",
+                    command,
+                    elapsed_ms,
+                )
+            if payload.get("status") != "success":
+                return native_microbenchmark_error(
+                    "local commit manifest",
+                    str(payload.get("status", "unsupported")),
+                    payload.get("human_text") or "ShardLoom local commit did not succeed",
+                    command,
+                    elapsed_ms,
+                )
+            fields = parse_output_fields(payload)
+            bytes_written_value = parse_optional_int(fields.get("bytes_written"))
+            latency_value = parse_optional_int(fields.get("write_commit_latency_micros"))
+            if bytes_written_value is not None:
+                bytes_written.append(bytes_written_value)
+            if latency_value is not None:
+                commit_latencies.append(latency_value)
+        finally:
+            shutil.rmtree(workspace, ignore_errors=True)
+
+    fields = parse_output_fields(payload or {})
+    avg_commit_latency_micros = (
+        int(round(statistics.mean(commit_latencies))) if commit_latencies else None
+    )
+    return {
+        "name": "local commit manifest",
+        "status": (payload or {}).get("status", "unknown"),
+        "dataset": "synthetic local staged workspace",
+        "primitive": "local_commit",
+        "rows": "n/a",
+        "iterations": str(iterations),
+        "query_runtime_millis": round(statistics.mean(timings), 4),
+        "timing_scope": "average CLI process wall time",
+        "comparison_status": "not_applicable",
+        "claim_gate_status": "not_claim_grade",
+        "commit_executed": fields.get("commit_executed"),
+        "manifest_committed": fields.get("manifest_committed"),
+        "bytes_written": str(sum(bytes_written)) if bytes_written else fields.get("bytes_written"),
+        "write_commit_latency_micros": str(avg_commit_latency_micros)
+        if avg_commit_latency_micros is not None
+        else fields.get("write_commit_latency_micros"),
+        "write_commit_latency_millis": str(round(avg_commit_latency_micros / 1000.0, 4))
+        if avg_commit_latency_micros is not None
+        else fields.get("write_commit_latency_millis"),
+        "data_read": "false",
+        "data_decoded": "false",
+        "data_materialized": "false",
+        "row_read": "false",
+        "arrow_converted": "false",
+        "materialization_boundary_reported": "false",
+        "fallback_attempted": str((payload or {}).get("fallback", {}).get("attempted", False)).lower(),
+        "performance_claim_allowed": "false",
+        "command": command_template,
+    }
+
+
+def prepare_shardloom_commit_workspace(workspace: Path, iteration: int) -> None:
+    (workspace / "_shardloom_finalized_manifest.json").write_text(
+        json.dumps({"finalized": True, "iteration": iteration}, sort_keys=True),
+        encoding="utf-8",
+    )
+    (workspace / ".shardloom-commit-marker").write_text("marker=true\n", encoding="utf-8")
+    (workspace / "_shardloom_output_payload.vortex").write_bytes(b"payload")
 
 
 def subprocess_run(command: list[str], cwd: Path, env: dict[str, str]) -> dict[str, Any]:
@@ -2256,6 +2378,40 @@ def render_shardloom_work_avoidance_table(artifact: dict[str, Any]) -> str:
     )
 
 
+def render_shardloom_commit_table(artifact: dict[str, Any]) -> str:
+    rows = []
+    for result in artifact.get("shardloom_native_microbenchmarks", []):
+        if result.get("primitive") != "local_commit":
+            continue
+        rows.append(
+            [
+                result.get("name", "n/a"),
+                str(result.get("status", "n/a")),
+                str(result.get("iterations", "n/a")),
+                str(result.get("commit_executed", "n/a")),
+                str(result.get("manifest_committed", "n/a")),
+                format_bytes(parse_optional_int(result.get("bytes_written"))),
+                str(result.get("write_commit_latency_micros", "n/a")),
+                str(result.get("fallback_attempted", "n/a")),
+            ]
+        )
+    if not rows:
+        rows.append(["not run", "skipped", "n/a", "n/a", "n/a", "n/a", "n/a", "n/a"])
+    return markdown_table(
+        [
+            "Microbenchmark",
+            "Status",
+            "Iterations",
+            "Commit",
+            "Manifest committed",
+            "Bytes written",
+            "Avg commit us",
+            "Fallback",
+        ],
+        rows,
+    )
+
+
 def render_universal_io_table(artifact: dict[str, Any]) -> str:
     rows = []
     for lane in artifact.get("universal_io_lanes", []):
@@ -2411,6 +2567,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "These fields come from `vortex-run` runtime effects. Unknown segment-prune and bytes-not-read values stay explicit until the runtime can measure them safely.",
         "",
         render_shardloom_work_avoidance_table(artifact),
+        "",
+        "## ShardLoom Write/Commit Evidence",
+        "",
+        "This local-only smoke row measures the current committed-manifest step. It is not an object-store or table-format commit benchmark.",
+        "",
+        render_shardloom_commit_table(artifact),
         "",
         "## Universal I/O And CSV-To-Vortex Lanes",
         "",

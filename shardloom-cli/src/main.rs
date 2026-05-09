@@ -16158,6 +16158,7 @@ fn run(args: Vec<String>) -> ExitCode {
             for signal in signals {
                 request.add_signal(signal, true);
             }
+            let started = Instant::now();
             let report = match execute_vortex_local_commit(request) {
                 Ok(report) => report,
                 Err(error) => {
@@ -16169,6 +16170,7 @@ fn run(args: Vec<String>) -> ExitCode {
                     );
                 }
             };
+            let duration = started.elapsed();
             emit(
                 "vortex-local-commit-execute",
                 format,
@@ -16224,6 +16226,14 @@ fn run(args: Vec<String>) -> ExitCode {
                     (
                         "bytes_written".to_string(),
                         report.bytes_written.to_string(),
+                    ),
+                    (
+                        "write_commit_latency_micros".to_string(),
+                        duration_micros(duration).to_string(),
+                    ),
+                    (
+                        "write_commit_latency_millis".to_string(),
+                        micros_to_millis(duration_micros(duration)).to_string(),
                     ),
                     (
                         "checksum".to_string(),
