@@ -42,7 +42,7 @@ same hardware/cache settings before drawing conclusions.
 
 Each run writes a machine-readable JSON artifact and a human-readable Markdown
 report. The report begins with fairness parameters, then includes an engine
-overview, scenario timing matrix, fastest-row table, ASCII timing bars,
+overview with startup/warmup timing, scenario timing matrix, fastest-row table, ASCII timing bars,
 ShardLoom native microbenchmarks, universal-I/O evidence lanes, correctness
 summary, and separate failure/unsupported rows.
 
@@ -89,7 +89,9 @@ still running the other engines.
 Spark rows are split into `spark-default` and `spark-local-tuned`. The default
 profile uses `local[*]` plus Spark defaults, while the tuned profile caps
 shuffle/default parallelism to the local CPU count and enables AQE. The `spark`
-engine alias expands to both profiles.
+engine alias expands to both profiles. Each Spark profile starts and warms its
+own Spark session immediately before its scenario rows, and the harness records
+that startup/warmup time separately from per-scenario timings.
 
 On Windows the harness also checks common Temurin/Eclipse Adoptium install
 paths and will set `JAVA_HOME` for the benchmark process when it finds a local
