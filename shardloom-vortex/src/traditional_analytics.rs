@@ -540,6 +540,13 @@ pub struct TraditionalAnalyticsReport {
     pub vortex_file_written: bool,
     pub vortex_file_read: bool,
     pub upstream_vortex_scan_called: bool,
+    pub streaming_vortex_execution_used: bool,
+    pub full_table_materialization_avoided: bool,
+    pub streaming_filter_pushdown_applied: bool,
+    pub streaming_projection_pushdown_applied: bool,
+    pub streaming_arrays_read_count: usize,
+    pub streaming_max_chunk_rows: usize,
+    pub streaming_projected_columns: Vec<String>,
     pub data_decoded: bool,
     pub data_materialized: bool,
     pub materialization_boundary_report_emitted: bool,
@@ -821,6 +828,7 @@ impl TraditionalAnalyticsReport {
                 self.spill_io_performed.to_string(),
             ),
         ];
+        fields.extend(streaming_execution_fields(self));
         fields.extend(native_io_certificate_fields(&self.native_io_certificate));
         fields
     }
@@ -850,6 +858,13 @@ pub struct TraditionalAnalyticsVortexReport {
     pub vortex_source_adapter_used: bool,
     pub vortex_file_read: bool,
     pub upstream_vortex_scan_called: bool,
+    pub streaming_vortex_execution_used: bool,
+    pub full_table_materialization_avoided: bool,
+    pub streaming_filter_pushdown_applied: bool,
+    pub streaming_projection_pushdown_applied: bool,
+    pub streaming_arrays_read_count: usize,
+    pub streaming_max_chunk_rows: usize,
+    pub streaming_projected_columns: Vec<String>,
     pub data_decoded: bool,
     pub data_materialized: bool,
     pub materialization_boundary_report_emitted: bool,
@@ -878,7 +893,14 @@ impl TraditionalAnalyticsVortexReport {
 
     #[must_use]
     pub fn fields(&self) -> Vec<(String, String)> {
-        let mut fields = vec![
+        let mut fields = self.base_fields();
+        fields.extend(streaming_execution_fields(self));
+        fields.extend(native_io_certificate_fields(&self.native_io_certificate));
+        fields
+    }
+
+    fn base_fields(&self) -> Vec<(String, String)> {
+        let fields = vec![
             (
                 "fallback_execution_allowed".to_string(),
                 self.fallback_execution_allowed.to_string(),
@@ -973,9 +995,111 @@ impl TraditionalAnalyticsVortexReport {
                 self.spill_io_performed.to_string(),
             ),
         ];
-        fields.extend(native_io_certificate_fields(&self.native_io_certificate));
         fields
     }
+}
+
+trait StreamingExecutionFieldView {
+    fn streaming_vortex_execution_used(&self) -> bool;
+    fn full_table_materialization_avoided(&self) -> bool;
+    fn streaming_filter_pushdown_applied(&self) -> bool;
+    fn streaming_projection_pushdown_applied(&self) -> bool;
+    fn streaming_arrays_read_count(&self) -> usize;
+    fn streaming_max_chunk_rows(&self) -> usize;
+    fn streaming_projected_columns(&self) -> &[String];
+}
+
+impl StreamingExecutionFieldView for TraditionalAnalyticsReport {
+    fn streaming_vortex_execution_used(&self) -> bool {
+        self.streaming_vortex_execution_used
+    }
+
+    fn full_table_materialization_avoided(&self) -> bool {
+        self.full_table_materialization_avoided
+    }
+
+    fn streaming_filter_pushdown_applied(&self) -> bool {
+        self.streaming_filter_pushdown_applied
+    }
+
+    fn streaming_projection_pushdown_applied(&self) -> bool {
+        self.streaming_projection_pushdown_applied
+    }
+
+    fn streaming_arrays_read_count(&self) -> usize {
+        self.streaming_arrays_read_count
+    }
+
+    fn streaming_max_chunk_rows(&self) -> usize {
+        self.streaming_max_chunk_rows
+    }
+
+    fn streaming_projected_columns(&self) -> &[String] {
+        &self.streaming_projected_columns
+    }
+}
+
+impl StreamingExecutionFieldView for TraditionalAnalyticsVortexReport {
+    fn streaming_vortex_execution_used(&self) -> bool {
+        self.streaming_vortex_execution_used
+    }
+
+    fn full_table_materialization_avoided(&self) -> bool {
+        self.full_table_materialization_avoided
+    }
+
+    fn streaming_filter_pushdown_applied(&self) -> bool {
+        self.streaming_filter_pushdown_applied
+    }
+
+    fn streaming_projection_pushdown_applied(&self) -> bool {
+        self.streaming_projection_pushdown_applied
+    }
+
+    fn streaming_arrays_read_count(&self) -> usize {
+        self.streaming_arrays_read_count
+    }
+
+    fn streaming_max_chunk_rows(&self) -> usize {
+        self.streaming_max_chunk_rows
+    }
+
+    fn streaming_projected_columns(&self) -> &[String] {
+        &self.streaming_projected_columns
+    }
+}
+
+fn streaming_execution_fields(report: &impl StreamingExecutionFieldView) -> Vec<(String, String)> {
+    vec![
+        (
+            "streaming_vortex_execution_used".to_string(),
+            report.streaming_vortex_execution_used().to_string(),
+        ),
+        (
+            "full_table_materialization_avoided".to_string(),
+            report.full_table_materialization_avoided().to_string(),
+        ),
+        (
+            "streaming_filter_pushdown_applied".to_string(),
+            report.streaming_filter_pushdown_applied().to_string(),
+        ),
+        (
+            "streaming_projection_pushdown_applied".to_string(),
+            report.streaming_projection_pushdown_applied().to_string(),
+        ),
+        (
+            "streaming_arrays_read_count".to_string(),
+            report.streaming_arrays_read_count().to_string(),
+        ),
+        (
+            "streaming_max_chunk_rows".to_string(),
+            report.streaming_max_chunk_rows().to_string(),
+        ),
+        (
+            "streaming_projected_columns".to_string(),
+            report.streaming_projected_columns().join(","),
+        ),
+    ]
 }
 
 #[allow(clippy::too_many_lines)]
@@ -1397,6 +1521,78 @@ impl TraditionalComplexAccum {
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+struct TraditionalScenarioExecutionEvidence {
+    streaming_vortex_execution_used: bool,
+    full_table_materialization_avoided: bool,
+    filter_pushdown_applied: bool,
+    projection_pushdown_applied: bool,
+    arrays_read_count: usize,
+    max_chunk_rows: usize,
+    projected_columns: Vec<String>,
+    data_decoded: bool,
+    data_materialized: bool,
+    row_read: bool,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalScenarioExecutionEvidence {
+    fn table_materialized() -> Self {
+        Self {
+            streaming_vortex_execution_used: false,
+            full_table_materialization_avoided: false,
+            filter_pushdown_applied: false,
+            projection_pushdown_applied: false,
+            arrays_read_count: 0,
+            max_chunk_rows: 0,
+            projected_columns: Vec::new(),
+            data_decoded: true,
+            data_materialized: true,
+            row_read: false,
+        }
+    }
+
+    fn streaming(stats: TraditionalStreamingScanStats) -> Self {
+        Self {
+            streaming_vortex_execution_used: true,
+            full_table_materialization_avoided: true,
+            filter_pushdown_applied: stats.filter_pushdown_applied,
+            projection_pushdown_applied: stats.projection_pushdown_applied,
+            arrays_read_count: stats.arrays_read_count,
+            max_chunk_rows: stats.max_chunk_rows,
+            projected_columns: stats.projected_columns,
+            data_decoded: true,
+            data_materialized: false,
+            row_read: false,
+        }
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, PartialEq)]
+struct TraditionalScenarioExecution {
+    result_json: String,
+    fact_rows: u64,
+    dim_rows: u64,
+    rows_scanned: u64,
+    rows_materialized: u64,
+    evidence: TraditionalScenarioExecutionEvidence,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone)]
+struct TraditionalStreamingScanStats {
+    source_row_count: u64,
+    result_row_count: u64,
+    arrays_read_count: usize,
+    max_chunk_rows: usize,
+    projected_columns: Vec<String>,
+    filter_pushdown_applied: bool,
+    projection_pushdown_applied: bool,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 #[allow(clippy::too_many_lines)]
 fn run_traditional_analytics_benchmark_enabled(
     request: TraditionalAnalyticsRequest,
@@ -1430,9 +1626,10 @@ fn run_traditional_analytics_benchmark_enabled(
     let dim_vortex_path = request.workspace_dir.join("dim.vortex");
     write_fact_vortex(&fact_rows, &fact_vortex_path)?;
     write_dim_vortex(&dim_rows, &dim_vortex_path)?;
-    let fact = read_fact_vortex(&fact_vortex_path)?;
-    let dim = read_dim_vortex(&dim_vortex_path)?;
-    let compatibility_output = if let Some(output_format) = request.compatibility_output_format {
+    let mut compatibility_output = None;
+    let scenario_execution = if let Some(output_format) = request.compatibility_output_format {
+        let fact = read_fact_vortex(&fact_vortex_path)?;
+        let dim = read_dim_vortex(&dim_vortex_path)?;
         let output_dir = request.workspace_dir.join("compatibility_output");
         fs::create_dir_all(&output_dir).map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
@@ -1442,19 +1639,14 @@ fn run_traditional_analytics_benchmark_enabled(
         })?;
         let (fact_output, dim_output) =
             write_traditional_compatibility_outputs(&fact, &dim, output_format, &output_dir)?;
-        Some((output_format, fact_output, dim_output))
+        compatibility_output = Some((output_format, fact_output, dim_output));
+        run_vortex_derived_scenario_from_tables(request.scenario, &fact, &dim)?
     } else {
-        None
-    };
-    let result_json = run_vortex_derived_scenario(request.scenario, &fact, &dim)?;
-    let rows_materialized = result_rows_materialized(&result_json)?;
-    let rows_scanned = match request.scenario {
-        TraditionalAnalyticsScenario::HashJoin
-        | TraditionalAnalyticsScenario::ScaleStressSkewedJoinAggregation
-        | TraditionalAnalyticsScenario::ScaleStressMultiStageEtl => {
-            checked_usize_sum_to_u64(fact.len(), dim.len())?
-        }
-        _ => usize_to_u64(fact.len())?,
+        run_vortex_derived_scenario_from_files(
+            request.scenario,
+            &fact_vortex_path,
+            &dim_vortex_path,
+        )?
     };
     let fact_vortex_bytes = file_len(&fact_vortex_path, "fact Vortex file")?;
     let dim_vortex_bytes = file_len(&dim_vortex_path, "dimension Vortex file")?;
@@ -1484,11 +1676,11 @@ fn run_traditional_analytics_benchmark_enabled(
         scenario: request.scenario,
         input_format: request.input_format,
         resource_policy,
-        result_json,
-        fact_rows: usize_to_u64(fact.len())?,
-        dim_rows: usize_to_u64(dim.len())?,
-        rows_scanned,
-        rows_materialized,
+        result_json: scenario_execution.result_json,
+        fact_rows: scenario_execution.fact_rows,
+        dim_rows: scenario_execution.dim_rows,
+        rows_scanned: scenario_execution.rows_scanned,
+        rows_materialized: scenario_execution.rows_materialized,
         workspace_dir: request.workspace_dir,
         fact_vortex_path,
         dim_vortex_path,
@@ -1541,6 +1733,19 @@ fn run_traditional_analytics_benchmark_enabled(
         vortex_file_written: true,
         vortex_file_read: true,
         upstream_vortex_scan_called: true,
+        streaming_vortex_execution_used: scenario_execution
+            .evidence
+            .streaming_vortex_execution_used,
+        full_table_materialization_avoided: scenario_execution
+            .evidence
+            .full_table_materialization_avoided,
+        streaming_filter_pushdown_applied: scenario_execution.evidence.filter_pushdown_applied,
+        streaming_projection_pushdown_applied: scenario_execution
+            .evidence
+            .projection_pushdown_applied,
+        streaming_arrays_read_count: scenario_execution.evidence.arrays_read_count,
+        streaming_max_chunk_rows: scenario_execution.evidence.max_chunk_rows,
+        streaming_projected_columns: scenario_execution.evidence.projected_columns,
         data_decoded: true,
         data_materialized: true,
         materialization_boundary_report_emitted: true,
@@ -1567,23 +1772,21 @@ fn run_traditional_analytics_vortex_benchmark_enabled(
                 "native Vortex traditional analytics source byte count overflow".to_string(),
             )
         })?;
-    let fact = read_fact_vortex(&request.fact_vortex)?;
-    let dim = read_dim_vortex(&request.dim_vortex)?;
-    let result_json = run_vortex_derived_scenario(request.scenario, &fact, &dim)?;
-    let rows_materialized = result_rows_materialized(&result_json)?;
-    let rows_scanned = match request.scenario {
-        TraditionalAnalyticsScenario::HashJoin
-        | TraditionalAnalyticsScenario::ScaleStressSkewedJoinAggregation
-        | TraditionalAnalyticsScenario::ScaleStressMultiStageEtl => {
-            checked_usize_sum_to_u64(fact.len(), dim.len())?
-        }
-        _ => usize_to_u64(fact.len())?,
+    let scenario_execution = run_vortex_derived_scenario_from_files(
+        request.scenario,
+        &request.fact_vortex,
+        &request.dim_vortex,
+    )?;
+    let materialization_boundary_rows = if scenario_execution.evidence.data_materialized {
+        checked_u64_sum(scenario_execution.fact_rows, scenario_execution.dim_rows)?
+    } else {
+        0
     };
-    let materialization_boundary_rows = checked_usize_sum_to_u64(fact.len(), dim.len())?;
     let native_io_certificate = traditional_native_vortex_io_certificate(
         request.scenario,
         source_bytes_read,
         materialization_boundary_rows,
+        &scenario_execution.evidence,
     )?;
     if !native_io_certificate.is_certified() {
         return Err(ShardLoomError::InvalidOperation(
@@ -1594,11 +1797,11 @@ fn run_traditional_analytics_vortex_benchmark_enabled(
 
     Ok(TraditionalAnalyticsVortexReport {
         scenario: request.scenario,
-        result_json,
-        fact_rows: usize_to_u64(fact.len())?,
-        dim_rows: usize_to_u64(dim.len())?,
-        rows_scanned,
-        rows_materialized,
+        result_json: scenario_execution.result_json,
+        fact_rows: scenario_execution.fact_rows,
+        dim_rows: scenario_execution.dim_rows,
+        rows_scanned: scenario_execution.rows_scanned,
+        rows_materialized: scenario_execution.rows_materialized,
         fact_vortex_path: request.fact_vortex,
         dim_vortex_path: request.dim_vortex,
         fact_vortex_bytes,
@@ -1613,10 +1816,23 @@ fn run_traditional_analytics_vortex_benchmark_enabled(
         vortex_source_adapter_used: true,
         vortex_file_read: true,
         upstream_vortex_scan_called: true,
-        data_decoded: true,
-        data_materialized: true,
+        streaming_vortex_execution_used: scenario_execution
+            .evidence
+            .streaming_vortex_execution_used,
+        full_table_materialization_avoided: scenario_execution
+            .evidence
+            .full_table_materialization_avoided,
+        streaming_filter_pushdown_applied: scenario_execution.evidence.filter_pushdown_applied,
+        streaming_projection_pushdown_applied: scenario_execution
+            .evidence
+            .projection_pushdown_applied,
+        streaming_arrays_read_count: scenario_execution.evidence.arrays_read_count,
+        streaming_max_chunk_rows: scenario_execution.evidence.max_chunk_rows,
+        streaming_projected_columns: scenario_execution.evidence.projected_columns,
+        data_decoded: scenario_execution.evidence.data_decoded,
+        data_materialized: scenario_execution.evidence.data_materialized,
         materialization_boundary_report_emitted: true,
-        row_read: false,
+        row_read: scenario_execution.evidence.row_read,
         arrow_converted: false,
         object_store_io: false,
         write_io: false,
@@ -1732,7 +1948,13 @@ fn traditional_native_vortex_io_certificate(
     scenario: TraditionalAnalyticsScenario,
     source_bytes_read: u64,
     source_rows_materialized: u64,
+    execution_evidence: &TraditionalScenarioExecutionEvidence,
 ) -> Result<NativeIoCertificate> {
+    let transition_to_state = if execution_evidence.data_materialized {
+        RepresentationState::MaterializedRows
+    } else {
+        RepresentationState::PartiallyDecoded
+    };
     NativeIoCertificate::new(
         format!(
             "cg19.traditional_analytics.native_vortex.{}",
@@ -1752,72 +1974,202 @@ fn traditional_native_vortex_io_certificate(
             fallback_attempted: false,
         },
         NativeIoSourcePushdownReport {
-            accepted_operations: vec!["vortex_file_scan".to_string()],
-            rejected_operations: vec![scenario.as_str().to_string()],
-            guarantee: "exact_scan_then_temporary_operator".to_string(),
-            proof_basis: "local native Vortex benchmark path reads Vortex files and runs current temporary benchmark operators after scan".to_string(),
-            residual_expression: Some(scenario.as_str().to_string()),
+            accepted_operations: native_vortex_pushdown_operations(execution_evidence),
+            rejected_operations: native_vortex_rejected_operations(scenario, execution_evidence),
+            guarantee: if execution_evidence.streaming_vortex_execution_used {
+                "exact_streaming_scan_then_scalar_operator".to_string()
+            } else {
+                "exact_scan_then_temporary_operator".to_string()
+            },
+            proof_basis: native_vortex_proof_basis(execution_evidence),
+            residual_expression: Some(native_vortex_residual_expression(
+                scenario,
+                execution_evidence,
+            )),
             conservative_false_positive_policy: false,
             unsafe_rejected_reason: None,
             fallback_attempted: false,
         },
         vec![NativeIoRepresentationTransition::new(
             RepresentationState::VortexEncoded,
-            RepresentationState::MaterializedRows,
+            transition_to_state,
             true,
         )],
-        NativeIoSinkRequirementReport {
-            target_format: "benchmark_result_json".to_string(),
-            accepts_encoded: false,
-            requires_decoded_columnar: true,
-            requires_rows: false,
-            preserves_metadata: false,
-            requires_ordering: false,
-            requires_partitioning: false,
-            requires_commit: false,
-            supports_streaming: false,
-            max_chunk_size: Some(source_rows_materialized),
-            backpressure_policy: "not_applicable_local_smoke".to_string(),
-        },
-        NativeIoAdapterFidelityReport {
-            adapter_id: "shardloom.adapter.vortex.local_benchmark.v1".to_string(),
-            source_kind: "vortex".to_string(),
-            sink_kind: "benchmark_result_json".to_string(),
-            metadata_preserved: false,
-            statistics_preserved: false,
-            encoded_representation_preserved: false,
-            materialization_required: true,
-            fidelity_loss: "none_for_declared_benchmark_schema".to_string(),
-            metadata_loss: "current temporary benchmark result does not preserve Vortex layout metadata"
-                .to_string(),
-            fallback_attempted: false,
-        },
-        vec![NativeIoMaterializationBoundaryReport {
-            boundary_id: "cg19.native_vortex_temporary_operator".to_string(),
-            from_state: RepresentationState::VortexEncoded,
-            to_state: RepresentationState::MaterializedRows,
-            required_by: "traditional_analytics_temporary_operator".to_string(),
-            reason: "Current traditional analytics benchmark operators read native Vortex inputs but still materialize benchmark columns before producing result JSON".to_string(),
-            bytes_decoded: source_bytes_read,
-            rows_materialized: source_rows_materialized,
-            fidelity_loss: "none_for_declared_benchmark_schema".to_string(),
-            fallback_attempted: false,
-        }],
-        NativeIoSideEffectReport {
-            data_read: true,
-            data_decoded: true,
-            data_materialized: true,
-            row_read: false,
-            arrow_converted: false,
-            object_store_io: false,
-            write_io: false,
-            spill_io_performed: false,
-            external_effects_executed: false,
-            fallback_attempted: false,
-            fallback_execution_allowed: false,
-        },
+        native_vortex_sink_requirement_report(source_rows_materialized, execution_evidence),
+        native_vortex_adapter_fidelity_report(execution_evidence),
+        vec![native_vortex_materialization_boundary_report(
+            source_bytes_read,
+            source_rows_materialized,
+            transition_to_state,
+            execution_evidence,
+        )],
+        native_vortex_side_effect_report(execution_evidence),
         Vec::new(),
     )
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn native_vortex_sink_requirement_report(
+    source_rows_materialized: u64,
+    execution_evidence: &TraditionalScenarioExecutionEvidence,
+) -> NativeIoSinkRequirementReport {
+    NativeIoSinkRequirementReport {
+        target_format: "benchmark_result_json".to_string(),
+        accepts_encoded: false,
+        requires_decoded_columnar: true,
+        requires_rows: false,
+        preserves_metadata: false,
+        requires_ordering: false,
+        requires_partitioning: false,
+        requires_commit: false,
+        supports_streaming: execution_evidence.streaming_vortex_execution_used,
+        max_chunk_size: Some(source_rows_materialized),
+        backpressure_policy: "not_applicable_local_smoke".to_string(),
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn native_vortex_adapter_fidelity_report(
+    execution_evidence: &TraditionalScenarioExecutionEvidence,
+) -> NativeIoAdapterFidelityReport {
+    NativeIoAdapterFidelityReport {
+        adapter_id: "shardloom.adapter.vortex.local_benchmark.v1".to_string(),
+        source_kind: "vortex".to_string(),
+        sink_kind: "benchmark_result_json".to_string(),
+        metadata_preserved: false,
+        statistics_preserved: false,
+        encoded_representation_preserved: false,
+        materialization_required: execution_evidence.data_materialized,
+        fidelity_loss: "none_for_declared_benchmark_schema".to_string(),
+        metadata_loss:
+            "current temporary benchmark result does not preserve Vortex layout metadata"
+                .to_string(),
+        fallback_attempted: false,
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn native_vortex_materialization_boundary_report(
+    source_bytes_read: u64,
+    source_rows_materialized: u64,
+    transition_to_state: RepresentationState,
+    execution_evidence: &TraditionalScenarioExecutionEvidence,
+) -> NativeIoMaterializationBoundaryReport {
+    NativeIoMaterializationBoundaryReport {
+        boundary_id: native_vortex_boundary_id(execution_evidence).to_string(),
+        from_state: RepresentationState::VortexEncoded,
+        to_state: transition_to_state,
+        required_by: native_vortex_boundary_required_by(execution_evidence).to_string(),
+        reason: native_vortex_boundary_reason(execution_evidence).to_string(),
+        bytes_decoded: source_bytes_read,
+        rows_materialized: source_rows_materialized,
+        fidelity_loss: "none_for_declared_benchmark_schema".to_string(),
+        fallback_attempted: false,
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn native_vortex_side_effect_report(
+    execution_evidence: &TraditionalScenarioExecutionEvidence,
+) -> NativeIoSideEffectReport {
+    NativeIoSideEffectReport {
+        data_read: true,
+        data_decoded: execution_evidence.data_decoded,
+        data_materialized: execution_evidence.data_materialized,
+        row_read: execution_evidence.row_read,
+        arrow_converted: false,
+        object_store_io: false,
+        write_io: false,
+        spill_io_performed: false,
+        external_effects_executed: false,
+        fallback_attempted: false,
+        fallback_execution_allowed: false,
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn native_vortex_pushdown_operations(
+    execution_evidence: &TraditionalScenarioExecutionEvidence,
+) -> Vec<String> {
+    let mut operations = vec!["vortex_file_scan".to_string()];
+    if execution_evidence.filter_pushdown_applied {
+        operations.push("vortex_scan_filter".to_string());
+    }
+    if execution_evidence.projection_pushdown_applied {
+        operations.push("vortex_scan_projection".to_string());
+    }
+    operations
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn native_vortex_rejected_operations(
+    scenario: TraditionalAnalyticsScenario,
+    execution_evidence: &TraditionalScenarioExecutionEvidence,
+) -> Vec<String> {
+    if execution_evidence.streaming_vortex_execution_used {
+        vec![format!("{}_result_json_scalar_finish", scenario.as_str())]
+    } else {
+        vec![scenario.as_str().to_string()]
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn native_vortex_boundary_id(
+    execution_evidence: &TraditionalScenarioExecutionEvidence,
+) -> &'static str {
+    if execution_evidence.data_materialized {
+        "cg19.native_vortex_temporary_operator"
+    } else {
+        "cg19.native_vortex_streaming_operator"
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn native_vortex_boundary_required_by(
+    execution_evidence: &TraditionalScenarioExecutionEvidence,
+) -> &'static str {
+    if execution_evidence.streaming_vortex_execution_used {
+        "traditional_analytics_streaming_operator"
+    } else {
+        "traditional_analytics_temporary_operator"
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn native_vortex_boundary_reason(
+    execution_evidence: &TraditionalScenarioExecutionEvidence,
+) -> &'static str {
+    if execution_evidence.data_materialized {
+        "Current traditional analytics benchmark operators read native Vortex inputs but still materialize benchmark columns before producing result JSON"
+    } else {
+        "Current traditional analytics benchmark operator streams projected Vortex chunks and decodes only required scalar columns before producing result JSON"
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn native_vortex_proof_basis(execution_evidence: &TraditionalScenarioExecutionEvidence) -> String {
+    if execution_evidence.streaming_vortex_execution_used {
+        "local native Vortex benchmark path streams projected Vortex chunks and applies the remaining scalar result assembly inside ShardLoom"
+            .to_string()
+    } else {
+        "local native Vortex benchmark path reads Vortex files and runs current temporary benchmark operators after scan"
+            .to_string()
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn native_vortex_residual_expression(
+    scenario: TraditionalAnalyticsScenario,
+    execution_evidence: &TraditionalScenarioExecutionEvidence,
+) -> String {
+    if execution_evidence.streaming_vortex_execution_used {
+        format!(
+            "{} result JSON scalar finish over projected chunks",
+            scenario.as_str()
+        )
+    } else {
+        scenario.as_str().to_string()
+    }
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -3348,6 +3700,216 @@ fn arrow_type_error(
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_vortex_derived_scenario_from_files(
+    scenario: TraditionalAnalyticsScenario,
+    fact_path: &std::path::Path,
+    dim_path: &std::path::Path,
+) -> Result<TraditionalScenarioExecution> {
+    match scenario {
+        TraditionalAnalyticsScenario::CsvFileIngest => {
+            run_streaming_fact_metric_sum_scenario(fact_path, dim_path, None, "metric")
+        }
+        TraditionalAnalyticsScenario::SelectiveFilter => run_streaming_fact_metric_sum_scenario(
+            fact_path,
+            dim_path,
+            Some(selective_filter_expr()),
+            "metric",
+        ),
+        TraditionalAnalyticsScenario::WideProjection => {
+            run_streaming_fact_metric_sum_scenario(fact_path, dim_path, None, "group_key")
+        }
+        _ => {
+            let fact = read_fact_vortex(fact_path)?;
+            let dim = read_dim_vortex(dim_path)?;
+            run_vortex_derived_scenario_from_tables(scenario, &fact, &dim)
+        }
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_vortex_derived_scenario_from_tables(
+    scenario: TraditionalAnalyticsScenario,
+    fact: &VortexFactTable,
+    dim: &VortexDimTable,
+) -> Result<TraditionalScenarioExecution> {
+    let result_json = run_vortex_derived_scenario(scenario, fact, dim)?;
+    let rows_materialized = result_rows_materialized(&result_json)?;
+    let rows_scanned = match scenario {
+        TraditionalAnalyticsScenario::HashJoin
+        | TraditionalAnalyticsScenario::ScaleStressSkewedJoinAggregation
+        | TraditionalAnalyticsScenario::ScaleStressMultiStageEtl => {
+            checked_usize_sum_to_u64(fact.len(), dim.len())?
+        }
+        _ => usize_to_u64(fact.len())?,
+    };
+    Ok(TraditionalScenarioExecution {
+        result_json,
+        fact_rows: usize_to_u64(fact.len())?,
+        dim_rows: usize_to_u64(dim.len())?,
+        rows_scanned,
+        rows_materialized,
+        evidence: TraditionalScenarioExecutionEvidence::table_materialized(),
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn run_streaming_fact_metric_sum_scenario(
+    fact_path: &std::path::Path,
+    dim_path: &std::path::Path,
+    filter: Option<vortex::array::expr::Expression>,
+    sum_column: &'static str,
+) -> Result<TraditionalScenarioExecution> {
+    let dim_rows = vortex_file_row_count(dim_path)?;
+    let mut metric_sum = 0.0;
+    let stats =
+        scan_fact_vortex_projected(fact_path, &[sum_column], filter, |fields, _chunk_rows| {
+            if sum_column == "metric" {
+                metric_sum += primitive_field::<f64>(fields, sum_column)?
+                    .iter()
+                    .sum::<f64>();
+            } else {
+                metric_sum += primitive_field::<u32>(fields, sum_column)?
+                    .iter()
+                    .map(|value| f64::from(*value))
+                    .sum::<f64>();
+            }
+            Ok(())
+        })?;
+    let result_json = scalar_result_json(stats.result_row_count, metric_sum);
+    Ok(TraditionalScenarioExecution {
+        result_json,
+        fact_rows: stats.source_row_count,
+        dim_rows,
+        rows_scanned: stats.source_row_count,
+        rows_materialized: 1,
+        evidence: TraditionalScenarioExecutionEvidence::streaming(stats),
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn scan_fact_vortex_projected(
+    path: &std::path::Path,
+    projected_columns: &[&'static str],
+    filter: Option<vortex::array::expr::Expression>,
+    mut process: impl FnMut(
+        &std::collections::BTreeMap<String, vortex::array::ArrayRef>,
+        usize,
+    ) -> Result<()>,
+) -> Result<TraditionalStreamingScanStats> {
+    use vortex::VortexSessionDefault as _;
+    use vortex::array::expr::{root, select};
+    use vortex::file::OpenOptionsSessionExt as _;
+    use vortex::io::runtime::BlockingRuntime as _;
+    use vortex::io::runtime::single::SingleThreadRuntime;
+    use vortex::io::session::RuntimeSessionExt as _;
+    use vortex::session::VortexSession;
+
+    let runtime = SingleThreadRuntime::default();
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let file = runtime
+        .block_on(session.open_options().open_path(path))
+        .map_err(vortex_error)?;
+    let source_row_count = file.row_count();
+    let filter_pushdown_applied = filter.is_some();
+    let projection_pushdown_applied = !projected_columns.is_empty();
+    let mut scan = file.scan().map_err(vortex_error)?;
+    if let Some(filter) = filter {
+        scan = scan.with_filter(filter);
+    }
+    if projection_pushdown_applied {
+        scan = scan.with_projection(select(projected_columns.to_vec(), root()));
+    }
+    let mut result_row_count = 0_u64;
+    let mut arrays_read_count = 0_usize;
+    let mut max_chunk_rows = 0_usize;
+    for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
+        let chunk = chunk.map_err(vortex_error)?;
+        let chunk_rows = chunk.len();
+        let fields = projected_fields_from_chunk(chunk, projected_columns)?;
+        process(&fields, chunk_rows)?;
+        result_row_count = checked_u64_sum(result_row_count, usize_to_u64(chunk_rows)?)?;
+        arrays_read_count += 1;
+        max_chunk_rows = max_chunk_rows.max(chunk_rows);
+    }
+    Ok(TraditionalStreamingScanStats {
+        source_row_count,
+        result_row_count,
+        arrays_read_count,
+        max_chunk_rows,
+        projected_columns: projected_columns
+            .iter()
+            .map(|column| (*column).to_string())
+            .collect(),
+        filter_pushdown_applied,
+        projection_pushdown_applied,
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn projected_fields_from_chunk(
+    chunk: vortex::array::ArrayRef,
+    projected_columns: &[&str],
+) -> Result<std::collections::BTreeMap<String, vortex::array::ArrayRef>> {
+    use vortex::array::VortexSessionExecute as _;
+    use vortex::array::arrays::StructArray;
+    use vortex::array::arrays::struct_::StructArrayExt as _;
+    use vortex::array::dtype::DType;
+
+    match chunk.dtype() {
+        DType::Struct(_, _) => {
+            let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+            let struct_array = chunk
+                .execute::<StructArray>(&mut ctx)
+                .map_err(vortex_error)?;
+            let mut fields = std::collections::BTreeMap::new();
+            for name in struct_array.names().iter() {
+                let field = struct_array
+                    .unmasked_field_by_name(name.as_ref())
+                    .map_err(vortex_error)?
+                    .clone();
+                fields.insert(name.as_ref().to_string(), field);
+            }
+            Ok(fields)
+        }
+        DType::Primitive(_, _) if projected_columns.len() == 1 => {
+            Ok([(projected_columns[0].to_string(), chunk)]
+                .into_iter()
+                .collect())
+        }
+        other => Err(ShardLoomError::InvalidOperation(format!(
+            "projected Vortex chunk has unsupported dtype {other:?}"
+        ))),
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn selective_filter_expr() -> vortex::array::expr::Expression {
+    use vortex::array::expr::{and, col, eq, gt_eq, lit};
+
+    and(
+        eq(col("flag".to_string()), lit(1_u8)),
+        gt_eq(col("value".to_string()), lit(5_000_u32)),
+    )
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn vortex_file_row_count(path: &std::path::Path) -> Result<u64> {
+    use vortex::VortexSessionDefault as _;
+    use vortex::file::OpenOptionsSessionExt as _;
+    use vortex::io::runtime::BlockingRuntime as _;
+    use vortex::io::runtime::single::SingleThreadRuntime;
+    use vortex::io::session::RuntimeSessionExt as _;
+    use vortex::session::VortexSession;
+
+    let runtime = SingleThreadRuntime::default();
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let file = runtime
+        .block_on(session.open_options().open_path(path))
+        .map_err(vortex_error)?;
+    Ok(file.row_count())
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn run_vortex_derived_scenario(
     scenario: TraditionalAnalyticsScenario,
     fact: &VortexFactTable,
@@ -3602,6 +4164,13 @@ fn checked_usize_sum_to_u64(left: usize, right: usize) -> Result<u64> {
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn checked_u64_sum(left: u64, right: u64) -> Result<u64> {
+    left.checked_add(right).ok_or_else(|| {
+        ShardLoomError::InvalidOperation("traditional analytics row count overflow".to_string())
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn usize_to_u64(value: usize) -> Result<u64> {
     u64::try_from(value).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
@@ -3705,6 +4274,85 @@ mod tests {
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn assert_streaming_selective_filter_import_report(report: &TraditionalAnalyticsReport) {
+        assert!(report.streaming_vortex_execution_used);
+        assert!(report.full_table_materialization_avoided);
+        assert!(report.streaming_filter_pushdown_applied);
+        assert!(report.streaming_projection_pushdown_applied);
+        assert!(report.streaming_arrays_read_count > 0);
+        assert!(report.streaming_max_chunk_rows > 0);
+        assert_eq!(
+            report.streaming_projected_columns,
+            vec!["metric".to_string()]
+        );
+        assert!(report.data_decoded);
+        assert!(report.data_materialized);
+        assert_eq!(report.rows_scanned, 3);
+        assert_eq!(report.rows_materialized, 1);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn assert_streaming_selective_filter_native_report(report: &TraditionalAnalyticsVortexReport) {
+        assert!(report.streaming_vortex_execution_used);
+        assert!(report.full_table_materialization_avoided);
+        assert!(report.streaming_filter_pushdown_applied);
+        assert!(report.streaming_projection_pushdown_applied);
+        assert!(report.streaming_arrays_read_count > 0);
+        assert!(report.streaming_max_chunk_rows > 0);
+        assert_eq!(
+            report.streaming_projected_columns,
+            vec!["metric".to_string()]
+        );
+        assert!(report.data_decoded);
+        assert!(!report.data_materialized);
+        assert_eq!(report.rows_scanned, 3);
+        assert_eq!(report.rows_materialized, 1);
+        assert_eq!(report.materialization_boundary_rows, 0);
+        assert_eq!(
+            report
+                .native_io_certificate
+                .representation_transition_order(),
+            "vortex_encoded->partially_decoded"
+        );
+        assert_eq!(
+            report.native_io_certificate.materialization_boundaries[0].rows_materialized,
+            0
+        );
+        assert!(
+            report
+                .native_io_certificate
+                .sink_requirement_report
+                .supports_streaming
+        );
+        assert!(
+            !report
+                .native_io_certificate
+                .adapter_fidelity_report
+                .materialization_required
+        );
+        assert!(!report.native_io_certificate.side_effects.data_materialized);
+        let accepted = &report
+            .native_io_certificate
+            .source_pushdown_report
+            .accepted_operations;
+        assert!(
+            accepted
+                .iter()
+                .any(|operation| operation == "vortex_file_scan")
+        );
+        assert!(
+            accepted
+                .iter()
+                .any(|operation| operation == "vortex_scan_filter")
+        );
+        assert!(
+            accepted
+                .iter()
+                .any(|operation| operation == "vortex_scan_projection")
+        );
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     #[test]
     fn enabled_build_runs_csv_through_local_vortex_io() {
         let root = traditional_analytics_test_root("csv");
@@ -3750,6 +4398,7 @@ mod tests {
         assert!(report.vortex_file_written);
         assert!(report.vortex_file_read);
         assert!(report.upstream_vortex_scan_called);
+        assert_streaming_selective_filter_import_report(&report);
         assert!(report.materialization_boundary_report_emitted);
         assert!(report.row_read);
         assert!(!report.fallback_execution_allowed);
@@ -3772,10 +4421,65 @@ mod tests {
         assert!(native_report.vortex_source_adapter_used);
         assert!(native_report.vortex_file_read);
         assert!(native_report.upstream_vortex_scan_called);
+        assert_streaming_selective_filter_native_report(&native_report);
         assert!(native_report.materialization_boundary_report_emitted);
         assert!(!native_report.row_read);
         assert!(!native_report.write_io);
         assert!(!native_report.fallback_execution_allowed);
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn enabled_wide_projection_streams_projected_vortex_chunks() {
+        let root = traditional_analytics_test_root("wide-projection");
+        let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);
+        let workspace = root.join("workspace");
+
+        let import_report = run_traditional_analytics_benchmark(
+            TraditionalAnalyticsRequest::new(
+                TraditionalAnalyticsScenario::WideProjection,
+                fact_csv,
+                dim_csv,
+                workspace,
+            )
+            .with_input_format(TraditionalAnalyticsInputFormat::Csv),
+        )
+        .unwrap();
+
+        assert_eq!(
+            import_report.result_json,
+            "{\"row_count\":3,\"metric_sum\":31.0}"
+        );
+        assert!(import_report.streaming_vortex_execution_used);
+        assert!(import_report.full_table_materialization_avoided);
+        assert!(!import_report.streaming_filter_pushdown_applied);
+        assert!(import_report.streaming_projection_pushdown_applied);
+        assert_eq!(
+            import_report.streaming_projected_columns,
+            vec!["group_key".to_string()]
+        );
+
+        let native_report =
+            run_traditional_analytics_vortex_benchmark(TraditionalAnalyticsVortexRequest::new(
+                TraditionalAnalyticsScenario::WideProjection,
+                import_report.fact_vortex_path.clone(),
+                import_report.dim_vortex_path.clone(),
+            ))
+            .unwrap();
+
+        assert_eq!(native_report.result_json, import_report.result_json);
+        assert!(native_report.streaming_vortex_execution_used);
+        assert!(native_report.full_table_materialization_avoided);
+        assert!(!native_report.streaming_filter_pushdown_applied);
+        assert!(native_report.streaming_projection_pushdown_applied);
+        assert_eq!(
+            native_report.streaming_projected_columns,
+            vec!["group_key".to_string()]
+        );
+        assert_eq!(native_report.materialization_boundary_rows, 0);
+        assert!(!native_report.data_materialized);
 
         let _ = std::fs::remove_dir_all(root);
     }
