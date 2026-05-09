@@ -747,6 +747,14 @@ No fallback execution.
 - The current traditional analytics path explicitly reports decode/materialization for temporary operators. It is universal-I/O smoke evidence, not mature encoded-native SQL/operator/function/adapter coverage.
 - This phase adds no SQL parser, DataFrame API, production CSV adapter, object-store IO, Arrow conversion, row-read path, external engine dependency, performance/superiority/best-default claim, or fallback execution.
 
+## CG-6.19 benchmark/competitive claim evidence aggregate surface
+
+- Primary RFC linkage: RFC 0009 benchmark methodology, RFC 0012 diagnostics/capability reporting, RFC 0015 correctness-before-performance requirements, RFC 0025 competitive/no-fallback guardrails, RFC 0029 benchmark/reproducibility/claim evidence requirements, and RFC 0032 benchmark-gated capability claim requirements.
+- `BenchmarkClaimEvidenceReport` aggregates benchmark-plan coverage, required metrics, missing result rows, missing external comparison rows, reproducibility metadata gaps, claim-gate state, baseline no-fallback policy, and publication flags into one deterministic report.
+- `benchmark-claim-evidence-plan [foundation|traditional-analytics]` exposes stable JSON/text fields for surface order, planned/blocked surfaces, scenario order, metric order, baseline order, expected/missing result counts, manifest/comparison statuses, claim-gate evidence states, and no-execution/no-fallback fields.
+- Performance, superiority, cost, replacement, and best-default claims remain blocked until correctness evidence, benchmark result rows, external comparison rows, reproducible run metadata, and no-fallback evidence are all present.
+- This phase adds no benchmark runner, external baseline invocation, query execution, parser, dataframe API, adapter runtime, object-store IO, data reads, writes, dependency, performance/superiority/best-default claim, production certification, or fallback execution.
+
 ## CG-12.4 native plan import/export serialization
 
 - Primary RFC linkage: RFC 0030 Universal API/Plan Portability/Import/Deployment/Baselines, RFC 0022 Plan IR interoperability, RFC 0010 Developer Experience, RFC 0012 Diagnostics, and RFC 0024 release/API compatibility.

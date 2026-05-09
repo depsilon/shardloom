@@ -1022,6 +1022,317 @@ impl BenchmarkEvidenceBundle {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BenchmarkClaimEvidenceStatus {
+    ReadyForClaimReview,
+    NeedsEvidence,
+    UnsafeFallbackPolicy,
+}
+
+impl BenchmarkClaimEvidenceStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::ReadyForClaimReview => "ready_for_claim_review",
+            Self::NeedsEvidence => "needs_evidence",
+            Self::UnsafeFallbackPolicy => "unsafe_fallback_policy",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_error(&self) -> bool {
+        matches!(self, Self::UnsafeFallbackPolicy)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct BenchmarkClaimEvidenceReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub scope: String,
+    pub status: BenchmarkClaimEvidenceStatus,
+    pub scenario_count: usize,
+    pub scenario_name_order: Vec<String>,
+    pub workload_class_order: Vec<String>,
+    pub required_metric_count: usize,
+    pub required_metric_order: Vec<String>,
+    pub required_foundation_metric_count: usize,
+    pub covered_required_foundation_metric_count: usize,
+    pub missing_required_foundation_metrics: Vec<String>,
+    pub baseline_count: usize,
+    pub baseline_engine_order: Vec<String>,
+    pub external_baseline_count: usize,
+    pub external_baseline_engine_order: Vec<String>,
+    pub expected_result_count: usize,
+    pub result_count: usize,
+    pub missing_result_count: usize,
+    pub missing_external_result_count: usize,
+    pub missing_metric_count: usize,
+    pub run_manifest_status: BenchmarkReproducibilityStatus,
+    pub run_manifest_emitted: bool,
+    pub missing_engine_version_count: usize,
+    pub dataset_profile_count: usize,
+    pub incomplete_dataset_profile_count: usize,
+    pub reproduction_step_count: usize,
+    pub cache_state: BenchmarkCacheState,
+    pub comparison_report_status: BenchmarkComparisonStatus,
+    pub comparison_report_emitted: bool,
+    pub correctness_evidence: BenchmarkEvidenceState,
+    pub benchmark_evidence: BenchmarkEvidenceState,
+    pub required_metrics_evidence: BenchmarkEvidenceState,
+    pub comparison_report_evidence: BenchmarkEvidenceState,
+    pub reproducibility_evidence: BenchmarkEvidenceState,
+    pub claim_gate_status: BenchmarkClaimStatus,
+    pub planned_surface_count: usize,
+    pub blocked_surface_count: usize,
+    pub blocked_surface_order: Vec<String>,
+    pub benchmark_execution_implemented: bool,
+    pub benchmark_execution_performed: bool,
+    pub external_engine_execution: bool,
+    pub query_execution: bool,
+    pub data_read: bool,
+    pub object_store_io: bool,
+    pub write_io: bool,
+    pub fallback_execution_allowed: bool,
+    pub fallback_attempted: bool,
+    pub baselines_fallback_free: bool,
+    pub performance_claim_allowed: bool,
+    pub superiority_claim_allowed: bool,
+    pub best_default_claim_allowed: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl BenchmarkClaimEvidenceReport {
+    #[must_use]
+    pub fn surface_order() -> Vec<&'static str> {
+        vec![
+            "benchmark_plan",
+            "required_metrics",
+            "correctness_evidence",
+            "benchmark_result_rows",
+            "external_comparison_results",
+            "comparison_report",
+            "reproducibility_manifest",
+            "no_fallback_policy",
+            "claim_publication_gate",
+        ]
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.status.is_error()
+    }
+
+    #[must_use]
+    pub const fn side_effect_free(&self) -> bool {
+        !self.benchmark_execution_performed
+            && !self.external_engine_execution
+            && !self.query_execution
+            && !self.data_read
+            && !self.object_store_io
+            && !self.write_io
+            && !self.fallback_attempted
+            && !self.fallback_execution_allowed
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "benchmark_claim_evidence(status={}, scope={}, planned_surfaces={}, blocked_surfaces={}, scenarios={}, required_metrics={}, expected_results={}, missing_results={}, missing_external_results={}, reproducibility={}, claim_gate={}, performance_claim_allowed={}, fallback_execution=disabled)",
+            self.status.as_str(),
+            self.scope,
+            self.planned_surface_count,
+            self.blocked_surface_count,
+            self.scenario_count,
+            self.required_metric_count,
+            self.expected_result_count,
+            self.missing_result_count,
+            self.missing_external_result_count,
+            self.run_manifest_status.as_str(),
+            self.claim_gate_status.as_str(),
+            self.performance_claim_allowed,
+        )
+    }
+}
+
+#[must_use]
+pub fn plan_benchmark_claim_evidence(
+    scope: impl Into<String>,
+    plan: &BenchmarkPlan,
+) -> BenchmarkClaimEvidenceReport {
+    let run_manifest = BenchmarkRunManifest::from_plan(plan);
+    let comparison_report = BenchmarkComparisonReport::from_plan(plan);
+    benchmark_claim_evidence_from_parts(scope, plan, &run_manifest, &comparison_report)
+}
+
+#[must_use]
+#[allow(clippy::too_many_lines)]
+pub fn benchmark_claim_evidence_from_parts(
+    scope: impl Into<String>,
+    plan: &BenchmarkPlan,
+    run_manifest: &BenchmarkRunManifest,
+    comparison_report: &BenchmarkComparisonReport,
+) -> BenchmarkClaimEvidenceReport {
+    let bundle =
+        BenchmarkEvidenceBundle::from_reports(run_manifest.clone(), comparison_report.clone());
+    let claim_gate = bundle.claim_gate;
+    let required_metrics = plan.required_metrics();
+    let missing_required_foundation_metrics = plan
+        .missing_required_foundation_metrics()
+        .into_iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>();
+    let missing_external_result_count = comparison_report
+        .missing_results
+        .iter()
+        .filter(|gap| gap.engine != BaselineEngine::ShardLoom)
+        .count();
+    let incomplete_dataset_profile_count = run_manifest
+        .dataset_profiles
+        .iter()
+        .filter(|profile| !profile.is_complete())
+        .count();
+    let baselines_fallback_free = plan.baselines_are_fallback_free();
+    let fallback_attempted = claim_gate.fallback.attempted();
+    let performance_claim_allowed = bundle.can_publish_performance_claim();
+    let blocked_surface_order = benchmark_claim_blocked_surfaces(
+        plan,
+        run_manifest,
+        comparison_report,
+        &bundle,
+        missing_external_result_count,
+        !missing_required_foundation_metrics.is_empty(),
+        baselines_fallback_free,
+    );
+    let blocked_surface_count = blocked_surface_order.len();
+    let planned_surface_count =
+        BenchmarkClaimEvidenceReport::surface_order().len() - blocked_surface_count;
+    let status = if fallback_attempted || !baselines_fallback_free {
+        BenchmarkClaimEvidenceStatus::UnsafeFallbackPolicy
+    } else if performance_claim_allowed {
+        BenchmarkClaimEvidenceStatus::ReadyForClaimReview
+    } else {
+        BenchmarkClaimEvidenceStatus::NeedsEvidence
+    };
+
+    BenchmarkClaimEvidenceReport {
+        schema_version: "shardloom.benchmark_claim_evidence.v1",
+        report_id: "cg6.benchmark_claim_evidence.aggregate",
+        scope: scope.into(),
+        status,
+        scenario_count: plan.scenario_count(),
+        scenario_name_order: plan
+            .scenario_name_order()
+            .into_iter()
+            .map(ToString::to_string)
+            .collect(),
+        workload_class_order: plan
+            .workload_class_order()
+            .into_iter()
+            .map(ToString::to_string)
+            .collect(),
+        required_metric_count: required_metrics.len(),
+        required_metric_order: required_metrics
+            .iter()
+            .map(BenchmarkMetric::as_str)
+            .map(ToString::to_string)
+            .collect(),
+        required_foundation_metric_count: BenchmarkPlan::required_foundation_metrics().len(),
+        covered_required_foundation_metric_count: plan.covered_required_foundation_metric_count(),
+        missing_required_foundation_metrics,
+        baseline_count: plan.baseline_engines().len(),
+        baseline_engine_order: plan
+            .baseline_engine_order()
+            .into_iter()
+            .map(ToString::to_string)
+            .collect(),
+        external_baseline_count: plan.external_baseline_count(),
+        external_baseline_engine_order: plan
+            .external_baseline_engine_order()
+            .into_iter()
+            .map(ToString::to_string)
+            .collect(),
+        expected_result_count: plan.expected_result_count(),
+        result_count: comparison_report.results.len(),
+        missing_result_count: comparison_report.missing_results.len(),
+        missing_external_result_count,
+        missing_metric_count: comparison_report.missing_metrics.len(),
+        run_manifest_status: run_manifest.status,
+        run_manifest_emitted: true,
+        missing_engine_version_count: run_manifest.missing_engine_versions.len(),
+        dataset_profile_count: run_manifest.dataset_profiles.len(),
+        incomplete_dataset_profile_count,
+        reproduction_step_count: run_manifest.reproduction_steps.len(),
+        cache_state: run_manifest.cache_state,
+        comparison_report_status: comparison_report.status,
+        comparison_report_emitted: true,
+        correctness_evidence: claim_gate.correctness_evidence,
+        benchmark_evidence: claim_gate.benchmark_evidence,
+        required_metrics_evidence: claim_gate.required_metrics,
+        comparison_report_evidence: claim_gate.comparison_report,
+        reproducibility_evidence: claim_gate.reproducibility_evidence,
+        claim_gate_status: claim_gate.status,
+        planned_surface_count,
+        blocked_surface_count,
+        blocked_surface_order,
+        benchmark_execution_implemented: plan.benchmark_execution_implemented(),
+        benchmark_execution_performed: false,
+        external_engine_execution: false,
+        query_execution: false,
+        data_read: false,
+        object_store_io: false,
+        write_io: false,
+        fallback_execution_allowed: false,
+        fallback_attempted,
+        baselines_fallback_free,
+        performance_claim_allowed,
+        superiority_claim_allowed: false,
+        best_default_claim_allowed: false,
+        diagnostics: bundle.diagnostics,
+    }
+}
+
+fn benchmark_claim_blocked_surfaces(
+    plan: &BenchmarkPlan,
+    run_manifest: &BenchmarkRunManifest,
+    comparison_report: &BenchmarkComparisonReport,
+    bundle: &BenchmarkEvidenceBundle,
+    missing_external_result_count: usize,
+    missing_foundation_metrics: bool,
+    baselines_fallback_free: bool,
+) -> Vec<String> {
+    let mut blocked = Vec::new();
+    if plan.scenario_count() == 0 {
+        blocked.push("benchmark_plan".to_string());
+    }
+    if plan.required_metrics().is_empty() || missing_foundation_metrics {
+        blocked.push("required_metrics".to_string());
+    }
+    if !bundle.claim_gate.correctness_evidence.is_present() {
+        blocked.push("correctness_evidence".to_string());
+    }
+    if !bundle.claim_gate.benchmark_evidence.is_present() {
+        blocked.push("benchmark_result_rows".to_string());
+    }
+    if missing_external_result_count > 0 {
+        blocked.push("external_comparison_results".to_string());
+    }
+    if comparison_report.scenario_count == 0 {
+        blocked.push("comparison_report".to_string());
+    }
+    if !run_manifest.evidence_state().is_present() {
+        blocked.push("reproducibility_manifest".to_string());
+    }
+    if bundle.claim_gate.fallback.attempted() || !baselines_fallback_free {
+        blocked.push("no_fallback_policy".to_string());
+    }
+    if !bundle.can_publish_performance_claim() {
+        blocked.push("claim_publication_gate".to_string());
+    }
+    blocked
+}
+
 fn benchmark_required_metric_sets_match(
     run_manifest: &BenchmarkRunManifest,
     comparison_report: &BenchmarkComparisonReport,
@@ -1823,5 +2134,90 @@ mod tests {
         assert!(plan.runtime_metrics_covered());
         assert!(plan.peak_memory_metric_covered());
         assert!(plan.materialization_metrics_covered());
+    }
+
+    #[test]
+    fn benchmark_claim_evidence_report_blocks_claims_without_result_rows() {
+        let report =
+            plan_benchmark_claim_evidence("foundation", &BenchmarkPlan::default_foundation_plan());
+
+        assert_eq!(
+            report.schema_version,
+            "shardloom.benchmark_claim_evidence.v1"
+        );
+        assert_eq!(report.report_id, "cg6.benchmark_claim_evidence.aggregate");
+        assert_eq!(report.status, BenchmarkClaimEvidenceStatus::NeedsEvidence);
+        assert_eq!(report.scenario_count, 5);
+        assert_eq!(report.required_metric_count, 21);
+        assert_eq!(report.expected_result_count, 10);
+        assert_eq!(report.result_count, 0);
+        assert_eq!(report.missing_result_count, 10);
+        assert!(report.missing_external_result_count > 0);
+        assert_eq!(
+            report.run_manifest_status,
+            BenchmarkReproducibilityStatus::Incomplete
+        );
+        assert_eq!(
+            report.comparison_report_status,
+            BenchmarkComparisonStatus::EvidenceMissing
+        );
+        assert_eq!(report.correctness_evidence, BenchmarkEvidenceState::Missing);
+        assert_eq!(report.benchmark_evidence, BenchmarkEvidenceState::Missing);
+        assert_eq!(
+            report.required_metrics_evidence,
+            BenchmarkEvidenceState::Present
+        );
+        assert_eq!(
+            report.reproducibility_evidence,
+            BenchmarkEvidenceState::Missing
+        );
+        assert_eq!(
+            report.claim_gate_status,
+            BenchmarkClaimStatus::EvidenceMissing
+        );
+        assert_eq!(
+            report.blocked_surface_order,
+            vec![
+                "correctness_evidence",
+                "benchmark_result_rows",
+                "external_comparison_results",
+                "reproducibility_manifest",
+                "claim_publication_gate"
+            ]
+        );
+        assert_eq!(report.blocked_surface_count, 5);
+        assert_eq!(report.planned_surface_count, 4);
+        assert!(!report.performance_claim_allowed);
+        assert!(!report.superiority_claim_allowed);
+        assert!(!report.best_default_claim_allowed);
+        assert!(report.baselines_fallback_free);
+        assert!(!report.fallback_attempted);
+        assert!(report.side_effect_free());
+        assert!(
+            report
+                .to_human_text()
+                .contains("fallback_execution=disabled")
+        );
+    }
+
+    #[test]
+    fn benchmark_claim_evidence_report_includes_traditional_baselines() {
+        let report = plan_benchmark_claim_evidence(
+            "traditional-analytics",
+            &BenchmarkPlan::traditional_analytics_plan(),
+        );
+
+        assert_eq!(report.scope, "traditional-analytics");
+        assert_eq!(report.scenario_count, 5);
+        assert_eq!(report.expected_result_count, 35);
+        assert_eq!(report.missing_result_count, 35);
+        assert_eq!(report.missing_external_result_count, 30);
+        assert_eq!(report.external_baseline_count, 6);
+        assert_eq!(
+            report.external_baseline_engine_order,
+            vec!["pandas", "polars", "duckdb", "spark", "datafusion", "dask"]
+        );
+        assert!(report.side_effect_free());
+        assert!(!report.performance_claim_allowed);
     }
 }

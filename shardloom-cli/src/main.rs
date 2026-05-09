@@ -10,25 +10,25 @@ use std::{
 };
 
 use shardloom_core::{
-    AgentContractPack, BaselineEngine, BenchmarkComparisonReport, BenchmarkEvidenceState,
-    BenchmarkFallbackState, BenchmarkMetric, BenchmarkPlan, BenchmarkResult, BenchmarkScenario,
-    ByteRange, CapabilityCertificationReport, CapabilityCertificationStatus, CatalogKind,
-    CatalogRef, CdcEventKind, CdcEventSummary, CdcIncrementalPlanningReport, ChangeSet,
-    CliApiJsonProtocolReport, ColumnRef, CommandStatus, CompactionPlanningPolicy,
-    CompactionPlanningReport, ComparisonOp, CorrectnessDifferentialHarnessReport,
-    CorrectnessFixture, CorrectnessValidationMode, CorrectnessValidationPlan,
-    CpuOperatorSpecializationReport, DatasetFormat, DatasetManifest, DatasetRef, DatasetUri,
-    DeleteModel, DeleteTombstoneCompatibilityReport, Diagnostic, EffectBudgetReport,
-    EncodedSegment, EncodingKind, ExecutionCertificate, ExecutionCertificateEvidenceSurfaceReport,
-    ExecutionEvidenceArtifactKind, ExpectedOutcome, ExtensionId, ExtensionInspectionReport,
-    ExtensionLicenseKind, ExtensionManifest, ExtensionProvenance, ExtensionRegistrySnapshot,
-    ExtensionVersion, FeatureFootprintReport, FieldId, FieldName, FieldPath, FileDescriptor,
-    FileRole, IncrementalPlanSkeleton, InputAdapterRegistrySnapshot, KernelRegistrySnapshot,
-    LayoutHealthPolicy, LayoutHealthReport, LayoutKind, LogicalDType, ManifestId, ManifestSegment,
-    MetricValue, NativeIoEnvelopeReport, Nullability, ObservabilityPlan,
-    OperatorMemoryCertification, OutputEnvelope, OutputFormat, OutputTarget,
-    PartitionEvolutionCompatibilityReport, PartitionField, PartitionSpec, PartitionTransform,
-    PhysicalKernelRegistryPlan, PhysicalOperatorExecutionLevel,
+    AgentContractPack, BaselineEngine, BenchmarkClaimEvidenceReport, BenchmarkComparisonReport,
+    BenchmarkEvidenceState, BenchmarkFallbackState, BenchmarkMetric, BenchmarkPlan,
+    BenchmarkResult, BenchmarkScenario, ByteRange, CapabilityCertificationReport,
+    CapabilityCertificationStatus, CatalogKind, CatalogRef, CdcEventKind, CdcEventSummary,
+    CdcIncrementalPlanningReport, ChangeSet, CliApiJsonProtocolReport, ColumnRef, CommandStatus,
+    CompactionPlanningPolicy, CompactionPlanningReport, ComparisonOp,
+    CorrectnessDifferentialHarnessReport, CorrectnessFixture, CorrectnessValidationMode,
+    CorrectnessValidationPlan, CpuOperatorSpecializationReport, DatasetFormat, DatasetManifest,
+    DatasetRef, DatasetUri, DeleteModel, DeleteTombstoneCompatibilityReport, Diagnostic,
+    EffectBudgetReport, EncodedSegment, EncodingKind, ExecutionCertificate,
+    ExecutionCertificateEvidenceSurfaceReport, ExecutionEvidenceArtifactKind, ExpectedOutcome,
+    ExtensionId, ExtensionInspectionReport, ExtensionLicenseKind, ExtensionManifest,
+    ExtensionProvenance, ExtensionRegistrySnapshot, ExtensionVersion, FeatureFootprintReport,
+    FieldId, FieldName, FieldPath, FileDescriptor, FileRole, IncrementalPlanSkeleton,
+    InputAdapterRegistrySnapshot, KernelRegistrySnapshot, LayoutHealthPolicy, LayoutHealthReport,
+    LayoutKind, LogicalDType, ManifestId, ManifestSegment, MetricValue, NativeIoEnvelopeReport,
+    Nullability, ObservabilityPlan, OperatorMemoryCertification, OutputEnvelope, OutputFormat,
+    OutputTarget, PartitionEvolutionCompatibilityReport, PartitionField, PartitionSpec,
+    PartitionTransform, PhysicalKernelRegistryPlan, PhysicalOperatorExecutionLevel,
     PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorKind, PhysicalOperatorPlan,
     PredicateExpr, PythonWrapperFoundationReport, RedactionPolicy, ReleasePlan,
     RuntimeObservabilityReport, SchemaDefinition, SchemaEvolutionCompatibilityReport,
@@ -40,9 +40,10 @@ use shardloom_core::{
     WorldClassSufficiencyReport, WriteIntent, evaluate_cdc_incremental_planning,
     evaluate_compaction_planning, evaluate_delete_tombstone_compatibility, evaluate_layout_health,
     evaluate_partition_evolution_compatibility, evaluate_schema_evolution_compatibility,
-    plan_correctness_differential_harness, plan_cpu_operator_specialization,
-    plan_execution_certificate_evidence_surface, plan_native_io_envelope, plan_stateful_reuse,
-    plan_universal_harness, plan_world_class_sufficiency,
+    plan_benchmark_claim_evidence, plan_correctness_differential_harness,
+    plan_cpu_operator_specialization, plan_execution_certificate_evidence_surface,
+    plan_native_io_envelope, plan_stateful_reuse, plan_universal_harness,
+    plan_world_class_sufficiency,
 };
 use shardloom_exec::{
     AdaptiveSizer, AdaptiveSizingPolicy, AttemptId, BackpressurePlanInput, BackpressurePlanReport,
@@ -207,7 +208,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|agent-contract-pack|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance]|security-plan|effect-budget-plan|agent-safety-plan|redaction-plan|kernel-registry|feature-footprint|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|layout-health-plan|compaction-plan|table-intelligence-plan|object-store-request-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|traditional-analytics-run|vortex-count-benchmark|correctness-plan|correctness-harness-plan|execution-certificate-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|agent-contract-pack|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance]|security-plan|effect-budget-plan|agent-safety-plan|redaction-plan|kernel-registry|feature-footprint|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|layout-health-plan|compaction-plan|table-intelligence-plan|object-store-request-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|benchmark-claim-evidence-plan [foundation|traditional-analytics]|traditional-analytics-run|vortex-count-benchmark|correctness-plan|correctness-harness-plan|execution-certificate-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -1441,6 +1442,233 @@ fn benchmark_plan_fields(plan: &BenchmarkPlan) -> Vec<(String, String)> {
     append_benchmark_plan_scenario_fields(&mut fields, plan);
     append_benchmark_plan_metric_fields(&mut fields, plan);
     append_benchmark_plan_claim_fields(&mut fields, plan);
+    fields
+}
+
+#[allow(clippy::too_many_lines)]
+fn benchmark_claim_evidence_fields(report: &BenchmarkClaimEvidenceReport) -> Vec<(String, String)> {
+    let mut fields = Vec::new();
+    push_field(&mut fields, "mode", "benchmark_claim_evidence");
+    push_field(&mut fields, "schema_version", report.schema_version);
+    push_field(&mut fields, "report_id", report.report_id);
+    push_field(&mut fields, "scope", &report.scope);
+    push_field(&mut fields, "claim_evidence_status", report.status.as_str());
+    push_field(
+        &mut fields,
+        "surface_order",
+        &BenchmarkClaimEvidenceReport::surface_order().join(","),
+    );
+    push_count_field(
+        &mut fields,
+        "surface_count",
+        BenchmarkClaimEvidenceReport::surface_order().len(),
+    );
+    push_count_field(
+        &mut fields,
+        "planned_surface_count",
+        report.planned_surface_count,
+    );
+    push_count_field(
+        &mut fields,
+        "blocked_surface_count",
+        report.blocked_surface_count,
+    );
+    push_field(
+        &mut fields,
+        "blocked_surface_order",
+        &report.blocked_surface_order.join(","),
+    );
+    push_count_field(&mut fields, "scenario_count", report.scenario_count);
+    push_field(
+        &mut fields,
+        "scenario_name_order",
+        &report.scenario_name_order.join(","),
+    );
+    push_field(
+        &mut fields,
+        "workload_class_order",
+        &report.workload_class_order.join(","),
+    );
+    push_count_field(
+        &mut fields,
+        "required_metric_count",
+        report.required_metric_count,
+    );
+    push_field(
+        &mut fields,
+        "required_metric_order",
+        &report.required_metric_order.join(","),
+    );
+    push_count_field(
+        &mut fields,
+        "required_foundation_metric_count",
+        report.required_foundation_metric_count,
+    );
+    push_count_field(
+        &mut fields,
+        "covered_required_foundation_metric_count",
+        report.covered_required_foundation_metric_count,
+    );
+    push_field(
+        &mut fields,
+        "missing_required_foundation_metrics",
+        &report.missing_required_foundation_metrics.join(","),
+    );
+    push_count_field(&mut fields, "baseline_count", report.baseline_count);
+    push_field(
+        &mut fields,
+        "baseline_engine_order",
+        &report.baseline_engine_order.join(","),
+    );
+    push_count_field(
+        &mut fields,
+        "external_baseline_count",
+        report.external_baseline_count,
+    );
+    push_field(
+        &mut fields,
+        "external_baseline_engine_order",
+        &report.external_baseline_engine_order.join(","),
+    );
+    push_count_field(
+        &mut fields,
+        "expected_result_count",
+        report.expected_result_count,
+    );
+    push_count_field(&mut fields, "result_count", report.result_count);
+    push_count_field(
+        &mut fields,
+        "missing_result_count",
+        report.missing_result_count,
+    );
+    push_count_field(
+        &mut fields,
+        "missing_external_result_count",
+        report.missing_external_result_count,
+    );
+    push_count_field(
+        &mut fields,
+        "missing_metric_count",
+        report.missing_metric_count,
+    );
+    push_field(
+        &mut fields,
+        "run_manifest_status",
+        report.run_manifest_status.as_str(),
+    );
+    push_bool_field(
+        &mut fields,
+        "run_manifest_emitted",
+        report.run_manifest_emitted,
+    );
+    push_count_field(
+        &mut fields,
+        "missing_engine_version_count",
+        report.missing_engine_version_count,
+    );
+    push_count_field(
+        &mut fields,
+        "dataset_profile_count",
+        report.dataset_profile_count,
+    );
+    push_count_field(
+        &mut fields,
+        "incomplete_dataset_profile_count",
+        report.incomplete_dataset_profile_count,
+    );
+    push_count_field(
+        &mut fields,
+        "reproduction_step_count",
+        report.reproduction_step_count,
+    );
+    push_field(&mut fields, "cache_state", report.cache_state.as_str());
+    push_field(
+        &mut fields,
+        "comparison_report_status",
+        report.comparison_report_status.as_str(),
+    );
+    push_bool_field(
+        &mut fields,
+        "comparison_report_emitted",
+        report.comparison_report_emitted,
+    );
+    push_field(
+        &mut fields,
+        "claim_gate_status",
+        report.claim_gate_status.as_str(),
+    );
+    push_field(
+        &mut fields,
+        "claim_gate_correctness_evidence",
+        report.correctness_evidence.as_str(),
+    );
+    push_field(
+        &mut fields,
+        "claim_gate_benchmark_evidence",
+        report.benchmark_evidence.as_str(),
+    );
+    push_field(
+        &mut fields,
+        "claim_gate_required_metrics",
+        report.required_metrics_evidence.as_str(),
+    );
+    push_field(
+        &mut fields,
+        "claim_gate_comparison_report",
+        report.comparison_report_evidence.as_str(),
+    );
+    push_field(
+        &mut fields,
+        "claim_gate_reproducibility_evidence",
+        report.reproducibility_evidence.as_str(),
+    );
+    push_bool_field(
+        &mut fields,
+        "benchmark_execution_implemented",
+        report.benchmark_execution_implemented,
+    );
+    push_bool_field(
+        &mut fields,
+        "benchmark_execution_performed",
+        report.benchmark_execution_performed,
+    );
+    push_bool_field(
+        &mut fields,
+        "external_engine_execution",
+        report.external_engine_execution,
+    );
+    push_bool_field(&mut fields, "query_execution", report.query_execution);
+    push_bool_field(&mut fields, "data_read", report.data_read);
+    push_bool_field(&mut fields, "object_store_io", report.object_store_io);
+    push_bool_field(&mut fields, "write_io", report.write_io);
+    push_bool_field(
+        &mut fields,
+        "fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(&mut fields, "fallback_attempted", report.fallback_attempted);
+    push_bool_field(
+        &mut fields,
+        "baselines_fallback_free",
+        report.baselines_fallback_free,
+    );
+    push_bool_field(
+        &mut fields,
+        "performance_claim_allowed",
+        report.performance_claim_allowed,
+    );
+    push_bool_field(
+        &mut fields,
+        "superiority_claim_allowed",
+        report.superiority_claim_allowed,
+    );
+    push_bool_field(
+        &mut fields,
+        "best_default_claim_allowed",
+        report.best_default_claim_allowed,
+    );
+    push_bool_field(&mut fields, "side_effect_free", report.side_effect_free());
+    push_count_field(&mut fields, "diagnostic_count", report.diagnostics.len());
     fields
 }
 
@@ -15221,6 +15449,50 @@ fn run(args: Vec<String>) -> ExitCode {
             );
             ExitCode::SUCCESS
         }
+        Some("benchmark-claim-evidence-plan") => {
+            let scope = args.next();
+            if let Some(extra) = args.next() {
+                return emit_error(
+                    "benchmark-claim-evidence-plan",
+                    format,
+                    "benchmark claim evidence plan failed",
+                    &ShardLoomError::InvalidOperation(format!(
+                        "unknown extra benchmark-claim-evidence-plan argument: {extra}"
+                    )),
+                );
+            }
+            let plan = match benchmark_plan_for_scope(scope.as_deref()) {
+                Ok(plan) => plan,
+                Err(error) => {
+                    return emit_error(
+                        "benchmark-claim-evidence-plan",
+                        format,
+                        "benchmark claim evidence plan failed",
+                        &error,
+                    );
+                }
+            };
+            let scope_label = scope.unwrap_or_else(|| "foundation".to_string());
+            let report = plan_benchmark_claim_evidence(scope_label, &plan);
+            emit(
+                "benchmark-claim-evidence-plan",
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "benchmark claim evidence plan".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                benchmark_claim_evidence_fields(&report),
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
         Some("manifest-plan") => {
             let Some(dataset_uri) = args.next() else {
                 eprintln!("usage: shardloom manifest-plan <dataset_uri>");
@@ -25490,6 +25762,21 @@ mod tests {
     }
 
     #[test]
+    fn benchmark_claim_evidence_plan_returns_success() {
+        let code = run(vec!["benchmark-claim-evidence-plan".to_string()]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn benchmark_claim_evidence_traditional_plan_returns_success() {
+        let code = run(vec![
+            "benchmark-claim-evidence-plan".to_string(),
+            "traditional-analytics".to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
     fn execution_certificate_plan_returns_success() {
         let code = run(vec!["execution-certificate-plan".to_string()]);
         assert_eq!(code, ExitCode::SUCCESS);
@@ -25709,6 +25996,7 @@ mod tests {
         assert!(usage.contains("|vortex-encoded-read-metadata-probe|"));
         assert!(usage.contains("|vortex-output-payload-artifact-write|"));
         assert!(usage.contains("|vortex-native-count-payload-write|"));
+        assert!(usage.contains("|benchmark-claim-evidence-plan"));
         assert!(usage.contains("|vortex-local-commit-execute|"));
         assert!(usage.contains("|vortex-local-commit-recovery-plan|"));
         assert!(usage.contains("|vortex-local-commit-rollback-execute|"));

@@ -36,12 +36,14 @@ pub use agent_contract::{
     AgentContractPack, AgentContractSurface, AgentContractSurfaceKind, AgentContractSurfaceStatus,
 };
 pub use benchmark::{
-    BaselineEngine, BenchmarkCacheState, BenchmarkClaimGate, BenchmarkClaimStatus,
+    BaselineEngine, BenchmarkCacheState, BenchmarkClaimEvidenceReport,
+    BenchmarkClaimEvidenceStatus, BenchmarkClaimGate, BenchmarkClaimStatus,
     BenchmarkComparisonReport, BenchmarkComparisonStatus, BenchmarkDatasetProfile,
     BenchmarkEngineVersion, BenchmarkEvidenceBundle, BenchmarkEvidenceState,
     BenchmarkFallbackState, BenchmarkMetric, BenchmarkMetricGap, BenchmarkPlan,
     BenchmarkReproducibilityStatus, BenchmarkResult, BenchmarkResultGap, BenchmarkRunManifest,
     BenchmarkScenario, CorrectnessValidationMode, MetricValue, WorkloadClass,
+    plan_benchmark_claim_evidence,
 };
 pub use capabilities::{Capability, CapabilityStatus, EngineCapabilities};
 pub use certification::{
