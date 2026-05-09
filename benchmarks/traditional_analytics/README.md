@@ -54,6 +54,15 @@ correctness digest. ShardLoom rows also retain the emitted native I/O evidence
 fields for decode, materialization, row reads, Arrow conversion, writes, spill,
 and NativeIoCertificate status.
 
+ShardLoom's reported benchmark version appends `-dirty` when the workspace has
+uncommitted tracked changes, so local bring-up reports do not look like clean
+revision evidence by accident.
+
+Numeric benchmark outputs are rounded to four decimal places before correctness
+hashing. This keeps result comparison stable across engines with different
+floating-point aggregation orders while preserving the two-decimal source metric
+precision used by the deterministic dataset.
+
 ShardLoom traditional analytics rows call the workspace-local native Rust
 command `shardloom traditional-analytics-run`. Build time is excluded from
 per-scenario timing and the selected `--shardloom-build-profile` is recorded in
@@ -114,26 +123,26 @@ to inspect.
 For a fast smoke run:
 
 ```powershell
-python benchmarks\traditional_analytics\run.py --rows 10000 --iterations 1
+benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --rows 10000 --iterations 1
 ```
 
 Run one engine or one scenario while troubleshooting:
 
 ```powershell
-python benchmarks\traditional_analytics\run.py --engines polars --scenario "group by aggregation" --rows 10000 --iterations 1
+benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --engines polars --scenario "group by aggregation" --rows 10000 --iterations 1
 ```
 
 Run only ShardLoom's universal-I/O smoke row while troubleshooting its local
 Vortex artifacts:
 
 ```powershell
-python benchmarks\traditional_analytics\run.py --engines shardloom --scenario "group by aggregation" --rows 10000 --iterations 1
+benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --engines shardloom --scenario "group by aggregation" --rows 10000 --iterations 1
 ```
 
 Run the optional stress lane:
 
 ```powershell
-python benchmarks\traditional_analytics\run.py --include-stress --rows 1000000 --iterations 3
+benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --include-stress --rows 1000000 --iterations 3
 ```
 
 Artifacts are written to `benchmarks/traditional_analytics/results/` by default.

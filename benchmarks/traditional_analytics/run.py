@@ -65,6 +65,7 @@ SCENARIO_BYTES = {
 DASK_BLOCKSIZE = "16MB"
 DASK_SCHEDULER = "threads"
 SHARDLOOM_BUILD_PROFILE = "release"
+CORRECTNESS_FLOAT_DIGITS = 4
 
 
 @dataclass(frozen=True)
@@ -430,7 +431,7 @@ def round_float(value: Any) -> float:
     number = float(value)
     if math.isnan(number):
         return 0.0
-    return round(number, 6)
+    return round(number, CORRECTNESS_FLOAT_DIGITS)
 
 
 def normalize_scalar_result(row_count: Any, metric_sum: Any) -> dict[str, Any]:
@@ -495,7 +496,13 @@ def shardloom_version(root: Path, profile: str) -> str:
     completed = subprocess_run([git, "rev-parse", "--short", "HEAD"], root, os.environ.copy())
     if completed["returncode"] != 0:
         return f"workspace-local-{profile}"
-    return f"workspace-local-{profile}-{completed['stdout'].strip()}"
+    version = f"workspace-local-{profile}-{completed['stdout'].strip()}"
+    dirty = subprocess_run(
+        [git, "status", "--short", "--untracked-files=no"], root, os.environ.copy()
+    )
+    if dirty["returncode"] == 0 and dirty["stdout"].strip():
+        version += "-dirty"
+    return version
 
 
 def scenario_slug(scenario: str) -> str:
