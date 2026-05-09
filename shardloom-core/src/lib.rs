@@ -11,6 +11,7 @@ pub mod correctness;
 pub mod cpu_specialization;
 pub mod dataset;
 pub mod diagnostics;
+pub mod effect_budget;
 pub mod encoded;
 pub mod execution_certificate;
 pub mod expression;
@@ -66,6 +67,9 @@ pub use dataset::{
 };
 pub use diagnostics::{
     Diagnostic, DiagnosticCategory, DiagnosticCode, DiagnosticSeverity, FallbackStatus,
+};
+pub use effect_budget::{
+    EffectBudgetEntry, EffectBudgetReport, EffectBudgetScope, EffectBudgetStatus,
 };
 pub use encoded::{
     ByteRange, ColumnRef, ComparisonOp, EncodedEvalCapability, EncodedPredicateEvaluationReport,
