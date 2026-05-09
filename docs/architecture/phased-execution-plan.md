@@ -45,6 +45,28 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
+- [x] Session label: CG-6.23 / CG-8.12 / CG-13.11 / CG-19.6 streaming native Vortex benchmark scenario execution
+  - Primary files:
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: Make benchmark-only universal-I/O and native Vortex paths execute simple post-import scenarios from projected Vortex scan chunks instead of always loading full fact/dimension tables, while exposing streaming pushdown and materialization-boundary evidence.
+  - Checklist:
+    - [x] Execute CSV/file-ingest, selective-filter, and wide-projection benchmark scenarios from local `.vortex` files through projected Vortex scan iteration when no compatibility output requires full table export.
+    - [x] Keep compatibility-file import explicit: local CSV/JSONL/Parquet/Arrow IPC/Avro/ORC inputs still decode/materialize into native Vortex artifacts before native benchmark execution.
+    - [x] Add report fields for streaming Vortex execution, full-table materialization avoidance, filter/projection pushdown, scan chunk counts, max chunk rows, and projected columns.
+    - [x] Update native Vortex Native I/O certificate evidence so streaming scenarios report `vortex_encoded->partially_decoded`, zero rows materialized at the source boundary, streaming sink support, and no fallback execution.
+    - [x] Add focused feature-gated tests for selective-filter and wide-projection streaming evidence.
+    - [x] Run required full validation before PR.
+  - Local validation status:
+    - Focused `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark enabled_build_runs_csv_through_local_vortex_io -- --nocapture` passed locally with Rust toolchain `1.91.1`.
+    - Focused `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark enabled_wide_projection_streams_projected_vortex_chunks -- --nocapture` passed locally with Rust toolchain `1.91.1`.
+    - Focused `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark enabled_build_roundtrips_common_formats_through_vortex_outputs -- --nocapture` passed locally with Rust toolchain `1.91.1`.
+    - Required `cargo fmt --all -- --check` passed locally with Rust toolchain `1.91.1`.
+    - Required `cargo clippy --workspace --all-targets -- -D warnings` passed locally with Rust toolchain `1.91.1`.
+    - Required `cargo test --workspace --all-targets` passed locally with Rust toolchain `1.91.1`.
+    - Feature `cargo clippy -p shardloom-vortex --features vortex-traditional-analytics-benchmark --all-targets -- -D warnings` passed locally with Rust toolchain `1.91.1`.
+  - Explicitly not included: new readers, Parquet/Arrow IPC/JSONL/Avro/ORC execution beyond the approved benchmark-only compatibility import bridge, object-store IO, catalog/table IO, SQL parser/execution, DataFrame runtime, UDF runtime, generalized adapter execution, joins/grouping/sort streaming execution, production adapter certification, claim-grade benchmark publication, superiority/best-default claim, or fallback execution.
+
 - [x] Session label: CG-5.8 / CG-16.3 local primitive correctness and certificate evidence
   - Primary files:
     - `shardloom-core/src/correctness.rs`
@@ -1439,6 +1461,7 @@ Status legend:
   - [x] CG-6.4 benchmark reproducibility manifest
   - [x] CG-6.5 reproducibility-aware benchmark claim gate
   - [x] CG-6.6 benchmark coverage inventory surfacing
+  - [x] CG-6.23 streaming native Vortex benchmark scenarios
   - Expected evidence:
     - runtime latency and startup latency
     - peak memory and spill-required/avoided reporting
@@ -1487,6 +1510,7 @@ Status legend:
   - [x] CG-8.6 bounded metadata/no-op local task execution
   - [x] CG-8.7 approved local encoded streaming-batch runtime evidence
   - [x] CG-8.8 dynamic work shaping aggregate surface
+  - [x] CG-8.12 streaming projected Vortex scenario execution
   - Scope:
     - encoded streaming-batch planning surface
     - streaming encoded batch runtime execution
@@ -1556,6 +1580,7 @@ Status legend:
   - [x] CG-13.2 decode/materialization avoided proof fields in path-selection output
   - [x] CG-13.6 local primitive execution reports decode/materialization boundaries without claiming encoded-native filter/project completion
   - [x] CG-13.7 local primitive metadata/validity/projection no-materialization evidence
+  - [x] CG-13.11 streaming benchmark scenarios avoid full-table materialization for projected native Vortex scans
   - Scope:
     - encoding-aware execution-path selection through `vortex-encoded-path-selection-plan`
     - direct count/filter/project over encoded segments
@@ -1607,6 +1632,7 @@ Status legend:
   - [x] RFC 0031 contract deepening complete
   - [x] CG-19.1 native I/O envelope report
   - [x] CG-19.2 benchmark CSV-to-Vortex runtime Native I/O certificate
+  - [x] CG-19.6 native Vortex streaming scenario certificates
   - [~] generalized source/sink runtime certificate emission pending beyond the benchmark-only path
   - Scope:
     - preserve representation state, pushdown evidence, materialization boundaries, and sink constraints without default decode
@@ -1754,6 +1780,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-6.20 traditional analytics harness storage expansion adds Parquet comparison rows and ShardLoom native Vortex rows with explicit unsupported-format capture, while keeping all external engines comparison-only and all performance/superiority claims disabled
 - [x] CG-6.21 universal-format benchmark smoke rows add ShardLoom CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC compatibility-to-Vortex lanes with JSON/Markdown resource-sizing evidence while preserving explicit unsupported rows for external engines and no performance/superiority claims
 - [x] CG-6.22 native microbenchmark rows add local filter-projection evidence through `vortex-run` while keeping timing scoped to local CLI process wall time and claim status `not_claim_grade`
+- [x] CG-6.23 streaming native Vortex benchmark scenario execution adds selective-filter and wide-projection evidence fields for projected scan chunks, filter/projection pushdown, zero source-boundary row materialization, and full-table materialization avoidance while keeping claim status non-publishable
 - [~] runtime benchmarks started with local encoded count, ShardLoom universal-I/O smoke rows, and traditional analytics external harness; committed claim-grade comparative results remain planned
 - [x] peak-memory benchmark reporting
 - [x] bytes read/written benchmark reporting
@@ -1808,6 +1835,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-8.8 `dynamic-work-shaping-plan` aggregates adaptive sizing, runtime feedback signals, target-task policy, bounded-memory backpressure, scheduler queue policy, runtime-application blockers, benchmark evidence blockers, and no-fallback policy before live feedback-loop policy mutation is allowed
 - [x] CG-8.10 universal-format local ETL bridge derives applied parallelism from local resource availability and reports auto batch/partition sizing from source footprint plus resource budget, while keeping mature scheduler mutation, object-store request shaping, spill, and distributed execution deferred
 - [x] CG-8.11 local filter-project primitive carries bounded scan concurrency through the single upstream Vortex scan path and reports streaming chunk iteration without collecting the full stream
+- [x] CG-8.12 benchmark-only native Vortex scenario execution streams projected scan chunks for CSV/file-ingest, selective-filter, and wide-projection paths when no compatibility output forces full-table export
 - [ ] broader streaming encoded batch runtime execution
 - [ ] bounded parallel encoded/read local execution
 - [x] adaptive split/coalesce planning surface
@@ -1868,6 +1896,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-13.7 local primitive metadata/validity/projection evidence avoids false materialization claims
 - [x] CG-13.8 local Vortex scan filter/project pushdown evidence
 - [x] CG-13.10 local Vortex filter-project scan pushdown evidence combines predicate and projection pushdown in one feature-gated local scan for supported struct-array cases
+- [x] CG-13.11 native Vortex benchmark scenario execution records `vortex_encoded->partially_decoded` evidence for projected streaming scans and avoids claiming generalized encoded-native SQL/operator execution
 - [ ] generalized direct count/filter/project encoded execution
 - [ ] broad compressed-kernel correctness and benchmark certification
 
@@ -1913,6 +1942,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-19.1 report-only native I/O envelope contract foundation implemented through `NativeIoEnvelopeReport` and `native-io-envelope-plan`
 - [x] CG-19.2 first benchmark runtime Native I/O certificate emits source capability, source pushdown, sink requirement, adapter fidelity, representation transition, materialization boundary, side-effect, and no-fallback evidence for the local CSV-to-Vortex smoke path
 - [x] CG-19.5 local compatibility-file runtime certificates cover CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC source paths into native Vortex output with materialization-boundary, adapter-fidelity, auto-sizing, and no-fallback evidence
+- [x] CG-19.6 native Vortex benchmark scenario certificates distinguish streaming projected scans from temporary full-table operators with per-path pushdown, sink-streaming, materialization-boundary, side-effect, and no-fallback evidence
 - [~] generalized source/sink runtime certificate emission pending beyond the benchmark-only local compatibility-file-to-Vortex path
 - [x] representation state, pushdown proof, materialization boundary, sink requirement, adapter fidelity, per-path certificate, no-default-Arrow, and no-fallback report fields are exposed without reads, decode, materialization, IO, writes, or fallback
 
