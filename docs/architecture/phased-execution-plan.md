@@ -45,29 +45,29 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-6.11 benchmark startup and warmup accounting
+- [x] Session label: CG-6.12 benchmark resource and effect evidence reporting
   - Primary files:
     - `benchmarks/traditional_analytics/run.py`
     - `benchmarks/traditional_analytics/README.md`
     - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
     - `docs/architecture/phased-execution-plan.md`
-  - Scope: Make benchmark startup/warmup costs explicit and keep Spark session initialization out of first-scenario timings by warming each Spark profile immediately before its own scenario rows.
+  - Scope: Make benchmark resource metrics and ShardLoom runtime-effect evidence visible in JSON and Markdown results before the next full benchmark rerun.
   - Checklist:
-    - [x] Add per-engine `startup_time_millis` artifact/report field.
-    - [x] Add explicit runner warmup hook separate from per-scenario timing.
-    - [x] Warm Spark sessions per profile immediately before scenario rows, then close before the next engine.
-    - [x] Update benchmark README/report text so Spark startup and local tuning are not misleading.
-    - [x] Update contract tests for startup/warmup accounting.
+    - [x] Preserve ShardLoom CLI evidence fields in result artifacts without changing correctness digests.
+    - [x] Add bytes-written, decode, materialization, row-read, Arrow, object-store, write, and spill effect fields to benchmark metrics.
+    - [x] Add human-readable resource metrics and ShardLoom runtime-effect Markdown tables.
+    - [x] Update benchmark README and contract tests for the expanded result surface.
     - [x] Run focused benchmark harness smoke and contract tests.
     - [x] Run full required validation.
   - Local validation status:
     - `python -m py_compile benchmarks/traditional_analytics/run.py` passed
-    - focused pandas benchmark smoke wrote `startup_time_millis`
+    - focused ShardLoom+pandas benchmark smoke wrote `bytes_written` and ShardLoom effect evidence
+    - focused Markdown smoke contained resource metrics and ShardLoom runtime-effect sections
     - focused `shardloom-contract-tests` traditional benchmark harness tests passed
     - `cargo fmt --all -- --check` passed with Rust toolchain `1.91.1`
     - `cargo clippy --workspace --all-targets -- -D warnings` passed with Rust toolchain `1.91.1`
     - `cargo test --workspace --all-targets` passed with Rust toolchain `1.91.1`
-  - Explicitly not included: benchmark result promotion as claim-grade evidence, performance/superiority claims, external engine runtime fallback, ShardLoom query execution changes, SQL/DataFrame/API execution, object-store IO, writes, or fallback execution.
+  - Explicitly not included: benchmark result promotion as claim-grade evidence, performance/superiority claims, external engine runtime fallback, ShardLoom query execution changes, SQL/DataFrame/API execution, object-store IO beyond declared evidence fields, new writes beyond the existing benchmark temporary Vortex artifacts, or fallback execution.
 
 ## R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
@@ -1434,11 +1434,11 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-6.9 traditional analytics external benchmark harness with fairness parameters, JSON and Markdown result artifacts, per-engine/per-scenario isolation, native encoded microbenchmark rows, universal-I/O evidence lanes, optional skewed-join and multi-stage ETL stress scenarios, and pandas/Polars/DuckDB/Spark-default/Spark-local-tuned/DataFusion/Dask runners
 - [x] CG-6.10 ShardLoom traditional analytics universal-I/O smoke path imports deterministic CSV into local Vortex files, reopens and scans those files through upstream Vortex, emits native work/result/certificate evidence fields, and reports the materialization boundary for temporary operators without SQL/DataFrame/API, mature adapter, production claim, or fallback execution coverage
 - [x] CG-6.11 benchmark startup/warmup accounting records per-engine startup time and warms Spark profiles before scenario timing
+- [x] CG-6.12 benchmark resource/effect reporting surfaces memory, read/write bytes, rows, and ShardLoom decode/materialization/effect evidence in JSON and Markdown reports
 - [~] runtime benchmarks started with local encoded count, ShardLoom universal-I/O smoke rows, and traditional analytics external harness; committed claim-grade comparative results remain planned
-- [ ] peak-memory benchmarks
-- [ ] bytes read/written benchmarks
-- [ ] decode-avoided evidence
-- [ ] materialization-avoided evidence
+- [x] peak-memory benchmark reporting
+- [x] bytes read/written benchmark reporting
+- [x] decode/materialization evidence reporting
 - [ ] segments-skipped evidence
 - [ ] work-avoided evidence
 - [ ] spill-required/avoided evidence
@@ -1695,6 +1695,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-6.9 `benchmarks/traditional_analytics/run.py` generates deterministic local CSV data, runs ShardLoom plus pandas, Polars, DuckDB, Spark/PySpark default, Spark/PySpark tuned-local, DataFusion, and Dask independently per scenario, writes JSON plus human-readable Markdown reports, records fairness parameters, includes ShardLoom native encoded-count microbenchmarks, and exposes universal-I/O/CSV-to-Vortex evidence lanes without adding external runtime dependencies or fallback execution.
 - [x] CG-6.10 `shardloom traditional-analytics-run` behind `vortex-traditional-analytics-benchmark` imports deterministic CSV rows into local Vortex files, reopens and scans those files through upstream Vortex, verifies required native work/result/certificate evidence fields, and records the current decoded/materialized temporary operator boundary without broad SQL/DataFrame/API, adapter, object-store, production-claim, or fallback execution coverage.
 - [x] CG-6.11 benchmark startup/warmup accounting adds per-engine `startup_time_millis`, report surfacing, and Spark per-profile warmup before scenario timing so default and tuned-local profiles remain explicit and comparable without runtime fallback.
+- [x] CG-6.12 benchmark resource/effect reporting retains ShardLoom evidence fields in result artifacts and adds Markdown resource/effect tables for peak memory, bytes read/written, rows scanned/materialized, decode/materialization, row-read, Arrow, object-store, write, spill, and NativeIoCertificate status without making performance claims.
 - [x] CG-7.1 physical operator/kernel contract foundation declares filter, projection, and count aggregate kernel blockers without implementing kernels or execution.
 - [x] CG-7.2 physical operator capability discovery exposes missing-kernel/readiness counts through `shardloom capabilities operators` without executing operators or probing runtime inputs.
 - [x] CG-7.3 physical kernel registry plan exposes required native kernel slots through `shardloom kernel-registry` without registering kernels or executing runtime paths.
