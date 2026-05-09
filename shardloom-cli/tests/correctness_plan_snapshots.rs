@@ -33,10 +33,10 @@ fn correctness_plan_json_exposes_fixture_and_edge_case_inventory() {
     assert!(output.contains("\"status\":\"success\""));
     assert!(output.contains(&field("mode", "correctness_plan")));
     assert!(output.contains(&field("status", "planned")));
-    assert!(output.contains(&field("fixture_count", "18")));
+    assert!(output.contains(&field("fixture_count", "19")));
     assert!(output.contains(&field(
         "fixture_id_order",
-        "vortex-metadata-footer-u64-20000,vortex-local-encoded-count-u64-20000,vortex-local-count-all-struct-five,vortex-local-count-where-struct-five,vortex-local-project-struct-five,vortex-local-filter-project-struct-five,null-semantics,metadata-only-correctness,pruning-correctness,encoded-vs-decoded-reference,translation-metadata-loss,unsupported-diagnostics,plan-only-no-side-effects,nested-data-edge-corpus,dictionary-encoded-edge-corpus,sparse-validity-edge-corpus,run-length-edge-corpus,temporal-semantics"
+        "vortex-metadata-footer-u64-20000,vortex-local-encoded-count-u64-20000,vortex-local-count-all-struct-five,vortex-local-count-where-struct-five,vortex-local-project-struct-five,vortex-local-filter-struct-five,vortex-local-filter-project-struct-five,null-semantics,metadata-only-correctness,pruning-correctness,encoded-vs-decoded-reference,translation-metadata-loss,unsupported-diagnostics,plan-only-no-side-effects,nested-data-edge-corpus,dictionary-encoded-edge-corpus,sparse-validity-edge-corpus,run-length-edge-corpus,temporal-semantics"
     )));
     assert!(output.contains(&field(
         "semantic_area_order",
@@ -56,9 +56,9 @@ fn correctness_plan_json_exposes_reference_and_gap_counts() {
         "reference_role_order",
         "golden_fixture,external_oracle"
     )));
-    assert!(output.contains(&field("fixtures_with_source_ref_count", "6")));
-    assert!(output.contains(&field("golden_fixture_count", "6")));
-    assert!(output.contains(&field("executable_expected_output_count", "5")));
+    assert!(output.contains(&field("fixtures_with_source_ref_count", "7")));
+    assert!(output.contains(&field("golden_fixture_count", "7")));
+    assert!(output.contains(&field("executable_expected_output_count", "6")));
     assert!(output.contains(&field("not_yet_defined_fixture_count", "8")));
     assert!(output.contains(&field("diagnostic_expected_output_count", "1")));
     assert!(output.contains(&field("unsupported_expected_output_count", "1")));

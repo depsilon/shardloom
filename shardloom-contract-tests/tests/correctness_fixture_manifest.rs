@@ -81,6 +81,10 @@ fn foundation_plan_declares_broader_local_primitive_reference_outputs() {
             ExpectedOutcome::Rows { row_count: Some(5) },
         ),
         (
+            "vortex-local-filter-struct-five",
+            ExpectedOutcome::Rows { row_count: Some(3) },
+        ),
+        (
             "vortex-local-filter-project-struct-five",
             ExpectedOutcome::Rows { row_count: Some(3) },
         ),
@@ -173,10 +177,10 @@ fn reference_roles_remain_test_only_not_production_fallback() {
 fn foundation_plan_reports_reference_and_gap_counts() {
     let plan = CorrectnessValidationPlan::default_foundation_plan();
 
-    assert_eq!(plan.fixture_count(), 18);
-    assert_eq!(plan.fixtures_with_source_ref_count(), 6);
-    assert_eq!(plan.golden_fixture_count(), 6);
-    assert_eq!(plan.executable_expected_output_count(), 5);
+    assert_eq!(plan.fixture_count(), 19);
+    assert_eq!(plan.fixtures_with_source_ref_count(), 7);
+    assert_eq!(plan.golden_fixture_count(), 7);
+    assert_eq!(plan.executable_expected_output_count(), 6);
     assert_eq!(plan.not_yet_defined_fixture_count(), 8);
     assert_eq!(plan.diagnostic_expected_output_count(), 1);
     assert_eq!(plan.unsupported_expected_output_count(), 1);

@@ -20,9 +20,9 @@ fn correctness_harness_aggregates_current_cg5_evidence_without_execution() {
         report.status,
         CorrectnessDifferentialHarnessStatus::NeedsEvidence
     );
-    assert_eq!(report.fixture_count, 18);
-    assert_eq!(report.golden_fixture_count, 6);
-    assert_eq!(report.executable_expected_output_count, 5);
+    assert_eq!(report.fixture_count, 19);
+    assert_eq!(report.golden_fixture_count, 7);
+    assert_eq!(report.executable_expected_output_count, 6);
     assert_eq!(report.decoded_reference_output_count, 0);
     assert_eq!(report.baseline_count, 7);
     assert_eq!(report.planned_surface_count, 5);

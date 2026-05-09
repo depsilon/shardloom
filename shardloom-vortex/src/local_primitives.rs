@@ -1690,6 +1690,52 @@ mod tests {
     }
 
     #[test]
+    fn filter_predicate_executes_over_local_vortex_values() {
+        let path = unique_vortex_path("filter");
+        write_struct_fixture(&path).expect("fixture");
+        let uri = DatasetUri::new(path.display().to_string()).expect("uri");
+        let request = VortexQueryPrimitiveRequest::filter(
+            uri,
+            PredicateExpr::Compare {
+                column: ColumnRef::new("value").expect("column"),
+                op: ComparisonOp::GtEq,
+                value: StatValue::Int64(3),
+            },
+        );
+
+        let report = execute_vortex_local_primitive_with_policy(
+            &request,
+            VortexLocalPrimitiveExecutionPolicy::new(2).expect("policy"),
+        )
+        .expect("report");
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(
+            report.mode,
+            VortexLocalPrimitiveExecutionMode::VortexScanPushdown
+        );
+        assert_eq!(report.rows_scanned, 5);
+        assert_eq!(report.rows_selected, Some(3));
+        assert_eq!(report.rows_projected, None);
+        assert_eq!(report.result_summary.as_deref(), Some("3"));
+        assert!(report.data_read);
+        assert!(report.streaming_scan_used);
+        assert!(!report.full_stream_collected);
+        assert_eq!(report.max_parallelism_requested, 2);
+        assert_eq!(report.scan_concurrency_per_worker, 2);
+        assert!(report.filter_pushdown_applied);
+        assert!(report.upstream_filter_expression_used);
+        assert!(!report.projection_pushdown_applied);
+        assert!(!report.data_decoded);
+        assert!(!report.data_materialized);
+        assert!(!report.materialization_boundary_reported);
+        assert!(!report.row_read);
+        assert!(!report.arrow_converted);
+        assert!(!report.fallback_execution_allowed);
+    }
+
+    #[test]
     fn projection_reports_projected_columns_from_local_vortex() {
         let path = unique_vortex_path("project");
         write_struct_fixture(&path).expect("fixture");
@@ -1838,6 +1884,49 @@ mod tests {
     }
 
     #[test]
+    fn local_primitive_native_io_certificate_covers_filter_path() {
+        let path = unique_vortex_path("native-io-filter");
+        write_struct_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::filter(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            PredicateExpr::Compare {
+                column: ColumnRef::new("value").expect("column"),
+                op: ComparisonOp::GtEq,
+                value: StatValue::Int64(3),
+            },
+        );
+
+        let report = execute_vortex_local_primitive(&request).expect("report");
+        let certificate =
+            local_primitive_native_io_certificate(&request, &report).expect("certificate");
+        let _ = std::fs::remove_file(&path);
+
+        assert!(certificate.is_certified());
+        assert_eq!(
+            certificate
+                .source_pushdown_report
+                .accepted_operation_order(),
+            "filter"
+        );
+        assert_eq!(
+            certificate.representation_transition_order(),
+            "vortex_encoded->selection_vector_encoded"
+        );
+        assert_eq!(
+            certificate.sink_requirement_report.target_format,
+            "local_filtered_stream_summary"
+        );
+        assert!(certificate.sink_requirement_report.accepts_encoded);
+        assert!(!certificate.sink_requirement_report.requires_rows);
+        assert!(certificate.side_effects.data_read);
+        assert!(!certificate.side_effects.data_decoded);
+        assert!(!certificate.side_effects.data_materialized);
+        assert!(!certificate.side_effects.row_read);
+        assert!(!certificate.side_effects.arrow_converted);
+        assert!(!certificate.side_effects.fallback_attempted);
+    }
+
+    #[test]
     fn local_primitive_native_io_certificate_covers_project_path() {
         let path = unique_vortex_path("native-io-project");
         write_struct_fixture(&path).expect("fixture");
@@ -1938,6 +2027,18 @@ mod tests {
                 VortexQueryPrimitiveRequest::project(
                     DatasetUri::new("placeholder.vortex").expect("uri"),
                     ProjectionRequest::columns(vec![ColumnRef::new("metric").expect("column")]),
+                ),
+            ),
+            (
+                "filter-certificate",
+                "vortex-local-filter-struct-five",
+                VortexQueryPrimitiveRequest::filter(
+                    DatasetUri::new("placeholder.vortex").expect("uri"),
+                    PredicateExpr::Compare {
+                        column: ColumnRef::new("value").expect("column"),
+                        op: ComparisonOp::GtEq,
+                        value: StatValue::Int64(3),
+                    },
                 ),
             ),
             (
