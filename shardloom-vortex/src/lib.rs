@@ -425,8 +425,9 @@ pub use layout_driver_approval::{
 };
 pub use local_engine::{
     VortexLocalEngineMode, VortexLocalEnginePrimitive, VortexLocalEngineReport,
-    VortexLocalEngineRequest, VortexLocalEngineStatus, parse_vortex_local_engine_primitive,
-    run_vortex_local_engine, vortex_local_engine_is_side_effect_free,
+    VortexLocalEngineRequest, VortexLocalEngineStatus, VortexLocalEngineWhyReport,
+    parse_vortex_local_engine_primitive, run_vortex_local_engine,
+    vortex_local_engine_is_side_effect_free,
 };
 pub use local_execution::{
     VortexEncodedCountLocalGuardDiscoveryReport, VortexLocalExecutionInput,

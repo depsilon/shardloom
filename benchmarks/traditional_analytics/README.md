@@ -44,9 +44,10 @@ Each run writes a machine-readable JSON artifact and a human-readable Markdown
 report. The report begins with fairness parameters, then includes an engine
 overview with startup/warmup timing, scenario timing matrix, resource metrics,
 ShardLoom runtime-effect evidence, fastest-row table, ASCII timing bars,
-ShardLoom native microbenchmarks, ShardLoom work-avoidance evidence,
-ShardLoom write/commit evidence, universal-I/O evidence lanes, correctness
-summary, and separate failure/unsupported rows.
+ShardLoom native microbenchmarks, ShardLoom DecisionTrace/WhyReport evidence,
+ShardLoom work-avoidance evidence, ShardLoom write/commit evidence,
+universal-I/O evidence lanes, correctness summary, and separate
+failure/unsupported rows.
 
 Each result artifact records engine versions, Python/runtime details, dataset
 shape, file sizes, wall/query time, sampled peak RSS when `psutil` is available,
@@ -73,6 +74,11 @@ effects, not only plan analysis. It exposes decode avoided, materialization
 avoided, rows not scanned, segment prune count, bytes not read, spill avoided,
 and fallback blocked. Segment-prune and bytes-not-read values remain `unknown`
 until the local primitive path can measure them safely.
+
+The ShardLoom DecisionTrace/WhyReport evidence table explains why each native
+runtime row is or is not claim-grade. It records decision-trace counts, the
+primary reason, summarized claim blockers, and the next evidence needed before
+runtime measurements can become correctness/benchmark/certification claims.
 
 The ShardLoom write/commit evidence table runs the current local
 committed-manifest step against a synthetic staged workspace and records commit

@@ -17,6 +17,7 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("def render_fairness_parameters("));
     assert!(script.contains("def render_read_this_first("));
     assert!(script.contains("def render_shardloom_native_table("));
+    assert!(script.contains("def render_shardloom_why_table("));
     assert!(script.contains("def render_shardloom_work_avoidance_table("));
     assert!(script.contains("def render_shardloom_commit_table("));
     assert!(script.contains("def render_universal_io_table("));
@@ -112,6 +113,10 @@ fn traditional_benchmark_harness_includes_shardloom_native_microbenchmark() {
     assert!(script.contains("\"work_avoided_materialization_avoided\""));
     assert!(script.contains("\"work_avoided_segments_pruned\""));
     assert!(script.contains("\"work_avoided_bytes_not_read\""));
+    assert!(script.contains("\"why_primary_reason\""));
+    assert!(script.contains("\"why_blockers\""));
+    assert!(script.contains("\"decision_trace_entries\""));
+    assert!(script.contains("ShardLoom Decision / Why Evidence"));
     assert!(script.contains("ShardLoom Work-Avoidance Evidence"));
     assert!(script.contains("def run_shardloom_commit_microbenchmark("));
     assert!(script.contains("def prepare_shardloom_commit_workspace("));
@@ -141,6 +146,7 @@ fn traditional_benchmark_docs_state_no_fallback_and_markdown_outputs() {
     assert!(readme.contains("fairness parameters"));
     assert!(readme.contains("resource metrics"));
     assert!(readme.contains("runtime-effect evidence"));
+    assert!(readme.contains("DecisionTrace/WhyReport evidence"));
     assert!(readme.contains("work-avoidance evidence"));
     assert!(readme.contains("write/commit evidence"));
     assert!(readme.contains("per-path certificate id/status"));
@@ -162,6 +168,8 @@ fn traditional_benchmark_docs_state_no_fallback_and_markdown_outputs() {
     assert!(readme.contains("appends `-dirty`"));
     assert!(readme.contains("`vortex-run` primitive evidence"));
     assert!(normalized.contains("final `vortex-run` runtime effects"));
+    assert!(readme.contains("decision-trace counts"));
+    assert!(readme.contains("claim blockers"));
     assert!(readme.contains("Segment-prune and bytes-not-read values remain `unknown`"));
     assert!(readme.contains("average commit latency"));
     assert!(readme.contains("object-store commit"));
