@@ -58,6 +58,13 @@ ShardLoom's reported benchmark version appends `-dirty` when the workspace has
 uncommitted tracked changes, so local bring-up reports do not look like clean
 revision evidence by accident.
 
+ShardLoom native microbenchmark rows are separated from the traditional CSV
+engine rows. They include the approved local encoded `CountAll` path plus local
+`vortex-run` primitive evidence for projection, validity-filter counting, and a
+temporary comparison predicate. The report includes each row's timing scope so
+in-command repeated timings are not mixed up with CLI-process wall-time smoke
+measurements.
+
 Numeric benchmark outputs are rounded to four decimal places before correctness
 hashing. This keeps result comparison stable across engines with different
 floating-point aggregation orders while preserving the two-decimal source metric

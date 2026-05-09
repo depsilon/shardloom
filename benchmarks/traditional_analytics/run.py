@@ -313,31 +313,13 @@ def module_version(name: str) -> str:
 
 def shardloom_runner() -> EngineRunner:
     root = workspace_root()
-    cargo = shutil.which("cargo")
-    if cargo is None:
-        raise BenchmarkUnsupported("cargo was not found on PATH, so ShardLoom could not be built")
-    build_command = [
-        cargo,
-        "build",
-        "-q",
-        "-p",
-        "shardloom-cli",
-        "--features",
+    binary = build_shardloom_cli(
+        root,
         "vortex-traditional-analytics-benchmark",
-    ]
-    if SHARDLOOM_BUILD_PROFILE == "release":
-        build_command.append("--release")
+        SHARDLOOM_BUILD_PROFILE,
+    )
     env = os.environ.copy()
     env["RUSTUP_TOOLCHAIN"] = env.get("RUSTUP_TOOLCHAIN", "1.91.1")
-    completed = subprocess_run(build_command, root, env)
-    if completed["returncode"] != 0:
-        raise BenchmarkUnsupported(
-            "ShardLoom CLI build failed before benchmark timing began: "
-            + (completed["stderr"] or completed["stdout"] or "unknown failure")
-        )
-    binary = shardloom_binary_path(root, SHARDLOOM_BUILD_PROFILE)
-    if not binary.exists():
-        raise BenchmarkUnsupported(f"ShardLoom binary was not found after build: {binary}")
 
     def run_scenario(scenario: str, paths: DatasetPaths) -> Any:
         workspace = paths.root / "shardloom_universal_io" / scenario_slug(scenario)
@@ -466,6 +448,13 @@ def parse_optional_bool(value: Any) -> bool | None:
     return None
 
 
+def first_meaningful_field(*values: Any) -> Any:
+    for value in values:
+        if value is not None and value != "" and value != "none":
+            return value
+    return None
+
+
 def unwrap_engine_value(value: Any) -> tuple[Any, dict[str, str]]:
     if (
         isinstance(value, dict)
@@ -487,6 +476,35 @@ def shardloom_binary_path(root: Path, profile: str) -> Path:
     binary_name = "shardloom.exe" if os.name == "nt" else "shardloom"
     target_profile = "release" if profile == "release" else "debug"
     return root / "target" / target_profile / binary_name
+
+
+def build_shardloom_cli(root: Path, features: str, profile: str) -> Path:
+    cargo = shutil.which("cargo")
+    if cargo is None:
+        raise BenchmarkUnsupported("cargo was not found on PATH, so ShardLoom could not be built")
+    build_command = [
+        cargo,
+        "build",
+        "-q",
+        "-p",
+        "shardloom-cli",
+        "--features",
+        features,
+    ]
+    if profile == "release":
+        build_command.append("--release")
+    env = os.environ.copy()
+    env["RUSTUP_TOOLCHAIN"] = env.get("RUSTUP_TOOLCHAIN", "1.91.1")
+    completed = subprocess_run(build_command, root, env)
+    if completed["returncode"] != 0:
+        raise BenchmarkUnsupported(
+            "ShardLoom CLI build failed before benchmark timing began: "
+            + (completed["stderr"] or completed["stdout"] or "unknown failure")
+        )
+    binary = shardloom_binary_path(root, profile)
+    if not binary.exists():
+        raise BenchmarkUnsupported(f"ShardLoom binary was not found after build: {binary}")
+    return binary
 
 
 def shardloom_version(root: Path, profile: str) -> str:
@@ -1479,15 +1497,6 @@ def run_one(
 def run_shardloom_native_microbenchmarks(iterations: int) -> list[dict[str, Any]]:
     root = workspace_root()
     fixture = root / "shardloom-vortex" / "tests" / "fixtures" / "metadata_footer_u64_20000.vortex"
-    cargo = shutil.which("cargo")
-    if cargo is None:
-        return [
-            {
-                "name": "local encoded CountAll",
-                "status": "missing_cargo",
-                "reason": "cargo was not found on PATH, so the feature-gated ShardLoom microbenchmark could not run.",
-            }
-        ]
     if not fixture.exists():
         return [
             {
@@ -1496,15 +1505,64 @@ def run_shardloom_native_microbenchmarks(iterations: int) -> list[dict[str, Any]
                 "reason": f"Vortex fixture was not found at {fixture}",
             }
         ]
+    try:
+        binary = build_shardloom_cli(
+            root,
+            "vortex-traditional-analytics-benchmark",
+            SHARDLOOM_BUILD_PROFILE,
+        )
+    except BenchmarkUnsupported as exc:
+        return [
+            {
+                "name": "local encoded CountAll",
+                "status": "build_error",
+                "reason": str(exc),
+            }
+        ]
+    env = os.environ.copy()
+    env["RUSTUP_TOOLCHAIN"] = env.get("RUSTUP_TOOLCHAIN", "1.91.1")
+    rows = [
+        run_shardloom_count_microbenchmark(root, env, binary, fixture, iterations),
+        run_shardloom_vortex_run_microbenchmark(
+            root,
+            env,
+            binary,
+            fixture,
+            iterations,
+            "local primitive projection",
+            "project:value",
+        ),
+        run_shardloom_vortex_run_microbenchmark(
+            root,
+            env,
+            binary,
+            fixture,
+            iterations,
+            "local primitive validity count",
+            "count-where:is_not_null:value",
+        ),
+        run_shardloom_vortex_run_microbenchmark(
+            root,
+            env,
+            binary,
+            fixture,
+            iterations,
+            "local primitive comparison count",
+            "count-where:gte:value:10000",
+        ),
+    ]
+    return rows
+
+
+def run_shardloom_count_microbenchmark(
+    root: Path,
+    env: dict[str, str],
+    binary: Path,
+    fixture: Path,
+    iterations: int,
+) -> dict[str, Any]:
     command = [
-        cargo,
-        "run",
-        "-q",
-        "-p",
-        "shardloom-cli",
-        "--features",
-        "vortex-encoded-read-spike",
-        "--",
+        str(binary),
         "vortex-count-benchmark",
         str(fixture),
         "1",
@@ -1514,55 +1572,156 @@ def run_shardloom_native_microbenchmarks(iterations: int) -> list[dict[str, Any]
         "--format",
         "json",
     ]
-    env = os.environ.copy()
-    env["RUSTUP_TOOLCHAIN"] = env.get("RUSTUP_TOOLCHAIN", "1.91.1")
     started = time.perf_counter()
     completed = subprocess_run(command, root, env)
     elapsed_ms = (time.perf_counter() - started) * 1000.0
     if completed["returncode"] != 0:
-        return [
-            {
-                "name": "local encoded CountAll",
-                "status": "execution_error",
-                "reason": completed["stderr"] or completed["stdout"] or "unknown failure",
-                "command": command,
-                "elapsed_millis": round(elapsed_ms, 4),
-            }
-        ]
+        return native_microbenchmark_error(
+            "local encoded CountAll",
+            "execution_error",
+            completed["stderr"] or completed["stdout"] or "unknown failure",
+            command,
+            elapsed_ms,
+        )
     try:
         payload = json.loads(completed["stdout"].splitlines()[0])
     except (json.JSONDecodeError, IndexError) as exc:
-        return [
-            {
-                "name": "local encoded CountAll",
-                "status": "invalid_output",
-                "reason": f"{type(exc).__name__}: {exc}",
-                "command": command,
-                "elapsed_millis": round(elapsed_ms, 4),
-            }
-        ]
+        return native_microbenchmark_error(
+            "local encoded CountAll",
+            "invalid_output",
+            f"{type(exc).__name__}: {exc}",
+            command,
+            elapsed_ms,
+        )
     fields = parse_output_fields(payload)
-    return [
-        {
-            "name": "local encoded CountAll",
-            "status": payload.get("status", "unknown"),
-            "dataset": str(fixture),
-            "rows": fields.get("count"),
-            "iterations": fields.get("iterations_completed"),
-            "query_runtime_millis": fields.get("avg_query_runtime_millis"),
-            "query_runtime_micros": fields.get("avg_query_runtime_micros"),
-            "comparison_status": fields.get("comparison_status"),
-            "claim_gate_status": fields.get("claim_gate_status"),
-            "data_read": fields.get("data_read"),
-            "data_decoded": fields.get("data_decoded"),
-            "data_materialized": fields.get("data_materialized"),
-            "row_read": fields.get("row_read"),
-            "arrow_converted": fields.get("arrow_converted"),
-            "fallback_attempted": fields.get("fallback_attempted"),
-            "performance_claim_allowed": fields.get("performance_claim_allowed"),
-            "command": command,
-        }
+    return {
+        "name": "local encoded CountAll",
+        "status": payload.get("status", "unknown"),
+        "dataset": str(fixture),
+        "primitive": "count",
+        "rows": fields.get("count"),
+        "iterations": fields.get("iterations_completed"),
+        "query_runtime_millis": fields.get("avg_query_runtime_millis"),
+        "query_runtime_micros": fields.get("avg_query_runtime_micros"),
+        "timing_scope": "in-command repeated local encoded count",
+        "comparison_status": fields.get("comparison_status"),
+        "claim_gate_status": fields.get("claim_gate_status"),
+        "data_read": fields.get("data_read"),
+        "data_decoded": fields.get("data_decoded"),
+        "data_materialized": fields.get("data_materialized"),
+        "row_read": fields.get("row_read"),
+        "arrow_converted": fields.get("arrow_converted"),
+        "materialization_boundary_reported": fields.get(
+            "materialization_boundary_reported", "false"
+        ),
+        "fallback_attempted": fields.get("fallback_attempted"),
+        "performance_claim_allowed": fields.get("performance_claim_allowed"),
+        "command": command,
+    }
+
+
+def run_shardloom_vortex_run_microbenchmark(
+    root: Path,
+    env: dict[str, str],
+    binary: Path,
+    fixture: Path,
+    iterations: int,
+    name: str,
+    primitive: str,
+) -> dict[str, Any]:
+    command = [
+        str(binary),
+        "vortex-run",
+        str(fixture),
+        primitive,
+        "1",
+        "1",
+        "--format",
+        "json",
     ]
+    timings: list[float] = []
+    payload: dict[str, Any] | None = None
+    for _ in range(iterations):
+        started = time.perf_counter()
+        completed = subprocess_run(command, root, env)
+        elapsed_ms = (time.perf_counter() - started) * 1000.0
+        timings.append(elapsed_ms)
+        if completed["returncode"] != 0:
+            return native_microbenchmark_error(
+                name,
+                "execution_error",
+                completed["stderr"] or completed["stdout"] or "unknown failure",
+                command,
+                elapsed_ms,
+            )
+        try:
+            payload = json.loads(completed["stdout"].splitlines()[0])
+        except (json.JSONDecodeError, IndexError) as exc:
+            return native_microbenchmark_error(
+                name,
+                "invalid_output",
+                f"{type(exc).__name__}: {exc}",
+                command,
+                elapsed_ms,
+            )
+        if payload.get("status") != "success":
+            return native_microbenchmark_error(
+                name,
+                str(payload.get("status", "unsupported")),
+                payload.get("human_text") or "ShardLoom native primitive did not succeed",
+                command,
+                elapsed_ms,
+            )
+    fields = parse_output_fields(payload or {})
+    return {
+        "name": name,
+        "status": (payload or {}).get("status", "unknown"),
+        "dataset": str(fixture),
+        "primitive": primitive,
+        "rows": first_meaningful_field(
+            fields.get("local_primitive_rows_selected"),
+            fields.get("local_primitive_rows_scanned"),
+        ),
+        "iterations": str(iterations),
+        "query_runtime_millis": round(statistics.mean(timings), 4),
+        "timing_scope": "average CLI process wall time",
+        "comparison_status": "not_applicable",
+        "claim_gate_status": "not_claim_grade",
+        "result_known": fields.get("result_known"),
+        "projected_columns": fields.get("local_primitive_projected_columns"),
+        "data_read": fields.get("data_read"),
+        "data_decoded": fields.get("data_decoded"),
+        "data_materialized": fields.get("data_materialized"),
+        "row_read": fields.get("row_read"),
+        "arrow_converted": fields.get("arrow_converted"),
+        "materialization_boundary_reported": fields.get(
+            "local_primitive_materialization_boundary_reported"
+        ),
+        "fallback_attempted": str(
+            (payload or {}).get("fallback", {}).get("attempted", False)
+        ).lower(),
+        "performance_claim_allowed": "false",
+        "command": command,
+    }
+
+
+def native_microbenchmark_error(
+    name: str,
+    status: str,
+    reason: str,
+    command: list[str] | None = None,
+    elapsed_millis: float | None = None,
+) -> dict[str, Any]:
+    result: dict[str, Any] = {
+        "name": name,
+        "status": status,
+        "reason": reason,
+    }
+    if command is not None:
+        result["command"] = command
+    if elapsed_millis is not None:
+        result["elapsed_millis"] = round(elapsed_millis, 4)
+    return result
 
 
 def subprocess_run(command: list[str], cwd: Path, env: dict[str, str]) -> dict[str, Any]:
@@ -1957,24 +2116,32 @@ def render_shardloom_native_table(artifact: dict[str, Any]) -> str:
             [
                 result.get("name", "n/a"),
                 str(result.get("status", "n/a")),
+                str(result.get("primitive", "n/a")),
                 str(result.get("rows", "n/a")),
                 format_metric(result.get("query_runtime_millis"), " ms"),
+                str(result.get("timing_scope", "n/a")),
                 str(result.get("data_decoded", "n/a")),
                 str(result.get("data_materialized", "n/a")),
+                str(result.get("materialization_boundary_reported", "n/a")),
                 str(result.get("fallback_attempted", "n/a")),
                 str(result.get("claim_gate_status", "n/a")),
             ]
         )
     if not rows:
-        rows.append(["not run", "skipped", "n/a", "n/a", "n/a", "n/a", "n/a", "n/a"])
+        rows.append(
+            ["not run", "skipped", "n/a", "n/a", "n/a", "n/a", "n/a", "n/a", "n/a", "n/a", "n/a"]
+        )
     return markdown_table(
         [
             "Microbenchmark",
             "Status",
+            "Primitive",
             "Rows",
             "Avg runtime",
+            "Timing scope",
             "Decoded",
             "Materialized",
+            "Boundary",
             "Fallback",
             "Claim gate",
         ],
