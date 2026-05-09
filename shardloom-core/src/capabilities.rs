@@ -79,6 +79,10 @@ impl EngineCapabilities {
             compatibility_outputs: vec![
                 Capability::new("arrow_ipc", CapabilityStatus::Planned),
                 Capability::new("parquet", CapabilityStatus::Planned),
+                Capability::new("csv", CapabilityStatus::Planned),
+                Capability::new("jsonl", CapabilityStatus::Planned),
+                Capability::new("avro", CapabilityStatus::Planned),
+                Capability::new("orc", CapabilityStatus::Planned),
                 Capability::new("iceberg_compatible", CapabilityStatus::Planned),
                 Capability::new("delta_compatible", CapabilityStatus::Planned),
             ],

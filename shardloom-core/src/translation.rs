@@ -15,6 +15,8 @@ pub enum OutputTargetKind {
     Vortex,
     ArrowIpc,
     Parquet,
+    Avro,
+    Orc,
     IcebergCompatible,
     DeltaCompatible,
     JsonLines,
@@ -30,6 +32,8 @@ impl OutputTargetKind {
             Self::Vortex => "vortex",
             Self::ArrowIpc => "arrow_ipc",
             Self::Parquet => "parquet",
+            Self::Avro => "avro",
+            Self::Orc => "orc",
             Self::IcebergCompatible => "iceberg_compatible",
             Self::DeltaCompatible => "delta_compatible",
             Self::JsonLines => "json_lines",
@@ -52,6 +56,8 @@ impl OutputTargetKind {
             self,
             Self::ArrowIpc
                 | Self::Parquet
+                | Self::Avro
+                | Self::Orc
                 | Self::IcebergCompatible
                 | Self::DeltaCompatible
                 | Self::JsonLines
@@ -65,6 +71,8 @@ impl OutputTargetKind {
             DatasetFormat::Vortex => Self::Vortex,
             DatasetFormat::ArrowIpc => Self::ArrowIpc,
             DatasetFormat::Parquet => Self::Parquet,
+            DatasetFormat::Avro => Self::Avro,
+            DatasetFormat::Orc => Self::Orc,
             DatasetFormat::IcebergCompatible => Self::IcebergCompatible,
             DatasetFormat::DeltaCompatible => Self::DeltaCompatible,
             DatasetFormat::JsonLines => Self::JsonLines,
@@ -83,6 +91,8 @@ impl OutputTargetKind {
             Self::Vortex => "native_vortex_output",
             Self::ArrowIpc
             | Self::Parquet
+            | Self::Avro
+            | Self::Orc
             | Self::IcebergCompatible
             | Self::DeltaCompatible
             | Self::JsonLines
@@ -100,6 +110,8 @@ impl OutputTargetKind {
             Self::Vortex => FidelityLevel::NativeFullFidelity,
             Self::ArrowIpc
             | Self::Parquet
+            | Self::Avro
+            | Self::Orc
             | Self::IcebergCompatible
             | Self::DeltaCompatible
             | Self::JsonLines
@@ -117,6 +129,8 @@ impl OutputTargetKind {
             Self::Vortex => MaterializationRequirement::SelectionOnly,
             Self::ArrowIpc
             | Self::Parquet
+            | Self::Avro
+            | Self::Orc
             | Self::IcebergCompatible
             | Self::DeltaCompatible
             | Self::JsonLines
@@ -412,6 +426,8 @@ impl TranslationPlan {
             OutputTargetKind::Vortex => Self::native_vortex(target),
             OutputTargetKind::ArrowIpc
             | OutputTargetKind::Parquet
+            | OutputTargetKind::Avro
+            | OutputTargetKind::Orc
             | OutputTargetKind::IcebergCompatible
             | OutputTargetKind::DeltaCompatible
             | OutputTargetKind::JsonLines

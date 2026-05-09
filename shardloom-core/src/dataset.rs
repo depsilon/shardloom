@@ -121,6 +121,8 @@ pub enum DatasetFormat {
     Vortex,
     Parquet,
     ArrowIpc,
+    Avro,
+    Orc,
     IcebergCompatible,
     DeltaCompatible,
     JsonLines,
@@ -137,6 +139,8 @@ impl DatasetFormat {
             Self::Vortex => "vortex",
             Self::Parquet => "parquet",
             Self::ArrowIpc => "arrow_ipc",
+            Self::Avro => "avro",
+            Self::Orc => "orc",
             Self::IcebergCompatible => "iceberg_compatible",
             Self::DeltaCompatible => "delta_compatible",
             Self::JsonLines => "json_lines",
@@ -159,6 +163,8 @@ impl DatasetFormat {
             self,
             Self::Parquet
                 | Self::ArrowIpc
+                | Self::Avro
+                | Self::Orc
                 | Self::IcebergCompatible
                 | Self::DeltaCompatible
                 | Self::JsonLines
@@ -180,7 +186,14 @@ impl DatasetFormat {
             Self::Parquet
         } else if ext.eq_ignore_ascii_case("arrow") || ext.eq_ignore_ascii_case("ipc") {
             Self::ArrowIpc
-        } else if ext.eq_ignore_ascii_case("jsonl") {
+        } else if ext.eq_ignore_ascii_case("avro") {
+            Self::Avro
+        } else if ext.eq_ignore_ascii_case("orc") {
+            Self::Orc
+        } else if ext.eq_ignore_ascii_case("jsonl")
+            || ext.eq_ignore_ascii_case("ndjson")
+            || ext.eq_ignore_ascii_case("json")
+        {
             Self::JsonLines
         } else if ext.eq_ignore_ascii_case("csv") {
             Self::Csv
@@ -379,6 +392,25 @@ mod tests {
         assert_eq!(
             DatasetFormat::infer_from_uri(&DatasetUri::new("x.parquet").unwrap()),
             DatasetFormat::Parquet
+        );
+    }
+    #[test]
+    fn dataset_format_infers_common_structured_formats_from_uri() {
+        assert_eq!(
+            DatasetFormat::infer_from_uri(&DatasetUri::new("x.arrow").unwrap()),
+            DatasetFormat::ArrowIpc
+        );
+        assert_eq!(
+            DatasetFormat::infer_from_uri(&DatasetUri::new("x.avro").unwrap()),
+            DatasetFormat::Avro
+        );
+        assert_eq!(
+            DatasetFormat::infer_from_uri(&DatasetUri::new("x.orc").unwrap()),
+            DatasetFormat::Orc
+        );
+        assert_eq!(
+            DatasetFormat::infer_from_uri(&DatasetUri::new("x.ndjson").unwrap()),
+            DatasetFormat::JsonLines
         );
     }
     #[test]

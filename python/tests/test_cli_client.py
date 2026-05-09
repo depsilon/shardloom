@@ -347,6 +347,146 @@ class ShardLoomClientTests(unittest.TestCase):
                 "csv/file ingest", "fact.parquet", "dim.parquet", input_format="parquet"
             )
 
+    def test_live_etl_csv_to_vortex_replay_runs_import_then_native_replay(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                args = sys.argv[1:]
+                if args == [
+                    "traditional-analytics-run",
+                    "selective filter",
+                    "fact.csv",
+                    "dim.csv",
+                    "--workspace",
+                    "work",
+                    "--format",
+                    "json",
+                ]:
+                    print(json.dumps({
+                        "schema_version": "shardloom.output.v1",
+                        "command": "traditional-analytics-run",
+                        "status": "success",
+                        "summary": "csv ok",
+                        "human_text": "csv ok",
+                        "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                        "diagnostics": [],
+                        "fields": [
+                            {"key": "fact_vortex_path", "value": "work/fact.vortex"},
+                            {"key": "dim_vortex_path", "value": "work/dim.vortex"},
+                        ],
+                    }))
+                elif args == [
+                    "traditional-analytics-vortex-run",
+                    "selective filter",
+                    "work/fact.vortex",
+                    "work/dim.vortex",
+                    "--format",
+                    "json",
+                ]:
+                    print(json.dumps({
+                        "schema_version": "shardloom.output.v1",
+                        "command": "traditional-analytics-vortex-run",
+                        "status": "success",
+                        "summary": "native ok",
+                        "human_text": "native ok",
+                        "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                        "diagnostics": [],
+                        "fields": [{"key": "source_format", "value": "vortex"}],
+                    }))
+                else:
+                    raise AssertionError(args)
+                """
+            )
+        )
+
+        result = ShardLoomClient(binary=binary).live_etl_csv_to_vortex_replay(
+            "selective filter",
+            "fact.csv",
+            "dim.csv",
+            workspace="work",
+        )
+
+        self.assertEqual(result.csv_import.command, "traditional-analytics-run")
+        self.assertEqual(
+            result.native_vortex.command if result.native_vortex else None,
+            "traditional-analytics-vortex-run",
+        )
+        self.assertEqual(result.fact_vortex_path, "work/fact.vortex")
+        self.assertEqual(result.dim_vortex_path, "work/dim.vortex")
+        self.assertTrue(result.native_replay_ran)
+        self.assertFalse(result.fallback_attempted)
+
+    def test_live_etl_csv_to_vortex_replay_can_skip_native_replay(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == [
+                    "traditional-analytics-run",
+                    "selective filter",
+                    "fact.csv",
+                    "dim.csv",
+                    "--workspace",
+                    "work",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v1",
+                    "command": "traditional-analytics-run",
+                    "status": "success",
+                    "summary": "csv ok",
+                    "human_text": "csv ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "fact_vortex_path", "value": "work/fact.vortex"},
+                        {"key": "dim_vortex_path", "value": "work/dim.vortex"},
+                    ],
+                }))
+                """
+            )
+        )
+
+        result = ShardLoomClient(binary=binary).live_etl_csv_to_vortex_replay(
+            "selective filter",
+            "fact.csv",
+            "dim.csv",
+            workspace="work",
+            replay_native=False,
+        )
+
+        self.assertIsNone(result.native_vortex)
+        self.assertFalse(result.native_replay_ran)
+
+    def test_live_etl_csv_to_vortex_replay_requires_emitted_vortex_paths(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v1",
+                    "command": "traditional-analytics-run",
+                    "status": "success",
+                    "summary": "csv ok",
+                    "human_text": "csv ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [],
+                }))
+                """
+            )
+        )
+
+        with self.assertRaises(ShardLoomProtocolError):
+            ShardLoomClient(binary=binary).live_etl_csv_to_vortex_replay(
+                "selective filter",
+                "fact.csv",
+                "dim.csv",
+                workspace="work",
+            )
+
     def test_dynamic_work_shaping_and_sizing_feedback_commands(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
@@ -437,6 +577,60 @@ class ShardLoomClientTests(unittest.TestCase):
         )
 
         self.assertEqual(result.field("scope"), "traditional-analytics")
+
+    def test_input_adapter_and_input_plan_helpers(self) -> None:
+        adapters_binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == ["input-adapters", "--format", "json"], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v1",
+                    "command": "input-adapters",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "critical_structured_adapter_order", "value": "native_vortex,parquet,arrow_ipc,csv,jsonl"},
+                        {"key": "parquet_status", "value": "planned"}
+                    ],
+                }))
+                """
+            )
+        )
+
+        adapters = ShardLoomClient(binary=adapters_binary).input_adapters()
+
+        self.assertEqual(adapters.command, "input-adapters")
+        self.assertEqual(adapters.field("parquet_status"), "planned")
+
+        plan_binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == ["input-plan", "file://tmp/data.parquet", "--format", "json"], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v1",
+                    "command": "input-plan",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [{"key": "plan_only", "value": "true"}],
+                }))
+                """
+            )
+        )
+
+        input_plan = ShardLoomClient(binary=plan_binary).input_plan(
+            "file://tmp/data.parquet"
+        )
+
+        self.assertEqual(input_plan.command, "input-plan")
+        self.assertTrue(input_plan.field_bool("plan_only"))
 
 
 if __name__ == "__main__":

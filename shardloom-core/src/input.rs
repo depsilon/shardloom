@@ -34,6 +34,8 @@ pub enum InputSourceKind {
     VortexFile,
     Parquet,
     ArrowIpc,
+    Avro,
+    Orc,
     ArrowLikeBoundary,
     Csv,
     JsonLines,
@@ -59,6 +61,8 @@ impl InputSourceKind {
             Self::VortexFile => "vortex_file",
             Self::Parquet => "parquet",
             Self::ArrowIpc => "arrow_ipc",
+            Self::Avro => "avro",
+            Self::Orc => "orc",
             Self::ArrowLikeBoundary => "arrow_like_boundary",
             Self::Csv => "csv",
             Self::JsonLines => "jsonl",
@@ -87,6 +91,8 @@ impl InputSourceKind {
             self,
             Self::Parquet
                 | Self::ArrowIpc
+                | Self::Avro
+                | Self::Orc
                 | Self::ArrowLikeBoundary
                 | Self::Csv
                 | Self::JsonLines
@@ -337,6 +343,14 @@ impl UniversalInputSource {
             ),
             DatasetFormat::ArrowIpc => (
                 InputSourceKind::ArrowIpc,
+                InputAdapterKind::CompatibilityFileAdapter,
+            ),
+            DatasetFormat::Avro => (
+                InputSourceKind::Avro,
+                InputAdapterKind::CompatibilityFileAdapter,
+            ),
+            DatasetFormat::Orc => (
+                InputSourceKind::Orc,
                 InputAdapterKind::CompatibilityFileAdapter,
             ),
             DatasetFormat::Csv => (
@@ -593,31 +607,229 @@ pub struct InputAdapterRegistrySnapshot {
     pub adapters: Vec<InputCapability>,
     pub diagnostics: Vec<Diagnostic>,
 }
+
+const COMMON_STRUCTURED_ADAPTERS: &[&str] = &[
+    "native_vortex",
+    "parquet",
+    "arrow_ipc",
+    "csv",
+    "jsonl",
+    "avro",
+    "orc",
+];
+const CRITICAL_STRUCTURED_ADAPTERS: &[&str] = &[
+    "native_vortex",
+    "parquet",
+    "arrow_ipc",
+    "csv",
+    "jsonl",
+    "iceberg_compatible",
+    "delta_compatible",
+];
+const LAKEHOUSE_ADAPTERS: &[&str] = &[
+    "iceberg_compatible",
+    "delta_compatible",
+    "hive_partition_discovery",
+    "table_snapshot_import_export",
+    "schema_evolution_adapter",
+];
+const OBJECT_STORE_ADAPTERS: &[&str] = &[
+    "local_filesystem",
+    "s3_compatible",
+    "gcs",
+    "azure_blob_adls",
+    "http_range",
+];
+const CATALOG_ADAPTERS: &[&str] = &[
+    "local_catalog",
+    "hive_compatible_catalog",
+    "iceberg_rest_compatible_catalog",
+    "glue_like_catalog",
+    "nessie_like_catalog",
+];
+const EFFECTFUL_ADAPTERS: &[&str] = &["api", "llm", "embeddings", "vector_index"];
+const UNSTRUCTURED_ADAPTERS: &[&str] = &[
+    "unstructured_text",
+    "document",
+    "image",
+    "audio",
+    "video",
+    "binary_blob",
+];
+const FOUNDATION_INPUT_ADAPTERS: &[(&str, InputCapabilityStatus, &str)] = &[
+    (
+        "native_vortex",
+        InputCapabilityStatus::Planned,
+        "native highest-fidelity input/output path",
+    ),
+    (
+        "parquet",
+        InputCapabilityStatus::Planned,
+        "critical structured-file compatibility adapter",
+    ),
+    (
+        "arrow_ipc",
+        InputCapabilityStatus::Planned,
+        "critical Arrow boundary compatibility adapter",
+    ),
+    (
+        "csv",
+        InputCapabilityStatus::Planned,
+        "critical text-file utility adapter",
+    ),
+    (
+        "jsonl",
+        InputCapabilityStatus::Planned,
+        "critical JSON/NDJSON text adapter",
+    ),
+    (
+        "iceberg_compatible",
+        InputCapabilityStatus::Planned,
+        "critical lakehouse/table metadata adapter",
+    ),
+    (
+        "delta_compatible",
+        InputCapabilityStatus::Planned,
+        "critical lakehouse/table metadata adapter",
+    ),
+    (
+        "avro",
+        InputCapabilityStatus::Planned,
+        "later structured-file compatibility adapter",
+    ),
+    (
+        "orc",
+        InputCapabilityStatus::Planned,
+        "later structured-file compatibility adapter",
+    ),
+    (
+        "hive_partition_discovery",
+        InputCapabilityStatus::Planned,
+        "lakehouse partition discovery adapter",
+    ),
+    (
+        "table_snapshot_import_export",
+        InputCapabilityStatus::Planned,
+        "lakehouse snapshot import/export adapter",
+    ),
+    (
+        "schema_evolution_adapter",
+        InputCapabilityStatus::Planned,
+        "lakehouse schema evolution adapter",
+    ),
+    (
+        "local_filesystem",
+        InputCapabilityStatus::Planned,
+        "local file source and sink adapter",
+    ),
+    (
+        "s3_compatible",
+        InputCapabilityStatus::Planned,
+        "S3-compatible object-store adapter",
+    ),
+    (
+        "gcs",
+        InputCapabilityStatus::Planned,
+        "Google Cloud Storage object-store adapter",
+    ),
+    (
+        "azure_blob_adls",
+        InputCapabilityStatus::Planned,
+        "Azure Blob / ADLS object-store adapter",
+    ),
+    (
+        "http_range",
+        InputCapabilityStatus::Planned,
+        "HTTP range-read adapter when safe",
+    ),
+    (
+        "local_catalog",
+        InputCapabilityStatus::Planned,
+        "local catalog adapter",
+    ),
+    (
+        "hive_compatible_catalog",
+        InputCapabilityStatus::Planned,
+        "Hive-compatible catalog adapter",
+    ),
+    (
+        "iceberg_rest_compatible_catalog",
+        InputCapabilityStatus::Planned,
+        "Iceberg REST-compatible catalog adapter",
+    ),
+    (
+        "glue_like_catalog",
+        InputCapabilityStatus::Planned,
+        "Glue-like catalog adapter",
+    ),
+    (
+        "nessie_like_catalog",
+        InputCapabilityStatus::Planned,
+        "Nessie-like catalog adapter",
+    ),
+    (
+        "unstructured_text",
+        InputCapabilityStatus::RequiresExplicitEnablement,
+        "unstructured text source adapter",
+    ),
+    (
+        "document",
+        InputCapabilityStatus::RequiresExplicitEnablement,
+        "document source adapter",
+    ),
+    (
+        "image",
+        InputCapabilityStatus::RequiresExplicitEnablement,
+        "image source adapter",
+    ),
+    (
+        "audio",
+        InputCapabilityStatus::RequiresExplicitEnablement,
+        "audio source adapter",
+    ),
+    (
+        "video",
+        InputCapabilityStatus::RequiresExplicitEnablement,
+        "video source adapter",
+    ),
+    (
+        "binary_blob",
+        InputCapabilityStatus::RequiresExplicitEnablement,
+        "binary payload source adapter",
+    ),
+    (
+        "api",
+        InputCapabilityStatus::RequiresExplicitEnablement,
+        "effectful API source adapter",
+    ),
+    (
+        "llm",
+        InputCapabilityStatus::RequiresExplicitEnablement,
+        "effectful LLM source adapter",
+    ),
+    (
+        "embeddings",
+        InputCapabilityStatus::RequiresExplicitEnablement,
+        "effectful embedding source adapter",
+    ),
+    (
+        "vector_index",
+        InputCapabilityStatus::RequiresExplicitEnablement,
+        "effectful vector index source adapter",
+    ),
+];
+
 impl InputAdapterRegistrySnapshot {
     #[must_use]
     pub fn foundation() -> Self {
-        let adapters = [
-            ("native_vortex", InputCapabilityStatus::Planned),
-            ("parquet", InputCapabilityStatus::Planned),
-            ("arrow_ipc", InputCapabilityStatus::Planned),
-            ("csv", InputCapabilityStatus::Planned),
-            ("jsonl", InputCapabilityStatus::Planned),
-            ("iceberg_compatible", InputCapabilityStatus::Planned),
-            ("delta_compatible", InputCapabilityStatus::Planned),
-            ("api", InputCapabilityStatus::RequiresExplicitEnablement),
-            ("llm", InputCapabilityStatus::RequiresExplicitEnablement),
-            (
-                "embeddings",
-                InputCapabilityStatus::RequiresExplicitEnablement,
-            ),
-            (
-                "vector_index",
-                InputCapabilityStatus::RequiresExplicitEnablement,
-            ),
-        ]
-        .into_iter()
-        .filter_map(|(n, s)| InputCapability::new(n, s).ok())
-        .collect();
+        let adapters = FOUNDATION_INPUT_ADAPTERS
+            .iter()
+            .filter_map(|(n, s, notes)| {
+                InputCapability::new(*n, *s)
+                    .ok()
+                    .map(|c| c.with_notes(*notes))
+            })
+            .collect();
         Self {
             adapters,
             diagnostics: vec![],
@@ -632,6 +844,78 @@ impl InputAdapterRegistrySnapshot {
     #[must_use]
     pub fn adapter_count(&self) -> usize {
         self.adapters.len()
+    }
+    #[must_use]
+    pub fn adapter_order(&self) -> String {
+        self.adapters
+            .iter()
+            .map(|adapter| adapter.name.as_str())
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+    #[must_use]
+    pub fn common_structured_adapter_order(&self) -> String {
+        self.ordered_names(COMMON_STRUCTURED_ADAPTERS)
+    }
+    #[must_use]
+    pub fn critical_structured_adapter_order(&self) -> String {
+        self.ordered_names(CRITICAL_STRUCTURED_ADAPTERS)
+    }
+    #[must_use]
+    pub fn lakehouse_adapter_order(&self) -> String {
+        self.ordered_names(LAKEHOUSE_ADAPTERS)
+    }
+    #[must_use]
+    pub fn object_store_adapter_order(&self) -> String {
+        self.ordered_names(OBJECT_STORE_ADAPTERS)
+    }
+    #[must_use]
+    pub fn catalog_adapter_order(&self) -> String {
+        self.ordered_names(CATALOG_ADAPTERS)
+    }
+    #[must_use]
+    pub fn effectful_adapter_order(&self) -> String {
+        self.ordered_names(EFFECTFUL_ADAPTERS)
+    }
+    #[must_use]
+    pub fn unstructured_adapter_order(&self) -> String {
+        self.ordered_names(UNSTRUCTURED_ADAPTERS)
+    }
+    #[must_use]
+    pub fn planned_count(&self) -> usize {
+        self.adapters
+            .iter()
+            .filter(|adapter| adapter.status == InputCapabilityStatus::Planned)
+            .count()
+    }
+    #[must_use]
+    pub fn explicitly_enabled_count(&self) -> usize {
+        self.adapters
+            .iter()
+            .filter(|adapter| adapter.status == InputCapabilityStatus::RequiresExplicitEnablement)
+            .count()
+    }
+    #[must_use]
+    pub fn supported_count(&self) -> usize {
+        self.adapters
+            .iter()
+            .filter(|adapter| adapter.status == InputCapabilityStatus::Supported)
+            .count()
+    }
+    #[must_use]
+    pub fn adapter_status(&self, name: &str) -> Option<&'static str> {
+        self.adapters
+            .iter()
+            .find(|adapter| adapter.name == name)
+            .map(|adapter| adapter.status.as_str())
+    }
+    fn ordered_names(&self, allowed: &[&str]) -> String {
+        self.adapters
+            .iter()
+            .filter(|adapter| allowed.contains(&adapter.name.as_str()))
+            .map(|adapter| adapter.name.as_str())
+            .collect::<Vec<_>>()
+            .join(",")
     }
     #[must_use]
     pub fn has_errors(&self) -> bool {
@@ -702,6 +986,14 @@ mod tests {
             UniversalInputSource::from_dataset_uri(DatasetUri::new("x.arrow").expect("uri"))
                 .expect("ok");
         assert_eq!(arrow.source_kind, InputSourceKind::ArrowIpc);
+
+        let avro = UniversalInputSource::from_dataset_uri(DatasetUri::new("x.avro").expect("uri"))
+            .expect("ok");
+        assert_eq!(avro.source_kind, InputSourceKind::Avro);
+
+        let orc = UniversalInputSource::from_dataset_uri(DatasetUri::new("x.orc").expect("uri"))
+            .expect("ok");
+        assert_eq!(orc.source_kind, InputSourceKind::Orc);
     }
     #[test]
     fn report_behaviors() {
@@ -734,6 +1026,32 @@ mod tests {
         let reg = InputAdapterRegistrySnapshot::foundation();
         assert!(reg.adapters.iter().any(|a| a.name == "native_vortex"));
         assert!(reg.adapters.iter().any(|a| a.name == "parquet"));
+        assert!(reg.adapters.iter().any(|a| a.name == "arrow_ipc"));
+        assert!(reg.adapters.iter().any(|a| a.name == "csv"));
+        assert!(reg.adapters.iter().any(|a| a.name == "jsonl"));
+        assert!(reg.adapters.iter().any(|a| a.name == "avro"));
+        assert!(reg.adapters.iter().any(|a| a.name == "orc"));
+        assert_eq!(
+            reg.critical_structured_adapter_order(),
+            "native_vortex,parquet,arrow_ipc,csv,jsonl,iceberg_compatible,delta_compatible"
+        );
+        assert_eq!(
+            reg.common_structured_adapter_order(),
+            "native_vortex,parquet,arrow_ipc,csv,jsonl,avro,orc"
+        );
+        assert_eq!(
+            reg.object_store_adapter_order(),
+            "local_filesystem,s3_compatible,gcs,azure_blob_adls,http_range"
+        );
+        assert_eq!(
+            reg.catalog_adapter_order(),
+            "local_catalog,hive_compatible_catalog,iceberg_rest_compatible_catalog,glue_like_catalog,nessie_like_catalog"
+        );
+        assert_eq!(reg.adapter_status("parquet"), Some("planned"));
+        assert_eq!(
+            reg.adapter_status("unstructured_text"),
+            Some("requires_explicit_enablement")
+        );
         assert!(reg.to_human_text().contains("fallback execution: disabled"));
     }
     #[test]

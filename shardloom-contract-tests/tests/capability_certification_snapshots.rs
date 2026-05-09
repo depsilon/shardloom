@@ -95,16 +95,29 @@ const EXPECTED_FUNCTION_GROUPS: [&str; 32] = [
     "effectful_functions",
 ];
 
-const EXPECTED_ADAPTERS: [&str; 11] = [
+const EXPECTED_ADAPTERS: [&str; 24] = [
     "native_vortex",
     "parquet",
     "arrow_ipc",
     "csv",
     "jsonl",
+    "avro",
+    "orc",
     "iceberg_compatible",
     "delta_compatible",
+    "hive_partition_discovery",
+    "table_snapshot_import_export",
+    "schema_evolution_adapter",
     "local_filesystem",
     "s3_compatible",
+    "gcs",
+    "azure_blob_adls",
+    "http_range",
+    "local_catalog",
+    "hive_compatible_catalog",
+    "iceberg_rest_compatible_catalog",
+    "glue_like_catalog",
+    "nessie_like_catalog",
     "python_api",
     "rust_api",
 ];

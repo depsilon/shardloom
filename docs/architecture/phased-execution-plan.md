@@ -45,6 +45,49 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
+- [x] Session label: CG-11.4 / CG-19.4 / CG-20.5 Python replay helper and universal input adapter matrix
+  - Primary files:
+    - `python/src/shardloom/client.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/tests/test_cli_client.py`
+    - `python/README.md`
+    - `README.md`
+    - `shardloom-core/src/dataset.rs`
+    - `shardloom-core/src/input.rs`
+    - `shardloom-core/src/translation.rs`
+    - `shardloom-core/src/capabilities.rs`
+    - `shardloom-core/src/certification.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/input_adapters_snapshots.rs`
+    - `shardloom-contract-tests/tests/capability_certification_snapshots.rs`
+    - `docs/architecture/universal-input-contract.md`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: Make the Python local ETL path practical for live CSV-to-Vortex replay while expanding universal input discovery so common structured formats, lakehouse/table refs, object stores, catalogs, effectful inputs, and unstructured/media inputs are explicit planned or enablement-required adapter contracts.
+  - Checklist:
+    - [x] Add a Python helper that runs the current CSV universal-I/O smoke path and optionally replays from the emitted native `.vortex` artifacts.
+    - [x] Add Python helpers for `input-adapters` and `input-plan` discovery.
+    - [x] Recognize Avro and ORC as planning-time dataset formats without adding readers.
+    - [x] Expand input adapter discovery beyond CSV to common structured files, lakehouse/table metadata, object-store families, catalogs, effectful sources, and unstructured/media families.
+    - [x] Expose adapter group order, counts, and representative statuses through `input-adapters`.
+    - [x] Expose source kind, URI scheme, dataset format, capability status, fidelity, materialization risk, effect level, and no-side-effect flags through `input-plan`.
+    - [x] Keep CSV-to-Vortex as the only implemented universal-I/O benchmark smoke lane and keep Parquet/Arrow IPC/JSONL/Avro/ORC/object-store/catalog adapters as planned contracts.
+    - [x] Preserve no dependency additions, no reader/runtime behavior for planned formats, no object-store probing, no SQL/DataFrame/UDF runtime, no hidden materialization, and no fallback execution.
+    - [x] Add focused Python and CLI/Rust contract coverage.
+    - [x] Run required full validation before PR.
+  - Local validation status:
+    - Focused `python -m unittest discover python\tests` passed locally with `PYTHONPATH=python\src`.
+    - Focused `cargo test -p shardloom-core input -- --nocapture` passed locally with Rust toolchain `1.91.1`.
+    - Focused `cargo test -p shardloom-core dataset -- --nocapture` passed locally with Rust toolchain `1.91.1`.
+    - Focused `cargo test -p shardloom-cli --test input_adapters_snapshots -- --nocapture` passed locally with Rust toolchain `1.91.1`.
+    - Focused `cargo test -p shardloom-contract-tests capability_certification_matrix_names_are_stable -- --nocapture` passed locally with Rust toolchain `1.91.1`.
+    - `python -m compileall python\src python\examples` passed locally.
+    - Required `cargo fmt --all -- --check` passed locally with Rust toolchain `1.91.1`.
+    - Required `cargo clippy --workspace --all-targets -- -D warnings` passed locally with Rust toolchain `1.91.1`.
+    - Required `cargo test --workspace --all-targets` passed locally with Rust toolchain `1.91.1`.
+    - `git diff --check` passed locally.
+    - Hidden/bidi control scan over changed files passed locally.
+  - Explicitly not included: Parquet/Arrow IPC/JSONL/Avro/ORC readers, object-store IO, catalog probing, adapter implementation, SQL parser/execution, DataFrame runtime, UDF runtime, production adapter certification, benchmark report changes, superiority claim, package publication, or fallback execution.
+
 - [x] Session label: CG-8.9 / CG-13.9 local Vortex streaming scan execution policy
   - Primary files:
     - `shardloom-vortex/src/local_primitives.rs`
