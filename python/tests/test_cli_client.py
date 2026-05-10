@@ -520,6 +520,58 @@ class ShardLoomClientTests(unittest.TestCase):
 
         self.assertEqual(command[0], sys.executable)
 
+    def test_subprocess_env_merges_overrides_with_inherited_environment(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, os
+                assert os.environ.get("SHARDLOOM_TEST_INHERITED") == "base"
+                assert os.environ.get("SHARDLOOM_TEST_OVERRIDE") == "override"
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v1",
+                    "command": "status",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [],
+                }))
+                """
+            )
+        )
+        old = os.environ.get("SHARDLOOM_TEST_INHERITED")
+        os.environ["SHARDLOOM_TEST_INHERITED"] = "base"
+        try:
+            result = ShardLoomClient(
+                binary=binary,
+                env={"SHARDLOOM_TEST_OVERRIDE": "override"},
+            ).status()
+        finally:
+            if old is None:
+                os.environ.pop("SHARDLOOM_TEST_INHERITED", None)
+            else:
+                os.environ["SHARDLOOM_TEST_INHERITED"] = old
+
+        self.assertEqual(result.command, "status")
+
+    def test_relative_env_binary_resolves_from_client_cwd(self) -> None:
+        tempdir = tempfile.TemporaryDirectory()
+        self.addCleanup(tempdir.cleanup)
+        root = Path(tempdir.name)
+        bin_dir = root / "bin"
+        bin_dir.mkdir()
+        binary = bin_dir / "shardloom"
+        binary.write_text("", encoding="utf-8")
+
+        client = ShardLoomClient(
+            env={"SHARDLOOM_BIN": str(Path("bin") / "shardloom"), "PATH": ""},
+            cwd=root,
+        )
+        command = client._command(["status"])
+
+        self.assertEqual(Path(command[0]), binary)
+
     def test_missing_binary_raises_deterministic_error(self) -> None:
         client = ShardLoomClient(env={"PATH": ""})
 

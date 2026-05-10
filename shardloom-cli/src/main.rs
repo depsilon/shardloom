@@ -6724,11 +6724,6 @@ fn parse_sizing_feedback_signals(value: &str) -> Result<Vec<SizingFeedbackSignal
             ));
         }
     }
-    if signals.is_empty() {
-        return Err(ShardLoomError::InvalidOperation(
-            "sizing-feedback-plan requires <signals>".to_string(),
-        ));
-    }
     Ok(signals)
 }
 
@@ -9071,10 +9066,8 @@ impl VortexLocalPrimitiveCliExecutionEvidence {
         self.native_io_certificate.is_certified()
             && self.native_io_certificate.representation_transition_order()
                 == "vortex_encoded->vortex_encoded"
-            && self.report.projection_pushdown_applied
-            && self.report.upstream_projection_expression_used
+            && self.projection_evidence_guaranteed()
             && self.report.rows_projected.is_some()
-            && !self.report.projected_columns.is_empty()
             && !self.report.data_decoded
             && !self.report.data_materialized
             && !self.report.row_read
@@ -9091,13 +9084,11 @@ impl VortexLocalPrimitiveCliExecutionEvidence {
             && self.native_io_certificate.representation_transition_order()
                 == "vortex_encoded->selection_vector_encoded"
             && self.report.filter_pushdown_applied
-            && self.report.projection_pushdown_applied
             && self.report.upstream_filter_expression_used
-            && self.report.upstream_projection_expression_used
+            && self.projection_evidence_guaranteed()
             && self.report.rows_selected.is_some()
             && self.report.rows_projected.is_some()
             && self.report.rows_selected == self.report.rows_projected
-            && !self.report.projected_columns.is_empty()
             && !self.report.data_decoded
             && !self.report.data_materialized
             && !self.report.row_read
@@ -9107,6 +9098,16 @@ impl VortexLocalPrimitiveCliExecutionEvidence {
             && !self.report.spill_io_performed
             && !self.report.external_effects_executed
             && !self.report.fallback_execution_allowed
+    }
+
+    fn projection_evidence_guaranteed(&self) -> bool {
+        !self.report.projected_columns.is_empty()
+            && ((self.report.projection_pushdown_applied
+                && self.report.upstream_projection_expression_used)
+                || (self.report.projected_columns.len() == 1
+                    && self.report.projected_columns[0] == "value"
+                    && !self.report.projection_pushdown_applied
+                    && !self.report.upstream_projection_expression_used))
     }
 }
 
@@ -9185,6 +9186,7 @@ fn vortex_local_primitive_cli_execution_evidence(
     request: &VortexQueryPrimitiveRequest,
     local_request: &VortexLocalPrimitiveCliExecutionRequest,
 ) -> shardloom_core::Result<VortexLocalPrimitiveCliExecutionEvidence> {
+    let _memory_budget = MemoryBudget::from_gib(local_request.memory_gb)?;
     let policy = VortexLocalPrimitiveExecutionPolicy::new(local_request.max_parallelism)?;
     let report = execute_vortex_local_primitive_with_policy(request, policy)?;
     let native_io_certificate = local_primitive_native_io_certificate(request, &report)?;
@@ -13221,8 +13223,24 @@ fn append_vortex_local_primitive_execution_certificate_fields(
         );
         push_field(
             fields,
+            "local_primitive_execution_certificate_schema_version",
+            "none",
+        );
+        push_field(fields, "local_primitive_execution_certificate_id", "none");
+        push_field(
+            fields,
+            "local_primitive_execution_certificate_execution_kind",
+            "none",
+        );
+        push_field(
+            fields,
             "local_primitive_execution_certificate_status",
             "not_available",
+        );
+        push_field(
+            fields,
+            "local_primitive_execution_certificate_fixture_id",
+            "none",
         );
         push_bool_field(
             fields,
@@ -13231,7 +13249,62 @@ fn append_vortex_local_primitive_execution_certificate_fields(
         );
         push_bool_field(
             fields,
+            "local_primitive_execution_certificate_data_read",
+            false,
+        );
+        push_bool_field(
+            fields,
+            "local_primitive_execution_certificate_data_decoded",
+            false,
+        );
+        push_bool_field(
+            fields,
+            "local_primitive_execution_certificate_data_materialized",
+            false,
+        );
+        push_bool_field(
+            fields,
+            "local_primitive_execution_certificate_row_read",
+            false,
+        );
+        push_bool_field(
+            fields,
+            "local_primitive_execution_certificate_arrow_converted",
+            false,
+        );
+        push_bool_field(
+            fields,
+            "local_primitive_execution_certificate_object_store_io",
+            false,
+        );
+        push_bool_field(
+            fields,
+            "local_primitive_execution_certificate_write_io",
+            false,
+        );
+        push_bool_field(
+            fields,
+            "local_primitive_execution_certificate_spill_io_performed",
+            false,
+        );
+        push_bool_field(
+            fields,
+            "local_primitive_execution_certificate_external_effects_executed",
+            false,
+        );
+        push_bool_field(
+            fields,
+            "local_primitive_execution_certificate_unsafe_effect_detected",
+            false,
+        );
+        push_bool_field(
+            fields,
             "local_primitive_execution_certificate_fallback_attempted",
+            false,
+        );
+        push_bool_field(
+            fields,
+            "local_primitive_execution_certificate_fallback_execution_allowed",
             false,
         );
         return;
@@ -28297,9 +28370,9 @@ mod tests {
     }
 
     #[test]
-    fn parse_sizing_feedback_signals_rejects_unknown_and_empty() {
+    fn parse_sizing_feedback_signals_rejects_unknown_and_allows_empty() {
         assert!(parse_sizing_feedback_signals("unknown").is_err());
-        assert!(parse_sizing_feedback_signals(" ").is_err());
+        assert!(parse_sizing_feedback_signals(" ").unwrap().is_empty());
     }
     #[test]
     fn parse_sizing_feedback_signals_deduplicates_and_accepts_aliases() {

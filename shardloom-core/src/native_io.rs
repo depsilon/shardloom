@@ -563,10 +563,18 @@ impl NativeIoCertificate {
     /// Returns whether required materialization-boundary transitions have evidence.
     #[must_use]
     pub fn materializing_transitions_have_boundaries(&self) -> bool {
-        self.representation_transitions
+        let required_transition_count = self
+            .representation_transitions
             .iter()
             .filter(|transition| transition.requires_materialization_boundary())
-            .all(|transition| transition.materialization_boundary_reported)
+            .count();
+        required_transition_count == 0
+            || (!self.materialization_boundaries.is_empty()
+                && self
+                    .representation_transitions
+                    .iter()
+                    .filter(|transition| transition.requires_materialization_boundary())
+                    .all(|transition| transition.materialization_boundary_reported))
     }
 
     /// Returns whether the runtime certificate is invalid.
@@ -584,6 +592,7 @@ impl NativeIoCertificate {
                 .materialization_boundaries
                 .iter()
                 .any(NativeIoMaterializationBoundaryReport::has_errors)
+            || !self.materializing_transitions_have_boundaries()
             || self.side_effects.has_errors()
             || self.diagnostics.iter().any(|diagnostic| {
                 matches!(
@@ -1308,6 +1317,16 @@ mod tests {
         assert!(certificate.materializing_transitions_have_boundaries());
 
         certificate.representation_transitions[0].materialization_boundary_reported = false;
+
+        assert!(certificate.has_errors());
+        assert_eq!(certificate.status(), "blocked");
+        assert!(!certificate.materializing_transitions_have_boundaries());
+    }
+
+    #[test]
+    fn runtime_native_io_certificate_rejects_missing_boundary_records() {
+        let mut certificate = sample_runtime_certificate();
+        certificate.materialization_boundaries.clear();
 
         assert!(certificate.has_errors());
         assert_eq!(certificate.status(), "blocked");

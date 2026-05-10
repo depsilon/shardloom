@@ -85,6 +85,9 @@ impl VortexGeneralizedFilterExecutionReport {
             ),
             "Use CountWhere or FilterPredicate while projection/filter-project generalization remains separate work.",
         ));
+        let fallback_attempted = diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.fallback.attempted);
         Self {
             schema_version: SCHEMA_VERSION,
             report_id: REPORT_ID.to_string(),
@@ -108,7 +111,7 @@ impl VortexGeneralizedFilterExecutionReport {
             spill_io_performed: false,
             external_effects_executed: false,
             fallback_execution_allowed: false,
-            fallback_attempted: false,
+            fallback_attempted,
             diagnostics,
         }
     }
@@ -490,6 +493,42 @@ mod tests {
         assert!(!report.runtime_execution_allowed);
         assert!(!report.selection_vector_guaranteed);
         assert!(!report.fallback_attempted);
+        assert!(report.has_errors());
+    }
+
+    #[test]
+    fn generalized_filter_unsupported_report_preserves_fallback_attempt_diagnostics() {
+        let mut request = VortexQueryPrimitiveRequest::project(
+            DatasetUri::new("file:///tmp/input.vortex").expect("uri"),
+            shardloom_plan::ProjectionRequest::All,
+        );
+        request.diagnostics.push(Diagnostic::new(
+            shardloom_core::DiagnosticCode::NoFallbackExecution,
+            shardloom_core::DiagnosticSeverity::Error,
+            shardloom_core::DiagnosticCategory::NoFallbackPolicy,
+            "fallback was attempted before generalized filter admission",
+            Some("vortex_generalized_filter_execution".to_string()),
+            Some("review regression fixture".to_string()),
+            Some("preserve attempted fallback evidence".to_string()),
+            shardloom_core::FallbackStatus {
+                attempted: true,
+                allowed: false,
+                engine: Some("external".to_string()),
+                reason: "test fallback attempt".to_string(),
+            },
+        ));
+
+        let report = execute_vortex_generalized_filter_from_local_scan_pushdown(
+            &request,
+            VortexLocalPrimitiveExecutionPolicy::single_threaded(),
+        )
+        .expect("report");
+
+        assert_eq!(
+            report.status,
+            VortexGeneralizedFilterExecutionStatus::BlockedUnsupportedPrimitive
+        );
+        assert!(report.fallback_attempted);
         assert!(report.has_errors());
     }
 }

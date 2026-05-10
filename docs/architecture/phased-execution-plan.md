@@ -1,9 +1,12 @@
 # ShardLoom Phased Execution Plan
 
 ## How to maintain this file
-- Keep only the current PR/session in the Active Session Checklist.
-- Move completed session blocks into the Recent Completed Session Ledger.
-- Keep detailed phase history below the active queue.
+- Keep working items in exactly three sections: Planned, Active, and Completed.
+- Keep Planned in logical implementation order even when CG or phase numbers are out of order.
+- Keep only the current PR/session in Active.
+- Place Active between Planned and Completed so a session block can move from Planned to Active, then from Active to Completed with minimal editing.
+- Move completed session blocks to the top of Completed after merge; do not reshuffle older completed history unless the content is incorrect.
+- Keep detailed phase history below the active/completed queue as provenance, not as a second active queue.
 - Do not duplicate "current" status in multiple places.
 - Do not use stale percentage estimates.
 - CG-1 through CG-20 remain competitive gates, not replacement phase IDs.
@@ -11,11 +14,10 @@
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
 Status reading order:
-1. Active Session Checklist: current PR/session scope only.
-2. Near-term Implementation Priority: next unfinished work sequence.
-3. Competitive Engine Gates: high-level CG closeout rollup.
-4. Competitive Engine Gate Detailed Checklist Ledger: authoritative CG substep checklist.
-5. Completed and historical ledgers: provenance only, not active queues.
+1. Planned: next work in logical implementation order.
+2. Active: current PR/session scope only.
+3. Completed: recently finished sessions first, then historical provenance ledgers.
+4. Competitive Engine Gate detailed checklists: attribution detail only; promote new actionable work into Planned before implementation.
 
 ## Architecture Document Ownership
 - This file is the only mutable source of truth for active status, active queue, completed phase ledger, deferred work, and CG closeout state.
@@ -52,30 +54,11 @@ Supporting docs:
   - Role: reference maps and constraints.
   - Status rule: they guide design decisions but do not mark CG completion.
 
-## Active Session Checklist
-- [ ] Session label: CG-2.3f / CG-7.29 / CG-13.24 prepared encoded projection/filter-project evidence
-  - Primary files:
-    - `shardloom-vortex/src/encoded_projection_execution.rs`
-    - `shardloom-vortex/src/lib.rs`
-    - `docs/architecture/phased-execution-plan.md`
-    - `docs/architecture/rfc-phase-traceability.md`
-  - Scope: Add a prepared encoded projection evidence surface that projects already-available encoded column batches by column name and optionally carries safe selection-vector filter-kernel evidence for filter-project composition. This preserves encoded batches and selection-vector evidence without opening files, wiring readers, decoding, materializing, converting to Arrow, writing, spilling, or claiming production readiness.
-  - Checklist:
-    - [x] Move the completed multi-segment encoded-value filter evidence session from Active into the completed ledger.
-    - [x] Add `VortexPreparedEncodedProjectionColumn` as the explicit prepared encoded projection input contract.
-    - [x] Add `evaluate_vortex_prepared_encoded_projection` for prepared encoded projection and filter-project evidence.
-    - [x] Preserve encoded batches for requested columns without row reads, decode, materialization, Arrow conversion, writes, spill, or fallback.
-    - [x] Preserve safe selection-vector filter-kernel evidence for filter-project composition.
-    - [x] Add focused tests for projection success, filter-project composition, missing columns, and unsafe filter-kernel blocking.
-    - [x] Keep reader wiring, non-local sources, adapter execution, object-store IO, SQL/DataFrame runtime, writes, spill, benchmark reruns, superiority claims, and fallback execution out of scope.
-    - [x] Run focused tests, full Rust fmt/clippy/test validation, diff checks, and hidden/bidi scan.
-  - Local validation status:
-    - [x] Focused `cargo test -p shardloom-vortex encoded_projection_execution -- --nocapture` passed locally with Rust toolchain `1.91.1`.
-    - [x] Required full `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, and `cargo test --workspace --all-targets` validation passed locally with Rust toolchain `1.91.1`; full tests used a fresh temp target directory after repo-local Windows incremental-cache churn.
-    - [x] Diff hygiene and changed-file hidden/bidi scan passed locally.
-  - Explicitly not included: new readers, Vortex reader wiring, non-local/object-store Vortex sources, Parquet/Arrow/JSON/Avro/ORC runtime, adapter execution, local scan-pushdown changes, broad encoded projection kernels, SQL parser, SQL execution, DataFrame runtime, UDF/function registry runtime, sketch implementation, aggregate kernels, benchmark reruns, superiority or best-default claims, CG-2 closeout, CG-13 closeout, CG-20 closeout, or fallback execution.
+## Planned
 
-## Near-term Implementation Priority
+Use this section for the next implementation sequence. Keep it ordered by dependency and user value, not by numeric CG order.
+
+### Near-term Implementation Priority
 - [ ] Priority 1 - generalized encoded primitive execution loop
   - [x] Generalized local direct encoded `CountAll` execution beyond the original checked-in fixture proof path, with copied/non-fixture local `.vortex` targets execution-allowed but uncertified.
   - [x] Fixture-backed local `CountWhere` execution evidence through `vortex-count-where` with explicit selection-vector guarantee.
@@ -109,7 +92,63 @@ Supporting docs:
   - [ ] CG-20 SQL/DataFrame/UDF/unstructured/media/adapters once the encoded primitive evidence loop and importability lane are no longer the bottleneck.
   - [ ] CG-20 approximate aggregate/sketch function implementation after function-registry, aggregate-state, sketch-serialization, correctness, benchmark, execution-certificate, and Native I/O evidence gates are ready.
 
-## Recent Completed Session Ledger
+## Active
+
+- [ ] Session label: Review finding closeout and phase-plan working-section restructure
+  - Primary files:
+    - `shardloom-vortex/src/encoded_predicate_evaluation.rs`
+    - `shardloom-vortex/src/local_primitives.rs`
+    - `shardloom-vortex/src/local_engine.rs`
+    - `shardloom-vortex/src/generalized_filter_execution.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/sizing_feedback_plan_snapshots.rs`
+    - `shardloom-core/src/agent_contract.rs`
+    - `shardloom-core/src/native_io.rs`
+    - `python/src/shardloom/client.py`
+    - `python/tests/test_cli_client.py`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: Resolve the outstanding Codex review findings gathered across recent PRs and restructure this phase plan so future working items move through Planned, Active, and Completed.
+  - Checklist:
+    - [x] Preserve column-free encoded predicate evidence when column metadata is unavailable.
+    - [x] Block mismatched segment/value encodings before filter evidence.
+    - [x] Keep the one-batch encoded predicate bridge borrowed instead of cloning encoded batches.
+    - [x] Exclude null values from local count-where comparison evidence.
+    - [x] Require exact checked-in fixture identity before local primitive execution certificates can certify correctness.
+    - [x] Preserve projection passthrough evidence for primitive `value` columns.
+    - [x] Resolve local Vortex paths from the execution workspace when needed.
+    - [x] Keep sizing-feedback empty signal sets as no-feedback plans while rejecting unknown signals.
+    - [x] Preserve Python environment overrides and resolve relative `SHARDLOOM_BIN` paths from the client cwd.
+    - [x] Make Native I/O materializing transitions require boundary records.
+    - [x] Keep local primitive row-skip accounting explicit when runtime accounting is unavailable.
+    - [x] Route agent-safe surfaces to certification/plan-only commands.
+    - [x] Reorganize phase-plan working items into Planned, Active, and Completed.
+    - [x] Run focused tests, full Rust fmt/clippy/test validation, Python client tests, diff checks, and hidden/bidi scan.
+  - Explicitly not included: new readers, Parquet/Arrow/JSON/Avro/ORC runtime, adapter execution, SQL/DataFrame runtime, benchmark reruns, superiority claims, CG closeout, or fallback execution.
+
+## Completed
+
+### Recent Completed Session Ledger
+- [x] Session label: CG-2.3f / CG-7.29 / CG-13.24 prepared encoded projection/filter-project evidence
+  - Primary files:
+    - `shardloom-vortex/src/encoded_projection_execution.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: Add a prepared encoded projection evidence surface that projects already-available encoded column batches by column name and optionally carries safe selection-vector filter-kernel evidence for filter-project composition. This preserves encoded batches and selection-vector evidence without opening files, wiring readers, decoding, materializing, converting to Arrow, writing, spilling, or claiming production readiness.
+  - Completed:
+    - [x] Moved the completed multi-segment encoded-value filter evidence session from Active into the completed ledger.
+    - [x] Added `VortexPreparedEncodedProjectionColumn` as the explicit prepared encoded projection input contract.
+    - [x] Added `evaluate_vortex_prepared_encoded_projection` for prepared encoded projection and filter-project evidence.
+    - [x] Preserved encoded batches for requested columns without row reads, decode, materialization, Arrow conversion, writes, spill, or fallback.
+    - [x] Preserved safe selection-vector filter-kernel evidence for filter-project composition.
+    - [x] Added focused tests for projection success, filter-project composition, missing columns, and unsafe filter-kernel blocking.
+    - [x] Kept reader wiring, non-local sources, adapter execution, object-store IO, SQL/DataFrame runtime, writes, spill, benchmark reruns, superiority claims, and fallback execution out of scope.
+    - [x] Ran focused tests, full Rust fmt/clippy/test validation, diff checks, and hidden/bidi scan.
+  - Local validation status:
+    - [x] Focused `cargo test -p shardloom-vortex encoded_projection_execution -- --nocapture` passed locally with Rust toolchain `1.91.1`.
+    - [x] Required full `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, and `cargo test --workspace --all-targets` validation passed locally with Rust toolchain `1.91.1`; full tests used a fresh temp target directory after repo-local Windows incremental-cache churn.
+    - [x] Diff hygiene and changed-file hidden/bidi scan passed locally.
+  - Explicitly not included: new readers, Vortex reader wiring, non-local/object-store Vortex sources, Parquet/Arrow/JSON/Avro/ORC runtime, adapter execution, local scan-pushdown changes, broad encoded projection kernels, SQL parser, SQL execution, DataFrame runtime, UDF/function registry runtime, sketch implementation, aggregate kernels, benchmark reruns, superiority or best-default claims, CG-2 closeout, CG-13 closeout, CG-20 closeout, or fallback execution.
 - [x] Session label: CG-2.2k / CG-7.28 / CG-13.23 multi-segment encoded-value filter evidence
   - Primary files:
     - `shardloom-vortex/src/encoded_predicate_evaluation.rs`
@@ -769,7 +808,7 @@ Supporting docs:
     - [x] Required Rust validation passed locally.
   - Explicitly not included: mature Python API certification, DataFrame/query-builder runtime, notebook runtime, Python UDF runtime, SQL parser/execution, production adapters, object-store IO, writes, package publication, native bindings, PyO3/maturin, benchmark/superiority claim, best-default publication, or fallback execution.
 
-## R5 Detailed Completed Ledger
+### R5 Detailed Completed Ledger
 - [x] Next immediate step: R5.3.2 docs-wide CG-19/CG-20 consistency pass
   - Why: Keep CG-19/CG-20 canonical across RFCs, phase docs, agent instructions, and Vortex planning docs before additional queue movement.
   - Files:
@@ -1154,7 +1193,7 @@ Supporting docs:
   - Blockers:
     - None known.
 
-## Cleanup / Refactor Ledger
+### Cleanup / Refactor Ledger
 - [x] R0 Roadmap/docs synchronization
 - [x] R1 Systems learning map
 - [x] R2 Native contract vocabulary amendments
@@ -1306,7 +1345,7 @@ Supporting docs:
     - full Rust validation passed with toolchain `1.91.1`
     - docs hygiene scans passed for `git diff --check` and hidden/bidi controls
 
-## Implementation Phase Queue
+### Implementation Phase Queue
 - [x] R4 Resume CG implementation
   - Why: Resume implementation once active docs/refactor queue is current or explicitly overridden.
   - Acceptance:
@@ -1807,7 +1846,7 @@ Supporting docs:
     - Checkpoint/retry/idempotency readiness remains planning evidence only and does not execute retries, write checkpoints, run cleanup, contact storage, or start distributed runtime.
     - No object-store IO, file IO, data reads, writes, checkpoint writes, retry execution, cleanup execution, distributed execution runtime, benchmark claim, superiority claim, or fallback behavior is added.
 
-## Competitive Engine Gates CG-1 through CG-20
+### Reference: Competitive Engine Gates CG-1 through CG-20
 
 This section is a high-level rollup. Use it to check whether each competitive gate is open, partially complete, or closed; use the detailed checklist ledger below for attributable substeps.
 
@@ -2176,11 +2215,11 @@ Status legend:
     - capability certification surface across SQL/operators/functions/adapters/semantic profiles, migration, Python/API packaging, DataFrame/query builder, notebook, UDF/plugin, common ETL, universal adapters, event/API/SaaS adapters, unstructured/media, deployment/importability, and certification reporting
 
 
-## Competitive Engine Gate Detailed Checklist Ledger
+### Reference: Competitive Engine Gate Detailed Checklist Ledger
 
 Use this section for attributable CG substeps. Keep each item as a checkbox so progress remains session-updateable without losing provenance detail.
 
-### CG-1 detailed checklist
+#### CG-1 detailed checklist
 - [x] CG-1.1a encoded read boundary core contract
 - [x] CG-1.1b encoded read boundary CLI/docs integration
 - [x] CG-1.2a feature-gated local encoded-read fixture contract
@@ -2194,7 +2233,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-1.4 local fixture Vortex array scan/count proof
 - [ ] CG-1 closeout still requires generalized encoded data path evidence beyond a local fixture array-length scan
 
-### CG-2 detailed checklist
+#### CG-2 detailed checklist
 - [x] CG-2.0 query primitive readiness boundary (report-only)
 - [x] CG-2.0b helper correctness and blocker-preservation closeout
 - [x] CG-2.0c query primitive plan CLI integration
@@ -2258,7 +2297,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [~] CG-2.1+ broader zero-decode encoded query primitive execution remains deferred pending filter/project encoded-kernel guarantees
 - [ ] CG-2 closeout requires generalized count plus filtered-count/projection execution over actual Vortex data with correctness, benchmark, and certificate evidence
 
-### CG-3 detailed checklist
+#### CG-3 detailed checklist
 - [x] CG-3 contract/readiness scaffolding represented in phase-12 planning artifacts
 - [x] local placeholder payload artifact readiness path
 - [x] output-payload plan CLI (report-only)
@@ -2272,7 +2311,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [~] generalized output payload writes remain deferred
 - [~] manifest commits and object-store output writes remain deferred to CG-4/CG-10
 
-### CG-4 detailed checklist
+#### CG-4 detailed checklist
 - [x] commit-intent core contract
 - [x] commit-intent readiness integration
 - [x] commit marker planning and local marker artifact boundaries
@@ -2289,7 +2328,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] no object-store commit until later phases
 - [~] broader table/catalog/object-store commit execution remains deferred
 
-### CG-5 detailed checklist
+#### CG-5 detailed checklist
 - [x] CG-5.1 metadata query primitive correctness fixtures
 - [x] CG-5.2 metadata query primitive edge and diagnostic fixtures
 - [~] golden Vortex fixtures
@@ -2308,7 +2347,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [~] property/fuzz fixture families and reproducible seeds
 - [~] external-oracle result artifacts remain deferred; engines are policy-only baselines until explicit benchmark/correctness runs
 
-### CG-6 detailed checklist
+#### CG-6 detailed checklist
 - [x] CG-6.1 benchmark evidence manifest
 - [x] CG-6.2 benchmark claim gate
 - [x] CG-6.3 benchmark comparison report contract
@@ -2343,7 +2382,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [ ] query runtime benchmarks
 - [~] write/commit latency benchmarks started with local committed-manifest smoke evidence; object-store/table-format commit latency remains planned
 
-### CG-7 detailed checklist
+#### CG-7 detailed checklist
 - [x] CG-7.1 physical operator/kernel contract foundation
 - [x] CG-7.2 physical operator capability discovery
 - [x] CG-7.3 physical kernel registry plan
@@ -2383,7 +2422,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] metadata/encoded/hybrid execution levels
 - [x] expression evaluation over encoded segments
 
-### CG-8 detailed checklist
+#### CG-8 detailed checklist
 - [x] CG-8.1 streaming plan discovery surface
 - [x] CG-8.2 adaptive sizing, memory, scheduler, and bounded execution evidence surface
 - [x] CG-8.3 bounded backpressure planning surface
@@ -2405,7 +2444,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] backpressure planning surface
 - [x] memory/spill-aware scheduler planning surface
 
-### CG-9 detailed checklist
+#### CG-9 detailed checklist
 - [x] CG-9.1 schema evolution compatibility evidence
 - [x] CG-9.2 partition evolution compatibility evidence
 - [x] CG-9.3 delete/tombstone compatibility evidence
@@ -2420,7 +2459,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [ ] broader layout-health integration
 - [ ] broader compaction execution and catalog/table maintenance integration
 
-### CG-10 detailed checklist
+#### CG-10 detailed checklist
 - [x] CG-10.1 object-store range planning evidence
 - [x] CG-10.2 object-store request coalescing evidence
 - [x] CG-10.3 object-store commit protocol planning evidence
@@ -2429,7 +2468,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [ ] broader object-store commit execution
 - [ ] checkpoint/retry/idempotency execution
 
-### CG-11 detailed checklist
+#### CG-11 detailed checklist
 - [x] CG-11.1 stable CLI/API JSON protocol foundation
 - [x] CG-11.2 thin Python wrapper foundation over CLI JSON first
 - [x] CG-11.3 source-tree Python CLI JSON client package
@@ -2440,14 +2479,14 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] no Spark fallback
 - [x] mature Python wrapper/DataFrame/notebook/Python UDF certification deferred to CG-20
 
-### CG-12 detailed checklist
+#### CG-12 detailed checklist
 - [x] native-first plan portability reports
 - [x] explicit unsupported/lossy/residual construct reporting
 - [x] no import/export execution side effects
 - [x] real plan import/export serialization
 - [x] capability-checked imported-plan execution gate
 
-### CG-13 detailed checklist
+#### CG-13 detailed checklist
 - [x] CG-13.1 encoding-aware execution path selection report
 - [x] CG-13.2 decode/materialization avoided proof/report requirements
 - [x] CG-13.3 generalized encoded primitive gate blocks runtime widening until count/filter/project evidence is complete
@@ -2475,7 +2514,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [ ] generalized direct count/filter/project encoded execution
 - [ ] broad compressed-kernel correctness and benchmark certification
 
-### CG-14 detailed checklist
+#### CG-14 detailed checklist
 - [x] CG-14.1 adaptive decisions with deterministic diagnostics
 - [x] CG-14.2 bounded-memory-safe adaptation boundaries
 - [x] CG-14.3 conservative runtime-filter and dynamic-pruning proof gates
@@ -2483,7 +2522,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [ ] runtime filter construction/application
 - [ ] spill-aware adaptive execution
 
-### CG-15 detailed checklist
+#### CG-15 detailed checklist
 - [x] CG-15.1 CPU specialization report foundation
 - [x] commodity CPU vectorized specialization is first-class
 - [x] SIMD/cache/encoded-layout specialization candidate classes are reported
@@ -2491,7 +2530,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] no external engine fallback for specialization
 - [x] runtime CPU dispatch and unsafe SIMD implementation remain deferred until correctness and benchmark gates exist
 
-### CG-16 detailed checklist
+#### CG-16 detailed checklist
 - [x] CG-16.1 local encoded `CountAll` execution certificate
 - [x] CG-16.2 execution certificate evidence surface
 - [x] CG-16.3 broader local primitive execution certificate evidence
@@ -2509,20 +2548,20 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] plan/input/output evidence artifacts for reproducibility
 - [x] deterministic, machine-readable certificate surfaces
 
-### CG-17 detailed checklist
+#### CG-17 detailed checklist
 - [x] CG-17.1 stateful reuse boundary report
 - [x] typed cache/reuse boundaries
 - [x] explicit invalidation and correctness proof signals
 - [x] execution-certificate linkage for every reusable cache family
 - [x] manifest-diff proof requirements before incremental recompute
 
-### CG-18 detailed checklist
+#### CG-18 detailed checklist
 - [x] CG-18.1 universal harness report
 - [x] universal runner contracts and portability checks
 - [x] external baseline harnesses are comparison-only
 - [x] Foundry optional deployment/comparison example only
 
-### CG-19 detailed checklist
+#### CG-19 detailed checklist
 - [x] RFC 0031 contract deepening complete
 - [x] CG-19 sufficiency gates and per-path certificate disqualifiers documented
 - [x] Vortex Scan API source/sink/split/range-I/O alignment note documented as a design reference, not fallback execution
@@ -2545,7 +2584,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [~] generalized source/sink runtime certificate emission pending beyond local compatibility-file, benchmark native Vortex, local direct-count, copied/non-fixture local CountAll, generalized local filter surface, generalized local projection surface, local primitive, fixture-backed local `CountWhere`, fixture-backed local `FilterPredicate`, fixture-backed local `ProjectColumns`, and fixture-backed local `FilterAndProject` paths
 - [x] representation state, pushdown proof, materialization boundary, sink requirement, adapter fidelity, per-path certificate, no-default-Arrow, and no-fallback report fields are exposed without reads, decode, materialization, IO, writes, or fallback
 
-### CG-20 detailed checklist
+#### CG-20 detailed checklist
 - [x] RFC 0032 contract deepening complete
 - [x] World-class sufficiency report, best-default dossier linkage, and claim disqualifiers documented
 - [x] common data/ETL capability evidence documented
@@ -2566,13 +2605,13 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [~] mature implementation pending
 - [ ] capability certification surface implementation across real SQL/operators/functions/adapters/semantic profiles/migration/Python/API/DataFrame/notebook/UDF/ETL/universal-adapter/unstructured-media certification evidence
 
-### CG attribution and evidence notes
+#### CG attribution and evidence notes
 - [ ] When moving any detailed item to complete, link the implementing PR/commit and validating tests in the completion note.
 - [ ] Do not mark CG-3 complete from placeholder artifacts.
 - [ ] Do not make superiority claims before CG-5 and CG-6 are satisfied.
 - [ ] Keep external engines baseline-only for comparison/correctness/benchmarks, never runtime fallback.
 
-## Cross-cutting Epics
+### Reference: Cross-cutting Epics
 - [~] Epic A — DecisionTrace / WhyReport
 - [~] Epic B — WorkAvoidedReport
 - [x] Epic C — LayoutHealthReport
@@ -2585,7 +2624,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [~] Epic J — Benchmark and Competitive Claims
 - [~] Epic K — Dynamic Work Shaping
 
-## Completed Phase Ledger
+### Completed Phase Ledger
 - [x] Phase 0 — Project setup, licensing, naming, repo foundation
 - [x] Phase 1 — RFCs, skills, architecture docs, no-fallback policy
 - [x] Phase 2 — Core domain contracts
@@ -2607,9 +2646,9 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
   - Note: CG-4.2 adds report-only local committed-manifest recovery/rollback diagnostics.
   - Note: CG-4.3 adds the first feature-gated local committed-manifest rollback cleanup path; generalized recovery and object-store writes remain separate work.
 
-## Historical CG Completion And Deferred Notes
+### Historical CG Completion And Deferred Notes
 
-This section preserves older attribution notes that predate the compact CG rollups above. It is not the active queue; promote any actionable unfinished work into the Near-term Implementation Priority or the relevant detailed CG checklist before implementation.
+This section preserves older attribution notes that predate the compact CG rollups above. It is not the active queue; promote any actionable unfinished work into Planned before implementation.
 
 - [x] CG-1.2 metadata/footer execution path has a feature-gated local fixture invocation helper.
 - [x] CG-2.1 metadata-footer count execution bridge consumes the local fixture footer summary.
@@ -2771,7 +2810,7 @@ This section preserves older attribution notes that predate the compact CG rollu
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind `vortex-write`; placeholder artifact paths remain readiness-only.
 - [~] CG-3 broader output payload shapes remain deferred.
 
-## Guardrails
+### Guardrails
 - No Spark/DataFusion/Polars/DuckDB/Velox/vortex-datafusion fallback execution or delegation.
 - Unsupported behavior must fail explicitly with deterministic diagnostics.
 - Vortex is native input and highest-fidelity native output.

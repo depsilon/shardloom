@@ -305,12 +305,8 @@ pub fn local_primitive_execution_certificate(
     input.fallback_execution_allowed = report.fallback_execution_allowed;
     input.unsafe_effect_detected =
         request.kind != report.primitive_kind || local_primitive_unsafe_effect_detected(report);
-    input.correctness_passed = local_primitive_correctness_passed(
-        &fixture.expected,
-        request,
-        report,
-        input.actual_outcome.as_ref(),
-    );
+    input.correctness_passed =
+        local_primitive_correctness_passed(fixture, request, report, input.actual_outcome.as_ref());
     input.diagnostics.extend(request.diagnostics.clone());
     input.diagnostics.extend(report.diagnostics.clone());
     Ok(ExecutionCertificate::evaluate(input))
@@ -568,19 +564,32 @@ fn local_primitive_pushdown_evidence_is_sufficient(
             report.filter_pushdown_applied && report.upstream_filter_expression_used
         }
         VortexQueryPrimitiveKind::ProjectColumns => {
-            report.projection_pushdown_applied
-                && report.upstream_projection_expression_used
-                && !report.projected_columns.is_empty()
+            local_primitive_projection_evidence_is_sufficient(report)
         }
         VortexQueryPrimitiveKind::FilterAndProject => {
             report.filter_pushdown_applied
-                && report.projection_pushdown_applied
                 && report.upstream_filter_expression_used
-                && report.upstream_projection_expression_used
-                && !report.projected_columns.is_empty()
+                && local_primitive_projection_evidence_is_sufficient(report)
         }
         VortexQueryPrimitiveKind::SimpleAggregate | VortexQueryPrimitiveKind::Unsupported => false,
     }
+}
+
+fn local_primitive_projection_evidence_is_sufficient(
+    report: &VortexLocalPrimitiveExecutionReport,
+) -> bool {
+    !report.projected_columns.is_empty()
+        && ((report.projection_pushdown_applied && report.upstream_projection_expression_used)
+            || local_primitive_projection_passthrough_evidence(report))
+}
+
+fn local_primitive_projection_passthrough_evidence(
+    report: &VortexLocalPrimitiveExecutionReport,
+) -> bool {
+    report.projected_columns.len() == 1
+        && report.projected_columns[0] == "value"
+        && !report.projection_pushdown_applied
+        && !report.upstream_projection_expression_used
 }
 
 fn local_primitive_native_io_diagnostics(
@@ -944,14 +953,17 @@ fn local_primitive_unsafe_effect_detected(report: &VortexLocalPrimitiveExecution
 }
 
 fn local_primitive_correctness_passed(
-    expected: &ExpectedOutcome,
+    fixture: &CorrectnessFixture,
     request: &VortexQueryPrimitiveRequest,
     report: &VortexLocalPrimitiveExecutionReport,
     actual: Option<&ExpectedOutcome>,
 ) -> bool {
+    let fixture_matches_request = local_primitive_correctness_fixture_for_request(request, report)
+        .is_some_and(|matched| matched.id.as_str() == fixture.id.as_str());
     report.status == VortexLocalPrimitiveExecutionStatus::Executed
+        && fixture_matches_request
         && request.kind == report.primitive_kind
-        && Some(expected) == actual
+        && Some(&fixture.expected) == actual
         && request.diagnostics.is_empty()
         && !local_primitive_unsafe_effect_detected(report)
 }
@@ -1152,6 +1164,16 @@ fn local_vortex_path(
                 .unwrap_or_else(|| target_uri.as_str()),
         ),
         UriScheme::S3 | UriScheme::Gcs | UriScheme::Adls | UriScheme::Other => return Ok(None),
+    };
+    let path = if path.is_relative() && !path.exists() {
+        let workspace_candidate = workspace_root().join(&path);
+        if workspace_candidate.exists() {
+            workspace_candidate
+        } else {
+            path
+        }
+    } else {
+        path
     };
     if !path.exists() {
         return Ok(None);
@@ -1732,6 +1754,27 @@ mod tests {
         write_array(path, &array.into_array())
     }
 
+    fn write_nullable_struct_fixture(path: &std::path::Path) -> Result<()> {
+        use vortex::array::IntoArray as _;
+        use vortex::array::arrays::{PrimitiveArray, StructArray};
+        use vortex::array::dtype::FieldNames;
+        use vortex::array::validity::Validity;
+
+        let values = PrimitiveArray::new(
+            vec![1_u32, 0, 3, 4, 5],
+            Validity::from_iter([true, false, true, true, true]),
+        )
+        .into_array();
+        let array = StructArray::try_new(
+            FieldNames::from(["value"]),
+            vec![values],
+            5,
+            Validity::NonNullable,
+        )
+        .map_err(vortex_error)?;
+        write_array(path, &array.into_array())
+    }
+
     #[test]
     #[ignore = "fixture regeneration helper; writes shardloom-vortex/tests/fixtures/local_primitive_struct_five.vortex"]
     fn regenerate_checked_in_local_primitive_struct_fixture() {
@@ -1759,6 +1802,17 @@ mod tests {
             .into_iter()
             .find(|fixture| fixture.id.as_str() == id)
             .expect("fixture")
+    }
+
+    fn checked_in_struct_fixture_path() -> std::path::PathBuf {
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
+            .join("local_primitive_struct_five.vortex")
+    }
+
+    fn checked_in_struct_fixture_uri() -> DatasetUri {
+        DatasetUri::new(checked_in_struct_fixture_path().display().to_string()).expect("uri")
     }
 
     #[test]
@@ -1826,6 +1880,32 @@ mod tests {
         assert!(!report.materialization_boundary_reported);
         assert!(!report.row_read);
         assert!(!report.arrow_converted);
+        assert!(!report.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn count_where_comparison_excludes_null_values() {
+        let path = unique_vortex_path("count-where-null");
+        write_nullable_struct_fixture(&path).expect("fixture");
+        let uri = DatasetUri::new(path.display().to_string()).expect("uri");
+        let request = VortexQueryPrimitiveRequest::count_where(
+            uri,
+            PredicateExpr::Compare {
+                column: ColumnRef::new("value").expect("column"),
+                op: ComparisonOp::GtEq,
+                value: StatValue::Int64(0),
+            },
+        );
+
+        let report = execute_vortex_local_primitive(&request).expect("report");
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(report.rows_scanned, 5);
+        assert_eq!(report.rows_selected, Some(4));
+        assert!(!report.data_decoded);
+        assert!(!report.data_materialized);
+        assert!(!report.row_read);
         assert!(!report.fallback_execution_allowed);
     }
 
@@ -2125,6 +2205,75 @@ mod tests {
     }
 
     #[test]
+    fn local_primitive_native_io_certificate_allows_primitive_projection_passthrough() {
+        let path = unique_vortex_path("native-io-primitive-project");
+        write_primitive_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::project(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            ProjectionRequest::columns(vec![ColumnRef::new("value").expect("column")]),
+        );
+
+        let report = execute_vortex_local_primitive(&request).expect("report");
+        let certificate =
+            local_primitive_native_io_certificate(&request, &report).expect("certificate");
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(report.rows_projected, Some(3));
+        assert_eq!(report.projected_columns, vec!["value".to_string()]);
+        assert!(!report.projection_pushdown_applied);
+        assert!(!report.upstream_projection_expression_used);
+        assert!(certificate.is_certified());
+        assert_eq!(
+            certificate
+                .source_pushdown_report
+                .accepted_operation_order(),
+            "project"
+        );
+        assert_eq!(
+            certificate.representation_transition_order(),
+            "vortex_encoded->vortex_encoded"
+        );
+    }
+
+    #[test]
+    fn local_primitive_native_io_certificate_allows_primitive_filter_project_passthrough() {
+        let path = unique_vortex_path("native-io-primitive-filter-project");
+        write_primitive_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::filter_and_project(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            PredicateExpr::Compare {
+                column: ColumnRef::new("value").expect("column"),
+                op: ComparisonOp::GtEq,
+                value: StatValue::Int64(8),
+            },
+            ProjectionRequest::columns(vec![ColumnRef::new("value").expect("column")]),
+        );
+
+        let report = execute_vortex_local_primitive(&request).expect("report");
+        let certificate =
+            local_primitive_native_io_certificate(&request, &report).expect("certificate");
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(report.rows_selected, Some(2));
+        assert_eq!(report.rows_projected, Some(2));
+        assert!(report.filter_pushdown_applied);
+        assert!(report.upstream_filter_expression_used);
+        assert!(!report.projection_pushdown_applied);
+        assert!(!report.upstream_projection_expression_used);
+        assert!(certificate.is_certified());
+        assert_eq!(
+            certificate
+                .source_pushdown_report
+                .accepted_operation_order(),
+            "filter,project"
+        );
+        assert_eq!(
+            certificate.representation_transition_order(),
+            "vortex_encoded->selection_vector_encoded"
+        );
+    }
+
+    #[test]
     fn local_primitive_native_io_certificate_blocks_unsafe_effects() {
         let path = unique_vortex_path("native-io-blocked");
         write_struct_fixture(&path).expect("fixture");
@@ -2168,14 +2317,12 @@ mod tests {
     fn local_primitive_certificates_cover_broader_runtime_fixtures() {
         let cases = [
             (
-                "count-all-certificate",
                 "vortex-local-count-all-struct-five",
                 VortexQueryPrimitiveRequest::count_all(
                     DatasetUri::new("placeholder.vortex").expect("uri"),
                 ),
             ),
             (
-                "count-where-certificate",
                 "vortex-local-count-where-struct-five",
                 VortexQueryPrimitiveRequest::count_where(
                     DatasetUri::new("placeholder.vortex").expect("uri"),
@@ -2187,7 +2334,6 @@ mod tests {
                 ),
             ),
             (
-                "project-certificate",
                 "vortex-local-project-struct-five",
                 VortexQueryPrimitiveRequest::project(
                     DatasetUri::new("placeholder.vortex").expect("uri"),
@@ -2195,7 +2341,6 @@ mod tests {
                 ),
             ),
             (
-                "filter-certificate",
                 "vortex-local-filter-struct-five",
                 VortexQueryPrimitiveRequest::filter(
                     DatasetUri::new("placeholder.vortex").expect("uri"),
@@ -2207,7 +2352,6 @@ mod tests {
                 ),
             ),
             (
-                "filter-project-certificate",
                 "vortex-local-filter-project-struct-five",
                 VortexQueryPrimitiveRequest::filter_and_project(
                     DatasetUri::new("placeholder.vortex").expect("uri"),
@@ -2221,10 +2365,8 @@ mod tests {
             ),
         ];
 
-        for (name, fixture_id, mut request) in cases {
-            let path = unique_vortex_path(name);
-            write_struct_fixture(&path).expect("fixture");
-            request.source_uri = Some(DatasetUri::new(path.display().to_string()).expect("uri"));
+        for (fixture_id, mut request) in cases {
+            request.source_uri = Some(checked_in_struct_fixture_uri());
 
             let report = execute_vortex_local_primitive(&request).expect("report");
             let certificate = local_primitive_execution_certificate(
@@ -2233,7 +2375,6 @@ mod tests {
                 &report,
             )
             .expect("certificate");
-            let _ = std::fs::remove_file(&path);
 
             assert_eq!(
                 certificate.status,
@@ -2257,6 +2398,56 @@ mod tests {
             assert!(!certificate.external_effects_executed);
             assert!(certificate.fallback_free());
         }
+    }
+
+    #[test]
+    fn local_primitive_certificate_blocks_fixture_identity_mismatch() {
+        let request = VortexQueryPrimitiveRequest::filter(
+            checked_in_struct_fixture_uri(),
+            PredicateExpr::Compare {
+                column: ColumnRef::new("value").expect("column"),
+                op: ComparisonOp::GtEq,
+                value: StatValue::Int64(3),
+            },
+        );
+
+        let report = execute_vortex_local_primitive(&request).expect("report");
+        let certificate = local_primitive_execution_certificate(
+            &correctness_fixture("vortex-local-filter-project-struct-five"),
+            &request,
+            &report,
+        )
+        .expect("certificate");
+
+        assert_eq!(
+            certificate.status,
+            ExecutionCertificateStatus::EvidenceIncomplete
+        );
+        assert!(!certificate.is_certified());
+        assert_eq!(
+            certificate.correctness_fixture_id.as_deref(),
+            Some("vortex-local-filter-project-struct-five")
+        );
+        assert_eq!(certificate.expected_outcome, certificate.actual_outcome);
+        assert!(certificate.fallback_free());
+    }
+
+    #[test]
+    fn local_vortex_path_resolves_relative_targets_from_workspace_root() {
+        let uri =
+            DatasetUri::new("shardloom-vortex/tests/fixtures/local_primitive_struct_five.vortex")
+                .expect("uri");
+
+        let path = local_vortex_path(&uri, VortexQueryPrimitiveKind::CountAll)
+            .expect("path")
+            .expect("existing path");
+
+        assert_eq!(
+            path.canonicalize().expect("canonical"),
+            checked_in_struct_fixture_path()
+                .canonicalize()
+                .expect("fixture canonical")
+        );
     }
 
     #[test]

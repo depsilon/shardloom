@@ -155,7 +155,9 @@ class ShardLoomClient:
         does not run the CLI or inspect datasets.
         """
 
-        effective_env = dict(os.environ if env is None else env)
+        effective_env = dict(os.environ)
+        if env is not None:
+            effective_env.update(env)
         repo_root = effective_env.get(ENV_REPO_ROOT)
         configured_profile_order = profile_order or _profile_order_from_env(effective_env)
         timeout = kwargs.pop("timeout", _timeout_from_env(effective_env))
@@ -554,7 +556,7 @@ class ShardLoomClient:
             completed = subprocess.run(
                 command,
                 cwd=self._cwd,
-                env=self._env,
+                env=self._effective_env(),
                 text=True,
                 capture_output=True,
                 timeout=self._timeout,
@@ -616,15 +618,20 @@ class ShardLoomClient:
         )
 
     def _effective_env(self) -> Mapping[str, str]:
-        return self._env if self._env is not None else os.environ
+        if self._env is None:
+            return os.environ
+        effective_env = dict(os.environ)
+        effective_env.update(self._env)
+        return effective_env
 
-    @staticmethod
-    def _resolve_configured_binary(value: str, env: Mapping[str, str]) -> str:
+    def _resolve_configured_binary(self, value: str, env: Mapping[str, str]) -> str:
         configured = value.strip()
         if configured == "":
             raise ShardLoomBinaryNotFoundError(f"{ENV_BINARY} must not be empty")
         if _looks_like_path(configured):
             candidate = Path(configured).expanduser()
+            if not candidate.is_absolute():
+                candidate = (self._cwd or Path.cwd()) / candidate
             if candidate.is_file():
                 return str(candidate)
             raise ShardLoomBinaryNotFoundError(
