@@ -54,7 +54,7 @@ fn generalized_encoded_primitive_gate_json_exposes_current_boundary() {
     )));
     assert!(output.contains(&field(
         "primitive_statuses",
-        "local_direct_count_evidence,metadata_proof_only,readiness_only"
+        "local_direct_count_evidence,local_filter_scan_pushdown_evidence,readiness_only"
     )));
 }
 
@@ -62,8 +62,12 @@ fn generalized_encoded_primitive_gate_json_exposes_current_boundary() {
 fn generalized_encoded_primitive_gate_json_preserves_no_runtime_widening() {
     let output = run_generalized_encoded_primitive_gate_json();
 
-    assert!(output.contains(&field("local_count_all_only", "true")));
+    assert!(output.contains(&field("local_count_all_only", "false")));
     assert!(output.contains(&field("entries_with_local_count_support", "1")));
+    assert!(output.contains(&field(
+        "entries_with_local_filter_scan_pushdown_support",
+        "1"
+    )));
     assert!(output.contains(&field("entries_with_metadata_proof", "2")));
     assert!(output.contains(&field("entries_with_readiness_contract", "3")));
     assert!(output.contains(&field("implementation_blocker_count", "9")));

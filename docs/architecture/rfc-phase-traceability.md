@@ -587,6 +587,15 @@ No fallback execution.
 - The local-engine why report now asks for broader CG-5/CG-6 evidence and future native-adapter expansion instead of implying local CountAll execution is still fixture-only.
 - This phase adds no generalized encoded filter/projection execution, adapter runtime, non-local source read, object-store IO, row read, requested decode/materialization, Arrow conversion, write IO, spill IO, benchmark/superiority claim, CG-2/CG-13 closeout, external engine invocation, or fallback execution.
 
+## CG-2.2h / CG-13.19 / CG-19.16 generalized local filter execution surface
+
+- Primary RFC linkage: RFC 0012 Diagnostics/Capabilities, RFC 0013 Streaming/Zero-Copy Boundary, RFC 0015 Correctness/testing, RFC 0021 Expression/Kernel Registry, RFC 0025 Competitive/no-fallback, RFC 0026 Vortex encoded-read/query-readiness boundaries, RFC 0029 Correctness/Benchmarks/Execution Certificates, and RFC 0031 Universal Native I/O Envelope.
+- `shardloom-vortex/src/generalized_filter_execution.rs` adds a reusable report around feature-gated local CountWhere and FilterPredicate scan-pushdown execution.
+- The surface validates copied/non-fixture local `.vortex` filter and count-where requests, emits selected-row and selection-vector guarantee evidence, and attaches certified Native I/O evidence when the local scan is side-effect-free.
+- The generalized primitive gate now distinguishes local filter scan-pushdown evidence from still-blocked broad encoded-value predicate kernels, so local CountAll is no longer the only executable local primitive evidence.
+- Correctness certificates, physical-kernel production admission, broad encoded-value predicate kernels, non-local sources, object-store reads, adapters, projection/filter-project generalization, SQL/DataFrame runtime, writes, spill, benchmark claims, CG-2 closeout, and CG-13 closeout remain out of scope.
+- This phase adds no new reader, parser, dependency, external engine invocation, or fallback execution.
+
 ## CG-5.1 metadata query primitive correctness fixtures
 
 - Primary RFC linkage: RFC 0015 Correctness/Semantics/Differential Testing, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
