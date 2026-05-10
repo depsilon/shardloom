@@ -761,7 +761,11 @@ fn append_local_engine_primitive_next_action(
         VortexLocalEnginePrimitive::Count => {
             push_unique(
                 actions,
-                "generalize encoded CountAll beyond the current local path",
+                "attach broader CG-5/CG-6 evidence for local CountAll targets",
+            );
+            push_unique(
+                actions,
+                "extend CountAll beyond local filesystem sources when native adapters are phased",
             );
         }
         VortexLocalEnginePrimitive::Unsupported(_) => {
@@ -1666,6 +1670,52 @@ mod tests {
             .expect("write vortex");
         assert_eq!(summary.row_count(), 5);
         std::fs::write(path, bytes).expect("write fixture");
+    }
+
+    #[cfg(feature = "vortex-local-primitives")]
+    #[test]
+    fn local_engine_count_primitive_marks_local_countall_generalized_but_not_claim_grade() {
+        let path = unique_vortex_path("count");
+        write_local_engine_struct_fixture(&path);
+        let uri = DatasetUri::new(path.display().to_string()).expect("uri");
+        let request = VortexLocalEngineRequest::new(uri, VortexLocalEnginePrimitive::Count, 4, 2)
+            .expect("request");
+
+        let report = run_vortex_local_engine(request).expect("report");
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(
+            report.status,
+            VortexLocalEngineStatus::LocalPrimitiveCompleted
+        );
+        assert_eq!(report.value_summary.as_deref(), Some("5"));
+        assert!(report.result_known);
+        assert!(report.data_read);
+        assert!(!report.data_decoded);
+        assert!(!report.data_materialized);
+        assert!(!report.fallback_execution_allowed);
+
+        let local = report
+            .local_primitive_execution_report
+            .as_ref()
+            .expect("local primitive report");
+        assert_eq!(local.rows_scanned, 5);
+        assert!(local.streaming_scan_used);
+        assert!(!local.full_stream_collected);
+        assert_eq!(local.max_parallelism_requested, 2);
+        assert_eq!(local.scan_concurrency_per_worker, 2);
+
+        let why = report.why_report();
+        assert_eq!(why.claim_gate_status, "not_claim_grade");
+        assert!(
+            !why.next_actions_summary()
+                .contains("generalize encoded CountAll")
+        );
+        assert!(
+            why.next_actions_summary()
+                .contains("broader CG-5/CG-6 evidence")
+        );
+        assert!(why.next_actions_summary().contains("native adapters"));
     }
 
     #[cfg(feature = "vortex-local-primitives")]

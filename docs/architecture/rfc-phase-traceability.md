@@ -578,6 +578,15 @@ No fallback execution.
 - `benchmarks/traditional_analytics/run.py` surfaces the new pushdown fields in ShardLoom native microbenchmark rows so comparison reports distinguish scan-pushdown evidence from traditional compatibility-file rows that still use temporary operators.
 - These phases keep mature SQL/DataFrame/API/adapters, generalized encoded operator certification, non-local source support, object-store IO, row reads, Arrow conversion, writes, spill IO, distributed execution, benchmark/superiority claims, CG-2 closeout, CG-13 closeout, external engine invocation, and fallback execution out of scope.
 
+## CG-2.1e.34 / CG-13.18 / CG-16.13 / CG-19.15 generalized local `CountAll` execution evidence
+
+- Primary RFC linkage: RFC 0012 Diagnostics/Capabilities, RFC 0013 Streaming/Zero-Copy Boundary, RFC 0015 Correctness/testing, RFC 0025 Competitive/no-fallback, RFC 0026 Vortex encoded-read/query-readiness boundaries, RFC 0029 Correctness/Benchmarks/Execution Certificates, and RFC 0031 Universal Native I/O Envelope.
+- The explicit local `.vortex` `CountAll` path is validated against copied/non-fixture local Vortex files, not only checked-in fixture paths.
+- Copied/non-fixture local `.vortex` targets remain execution-allowed under `local_vortex_uncertified` and emit certified local Native I/O evidence when the encoded-count runtime evidence is side-effect-free.
+- Correctness fixtures, execution certificates, physical-kernel evidence, kernel admission, production claims, CG-2 closeout, and CG-13 closeout remain unavailable for non-fixture targets until CG-5 and CG-6 evidence exists.
+- The local-engine why report now asks for broader CG-5/CG-6 evidence and future native-adapter expansion instead of implying local CountAll execution is still fixture-only.
+- This phase adds no generalized encoded filter/projection execution, adapter runtime, non-local source read, object-store IO, row read, requested decode/materialization, Arrow conversion, write IO, spill IO, benchmark/superiority claim, CG-2/CG-13 closeout, external engine invocation, or fallback execution.
+
 ## CG-5.1 metadata query primitive correctness fixtures
 
 - Primary RFC linkage: RFC 0015 Correctness/Semantics/Differential Testing, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
