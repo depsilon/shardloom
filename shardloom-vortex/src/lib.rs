@@ -192,8 +192,9 @@ pub use encoded_path_selection::{
 };
 pub use encoded_predicate_evaluation::{
     VortexEncodedPredicateEvaluationDiscoveryReport, VortexEncodedPredicateEvaluationReport,
-    VortexEncodedPredicateEvaluationStatus, evaluate_vortex_encoded_predicate_segments,
-    evaluate_vortex_encoded_value_predicate_batch,
+    VortexEncodedPredicateEvaluationStatus, VortexEncodedValuePredicateBatch,
+    evaluate_vortex_encoded_predicate_segments, evaluate_vortex_encoded_value_predicate_batch,
+    evaluate_vortex_encoded_value_predicate_batches,
     vortex_encoded_predicate_evaluation_discovery_report,
 };
 pub use metadata_async_boundary::{
