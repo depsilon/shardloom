@@ -47,6 +47,7 @@ impl VortexGeneralizedEncodedPrimitiveKind {
 pub enum VortexGeneralizedEncodedPrimitiveStatus {
     LocalCountAllOnly,
     LocalDirectCountEvidence,
+    LocalFilterScanPushdownEvidence,
     MetadataProofOnly,
     ReadinessOnly,
     GeneralizedBlocked,
@@ -58,6 +59,7 @@ impl VortexGeneralizedEncodedPrimitiveStatus {
         match self {
             Self::LocalCountAllOnly => "local_count_all_only",
             Self::LocalDirectCountEvidence => "local_direct_count_evidence",
+            Self::LocalFilterScanPushdownEvidence => "local_filter_scan_pushdown_evidence",
             Self::MetadataProofOnly => "metadata_proof_only",
             Self::ReadinessOnly => "readiness_only",
             Self::GeneralizedBlocked => "generalized_blocked",
@@ -75,6 +77,7 @@ pub struct VortexGeneralizedEncodedPrimitiveGateEntry {
     pub implementation_blockers: Vec<String>,
     pub required_next_evidence: Vec<String>,
     pub local_vortex_count_all_execution_supported: bool,
+    pub local_filter_scan_pushdown_supported: bool,
     pub metadata_proof_supported: bool,
     pub readiness_contract_supported: bool,
     pub generalized_execution_allowed: bool,
@@ -129,6 +132,7 @@ impl VortexGeneralizedEncodedPrimitiveGateEntry {
                 "CG-6 benchmark evidence before production or superiority claims".to_string(),
             ],
             local_vortex_count_all_execution_supported: true,
+            local_filter_scan_pushdown_supported: false,
             metadata_proof_supported: true,
             readiness_contract_supported: true,
             generalized_execution_allowed: false,
@@ -158,26 +162,36 @@ impl VortexGeneralizedEncodedPrimitiveGateEntry {
     fn filtered_count() -> Self {
         Self {
             primitive: VortexGeneralizedEncodedPrimitiveKind::FilteredCount,
-            status: VortexGeneralizedEncodedPrimitiveStatus::MetadataProofOnly,
-            current_scope: "metadata predicate proof only; encoded predicate execution blocked"
-                .to_string(),
+            status: VortexGeneralizedEncodedPrimitiveStatus::LocalFilterScanPushdownEvidence,
+            current_scope:
+                "local .vortex CountWhere/FilterPredicate scan-pushdown evidence; broad encoded-value predicates still blocked"
+                    .to_string(),
             current_evidence: vec![
                 "vortex-filtered-count-readiness-plan".to_string(),
                 "filtered_count_metadata_proof_report".to_string(),
                 "selection_vector_filter_kernel_discovery_report".to_string(),
+                "execute_vortex_generalized_filter_from_local_scan_pushdown".to_string(),
+                "vortex-count-where --execute-local-primitive".to_string(),
+                "vortex-filter --execute-local-primitive".to_string(),
+                "cg19.local_primitive.count_where/filter_predicate.native_io".to_string(),
             ],
             implementation_blockers: vec![
-                "encoded predicate evaluation path is discovery-only".to_string(),
-                "selection-vector runtime pipeline is not executable".to_string(),
-                "predicate null/type semantics are not yet certified over encoded data".to_string(),
+                "non-local sources and object-store reads are not approved".to_string(),
+                "generalized encoded-value predicate kernels are still blocked for inconclusive filters"
+                    .to_string(),
+                "claim-grade predicate null/type correctness and benchmark evidence is not complete"
+                    .to_string(),
             ],
             required_next_evidence: vec![
                 "encoded predicate kernel execution with null/type edge fixtures".to_string(),
-                "selection-vector preservation through downstream operators".to_string(),
+                "selection-vector preservation through downstream operators beyond local scan-pushdown"
+                    .to_string(),
                 "decoded-reference comparison fixtures for test-only validation".to_string(),
-                "execution certificate coverage without fallback".to_string(),
+                "CG-19 native I/O certificates for every widened source/sink filter path"
+                    .to_string(),
             ],
             local_vortex_count_all_execution_supported: false,
+            local_filter_scan_pushdown_supported: true,
             metadata_proof_supported: true,
             readiness_contract_supported: true,
             generalized_execution_allowed: false,
@@ -228,6 +242,7 @@ impl VortexGeneralizedEncodedPrimitiveGateEntry {
                 "benchmark evidence before production or superiority claims".to_string(),
             ],
             local_vortex_count_all_execution_supported: false,
+            local_filter_scan_pushdown_supported: false,
             metadata_proof_supported: false,
             readiness_contract_supported: true,
             generalized_execution_allowed: false,
@@ -317,7 +332,7 @@ impl VortexGeneralizedEncodedPrimitiveGateReport {
             report_id: REPORT_ID.to_string(),
             status: VortexGeneralizedEncodedPrimitiveGateStatus::GeneralizedExecutionBlocked,
             entries,
-            local_count_all_only: true,
+            local_count_all_only: false,
             generalized_count_ready: false,
             filtered_count_execution_ready: false,
             projection_execution_ready: false,
@@ -388,6 +403,14 @@ impl VortexGeneralizedEncodedPrimitiveGateReport {
         self.entries
             .iter()
             .filter(|entry| entry.local_vortex_count_all_execution_supported)
+            .count()
+    }
+
+    #[must_use]
+    pub fn entries_with_local_filter_scan_pushdown_support(&self) -> usize {
+        self.entries
+            .iter()
+            .filter(|entry| entry.local_filter_scan_pushdown_supported)
             .count()
     }
 
@@ -520,12 +543,13 @@ mod tests {
             report.primitive_statuses(),
             vec![
                 "local_direct_count_evidence",
-                "metadata_proof_only",
+                "local_filter_scan_pushdown_evidence",
                 "readiness_only"
             ]
         );
-        assert!(report.local_count_all_only);
+        assert!(!report.local_count_all_only);
         assert_eq!(report.entries_with_local_count_support(), 1);
+        assert_eq!(report.entries_with_local_filter_scan_pushdown_support(), 1);
         assert_eq!(report.entries_with_metadata_proof(), 2);
         assert_eq!(report.entries_with_readiness_contract(), 3);
     }

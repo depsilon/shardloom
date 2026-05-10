@@ -786,6 +786,12 @@ fn vortex_generalized_encoded_primitive_gate_evidence_fields(
             report.entries_with_local_count_support().to_string(),
         ),
         (
+            "entries_with_local_filter_scan_pushdown_support".to_string(),
+            report
+                .entries_with_local_filter_scan_pushdown_support()
+                .to_string(),
+        ),
+        (
             "entries_with_metadata_proof".to_string(),
             report.entries_with_metadata_proof().to_string(),
         ),
