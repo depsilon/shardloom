@@ -151,7 +151,7 @@ impl AgentContractPack {
                 ),
                 AgentContractSurface::available(
                     AgentContractSurfaceKind::Capabilities,
-                    Some("capabilities"),
+                    Some("capabilities certification"),
                     "shardloom.capability_certification.v1",
                 ),
                 AgentContractSurface::available(
@@ -191,9 +191,7 @@ impl AgentContractPack {
                 ),
                 AgentContractSurface::available(
                     AgentContractSurfaceKind::BenchmarkEvidence,
-                    Some(
-                        "benchmark-plan,benchmark-claim-evidence-plan,vortex-count-benchmark,traditional-analytics-run",
-                    ),
+                    Some("benchmark-plan,benchmark-claim-evidence-plan"),
                     "shardloom.benchmark_claim_evidence.v1",
                 ),
                 AgentContractSurface::available(
@@ -342,6 +340,30 @@ mod tests {
         assert!(surfaces.contains(&"effect_budget"));
         assert!(surfaces.contains(&"benchmark_evidence"));
         assert_eq!(pack.available_surface_count(), pack.surfaces.len());
+    }
+
+    #[test]
+    fn default_pack_routes_agents_to_certification_and_plan_only_benchmark_surfaces() {
+        let pack = AgentContractPack::default_pack();
+        let capabilities = pack
+            .surfaces
+            .iter()
+            .find(|surface| surface.kind == AgentContractSurfaceKind::Capabilities)
+            .expect("capabilities surface");
+        assert_eq!(capabilities.command, Some("capabilities certification"));
+
+        let benchmark = pack
+            .surfaces
+            .iter()
+            .find(|surface| surface.kind == AgentContractSurfaceKind::BenchmarkEvidence)
+            .expect("benchmark surface");
+        assert_eq!(
+            benchmark.command,
+            Some("benchmark-plan,benchmark-claim-evidence-plan")
+        );
+        let command = benchmark.command.expect("benchmark command list");
+        assert!(!command.contains("vortex-count-benchmark"));
+        assert!(!command.contains("traditional-analytics-run"));
     }
 
     #[test]

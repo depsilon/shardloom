@@ -13,12 +13,12 @@ use crate::{
     VortexLocalExecutionReport, VortexLocalExecutionStatus, VortexLocalPrimitiveExecutionPolicy,
     VortexLocalPrimitiveExecutionReport, VortexLocalPrimitiveExecutionStatus,
     VortexMetadataOpenReport, VortexMetadataOpenRequest, VortexMetadataOpenStatus,
-    VortexMetadataProbeReport, VortexQueryPrimitiveAnalysisReport, VortexQueryPrimitiveRequest,
-    VortexQueryPrimitiveResult, VortexQueryPrimitiveStatus, VortexQueryPrimitiveValue,
-    VortexWorkAvoidedMetric, VortexWorkAvoidedMetricKind, VortexWorkAvoidedReport,
-    execute_vortex_bounded_local_query, execute_vortex_local_primitive_with_policy,
-    execute_vortex_local_query_primitive, open_vortex_metadata_only,
-    summarize_vortex_metadata_probe,
+    VortexMetadataProbeReport, VortexQueryPrimitiveAnalysisReport, VortexQueryPrimitiveKind,
+    VortexQueryPrimitiveRequest, VortexQueryPrimitiveResult, VortexQueryPrimitiveStatus,
+    VortexQueryPrimitiveValue, VortexWorkAvoidedMetric, VortexWorkAvoidedMetricKind,
+    VortexWorkAvoidedReport, execute_vortex_bounded_local_query,
+    execute_vortex_local_primitive_with_policy, execute_vortex_local_query_primitive,
+    open_vortex_metadata_only, summarize_vortex_metadata_probe,
 };
 
 /// Stable local-engine status for `ShardLoom` `Vortex` integration.
@@ -876,9 +876,8 @@ fn append_runtime_rows_not_scanned_metric(
 ) {
     if let Some(local) = local_primitive {
         if matches!(local.status, VortexLocalPrimitiveExecutionStatus::Executed) {
-            work.add_metric(VortexWorkAvoidedMetric::known_u64(
+            work.add_metric(VortexWorkAvoidedMetric::unknown(
                 VortexWorkAvoidedMetricKind::RowsNotScanned,
-                0,
                 format!(
                     "local primitive scanned {} rows; row-skip accounting is not yet implemented for this runtime path",
                     local.rows_scanned
@@ -891,7 +890,8 @@ fn append_runtime_rows_not_scanned_metric(
         if matches!(
             query_result.status,
             VortexQueryPrimitiveStatus::MetadataAnswered
-        ) && let VortexQueryPrimitiveValue::Count(count) = query_result.value
+        ) && query_result.request.kind == VortexQueryPrimitiveKind::CountAll
+            && let VortexQueryPrimitiveValue::Count(count) = query_result.value
         {
             work.add_metric(VortexWorkAvoidedMetric::known_u64(
                 VortexWorkAvoidedMetricKind::RowsNotScanned,
@@ -1771,7 +1771,7 @@ mod tests {
         );
         assert_eq!(
             work.metric_value_summary(VortexWorkAvoidedMetricKind::RowsNotScanned),
-            "0"
+            "unknown"
         );
     }
 
@@ -1839,7 +1839,7 @@ mod tests {
         );
         assert_eq!(
             work.metric_value_summary(VortexWorkAvoidedMetricKind::RowsNotScanned),
-            "0"
+            "unknown"
         );
         let why = report.why_report();
         assert_eq!(why.claim_gate_status, "not_claim_grade");

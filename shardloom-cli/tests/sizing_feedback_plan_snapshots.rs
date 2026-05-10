@@ -62,6 +62,21 @@ fn sizing_feedback_plan_increases_target_without_execution() {
 }
 
 #[test]
+fn sizing_feedback_plan_accepts_empty_signal_set_as_no_feedback() {
+    let (success, output) =
+        run_sizing_feedback_plan(&["sizing-feedback-plan", "8", "", "--format", "json"]);
+
+    assert!(success, "{output}");
+    assert!(output.contains(&field("dynamic_sizing_feedback_status", "no_feedback")));
+    assert!(output.contains(&field("signal_count", "0")));
+    assert!(output.contains(&field("reduce_signal_count", "0")));
+    assert!(output.contains(&field("increase_signal_count", "0")));
+    assert!(output.contains(&field("target_task_bytes_changed", "false")));
+    assert!(output.contains(&field("fallback_execution_allowed", "false")));
+    assert!(output.contains("\"attempted\":false"));
+}
+
+#[test]
 fn sizing_feedback_plan_rejects_unknown_signal_without_fallback() {
     let (success, output) =
         run_sizing_feedback_plan(&["sizing-feedback-plan", "8", "unknown", "--format", "json"]);

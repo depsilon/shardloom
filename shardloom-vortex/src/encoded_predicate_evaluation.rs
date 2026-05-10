@@ -1,10 +1,12 @@
 use std::fmt::Write as _;
 
 use shardloom_core::{
-    ColumnRef, Diagnostic, EncodedPredicateEvaluationReport, EncodedPredicateEvaluationStatus,
-    EncodedSegment, EncodedValueBatch, KernelKind, PhysicalOperatorExecutionLevel,
-    PhysicalOperatorKind, PredicateExpr, SegmentId, SegmentLayout, SegmentStats,
-    evaluate_predicate_on_encoded_segment, evaluate_predicate_on_encoded_values,
+    ColumnRef, Diagnostic, DiagnosticCode, EncodedEvalCapability, EncodedPredicateEvaluationReport,
+    EncodedPredicateEvaluationStatus, EncodedSegment, EncodedValueBatch, EncodingKind,
+    ExecutionState, KernelKind, LayoutKind, LogicalDType, Nullability,
+    PhysicalOperatorExecutionLevel, PhysicalOperatorKind, PredicateExpr, PredicateProof, SegmentId,
+    SegmentLayout, SegmentStats, evaluate_predicate_on_encoded_segment,
+    evaluate_predicate_on_encoded_values,
 };
 
 use crate::{VortexMetadataSummaryReport, VortexSegmentMetadataSummary};
@@ -335,12 +337,9 @@ pub fn evaluate_vortex_encoded_value_predicate_batch(
     segment: &EncodedSegment,
     values: &EncodedValueBatch,
 ) -> VortexEncodedPredicateEvaluationReport {
-    evaluate_vortex_encoded_value_predicate_batches(
+    evaluate_vortex_encoded_value_predicate_batch_refs(
         predicate,
-        &[VortexEncodedValuePredicateBatch::new(
-            segment.clone(),
-            values.clone(),
-        )],
+        std::iter::once((segment, values)),
     )
 }
 
@@ -356,7 +355,30 @@ pub fn evaluate_vortex_encoded_value_predicate_batches(
     predicate: &PredicateExpr,
     batches: &[VortexEncodedValuePredicateBatch],
 ) -> VortexEncodedPredicateEvaluationReport {
-    if batches.is_empty() {
+    evaluate_vortex_encoded_value_predicate_batch_refs(
+        predicate,
+        batches.iter().map(|batch| (&batch.segment, &batch.values)),
+    )
+}
+
+fn evaluate_vortex_encoded_value_predicate_batch_refs<'a>(
+    predicate: &PredicateExpr,
+    batches: impl IntoIterator<Item = (&'a EncodedSegment, &'a EncodedValueBatch)>,
+) -> VortexEncodedPredicateEvaluationReport {
+    let mut segment_reports = Vec::new();
+    for (segment, values) in batches {
+        if segment.layout.encoding != values.encoding_kind() {
+            segment_reports.push(encoded_value_encoding_mismatch_report(
+                segment, predicate, values,
+            ));
+            continue;
+        }
+        segment_reports.push(evaluate_predicate_on_encoded_values(
+            predicate, segment, values,
+        ));
+    }
+
+    if segment_reports.is_empty() {
         return VortexEncodedPredicateEvaluationReport::from_segment_reports(
             predicate,
             Vec::new(),
@@ -368,15 +390,60 @@ pub fn evaluate_vortex_encoded_value_predicate_batches(
         );
     }
 
-    let segment_reports = batches
-        .iter()
-        .map(|batch| evaluate_predicate_on_encoded_values(predicate, &batch.segment, &batch.values))
-        .collect();
     VortexEncodedPredicateEvaluationReport::from_segment_reports(
         predicate,
         segment_reports,
         Vec::new(),
     )
+}
+
+fn encoded_value_encoding_mismatch_report(
+    segment: &EncodedSegment,
+    predicate: &PredicateExpr,
+    values: &EncodedValueBatch,
+) -> EncodedPredicateEvaluationReport {
+    let reason = format!(
+        "encoded value batch encoding {} does not match segment encoding {}",
+        values.encoding_kind().as_str(),
+        segment.layout.encoding.as_str()
+    );
+    EncodedPredicateEvaluationReport {
+        schema_version: "shardloom.encoded_predicate_evaluation.v1",
+        report_id: format!("{}.predicate-evaluation", segment.id.as_str()),
+        segment_id: segment.id.clone(),
+        segment_column: segment.column.clone(),
+        predicate: predicate.clone(),
+        proof: PredicateProof::Unsupported {
+            reason: reason.clone(),
+        },
+        status: EncodedPredicateEvaluationStatus::Unsupported,
+        capability: EncodedEvalCapability::Unsupported {
+            reason: reason.clone(),
+        },
+        execution_state: ExecutionState::Unsupported,
+        selection_vector: None,
+        row_count: segment.stats.row_count,
+        selected_count: None,
+        data_read: false,
+        data_decoded: false,
+        data_materialized: false,
+        row_read: false,
+        arrow_converted: false,
+        object_store_io: false,
+        write_io: false,
+        spill_io_performed: false,
+        fallback_attempted: false,
+        fallback_execution_allowed: false,
+        diagnostics: vec![Diagnostic::unsupported(
+            DiagnosticCode::UnsupportedEncoding,
+            "encoded_value_predicate_evaluation",
+            reason,
+            Some(
+                "Provide encoded values whose encoding matches the segment metadata before emitting filter evidence."
+                    .to_string(),
+            ),
+        )],
+    }
 }
 
 #[must_use]
@@ -410,6 +477,19 @@ fn encoded_segment_for_predicate(
         stats.row_count = segment.row_count;
     }
     let Some(column_summary) = column_summary else {
+        if predicate.column().is_none() {
+            let segment_id = segment.segment_id.clone().unwrap_or_else(|| {
+                SegmentId::new(format!("segment-{index}")).expect("generated id")
+            });
+            return Ok(EncodedSegment::new(
+                segment_id,
+                column,
+                LogicalDType::Unknown,
+                Nullability::Unknown,
+                SegmentLayout::new(EncodingKind::Unknown, LayoutKind::Unknown),
+                stats,
+            ));
+        }
         return Err(format!(
             "missing column metadata for predicate column {}",
             column.as_str()
@@ -480,6 +560,10 @@ mod tests {
         segment
     }
 
+    fn column_free_segment(row_count: u64) -> VortexSegmentMetadataSummary {
+        VortexSegmentMetadataSummary::unknown().with_row_count(row_count)
+    }
+
     fn encoded_segment(row_count: u64, encoding: EncodingKind) -> EncodedSegment {
         encoded_segment_with_id("encoded-segment-1", row_count, encoding)
     }
@@ -527,6 +611,39 @@ mod tests {
         assert_eq!(report.selected_rows_metadata_count, Some(5));
         assert!(report.is_side_effect_free());
         assert!(!report.has_errors());
+    }
+
+    #[test]
+    fn column_free_predicates_use_segment_row_count_without_column_metadata() {
+        let always_true = evaluate_vortex_encoded_predicate_segments(
+            &PredicateExpr::AlwaysTrue,
+            &summary_with_segment(column_free_segment(5)),
+        );
+
+        assert_eq!(
+            always_true.status,
+            VortexEncodedPredicateEvaluationStatus::EvaluatedSelections
+        );
+        assert_eq!(always_true.segment_report_count, 1);
+        assert_eq!(always_true.selected_all_count, 1);
+        assert_eq!(always_true.selection_vectors_emitted, 1);
+        assert_eq!(always_true.selected_rows_metadata_count, Some(5));
+        assert!(always_true.diagnostics.is_empty());
+
+        let always_false = evaluate_vortex_encoded_predicate_segments(
+            &PredicateExpr::AlwaysFalse,
+            &summary_with_segment(column_free_segment(5)),
+        );
+
+        assert_eq!(
+            always_false.status,
+            VortexEncodedPredicateEvaluationStatus::EvaluatedSelections
+        );
+        assert_eq!(always_false.segment_report_count, 1);
+        assert_eq!(always_false.selected_none_count, 1);
+        assert_eq!(always_false.selection_vectors_emitted, 1);
+        assert_eq!(always_false.selected_rows_metadata_count, Some(0));
+        assert!(always_false.diagnostics.is_empty());
     }
 
     #[test]
@@ -699,6 +816,41 @@ mod tests {
             VortexEncodedPredicateEvaluationStatus::Unsupported
         );
         assert_eq!(report.unsupported_count, 1);
+        assert!(report.has_errors());
+        assert!(report.is_side_effect_free());
+        assert!(
+            report
+                .segment_reports
+                .iter()
+                .flat_map(|segment| segment.diagnostics.iter())
+                .all(|diagnostic| !diagnostic.fallback.attempted)
+        );
+    }
+
+    #[test]
+    fn encoded_value_batch_encoding_mismatch_blocks_without_filter_evidence() {
+        let segment = encoded_segment(3, EncodingKind::Dictionary);
+        let values = EncodedValueBatch::Constant {
+            value: Some(StatValue::Int64(7)),
+            row_count: 3,
+        };
+        let report = evaluate_vortex_encoded_value_predicate_batch(
+            &PredicateExpr::Compare {
+                column: ColumnRef::new("x").expect("column"),
+                op: ComparisonOp::GtEq,
+                value: StatValue::Int64(5),
+            },
+            &segment,
+            &values,
+        );
+
+        assert_eq!(
+            report.status,
+            VortexEncodedPredicateEvaluationStatus::Unsupported
+        );
+        assert_eq!(report.unsupported_count, 1);
+        assert_eq!(report.selection_vectors_emitted, 0);
+        assert_eq!(report.selected_rows_metadata_count, Some(0));
         assert!(report.has_errors());
         assert!(report.is_side_effect_free());
         assert!(
