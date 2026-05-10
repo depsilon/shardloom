@@ -596,6 +596,15 @@ No fallback execution.
 - Correctness certificates, physical-kernel production admission, broad encoded-value predicate kernels, non-local sources, object-store reads, adapters, projection/filter-project generalization, SQL/DataFrame runtime, writes, spill, benchmark claims, CG-2 closeout, and CG-13 closeout remain out of scope.
 - This phase adds no new reader, parser, dependency, external engine invocation, or fallback execution.
 
+## CG-2.3e / CG-13.20 / CG-19.17 generalized local projection/filter-project execution surface
+
+- Primary RFC linkage: RFC 0012 Diagnostics/Capabilities, RFC 0013 Streaming/Zero-Copy Boundary, RFC 0015 Correctness/testing, RFC 0021 Expression/Kernel Registry, RFC 0025 Competitive/no-fallback, RFC 0026 Vortex encoded-read/query-readiness boundaries, RFC 0029 Correctness/Benchmarks/Execution Certificates, and RFC 0031 Universal Native I/O Envelope.
+- `shardloom-vortex/src/generalized_projection_execution.rs` adds a reusable report around feature-gated local ProjectColumns and FilterAndProject scan-pushdown execution.
+- The surface validates copied/non-fixture local `.vortex` project and filter-project requests, emits projected-column and encoded-projection guarantee evidence, emits selection-vector evidence for filter-project, and attaches certified Native I/O evidence when the local scan is side-effect-free.
+- The generalized primitive gate now distinguishes local projection scan-pushdown evidence from still-blocked broad encoded projection kernels, so projection is no longer represented as readiness-only.
+- Correctness certificates, physical-kernel production admission, broad encoded projection kernels, broad encoded-value predicate kernels, non-local sources, object-store reads, adapters, SQL/DataFrame runtime, writes, spill, benchmark claims, CG-2 closeout, and CG-13 closeout remain out of scope.
+- This phase adds no new reader, parser, dependency, external engine invocation, or fallback execution.
+
 ## CG-5.1 metadata query primitive correctness fixtures
 
 - Primary RFC linkage: RFC 0015 Correctness/Semantics/Differential Testing, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.

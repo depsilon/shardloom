@@ -48,6 +48,7 @@ pub enum VortexGeneralizedEncodedPrimitiveStatus {
     LocalCountAllOnly,
     LocalDirectCountEvidence,
     LocalFilterScanPushdownEvidence,
+    LocalProjectionScanPushdownEvidence,
     MetadataProofOnly,
     ReadinessOnly,
     GeneralizedBlocked,
@@ -60,6 +61,7 @@ impl VortexGeneralizedEncodedPrimitiveStatus {
             Self::LocalCountAllOnly => "local_count_all_only",
             Self::LocalDirectCountEvidence => "local_direct_count_evidence",
             Self::LocalFilterScanPushdownEvidence => "local_filter_scan_pushdown_evidence",
+            Self::LocalProjectionScanPushdownEvidence => "local_projection_scan_pushdown_evidence",
             Self::MetadataProofOnly => "metadata_proof_only",
             Self::ReadinessOnly => "readiness_only",
             Self::GeneralizedBlocked => "generalized_blocked",
@@ -78,6 +80,7 @@ pub struct VortexGeneralizedEncodedPrimitiveGateEntry {
     pub required_next_evidence: Vec<String>,
     pub local_vortex_count_all_execution_supported: bool,
     pub local_filter_scan_pushdown_supported: bool,
+    pub local_projection_scan_pushdown_supported: bool,
     pub metadata_proof_supported: bool,
     pub readiness_contract_supported: bool,
     pub generalized_execution_allowed: bool,
@@ -133,6 +136,7 @@ impl VortexGeneralizedEncodedPrimitiveGateEntry {
             ],
             local_vortex_count_all_execution_supported: true,
             local_filter_scan_pushdown_supported: false,
+            local_projection_scan_pushdown_supported: false,
             metadata_proof_supported: true,
             readiness_contract_supported: true,
             generalized_execution_allowed: false,
@@ -192,6 +196,7 @@ impl VortexGeneralizedEncodedPrimitiveGateEntry {
             ],
             local_vortex_count_all_execution_supported: false,
             local_filter_scan_pushdown_supported: true,
+            local_projection_scan_pushdown_supported: false,
             metadata_proof_supported: true,
             readiness_contract_supported: true,
             generalized_execution_allowed: false,
@@ -221,28 +226,38 @@ impl VortexGeneralizedEncodedPrimitiveGateEntry {
     fn projection() -> Self {
         Self {
             primitive: VortexGeneralizedEncodedPrimitiveKind::Projection,
-            status: VortexGeneralizedEncodedPrimitiveStatus::ReadinessOnly,
-            current_scope: "projection readiness and kernel-admission evidence only".to_string(),
+            status: VortexGeneralizedEncodedPrimitiveStatus::LocalProjectionScanPushdownEvidence,
+            current_scope:
+                "local .vortex ProjectColumns/FilterAndProject scan-pushdown evidence; broad encoded projection kernels still blocked"
+                    .to_string(),
             current_evidence: vec![
                 "vortex-projection-readiness-plan".to_string(),
                 "encoded_projection_kernel_admission".to_string(),
                 "vortex-encoded-path-selection-plan".to_string(),
+                "execute_vortex_generalized_projection_from_local_scan_pushdown".to_string(),
+                "vortex-project --execute-local-primitive".to_string(),
+                "vortex-filter-project --execute-local-primitive".to_string(),
+                "cg19.local_primitive.project_columns/filter_and_project.native_io".to_string(),
             ],
             implementation_blockers: vec![
-                "encoded value projection execution path is not implemented".to_string(),
-                "materialization boundary reporting for projected values is not executable"
+                "broad encoded-value projection kernels are still blocked beyond local scan-pushdown"
                     .to_string(),
-                "projection pushdown behavior is not certified across source envelopes".to_string(),
+                "selection-vector projection pipeline is not generalized beyond local filter-project evidence"
+                    .to_string(),
+                "claim-grade projection null/nested correctness and benchmark evidence is not complete"
+                    .to_string(),
             ],
             required_next_evidence: vec![
-                "encoded projection execution preserving unused-column non-materialization"
+                "encoded projection kernel execution preserving unused-column non-materialization"
                     .to_string(),
                 "projection fixtures for empty, null-heavy, wide, and nested columns".to_string(),
-                "native I/O envelope transition reporting for projection outputs".to_string(),
+                "Native I/O certificates for every widened source/sink projection path"
+                    .to_string(),
                 "benchmark evidence before production or superiority claims".to_string(),
             ],
             local_vortex_count_all_execution_supported: false,
             local_filter_scan_pushdown_supported: false,
+            local_projection_scan_pushdown_supported: true,
             metadata_proof_supported: false,
             readiness_contract_supported: true,
             generalized_execution_allowed: false,
@@ -415,6 +430,14 @@ impl VortexGeneralizedEncodedPrimitiveGateReport {
     }
 
     #[must_use]
+    pub fn entries_with_local_projection_scan_pushdown_support(&self) -> usize {
+        self.entries
+            .iter()
+            .filter(|entry| entry.local_projection_scan_pushdown_supported)
+            .count()
+    }
+
+    #[must_use]
     pub fn entries_with_metadata_proof(&self) -> usize {
         self.entries
             .iter()
@@ -511,11 +534,11 @@ fn generalized_execution_blocked_diagnostic() -> Diagnostic {
         "Generalized encoded primitive execution remains blocked.",
         Some("vortex.generalized_encoded_primitive_execution".to_string()),
         Some(
-            "Local file/file:// `.vortex` direct CountAll execution has runtime and native I/O evidence, but non-local count, filtered-count, and projection execution still need source widening, correctness, and benchmark evidence."
+            "Local file/file:// `.vortex` CountAll, CountWhere, FilterPredicate, ProjectColumns, and FilterAndProject scan-pushdown paths have runtime and Native I/O evidence, but non-local sources, broad encoded-value kernels, correctness, and benchmark evidence still block generalized execution."
                 .to_string(),
         ),
         Some(
-            "Keep using the local direct CountAll path for proven execution and land correctness/benchmark/source-widening evidence before broader runtime behavior."
+            "Keep using the explicit local primitive paths for proven execution and land correctness, benchmark, encoded-kernel, and source-widening evidence before broader runtime behavior."
                 .to_string(),
         ),
         FallbackStatus::disabled_by_policy(),
@@ -544,12 +567,16 @@ mod tests {
             vec![
                 "local_direct_count_evidence",
                 "local_filter_scan_pushdown_evidence",
-                "readiness_only"
+                "local_projection_scan_pushdown_evidence"
             ]
         );
         assert!(!report.local_count_all_only);
         assert_eq!(report.entries_with_local_count_support(), 1);
         assert_eq!(report.entries_with_local_filter_scan_pushdown_support(), 1);
+        assert_eq!(
+            report.entries_with_local_projection_scan_pushdown_support(),
+            1
+        );
         assert_eq!(report.entries_with_metadata_proof(), 2);
         assert_eq!(report.entries_with_readiness_contract(), 3);
     }
