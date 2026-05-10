@@ -53,25 +53,23 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-2.2i / CG-7.26 / CG-13.21 encoded-value predicate kernel foundation
+- [x] Session label: CG-2.2j / CG-7.27 / CG-13.22 encoded-value predicate bridge to Vortex filter evidence
   - Primary files:
-    - `shardloom-core/src/encoded.rs`
-    - `shardloom-core/src/lib.rs`
     - `shardloom-vortex/src/encoded_predicate_evaluation.rs`
+    - `shardloom-vortex/src/lib.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-  - Scope: Add a native encoded-value predicate kernel foundation that evaluates constant, dictionary-coded, and run-length encoded batches into selection vectors without decoded row materialization, Arrow conversion, object-store IO, writes, spill, or fallback execution. This widens predicate/filter kernel capability beyond local Vortex scan-pushdown surfaces while leaving reader wiring and production claims blocked.
+  - Scope: Wire the core encoded-value predicate kernel into the Vortex predicate/filter-kernel evidence path for explicitly supplied encoded segment metadata and encoded-value batches. The bridge emits normal Vortex encoded predicate reports, carries sparse selection-vector evidence into the existing selection-vector filter kernel, and keeps Vortex reader wiring and production claims blocked.
   - Checklist:
-    - [x] Move the completed generalized primitive certificate session from Active into the completed ledger.
-    - [x] Add `EncodedValueBatch` and `EncodedValueRun` domain inputs for constant, dictionary, and run-length encoded predicate evaluation.
-    - [x] Add `SelectedIndices` selection-vector status and encoded-value predicate evaluation over sparse selections.
-    - [x] Add focused tests for dictionary, run-length, constant-null, type-mismatch, and row-count mismatch behavior.
-    - [x] Surface sparse selection-vector counts in the Vortex encoded predicate aggregate report.
+    - [x] Move the completed encoded-value predicate kernel foundation from Active into the completed ledger.
+    - [x] Add `evaluate_vortex_encoded_value_predicate_batch` as a narrow no-reader Vortex bridge.
+    - [x] Reuse the existing `VortexEncodedPredicateEvaluationReport` aggregate path for sparse encoded-value selections.
+    - [x] Add focused tests proving dictionary encoded-value predicates feed sparse selections into selection-vector filter-kernel evidence.
+    - [x] Add focused tests proving unsupported encoded-value type mismatches block deterministically without fallback.
     - [x] Keep reader wiring, non-local sources, adapter execution, object-store IO, SQL/DataFrame runtime, writes, spill, benchmark reruns, superiority claims, and fallback execution out of scope.
     - [x] Run focused tests, full Rust fmt/clippy/test validation, diff checks, and hidden/bidi scan.
   - Local validation status:
-    - [x] Focused `cargo test -p shardloom-core encoded_value -- --nocapture` passed locally with Rust toolchain `1.91.1`.
-    - [x] Focused `cargo test -p shardloom-core encoded::tests:: -- --nocapture`, `cargo test -p shardloom-vortex encoded_predicate_evaluation -- --nocapture`, and `cargo test -p shardloom-vortex selection_vector_filter_kernel -- --nocapture` passed locally with Rust toolchain `1.91.1`.
+    - [x] Focused `cargo test -p shardloom-vortex encoded_predicate_evaluation -- --nocapture` and `cargo test -p shardloom-vortex selection_vector_filter_kernel -- --nocapture` passed locally with Rust toolchain `1.91.1`.
     - [x] Required full `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, and `cargo test --workspace --all-targets` validation passed locally with Rust toolchain `1.91.1`.
     - [x] Diff hygiene and changed-file hidden/bidi scan passed locally.
   - Explicitly not included: new readers, Vortex reader wiring, non-local/object-store Vortex sources, Parquet/Arrow/JSON/Avro/ORC runtime, adapter execution, local scan-pushdown changes, broad encoded projection kernels, SQL parser, SQL execution, DataFrame runtime, UDF/function registry runtime, sketch implementation, aggregate kernels, benchmark reruns, superiority or best-default claims, CG-2 closeout, CG-13 closeout, CG-20 closeout, or fallback execution.
@@ -86,6 +84,7 @@ Supporting docs:
   - [x] Reusable generalized local CountWhere/FilterPredicate scan-pushdown execution surface beyond CLI-only helpers.
   - [x] Reusable generalized local ProjectColumns/FilterAndProject scan-pushdown execution surface beyond CLI-only helpers.
   - [x] Encoded-value predicate kernel foundation for constant, dictionary-coded, and run-length encoded batches with sparse selection-vector output.
+  - [x] Vortex encoded-value predicate bridge feeds sparse selections into selection-vector filter-kernel evidence without reader wiring.
   - [ ] Broader generalized encoded-value predicate/filter execution beyond local scan-pushdown and explicit CLI primitive paths.
   - [ ] Broader encoded projection and filter-project execution beyond local scan-pushdown and explicit CLI primitive paths, with no row reads, no Arrow conversion, no object-store IO, no writes, no spill, and no fallback.
 - [ ] Priority 1.5 - CG-20 distribution/importability certification lane
@@ -108,6 +107,25 @@ Supporting docs:
   - [ ] CG-20 approximate aggregate/sketch function implementation after function-registry, aggregate-state, sketch-serialization, correctness, benchmark, execution-certificate, and Native I/O evidence gates are ready.
 
 ## Recent Completed Session Ledger
+- [x] Session label: CG-2.2i / CG-7.26 / CG-13.21 encoded-value predicate kernel foundation
+  - Primary files:
+    - `shardloom-core/src/encoded.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-vortex/src/encoded_predicate_evaluation.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: Added a native encoded-value predicate kernel foundation that evaluates constant, dictionary-coded, and run-length encoded batches into selection vectors without decoded row materialization, Arrow conversion, object-store IO, writes, spill, or fallback execution.
+  - Completed:
+    - [x] Added `EncodedValueBatch` and `EncodedValueRun` domain inputs for constant, dictionary, and run-length encoded predicate evaluation.
+    - [x] Added `SelectedIndices` selection-vector status and encoded-value predicate evaluation over sparse selections.
+    - [x] Added focused tests for dictionary, run-length, constant-null, type-mismatch, and row-count mismatch behavior.
+    - [x] Surfaced sparse selection-vector counts in the Vortex encoded predicate aggregate report.
+  - Validation status:
+    - [x] Focused `cargo test -p shardloom-core encoded_value -- --nocapture` passed locally with Rust toolchain `1.91.1`.
+    - [x] Focused `cargo test -p shardloom-core encoded::tests:: -- --nocapture`, `cargo test -p shardloom-vortex encoded_predicate_evaluation -- --nocapture`, and `cargo test -p shardloom-vortex selection_vector_filter_kernel -- --nocapture` passed locally with Rust toolchain `1.91.1`.
+    - [x] Required full `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, and `cargo test --workspace --all-targets` validation passed locally with Rust toolchain `1.91.1`.
+    - [x] Diff hygiene and changed-file hidden/bidi scan passed locally.
+  - Explicitly not included: new readers, Vortex reader wiring, non-local/object-store Vortex sources, Parquet/Arrow/JSON/Avro/ORC runtime, adapter execution, local scan-pushdown changes, broad encoded projection kernels, SQL parser, SQL execution, DataFrame runtime, UDF/function registry runtime, sketch implementation, aggregate kernels, benchmark reruns, superiority or best-default claims, CG-2 closeout, CG-13 closeout, CG-20 closeout, or fallback execution.
 - [x] Session label: CG-5.11 / CG-16.14 generalized local primitive fixture certificates
   - Primary files:
     - `shardloom-vortex/src/local_primitives.rs`
@@ -1921,6 +1939,7 @@ Status legend:
   - [x] CG-7.24 encoded projection kernel evidence
   - [x] CG-7.25 count/aggregate kernel closeout
   - [x] CG-7.26 encoded-value predicate kernel foundation
+  - [x] CG-7.27 encoded-value predicate bridge to Vortex filter-kernel evidence
   - Scope:
     - filter/projection/count-aggregate kernels
     - metadata/encoded/hybrid execution levels
@@ -2188,6 +2207,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.2g fixture-backed local `FilterPredicate` execution evidence through `vortex-filter`
 - [x] CG-2.2h generalized local filter execution surface for CountWhere and FilterPredicate scan-pushdown
 - [x] CG-2.2i encoded-value predicate kernel foundation for constant, dictionary, and run-length batches
+- [x] CG-2.2j Vortex encoded-value predicate bridge feeds sparse selections into filter-kernel evidence
 - [x] CG-2.3a projection readiness semantic hardening
 - [x] CG-2.3b projection readiness CLI integration
 - [x] CG-2.3c fixture-backed local `ProjectColumns` execution evidence through `vortex-project`
@@ -2311,6 +2331,8 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-7.25 count/aggregate kernel closeout
 - [x] CG-7.26 encoded-value predicate kernel foundation
   - Completion here means native constant/dictionary/run-length encoded-value predicate evaluation can emit selection vectors; wiring that kernel to broad Vortex/adapters and claim-grade evidence remains a CG-2/CG-13/CG-5/CG-6 blocker.
+- [x] CG-7.27 encoded-value predicate bridge to Vortex filter-kernel evidence
+  - Completion here means explicitly supplied encoded-value batches can flow through the Vortex predicate aggregate and selection-vector filter-kernel evidence path; reader/adapters and production certification remain blocked.
 - [x] count/aggregate kernel
 - [x] metadata/encoded/hybrid execution levels
 - [x] expression evaluation over encoded segments
@@ -2401,6 +2423,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-13.19 generalized local CountWhere/FilterPredicate scan-pushdown surface records selection-vector encoded execution without broad encoded-value kernel claims
 - [x] CG-13.20 generalized local ProjectColumns/FilterAndProject scan-pushdown surface records encoded projection and filter-project selection-vector evidence without broad encoded projection kernel claims
 - [x] CG-13.21 encoded-value predicate kernel foundation emits sparse selection vectors over constant, dictionary, and run-length encoded batches without decoding rows
+- [x] CG-13.22 Vortex encoded-value predicate bridge carries sparse selection vectors into encoded filter-kernel evidence without reader wiring
 - [ ] generalized direct count/filter/project encoded execution
 - [ ] broad compressed-kernel correctness and benchmark certification
 
@@ -2586,6 +2609,7 @@ This section preserves older attribution notes that predate the compact CG rollu
 - [x] CG-2.2g/CG-13.15/CG-16.10/CG-19.12 `vortex-filter --execute-local-primitive` executes the existing feature-gated local `FilterPredicate` scan-pushdown path, reports selection-vector transition evidence, and emits Native I/O and execution certificates for the checked-in struct fixture while leaving broader encoded-value predicate kernels, non-local sources, adapters, SQL, writes, spill, claims, and fallback blocked.
 - [x] CG-2.2h/CG-13.19/CG-19.16 generalized local filter execution surface adds a reusable `shardloom-vortex` report around local CountWhere/FilterPredicate scan-pushdown execution, emits Native I/O evidence for copied/non-fixture local `.vortex` filter paths, and keeps correctness certification, broad encoded-value predicate kernels, non-local sources, adapters, SQL, writes, spill, claims, and fallback blocked.
 - [x] CG-2.2i/CG-7.26/CG-13.21 encoded-value predicate kernel foundation adds native constant, dictionary-coded, and run-length encoded batch predicate evaluation with sparse selection-vector output while keeping Vortex reader wiring, non-local sources, adapters, SQL, writes, spill, claims, and fallback blocked.
+- [x] CG-2.2j/CG-7.27/CG-13.22 Vortex encoded-value predicate bridge feeds explicit encoded-value batches through the Vortex predicate aggregate and selection-vector filter-kernel evidence path while keeping readers, adapters, SQL, writes, spill, claims, and fallback blocked.
 - [x] CG-2.3c/CG-13.16/CG-16.11/CG-19.13 `vortex-project --execute-local-primitive` executes the existing feature-gated local `ProjectColumns` scan-pushdown path, reports encoded projection preservation evidence, and emits Native I/O and execution certificates for the checked-in struct fixture while leaving broader encoded projection kernels, filter-project certification, non-local sources, adapters, SQL, writes, spill, claims, and fallback blocked.
 - [x] CG-2.3d/CG-13.17/CG-16.12/CG-19.14 `vortex-filter-project --execute-local-primitive` executes the existing feature-gated local `FilterAndProject` scan-pushdown path, reports combined filter/projection evidence, and emits Native I/O and execution certificates for the checked-in struct fixture while leaving broader encoded predicate/projection kernels, non-local sources, adapters, SQL, writes, spill, claims, and fallback blocked.
 - [x] CG-2.3e/CG-13.20/CG-19.17 generalized local projection/filter-project execution surface adds a reusable `shardloom-vortex` report around local ProjectColumns/FilterAndProject scan-pushdown execution, emits Native I/O evidence for copied/non-fixture local `.vortex` projection paths, and keeps correctness certification, broad encoded projection kernels, non-local sources, adapters, SQL, writes, spill, claims, and fallback blocked.

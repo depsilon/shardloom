@@ -2,8 +2,9 @@ use std::fmt::Write as _;
 
 use shardloom_core::{
     ColumnRef, Diagnostic, EncodedPredicateEvaluationReport, EncodedPredicateEvaluationStatus,
-    EncodedSegment, KernelKind, PhysicalOperatorExecutionLevel, PhysicalOperatorKind,
-    PredicateExpr, SegmentId, SegmentLayout, SegmentStats, evaluate_predicate_on_encoded_segment,
+    EncodedSegment, EncodedValueBatch, KernelKind, PhysicalOperatorExecutionLevel,
+    PhysicalOperatorKind, PredicateExpr, SegmentId, SegmentLayout, SegmentStats,
+    evaluate_predicate_on_encoded_segment, evaluate_predicate_on_encoded_values,
 };
 
 use crate::{VortexMetadataSummaryReport, VortexSegmentMetadataSummary};
@@ -301,6 +302,28 @@ pub fn evaluate_vortex_encoded_predicate_segments(
     )
 }
 
+/// Evaluates one already-prepared Vortex encoded-value batch through the native
+/// encoded predicate kernel.
+///
+/// This bridge is intentionally narrower than a reader: callers must provide
+/// the encoded segment metadata and encoded-value batch explicitly. It does not
+/// open files, call object stores, decode rows, materialize values, convert to
+/// Arrow, write output, spill, or permit fallback execution.
+#[must_use]
+pub fn evaluate_vortex_encoded_value_predicate_batch(
+    predicate: &PredicateExpr,
+    segment: &EncodedSegment,
+    values: &EncodedValueBatch,
+) -> VortexEncodedPredicateEvaluationReport {
+    VortexEncodedPredicateEvaluationReport::from_segment_reports(
+        predicate,
+        vec![evaluate_predicate_on_encoded_values(
+            predicate, segment, values,
+        )],
+        Vec::new(),
+    )
+}
+
 #[must_use]
 pub const fn vortex_encoded_predicate_evaluation_discovery_report()
 -> VortexEncodedPredicateEvaluationDiscoveryReport {
@@ -368,7 +391,10 @@ fn count_status(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use shardloom_core::{ComparisonOp, EncodingKind, LayoutKind, LogicalDType, StatValue};
+    use shardloom_core::{
+        ComparisonOp, EncodedValueBatch, EncodingKind, LayoutKind, LogicalDType, Nullability,
+        SegmentId, SelectionVector, StatValue,
+    };
 
     use crate::{
         VortexColumnMetadataSummary, VortexFileMetadataSummary, VortexMetadataSummaryStatus,
@@ -397,6 +423,17 @@ mod tests {
                 .with_statistics_available(true),
         );
         segment
+    }
+
+    fn encoded_segment(row_count: u64, encoding: EncodingKind) -> EncodedSegment {
+        EncodedSegment::new(
+            SegmentId::new("encoded-segment-1").expect("segment"),
+            ColumnRef::new("x").expect("column"),
+            LogicalDType::Int64,
+            Nullability::Nullable,
+            SegmentLayout::new(encoding, LayoutKind::Flat),
+            SegmentStats::with_row_count(row_count),
+        )
     }
 
     #[test]
@@ -474,5 +511,81 @@ mod tests {
         assert_eq!(report.diagnostics.len(), 1);
         assert!(report.is_side_effect_free());
         assert!(report.diagnostics.iter().all(|d| !d.fallback.attempted));
+    }
+
+    #[test]
+    fn encoded_value_dictionary_batch_feeds_sparse_selection_vector_filter_kernel() {
+        let segment = encoded_segment(5, EncodingKind::Dictionary);
+        let values = EncodedValueBatch::Dictionary {
+            dictionary: vec![Some(StatValue::Int64(1)), Some(StatValue::Int64(5)), None],
+            codes: vec![Some(0), Some(1), None, Some(1), Some(0)],
+        };
+        let report = evaluate_vortex_encoded_value_predicate_batch(
+            &PredicateExpr::Compare {
+                column: ColumnRef::new("x").expect("column"),
+                op: ComparisonOp::GtEq,
+                value: StatValue::Int64(5),
+            },
+            &segment,
+            &values,
+        );
+
+        assert_eq!(
+            report.status,
+            VortexEncodedPredicateEvaluationStatus::EvaluatedSelections
+        );
+        assert_eq!(report.selected_indices_count, 1);
+        assert_eq!(report.selection_vectors_emitted, 1);
+        assert_eq!(report.selected_rows_metadata_count, Some(2));
+        assert_eq!(
+            report.segment_reports[0].selection_vector,
+            Some(SelectionVector::from_indices(vec![1, 3]))
+        );
+        assert!(report.is_side_effect_free());
+        assert!(!report.has_errors());
+
+        let filter_kernel = crate::evaluate_vortex_selection_vector_filter_kernel(&report);
+        assert_eq!(
+            filter_kernel.status,
+            crate::VortexSelectionVectorFilterKernelStatus::EvaluatedSelectionVectors
+        );
+        assert_eq!(filter_kernel.selection_vector_count, 1);
+        assert_eq!(filter_kernel.selected_row_count, Some(2));
+        assert!(filter_kernel.is_safe_native_filter_kernel_evidence());
+        assert!(filter_kernel.is_side_effect_free());
+        assert!(!filter_kernel.has_errors());
+    }
+
+    #[test]
+    fn encoded_value_batch_unsupported_type_blocks_without_fallback() {
+        let segment = encoded_segment(1, EncodingKind::Constant);
+        let values = EncodedValueBatch::Constant {
+            value: Some(StatValue::Utf8("a".to_string())),
+            row_count: 1,
+        };
+        let report = evaluate_vortex_encoded_value_predicate_batch(
+            &PredicateExpr::Compare {
+                column: ColumnRef::new("x").expect("column"),
+                op: ComparisonOp::Eq,
+                value: StatValue::Int64(1),
+            },
+            &segment,
+            &values,
+        );
+
+        assert_eq!(
+            report.status,
+            VortexEncodedPredicateEvaluationStatus::Unsupported
+        );
+        assert_eq!(report.unsupported_count, 1);
+        assert!(report.has_errors());
+        assert!(report.is_side_effect_free());
+        assert!(
+            report
+                .segment_reports
+                .iter()
+                .flat_map(|segment| segment.diagnostics.iter())
+                .all(|diagnostic| !diagnostic.fallback.attempted)
+        );
     }
 }

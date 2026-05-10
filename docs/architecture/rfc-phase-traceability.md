@@ -622,6 +622,14 @@ No fallback execution.
 - `shardloom-vortex/src/encoded_predicate_evaluation.rs` now counts sparse selection-vector segment reports in the aggregate predicate report.
 - This phase does not wire the kernel to Vortex readers/adapters, broaden non-local sources, add SQL/DataFrame/runtime adapters, write outputs, rerun benchmarks, certify production claims, close CG-2/CG-13, or add fallback execution.
 
+## CG-2.2j / CG-7.27 / CG-13.22 encoded-value predicate bridge to Vortex filter evidence
+
+- Primary RFC linkage: RFC 0015 Correctness/testing, RFC 0021 Expression/Kernel Registry, RFC 0025 Competitive/no-fallback, RFC 0026 Vortex encoded-read/query-readiness boundaries, RFC 0029 Correctness/Benchmarks/Execution Certificates, and RFC 0031 Universal Native I/O Envelope.
+- `shardloom-vortex/src/encoded_predicate_evaluation.rs` adds `evaluate_vortex_encoded_value_predicate_batch`, a no-reader bridge from explicit encoded segment metadata plus encoded-value batches into the normal Vortex encoded predicate aggregate report.
+- Sparse encoded-value selections now flow into the existing selection-vector filter-kernel evidence path, so dictionary encoded-value predicates can produce safe native filter-kernel evidence without local scan-pushdown.
+- Unsupported encoded-value type mismatches remain deterministic, side-effect-free, and no-fallback.
+- This phase does not open Vortex files, wire readers/adapters, broaden non-local sources, add SQL/DataFrame runtime, write outputs, spill, rerun benchmarks, certify production claims, close CG-2/CG-13, or add fallback execution.
+
 ## CG-5.1 metadata query primitive correctness fixtures
 
 - Primary RFC linkage: RFC 0015 Correctness/Semantics/Differential Testing, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
