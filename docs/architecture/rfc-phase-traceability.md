@@ -630,6 +630,14 @@ No fallback execution.
 - Unsupported encoded-value type mismatches remain deterministic, side-effect-free, and no-fallback.
 - This phase does not open Vortex files, wire readers/adapters, broaden non-local sources, add SQL/DataFrame runtime, write outputs, spill, rerun benchmarks, certify production claims, close CG-2/CG-13, or add fallback execution.
 
+## CG-2.2k / CG-7.28 / CG-13.23 multi-segment encoded-value filter evidence
+
+- Primary RFC linkage: RFC 0015 Correctness/testing, RFC 0021 Expression/Kernel Registry, RFC 0025 Competitive/no-fallback, RFC 0026 Vortex encoded-read/query-readiness boundaries, RFC 0029 Correctness/Benchmarks/Execution Certificates, and RFC 0031 Universal Native I/O Envelope.
+- `shardloom-vortex/src/encoded_predicate_evaluation.rs` adds `VortexEncodedValuePredicateBatch` and `evaluate_vortex_encoded_value_predicate_batches`, a reusable no-reader target for aggregating prepared segment/value batches into the Vortex encoded predicate report.
+- Multi-segment encoded-value evidence can now combine constant, dictionary, and run-length batch selections and feed complete selection vectors into the existing Vortex selection-vector filter-kernel evidence path.
+- Empty prepared-batch inputs block deterministically with no fallback instead of pretending broad reader wiring exists.
+- This phase does not open Vortex files, wire readers/adapters, broaden non-local sources, add SQL/DataFrame runtime, write outputs, spill, rerun benchmarks, certify production claims, close CG-2/CG-13, or add fallback execution.
+
 ## CG-5.1 metadata query primitive correctness fixtures
 
 - Primary RFC linkage: RFC 0015 Correctness/Semantics/Differential Testing, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.

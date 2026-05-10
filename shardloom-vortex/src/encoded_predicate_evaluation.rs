@@ -113,6 +113,26 @@ pub struct VortexEncodedPredicateEvaluationReport {
     pub diagnostics: Vec<Diagnostic>,
 }
 
+/// One explicitly supplied encoded-value predicate input.
+///
+/// This is a prepared execution-kernel input, not a reader contract. It pairs
+/// segment metadata with already available encoded values so Vortex-native
+/// predicate evidence can be aggregated across segments without opening files,
+/// decoding rows, materializing values, converting to Arrow, writing output,
+/// spilling, or invoking fallback execution.
+#[derive(Debug, Clone, PartialEq)]
+pub struct VortexEncodedValuePredicateBatch {
+    pub segment: EncodedSegment,
+    pub values: EncodedValueBatch,
+}
+
+impl VortexEncodedValuePredicateBatch {
+    #[must_use]
+    pub const fn new(segment: EncodedSegment, values: EncodedValueBatch) -> Self {
+        Self { segment, values }
+    }
+}
+
 impl VortexEncodedPredicateEvaluationReport {
     #[must_use]
     fn from_segment_reports(
@@ -315,11 +335,46 @@ pub fn evaluate_vortex_encoded_value_predicate_batch(
     segment: &EncodedSegment,
     values: &EncodedValueBatch,
 ) -> VortexEncodedPredicateEvaluationReport {
+    evaluate_vortex_encoded_value_predicate_batches(
+        predicate,
+        &[VortexEncodedValuePredicateBatch::new(
+            segment.clone(),
+            values.clone(),
+        )],
+    )
+}
+
+/// Evaluates prepared Vortex encoded-value batches through the native encoded
+/// predicate kernel and aggregates their selection-vector evidence.
+///
+/// This is the reusable generalized filter evidence target for future reader
+/// wiring. It requires callers to provide segment metadata plus encoded values;
+/// it does not open files, call object stores, decode rows, materialize values,
+/// convert to Arrow, write output, spill, or permit fallback execution.
+#[must_use]
+pub fn evaluate_vortex_encoded_value_predicate_batches(
+    predicate: &PredicateExpr,
+    batches: &[VortexEncodedValuePredicateBatch],
+) -> VortexEncodedPredicateEvaluationReport {
+    if batches.is_empty() {
+        return VortexEncodedPredicateEvaluationReport::from_segment_reports(
+            predicate,
+            Vec::new(),
+            vec![Diagnostic::not_implemented(
+                "vortex_encoded_value_predicate_batches",
+                "encoded segment metadata and encoded-value batches are required before multi-segment encoded filter evaluation can run",
+                "Provide at least one prepared encoded-value batch; reader wiring remains a separate phase.",
+            )],
+        );
+    }
+
+    let segment_reports = batches
+        .iter()
+        .map(|batch| evaluate_predicate_on_encoded_values(predicate, &batch.segment, &batch.values))
+        .collect();
     VortexEncodedPredicateEvaluationReport::from_segment_reports(
         predicate,
-        vec![evaluate_predicate_on_encoded_values(
-            predicate, segment, values,
-        )],
+        segment_reports,
         Vec::new(),
     )
 }
@@ -426,8 +481,12 @@ mod tests {
     }
 
     fn encoded_segment(row_count: u64, encoding: EncodingKind) -> EncodedSegment {
+        encoded_segment_with_id("encoded-segment-1", row_count, encoding)
+    }
+
+    fn encoded_segment_with_id(id: &str, row_count: u64, encoding: EncodingKind) -> EncodedSegment {
         EncodedSegment::new(
-            SegmentId::new("encoded-segment-1").expect("segment"),
+            SegmentId::new(id).expect("segment"),
             ColumnRef::new("x").expect("column"),
             LogicalDType::Int64,
             Nullability::Nullable,
@@ -557,6 +616,68 @@ mod tests {
     }
 
     #[test]
+    fn encoded_value_batches_aggregate_multi_segment_filter_evidence() {
+        let batches = vec![
+            VortexEncodedValuePredicateBatch::new(
+                encoded_segment_with_id("constant-segment", 3, EncodingKind::Constant),
+                EncodedValueBatch::Constant {
+                    value: Some(StatValue::Int64(7)),
+                    row_count: 3,
+                },
+            ),
+            VortexEncodedValuePredicateBatch::new(
+                encoded_segment_with_id("dictionary-segment", 5, EncodingKind::Dictionary),
+                EncodedValueBatch::Dictionary {
+                    dictionary: vec![Some(StatValue::Int64(1)), Some(StatValue::Int64(5)), None],
+                    codes: vec![Some(0), Some(1), None, Some(1), Some(0)],
+                },
+            ),
+            VortexEncodedValuePredicateBatch::new(
+                encoded_segment_with_id("run-segment", 3, EncodingKind::RunLength),
+                EncodedValueBatch::RunLength {
+                    runs: vec![shardloom_core::EncodedValueRun::new(
+                        Some(StatValue::Int64(0)),
+                        3,
+                    )],
+                },
+            ),
+        ];
+
+        let report = evaluate_vortex_encoded_value_predicate_batches(
+            &PredicateExpr::Compare {
+                column: ColumnRef::new("x").expect("column"),
+                op: ComparisonOp::GtEq,
+                value: StatValue::Int64(5),
+            },
+            &batches,
+        );
+
+        assert_eq!(
+            report.status,
+            VortexEncodedPredicateEvaluationStatus::EvaluatedSelections
+        );
+        assert_eq!(report.segment_report_count, 3);
+        assert_eq!(report.selected_all_count, 1);
+        assert_eq!(report.selected_indices_count, 1);
+        assert_eq!(report.selected_none_count, 1);
+        assert_eq!(report.selection_vectors_emitted, 3);
+        assert_eq!(report.selected_rows_metadata_count, Some(5));
+        assert!(report.is_side_effect_free());
+        assert!(!report.has_errors());
+
+        let filter_kernel = crate::evaluate_vortex_selection_vector_filter_kernel(&report);
+        assert_eq!(
+            filter_kernel.status,
+            crate::VortexSelectionVectorFilterKernelStatus::EvaluatedSelectionVectors
+        );
+        assert_eq!(filter_kernel.segment_count, 3);
+        assert_eq!(filter_kernel.selection_vector_count, 3);
+        assert_eq!(filter_kernel.selected_row_count, Some(5));
+        assert!(filter_kernel.is_safe_native_filter_kernel_evidence());
+        assert!(filter_kernel.is_side_effect_free());
+    }
+
+    #[test]
     fn encoded_value_batch_unsupported_type_blocks_without_fallback() {
         let segment = encoded_segment(1, EncodingKind::Constant);
         let values = EncodedValueBatch::Constant {
@@ -585,6 +706,35 @@ mod tests {
                 .segment_reports
                 .iter()
                 .flat_map(|segment| segment.diagnostics.iter())
+                .all(|diagnostic| !diagnostic.fallback.attempted)
+        );
+    }
+
+    #[test]
+    fn encoded_value_batches_empty_input_blocks_without_fallback() {
+        let report =
+            evaluate_vortex_encoded_value_predicate_batches(&PredicateExpr::AlwaysTrue, &[]);
+
+        assert_eq!(
+            report.status,
+            VortexEncodedPredicateEvaluationStatus::MissingMetadata
+        );
+        assert_eq!(report.segment_report_count, 0);
+        assert_eq!(report.selection_vectors_emitted, 0);
+        assert!(report.is_side_effect_free());
+        assert!(!report.diagnostics[0].fallback.attempted);
+
+        let filter_kernel = crate::evaluate_vortex_selection_vector_filter_kernel(&report);
+        assert_eq!(
+            filter_kernel.status,
+            crate::VortexSelectionVectorFilterKernelStatus::BlockedByPredicateEvaluation
+        );
+        assert!(filter_kernel.is_side_effect_free());
+        assert!(filter_kernel.has_errors());
+        assert!(
+            filter_kernel
+                .diagnostics
+                .iter()
                 .all(|diagnostic| !diagnostic.fallback.attempted)
         );
     }
