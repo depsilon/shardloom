@@ -4,16 +4,14 @@ use std::fmt::Write as _;
 
 #[cfg(feature = "vortex-local-primitives")]
 use shardloom_core::UriScheme;
-#[cfg(feature = "vortex-local-primitives")]
-use shardloom_core::{ComparisonOp, DatasetUri, StatValue};
 use shardloom_core::{
-    CorrectnessFixture, Diagnostic, DiagnosticCode, DiagnosticSeverity, ExecutionCertificate,
-    ExecutionCertificateInput, ExpectedOutcome, NativeIoAdapterFidelityReport, NativeIoCertificate,
+    ComparisonOp, CorrectnessFixture, CorrectnessValidationPlan, DatasetUri, Diagnostic,
+    DiagnosticCode, DiagnosticSeverity, ExecutionCertificate, ExecutionCertificateInput,
+    ExpectedOutcome, NativeIoAdapterFidelityReport, NativeIoCertificate,
     NativeIoRepresentationTransition, NativeIoSideEffectReport, NativeIoSinkRequirementReport,
     NativeIoSourceCapabilityReport, NativeIoSourcePushdownReport, PredicateExpr,
-    RepresentationState, Result, ShardLoomError,
+    RepresentationState, Result, ShardLoomError, StatValue,
 };
-#[cfg(feature = "vortex-local-primitives")]
 use shardloom_plan::ProjectionRequest;
 
 use crate::{VortexQueryPrimitiveKind, VortexQueryPrimitiveRequest};
@@ -316,6 +314,173 @@ pub fn local_primitive_execution_certificate(
     input.diagnostics.extend(request.diagnostics.clone());
     input.diagnostics.extend(report.diagnostics.clone());
     Ok(ExecutionCertificate::evaluate(input))
+}
+
+/// Finds the checked-in correctness fixture that exactly matches a local
+/// primitive request/report pair.
+///
+/// This intentionally returns `None` for copied/non-fixture local `.vortex`
+/// targets. Those paths can execute and emit Native I/O evidence, but they
+/// remain uncertified until CG-5 fixture/reference coverage is widened.
+#[must_use]
+pub fn local_primitive_correctness_fixture_for_request(
+    request: &VortexQueryPrimitiveRequest,
+    report: &VortexLocalPrimitiveExecutionReport,
+) -> Option<CorrectnessFixture> {
+    if request.kind != report.primitive_kind
+        || report.status != VortexLocalPrimitiveExecutionStatus::Executed
+        || report.has_errors()
+    {
+        return None;
+    }
+    match request.kind {
+        VortexQueryPrimitiveKind::CountAll => request
+            .source_uri
+            .as_ref()
+            .and_then(local_encoded_count_correctness_fixture_for_target),
+        VortexQueryPrimitiveKind::CountWhere => local_primitive_fixture_if(
+            request,
+            local_struct_value_gte_three_predicate(request),
+            "vortex-local-count-where-struct-five",
+        ),
+        VortexQueryPrimitiveKind::ProjectColumns => local_primitive_fixture_if(
+            request,
+            local_struct_metric_projection(request),
+            "vortex-local-project-struct-five",
+        ),
+        VortexQueryPrimitiveKind::FilterPredicate => local_primitive_fixture_if(
+            request,
+            local_struct_value_gte_three_predicate(request),
+            "vortex-local-filter-struct-five",
+        ),
+        VortexQueryPrimitiveKind::FilterAndProject => local_primitive_fixture_if(
+            request,
+            local_struct_value_gte_three_predicate(request)
+                && local_struct_metric_projection(request),
+            "vortex-local-filter-project-struct-five",
+        ),
+        VortexQueryPrimitiveKind::SimpleAggregate | VortexQueryPrimitiveKind::Unsupported => None,
+    }
+}
+
+fn local_encoded_count_correctness_fixture_for_target(
+    target_uri: &DatasetUri,
+) -> Option<CorrectnessFixture> {
+    CorrectnessValidationPlan::default_foundation_plan()
+        .fixtures
+        .into_iter()
+        .find(|fixture| {
+            matches!(fixture.expected, ExpectedOutcome::EncodedCount { .. })
+                && fixture
+                    .source_ref
+                    .as_deref()
+                    .is_some_and(|source_ref| local_fixture_ref_matches(target_uri, source_ref))
+        })
+}
+
+fn local_foundation_fixture_for_target(
+    target_uri: &DatasetUri,
+    fixture_id: &str,
+) -> Option<CorrectnessFixture> {
+    CorrectnessValidationPlan::default_foundation_plan()
+        .fixtures
+        .into_iter()
+        .find(|fixture| {
+            fixture.id.as_str() == fixture_id
+                && fixture
+                    .source_ref
+                    .as_deref()
+                    .is_some_and(|source_ref| local_fixture_ref_matches(target_uri, source_ref))
+        })
+}
+
+fn local_primitive_fixture_if(
+    request: &VortexQueryPrimitiveRequest,
+    matches_fixture_shape: bool,
+    fixture_id: &str,
+) -> Option<CorrectnessFixture> {
+    matches_fixture_shape
+        .then_some(request.source_uri.as_ref())
+        .flatten()
+        .and_then(|source_uri| local_foundation_fixture_for_target(source_uri, fixture_id))
+}
+
+fn local_struct_value_gte_three_predicate(request: &VortexQueryPrimitiveRequest) -> bool {
+    matches!(
+        request.predicate.as_ref(),
+        Some(PredicateExpr::Compare {
+            column,
+            op: ComparisonOp::GtEq,
+            value: StatValue::Int64(3)
+        }) if column.as_str() == "value"
+    )
+}
+
+fn local_struct_metric_projection(request: &VortexQueryPrimitiveRequest) -> bool {
+    matches!(
+        &request.projection,
+        ProjectionRequest::Columns(columns)
+            if columns.len() == 1 && columns[0].as_str() == "metric"
+    )
+}
+
+fn local_fixture_ref_matches(target_uri: &DatasetUri, source_ref: &str) -> bool {
+    let Some(target_ref) = canonical_local_fixture_ref(target_uri.as_str()) else {
+        return false;
+    };
+    let Some(workspace_source_ref) = canonical_workspace_fixture_ref(source_ref) else {
+        return false;
+    };
+    target_ref == workspace_source_ref
+}
+
+fn canonical_workspace_fixture_ref(source_ref: &str) -> Option<String> {
+    let source_ref = normalized_local_fixture_ref(source_ref);
+    let source_path = std::path::Path::new(&source_ref);
+    let absolute = if source_path.is_absolute() {
+        source_path.to_path_buf()
+    } else {
+        workspace_root().join(source_path)
+    };
+    canonical_path_string(&absolute)
+}
+
+fn canonical_local_fixture_ref(value: &str) -> Option<String> {
+    let target_ref = normalized_local_fixture_ref(value);
+    let target_path = std::path::Path::new(&target_ref);
+    let absolute = if target_path.is_absolute() {
+        target_path.to_path_buf()
+    } else {
+        workspace_root().join(target_path)
+    };
+    canonical_path_string(&absolute)
+}
+
+fn workspace_root() -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("workspace root")
+        .to_path_buf()
+}
+
+fn canonical_path_string(path: &std::path::Path) -> Option<String> {
+    path.canonicalize()
+        .ok()
+        .map(|path| path.to_string_lossy().replace('\\', "/"))
+}
+
+fn normalized_local_fixture_ref(value: &str) -> String {
+    let without_fragment = value
+        .split_once(['?', '#'])
+        .map_or(value, |(prefix, _)| prefix);
+    let without_scheme = without_fragment
+        .strip_prefix("file:///")
+        .or_else(|| without_fragment.strip_prefix("file://"))
+        .unwrap_or(without_fragment);
+    without_scheme
+        .replace('\\', "/")
+        .trim_start_matches("./")
+        .to_string()
 }
 
 /// Builds a CG-19 runtime native I/O certificate for an executed local

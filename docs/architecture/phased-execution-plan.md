@@ -53,27 +53,25 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [ ] Session label: CG-2.3e / CG-13.20 / CG-19.17 generalized local projection/filter-project execution surface
+- [x] Session label: CG-5.11 / CG-16.14 generalized local primitive fixture certificates
   - Primary files:
+    - `shardloom-vortex/src/local_primitives.rs`
+    - `shardloom-vortex/src/generalized_filter_execution.rs`
     - `shardloom-vortex/src/generalized_projection_execution.rs`
-    - `shardloom-vortex/src/generalized_encoded_primitive_gate.rs`
     - `shardloom-vortex/src/lib.rs`
-    - `shardloom-cli/src/main.rs`
-    - `shardloom-cli/tests/generalized_encoded_primitive_gate_snapshots.rs`
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-  - Scope: Add a reusable `shardloom-vortex` generalized local projection execution report that runs the existing feature-gated local `.vortex` ProjectColumns/FilterAndProject scan-pushdown executor directly, emits certified Native I/O evidence for safe local scans, and keeps production/correctness claims blocked until CG-5/CG-6 evidence exists. Update the generalized primitive gate so projection is no longer readiness-only while broad encoded projection kernels remain blocked.
+  - Scope: Promote checked-in local primitive fixture matching into `shardloom-vortex` and let generalized local filter/projection reports emit optional CG-16 execution certificates for exact fixture-backed CountWhere, FilterPredicate, ProjectColumns, and FilterAndProject requests. Copied/non-fixture local `.vortex` runs remain execution-allowed and Native-I/O-certified but explicitly uncertified for correctness and production claims.
   - Checklist:
-    - [x] Move the completed generalized local CountWhere/FilterPredicate surface from Active into the completed ledger.
-    - [x] Add `execute_vortex_generalized_projection_from_local_scan_pushdown` for local ProjectColumns and FilterAndProject requests.
-    - [x] Emit runtime evidence for copied/non-fixture local `.vortex` projection and filter-project scan-pushdown paths, including projected columns, row counts, encoded-projection guarantee, selection-vector guarantee for filter-project, Native I/O certificate state, no decode/materialization/row/Arrow/object-store/write/spill/fallback effects, and no production claim.
-    - [x] Reject unsupported primitive kinds before execution through deterministic diagnostics.
-    - [x] Update `vortex-generalized-encoded-primitive-gate` to report local projection scan-pushdown evidence separately from still-blocked broad encoded projection kernels.
-    - [x] Keep broader encoded projection kernels, broad encoded-value predicate kernels, non-local sources, adapter execution, object-store IO, SQL/DataFrame runtime, writes, spill, benchmark reruns, superiority claims, and fallback execution out of scope.
+    - [x] Move the completed generalized local ProjectColumns/FilterAndProject surface from Active into the completed ledger.
+    - [x] Add `local_primitive_correctness_fixture_for_request` to `shardloom-vortex`.
+    - [x] Attach optional execution certificates to generalized filter reports when the request matches checked-in fixture evidence.
+    - [x] Attach optional execution certificates to generalized projection/filter-project reports when the request matches checked-in fixture evidence.
+    - [x] Keep copied/non-fixture runs successful but explicitly uncertified.
+    - [x] Keep broad encoded-value predicate/projection kernels, non-local sources, adapter execution, object-store IO, SQL/DataFrame runtime, writes, spill, benchmark reruns, superiority claims, and fallback execution out of scope.
     - [x] Run focused feature-gated tests, full Rust fmt/clippy/test validation, diff checks, and hidden/bidi scan.
   - Local validation status:
-    - [x] Focused feature-gated `shardloom-vortex` generalized projection tests passed locally with Rust toolchain `1.91.1`.
-    - [x] Focused generalized primitive gate unit and snapshot tests passed locally with Rust toolchain `1.91.1`.
+    - [x] Focused feature-gated `shardloom-vortex` generalized certificate tests passed locally with Rust toolchain `1.91.1`.
     - [x] Required full `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, and `cargo test --workspace --all-targets` validation passed locally with Rust toolchain `1.91.1`.
     - [x] Diff hygiene and changed-file hidden/bidi scan passed locally.
   - Explicitly not included: new readers, non-local/object-store Vortex sources, Parquet/Arrow/JSON/Avro/ORC runtime, adapter execution, broad encoded projection kernels, broad encoded-value predicate kernels, SQL parser, SQL execution, DataFrame runtime, UDF/function registry runtime, sketch implementation, aggregate kernels, benchmark reruns, superiority or best-default claims, CG-2 closeout, CG-13 closeout, CG-20 closeout, or fallback execution.
@@ -96,7 +94,8 @@ Supporting docs:
   - [x] `python-wrapper-plan`, `capabilities python`, `capabilities deployment`, and `world-class-sufficiency-plan` expose packaging/importability state without probes or runtime expansion.
   - [x] Benchmark extras remain optional comparison-only environments and are not dependencies of `conda install shardloom`.
 - [ ] Priority 2 - evidence loop paired with every execution expansion
-  - [ ] CG-5 fixtures, reference outputs, correctness certificates, and edge-case coverage for each new primitive path.
+  - [x] CG-5/CG-16 fixture-backed execution certificates wired into generalized local primitive filter/projection surfaces.
+  - [ ] CG-5 fixtures, reference outputs, correctness certificates, and edge-case coverage for each widened primitive path.
   - [ ] CG-6 query-runtime benchmark rows, reproducibility metadata, work-avoidance evidence, and claim-gate blockers for each new primitive path.
   - [ ] CG-16 execution certificates and CG-19 per-path Native I/O certificates for each supported source/sink path.
 - [ ] Priority 3 - broader platform work after the primitive/evidence loop advances
@@ -108,6 +107,27 @@ Supporting docs:
   - [ ] CG-20 approximate aggregate/sketch function implementation after function-registry, aggregate-state, sketch-serialization, correctness, benchmark, execution-certificate, and Native I/O evidence gates are ready.
 
 ## Recent Completed Session Ledger
+- [x] Session label: CG-2.3e / CG-13.20 / CG-19.17 generalized local projection/filter-project execution surface
+  - Primary files:
+    - `shardloom-vortex/src/generalized_projection_execution.rs`
+    - `shardloom-vortex/src/generalized_encoded_primitive_gate.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/generalized_encoded_primitive_gate_snapshots.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: Added a reusable `shardloom-vortex` generalized local projection execution report that runs the existing feature-gated local `.vortex` ProjectColumns/FilterAndProject scan-pushdown executor directly, emits certified Native I/O evidence for safe local scans, and keeps production/correctness claims blocked until CG-5/CG-6 evidence exists. Updated the generalized primitive gate so projection is no longer readiness-only while broad encoded projection kernels remain blocked.
+  - Completed:
+    - [x] Added `execute_vortex_generalized_projection_from_local_scan_pushdown` for local ProjectColumns and FilterAndProject requests.
+    - [x] Emitted runtime evidence for copied/non-fixture local `.vortex` projection and filter-project scan-pushdown paths, including projected columns, row counts, encoded-projection guarantee, selection-vector guarantee for filter-project, Native I/O certificate state, no decode/materialization/row/Arrow/object-store/write/spill/fallback effects, and no production claim.
+    - [x] Rejected unsupported primitive kinds before execution through deterministic diagnostics.
+    - [x] Updated `vortex-generalized-encoded-primitive-gate` to report local projection scan-pushdown evidence separately from still-blocked broad encoded projection kernels.
+  - Validation status:
+    - [x] Focused feature-gated `shardloom-vortex` generalized projection tests passed locally with Rust toolchain `1.91.1`.
+    - [x] Focused generalized primitive gate unit and snapshot tests passed locally with Rust toolchain `1.91.1`.
+    - [x] Required full `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, and `cargo test --workspace --all-targets` validation passed locally with Rust toolchain `1.91.1`.
+    - [x] Diff hygiene and changed-file hidden/bidi scan passed locally.
+  - Explicitly not included: new readers, non-local/object-store Vortex sources, Parquet/Arrow/JSON/Avro/ORC runtime, adapter execution, broad encoded projection kernels, broad encoded-value predicate kernels, SQL parser, SQL execution, DataFrame runtime, UDF/function registry runtime, sketch implementation, aggregate kernels, benchmark reruns, superiority or best-default claims, CG-2 closeout, CG-13 closeout, CG-20 closeout, or fallback execution.
 - [x] Session label: CG-2.2h / CG-13.19 / CG-19.16 generalized local filter execution surface
   - Primary files:
     - `shardloom-vortex/src/generalized_filter_execution.rs`
@@ -1828,6 +1848,7 @@ Status legend:
   - [x] CG-5.8 broader local primitive generated fixtures for count-where/project/filter-project runtime evidence
   - [x] CG-5.9 checked-in local primitive struct fixture source refs for count-where/project/filter-project evidence
   - [x] CG-5.10 checked-in struct fixture source ref for local `CountAll` evidence
+  - [x] CG-5.11 generalized local primitive fixture matching is reusable from `shardloom-vortex`
   - Expected evidence:
     - golden Vortex fixtures
     - decoded reference outputs
@@ -2018,6 +2039,7 @@ Status legend:
   - [x] CG-16.11 `vortex-project` local primitive execution certificate fields for the checked-in struct fixture
   - [x] CG-16.12 `vortex-filter-project` local primitive execution certificate fields for the checked-in struct fixture
   - [x] CG-16.13 copied/non-fixture local `CountAll` reports execution-certificate unavailable while keeping Native I/O evidence certified
+  - [x] CG-16.14 generalized local filter/projection surfaces emit execution certificates only for exact checked-in fixture matches
   - Scope:
     - plan/input/output evidence artifacts through `execution-certificate-plan`
     - reproducibility metadata and segment traces
@@ -2197,6 +2219,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-5.8 broader local primitive generated fixtures for count-where/project/filter-project runtime evidence
 - [x] CG-5.9 checked-in local primitive struct fixture source refs for count-where/project/filter-project evidence
 - [x] CG-5.10 checked-in struct fixture source ref for local `CountAll` evidence
+- [x] CG-5.11 generalized local primitive fixture matching is reusable from `shardloom-vortex`
 - [~] decoded-reference output artifacts
 - [~] property/fuzz fixture families and reproducible seeds
 - [~] external-oracle result artifacts remain deferred; engines are policy-only baselines until explicit benchmark/correctness runs
@@ -2386,6 +2409,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-16.11 `vortex-project` local primitive execution certificate fields for the checked-in struct fixture
 - [x] CG-16.12 `vortex-filter-project` local primitive execution certificate fields for the checked-in struct fixture
 - [x] CG-16.13 copied/non-fixture local `CountAll` keeps execution allowed but reports execution certificate unavailable until correctness fixture evidence exists
+- [x] CG-16.14 generalized local filter/projection surfaces emit execution certificates only for exact checked-in fixture matches
 - [x] plan/input/output evidence artifacts for reproducibility
 - [x] deterministic, machine-readable certificate surfaces
 
@@ -2539,6 +2563,7 @@ This section preserves older attribution notes that predate the compact CG rollu
 - [x] CG-2.3c/CG-13.16/CG-16.11/CG-19.13 `vortex-project --execute-local-primitive` executes the existing feature-gated local `ProjectColumns` scan-pushdown path, reports encoded projection preservation evidence, and emits Native I/O and execution certificates for the checked-in struct fixture while leaving broader encoded projection kernels, filter-project certification, non-local sources, adapters, SQL, writes, spill, claims, and fallback blocked.
 - [x] CG-2.3d/CG-13.17/CG-16.12/CG-19.14 `vortex-filter-project --execute-local-primitive` executes the existing feature-gated local `FilterAndProject` scan-pushdown path, reports combined filter/projection evidence, and emits Native I/O and execution certificates for the checked-in struct fixture while leaving broader encoded predicate/projection kernels, non-local sources, adapters, SQL, writes, spill, claims, and fallback blocked.
 - [x] CG-2.3e/CG-13.20/CG-19.17 generalized local projection/filter-project execution surface adds a reusable `shardloom-vortex` report around local ProjectColumns/FilterAndProject scan-pushdown execution, emits Native I/O evidence for copied/non-fixture local `.vortex` projection paths, and keeps correctness certification, broad encoded projection kernels, non-local sources, adapters, SQL, writes, spill, claims, and fallback blocked.
+- [x] CG-5.11/CG-16.14 generalized local primitive fixture certificates promote fixture matching into `shardloom-vortex` and let generalized filter/projection surfaces emit CG-16 execution certificates only for exact checked-in local primitive fixture matches while copied/non-fixture runs remain uncertified.
 - [x] CG-5.1 metadata query primitive correctness fixtures cover supported metadata answers and deferred unsupported paths without side effects.
 - [x] CG-5.2 metadata query primitive edge and diagnostic fixtures cover missing/unsupported metadata primitive paths without side effects.
 - [x] CG-5.3 correctness fixture manifest declares initial golden fixture/reference output and required edge-case fixture families without execution.

@@ -1,12 +1,15 @@
 use std::fmt::Write as _;
 
-use shardloom_core::{Diagnostic, NativeIoCertificate, PredicateExpr, Result};
+use shardloom_core::{
+    Diagnostic, ExecutionCertificate, NativeIoCertificate, PredicateExpr, Result,
+};
 
 use crate::{
     VortexLocalPrimitiveExecutionMode, VortexLocalPrimitiveExecutionPolicy,
     VortexLocalPrimitiveExecutionReport, VortexLocalPrimitiveExecutionStatus,
     VortexQueryPrimitiveKind, VortexQueryPrimitiveRequest,
-    execute_vortex_local_primitive_with_policy, local_primitive_native_io_certificate,
+    execute_vortex_local_primitive_with_policy, local_primitive_correctness_fixture_for_request,
+    local_primitive_execution_certificate, local_primitive_native_io_certificate,
 };
 
 const SCHEMA_VERSION: &str = "shardloom.vortex_generalized_projection_execution.v1";
@@ -51,6 +54,7 @@ pub struct VortexGeneralizedProjectionExecutionReport {
     pub status: VortexGeneralizedProjectionExecutionStatus,
     pub local_primitive_report: VortexLocalPrimitiveExecutionReport,
     pub native_io_certificate: Option<NativeIoCertificate>,
+    pub execution_certificate: Option<ExecutionCertificate>,
     pub runtime_execution_allowed: bool,
     pub encoded_projection_guaranteed: bool,
     pub selection_vector_guaranteed: bool,
@@ -92,6 +96,7 @@ impl VortexGeneralizedProjectionExecutionReport {
             status: VortexGeneralizedProjectionExecutionStatus::BlockedUnsupportedPrimitive,
             local_primitive_report,
             native_io_certificate: None,
+            execution_certificate: None,
             runtime_execution_allowed: false,
             encoded_projection_guaranteed: false,
             selection_vector_guaranteed: false,
@@ -116,6 +121,7 @@ impl VortexGeneralizedProjectionExecutionReport {
         request: &VortexQueryPrimitiveRequest,
         local_primitive_report: VortexLocalPrimitiveExecutionReport,
         native_io_certificate: Option<NativeIoCertificate>,
+        execution_certificate: Option<ExecutionCertificate>,
     ) -> Self {
         let native_io_safe = native_io_certificate
             .as_ref()
@@ -126,6 +132,9 @@ impl VortexGeneralizedProjectionExecutionReport {
                 .diagnostics
                 .iter()
                 .all(|diagnostic| !diagnostic.fallback.attempted);
+        let correctness_certified = execution_certificate
+            .as_ref()
+            .is_some_and(ExecutionCertificate::is_certified);
         let status = if local_primitive_report.status
             == VortexLocalPrimitiveExecutionStatus::FeatureDisabled
         {
@@ -138,6 +147,9 @@ impl VortexGeneralizedProjectionExecutionReport {
         let mut diagnostics = request.diagnostics.clone();
         diagnostics.extend(local_primitive_report.diagnostics.clone());
         if let Some(certificate) = &native_io_certificate {
+            diagnostics.extend(certificate.diagnostics.clone());
+        }
+        if let Some(certificate) = &execution_certificate {
             diagnostics.extend(certificate.diagnostics.clone());
         }
         let selection_vector_guaranteed =
@@ -155,7 +167,7 @@ impl VortexGeneralizedProjectionExecutionReport {
             runtime_execution_allowed: safe,
             encoded_projection_guaranteed: safe,
             selection_vector_guaranteed,
-            correctness_certified: false,
+            correctness_certified,
             production_claim_allowed: false,
             data_read: local_primitive_report.data_read,
             data_decoded: local_primitive_report.data_decoded,
@@ -172,6 +184,7 @@ impl VortexGeneralizedProjectionExecutionReport {
                 .any(|diagnostic| diagnostic.fallback.attempted),
             local_primitive_report,
             native_io_certificate,
+            execution_certificate,
             diagnostics,
         }
     }
@@ -186,6 +199,10 @@ impl VortexGeneralizedProjectionExecutionReport {
                 .native_io_certificate
                 .as_ref()
                 .is_some_and(NativeIoCertificate::has_errors)
+            || self
+                .execution_certificate
+                .as_ref()
+                .is_some_and(execution_certificate_has_errors)
             || self.diagnostics.iter().any(|diagnostic| {
                 matches!(
                     diagnostic.severity,
@@ -279,13 +296,33 @@ pub fn execute_vortex_generalized_projection_from_local_scan_pushdown(
         request,
         &local_primitive_report,
     )?);
+    let execution_certificate =
+        local_primitive_correctness_fixture_for_request(request, &local_primitive_report)
+            .map(|fixture| {
+                local_primitive_execution_certificate(&fixture, request, &local_primitive_report)
+            })
+            .transpose()?;
     Ok(
         VortexGeneralizedProjectionExecutionReport::from_local_report(
             request,
             local_primitive_report,
             native_io_certificate,
+            execution_certificate,
         ),
     )
+}
+
+fn execution_certificate_has_errors(certificate: &ExecutionCertificate) -> bool {
+    certificate.fallback_attempted
+        || certificate.fallback_execution_allowed
+        || certificate.unsafe_effect_detected
+        || certificate.diagnostics.iter().any(|diagnostic| {
+            matches!(
+                diagnostic.severity,
+                shardloom_core::DiagnosticSeverity::Error
+                    | shardloom_core::DiagnosticSeverity::Fatal
+            )
+        })
 }
 
 fn generalized_projection_local_scan_pushdown_safe(
@@ -385,6 +422,7 @@ mod tests {
         assert!(report.data_read);
         assert!(report.avoids_unsafe_effects());
         assert!(report.native_io_certificate.is_some());
+        assert!(report.execution_certificate.is_none());
         assert!(
             report
                 .native_io_certificate
@@ -426,6 +464,47 @@ mod tests {
         assert!(report.encoded_projection_guaranteed);
         assert!(report.selection_vector_guaranteed);
         assert!(report.native_io_certificate.is_some());
+        assert!(report.execution_certificate.is_none());
+        assert!(!report.has_errors());
+    }
+
+    #[cfg(feature = "vortex-local-primitives")]
+    #[test]
+    fn generalized_projection_certifies_checked_in_project_fixture() {
+        let fixture_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
+            .join("local_primitive_struct_five.vortex");
+        let request = VortexQueryPrimitiveRequest::project(
+            DatasetUri::new(fixture_path.to_string_lossy().to_string()).expect("uri"),
+            ProjectionRequest::columns(vec![ColumnRef::new("metric").expect("column")]),
+        );
+
+        let report = execute_vortex_generalized_projection_from_local_scan_pushdown(
+            &request,
+            VortexLocalPrimitiveExecutionPolicy::new(2).expect("policy"),
+        )
+        .expect("report");
+
+        assert_eq!(
+            report.status,
+            VortexGeneralizedProjectionExecutionStatus::ExecutedLocalScanPushdown
+        );
+        assert!(report.correctness_certified);
+        assert!(
+            report
+                .execution_certificate
+                .as_ref()
+                .is_some_and(ExecutionCertificate::is_certified)
+        );
+        assert_eq!(
+            report
+                .execution_certificate
+                .as_ref()
+                .and_then(|certificate| certificate.correctness_fixture_id.as_deref()),
+            Some("vortex-local-project-struct-five")
+        );
+        assert!(!report.production_claim_allowed);
         assert!(!report.has_errors());
     }
 
