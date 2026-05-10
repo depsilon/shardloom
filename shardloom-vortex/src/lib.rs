@@ -31,6 +31,7 @@ pub mod encoded_count_approval;
 pub mod encoded_count_physical_kernel;
 pub mod encoded_path_selection;
 pub mod encoded_predicate_evaluation;
+pub mod encoded_projection_execution;
 pub mod encoded_read_api;
 pub mod encoded_read_boundary;
 pub mod encoded_read_executor;
@@ -196,6 +197,10 @@ pub use encoded_predicate_evaluation::{
     evaluate_vortex_encoded_predicate_segments, evaluate_vortex_encoded_value_predicate_batch,
     evaluate_vortex_encoded_value_predicate_batches,
     vortex_encoded_predicate_evaluation_discovery_report,
+};
+pub use encoded_projection_execution::{
+    VortexEncodedProjectionExecutionReport, VortexEncodedProjectionExecutionStatus,
+    VortexPreparedEncodedProjectionColumn, evaluate_vortex_prepared_encoded_projection,
 };
 pub use metadata_async_boundary::{
     VortexMetadataAsyncBoundaryEffect, VortexMetadataAsyncBoundaryMode,
