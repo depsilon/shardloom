@@ -40,6 +40,14 @@ Competitive success gates (CG) are roadmap gates, not canonical phase-ID aliases
 18. CG-18: universal import/deployment/baseline harness.
 19. CG-19: universal native I/O envelope.
 20. CG-20: world-class SQL, operator, function, adapter, and user capability surface.
+21. CG-21: placeholder for incoming content-rich gate 1.
+22. CG-22: placeholder for incoming content-rich gate 2.
+23. CG-23: placeholder for incoming content-rich gate 3.
+
+CG-21 through CG-23 are reserved placeholders until their source files land.
+They are logically after the current CG-1 through CG-20 plan and do not
+authorize runtime behavior, dependencies, fallback execution, or claims by
+themselves.
 
 ## No-fallback policy
 
@@ -62,7 +70,7 @@ Spark, DataFusion, Polars, DuckDB, Velox, and vortex-datafusion may be used only
 
 ## Success criteria
 
-- Competitive gates CG-1 through CG-20 remain visible and complete in planning artifacts.
+- Competitive gates CG-1 through CG-23 remain visible and complete in planning artifacts.
 - Execution posture remains Vortex-native and no-fallback.
 - External baseline usage remains explicit and non-runtime.
 - Superiority claims are disallowed until both CG-5 (correctness) and CG-6 (benchmarks) are satisfied.
@@ -94,7 +102,7 @@ If any required evidence is absent, the only allowed publication status is `not_
 
 ## Validation requirements
 
-- Keep this RFC and downstream architecture docs consistent on CG-1 through CG-20.
+- Keep this RFC and downstream architecture docs consistent on CG-1 through CG-23.
 - Preserve explicit no-fallback wording.
 - Preserve external engines as baseline-only wording.
 - Preserve CG-18 as universal import/deployment/baseline harness with Foundry only as optional deployment/comparison example.
@@ -117,3 +125,15 @@ ShardLoom's competitive target is best-default-engine certification for declared
 No-fallback policy remains unchanged: ShardLoom must not delegate runtime execution to Spark, DataFusion, DuckDB, Polars, Velox, or other external engines.
 
 No superiority claims are allowed before correctness and benchmark gates are satisfied (CG-5 and CG-6).
+
+### CG-21 through CG-23 â€” Reserved Future Gates
+CG-21, CG-22, and CG-23 are reserved for incoming content-rich gate documents.
+The placeholder RFC files are:
+
+- `docs/rfcs/0033-cg21-placeholder.md`
+- `docs/rfcs/0034-cg22-placeholder.md`
+- `docs/rfcs/0035-cg23-placeholder.md`
+
+The incoming files define the real titles, scopes, and acceptance criteria. The
+placeholder gates exist only to keep roadmap numbering, traceability, and phase
+planning stable before those files land.

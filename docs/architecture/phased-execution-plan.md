@@ -9,7 +9,7 @@
 - Keep detailed phase history below the active/completed queue as provenance, not as a second active queue.
 - Do not duplicate "current" status in multiple places.
 - Do not use stale percentage estimates.
-- CG-1 through CG-20 remain competitive gates, not replacement phase IDs.
+- CG-1 through CG-23 remain competitive gates, not replacement phase IDs.
 - External engines are baselines only, never fallback execution.
 - For RFC-level phase mapping details, use `docs/architecture/rfc-phase-traceability.md`.
 
@@ -91,10 +91,40 @@ Use this section for the next implementation sequence. Keep it ordered by depend
   - [ ] CG-10 object-store/distributed runtime execution.
   - [ ] CG-20 SQL/DataFrame/UDF/unstructured/media/adapters once the encoded primitive evidence loop and importability lane are no longer the bottleneck.
   - [ ] CG-20 approximate aggregate/sketch function implementation after function-registry, aggregate-state, sketch-serialization, correctness, benchmark, execution-certificate, and Native I/O evidence gates are ready.
+- [ ] Priority 4 - reserved CG-21/CG-22/CG-23 content intake
+  - [ ] Land the three incoming content-rich gate files mostly as provided.
+  - [ ] Keep CG-21, CG-22, and CG-23 after the current planned CG-1 through CG-20 work until their source files define otherwise.
+  - [ ] Refactor references, traceability, terminology, and plan placement only after the raw gate files are stable.
+  - [ ] Preserve no-runtime, no-dependency, no-fallback, and no-claim posture during placeholder and intake passes.
 
 ## Active
 
-- [ ] Session label: Review finding closeout and phase-plan working-section restructure
+- [ ] No active session.
+  - Move the next Planned item here before implementation begins.
+
+## Completed
+
+### Recent Completed Session Ledger
+- [x] Session label: CG-21/CG-22/CG-23 placeholder reservation
+  - Primary files:
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/rfcs/0025-competitive-engine-track-no-fallback-replacement.md`
+    - `docs/rfcs/0033-cg21-placeholder.md`
+    - `docs/rfcs/0034-cg22-placeholder.md`
+    - `docs/rfcs/0035-cg23-placeholder.md`
+    - `README.md`
+    - `AGENTS.md`
+  - Scope: Reserve CG-21, CG-22, and CG-23 as placeholders for the three incoming content-rich gate files before doing broad cross-document synthesis.
+  - Completed:
+    - [x] Move the previous completed review-finding session from Active into Completed.
+    - [x] Add placeholder RFC files for CG-21, CG-22, and CG-23.
+    - [x] Extend RFC 0025, the phase plan, README, traceability, and agent guardrails from CG-1 through CG-20 to CG-1 through CG-23.
+    - [x] Keep the placeholder gates logically after the current planned work.
+    - [x] State that placeholders do not authorize runtime behavior, dependencies, fallback execution, or claims.
+    - [x] Run docs validation, diff checks, hidden/bidi scan, and focused Rust formatting check.
+  - Explicitly not included: interpreting the incoming content, renaming CG-21/CG-22/CG-23, broad reference synthesis, runtime behavior, dependencies, readers, adapters, SQL/DataFrame runtime, benchmark reruns, superiority claims, or fallback execution.
+- [x] Session label: Review finding closeout and phase-plan working-section restructure
   - Primary files:
     - `shardloom-vortex/src/encoded_predicate_evaluation.rs`
     - `shardloom-vortex/src/local_primitives.rs`
@@ -108,7 +138,7 @@ Use this section for the next implementation sequence. Keep it ordered by depend
     - `python/tests/test_cli_client.py`
     - `docs/architecture/phased-execution-plan.md`
   - Scope: Resolve the outstanding Codex review findings gathered across recent PRs and restructure this phase plan so future working items move through Planned, Active, and Completed.
-  - Checklist:
+  - Completed:
     - [x] Preserve column-free encoded predicate evidence when column metadata is unavailable.
     - [x] Block mismatched segment/value encodings before filter evidence.
     - [x] Keep the one-batch encoded predicate bridge borrowed instead of cloning encoded batches.
@@ -124,10 +154,6 @@ Use this section for the next implementation sequence. Keep it ordered by depend
     - [x] Reorganize phase-plan working items into Planned, Active, and Completed.
     - [x] Run focused tests, full Rust fmt/clippy/test validation, Python client tests, diff checks, and hidden/bidi scan.
   - Explicitly not included: new readers, Parquet/Arrow/JSON/Avro/ORC runtime, adapter execution, SQL/DataFrame runtime, benchmark reruns, superiority claims, CG closeout, or fallback execution.
-
-## Completed
-
-### Recent Completed Session Ledger
 - [x] Session label: CG-2.3f / CG-7.29 / CG-13.24 prepared encoded projection/filter-project evidence
   - Primary files:
     - `shardloom-vortex/src/encoded_projection_execution.rs`
@@ -1846,7 +1872,7 @@ Use this section for the next implementation sequence. Keep it ordered by depend
     - Checkpoint/retry/idempotency readiness remains planning evidence only and does not execute retries, write checkpoints, run cleanup, contact storage, or start distributed runtime.
     - No object-store IO, file IO, data reads, writes, checkpoint writes, retry execution, cleanup execution, distributed execution runtime, benchmark claim, superiority claim, or fallback behavior is added.
 
-### Reference: Competitive Engine Gates CG-1 through CG-20
+### Reference: Competitive Engine Gates CG-1 through CG-23
 
 This section is a high-level rollup. Use it to check whether each competitive gate is open, partially complete, or closed; use the detailed checklist ledger below for attributable substeps.
 
@@ -2213,6 +2239,24 @@ Status legend:
   - [~] mature SQL/DataFrame/UDF/adapter/runtime implementation pending
   - Scope:
     - capability certification surface across SQL/operators/functions/adapters/semantic profiles, migration, Python/API packaging, DataFrame/query builder, notebook, UDF/plugin, common ETL, universal adapters, event/API/SaaS adapters, unstructured/media, deployment/importability, and certification reporting
+
+- [ ] CG-21 - Reserved content-rich gate 1 (**placeholder; source file pending**)
+  - Placeholder RFC: `docs/rfcs/0033-cg21-placeholder.md`
+  - Scope:
+    - reserved for incoming user-provided content
+    - no runtime behavior, dependency, fallback, or claim permission from placeholder alone
+
+- [ ] CG-22 - Reserved content-rich gate 2 (**placeholder; source file pending**)
+  - Placeholder RFC: `docs/rfcs/0034-cg22-placeholder.md`
+  - Scope:
+    - reserved for incoming user-provided content
+    - no runtime behavior, dependency, fallback, or claim permission from placeholder alone
+
+- [ ] CG-23 - Reserved content-rich gate 3 (**placeholder; source file pending**)
+  - Placeholder RFC: `docs/rfcs/0035-cg23-placeholder.md`
+  - Scope:
+    - reserved for incoming user-provided content
+    - no runtime behavior, dependency, fallback, or claim permission from placeholder alone
 
 
 ### Reference: Competitive Engine Gate Detailed Checklist Ledger
@@ -2604,6 +2648,24 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-20.10 Python local Vortex primitive helper surface exposes explicit `vortex-count`, `vortex-count-where`, `vortex-filter`, `vortex-project`, and `vortex-filter-project` CLI JSON helpers while keeping execution opt-in and mature Python/DataFrame/notebook certification deferred
 - [~] mature implementation pending
 - [ ] capability certification surface implementation across real SQL/operators/functions/adapters/semantic profiles/migration/Python/API/DataFrame/notebook/UDF/ETL/universal-adapter/unstructured-media certification evidence
+
+#### CG-21 detailed checklist
+- [x] Placeholder RFC 0033 created.
+- [ ] Replace or amend placeholder with incoming content-rich CG-21 source file.
+- [ ] After the source file lands, update impacted references, traceability, terminology, and plan placement.
+- [ ] Runtime behavior, dependencies, fallback execution, and claims remain unauthorized until the real CG-21 contract says otherwise and validation gates pass.
+
+#### CG-22 detailed checklist
+- [x] Placeholder RFC 0034 created.
+- [ ] Replace or amend placeholder with incoming content-rich CG-22 source file.
+- [ ] After the source file lands, update impacted references, traceability, terminology, and plan placement.
+- [ ] Runtime behavior, dependencies, fallback execution, and claims remain unauthorized until the real CG-22 contract says otherwise and validation gates pass.
+
+#### CG-23 detailed checklist
+- [x] Placeholder RFC 0035 created.
+- [ ] Replace or amend placeholder with incoming content-rich CG-23 source file.
+- [ ] After the source file lands, update impacted references, traceability, terminology, and plan placement.
+- [ ] Runtime behavior, dependencies, fallback execution, and claims remain unauthorized until the real CG-23 contract says otherwise and validation gates pass.
 
 #### CG attribution and evidence notes
 - [ ] When moving any detailed item to complete, link the implementing PR/commit and validating tests in the completion note.
