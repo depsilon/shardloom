@@ -43,6 +43,7 @@ pub mod file_io;
 pub mod filtered_count_readiness;
 pub mod generalized_encoded_primitive_gate;
 pub mod generalized_filter_execution;
+pub mod generalized_projection_execution;
 pub mod manifest_finalization;
 pub mod memory_bridge;
 pub mod metadata_async_boundary;
@@ -76,6 +77,10 @@ pub use generalized_encoded_primitive_gate::{
 pub use generalized_filter_execution::{
     VortexGeneralizedFilterExecutionReport, VortexGeneralizedFilterExecutionStatus,
     execute_vortex_generalized_filter_from_local_scan_pushdown,
+};
+pub use generalized_projection_execution::{
+    VortexGeneralizedProjectionExecutionReport, VortexGeneralizedProjectionExecutionStatus,
+    execute_vortex_generalized_projection_from_local_scan_pushdown,
 };
 
 pub use file_io::{

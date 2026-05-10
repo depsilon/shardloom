@@ -54,7 +54,7 @@ fn generalized_encoded_primitive_gate_json_exposes_current_boundary() {
     )));
     assert!(output.contains(&field(
         "primitive_statuses",
-        "local_direct_count_evidence,local_filter_scan_pushdown_evidence,readiness_only"
+        "local_direct_count_evidence,local_filter_scan_pushdown_evidence,local_projection_scan_pushdown_evidence"
     )));
 }
 
@@ -66,6 +66,10 @@ fn generalized_encoded_primitive_gate_json_preserves_no_runtime_widening() {
     assert!(output.contains(&field("entries_with_local_count_support", "1")));
     assert!(output.contains(&field(
         "entries_with_local_filter_scan_pushdown_support",
+        "1"
+    )));
+    assert!(output.contains(&field(
+        "entries_with_local_projection_scan_pushdown_support",
         "1"
     )));
     assert!(output.contains(&field("entries_with_metadata_proof", "2")));
