@@ -53,26 +53,27 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-2.3d / CG-13.17 / CG-16.12 / CG-19.14 local `FilterAndProject` execution evidence
+- [x] Session label: CG-11.6 / CG-20.9 / CG-20.10 Python local Vortex primitive helpers and approximate sketch roadmap
   - Primary files:
-    - `shardloom-cli/src/main.rs`
+    - `python/src/shardloom/client.py`
+    - `python/tests/test_cli_client.py`
+    - `python/README.md`
+    - `docs/rfcs/0032-world-class-sql-operators-functions-adapters-user-capability.md`
+    - `docs/architecture/capability-certification-sequencing.md`
     - `docs/architecture/phased-execution-plan.md`
-  - Scope: Add a direct `vortex-filter-project <dataset_uri> <predicate> <columns> [--execute-local-primitive <memory_gb> <max_parallelism>]` path that runs the existing feature-gated local Vortex `FilterAndProject` primitive, emits combined filter/projection execution evidence, and surfaces CG-16/CG-19 certificates for the checked-in struct fixture without broadening readers, adapters, SQL, writes, spill, or fallback.
+  - Scope: Make the current local Vortex primitive evidence paths reachable from the thin Python wrapper through explicit CLI JSON helpers, and fold approximate aggregate/sketch functions into CG-20 as a certifiable function lane comparable to DataFusion/Polars approximate distinct surfaces. Keep all runtime execution explicit and opt-in, and do not add new readers, sketch kernels, SQL/DataFrame runtime, adapters, dependencies, benchmark claims, or fallback behavior.
   - Checklist:
-    - [x] Move the completed `vortex-project` local execution session from Active into the completed ledger.
-    - [x] Add strict argument parsing for `vortex-filter-project <dataset_uri> <predicate> <columns> [--execute-local-primitive <memory_gb> <max_parallelism>]`.
-    - [x] Leave default `vortex-filter-project` behavior as plan/metadata evidence only unless local execution is explicitly requested.
-    - [x] Execute `FilterAndProject` through the existing `execute_vortex_local_primitive_with_policy` path when explicitly requested.
-    - [x] Emit local combined execution fields for rows scanned/selected/projected, projected columns, chunk/concurrency policy, filter pushdown, projection pushdown, `vortex_encoded->selection_vector_encoded` guarantee, side effects, and no-fallback state.
-    - [x] Reuse the checked-in local `FilterAndProject` correctness fixture mapping for `local_primitive_struct_five.vortex` `gte:value:3|metric`.
-    - [x] Emit local primitive Native I/O certificate fields and execution-certificate fields for the checked-in filter-project fixture.
-    - [x] Keep non-fixture local `FilterAndProject` executable but explicitly uncertified for correctness and production claims.
-    - [x] Keep generalized encoded predicate/projection kernels, non-local sources, adapters, SQL/DataFrame/Python runtime, benchmarks, writes, spill, and fallback execution blocked.
+    - [x] Move the completed local `FilterAndProject` session from Active into the completed ledger.
+    - [x] Document CG-20 approximate aggregate/sketch requirements for `approx_count_distinct`, grouped distinct, partial sketch merge, serialization/deserialization, error bounds, null/type handling, encoded layout strategies, correctness, benchmark, and certificate evidence.
+    - [x] Add Python helpers for `vortex-count`, `vortex-count-where`, `vortex-filter`, `vortex-project`, and `vortex-filter-project`.
+    - [x] Keep default helper calls on existing metadata/plan surfaces unless explicit local execution flags and resource caps are supplied.
+    - [x] Test exact CLI argv dispatch for default and explicit local execution helpers.
+    - [x] Run Python unit tests, compileall, Rust fmt/clippy/test validation, diff checks, and hidden/bidi scan.
   - Local validation status:
-    - [x] Focused CLI filter-project tests passed locally with Rust toolchain `1.91.1`.
-    - [x] Feature-gated CLI local `FilterAndProject` certificate test and live `vortex-filter-project ... --execute-local-primitive 1 2 --format json` smoke passed locally with Rust toolchain `1.91.1`.
+    - [x] Python `unittest` discovery and `compileall` passed locally.
     - [x] Required full `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, and `cargo test --workspace --all-targets` validation passed locally with Rust toolchain `1.91.1`; the final test run used `CARGO_BUILD_JOBS=1` to avoid transient Windows linker artifact locks.
-  - Explicitly not included: new readers, non-local/object-store Vortex sources, Parquet/Arrow/JSON/Avro/ORC runtime, adapter execution, SQL/DataFrame/Python runtime expansion, generalized encoded predicate/projection kernels, benchmark reruns, superiority or best-default claims, CG-2 closeout, CG-13 closeout, or fallback execution.
+    - [x] Diff hygiene and changed-file hidden/bidi scan passed locally.
+  - Explicitly not included: new runtime behavior beyond existing explicit CLI paths, new readers, non-local/object-store Vortex sources, Parquet/Arrow/JSON/Avro/ORC runtime, adapter execution, SQL parser, SQL execution, DataFrame runtime, function registry, sketch implementation, aggregate kernels, benchmark reruns, superiority or best-default claims, CG-2 closeout, CG-13 closeout, CG-20 closeout, or fallback execution.
 
 ## Near-term Implementation Priority
 - [ ] Priority 1 - generalized encoded primitive execution loop
@@ -99,8 +100,29 @@ Supporting docs:
   - [ ] CG-9 catalog/table metadata integration.
   - [ ] CG-10 object-store/distributed runtime execution.
   - [ ] CG-20 SQL/DataFrame/UDF/unstructured/media/adapters once the encoded primitive evidence loop and importability lane are no longer the bottleneck.
+  - [ ] CG-20 approximate aggregate/sketch function implementation after function-registry, aggregate-state, sketch-serialization, correctness, benchmark, execution-certificate, and Native I/O evidence gates are ready.
 
 ## Recent Completed Session Ledger
+- [x] Session label: CG-2.3d / CG-13.17 / CG-16.12 / CG-19.14 local `FilterAndProject` execution evidence
+  - Primary files:
+    - `shardloom-cli/src/main.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: Add a direct `vortex-filter-project <dataset_uri> <predicate> <columns> [--execute-local-primitive <memory_gb> <max_parallelism>]` path that runs the existing feature-gated local Vortex `FilterAndProject` primitive, emits combined filter/projection execution evidence, and surfaces CG-16/CG-19 certificates for the checked-in struct fixture without broadening readers, adapters, SQL, writes, spill, or fallback.
+  - Checklist:
+    - [x] Move the completed `vortex-project` local execution session from Active into the completed ledger.
+    - [x] Add strict argument parsing for `vortex-filter-project <dataset_uri> <predicate> <columns> [--execute-local-primitive <memory_gb> <max_parallelism>]`.
+    - [x] Leave default `vortex-filter-project` behavior as plan/metadata evidence only unless local execution is explicitly requested.
+    - [x] Execute `FilterAndProject` through the existing `execute_vortex_local_primitive_with_policy` path when explicitly requested.
+    - [x] Emit local combined execution fields for rows scanned/selected/projected, projected columns, chunk/concurrency policy, filter pushdown, projection pushdown, `vortex_encoded->selection_vector_encoded` guarantee, side effects, and no-fallback state.
+    - [x] Reuse the checked-in local `FilterAndProject` correctness fixture mapping for `local_primitive_struct_five.vortex` `gte:value:3|metric`.
+    - [x] Emit local primitive Native I/O certificate fields and execution-certificate fields for the checked-in filter-project fixture.
+    - [x] Keep non-fixture local `FilterAndProject` executable but explicitly uncertified for correctness and production claims.
+    - [x] Keep generalized encoded predicate/projection kernels, non-local sources, adapters, SQL/DataFrame/Python runtime, benchmarks, writes, spill, and fallback execution blocked.
+  - Local validation status:
+    - [x] Focused CLI filter-project tests passed locally with Rust toolchain `1.91.1`.
+    - [x] Feature-gated CLI local `FilterAndProject` certificate test and live `vortex-filter-project ... --execute-local-primitive 1 2 --format json` smoke passed locally with Rust toolchain `1.91.1`.
+    - [x] Required full `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, and `cargo test --workspace --all-targets` validation passed locally with Rust toolchain `1.91.1`; the final test run used `CARGO_BUILD_JOBS=1` to avoid transient Windows linker artifact locks.
+  - Explicitly not included: new readers, non-local/object-store Vortex sources, Parquet/Arrow/JSON/Avro/ORC runtime, adapter execution, SQL/DataFrame/Python runtime expansion, generalized encoded predicate/projection kernels, benchmark reruns, superiority or best-default claims, CG-2 closeout, CG-13 closeout, or fallback execution.
 - [x] Session label: CG-2.3c / CG-13.16 / CG-16.11 / CG-19.13 local `ProjectColumns` execution evidence
   - Primary files:
     - `shardloom-cli/src/main.rs`
@@ -2337,6 +2359,8 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-20.6 Python import environment and no-dataset smoke check improve managed-environment usability while keeping mature Python/DataFrame/notebook certification deferred
 - [x] CG-20.7 local structured ETL usability bridge supports CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC inputs/outputs through the Python/CLI smoke surface with auto resource sizing, while production adapter certification, SQL/DataFrame/UDF runtime, and best-default certification remain deferred
 - [x] CG-20.8 Python package release readiness and deterministic CLI resolution make the thin wrapper buildable as wheel/sdist, expose non-placeholder metadata, document the Conda CLI/Python/metapackage split, and add deterministic missing-binary diagnostics without package publication or runtime expansion
+- [x] CG-20.9 approximate aggregate/sketch function roadmap defines `approx_count_distinct`, incumbent aliases, grouped support, partial sketch merge, serialization/deserialization, error-bound evidence, encoded-aware dictionary/run-length/selection-vector strategies, exact-reference fixtures, benchmark evidence, and certificate requirements without implementing a function registry, sketch kernel, dependency, or fallback behavior
+- [x] CG-20.10 Python local Vortex primitive helper surface exposes explicit `vortex-count`, `vortex-count-where`, `vortex-filter`, `vortex-project`, and `vortex-filter-project` CLI JSON helpers while keeping execution opt-in and mature Python/DataFrame/notebook certification deferred
 - [~] mature implementation pending
 - [ ] capability certification surface implementation across real SQL/operators/functions/adapters/semantic profiles/migration/Python/API/DataFrame/notebook/UDF/ETL/universal-adapter/unstructured-media certification evidence
 

@@ -65,6 +65,7 @@ These systems are pressure tests for ShardLoom-native architecture and diagnosti
   - Spark and DataFusion are capability baselines, not fallback engines.
   - Spark lesson: broad platform capability across SQL, Python-style workflows, APIs, deployment, monitoring, streaming, ETL, lakehouse workflows, and operational integrations.
   - DataFusion lesson: extensible local SQL/DataFrame capability with operators, functions, adapters, UDFs, and Arrow-oriented ecosystem habits.
+  - DataFusion/Polars approximate-function lesson: approximate distinct and approximate unique functions are user-visible capability expectations, but ShardLoom should translate them into mergeable sketch-state, exact-reference/error-bound evidence, and encoded-aware dictionary/run-length/selection-vector update strategies rather than a generic decoded aggregate shortcut.
   - ShardLoom translation: SQL coverage matrix, operator coverage matrix, function coverage matrix, adapter certification, data/ETL capability reports, Python surface reports, unstructured/media capability reports, semantic profiles, migration analyzers, capability discovery.
 - Vortex upstream lessons
   - Vortex's public direction emphasizes compressed arrays, logical DTypes, physical encodings, extensible layouts, Scan API source/sink boundaries, lazy operator evaluation, IO coalescing/backpressure, GPU/device-array exploration, footer/cache reuse, wide-table optimization, nested/list support, and benchmark visibility.

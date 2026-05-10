@@ -188,6 +188,213 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(result.field("fallback_execution_allowed"), "false")
         self.assertTrue(result.field_bool("fallback_execution_allowed") is False)
 
+    def test_vortex_count_helper_dispatches_default_and_local_execution(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                args = sys.argv[1:]
+                if args == ["vortex-count", "file.vortex", "--format", "json"]:
+                    fields = [{"key": "local_execution", "value": "false"}]
+                elif args == [
+                    "vortex-count",
+                    "file.vortex",
+                    "--execute-local-encoded-count",
+                    "8",
+                    "2",
+                    "--format",
+                    "json",
+                ]:
+                    fields = [{"key": "local_execution", "value": "true"}]
+                else:
+                    raise AssertionError(args)
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v1",
+                    "command": "vortex-count",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": fields,
+                }))
+                """
+            )
+        )
+        client = ShardLoomClient(binary=binary)
+
+        default = client.vortex_count("file.vortex")
+        executed = client.vortex_count(
+            "file.vortex",
+            execute_local_encoded_count=True,
+            memory_gb=8,
+            max_parallelism=2,
+        )
+
+        self.assertFalse(default.field_bool("local_execution"))
+        self.assertTrue(executed.field_bool("local_execution"))
+
+    def test_local_vortex_primitive_helpers_dispatch_cli_commands(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                args = sys.argv[1:]
+                expected = {
+                    ("vortex-count-where", "file.vortex", "gte:value:3", "--execute-local-primitive", "4", "2", "--format", "json"): "vortex-count-where",
+                    ("vortex-filter", "file.vortex", "gte:value:3", "--execute-local-primitive", "4", "2", "--format", "json"): "vortex-filter",
+                    ("vortex-project", "file.vortex", "metric,value", "--execute-local-primitive", "4", "2", "--format", "json"): "vortex-project",
+                    ("vortex-filter-project", "file.vortex", "gte:value:3", "metric,value", "--execute-local-primitive", "4", "2", "--format", "json"): "vortex-filter-project",
+                }
+                command = expected.get(tuple(args))
+                if command is None:
+                    raise AssertionError(args)
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v1",
+                    "command": command,
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [{"key": "local_execution", "value": "true"}],
+                }))
+                """
+            )
+        )
+        client = ShardLoomClient(binary=binary)
+
+        count_where = client.vortex_count_where(
+            "file.vortex",
+            "gte:value:3",
+            execute_local_primitive=True,
+            memory_gb=4,
+            max_parallelism=2,
+        )
+        filtered = client.vortex_filter(
+            "file.vortex",
+            "gte:value:3",
+            execute_local_primitive=True,
+            memory_gb=4,
+            max_parallelism=2,
+        )
+        projected = client.vortex_project(
+            "file.vortex",
+            ["metric", "value"],
+            execute_local_primitive=True,
+            memory_gb=4,
+            max_parallelism=2,
+        )
+        filter_project = client.vortex_filter_project(
+            "file.vortex",
+            "gte:value:3",
+            ("metric", "value"),
+            execute_local_primitive=True,
+            memory_gb=4,
+            max_parallelism=2,
+        )
+
+        self.assertEqual(count_where.command, "vortex-count-where")
+        self.assertEqual(filtered.command, "vortex-filter")
+        self.assertEqual(projected.command, "vortex-project")
+        self.assertEqual(filter_project.command, "vortex-filter-project")
+
+    def test_vortex_project_helper_dispatches_default_plan_command(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == [
+                    "vortex-project",
+                    "file.vortex",
+                    "metric",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v1",
+                    "command": "vortex-project",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [{"key": "local_execution", "value": "false"}],
+                }))
+                """
+            )
+        )
+
+        result = ShardLoomClient(binary=binary).vortex_project("file.vortex", "metric")
+
+        self.assertEqual(result.command, "vortex-project")
+        self.assertFalse(result.field_bool("local_execution"))
+
+    def test_vortex_filter_helpers_dispatch_default_plan_commands(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                args = sys.argv[1:]
+                expected = {
+                    ("vortex-count-where", "file.vortex", "gte:value:3", "--format", "json"): "vortex-count-where",
+                    ("vortex-filter", "file.vortex", "gte:value:3", "--format", "json"): "vortex-filter",
+                    ("vortex-filter-project", "file.vortex", "gte:value:3", "metric", "--format", "json"): "vortex-filter-project",
+                }
+                command = expected.get(tuple(args))
+                if command is None:
+                    raise AssertionError(args)
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v1",
+                    "command": command,
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [{"key": "local_execution", "value": "false"}],
+                }))
+                """
+            )
+        )
+        client = ShardLoomClient(binary=binary)
+
+        count_where = client.vortex_count_where("file.vortex", "gte:value:3")
+        filtered = client.vortex_filter("file.vortex", "gte:value:3")
+        filter_project = client.vortex_filter_project(
+            "file.vortex",
+            "gte:value:3",
+            "metric",
+        )
+
+        self.assertEqual(count_where.command, "vortex-count-where")
+        self.assertEqual(filtered.command, "vortex-filter")
+        self.assertEqual(filter_project.command, "vortex-filter-project")
+        self.assertFalse(filter_project.field_bool("local_execution"))
+
+    def test_vortex_local_execution_helpers_validate_resource_arguments(self) -> None:
+        client = ShardLoomClient(binary=["shardloom"])
+
+        with self.assertRaises(ValueError):
+            client.vortex_count("file.vortex", execute_local_encoded_count=True)
+        with self.assertRaises(ValueError):
+            client.vortex_filter(
+                "file.vortex",
+                "gte:value:3",
+                memory_gb=1,
+            )
+        with self.assertRaises(ValueError):
+            client.vortex_project("file.vortex", [])
+        with self.assertRaises(ValueError):
+            client.vortex_filter_project(
+                "file.vortex",
+                "gte:value:3",
+                "metric",
+                execute_local_primitive=True,
+                memory_gb=0,
+                max_parallelism=2,
+            )
+
     def test_unsupported_envelope_raises_with_diagnostics_and_fallback(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(

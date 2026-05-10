@@ -151,6 +151,41 @@ print(result.native_vortex.field("source_format") if result.native_vortex else N
 print(result.fallback_attempted)
 ```
 
+For lower-level local Vortex primitive testing, the wrapper exposes the same
+explicit CLI JSON commands used by the current CG-2/CG-13/CG-16/CG-19 evidence
+path:
+
+```python
+from shardloom import ShardLoomClient
+
+client = ShardLoomClient.from_repo()
+
+count = client.vortex_count(
+    "fixtures/local_primitive_struct_five.vortex",
+    execute_local_encoded_count=True,
+    memory_gb=1,
+    max_parallelism=2,
+)
+
+filtered = client.vortex_filter_project(
+    "fixtures/local_primitive_struct_five.vortex",
+    "gte:value:3",
+    ["metric"],
+    execute_local_primitive=True,
+    memory_gb=1,
+    max_parallelism=2,
+)
+
+print(count.field("execution_certificate_reported"))
+print(filtered.field("native_io_certificate_reported"))
+print(filtered.fallback.attempted)
+```
+
+Execution remains explicit. Calls without `execute_local_encoded_count=True` or
+`execute_local_primitive=True` use the existing metadata/plan evidence surfaces
+where the CLI supports them; local primitive execution also requires explicit
+`memory_gb` and `max_parallelism` caps.
+
 Universal I/O is broader than local compatibility files. The current adapter
 registry also makes object-store, catalog, effectful, and unstructured queues
 visible from Python:

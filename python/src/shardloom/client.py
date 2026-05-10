@@ -212,6 +212,121 @@ class ShardLoomClient:
             check=check,
         )
 
+    def vortex_count(
+        self,
+        dataset_uri: str | os.PathLike[str],
+        *,
+        execute_local_encoded_count: bool = False,
+        memory_gb: int | None = None,
+        max_parallelism: int | None = None,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Run `vortex-count` with optional explicit local encoded execution."""
+
+        args = ["vortex-count", str(dataset_uri)]
+        _append_resource_execution_args(
+            args,
+            option="--execute-local-encoded-count",
+            enabled=execute_local_encoded_count,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+        )
+        return self.run(args, check=check)
+
+    def vortex_count_where(
+        self,
+        dataset_uri: str | os.PathLike[str],
+        predicate: str,
+        *,
+        execute_local_primitive: bool = False,
+        memory_gb: int | None = None,
+        max_parallelism: int | None = None,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Run `vortex-count-where` with optional explicit local execution."""
+
+        args = ["vortex-count-where", str(dataset_uri), predicate]
+        _append_resource_execution_args(
+            args,
+            option="--execute-local-primitive",
+            enabled=execute_local_primitive,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+        )
+        return self.run(args, check=check)
+
+    def vortex_filter(
+        self,
+        dataset_uri: str | os.PathLike[str],
+        predicate: str,
+        *,
+        execute_local_primitive: bool = False,
+        memory_gb: int | None = None,
+        max_parallelism: int | None = None,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Run `vortex-filter` with optional explicit local execution."""
+
+        args = ["vortex-filter", str(dataset_uri), predicate]
+        _append_resource_execution_args(
+            args,
+            option="--execute-local-primitive",
+            enabled=execute_local_primitive,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+        )
+        return self.run(args, check=check)
+
+    def vortex_project(
+        self,
+        dataset_uri: str | os.PathLike[str],
+        columns: str | Sequence[str],
+        *,
+        execute_local_primitive: bool = False,
+        memory_gb: int | None = None,
+        max_parallelism: int | None = None,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Run `vortex-project` with optional explicit local execution."""
+
+        args = ["vortex-project", str(dataset_uri), _columns_arg(columns)]
+        _append_resource_execution_args(
+            args,
+            option="--execute-local-primitive",
+            enabled=execute_local_primitive,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+        )
+        return self.run(args, check=check)
+
+    def vortex_filter_project(
+        self,
+        dataset_uri: str | os.PathLike[str],
+        predicate: str,
+        columns: str | Sequence[str],
+        *,
+        execute_local_primitive: bool = False,
+        memory_gb: int | None = None,
+        max_parallelism: int | None = None,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Run `vortex-filter-project` with optional explicit local execution."""
+
+        args = [
+            "vortex-filter-project",
+            str(dataset_uri),
+            predicate,
+            _columns_arg(columns),
+        ]
+        _append_resource_execution_args(
+            args,
+            option="--execute-local-primitive",
+            enabled=execute_local_primitive,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+        )
+        return self.run(args, check=check)
+
     def traditional_analytics_run(
         self,
         scenario: str,
@@ -575,6 +690,52 @@ def _required_field(envelope: OutputEnvelope, key: str) -> str:
         raise ShardLoomProtocolError(
             f"ShardLoom command {envelope.command!r} did not emit required field {key!r}"
         )
+    return value
+
+
+def _columns_arg(columns: str | Sequence[str]) -> str:
+    if isinstance(columns, str):
+        value = columns
+    else:
+        values = [str(column) for column in columns]
+        if not values:
+            raise ValueError("columns must not be empty")
+        value = ",".join(values)
+    if value.strip() == "":
+        raise ValueError("columns must not be empty")
+    return value
+
+
+def _append_resource_execution_args(
+    args: list[str],
+    *,
+    option: str,
+    enabled: bool,
+    memory_gb: int | None,
+    max_parallelism: int | None,
+) -> None:
+    if enabled:
+        if memory_gb is None or max_parallelism is None:
+            raise ValueError(
+                f"{option} requires both memory_gb and max_parallelism"
+            )
+        args.extend(
+            [
+                option,
+                str(_positive_int("memory_gb", memory_gb)),
+                str(_positive_int("max_parallelism", max_parallelism)),
+            ]
+        )
+        return
+    if memory_gb is not None or max_parallelism is not None:
+        raise ValueError(
+            "memory_gb and max_parallelism require explicit local execution"
+        )
+
+
+def _positive_int(name: str, value: int) -> int:
+    if value < 1:
+        raise ValueError(f"{name} must be >= 1")
     return value
 
 

@@ -173,6 +173,8 @@ See `docs/architecture/terminology-consolidation-backlog.md` for the full audit 
 - **adapter maturity level**: staged adapter certification level (for example A0-A7) for discovery/read/write/commit and evidence depth.
 - **semantic compatibility profile**: named semantic mode (for example ShardLoomNative, SparkCompatible) with explicit behavior dimensions.
 - **migration compatibility report**: structured report mapping supported/unsupported constructs and semantic deltas for migration planning.
+- **approximate aggregate sketch**: mergeable probabilistic aggregate state used for functions such as approximate distinct counting; it must declare error bounds, serialization format, hash policy, and no-fallback evidence before certification.
+- **encoded sketch strategy**: evidence describing how an approximate aggregate updates sketch state from encoded layouts such as dictionary ids, run values, validity masks, selection vectors, or partial-decode boundaries.
 - **delete/tombstone compatibility report**: structured table-compatibility evidence for declared delete models, tombstones, row/position/equality deletes, metadata-loss boundaries, and no-fallback status.
 - **native delete/tombstone rule**: ShardLoom-owned handling rule required before a delete model can be treated as supported; external delete files or metadata are never fallback execution.
 - **table compatibility aggregation report**: structured evidence bundle combining schema, partition, and delete/tombstone compatibility reports before catalog or table metadata IO is allowed.

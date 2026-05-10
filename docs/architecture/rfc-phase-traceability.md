@@ -1092,6 +1092,16 @@ No fallback execution.
 - Related RFCs: RFC 0011, RFC 0012, RFC 0015, RFC 0021, RFC 0022, RFC 0023, RFC 0029, RFC 0030, and RFC 0031.
 - This phase adds no SQL parser, SQL execution, adapter runtime, function registry, operator kernel, dependency, filesystem/network/catalog probing, external-engine probing, or fallback behavior.
 
+## R5.4.4a approximate aggregate and sketch function roadmap
+
+- RFC 0032 now defines approximate aggregate/sketch functions as a CG-20 function family, starting with canonical `approx_count_distinct(col)` and incumbent-compatible aliases such as `approx_distinct` and `approx_n_unique` where semantic profiles allow them.
+- Certification requires ungrouped and grouped distinct support, partial sketch construction, associative merge, deterministic serialization/deserialization, sketch version/hash-seed metadata, declared error bounds, exact-reference comparison fixtures, null/type handling, and diagnostics.
+- Encoded-aware sketch strategy evidence is required for dictionary, run-length, validity, selection-vector, and partial-decode cases before ShardLoom can claim differentiated encoded execution.
+- Production certification remains gated by CG-5 correctness fixtures, CG-6 benchmarks/error distributions, CG-7 aggregate-state admission, CG-13 representation evidence, CG-16 execution certificates, CG-19 Native I/O certificates, and `fallback_attempted=false`.
+- Primary RFC linkage: RFC 0032.
+- Related RFCs: RFC 0011, RFC 0015, RFC 0021, RFC 0029, and RFC 0031.
+- This phase adds no SQL parser, SQL execution, function registry, sketch implementation, operator kernel, dependency, benchmark claim, production certification, external-engine probing, or fallback behavior.
+
 ## R5.4.5 adapter certification sequencing
 
 - RFC 0032 now maps adapter maturity A0-A7 to evidence requirements from declared-only through benchmarked/certified.

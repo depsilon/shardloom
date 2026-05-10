@@ -541,6 +541,73 @@ Each function record should include:
 - `test status`
 - `benchmark status`
 
+### Approximate aggregate and sketch function lane
+Approximate aggregate support is part of CG-20 function breadth because common
+analytical engines expose approximate distinct and percentile operations for
+large data. The baseline-compatible surface should include ShardLoom-native
+`approx_count_distinct(col)` with aliases for common incumbent naming such as
+`approx_distinct(col)` and `approx_n_unique(col)` where the active semantic
+profile allows them.
+
+This lane is not satisfied by returning an approximate scalar from a single
+batch. A certifiable sketch function family must define:
+- ungrouped `approx_count_distinct(col)`
+- grouped `approx_count_distinct(col) GROUP BY key`
+- partial sketch state construction
+- associative sketch merge
+- deterministic sketch serialization and deserialization
+- sketch schema/version/hash-seed metadata
+- declared relative error target and confidence model
+- exact-reference comparison fixtures
+- null handling policy
+- support matrix for numeric, string, binary, temporal, dictionary-encoded,
+  run-length-encoded, validity-only, and nested-ish values
+- selection-vector interaction for filtered inputs
+- diagnostics for unsupported types, missing error-bound evidence, or unsafe
+  semantic profiles
+- `fallback_attempted=false`
+
+Encoded-aware approximate aggregates are a ShardLoom-specific opportunity, not
+a license to bypass correctness gates. Certification should require an
+`EncodedSketchStrategy` report that declares whether the sketch was updated
+from:
+- metadata-only all-null/all-constant evidence
+- dictionary values plus selected dictionary-id evidence
+- run values plus run-length or group-intersection evidence
+- validity masks and selection vectors without hashing nulls
+- partially decoded values when no safe encoded update exists
+
+For dictionary-encoded input, ungrouped distinct sketches may be allowed to hash
+selected dictionary values once per selected dictionary id instead of once per
+logical row when the selection-vector proof is exact. For run-length-encoded
+input, ungrouped sketches may update once per selected run value when the run
+proof is exact. Grouped approximate distinct requires additional group/value
+intersection evidence; it must not reuse ungrouped dictionary/run shortcuts
+unless the group mapping is certified.
+
+Approximate/sketch production certification requires:
+- CG-5 exact reference fixtures for nulls, strings, temporal values,
+  dictionaries, run-length encodings, grouped keys, filtered inputs, empty
+  inputs, and nested-ish rejected or supported values
+- CG-6 benchmark rows that report runtime, memory, sketch bytes, merge cost,
+  serialized-state size, error distribution, and exact-reference deltas
+- CG-7 function/operator admission evidence for aggregate state, merge, and
+  finalize phases
+- CG-13 encoded-native or partial-decode representation evidence
+- CG-16 execution certificates that record sketch version, hash seed, error
+  model, state serialization, merge count, materialization boundary, and
+  fallback status
+- CG-19 Native I/O certificates for every source/sink path that preserves or
+  materializes sketch state
+
+Non-goals for the first approximate/sketch implementation:
+- no hidden fallback to a generic external query engine
+- no performance, superiority, cost, or best-default claim without CG-5 and
+  CG-6 evidence
+- no accepting unsupported types by silently stringifying values
+- no unstable sketch serialization format in certified outputs
+- no treating decoded-reference-only results as production-capable
+
 ### Function certification transition rules
 Function certification uses the shared `CapabilityCertificationStatus` vocabulary plus function metadata. A function group can be marked higher than `planned` only when every included function record has explicit metadata and evidence for the declared semantic profile.
 

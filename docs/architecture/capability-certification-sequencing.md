@@ -230,6 +230,47 @@ Acceptance:
 - `test_reference_only` never appears as production-capable.
 - Every production-capable operator/function declares materialization and fallback status.
 
+## R5.4.4a Approximate aggregate and sketch function sequencing
+
+Goal: make DataFusion/Polars-style approximate aggregate capability a
+certifiable ShardLoom-native function lane instead of a scalar-only shortcut.
+
+Checklist:
+
+- [x] Define approximate distinct aliases and the canonical
+  `approx_count_distinct(col)` surface.
+- [x] Require ungrouped and grouped approximate distinct coverage.
+- [x] Require partial sketch construction, merge, serialization,
+  deserialization, sketch versioning, hash-seed metadata, and error-bound
+  evidence.
+- [x] Require encoded-aware sketch strategy evidence for dictionary,
+  run-length, validity, selection-vector, and partial-decode cases.
+- [x] Link approximate/sketch production certification to CG-5, CG-6, CG-7,
+  CG-13, CG-16, and CG-19 evidence.
+- [ ] Implement approximate aggregate function registry entries.
+- [ ] Implement sketch state, merge, serialization, and encoded-aware update
+  kernels.
+- [ ] Add exact-reference fixtures, error-distribution benchmarks, and
+  execution/Native I/O certificates.
+
+R5.4.4a outcome:
+
+- RFC 0032 now treats approximate aggregates as a first-class CG-20 function
+  family with explicit grouped aggregation, sketch-state, error-bound,
+  serialization, merge, null/type, encoded-layout, correctness, benchmark, and
+  certificate requirements.
+- DataFusion and Polars are compatibility baselines for naming and user
+  expectations only; they are not runtime dependencies or fallback engines.
+- No function registry, sketch implementation, operator kernel, dependency,
+  benchmark claim, production certification, or fallback behavior is added.
+
+Acceptance:
+
+- Approximate/sketch functions remain `planned` or `evidence_insufficient`
+  until grouped execution, mergeable serialized state, exact-reference
+  comparisons, error bounds, benchmark evidence, and no-fallback certificates
+  are available.
+
 ## R5.4.5 Adapter certification sequencing
 
 Goal: make common adapters useful and certifiable without turning them into fallback execution paths.
