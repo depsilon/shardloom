@@ -100,7 +100,7 @@ Status categories:
 | RFC 0022 | Deferred | Ongoing (interop track) | Plan interoperability direction is documented; implementation remains intentionally staged. |
 | RFC 0023 | Deferred | Ongoing (extension track) | Extension/plugin ABI and sandboxing are documented but not a near-term core phase focus. |
 | RFC 0024 | Partially implemented | 10D, 12A, 12B, Ongoing | Release/API compatibility policy exists; continues as a cross-phase enforcement concern. |
-| RFC 0025 | Planned | CG-1 through CG-20, Ongoing | Competitive Engine Track policy is documented; implementation remains gate-specific and evidence-gated. |
+| RFC 0025 | Planned | CG-1 through CG-23, Ongoing | Competitive Engine Track policy is documented; CG-21 through CG-23 are reserved placeholders pending incoming content-rich gate files; implementation remains gate-specific and evidence-gated. |
 | RFC 0026 | Partially implemented | CG-1, CG-2, CG-13 | Encoded-read and query-primitive readiness contracts exist; CG-13.1 encoded path selection evidence exists for count/filter/project candidates; real generalized encoded execution remains gated. |
 | RFC 0027 | Partially implemented | CG-7, CG-8, CG-14, CG-15 | CG-14.1 adaptive optimizer/memory decision evidence and CG-15.1 CPU specialization report evidence exist; runtime adaptivity, CPU probing, SIMD dispatch, and specialized kernel execution remain planned. |
 | RFC 0028 | Partially implemented | CG-3, CG-4, CG-9, CG-10 | Output/commit readiness contracts exist; first native count-result payload path is complete; first local committed-manifest execution path is complete; local committed-manifest recovery diagnostics and first local rollback cleanup path are complete; broader payloads, generalized recovery, table/catalog commits, and object-store commits remain incomplete. |
@@ -108,6 +108,9 @@ Status categories:
 | RFC 0030 | Partially implemented | CG-11, CG-12, CG-18 | CG-11.1 stable CLI/API JSON protocol foundation, CG-11.2 thin Python wrapper foundation, and CG-11.3/CG-11.4 source-tree Python client surfaces exist through `CliApiJsonProtocolReport`, `PythonWrapperFoundationReport`, `api-compat-plan`, `python-wrapper-plan`, and the zero-dependency `python/` client; CG-12.1 plan portability report foundation, CG-12.4 native plan serialization, and CG-12.5 imported-plan capability gate exist through `PlanPortabilityReport`, `NativePlanDocument`, `ImportedPlanCapabilityGateReport`, `plan-ir`, `plan-import native`, and `plan-export native`; CG-18.1 universal harness report exists through `UniversalHarnessReport` and `universal-harness-plan`; imported-plan execution, non-native format parsers/exporters, deployment/import, baseline runner execution, and comparison dataset materialization remain staged. |
 | RFC 0031 | Partially implemented | CG-19 | CG-19.1 native I/O envelope report exists through `NativeIoEnvelopeReport` and `native-io-envelope-plan`; source/sink runtime certificate emission, adapter runtime, reads, decode/materialization, writes, object-store I/O, and fallback remain absent. |
 | RFC 0032 | Partially implemented | CG-20 | CG-20.1 world-class sufficiency reporting exists through `WorldClassSufficiencyReport` and `world-class-sufficiency-plan`; CG-20.2 user-surface capability discovery exposes report-only `capabilities` scopes for ETL, Python, DataFrame/notebook, UDF, universal/event/API adapters, unstructured/media, API, observability, deployment, extension, and security/governance dimensions; CG-20.3 adds Python live ETL smoke helpers; CG-20.7 adds a feature-gated local compatibility-file-to-Vortex bridge for CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC; real SQL, operators, functions, production adapters, semantic conformance, migration analyzers, mature Python/API, DataFrame/notebook, UDF, production ETL, universal-adapter certification, unstructured/media, correctness, benchmark, and best-default certification evidence remain staged. |
+| RFC 0033 | Placeholder | CG-21 | Reserved for the first incoming content-rich gate file. Placeholder only; no runtime behavior, dependencies, fallback execution, or claims are authorized. |
+| RFC 0034 | Placeholder | CG-22 | Reserved for the second incoming content-rich gate file. Placeholder only; no runtime behavior, dependencies, fallback execution, or claims are authorized. |
+| RFC 0035 | Placeholder | CG-23 | Reserved for the third incoming content-rich gate file. Placeholder only; no runtime behavior, dependencies, fallback execution, or claims are authorized. |
 
 ## Drift policy
 
@@ -154,7 +157,7 @@ Status categories:
 
 ## Competitive roadmap traceability additions
 
-- CG-1 through CG-20 are **Competitive Engine Track** success gates and roadmap tracks.
+- CG-1 through CG-23 are **Competitive Engine Track** success gates and roadmap tracks.
 - CG gates are not aliases for canonical implementation phase IDs (for example, they are distinct from Phase 12/13/14 implementation phases).
 - Spark/Polars/DataFusion (and other external engines) are future external baseline references only.
 - External engines are never runtime fallback or delegation targets.
@@ -225,6 +228,9 @@ Competitive gate coverage:
 - CG-18: universal import/deployment/baseline harness
 - CG-19: universal native I/O envelope
 - CG-20: world-class SQL/operator/function/adapter/user capability surface
+- CG-21: reserved content-rich gate 1
+- CG-22: reserved content-rich gate 2
+- CG-23: reserved content-rich gate 3
 
 | Phase 12B.5a — manifest finalization core contract (complete) | RFC 0017 Fault Tolerance, Cancellation, and Recovery; RFC 0012 Diagnostics, Explain, Estimate, and Capabilities | RFC 0004 Native Dataset Manifest, Snapshot, Incremental | report-only finalization contract distinguishing staged draft manifest, finalized manifest candidate, and committed manifest; requires draft/marker/protocol/schema/delete/tombstone readiness signals; no finalized manifest writes; no committed manifest writes; no output payload writes; no object-store IO; no upstream `Vortex` write API calls; no fallback execution | Complete. Finalized manifest file writing and manifest commit remain deferred. |
 
@@ -251,7 +257,7 @@ No fallback execution.
 
 | RFC | Competitive gates covered |
 | --- | --- |
-| RFC 0025 | CG-1 through CG-20 |
+| RFC 0025 | CG-1 through CG-23 |
 | RFC 0026 | CG-1, CG-2, CG-13 |
 | RFC 0027 | CG-7, CG-8, CG-14, CG-15 |
 | RFC 0028 | CG-3, CG-4, CG-9, CG-10 |
@@ -259,6 +265,9 @@ No fallback execution.
 | RFC 0030 | CG-11, CG-12, CG-18 |
 | RFC 0031 | CG-19 |
 | RFC 0032 | CG-20 |
+| RFC 0033 | CG-21 |
+| RFC 0034 | CG-22 |
+| RFC 0035 | CG-23 |
 
 - Phase 12C placeholder output payload artifact work supports CG-3 readiness only; it does not complete CG-3 by itself.
 - CG-3.1 adds the first real feature-gated local native `Vortex` payload write path for a known `CountAll` result; broader payload shapes, commits, and object-store writes remain separate work.
