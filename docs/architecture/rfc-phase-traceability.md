@@ -605,6 +605,14 @@ No fallback execution.
 - Correctness certificates, physical-kernel production admission, broad encoded projection kernels, broad encoded-value predicate kernels, non-local sources, object-store reads, adapters, SQL/DataFrame runtime, writes, spill, benchmark claims, CG-2 closeout, and CG-13 closeout remain out of scope.
 - This phase adds no new reader, parser, dependency, external engine invocation, or fallback execution.
 
+## CG-5.11 / CG-16.14 generalized local primitive fixture certificates
+
+- Primary RFC linkage: RFC 0015 Correctness/testing, RFC 0025 Competitive/no-fallback, RFC 0029 Correctness/Benchmarks/Execution Certificates, and RFC 0031 Universal Native I/O Envelope.
+- `shardloom-vortex/src/local_primitives.rs` now exposes reusable checked-in fixture matching for local primitive request/report pairs instead of keeping that evidence path only in CLI helpers.
+- Generalized filter and projection reports attach optional CG-16 execution certificates when CountWhere, FilterPredicate, ProjectColumns, or FilterAndProject requests exactly match checked-in local primitive fixture evidence.
+- Copied/non-fixture local `.vortex` paths remain execution-allowed and Native-I/O-certified but explicitly uncertified for correctness and production claims.
+- This phase adds no new fixture family, decoded reference artifact, broad encoded-value predicate/projection kernel, non-local source, adapter runtime, object-store IO, SQL/DataFrame runtime, write behavior, spill, benchmark claim, external engine invocation, or fallback execution.
+
 ## CG-5.1 metadata query primitive correctness fixtures
 
 - Primary RFC linkage: RFC 0015 Correctness/Semantics/Differential Testing, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
