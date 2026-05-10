@@ -638,6 +638,15 @@ No fallback execution.
 - Empty prepared-batch inputs block deterministically with no fallback instead of pretending broad reader wiring exists.
 - This phase does not open Vortex files, wire readers/adapters, broaden non-local sources, add SQL/DataFrame runtime, write outputs, spill, rerun benchmarks, certify production claims, close CG-2/CG-13, or add fallback execution.
 
+## CG-2.3f / CG-7.29 / CG-13.24 prepared encoded projection/filter-project evidence
+
+- Primary RFC linkage: RFC 0013 Streaming/zero-decode boundaries, RFC 0015 Correctness/testing, RFC 0021 Expression/Kernel Registry, RFC 0025 Competitive/no-fallback, RFC 0026 Vortex encoded-read/query-readiness boundaries, RFC 0029 Correctness/Benchmarks/Execution Certificates, and RFC 0031 Universal Native I/O Envelope.
+- `shardloom-vortex/src/encoded_projection_execution.rs` adds `VortexPreparedEncodedProjectionColumn` and `evaluate_vortex_prepared_encoded_projection`, a no-reader projection target for explicitly supplied encoded column batches.
+- Prepared projection evidence preserves encoded batches for requested columns without row reads, decode, materialization, Arrow conversion, object-store IO, writes, spill, or fallback.
+- Filter-project composition can carry safe selection-vector filter-kernel evidence from CG-7.28 while preserving encoded projected batches.
+- Missing projected columns and unsafe filter-kernel evidence block deterministically with no fallback instead of pretending broad reader wiring exists.
+- This phase does not open Vortex files, wire readers/adapters, broaden non-local sources, add SQL/DataFrame runtime, write outputs, spill, rerun benchmarks, certify production claims, close CG-2/CG-13, or add fallback execution.
+
 ## CG-5.1 metadata query primitive correctness fixtures
 
 - Primary RFC linkage: RFC 0015 Correctness/Semantics/Differential Testing, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
