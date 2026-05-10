@@ -378,6 +378,69 @@ impl EncodedSegment {
     }
 }
 
+/// One run in a run-length encoded value batch.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EncodedValueRun {
+    pub value: Option<StatValue>,
+    pub len: u64,
+}
+impl EncodedValueRun {
+    pub fn new(value: Option<StatValue>, len: u64) -> Self {
+        Self { value, len }
+    }
+}
+
+/// Minimal encoded-value batch used by native predicate kernels.
+///
+/// This is an execution-kernel input, not a file reader. It lets `ShardLoom`
+/// evaluate predicates against encoded forms such as constants, dictionary
+/// codes, and run-length runs without adding a fallback engine or requiring
+/// decoded row materialization.
+#[derive(Debug, Clone, PartialEq)]
+pub enum EncodedValueBatch {
+    Constant {
+        value: Option<StatValue>,
+        row_count: u64,
+    },
+    Dictionary {
+        dictionary: Vec<Option<StatValue>>,
+        codes: Vec<Option<u32>>,
+    },
+    RunLength {
+        runs: Vec<EncodedValueRun>,
+    },
+}
+impl EncodedValueBatch {
+    #[must_use]
+    pub fn row_count(&self) -> Option<u64> {
+        match self {
+            Self::Constant { row_count, .. } => Some(*row_count),
+            Self::Dictionary { codes, .. } => u64::try_from(codes.len()).ok(),
+            Self::RunLength { runs } => runs
+                .iter()
+                .try_fold(0_u64, |total, run| total.checked_add(run.len)),
+        }
+    }
+
+    #[must_use]
+    pub const fn encoding_kind(&self) -> EncodingKind {
+        match self {
+            Self::Constant { .. } => EncodingKind::Constant,
+            Self::Dictionary { .. } => EncodingKind::Dictionary,
+            Self::RunLength { .. } => EncodingKind::RunLength,
+        }
+    }
+
+    #[must_use]
+    pub const fn label(&self) -> &'static str {
+        match self {
+            Self::Constant { .. } => "constant",
+            Self::Dictionary { .. } => "dictionary",
+            Self::RunLength { .. } => "run_length",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ComparisonOp {
     Eq,
@@ -470,6 +533,8 @@ pub enum EncodedPredicateEvaluationStatus {
     SelectedAll,
     /// An empty selection vector was emitted without reading encoded values.
     SelectedNone,
+    /// A sparse selection vector was emitted from encoded values.
+    SelectedIndices,
     /// The metadata proof is conservative and an encoded-value kernel is required.
     NeedsEncodedValues,
     /// Required segment metadata is missing before a stable selection vector can be emitted.
@@ -484,6 +549,7 @@ impl EncodedPredicateEvaluationStatus {
         match self {
             Self::SelectedAll => "selected_all",
             Self::SelectedNone => "selected_none",
+            Self::SelectedIndices => "selected_indices",
             Self::NeedsEncodedValues => "needs_encoded_values",
             Self::MissingSegmentMetadata => "missing_segment_metadata",
             Self::Unsupported => "unsupported",
@@ -497,7 +563,10 @@ impl EncodedPredicateEvaluationStatus {
 
     #[must_use]
     pub const fn emits_selection_vector(&self) -> bool {
-        matches!(self, Self::SelectedAll | Self::SelectedNone)
+        matches!(
+            self,
+            Self::SelectedAll | Self::SelectedNone | Self::SelectedIndices
+        )
     }
 }
 
@@ -541,18 +610,26 @@ impl EncodedPredicateEvaluationReport {
         execution_state: ExecutionState,
     ) -> Self {
         let selected_count = Some(selection_vector.selected_count());
-        let status = if selection_vector.is_all() {
-            EncodedPredicateEvaluationStatus::SelectedAll
-        } else {
-            EncodedPredicateEvaluationStatus::SelectedNone
+        let status = match &selection_vector {
+            SelectionVector::All { .. } => EncodedPredicateEvaluationStatus::SelectedAll,
+            SelectionVector::None => EncodedPredicateEvaluationStatus::SelectedNone,
+            SelectionVector::Indices(_) => EncodedPredicateEvaluationStatus::SelectedIndices,
         };
         let reason = proof.reason().to_string();
+        let capability = if matches!(
+            execution_state,
+            ExecutionState::MetadataOnly | ExecutionState::Pruned
+        ) {
+            EncodedEvalCapability::MetadataOnly { reason }
+        } else {
+            EncodedEvalCapability::Encoded { reason }
+        };
         Self::new(
             segment,
             predicate,
             proof,
             status,
-            EncodedEvalCapability::MetadataOnly { reason },
+            capability,
             execution_state,
             Some(selection_vector),
             selected_count,
@@ -654,7 +731,7 @@ impl EncodedPredicateEvaluationStatus {
         match self {
             Self::SelectedAll => ExecutionState::MetadataOnly,
             Self::SelectedNone => ExecutionState::Pruned,
-            Self::NeedsEncodedValues => ExecutionState::EncodedEvaluation,
+            Self::SelectedIndices | Self::NeedsEncodedValues => ExecutionState::EncodedEvaluation,
             Self::MissingSegmentMetadata => ExecutionState::PartialDecode,
             Self::Unsupported => ExecutionState::Unsupported,
         }
@@ -861,6 +938,210 @@ pub fn evaluate_predicate_on_encoded_segment(
                 Some("Use a supported native predicate expression.".to_string()),
             )),
         ),
+    }
+}
+
+/// Evaluates a predicate against an already available encoded-value batch.
+///
+/// This is the first native encoded-value predicate kernel boundary: it
+/// evaluates constant, dictionary-coded, and run-length encoded batches without
+/// decoding into rows, converting to Arrow, materializing data, touching object
+/// stores, writing outputs, spilling, or invoking a fallback engine.
+#[must_use]
+pub fn evaluate_predicate_on_encoded_values(
+    predicate: &PredicateExpr,
+    segment: &EncodedSegment,
+    values: &EncodedValueBatch,
+) -> EncodedPredicateEvaluationReport {
+    if let Some(column) = predicate.column()
+        && column != &segment.column
+    {
+        let reason = format!(
+            "predicate column {} does not match encoded segment column {}",
+            column.as_str(),
+            segment.column.as_str()
+        );
+        return encoded_value_predicate_blocked(segment, predicate, reason);
+    }
+
+    let Some(row_count) = values.row_count() else {
+        return encoded_value_predicate_blocked(
+            segment,
+            predicate,
+            "encoded value row count overflow".to_string(),
+        );
+    };
+    if let Some(expected) = segment.stats.row_count
+        && expected != row_count
+    {
+        return encoded_value_predicate_blocked(
+            segment,
+            predicate,
+            format!(
+                "encoded value row count {row_count} did not match segment row_count {expected}"
+            ),
+        );
+    }
+
+    let selection_vector = match encoded_value_selection_vector(predicate, values, row_count) {
+        Ok(selection_vector) => selection_vector,
+        Err(reason) => return encoded_value_predicate_blocked(segment, predicate, reason),
+    };
+    let selected_count = selection_vector.selected_count();
+    let proof = if selected_count == row_count {
+        PredicateProof::AlwaysTrue {
+            reason: format!("{} encoded values proved all rows selected", values.label()),
+        }
+    } else if selected_count == 0 {
+        PredicateProof::AlwaysFalse {
+            reason: format!("{} encoded values proved no rows selected", values.label()),
+        }
+    } else {
+        PredicateProof::MayMatch {
+            reason: format!(
+                "{} encoded values emitted sparse selection vector with {selected_count}/{row_count} rows",
+                values.label()
+            ),
+        }
+    };
+
+    EncodedPredicateEvaluationReport::selected(
+        segment,
+        predicate,
+        proof,
+        selection_vector,
+        ExecutionState::EncodedEvaluation,
+    )
+}
+
+fn encoded_value_predicate_blocked(
+    segment: &EncodedSegment,
+    predicate: &PredicateExpr,
+    reason: String,
+) -> EncodedPredicateEvaluationReport {
+    EncodedPredicateEvaluationReport::blocked(
+        segment,
+        predicate,
+        PredicateProof::Unsupported {
+            reason: reason.clone(),
+        },
+        EncodedPredicateEvaluationStatus::Unsupported,
+        EncodedEvalCapability::Unsupported {
+            reason: reason.clone(),
+        },
+        Some(Diagnostic::unsupported(
+            DiagnosticCode::NotImplemented,
+            "encoded_value_predicate_evaluation",
+            reason,
+            Some(
+                "Use a supported encoded value batch, matching segment metadata, and matching predicate column."
+                    .to_string(),
+            ),
+        )),
+    )
+}
+
+fn encoded_value_selection_vector(
+    predicate: &PredicateExpr,
+    values: &EncodedValueBatch,
+    row_count: u64,
+) -> std::result::Result<SelectionVector, String> {
+    match values {
+        EncodedValueBatch::Constant { value, .. } => {
+            if predicate_matches_encoded_value(predicate, value.as_ref())? {
+                Ok(SelectionVector::all(row_count))
+            } else {
+                Ok(SelectionVector::none())
+            }
+        }
+        EncodedValueBatch::Dictionary { dictionary, codes } => {
+            let dictionary_matches = dictionary
+                .iter()
+                .map(|value| predicate_matches_encoded_value(predicate, value.as_ref()))
+                .collect::<std::result::Result<Vec<_>, _>>()?;
+            let mut indices = Vec::new();
+            for (row_index, code) in codes.iter().enumerate() {
+                let selected = match code {
+                    Some(code) => {
+                        let code = usize::try_from(*code)
+                            .map_err(|_| format!("dictionary code {code} does not fit usize"))?;
+                        *dictionary_matches.get(code).ok_or_else(|| {
+                            format!("dictionary code {code} is outside dictionary values")
+                        })?
+                    }
+                    None => predicate_matches_encoded_value(predicate, None)?,
+                };
+                if selected {
+                    indices.push(
+                        u64::try_from(row_index)
+                            .map_err(|_| "dictionary row index does not fit u64".to_string())?,
+                    );
+                }
+            }
+            Ok(selection_vector_from_indices(indices, row_count))
+        }
+        EncodedValueBatch::RunLength { runs } => {
+            let mut indices = Vec::new();
+            let mut row_index = 0_u64;
+            for run in runs {
+                let selected = predicate_matches_encoded_value(predicate, run.value.as_ref())?;
+                if selected {
+                    for offset in 0..run.len {
+                        indices.push(
+                            row_index.checked_add(offset).ok_or_else(|| {
+                                "run-length selected row index overflow".to_string()
+                            })?,
+                        );
+                    }
+                }
+                row_index = row_index
+                    .checked_add(run.len)
+                    .ok_or_else(|| "run-length row count overflow".to_string())?;
+            }
+            Ok(selection_vector_from_indices(indices, row_count))
+        }
+    }
+}
+
+fn selection_vector_from_indices(indices: Vec<u64>, row_count: u64) -> SelectionVector {
+    if indices.is_empty() {
+        SelectionVector::none()
+    } else if u64::try_from(indices.len()).ok() == Some(row_count) {
+        SelectionVector::all(row_count)
+    } else {
+        SelectionVector::from_indices(indices)
+    }
+}
+
+fn predicate_matches_encoded_value(
+    predicate: &PredicateExpr,
+    value: Option<&StatValue>,
+) -> std::result::Result<bool, String> {
+    match predicate {
+        PredicateExpr::AlwaysTrue => Ok(true),
+        PredicateExpr::AlwaysFalse => Ok(false),
+        PredicateExpr::IsNull { .. } => Ok(value.is_none()),
+        PredicateExpr::IsNotNull { .. } => Ok(value.is_some()),
+        PredicateExpr::Compare { op, value: rhs, .. } => {
+            let Some(lhs) = value else {
+                return Ok(false);
+            };
+            let Some(ordering) = cmp_stat_values(lhs, rhs) else {
+                return Err(format!(
+                    "cannot compare encoded value dtype {} with predicate dtype {}",
+                    lhs.dtype().as_str(),
+                    rhs.dtype().as_str()
+                ));
+            };
+            Ok(match op {
+                ComparisonOp::Eq => ordering == 0,
+                ComparisonOp::NotEq => ordering != 0,
+                ComparisonOp::Lt => ordering < 0,
+                ComparisonOp::LtEq => ordering <= 0,
+                ComparisonOp::Gt => ordering > 0,
+                ComparisonOp::GtEq => ordering >= 0,
+            })
+        }
     }
 }
 
@@ -1277,6 +1558,136 @@ mod tests {
         assert_eq!(report.selection_vector, None);
         assert!(report.is_side_effect_free());
         assert!(!report.has_errors());
+    }
+
+    #[test]
+    fn encoded_value_dictionary_predicate_emits_sparse_selection_vector() {
+        let segment = segment_with_stats("x", SegmentStats::with_row_count(5));
+        let values = EncodedValueBatch::Dictionary {
+            dictionary: vec![Some(StatValue::Int64(1)), Some(StatValue::Int64(5)), None],
+            codes: vec![Some(0), Some(1), None, Some(1), Some(0)],
+        };
+        let report = evaluate_predicate_on_encoded_values(
+            &PredicateExpr::Compare {
+                column: ColumnRef::new("x").unwrap(),
+                op: ComparisonOp::GtEq,
+                value: StatValue::Int64(5),
+            },
+            &segment,
+            &values,
+        );
+
+        assert_eq!(
+            report.status,
+            EncodedPredicateEvaluationStatus::SelectedIndices
+        );
+        assert_eq!(report.execution_state, ExecutionState::EncodedEvaluation);
+        assert!(matches!(
+            report.capability,
+            EncodedEvalCapability::Encoded { .. }
+        ));
+        assert_eq!(
+            report.selection_vector,
+            Some(SelectionVector::from_indices(vec![1, 3]))
+        );
+        assert_eq!(report.selected_count, Some(2));
+        assert!(report.is_side_effect_free());
+        assert!(!report.has_errors());
+    }
+
+    #[test]
+    fn encoded_value_run_length_predicate_emits_sparse_selection_vector() {
+        let segment = segment_with_stats("x", SegmentStats::with_row_count(6));
+        let values = EncodedValueBatch::RunLength {
+            runs: vec![
+                EncodedValueRun::new(Some(StatValue::Int64(1)), 2),
+                EncodedValueRun::new(Some(StatValue::Int64(5)), 3),
+                EncodedValueRun::new(None, 1),
+            ],
+        };
+        let report = evaluate_predicate_on_encoded_values(
+            &PredicateExpr::Compare {
+                column: ColumnRef::new("x").unwrap(),
+                op: ComparisonOp::Gt,
+                value: StatValue::Int64(2),
+            },
+            &segment,
+            &values,
+        );
+
+        assert_eq!(
+            report.status,
+            EncodedPredicateEvaluationStatus::SelectedIndices
+        );
+        assert_eq!(
+            report.selection_vector,
+            Some(SelectionVector::from_indices(vec![2, 3, 4]))
+        );
+        assert_eq!(report.selected_count, Some(3));
+        assert!(report.is_side_effect_free());
+        assert!(!report.has_errors());
+    }
+
+    #[test]
+    fn encoded_value_constant_null_is_null_selects_all() {
+        let segment = segment_with_stats("x", SegmentStats::with_row_count(4));
+        let values = EncodedValueBatch::Constant {
+            value: None,
+            row_count: 4,
+        };
+        let report = evaluate_predicate_on_encoded_values(
+            &PredicateExpr::IsNull {
+                column: ColumnRef::new("x").unwrap(),
+            },
+            &segment,
+            &values,
+        );
+
+        assert_eq!(report.status, EncodedPredicateEvaluationStatus::SelectedAll);
+        assert_eq!(report.execution_state, ExecutionState::EncodedEvaluation);
+        assert_eq!(report.selection_vector, Some(SelectionVector::all(4)));
+        assert_eq!(report.selected_count, Some(4));
+        assert!(report.is_side_effect_free());
+        assert!(!report.has_errors());
+    }
+
+    #[test]
+    fn encoded_value_type_mismatch_is_unsupported_without_fallback() {
+        let segment = segment_with_stats("x", SegmentStats::with_row_count(1));
+        let values = EncodedValueBatch::Constant {
+            value: Some(StatValue::Utf8("a".to_string())),
+            row_count: 1,
+        };
+        let report = evaluate_predicate_on_encoded_values(
+            &PredicateExpr::Compare {
+                column: ColumnRef::new("x").unwrap(),
+                op: ComparisonOp::Eq,
+                value: StatValue::Int64(1),
+            },
+            &segment,
+            &values,
+        );
+
+        assert_eq!(report.status, EncodedPredicateEvaluationStatus::Unsupported);
+        assert!(report.has_errors());
+        assert!(report.is_side_effect_free());
+        assert!(report.diagnostics.iter().all(|d| !d.fallback.attempted));
+    }
+
+    #[test]
+    fn encoded_value_row_count_mismatch_is_unsupported_without_fallback() {
+        let segment = segment_with_stats("x", SegmentStats::with_row_count(3));
+        let values = EncodedValueBatch::Constant {
+            value: Some(StatValue::Int64(1)),
+            row_count: 4,
+        };
+        let report =
+            evaluate_predicate_on_encoded_values(&PredicateExpr::AlwaysTrue, &segment, &values);
+
+        assert_eq!(report.status, EncodedPredicateEvaluationStatus::Unsupported);
+        assert!(report.has_errors());
+        assert!(report.is_side_effect_free());
+        assert!(report.diagnostics.iter().all(|d| !d.fallback.attempted));
     }
 
     #[test]

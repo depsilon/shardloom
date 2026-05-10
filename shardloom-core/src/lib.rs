@@ -81,10 +81,12 @@ pub use effect_budget::{
 };
 pub use encoded::{
     ByteRange, ColumnRef, ComparisonOp, EncodedEvalCapability, EncodedPredicateEvaluationReport,
-    EncodedPredicateEvaluationStatus, EncodedSegment, EncodingKind, ExecutionState, LayoutKind,
-    LogicalDType, MaterializationPolicy, Nullability, PredicateExpr, PredicateProof,
-    PruningDecision, SegmentId, SegmentLayout, SegmentStats, SelectionVector, SortOrder, StatValue,
-    StatisticsExactness, evaluate_predicate_on_encoded_segment, prove_predicate_from_stats,
+    EncodedPredicateEvaluationStatus, EncodedSegment, EncodedValueBatch, EncodedValueRun,
+    EncodingKind, ExecutionState, LayoutKind, LogicalDType, MaterializationPolicy, Nullability,
+    PredicateExpr, PredicateProof, PruningDecision, SegmentId, SegmentLayout, SegmentStats,
+    SelectionVector, SortOrder, StatValue, StatisticsExactness,
+    evaluate_predicate_on_encoded_segment, evaluate_predicate_on_encoded_values,
+    prove_predicate_from_stats,
 };
 pub use execution_certificate::{
     ExecutionCertificate, ExecutionCertificateEvidenceSurfaceReport,
