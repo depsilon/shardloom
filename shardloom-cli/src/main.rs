@@ -30140,6 +30140,78 @@ mod tests {
         (encoded_report, local_report)
     }
 
+    #[test]
+    fn vortex_count_local_encoded_actual_non_fixture_executes_but_stays_uncertified() {
+        if !vortex_encoded_read_spike_feature_enabled() {
+            return;
+        }
+        let fixture_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("workspace crate parent")
+            .join("shardloom-vortex")
+            .join("tests")
+            .join("fixtures")
+            .join("local_primitive_struct_five.vortex");
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let temp_path = std::env::temp_dir().join(format!(
+            "shardloom-local-countall-non-fixture-{}-{nanos}.vortex",
+            std::process::id()
+        ));
+        std::fs::copy(&fixture_path, &temp_path).expect("copy fixture");
+        let uri = DatasetUri::new(temp_path.to_string_lossy().to_string()).expect("uri");
+
+        let (encoded_report, local_report) =
+            run_vortex_approved_local_encoded_count(uri, 1, 2).expect("local count");
+        let evidence =
+            vortex_count_local_encoded_evidence(&encoded_report, &local_report).expect("evidence");
+        let _ = std::fs::remove_file(&temp_path);
+
+        assert_eq!(encoded_report.count_result, Some(5));
+        assert_eq!(
+            encoded_report.status,
+            VortexEncodedReadExecutionStatus::LocalScanEncodedCountExecuted
+        );
+        assert_eq!(
+            local_report.status,
+            VortexLocalExecutionStatus::LocalEncodedCountExecuted
+        );
+        assert_eq!(
+            evidence.target_policy,
+            VortexCountLocalEncodedTargetPolicy::LocalVortexUncertified
+        );
+        assert!(evidence.native_io_certificate.is_some());
+        assert!(evidence.certificate.is_none());
+        assert!(evidence.physical_kernel.is_none());
+        assert!(evidence.kernel_admission.is_none());
+        assert!(!evidence.has_errors());
+
+        let mut fields = Vec::new();
+        append_vortex_count_local_encoded_evidence_fields(&mut fields, &evidence);
+        assert_eq!(
+            output_field(&fields, "generalized_local_count_execution_allowed"),
+            "true"
+        );
+        assert_eq!(
+            output_field(&fields, "generalized_local_count_correctness_certified"),
+            "false"
+        );
+        assert_eq!(
+            output_field(&fields, "local_count_native_io_certificate_status"),
+            "certified"
+        );
+        assert_eq!(
+            output_field(&fields, "execution_certificate_emitted"),
+            "false"
+        );
+        assert_eq!(
+            output_field(&fields, "encoded_count_physical_kernel_emitted"),
+            "false"
+        );
+    }
+
     fn output_field<'a>(fields: &'a [(String, String)], key: &str) -> &'a str {
         fields.iter().find(|(name, _)| name == key).map_or_else(
             || panic!("missing output field {key}"),

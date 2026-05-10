@@ -53,31 +53,30 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 
 ## Active Session Checklist
-- [x] Session label: CG-11.6 / CG-20.9 / CG-20.10 Python local Vortex primitive helpers and approximate sketch roadmap
+- [x] Session label: CG-2.1e.34 / CG-13.18 / CG-16.13 / CG-19.15 generalized local `CountAll` execution evidence
   - Primary files:
-    - `python/src/shardloom/client.py`
-    - `python/tests/test_cli_client.py`
-    - `python/README.md`
-    - `docs/rfcs/0032-world-class-sql-operators-functions-adapters-user-capability.md`
-    - `docs/architecture/capability-certification-sequencing.md`
+    - `shardloom-vortex/src/local_engine.rs`
+    - `shardloom-cli/src/main.rs`
     - `docs/architecture/phased-execution-plan.md`
-  - Scope: Make the current local Vortex primitive evidence paths reachable from the thin Python wrapper through explicit CLI JSON helpers, and fold approximate aggregate/sketch functions into CG-20 as a certifiable function lane comparable to DataFusion/Polars approximate distinct surfaces. Keep all runtime execution explicit and opt-in, and do not add new readers, sketch kernels, SQL/DataFrame runtime, adapters, dependencies, benchmark claims, or fallback behavior.
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: Prove the existing explicit local `.vortex` `CountAll` execution path is generalized beyond checked-in fixture paths by running a copied/non-fixture local `.vortex` target successfully while keeping it uncertified for correctness and production claims. Repair stale local-engine next-action wording so CountAll asks for broader CG-5/CG-6 evidence and future native-adapter expansion instead of implying the local CountAll path itself is still fixture-only.
   - Checklist:
-    - [x] Move the completed local `FilterAndProject` session from Active into the completed ledger.
-    - [x] Document CG-20 approximate aggregate/sketch requirements for `approx_count_distinct`, grouped distinct, partial sketch merge, serialization/deserialization, error bounds, null/type handling, encoded layout strategies, correctness, benchmark, and certificate evidence.
-    - [x] Add Python helpers for `vortex-count`, `vortex-count-where`, `vortex-filter`, `vortex-project`, and `vortex-filter-project`.
-    - [x] Keep default helper calls on existing metadata/plan surfaces unless explicit local execution flags and resource caps are supplied.
-    - [x] Test exact CLI argv dispatch for default and explicit local execution helpers.
-    - [x] Run Python unit tests, compileall, Rust fmt/clippy/test validation, diff checks, and hidden/bidi scan.
+    - [x] Move the completed Python helper / approximate sketch roadmap session from Active into the completed ledger.
+    - [x] Add local-engine regression coverage showing `CountAll` over a generated local `.vortex` file reads encoded Vortex data, avoids decode/materialization/fallback, and reports CountAll next actions around evidence and future native-adapter expansion.
+    - [x] Add CLI regression coverage showing a copied non-fixture local `.vortex` target can execute through `vortex-count --execute-local-encoded-count` but remains `local_vortex_uncertified`.
+    - [x] Keep known fixture CountAll targets certified and non-fixture targets explicitly uncertified for correctness, physical-kernel admission, production claims, CG-2 closeout, and CG-13 closeout.
+    - [x] Keep broader encoded predicate/projection kernels, non-local sources, adapter execution, object-store IO, SQL/DataFrame runtime, writes, spill, benchmark reruns, superiority claims, and fallback execution out of scope.
+    - [x] Run focused feature-gated tests, full Rust fmt/clippy/test validation, diff checks, and hidden/bidi scan.
   - Local validation status:
-    - [x] Python `unittest` discovery and `compileall` passed locally.
-    - [x] Required full `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, and `cargo test --workspace --all-targets` validation passed locally with Rust toolchain `1.91.1`; the final test run used `CARGO_BUILD_JOBS=1` to avoid transient Windows linker artifact locks.
+    - [x] Focused feature-gated `shardloom-vortex` local-engine CountAll test passed locally with Rust toolchain `1.91.1`.
+    - [x] Focused feature-gated `shardloom-cli` copied/non-fixture CountAll evidence test passed locally with Rust toolchain `1.91.1`.
+    - [x] Required full `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, and `cargo test --workspace --all-targets` validation passed locally with Rust toolchain `1.91.1`.
     - [x] Diff hygiene and changed-file hidden/bidi scan passed locally.
-  - Explicitly not included: new runtime behavior beyond existing explicit CLI paths, new readers, non-local/object-store Vortex sources, Parquet/Arrow/JSON/Avro/ORC runtime, adapter execution, SQL parser, SQL execution, DataFrame runtime, function registry, sketch implementation, aggregate kernels, benchmark reruns, superiority or best-default claims, CG-2 closeout, CG-13 closeout, CG-20 closeout, or fallback execution.
+  - Explicitly not included: new readers, non-local/object-store Vortex sources, Parquet/Arrow/JSON/Avro/ORC runtime, adapter execution, generalized encoded predicate/projection kernels, SQL parser, SQL execution, DataFrame runtime, UDF/function registry runtime, sketch implementation, aggregate kernels, benchmark reruns, superiority or best-default claims, CG-2 closeout, CG-13 closeout, CG-20 closeout, or fallback execution.
 
 ## Near-term Implementation Priority
 - [ ] Priority 1 - generalized encoded primitive execution loop
-  - [ ] Generalized direct encoded `CountAll` execution beyond the current local direct-count proof path.
+  - [x] Generalized local direct encoded `CountAll` execution beyond the original checked-in fixture proof path, with copied/non-fixture local `.vortex` targets execution-allowed but uncertified.
   - [x] Fixture-backed local `CountWhere` execution evidence through `vortex-count-where` with explicit selection-vector guarantee.
   - [x] Fixture-backed and non-fixture local `FilterPredicate` execution evidence through `vortex-filter` with explicit selection-vector guarantee and correctness-certification split.
   - [x] Fixture-backed and non-fixture local `ProjectColumns` execution evidence through `vortex-project` with explicit encoded-projection guarantee and correctness-certification split.
@@ -103,6 +102,25 @@ Supporting docs:
   - [ ] CG-20 approximate aggregate/sketch function implementation after function-registry, aggregate-state, sketch-serialization, correctness, benchmark, execution-certificate, and Native I/O evidence gates are ready.
 
 ## Recent Completed Session Ledger
+- [x] Session label: CG-11.6 / CG-20.9 / CG-20.10 Python local Vortex primitive helpers and approximate sketch roadmap
+  - Primary files:
+    - `python/src/shardloom/client.py`
+    - `python/tests/test_cli_client.py`
+    - `python/README.md`
+    - `docs/rfcs/0032-world-class-sql-operators-functions-adapters-user-capability.md`
+    - `docs/architecture/capability-certification-sequencing.md`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: Made the current local Vortex primitive evidence paths reachable from the thin Python wrapper through explicit CLI JSON helpers, and folded approximate aggregate/sketch functions into CG-20 as a certifiable function lane comparable to DataFusion/Polars approximate distinct surfaces.
+  - Completed:
+    - [x] Added Python helpers for `vortex-count`, `vortex-count-where`, `vortex-filter`, `vortex-project`, and `vortex-filter-project`.
+    - [x] Kept default helper calls on existing metadata/plan surfaces unless explicit local execution flags and resource caps are supplied.
+    - [x] Tested exact CLI argv dispatch for default and explicit local execution helpers.
+    - [x] Documented CG-20 approximate aggregate/sketch requirements for `approx_count_distinct`, grouped distinct, partial sketch merge, serialization/deserialization, error bounds, null/type handling, encoded layout strategies, correctness, benchmark, and certificate evidence.
+  - Validation status:
+    - [x] Python `unittest` discovery and `compileall` passed locally.
+    - [x] Required full `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, and `cargo test --workspace --all-targets` validation passed locally with Rust toolchain `1.91.1`; the final test run used `CARGO_BUILD_JOBS=1` to avoid transient Windows linker artifact locks.
+    - [x] Diff hygiene and changed-file hidden/bidi scan passed locally.
+  - Explicitly not included: new runtime behavior beyond existing explicit CLI paths, new readers, non-local/object-store Vortex sources, Parquet/Arrow/JSON/Avro/ORC runtime, adapter execution, SQL parser, SQL execution, DataFrame runtime, function registry, sketch implementation, aggregate kernels, benchmark reruns, superiority or best-default claims, CG-2 closeout, CG-13 closeout, CG-20 closeout, or fallback execution.
 - [x] Session label: CG-2.3d / CG-13.17 / CG-16.12 / CG-19.14 local `FilterAndProject` execution evidence
   - Primary files:
     - `shardloom-cli/src/main.rs`
@@ -1714,6 +1732,7 @@ Status legend:
   - [x] CG-2.1e.31 `vortex-run` local primitive CountAll execution certificate surfacing
   - [x] CG-2.1e.32 checked-in local primitive struct fixture certification
   - [x] CG-2.1e.33 multi-layout local `CountAll` certification
+  - [x] CG-2.1e.34 generalized local `CountAll` copied/non-fixture execution evidence
   - [~] CG-2.1+ broader zero-decode encoded primitive execution remains deferred pending filter/project encoded-kernel guarantees
   - [x] CG-2.2c filtered-count metadata proof local guard
   - [x] CG-2.2d filtered-count metadata proof report
@@ -1912,6 +1931,7 @@ Status legend:
   - [x] CG-13.15 local `FilterPredicate` scan-pushdown evidence surfaces `vortex_encoded->selection_vector_encoded` through `vortex-filter`
   - [x] CG-13.16 local `ProjectColumns` scan-pushdown evidence surfaces `vortex_encoded->vortex_encoded` through `vortex-project`
   - [x] CG-13.17 local `FilterAndProject` scan-pushdown evidence surfaces `vortex_encoded->selection_vector_encoded` through `vortex-filter-project`
+  - [x] CG-13.18 copied/non-fixture local `CountAll` keeps encoded local execution allowed while physical-kernel certification remains fixture-gated
   - Scope:
     - encoding-aware execution-path selection through `vortex-encoded-path-selection-plan`
     - direct count/filter/project over encoded segments
@@ -1949,6 +1969,7 @@ Status legend:
   - [x] CG-16.10 `vortex-filter` local primitive execution certificate fields for the checked-in struct fixture
   - [x] CG-16.11 `vortex-project` local primitive execution certificate fields for the checked-in struct fixture
   - [x] CG-16.12 `vortex-filter-project` local primitive execution certificate fields for the checked-in struct fixture
+  - [x] CG-16.13 copied/non-fixture local `CountAll` reports execution-certificate unavailable while keeping Native I/O evidence certified
   - Scope:
     - plan/input/output evidence artifacts through `execution-certificate-plan`
     - reproducibility metadata and segment traces
@@ -1983,7 +2004,8 @@ Status legend:
   - [x] CG-19.12 local `FilterPredicate` Native I/O evidence through `vortex-filter`
   - [x] CG-19.13 local `ProjectColumns` Native I/O evidence through `vortex-project`
   - [x] CG-19.14 local `FilterAndProject` Native I/O evidence through `vortex-filter-project`
-  - [~] generalized source/sink runtime certificate emission pending beyond local compatibility-file, benchmark native Vortex, local direct-count, local primitive, fixture-backed local `CountWhere`, fixture-backed local `FilterPredicate`, fixture-backed local `ProjectColumns`, and fixture-backed local `FilterAndProject` paths
+  - [x] CG-19.15 copied/non-fixture local `CountAll` emits a certified local Native I/O certificate without correctness or physical-kernel certification
+  - [~] generalized source/sink runtime certificate emission pending beyond local compatibility-file, benchmark native Vortex, local direct-count, copied/non-fixture local CountAll, local primitive, fixture-backed local `CountWhere`, fixture-backed local `FilterPredicate`, fixture-backed local `ProjectColumns`, and fixture-backed local `FilterAndProject` paths
   - Scope:
     - preserve representation state, pushdown evidence, materialization boundaries, and sink constraints without default decode
 
@@ -2062,6 +2084,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.1e.31 `vortex-run` local primitive CountAll execution certificate surfacing
 - [x] CG-2.1e.32 checked-in local primitive struct fixture certification
 - [x] CG-2.1e.33 multi-layout local `CountAll` certification
+- [x] CG-2.1e.34 generalized local `CountAll` copied/non-fixture execution evidence
 - [x] CG-2.2a filtered-count readiness core contract
 - [x] CG-2.2a.1 filtered-count blocker precision hardening
 - [x] CG-2.2b filtered-count readiness CLI integration
@@ -2275,6 +2298,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-13.15 `vortex-filter` local primitive execution records fixture-backed `vortex_encoded->selection_vector_encoded` evidence without claiming generalized encoded-value predicate-kernel completion
 - [x] CG-13.16 `vortex-project` local primitive execution records fixture-backed `vortex_encoded->vortex_encoded` evidence without claiming generalized encoded-projection kernel completion
 - [x] CG-13.17 `vortex-filter-project` local primitive execution records fixture-backed `vortex_encoded->selection_vector_encoded` evidence without claiming generalized encoded predicate/projection-kernel completion
+- [x] CG-13.18 copied/non-fixture local `CountAll` proves local encoded execution is not fixture-path-only while keeping physical-kernel certification fixture-gated
 - [ ] generalized direct count/filter/project encoded execution
 - [ ] broad compressed-kernel correctness and benchmark certification
 
@@ -2307,6 +2331,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-16.10 `vortex-filter` local primitive execution certificate fields for the checked-in struct fixture
 - [x] CG-16.11 `vortex-project` local primitive execution certificate fields for the checked-in struct fixture
 - [x] CG-16.12 `vortex-filter-project` local primitive execution certificate fields for the checked-in struct fixture
+- [x] CG-16.13 copied/non-fixture local `CountAll` keeps execution allowed but reports execution certificate unavailable until correctness fixture evidence exists
 - [x] plan/input/output evidence artifacts for reproducibility
 - [x] deterministic, machine-readable certificate surfaces
 
@@ -2340,7 +2365,8 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-19.12 local `FilterPredicate` Native I/O evidence through `vortex-filter` covers accepted filter pushdown, `vortex_encoded->selection_vector_encoded`, filtered-stream sink requirements, side effects, and no fallback
 - [x] CG-19.13 local `ProjectColumns` Native I/O evidence through `vortex-project` covers accepted project pushdown, `vortex_encoded->vortex_encoded`, projected-stream sink requirements, side effects, and no fallback
 - [x] CG-19.14 local `FilterAndProject` Native I/O evidence through `vortex-filter-project` covers accepted filter/project pushdown, `vortex_encoded->selection_vector_encoded`, filtered-projected-stream sink requirements, side effects, and no fallback
-- [~] generalized source/sink runtime certificate emission pending beyond local compatibility-file, benchmark native Vortex, local direct-count, local primitive, fixture-backed local `CountWhere`, fixture-backed local `FilterPredicate`, fixture-backed local `ProjectColumns`, and fixture-backed local `FilterAndProject` paths
+- [x] CG-19.15 copied/non-fixture local `CountAll` emits a certified local Native I/O certificate while correctness and physical-kernel certification remain unavailable
+- [~] generalized source/sink runtime certificate emission pending beyond local compatibility-file, benchmark native Vortex, local direct-count, copied/non-fixture local CountAll, local primitive, fixture-backed local `CountWhere`, fixture-backed local `FilterPredicate`, fixture-backed local `ProjectColumns`, and fixture-backed local `FilterAndProject` paths
 - [x] representation state, pushdown proof, materialization boundary, sink requirement, adapter fidelity, per-path certificate, no-default-Arrow, and no-fallback report fields are exposed without reads, decode, materialization, IO, writes, or fallback
 
 ### CG-20 detailed checklist
@@ -2445,6 +2471,7 @@ This section preserves older attribution notes that predate the compact CG rollu
 - [x] CG-2.1e.31/CG-16.6 `vortex-run` local primitive execution-certificate surfacing emits CG-16 correctness and side-effect fields for known local primitive `CountAll` fixture runs while keeping non-fixture local primitive runs explicit and uncertified.
 - [x] CG-2.1e.32/CG-5.9/CG-16.7/CG-19.9 checked-in local primitive struct fixture certification adds a native Vortex struct fixture for count-where/project/filter-project reference outputs and lets matching `vortex-run` fixture runs emit CG-16 execution-certificate and CG-19 Native I/O evidence without broadening non-local sources, adapters, SQL, writes, spill, or fallback.
 - [x] CG-2.1e.33/CG-5.10/CG-16.8/CG-19.10 multi-layout local `CountAll` certification adds a checked-in struct-layout `CountAll` fixture and source-ref-driven encoded-count fixture matching so local `CountAll` evidence is not limited to the original u64 fixture.
+- [x] CG-2.1e.34/CG-13.18/CG-16.13/CG-19.15 generalized local `CountAll` execution evidence proves copied/non-fixture local `.vortex` targets can execute through the explicit local encoded-count path, emit certified Native I/O evidence, and remain uncertified for correctness, physical-kernel admission, production claims, CG-2 closeout, and CG-13 closeout.
 - [x] CG-4.2 local committed-manifest recovery/rollback diagnostics represent recovery-not-required, rollback-required/planned, ambiguous-commit, missing-manifest, cleanup-policy, and object-store blocker states without executing cleanup, rollback, object-store IO, or fallback.
 - [x] CG-4.3 local committed-manifest rollback cleanup execution deletes only `_shardloom_committed_manifest.json` behind `vortex-staged-output-fs` after rollback-planned recovery evidence; finalized manifests, commit markers, output payloads, object-store IO, upstream `Vortex` APIs, and fallback remain untouched.
 - [x] CG-2.2c filtered-count metadata proof local guard admits only metadata-proof `CountWhere` requests into metadata-only local execution and rejects encoded predicate candidates without fallback.
