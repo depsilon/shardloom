@@ -92,6 +92,7 @@ pub struct VortexEncodedPredicateEvaluationReport {
     pub segment_report_count: usize,
     pub selected_all_count: usize,
     pub selected_none_count: usize,
+    pub selected_indices_count: usize,
     pub needs_encoded_values_count: usize,
     pub missing_metadata_count: usize,
     pub unsupported_count: usize,
@@ -125,6 +126,10 @@ impl VortexEncodedPredicateEvaluationReport {
         let selected_none_count = count_status(
             &segment_reports,
             EncodedPredicateEvaluationStatus::SelectedNone,
+        );
+        let selected_indices_count = count_status(
+            &segment_reports,
+            EncodedPredicateEvaluationStatus::SelectedIndices,
         );
         let needs_encoded_values_count = count_status(
             &segment_reports,
@@ -167,6 +172,7 @@ impl VortexEncodedPredicateEvaluationReport {
             segment_report_count: segment_reports.len(),
             selected_all_count,
             selected_none_count,
+            selected_indices_count,
             needs_encoded_values_count,
             missing_metadata_count,
             unsupported_count,
@@ -229,6 +235,11 @@ impl VortexEncodedPredicateEvaluationReport {
             text,
             "selection vectors: {}",
             self.selection_vectors_emitted
+        );
+        let _ = writeln!(
+            text,
+            "sparse selection vectors: {}",
+            self.selected_indices_count
         );
         let _ = writeln!(
             text,

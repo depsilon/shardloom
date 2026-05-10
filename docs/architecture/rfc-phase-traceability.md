@@ -613,6 +613,15 @@ No fallback execution.
 - Copied/non-fixture local `.vortex` paths remain execution-allowed and Native-I/O-certified but explicitly uncertified for correctness and production claims.
 - This phase adds no new fixture family, decoded reference artifact, broad encoded-value predicate/projection kernel, non-local source, adapter runtime, object-store IO, SQL/DataFrame runtime, write behavior, spill, benchmark claim, external engine invocation, or fallback execution.
 
+## CG-2.2i / CG-7.26 / CG-13.21 encoded-value predicate kernel foundation
+
+- Primary RFC linkage: RFC 0015 Correctness/testing, RFC 0021 Expression/Kernel Registry, RFC 0025 Competitive/no-fallback, RFC 0026 Vortex encoded-read/query-readiness boundaries, RFC 0029 Correctness/Benchmarks/Execution Certificates, and RFC 0031 Universal Native I/O Envelope.
+- `shardloom-core/src/encoded.rs` adds native encoded-value predicate evaluation for constant, dictionary-coded, and run-length encoded batches.
+- The kernel emits `SelectionVector::All`, `SelectionVector::None`, or sparse `SelectionVector::Indices` without row reads, decoded row materialization, Arrow conversion, object-store IO, writes, spill, or fallback execution.
+- Dictionary and run-length tests cover sparse selection vectors; constant-null tests cover null predicate behavior; mismatch tests keep unsupported/type/row-count cases deterministic and no-fallback.
+- `shardloom-vortex/src/encoded_predicate_evaluation.rs` now counts sparse selection-vector segment reports in the aggregate predicate report.
+- This phase does not wire the kernel to Vortex readers/adapters, broaden non-local sources, add SQL/DataFrame/runtime adapters, write outputs, rerun benchmarks, certify production claims, close CG-2/CG-13, or add fallback execution.
+
 ## CG-5.1 metadata query primitive correctness fixtures
 
 - Primary RFC linkage: RFC 0015 Correctness/Semantics/Differential Testing, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
