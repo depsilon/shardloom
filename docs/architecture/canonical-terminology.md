@@ -22,7 +22,7 @@ Concept groups:
 - **Materialization and fidelity**: `MaterializationPolicy`, `MaterializationRequirement`, `MaterializationBoundary`, `FidelityLevel`, `VortexOutputFidelity`, `metadata_loss`, `fidelity_loss`.
 - **Planning, diagnostics, and provenance**: `pushdown proof`, `residual expression`, `lowering provenance`, `portability loss`, `intermediate artifact`, `layout health report`, `compaction planning report`, `object-store range planning report`, `object-store request coalescing report`, `object-store distributed scheduling report`, `object-store checkpoint/retry report`, `object-store commit protocol report`, `fallback_attempted`, `unsupported`.
 - **Capability and certification**: `capability certification surface`, `workload constitution`, `operator certification`, `function certification`, `SQL coverage tier`, `adapter maturity level`, `semantic compatibility profile`, `migration compatibility report`, `delete/tombstone compatibility report`, `table compatibility aggregation report`, `CDC incremental planning report`, `best-choice scorecard`.
-- **User capability surfaces**: `data/ETL capability report`, `Python surface report`, `unstructured media capability report`, `universal adapter catalog`, `API surface certification`, `observability certification`, `deployment readiness report`, `extension capability report`, `security governance report`.
+- **User capability surfaces**: `user data workflow surface`, `data/ETL capability report`, `Python surface report`, `unstructured media capability report`, `universal adapter catalog`, `API surface certification`, `observability certification`, `deployment readiness report`, `extension capability report`, `security governance report`.
 - **Agent/context capability**: `functional context scope`, `evidence routing`, `context structure preservation`, `stateful certificate history`.
 - **agent contract pack**: machine-readable inventory of agent-safe command surfaces, schemas, recommended inspection order, no-probe defaults, effect defaults, fallback status, and JSON authority.
 
@@ -33,6 +33,7 @@ Primary governing references:
 - Streaming, zero-copy, zero-decode, and boundaries: `docs/rfcs/0013-streaming-zero-copy-boundary-interoperability.md`
 - Universal native I/O envelope: `docs/rfcs/0031-universal-native-io-envelope.md`
 - World-class capability surface: `docs/rfcs/0032-world-class-sql-operators-functions-adapters-user-capability.md`
+- User data workflow and ETL surface: `docs/rfcs/0033-user-data-workflow-etl-surface.md`
 
 ## Core principles
 

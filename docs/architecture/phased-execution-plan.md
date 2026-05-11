@@ -91,8 +91,9 @@ Use this section for the next implementation sequence. Keep it ordered by depend
   - [ ] CG-10 object-store/distributed runtime execution.
   - [ ] CG-20 SQL/DataFrame/UDF/unstructured/media/adapters once the encoded primitive evidence loop and importability lane are no longer the bottleneck.
   - [ ] CG-20 approximate aggregate/sketch function implementation after function-registry, aggregate-state, sketch-serialization, correctness, benchmark, execution-certificate, and Native I/O evidence gates are ready.
-- [ ] Priority 4 - reserved CG-21/CG-22/CG-23 content intake
-  - [ ] Land the three incoming content-rich gate files mostly as provided.
+- [ ] Priority 4 - CG-21/CG-22/CG-23 content intake
+  - [x] Land the CG-21 user data workflow and ETL surface source file mostly as provided.
+  - [ ] Land the CG-22 and CG-23 incoming content-rich gate files mostly as provided.
   - [ ] Keep CG-21, CG-22, and CG-23 after the current planned CG-1 through CG-20 work until their source files define otherwise.
   - [ ] Refactor references, traceability, terminology, and plan placement only after the raw gate files are stable.
   - [ ] Preserve no-runtime, no-dependency, no-fallback, and no-claim posture during placeholder and intake passes.
@@ -105,12 +106,26 @@ Use this section for the next implementation sequence. Keep it ordered by depend
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: CG-21 user data workflow and ETL surface intake
+  - Primary files:
+    - `docs/rfcs/0033-user-data-workflow-etl-surface.md`
+    - `docs/rfcs/0025-competitive-engine-track-no-fallback-replacement.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/canonical-terminology.md`
+    - `README.md`
+  - Scope: Replace the CG-21 placeholder with the incoming content-rich user data workflow and ETL surface material, keeping broad synthesis and implementation for later passes.
+  - Completed:
+    - [x] Renamed RFC 0033 from placeholder to `0033-user-data-workflow-etl-surface.md`.
+    - [x] Landed the scenario-driven CG-21 content covering install/import, capability discovery, local ETL, DataFrame/query-builder, SQL, pandas/Arrow boundaries, quality, transforms, joins, aggregations, windows, incremental ETL, outputs, object stores, table/catalog UX, remote inputs, logs/events, unstructured/media, UDFs, observability, migration, benchmarks, governance, notebooks, deployment, adapter maturity, lane sequencing, MVP scope, diagnostics, and disqualifiers.
+    - [x] Updated RFC 0025, phase-plan rollups, RFC traceability, terminology, and README references so CG-21 points to the real intake RFC while CG-22/CG-23 remain placeholders.
+  - Explicitly not included: broad cross-document synthesis, runtime behavior, dependencies, readers, adapters, SQL/DataFrame runtime, UDF runtime, benchmark execution, superiority claims, best-default claims, CG-21 implementation, CG-22/CG-23 intake, or fallback execution.
 - [x] Session label: CG-21/CG-22/CG-23 placeholder reservation
   - Primary files:
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
     - `docs/rfcs/0025-competitive-engine-track-no-fallback-replacement.md`
-    - `docs/rfcs/0033-cg21-placeholder.md`
+    - `docs/rfcs/0033-user-data-workflow-etl-surface.md`
     - `docs/rfcs/0034-cg22-placeholder.md`
     - `docs/rfcs/0035-cg23-placeholder.md`
     - `README.md`
@@ -2240,11 +2255,12 @@ Status legend:
   - Scope:
     - capability certification surface across SQL/operators/functions/adapters/semantic profiles, migration, Python/API packaging, DataFrame/query builder, notebook, UDF/plugin, common ETL, universal adapters, event/API/SaaS adapters, unstructured/media, deployment/importability, and certification reporting
 
-- [ ] CG-21 - Reserved content-rich gate 1 (**placeholder; source file pending**)
-  - Placeholder RFC: `docs/rfcs/0033-cg21-placeholder.md`
+- [ ] CG-21 - User Data Workflow and ETL Surface (**intake RFC landed; implementation pending**)
+  - Governing RFC: `docs/rfcs/0033-user-data-workflow-etl-surface.md`
   - Scope:
-    - reserved for incoming user-provided content
-    - no runtime behavior, dependency, fallback, or claim permission from placeholder alone
+    - complete user workflow from install/import through read, validate, transform, write, explain, certify, benchmark, and diagnose
+    - scenario-driven certification around CG-20 user capability, CG-19 native I/O evidence, CG-16 execution certificates, CG-5 correctness, and CG-6 benchmark evidence
+    - no runtime behavior, dependency, fallback, or claim permission from RFC alone
 
 - [ ] CG-22 - Reserved content-rich gate 2 (**placeholder; source file pending**)
   - Placeholder RFC: `docs/rfcs/0034-cg22-placeholder.md`
@@ -2651,8 +2667,9 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 
 #### CG-21 detailed checklist
 - [x] Placeholder RFC 0033 created.
-- [ ] Replace or amend placeholder with incoming content-rich CG-21 source file.
-- [ ] After the source file lands, update impacted references, traceability, terminology, and plan placement.
+- [x] Replace placeholder with incoming content-rich CG-21 source file.
+- [x] Update first-order references, traceability, terminology, and plan placement.
+- [ ] Complete broader cross-document synthesis after CG-22 and CG-23 source files land.
 - [ ] Runtime behavior, dependencies, fallback execution, and claims remain unauthorized until the real CG-21 contract says otherwise and validation gates pass.
 
 #### CG-22 detailed checklist
