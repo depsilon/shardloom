@@ -75,7 +75,8 @@ Use this section for the next implementation sequence. Keep it ordered by depend
   - [x] Broader encoded projection and filter-project execution beyond local scan-pushdown and explicit CLI primitive paths, with no row reads, no Arrow conversion, no object-store IO, no writes, no spill, and no fallback.
 - [ ] Priority 1.5 - CG-20 distribution/importability certification lane
   - [x] Publishable pure-Python wrapper package with wheel/sdist build evidence.
-  - [ ] Platform-specific Conda CLI binary recipe/package, pure-Python wrapper recipe/package, and optional one-command metapackage.
+  - [x] Platform-specific Conda CLI binary recipe scaffold, pure-Python wrapper recipe scaffold, and optional one-command metapackage scaffold.
+  - [ ] Clean Conda package build/install certification and package publication remain release-gated until tag/hash/version/provenance and human approval gates pass.
   - [x] Fresh-environment import/run smoke evidence for `import shardloom`, CLI binary resolution, `smoke_check()`, protocol/version reporting, and `fallback_attempted=false`.
   - [x] `python-wrapper-plan`, `capabilities python`, `capabilities deployment`, and `world-class-sufficiency-plan` expose packaging/importability state without probes or runtime expansion.
   - [x] Benchmark extras remain optional comparison-only environments and are not dependencies of `conda install shardloom`.
@@ -115,6 +116,22 @@ Use this section for the next implementation sequence. Keep it ordered by depend
     - [ ] Implement stable reuse keys, invalidation, manifest-diff inputs, cache safety, state certificates, and reuse benchmarks before publishing reuse or incremental performance claims.
   - [ ] CG-18 universal import/deployment/baseline harness
     - [ ] Mature import/deployment/baseline harnesses for local, CI, container, optional Foundry, and optional benchmark environments without turning external engines into runtime dependencies.
+- [ ] Priority 3.6 - RFC coverage follow-through before broader user/runtime expansion
+  - [ ] RFC 0010 developer and agent usability
+    - [ ] Keep every new CLI, Python, future REST, capability, diagnostic, benchmark, and certificate surface deterministic, machine-readable, human-readable, and side-effect-explicit.
+    - [ ] Preserve import/discovery/dry-run safety for agent-facing workflows before execution/write permissions are exposed.
+  - [ ] RFC 0011 modular extensibility
+    - [ ] Treat SQL, UDFs, unstructured/media, LLM/API calls, embeddings, vector operations, and external effects as explicit ShardLoom-native extension surfaces with typed/effect/materialization metadata.
+    - [ ] Keep effectful or Python/external extension execution blocked until sandboxing, governance, correctness, and certificate evidence exists.
+  - [ ] RFC 0020 schema evolution, catalog integration, and table compatibility
+    - [ ] Promote table/catalog metadata integration only after the existing CG-9 compatibility reports can attach real snapshot/schema/partition/delete/catalog evidence without unsafe coercion.
+    - [ ] Keep metadata discovery separate from read/write/commit certification and block update/delete/merge claims until table semantics and recovery evidence exist.
+  - [ ] RFC 0022 native-first plan IR and Substrait-compatible interoperability
+    - [ ] Expand native plan import/export and capability-gate evidence before imported plans can execute.
+    - [ ] Keep Substrait-like import/export optional, dependency-free until approved, and never a fallback bridge to another execution engine.
+  - [ ] RFC 0023 extension/plugin ABI and sandboxing
+    - [ ] Add manifest, lifecycle, permission, provenance, signing, sandbox, resource-limit, and agent-inspection evidence before plugin or UDF execution.
+    - [ ] Inspect extension manifests without executing extension code and keep unsafe extension behavior deterministically unsupported.
 - [ ] Priority 4 - CG-21 user data workflow and ETL surface implementation lane
   - [ ] CG-21A install/import/runtime discovery
     - [ ] Provide a one-command local install path once packaging approval is complete.
@@ -281,6 +298,26 @@ Use this section for the next implementation sequence. Keep it ordered by depend
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: CG-20.11 Conda package split recipe scaffolds
+  - Primary files:
+    - `packaging/conda/README.md`
+    - `packaging/conda/shardloom-cli/meta.yaml`
+    - `packaging/conda/shardloom-python/meta.yaml`
+    - `packaging/conda/shardloom/meta.yaml`
+    - `shardloom-core/src/output.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-contract-tests/tests/conda_packaging_recipes.rs`
+    - `python/README.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: Add local Conda recipe scaffolds for the planned package split and surface recipe-scaffold status through Python wrapper and world-class sufficiency reports.
+  - Completed:
+    - [x] Added a platform-specific `shardloom-cli` Rust binary recipe scaffold using `cargo auditable install`.
+    - [x] Added a `noarch: python` `shardloom-python` wrapper recipe scaffold using `pip install ./python`.
+    - [x] Added an optional `shardloom` metapackage scaffold depending only on `shardloom-cli` and `shardloom-python`.
+    - [x] Added contract tests that keep the recipes split and free of Spark/DataFusion/DuckDB/Polars/pandas/Dask/Velox runtime dependency lines.
+    - [x] Updated report fields to distinguish recipe scaffolding from package build, installation, feedstock, or publication certification.
+  - Explicitly not included: Conda package builds, feedstock creation, package publication, release tagging, source archive/hash finalization, SBOM/signing, external engine dependencies, runtime behavior, SQL/DataFrame/UDF/adapters, or fallback execution.
 - [x] Session label: CG-5.12 / CG-16.16 prepared encoded correctness fixtures
   - Primary files:
     - `shardloom-core/src/correctness.rs`
@@ -3009,6 +3046,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-20.8 Python package release readiness and deterministic CLI resolution make the thin wrapper buildable as wheel/sdist, expose non-placeholder metadata, document the Conda CLI/Python/metapackage split, and add deterministic missing-binary diagnostics without package publication or runtime expansion
 - [x] CG-20.9 approximate aggregate/sketch function roadmap defines `approx_count_distinct`, incumbent aliases, grouped support, partial sketch merge, serialization/deserialization, error-bound evidence, encoded-aware dictionary/run-length/selection-vector strategies, exact-reference fixtures, benchmark evidence, and certificate requirements without implementing a function registry, sketch kernel, dependency, or fallback behavior
 - [x] CG-20.10 Python local Vortex primitive helper surface exposes explicit `vortex-count`, `vortex-count-where`, `vortex-filter`, `vortex-project`, and `vortex-filter-project` CLI JSON helpers while keeping execution opt-in and mature Python/DataFrame/notebook certification deferred
+- [x] CG-20.11 Conda package split recipe scaffolds define `shardloom-cli`, `shardloom-python`, and `shardloom` metapackage recipes plus no-fallback dependency tests while keeping package build/install/publication certification release-gated
 - [~] mature implementation pending
 - [ ] capability certification surface implementation across real SQL/operators/functions/adapters/semantic profiles/migration/Python/API/DataFrame/notebook/UDF/ETL/universal-adapter/unstructured-media certification evidence
 

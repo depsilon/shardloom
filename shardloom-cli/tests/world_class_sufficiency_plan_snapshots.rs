@@ -80,10 +80,11 @@ fn world_class_sufficiency_json_preserves_no_execution_or_claim_effects() {
         "fresh_environment_smoke_status",
         "local_smoke_ready"
     )));
-    assert!(output.contains(&field("conda_package_split_status", "planned")));
-    assert!(output.contains(&field("conda_cli_package_status", "planned")));
-    assert!(output.contains(&field("conda_python_package_status", "planned")));
-    assert!(output.contains(&field("conda_metapackage_status", "planned")));
+    assert!(output.contains(&field("conda_package_split_status", "recipe_scaffolded")));
+    assert!(output.contains(&field("conda_cli_package_status", "recipe_scaffolded")));
+    assert!(output.contains(&field("conda_python_package_status", "recipe_scaffolded")));
+    assert!(output.contains(&field("conda_metapackage_status", "recipe_scaffolded")));
+    assert!(output.contains(&field("conda_recipe_root", "packaging/conda")));
     assert!(output.contains(&field("benchmark_extras_status", "optional_planned")));
     assert!(output.contains(&field(
         "native_io_certificate_coverage",

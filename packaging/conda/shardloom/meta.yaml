@@ -1,0 +1,38 @@
+{% set version = "0.1.0.dev0" %}
+
+package:
+  name: shardloom
+  version: {{ version }}
+
+source:
+  path: ../../..
+
+build:
+  number: 0
+  noarch: generic
+
+requirements:
+  run:
+    - shardloom-cli =={{ version }}
+    - shardloom-python =={{ version }}
+
+test:
+  commands:
+    - shardloom status --format json
+    - python -c "from shardloom import ShardLoomClient; report = ShardLoomClient.from_env().smoke_check(); print(report.fallback_attempted)"
+
+about:
+  home: https://github.com/depsilon/shardloom
+  license: Apache-2.0
+  license_file: LICENSE
+  summary: ShardLoom metapackage for the CLI and Python wrapper.
+  description: |
+    One-command install target for ShardLoom's Rust CLI binary and pure Python
+    wrapper. This metapackage must not add Spark, DataFusion, DuckDB, Polars,
+    pandas, Dask, Velox, or another fallback execution engine as a runtime
+    dependency.
+  dev_url: https://github.com/depsilon/shardloom
+
+extra:
+  recipe-maintainers:
+    - depsilon
