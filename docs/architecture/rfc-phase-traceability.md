@@ -650,6 +650,16 @@ No fallback execution.
 - Empty prepared-batch inputs block deterministically with no fallback instead of pretending broad reader wiring exists.
 - This phase does not open Vortex files, wire readers/adapters, broaden non-local sources, add SQL/DataFrame runtime, write outputs, spill, rerun benchmarks, certify production claims, close CG-2/CG-13, or add fallback execution.
 
+## CG-2.2l / CG-7.30 / CG-13.25 / CG-19.18 generalized prepared encoded filter execution
+
+- Primary RFC linkage: RFC 0015 Correctness/testing, RFC 0021 Expression/Kernel Registry, RFC 0025 Competitive/no-fallback, RFC 0026 Vortex encoded-read/query-readiness boundaries, RFC 0029 Correctness/Benchmarks/Execution Certificates, and RFC 0031 Universal Native I/O Envelope.
+- `shardloom-vortex/src/generalized_encoded_filter_execution.rs` adds `execute_vortex_generalized_filter_from_encoded_value_batches`, an execution-level target for prepared Vortex encoded-value batches.
+- The report composes encoded predicate evaluation, selection-vector filter-kernel evidence, filter-kernel admission, selected-row evidence, side-effect evidence, no-fallback fields, and a CG-19 `cg19.prepared_encoded_filter.native_io` certificate.
+- Safe prepared encoded filter execution records `vortex_encoded->selection_vector_encoded` without row reads, decode, materialization, Arrow conversion, object-store IO, writes, spill, external effects, or fallback execution.
+- Empty prepared-batch inputs and encoding mismatches block deterministically and emit blocked Native I/O evidence rather than pretending reader/adapters exist.
+- The generalized encoded primitive gate now distinguishes prepared encoded filter evidence from local scan-pushdown-only evidence.
+- This phase does not open Vortex files, wire readers/adapters, broaden non-local sources, add SQL/DataFrame runtime, write outputs, spill, rerun benchmarks, certify production claims, close CG-2/CG-13/CG-19, or add fallback execution.
+
 ## CG-2.3f / CG-7.29 / CG-13.24 prepared encoded projection/filter-project evidence
 
 - Primary RFC linkage: RFC 0013 Streaming/zero-decode boundaries, RFC 0015 Correctness/testing, RFC 0021 Expression/Kernel Registry, RFC 0025 Competitive/no-fallback, RFC 0026 Vortex encoded-read/query-readiness boundaries, RFC 0029 Correctness/Benchmarks/Execution Certificates, and RFC 0031 Universal Native I/O Envelope.
@@ -1327,6 +1337,15 @@ No fallback execution.
 - Primary RFC linkage: RFC 0033, RFC 0034, and RFC 0035.
 - Related RFCs: RFC 0025, RFC 0032, RFC 0031, RFC 0030, RFC 0029, RFC 0019, RFC 0018, RFC 0017, RFC 0016, RFC 0014, and RFC 0012.
 - This phase adds no runtime behavior, HTTP server, dependency, package publication, reader, writer, SQL/DataFrame execution, UDF runtime, live/hybrid runtime, object-store IO, catalog access, benchmark execution, superiority claim, best-default claim, or fallback behavior.
+
+## Cross-RFC platform hardening coverage audit
+
+- `docs/architecture/phased-execution-plan.md` now includes a Planned cross-RFC platform hardening and release-readiness lane so older governing RFC themes are visible in the implementation sequence instead of only in historical traceability.
+- The lane explicitly covers RFC 0014 memory/spill/OOM safety, RFC 0017 fault tolerance/cancellation/recovery/idempotency, RFC 0018 observability/tracing/profiling/debug bundles, RFC 0019 security/secrets/governance/data-egress/agent safety, and RFC 0024 release engineering/API compatibility/packaging.
+- It also promotes the remaining cross-cutting CG tracks CG-15 CPU operator specialization, CG-17 stateful reuse/incremental execution, and CG-18 universal import/deployment/baseline harness into Planned so they can be pulled into Active deliberately.
+- Primary RFC linkage: RFC 0014, RFC 0017, RFC 0018, RFC 0019, and RFC 0024.
+- Related RFCs: RFC 0004, RFC 0008, RFC 0012, RFC 0015, RFC 0016, RFC 0021, RFC 0025, RFC 0027, RFC 0029, RFC 0030, RFC 0032, RFC 0033, RFC 0034, and RFC 0035.
+- This audit adds no runtime behavior, dependency, reader, writer, object-store IO, server/API runtime, tracing/exporter integration, UDF execution, package publication, benchmark rerun, superiority claim, best-default claim, or fallback behavior.
 
 ## CG-13.1 encoded path selection report foundation
 

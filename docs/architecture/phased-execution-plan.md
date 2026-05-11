@@ -71,7 +71,7 @@ Use this section for the next implementation sequence. Keep it ordered by depend
   - [x] Vortex encoded-value predicate bridge feeds sparse selections into selection-vector filter-kernel evidence without reader wiring.
   - [x] Multi-segment Vortex encoded-value filter evidence aggregates prepared encoded batches into complete selection-vector filter-kernel evidence without reader wiring.
   - [x] Prepared encoded projection/filter-project evidence preserves encoded projected batches and safe selection-vector evidence without reader wiring.
-  - [ ] Broader generalized encoded-value predicate/filter execution beyond local scan-pushdown and explicit CLI primitive paths.
+  - [x] Broader generalized encoded-value predicate/filter execution beyond local scan-pushdown and explicit CLI primitive paths.
   - [ ] Broader encoded projection and filter-project execution beyond local scan-pushdown and explicit CLI primitive paths, with no row reads, no Arrow conversion, no object-store IO, no writes, no spill, and no fallback.
 - [ ] Priority 1.5 - CG-20 distribution/importability certification lane
   - [x] Publishable pure-Python wrapper package with wheel/sdist build evidence.
@@ -91,6 +91,28 @@ Use this section for the next implementation sequence. Keep it ordered by depend
   - [ ] CG-10 object-store/distributed runtime execution.
   - [ ] CG-20 SQL/DataFrame/UDF/unstructured/media/adapters once the encoded primitive evidence loop and importability lane are no longer the bottleneck.
   - [ ] CG-20 approximate aggregate/sketch function implementation after function-registry, aggregate-state, sketch-serialization, correctness, benchmark, execution-certificate, and Native I/O evidence gates are ready.
+- [ ] Priority 3.5 - cross-RFC platform hardening and release-readiness lane
+  - [ ] RFC 0014 / CG-14 memory, spill, and OOM-safe execution
+    - [ ] Turn resource-derived chunk sizing, parallelism, memory reservation, pressure detection, spill policy, and fail-before-OOM diagnostics into runtime behavior after primitive execution is stable.
+    - [ ] Require operator-level memory/spill declarations for joins, aggregations, sorts, windows, repartition, shuffle, UDFs, sinks, and external-effect boundaries before large-workload claims.
+  - [ ] RFC 0017 fault tolerance, cancellation, recovery, and idempotency
+    - [ ] Promote retry, cancellation, cleanup, ambiguous commit, idempotency, and recovery plans into execution paths only after side-effect boundaries and commit semantics are certified.
+    - [ ] Keep exactly-once, resumability, and recovery claims blocked until CG-4, CG-8, CG-10, CG-16, and CG-22 evidence exists for the declared workload.
+  - [ ] RFC 0018 observability, tracing, profiling, and debug bundles
+    - [ ] Add trace/event/profile/log schema coverage for plan, execution, Vortex IO, object-store IO, memory/spill, translation/output, benchmark, certificate, and unsupported diagnostics.
+    - [ ] Keep OpenTelemetry/exporter integration optional and later; first make local CLI/Python/JSON reports complete, redacted, and certificate-linked.
+  - [ ] RFC 0019 security, governance, credentials, egress, and agent safety
+    - [ ] Add credential-reference, permission, redaction, audit, external-effect, destructive-operation, data-egress, and agent-policy evidence before object-store/API/LLM/media/UDF/server claims.
+    - [ ] Default effectful features to denied or dry-run unless an explicit policy authorizes execution.
+  - [ ] RFC 0024 release engineering, API compatibility, and packaging discipline
+    - [ ] Add schema-version, API-stability, dependency/license, SBOM/provenance, reproducible build, release-note, benchmark-accountability, and no-fallback release checks before public package/release claims.
+    - [ ] Keep container/server/package publication distinct from local development support and optional benchmark extras.
+  - [ ] CG-15 CPU operator specialization
+    - [ ] Add SIMD/cache-aware and encoding-aware operator specialization only after correctness fixtures and benchmark evidence can prove the specialization is safe and useful.
+  - [ ] CG-17 stateful reuse and incremental execution
+    - [ ] Implement stable reuse keys, invalidation, manifest-diff inputs, cache safety, state certificates, and reuse benchmarks before publishing reuse or incremental performance claims.
+  - [ ] CG-18 universal import/deployment/baseline harness
+    - [ ] Mature import/deployment/baseline harnesses for local, CI, container, optional Foundry, and optional benchmark environments without turning external engines into runtime dependencies.
 - [ ] Priority 4 - CG-21 user data workflow and ETL surface implementation lane
   - [ ] CG-21A install/import/runtime discovery
     - [ ] Provide a one-command local install path once packaging approval is complete.
@@ -257,6 +279,33 @@ Use this section for the next implementation sequence. Keep it ordered by depend
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: cross-RFC platform hardening coverage audit
+  - Primary files:
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: Cross-check the remaining RFC themes against the three-section phase-plan queue and make missing cross-cutting implementation hooks visible without creating a second active-status source.
+  - Completed:
+    - [x] Added a Planned lane for RFC 0014 memory/spill/OOM safety, RFC 0017 recovery/idempotency, RFC 0018 observability/profiling, RFC 0019 security/governance/egress/agent safety, and RFC 0024 release/package discipline.
+    - [x] Added explicit Planned hooks for CG-15 CPU specialization, CG-17 stateful reuse/incremental execution, and CG-18 import/deployment/baseline harness maturity.
+    - [x] Preserved CG-21, CG-22, and CG-23 as later implementation lanes while allowing report-only or certification-surface work to be pulled forward when explicitly represented in Planned.
+  - Explicitly not included: runtime behavior, dependencies, readers, writers, object-store IO, server/API runtime, tracing/exporter integration, UDF execution, package publication, benchmark reruns, superiority or best-default claims, or fallback execution.
+- [x] Session label: CG-2.2l / CG-7.30 / CG-13.25 / CG-19.18 generalized prepared encoded filter execution
+  - Primary files:
+    - `shardloom-vortex/src/generalized_encoded_filter_execution.rs`
+    - `shardloom-vortex/src/generalized_encoded_primitive_gate.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/generalized_encoded_primitive_gate_snapshots.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: Add a reusable generalized encoded filter execution surface that consumes explicitly prepared Vortex encoded-value batches, evaluates native encoded predicates, emits selection-vector filter-kernel evidence, and attaches a prepared encoded filter Native I/O certificate.
+  - Completed:
+    - [x] Added `execute_vortex_generalized_filter_from_encoded_value_batches` as the execution-level target above prepared encoded-value predicate batches and below future reader/adapter wiring.
+    - [x] Added `VortexGeneralizedEncodedFilterExecutionReport` with predicate, filter-kernel, kernel-admission, Native I/O, selection-vector, selected-row, side-effect, no-fallback, and claim-gating fields.
+    - [x] Added CG-19 `cg19.prepared_encoded_filter.native_io` evidence for `vortex_encoded->selection_vector_encoded` prepared encoded filter paths.
+    - [x] Updated the generalized encoded primitive gate to distinguish prepared encoded filter evidence from local scan-pushdown-only evidence.
+    - [x] Added success and blocking tests for dictionary/run-length batches, empty prepared batches, and encoding mismatch.
+  - Explicitly not included: new readers, Vortex reader wiring, adapter execution, non-local/object-store sources, SQL/DataFrame/Python runtime expansion, projection broadening, writes, spill, benchmark reruns, superiority claims, production certification, or fallback execution.
 - [x] Session label: CG-21/CG-22/CG-23 broader synthesis cleanup
   - Primary files:
     - `README.md`
@@ -2158,10 +2207,15 @@ Status legend:
   - [x] CG-2.2f fixture-backed local `CountWhere` execution evidence through `vortex-count-where`
   - [x] CG-2.2g local `FilterPredicate` execution evidence through `vortex-filter`
   - [x] CG-2.2h generalized local filter execution surface for CountWhere and FilterPredicate scan-pushdown
+  - [x] CG-2.2i encoded-value predicate kernel foundation for constant, dictionary, and run-length batches
+  - [x] CG-2.2j Vortex encoded-value predicate bridge feeds sparse selections into filter-kernel evidence
+  - [x] CG-2.2k multi-segment Vortex encoded-value filter evidence aggregates prepared encoded batches into filter-kernel evidence
+  - [x] CG-2.2l generalized prepared encoded filter execution surface
   - [x] CG-2.3b projection readiness CLI integration
   - [x] CG-2.3c local `ProjectColumns` execution evidence through `vortex-project`
   - [x] CG-2.3d local `FilterAndProject` execution evidence through `vortex-filter-project`
   - [x] CG-2.3e generalized local projection/filter-project execution surface for ProjectColumns and FilterAndProject scan-pushdown
+  - [x] CG-2.3f prepared encoded projection/filter-project evidence preserves encoded batches and selection-vector evidence
   - Required capabilities for completion:
     - encoded-first selection vectors
     - decode only when explicitly allowed
@@ -2258,6 +2312,7 @@ Status legend:
   - [x] CG-7.27 encoded-value predicate bridge to Vortex filter-kernel evidence
   - [x] CG-7.28 multi-segment encoded-value filter evidence
   - [x] CG-7.29 prepared encoded projection/filter-project evidence
+  - [x] CG-7.30 generalized prepared encoded filter execution
   - Scope:
     - filter/projection/count-aggregate kernels
     - metadata/encoded/hybrid execution levels
@@ -2368,6 +2423,8 @@ Status legend:
 
 - [ ] CG-14 — Runtime-adaptive optimizer and execution memory (**planned**)
   - [x] CG-14.1 adaptive optimizer and memory decision report foundation
+  - [ ] CG-14.4 resource-derived chunk sizing and parallelism runtime application
+  - [ ] CG-14.5 memory reservation, pressure detection, spill policy, and fail-before-OOM execution
   - Scope:
     - adaptive decisions with deterministic diagnostics through `optimizer-adaptive-memory-plan`
     - conservative runtime filters and pruning
@@ -2376,6 +2433,8 @@ Status legend:
 
 - [ ] CG-15 — CPU operator specialization (**planned**)
   - [x] CG-15.1 CPU specialization report foundation
+  - [ ] CG-15.2 correctness-gated SIMD/cache-aware dispatch for certified primitive kernels
+  - [ ] CG-15.3 benchmark-gated encoded-layout specialization for declared workload categories
   - Scope:
     - commodity CPU vectorized specialization through `cpu-specialization-plan`
     - SIMD/cache-aware operator paths
@@ -2405,6 +2464,8 @@ Status legend:
 
 - [ ] CG-17 — Stateful result reuse / incremental execution (**planned**)
   - [x] CG-17.1 stateful reuse boundary report
+  - [ ] CG-17.2 stable reuse keys, invalidation, and manifest-diff evidence
+  - [ ] CG-17.3 incremental recompute execution with state certificates and benchmark evidence
   - Scope:
     - typed cache/reuse boundaries through `stateful-reuse-plan`
     - explicit invalidation rules and correctness-proof signals
@@ -2412,6 +2473,8 @@ Status legend:
 
 - [ ] CG-18 — Universal import/deployment/baseline harness (**planned**)
   - [x] CG-18.1 universal harness report
+  - [ ] CG-18.2 reproducible local/CI/container/optional Foundry harnesses
+  - [ ] CG-18.3 optional Spark/DataFusion/Polars/DuckDB/Dask/pandas baseline environments with comparison-only boundaries
   - Scope:
     - universal runner contracts and portability checks through `universal-harness-plan`
     - external baseline harnesses are comparison-only
@@ -2435,7 +2498,8 @@ Status legend:
   - [x] CG-19.15 copied/non-fixture local `CountAll` emits a certified local Native I/O certificate without correctness or physical-kernel certification
   - [x] CG-19.16 generalized local CountWhere/FilterPredicate scan-pushdown surface emits certified Native I/O evidence for safe local `.vortex` filter paths
   - [x] CG-19.17 generalized local ProjectColumns/FilterAndProject scan-pushdown surface emits certified Native I/O evidence for safe local `.vortex` projection paths
-  - [~] generalized source/sink runtime certificate emission pending beyond local compatibility-file, benchmark native Vortex, local direct-count, copied/non-fixture local CountAll, generalized local filter surface, generalized local projection surface, local primitive, fixture-backed local `CountWhere`, fixture-backed local `FilterPredicate`, fixture-backed local `ProjectColumns`, and fixture-backed local `FilterAndProject` paths
+  - [x] CG-19.18 prepared encoded filter execution emits a certified Native I/O certificate for safe prepared encoded-value batch filter paths
+  - [~] generalized source/sink runtime certificate emission pending beyond local compatibility-file, benchmark native Vortex, local direct-count, copied/non-fixture local CountAll, generalized local filter surface, generalized local projection surface, prepared encoded filter surface, local primitive, fixture-backed local `CountWhere`, fixture-backed local `FilterPredicate`, fixture-backed local `ProjectColumns`, and fixture-backed local `FilterAndProject` paths
   - Scope:
     - preserve representation state, pushdown evidence, materialization boundaries, and sink constraints without default decode
 
@@ -2548,6 +2612,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.2i encoded-value predicate kernel foundation for constant, dictionary, and run-length batches
 - [x] CG-2.2j Vortex encoded-value predicate bridge feeds sparse selections into filter-kernel evidence
 - [x] CG-2.2k multi-segment Vortex encoded-value filter evidence aggregates prepared encoded batches into filter-kernel evidence
+- [x] CG-2.2l generalized prepared encoded filter execution surface composes prepared encoded batches, predicate evidence, selection-vector filter-kernel evidence, and Native I/O certification without reader wiring
 - [x] CG-2.3a projection readiness semantic hardening
 - [x] CG-2.3b projection readiness CLI integration
 - [x] CG-2.3c fixture-backed local `ProjectColumns` execution evidence through `vortex-project`
@@ -2678,6 +2743,8 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
   - Completion here means multiple explicitly supplied encoded-value batches can aggregate into complete Vortex filter-kernel evidence; reader/adapters, benchmark claims, and production certification remain blocked.
 - [x] CG-7.29 prepared encoded projection/filter-project evidence
   - Completion here means explicitly supplied encoded projection batches can be projected and composed with safe selection-vector evidence without materialization; reader/adapters, benchmark claims, and production certification remain blocked.
+- [x] CG-7.30 generalized prepared encoded filter execution
+  - Completion here means explicitly supplied encoded-value batches now have an execution-level report that composes predicate evaluation, selection-vector filter-kernel admission, and Native I/O evidence; reader/adapters, benchmark claims, and production certification remain blocked.
 - [x] count/aggregate kernel
 - [x] metadata/encoded/hybrid execution levels
 - [x] expression evaluation over encoded segments
@@ -2771,6 +2838,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-13.22 Vortex encoded-value predicate bridge carries sparse selection vectors into encoded filter-kernel evidence without reader wiring
 - [x] CG-13.23 multi-segment Vortex encoded-value filter evidence preserves selection vectors across prepared encoded batches without reader wiring
 - [x] CG-13.24 prepared encoded projection/filter-project evidence preserves encoded projected batches and filter selection-vector evidence without reader wiring
+- [x] CG-13.25 generalized prepared encoded filter execution records `vortex_encoded->selection_vector_encoded` evidence for prepared encoded-value batches without reader wiring
 - [ ] generalized direct count/filter/project encoded execution
 - [ ] broad compressed-kernel correctness and benchmark certification
 
@@ -2780,6 +2848,8 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-14.3 conservative runtime-filter and dynamic-pruning proof gates
 - [ ] runtime adaptation application
 - [ ] runtime filter construction/application
+- [ ] resource-derived chunk sizing, partitioning, and parallelism application
+- [ ] memory reservation, pressure detection, spill policy, and fail-before-OOM execution
 - [ ] spill-aware adaptive execution
 
 #### CG-15 detailed checklist
@@ -2789,6 +2859,8 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CPU feature guards and portable native baselines are required before dispatch
 - [x] no external engine fallback for specialization
 - [x] runtime CPU dispatch and unsafe SIMD implementation remain deferred until correctness and benchmark gates exist
+- [ ] correctness-gated SIMD/cache-aware dispatch for certified primitive kernels
+- [ ] benchmark-gated encoded-layout specialization for declared workload categories
 
 #### CG-16 detailed checklist
 - [x] CG-16.1 local encoded `CountAll` execution certificate
@@ -2814,12 +2886,16 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] explicit invalidation and correctness proof signals
 - [x] execution-certificate linkage for every reusable cache family
 - [x] manifest-diff proof requirements before incremental recompute
+- [ ] stable reuse keys, invalidation, and state certificates
+- [ ] incremental recompute execution with no-fallback evidence
 
 #### CG-18 detailed checklist
 - [x] CG-18.1 universal harness report
 - [x] universal runner contracts and portability checks
 - [x] external baseline harnesses are comparison-only
 - [x] Foundry optional deployment/comparison example only
+- [ ] reproducible local, CI, container, optional Foundry, and optional benchmark environments
+- [ ] comparison-only Spark/DataFusion/Polars/DuckDB/Dask/pandas environment separation
 
 #### CG-19 detailed checklist
 - [x] RFC 0031 contract deepening complete
@@ -2841,7 +2917,8 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-19.15 copied/non-fixture local `CountAll` emits a certified local Native I/O certificate while correctness and physical-kernel certification remain unavailable
 - [x] CG-19.16 generalized local CountWhere/FilterPredicate scan-pushdown surface emits certified Native I/O evidence for safe local `.vortex` filter paths
 - [x] CG-19.17 generalized local ProjectColumns/FilterAndProject scan-pushdown surface emits certified Native I/O evidence for safe local `.vortex` projection paths
-- [~] generalized source/sink runtime certificate emission pending beyond local compatibility-file, benchmark native Vortex, local direct-count, copied/non-fixture local CountAll, generalized local filter surface, generalized local projection surface, local primitive, fixture-backed local `CountWhere`, fixture-backed local `FilterPredicate`, fixture-backed local `ProjectColumns`, and fixture-backed local `FilterAndProject` paths
+- [x] CG-19.18 prepared encoded filter execution emits `cg19.prepared_encoded_filter.native_io` for safe prepared encoded-value batch filter paths
+- [~] generalized source/sink runtime certificate emission pending beyond local compatibility-file, benchmark native Vortex, local direct-count, copied/non-fixture local CountAll, generalized local filter surface, generalized local projection surface, prepared encoded filter surface, local primitive, fixture-backed local `CountWhere`, fixture-backed local `FilterPredicate`, fixture-backed local `ProjectColumns`, and fixture-backed local `FilterAndProject` paths
 - [x] representation state, pushdown proof, materialization boundary, sink requirement, adapter fidelity, per-path certificate, no-default-Arrow, and no-fallback report fields are exposed without reads, decode, materialization, IO, writes, or fallback
 
 #### CG-20 detailed checklist
@@ -2982,6 +3059,7 @@ This section preserves older attribution notes that predate the compact CG rollu
 - [x] CG-2.2i/CG-7.26/CG-13.21 encoded-value predicate kernel foundation adds native constant, dictionary-coded, and run-length encoded batch predicate evaluation with sparse selection-vector output while keeping Vortex reader wiring, non-local sources, adapters, SQL, writes, spill, claims, and fallback blocked.
 - [x] CG-2.2j/CG-7.27/CG-13.22 Vortex encoded-value predicate bridge feeds explicit encoded-value batches through the Vortex predicate aggregate and selection-vector filter-kernel evidence path while keeping readers, adapters, SQL, writes, spill, claims, and fallback blocked.
 - [x] CG-2.2k/CG-7.28/CG-13.23 multi-segment Vortex encoded-value filter evidence aggregates prepared encoded batches into complete selection-vector filter-kernel evidence while keeping readers, adapters, SQL, writes, spill, claims, and fallback blocked.
+- [x] CG-2.2l/CG-7.30/CG-13.25/CG-19.18 generalized prepared encoded filter execution composes prepared encoded-value batches, native predicate evaluation, selection-vector filter-kernel admission, and a `cg19.prepared_encoded_filter.native_io` certificate while keeping readers, adapters, SQL, writes, spill, claims, and fallback blocked.
 - [x] CG-2.3f/CG-7.29/CG-13.24 prepared encoded projection/filter-project evidence projects explicitly supplied encoded column batches and composes safe selection-vector filter-kernel evidence while keeping readers, adapters, SQL, writes, spill, claims, and fallback blocked.
 - [x] CG-2.3c/CG-13.16/CG-16.11/CG-19.13 `vortex-project --execute-local-primitive` executes the existing feature-gated local `ProjectColumns` scan-pushdown path, reports encoded projection preservation evidence, and emits Native I/O and execution certificates for the checked-in struct fixture while leaving broader encoded projection kernels, filter-project certification, non-local sources, adapters, SQL, writes, spill, claims, and fallback blocked.
 - [x] CG-2.3d/CG-13.17/CG-16.12/CG-19.14 `vortex-filter-project --execute-local-primitive` executes the existing feature-gated local `FilterAndProject` scan-pushdown path, reports combined filter/projection evidence, and emits Native I/O and execution certificates for the checked-in struct fixture while leaving broader encoded predicate/projection kernels, non-local sources, adapters, SQL, writes, spill, claims, and fallback blocked.
