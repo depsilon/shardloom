@@ -34,7 +34,7 @@ The full vocabulary lives in [`docs/architecture/canonical-terminology.md`](docs
 
 Active implementation state is tracked in [`docs/architecture/phased-execution-plan.md`](docs/architecture/phased-execution-plan.md).
 
-The competitive roadmap is organized as CG-1 through CG-23. CG-21 defines the user data workflow and ETL surface, CG-22 defines the three-engine certified data execution fabric, and CG-23 remains a reserved placeholder for an incoming content-rich gate file that logically follows the current planned work. Supporting RFCs live in [`docs/rfcs`](docs/rfcs), and phase/RFC mapping lives in [`docs/architecture/rfc-phase-traceability.md`](docs/architecture/rfc-phase-traceability.md).
+The competitive roadmap is organized as CG-1 through CG-23. CG-21 defines the user data workflow and ETL surface, CG-22 defines the three-engine certified data execution fabric, and CG-23 defines the REST, event, and remote API surface. Supporting RFCs live in [`docs/rfcs`](docs/rfcs), and phase/RFC mapping lives in [`docs/architecture/rfc-phase-traceability.md`](docs/architecture/rfc-phase-traceability.md).
 
 This README intentionally does not duplicate active status checklists.
 
