@@ -94,9 +94,9 @@ Use this section for the next implementation sequence. Keep it ordered by depend
 - [ ] Priority 4 - CG-21/CG-22/CG-23 content intake
   - [x] Land the CG-21 user data workflow and ETL surface source file mostly as provided.
   - [x] Land the CG-22 three-engine certified data execution fabric source file mostly as provided.
-  - [ ] Land the CG-23 incoming content-rich gate file mostly as provided.
-  - [ ] Keep CG-21, CG-22, and CG-23 after the current planned CG-1 through CG-20 work until their source files define otherwise.
-  - [ ] Refactor references, traceability, terminology, and plan placement only after the raw gate files are stable.
+  - [x] Land the CG-23 REST, event, and remote API surface source file mostly as provided.
+  - [ ] Keep CG-21, CG-22, and CG-23 after the current planned CG-1 through CG-20 work during broader synthesis unless their source files define otherwise.
+  - [ ] Refactor second-order references, traceability, terminology, and plan placement now that the raw gate files are stable.
   - [ ] Preserve no-runtime, no-dependency, no-fallback, and no-claim posture during placeholder and intake passes.
 
 ## Active
@@ -107,6 +107,20 @@ Use this section for the next implementation sequence. Keep it ordered by depend
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: CG-23 REST, event, and remote API surface intake
+  - Primary files:
+    - `docs/rfcs/0035-rest-event-remote-api-surface.md`
+    - `docs/rfcs/0025-competitive-engine-track-no-fallback-replacement.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/canonical-terminology.md`
+    - `README.md`
+  - Scope: Replace the CG-23 placeholder with the incoming content-rich REST, event, and remote API surface material, keeping broad synthesis and implementation for later passes.
+  - Completed:
+    - [x] Renamed RFC 0035 from placeholder to `0035-rest-event-remote-api-surface.md`.
+    - [x] Landed the CG-23 content covering REST control plane, data plane, event plane, discovery endpoints, plan/explain/dry-run endpoints, async query lifecycle, result delivery policies, problem+json errors, engine-aware API behavior, live/hybrid event APIs, API maturity ladder, OpenAPI/AsyncAPI/CloudEvents/OpenTelemetry/OpenLineage/Flight/ADBC/MCP references, security/governance policy, certification blockers, and no-fallback boundaries.
+    - [x] Updated RFC 0025, phase-plan rollups, RFC traceability, terminology, and README references so CG-23 points to the real intake RFC.
+  - Explicitly not included: broad cross-document synthesis, HTTP server implementation, dependencies, runtime behavior, readers, writers, streaming runtime, object-store access, catalog access, adapters, SQL/DataFrame runtime, UDF runtime, benchmark execution, package publication, superiority claims, best-default claims, CG-23 implementation, or fallback execution.
 - [x] Session label: CG-22 three-engine certified data execution fabric intake
   - Primary files:
     - `docs/rfcs/0034-three-engine-certified-data-execution-fabric.md`
@@ -119,7 +133,7 @@ Use this section for the next implementation sequence. Keep it ordered by depend
   - Completed:
     - [x] Renamed RFC 0034 from placeholder to `0034-three-engine-certified-data-execution-fabric.md`.
     - [x] Landed the CG-22 content covering batch/live/hybrid engine modes, engine selection, boundedness, update and output modes, freshness/state/delta overlay/hot-cold/continuous-view certificates, engine-specific lowering, per-engine capability matrices, hot/warm/cold storage, NoSQL-inspired analytical state, roadmap phases, non-goals, certification blockers, and no-fallback boundaries.
-    - [x] Updated RFC 0025, phase-plan rollups, RFC traceability, terminology, and README references so CG-22 points to the real intake RFC while CG-23 remains a placeholder.
+    - [x] Updated RFC 0025, phase-plan rollups, RFC traceability, terminology, and README references so CG-22 points to the real intake RFC while CG-23 remained a placeholder at that time.
   - Explicitly not included: broad cross-document synthesis, runtime behavior, dependencies, readers, writers, streaming runtime, state-store runtime, adapters, SQL/DataFrame runtime, UDF runtime, benchmark execution, superiority claims, best-default claims, CG-22 implementation, CG-23 intake, or fallback execution.
 - [x] Session label: CG-21 user data workflow and ETL surface intake
   - Primary files:
@@ -142,7 +156,7 @@ Use this section for the next implementation sequence. Keep it ordered by depend
     - `docs/rfcs/0025-competitive-engine-track-no-fallback-replacement.md`
     - `docs/rfcs/0033-user-data-workflow-etl-surface.md`
     - `docs/rfcs/0034-three-engine-certified-data-execution-fabric.md`
-    - `docs/rfcs/0035-cg23-placeholder.md`
+    - `docs/rfcs/0035-rest-event-remote-api-surface.md`
     - `README.md`
     - `AGENTS.md`
   - Scope: Reserve CG-21, CG-22, and CG-23 as placeholders for the three incoming content-rich gate files before doing broad cross-document synthesis.
@@ -2284,11 +2298,12 @@ Status legend:
     - engine selection, boundedness, update mode, output mode, freshness, state, delta overlay, hot/cold contribution, and continuous-view certification
     - no runtime behavior, dependency, fallback, or claim permission from RFC alone
 
-- [ ] CG-23 - Reserved content-rich gate 3 (**placeholder; source file pending**)
-  - Placeholder RFC: `docs/rfcs/0035-cg23-placeholder.md`
+- [ ] CG-23 - REST, Event, and Remote API Surface (**intake RFC landed; implementation pending**)
+  - Governing RFC: `docs/rfcs/0035-rest-event-remote-api-surface.md`
   - Scope:
-    - reserved for incoming user-provided content
-    - no runtime behavior, dependency, fallback, or claim permission from placeholder alone
+    - remote REST control plane, event plane, data-plane result delivery contracts, lineage/governance export, and agent-facing API posture
+    - OpenAPI, problem details, AsyncAPI, CloudEvents, OpenTelemetry, OpenLineage, Flight/ADBC, MCP, security/governance, and certificate-linkage contracts
+    - no HTTP server, runtime behavior, dependency, fallback, or claim permission from RFC alone
 
 
 ### Reference: Competitive Engine Gate Detailed Checklist Ledger
@@ -2685,20 +2700,21 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] Placeholder RFC 0033 created.
 - [x] Replace placeholder with incoming content-rich CG-21 source file.
 - [x] Update first-order references, traceability, terminology, and plan placement.
-- [ ] Complete broader cross-document synthesis after CG-23 source file lands.
+- [ ] Complete broader cross-document synthesis now that CG-21, CG-22, and CG-23 source files have landed.
 - [ ] Runtime behavior, dependencies, fallback execution, and claims remain unauthorized until the real CG-21 contract says otherwise and validation gates pass.
 
 #### CG-22 detailed checklist
 - [x] Placeholder RFC 0034 created.
 - [x] Replace placeholder with incoming content-rich CG-22 source file.
 - [x] Update first-order references, traceability, terminology, and plan placement.
-- [ ] Complete broader cross-document synthesis after CG-23 source file lands.
+- [ ] Complete broader cross-document synthesis now that CG-21, CG-22, and CG-23 source files have landed.
 - [ ] Runtime behavior, dependencies, fallback execution, and claims remain unauthorized until the real CG-22 contract says otherwise and validation gates pass.
 
 #### CG-23 detailed checklist
 - [x] Placeholder RFC 0035 created.
-- [ ] Replace or amend placeholder with incoming content-rich CG-23 source file.
-- [ ] After the source file lands, update impacted references, traceability, terminology, and plan placement.
+- [x] Replace placeholder with incoming content-rich CG-23 source file.
+- [x] Update first-order references, traceability, terminology, and plan placement.
+- [ ] Complete broader cross-document synthesis now that CG-21, CG-22, and CG-23 source files have landed.
 - [ ] Runtime behavior, dependencies, fallback execution, and claims remain unauthorized until the real CG-23 contract says otherwise and validation gates pass.
 
 #### CG attribution and evidence notes
