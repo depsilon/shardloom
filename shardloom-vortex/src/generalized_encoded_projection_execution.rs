@@ -1,11 +1,11 @@
 use std::fmt::Write as _;
 
 use shardloom_core::{
-    ColumnRef, Diagnostic, DiagnosticCategory, DiagnosticCode, DiagnosticSeverity,
-    EncodedValueBatch, ExecutionCertificate, ExecutionCertificateInput, ExpectedOutcome,
-    NativeIoAdapterFidelityReport, NativeIoCertificate, NativeIoRepresentationTransition,
-    NativeIoSideEffectReport, NativeIoSinkRequirementReport, NativeIoSourceCapabilityReport,
-    NativeIoSourcePushdownReport, RepresentationState, Result,
+    ColumnRef, CorrectnessFixture, CorrectnessValidationPlan, Diagnostic, DiagnosticCategory,
+    DiagnosticCode, DiagnosticSeverity, EncodedValueBatch, ExecutionCertificate,
+    ExecutionCertificateInput, ExpectedOutcome, NativeIoAdapterFidelityReport, NativeIoCertificate,
+    NativeIoRepresentationTransition, NativeIoSideEffectReport, NativeIoSinkRequirementReport,
+    NativeIoSourceCapabilityReport, NativeIoSourcePushdownReport, RepresentationState, Result,
 };
 
 use crate::{
@@ -261,6 +261,8 @@ fn prepared_encoded_projection_execution_certificate(
     projection_evidence: &VortexEncodedProjectionExecutionReport,
     native_io_certificate: &NativeIoCertificate,
 ) -> Result<ExecutionCertificate> {
+    let correctness_fixture =
+        prepared_encoded_projection_correctness_fixture(projection_evidence, native_io_certificate);
     let mut input = ExecutionCertificateInput::new(
         "cg16.prepared_encoded_projection.execution-certificate",
         EXECUTION_KIND,
@@ -281,6 +283,10 @@ fn prepared_encoded_projection_execution_certificate(
             .selected_row_count
             .or_else(|| projected_row_count(projection_evidence)),
     });
+    if let Some(fixture) = &correctness_fixture {
+        input.correctness_fixture_id = Some(fixture.id.as_str().to_string());
+        input.expected_outcome = Some(fixture.expected.clone());
+    }
     input.selected_segment_count = projection_evidence.projected_batch_count;
     input.side_effects_performed = if projection_evidence.projected_batch_count > 0 {
         vec!["prepared_encoded_projection_kernel".to_string()]
@@ -295,7 +301,10 @@ fn prepared_encoded_projection_execution_certificate(
         .chain(native_io_certificate.diagnostics.iter())
         .any(|diagnostic| diagnostic.fallback.attempted);
     input.fallback_execution_allowed = false;
-    input.correctness_passed = false;
+    input.correctness_passed = correctness_fixture.as_ref().is_some_and(|fixture| {
+        prepared_encoded_projection_execution_safe(projection_evidence, native_io_certificate)
+            && input.actual_outcome.as_ref() == Some(&fixture.expected)
+    });
     input
         .diagnostics
         .extend(projection_evidence.diagnostics.clone());
@@ -332,6 +341,56 @@ fn prepared_encoded_projection_execution_certificate(
         ));
     }
     Ok(ExecutionCertificate::evaluate(input))
+}
+
+fn prepared_encoded_projection_correctness_fixture(
+    projection_evidence: &VortexEncodedProjectionExecutionReport,
+    native_io_certificate: &NativeIoCertificate,
+) -> Option<CorrectnessFixture> {
+    if !native_io_certificate.is_certified() {
+        return None;
+    }
+    let projected_rows = projected_row_count(projection_evidence);
+    if !projection_evidence.selection_vector_preserved
+        && string_order_eq(&projection_evidence.requested_columns, &["metric"])
+        && string_order_eq(&projection_evidence.projected_columns, &["metric"])
+        && projection_evidence.input_batch_count == 2
+        && projection_evidence.projected_batch_count == 1
+        && projected_rows == Some(3)
+    {
+        return correctness_fixture_by_id("vortex-prepared-encoded-projection-dictionary");
+    }
+    if projection_evidence.selection_vector_preserved
+        && string_order_eq(&projection_evidence.requested_columns, &["payload"])
+        && string_order_eq(
+            &projection_evidence.projected_columns,
+            &["payload", "payload"],
+        )
+        && projection_evidence.input_batch_count == 2
+        && projection_evidence.projected_batch_count == 2
+        && projection_evidence.selected_row_count == Some(5)
+        && projected_rows == Some(8)
+    {
+        return correctness_fixture_by_id(
+            "vortex-prepared-encoded-filter-project-selection-vector",
+        );
+    }
+    None
+}
+
+fn string_order_eq(actual: &[String], expected: &[&str]) -> bool {
+    actual.len() == expected.len()
+        && actual
+            .iter()
+            .zip(expected.iter())
+            .all(|(actual, expected)| actual == expected)
+}
+
+fn correctness_fixture_by_id(id: &str) -> Option<CorrectnessFixture> {
+    CorrectnessValidationPlan::default_foundation_plan()
+        .fixtures
+        .into_iter()
+        .find(|fixture| fixture.id.as_str() == id)
 }
 
 fn prepared_encoded_projection_execution_safe(
@@ -666,16 +725,24 @@ mod tests {
         assert!(report.prepared_encoded_columns_consumed);
         assert!(report.encoded_projection_guaranteed);
         assert!(!report.selection_vector_preserved);
-        assert!(!report.correctness_certified);
+        assert!(report.correctness_certified);
         assert!(!report.production_claim_allowed);
         assert!(report.avoids_unsafe_effects());
         assert!(report.native_io_certificate.is_certified());
         assert_eq!(
             report.execution_certificate.status,
-            ExecutionCertificateStatus::EvidenceIncomplete
+            ExecutionCertificateStatus::Certified
         );
         assert!(report.execution_certificate.fallback_free());
         assert!(!report.execution_certificate.unsafe_effect_detected);
+        assert!(report.correctness_certified);
+        assert_eq!(
+            report
+                .execution_certificate
+                .correctness_fixture_id
+                .as_deref(),
+            Some("vortex-prepared-encoded-projection-dictionary")
+        );
         assert_eq!(
             report.execution_certificate.actual_outcome,
             Some(ExpectedOutcome::Rows { row_count: Some(3) })
@@ -763,10 +830,18 @@ mod tests {
         assert!(report.native_io_certificate.is_certified());
         assert_eq!(
             report.execution_certificate.status,
-            ExecutionCertificateStatus::EvidenceIncomplete
+            ExecutionCertificateStatus::Certified
         );
         assert!(report.execution_certificate.fallback_free());
         assert!(!report.execution_certificate.unsafe_effect_detected);
+        assert!(report.correctness_certified);
+        assert_eq!(
+            report
+                .execution_certificate
+                .correctness_fixture_id
+                .as_deref(),
+            Some("vortex-prepared-encoded-filter-project-selection-vector")
+        );
         assert_eq!(
             report.execution_certificate.actual_outcome,
             Some(ExpectedOutcome::Rows { row_count: Some(5) })

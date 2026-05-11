@@ -82,6 +82,7 @@ Use this section for the next implementation sequence. Keep it ordered by depend
 - [ ] Priority 2 - evidence loop paired with every execution expansion
   - [x] CG-5/CG-16 fixture-backed execution certificates wired into generalized local primitive filter/projection surfaces.
   - [x] CG-16 evidence-incomplete execution certificates wired into prepared encoded filter/projection surfaces while CG-5 fixture certification remains blocked.
+  - [x] CG-5/CG-16 prepared encoded filter/projection fixtures certify the narrow prepared encoded execution reports.
   - [ ] CG-5 fixtures, reference outputs, correctness certificates, and edge-case coverage for each widened primitive path.
   - [ ] CG-6 query-runtime benchmark rows, reproducibility metadata, work-avoidance evidence, and claim-gate blockers for each new primitive path.
   - [ ] CG-16 execution certificates and CG-19 per-path Native I/O certificates for each supported source/sink path.
@@ -280,6 +281,23 @@ Use this section for the next implementation sequence. Keep it ordered by depend
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: CG-5.12 / CG-16.16 prepared encoded correctness fixtures
+  - Primary files:
+    - `shardloom-core/src/correctness.rs`
+    - `shardloom-contract-tests/tests/correctness_fixture_manifest.rs`
+    - `shardloom-contract-tests/tests/correctness_differential_harness.rs`
+    - `shardloom-vortex/src/generalized_encoded_filter_execution.rs`
+    - `shardloom-vortex/src/generalized_encoded_projection_execution.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: Add deterministic generated CG-5 reference outputs for prepared encoded filter, prepared encoded projection, and prepared encoded filter-project evidence, then let exact prepared execution reports certify through CG-16.
+  - Completed:
+    - [x] Added `vortex-prepared-encoded-filter-dictionary-run`, `vortex-prepared-encoded-projection-dictionary`, and `vortex-prepared-encoded-filter-project-selection-vector` fixtures.
+    - [x] Updated correctness fixture and differential harness inventory counts to include the new generated golden fixtures.
+    - [x] Prepared encoded filter reports now certify when the exact dictionary/run-length fixture shape produces five selected rows.
+    - [x] Prepared encoded projection reports now certify for the exact dictionary projection and selection-vector filter-project fixture shapes.
+    - [x] Non-matching or unsafe prepared evidence remains blocked or evidence-incomplete without fallback.
+  - Explicitly not included: broader edge-case fixture families, decoded-reference artifacts, external oracle execution, reader/adapters, non-local/object-store sources, SQL/DataFrame/Python runtime expansion, writes, spill, benchmark reruns, production certification, or fallback execution.
 - [x] Session label: CG-16.15 prepared encoded execution certificate surfacing
   - Primary files:
     - `shardloom-vortex/src/generalized_encoded_filter_execution.rs`
@@ -2290,6 +2308,7 @@ Status legend:
   - [x] CG-5.9 checked-in local primitive struct fixture source refs for count-where/project/filter-project evidence
   - [x] CG-5.10 checked-in struct fixture source ref for local `CountAll` evidence
   - [x] CG-5.11 generalized local primitive fixture matching is reusable from `shardloom-vortex`
+  - [x] CG-5.12 prepared encoded filter/projection generated fixtures and reference outputs
   - Expected evidence:
     - golden Vortex fixtures
     - decoded reference outputs
@@ -2498,6 +2517,7 @@ Status legend:
   - [x] CG-16.13 copied/non-fixture local `CountAll` reports execution-certificate unavailable while keeping Native I/O evidence certified
   - [x] CG-16.14 generalized local filter/projection surfaces emit execution certificates only for exact checked-in fixture matches
   - [x] CG-16.15 prepared encoded filter/projection surfaces emit execution-certificate evidence with `evidence_incomplete` status until CG-5 fixtures exist
+  - [x] CG-16.16 prepared encoded filter/projection surfaces certify exact generated CG-5 fixture matches
   - Scope:
     - plan/input/output evidence artifacts through `execution-certificate-plan`
     - reproducibility metadata and segment traces
@@ -2711,6 +2731,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-5.9 checked-in local primitive struct fixture source refs for count-where/project/filter-project evidence
 - [x] CG-5.10 checked-in struct fixture source ref for local `CountAll` evidence
 - [x] CG-5.11 generalized local primitive fixture matching is reusable from `shardloom-vortex`
+- [x] CG-5.12 prepared encoded filter/projection generated fixtures and reference outputs certify narrow prepared encoded execution reports
 - [~] decoded-reference output artifacts
 - [~] property/fuzz fixture families and reproducible seeds
 - [~] external-oracle result artifacts remain deferred; engines are policy-only baselines until explicit benchmark/correctness runs
@@ -2924,6 +2945,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-16.13 copied/non-fixture local `CountAll` keeps execution allowed but reports execution certificate unavailable until correctness fixture evidence exists
 - [x] CG-16.14 generalized local filter/projection surfaces emit execution certificates only for exact checked-in fixture matches
 - [x] CG-16.15 prepared encoded filter/projection surfaces emit execution certificates with evidence-incomplete correctness status for safe prepared execution and blocked status for unsafe prepared evidence
+- [x] CG-16.16 prepared encoded filter/projection surfaces certify exact generated CG-5 fixture matches while non-matching prepared evidence remains uncertified or blocked
 - [x] plan/input/output evidence artifacts for reproducibility
 - [x] deterministic, machine-readable certificate surfaces
 
@@ -3110,6 +3132,7 @@ This section preserves older attribution notes that predate the compact CG rollu
 - [x] CG-2.2l/CG-7.30/CG-13.25/CG-19.18 generalized prepared encoded filter execution composes prepared encoded-value batches, native predicate evaluation, selection-vector filter-kernel admission, and a `cg19.prepared_encoded_filter.native_io` certificate while keeping readers, adapters, SQL, writes, spill, claims, and fallback blocked.
 - [x] CG-2.3g/CG-7.31/CG-13.26/CG-19.19 generalized prepared encoded projection/filter-project execution composes prepared encoded projection batches, optional safe selection-vector filter evidence, and a `cg19.prepared_encoded_projection.native_io` certificate while keeping readers, adapters, SQL, writes, spill, claims, and fallback blocked.
 - [x] CG-16.15 prepared encoded execution certificate surfacing attaches CG-16 execution certificates to prepared encoded filter and projection/filter-project execution reports, returning evidence-incomplete correctness status for safe prepared execution and blocked status for unsafe prepared evidence while keeping CG-5 fixtures, benchmark claims, production certification, and fallback blocked.
+- [x] CG-5.12/CG-16.16 prepared encoded correctness fixtures add generated reference outputs for prepared encoded filter, projection, and filter-project paths and certify exact matching prepared execution certificates while keeping broad fixtures, benchmark claims, production certification, and fallback blocked.
 - [x] CG-2.3f/CG-7.29/CG-13.24 prepared encoded projection/filter-project evidence projects explicitly supplied encoded column batches and composes safe selection-vector filter-kernel evidence while keeping readers, adapters, SQL, writes, spill, claims, and fallback blocked.
 - [x] CG-2.3c/CG-13.16/CG-16.11/CG-19.13 `vortex-project --execute-local-primitive` executes the existing feature-gated local `ProjectColumns` scan-pushdown path, reports encoded projection preservation evidence, and emits Native I/O and execution certificates for the checked-in struct fixture while leaving broader encoded projection kernels, filter-project certification, non-local sources, adapters, SQL, writes, spill, claims, and fallback blocked.
 - [x] CG-2.3d/CG-13.17/CG-16.12/CG-19.14 `vortex-filter-project --execute-local-primitive` executes the existing feature-gated local `FilterAndProject` scan-pushdown path, reports combined filter/projection evidence, and emits Native I/O and execution certificates for the checked-in struct fixture while leaving broader encoded predicate/projection kernels, non-local sources, adapters, SQL, writes, spill, claims, and fallback blocked.

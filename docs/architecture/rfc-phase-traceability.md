@@ -688,6 +688,15 @@ No fallback execution.
 - Unsafe prepared evidence, missing encoded batches, missing requested columns, or failed Native I/O evidence emits blocked execution certificates instead of widening runtime behavior.
 - This phase does not add CG-5 fixture families, decoded-reference artifacts, reader/adapters, non-local sources, object-store IO, SQL/DataFrame runtime, writes, spill, benchmark reruns, production certification, or fallback execution.
 
+## CG-5.12 / CG-16.16 prepared encoded correctness fixtures
+
+- Primary RFC linkage: RFC 0015 Correctness/testing, RFC 0025 Competitive/no-fallback, RFC 0029 Correctness/Benchmarks/Execution Certificates, RFC 0031 Universal Native I/O Envelope, and RFC 0032 capability certification.
+- `shardloom-core/src/correctness.rs` adds generated golden fixtures for prepared encoded filter, prepared encoded projection, and prepared encoded filter-project evidence.
+- `shardloom-contract-tests/tests/correctness_fixture_manifest.rs` and `correctness_differential_harness.rs` update the fixture inventory and harness counts so the prepared encoded reference outputs are visible to CG-5.
+- Prepared encoded filter execution certificates now certify the exact dictionary/run-length fixture shape with five selected rows.
+- Prepared encoded projection and filter-project execution certificates now certify the exact dictionary projection and selection-vector filter-project fixture shapes.
+- This phase does not add broad edge-case fixture families, decoded-reference artifacts, external oracle execution, reader/adapters, non-local sources, object-store IO, SQL/DataFrame runtime, writes, spill, benchmark reruns, production certification, or fallback execution.
+
 ## CG-5.1 metadata query primitive correctness fixtures
 
 - Primary RFC linkage: RFC 0015 Correctness/Semantics/Differential Testing, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
