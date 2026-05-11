@@ -89,12 +89,17 @@ $wheel = Get-ChildItem python\dist\shardloom-*.whl | Select-Object -First 1
 
 Conda packaging should stay split so the pure Python wrapper can remain
 `noarch: python` while the Rust CLI binary is built as a platform-specific
-package:
+package. Local recipe scaffolds live under `packaging/conda/`:
 
 - `shardloom-cli`: compiled Rust `shardloom` binary.
-- `shardloom` or `shardloom-python`: pure Python wrapper/import surface.
+- `shardloom-python`: pure Python wrapper/import surface.
 - Optional `shardloom` metapackage: depends on both the wrapper and CLI for a
   one-command install path.
+
+The recipes are not published packages. A release pass must align versions,
+replace local sources with tagged source archives and hashes, review license
+metadata, build packages in clean Conda environments, and receive explicit
+human approval before publication.
 
 Spark, DataFusion, Polars, DuckDB, pandas, and Dask belong only in optional
 benchmark environments; they are not ShardLoom runtime dependencies or fallback

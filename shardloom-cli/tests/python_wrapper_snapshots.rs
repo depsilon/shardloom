@@ -63,6 +63,10 @@ fn python_wrapper_plan_json_defers_mature_python_surfaces() {
     assert!(output.contains(&field("conda_cli_package_required", "true")));
     assert!(output.contains(&field("conda_python_package_planned", "true")));
     assert!(output.contains(&field("conda_metapackage_planned", "true")));
+    assert!(output.contains(&field("conda_recipe_root", "packaging/conda")));
+    assert!(output.contains(&field("conda_cli_recipe_created", "true")));
+    assert!(output.contains(&field("conda_python_recipe_created", "true")));
+    assert!(output.contains(&field("conda_metapackage_recipe_created", "true")));
     assert!(output.contains(&field("benchmark_extras_optional", "true")));
     assert!(output.contains(&field("pyo3_maturin_allowed", "false")));
     assert!(output.contains(&field("python_package_created", "true")));

@@ -5175,6 +5175,22 @@ fn append_python_wrapper_distribution_fields(
         "conda_metapackage_planned",
         report.conda_metapackage_planned,
     );
+    push_field(fields, "conda_recipe_root", report.conda_recipe_root);
+    push_bool_field(
+        fields,
+        "conda_cli_recipe_created",
+        report.conda_cli_recipe_created,
+    );
+    push_bool_field(
+        fields,
+        "conda_python_recipe_created",
+        report.conda_python_recipe_created,
+    );
+    push_bool_field(
+        fields,
+        "conda_metapackage_recipe_created",
+        report.conda_metapackage_recipe_created,
+    );
     push_bool_field(
         fields,
         "benchmark_extras_optional",
@@ -6403,10 +6419,11 @@ fn append_world_class_sufficiency_surface_status_fields(
         "fresh_environment_smoke_status",
         "local_smoke_ready",
     );
-    push_field(fields, "conda_package_split_status", "planned");
-    push_field(fields, "conda_cli_package_status", "planned");
-    push_field(fields, "conda_python_package_status", "planned");
-    push_field(fields, "conda_metapackage_status", "planned");
+    push_field(fields, "conda_package_split_status", "recipe_scaffolded");
+    push_field(fields, "conda_cli_package_status", "recipe_scaffolded");
+    push_field(fields, "conda_python_package_status", "recipe_scaffolded");
+    push_field(fields, "conda_metapackage_status", "recipe_scaffolded");
+    push_field(fields, "conda_recipe_root", "packaging/conda");
     push_field(fields, "benchmark_extras_status", "optional_planned");
 }
 

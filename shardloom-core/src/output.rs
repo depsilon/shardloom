@@ -295,6 +295,10 @@ pub struct PythonWrapperFoundationReport {
     pub conda_cli_package_required: bool,
     pub conda_python_package_planned: bool,
     pub conda_metapackage_planned: bool,
+    pub conda_recipe_root: &'static str,
+    pub conda_cli_recipe_created: bool,
+    pub conda_python_recipe_created: bool,
+    pub conda_metapackage_recipe_created: bool,
     pub benchmark_extras_optional: bool,
     pub pyo3_maturin_allowed: bool,
     pub python_package_created: bool,
@@ -363,6 +367,10 @@ impl PythonWrapperFoundationReport {
             conda_cli_package_required: true,
             conda_python_package_planned: true,
             conda_metapackage_planned: true,
+            conda_recipe_root: "packaging/conda",
+            conda_cli_recipe_created: true,
+            conda_python_recipe_created: true,
+            conda_metapackage_recipe_created: true,
             benchmark_extras_optional: true,
             pyo3_maturin_allowed: false,
             python_package_created: true,
@@ -913,6 +921,10 @@ mod tests {
         assert!(report.conda_cli_package_required);
         assert!(report.conda_python_package_planned);
         assert!(report.conda_metapackage_planned);
+        assert_eq!(report.conda_recipe_root, "packaging/conda");
+        assert!(report.conda_cli_recipe_created);
+        assert!(report.conda_python_recipe_created);
+        assert!(report.conda_metapackage_recipe_created);
         assert!(report.benchmark_extras_optional);
         assert!(!report.pyo3_maturin_allowed);
         assert!(!report.native_extension_required);

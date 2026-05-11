@@ -1,0 +1,47 @@
+{% set version = "0.1.0.dev0" %}
+{% set python_min = "3.10" %}
+
+package:
+  name: shardloom-python
+  version: {{ version }}
+
+source:
+  path: ../../..
+
+build:
+  number: 0
+  noarch: python
+  script: {{ PYTHON }} -m pip install ./python --no-deps --no-build-isolation -vv
+
+requirements:
+  host:
+    - python {{ python_min }}
+    - pip
+    - setuptools >=77
+  run:
+    - python >={{ python_min }}
+
+test:
+  imports:
+    - shardloom
+  commands:
+    - python -m pip check
+    - python -c "from shardloom import ShardLoomClient; print(type(ShardLoomClient.from_env()).__name__)"
+  requires:
+    - pip
+    - python {{ python_min }}
+
+about:
+  home: https://github.com/depsilon/shardloom
+  license: Apache-2.0
+  license_file: LICENSE
+  summary: Pure Python ShardLoom CLI JSON client.
+  description: |
+    Pure Python wrapper for the ShardLoom CLI JSON protocol. Importing this
+    package must not execute ShardLoom, probe files, probe networks, access
+    catalogs, or invoke fallback engines.
+  dev_url: https://github.com/depsilon/shardloom
+
+extra:
+  recipe-maintainers:
+    - depsilon
