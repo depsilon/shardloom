@@ -505,6 +505,46 @@ fn add_local_primitive_foundation_fixtures(plan: &mut CorrectnessValidationPlan)
     ));
 }
 
+fn prepared_encoded_rows_fixture(
+    id: &str,
+    primary_area: SemanticArea,
+    edge_cases: &[EdgeCase],
+    row_count: u64,
+) -> CorrectnessFixture {
+    let mut fixture =
+        CorrectnessFixture::new(FixtureId::new(id).expect("valid"), FixtureFormat::Generated)
+            .with_expected(ExpectedOutcome::Rows {
+                row_count: Some(row_count),
+            });
+    fixture.add_semantic_area(primary_area);
+    for edge_case in edge_cases {
+        fixture.add_edge_case(*edge_case);
+    }
+    fixture.add_reference_role(ReferenceRole::GoldenFixture);
+    fixture
+}
+
+fn add_prepared_encoded_foundation_fixtures(plan: &mut CorrectnessValidationPlan) {
+    plan.add_fixture(prepared_encoded_rows_fixture(
+        "vortex-prepared-encoded-filter-dictionary-run",
+        SemanticArea::SelectionVectors,
+        &[EdgeCase::DictionaryEncoded, EdgeCase::RunLengthEncoded],
+        5,
+    ));
+    plan.add_fixture(prepared_encoded_rows_fixture(
+        "vortex-prepared-encoded-projection-dictionary",
+        SemanticArea::EncodedExecution,
+        &[EdgeCase::DictionaryEncoded],
+        3,
+    ));
+    plan.add_fixture(prepared_encoded_rows_fixture(
+        "vortex-prepared-encoded-filter-project-selection-vector",
+        SemanticArea::SelectionVectors,
+        &[EdgeCase::SparseValidity, EdgeCase::RunLengthEncoded],
+        5,
+    ));
+}
+
 fn default_external_oracle_baselines() -> Vec<DifferentialBaseline> {
     [
         BaselineEngine::Spark,
@@ -577,6 +617,7 @@ impl CorrectnessValidationPlan {
         plan.add_fixture(vortex_metadata_footer_fixture());
         plan.add_fixture(vortex_local_encoded_count_fixture());
         add_local_primitive_foundation_fixtures(&mut plan);
+        add_prepared_encoded_foundation_fixtures(&mut plan);
         for fixture in [
             generated_fixture(
                 "null-semantics",
@@ -1409,10 +1450,10 @@ mod tests {
     fn foundation_plan_exposes_coverage_inventory() {
         let plan = CorrectnessValidationPlan::default_foundation_plan();
 
-        assert_eq!(plan.fixture_count(), 19);
+        assert_eq!(plan.fixture_count(), 22);
         assert_eq!(plan.fixtures_with_source_ref_count(), 7);
-        assert_eq!(plan.golden_fixture_count(), 7);
-        assert_eq!(plan.executable_expected_output_count(), 6);
+        assert_eq!(plan.golden_fixture_count(), 10);
+        assert_eq!(plan.executable_expected_output_count(), 9);
         assert_eq!(plan.not_yet_defined_fixture_count(), 8);
         assert_eq!(plan.diagnostic_expected_output_count(), 1);
         assert_eq!(plan.unsupported_expected_output_count(), 1);
@@ -1445,9 +1486,9 @@ mod tests {
             report.report_id,
             "cg5.correctness_differential_harness.aggregate"
         );
-        assert_eq!(report.fixture_count, 19);
-        assert_eq!(report.golden_fixture_count, 7);
-        assert_eq!(report.executable_expected_output_count, 6);
+        assert_eq!(report.fixture_count, 22);
+        assert_eq!(report.golden_fixture_count, 10);
+        assert_eq!(report.executable_expected_output_count, 9);
         assert_eq!(report.decoded_reference_output_count, 0);
         assert_eq!(report.generated_property_fixture_count, 0);
         assert_eq!(report.fuzz_seed_count, 0);

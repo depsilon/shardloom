@@ -65,10 +65,10 @@ fn correctness_harness_json_exposes_fixtures_oracles_and_missing_modes() {
         "missing_validation_mode_order",
         "decoded_reference,property_based,fuzz"
     )));
-    assert!(output.contains(&field("fixture_count", "19")));
-    assert!(output.contains(&field("golden_fixture_count", "7")));
+    assert!(output.contains(&field("fixture_count", "22")));
+    assert!(output.contains(&field("golden_fixture_count", "10")));
     assert!(output.contains(&field("decoded_reference_output_count", "0")));
-    assert!(output.contains(&field("executable_expected_output_count", "6")));
+    assert!(output.contains(&field("executable_expected_output_count", "9")));
     assert!(output.contains(&field("not_yet_defined_fixture_count", "8")));
     assert!(output.contains(&field("unsupported_diagnostic_fixture_count", "2")));
     assert!(output.contains(&field("baseline_count", "7")));

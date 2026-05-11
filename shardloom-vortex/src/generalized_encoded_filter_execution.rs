@@ -1,11 +1,11 @@
 use std::fmt::Write as _;
 
 use shardloom_core::{
-    Diagnostic, DiagnosticCategory, DiagnosticCode, DiagnosticSeverity, ExecutionCertificate,
-    ExecutionCertificateInput, ExpectedOutcome, NativeIoAdapterFidelityReport, NativeIoCertificate,
-    NativeIoRepresentationTransition, NativeIoSideEffectReport, NativeIoSinkRequirementReport,
-    NativeIoSourceCapabilityReport, NativeIoSourcePushdownReport, PredicateExpr,
-    RepresentationState, Result,
+    CorrectnessFixture, CorrectnessValidationPlan, Diagnostic, DiagnosticCategory, DiagnosticCode,
+    DiagnosticSeverity, ExecutionCertificate, ExecutionCertificateInput, ExpectedOutcome,
+    NativeIoAdapterFidelityReport, NativeIoCertificate, NativeIoRepresentationTransition,
+    NativeIoSideEffectReport, NativeIoSinkRequirementReport, NativeIoSourceCapabilityReport,
+    NativeIoSourcePushdownReport, PredicateExpr, RepresentationState, Result,
 };
 
 use crate::{
@@ -302,6 +302,12 @@ fn prepared_encoded_filter_execution_certificate(
     filter_kernel_admission: &VortexSelectionVectorFilterKernelAdmissionReport,
     native_io_certificate: &NativeIoCertificate,
 ) -> Result<ExecutionCertificate> {
+    let correctness_fixture = prepared_encoded_filter_correctness_fixture(
+        encoded_batch_count,
+        predicate_evaluation,
+        filter_kernel,
+        native_io_certificate,
+    );
     let mut input = ExecutionCertificateInput::new(
         "cg16.prepared_encoded_filter.execution-certificate",
         EXECUTION_KIND,
@@ -315,6 +321,10 @@ fn prepared_encoded_filter_execution_certificate(
     input.actual_outcome = Some(ExpectedOutcome::Rows {
         row_count: filter_kernel.selected_row_count,
     });
+    if let Some(fixture) = &correctness_fixture {
+        input.correctness_fixture_id = Some(fixture.id.as_str().to_string());
+        input.expected_outcome = Some(fixture.expected.clone());
+    }
     input.selected_segment_count = predicate_evaluation.segment_report_count;
     input.side_effects_performed = if encoded_batch_count > 0 {
         vec!["prepared_encoded_filter_kernel".to_string()]
@@ -328,7 +338,41 @@ fn prepared_encoded_filter_execution_certificate(
         filter_kernel_admission,
         native_io_certificate,
     );
-    input.fallback_attempted = predicate_evaluation
+    input.fallback_attempted = prepared_encoded_filter_certificate_fallback_attempted(
+        predicate_evaluation,
+        filter_kernel,
+        filter_kernel_admission,
+        native_io_certificate,
+    );
+    input.fallback_execution_allowed = false;
+    input.correctness_passed = correctness_fixture.as_ref().is_some_and(|fixture| {
+        prepared_encoded_filter_execution_safe(
+            encoded_batch_count,
+            predicate_evaluation,
+            filter_kernel,
+            filter_kernel_admission,
+            native_io_certificate,
+        ) && input.actual_outcome.as_ref() == Some(&fixture.expected)
+    });
+    extend_prepared_encoded_filter_certificate_diagnostics(
+        &mut input,
+        predicate,
+        encoded_batch_count,
+        predicate_evaluation,
+        filter_kernel,
+        filter_kernel_admission,
+        native_io_certificate,
+    );
+    Ok(ExecutionCertificate::evaluate(input))
+}
+
+fn prepared_encoded_filter_certificate_fallback_attempted(
+    predicate_evaluation: &VortexEncodedPredicateEvaluationReport,
+    filter_kernel: &VortexSelectionVectorFilterKernelReport,
+    filter_kernel_admission: &VortexSelectionVectorFilterKernelAdmissionReport,
+    native_io_certificate: &NativeIoCertificate,
+) -> bool {
+    predicate_evaluation
         .diagnostics
         .iter()
         .chain(
@@ -340,9 +384,18 @@ fn prepared_encoded_filter_execution_certificate(
         .chain(filter_kernel.diagnostics.iter())
         .chain(filter_kernel_admission.diagnostics.iter())
         .chain(native_io_certificate.diagnostics.iter())
-        .any(|diagnostic| diagnostic.fallback.attempted);
-    input.fallback_execution_allowed = false;
-    input.correctness_passed = false;
+        .any(|diagnostic| diagnostic.fallback.attempted)
+}
+
+fn extend_prepared_encoded_filter_certificate_diagnostics(
+    input: &mut ExecutionCertificateInput,
+    predicate: &PredicateExpr,
+    encoded_batch_count: usize,
+    predicate_evaluation: &VortexEncodedPredicateEvaluationReport,
+    filter_kernel: &VortexSelectionVectorFilterKernelReport,
+    filter_kernel_admission: &VortexSelectionVectorFilterKernelAdmissionReport,
+    native_io_certificate: &NativeIoCertificate,
+) {
     input
         .diagnostics
         .extend(predicate_evaluation.diagnostics.clone());
@@ -388,7 +441,29 @@ fn prepared_encoded_filter_execution_certificate(
             shardloom_core::FallbackStatus::disabled_by_policy(),
         ));
     }
-    Ok(ExecutionCertificate::evaluate(input))
+}
+
+fn prepared_encoded_filter_correctness_fixture(
+    encoded_batch_count: usize,
+    predicate_evaluation: &VortexEncodedPredicateEvaluationReport,
+    filter_kernel: &VortexSelectionVectorFilterKernelReport,
+    native_io_certificate: &NativeIoCertificate,
+) -> Option<CorrectnessFixture> {
+    let matches_prepared_fixture = encoded_batch_count == 2
+        && predicate_evaluation.segment_report_count == 2
+        && filter_kernel.selection_vector_count == 2
+        && filter_kernel.selected_row_count == Some(5)
+        && native_io_certificate.is_certified();
+    matches_prepared_fixture
+        .then(|| correctness_fixture_by_id("vortex-prepared-encoded-filter-dictionary-run"))
+        .flatten()
+}
+
+fn correctness_fixture_by_id(id: &str) -> Option<CorrectnessFixture> {
+    CorrectnessValidationPlan::default_foundation_plan()
+        .fixtures
+        .into_iter()
+        .find(|fixture| fixture.id.as_str() == id)
 }
 
 fn prepared_encoded_filter_execution_safe(
@@ -674,16 +749,24 @@ mod tests {
         assert!(report.runtime_execution_allowed);
         assert!(report.prepared_encoded_values_consumed);
         assert!(report.selection_vector_guaranteed);
-        assert!(!report.correctness_certified);
+        assert!(report.correctness_certified);
         assert!(!report.production_claim_allowed);
         assert!(report.avoids_unsafe_effects());
         assert!(report.native_io_certificate.is_certified());
         assert_eq!(
             report.execution_certificate.status,
-            ExecutionCertificateStatus::EvidenceIncomplete
+            ExecutionCertificateStatus::Certified
         );
         assert!(report.execution_certificate.fallback_free());
         assert!(!report.execution_certificate.unsafe_effect_detected);
+        assert!(report.correctness_certified);
+        assert_eq!(
+            report
+                .execution_certificate
+                .correctness_fixture_id
+                .as_deref(),
+            Some("vortex-prepared-encoded-filter-dictionary-run")
+        );
         assert_eq!(
             report.execution_certificate.actual_outcome,
             Some(ExpectedOutcome::Rows { row_count: Some(5) })

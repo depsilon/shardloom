@@ -33,18 +33,18 @@ fn correctness_plan_json_exposes_fixture_and_edge_case_inventory() {
     assert!(output.contains("\"status\":\"success\""));
     assert!(output.contains(&field("mode", "correctness_plan")));
     assert!(output.contains(&field("status", "planned")));
-    assert!(output.contains(&field("fixture_count", "19")));
+    assert!(output.contains(&field("fixture_count", "22")));
     assert!(output.contains(&field(
         "fixture_id_order",
-        "vortex-metadata-footer-u64-20000,vortex-local-encoded-count-u64-20000,vortex-local-count-all-struct-five,vortex-local-count-where-struct-five,vortex-local-project-struct-five,vortex-local-filter-struct-five,vortex-local-filter-project-struct-five,null-semantics,metadata-only-correctness,pruning-correctness,encoded-vs-decoded-reference,translation-metadata-loss,unsupported-diagnostics,plan-only-no-side-effects,nested-data-edge-corpus,dictionary-encoded-edge-corpus,sparse-validity-edge-corpus,run-length-edge-corpus,temporal-semantics"
+        "vortex-metadata-footer-u64-20000,vortex-local-encoded-count-u64-20000,vortex-local-count-all-struct-five,vortex-local-count-where-struct-five,vortex-local-project-struct-five,vortex-local-filter-struct-five,vortex-local-filter-project-struct-five,vortex-prepared-encoded-filter-dictionary-run,vortex-prepared-encoded-projection-dictionary,vortex-prepared-encoded-filter-project-selection-vector,null-semantics,metadata-only-correctness,pruning-correctness,encoded-vs-decoded-reference,translation-metadata-loss,unsupported-diagnostics,plan-only-no-side-effects,nested-data-edge-corpus,dictionary-encoded-edge-corpus,sparse-validity-edge-corpus,run-length-edge-corpus,temporal-semantics"
     )));
     assert!(output.contains(&field(
         "semantic_area_order",
-        "metadata_only,encoded_execution,nulls,pruning,translation,unsupported_diagnostics,external_effects,nested_data,selection_vectors,temporal"
+        "metadata_only,encoded_execution,selection_vectors,nulls,pruning,translation,unsupported_diagnostics,external_effects,nested_data,temporal"
     )));
     assert!(output.contains(&field(
         "edge_case_order",
-        "no_nulls,all_null,missing_statistics,approximate_statistics,unsupported_encoding,metadata_loss,unsupported_plan_shape,empty_input,nested_struct_list,dictionary_encoded,sparse_validity,run_length_encoded,temporal_values"
+        "no_nulls,dictionary_encoded,run_length_encoded,sparse_validity,all_null,missing_statistics,approximate_statistics,unsupported_encoding,metadata_loss,unsupported_plan_shape,empty_input,nested_struct_list,temporal_values"
     )));
 }
 
@@ -57,8 +57,8 @@ fn correctness_plan_json_exposes_reference_and_gap_counts() {
         "golden_fixture,external_oracle"
     )));
     assert!(output.contains(&field("fixtures_with_source_ref_count", "7")));
-    assert!(output.contains(&field("golden_fixture_count", "7")));
-    assert!(output.contains(&field("executable_expected_output_count", "6")));
+    assert!(output.contains(&field("golden_fixture_count", "10")));
+    assert!(output.contains(&field("executable_expected_output_count", "9")));
     assert!(output.contains(&field("not_yet_defined_fixture_count", "8")));
     assert!(output.contains(&field("diagnostic_expected_output_count", "1")));
     assert!(output.contains(&field("unsupported_expected_output_count", "1")));

@@ -112,6 +112,43 @@ fn foundation_plan_declares_broader_local_primitive_reference_outputs() {
 }
 
 #[test]
+fn foundation_plan_declares_prepared_encoded_reference_outputs() {
+    let plan = CorrectnessValidationPlan::default_foundation_plan();
+    let cases = [
+        (
+            "vortex-prepared-encoded-filter-dictionary-run",
+            ExpectedOutcome::Rows { row_count: Some(5) },
+            SemanticArea::SelectionVectors,
+            EdgeCase::DictionaryEncoded,
+        ),
+        (
+            "vortex-prepared-encoded-projection-dictionary",
+            ExpectedOutcome::Rows { row_count: Some(3) },
+            SemanticArea::EncodedExecution,
+            EdgeCase::DictionaryEncoded,
+        ),
+        (
+            "vortex-prepared-encoded-filter-project-selection-vector",
+            ExpectedOutcome::Rows { row_count: Some(5) },
+            SemanticArea::SelectionVectors,
+            EdgeCase::SparseValidity,
+        ),
+    ];
+
+    for (id, expected, area, edge_case) in cases {
+        let fixture = fixture(&plan, id);
+        assert_eq!(fixture.format, FixtureFormat::Generated);
+        assert_eq!(fixture.source_ref, None);
+        assert_eq!(fixture.expected, expected);
+        assert!(fixture.expected.requires_execution());
+        assert!(fixture.covers_area(area));
+        assert!(fixture.covers_edge_case(edge_case));
+        assert!(fixture.has_reference_role(ReferenceRole::GoldenFixture));
+        assert!(fixture.reference_roles_are_test_only());
+    }
+}
+
+#[test]
 fn foundation_plan_tracks_required_edge_case_fixture_families() {
     let plan = CorrectnessValidationPlan::default_foundation_plan();
     let required = [
@@ -177,10 +214,10 @@ fn reference_roles_remain_test_only_not_production_fallback() {
 fn foundation_plan_reports_reference_and_gap_counts() {
     let plan = CorrectnessValidationPlan::default_foundation_plan();
 
-    assert_eq!(plan.fixture_count(), 19);
+    assert_eq!(plan.fixture_count(), 22);
     assert_eq!(plan.fixtures_with_source_ref_count(), 7);
-    assert_eq!(plan.golden_fixture_count(), 7);
-    assert_eq!(plan.executable_expected_output_count(), 6);
+    assert_eq!(plan.golden_fixture_count(), 10);
+    assert_eq!(plan.executable_expected_output_count(), 9);
     assert_eq!(plan.not_yet_defined_fixture_count(), 8);
     assert_eq!(plan.diagnostic_expected_output_count(), 1);
     assert_eq!(plan.unsupported_expected_output_count(), 1);
