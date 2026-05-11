@@ -41,13 +41,13 @@ Competitive success gates (CG) are roadmap gates, not canonical phase-ID aliases
 19. CG-19: universal native I/O envelope.
 20. CG-20: world-class SQL, operator, function, adapter, and user capability surface.
 21. CG-21: user data workflow and ETL surface.
-22. CG-22: placeholder for incoming content-rich gate 2.
+22. CG-22: three-engine certified data execution fabric.
 23. CG-23: placeholder for incoming content-rich gate 3.
 
-CG-21 is defined by RFC 0033. CG-22 and CG-23 remain reserved placeholders until
-their source files land. CG-21 through CG-23 are logically after the current
-CG-1 through CG-20 plan and do not authorize runtime behavior, dependencies,
-fallback execution, or claims by themselves.
+CG-21 is defined by RFC 0033. CG-22 is defined by RFC 0034. CG-23 remains a
+reserved placeholder until its source file lands. CG-21 through CG-23 are
+logically after the current CG-1 through CG-20 plan and do not authorize
+runtime behavior, dependencies, fallback execution, or claims by themselves.
 
 ## No-fallback policy
 
@@ -74,7 +74,7 @@ Spark, DataFusion, Polars, DuckDB, Velox, and vortex-datafusion may be used only
 - Execution posture remains Vortex-native and no-fallback.
 - External baseline usage remains explicit and non-runtime.
 - Superiority claims are disallowed until both CG-5 (correctness) and CG-6 (benchmarks) are satisfied.
-- Best-default-engine claims are disallowed until CG-20 emits a workload-scoped sufficiency report backed by CG-5 correctness, CG-6 benchmark, CG-16 certificate, CG-19 native I/O certificate, and CG-20 capability evidence. User data-workflow claims additionally require CG-21 workflow evidence for the declared workload.
+- Best-default-engine claims are disallowed until CG-20 emits a workload-scoped sufficiency report backed by CG-5 correctness, CG-6 benchmark, CG-16 certificate, CG-19 native I/O certificate, and CG-20 capability evidence. User data-workflow claims additionally require CG-21 workflow evidence for the declared workload. Batch/live/hybrid execution-fabric claims additionally require CG-22 engine-selection, freshness, state, hot/cold, and no-fallback evidence for the declared workload.
 
 ## Best-default evidence gate
 
@@ -137,13 +137,26 @@ certification while preserving ShardLoom-native execution, explicit
 materialization/source/sink boundaries, external-baseline-only comparisons, and
 no fallback execution.
 
-### CG-22 through CG-23 - Reserved Future Gates
-CG-22 and CG-23 remain reserved for incoming content-rich gate documents. The
-remaining placeholder RFC files are:
+### CG-22 - Three-Engine Certified Data Execution Fabric
+Define a ShardLoom-native execution fabric with batch, live, and hybrid engine
+modes under one importable Python/SQL/DataFrame/user workflow. Engine selection
+must be explicit or certified, live and hybrid freshness/state semantics must
+be machine-readable, hot/warm/cold layer contribution must be visible, and
+external engines must remain baselines or sources/sinks rather than fallback
+execution engines.
 
-- `docs/rfcs/0034-cg22-placeholder.md`
+CG-22 is governed by
+`docs/rfcs/0034-three-engine-certified-data-execution-fabric.md`. It extends
+CG-21's user workflow surface with engine-mode semantics while preserving
+ShardLoom-native execution, Vortex-native storage where supported, explicit
+materialization/source/sink boundaries, and no fallback execution.
+
+### CG-23 - Reserved Future Gate
+CG-23 remains reserved for the final incoming content-rich gate document. The
+remaining placeholder RFC file is:
+
 - `docs/rfcs/0035-cg23-placeholder.md`
 
-The incoming files define the real titles, scopes, and acceptance criteria for
-those gates. The placeholder gates exist only to keep roadmap numbering,
-traceability, and phase planning stable before those files land.
+The incoming file defines the real title, scope, and acceptance criteria for
+that gate. The placeholder gate exists only to keep roadmap numbering,
+traceability, and phase planning stable before that file lands.
