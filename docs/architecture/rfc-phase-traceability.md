@@ -697,6 +697,16 @@ No fallback execution.
 - Prepared encoded projection and filter-project execution certificates now certify the exact dictionary projection and selection-vector filter-project fixture shapes.
 - This phase does not add broad edge-case fixture families, decoded-reference artifacts, external oracle execution, reader/adapters, non-local sources, object-store IO, SQL/DataFrame runtime, writes, spill, benchmark reruns, production certification, or fallback execution.
 
+## CG-5.13 decoded-reference artifact coverage for prepared encoded primitives
+
+- Primary RFC linkage: RFC 0015 Correctness/testing, RFC 0025 Competitive/no-fallback, RFC 0029 Correctness/Benchmarks/Execution Certificates, RFC 0031 Universal Native I/O Envelope, and RFC 0032 capability certification.
+- `ReferenceArtifact` records test-only decoded-reference output metadata with expected output, semantic profile, materialization-boundary label, `execution_performed=false`, and `fallback_attempted=false`.
+- `CorrectnessFixture` now carries reference artifacts separately from reference roles so decoded-reference artifacts can be counted without implying decoded-reference execution.
+- The prepared encoded filter, projection, and filter-project fixtures now attach decoded-reference row-output artifacts for their deterministic expected row counts.
+- `CorrectnessValidationPlan`, `CorrectnessDifferentialHarnessReport`, `correctness-plan`, and `correctness-harness-plan` surface decoded-reference artifact count, artifact id order, and incomplete coverage status.
+- Decoded-reference output coverage remains incomplete until every executable fixture family has appropriate reference artifacts; property/fuzz and benchmark claim gates remain blocked.
+- This phase adds no decoded-reference execution, external oracle execution, data reads, reader/adapters, non-local sources, object-store IO, SQL/DataFrame runtime, writes, spill, benchmark reruns, production certification, superiority claim, or fallback execution.
+
 ## CG-5.1 metadata query primitive correctness fixtures
 
 - Primary RFC linkage: RFC 0015 Correctness/Semantics/Differential Testing, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.

@@ -250,6 +250,41 @@ impl ExpectedOutcome {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReferenceArtifact {
+    pub artifact_id: String,
+    pub role: ReferenceRole,
+    pub expected: ExpectedOutcome,
+    pub semantic_profile: String,
+    pub materialization_boundary: String,
+    pub execution_performed: bool,
+    pub fallback_attempted: bool,
+}
+impl ReferenceArtifact {
+    pub fn decoded_reference_output(
+        artifact_id: impl Into<String>,
+        expected: ExpectedOutcome,
+    ) -> Self {
+        Self {
+            artifact_id: artifact_id.into(),
+            role: ReferenceRole::DecodedReference,
+            expected,
+            semantic_profile: "shardloom_native_test_reference".to_string(),
+            materialization_boundary: "test_only_logical_reference_output".to_string(),
+            execution_performed: false,
+            fallback_attempted: false,
+        }
+    }
+    pub const fn is_decoded_reference_output(&self) -> bool {
+        matches!(self.role, ReferenceRole::DecodedReference)
+    }
+    pub const fn is_test_only(&self) -> bool {
+        !self.role.is_production_execution()
+            && !self.execution_performed
+            && !self.fallback_attempted
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DiagnosticExpectation {
     pub code: DiagnosticCode,
     pub category: DiagnosticCategory,
@@ -332,6 +367,7 @@ pub struct CorrectnessFixture {
     pub expected: ExpectedOutcome,
     pub source_ref: Option<String>,
     pub reference_roles: Vec<ReferenceRole>,
+    pub reference_artifacts: Vec<ReferenceArtifact>,
     pub diagnostics: Vec<Diagnostic>,
 }
 impl CorrectnessFixture {
@@ -344,6 +380,7 @@ impl CorrectnessFixture {
             expected: ExpectedOutcome::NotYetDefined,
             source_ref: None,
             reference_roles: vec![],
+            reference_artifacts: vec![],
             diagnostics: vec![],
         }
     }
@@ -373,6 +410,10 @@ impl CorrectnessFixture {
             self.reference_roles.push(role);
         }
     }
+    pub fn add_reference_artifact(&mut self, artifact: ReferenceArtifact) {
+        self.add_reference_role(artifact.role);
+        self.reference_artifacts.push(artifact);
+    }
     pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
         self.diagnostics.push(diagnostic);
     }
@@ -385,10 +426,22 @@ impl CorrectnessFixture {
     pub fn has_reference_role(&self, role: ReferenceRole) -> bool {
         self.reference_roles.contains(&role)
     }
+    pub fn decoded_reference_artifact_count(&self) -> usize {
+        self.reference_artifacts
+            .iter()
+            .filter(|artifact| artifact.is_decoded_reference_output())
+            .count()
+    }
+    pub fn reference_artifacts_are_test_only(&self) -> bool {
+        self.reference_artifacts
+            .iter()
+            .all(ReferenceArtifact::is_test_only)
+    }
     pub fn reference_roles_are_test_only(&self) -> bool {
         self.reference_roles
             .iter()
             .all(|role| !role.is_production_execution())
+            && self.reference_artifacts_are_test_only()
     }
     pub fn has_errors(&self) -> bool {
         self.diagnostics.iter().any(|d| {
@@ -511,16 +564,21 @@ fn prepared_encoded_rows_fixture(
     edge_cases: &[EdgeCase],
     row_count: u64,
 ) -> CorrectnessFixture {
+    let expected = ExpectedOutcome::Rows {
+        row_count: Some(row_count),
+    };
     let mut fixture =
         CorrectnessFixture::new(FixtureId::new(id).expect("valid"), FixtureFormat::Generated)
-            .with_expected(ExpectedOutcome::Rows {
-                row_count: Some(row_count),
-            });
+            .with_expected(expected.clone());
     fixture.add_semantic_area(primary_area);
     for edge_case in edge_cases {
         fixture.add_edge_case(*edge_case);
     }
     fixture.add_reference_role(ReferenceRole::GoldenFixture);
+    fixture.add_reference_artifact(ReferenceArtifact::decoded_reference_output(
+        format!("{id}.decoded-reference.rows"),
+        expected,
+    ));
     fixture
 }
 
@@ -787,11 +845,40 @@ impl CorrectnessValidationPlan {
             .filter(|fixture| fixture.has_reference_role(ReferenceRole::GoldenFixture))
             .count()
     }
+    pub fn reference_artifact_count(&self) -> usize {
+        self.fixtures
+            .iter()
+            .map(|fixture| fixture.reference_artifacts.len())
+            .sum()
+    }
     pub fn decoded_reference_output_count(&self) -> usize {
         self.fixtures
             .iter()
-            .filter(|fixture| fixture.has_reference_role(ReferenceRole::DecodedReference))
-            .count()
+            .map(CorrectnessFixture::decoded_reference_artifact_count)
+            .sum()
+    }
+    pub fn decoded_reference_artifact_id_order(&self) -> Vec<&str> {
+        let mut ids = Vec::new();
+        for fixture in &self.fixtures {
+            for artifact in &fixture.reference_artifacts {
+                if artifact.is_decoded_reference_output() {
+                    ids.push(artifact.artifact_id.as_str());
+                }
+            }
+        }
+        ids
+    }
+    pub fn decoded_reference_output_coverage_complete(&self) -> bool {
+        let mut has_executable_fixture = false;
+        for fixture in &self.fixtures {
+            if fixture.expected.requires_execution() {
+                has_executable_fixture = true;
+                if fixture.decoded_reference_artifact_count() == 0 {
+                    return false;
+                }
+            }
+        }
+        has_executable_fixture
     }
     pub fn generated_property_fixture_count(&self) -> usize {
         self.fixtures
@@ -936,7 +1023,10 @@ pub struct CorrectnessDifferentialHarnessReport {
     pub fixture_count: usize,
     pub fixtures_with_source_ref_count: usize,
     pub golden_fixture_count: usize,
+    pub reference_artifact_count: usize,
     pub decoded_reference_output_count: usize,
+    pub decoded_reference_artifact_id_order: Vec<String>,
+    pub decoded_reference_output_coverage_complete: bool,
     pub executable_expected_output_count: usize,
     pub not_yet_defined_fixture_count: usize,
     pub unsupported_diagnostic_fixture_count: usize,
@@ -1053,7 +1143,15 @@ pub fn plan_correctness_differential_harness(
     let fixture_count = plan.fixture_count();
     let fixtures_with_source_ref_count = plan.fixtures_with_source_ref_count();
     let golden_fixture_count = plan.golden_fixture_count();
+    let reference_artifact_count = plan.reference_artifact_count();
     let decoded_reference_output_count = plan.decoded_reference_output_count();
+    let decoded_reference_artifact_id_order = plan
+        .decoded_reference_artifact_id_order()
+        .into_iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>();
+    let decoded_reference_output_coverage_complete =
+        plan.decoded_reference_output_coverage_complete();
     let executable_expected_output_count = plan.executable_expected_output_count();
     let not_yet_defined_fixture_count = plan.not_yet_defined_fixture_count();
     let unsupported_diagnostic_fixture_count = plan.unsupported_diagnostic_fixture_count();
@@ -1082,7 +1180,7 @@ pub fn plan_correctness_differential_harness(
     let blocked_surface_order = correctness_harness_blocked_surfaces(
         fixture_count,
         golden_fixture_count,
-        decoded_reference_output_count,
+        decoded_reference_output_coverage_complete,
         unsupported_diagnostic_fixture_count,
         covered_required_edge_case_count,
         required_edge_case_count,
@@ -1122,7 +1220,10 @@ pub fn plan_correctness_differential_harness(
         fixture_count,
         fixtures_with_source_ref_count,
         golden_fixture_count,
+        reference_artifact_count,
         decoded_reference_output_count,
+        decoded_reference_artifact_id_order,
+        decoded_reference_output_coverage_complete,
         executable_expected_output_count,
         not_yet_defined_fixture_count,
         unsupported_diagnostic_fixture_count,
@@ -1161,7 +1262,7 @@ pub fn plan_correctness_differential_harness(
 fn correctness_harness_blocked_surfaces(
     fixture_count: usize,
     golden_fixture_count: usize,
-    decoded_reference_output_count: usize,
+    decoded_reference_output_coverage_complete: bool,
     unsupported_diagnostic_fixture_count: usize,
     covered_required_edge_case_count: usize,
     required_edge_case_count: usize,
@@ -1179,7 +1280,7 @@ fn correctness_harness_blocked_surfaces(
     if golden_fixture_count == 0 {
         blocked.push("golden_fixtures".to_string());
     }
-    if decoded_reference_output_count == 0 {
+    if !decoded_reference_output_coverage_complete {
         blocked.push("decoded_reference_outputs".to_string());
     }
     if baseline_count == 0 || !baselines_fallback_free {
@@ -1195,7 +1296,7 @@ fn correctness_harness_blocked_surfaces(
         blocked.push("property_fuzzing".to_string());
     }
     if not_yet_defined_fixture_count > 0
-        || decoded_reference_output_count == 0
+        || !decoded_reference_output_coverage_complete
         || generated_property_fixture_count == 0
         || fuzz_seed_count == 0
         || !reference_roles_test_only
@@ -1453,6 +1554,9 @@ mod tests {
         assert_eq!(plan.fixture_count(), 22);
         assert_eq!(plan.fixtures_with_source_ref_count(), 7);
         assert_eq!(plan.golden_fixture_count(), 10);
+        assert_eq!(plan.reference_artifact_count(), 3);
+        assert_eq!(plan.decoded_reference_output_count(), 3);
+        assert!(!plan.decoded_reference_output_coverage_complete());
         assert_eq!(plan.executable_expected_output_count(), 9);
         assert_eq!(plan.not_yet_defined_fixture_count(), 8);
         assert_eq!(plan.diagnostic_expected_output_count(), 1);
@@ -1465,7 +1569,7 @@ mod tests {
         assert!(plan.baselines_are_fallback_free());
         assert_eq!(
             plan.reference_role_order(),
-            vec!["golden_fixture", "external_oracle"]
+            vec!["golden_fixture", "decoded_reference", "external_oracle"]
         );
     }
     #[test]
@@ -1489,7 +1593,9 @@ mod tests {
         assert_eq!(report.fixture_count, 22);
         assert_eq!(report.golden_fixture_count, 10);
         assert_eq!(report.executable_expected_output_count, 9);
-        assert_eq!(report.decoded_reference_output_count, 0);
+        assert_eq!(report.reference_artifact_count, 3);
+        assert_eq!(report.decoded_reference_output_count, 3);
+        assert!(!report.decoded_reference_output_coverage_complete);
         assert_eq!(report.generated_property_fixture_count, 0);
         assert_eq!(report.fuzz_seed_count, 0);
         assert_eq!(report.baseline_count, 7);
@@ -1530,7 +1636,7 @@ mod tests {
         );
         assert_eq!(
             report.missing_validation_mode_order(),
-            vec!["decoded_reference", "property_based", "fuzz"]
+            vec!["property_based", "fuzz"]
         );
         assert_eq!(
             report.baseline_engine_order,

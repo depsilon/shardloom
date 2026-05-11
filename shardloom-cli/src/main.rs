@@ -934,6 +934,7 @@ fn vortex_generalized_encoded_primitive_gate_side_effect_fields(
     ]
 }
 
+#[allow(clippy::too_many_lines)]
 fn correctness_plan_fields(plan: &CorrectnessValidationPlan) -> Vec<(String, String)> {
     vec![
         ("mode".to_string(), "correctness_plan".to_string()),
@@ -973,6 +974,23 @@ fn correctness_plan_fields(plan: &CorrectnessValidationPlan) -> Vec<(String, Str
         (
             "golden_fixture_count".to_string(),
             plan.golden_fixture_count().to_string(),
+        ),
+        (
+            "reference_artifact_count".to_string(),
+            plan.reference_artifact_count().to_string(),
+        ),
+        (
+            "decoded_reference_output_count".to_string(),
+            plan.decoded_reference_output_count().to_string(),
+        ),
+        (
+            "decoded_reference_artifact_id_order".to_string(),
+            plan.decoded_reference_artifact_id_order().join(","),
+        ),
+        (
+            "decoded_reference_output_coverage_complete".to_string(),
+            plan.decoded_reference_output_coverage_complete()
+                .to_string(),
         ),
         (
             "executable_expected_output_count".to_string(),
@@ -1083,8 +1101,23 @@ fn correctness_harness_fields(
     );
     push_count_field(
         &mut fields,
+        "reference_artifact_count",
+        report.reference_artifact_count,
+    );
+    push_count_field(
+        &mut fields,
         "decoded_reference_output_count",
         report.decoded_reference_output_count,
+    );
+    push_field(
+        &mut fields,
+        "decoded_reference_artifact_id_order",
+        &report.decoded_reference_artifact_id_order.join(","),
+    );
+    push_bool_field(
+        &mut fields,
+        "decoded_reference_output_coverage_complete",
+        report.decoded_reference_output_coverage_complete,
     );
     push_count_field(
         &mut fields,
