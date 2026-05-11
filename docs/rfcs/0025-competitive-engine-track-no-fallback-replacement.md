@@ -40,14 +40,14 @@ Competitive success gates (CG) are roadmap gates, not canonical phase-ID aliases
 18. CG-18: universal import/deployment/baseline harness.
 19. CG-19: universal native I/O envelope.
 20. CG-20: world-class SQL, operator, function, adapter, and user capability surface.
-21. CG-21: placeholder for incoming content-rich gate 1.
+21. CG-21: user data workflow and ETL surface.
 22. CG-22: placeholder for incoming content-rich gate 2.
 23. CG-23: placeholder for incoming content-rich gate 3.
 
-CG-21 through CG-23 are reserved placeholders until their source files land.
-They are logically after the current CG-1 through CG-20 plan and do not
-authorize runtime behavior, dependencies, fallback execution, or claims by
-themselves.
+CG-21 is defined by RFC 0033. CG-22 and CG-23 remain reserved placeholders until
+their source files land. CG-21 through CG-23 are logically after the current
+CG-1 through CG-20 plan and do not authorize runtime behavior, dependencies,
+fallback execution, or claims by themselves.
 
 ## No-fallback policy
 
@@ -74,7 +74,7 @@ Spark, DataFusion, Polars, DuckDB, Velox, and vortex-datafusion may be used only
 - Execution posture remains Vortex-native and no-fallback.
 - External baseline usage remains explicit and non-runtime.
 - Superiority claims are disallowed until both CG-5 (correctness) and CG-6 (benchmarks) are satisfied.
-- Best-default-engine claims are disallowed until CG-20 emits a workload-scoped sufficiency report backed by CG-5 correctness, CG-6 benchmark, CG-16 certificate, CG-19 native I/O certificate, and CG-20 capability evidence.
+- Best-default-engine claims are disallowed until CG-20 emits a workload-scoped sufficiency report backed by CG-5 correctness, CG-6 benchmark, CG-16 certificate, CG-19 native I/O certificate, and CG-20 capability evidence. User data-workflow claims additionally require CG-21 workflow evidence for the declared workload.
 
 ## Best-default evidence gate
 
@@ -126,14 +126,24 @@ No-fallback policy remains unchanged: ShardLoom must not delegate runtime execut
 
 No superiority claims are allowed before correctness and benchmark gates are satisfied (CG-5 and CG-6).
 
-### CG-21 through CG-23 â€” Reserved Future Gates
-CG-21, CG-22, and CG-23 are reserved for incoming content-rich gate documents.
-The placeholder RFC files are:
+### CG-21 - User Data Workflow and ETL Surface
+Define a complete, inspectable, certified user data workflow around ShardLoom:
+install, import, discover capabilities, read, validate, transform, write,
+explain, certify, benchmark, and diagnose unsupported cases.
 
-- `docs/rfcs/0033-cg21-placeholder.md`
+CG-21 is governed by `docs/rfcs/0033-user-data-workflow-etl-surface.md`.
+It extends the CG-20 user capability surface into scenario-driven ETL workflow
+certification while preserving ShardLoom-native execution, explicit
+materialization/source/sink boundaries, external-baseline-only comparisons, and
+no fallback execution.
+
+### CG-22 through CG-23 - Reserved Future Gates
+CG-22 and CG-23 remain reserved for incoming content-rich gate documents. The
+remaining placeholder RFC files are:
+
 - `docs/rfcs/0034-cg22-placeholder.md`
 - `docs/rfcs/0035-cg23-placeholder.md`
 
-The incoming files define the real titles, scopes, and acceptance criteria. The
-placeholder gates exist only to keep roadmap numbering, traceability, and phase
-planning stable before those files land.
+The incoming files define the real titles, scopes, and acceptance criteria for
+those gates. The placeholder gates exist only to keep roadmap numbering,
+traceability, and phase planning stable before those files land.
