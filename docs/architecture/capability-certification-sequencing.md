@@ -24,6 +24,28 @@ This sequencing covers:
 - Workload constitution and best-choice scorecards.
 - Capability discovery and CI snapshot direction.
 
+## Boundary with CG-21, CG-22, and CG-23
+
+CG-20 remains the capability-certification surface for SQL, operators,
+functions, adapters, semantic profiles, migration, Python/API, UDFs,
+unstructured/media, observability, deployment, extension safety, and
+security/governance. CG-21, CG-22, and CG-23 build on that surface instead of
+replacing it:
+
+- CG-21 turns capability breadth into complete user workflow certification:
+  install/import, discover, read, validate, transform, write, explain, certify,
+  benchmark, and diagnose.
+- CG-22 adds ShardLoom-native batch/live/hybrid engine-mode contracts beneath
+  the user workflow, including boundedness, update mode, output mode,
+  freshness, state, delta overlay, hot/cold, and continuous-view evidence.
+- CG-23 exposes the same workflow and engine evidence remotely through REST
+  control-plane contracts, event-plane contracts, result delivery policies,
+  lineage/governance exports, and agent-safe API surfaces.
+
+Implementation order for those gates now lives in the Planned section of
+`docs/architecture/phased-execution-plan.md`. This document should not become a
+second queue for CG-21, CG-22, or CG-23 work.
+
 ## Non-goals
 
 - No SQL parser implementation.

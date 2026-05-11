@@ -91,13 +91,163 @@ Use this section for the next implementation sequence. Keep it ordered by depend
   - [ ] CG-10 object-store/distributed runtime execution.
   - [ ] CG-20 SQL/DataFrame/UDF/unstructured/media/adapters once the encoded primitive evidence loop and importability lane are no longer the bottleneck.
   - [ ] CG-20 approximate aggregate/sketch function implementation after function-registry, aggregate-state, sketch-serialization, correctness, benchmark, execution-certificate, and Native I/O evidence gates are ready.
-- [ ] Priority 4 - CG-21/CG-22/CG-23 content intake
-  - [x] Land the CG-21 user data workflow and ETL surface source file mostly as provided.
-  - [x] Land the CG-22 three-engine certified data execution fabric source file mostly as provided.
-  - [x] Land the CG-23 REST, event, and remote API surface source file mostly as provided.
-  - [ ] Keep CG-21, CG-22, and CG-23 after the current planned CG-1 through CG-20 work during broader synthesis unless their source files define otherwise.
-  - [ ] Refactor second-order references, traceability, terminology, and plan placement now that the raw gate files are stable.
-  - [ ] Preserve no-runtime, no-dependency, no-fallback, and no-claim posture during placeholder and intake passes.
+- [ ] Priority 4 - CG-21 user data workflow and ETL surface implementation lane
+  - [ ] CG-21A install/import/runtime discovery
+    - [ ] Provide a one-command local install path once packaging approval is complete.
+    - [ ] Keep `import shardloom` side-effect-free with no dataset, filesystem, network, catalog, adapter, SQL, benchmark, or execution probing.
+    - [ ] Report Python package version, CLI binary version, protocol version, feature gates, platform, and `fallback_attempted=false`.
+    - [ ] Make missing-binary, version-mismatch, disabled-feature, and unsupported-runtime diagnostics deterministic and actionable.
+    - [ ] Certify fresh venv/Conda environment smoke checks before public package claims.
+  - [ ] CG-21B context and capability API
+    - [ ] Add side-effect-free Python context constructors for local and future remote use.
+    - [ ] Expose `capabilities`, `adapters`, `functions`, `operators`, `sql_support`, `deployment`, and `certification` through stable machine-readable structures.
+    - [ ] Keep planned, partial, unsupported, feature-gated, effect-gated, materialization-gated, and certified states distinct.
+    - [ ] Include rewrite suggestions, required gates, materialization boundaries, and no-fallback fields in unsupported responses.
+  - [ ] CG-21C source/sink registry and adapter maturity
+    - [ ] Expose source and sink registries without probing datasets by default.
+    - [ ] Track adapter maturity A0-A7 separately for discovery, schema/metadata, read, pushdown, write, commit/recovery, and benchmark certification.
+    - [ ] Separate Vortex-native paths from compatibility import/export paths.
+    - [ ] Require native I/O certificate requirements, pushdown proof, fidelity loss, metadata loss, and materialization risk per adapter path.
+  - [ ] CG-21D Python DataFrame/query-builder
+    - [ ] Build lazy plan objects for `read`, `filter`, `select`, `with_column`, `group_by`, `agg`, `join`, `sort`, `limit`, and write operations.
+    - [ ] Lower all actions through ShardLoom-native capability checks before execution.
+    - [ ] Keep pandas, Polars, Spark, DataFusion, DuckDB, and other engines out of runtime fallback paths.
+    - [ ] Provide `explain`, `estimate`, `profile`, `certify`, `collect`, `to_pandas`, `to_arrow`, `write_vortex`, and compatibility write boundaries with explicit materialization reports.
+  - [ ] CG-21E SQL frontend workflow
+    - [ ] Stage parse, bind, validation, native logical planning, native physical planning, native execution, encoded-capable execution, and workload certification separately.
+    - [ ] Reject unsupported constructs with stable diagnostics rather than delegating to external engines.
+    - [ ] Tie SQL behavior to semantic profiles, catalog/schema availability, function/operator capability, and native I/O evidence.
+  - [ ] CG-21F pandas, Arrow, and NumPy interop boundaries
+    - [ ] Implement `from_pandas`, `to_pandas`, `from_arrow`, `to_arrow`, and NumPy-style boundary helpers only as explicit materialization/source/sink boundaries.
+    - [ ] Emit materialization, fidelity, representation-state, and no-fallback evidence for every conversion.
+    - [ ] Never use pandas, Arrow, or NumPy to execute unsupported ShardLoom plan fragments silently.
+  - [ ] CG-21G data contracts and data quality
+    - [ ] Add required-column, required-type, nullability, uniqueness, ordering, freshness, duplicate-key, parse-failure, and constraint-violation contracts.
+    - [ ] Support count/reject/quarantine policies with explicit rejected-row output contracts before claiming data-quality support.
+    - [ ] Include data-quality summaries, diagnostics, and certificate refs in workflow output.
+  - [ ] CG-21H local structured adapters
+    - [ ] Mature Vortex read/write first as highest-fidelity source and sink.
+    - [ ] Promote CSV, JSON/NDJSON, Parquet, Arrow IPC, Avro, ORC, compressed wrappers, and partitioned directories only through approved dependency/reader boundaries.
+    - [ ] Keep compatibility ingestion honest about decode/materialization and Vortex conversion.
+    - [ ] Add independent read, write, pushdown, commit, correctness, benchmark, and native I/O evidence per format.
+  - [ ] CG-21I output and commit UX
+    - [ ] Surface sink requirements before execution for Vortex, Parquet, CSV, JSON/NDJSON, Arrow IPC, partitioned outputs, append, overwrite, merge, upsert, delete, copy, and export.
+    - [ ] Report temporary path policy, atomicity, idempotency, rollback cleanup, partition layout, side effects, metadata/statistics preservation, and materialization requirements.
+    - [ ] Keep unsafe writes policy-gated and aligned with CG-3/CG-4/CG-19 evidence.
+  - [ ] CG-21J object-store and remote data UX
+    - [ ] Expose S3-compatible, GCS, Azure Blob/ADLS, HTTP range-read, credential, range-planning, coalescing, prefetch, retry, idempotency, and request-budget evidence before remote IO claims.
+    - [ ] Keep object-store paths distinct from distributed execution support.
+    - [ ] Report bytes requested/read, estimated requests, credential boundaries, network effects, and fallback status.
+  - [ ] CG-21K table/catalog/lakehouse UX
+    - [ ] Expose Hive-style partitions, Iceberg-compatible metadata, Delta-compatible metadata, snapshots, schema evolution, delete/tombstone handling, manifests, partition pruning, layout health, and compaction planning as separate maturity surfaces.
+    - [ ] Keep metadata discovery separate from table read/write/commit certification.
+    - [ ] Block update/delete/merge claims until table semantics, commit/recovery, correctness, and no-fallback evidence exist.
+  - [ ] CG-21L observability UX
+    - [ ] Make `explain`, `estimate`, `profile`, and `certify` available from CLI, Python, and later REST for supported plans.
+    - [ ] Report planned versus executed work, work avoided, rows/bytes scanned, segments pruned, bytes decoded, rows materialized, selection-vector use, object-store requests, memory/spill, representation state, and fallback status.
+  - [ ] CG-21M benchmark and migration UX
+    - [ ] Keep Spark, DataFusion, Polars, DuckDB, Dask, and pandas optional benchmark/correctness baselines only.
+    - [ ] Add migration reports with supported/unsupported constructs, semantic/function/adapter differences, rewrite suggestions, materialization requirements, Vortex conversion payback, and no-fallback status.
+    - [ ] Require benchmark rows to carry correctness, materialization, native I/O, execution-certificate, and reproducibility evidence before claims.
+  - [ ] CG-21N notebook UX
+    - [ ] Add rich display for schemas, plan trees, capability states, unsupported reasons, sample previews, certificate summaries, benchmark tables, and materialization/fidelity warnings.
+    - [ ] Treat previews as explicit materialization with row limits and redaction policy.
+  - [ ] CG-21O UDF and extension UX
+    - [ ] Support typed Rust-native UDF metadata before broader WASM/Python/external-service UDF execution.
+    - [ ] Require type, null behavior, determinism, volatility, effect level, resource limits, sandbox policy, materialization requirement, failure behavior, timeout, retry, redaction, license/provenance, and no-fallback fields.
+    - [ ] Treat Python/external/LLM/API/model-call UDFs as explicit effect/materialization boundaries until certified native paths exist.
+  - [ ] CG-21P unstructured/media UX
+    - [ ] Model documents, logs, HTML/XML, PDFs, office documents, images, audio, video, archives, binary blobs, extracted text, chunks, metadata, embeddings, and manifests as typed references and explicit effect stages.
+    - [ ] Prohibit silent OCR, media decode, embedding generation, LLM calls, or API calls.
+    - [ ] Report extractor provenance, confidence, redaction, credential boundaries, cost, materialization, and no-fallback evidence.
+  - [ ] CG-21Q security/governance UX
+    - [ ] Add credential boundary reporting, secret redaction, audit events, external read/write permission, destructive operation policy, data classification, PII redaction, data-retention policy, and safe agent-facing API behavior.
+    - [ ] Block governed-workload certification when required governance evidence is missing.
+  - [ ] CG-21R workload scorecards
+    - [ ] Publish workload-scoped scorecards for correctness, performance, cost, memory safety, SQL/function/operator/adapter coverage, Python usability, observability, migration, deployment, governance, extension safety, and no-fallback integrity.
+    - [ ] Allow scorecards to report `not_certified` or `partial_for_workload` without implying broad support.
+- [ ] Priority 5 - CG-22 three-engine certified data execution fabric
+  - [ ] CG-22A engine-mode contract surface
+    - [ ] Add `EngineMode` values `batch`, `live`, `hybrid`, and `auto`.
+    - [ ] Add `Boundedness`, `UpdateMode`, and `OutputMode` vocabulary and capability discovery.
+    - [ ] Emit `EngineSelectionReport` with requested, allowed, and selected engine modes plus rejection reasons.
+    - [ ] Preserve `external_engine_invoked=false` and `fallback_attempted=false` for every internal engine choice.
+  - [ ] CG-22B per-engine capability matrix
+    - [ ] Track operator/function/source/sink support separately for batch, live, and hybrid.
+    - [ ] Distinguish bounded snapshot support, append-only stream support, upsert/delete/tombstone support, changelog support, and continuous materialized view support.
+    - [ ] Block live/hybrid claims for unsupported global sort, unbounded join, state, checkpoint, or output modes.
+  - [ ] CG-22C live source/change contract
+    - [ ] Define ShardLoom-native `ChangeRecord` with key, operation, sequence, event time, processing time, source offset, schema digest, and payload reference.
+    - [ ] Add append/upsert/delete/retract/tombstone semantics, watermark policy, late-data policy, state TTL, checkpoint policy, and output changelog vocabulary.
+    - [ ] Keep broker/runtime integrations as adapters or future dependencies, not core fallback execution.
+  - [ ] CG-22D narrow in-memory live prototype
+    - [ ] Start with fixture-backed bounded streams for filter, project, count, count_where, and simple group_count.
+    - [ ] Emit state, checkpoint, watermark, lag, output changelog, execution certificate, Native I/O certificate, and no-fallback evidence.
+    - [ ] Avoid calling file polling real streaming until state, watermark, checkpoint, and recovery semantics exist.
+  - [ ] CG-22E hybrid base plus delta overlay
+    - [ ] Combine a local Vortex base with fixture-backed hot deltas, tombstones, deletion vectors, snapshot epoch, and certified merged result.
+    - [ ] Emit `DeltaOverlayCertificate`, `HotColdContributionReport`, snapshot certificate refs, base snapshot id, hot changelog range, warm/cold segment counts, tombstone counts, freshness lag, and no-fallback evidence.
+    - [ ] Keep object-store/table production claims blocked until CG-4/CG-9/CG-10 evidence exists.
+  - [ ] CG-22F Vortex micro-segment flush
+    - [ ] Flush hot append/upsert batches into Vortex micro-segments with local manifest and recovery evidence.
+    - [ ] Preserve representation, statistics, deletion/tombstone, checkpoint, commit, and Native I/O certificate fields.
+    - [ ] Keep compaction and table maintenance separate until commit/recovery paths are certified.
+  - [ ] CG-22G compaction and layout-health planner
+    - [ ] Plan compaction from small-segment pressure, tombstone pressure, partition skew, stale statistics, and layout health.
+    - [ ] Produce compaction recommendations without executing maintenance until write/commit/recovery support is ready.
+  - [ ] CG-22H Python/API engine UX
+    - [ ] Surface `engine="batch"`, `engine="live"`, `engine="hybrid"`, and `engine="auto"` consistently in Python, CLI, and later REST.
+    - [ ] Explain why an engine is selected or rejected, including freshness, consistency, boundedness, state, memory, sink, and unsupported-feature reasons.
+  - [ ] CG-22I state, checkpoint, and freshness certification
+    - [ ] Add `FreshnessCertificate`, `StateCertificate`, and `ContinuousViewCertificate` fields for watermarks, checkpoint ids, state bytes, changelog offsets, recovery status, lag, output mode, and exactly-once/idempotency blockers.
+    - [ ] Do not claim exactly-once, freshness, recovery, or continuous-view correctness without CG-4/CG-5/CG-8/CG-16 evidence.
+- [ ] Priority 6 - CG-23 REST, event, and remote API surface
+  - [ ] CG-23A REST API contract surface
+    - [ ] Define OpenAPI contract files for `/v1` resources before server behavior.
+    - [ ] Represent health, version, capabilities, adapters, sources, sinks, plans, queries, results, certificates, profiles, benchmarks, migration, lineage, and governance resources.
+    - [ ] Require engine mode, fallback policy, materialization policy, result policy, and evidence policy on execution-capable requests.
+    - [ ] Include `fallback_attempted=false` or explicit unsupported/failure reason in every response.
+  - [ ] CG-23B REST discovery server
+    - [ ] Add optional local `shardloom serve --mode discovery` only after dependency and security approval.
+    - [ ] Serve health, version, capabilities, adapters, deployment readiness, and no-dataset smoke checks.
+    - [ ] Prohibit dataset probing, object-store access, catalog access, query execution, and fallback in discovery mode.
+  - [ ] CG-23C plan/explain/validate API
+    - [ ] Add plan handles and validate/explain/estimate/certification-preview endpoints.
+    - [ ] Return parser/binder/native logical/native physical/execution/certification stages separately.
+    - [ ] Use deterministic unsupported diagnostics and problem-details errors without execution delegation.
+  - [ ] CG-23D async query lifecycle API
+    - [ ] Add execute/status/cancel/retry/profile/certificates/lineage/results/artifacts lifecycle for already-certified local batch paths first.
+    - [ ] Keep non-certified paths blocked or explicitly uncertified.
+    - [ ] Link result handles to execution certificates, Native I/O certificates, materialization reports, profile reports, and no-fallback evidence.
+  - [ ] CG-23E result delivery and spooling
+    - [ ] Support inline JSON only for tiny previews and diagnostics.
+    - [ ] Add paged JSON and JSON Lines for row-oriented small/medium result or log streams.
+    - [ ] Treat Arrow IPC as explicit decoded-columnar boundary unless a future native boundary proves otherwise.
+    - [ ] Prefer Vortex artifacts or object references for highest-fidelity large analytical outputs.
+    - [ ] Define result TTL, retention, cleanup, artifact refs, representation state, materialization, and fidelity fields.
+  - [ ] CG-23F live/hybrid event API
+    - [ ] Use SSE for one-way progress events and WebSocket only where bidirectional live interaction is required.
+    - [ ] Define AsyncAPI event contracts and CloudEvents-style envelopes for progress, state, checkpoint, watermark, certificate, lineage, benchmark, and hybrid hot/cold contribution events.
+    - [ ] Block live/hybrid API certification until CG-22, CG-8, CG-4, and CG-16 evidence exists.
+  - [ ] CG-23G security, governance, and API policy
+    - [ ] Define local-only, token, mTLS, OIDC, and service-account auth modes before remote execution.
+    - [ ] Separate scopes for read, plan, execute, write, cancel, admin, benchmark, migration, and agent operations.
+    - [ ] Keep credentials as references, redact secrets, require explicit destructive-operation policies, and audit plan/execute/write/cancel/certify.
+  - [ ] CG-23H Flight/ADBC and columnar data-plane bridge
+    - [ ] Keep REST as control plane while allowing future Flight tickets or ADBC endpoints for high-throughput columnar transfer.
+    - [ ] Make Flight/ADBC optional and never required for basic local use or import.
+    - [ ] Report Arrow transfers as decoded-columnar materialization unless later certified otherwise.
+  - [ ] CG-23I MCP agent API
+    - [ ] Expose capabilities, schemas, plans, certificates, benchmark reports, and diagnostics as safe agent resources.
+    - [ ] Keep MCP tools dry-run/explain/estimate/certify by default.
+    - [ ] Require explicit policy and credentials for execute, write, cancel, benchmark, and migration operations.
+    - [ ] Preserve no-fallback and external-effect diagnostics in agent-facing responses.
+- [ ] Priority 7 - CG-21/CG-22/CG-23 integrated certification closeout
+  - [ ] Add cross-CG capability snapshots proving CG-21 workflow, CG-22 engine mode, and CG-23 remote API states are visible through capability discovery.
+  - [ ] Add cross-CG unsupported diagnostics showing the same blocker across CLI, Python, and future REST.
+  - [ ] Add workload-scoped certification dossiers that combine CG-5 correctness, CG-6 benchmarks, CG-16 execution certificates, CG-19 Native I/O certificates, CG-20 capability evidence, CG-21 workflow evidence, CG-22 engine evidence, and CG-23 API evidence.
+  - [ ] Keep CG-21, CG-22, and CG-23 logically after the current planned CG-1 through CG-20 work unless a later implementation item is explicitly pulled forward as a contract/report-only lane.
+  - [ ] Preserve no-runtime, no-dependency, no-fallback, and no-claim posture for docs/report-only synthesis.
 
 ## Active
 
@@ -107,6 +257,25 @@ Use this section for the next implementation sequence. Keep it ordered by depend
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: CG-21/CG-22/CG-23 broader synthesis cleanup
+  - Primary files:
+    - `README.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/canonical-terminology.md`
+    - `docs/architecture/systems-learning-map.md`
+    - `docs/architecture/incumbent-gap-opportunity-map.md`
+    - `docs/architecture/capability-certification-sequencing.md`
+    - `docs/architecture/universal-input-contract.md`
+    - `AGENTS.md`
+  - Scope: Fold the landed CG-21, CG-22, and CG-23 RFCs into stable orientation docs and promote their implementation lanes into the Planned queue while preserving the three-section plan model.
+  - Completed:
+    - [x] Expanded README direction so the repo entry point reflects complete user workflows, batch/live/hybrid engine modes, and remote API surfaces without making support claims.
+    - [x] Replaced the completed content-intake placeholder with detailed Planned queue items for CG-21A through CG-21R, CG-22A through CG-22I, CG-23A through CG-23I, and integrated certification closeout.
+    - [x] Added supporting-doc synthesis for systems lessons, incumbent gaps, CG-20/21/22/23 boundaries, universal input alignment, terminology, and traceability.
+    - [x] Added agent guidance for broad user workflow, batch/live/hybrid, and REST/event/remote API work.
+    - [x] Marked broader cross-document synthesis complete in the CG-21, CG-22, and CG-23 detailed checklists.
+  - Explicitly not included: runtime behavior, HTTP server implementation, dependency additions, package publication, readers, writers, SQL/DataFrame execution, UDF runtime, live/hybrid runtime, object-store IO, catalog access, benchmark reruns, superiority claims, best-default claims, or fallback execution.
 - [x] Session label: CG-23 REST, event, and remote API surface intake
   - Primary files:
     - `docs/rfcs/0035-rest-event-remote-api-surface.md`
@@ -115,12 +284,12 @@ Use this section for the next implementation sequence. Keep it ordered by depend
     - `docs/architecture/rfc-phase-traceability.md`
     - `docs/architecture/canonical-terminology.md`
     - `README.md`
-  - Scope: Replace the CG-23 placeholder with the incoming content-rich REST, event, and remote API surface material, keeping broad synthesis and implementation for later passes.
+  - Scope: Replace the CG-23 placeholder with the incoming content-rich REST, event, and remote API surface material; broad synthesis and implementation were intentionally later work for that intake session.
   - Completed:
     - [x] Renamed RFC 0035 from placeholder to `0035-rest-event-remote-api-surface.md`.
     - [x] Landed the CG-23 content covering REST control plane, data plane, event plane, discovery endpoints, plan/explain/dry-run endpoints, async query lifecycle, result delivery policies, problem+json errors, engine-aware API behavior, live/hybrid event APIs, API maturity ladder, OpenAPI/AsyncAPI/CloudEvents/OpenTelemetry/OpenLineage/Flight/ADBC/MCP references, security/governance policy, certification blockers, and no-fallback boundaries.
     - [x] Updated RFC 0025, phase-plan rollups, RFC traceability, terminology, and README references so CG-23 points to the real intake RFC.
-  - Explicitly not included: broad cross-document synthesis, HTTP server implementation, dependencies, runtime behavior, readers, writers, streaming runtime, object-store access, catalog access, adapters, SQL/DataFrame runtime, UDF runtime, benchmark execution, package publication, superiority claims, best-default claims, CG-23 implementation, or fallback execution.
+  - Explicitly not included in that intake session: broad cross-document synthesis, HTTP server implementation, dependencies, runtime behavior, readers, writers, streaming runtime, object-store access, catalog access, adapters, SQL/DataFrame runtime, UDF runtime, benchmark execution, package publication, superiority claims, best-default claims, CG-23 implementation, or fallback execution.
 - [x] Session label: CG-22 three-engine certified data execution fabric intake
   - Primary files:
     - `docs/rfcs/0034-three-engine-certified-data-execution-fabric.md`
@@ -129,12 +298,12 @@ Use this section for the next implementation sequence. Keep it ordered by depend
     - `docs/architecture/rfc-phase-traceability.md`
     - `docs/architecture/canonical-terminology.md`
     - `README.md`
-  - Scope: Replace the CG-22 placeholder with the incoming content-rich three-engine data execution fabric material, keeping broad synthesis and implementation for later passes.
+  - Scope: Replace the CG-22 placeholder with the incoming content-rich three-engine data execution fabric material; broad synthesis and implementation were intentionally later work for that intake session.
   - Completed:
     - [x] Renamed RFC 0034 from placeholder to `0034-three-engine-certified-data-execution-fabric.md`.
     - [x] Landed the CG-22 content covering batch/live/hybrid engine modes, engine selection, boundedness, update and output modes, freshness/state/delta overlay/hot-cold/continuous-view certificates, engine-specific lowering, per-engine capability matrices, hot/warm/cold storage, NoSQL-inspired analytical state, roadmap phases, non-goals, certification blockers, and no-fallback boundaries.
     - [x] Updated RFC 0025, phase-plan rollups, RFC traceability, terminology, and README references so CG-22 points to the real intake RFC while CG-23 remained a placeholder at that time.
-  - Explicitly not included: broad cross-document synthesis, runtime behavior, dependencies, readers, writers, streaming runtime, state-store runtime, adapters, SQL/DataFrame runtime, UDF runtime, benchmark execution, superiority claims, best-default claims, CG-22 implementation, CG-23 intake, or fallback execution.
+  - Explicitly not included in that intake session: broad cross-document synthesis, runtime behavior, dependencies, readers, writers, streaming runtime, state-store runtime, adapters, SQL/DataFrame runtime, UDF runtime, benchmark execution, superiority claims, best-default claims, CG-22 implementation, CG-23 intake, or fallback execution.
 - [x] Session label: CG-21 user data workflow and ETL surface intake
   - Primary files:
     - `docs/rfcs/0033-user-data-workflow-etl-surface.md`
@@ -143,12 +312,12 @@ Use this section for the next implementation sequence. Keep it ordered by depend
     - `docs/architecture/rfc-phase-traceability.md`
     - `docs/architecture/canonical-terminology.md`
     - `README.md`
-  - Scope: Replace the CG-21 placeholder with the incoming content-rich user data workflow and ETL surface material, keeping broad synthesis and implementation for later passes.
+  - Scope: Replace the CG-21 placeholder with the incoming content-rich user data workflow and ETL surface material; broad synthesis and implementation were intentionally later work for that intake session.
   - Completed:
     - [x] Renamed RFC 0033 from placeholder to `0033-user-data-workflow-etl-surface.md`.
     - [x] Landed the scenario-driven CG-21 content covering install/import, capability discovery, local ETL, DataFrame/query-builder, SQL, pandas/Arrow boundaries, quality, transforms, joins, aggregations, windows, incremental ETL, outputs, object stores, table/catalog UX, remote inputs, logs/events, unstructured/media, UDFs, observability, migration, benchmarks, governance, notebooks, deployment, adapter maturity, lane sequencing, MVP scope, diagnostics, and disqualifiers.
     - [x] Updated RFC 0025, phase-plan rollups, RFC traceability, terminology, and README references so CG-21 points to the real intake RFC while CG-22/CG-23 remained placeholders at that time.
-  - Explicitly not included: broad cross-document synthesis, runtime behavior, dependencies, readers, adapters, SQL/DataFrame runtime, UDF runtime, benchmark execution, superiority claims, best-default claims, CG-21 implementation, CG-22/CG-23 intake, or fallback execution.
+  - Explicitly not included in that intake session: broad cross-document synthesis, runtime behavior, dependencies, readers, adapters, SQL/DataFrame runtime, UDF runtime, benchmark execution, superiority claims, best-default claims, CG-21 implementation, CG-22/CG-23 intake, or fallback execution.
 - [x] Session label: CG-21/CG-22/CG-23 placeholder reservation
   - Primary files:
     - `docs/architecture/phased-execution-plan.md`
@@ -2700,21 +2869,24 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] Placeholder RFC 0033 created.
 - [x] Replace placeholder with incoming content-rich CG-21 source file.
 - [x] Update first-order references, traceability, terminology, and plan placement.
-- [ ] Complete broader cross-document synthesis now that CG-21, CG-22, and CG-23 source files have landed.
+- [x] Complete broader cross-document synthesis now that CG-21, CG-22, and CG-23 source files have landed.
+- [x] Promote CG-21A through CG-21R implementation lanes into Planned so future work follows the three-section plan model.
 - [ ] Runtime behavior, dependencies, fallback execution, and claims remain unauthorized until the real CG-21 contract says otherwise and validation gates pass.
 
 #### CG-22 detailed checklist
 - [x] Placeholder RFC 0034 created.
 - [x] Replace placeholder with incoming content-rich CG-22 source file.
 - [x] Update first-order references, traceability, terminology, and plan placement.
-- [ ] Complete broader cross-document synthesis now that CG-21, CG-22, and CG-23 source files have landed.
+- [x] Complete broader cross-document synthesis now that CG-21, CG-22, and CG-23 source files have landed.
+- [x] Promote CG-22A through CG-22I implementation lanes into Planned so future work follows the three-section plan model.
 - [ ] Runtime behavior, dependencies, fallback execution, and claims remain unauthorized until the real CG-22 contract says otherwise and validation gates pass.
 
 #### CG-23 detailed checklist
 - [x] Placeholder RFC 0035 created.
 - [x] Replace placeholder with incoming content-rich CG-23 source file.
 - [x] Update first-order references, traceability, terminology, and plan placement.
-- [ ] Complete broader cross-document synthesis now that CG-21, CG-22, and CG-23 source files have landed.
+- [x] Complete broader cross-document synthesis now that CG-21, CG-22, and CG-23 source files have landed.
+- [x] Promote CG-23A through CG-23I implementation lanes into Planned so future work follows the three-section plan model.
 - [ ] Runtime behavior, dependencies, fallback execution, and claims remain unauthorized until the real CG-23 contract says otherwise and validation gates pass.
 
 #### CG attribution and evidence notes

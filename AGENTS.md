@@ -156,6 +156,22 @@ Important principles:
 - Agent-facing capability discovery should be deterministic and machine-readable.
 - No Spark or DataFusion fallback is allowed for convenience.
 
+## User workflow, engine modes, and remote APIs
+
+Before work involving broad user workflows, ETL UX, Python/DataFrame surfaces, batch/live/hybrid engine modes, live or hybrid state, REST/event APIs, remote result delivery, lineage/governance export, or agent API surfaces, read:
+
+- `docs/rfcs/0033-user-data-workflow-etl-surface.md`
+- `docs/rfcs/0034-three-engine-certified-data-execution-fabric.md`
+- `docs/rfcs/0035-rest-event-remote-api-surface.md`
+
+Important principles:
+
+- CG-21 certifies complete user workflows; it does not authorize hidden pandas, Polars, Spark, DataFusion, DuckDB, or other execution fallback.
+- CG-22 engine selection is internal ShardLoom-native batch/live/hybrid selection, not delegation to external streaming, database, or lakehouse systems.
+- CG-23 REST is a control plane, proof surface, orchestration API, and small-result API; large data transfer must use explicit data-plane boundaries.
+- Discovery, explain, estimate, capability, and agent surfaces must be side-effect-free by default.
+- Remote execution, writes, external effects, credentials, and destructive operations require explicit policy, diagnostics, certificate linkage, and no-fallback evidence.
+
 ## Diagnostics, explain, estimate, doctor, and capabilities
 
 ShardLoom should expose structured, deterministic, human-friendly and agent-friendly diagnostics.

@@ -2,6 +2,8 @@
 
 ShardLoom is a standalone encoded-columnar execution engine for computing directly over Vortex-native layouts, preserving encoded representation where possible, and producing Vortex-native or lakehouse-compatible outputs without delegating execution to Spark, DataFusion, DuckDB, Polars, Velox, or another fallback engine.
 
+Longer term, ShardLoom is being shaped into a certified data execution fabric: a Vortex-native engine with user-friendly Python, SQL, DataFrame, ETL, adapter, live/hybrid, and remote API surfaces that all preserve the same no-fallback evidence model.
+
 ## Mission
 
 Compute less. Decode later. Materialize only at explicit boundaries.
@@ -16,6 +18,18 @@ Compute less. Decode later. Materialize only at explicit boundaries.
 - object-store-aware planning and commit semantics
 - correctness evidence, execution certificates, and benchmark-gated claims
 - common analytical capability through SQL, Python/API, UDF, adapter, ETL, and unstructured/media surfaces over time
+- batch, live, and hybrid execution modes only after they are ShardLoom-native and certificate-backed
+- REST/event/remote APIs as proof and orchestration surfaces, not hidden execution delegation
+
+## Product Direction
+
+ShardLoom is not intended to stop at a narrow local accelerator. The roadmap expands the same native, inspectable execution contract into:
+
+- **complete user data workflows**: install, import, discover capabilities, read data, validate schemas, transform, write outputs, explain, certify, benchmark, and diagnose.
+- **three ShardLoom-native engine modes**: batch for finite analytical work, live for continuous incremental computation, and hybrid for fresh analytical state over Vortex base data plus explicit deltas.
+- **remote API access**: REST for control/proof/orchestration and small results; event APIs for progress and live/hybrid updates; explicit data-plane choices such as Vortex artifacts, object references, Arrow IPC boundaries, JSON Lines, Flight, or ADBC where approved.
+
+These are roadmap targets, not blanket support claims. A surface counts as supported only when its native execution path or explicit materialization/source/sink boundary, diagnostics, certificates, correctness evidence, and benchmark or workload evidence are present for the declared workload.
 
 ## Core Concepts
 

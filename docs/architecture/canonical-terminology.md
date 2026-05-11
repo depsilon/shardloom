@@ -214,3 +214,40 @@ See `docs/architecture/terminology-consolidation-backlog.md` for the full audit 
 - **evidence routing**: content- and capability-dependent selection of sources, segments, fields, operators, or artifacts to inspect or skip, backed by proof, uncertainty, or explicit unsupported diagnostics.
 - **context structure preservation**: keeping source references, field paths, row/segment identity, ordering, partitioning, provenance, and neighboring context visible across planning, migration, and agent-facing reports.
 - **stateful certificate history**: reusable record of prior execution/capability certificates, invalidation causes, and plan decisions that can be consumed by future sessions without relying on lossy summaries.
+
+## CG-21 user workflow terms
+- **user data workflow surface**: the end-to-end user journey from install/import through capability discovery, read, validate, transform, write, explain, certify, benchmark, and diagnose.
+- **workflow certification boundary**: the declared workload scope where user API, native execution or explicit materialization, source/sink evidence, correctness, diagnostics, and no-fallback fields must all exist before a workflow is called supported.
+- **context and capability API**: side-effect-free user/API surface that exposes supported, planned, partial, blocked, feature-gated, materialization-gated, effect-gated, and certified states before execution.
+- **data contract**: user-declared schema, type, nullability, freshness, uniqueness, ordering, or quality requirement that can reject, quarantine, or block a workflow with deterministic diagnostics.
+- **quarantine output**: explicit sink for invalid or rejected records; it is an output boundary with fidelity, schema, retention, and side-effect requirements, not silent row loss.
+- **notebook preview boundary**: explicit materialization boundary for sampled display in notebook or interactive contexts; it must report row limits, redaction, representation loss, and fallback status.
+
+## CG-22 engine fabric terms
+- **certified data execution fabric**: the ShardLoom-native batch/live/hybrid execution model under one user workflow, where engine choice is explicit and evidence-backed.
+- **engine mode**: requested or selected internal ShardLoom execution policy: `batch`, `live`, `hybrid`, or `auto`.
+- **batch engine**: finite, snapshot-oriented native execution over bounded inputs.
+- **live engine**: continuous native execution over unbounded or change-oriented inputs with watermarks, state, checkpoints, and output modes.
+- **hybrid engine**: native execution over cold Vortex data plus warm micro-segments and hot delta/state overlays for fresh analytical results.
+- **boundedness**: source/input shape such as bounded, unbounded, or bounded-with-live-delta that constrains valid engine modes.
+- **update mode**: change semantics such as append-only, upsert, delete/tombstone, changelog, or retraction.
+- **output mode**: result semantics such as snapshot, append, changelog, materialized view, or serving state.
+- **engine selection report**: proof artifact explaining requested, allowed, selected, and rejected engine modes with freshness, consistency, state, materialization, and no-fallback evidence.
+- **freshness certificate**: evidence for watermark, lag, snapshot epoch, checkpoint, and target freshness behavior.
+- **state certificate**: evidence for state size, state store identity, TTL, checkpoint, changelog, recovery, and idempotency status.
+- **delta overlay certificate**: evidence describing hot delta ranges, tombstones, delete vectors, merge rules, and snapshot consistency for hybrid execution.
+- **hot/cold contribution report**: evidence showing how much of a result came from hot state, warm micro-segments, and cold Vortex segments.
+- **continuous view certificate**: evidence that a maintained result view has declared update mode, freshness, checkpoint, state, output, and no-fallback status.
+
+## CG-23 remote API terms
+- **REST control plane**: HTTP/JSON surface for capability discovery, plan validation, execution lifecycle, certificates, lineage, governance, and small-result orchestration.
+- **event plane**: progress, state, watermark, checkpoint, certificate, lineage, benchmark, and live/hybrid update events exposed through SSE, WebSocket, AsyncAPI, or CloudEvents-style contracts.
+- **data plane**: explicit large-result transfer boundary such as Vortex artifact, object reference, Arrow IPC boundary, JSON Lines stream, Flight ticket, or ADBC endpoint.
+- **result delivery policy**: request/response contract declaring preferred result formats, inline limits, paging, spooling, retention, cleanup, materialization, and fidelity behavior.
+- **problem details**: RFC 9457-style HTTP problem response with ShardLoom diagnostic extensions for unsupported, unsafe, blocked, or failed remote API requests.
+- **OpenAPI contract**: machine-readable REST API contract for control-plane resources and schemas.
+- **AsyncAPI contract**: machine-readable event API contract for message channels and event payloads.
+- **CloudEvents envelope**: standardized event metadata wrapper for progress, state, certificate, lineage, and live/hybrid events.
+- **OpenTelemetry export**: trace, metric, and log export path that maps ShardLoom query, operator, source, sink, certificate, and fallback fields into telemetry.
+- **OpenLineage facet**: lineage extension carrying ShardLoom execution-certificate, native-I/O, materialization, representation-state, and no-fallback evidence.
+- **MCP agent API**: agent-facing surface over the same control-plane semantics, defaulting to safe discovery, validate, explain, estimate, and certify actions rather than unrestricted execution.
