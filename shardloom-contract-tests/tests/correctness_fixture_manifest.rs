@@ -61,6 +61,20 @@ fn foundation_plan_declares_local_encoded_count_reference_output() {
     assert!(fixture.covers_area(SemanticArea::EncodedExecution));
     assert!(fixture.covers_edge_case(EdgeCase::NoNulls));
     assert!(fixture.has_reference_role(ReferenceRole::GoldenFixture));
+    assert!(fixture.has_reference_role(ReferenceRole::DecodedReference));
+    assert_eq!(fixture.decoded_reference_artifact_count(), 1);
+    let artifact = &fixture.reference_artifacts[0];
+    assert_eq!(
+        artifact.artifact_id,
+        "vortex-local-encoded-count-u64-20000.decoded-reference.count"
+    );
+    assert_eq!(
+        artifact.expected,
+        ExpectedOutcome::EncodedCount { count: 20000 }
+    );
+    assert!(!artifact.execution_performed);
+    assert!(!artifact.fallback_attempted);
+    assert!(artifact.is_test_only());
     assert!(fixture.reference_roles_are_test_only());
 }
 
@@ -107,6 +121,22 @@ fn foundation_plan_declares_broader_local_primitive_reference_outputs() {
         assert!(fixture.covers_area(SemanticArea::EncodedExecution));
         assert!(fixture.covers_edge_case(EdgeCase::NoNulls));
         assert!(fixture.has_reference_role(ReferenceRole::GoldenFixture));
+        assert!(fixture.has_reference_role(ReferenceRole::DecodedReference));
+        assert_eq!(fixture.decoded_reference_artifact_count(), 1);
+        let artifact = &fixture.reference_artifacts[0];
+        let suffix = if matches!(&expected, ExpectedOutcome::EncodedCount { .. }) {
+            "count"
+        } else {
+            "rows"
+        };
+        assert_eq!(
+            artifact.artifact_id,
+            format!("{id}.decoded-reference.{suffix}")
+        );
+        assert_eq!(artifact.expected, expected);
+        assert!(!artifact.execution_performed);
+        assert!(!artifact.fallback_attempted);
+        assert!(artifact.is_test_only());
         assert!(fixture.reference_roles_are_test_only());
     }
 }
@@ -231,17 +261,23 @@ fn foundation_plan_reports_reference_and_gap_counts() {
     assert_eq!(plan.fixture_count(), 22);
     assert_eq!(plan.fixtures_with_source_ref_count(), 7);
     assert_eq!(plan.golden_fixture_count(), 10);
-    assert_eq!(plan.reference_artifact_count(), 3);
-    assert_eq!(plan.decoded_reference_output_count(), 3);
+    assert_eq!(plan.reference_artifact_count(), 9);
+    assert_eq!(plan.decoded_reference_output_count(), 9);
     assert_eq!(
         plan.decoded_reference_artifact_id_order(),
         vec![
+            "vortex-local-encoded-count-u64-20000.decoded-reference.count",
+            "vortex-local-count-all-struct-five.decoded-reference.count",
+            "vortex-local-count-where-struct-five.decoded-reference.rows",
+            "vortex-local-project-struct-five.decoded-reference.rows",
+            "vortex-local-filter-struct-five.decoded-reference.rows",
+            "vortex-local-filter-project-struct-five.decoded-reference.rows",
             "vortex-prepared-encoded-filter-dictionary-run.decoded-reference.rows",
             "vortex-prepared-encoded-projection-dictionary.decoded-reference.rows",
             "vortex-prepared-encoded-filter-project-selection-vector.decoded-reference.rows",
         ]
     );
-    assert!(!plan.decoded_reference_output_coverage_complete());
+    assert!(plan.decoded_reference_output_coverage_complete());
     assert_eq!(plan.executable_expected_output_count(), 9);
     assert_eq!(plan.not_yet_defined_fixture_count(), 8);
     assert_eq!(plan.diagnostic_expected_output_count(), 1);

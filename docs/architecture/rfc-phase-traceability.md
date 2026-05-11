@@ -707,6 +707,14 @@ No fallback execution.
 - Decoded-reference output coverage remains incomplete until every executable fixture family has appropriate reference artifacts; property/fuzz and benchmark claim gates remain blocked.
 - This phase adds no decoded-reference execution, external oracle execution, data reads, reader/adapters, non-local sources, object-store IO, SQL/DataFrame runtime, writes, spill, benchmark reruns, production certification, superiority claim, or fallback execution.
 
+## CG-5.14 complete decoded-reference artifact coverage for executable fixtures
+
+- Primary RFC linkage: RFC 0015 Correctness/testing, RFC 0025 Competitive/no-fallback, RFC 0029 Correctness/Benchmarks/Execution Certificates, RFC 0031 Universal Native I/O Envelope, and RFC 0032 capability certification.
+- The local encoded `CountAll` fixture, checked-in struct `CountAll` fixture, and checked-in struct count-where/filter/project/filter-project fixtures now attach test-only decoded-reference artifacts.
+- Current executable fixture families now have decoded-reference artifact coverage through `CorrectnessValidationPlan::decoded_reference_output_coverage_complete`.
+- `correctness-harness-plan` no longer lists `decoded_reference_outputs` as a blocked surface, while property/fuzz and benchmark claim gates remain blocked.
+- This phase adds no decoded-reference execution, external oracle execution, data reads, reader/adapters, non-local sources, object-store IO, SQL/DataFrame runtime, writes, spill, benchmark reruns, production certification, superiority claim, or fallback execution.
+
 ## CG-5.1 metadata query primitive correctness fixtures
 
 - Primary RFC linkage: RFC 0015 Correctness/Semantics/Differential Testing, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.

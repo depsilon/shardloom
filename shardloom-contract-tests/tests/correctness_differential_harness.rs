@@ -23,21 +23,27 @@ fn correctness_harness_aggregates_current_cg5_evidence_without_execution() {
     assert_eq!(report.fixture_count, 22);
     assert_eq!(report.golden_fixture_count, 10);
     assert_eq!(report.executable_expected_output_count, 9);
-    assert_eq!(report.reference_artifact_count, 3);
-    assert_eq!(report.decoded_reference_output_count, 3);
+    assert_eq!(report.reference_artifact_count, 9);
+    assert_eq!(report.decoded_reference_output_count, 9);
     assert_eq!(
         report.decoded_reference_artifact_id_order,
         vec![
+            "vortex-local-encoded-count-u64-20000.decoded-reference.count".to_string(),
+            "vortex-local-count-all-struct-five.decoded-reference.count".to_string(),
+            "vortex-local-count-where-struct-five.decoded-reference.rows".to_string(),
+            "vortex-local-project-struct-five.decoded-reference.rows".to_string(),
+            "vortex-local-filter-struct-five.decoded-reference.rows".to_string(),
+            "vortex-local-filter-project-struct-five.decoded-reference.rows".to_string(),
             "vortex-prepared-encoded-filter-dictionary-run.decoded-reference.rows".to_string(),
             "vortex-prepared-encoded-projection-dictionary.decoded-reference.rows".to_string(),
             "vortex-prepared-encoded-filter-project-selection-vector.decoded-reference.rows"
                 .to_string(),
         ]
     );
-    assert!(!report.decoded_reference_output_coverage_complete);
+    assert!(report.decoded_reference_output_coverage_complete);
     assert_eq!(report.baseline_count, 7);
-    assert_eq!(report.planned_surface_count, 5);
-    assert_eq!(report.blocked_surface_count, 3);
+    assert_eq!(report.planned_surface_count, 6);
+    assert_eq!(report.blocked_surface_count, 2);
     assert!(report.reference_roles_test_only);
     assert!(report.baselines_fallback_free);
     assert!(report.side_effect_free());

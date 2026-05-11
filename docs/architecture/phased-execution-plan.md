@@ -85,6 +85,7 @@ Use this section for the next implementation sequence. Keep it ordered by depend
   - [x] CG-16 evidence-incomplete execution certificates wired into prepared encoded filter/projection surfaces while CG-5 fixture certification remains blocked.
   - [x] CG-5/CG-16 prepared encoded filter/projection fixtures certify the narrow prepared encoded execution reports.
   - [x] CG-5 decoded-reference artifact metadata covers prepared encoded filter/projection/filter-project fixture outputs without decoded-reference execution.
+  - [x] CG-5 decoded-reference artifact metadata covers every current executable fixture family without decoded-reference execution.
   - [ ] CG-5 fixtures, reference outputs, correctness certificates, and edge-case coverage for each widened primitive path.
   - [ ] CG-6 query-runtime benchmark rows, reproducibility metadata, work-avoidance evidence, and claim-gate blockers for each new primitive path.
   - [ ] CG-16 execution certificates and CG-19 per-path Native I/O certificates for each supported source/sink path.
@@ -293,12 +294,29 @@ Use this section for the next implementation sequence. Keep it ordered by depend
 
 ## Active
 
-- [ ] No active session.
-  - Move the next Planned item here before implementation begins.
+- [ ] No active session. Promote the next Planned item here before implementation begins.
 
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: CG-5.14 complete decoded-reference artifact coverage for executable fixtures
+  - Primary files:
+    - `shardloom-core/src/correctness.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/correctness_plan_snapshots.rs`
+    - `shardloom-cli/tests/correctness_harness_plan_snapshots.rs`
+    - `shardloom-contract-tests/tests/correctness_fixture_manifest.rs`
+    - `shardloom-contract-tests/tests/correctness_differential_harness.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/correctness-differential-harness.md`
+  - Scope: Attach test-only decoded-reference artifacts to the remaining executable encoded-count and local primitive fixtures so decoded-reference artifact coverage is complete for current executable fixture families.
+  - Completed:
+    - [x] Attached decoded-reference artifacts to local encoded `CountAll` fixtures.
+    - [x] Attached decoded-reference artifacts to local primitive count-where/filter/project/filter-project fixtures.
+    - [x] Updated correctness plan and harness expectations so decoded-reference output coverage is complete while property/fuzz and benchmark gates remain blocked.
+    - [x] Kept decoded-reference execution, external engine execution, data reads, writes, benchmark claims, production certification, and fallback disabled.
+  - Explicitly not included: decoded-reference execution, external oracle execution, reader/adapters, non-local/object-store sources, SQL/DataFrame/Python runtime expansion, writes, spill, benchmark reruns, production certification, superiority claims, or fallback execution.
 - [x] Session label: CG-5.13 decoded-reference artifact coverage for prepared encoded primitives
   - Primary files:
     - `shardloom-core/src/correctness.rs`
@@ -2366,9 +2384,10 @@ Status legend:
   - [x] CG-5.11 generalized local primitive fixture matching is reusable from `shardloom-vortex`
   - [x] CG-5.12 prepared encoded filter/projection generated fixtures and reference outputs
   - [x] CG-5.13 prepared encoded filter/projection decoded-reference artifact metadata
+  - [x] CG-5.14 complete decoded-reference artifact coverage for current executable fixture families
   - Expected evidence:
     - golden Vortex fixtures
-    - decoded reference outputs beyond the prepared encoded filter/projection/filter-project fixture slice
+    - decoded reference outputs for future executable fixture families as they are added
     - null/nested/dictionary/sparse/run-length/temporal edge-case coverage
     - external engine baselines used only as correctness oracles (never runtime fallback)
     - property/fuzz fixtures and reproducible seeds before broad encoded execution claims
@@ -2790,7 +2809,8 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-5.11 generalized local primitive fixture matching is reusable from `shardloom-vortex`
 - [x] CG-5.12 prepared encoded filter/projection generated fixtures and reference outputs certify narrow prepared encoded execution reports
 - [x] CG-5.13 prepared encoded filter/projection decoded-reference artifact metadata is test-only and side-effect-free
-- [~] decoded-reference output artifacts for every executable fixture family
+- [x] CG-5.14 complete decoded-reference artifact coverage for current executable fixture families
+- [~] decoded-reference output artifacts for future executable fixture families as they are added
 - [~] property/fuzz fixture families and reproducible seeds
 - [~] external-oracle result artifacts remain deferred; engines are policy-only baselines until explicit benchmark/correctness runs
 

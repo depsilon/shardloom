@@ -476,6 +476,13 @@ fn generated_fixture(
     fixture
 }
 
+fn add_decoded_reference_artifact(fixture: &mut CorrectnessFixture, suffix: &str) {
+    fixture.add_reference_artifact(ReferenceArtifact::decoded_reference_output(
+        format!("{}.decoded-reference.{suffix}", fixture.id.as_str()),
+        fixture.expected.clone(),
+    ));
+}
+
 fn vortex_metadata_footer_fixture() -> CorrectnessFixture {
     let mut fixture = CorrectnessFixture::new(
         FixtureId::new("vortex-metadata-footer-u64-20000").expect("valid"),
@@ -499,6 +506,7 @@ fn vortex_local_encoded_count_fixture() -> CorrectnessFixture {
     fixture.add_semantic_area(SemanticArea::EncodedExecution);
     fixture.add_edge_case(EdgeCase::NoNulls);
     fixture.add_reference_role(ReferenceRole::GoldenFixture);
+    add_decoded_reference_artifact(&mut fixture, "count");
     fixture
 }
 
@@ -512,6 +520,7 @@ fn local_primitive_struct_count_all_fixture() -> CorrectnessFixture {
     fixture.add_semantic_area(SemanticArea::EncodedExecution);
     fixture.add_edge_case(EdgeCase::NoNulls);
     fixture.add_reference_role(ReferenceRole::GoldenFixture);
+    add_decoded_reference_artifact(&mut fixture, "count");
     fixture
 }
 
@@ -531,6 +540,7 @@ fn local_primitive_struct_rows_fixture(
     fixture.add_semantic_area(SemanticArea::EncodedExecution);
     fixture.add_edge_case(edge_case);
     fixture.add_reference_role(ReferenceRole::GoldenFixture);
+    add_decoded_reference_artifact(&mut fixture, "rows");
     fixture
 }
 
@@ -575,10 +585,7 @@ fn prepared_encoded_rows_fixture(
         fixture.add_edge_case(*edge_case);
     }
     fixture.add_reference_role(ReferenceRole::GoldenFixture);
-    fixture.add_reference_artifact(ReferenceArtifact::decoded_reference_output(
-        format!("{id}.decoded-reference.rows"),
-        expected,
-    ));
+    add_decoded_reference_artifact(&mut fixture, "rows");
     fixture
 }
 
@@ -1554,9 +1561,9 @@ mod tests {
         assert_eq!(plan.fixture_count(), 22);
         assert_eq!(plan.fixtures_with_source_ref_count(), 7);
         assert_eq!(plan.golden_fixture_count(), 10);
-        assert_eq!(plan.reference_artifact_count(), 3);
-        assert_eq!(plan.decoded_reference_output_count(), 3);
-        assert!(!plan.decoded_reference_output_coverage_complete());
+        assert_eq!(plan.reference_artifact_count(), 9);
+        assert_eq!(plan.decoded_reference_output_count(), 9);
+        assert!(plan.decoded_reference_output_coverage_complete());
         assert_eq!(plan.executable_expected_output_count(), 9);
         assert_eq!(plan.not_yet_defined_fixture_count(), 8);
         assert_eq!(plan.diagnostic_expected_output_count(), 1);
@@ -1593,18 +1600,17 @@ mod tests {
         assert_eq!(report.fixture_count, 22);
         assert_eq!(report.golden_fixture_count, 10);
         assert_eq!(report.executable_expected_output_count, 9);
-        assert_eq!(report.reference_artifact_count, 3);
-        assert_eq!(report.decoded_reference_output_count, 3);
-        assert!(!report.decoded_reference_output_coverage_complete);
+        assert_eq!(report.reference_artifact_count, 9);
+        assert_eq!(report.decoded_reference_output_count, 9);
+        assert!(report.decoded_reference_output_coverage_complete);
         assert_eq!(report.generated_property_fixture_count, 0);
         assert_eq!(report.fuzz_seed_count, 0);
         assert_eq!(report.baseline_count, 7);
-        assert_eq!(report.planned_surface_count, 5);
-        assert_eq!(report.blocked_surface_count, 3);
+        assert_eq!(report.planned_surface_count, 6);
+        assert_eq!(report.blocked_surface_count, 2);
         assert_eq!(
             report.blocked_surface_order,
             vec![
-                "decoded_reference_outputs".to_string(),
                 "property_fuzzing".to_string(),
                 "benchmark_claim_gate".to_string()
             ]

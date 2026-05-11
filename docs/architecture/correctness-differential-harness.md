@@ -58,10 +58,10 @@ The report answers:
 
 ## Current Evidence State
 
-- Test-only decoded reference output artifacts are present for the prepared
-  encoded filter, projection, and filter-project fixture slice.
-- Decoded reference output coverage is still incomplete across the broad
-  executable fixture families.
+- Test-only decoded reference output artifacts are present for every current
+  executable fixture family.
+- Future executable fixture families must add decoded reference output artifacts
+  before they can support correctness, benchmark, or production claims.
 - Property-based fixtures are not yet present.
 - Fuzz seeds are not yet present.
 - Several fixture families still have `NotYetDefined` expected outcomes.

@@ -45,11 +45,11 @@ fn correctness_harness_json_exposes_aggregate_status_and_surfaces() {
         "surface_order",
         "fixture_manifest,golden_fixtures,decoded_reference_outputs,differential_oracles,semantic_edge_cases,unsupported_diagnostics,property_fuzzing,benchmark_claim_gate"
     )));
-    assert!(output.contains(&field("planned_surface_count", "5")));
-    assert!(output.contains(&field("blocked_surface_count", "3")));
+    assert!(output.contains(&field("planned_surface_count", "6")));
+    assert!(output.contains(&field("blocked_surface_count", "2")));
     assert!(output.contains(&field(
         "blocked_surface_order",
-        "decoded_reference_outputs,property_fuzzing,benchmark_claim_gate"
+        "property_fuzzing,benchmark_claim_gate"
     )));
 }
 
@@ -67,16 +67,13 @@ fn correctness_harness_json_exposes_fixtures_oracles_and_missing_modes() {
     )));
     assert!(output.contains(&field("fixture_count", "22")));
     assert!(output.contains(&field("golden_fixture_count", "10")));
-    assert!(output.contains(&field("reference_artifact_count", "3")));
-    assert!(output.contains(&field("decoded_reference_output_count", "3")));
+    assert!(output.contains(&field("reference_artifact_count", "9")));
+    assert!(output.contains(&field("decoded_reference_output_count", "9")));
     assert!(output.contains(&field(
         "decoded_reference_artifact_id_order",
-        "vortex-prepared-encoded-filter-dictionary-run.decoded-reference.rows,vortex-prepared-encoded-projection-dictionary.decoded-reference.rows,vortex-prepared-encoded-filter-project-selection-vector.decoded-reference.rows"
+        "vortex-local-encoded-count-u64-20000.decoded-reference.count,vortex-local-count-all-struct-five.decoded-reference.count,vortex-local-count-where-struct-five.decoded-reference.rows,vortex-local-project-struct-five.decoded-reference.rows,vortex-local-filter-struct-five.decoded-reference.rows,vortex-local-filter-project-struct-five.decoded-reference.rows,vortex-prepared-encoded-filter-dictionary-run.decoded-reference.rows,vortex-prepared-encoded-projection-dictionary.decoded-reference.rows,vortex-prepared-encoded-filter-project-selection-vector.decoded-reference.rows"
     )));
-    assert!(output.contains(&field(
-        "decoded_reference_output_coverage_complete",
-        "false"
-    )));
+    assert!(output.contains(&field("decoded_reference_output_coverage_complete", "true")));
     assert!(output.contains(&field("executable_expected_output_count", "9")));
     assert!(output.contains(&field("not_yet_defined_fixture_count", "8")));
     assert!(output.contains(&field("unsupported_diagnostic_fixture_count", "2")));
