@@ -288,6 +288,51 @@ fn foundation_plan_declares_edge_case_reference_outputs() {
 }
 
 #[test]
+fn foundation_plan_declares_property_fuzz_metadata_without_execution() {
+    let plan = CorrectnessValidationPlan::default_foundation_plan();
+    let cases = [
+        (
+            "property-encoded-filter-selection-vector-consistency",
+            SemanticArea::SelectionVectors,
+            EdgeCase::SparseValidity,
+        ),
+        (
+            "property-encoded-projection-preserves-row-order",
+            SemanticArea::EncodedExecution,
+            EdgeCase::SortedInput,
+        ),
+        (
+            "property-encoded-filter-project-composition",
+            SemanticArea::SelectionVectors,
+            EdgeCase::DictionaryEncoded,
+        ),
+    ];
+
+    for (id, area, edge_case) in cases {
+        let fixture = fixture(&plan, id);
+        assert_eq!(fixture.format, FixtureFormat::Generated);
+        assert_eq!(fixture.source_ref, None);
+        assert_eq!(fixture.expected, ExpectedOutcome::NoSideEffects);
+        assert!(!fixture.expected.requires_execution());
+        assert!(fixture.covers_area(area));
+        assert!(fixture.covers_edge_case(edge_case));
+        assert!(fixture.has_reference_role(ReferenceRole::GeneratedProperty));
+        assert!(!fixture.has_reference_role(ReferenceRole::GoldenFixture));
+        assert_eq!(fixture.decoded_reference_artifact_count(), 0);
+        assert!(fixture.reference_roles_are_test_only());
+    }
+
+    assert_eq!(plan.generated_property_fixture_count(), 3);
+    assert_eq!(plan.fuzz_seeds.len(), 3);
+    assert_eq!(plan.fuzz_seeds[0].target, "encoded_filter_selection_vector");
+    assert_eq!(plan.fuzz_seeds[0].seed, 0x5E1E_C710_0001);
+    assert_eq!(
+        plan.fuzz_seeds[0].reproducer.as_deref(),
+        Some("fixture-family=selection_vector; null_policy=mixed")
+    );
+}
+
+#[test]
 fn foundation_plan_tracks_required_edge_case_fixture_families() {
     let plan = CorrectnessValidationPlan::default_foundation_plan();
     let required = [
@@ -340,7 +385,12 @@ fn reference_roles_remain_test_only_not_production_fallback() {
     assert!(plan.reference_roles_are_test_only());
     assert_eq!(
         plan.reference_role_order(),
-        vec!["golden_fixture", "decoded_reference", "external_oracle"]
+        vec![
+            "golden_fixture",
+            "decoded_reference",
+            "generated_property",
+            "external_oracle"
+        ]
     );
     assert!(!plan.fallback_execution_allowed());
     assert!(
@@ -353,7 +403,7 @@ fn reference_roles_remain_test_only_not_production_fallback() {
 fn foundation_plan_reports_reference_and_gap_counts() {
     let plan = CorrectnessValidationPlan::default_foundation_plan();
 
-    assert_eq!(plan.fixture_count(), 31);
+    assert_eq!(plan.fixture_count(), 34);
     assert_eq!(plan.fixtures_with_source_ref_count(), 7);
     assert_eq!(plan.golden_fixture_count(), 19);
     assert_eq!(plan.reference_artifact_count(), 18);

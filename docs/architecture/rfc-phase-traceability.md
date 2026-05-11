@@ -723,6 +723,14 @@ No fallback execution.
 - `correctness-plan` and `correctness-harness-plan` now surface 31 total fixtures, 19 golden fixtures, 18 decoded-reference artifacts, and 18 executable expected outputs while keeping property/fuzz and benchmark claim gates blocked.
 - This phase adds no source-backed generated data files, property/fuzz execution, external oracle execution, decoded-reference execution, data reads, reader/adapters, non-local sources, object-store IO, SQL/DataFrame runtime, writes, spill, benchmark reruns, production certification, superiority claim, or fallback execution.
 
+## CG-5.16 generated property/fuzz fixture metadata
+
+- Primary RFC linkage: RFC 0015 Correctness/testing, RFC 0021 Expression/Kernel Registry, RFC 0025 Competitive/no-fallback, RFC 0029 Correctness/Benchmarks/Execution Certificates, RFC 0031 Universal Native I/O Envelope, and RFC 0032 capability certification.
+- `CorrectnessValidationPlan::default_foundation_plan` now includes generated property fixtures for encoded filter selection-vector consistency, encoded projection row-order preservation, and encoded filter-project composition.
+- The CG-5 aggregate plan includes reproducible fuzz seeds for encoded filter selection vectors, encoded projection ordering, and encoded filter-project composition.
+- `correctness-harness-plan` now surfaces 34 total fixtures, 3 generated property fixtures, 3 fuzz seeds, and only `benchmark_claim_gate` as the remaining blocked aggregate surface.
+- This phase adds no property/fuzz execution, source-backed generated data files, external oracle execution, decoded-reference execution, data reads, reader/adapters, non-local sources, object-store IO, SQL/DataFrame runtime, writes, spill, benchmark reruns, production certification, superiority claim, or fallback execution.
+
 ## CG-5.1 metadata query primitive correctness fixtures
 
 - Primary RFC linkage: RFC 0015 Correctness/Semantics/Differential Testing, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.

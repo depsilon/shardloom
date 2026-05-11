@@ -45,12 +45,9 @@ fn correctness_harness_json_exposes_aggregate_status_and_surfaces() {
         "surface_order",
         "fixture_manifest,golden_fixtures,decoded_reference_outputs,differential_oracles,semantic_edge_cases,unsupported_diagnostics,property_fuzzing,benchmark_claim_gate"
     )));
-    assert!(output.contains(&field("planned_surface_count", "6")));
-    assert!(output.contains(&field("blocked_surface_count", "2")));
-    assert!(output.contains(&field(
-        "blocked_surface_order",
-        "property_fuzzing,benchmark_claim_gate"
-    )));
+    assert!(output.contains(&field("planned_surface_count", "7")));
+    assert!(output.contains(&field("blocked_surface_count", "1")));
+    assert!(output.contains(&field("blocked_surface_order", "benchmark_claim_gate")));
 }
 
 #[test]
@@ -61,11 +58,8 @@ fn correctness_harness_json_exposes_fixtures_oracles_and_missing_modes() {
         "required_validation_mode_order",
         "expected_output,decoded_reference,differential_comparison,property_based,fuzz,golden_diagnostic,unsupported_diagnostic_only"
     )));
-    assert!(output.contains(&field(
-        "missing_validation_mode_order",
-        "property_based,fuzz"
-    )));
-    assert!(output.contains(&field("fixture_count", "31")));
+    assert!(output.contains(&field("missing_validation_mode_order", "")));
+    assert!(output.contains(&field("fixture_count", "34")));
     assert!(output.contains(&field("golden_fixture_count", "19")));
     assert!(output.contains(&field("reference_artifact_count", "18")));
     assert!(output.contains(&field("decoded_reference_output_count", "18")));
@@ -82,8 +76,12 @@ fn correctness_harness_json_exposes_fixtures_oracles_and_missing_modes() {
         "baseline_engine_order",
         "spark,datafusion,duckdb,polars,pandas,dask,velox"
     )));
-    assert!(output.contains(&field("generated_property_fixture_count", "0")));
-    assert!(output.contains(&field("fuzz_seed_count", "0")));
+    assert!(output.contains(&field(
+        "reference_role_order",
+        "golden_fixture,decoded_reference,generated_property,external_oracle"
+    )));
+    assert!(output.contains(&field("generated_property_fixture_count", "3")));
+    assert!(output.contains(&field("fuzz_seed_count", "3")));
 }
 
 #[test]
