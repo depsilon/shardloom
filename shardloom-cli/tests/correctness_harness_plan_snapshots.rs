@@ -65,16 +65,16 @@ fn correctness_harness_json_exposes_fixtures_oracles_and_missing_modes() {
         "missing_validation_mode_order",
         "property_based,fuzz"
     )));
-    assert!(output.contains(&field("fixture_count", "22")));
-    assert!(output.contains(&field("golden_fixture_count", "10")));
-    assert!(output.contains(&field("reference_artifact_count", "9")));
-    assert!(output.contains(&field("decoded_reference_output_count", "9")));
+    assert!(output.contains(&field("fixture_count", "31")));
+    assert!(output.contains(&field("golden_fixture_count", "19")));
+    assert!(output.contains(&field("reference_artifact_count", "18")));
+    assert!(output.contains(&field("decoded_reference_output_count", "18")));
     assert!(output.contains(&field(
         "decoded_reference_artifact_id_order",
-        "vortex-local-encoded-count-u64-20000.decoded-reference.count,vortex-local-count-all-struct-five.decoded-reference.count,vortex-local-count-where-struct-five.decoded-reference.rows,vortex-local-project-struct-five.decoded-reference.rows,vortex-local-filter-struct-five.decoded-reference.rows,vortex-local-filter-project-struct-five.decoded-reference.rows,vortex-prepared-encoded-filter-dictionary-run.decoded-reference.rows,vortex-prepared-encoded-projection-dictionary.decoded-reference.rows,vortex-prepared-encoded-filter-project-selection-vector.decoded-reference.rows"
+        "vortex-local-encoded-count-u64-20000.decoded-reference.count,vortex-local-count-all-struct-five.decoded-reference.count,vortex-local-count-where-struct-five.decoded-reference.rows,vortex-local-project-struct-five.decoded-reference.rows,vortex-local-filter-struct-five.decoded-reference.rows,vortex-local-filter-project-struct-five.decoded-reference.rows,vortex-prepared-encoded-filter-dictionary-run.decoded-reference.rows,vortex-prepared-encoded-projection-dictionary.decoded-reference.rows,vortex-prepared-encoded-filter-project-selection-vector.decoded-reference.rows,vortex-edge-count-all-empty-input.decoded-reference.count,vortex-edge-project-single-row.decoded-reference.rows,vortex-edge-filter-all-null.decoded-reference.rows,vortex-edge-filter-mixed-null-sparse.decoded-reference.rows,vortex-edge-filter-duplicate-low-cardinality.decoded-reference.rows,vortex-edge-project-high-cardinality.decoded-reference.rows,vortex-edge-filter-project-sorted-dictionary.decoded-reference.rows,vortex-edge-filter-project-unsorted-rle.decoded-reference.rows,vortex-edge-filter-temporal-values.decoded-reference.rows"
     )));
     assert!(output.contains(&field("decoded_reference_output_coverage_complete", "true")));
-    assert!(output.contains(&field("executable_expected_output_count", "9")));
+    assert!(output.contains(&field("executable_expected_output_count", "18")));
     assert!(output.contains(&field("not_yet_defined_fixture_count", "8")));
     assert!(output.contains(&field("unsupported_diagnostic_fixture_count", "2")));
     assert!(output.contains(&field("baseline_count", "7")));

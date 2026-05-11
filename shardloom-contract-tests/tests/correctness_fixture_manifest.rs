@@ -193,6 +193,101 @@ fn foundation_plan_declares_prepared_encoded_reference_outputs() {
 }
 
 #[test]
+fn foundation_plan_declares_edge_case_reference_outputs() {
+    let plan = CorrectnessValidationPlan::default_foundation_plan();
+    let cases = [
+        (
+            "vortex-edge-count-all-empty-input",
+            ExpectedOutcome::EncodedCount { count: 0 },
+            SemanticArea::EncodedExecution,
+            EdgeCase::EmptyInput,
+            "count",
+        ),
+        (
+            "vortex-edge-project-single-row",
+            ExpectedOutcome::Rows { row_count: Some(1) },
+            SemanticArea::EncodedExecution,
+            EdgeCase::SingleRow,
+            "rows",
+        ),
+        (
+            "vortex-edge-filter-all-null",
+            ExpectedOutcome::Rows { row_count: Some(0) },
+            SemanticArea::Nulls,
+            EdgeCase::AllNull,
+            "rows",
+        ),
+        (
+            "vortex-edge-filter-mixed-null-sparse",
+            ExpectedOutcome::Rows { row_count: Some(2) },
+            SemanticArea::SelectionVectors,
+            EdgeCase::MixedNulls,
+            "rows",
+        ),
+        (
+            "vortex-edge-filter-duplicate-low-cardinality",
+            ExpectedOutcome::Rows { row_count: Some(4) },
+            SemanticArea::EncodedExecution,
+            EdgeCase::DuplicateValues,
+            "rows",
+        ),
+        (
+            "vortex-edge-project-high-cardinality",
+            ExpectedOutcome::Rows {
+                row_count: Some(1024),
+            },
+            SemanticArea::EncodedExecution,
+            EdgeCase::HighCardinality,
+            "rows",
+        ),
+        (
+            "vortex-edge-filter-project-sorted-dictionary",
+            ExpectedOutcome::Rows { row_count: Some(3) },
+            SemanticArea::SelectionVectors,
+            EdgeCase::SortedInput,
+            "rows",
+        ),
+        (
+            "vortex-edge-filter-project-unsorted-rle",
+            ExpectedOutcome::Rows { row_count: Some(3) },
+            SemanticArea::SelectionVectors,
+            EdgeCase::UnsortedInput,
+            "rows",
+        ),
+        (
+            "vortex-edge-filter-temporal-values",
+            ExpectedOutcome::Rows { row_count: Some(2) },
+            SemanticArea::Temporal,
+            EdgeCase::TemporalValues,
+            "rows",
+        ),
+    ];
+
+    for (id, expected, area, edge_case, suffix) in cases {
+        let fixture = fixture(&plan, id);
+        assert_eq!(fixture.format, FixtureFormat::Generated);
+        assert_eq!(fixture.source_ref, None);
+        assert_eq!(fixture.expected, expected);
+        assert!(fixture.expected.requires_execution());
+        assert!(fixture.covers_area(area));
+        assert!(fixture.covers_edge_case(edge_case));
+        assert!(fixture.has_reference_role(ReferenceRole::GoldenFixture));
+        assert!(fixture.has_reference_role(ReferenceRole::DecodedReference));
+        assert_eq!(fixture.decoded_reference_artifact_count(), 1);
+        let artifact = &fixture.reference_artifacts[0];
+        assert_eq!(
+            artifact.artifact_id,
+            format!("{id}.decoded-reference.{suffix}")
+        );
+        assert_eq!(artifact.expected, expected);
+        assert!(!artifact.execution_performed);
+        assert!(!artifact.fallback_attempted);
+        assert!(artifact.is_test_only());
+        assert!(fixture.reference_roles_are_test_only());
+    }
+}
+
+#[test]
 fn foundation_plan_tracks_required_edge_case_fixture_families() {
     let plan = CorrectnessValidationPlan::default_foundation_plan();
     let required = [
@@ -258,11 +353,11 @@ fn reference_roles_remain_test_only_not_production_fallback() {
 fn foundation_plan_reports_reference_and_gap_counts() {
     let plan = CorrectnessValidationPlan::default_foundation_plan();
 
-    assert_eq!(plan.fixture_count(), 22);
+    assert_eq!(plan.fixture_count(), 31);
     assert_eq!(plan.fixtures_with_source_ref_count(), 7);
-    assert_eq!(plan.golden_fixture_count(), 10);
-    assert_eq!(plan.reference_artifact_count(), 9);
-    assert_eq!(plan.decoded_reference_output_count(), 9);
+    assert_eq!(plan.golden_fixture_count(), 19);
+    assert_eq!(plan.reference_artifact_count(), 18);
+    assert_eq!(plan.decoded_reference_output_count(), 18);
     assert_eq!(
         plan.decoded_reference_artifact_id_order(),
         vec![
@@ -275,10 +370,19 @@ fn foundation_plan_reports_reference_and_gap_counts() {
             "vortex-prepared-encoded-filter-dictionary-run.decoded-reference.rows",
             "vortex-prepared-encoded-projection-dictionary.decoded-reference.rows",
             "vortex-prepared-encoded-filter-project-selection-vector.decoded-reference.rows",
+            "vortex-edge-count-all-empty-input.decoded-reference.count",
+            "vortex-edge-project-single-row.decoded-reference.rows",
+            "vortex-edge-filter-all-null.decoded-reference.rows",
+            "vortex-edge-filter-mixed-null-sparse.decoded-reference.rows",
+            "vortex-edge-filter-duplicate-low-cardinality.decoded-reference.rows",
+            "vortex-edge-project-high-cardinality.decoded-reference.rows",
+            "vortex-edge-filter-project-sorted-dictionary.decoded-reference.rows",
+            "vortex-edge-filter-project-unsorted-rle.decoded-reference.rows",
+            "vortex-edge-filter-temporal-values.decoded-reference.rows",
         ]
     );
     assert!(plan.decoded_reference_output_coverage_complete());
-    assert_eq!(plan.executable_expected_output_count(), 9);
+    assert_eq!(plan.executable_expected_output_count(), 18);
     assert_eq!(plan.not_yet_defined_fixture_count(), 8);
     assert_eq!(plan.diagnostic_expected_output_count(), 1);
     assert_eq!(plan.unsupported_expected_output_count(), 1);

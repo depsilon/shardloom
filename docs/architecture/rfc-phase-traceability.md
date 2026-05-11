@@ -715,6 +715,14 @@ No fallback execution.
 - `correctness-harness-plan` no longer lists `decoded_reference_outputs` as a blocked surface, while property/fuzz and benchmark claim gates remain blocked.
 - This phase adds no decoded-reference execution, external oracle execution, data reads, reader/adapters, non-local sources, object-store IO, SQL/DataFrame runtime, writes, spill, benchmark reruns, production certification, superiority claim, or fallback execution.
 
+## CG-5.15 generated edge-case executable fixture matrix
+
+- Primary RFC linkage: RFC 0015 Correctness/testing, RFC 0021 Expression/Kernel Registry, RFC 0025 Competitive/no-fallback, RFC 0029 Correctness/Benchmarks/Execution Certificates, RFC 0031 Universal Native I/O Envelope, and RFC 0032 capability certification.
+- `CorrectnessValidationPlan::default_foundation_plan` now includes generated executable fixtures for empty input, single-row projection, all-null filter, mixed-null sparse selection, duplicate low-cardinality filter, high-cardinality projection, sorted dictionary filter-project, unsorted run-length filter-project, and temporal filter cases.
+- Every generated edge-case executable fixture has deterministic expected output and a test-only decoded-reference artifact with `execution_performed=false` and `fallback_attempted=false`.
+- `correctness-plan` and `correctness-harness-plan` now surface 31 total fixtures, 19 golden fixtures, 18 decoded-reference artifacts, and 18 executable expected outputs while keeping property/fuzz and benchmark claim gates blocked.
+- This phase adds no source-backed generated data files, property/fuzz execution, external oracle execution, decoded-reference execution, data reads, reader/adapters, non-local sources, object-store IO, SQL/DataFrame runtime, writes, spill, benchmark reruns, production certification, superiority claim, or fallback execution.
+
 ## CG-5.1 metadata query primitive correctness fixtures
 
 - Primary RFC linkage: RFC 0015 Correctness/Semantics/Differential Testing, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.

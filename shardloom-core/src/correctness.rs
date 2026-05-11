@@ -610,6 +610,92 @@ fn add_prepared_encoded_foundation_fixtures(plan: &mut CorrectnessValidationPlan
     ));
 }
 
+fn edge_case_executable_fixture(
+    id: &str,
+    primary_area: SemanticArea,
+    edge_cases: &[EdgeCase],
+    expected: ExpectedOutcome,
+) -> CorrectnessFixture {
+    let suffix = if matches!(expected, ExpectedOutcome::EncodedCount { .. }) {
+        "count"
+    } else {
+        "rows"
+    };
+    let mut fixture =
+        CorrectnessFixture::new(FixtureId::new(id).expect("valid"), FixtureFormat::Generated)
+            .with_expected(expected);
+    fixture.add_semantic_area(primary_area);
+    for edge_case in edge_cases {
+        fixture.add_edge_case(*edge_case);
+    }
+    fixture.add_reference_role(ReferenceRole::GoldenFixture);
+    add_decoded_reference_artifact(&mut fixture, suffix);
+    fixture
+}
+
+fn add_edge_case_executable_fixtures(plan: &mut CorrectnessValidationPlan) {
+    for fixture in [
+        edge_case_executable_fixture(
+            "vortex-edge-count-all-empty-input",
+            SemanticArea::EncodedExecution,
+            &[EdgeCase::EmptyInput],
+            ExpectedOutcome::EncodedCount { count: 0 },
+        ),
+        edge_case_executable_fixture(
+            "vortex-edge-project-single-row",
+            SemanticArea::EncodedExecution,
+            &[EdgeCase::SingleRow],
+            ExpectedOutcome::Rows { row_count: Some(1) },
+        ),
+        edge_case_executable_fixture(
+            "vortex-edge-filter-all-null",
+            SemanticArea::Nulls,
+            &[EdgeCase::AllNull],
+            ExpectedOutcome::Rows { row_count: Some(0) },
+        ),
+        edge_case_executable_fixture(
+            "vortex-edge-filter-mixed-null-sparse",
+            SemanticArea::SelectionVectors,
+            &[EdgeCase::MixedNulls, EdgeCase::SparseValidity],
+            ExpectedOutcome::Rows { row_count: Some(2) },
+        ),
+        edge_case_executable_fixture(
+            "vortex-edge-filter-duplicate-low-cardinality",
+            SemanticArea::EncodedExecution,
+            &[EdgeCase::DuplicateValues, EdgeCase::LowCardinality],
+            ExpectedOutcome::Rows { row_count: Some(4) },
+        ),
+        edge_case_executable_fixture(
+            "vortex-edge-project-high-cardinality",
+            SemanticArea::EncodedExecution,
+            &[EdgeCase::HighCardinality],
+            ExpectedOutcome::Rows {
+                row_count: Some(1024),
+            },
+        ),
+        edge_case_executable_fixture(
+            "vortex-edge-filter-project-sorted-dictionary",
+            SemanticArea::SelectionVectors,
+            &[EdgeCase::SortedInput, EdgeCase::DictionaryEncoded],
+            ExpectedOutcome::Rows { row_count: Some(3) },
+        ),
+        edge_case_executable_fixture(
+            "vortex-edge-filter-project-unsorted-rle",
+            SemanticArea::SelectionVectors,
+            &[EdgeCase::UnsortedInput, EdgeCase::RunLengthEncoded],
+            ExpectedOutcome::Rows { row_count: Some(3) },
+        ),
+        edge_case_executable_fixture(
+            "vortex-edge-filter-temporal-values",
+            SemanticArea::Temporal,
+            &[EdgeCase::TemporalValues],
+            ExpectedOutcome::Rows { row_count: Some(2) },
+        ),
+    ] {
+        plan.add_fixture(fixture);
+    }
+}
+
 fn default_external_oracle_baselines() -> Vec<DifferentialBaseline> {
     [
         BaselineEngine::Spark,
@@ -683,6 +769,7 @@ impl CorrectnessValidationPlan {
         plan.add_fixture(vortex_local_encoded_count_fixture());
         add_local_primitive_foundation_fixtures(&mut plan);
         add_prepared_encoded_foundation_fixtures(&mut plan);
+        add_edge_case_executable_fixtures(&mut plan);
         for fixture in [
             generated_fixture(
                 "null-semantics",
@@ -1558,13 +1645,13 @@ mod tests {
     fn foundation_plan_exposes_coverage_inventory() {
         let plan = CorrectnessValidationPlan::default_foundation_plan();
 
-        assert_eq!(plan.fixture_count(), 22);
+        assert_eq!(plan.fixture_count(), 31);
         assert_eq!(plan.fixtures_with_source_ref_count(), 7);
-        assert_eq!(plan.golden_fixture_count(), 10);
-        assert_eq!(plan.reference_artifact_count(), 9);
-        assert_eq!(plan.decoded_reference_output_count(), 9);
+        assert_eq!(plan.golden_fixture_count(), 19);
+        assert_eq!(plan.reference_artifact_count(), 18);
+        assert_eq!(plan.decoded_reference_output_count(), 18);
         assert!(plan.decoded_reference_output_coverage_complete());
-        assert_eq!(plan.executable_expected_output_count(), 9);
+        assert_eq!(plan.executable_expected_output_count(), 18);
         assert_eq!(plan.not_yet_defined_fixture_count(), 8);
         assert_eq!(plan.diagnostic_expected_output_count(), 1);
         assert_eq!(plan.unsupported_expected_output_count(), 1);
@@ -1597,11 +1684,11 @@ mod tests {
             report.report_id,
             "cg5.correctness_differential_harness.aggregate"
         );
-        assert_eq!(report.fixture_count, 22);
-        assert_eq!(report.golden_fixture_count, 10);
-        assert_eq!(report.executable_expected_output_count, 9);
-        assert_eq!(report.reference_artifact_count, 9);
-        assert_eq!(report.decoded_reference_output_count, 9);
+        assert_eq!(report.fixture_count, 31);
+        assert_eq!(report.golden_fixture_count, 19);
+        assert_eq!(report.executable_expected_output_count, 18);
+        assert_eq!(report.reference_artifact_count, 18);
+        assert_eq!(report.decoded_reference_output_count, 18);
         assert!(report.decoded_reference_output_coverage_complete);
         assert_eq!(report.generated_property_fixture_count, 0);
         assert_eq!(report.fuzz_seed_count, 0);
