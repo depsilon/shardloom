@@ -20,7 +20,7 @@ fn correctness_harness_aggregates_current_cg5_evidence_without_execution() {
         report.status,
         CorrectnessDifferentialHarnessStatus::NeedsEvidence
     );
-    assert_eq!(report.fixture_count, 31);
+    assert_eq!(report.fixture_count, 34);
     assert_eq!(report.golden_fixture_count, 19);
     assert_eq!(report.executable_expected_output_count, 18);
     assert_eq!(report.reference_artifact_count, 18);
@@ -51,8 +51,14 @@ fn correctness_harness_aggregates_current_cg5_evidence_without_execution() {
     );
     assert!(report.decoded_reference_output_coverage_complete);
     assert_eq!(report.baseline_count, 7);
-    assert_eq!(report.planned_surface_count, 6);
-    assert_eq!(report.blocked_surface_count, 2);
+    assert_eq!(report.generated_property_fixture_count, 3);
+    assert_eq!(report.fuzz_seed_count, 3);
+    assert_eq!(report.planned_surface_count, 7);
+    assert_eq!(report.blocked_surface_count, 1);
+    assert_eq!(
+        report.blocked_surface_order,
+        vec!["benchmark_claim_gate".to_string()]
+    );
     assert!(report.reference_roles_test_only);
     assert!(report.baselines_fallback_free);
     assert!(report.side_effect_free());
@@ -86,10 +92,7 @@ fn correctness_harness_declares_validation_modes_and_oracle_order() {
             "benchmark_claim_gate"
         ]
     );
-    assert_eq!(
-        report.missing_validation_mode_order(),
-        vec!["property_based", "fuzz"]
-    );
+    assert!(report.missing_validation_mode_order().is_empty());
     assert_eq!(
         report.baseline_engine_order,
         vec![

@@ -88,7 +88,8 @@ Use this section for the next implementation sequence. Keep it ordered by depend
   - [x] CG-5 decoded-reference artifact metadata covers every current executable fixture family without decoded-reference execution.
   - [ ] CG-5 fixtures, reference outputs, correctness certificates, and edge-case coverage for each widened primitive path.
     - [x] CG-5.15 generated edge-case executable fixture matrix covers empty, single-row, all-null, mixed-null, duplicate, low/high-cardinality, sorted/unsorted, dictionary, run-length, sparse-validity, and temporal primitive cases with test-only decoded-reference artifacts.
-    - [ ] Broader source-backed edge fixtures, property/fuzz fixture families, and external-oracle result artifacts remain open before claim-grade correctness closeout.
+    - [x] CG-5.16 generated property fixture families and reproducible fuzz seeds are present without executing property/fuzz tests.
+    - [ ] Broader source-backed edge fixtures and external-oracle result artifacts remain open before claim-grade correctness closeout.
   - [ ] CG-6 query-runtime benchmark rows, reproducibility metadata, work-avoidance evidence, and claim-gate blockers for each new primitive path.
   - [ ] CG-16 execution certificates and CG-19 per-path Native I/O certificates for each supported source/sink path.
 - [ ] Priority 3 - broader platform work after the primitive/evidence loop advances
@@ -301,6 +302,24 @@ Use this section for the next implementation sequence. Keep it ordered by depend
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: CG-5.16 generated property/fuzz fixture metadata
+  - Primary files:
+    - `shardloom-core/src/correctness.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/correctness_plan_snapshots.rs`
+    - `shardloom-cli/tests/correctness_harness_plan_snapshots.rs`
+    - `shardloom-contract-tests/tests/correctness_fixture_manifest.rs`
+    - `shardloom-contract-tests/tests/correctness_differential_harness.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/correctness-differential-harness.md`
+  - Scope: Add report-only generated property fixture families and reproducible fuzz seeds to the CG-5 aggregate correctness harness.
+  - Completed:
+    - [x] Added generated property fixtures for encoded filter/selection-vector consistency, encoded projection row-order preservation, and encoded filter-project composition.
+    - [x] Added reproducible fuzz seeds for encoded filter selection vectors, encoded projection ordering, and encoded filter-project composition.
+    - [x] Updated correctness harness status so property/fuzz evidence is present and the aggregate blocked surface is now `benchmark_claim_gate`.
+    - [x] Kept property/fuzz execution, decoded-reference execution, external engine execution, data reads, writes, benchmark claims, production certification, and fallback disabled.
+  - Explicitly not included: property/fuzz execution, source-backed generated data files, external oracle execution, decoded-reference execution, reader/adapters, non-local/object-store sources, SQL/DataFrame/Python runtime expansion, writes, spill, benchmark reruns, production certification, superiority claims, or fallback execution.
 - [x] Session label: CG-5.15 generated edge-case executable fixture matrix
   - Primary files:
     - `shardloom-core/src/correctness.rs`
@@ -2405,6 +2424,7 @@ Status legend:
   - [x] CG-5.13 prepared encoded filter/projection decoded-reference artifact metadata
   - [x] CG-5.14 complete decoded-reference artifact coverage for current executable fixture families
   - [x] CG-5.15 generated edge-case executable fixture matrix with decoded-reference artifact metadata
+  - [x] CG-5.16 generated property fixture families and reproducible fuzz seeds
   - Expected evidence:
     - golden Vortex fixtures
     - decoded reference outputs for future executable fixture families as they are added
@@ -2831,8 +2851,9 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-5.13 prepared encoded filter/projection decoded-reference artifact metadata is test-only and side-effect-free
 - [x] CG-5.14 complete decoded-reference artifact coverage for current executable fixture families
 - [x] CG-5.15 generated edge-case executable fixture matrix covers current widened primitive edge cases without execution
+- [x] CG-5.16 generated property fixture families and reproducible fuzz seeds are present without execution
 - [~] decoded-reference output artifacts for future executable fixture families as they are added
-- [~] property/fuzz fixture families and reproducible seeds
+- [~] property/fuzz execution remains deferred; fixture families and reproducible seeds are present
 - [~] external-oracle result artifacts remain deferred; engines are policy-only baselines until explicit benchmark/correctness runs
 
 #### CG-6 detailed checklist

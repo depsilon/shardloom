@@ -66,8 +66,10 @@ The report answers:
   primitive cases with test-only decoded reference artifacts.
 - Future executable fixture families must add decoded reference output artifacts
   before they can support correctness, benchmark, or production claims.
-- Property-based fixtures are not yet present.
-- Fuzz seeds are not yet present.
+- Generated property fixture families are present for encoded filter selection
+  vectors, encoded projection ordering, and encoded filter-project composition.
+- Reproducible fuzz seeds are present for the same primitive families, but fuzz
+  execution remains deferred.
 - Several fixture families still have `NotYetDefined` expected outcomes.
 - Current external oracle coverage is policy-only; no external engines are
   invoked by the harness.
@@ -75,6 +77,7 @@ The report answers:
 ## Next Implementation Direction
 
 The next CG-5 work should add source-backed edge fixtures, property/fuzz
-families, and external-oracle result artifacts. Those fixtures should come
-before new benchmark claims and should explicitly record no-fallback boundaries,
-semantic profile, materialization boundaries, and reproducible inputs.
+execution, and external-oracle result artifacts. Those fixtures and runs should
+come before new benchmark claims and should explicitly record no-fallback
+boundaries, semantic profile, materialization boundaries, and reproducible
+inputs.

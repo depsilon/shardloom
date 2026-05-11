@@ -31595,11 +31595,11 @@ mod tests {
             "cg5.correctness_differential_harness.aggregate"
         );
         assert_eq!(output_field(&fields, "harness_status"), "needs_evidence");
-        assert_eq!(output_field(&fields, "planned_surface_count"), "6");
-        assert_eq!(output_field(&fields, "blocked_surface_count"), "2");
+        assert_eq!(output_field(&fields, "planned_surface_count"), "7");
+        assert_eq!(output_field(&fields, "blocked_surface_count"), "1");
         assert_eq!(
             output_field(&fields, "blocked_surface_order"),
-            "property_fuzzing,benchmark_claim_gate"
+            "benchmark_claim_gate"
         );
         assert_eq!(output_field(&fields, "baseline_count"), "7");
         assert!(output_field(&fields, "baseline_engine_order").contains("dask"));

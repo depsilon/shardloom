@@ -33,10 +33,10 @@ fn correctness_plan_json_exposes_fixture_and_edge_case_inventory() {
     assert!(output.contains("\"status\":\"success\""));
     assert!(output.contains(&field("mode", "correctness_plan")));
     assert!(output.contains(&field("status", "planned")));
-    assert!(output.contains(&field("fixture_count", "31")));
+    assert!(output.contains(&field("fixture_count", "34")));
     assert!(output.contains(&field(
         "fixture_id_order",
-        "vortex-metadata-footer-u64-20000,vortex-local-encoded-count-u64-20000,vortex-local-count-all-struct-five,vortex-local-count-where-struct-five,vortex-local-project-struct-five,vortex-local-filter-struct-five,vortex-local-filter-project-struct-five,vortex-prepared-encoded-filter-dictionary-run,vortex-prepared-encoded-projection-dictionary,vortex-prepared-encoded-filter-project-selection-vector,vortex-edge-count-all-empty-input,vortex-edge-project-single-row,vortex-edge-filter-all-null,vortex-edge-filter-mixed-null-sparse,vortex-edge-filter-duplicate-low-cardinality,vortex-edge-project-high-cardinality,vortex-edge-filter-project-sorted-dictionary,vortex-edge-filter-project-unsorted-rle,vortex-edge-filter-temporal-values,null-semantics,metadata-only-correctness,pruning-correctness,encoded-vs-decoded-reference,translation-metadata-loss,unsupported-diagnostics,plan-only-no-side-effects,nested-data-edge-corpus,dictionary-encoded-edge-corpus,sparse-validity-edge-corpus,run-length-edge-corpus,temporal-semantics"
+        "vortex-metadata-footer-u64-20000,vortex-local-encoded-count-u64-20000,vortex-local-count-all-struct-five,vortex-local-count-where-struct-five,vortex-local-project-struct-five,vortex-local-filter-struct-five,vortex-local-filter-project-struct-five,vortex-prepared-encoded-filter-dictionary-run,vortex-prepared-encoded-projection-dictionary,vortex-prepared-encoded-filter-project-selection-vector,vortex-edge-count-all-empty-input,vortex-edge-project-single-row,vortex-edge-filter-all-null,vortex-edge-filter-mixed-null-sparse,vortex-edge-filter-duplicate-low-cardinality,vortex-edge-project-high-cardinality,vortex-edge-filter-project-sorted-dictionary,vortex-edge-filter-project-unsorted-rle,vortex-edge-filter-temporal-values,property-encoded-filter-selection-vector-consistency,property-encoded-projection-preserves-row-order,property-encoded-filter-project-composition,null-semantics,metadata-only-correctness,pruning-correctness,encoded-vs-decoded-reference,translation-metadata-loss,unsupported-diagnostics,plan-only-no-side-effects,nested-data-edge-corpus,dictionary-encoded-edge-corpus,sparse-validity-edge-corpus,run-length-edge-corpus,temporal-semantics"
     )));
     assert!(output.contains(&field(
         "semantic_area_order",
@@ -54,7 +54,7 @@ fn correctness_plan_json_exposes_reference_and_gap_counts() {
 
     assert!(output.contains(&field(
         "reference_role_order",
-        "golden_fixture,decoded_reference,external_oracle"
+        "golden_fixture,decoded_reference,generated_property,external_oracle"
     )));
     assert!(output.contains(&field("fixtures_with_source_ref_count", "7")));
     assert!(output.contains(&field("golden_fixture_count", "19")));

@@ -696,6 +696,60 @@ fn add_edge_case_executable_fixtures(plan: &mut CorrectnessValidationPlan) {
     }
 }
 
+fn generated_property_fixture(
+    id: &str,
+    primary_area: SemanticArea,
+    edge_cases: &[EdgeCase],
+) -> CorrectnessFixture {
+    let mut fixture =
+        CorrectnessFixture::new(FixtureId::new(id).expect("valid"), FixtureFormat::Generated)
+            .with_expected(ExpectedOutcome::NoSideEffects);
+    fixture.add_semantic_area(primary_area);
+    for edge_case in edge_cases {
+        fixture.add_edge_case(*edge_case);
+    }
+    fixture.add_reference_role(ReferenceRole::GeneratedProperty);
+    fixture
+}
+
+fn add_property_fuzz_foundation(plan: &mut CorrectnessValidationPlan) {
+    for fixture in [
+        generated_property_fixture(
+            "property-encoded-filter-selection-vector-consistency",
+            SemanticArea::SelectionVectors,
+            &[EdgeCase::SparseValidity, EdgeCase::MixedNulls],
+        ),
+        generated_property_fixture(
+            "property-encoded-projection-preserves-row-order",
+            SemanticArea::EncodedExecution,
+            &[EdgeCase::SortedInput, EdgeCase::UnsortedInput],
+        ),
+        generated_property_fixture(
+            "property-encoded-filter-project-composition",
+            SemanticArea::SelectionVectors,
+            &[EdgeCase::DictionaryEncoded, EdgeCase::RunLengthEncoded],
+        ),
+    ] {
+        plan.add_fixture(fixture);
+    }
+
+    plan.add_fuzz_seed(
+        FuzzSeed::new("encoded_filter_selection_vector", 0x5E1E_C710_0001)
+            .expect("valid")
+            .with_reproducer("fixture-family=selection_vector; null_policy=mixed"),
+    );
+    plan.add_fuzz_seed(
+        FuzzSeed::new("encoded_projection_ordering", 0x5E1E_C710_0002)
+            .expect("valid")
+            .with_reproducer("fixture-family=projection; ordering=sorted_unsorted_pair"),
+    );
+    plan.add_fuzz_seed(
+        FuzzSeed::new("encoded_filter_project_composition", 0x5E1E_C710_0003)
+            .expect("valid")
+            .with_reproducer("fixture-family=filter_project; encodings=dictionary_run_length"),
+    );
+}
+
 fn default_external_oracle_baselines() -> Vec<DifferentialBaseline> {
     [
         BaselineEngine::Spark,
@@ -770,6 +824,7 @@ impl CorrectnessValidationPlan {
         add_local_primitive_foundation_fixtures(&mut plan);
         add_prepared_encoded_foundation_fixtures(&mut plan);
         add_edge_case_executable_fixtures(&mut plan);
+        add_property_fuzz_foundation(&mut plan);
         for fixture in [
             generated_fixture(
                 "null-semantics",
@@ -1645,7 +1700,7 @@ mod tests {
     fn foundation_plan_exposes_coverage_inventory() {
         let plan = CorrectnessValidationPlan::default_foundation_plan();
 
-        assert_eq!(plan.fixture_count(), 31);
+        assert_eq!(plan.fixture_count(), 34);
         assert_eq!(plan.fixtures_with_source_ref_count(), 7);
         assert_eq!(plan.golden_fixture_count(), 19);
         assert_eq!(plan.reference_artifact_count(), 18);
@@ -1663,7 +1718,12 @@ mod tests {
         assert!(plan.baselines_are_fallback_free());
         assert_eq!(
             plan.reference_role_order(),
-            vec!["golden_fixture", "decoded_reference", "external_oracle"]
+            vec![
+                "golden_fixture",
+                "decoded_reference",
+                "generated_property",
+                "external_oracle"
+            ]
         );
     }
     #[test]
@@ -1684,23 +1744,20 @@ mod tests {
             report.report_id,
             "cg5.correctness_differential_harness.aggregate"
         );
-        assert_eq!(report.fixture_count, 31);
+        assert_eq!(report.fixture_count, 34);
         assert_eq!(report.golden_fixture_count, 19);
         assert_eq!(report.executable_expected_output_count, 18);
         assert_eq!(report.reference_artifact_count, 18);
         assert_eq!(report.decoded_reference_output_count, 18);
         assert!(report.decoded_reference_output_coverage_complete);
-        assert_eq!(report.generated_property_fixture_count, 0);
-        assert_eq!(report.fuzz_seed_count, 0);
+        assert_eq!(report.generated_property_fixture_count, 3);
+        assert_eq!(report.fuzz_seed_count, 3);
         assert_eq!(report.baseline_count, 7);
-        assert_eq!(report.planned_surface_count, 6);
-        assert_eq!(report.blocked_surface_count, 2);
+        assert_eq!(report.planned_surface_count, 7);
+        assert_eq!(report.blocked_surface_count, 1);
         assert_eq!(
             report.blocked_surface_order,
-            vec![
-                "property_fuzzing".to_string(),
-                "benchmark_claim_gate".to_string()
-            ]
+            vec!["benchmark_claim_gate".to_string()]
         );
         assert!(report.benchmark_claims_blocked_by_correctness);
         assert!(!report.production_claim_allowed);
@@ -1727,10 +1784,7 @@ mod tests {
                 "unsupported_diagnostic_only"
             ]
         );
-        assert_eq!(
-            report.missing_validation_mode_order(),
-            vec!["property_based", "fuzz"]
-        );
+        assert!(report.missing_validation_mode_order().is_empty());
         assert_eq!(
             report.baseline_engine_order,
             vec![
