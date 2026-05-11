@@ -33,18 +33,18 @@ fn correctness_plan_json_exposes_fixture_and_edge_case_inventory() {
     assert!(output.contains("\"status\":\"success\""));
     assert!(output.contains(&field("mode", "correctness_plan")));
     assert!(output.contains(&field("status", "planned")));
-    assert!(output.contains(&field("fixture_count", "22")));
+    assert!(output.contains(&field("fixture_count", "31")));
     assert!(output.contains(&field(
         "fixture_id_order",
-        "vortex-metadata-footer-u64-20000,vortex-local-encoded-count-u64-20000,vortex-local-count-all-struct-five,vortex-local-count-where-struct-five,vortex-local-project-struct-five,vortex-local-filter-struct-five,vortex-local-filter-project-struct-five,vortex-prepared-encoded-filter-dictionary-run,vortex-prepared-encoded-projection-dictionary,vortex-prepared-encoded-filter-project-selection-vector,null-semantics,metadata-only-correctness,pruning-correctness,encoded-vs-decoded-reference,translation-metadata-loss,unsupported-diagnostics,plan-only-no-side-effects,nested-data-edge-corpus,dictionary-encoded-edge-corpus,sparse-validity-edge-corpus,run-length-edge-corpus,temporal-semantics"
+        "vortex-metadata-footer-u64-20000,vortex-local-encoded-count-u64-20000,vortex-local-count-all-struct-five,vortex-local-count-where-struct-five,vortex-local-project-struct-five,vortex-local-filter-struct-five,vortex-local-filter-project-struct-five,vortex-prepared-encoded-filter-dictionary-run,vortex-prepared-encoded-projection-dictionary,vortex-prepared-encoded-filter-project-selection-vector,vortex-edge-count-all-empty-input,vortex-edge-project-single-row,vortex-edge-filter-all-null,vortex-edge-filter-mixed-null-sparse,vortex-edge-filter-duplicate-low-cardinality,vortex-edge-project-high-cardinality,vortex-edge-filter-project-sorted-dictionary,vortex-edge-filter-project-unsorted-rle,vortex-edge-filter-temporal-values,null-semantics,metadata-only-correctness,pruning-correctness,encoded-vs-decoded-reference,translation-metadata-loss,unsupported-diagnostics,plan-only-no-side-effects,nested-data-edge-corpus,dictionary-encoded-edge-corpus,sparse-validity-edge-corpus,run-length-edge-corpus,temporal-semantics"
     )));
     assert!(output.contains(&field(
         "semantic_area_order",
-        "metadata_only,encoded_execution,selection_vectors,nulls,pruning,translation,unsupported_diagnostics,external_effects,nested_data,temporal"
+        "metadata_only,encoded_execution,selection_vectors,nulls,temporal,pruning,translation,unsupported_diagnostics,external_effects,nested_data"
     )));
     assert!(output.contains(&field(
         "edge_case_order",
-        "no_nulls,dictionary_encoded,run_length_encoded,sparse_validity,all_null,missing_statistics,approximate_statistics,unsupported_encoding,metadata_loss,unsupported_plan_shape,empty_input,nested_struct_list,temporal_values"
+        "no_nulls,dictionary_encoded,run_length_encoded,sparse_validity,empty_input,single_row,all_null,mixed_nulls,duplicate_values,low_cardinality,high_cardinality,sorted_input,unsorted_input,temporal_values,missing_statistics,approximate_statistics,unsupported_encoding,metadata_loss,unsupported_plan_shape,nested_struct_list"
     )));
 }
 
@@ -57,15 +57,15 @@ fn correctness_plan_json_exposes_reference_and_gap_counts() {
         "golden_fixture,decoded_reference,external_oracle"
     )));
     assert!(output.contains(&field("fixtures_with_source_ref_count", "7")));
-    assert!(output.contains(&field("golden_fixture_count", "10")));
-    assert!(output.contains(&field("reference_artifact_count", "9")));
-    assert!(output.contains(&field("decoded_reference_output_count", "9")));
+    assert!(output.contains(&field("golden_fixture_count", "19")));
+    assert!(output.contains(&field("reference_artifact_count", "18")));
+    assert!(output.contains(&field("decoded_reference_output_count", "18")));
     assert!(output.contains(&field(
         "decoded_reference_artifact_id_order",
-        "vortex-local-encoded-count-u64-20000.decoded-reference.count,vortex-local-count-all-struct-five.decoded-reference.count,vortex-local-count-where-struct-five.decoded-reference.rows,vortex-local-project-struct-five.decoded-reference.rows,vortex-local-filter-struct-five.decoded-reference.rows,vortex-local-filter-project-struct-five.decoded-reference.rows,vortex-prepared-encoded-filter-dictionary-run.decoded-reference.rows,vortex-prepared-encoded-projection-dictionary.decoded-reference.rows,vortex-prepared-encoded-filter-project-selection-vector.decoded-reference.rows"
+        "vortex-local-encoded-count-u64-20000.decoded-reference.count,vortex-local-count-all-struct-five.decoded-reference.count,vortex-local-count-where-struct-five.decoded-reference.rows,vortex-local-project-struct-five.decoded-reference.rows,vortex-local-filter-struct-five.decoded-reference.rows,vortex-local-filter-project-struct-five.decoded-reference.rows,vortex-prepared-encoded-filter-dictionary-run.decoded-reference.rows,vortex-prepared-encoded-projection-dictionary.decoded-reference.rows,vortex-prepared-encoded-filter-project-selection-vector.decoded-reference.rows,vortex-edge-count-all-empty-input.decoded-reference.count,vortex-edge-project-single-row.decoded-reference.rows,vortex-edge-filter-all-null.decoded-reference.rows,vortex-edge-filter-mixed-null-sparse.decoded-reference.rows,vortex-edge-filter-duplicate-low-cardinality.decoded-reference.rows,vortex-edge-project-high-cardinality.decoded-reference.rows,vortex-edge-filter-project-sorted-dictionary.decoded-reference.rows,vortex-edge-filter-project-unsorted-rle.decoded-reference.rows,vortex-edge-filter-temporal-values.decoded-reference.rows"
     )));
     assert!(output.contains(&field("decoded_reference_output_coverage_complete", "true")));
-    assert!(output.contains(&field("executable_expected_output_count", "9")));
+    assert!(output.contains(&field("executable_expected_output_count", "18")));
     assert!(output.contains(&field("not_yet_defined_fixture_count", "8")));
     assert!(output.contains(&field("diagnostic_expected_output_count", "1")));
     assert!(output.contains(&field("unsupported_expected_output_count", "1")));

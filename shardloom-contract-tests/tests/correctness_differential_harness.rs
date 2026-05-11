@@ -20,11 +20,11 @@ fn correctness_harness_aggregates_current_cg5_evidence_without_execution() {
         report.status,
         CorrectnessDifferentialHarnessStatus::NeedsEvidence
     );
-    assert_eq!(report.fixture_count, 22);
-    assert_eq!(report.golden_fixture_count, 10);
-    assert_eq!(report.executable_expected_output_count, 9);
-    assert_eq!(report.reference_artifact_count, 9);
-    assert_eq!(report.decoded_reference_output_count, 9);
+    assert_eq!(report.fixture_count, 31);
+    assert_eq!(report.golden_fixture_count, 19);
+    assert_eq!(report.executable_expected_output_count, 18);
+    assert_eq!(report.reference_artifact_count, 18);
+    assert_eq!(report.decoded_reference_output_count, 18);
     assert_eq!(
         report.decoded_reference_artifact_id_order,
         vec![
@@ -38,6 +38,15 @@ fn correctness_harness_aggregates_current_cg5_evidence_without_execution() {
             "vortex-prepared-encoded-projection-dictionary.decoded-reference.rows".to_string(),
             "vortex-prepared-encoded-filter-project-selection-vector.decoded-reference.rows"
                 .to_string(),
+            "vortex-edge-count-all-empty-input.decoded-reference.count".to_string(),
+            "vortex-edge-project-single-row.decoded-reference.rows".to_string(),
+            "vortex-edge-filter-all-null.decoded-reference.rows".to_string(),
+            "vortex-edge-filter-mixed-null-sparse.decoded-reference.rows".to_string(),
+            "vortex-edge-filter-duplicate-low-cardinality.decoded-reference.rows".to_string(),
+            "vortex-edge-project-high-cardinality.decoded-reference.rows".to_string(),
+            "vortex-edge-filter-project-sorted-dictionary.decoded-reference.rows".to_string(),
+            "vortex-edge-filter-project-unsorted-rle.decoded-reference.rows".to_string(),
+            "vortex-edge-filter-temporal-values.decoded-reference.rows".to_string(),
         ]
     );
     assert!(report.decoded_reference_output_coverage_complete);

@@ -60,6 +60,10 @@ The report answers:
 
 - Test-only decoded reference output artifacts are present for every current
   executable fixture family.
+- Generated executable edge-case fixtures now cover empty input, single-row,
+  all-null, mixed-null sparse validity, duplicate low-cardinality,
+  high-cardinality, sorted dictionary, unsorted run-length, and temporal
+  primitive cases with test-only decoded reference artifacts.
 - Future executable fixture families must add decoded reference output artifacts
   before they can support correctness, benchmark, or production claims.
 - Property-based fixtures are not yet present.
@@ -70,8 +74,7 @@ The report answers:
 
 ## Next Implementation Direction
 
-The next CG-5 work should broaden decoded-reference artifacts and executable
-fixture expectations beyond the prepared encoded primitive slice. Those fixtures
-should come before new benchmark claims and should explicitly record no-fallback
-boundaries, semantic profile, materialization boundaries, and reproducible
-inputs.
+The next CG-5 work should add source-backed edge fixtures, property/fuzz
+families, and external-oracle result artifacts. Those fixtures should come
+before new benchmark claims and should explicitly record no-fallback boundaries,
+semantic profile, materialization boundaries, and reproducible inputs.
