@@ -669,6 +669,16 @@ No fallback execution.
 - Missing projected columns and unsafe filter-kernel evidence block deterministically with no fallback instead of pretending broad reader wiring exists.
 - This phase does not open Vortex files, wire readers/adapters, broaden non-local sources, add SQL/DataFrame runtime, write outputs, spill, rerun benchmarks, certify production claims, close CG-2/CG-13, or add fallback execution.
 
+## CG-2.3g / CG-7.31 / CG-13.26 / CG-19.19 generalized prepared encoded projection/filter-project execution
+
+- Primary RFC linkage: RFC 0013 Streaming/zero-decode boundaries, RFC 0015 Correctness/testing, RFC 0021 Expression/Kernel Registry, RFC 0025 Competitive/no-fallback, RFC 0026 Vortex encoded-read/query-readiness boundaries, RFC 0029 Correctness/Benchmarks/Execution Certificates, and RFC 0031 Universal Native I/O Envelope.
+- `shardloom-vortex/src/generalized_encoded_projection_execution.rs` adds `execute_vortex_generalized_projection_from_encoded_projection_batches`, an execution-level target for prepared Vortex encoded projection batches and optional safe filter-kernel evidence.
+- The report composes prepared projection evidence, optional filter-project selection-vector evidence, selected-row/projected-row evidence, side-effect evidence, no-fallback fields, and a CG-19 `cg19.prepared_encoded_projection.native_io` certificate.
+- Safe prepared encoded projection records `vortex_encoded->vortex_encoded`; safe prepared encoded filter-project records `vortex_encoded->selection_vector_encoded` without row reads, decode, materialization, Arrow conversion, object-store IO, writes, spill, external effects, or fallback execution.
+- Missing requested columns block deterministically and emit blocked Native I/O evidence rather than pretending reader/adapters exist.
+- The generalized encoded primitive gate now distinguishes prepared encoded projection evidence from local projection scan-pushdown-only evidence.
+- This phase does not open Vortex files, wire readers/adapters, broaden non-local sources, add SQL/DataFrame runtime, write outputs, spill, rerun benchmarks, certify production claims, close CG-2/CG-13/CG-19, or add fallback execution.
+
 ## CG-5.1 metadata query primitive correctness fixtures
 
 - Primary RFC linkage: RFC 0015 Correctness/Semantics/Differential Testing, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.

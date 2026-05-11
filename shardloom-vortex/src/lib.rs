@@ -44,6 +44,7 @@ pub mod file_io;
 pub mod filtered_count_readiness;
 pub mod generalized_encoded_filter_execution;
 pub mod generalized_encoded_primitive_gate;
+pub mod generalized_encoded_projection_execution;
 pub mod generalized_filter_execution;
 pub mod generalized_projection_execution;
 pub mod manifest_finalization;
@@ -79,6 +80,11 @@ pub use generalized_encoded_primitive_gate::{
     VortexGeneralizedEncodedPrimitiveGateEntry, VortexGeneralizedEncodedPrimitiveGateReport,
     VortexGeneralizedEncodedPrimitiveGateStatus, VortexGeneralizedEncodedPrimitiveKind,
     VortexGeneralizedEncodedPrimitiveStatus, plan_vortex_generalized_encoded_primitive_gate,
+};
+pub use generalized_encoded_projection_execution::{
+    VortexGeneralizedEncodedProjectionExecutionReport,
+    VortexGeneralizedEncodedProjectionExecutionStatus,
+    execute_vortex_generalized_projection_from_encoded_projection_batches,
 };
 pub use generalized_filter_execution::{
     VortexGeneralizedFilterExecutionReport, VortexGeneralizedFilterExecutionStatus,
