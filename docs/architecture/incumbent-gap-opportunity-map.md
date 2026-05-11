@@ -14,6 +14,9 @@ ShardLoom is not trying to clone Spark, DataFusion, Arrow, Iceberg, Delta, or Hu
 - Metadata-first execution posture.
 - No fallback engines.
 - Agent-friendly CLI/API behavior.
+- Complete user workflow certification from install/import through read/validate/transform/write/certify.
+- Batch/live/hybrid engine modes only when ShardLoom-native and evidence-backed.
+- Remote control, event, and data-plane APIs that expose proof instead of hiding execution.
 
 ## Spark Gap Map
 
@@ -44,6 +47,15 @@ ShardLoom is not trying to clone Spark, DataFusion, Arrow, Iceberg, Delta, or Hu
 - Agent integration friction
   - Response: stable JSON schemas, deterministic diagnostics, suggested remediation steps.
   - Owning roadmap area: CG-11, CG-16, CG-20.
+- Broad user workflow complexity
+  - Response: one inspectable workflow across install/import, capability discovery, local files, schemas, data quality, transforms, outputs, observability, migration, benchmarks, notebooks, UDFs, and governance.
+  - Owning roadmap area: CG-20, CG-21.
+- Batch/streaming split
+  - Response: explicit batch/live/hybrid engine modes with engine selection reports, freshness/state certificates, and hot/cold contribution evidence.
+  - Owning roadmap area: CG-8, CG-16, CG-19, CG-22.
+- Remote orchestration and API surface
+  - Response: REST as control/proof plane, event APIs for progress/live updates, explicit result data-plane policies, and governance/audit controls.
+  - Owning roadmap area: CG-11, CG-16, CG-19, CG-20, CG-23.
 
 ## DataFusion Gap Map
 
@@ -127,6 +139,9 @@ ShardLoom is not trying to clone Spark, DataFusion, Arrow, Iceberg, Delta, or Hu
 - CG-18 universal import/deployment/baseline harness stays universal-first and treats Foundry as optional deployment/comparison context only.
 - CG-19 universal native I/O prevents common adapters from erasing encoded-native representation state.
 - CG-20 capability certification makes SQL, operators, functions, adapters, APIs, observability, deployment, migration, and security part of best-default evidence.
+- CG-21 user data workflow and ETL surface makes the install/import/read/validate/transform/write/explain/certify/benchmark/diagnose journey the unit of user-facing certification.
+- CG-22 three-engine certified data execution fabric adds batch, live, and hybrid engine modes only as ShardLoom-native, certificate-backed internal execution choices.
+- CG-23 REST, event, and remote API surface makes remote access a proof, orchestration, progress, result, lineage, and governance layer rather than a hidden fallback path.
 
 ## Guardrails
 

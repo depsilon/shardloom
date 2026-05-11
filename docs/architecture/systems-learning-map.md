@@ -79,6 +79,15 @@ These systems are pressure tests for ShardLoom-native architecture and diagnosti
   - Object-storage lessons: tail latency, hedged reads, cache economics, request budgets, coalescing, prefetch, and endpoint/provider variability belong in object-store plans and estimates; they must be surfaced as planning evidence rather than hidden retry behavior.
   - Lakehouse lessons: Iceberg integration needs row-splittability, deletion-vector pushdown, encryption, safe native-handle lifecycles across language boundaries, and source/sink certificate evidence; Spark/Iceberg demos remain external baselines, not fallback paths.
   - Machine-scale data lessons: embeddings, images, video, PDFs, and other large or small multimodal objects reinforce CG-20 unstructured/media, governance, Python/API, adapter, and security reports, but do not authorize hidden external effects.
+- User workflow, engine fabric, and remote API lessons
+  - Source scope: Flink dynamic tables (`https://nightlies.apache.org/flink/flink-docs-master/docs/concepts/sql-table-concepts/dynamic_tables/`), Kafka Streams architecture (`https://docs.confluent.io/platform/current/streams/architecture.html`), Apache Paimon (`https://paimon.apache.org/docs/master/`), OpenAPI (`https://spec.openapis.org/oas/v3.2.0.html`), AsyncAPI (`https://www.asyncapi.com/docs/reference/specification/latest`), CloudEvents (`https://cloudevents.io/`), OpenTelemetry OTLP (`https://opentelemetry.io/docs/specs/otlp/`), OpenLineage (`https://openlineage.io/`), Apache Arrow Flight/ADBC (`https://arrow.apache.org/docs/format/Flight.html`, `https://arrow.apache.org/adbc/`), and MCP (`https://modelcontextprotocol.io/specification/2025-06-18`).
+  - Flink dynamic-table lesson: batch and continuous query semantics can share relational/table abstractions, but unbounded inputs need explicit update mode, output mode, watermarks, state, and query restrictions. ShardLoom translation: CG-22 must expose batch/live/hybrid support per operator rather than pretending live mode can run every batch query.
+  - Kafka Streams state lesson: stateful stream processing needs local state, changelogs, checkpoints/recovery, partition/task ownership, and memory/cache policy. ShardLoom translation: live and hybrid engines require state certificates, checkpoint evidence, lag/freshness reporting, and idempotency before certification.
+  - Paimon-style lake format lesson: streaming and batch lakehouse workloads converge around real-time updates, LSM-like hot state, and analytical storage. ShardLoom translation: hybrid execution should combine hot deltas, warm Vortex micro-segments, cold Vortex segments, tombstones, and snapshot certificates rather than becoming a general OLTP store.
+  - OpenAPI/AsyncAPI/CloudEvents lesson: remote products need machine-readable HTTP contracts, event contracts, and common event envelopes. ShardLoom translation: CG-23 should treat REST as the control/proof plane, AsyncAPI/CloudEvents as event-plane contracts, and data-plane formats as explicit result boundaries.
+  - OpenTelemetry/OpenLineage lesson: production data systems need traces, metrics, logs, lineage, run/dataset/job metadata, and governance hooks. ShardLoom translation: execution certificates, native I/O certificates, materialization boundaries, representation state, and no-fallback evidence should be exportable to telemetry and lineage systems.
+  - MCP/agent lesson: agent integrations are powerful only if execution authority, credentials, effects, and diagnostics are constrained. ShardLoom translation: MCP should expose resources and dry-run/explain/estimate/certify tools by default, with execute/write/cancel/benchmark requiring explicit policy.
+  - Guardrail: these lessons do not authorize Flink, Kafka, Paimon, OpenAPI server dependencies, AsyncAPI generators, telemetry exporters, lineage clients, MCP servers, object stores, streaming runtimes, or fallback execution. They are synthesis inputs for CG-21, CG-22, and CG-23 planning.
 - Modal GPU Glossary technique-transfer lessons
   - Source scope: Modal's GPU Glossary index and topic pages across device hardware, device software, host software, and performance. Reference examples include the glossary README (`https://modal.com/gpu-glossary/readme`), PTX (`https://modal.com/gpu-glossary/device-software/parallel-thread-execution`), CUDA Graphs (`https://modal.com/gpu-glossary/host-software/cuda-graph`), roofline model (`https://modal.com/gpu-glossary/perf/roofline-model`), and memory coalescing (`https://modal.com/gpu-glossary/perf/memory-coalescing`).
   - Cross-layer vocabulary lesson: a high-quality technical system needs linked terminology spanning physical representation, execution model, host/runtime boundaries, tooling, and performance. ShardLoom translation: README links to core terms, `canonical-terminology.md` owns the glossary/index, RFCs own deep contracts, and this systems-learning map owns external lessons.
@@ -130,6 +139,20 @@ These systems are pressure tests for ShardLoom-native architecture and diagnosti
   - Exact source/reference preservation.
   - Evidence-routing diagnostics.
   - Stateful certificate/invalidation history.
+- Before CG-21 user workflow execution
+  - Side-effect-free install/import/capability discovery.
+  - Source/sink registry and adapter maturity visibility.
+  - Data contracts, quality gates, observability, migration, benchmark, notebook, UDF, governance, and workload scorecards.
+- Before CG-22 live/hybrid execution
+  - Engine mode, boundedness, update mode, and output mode contracts.
+  - Per-engine capability matrix.
+  - Change-record, watermark, state, checkpoint, freshness, hot/cold, and delta-overlay certificates.
+- Before CG-23 remote API execution
+  - OpenAPI contract.
+  - Problem-details diagnostics.
+  - Result delivery policy and data-plane boundaries.
+  - AsyncAPI/CloudEvents event contracts.
+  - Auth, scopes, audit, redaction, and agent policy.
 
 ## User-Surface Lessons
 

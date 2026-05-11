@@ -14,6 +14,20 @@
 - Default build stays lightweight.
 - No reader should silently decode or materialize by default.
 
+## Alignment With CG-21, CG-22, and CG-23
+
+- CG-21 user workflows use this contract for read/import UX, schema discovery,
+  adapter maturity, materialization reports, data-quality gates, and source/sink
+  diagnostics.
+- CG-22 engine selection uses input boundedness, update mode, ordering,
+  partitioning, source freshness, and change/delta metadata to decide whether a
+  path can run in batch, live, hybrid, or auto mode.
+- CG-23 remote APIs may expose input discovery, schema discovery, plan
+  validation, and result references, but discovery endpoints remain
+  side-effect-free unless a request explicitly authorizes probing or execution.
+- None of the CG-21, CG-22, or CG-23 surfaces turns a compatibility input,
+  remote system, catalog, event stream, or API call into fallback execution.
+
 ## Input Family Map
 
 - Native `Vortex`
