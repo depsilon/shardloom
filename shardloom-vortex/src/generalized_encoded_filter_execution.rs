@@ -1,7 +1,8 @@
 use std::fmt::Write as _;
 
 use shardloom_core::{
-    Diagnostic, DiagnosticCode, NativeIoAdapterFidelityReport, NativeIoCertificate,
+    Diagnostic, DiagnosticCategory, DiagnosticCode, DiagnosticSeverity, ExecutionCertificate,
+    ExecutionCertificateInput, ExpectedOutcome, NativeIoAdapterFidelityReport, NativeIoCertificate,
     NativeIoRepresentationTransition, NativeIoSideEffectReport, NativeIoSinkRequirementReport,
     NativeIoSourceCapabilityReport, NativeIoSourcePushdownReport, PredicateExpr,
     RepresentationState, Result,
@@ -62,6 +63,7 @@ pub struct VortexGeneralizedEncodedFilterExecutionReport {
     pub filter_kernel: VortexSelectionVectorFilterKernelReport,
     pub filter_kernel_admission: VortexSelectionVectorFilterKernelAdmissionReport,
     pub native_io_certificate: NativeIoCertificate,
+    pub execution_certificate: ExecutionCertificate,
     pub runtime_execution_allowed: bool,
     pub prepared_encoded_values_consumed: bool,
     pub selection_vector_guaranteed: bool,
@@ -89,6 +91,7 @@ impl VortexGeneralizedEncodedFilterExecutionReport {
         filter_kernel: VortexSelectionVectorFilterKernelReport,
         filter_kernel_admission: VortexSelectionVectorFilterKernelAdmissionReport,
         native_io_certificate: NativeIoCertificate,
+        execution_certificate: ExecutionCertificate,
     ) -> Self {
         let mut diagnostics = predicate_evaluation.diagnostics.clone();
         diagnostics.extend(
@@ -100,6 +103,7 @@ impl VortexGeneralizedEncodedFilterExecutionReport {
         diagnostics.extend(filter_kernel.diagnostics.clone());
         diagnostics.extend(filter_kernel_admission.diagnostics.clone());
         diagnostics.extend(native_io_certificate.diagnostics.clone());
+        diagnostics.extend(execution_certificate.diagnostics.clone());
 
         let predicate_safe = predicate_evaluation.status
             == VortexEncodedPredicateEvaluationStatus::EvaluatedSelections
@@ -122,6 +126,7 @@ impl VortexGeneralizedEncodedFilterExecutionReport {
         };
         let runtime_execution_allowed =
             status == VortexGeneralizedEncodedFilterExecutionStatus::ExecutedPreparedEncodedValues;
+        let correctness_certified = execution_certificate.is_certified();
 
         Self {
             schema_version: SCHEMA_VERSION,
@@ -137,10 +142,11 @@ impl VortexGeneralizedEncodedFilterExecutionReport {
             filter_kernel,
             filter_kernel_admission,
             native_io_certificate,
+            execution_certificate,
             runtime_execution_allowed,
             prepared_encoded_values_consumed: encoded_batch_count > 0,
             selection_vector_guaranteed: runtime_execution_allowed,
-            correctness_certified: false,
+            correctness_certified,
             production_claim_allowed: false,
             data_read: false,
             data_decoded: false,
@@ -181,6 +187,7 @@ impl VortexGeneralizedEncodedFilterExecutionReport {
             || self.fallback_attempted
             || self.fallback_execution_allowed
             || self.native_io_certificate.has_errors()
+            || execution_certificate_has_errors(&self.execution_certificate)
             || self.filter_kernel.has_errors()
             || self.filter_kernel_admission.has_errors()
             || self.predicate_evaluation.has_errors()
@@ -225,7 +232,16 @@ impl VortexGeneralizedEncodedFilterExecutionReport {
             "selection vector guaranteed: {}",
             self.selection_vector_guaranteed
         );
-        let _ = writeln!(&mut out, "correctness certified: false");
+        let _ = writeln!(
+            &mut out,
+            "correctness certified: {}",
+            self.correctness_certified
+        );
+        let _ = writeln!(
+            &mut out,
+            "execution certificate: {}",
+            self.execution_certificate.status.as_str()
+        );
         let _ = writeln!(&mut out, "production claim allowed: false");
         let _ = writeln!(&mut out, "fallback execution allowed: false");
         out
@@ -257,6 +273,14 @@ pub fn execute_vortex_generalized_filter_from_encoded_value_batches(
         &filter_kernel,
         &filter_kernel_admission,
     )?;
+    let execution_certificate = prepared_encoded_filter_execution_certificate(
+        predicate,
+        batches.len(),
+        &predicate_evaluation,
+        &filter_kernel,
+        &filter_kernel_admission,
+        &native_io_certificate,
+    )?;
     Ok(
         VortexGeneralizedEncodedFilterExecutionReport::from_evidence(
             predicate,
@@ -265,8 +289,137 @@ pub fn execute_vortex_generalized_filter_from_encoded_value_batches(
             filter_kernel,
             filter_kernel_admission,
             native_io_certificate,
+            execution_certificate,
         ),
     )
+}
+
+fn prepared_encoded_filter_execution_certificate(
+    predicate: &PredicateExpr,
+    encoded_batch_count: usize,
+    predicate_evaluation: &VortexEncodedPredicateEvaluationReport,
+    filter_kernel: &VortexSelectionVectorFilterKernelReport,
+    filter_kernel_admission: &VortexSelectionVectorFilterKernelAdmissionReport,
+    native_io_certificate: &NativeIoCertificate,
+) -> Result<ExecutionCertificate> {
+    let mut input = ExecutionCertificateInput::new(
+        "cg16.prepared_encoded_filter.execution-certificate",
+        EXECUTION_KIND,
+    )?;
+    input.plan_ref =
+        Some("execute_vortex_generalized_filter_from_encoded_value_batches".to_string());
+    input.input_ref = Some(format!(
+        "prepared_vortex_encoded_value_batches:{encoded_batch_count}"
+    ));
+    input.output_ref = Some("selection_vector_filter_result".to_string());
+    input.actual_outcome = Some(ExpectedOutcome::Rows {
+        row_count: filter_kernel.selected_row_count,
+    });
+    input.selected_segment_count = predicate_evaluation.segment_report_count;
+    input.side_effects_performed = if encoded_batch_count > 0 {
+        vec!["prepared_encoded_filter_kernel".to_string()]
+    } else {
+        Vec::new()
+    };
+    input.unsafe_effect_detected = !prepared_encoded_filter_execution_safe(
+        encoded_batch_count,
+        predicate_evaluation,
+        filter_kernel,
+        filter_kernel_admission,
+        native_io_certificate,
+    );
+    input.fallback_attempted = predicate_evaluation
+        .diagnostics
+        .iter()
+        .chain(
+            predicate_evaluation
+                .segment_reports
+                .iter()
+                .flat_map(|report| report.diagnostics.iter()),
+        )
+        .chain(filter_kernel.diagnostics.iter())
+        .chain(filter_kernel_admission.diagnostics.iter())
+        .chain(native_io_certificate.diagnostics.iter())
+        .any(|diagnostic| diagnostic.fallback.attempted);
+    input.fallback_execution_allowed = false;
+    input.correctness_passed = false;
+    input
+        .diagnostics
+        .extend(predicate_evaluation.diagnostics.clone());
+    input.diagnostics.extend(
+        predicate_evaluation
+            .segment_reports
+            .iter()
+            .flat_map(|report| report.diagnostics.clone()),
+    );
+    input.diagnostics.extend(filter_kernel.diagnostics.clone());
+    input
+        .diagnostics
+        .extend(filter_kernel_admission.diagnostics.clone());
+    input
+        .diagnostics
+        .extend(native_io_certificate.diagnostics.clone());
+    if encoded_batch_count == 0 {
+        input.diagnostics.push(Diagnostic::unsupported(
+            DiagnosticCode::NoFallbackExecution,
+            "vortex_prepared_encoded_filter_execution_certificate",
+            "prepared encoded filter execution certificate requires at least one prepared encoded-value batch",
+            Some(
+                "Feed explicit encoded-value batches from a certified source before accepting this execution path."
+                    .to_string(),
+            ),
+        ));
+    }
+    if input.correctness_fixture_id.is_none() {
+        input.diagnostics.push(Diagnostic::new(
+            DiagnosticCode::NotImplemented,
+            DiagnosticSeverity::Warning,
+            DiagnosticCategory::Planning,
+            "Prepared encoded filter execution is not correctness-certified yet.",
+            Some("vortex_prepared_encoded_filter_execution_certificate".to_string()),
+            Some(format!(
+                "prepared encoded filter execution for `{}` has execution evidence but no CG-5 correctness fixture/reference output yet",
+                predicate.summary()
+            )),
+            Some(
+                "Add a CG-5 prepared encoded filter fixture before certifying correctness or production claims."
+                    .to_string(),
+            ),
+            shardloom_core::FallbackStatus::disabled_by_policy(),
+        ));
+    }
+    Ok(ExecutionCertificate::evaluate(input))
+}
+
+fn prepared_encoded_filter_execution_safe(
+    encoded_batch_count: usize,
+    predicate_evaluation: &VortexEncodedPredicateEvaluationReport,
+    filter_kernel: &VortexSelectionVectorFilterKernelReport,
+    filter_kernel_admission: &VortexSelectionVectorFilterKernelAdmissionReport,
+    native_io_certificate: &NativeIoCertificate,
+) -> bool {
+    encoded_batch_count > 0
+        && predicate_evaluation.status
+            == VortexEncodedPredicateEvaluationStatus::EvaluatedSelections
+        && predicate_evaluation.is_side_effect_free()
+        && !predicate_evaluation.has_errors()
+        && filter_kernel.is_safe_native_filter_kernel_evidence()
+        && filter_kernel_admission.slot_marked_present
+        && !filter_kernel_admission.has_errors()
+        && native_io_certificate.is_certified()
+}
+
+fn execution_certificate_has_errors(certificate: &ExecutionCertificate) -> bool {
+    certificate.fallback_attempted
+        || certificate.fallback_execution_allowed
+        || certificate.unsafe_effect_detected
+        || certificate.diagnostics.iter().any(|diagnostic| {
+            matches!(
+                diagnostic.severity,
+                shardloom_core::DiagnosticSeverity::Error
+                    | shardloom_core::DiagnosticSeverity::Fatal
+            )
+        })
 }
 
 fn prepared_encoded_filter_native_io_certificate(
@@ -464,7 +617,8 @@ mod tests {
     use super::*;
     use shardloom_core::{
         ColumnRef, ComparisonOp, EncodedSegment, EncodedValueBatch, EncodedValueRun, EncodingKind,
-        LayoutKind, LogicalDType, Nullability, SegmentId, SegmentLayout, SegmentStats, StatValue,
+        ExecutionCertificateStatus, LayoutKind, LogicalDType, Nullability, SegmentId,
+        SegmentLayout, SegmentStats, StatValue,
     };
 
     fn column_ref(name: &str) -> ColumnRef {
@@ -525,6 +679,16 @@ mod tests {
         assert!(report.avoids_unsafe_effects());
         assert!(report.native_io_certificate.is_certified());
         assert_eq!(
+            report.execution_certificate.status,
+            ExecutionCertificateStatus::EvidenceIncomplete
+        );
+        assert!(report.execution_certificate.fallback_free());
+        assert!(!report.execution_certificate.unsafe_effect_detected);
+        assert_eq!(
+            report.execution_certificate.actual_outcome,
+            Some(ExpectedOutcome::Rows { row_count: Some(5) })
+        );
+        assert_eq!(
             report
                 .native_io_certificate
                 .representation_transition_order(),
@@ -557,6 +721,11 @@ mod tests {
         assert!(!report.selection_vector_guaranteed);
         assert!(report.avoids_unsafe_effects());
         assert!(report.native_io_certificate.has_errors());
+        assert_eq!(
+            report.execution_certificate.status,
+            ExecutionCertificateStatus::Blocked
+        );
+        assert!(report.execution_certificate.unsafe_effect_detected);
         assert!(report.has_errors());
         assert!(
             report
@@ -593,6 +762,11 @@ mod tests {
         assert!(!report.selection_vector_guaranteed);
         assert!(report.avoids_unsafe_effects());
         assert!(report.native_io_certificate.has_errors());
+        assert_eq!(
+            report.execution_certificate.status,
+            ExecutionCertificateStatus::Blocked
+        );
+        assert!(report.execution_certificate.unsafe_effect_detected);
         assert!(report.has_errors());
         assert!(
             report
