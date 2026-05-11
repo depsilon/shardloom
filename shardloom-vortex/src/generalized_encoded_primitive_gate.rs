@@ -50,6 +50,7 @@ pub enum VortexGeneralizedEncodedPrimitiveStatus {
     LocalFilterScanPushdownEvidence,
     PreparedEncodedFilterEvidence,
     LocalProjectionScanPushdownEvidence,
+    PreparedEncodedProjectionEvidence,
     MetadataProofOnly,
     ReadinessOnly,
     GeneralizedBlocked,
@@ -64,6 +65,7 @@ impl VortexGeneralizedEncodedPrimitiveStatus {
             Self::LocalFilterScanPushdownEvidence => "local_filter_scan_pushdown_evidence",
             Self::PreparedEncodedFilterEvidence => "prepared_encoded_filter_evidence",
             Self::LocalProjectionScanPushdownEvidence => "local_projection_scan_pushdown_evidence",
+            Self::PreparedEncodedProjectionEvidence => "prepared_encoded_projection_evidence",
             Self::MetadataProofOnly => "metadata_proof_only",
             Self::ReadinessOnly => "readiness_only",
             Self::GeneralizedBlocked => "generalized_blocked",
@@ -84,6 +86,7 @@ pub struct VortexGeneralizedEncodedPrimitiveGateEntry {
     pub local_filter_scan_pushdown_supported: bool,
     pub prepared_encoded_filter_execution_supported: bool,
     pub local_projection_scan_pushdown_supported: bool,
+    pub prepared_encoded_projection_execution_supported: bool,
     pub metadata_proof_supported: bool,
     pub readiness_contract_supported: bool,
     pub generalized_execution_allowed: bool,
@@ -141,6 +144,7 @@ impl VortexGeneralizedEncodedPrimitiveGateEntry {
             local_filter_scan_pushdown_supported: false,
             prepared_encoded_filter_execution_supported: false,
             local_projection_scan_pushdown_supported: false,
+            prepared_encoded_projection_execution_supported: false,
             metadata_proof_supported: true,
             readiness_contract_supported: true,
             generalized_execution_allowed: false,
@@ -204,6 +208,7 @@ impl VortexGeneralizedEncodedPrimitiveGateEntry {
             local_filter_scan_pushdown_supported: true,
             prepared_encoded_filter_execution_supported: true,
             local_projection_scan_pushdown_supported: false,
+            prepared_encoded_projection_execution_supported: false,
             metadata_proof_supported: true,
             readiness_contract_supported: true,
             generalized_execution_allowed: false,
@@ -233,30 +238,32 @@ impl VortexGeneralizedEncodedPrimitiveGateEntry {
     fn projection() -> Self {
         Self {
             primitive: VortexGeneralizedEncodedPrimitiveKind::Projection,
-            status: VortexGeneralizedEncodedPrimitiveStatus::LocalProjectionScanPushdownEvidence,
+            status: VortexGeneralizedEncodedPrimitiveStatus::PreparedEncodedProjectionEvidence,
             current_scope:
-                "local .vortex ProjectColumns/FilterAndProject scan-pushdown evidence; broad encoded projection kernels still blocked"
+                "local .vortex ProjectColumns/FilterAndProject scan-pushdown evidence plus prepared encoded projection/filter-project execution; reader/adapters still blocked"
                     .to_string(),
             current_evidence: vec![
                 "vortex-projection-readiness-plan".to_string(),
                 "encoded_projection_kernel_admission".to_string(),
                 "vortex-encoded-path-selection-plan".to_string(),
                 "execute_vortex_generalized_projection_from_local_scan_pushdown".to_string(),
+                "evaluate_vortex_prepared_encoded_projection".to_string(),
+                "execute_vortex_generalized_projection_from_encoded_projection_batches".to_string(),
                 "vortex-project --execute-local-primitive".to_string(),
                 "vortex-filter-project --execute-local-primitive".to_string(),
                 "cg19.local_primitive.project_columns/filter_and_project.native_io".to_string(),
+                "cg19.prepared_encoded_projection.native_io".to_string(),
             ],
             implementation_blockers: vec![
-                "broad encoded-value projection kernels are still blocked beyond local scan-pushdown"
-                    .to_string(),
-                "selection-vector projection pipeline is not generalized beyond local filter-project evidence"
+                "reader and adapter paths are not wired into prepared encoded projection batches"
                     .to_string(),
                 "claim-grade projection null/nested correctness and benchmark evidence is not complete"
                     .to_string(),
             ],
             required_next_evidence: vec![
-                "encoded projection kernel execution preserving unused-column non-materialization"
+                "source/read-start wiring that produces prepared encoded projection batches without decode"
                     .to_string(),
+                "selection-vector preservation through downstream operators beyond prepared filter-project evidence".to_string(),
                 "projection fixtures for empty, null-heavy, wide, and nested columns".to_string(),
                 "Native I/O certificates for every widened source/sink projection path"
                     .to_string(),
@@ -266,6 +273,7 @@ impl VortexGeneralizedEncodedPrimitiveGateEntry {
             local_filter_scan_pushdown_supported: false,
             prepared_encoded_filter_execution_supported: false,
             local_projection_scan_pushdown_supported: true,
+            prepared_encoded_projection_execution_supported: true,
             metadata_proof_supported: false,
             readiness_contract_supported: true,
             generalized_execution_allowed: false,
@@ -454,6 +462,14 @@ impl VortexGeneralizedEncodedPrimitiveGateReport {
     }
 
     #[must_use]
+    pub fn entries_with_prepared_encoded_projection_execution_support(&self) -> usize {
+        self.entries
+            .iter()
+            .filter(|entry| entry.prepared_encoded_projection_execution_supported)
+            .count()
+    }
+
+    #[must_use]
     pub fn entries_with_metadata_proof(&self) -> usize {
         self.entries
             .iter()
@@ -550,11 +566,11 @@ fn generalized_execution_blocked_diagnostic() -> Diagnostic {
         "Generalized encoded primitive execution remains blocked.",
         Some("vortex.generalized_encoded_primitive_execution".to_string()),
         Some(
-            "Local file/file:// `.vortex` CountAll, CountWhere, FilterPredicate, ProjectColumns, and FilterAndProject scan-pushdown paths have runtime and Native I/O evidence, and prepared encoded-value filter execution is available, but non-local sources, reader/adapters, correctness, and benchmark evidence still block generalized execution."
+            "Local file/file:// `.vortex` CountAll, CountWhere, FilterPredicate, ProjectColumns, and FilterAndProject scan-pushdown paths have runtime and Native I/O evidence, and prepared encoded-value filter/projection execution is available, but non-local sources, reader/adapters, correctness, and benchmark evidence still block generalized execution."
                 .to_string(),
         ),
         Some(
-            "Keep using the explicit local primitive paths or prepared encoded-value filter surface for proven execution and land correctness, benchmark, encoded-source wiring, and source-widening evidence before broader runtime behavior."
+            "Keep using the explicit local primitive paths or prepared encoded-value filter/projection surfaces for proven execution and land correctness, benchmark, encoded-source wiring, and source-widening evidence before broader runtime behavior."
                 .to_string(),
         ),
         FallbackStatus::disabled_by_policy(),
@@ -583,7 +599,7 @@ mod tests {
             vec![
                 "local_direct_count_evidence",
                 "prepared_encoded_filter_evidence",
-                "local_projection_scan_pushdown_evidence"
+                "prepared_encoded_projection_evidence"
             ]
         );
         assert!(!report.local_count_all_only);
@@ -595,6 +611,10 @@ mod tests {
         );
         assert_eq!(
             report.entries_with_local_projection_scan_pushdown_support(),
+            1
+        );
+        assert_eq!(
+            report.entries_with_prepared_encoded_projection_execution_support(),
             1
         );
         assert_eq!(report.entries_with_metadata_proof(), 2);

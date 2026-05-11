@@ -804,6 +804,12 @@ fn vortex_generalized_encoded_primitive_gate_evidence_fields(
                 .to_string(),
         ),
         (
+            "entries_with_prepared_encoded_projection_execution_support".to_string(),
+            report
+                .entries_with_prepared_encoded_projection_execution_support()
+                .to_string(),
+        ),
+        (
             "entries_with_metadata_proof".to_string(),
             report.entries_with_metadata_proof().to_string(),
         ),

@@ -54,7 +54,7 @@ fn generalized_encoded_primitive_gate_json_exposes_current_boundary() {
     )));
     assert!(output.contains(&field(
         "primitive_statuses",
-        "local_direct_count_evidence,prepared_encoded_filter_evidence,local_projection_scan_pushdown_evidence"
+        "local_direct_count_evidence,prepared_encoded_filter_evidence,prepared_encoded_projection_evidence"
     )));
 }
 
@@ -76,10 +76,14 @@ fn generalized_encoded_primitive_gate_json_preserves_no_runtime_widening() {
         "entries_with_local_projection_scan_pushdown_support",
         "1"
     )));
+    assert!(output.contains(&field(
+        "entries_with_prepared_encoded_projection_execution_support",
+        "1"
+    )));
     assert!(output.contains(&field("entries_with_metadata_proof", "2")));
     assert!(output.contains(&field("entries_with_readiness_contract", "3")));
-    assert!(output.contains(&field("implementation_blocker_count", "9")));
-    assert!(output.contains(&field("required_next_evidence_count", "12")));
+    assert!(output.contains(&field("implementation_blocker_count", "8")));
+    assert!(output.contains(&field("required_next_evidence_count", "13")));
     assert!(output.contains(&field("generalized_count_ready", "false")));
     assert!(output.contains(&field("filtered_count_execution_ready", "false")));
     assert!(output.contains(&field("projection_execution_ready", "false")));

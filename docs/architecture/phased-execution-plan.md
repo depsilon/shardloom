@@ -72,7 +72,7 @@ Use this section for the next implementation sequence. Keep it ordered by depend
   - [x] Multi-segment Vortex encoded-value filter evidence aggregates prepared encoded batches into complete selection-vector filter-kernel evidence without reader wiring.
   - [x] Prepared encoded projection/filter-project evidence preserves encoded projected batches and safe selection-vector evidence without reader wiring.
   - [x] Broader generalized encoded-value predicate/filter execution beyond local scan-pushdown and explicit CLI primitive paths.
-  - [ ] Broader encoded projection and filter-project execution beyond local scan-pushdown and explicit CLI primitive paths, with no row reads, no Arrow conversion, no object-store IO, no writes, no spill, and no fallback.
+  - [x] Broader encoded projection and filter-project execution beyond local scan-pushdown and explicit CLI primitive paths, with no row reads, no Arrow conversion, no object-store IO, no writes, no spill, and no fallback.
 - [ ] Priority 1.5 - CG-20 distribution/importability certification lane
   - [x] Publishable pure-Python wrapper package with wheel/sdist build evidence.
   - [ ] Platform-specific Conda CLI binary recipe/package, pure-Python wrapper recipe/package, and optional one-command metapackage.
@@ -279,6 +279,23 @@ Use this section for the next implementation sequence. Keep it ordered by depend
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: CG-2.3g / CG-7.31 / CG-13.26 / CG-19.19 generalized prepared encoded projection execution
+  - Primary files:
+    - `shardloom-vortex/src/generalized_encoded_projection_execution.rs`
+    - `shardloom-vortex/src/generalized_encoded_primitive_gate.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/generalized_encoded_primitive_gate_snapshots.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: Add a reusable generalized encoded projection/filter-project execution surface that consumes explicitly prepared encoded projection batches, optionally carries safe selection-vector filter evidence, preserves encoded projection batches, and attaches a prepared encoded projection Native I/O certificate.
+  - Completed:
+    - [x] Added `execute_vortex_generalized_projection_from_encoded_projection_batches` as the execution-level target above prepared encoded projection batches and below future reader/adapter wiring.
+    - [x] Added `VortexGeneralizedEncodedProjectionExecutionReport` with projection evidence, optional filter-project evidence, Native I/O certificate, representation transition, side-effect, no-fallback, and claim-gating fields.
+    - [x] Added CG-19 `cg19.prepared_encoded_projection.native_io` evidence for `vortex_encoded->vortex_encoded` projection and `vortex_encoded->selection_vector_encoded` filter-project paths.
+    - [x] Updated the generalized encoded primitive gate to distinguish prepared encoded projection evidence from local projection scan-pushdown-only evidence.
+    - [x] Added success and blocking tests for pure projection, filter-project with selection-vector evidence, and missing requested columns.
+  - Explicitly not included: new readers, Vortex reader wiring, adapter execution, non-local/object-store sources, SQL/DataFrame/Python runtime expansion, writes, spill, benchmark reruns, superiority claims, production certification, or fallback execution.
 - [x] Session label: cross-RFC platform hardening coverage audit
   - Primary files:
     - `docs/architecture/phased-execution-plan.md`
@@ -2216,6 +2233,7 @@ Status legend:
   - [x] CG-2.3d local `FilterAndProject` execution evidence through `vortex-filter-project`
   - [x] CG-2.3e generalized local projection/filter-project execution surface for ProjectColumns and FilterAndProject scan-pushdown
   - [x] CG-2.3f prepared encoded projection/filter-project evidence preserves encoded batches and selection-vector evidence
+  - [x] CG-2.3g generalized prepared encoded projection/filter-project execution surface
   - Required capabilities for completion:
     - encoded-first selection vectors
     - decode only when explicitly allowed
@@ -2313,6 +2331,7 @@ Status legend:
   - [x] CG-7.28 multi-segment encoded-value filter evidence
   - [x] CG-7.29 prepared encoded projection/filter-project evidence
   - [x] CG-7.30 generalized prepared encoded filter execution
+  - [x] CG-7.31 generalized prepared encoded projection/filter-project execution
   - Scope:
     - filter/projection/count-aggregate kernels
     - metadata/encoded/hybrid execution levels
@@ -2414,6 +2433,12 @@ Status legend:
   - [x] CG-13.18 copied/non-fixture local `CountAll` keeps encoded local execution allowed while physical-kernel certification remains fixture-gated
   - [x] CG-13.19 generalized local CountWhere/FilterPredicate scan-pushdown surface records selection-vector encoded execution without broad encoded-value kernel claims
   - [x] CG-13.20 generalized local ProjectColumns/FilterAndProject scan-pushdown surface records encoded projection and filter-project selection-vector evidence without broad encoded projection kernel claims
+  - [x] CG-13.21 encoded-value predicate kernel foundation
+  - [x] CG-13.22 Vortex encoded-value predicate bridge
+  - [x] CG-13.23 multi-segment Vortex encoded-value filter evidence
+  - [x] CG-13.24 prepared encoded projection/filter-project evidence
+  - [x] CG-13.25 generalized prepared encoded filter execution
+  - [x] CG-13.26 generalized prepared encoded projection/filter-project execution
   - Scope:
     - encoding-aware execution-path selection through `vortex-encoded-path-selection-plan`
     - direct count/filter/project over encoded segments
@@ -2499,7 +2524,8 @@ Status legend:
   - [x] CG-19.16 generalized local CountWhere/FilterPredicate scan-pushdown surface emits certified Native I/O evidence for safe local `.vortex` filter paths
   - [x] CG-19.17 generalized local ProjectColumns/FilterAndProject scan-pushdown surface emits certified Native I/O evidence for safe local `.vortex` projection paths
   - [x] CG-19.18 prepared encoded filter execution emits a certified Native I/O certificate for safe prepared encoded-value batch filter paths
-  - [~] generalized source/sink runtime certificate emission pending beyond local compatibility-file, benchmark native Vortex, local direct-count, copied/non-fixture local CountAll, generalized local filter surface, generalized local projection surface, prepared encoded filter surface, local primitive, fixture-backed local `CountWhere`, fixture-backed local `FilterPredicate`, fixture-backed local `ProjectColumns`, and fixture-backed local `FilterAndProject` paths
+  - [x] CG-19.19 prepared encoded projection/filter-project execution emits certified Native I/O certificates for safe prepared encoded projection paths
+  - [~] generalized source/sink runtime certificate emission pending beyond local compatibility-file, benchmark native Vortex, local direct-count, copied/non-fixture local CountAll, generalized local filter surface, generalized local projection surface, prepared encoded filter surface, prepared encoded projection surface, local primitive, fixture-backed local `CountWhere`, fixture-backed local `FilterPredicate`, fixture-backed local `ProjectColumns`, and fixture-backed local `FilterAndProject` paths
   - Scope:
     - preserve representation state, pushdown evidence, materialization boundaries, and sink constraints without default decode
 
@@ -2619,6 +2645,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-2.3d fixture-backed local `FilterAndProject` execution evidence through `vortex-filter-project`
 - [x] CG-2.3e generalized local projection/filter-project execution surface for ProjectColumns and FilterAndProject scan-pushdown
 - [x] CG-2.3f prepared encoded projection/filter-project evidence preserves encoded batches and selection-vector evidence without reader wiring
+- [x] CG-2.3g generalized prepared encoded projection/filter-project execution composes prepared projection batches, optional safe selection-vector evidence, and Native I/O certification without reader wiring
 - [~] CG-2.1+ broader zero-decode encoded query primitive execution remains deferred pending filter/project encoded-kernel guarantees
 - [ ] CG-2 closeout requires generalized count plus filtered-count/projection execution over actual Vortex data with correctness, benchmark, and certificate evidence
 
@@ -2745,6 +2772,8 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
   - Completion here means explicitly supplied encoded projection batches can be projected and composed with safe selection-vector evidence without materialization; reader/adapters, benchmark claims, and production certification remain blocked.
 - [x] CG-7.30 generalized prepared encoded filter execution
   - Completion here means explicitly supplied encoded-value batches now have an execution-level report that composes predicate evaluation, selection-vector filter-kernel admission, and Native I/O evidence; reader/adapters, benchmark claims, and production certification remain blocked.
+- [x] CG-7.31 generalized prepared encoded projection/filter-project execution
+  - Completion here means explicitly supplied encoded projection batches now have an execution-level report that composes projection evidence, optional safe selection-vector filter evidence, and Native I/O evidence; reader/adapters, benchmark claims, and production certification remain blocked.
 - [x] count/aggregate kernel
 - [x] metadata/encoded/hybrid execution levels
 - [x] expression evaluation over encoded segments
@@ -2839,6 +2868,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-13.23 multi-segment Vortex encoded-value filter evidence preserves selection vectors across prepared encoded batches without reader wiring
 - [x] CG-13.24 prepared encoded projection/filter-project evidence preserves encoded projected batches and filter selection-vector evidence without reader wiring
 - [x] CG-13.25 generalized prepared encoded filter execution records `vortex_encoded->selection_vector_encoded` evidence for prepared encoded-value batches without reader wiring
+- [x] CG-13.26 generalized prepared encoded projection/filter-project execution records `vortex_encoded->vortex_encoded` projection and `vortex_encoded->selection_vector_encoded` filter-project evidence without reader wiring
 - [ ] generalized direct count/filter/project encoded execution
 - [ ] broad compressed-kernel correctness and benchmark certification
 
@@ -2918,7 +2948,8 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-19.16 generalized local CountWhere/FilterPredicate scan-pushdown surface emits certified Native I/O evidence for safe local `.vortex` filter paths
 - [x] CG-19.17 generalized local ProjectColumns/FilterAndProject scan-pushdown surface emits certified Native I/O evidence for safe local `.vortex` projection paths
 - [x] CG-19.18 prepared encoded filter execution emits `cg19.prepared_encoded_filter.native_io` for safe prepared encoded-value batch filter paths
-- [~] generalized source/sink runtime certificate emission pending beyond local compatibility-file, benchmark native Vortex, local direct-count, copied/non-fixture local CountAll, generalized local filter surface, generalized local projection surface, prepared encoded filter surface, local primitive, fixture-backed local `CountWhere`, fixture-backed local `FilterPredicate`, fixture-backed local `ProjectColumns`, and fixture-backed local `FilterAndProject` paths
+- [x] CG-19.19 prepared encoded projection/filter-project execution emits `cg19.prepared_encoded_projection.native_io` for safe prepared encoded projection paths
+- [~] generalized source/sink runtime certificate emission pending beyond local compatibility-file, benchmark native Vortex, local direct-count, copied/non-fixture local CountAll, generalized local filter surface, generalized local projection surface, prepared encoded filter surface, prepared encoded projection surface, local primitive, fixture-backed local `CountWhere`, fixture-backed local `FilterPredicate`, fixture-backed local `ProjectColumns`, and fixture-backed local `FilterAndProject` paths
 - [x] representation state, pushdown proof, materialization boundary, sink requirement, adapter fidelity, per-path certificate, no-default-Arrow, and no-fallback report fields are exposed without reads, decode, materialization, IO, writes, or fallback
 
 #### CG-20 detailed checklist
@@ -3060,6 +3091,7 @@ This section preserves older attribution notes that predate the compact CG rollu
 - [x] CG-2.2j/CG-7.27/CG-13.22 Vortex encoded-value predicate bridge feeds explicit encoded-value batches through the Vortex predicate aggregate and selection-vector filter-kernel evidence path while keeping readers, adapters, SQL, writes, spill, claims, and fallback blocked.
 - [x] CG-2.2k/CG-7.28/CG-13.23 multi-segment Vortex encoded-value filter evidence aggregates prepared encoded batches into complete selection-vector filter-kernel evidence while keeping readers, adapters, SQL, writes, spill, claims, and fallback blocked.
 - [x] CG-2.2l/CG-7.30/CG-13.25/CG-19.18 generalized prepared encoded filter execution composes prepared encoded-value batches, native predicate evaluation, selection-vector filter-kernel admission, and a `cg19.prepared_encoded_filter.native_io` certificate while keeping readers, adapters, SQL, writes, spill, claims, and fallback blocked.
+- [x] CG-2.3g/CG-7.31/CG-13.26/CG-19.19 generalized prepared encoded projection/filter-project execution composes prepared encoded projection batches, optional safe selection-vector filter evidence, and a `cg19.prepared_encoded_projection.native_io` certificate while keeping readers, adapters, SQL, writes, spill, claims, and fallback blocked.
 - [x] CG-2.3f/CG-7.29/CG-13.24 prepared encoded projection/filter-project evidence projects explicitly supplied encoded column batches and composes safe selection-vector filter-kernel evidence while keeping readers, adapters, SQL, writes, spill, claims, and fallback blocked.
 - [x] CG-2.3c/CG-13.16/CG-16.11/CG-19.13 `vortex-project --execute-local-primitive` executes the existing feature-gated local `ProjectColumns` scan-pushdown path, reports encoded projection preservation evidence, and emits Native I/O and execution certificates for the checked-in struct fixture while leaving broader encoded projection kernels, filter-project certification, non-local sources, adapters, SQL, writes, spill, claims, and fallback blocked.
 - [x] CG-2.3d/CG-13.17/CG-16.12/CG-19.14 `vortex-filter-project --execute-local-primitive` executes the existing feature-gated local `FilterAndProject` scan-pushdown path, reports combined filter/projection evidence, and emits Native I/O and execution certificates for the checked-in struct fixture while leaving broader encoded predicate/projection kernels, non-local sources, adapters, SQL, writes, spill, claims, and fallback blocked.
