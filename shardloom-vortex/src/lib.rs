@@ -42,6 +42,7 @@ pub mod encoded_read_readiness;
 pub mod execution_readiness;
 pub mod file_io;
 pub mod filtered_count_readiness;
+pub mod generalized_encoded_filter_execution;
 pub mod generalized_encoded_primitive_gate;
 pub mod generalized_filter_execution;
 pub mod generalized_projection_execution;
@@ -70,6 +71,10 @@ pub mod traditional_analytics;
 pub mod write_intent;
 
 pub use filtered_count_readiness::*;
+pub use generalized_encoded_filter_execution::{
+    VortexGeneralizedEncodedFilterExecutionReport, VortexGeneralizedEncodedFilterExecutionStatus,
+    execute_vortex_generalized_filter_from_encoded_value_batches,
+};
 pub use generalized_encoded_primitive_gate::{
     VortexGeneralizedEncodedPrimitiveGateEntry, VortexGeneralizedEncodedPrimitiveGateReport,
     VortexGeneralizedEncodedPrimitiveGateStatus, VortexGeneralizedEncodedPrimitiveKind,
