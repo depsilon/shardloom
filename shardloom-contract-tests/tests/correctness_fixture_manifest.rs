@@ -144,6 +144,20 @@ fn foundation_plan_declares_prepared_encoded_reference_outputs() {
         assert!(fixture.covers_area(area));
         assert!(fixture.covers_edge_case(edge_case));
         assert!(fixture.has_reference_role(ReferenceRole::GoldenFixture));
+        assert!(fixture.has_reference_role(ReferenceRole::DecodedReference));
+        assert_eq!(fixture.decoded_reference_artifact_count(), 1);
+        let artifact = &fixture.reference_artifacts[0];
+        assert_eq!(artifact.artifact_id, format!("{id}.decoded-reference.rows"));
+        assert_eq!(artifact.role, ReferenceRole::DecodedReference);
+        assert_eq!(artifact.expected, expected);
+        assert_eq!(artifact.semantic_profile, "shardloom_native_test_reference");
+        assert_eq!(
+            artifact.materialization_boundary,
+            "test_only_logical_reference_output"
+        );
+        assert!(!artifact.execution_performed);
+        assert!(!artifact.fallback_attempted);
+        assert!(artifact.is_test_only());
         assert!(fixture.reference_roles_are_test_only());
     }
 }
@@ -201,7 +215,7 @@ fn reference_roles_remain_test_only_not_production_fallback() {
     assert!(plan.reference_roles_are_test_only());
     assert_eq!(
         plan.reference_role_order(),
-        vec!["golden_fixture", "external_oracle"]
+        vec!["golden_fixture", "decoded_reference", "external_oracle"]
     );
     assert!(!plan.fallback_execution_allowed());
     assert!(
@@ -217,6 +231,17 @@ fn foundation_plan_reports_reference_and_gap_counts() {
     assert_eq!(plan.fixture_count(), 22);
     assert_eq!(plan.fixtures_with_source_ref_count(), 7);
     assert_eq!(plan.golden_fixture_count(), 10);
+    assert_eq!(plan.reference_artifact_count(), 3);
+    assert_eq!(plan.decoded_reference_output_count(), 3);
+    assert_eq!(
+        plan.decoded_reference_artifact_id_order(),
+        vec![
+            "vortex-prepared-encoded-filter-dictionary-run.decoded-reference.rows",
+            "vortex-prepared-encoded-projection-dictionary.decoded-reference.rows",
+            "vortex-prepared-encoded-filter-project-selection-vector.decoded-reference.rows",
+        ]
+    );
+    assert!(!plan.decoded_reference_output_coverage_complete());
     assert_eq!(plan.executable_expected_output_count(), 9);
     assert_eq!(plan.not_yet_defined_fixture_count(), 8);
     assert_eq!(plan.diagnostic_expected_output_count(), 1);

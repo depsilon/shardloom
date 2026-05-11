@@ -54,10 +54,20 @@ fn correctness_plan_json_exposes_reference_and_gap_counts() {
 
     assert!(output.contains(&field(
         "reference_role_order",
-        "golden_fixture,external_oracle"
+        "golden_fixture,decoded_reference,external_oracle"
     )));
     assert!(output.contains(&field("fixtures_with_source_ref_count", "7")));
     assert!(output.contains(&field("golden_fixture_count", "10")));
+    assert!(output.contains(&field("reference_artifact_count", "3")));
+    assert!(output.contains(&field("decoded_reference_output_count", "3")));
+    assert!(output.contains(&field(
+        "decoded_reference_artifact_id_order",
+        "vortex-prepared-encoded-filter-dictionary-run.decoded-reference.rows,vortex-prepared-encoded-projection-dictionary.decoded-reference.rows,vortex-prepared-encoded-filter-project-selection-vector.decoded-reference.rows"
+    )));
+    assert!(output.contains(&field(
+        "decoded_reference_output_coverage_complete",
+        "false"
+    )));
     assert!(output.contains(&field("executable_expected_output_count", "9")));
     assert!(output.contains(&field("not_yet_defined_fixture_count", "8")));
     assert!(output.contains(&field("diagnostic_expected_output_count", "1")));

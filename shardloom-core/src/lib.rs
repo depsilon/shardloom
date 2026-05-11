@@ -63,7 +63,7 @@ pub use correctness::{
     CorrectnessDifferentialHarnessReport, CorrectnessDifferentialHarnessStatus, CorrectnessFixture,
     CorrectnessPlanStatus, CorrectnessValidationPlan, CorrectnessValidationReport,
     DiagnosticExpectation, DifferentialBaseline, EdgeCase, ExpectedOutcome, FixtureFormat,
-    FixtureId, FuzzSeed, ReferenceRole, SemanticArea, ValidationResultStatus,
+    FixtureId, FuzzSeed, ReferenceArtifact, ReferenceRole, SemanticArea, ValidationResultStatus,
     plan_correctness_differential_harness,
 };
 pub use cpu_specialization::{

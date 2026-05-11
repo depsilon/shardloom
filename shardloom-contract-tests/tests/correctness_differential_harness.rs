@@ -23,7 +23,18 @@ fn correctness_harness_aggregates_current_cg5_evidence_without_execution() {
     assert_eq!(report.fixture_count, 22);
     assert_eq!(report.golden_fixture_count, 10);
     assert_eq!(report.executable_expected_output_count, 9);
-    assert_eq!(report.decoded_reference_output_count, 0);
+    assert_eq!(report.reference_artifact_count, 3);
+    assert_eq!(report.decoded_reference_output_count, 3);
+    assert_eq!(
+        report.decoded_reference_artifact_id_order,
+        vec![
+            "vortex-prepared-encoded-filter-dictionary-run.decoded-reference.rows".to_string(),
+            "vortex-prepared-encoded-projection-dictionary.decoded-reference.rows".to_string(),
+            "vortex-prepared-encoded-filter-project-selection-vector.decoded-reference.rows"
+                .to_string(),
+        ]
+    );
+    assert!(!report.decoded_reference_output_coverage_complete);
     assert_eq!(report.baseline_count, 7);
     assert_eq!(report.planned_surface_count, 5);
     assert_eq!(report.blocked_surface_count, 3);
@@ -62,7 +73,7 @@ fn correctness_harness_declares_validation_modes_and_oracle_order() {
     );
     assert_eq!(
         report.missing_validation_mode_order(),
-        vec!["decoded_reference", "property_based", "fuzz"]
+        vec!["property_based", "fuzz"]
     );
     assert_eq!(
         report.baseline_engine_order,

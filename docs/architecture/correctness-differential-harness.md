@@ -56,9 +56,12 @@ The report answers:
   differential, property/fuzz, edge-case, and benchmark-gate evidence is
   complete.
 
-## Current Evidence Gaps
+## Current Evidence State
 
-- Decoded reference outputs are not yet present for the broad fixture families.
+- Test-only decoded reference output artifacts are present for the prepared
+  encoded filter, projection, and filter-project fixture slice.
+- Decoded reference output coverage is still incomplete across the broad
+  executable fixture families.
 - Property-based fixtures are not yet present.
 - Fuzz seeds are not yet present.
 - Several fixture families still have `NotYetDefined` expected outcomes.
@@ -67,8 +70,8 @@ The report answers:
 
 ## Next Implementation Direction
 
-The next CG-5 work should add real decoded-reference artifacts and executable
-fixture expectations for the first widened encoded read paths. Those fixtures
+The next CG-5 work should broaden decoded-reference artifacts and executable
+fixture expectations beyond the prepared encoded primitive slice. Those fixtures
 should come before new benchmark claims and should explicitly record no-fallback
 boundaries, semantic profile, materialization boundaries, and reproducible
 inputs.
