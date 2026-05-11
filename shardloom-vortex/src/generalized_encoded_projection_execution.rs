@@ -1,10 +1,11 @@
 use std::fmt::Write as _;
 
 use shardloom_core::{
-    ColumnRef, Diagnostic, DiagnosticCode, EncodedValueBatch, NativeIoAdapterFidelityReport,
-    NativeIoCertificate, NativeIoRepresentationTransition, NativeIoSideEffectReport,
-    NativeIoSinkRequirementReport, NativeIoSourceCapabilityReport, NativeIoSourcePushdownReport,
-    RepresentationState, Result,
+    ColumnRef, Diagnostic, DiagnosticCategory, DiagnosticCode, DiagnosticSeverity,
+    EncodedValueBatch, ExecutionCertificate, ExecutionCertificateInput, ExpectedOutcome,
+    NativeIoAdapterFidelityReport, NativeIoCertificate, NativeIoRepresentationTransition,
+    NativeIoSideEffectReport, NativeIoSinkRequirementReport, NativeIoSourceCapabilityReport,
+    NativeIoSourcePushdownReport, RepresentationState, Result,
 };
 
 use crate::{
@@ -57,6 +58,7 @@ pub struct VortexGeneralizedEncodedProjectionExecutionReport {
     pub projected_row_count: Option<u64>,
     pub projection_evidence: VortexEncodedProjectionExecutionReport,
     pub native_io_certificate: NativeIoCertificate,
+    pub execution_certificate: ExecutionCertificate,
     pub runtime_execution_allowed: bool,
     pub prepared_encoded_columns_consumed: bool,
     pub encoded_projection_guaranteed: bool,
@@ -80,9 +82,11 @@ impl VortexGeneralizedEncodedProjectionExecutionReport {
     fn from_evidence(
         projection_evidence: VortexEncodedProjectionExecutionReport,
         native_io_certificate: NativeIoCertificate,
+        execution_certificate: ExecutionCertificate,
     ) -> Self {
         let mut diagnostics = projection_evidence.diagnostics.clone();
         diagnostics.extend(native_io_certificate.diagnostics.clone());
+        diagnostics.extend(execution_certificate.diagnostics.clone());
 
         let projection_safe = projection_evidence.is_safe_encoded_projection_evidence();
         let native_io_safe = native_io_certificate.is_certified();
@@ -96,6 +100,7 @@ impl VortexGeneralizedEncodedProjectionExecutionReport {
         let runtime_execution_allowed = status
             == VortexGeneralizedEncodedProjectionExecutionStatus::ExecutedPreparedEncodedProjection;
         let projected_row_count = projected_row_count(&projection_evidence);
+        let correctness_certified = execution_certificate.is_certified();
 
         Self {
             schema_version: SCHEMA_VERSION,
@@ -113,10 +118,11 @@ impl VortexGeneralizedEncodedProjectionExecutionReport {
             projected_row_count,
             projection_evidence,
             native_io_certificate,
+            execution_certificate,
             runtime_execution_allowed,
             prepared_encoded_columns_consumed: runtime_execution_allowed,
             encoded_projection_guaranteed: runtime_execution_allowed,
-            correctness_certified: false,
+            correctness_certified,
             production_claim_allowed: false,
             data_read: false,
             data_decoded: false,
@@ -157,6 +163,7 @@ impl VortexGeneralizedEncodedProjectionExecutionReport {
             || self.fallback_attempted
             || self.fallback_execution_allowed
             || self.native_io_certificate.has_errors()
+            || execution_certificate_has_errors(&self.execution_certificate)
             || self.projection_evidence.has_errors()
             || self.diagnostics.iter().any(|diagnostic| {
                 matches!(
@@ -202,7 +209,16 @@ impl VortexGeneralizedEncodedProjectionExecutionReport {
             "runtime execution allowed: {}",
             self.runtime_execution_allowed
         );
-        let _ = writeln!(&mut out, "correctness certified: false");
+        let _ = writeln!(
+            &mut out,
+            "correctness certified: {}",
+            self.correctness_certified
+        );
+        let _ = writeln!(
+            &mut out,
+            "execution certificate: {}",
+            self.execution_certificate.status.as_str()
+        );
         let _ = writeln!(&mut out, "production claim allowed: false");
         let _ = writeln!(&mut out, "fallback execution allowed: false");
         out
@@ -228,12 +244,116 @@ pub fn execute_vortex_generalized_projection_from_encoded_projection_batches(
         evaluate_vortex_prepared_encoded_projection(requested_columns, batches, filter_kernel);
     let native_io_certificate =
         prepared_encoded_projection_native_io_certificate(&projection_evidence)?;
+    let execution_certificate = prepared_encoded_projection_execution_certificate(
+        &projection_evidence,
+        &native_io_certificate,
+    )?;
     Ok(
         VortexGeneralizedEncodedProjectionExecutionReport::from_evidence(
             projection_evidence,
             native_io_certificate,
+            execution_certificate,
         ),
     )
+}
+
+fn prepared_encoded_projection_execution_certificate(
+    projection_evidence: &VortexEncodedProjectionExecutionReport,
+    native_io_certificate: &NativeIoCertificate,
+) -> Result<ExecutionCertificate> {
+    let mut input = ExecutionCertificateInput::new(
+        "cg16.prepared_encoded_projection.execution-certificate",
+        EXECUTION_KIND,
+    )?;
+    input.plan_ref =
+        Some("execute_vortex_generalized_projection_from_encoded_projection_batches".to_string());
+    input.input_ref = Some(format!(
+        "prepared_vortex_encoded_projection_batches:{}",
+        projection_evidence.input_batch_count
+    ));
+    input.output_ref = Some(if projection_evidence.selection_vector_preserved {
+        "selection_vector_filter_project_result".to_string()
+    } else {
+        "encoded_projection_result".to_string()
+    });
+    input.actual_outcome = Some(ExpectedOutcome::Rows {
+        row_count: projection_evidence
+            .selected_row_count
+            .or_else(|| projected_row_count(projection_evidence)),
+    });
+    input.selected_segment_count = projection_evidence.projected_batch_count;
+    input.side_effects_performed = if projection_evidence.projected_batch_count > 0 {
+        vec!["prepared_encoded_projection_kernel".to_string()]
+    } else {
+        Vec::new()
+    };
+    input.unsafe_effect_detected =
+        !prepared_encoded_projection_execution_safe(projection_evidence, native_io_certificate);
+    input.fallback_attempted = projection_evidence
+        .diagnostics
+        .iter()
+        .chain(native_io_certificate.diagnostics.iter())
+        .any(|diagnostic| diagnostic.fallback.attempted);
+    input.fallback_execution_allowed = false;
+    input.correctness_passed = false;
+    input
+        .diagnostics
+        .extend(projection_evidence.diagnostics.clone());
+    input
+        .diagnostics
+        .extend(native_io_certificate.diagnostics.clone());
+    if projection_evidence.projected_batch_count == 0 {
+        input.diagnostics.push(Diagnostic::unsupported(
+            DiagnosticCode::NoFallbackExecution,
+            "vortex_prepared_encoded_projection_execution_certificate",
+            "prepared encoded projection execution certificate requires at least one projected encoded batch",
+            Some(
+                "Feed explicit encoded projection batches for every requested column before accepting this execution path."
+                    .to_string(),
+            ),
+        ));
+    }
+    if input.correctness_fixture_id.is_none() {
+        input.diagnostics.push(Diagnostic::new(
+            DiagnosticCode::NotImplemented,
+            DiagnosticSeverity::Warning,
+            DiagnosticCategory::Planning,
+            "prepared encoded projection execution has execution evidence but no CG-5 correctness fixture/reference output yet",
+            Some("vortex_prepared_encoded_projection_execution_certificate".to_string()),
+            Some(
+                "Prepared encoded projection/filter-project execution has execution evidence but no CG-5 correctness fixture/reference output yet."
+                    .to_string(),
+            ),
+            Some(
+                "Add a CG-5 prepared encoded projection/filter-project fixture before certifying correctness or production claims."
+                    .to_string(),
+            ),
+            shardloom_core::FallbackStatus::disabled_by_policy(),
+        ));
+    }
+    Ok(ExecutionCertificate::evaluate(input))
+}
+
+fn prepared_encoded_projection_execution_safe(
+    projection_evidence: &VortexEncodedProjectionExecutionReport,
+    native_io_certificate: &NativeIoCertificate,
+) -> bool {
+    projection_evidence.is_safe_encoded_projection_evidence()
+        && projection_evidence.projected_batch_count > 0
+        && native_io_certificate.is_certified()
+}
+
+fn execution_certificate_has_errors(certificate: &ExecutionCertificate) -> bool {
+    certificate.fallback_attempted
+        || certificate.fallback_execution_allowed
+        || certificate.unsafe_effect_detected
+        || certificate.diagnostics.iter().any(|diagnostic| {
+            matches!(
+                diagnostic.severity,
+                shardloom_core::DiagnosticSeverity::Error
+                    | shardloom_core::DiagnosticSeverity::Fatal
+            )
+        })
 }
 
 fn prepared_encoded_projection_native_io_certificate(
@@ -465,8 +585,9 @@ fn projected_row_count(
 mod tests {
     use super::*;
     use shardloom_core::{
-        ComparisonOp, EncodedSegment, EncodedValueRun, EncodingKind, LayoutKind, LogicalDType,
-        Nullability, PredicateExpr, SegmentId, SegmentLayout, SegmentStats, StatValue,
+        ComparisonOp, EncodedSegment, EncodedValueRun, EncodingKind, ExecutionCertificateStatus,
+        LayoutKind, LogicalDType, Nullability, PredicateExpr, SegmentId, SegmentLayout,
+        SegmentStats, StatValue,
     };
 
     use crate::{
@@ -550,6 +671,16 @@ mod tests {
         assert!(report.avoids_unsafe_effects());
         assert!(report.native_io_certificate.is_certified());
         assert_eq!(
+            report.execution_certificate.status,
+            ExecutionCertificateStatus::EvidenceIncomplete
+        );
+        assert!(report.execution_certificate.fallback_free());
+        assert!(!report.execution_certificate.unsafe_effect_detected);
+        assert_eq!(
+            report.execution_certificate.actual_outcome,
+            Some(ExpectedOutcome::Rows { row_count: Some(3) })
+        );
+        assert_eq!(
             report
                 .native_io_certificate
                 .representation_transition_order(),
@@ -631,6 +762,16 @@ mod tests {
         assert!(report.avoids_unsafe_effects());
         assert!(report.native_io_certificate.is_certified());
         assert_eq!(
+            report.execution_certificate.status,
+            ExecutionCertificateStatus::EvidenceIncomplete
+        );
+        assert!(report.execution_certificate.fallback_free());
+        assert!(!report.execution_certificate.unsafe_effect_detected);
+        assert_eq!(
+            report.execution_certificate.actual_outcome,
+            Some(ExpectedOutcome::Rows { row_count: Some(5) })
+        );
+        assert_eq!(
             report
                 .native_io_certificate
                 .representation_transition_order(),
@@ -672,6 +813,11 @@ mod tests {
         assert!(!report.encoded_projection_guaranteed);
         assert!(report.avoids_unsafe_effects());
         assert!(report.native_io_certificate.has_errors());
+        assert_eq!(
+            report.execution_certificate.status,
+            ExecutionCertificateStatus::Blocked
+        );
+        assert!(report.execution_certificate.unsafe_effect_detected);
         assert!(report.has_errors());
         assert!(report.diagnostics.iter().all(|d| !d.fallback.attempted));
     }

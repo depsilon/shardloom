@@ -679,6 +679,15 @@ No fallback execution.
 - The generalized encoded primitive gate now distinguishes prepared encoded projection evidence from local projection scan-pushdown-only evidence.
 - This phase does not open Vortex files, wire readers/adapters, broaden non-local sources, add SQL/DataFrame runtime, write outputs, spill, rerun benchmarks, certify production claims, close CG-2/CG-13/CG-19, or add fallback execution.
 
+## CG-16.15 prepared encoded execution certificate surfacing
+
+- Primary RFC linkage: RFC 0015 Correctness/testing, RFC 0025 Competitive/no-fallback, RFC 0029 Correctness/Benchmarks/Execution Certificates, RFC 0031 Universal Native I/O Envelope, and RFC 0032 capability certification.
+- `shardloom-vortex/src/generalized_encoded_filter_execution.rs` now attaches a CG-16 `ExecutionCertificate` to prepared encoded filter execution reports.
+- `shardloom-vortex/src/generalized_encoded_projection_execution.rs` now attaches a CG-16 `ExecutionCertificate` to prepared encoded projection and filter-project execution reports.
+- Safe prepared execution paths emit `evidence_incomplete` execution certificates with actual row-count evidence, no unsafe effects, and `fallback_attempted=false` until CG-5 fixtures/reference outputs certify correctness.
+- Unsafe prepared evidence, missing encoded batches, missing requested columns, or failed Native I/O evidence emits blocked execution certificates instead of widening runtime behavior.
+- This phase does not add CG-5 fixture families, decoded-reference artifacts, reader/adapters, non-local sources, object-store IO, SQL/DataFrame runtime, writes, spill, benchmark reruns, production certification, or fallback execution.
+
 ## CG-5.1 metadata query primitive correctness fixtures
 
 - Primary RFC linkage: RFC 0015 Correctness/Semantics/Differential Testing, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
