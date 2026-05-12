@@ -78,8 +78,9 @@ Use this section for the next implementation sequence. Keep it ordered by depend
   - [x] Prepared encoded-batch generalized encoded-value predicate/filter evidence beyond local scan-pushdown and explicit CLI primitive paths, without reader-backed/source-backed execution claims.
   - [x] Prepared encoded-batch generalized projection and filter-project evidence beyond local scan-pushdown and explicit CLI primitive paths, with no row reads, no Arrow conversion, no object-store IO, no writes, no spill, and no fallback.
 - [ ] Priority 1.1 - reader-backed/source-backed generalized encoded execution
+  - [x] Add source-bound prepared encoded filter/projection envelopes that require native Vortex source URI refs, stable split refs, source/batch URI matching, existing prepared encoded execution evidence, no external effects, and no fallback.
   - [ ] Wire real Vortex reader/source/split paths into the prepared encoded-batch predicate, projection, and filter-project execution surfaces.
-  - [ ] Execute encoded filter, projection, and filter-project work over actual source-backed Vortex paths with explicit source refs, split refs, provider refs, residual boundaries, and representation transitions.
+  - [ ] Execute encoded filter, projection, and filter-project work over actual reader-backed Vortex paths with provider refs, residual boundaries, representation transitions, and reader-generated prepared encoded batches.
   - [ ] Keep upstream Vortex-native providers allowed only through feature-gated, version-recorded, policy-admitted, certificate-backed provider boundaries.
   - [ ] Reject or ShardLoom-native-execute residual expressions; never delegate residual evaluation to DataFusion, DuckDB, Spark, Polars, Velox, Trino, Dask, Ray, or Vortex query-engine integrations.
   - [ ] Pair each source-backed execution expansion with CG-5 correctness fixtures/reference outputs, CG-6 benchmark rows, CG-16 execution certificates, CG-19 Native I/O certificates, and explicit no-fallback evidence.
@@ -384,6 +385,30 @@ Use this section for the next implementation sequence. Keep it ordered by depend
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: source-backed prepared encoded execution envelope
+  - Primary files:
+    - `shardloom-vortex/src/source_backed_encoded_execution.rs`
+    - `shardloom-vortex/src/generalized_encoded_primitive_gate.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/generalized_encoded_primitive_gate_snapshots.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: add the first source-backed generalized encoded execution step by binding caller-provided prepared encoded filter/projection batches to native Vortex source URI and split evidence before accepting them as source-backed evidence.
+  - Checklist:
+    - [x] Add source-backed prepared encoded filter and projection report types with native Vortex source checks, URI/split validation, source/batch matching, prepared execution links, diagnostics, and no-fallback fields.
+    - [x] Add constructor validation for source-bound encoded predicate batches and projection columns so blank split refs are rejected before report construction.
+    - [x] Preserve the current boundary: callers still provide prepared encoded batches; no broad reader-generated encoded batches, object-store IO, writes, SQL/DataFrame runtime, benchmark claim, production claim, or fallback execution is added.
+    - [x] Surface source-backed prepared encoded filter/projection evidence through the generalized encoded primitive gate and stable CLI JSON fields.
+    - [x] Keep generalized runtime readiness blocked until reader-backed/source-backed expansion has correctness, benchmark, execution-certificate, Native I/O, provider, residual, and workload evidence.
+  - Validation status:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_TARGET_DIR='target-codex-source-backed'; cargo test -p shardloom-vortex source_backed --lib`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex generalized_encoded_primitive_gate --lib`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test generalized_encoded_primitive_gate_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-vortex --lib -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-cli --bin shardloom -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `git diff --check`
+    - [x] Changed-file hidden/bidi scan passed locally.
 - [x] Session label: phased-plan sequential queue and wrapper architecture hardening
   - Primary files:
     - `docs/architecture/phased-execution-plan.md`

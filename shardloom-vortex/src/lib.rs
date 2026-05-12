@@ -65,6 +65,7 @@ pub mod read_planning;
 pub mod runtime_bridge;
 pub mod scheduler_bridge;
 pub mod selection_vector_filter_kernel;
+pub mod source_backed_encoded_execution;
 pub mod staged_manifest;
 pub mod staged_output;
 pub mod streaming_batch_runtime;
@@ -93,6 +94,13 @@ pub use generalized_filter_execution::{
 pub use generalized_projection_execution::{
     VortexGeneralizedProjectionExecutionReport, VortexGeneralizedProjectionExecutionStatus,
     execute_vortex_generalized_projection_from_local_scan_pushdown,
+};
+pub use source_backed_encoded_execution::{
+    VortexSourceBackedEncodedExecutionStatus, VortexSourceBackedEncodedFilterExecutionReport,
+    VortexSourceBackedEncodedProjectionColumn, VortexSourceBackedEncodedProjectionExecutionReport,
+    VortexSourceBackedEncodedValuePredicateBatch,
+    execute_vortex_source_backed_filter_from_encoded_value_batches,
+    execute_vortex_source_backed_projection_from_encoded_projection_batches,
 };
 
 pub use file_io::{
