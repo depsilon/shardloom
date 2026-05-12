@@ -12,6 +12,7 @@ OutputEnvelope
 OutputTypedPayload
 OutputTypedRef
 OutputTypedArtifact
+shardloom-cli/src/typed_envelope.rs
 shardloom.output.v2
 ```
 
@@ -67,6 +68,10 @@ result_refs
 Reference routing is conservative: requirement booleans such as `execution_certificate_required`
 remain payload fields, while explicit `*_ref`, `*_id`, `*_path`, and `*_uri` values become typed
 refs when the value is a real reference rather than `false`, `none`, `not_performed`, or similar.
+
+Shared CLI typed-envelope routing lives in `shardloom-cli/src/typed_envelope.rs`. Command handlers
+still live mostly in `main.rs`; the module split is the first modularity step for shared rendering
+and protocol behavior.
 
 The old top-level `fields` array is still present as a temporary legacy mirror for existing tests,
 the Python client, and command-family migration safety. It is no longer the intended primary

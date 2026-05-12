@@ -16,8 +16,9 @@ Partially implemented as protocol and CLI implementation guidance.
 The first implementation slices add `shardloom.output.v2`, typed payload slots, API/Python protocol
 reporting, Python typed-payload parsing, shared CLI routing for common policy/lifecycle/capability
 fields, and conservative typed reference attachment for explicit result, artifact, and certificate
-refs/ids/paths/URIs. Command-family-specific result migration, richer inline artifact/report
-payloads, expanded golden fixtures, and CLI handler modularization remain planned.
+refs/ids/paths/URIs in `shardloom-cli/src/typed_envelope.rs`. Command-family-specific result
+migration, richer inline artifact/report payloads, expanded golden fixtures, and broader CLI
+handler modularization remain planned.
 
 This RFC does not authorize REST server behavior, generated clients, DB-API/SQLAlchemy/Ibis/dbt
 wrappers, benchmark execution, runtime expansion, package publication, external engine invocation,

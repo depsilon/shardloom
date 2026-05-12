@@ -151,12 +151,14 @@ actionable work.
         evidence-incomplete execution, source-backed execution, benchmark rows, missing binary, and
         Foundry boundary reports.
   - [ ] Modularize CLI command routing around typed command handlers and shared rendering.
+    - [ ] Move remaining command-family handlers out of `main.rs` after the shared
+          `typed_envelope` routing module.
     - [ ] Split handlers by status/capabilities, Vortex primitive execution,
           prepared/source-backed execution, evidence/certificates, benchmarks,
           packaging/deployment, Foundry, operational hardening, diagnostics, and future REST/API
           planning families.
-    - [ ] Centralize rendering, diagnostics, fallback fields, policy fields, and side-effect
-          reporting.
+    - [ ] Continue centralizing rendering, diagnostics, fallback fields, policy fields, and
+          side-effect reporting beyond the current typed-envelope field/ref router.
     - [ ] Ensure no command manually constructs incompatible JSON or omits no-fallback status.
     - [ ] Keep dataset probes, external-engine execution, materialization, writes, and network
           effects disabled unless a command contract explicitly allows them and emits evidence.
