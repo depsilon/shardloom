@@ -32,6 +32,9 @@ The report answers:
     executing those sources.
 - `decoded_reference_outputs`
   - Required before broad encoded execution can claim correctness parity.
+- `deferred_fixture_family_artifacts`
+  - Tracks declared but unpopulated fixture-manifest and decoded-reference
+    evidence slots for deferred fixture families.
 - `differential_oracles`
   - Tracks external engines as test/comparison oracles only.
 - `external_oracle_result_artifacts`
@@ -60,8 +63,8 @@ The report answers:
 - `fallback_execution_allowed=false` and `fallback_attempted=false` are
   invariant fields.
 - `production_claim_allowed=false` remains in force until decoded-reference,
-  differential, property/fuzz, edge-case, and benchmark-gate evidence is
-  complete.
+  deferred fixture-family, differential, property/fuzz, edge-case, and
+  benchmark-gate evidence is complete.
 
 ## Current Evidence State
 
@@ -84,9 +87,13 @@ The report answers:
   Dask, and Velox comparison oracles.
 - External-oracle artifact slots are `declared_not_executed`, comparison-only,
   and record `external_engine_invoked=false` and `fallback_attempted=false`.
-- The benchmark claim gate explicitly reports blockers for deferred
-  fixture-family requirements, unpopulated external-oracle result artifacts,
-  and property/fuzz execution not yet performed.
+- Deferred fixture-family requirements now have declared evidence artifact
+  slots that record required fixture-manifest and decoded-reference refs,
+  status `declared_not_populated`, `execution_performed=false`, and
+  `fallback_attempted=false`.
+- The benchmark claim gate explicitly reports blockers for unpopulated
+  deferred fixture-family artifact slots, unpopulated external-oracle result
+  artifacts, and property/fuzz execution not yet performed.
 - Current future fixture families no longer use ambiguous `NotYetDefined`
   expectations; they are explicit deferred fixture-family requirements.
 - Current external oracle coverage is policy-only; no external engines are
@@ -95,8 +102,8 @@ The report answers:
 ## Next Implementation Direction
 
 The next CG-5 work should populate and/or execute the declared
-external-oracle artifacts, add property/fuzz execution, and turn deferred
-fixture-family requirements into executable fixtures and reference outputs.
-Those fixtures and runs should come before new benchmark claims and should
-explicitly record no-fallback boundaries, semantic profile, materialization
-boundaries, and reproducible inputs.
+external-oracle artifacts, add property/fuzz execution, and populate the
+deferred fixture-family artifact slots with executable fixtures and reference
+outputs. Those fixtures and runs should come before new benchmark claims and
+should explicitly record no-fallback boundaries, semantic profile,
+materialization boundaries, and reproducible inputs.

@@ -760,6 +760,15 @@ No fallback execution.
 - The benchmark claim gate remains blocked by `deferred_fixture_families`, declared-but-unpopulated external-oracle result artifacts, and unperformed property/fuzz execution.
 - This phase adds no decoded-reference execution, external oracle execution, property/fuzz execution, data reads, reader/adapters, non-local sources, object-store IO, SQL/DataFrame runtime, writes, spill, benchmark reruns, production certification, superiority claim, or fallback execution.
 
+## CG-5.20 deferred fixture-family artifact slots
+
+- Primary RFC linkage: RFC 0015 Correctness/testing, RFC 0025 Competitive/no-fallback, RFC 0029 Correctness/Benchmarks/Execution Certificates, RFC 0031 Universal Native I/O Envelope, and RFC 0032 capability certification.
+- `DeferredFixtureFamilyArtifact` now declares required evidence slots for each deferred fixture family, including required fixture-manifest refs, required decoded-reference refs, status, semantic profile, materialization-boundary label, and no-execution/no-fallback fields.
+- `CorrectnessValidationPlan`, `CorrectnessDifferentialHarnessReport`, `correctness-plan`, and `correctness-harness-plan` now surface deferred fixture-family artifact count, populated count, populated status, artifact ID order, status order, and test-only status.
+- The aggregate harness now treats `deferred_fixture_family_artifacts` as a distinct evidence surface and keeps it blocked while artifact slots are declared but unpopulated.
+- The benchmark claim gate now reports `deferred_fixture_family_artifacts_not_populated` instead of the broader `deferred_fixture_families` blocker, while external-oracle population and property/fuzz execution blockers remain.
+- This phase adds no decoded-reference execution, external oracle execution, property/fuzz execution, data reads, reader/adapters, non-local sources, object-store IO, SQL/DataFrame runtime, writes, spill, benchmark reruns, production certification, superiority claim, or fallback execution.
+
 ## RFC/Vortex provider alignment drift cleanup
 
 - Primary RFC linkage: RFC 0002 No Fallback/Vortex I/O, RFC 0031 Universal Native I/O Envelope, RFC 0032 Capability Surface, RFC 0033 User Workflow, RFC 0034 Engine Fabric, and RFC 0035 REST/Event/API.

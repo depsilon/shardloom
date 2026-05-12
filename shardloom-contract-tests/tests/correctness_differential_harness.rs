@@ -81,6 +81,27 @@ fn correctness_harness_aggregates_current_cg5_evidence_without_execution() {
             "temporal-semantics".to_string(),
         ]
     );
+    assert_eq!(report.deferred_fixture_family_artifact_count, 8);
+    assert_eq!(report.deferred_fixture_family_artifact_populated_count, 0);
+    assert!(!report.deferred_fixture_family_artifacts_populated);
+    assert_eq!(
+        report.deferred_fixture_family_artifact_id_order,
+        vec![
+            "null-semantics.deferred-fixture-family.declared-evidence".to_string(),
+            "pruning-correctness.deferred-fixture-family.declared-evidence".to_string(),
+            "encoded-vs-decoded-reference.deferred-fixture-family.declared-evidence".to_string(),
+            "nested-data-edge-corpus.deferred-fixture-family.declared-evidence".to_string(),
+            "dictionary-encoded-edge-corpus.deferred-fixture-family.declared-evidence".to_string(),
+            "sparse-validity-edge-corpus.deferred-fixture-family.declared-evidence".to_string(),
+            "run-length-edge-corpus.deferred-fixture-family.declared-evidence".to_string(),
+            "temporal-semantics.deferred-fixture-family.declared-evidence".to_string(),
+        ]
+    );
+    assert_eq!(
+        report.deferred_fixture_family_artifact_status_order,
+        vec!["declared_not_populated".to_string()]
+    );
+    assert!(report.deferred_fixture_family_artifacts_test_only);
     assert_eq!(report.baseline_count, 7);
     assert_eq!(report.external_oracle_result_artifact_count, 63);
     assert_eq!(report.external_oracle_result_populated_count, 0);
@@ -93,7 +114,7 @@ fn correctness_harness_aggregates_current_cg5_evidence_without_execution() {
     assert_eq!(
         report.benchmark_claim_blocker_order,
         vec![
-            "deferred_fixture_families".to_string(),
+            "deferred_fixture_family_artifacts_not_populated".to_string(),
             "external_oracle_results_not_populated".to_string(),
             "property_fuzz_execution_not_performed".to_string()
         ]
@@ -105,10 +126,13 @@ fn correctness_harness_aggregates_current_cg5_evidence_without_execution() {
     assert_eq!(report.generated_property_fixture_count, 3);
     assert_eq!(report.fuzz_seed_count, 3);
     assert_eq!(report.planned_surface_count, 9);
-    assert_eq!(report.blocked_surface_count, 1);
+    assert_eq!(report.blocked_surface_count, 2);
     assert_eq!(
         report.blocked_surface_order,
-        vec!["benchmark_claim_gate".to_string()]
+        vec![
+            "deferred_fixture_family_artifacts".to_string(),
+            "benchmark_claim_gate".to_string()
+        ]
     );
     assert!(report.reference_roles_test_only);
     assert!(report.baselines_fallback_free);
@@ -137,6 +161,7 @@ fn correctness_harness_declares_validation_modes_and_oracle_order() {
             "golden_fixtures",
             "source_backed_edge_fixtures",
             "decoded_reference_outputs",
+            "deferred_fixture_family_artifacts",
             "differential_oracles",
             "external_oracle_result_artifacts",
             "semantic_edge_cases",

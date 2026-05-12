@@ -471,6 +471,27 @@ fn foundation_plan_reports_reference_and_gap_counts() {
             "temporal-semantics",
         ]
     );
+    assert_eq!(plan.deferred_fixture_family_artifact_count(), 8);
+    assert_eq!(plan.deferred_fixture_family_artifact_populated_count(), 0);
+    assert!(!plan.deferred_fixture_family_artifacts_populated());
+    assert_eq!(
+        plan.deferred_fixture_family_artifact_id_order(),
+        vec![
+            "null-semantics.deferred-fixture-family.declared-evidence",
+            "pruning-correctness.deferred-fixture-family.declared-evidence",
+            "encoded-vs-decoded-reference.deferred-fixture-family.declared-evidence",
+            "nested-data-edge-corpus.deferred-fixture-family.declared-evidence",
+            "dictionary-encoded-edge-corpus.deferred-fixture-family.declared-evidence",
+            "sparse-validity-edge-corpus.deferred-fixture-family.declared-evidence",
+            "run-length-edge-corpus.deferred-fixture-family.declared-evidence",
+            "temporal-semantics.deferred-fixture-family.declared-evidence",
+        ]
+    );
+    assert_eq!(
+        plan.deferred_fixture_family_artifact_status_order(),
+        vec!["declared_not_populated"]
+    );
+    assert!(plan.deferred_fixture_family_artifacts_are_test_only());
     assert_eq!(plan.diagnostic_expected_output_count(), 1);
     assert_eq!(plan.unsupported_expected_output_count(), 1);
     assert_eq!(plan.baseline_count(), 7);

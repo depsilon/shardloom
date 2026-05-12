@@ -363,6 +363,62 @@ impl FuzzSeed {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DeferredFixtureFamilyArtifactStatus {
+    DeclaredNotPopulated,
+}
+impl DeferredFixtureFamilyArtifactStatus {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::DeclaredNotPopulated => "declared_not_populated",
+        }
+    }
+    pub const fn is_populated(&self) -> bool {
+        match self {
+            Self::DeclaredNotPopulated => false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DeferredFixtureFamilyArtifact {
+    pub artifact_id: String,
+    pub fixture_id: String,
+    pub requirement: String,
+    pub required_fixture_manifest_ref: String,
+    pub required_decoded_reference_ref: String,
+    pub status: DeferredFixtureFamilyArtifactStatus,
+    pub semantic_profile: String,
+    pub materialization_boundary: String,
+    pub execution_performed: bool,
+    pub fallback_attempted: bool,
+}
+impl DeferredFixtureFamilyArtifact {
+    pub fn declared_not_populated(fixture: &CorrectnessFixture, requirement: &str) -> Self {
+        let fixture_id = fixture.id.as_str().to_string();
+        Self {
+            artifact_id: format!("{fixture_id}.deferred-fixture-family.declared-evidence"),
+            fixture_id: fixture_id.clone(),
+            requirement: requirement.to_string(),
+            required_fixture_manifest_ref: format!(
+                "docs/fixtures/correctness/deferred-fixture-families/{fixture_id}.json"
+            ),
+            required_decoded_reference_ref: format!("{fixture_id}.decoded-reference.required"),
+            status: DeferredFixtureFamilyArtifactStatus::DeclaredNotPopulated,
+            semantic_profile: "shardloom_native_deferred_fixture_family".to_string(),
+            materialization_boundary: "deferred_fixture_family_artifact_slot".to_string(),
+            execution_performed: false,
+            fallback_attempted: false,
+        }
+    }
+    pub const fn is_test_only(&self) -> bool {
+        !self.execution_performed && !self.fallback_attempted
+    }
+    pub const fn is_populated(&self) -> bool {
+        self.status.is_populated()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExternalOracleArtifactStatus {
     DeclaredNotExecuted,
 }
@@ -958,6 +1014,7 @@ pub struct CorrectnessValidationPlan {
     pub status: CorrectnessPlanStatus,
     pub fixtures: Vec<CorrectnessFixture>,
     pub baselines: Vec<DifferentialBaseline>,
+    pub deferred_fixture_family_artifacts: Vec<DeferredFixtureFamilyArtifact>,
     pub external_oracle_result_artifacts: Vec<ExternalOracleResultArtifact>,
     pub diagnostic_expectations: Vec<DiagnosticExpectation>,
     pub fuzz_seeds: Vec<FuzzSeed>,
@@ -977,6 +1034,7 @@ impl CorrectnessValidationPlan {
             status: CorrectnessPlanStatus::Planned,
             fixtures: vec![],
             baselines: vec![],
+            deferred_fixture_family_artifacts: vec![],
             external_oracle_result_artifacts: vec![],
             diagnostic_expectations: vec![],
             fuzz_seeds: vec![],
@@ -996,6 +1054,7 @@ impl CorrectnessValidationPlan {
         add_edge_case_executable_fixtures(&mut plan);
         add_property_fuzz_foundation(&mut plan);
         add_remaining_foundation_fixture_requirements(&mut plan);
+        plan.add_deferred_fixture_family_artifacts();
         for baseline in default_external_oracle_baselines() {
             plan.add_baseline(baseline);
         }
@@ -1010,6 +1069,27 @@ impl CorrectnessValidationPlan {
     }
     pub fn add_external_oracle_result_artifact(&mut self, artifact: ExternalOracleResultArtifact) {
         self.external_oracle_result_artifacts.push(artifact);
+    }
+    pub fn add_deferred_fixture_family_artifact(
+        &mut self,
+        artifact: DeferredFixtureFamilyArtifact,
+    ) {
+        self.deferred_fixture_family_artifacts.push(artifact);
+    }
+    fn add_deferred_fixture_family_artifacts(&mut self) {
+        let artifacts = self
+            .fixtures
+            .iter()
+            .filter_map(|fixture| match &fixture.expected {
+                ExpectedOutcome::DeferredFixtureFamily { requirement } => Some(
+                    DeferredFixtureFamilyArtifact::declared_not_populated(fixture, requirement),
+                ),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        for artifact in artifacts {
+            self.add_deferred_fixture_family_artifact(artifact);
+        }
     }
     fn add_source_backed_edge_external_oracle_artifacts(&mut self) {
         let source_backed_edge_fixture_ids = self
@@ -1204,6 +1284,41 @@ impl CorrectnessValidationPlan {
             .map(|fixture| fixture.id.as_str())
             .collect()
     }
+    pub fn deferred_fixture_family_artifact_count(&self) -> usize {
+        self.deferred_fixture_family_artifacts.len()
+    }
+    pub fn deferred_fixture_family_artifact_populated_count(&self) -> usize {
+        self.deferred_fixture_family_artifacts
+            .iter()
+            .filter(|artifact| artifact.is_populated())
+            .count()
+    }
+    pub fn deferred_fixture_family_artifacts_populated(&self) -> bool {
+        !self.deferred_fixture_family_artifacts.is_empty()
+            && self.deferred_fixture_family_artifact_populated_count()
+                == self.deferred_fixture_family_artifacts.len()
+    }
+    pub fn deferred_fixture_family_artifact_id_order(&self) -> Vec<&str> {
+        self.deferred_fixture_family_artifacts
+            .iter()
+            .map(|artifact| artifact.artifact_id.as_str())
+            .collect()
+    }
+    pub fn deferred_fixture_family_artifact_status_order(&self) -> Vec<&'static str> {
+        let mut statuses = Vec::new();
+        for artifact in &self.deferred_fixture_family_artifacts {
+            let label = artifact.status.as_str();
+            if !statuses.contains(&label) {
+                statuses.push(label);
+            }
+        }
+        statuses
+    }
+    pub fn deferred_fixture_family_artifacts_are_test_only(&self) -> bool {
+        self.deferred_fixture_family_artifacts
+            .iter()
+            .all(DeferredFixtureFamilyArtifact::is_test_only)
+    }
     pub fn diagnostic_expected_output_count(&self) -> usize {
         self.fixtures
             .iter()
@@ -1263,6 +1378,7 @@ impl CorrectnessValidationPlan {
                 .baselines
                 .iter()
                 .all(|baseline| !baseline.role.is_production_execution())
+            && self.deferred_fixture_family_artifacts_are_test_only()
             && self.external_oracle_artifacts_are_test_only()
     }
     pub fn baseline_count(&self) -> usize {
@@ -1375,6 +1491,12 @@ pub struct CorrectnessDifferentialHarnessReport {
     pub not_yet_defined_fixture_count: usize,
     pub deferred_fixture_family_count: usize,
     pub deferred_fixture_family_id_order: Vec<String>,
+    pub deferred_fixture_family_artifact_count: usize,
+    pub deferred_fixture_family_artifact_populated_count: usize,
+    pub deferred_fixture_family_artifacts_populated: bool,
+    pub deferred_fixture_family_artifact_id_order: Vec<String>,
+    pub deferred_fixture_family_artifact_status_order: Vec<String>,
+    pub deferred_fixture_family_artifacts_test_only: bool,
     pub unsupported_diagnostic_fixture_count: usize,
     pub required_edge_case_count: usize,
     pub covered_required_edge_case_count: usize,
@@ -1420,6 +1542,7 @@ impl CorrectnessDifferentialHarnessReport {
             "golden_fixtures",
             "source_backed_edge_fixtures",
             "decoded_reference_outputs",
+            "deferred_fixture_family_artifacts",
             "differential_oracles",
             "external_oracle_result_artifacts",
             "semantic_edge_cases",
@@ -1522,6 +1645,23 @@ pub fn plan_correctness_differential_harness(
         .into_iter()
         .map(ToString::to_string)
         .collect::<Vec<_>>();
+    let deferred_fixture_family_artifact_count = plan.deferred_fixture_family_artifact_count();
+    let deferred_fixture_family_artifact_populated_count =
+        plan.deferred_fixture_family_artifact_populated_count();
+    let deferred_fixture_family_artifacts_populated =
+        plan.deferred_fixture_family_artifacts_populated();
+    let deferred_fixture_family_artifact_id_order = plan
+        .deferred_fixture_family_artifact_id_order()
+        .into_iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>();
+    let deferred_fixture_family_artifact_status_order = plan
+        .deferred_fixture_family_artifact_status_order()
+        .into_iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>();
+    let deferred_fixture_family_artifacts_test_only =
+        plan.deferred_fixture_family_artifacts_are_test_only();
     let unsupported_diagnostic_fixture_count = plan.unsupported_diagnostic_fixture_count();
     let required_edge_case_count =
         CorrectnessValidationPlan::required_foundation_edge_cases().len();
@@ -1562,6 +1702,8 @@ pub fn plan_correctness_differential_harness(
     let benchmark_claim_blocker_order = correctness_benchmark_claim_blockers(
         not_yet_defined_fixture_count,
         deferred_fixture_family_count,
+        deferred_fixture_family_artifact_count,
+        deferred_fixture_family_artifact_populated_count,
         decoded_reference_output_coverage_complete,
         external_oracle_result_artifact_count,
         external_oracle_result_populated_count,
@@ -1570,6 +1712,7 @@ pub fn plan_correctness_differential_harness(
         property_fuzz_execution_performed,
         reference_roles_test_only,
         baselines_fallback_free,
+        deferred_fixture_family_artifacts_test_only,
         external_oracle_artifacts_test_only,
     );
 
@@ -1582,11 +1725,14 @@ pub fn plan_correctness_differential_harness(
         covered_required_edge_case_count,
         required_edge_case_count,
         baseline_count,
+        deferred_fixture_family_artifact_count,
+        deferred_fixture_family_artifact_populated_count,
         external_oracle_result_artifact_count,
         generated_property_fixture_count,
         fuzz_seed_count,
         &benchmark_claim_blocker_order,
         baselines_fallback_free,
+        deferred_fixture_family_artifacts_test_only,
         external_oracle_artifacts_test_only,
     );
     let blocked_surface_count = blocked_surface_order.len();
@@ -1605,6 +1751,8 @@ pub fn plan_correctness_differential_harness(
         &blocked_surface_order,
         not_yet_defined_fixture_count,
         deferred_fixture_family_count,
+        deferred_fixture_family_artifact_count,
+        deferred_fixture_family_artifact_populated_count,
         status,
     );
 
@@ -1627,6 +1775,12 @@ pub fn plan_correctness_differential_harness(
         not_yet_defined_fixture_count,
         deferred_fixture_family_count,
         deferred_fixture_family_id_order,
+        deferred_fixture_family_artifact_count,
+        deferred_fixture_family_artifact_populated_count,
+        deferred_fixture_family_artifacts_populated,
+        deferred_fixture_family_artifact_id_order,
+        deferred_fixture_family_artifact_status_order,
+        deferred_fixture_family_artifacts_test_only,
         unsupported_diagnostic_fixture_count,
         required_edge_case_count,
         covered_required_edge_case_count,
@@ -1677,11 +1831,14 @@ fn correctness_harness_blocked_surfaces(
     covered_required_edge_case_count: usize,
     required_edge_case_count: usize,
     baseline_count: usize,
+    deferred_fixture_family_artifact_count: usize,
+    deferred_fixture_family_artifact_populated_count: usize,
     external_oracle_result_artifact_count: usize,
     generated_property_fixture_count: usize,
     fuzz_seed_count: usize,
     benchmark_claim_blocker_order: &[String],
     baselines_fallback_free: bool,
+    deferred_fixture_family_artifacts_test_only: bool,
     external_oracle_artifacts_test_only: bool,
 ) -> Vec<String> {
     let mut blocked = Vec::new();
@@ -1699,6 +1856,12 @@ fn correctness_harness_blocked_surfaces(
     }
     if baseline_count == 0 || !baselines_fallback_free {
         blocked.push("differential_oracles".to_string());
+    }
+    if deferred_fixture_family_artifact_count == 0
+        || deferred_fixture_family_artifact_populated_count < deferred_fixture_family_artifact_count
+        || !deferred_fixture_family_artifacts_test_only
+    {
+        blocked.push("deferred_fixture_family_artifacts".to_string());
     }
     if external_oracle_result_artifact_count == 0 || !external_oracle_artifacts_test_only {
         blocked.push("external_oracle_result_artifacts".to_string());
@@ -1722,6 +1885,8 @@ fn correctness_harness_blocked_surfaces(
 fn correctness_benchmark_claim_blockers(
     not_yet_defined_fixture_count: usize,
     deferred_fixture_family_count: usize,
+    deferred_fixture_family_artifact_count: usize,
+    deferred_fixture_family_artifact_populated_count: usize,
     decoded_reference_output_coverage_complete: bool,
     external_oracle_result_artifact_count: usize,
     external_oracle_result_populated_count: usize,
@@ -1730,6 +1895,7 @@ fn correctness_benchmark_claim_blockers(
     property_fuzz_execution_performed: bool,
     reference_roles_test_only: bool,
     baselines_fallback_free: bool,
+    deferred_fixture_family_artifacts_test_only: bool,
     external_oracle_artifacts_test_only: bool,
 ) -> Vec<String> {
     let mut blockers = Vec::new();
@@ -1737,7 +1903,13 @@ fn correctness_benchmark_claim_blockers(
         blockers.push("not_yet_defined_fixtures".to_string());
     }
     if deferred_fixture_family_count > 0 {
-        blockers.push("deferred_fixture_families".to_string());
+        if deferred_fixture_family_artifact_count == 0 {
+            blockers.push("deferred_fixture_family_artifacts_missing".to_string());
+        } else if deferred_fixture_family_artifact_populated_count
+            < deferred_fixture_family_artifact_count
+        {
+            blockers.push("deferred_fixture_family_artifacts_not_populated".to_string());
+        }
     }
     if !decoded_reference_output_coverage_complete {
         blockers.push("decoded_reference_outputs".to_string());
@@ -1755,6 +1927,7 @@ fn correctness_benchmark_claim_blockers(
     }
     if !reference_roles_test_only
         || !baselines_fallback_free
+        || !deferred_fixture_family_artifacts_test_only
         || !external_oracle_artifacts_test_only
     {
         blockers.push("unsafe_reference_or_fallback_policy".to_string());
@@ -1766,6 +1939,8 @@ fn correctness_harness_diagnostics(
     blocked_surfaces: &[String],
     not_yet_defined_fixture_count: usize,
     deferred_fixture_family_count: usize,
+    deferred_fixture_family_artifact_count: usize,
+    deferred_fixture_family_artifact_populated_count: usize,
     status: CorrectnessDifferentialHarnessStatus,
 ) -> Vec<Diagnostic> {
     if status == CorrectnessDifferentialHarnessStatus::UnsafeFallbackPolicy {
@@ -1791,10 +1966,12 @@ fn correctness_harness_diagnostics(
         "correctness harness evidence is incomplete",
         Some("correctness_differential_harness".to_string()),
         Some(format!(
-            "blocked_surfaces={}; not_yet_defined_fixtures={}; deferred_fixture_families={}",
+            "blocked_surfaces={}; not_yet_defined_fixtures={}; deferred_fixture_families={}; deferred_fixture_family_artifacts={}/{}",
             blocked_surfaces.join(","),
             not_yet_defined_fixture_count,
-            deferred_fixture_family_count
+            deferred_fixture_family_count,
+            deferred_fixture_family_artifact_populated_count,
+            deferred_fixture_family_artifact_count
         )),
         Some(
             "Add decoded reference outputs, property/fuzz evidence, and resolved fixture expectations before opening production or competitive benchmark claims.".to_string(),
@@ -2040,6 +2217,14 @@ mod tests {
                 "temporal-semantics"
             ]
         );
+        assert_eq!(plan.deferred_fixture_family_artifact_count(), 8);
+        assert_eq!(plan.deferred_fixture_family_artifact_populated_count(), 0);
+        assert!(!plan.deferred_fixture_family_artifacts_populated());
+        assert_eq!(
+            plan.deferred_fixture_family_artifact_status_order(),
+            vec!["declared_not_populated"]
+        );
+        assert!(plan.deferred_fixture_family_artifacts_are_test_only());
         assert_eq!(plan.diagnostic_expected_output_count(), 1);
         assert_eq!(plan.unsupported_expected_output_count(), 1);
         assert_eq!(plan.baseline_count(), 7);
@@ -2089,6 +2274,14 @@ mod tests {
         assert_eq!(report.executable_expected_output_count, 18);
         assert_eq!(report.not_yet_defined_fixture_count, 0);
         assert_eq!(report.deferred_fixture_family_count, 8);
+        assert_eq!(report.deferred_fixture_family_artifact_count, 8);
+        assert_eq!(report.deferred_fixture_family_artifact_populated_count, 0);
+        assert!(!report.deferred_fixture_family_artifacts_populated);
+        assert_eq!(
+            report.deferred_fixture_family_artifact_status_order,
+            vec!["declared_not_populated".to_string()]
+        );
+        assert!(report.deferred_fixture_family_artifacts_test_only);
         assert_eq!(report.fixtures_with_source_ref_count, 16);
         assert_eq!(report.source_backed_edge_fixture_count, 9);
         assert_eq!(report.reference_artifact_count, 18);
@@ -2108,17 +2301,20 @@ mod tests {
         assert_eq!(
             report.benchmark_claim_blocker_order,
             vec![
-                "deferred_fixture_families".to_string(),
+                "deferred_fixture_family_artifacts_not_populated".to_string(),
                 "external_oracle_results_not_populated".to_string(),
                 "property_fuzz_execution_not_performed".to_string()
             ]
         );
         assert!(!report.property_fuzz_execution_performed);
         assert_eq!(report.planned_surface_count, 9);
-        assert_eq!(report.blocked_surface_count, 1);
+        assert_eq!(report.blocked_surface_count, 2);
         assert_eq!(
             report.blocked_surface_order,
-            vec!["benchmark_claim_gate".to_string()]
+            vec![
+                "deferred_fixture_family_artifacts".to_string(),
+                "benchmark_claim_gate".to_string()
+            ]
         );
         assert!(report.benchmark_claims_blocked_by_correctness);
         assert!(!report.production_claim_allowed);

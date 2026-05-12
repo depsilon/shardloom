@@ -43,11 +43,14 @@ fn correctness_harness_json_exposes_aggregate_status_and_surfaces() {
     assert!(output.contains(&field("harness_status", "needs_evidence")));
     assert!(output.contains(&field(
         "surface_order",
-        "fixture_manifest,golden_fixtures,source_backed_edge_fixtures,decoded_reference_outputs,differential_oracles,external_oracle_result_artifacts,semantic_edge_cases,unsupported_diagnostics,property_fuzzing,benchmark_claim_gate"
+        "fixture_manifest,golden_fixtures,source_backed_edge_fixtures,decoded_reference_outputs,deferred_fixture_family_artifacts,differential_oracles,external_oracle_result_artifacts,semantic_edge_cases,unsupported_diagnostics,property_fuzzing,benchmark_claim_gate"
     )));
     assert!(output.contains(&field("planned_surface_count", "9")));
-    assert!(output.contains(&field("blocked_surface_count", "1")));
-    assert!(output.contains(&field("blocked_surface_order", "benchmark_claim_gate")));
+    assert!(output.contains(&field("blocked_surface_count", "2")));
+    assert!(output.contains(&field(
+        "blocked_surface_order",
+        "deferred_fixture_family_artifacts,benchmark_claim_gate"
+    )));
 }
 
 #[test]
@@ -81,6 +84,27 @@ fn correctness_harness_json_exposes_fixtures_oracles_and_missing_modes() {
         "deferred_fixture_family_id_order",
         "null-semantics,pruning-correctness,encoded-vs-decoded-reference,nested-data-edge-corpus,dictionary-encoded-edge-corpus,sparse-validity-edge-corpus,run-length-edge-corpus,temporal-semantics"
     )));
+    assert!(output.contains(&field("deferred_fixture_family_artifact_count", "8")));
+    assert!(output.contains(&field(
+        "deferred_fixture_family_artifact_populated_count",
+        "0"
+    )));
+    assert!(output.contains(&field(
+        "deferred_fixture_family_artifacts_populated",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "deferred_fixture_family_artifact_id_order",
+        "null-semantics.deferred-fixture-family.declared-evidence,pruning-correctness.deferred-fixture-family.declared-evidence,encoded-vs-decoded-reference.deferred-fixture-family.declared-evidence,nested-data-edge-corpus.deferred-fixture-family.declared-evidence,dictionary-encoded-edge-corpus.deferred-fixture-family.declared-evidence,sparse-validity-edge-corpus.deferred-fixture-family.declared-evidence,run-length-edge-corpus.deferred-fixture-family.declared-evidence,temporal-semantics.deferred-fixture-family.declared-evidence"
+    )));
+    assert!(output.contains(&field(
+        "deferred_fixture_family_artifact_status_order",
+        "declared_not_populated"
+    )));
+    assert!(output.contains(&field(
+        "deferred_fixture_family_artifacts_test_only",
+        "true"
+    )));
     assert!(output.contains(&field("unsupported_diagnostic_fixture_count", "2")));
     assert!(output.contains(&field("baseline_count", "7")));
     assert!(output.contains(&field(
@@ -97,7 +121,7 @@ fn correctness_harness_json_exposes_fixtures_oracles_and_missing_modes() {
     assert!(output.contains(&field("external_oracle_artifacts_test_only", "true")));
     assert!(output.contains(&field(
         "benchmark_claim_blocker_order",
-        "deferred_fixture_families,external_oracle_results_not_populated,property_fuzz_execution_not_performed"
+        "deferred_fixture_family_artifacts_not_populated,external_oracle_results_not_populated,property_fuzz_execution_not_performed"
     )));
     assert!(output.contains(&field("property_fuzz_execution_performed", "false")));
     assert!(
