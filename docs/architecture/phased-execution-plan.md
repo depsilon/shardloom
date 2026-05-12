@@ -359,8 +359,8 @@ not by numeric CG order.
           public package/release claims.
     - [x] Keep container/server/package publication distinct from local development support and
           optional benchmark extras.
-  - [ ] CG-15 CPU operator specialization
-    - [ ] Add SIMD/cache-aware and encoding-aware operator specialization only after correctness
+  - [x] CG-15 CPU operator specialization
+    - [x] Add SIMD/cache-aware and encoding-aware operator specialization only after correctness
           fixtures and benchmark evidence can prove the specialization is safe and useful.
   - [ ] CG-17 stateful reuse and incremental execution
     - [ ] Implement stable reuse keys, invalidation, manifest-diff inputs, cache safety, state
