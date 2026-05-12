@@ -16,6 +16,36 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: engine facade, typed protocol, benchmark suite, and feature-matrix RFC intake
+  - Primary files:
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/rfcs/0038-top-level-plan-execution-facade.md`
+    - `docs/rfcs/0039-typed-command-result-envelope-cli-modularity.md`
+    - `docs/rfcs/0040-benchmark-suite-platform-learning-hardening.md`
+    - `docs/rfcs/0041-feature-build-matrix-crate-posture.md`
+  - Scope: incorporate the code-shape and benchmark/platform-learning review into the Planned
+    queue and RFC set without duplicating existing architecture categories. New implementation
+    lanes cover the top-level plan/execution facade catch-up, typed execution results, typed
+    command/result/evidence envelopes, CLI modularity, source-backed benchmark/correctness matrix
+    population, platform-neutral benchmark-suite hardening, workspace feature/build validation, and
+    crate-level posture cleanup.
+  - Checklist:
+    - [x] Add Priority 1.7 for replacing the placeholder top-level plan/no-op execution facade with
+          typed plan variants and `ShardLoomExecutionResult`.
+    - [x] Add Priority 2.7 for source-backed correctness/benchmark matrix population and CG-6.25
+          benchmark-suite/platform-learning hardening.
+    - [x] Add Priority 2.8 for crate-level posture and public export cleanup.
+    - [x] Add workspace feature/build validation under Priority 3.5.
+    - [x] Add Priority 3.9 for typed command/result envelope replacement and CLI modularity.
+    - [x] Add RFCs 0038 through 0041 and map them into RFC phase traceability.
+  - Validation:
+    - [x] `git diff --check`
+  - Notes:
+    - This is a docs/RFC/plan intake only; it authorizes no runtime expansion, new dependencies,
+      benchmark execution, package publication, external engine invocation, or fallback execution.
+
 - [x] Session label: CG-17 stateful reuse promotion gate
   - Primary files:
     - `shardloom-core/src/stateful_reuse.rs`

@@ -1,0 +1,127 @@
+# RFC 0039: Typed Command/Result Envelope and CLI Modularity
+
+## Purpose
+
+Replace the early flat CLI output envelope and monolithic command routing shape with a typed
+command/result/evidence protocol.
+
+ShardLoom's CLI is currently the canonical local protocol transport for the Python wrapper,
+contract tests, release checks, evidence reports, and future generated clients. It must become a
+typed protocol surface, not a collection of ad hoc key/value fields.
+
+## Status
+
+Accepted as protocol and CLI implementation guidance.
+
+This RFC does not authorize REST server behavior, generated clients, DB-API/SQLAlchemy/Ibis/dbt
+wrappers, benchmark execution, runtime expansion, package publication, external engine invocation,
+or fallback execution.
+
+## Envelope Replacement
+
+Because ShardLoom is unreleased, replace the early flat `(key, value)` payload model instead of
+layering a backward-compatible v2.
+
+The typed command/result/evidence envelope should expose:
+
+```text
+schema_version
+command
+status
+summary
+human_text
+diagnostics
+fallback
+policy
+lifecycle
+capability_snapshot
+result
+result_refs
+artifacts
+artifact_refs
+certificates
+```
+
+Human text is rendering-only. Machine-readable typed payloads are the source of truth.
+
+## Artifact Attachment
+
+The envelope must attach or reference:
+
+```text
+ExecutionCertificate
+NativeIoCertificate
+EvidenceArtifactEnvelope
+MaterializationBoundaryReport
+SourcePushdownReport
+SinkRequirementReport
+AdapterFidelityReport
+ResidualBoundaryReport
+BenchmarkConstitution
+Benchmark rows
+Foundry boundary reports
+Capability snapshots
+```
+
+Large analytical payloads must use result refs, artifact refs, Vortex artifacts, object refs,
+JSONL/paged JSON, Arrow boundaries, or future Flight/ADBC tickets as explicit result policies.
+
+## CLI Modularity
+
+Split command handlers by capability family:
+
+```text
+status/capabilities
+Vortex primitive execution
+prepared/source-backed execution
+evidence/certificates
+benchmarks
+packaging/deployment
+Foundry
+operational hardening
+diagnostics
+future REST/API planning
+```
+
+Every handler must return the shared typed envelope through one renderer. Diagnostics, fallback
+fields, policy fields, and side-effect reporting must be centralized.
+
+## Contract Tests
+
+Golden JSON fixtures must cover:
+
+```text
+success
+unsupported
+blocked
+certified execution
+evidence-incomplete execution
+source-backed execution
+benchmark row
+missing binary
+Foundry boundary report
+```
+
+Python wrappers must parse and preserve typed payloads rather than depending on human text or ad hoc
+field names.
+
+## Non-Goals
+
+```text
+old JSON compatibility guarantee
+HTTP server
+wrapper implementation
+database driver implementation
+external engine execution
+fallback execution
+```
+
+## Acceptance
+
+```text
+Flat fields are no longer the primary payload model.
+Representative command families use typed handlers and shared rendering.
+No command may omit fallback status.
+No command may probe datasets, execute external engines, materialize data, write, or perform network
+effects unless its explicit command contract allows it and emits evidence.
+```
