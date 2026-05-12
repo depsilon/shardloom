@@ -184,11 +184,13 @@ The extension/UDF planning family now contains `extension-registry`, `extension-
 metadata-only and do not dynamically load extension code, execute UDFs, invoke external services,
 write data, or weaken no-fallback behavior.
 
-The prepared/source-backed execution family now contains the `vortex-encoded-read-probe` and
-`vortex-encoded-read-spike` handler entry points in
-`shardloom-cli/src/prepared_source_backed_execution.rs`. The split preserves the current probe-only
-and feature-gated spike behavior; `vortex-encoded-read-execute` keeps its existing executor contract
-while broader prepared/source-backed extraction continues.
+The prepared/source-backed execution family now contains the `vortex-encoded-read-api`,
+`vortex-encoded-read-boundary`, `vortex-encoded-read-metadata-probe`,
+`vortex-encoded-read-probe`, and `vortex-encoded-read-spike` handler entry points in
+`shardloom-cli/src/prepared_source_backed_execution.rs`. The split preserves the current report-only
+API/boundary/metadata-probe behavior plus the probe-only and feature-gated spike behavior;
+`vortex-encoded-read-execute` keeps its existing executor contract while broader
+prepared/source-backed extraction continues.
 
 The Vortex primitive execution family now starts its physical split in
 `shardloom-cli/src/vortex_primitive_execution.rs` with `vortex-count`, `vortex-count-where`,

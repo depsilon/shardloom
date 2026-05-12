@@ -16,6 +16,34 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 encoded-read API/boundary handler module split
+  - Primary files:
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/src/prepared_source_backed_execution.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/typed-command-result-envelope.md`
+  - Scope: move the prepared/source-backed `vortex-encoded-read-api`,
+    `vortex-encoded-read-boundary`, and `vortex-encoded-read-metadata-probe` handler entry points
+    out of `main.rs` without changing command output, parse behavior, or report semantics.
+  - Checklist:
+    - [x] Route encoded-read API boundary dispatch through
+          `prepared_source_backed_execution::handle_vortex_encoded_read_api`.
+    - [x] Route encoded-read boundary-report and metadata-probe dispatch through
+          `prepared_source_backed_execution` while reusing the existing parse and field helpers.
+    - [x] Keep API/boundary/metadata-probe handlers report-only with no dataset reads, object-store
+          I/O, materialization, writes, external engine invocation, or fallback execution.
+    - [x] Update Priority 3.9 plan/docs so the prepared/source-backed module ownership is accurate.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli vortex_encoded_read`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo clippy -p shardloom-cli --all-targets -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test --workspace --all-targets`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `git diff --check`
+  - Runtime stance: handler relocation only; no new execution path, feature gate, dataset probe,
+    source/sink I/O, network effect, artifact write, external engine dependency, or fallback
+    execution is added.
+
 - [x] Session label: Priority 3.9 source/sink and capability typed payload slice
   - Primary files:
     - `shardloom-cli/src/typed_envelope.rs`

@@ -216,6 +216,9 @@ actionable work.
     - [x] Move prepared/source-backed encoded-read probe and spike handlers into
           `shardloom-cli/src/prepared_source_backed_execution.rs` while preserving existing
           feature gates, no-fallback evidence, and encoded-read execute semantics.
+    - [x] Move the prepared/source-backed encoded-read API boundary, boundary report, and
+          metadata-probe handlers into `shardloom-cli/src/prepared_source_backed_execution.rs`
+          while preserving report-only/no-dataset-read/no-fallback behavior.
     - [x] Move the first Vortex primitive execution handler, `vortex-count`, into
           `shardloom-cli/src/vortex_primitive_execution.rs` while leaving broader
           filter/projection/run/benchmark extraction staged.

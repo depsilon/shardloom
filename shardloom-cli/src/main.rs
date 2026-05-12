@@ -105,18 +105,17 @@ use shardloom_vortex::{
     VortexDTypeMappingReport, VortexEncodedCountKernelAdmissionReport,
     VortexEncodedCountPhysicalKernelReport, VortexEncodedExecutionPathSelectionReport,
     VortexEncodedPredicateEvaluationReport, VortexEncodedPredicateEvaluationStatus,
-    VortexEncodedReadBoundaryReport, VortexEncodedReadBoundaryRequest,
-    VortexEncodedReadBoundarySignal, VortexEncodedReadExecutionMode,
-    VortexEncodedReadExecutionStatus, VortexEncodedReadExecutorFeatureStatus,
-    VortexEncodedReadFixtureRef, VortexEncodedReadMetadataProbeReport,
-    VortexEncodedReadMetadataProbeRequest, VortexEncodedReadMetadataProbeSignal,
-    VortexEncodedReadReadinessStatus, VortexEncodingLayoutMappingReport,
-    VortexExecutionReadinessStatus, VortexFileRef, VortexFilteredCountCandidateSource,
-    VortexFilteredCountReadinessSignal, VortexFinalizedManifestArtifactWriteOption,
-    VortexFinalizedManifestContent, VortexGeneralizedEncodedPrimitiveGateReport,
-    VortexLayoutReaderDriverApprovalInput, VortexLayoutReaderDriverApprovalSignal,
-    VortexLocalCommitExecutionSignal, VortexLocalCommitRecoverySignal, VortexLocalEngineWhyReport,
-    VortexLocalExecutionReport, VortexLocalExecutionStatus, VortexLocalPrimitiveExecutionPolicy,
+    VortexEncodedReadBoundaryReport, VortexEncodedReadBoundarySignal,
+    VortexEncodedReadExecutionMode, VortexEncodedReadExecutionStatus,
+    VortexEncodedReadExecutorFeatureStatus, VortexEncodedReadMetadataProbeReport,
+    VortexEncodedReadMetadataProbeSignal, VortexEncodedReadReadinessStatus,
+    VortexEncodingLayoutMappingReport, VortexExecutionReadinessStatus, VortexFileRef,
+    VortexFilteredCountCandidateSource, VortexFilteredCountReadinessSignal,
+    VortexFinalizedManifestArtifactWriteOption, VortexFinalizedManifestContent,
+    VortexGeneralizedEncodedPrimitiveGateReport, VortexLayoutReaderDriverApprovalInput,
+    VortexLayoutReaderDriverApprovalSignal, VortexLocalCommitExecutionSignal,
+    VortexLocalCommitRecoverySignal, VortexLocalEngineWhyReport, VortexLocalExecutionReport,
+    VortexLocalExecutionStatus, VortexLocalPrimitiveExecutionPolicy,
     VortexLocalPrimitiveExecutionReport, VortexManifestFinalizationSignal,
     VortexMemoryBridgeReport, VortexMetadataCountKernelAdmissionReport,
     VortexMetadataFilterKernelAdmissionReport, VortexMetadataOpenRequest,
@@ -146,14 +145,14 @@ use shardloom_vortex::{
     metadata_summary_is_plan_only, open_vortex_metadata_only, plan_native_vortex_universal_input,
     plan_vortex_count_readiness, plan_vortex_encoded_count_data_path_approval,
     plan_vortex_encoded_count_data_path_approval_with_layout_driver,
-    plan_vortex_encoded_execution_path_selection, plan_vortex_encoded_read_boundary,
-    plan_vortex_encoded_read_probe, plan_vortex_filtered_count_readiness,
-    plan_vortex_generalized_encoded_primitive_gate, plan_vortex_layout_reader_driver_approval,
-    plan_vortex_memory_safety, plan_vortex_projection_readiness, plan_vortex_query_primitive,
+    plan_vortex_encoded_execution_path_selection, plan_vortex_encoded_read_probe,
+    plan_vortex_filtered_count_readiness, plan_vortex_generalized_encoded_primitive_gate,
+    plan_vortex_layout_reader_driver_approval, plan_vortex_memory_safety,
+    plan_vortex_projection_readiness, plan_vortex_query_primitive,
     plan_vortex_query_primitive_result_physical_operators_with_evidence,
-    plan_vortex_read_from_universal_input, plan_vortex_scheduler_queue,
-    probe_vortex_encoded_read_metadata, probe_vortex_metadata_only, size_vortex_runtime_task_graph,
-    summarize_vortex_metadata_probe, vortex_encoded_count_local_guard_discovery_report,
+    plan_vortex_read_from_universal_input, plan_vortex_scheduler_queue, probe_vortex_metadata_only,
+    size_vortex_runtime_task_graph, summarize_vortex_metadata_probe,
+    vortex_encoded_count_local_guard_discovery_report,
     vortex_encoded_count_physical_kernel_discovery_report,
     vortex_encoded_predicate_evaluation_discovery_report,
     vortex_encoded_read_executor_feature_enabled,
@@ -245,7 +244,7 @@ fn parse_vortex_output_payload_signals(
     Ok(signals)
 }
 
-fn parse_vortex_encoded_read_boundary_signals(
+pub(crate) fn parse_vortex_encoded_read_boundary_signals(
     signals_raw: &str,
 ) -> Result<Vec<VortexEncodedReadBoundarySignal>, ShardLoomError> {
     if signals_raw.trim().is_empty() {
@@ -294,7 +293,7 @@ fn parse_vortex_encoded_read_boundary_signals(
     Ok(signals)
 }
 
-fn parse_vortex_encoded_read_metadata_probe_signals(
+pub(crate) fn parse_vortex_encoded_read_metadata_probe_signals(
     signals_raw: &str,
 ) -> Result<Vec<VortexEncodedReadMetadataProbeSignal>, ShardLoomError> {
     if signals_raw.trim().is_empty() {
@@ -392,7 +391,7 @@ fn parse_vortex_layout_driver_approval_signals(
     Ok(signals)
 }
 
-fn vortex_encoded_read_boundary_fields(
+pub(crate) fn vortex_encoded_read_boundary_fields(
     report: &VortexEncodedReadBoundaryReport,
 ) -> Vec<(String, String)> {
     vec![
@@ -450,7 +449,7 @@ fn vortex_encoded_read_boundary_fields(
     ]
 }
 
-fn vortex_encoded_read_metadata_probe_fields(
+pub(crate) fn vortex_encoded_read_metadata_probe_fields(
     report: &VortexEncodedReadMetadataProbeReport,
 ) -> Vec<(String, String)> {
     vec![
@@ -3636,7 +3635,7 @@ fn parse_vortex_finalized_manifest_artifact_write_options(
     Ok(options)
 }
 
-fn cli_missing_arg_error(command: &str, arg: &str) -> ShardLoomError {
+pub(crate) fn cli_missing_arg_error(command: &str, arg: &str) -> ShardLoomError {
     ShardLoomError::InvalidOperation(format!("{command} missing required argument: <{arg}>"))
 }
 
@@ -18991,193 +18990,15 @@ fn run(args: Vec<String>) -> ExitCode {
             }
         }
         Some("vortex-encoded-read-api") => {
-            let command = "vortex-encoded-read-api";
-            let report = vortex_encoded_read_public_api_boundary();
-            emit(
-                command,
-                format,
-                if report.has_errors() {
-                    CommandStatus::Unsupported
-                } else {
-                    CommandStatus::Success
-                },
-                "vortex encoded-read API boundary report".to_string(),
-                report.to_human_text(),
-                report.diagnostics.clone(),
-                vec![
-                    (
-                        "fallback_execution_allowed".to_string(),
-                        "false".to_string(),
-                    ),
-                    ("mode".to_string(), "vortex_encoded_read_api".to_string()),
-                    ("contract_only".to_string(), "true".to_string()),
-                    ("execution_usable".to_string(), "false".to_string()),
-                    ("data_read".to_string(), "false".to_string()),
-                    ("data_decoded".to_string(), "false".to_string()),
-                    ("data_materialized".to_string(), "false".to_string()),
-                    ("object_store_io".to_string(), "false".to_string()),
-                    ("write_io".to_string(), "false".to_string()),
-                    ("spill_io_performed".to_string(), "false".to_string()),
-                    ("execution".to_string(), "not_performed".to_string()),
-                ],
-            );
-            if report.has_errors() {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            }
+            prepared_source_backed_execution::handle_vortex_encoded_read_api(format)
         }
         Some("vortex-encoded-read-boundary") => {
-            let command = "vortex-encoded-read-boundary";
-            let Some(target_uri) = args.next() else {
-                eprintln!("usage: shardloom {command} <target_uri> <signals>");
-                return ExitCode::from(2);
-            };
-            let Some(signals_raw) = args.next() else {
-                eprintln!("usage: shardloom {command} <target_uri> <signals>");
-                return ExitCode::from(2);
-            };
-            let target_uri = match DatasetUri::new(target_uri) {
-                Ok(v) => v,
-                Err(error) => {
-                    return emit_error(
-                        command,
-                        format,
-                        "vortex encoded-read boundary failed",
-                        &error,
-                    );
-                }
-            };
-            let signals = match parse_vortex_encoded_read_boundary_signals(&signals_raw) {
-                Ok(v) => v,
-                Err(error) => {
-                    return emit_error(
-                        command,
-                        format,
-                        "vortex encoded-read boundary failed",
-                        &error,
-                    );
-                }
-            };
-            let mut request = VortexEncodedReadBoundaryRequest::new(target_uri);
-            for signal in signals {
-                request.add_signal(signal);
-            }
-            let report = match plan_vortex_encoded_read_boundary(request) {
-                Ok(v) => v,
-                Err(error) => {
-                    return emit_error(
-                        command,
-                        format,
-                        "vortex encoded-read boundary failed",
-                        &error,
-                    );
-                }
-            };
-            emit(
-                command,
-                format,
-                if report.has_errors() {
-                    CommandStatus::Unsupported
-                } else {
-                    CommandStatus::Success
-                },
-                "vortex encoded-read boundary report".to_string(),
-                report.to_human_text(),
-                report.diagnostics.clone(),
-                vortex_encoded_read_boundary_fields(&report),
-            );
-            if report.has_errors() {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            }
+            prepared_source_backed_execution::handle_vortex_encoded_read_boundary(args, format)
         }
         Some("vortex-encoded-read-metadata-probe") => {
-            let command = "vortex-encoded-read-metadata-probe";
-            let Some(target_uri) = args.next() else {
-                eprintln!("usage: shardloom {command} <target_uri> <fixture_ref> <signals>");
-                return ExitCode::from(2);
-            };
-            let Some(fixture_ref_raw) = args.next() else {
-                return emit_error(
-                    command,
-                    format,
-                    "vortex encoded read metadata probe failed",
-                    &cli_missing_arg_error(command, "fixture_ref"),
-                );
-            };
-            let Some(signals_raw) = args.next() else {
-                eprintln!("usage: shardloom {command} <target_uri> <fixture_ref> <signals>");
-                return ExitCode::from(2);
-            };
-            let target_uri = match DatasetUri::new(target_uri) {
-                Ok(v) => v,
-                Err(error) => {
-                    return emit_error(
-                        command,
-                        format,
-                        "vortex encoded-read metadata probe failed",
-                        &error,
-                    );
-                }
-            };
-            let fixture_ref = match VortexEncodedReadFixtureRef::new(fixture_ref_raw) {
-                Ok(v) => v,
-                Err(error) => {
-                    return emit_error(
-                        command,
-                        format,
-                        "vortex encoded-read metadata probe failed",
-                        &error,
-                    );
-                }
-            };
-            let signals = match parse_vortex_encoded_read_metadata_probe_signals(&signals_raw) {
-                Ok(v) => v,
-                Err(error) => {
-                    return emit_error(
-                        command,
-                        format,
-                        "vortex encoded-read metadata probe failed",
-                        &error,
-                    );
-                }
-            };
-            let mut request = VortexEncodedReadMetadataProbeRequest::new(target_uri, fixture_ref)
-                .fixture_ref_provided(true);
-            for signal in signals {
-                request.add_signal(signal);
-            }
-            let report = match probe_vortex_encoded_read_metadata(request) {
-                Ok(v) => v,
-                Err(error) => {
-                    return emit_error(
-                        command,
-                        format,
-                        "vortex encoded-read metadata probe failed",
-                        &error,
-                    );
-                }
-            };
-            emit(
-                command,
-                format,
-                if report.has_errors() {
-                    CommandStatus::Unsupported
-                } else {
-                    CommandStatus::Success
-                },
-                "vortex encoded-read metadata probe report".to_string(),
-                report.to_human_text(),
-                report.diagnostics.clone(),
-                vortex_encoded_read_metadata_probe_fields(&report),
-            );
-            if report.has_errors() {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            }
+            prepared_source_backed_execution::handle_vortex_encoded_read_metadata_probe(
+                args, format,
+            )
         }
         Some("vortex-encoded-read-readiness") => {
             let command = "vortex-encoded-read-readiness";
@@ -21617,7 +21438,10 @@ mod tests {
     };
     use shardloom_exec::{plan_cancellation_execution_gate, plan_retry_execution_gate};
     use shardloom_vortex::{
-        evaluate_vortex_query_primitive, vortex_local_commit_execution_feature_enabled,
+        VortexEncodedReadBoundaryRequest, VortexEncodedReadFixtureRef,
+        VortexEncodedReadMetadataProbeRequest, evaluate_vortex_query_primitive,
+        plan_vortex_encoded_read_boundary, probe_vortex_encoded_read_metadata,
+        vortex_local_commit_execution_feature_enabled,
         vortex_native_output_payload_write_feature_enabled,
     };
     fn run_test_with_larger_stack(test_name: &str, test_fn: impl FnOnce() + Send + 'static) {
