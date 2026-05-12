@@ -95,6 +95,13 @@ Supporting docs:
   - Status rule: records required local/CI/container/optional Foundry/optional benchmark harness
     rows and comparison-only baseline environment boundaries; it does not authorize harness
     execution, package publication, external engine invocation, or fallback execution.
+- `docs/architecture/rfc-coverage-followthrough.md`
+  - Role: Priority 3.6 RFC coverage follow-through reference for RFC 0010, RFC 0011, RFC 0020,
+    RFC 0022, and RFC 0023 before broader user/runtime expansion.
+  - Status rule: records report-only coverage gates for developer/agent usability, modular
+    extensibility, table/catalog compatibility, plan interop, and extension sandboxing; it does not
+    authorize parser expansion, dependency expansion, imported-plan execution, extension execution,
+    external effects, external engine invocation, or fallback execution.
 - `docs/architecture/incumbent-gap-opportunity-map.md`, `lakehouse-value-prop-compatibility.md`,
   `universal-input-contract.md`, and `spill-reservation-lifecycle-integration.md`
   - Role: reference maps and constraints.
@@ -127,35 +134,6 @@ Completed checked-off work that used to live in this section is recorded in
 `docs/architecture/phased-execution-completed-ledger.md`. Keep this section focused on remaining
 actionable work.
 
-- [ ] Priority 3.6 - RFC coverage follow-through before broader user/runtime expansion
-  - [ ] RFC 0010 developer and agent usability
-    - [ ] Keep every new CLI, Python, future REST, capability, diagnostic, benchmark, and
-          certificate surface deterministic, machine-readable, human-readable, and
-          side-effect-explicit.
-    - [ ] Preserve import/discovery/dry-run safety for agent-facing workflows before execution/write
-          permissions are exposed.
-  - [ ] RFC 0011 modular extensibility
-    - [ ] Treat SQL, UDFs, unstructured/media, LLM/API calls, embeddings, vector operations, and
-          external effects as explicit ShardLoom-native extension surfaces with
-          typed/effect/materialization metadata.
-    - [ ] Keep effectful or Python/external extension execution blocked until sandboxing,
-          governance, correctness, and certificate evidence exists.
-  - [ ] RFC 0020 schema evolution, catalog integration, and table compatibility
-    - [ ] Promote table/catalog metadata integration only after the existing CG-9 compatibility
-          reports can attach real snapshot/schema/partition/delete/catalog evidence without unsafe
-          coercion.
-    - [ ] Keep metadata discovery separate from read/write/commit certification and block
-          update/delete/merge claims until table semantics and recovery evidence exist.
-  - [ ] RFC 0022 native-first plan IR and Substrait-compatible interoperability
-    - [ ] Expand native plan import/export and capability-gate evidence before imported plans can
-          execute.
-    - [ ] Keep Substrait-like import/export optional, dependency-free until approved, and never a
-          fallback bridge to another execution engine.
-  - [ ] RFC 0023 extension/plugin ABI and sandboxing
-    - [ ] Add manifest, lifecycle, permission, provenance, signing, sandbox, resource-limit, and
-          agent-inspection evidence before plugin or UDF execution.
-    - [ ] Inspect extension manifests without executing extension code and keep unsafe extension
-          behavior deterministically unsupported.
 - [ ] Priority 3.9 - typed command/result envelope and CLI modularity overhaul
   - [ ] Replace the early flat CLI `OutputEnvelope` with a typed command/result/evidence envelope.
     - [ ] Because ShardLoom is unreleased, replace the early flat `(key, value)` primary payload

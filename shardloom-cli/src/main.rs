@@ -39,9 +39,9 @@ use shardloom_core::{
     PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorKind, PhysicalOperatorPlan,
     PredicateExpr, PythonWrapperFoundationReport, RedactionPolicy, ReleaseEvidenceRequirementKind,
     ReleasePlan, ReleasePublicationBoundaryKind, ReleasePublicationBoundaryReport,
-    ReleaseReadinessEvidenceReport, RuntimeObservabilityReport, SchemaDefinition,
-    SchemaEvolutionCompatibilityReport, SchemaEvolutionPolicy, SchemaField, SchemaId,
-    SchemaVersion, SecurityGovernanceEvidenceGateReport, SecurityPlan, SegmentChange,
+    ReleaseReadinessEvidenceReport, RfcCoverageFollowThroughReport, RuntimeObservabilityReport,
+    SchemaDefinition, SchemaEvolutionCompatibilityReport, SchemaEvolutionPolicy, SchemaField,
+    SchemaId, SchemaVersion, SecurityGovernanceEvidenceGateReport, SecurityPlan, SegmentChange,
     SegmentChangeKind, SegmentId, SegmentLayout, SegmentStats, ShardLoomError, SnapshotId,
     SnapshotRef, StatValue, StatefulReusePromotionGateReport, StatefulReuseReport,
     TableCompatibilityPlan, TableCompatibilityReport, TableFormatKind, TableIntelligenceReport,
@@ -53,7 +53,7 @@ use shardloom_core::{
     plan_approx_sketch_function_gate, plan_benchmark_claim_evidence,
     plan_catalog_metadata_integration_gate, plan_correctness_differential_harness,
     plan_cpu_operator_specialization, plan_execution_certificate_evidence_surface,
-    plan_native_io_envelope, plan_observability_schema_coverage,
+    plan_native_io_envelope, plan_observability_schema_coverage, plan_rfc_coverage_followthrough,
     plan_security_governance_evidence_gate, plan_stateful_reuse,
     plan_stateful_reuse_promotion_gate, plan_universal_harness,
     plan_user_capability_promotion_gate, plan_world_class_sufficiency,
@@ -229,7 +229,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|agent-contract-pack|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance]|security-plan|security-governance-evidence-gate|effect-budget-plan|agent-safety-plan|redaction-plan|kernel-registry|feature-footprint|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|cg17-stateful-reuse-gate|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|cg20-user-capability-gate|cg20-approx-sketch-gate|layout-health-plan|compaction-plan|table-intelligence-plan|cg9-catalog-metadata-gate|object-store-request-plan|cg10-object-store-runtime-gate|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|dynamic-work-shaping-plan [balanced|memory-pressure|object-store-throttled|small-tasks]|cg8-runtime-promotion-gate|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|benchmark-claim-evidence-plan [foundation|traditional-analytics]|traditional-analytics-run|traditional-analytics-vortex-run|vortex-count-benchmark|correctness-plan|correctness-harness-plan|execution-certificate-plan|recovery-plan|commit-execution-promotion-gate|fault-tolerance-promotion-gate|cancellation-plan|retry-plan|observability-plan|observability-schema-coverage|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-filter-project|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|operator-memory-spill-declarations|cg14-memory-runtime-hardening-gate|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|agent-contract-pack|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance]|security-plan|security-governance-evidence-gate|effect-budget-plan|agent-safety-plan|redaction-plan|kernel-registry|feature-footprint|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|cg17-stateful-reuse-gate|universal-harness-plan|rfc-coverage-followthrough-plan|native-io-envelope-plan|world-class-sufficiency-plan|cg20-user-capability-gate|cg20-approx-sketch-gate|layout-health-plan|compaction-plan|table-intelligence-plan|cg9-catalog-metadata-gate|object-store-request-plan|cg10-object-store-runtime-gate|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|dynamic-work-shaping-plan [balanced|memory-pressure|object-store-throttled|small-tasks]|cg8-runtime-promotion-gate|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|benchmark-claim-evidence-plan [foundation|traditional-analytics]|traditional-analytics-run|traditional-analytics-vortex-run|vortex-count-benchmark|correctness-plan|correctness-harness-plan|execution-certificate-plan|recovery-plan|commit-execution-promotion-gate|fault-tolerance-promotion-gate|cancellation-plan|retry-plan|observability-plan|observability-schema-coverage|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-filter-project|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|operator-memory-spill-declarations|cg14-memory-runtime-hardening-gate|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -7747,6 +7747,156 @@ fn append_universal_harness_side_effect_fields(
         "production_claim_allowed",
         report.production_claim_allowed,
     );
+    push_bool_field(fields, "side_effect_free", report.is_side_effect_free());
+    push_count_field(fields, "diagnostic_count", report.diagnostics.len());
+}
+
+fn rfc_coverage_followthrough_fields(
+    report: &RfcCoverageFollowThroughReport,
+) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    append_rfc_coverage_followthrough_identity_fields(&mut fields, report);
+    append_rfc_coverage_followthrough_requirement_fields(&mut fields, report);
+    append_rfc_coverage_followthrough_side_effect_fields(&mut fields, report);
+    fields
+}
+
+fn append_rfc_coverage_followthrough_identity_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &RfcCoverageFollowThroughReport,
+) {
+    push_field(fields, "mode", "rfc_coverage_followthrough_plan");
+    push_field(fields, "execution", "not_performed");
+    push_field(fields, "plan_only", "true");
+    push_field(fields, "schema_version", report.schema_version);
+    push_field(fields, "report_id", report.report_id);
+    push_field(fields, "rfc_coverage_status", report.status.as_str());
+    push_count_field(fields, "rfc_coverage_entry_count", report.entry_count());
+    push_field(fields, "rfc_order", &report.rfc_order());
+    push_field(fields, "area_order", &report.area_order());
+    push_field(fields, "rfc0010_status", report.status_for_rfc("rfc_0010"));
+    push_field(fields, "rfc0011_status", report.status_for_rfc("rfc_0011"));
+    push_field(fields, "rfc0020_status", report.status_for_rfc("rfc_0020"));
+    push_field(fields, "rfc0022_status", report.status_for_rfc("rfc_0022"));
+    push_field(fields, "rfc0023_status", report.status_for_rfc("rfc_0023"));
+}
+
+fn append_rfc_coverage_followthrough_requirement_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &RfcCoverageFollowThroughReport,
+) {
+    push_bool_field(
+        fields,
+        "deterministic_machine_readable_required",
+        report.deterministic_machine_readable_required,
+    );
+    push_bool_field(
+        fields,
+        "human_readable_required",
+        report.human_readable_required,
+    );
+    push_bool_field(
+        fields,
+        "side_effect_explicit_required",
+        report.side_effect_explicit_required,
+    );
+    push_bool_field(
+        fields,
+        "import_discovery_dry_run_safety_required",
+        report.import_discovery_dry_run_safety_required,
+    );
+    push_bool_field(
+        fields,
+        "typed_effect_materialization_metadata_required",
+        report.typed_effect_materialization_metadata_required,
+    );
+    push_bool_field(
+        fields,
+        "effectful_extensions_blocked",
+        report.effectful_extensions_blocked,
+    );
+    push_bool_field(
+        fields,
+        "metadata_discovery_separate_from_read_write_commit",
+        report.metadata_discovery_separate_from_read_write_commit,
+    );
+    push_bool_field(
+        fields,
+        "table_write_commit_claims_blocked",
+        report.table_write_commit_claims_blocked,
+    );
+    push_bool_field(
+        fields,
+        "imported_plan_execution_blocked",
+        report.imported_plan_execution_blocked,
+    );
+    push_bool_field(
+        fields,
+        "substrait_bridge_fallback_blocked",
+        report.substrait_bridge_fallback_blocked,
+    );
+    push_bool_field(
+        fields,
+        "extension_manifest_inspection_only",
+        report.extension_manifest_inspection_only,
+    );
+    push_bool_field(
+        fields,
+        "extension_code_execution_blocked",
+        report.extension_code_execution_blocked,
+    );
+    push_bool_field(
+        fields,
+        "all_entries_runtime_expansion_blocked",
+        report.all_entries_runtime_expansion_blocked(),
+    );
+    push_bool_field(
+        fields,
+        "all_entries_dependency_expansion_blocked",
+        report.all_entries_dependency_expansion_blocked(),
+    );
+    push_bool_field(
+        fields,
+        "all_entries_external_effects_blocked",
+        report.all_entries_external_effects_blocked(),
+    );
+}
+
+fn append_rfc_coverage_followthrough_side_effect_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &RfcCoverageFollowThroughReport,
+) {
+    push_bool_field(
+        fields,
+        "runtime_expansion_performed",
+        report.runtime_expansion_performed,
+    );
+    push_bool_field(
+        fields,
+        "parser_expansion_performed",
+        report.parser_expansion_performed,
+    );
+    push_bool_field(
+        fields,
+        "adapter_expansion_performed",
+        report.adapter_expansion_performed,
+    );
+    push_bool_field(
+        fields,
+        "dependency_expansion_performed",
+        report.dependency_expansion_performed,
+    );
+    push_bool_field(
+        fields,
+        "external_effect_performed",
+        report.external_effect_performed,
+    );
+    push_bool_field(
+        fields,
+        "external_engine_invoked",
+        report.external_engine_invoked,
+    );
+    push_bool_field(fields, "fallback_attempted", report.fallback_attempted);
     push_bool_field(fields, "side_effect_free", report.is_side_effect_free());
     push_count_field(fields, "diagnostic_count", report.diagnostics.len());
 }
@@ -22331,6 +22481,28 @@ fn run(args: Vec<String>) -> ExitCode {
                 ExitCode::SUCCESS
             }
         }
+        Some("rfc-coverage-followthrough-plan") => {
+            let command = "rfc-coverage-followthrough-plan";
+            let report = plan_rfc_coverage_followthrough();
+            emit(
+                command,
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "RFC coverage follow-through plan".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                rfc_coverage_followthrough_fields(&report),
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
         Some("native-io-envelope-plan") => {
             let command = "native-io-envelope-plan";
             let report = plan_native_io_envelope();
@@ -30615,6 +30787,12 @@ mod tests {
     }
 
     #[test]
+    fn rfc_coverage_followthrough_plan_returns_success() {
+        let code = run(vec!["rfc-coverage-followthrough-plan".to_string()]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
     fn universal_harness_fields_expose_import_deployment_and_baseline_maturity() {
         let report = plan_universal_harness();
         let fields = universal_harness_fields(&report);
@@ -30654,6 +30832,86 @@ mod tests {
         );
         assert_eq!(output_field(&fields, "side_effect_free"), "true");
         assert_eq!(output_field(&fields, "fallback_attempted"), "false");
+    }
+
+    #[test]
+    fn rfc_coverage_followthrough_fields_expose_rfc_safety_gates() {
+        let report = plan_rfc_coverage_followthrough();
+        let fields = rfc_coverage_followthrough_fields(&report);
+
+        assert_eq!(
+            output_field(&fields, "rfc_coverage_status"),
+            "evidence_required"
+        );
+        assert_eq!(output_field(&fields, "rfc_coverage_entry_count"), "5");
+        assert_eq!(
+            output_field(&fields, "rfc_order"),
+            "rfc_0010,rfc_0011,rfc_0020,rfc_0022,rfc_0023"
+        );
+        assert_eq!(
+            output_field(&fields, "area_order"),
+            "developer_agent_usability,modular_extensibility,schema_catalog_table_compatibility,native_plan_ir_interop,extension_plugin_sandboxing"
+        );
+        assert_eq!(output_field(&fields, "rfc0010_status"), "evidence_required");
+        assert_eq!(output_field(&fields, "rfc0011_status"), "evidence_required");
+        assert_eq!(output_field(&fields, "rfc0020_status"), "evidence_required");
+        assert_eq!(output_field(&fields, "rfc0022_status"), "evidence_required");
+        assert_eq!(output_field(&fields, "rfc0023_status"), "evidence_required");
+        assert_eq!(
+            output_field(&fields, "deterministic_machine_readable_required"),
+            "true"
+        );
+        assert_eq!(
+            output_field(&fields, "import_discovery_dry_run_safety_required"),
+            "true"
+        );
+        assert_eq!(
+            output_field(&fields, "typed_effect_materialization_metadata_required"),
+            "true"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "metadata_discovery_separate_from_read_write_commit"
+            ),
+            "true"
+        );
+        assert_eq!(
+            output_field(&fields, "imported_plan_execution_blocked"),
+            "true"
+        );
+        assert_eq!(
+            output_field(&fields, "extension_manifest_inspection_only"),
+            "true"
+        );
+        assert_eq!(
+            output_field(&fields, "extension_code_execution_blocked"),
+            "true"
+        );
+        assert_eq!(
+            output_field(&fields, "all_entries_runtime_expansion_blocked"),
+            "true"
+        );
+        assert_eq!(
+            output_field(&fields, "all_entries_dependency_expansion_blocked"),
+            "true"
+        );
+        assert_eq!(
+            output_field(&fields, "all_entries_external_effects_blocked"),
+            "true"
+        );
+        assert_eq!(
+            output_field(&fields, "runtime_expansion_performed"),
+            "false"
+        );
+        assert_eq!(
+            output_field(&fields, "dependency_expansion_performed"),
+            "false"
+        );
+        assert_eq!(output_field(&fields, "external_effect_performed"), "false");
+        assert_eq!(output_field(&fields, "external_engine_invoked"), "false");
+        assert_eq!(output_field(&fields, "fallback_attempted"), "false");
+        assert_eq!(output_field(&fields, "side_effect_free"), "true");
     }
 
     #[test]
@@ -31870,6 +32128,10 @@ mod tests {
     #[test]
     fn usage_includes_universal_harness_plan() {
         assert!(cli_usage_line().contains("universal-harness-plan"));
+    }
+    #[test]
+    fn usage_includes_rfc_coverage_followthrough_plan() {
+        assert!(cli_usage_line().contains("rfc-coverage-followthrough-plan"));
     }
     #[test]
     fn usage_includes_native_io_envelope_plan() {
