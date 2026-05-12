@@ -16,6 +16,34 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: observability schema coverage report
+  - Primary files:
+    - `shardloom-core/src/observability.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/observability_schema_coverage.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: add RFC 0018 trace/event/profile/log/debug-bundle schema coverage across required
+    execution and evidence areas without enabling telemetry exporters or runtime collection.
+  - Checklist:
+    - [x] Add `ObservabilitySchemaArea`, `ObservabilitySchemaStatus`,
+          `ObservabilitySchemaCoverageEntry`, and `ObservabilitySchemaCoverageReport`.
+    - [x] Cover plan, execution, Vortex IO, object-store IO, memory/spill, translation/output,
+          benchmark, certificate, and unsupported diagnostics.
+    - [x] Require local JSON, redaction, certificate links, debug-bundle schema posture, no exporter
+          integration, no runtime collection, and `fallback_attempted=false`.
+    - [x] Add the `observability-schema-coverage` CLI report and JSON contract tests.
+  - Validation status:
+    - [x] `cargo test -p shardloom-core observability --lib`
+    - [x] `cargo test -p shardloom-cli observability_schema_coverage --test observability_schema_coverage`
+    - [x] `cargo fmt --all -- --check`
+    - [x] `cargo clippy -p shardloom-core --lib -- -D warnings`
+    - [x] `cargo clippy -p shardloom-cli --all-targets -- -D warnings`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `git diff --check`
+  - Non-goals preserved:
+    - [x] No tracing backend, OpenTelemetry/exporter dependency, runtime profiling collection,
+          debug-bundle generation, data reads, external engine invocation, or fallback execution.
 - [x] Session label: operator memory/spill declaration gate
   - Primary files:
     - `shardloom-exec/src/memory.rs`

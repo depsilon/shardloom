@@ -927,6 +927,193 @@ impl ObservabilityPlan {
         )
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ObservabilitySchemaArea {
+    Plan,
+    Execution,
+    VortexIo,
+    ObjectStoreIo,
+    MemorySpill,
+    TranslationOutput,
+    Benchmark,
+    Certificate,
+    UnsupportedDiagnostics,
+}
+impl ObservabilitySchemaArea {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Plan => "plan",
+            Self::Execution => "execution",
+            Self::VortexIo => "vortex_io",
+            Self::ObjectStoreIo => "object_store_io",
+            Self::MemorySpill => "memory_spill",
+            Self::TranslationOutput => "translation_output",
+            Self::Benchmark => "benchmark",
+            Self::Certificate => "certificate",
+            Self::UnsupportedDiagnostics => "unsupported_diagnostics",
+        }
+    }
+
+    #[must_use]
+    pub const fn required() -> &'static [Self] {
+        &[
+            Self::Plan,
+            Self::Execution,
+            Self::VortexIo,
+            Self::ObjectStoreIo,
+            Self::MemorySpill,
+            Self::TranslationOutput,
+            Self::Benchmark,
+            Self::Certificate,
+            Self::UnsupportedDiagnostics,
+        ]
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ObservabilitySchemaStatus {
+    Missing,
+    ReportOnly,
+    RuntimeBacked,
+    NotApplicable,
+}
+impl ObservabilitySchemaStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Missing => "missing",
+            Self::ReportOnly => "report_only",
+            Self::RuntimeBacked => "runtime_backed",
+            Self::NotApplicable => "not_applicable",
+        }
+    }
+
+    #[must_use]
+    pub const fn schema_present(&self) -> bool {
+        matches!(self, Self::ReportOnly | Self::RuntimeBacked)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ObservabilitySchemaCoverageEntry {
+    pub area: ObservabilitySchemaArea,
+    pub trace_span_schema: ObservabilitySchemaStatus,
+    pub structured_event_schema: ObservabilitySchemaStatus,
+    pub profile_schema: ObservabilitySchemaStatus,
+    pub log_schema: ObservabilitySchemaStatus,
+    pub certificate_link_required: bool,
+    pub redaction_required: bool,
+}
+impl ObservabilitySchemaCoverageEntry {
+    #[must_use]
+    pub const fn report_only(area: ObservabilitySchemaArea) -> Self {
+        Self {
+            area,
+            trace_span_schema: ObservabilitySchemaStatus::ReportOnly,
+            structured_event_schema: ObservabilitySchemaStatus::ReportOnly,
+            profile_schema: ObservabilitySchemaStatus::ReportOnly,
+            log_schema: ObservabilitySchemaStatus::ReportOnly,
+            certificate_link_required: true,
+            redaction_required: true,
+        }
+    }
+
+    #[must_use]
+    pub const fn schema_complete(&self) -> bool {
+        self.trace_span_schema.schema_present()
+            && self.structured_event_schema.schema_present()
+            && self.profile_schema.schema_present()
+            && self.log_schema.schema_present()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct ObservabilitySchemaCoverageReport {
+    pub schema_version: &'static str,
+    pub entries: Vec<ObservabilitySchemaCoverageEntry>,
+    pub local_json_required: bool,
+    pub exporter_integration_enabled: bool,
+    pub runtime_collection_enabled: bool,
+    pub debug_bundle_schema_present: bool,
+    pub redaction_required: bool,
+    pub certificate_link_required: bool,
+    pub fallback_attempted: bool,
+}
+impl ObservabilitySchemaCoverageReport {
+    #[must_use]
+    pub fn rfc0018_foundation() -> Self {
+        Self {
+            schema_version: "shardloom.observability_schema_coverage.v1",
+            entries: ObservabilitySchemaArea::required()
+                .iter()
+                .copied()
+                .map(ObservabilitySchemaCoverageEntry::report_only)
+                .collect(),
+            local_json_required: true,
+            exporter_integration_enabled: false,
+            runtime_collection_enabled: false,
+            debug_bundle_schema_present: true,
+            redaction_required: true,
+            certificate_link_required: true,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
+    pub fn area_count(&self) -> usize {
+        self.entries.len()
+    }
+
+    #[must_use]
+    pub fn complete_area_count(&self) -> usize {
+        self.entries
+            .iter()
+            .filter(|entry| entry.schema_complete())
+            .count()
+    }
+
+    #[must_use]
+    pub fn missing_area_count(&self) -> usize {
+        self.area_count().saturating_sub(self.complete_area_count())
+    }
+
+    #[must_use]
+    pub fn schema_coverage_complete(&self) -> bool {
+        self.missing_area_count() == 0
+    }
+
+    #[must_use]
+    pub fn has_area(&self, area: ObservabilitySchemaArea) -> bool {
+        self.entries.iter().any(|entry| entry.area == area)
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "observability_schema_coverage_report\nschema_version={}\nareas={}\ncomplete_areas={}\nmissing_areas={}\nlocal_json_required={}\nexporter_integration_enabled={}\nruntime_collection_enabled={}\ndebug_bundle_schema_present={}\nredaction_required={}\ncertificate_link_required={}\nfallback_attempted={}",
+            self.schema_version,
+            self.area_count(),
+            self.complete_area_count(),
+            self.missing_area_count(),
+            self.local_json_required,
+            self.exporter_integration_enabled,
+            self.runtime_collection_enabled,
+            self.debug_bundle_schema_present,
+            self.redaction_required,
+            self.certificate_link_required,
+            self.fallback_attempted
+        )
+    }
+}
+
+#[must_use]
+pub fn plan_observability_schema_coverage() -> ObservabilitySchemaCoverageReport {
+    ObservabilitySchemaCoverageReport::rfc0018_foundation()
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct RuntimeObservabilityReport {
     pub status: ObservabilityPlanStatus,
@@ -1111,6 +1298,49 @@ mod tests {
             ObservabilityPlan::default_foundation_plan()
                 .to_human_text()
                 .contains("fallback execution: disabled")
+        );
+    }
+    #[test]
+    fn observability_schema_coverage_covers_required_areas_without_runtime_collection() {
+        let report = plan_observability_schema_coverage();
+
+        assert_eq!(
+            report.area_count(),
+            ObservabilitySchemaArea::required().len()
+        );
+        assert!(report.schema_coverage_complete());
+        assert!(report.has_area(ObservabilitySchemaArea::VortexIo));
+        assert!(report.has_area(ObservabilitySchemaArea::ObjectStoreIo));
+        assert!(report.has_area(ObservabilitySchemaArea::Certificate));
+        assert!(report.has_area(ObservabilitySchemaArea::UnsupportedDiagnostics));
+        assert!(!report.exporter_integration_enabled);
+        assert!(!report.runtime_collection_enabled);
+        assert!(!report.fallback_attempted);
+    }
+    #[test]
+    fn observability_schema_entries_require_redaction_and_certificate_links() {
+        let report = ObservabilitySchemaCoverageReport::rfc0018_foundation();
+
+        assert!(report.local_json_required);
+        assert!(report.debug_bundle_schema_present);
+        assert!(report.redaction_required);
+        assert!(report.certificate_link_required);
+        assert!(
+            report
+                .entries
+                .iter()
+                .all(ObservabilitySchemaCoverageEntry::schema_complete)
+        );
+        assert!(
+            report
+                .entries
+                .iter()
+                .all(|entry| entry.redaction_required && entry.certificate_link_required)
+        );
+        assert!(
+            report
+                .to_human_text()
+                .contains("runtime_collection_enabled=false")
         );
     }
     #[test]

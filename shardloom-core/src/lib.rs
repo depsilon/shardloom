@@ -153,10 +153,12 @@ pub use native_io::{
 };
 pub use observability::{
     KernelProfile, MetricCategory, MetricKind, MetricSample, MetricUnit, ObservabilityMetricValue,
-    ObservabilityPlan, ObservabilityPlanStatus, ObservabilitySurface, ObservedField,
-    OperatorProfile, RedactionStatus, RuntimeObservabilityReport, SensitivityLevel,
-    StructuredEvent, StructuredEventKind, TraceSpanCategory, TraceSpanId, TraceSpanSkeleton,
-    TraceSpanStatus,
+    ObservabilityPlan, ObservabilityPlanStatus, ObservabilitySchemaArea,
+    ObservabilitySchemaCoverageEntry, ObservabilitySchemaCoverageReport, ObservabilitySchemaStatus,
+    ObservabilitySurface, ObservedField, OperatorProfile, RedactionStatus,
+    RuntimeObservabilityReport, SensitivityLevel, StructuredEvent, StructuredEventKind,
+    TraceSpanCategory, TraceSpanId, TraceSpanSkeleton, TraceSpanStatus,
+    plan_observability_schema_coverage,
 };
 pub use operational_contracts::{
     BenchmarkConstitution, CostSimulationReport, EvidenceArtifactEnvelope, EvidenceArtifactSafety,

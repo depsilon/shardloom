@@ -26,26 +26,27 @@ use shardloom_core::{
     FieldId, FieldName, FieldPath, FileDescriptor, FileRole, IncrementalPlanSkeleton,
     InputAdapterRegistrySnapshot, KernelRegistrySnapshot, LayoutHealthPolicy, LayoutHealthReport,
     LayoutKind, LogicalDType, ManifestId, ManifestSegment, MetricValue, NativeIoCertificate,
-    NativeIoEnvelopeReport, Nullability, ObservabilityPlan, OperatorMemoryCertification,
-    OutputEnvelope, OutputFormat, OutputTarget, PartitionEvolutionCompatibilityReport,
-    PartitionField, PartitionSpec, PartitionTransform, PhysicalKernelRegistryPlan,
-    PhysicalOperatorExecutionLevel, PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorKind,
-    PhysicalOperatorPlan, PredicateExpr, PythonWrapperFoundationReport, RedactionPolicy,
-    ReleaseEvidenceRequirementKind, ReleasePlan, ReleasePublicationBoundaryKind,
-    ReleasePublicationBoundaryReport, ReleaseReadinessEvidenceReport, RuntimeObservabilityReport,
-    SchemaDefinition, SchemaEvolutionCompatibilityReport, SchemaEvolutionPolicy, SchemaField,
-    SchemaId, SchemaVersion, SecurityPlan, SegmentChange, SegmentChangeKind, SegmentId,
-    SegmentLayout, SegmentStats, ShardLoomError, SnapshotId, SnapshotRef, StatValue,
-    StatefulReuseReport, TableCompatibilityPlan, TableCompatibilityReport, TableFormatKind,
-    TableIntelligenceReport, TranslationPlan, UdfRuntimeKind, UniversalHarnessReport,
-    WorkloadClass, WorldClassSufficiencyDimensionKind, WorldClassSufficiencyReport, WriteIntent,
+    NativeIoEnvelopeReport, Nullability, ObservabilityPlan, ObservabilitySchemaCoverageReport,
+    OperatorMemoryCertification, OutputEnvelope, OutputFormat, OutputTarget,
+    PartitionEvolutionCompatibilityReport, PartitionField, PartitionSpec, PartitionTransform,
+    PhysicalKernelRegistryPlan, PhysicalOperatorExecutionLevel,
+    PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorKind, PhysicalOperatorPlan,
+    PredicateExpr, PythonWrapperFoundationReport, RedactionPolicy, ReleaseEvidenceRequirementKind,
+    ReleasePlan, ReleasePublicationBoundaryKind, ReleasePublicationBoundaryReport,
+    ReleaseReadinessEvidenceReport, RuntimeObservabilityReport, SchemaDefinition,
+    SchemaEvolutionCompatibilityReport, SchemaEvolutionPolicy, SchemaField, SchemaId,
+    SchemaVersion, SecurityPlan, SegmentChange, SegmentChangeKind, SegmentId, SegmentLayout,
+    SegmentStats, ShardLoomError, SnapshotId, SnapshotRef, StatValue, StatefulReuseReport,
+    TableCompatibilityPlan, TableCompatibilityReport, TableFormatKind, TableIntelligenceReport,
+    TranslationPlan, UdfRuntimeKind, UniversalHarnessReport, WorkloadClass,
+    WorldClassSufficiencyDimensionKind, WorldClassSufficiencyReport, WriteIntent,
     evaluate_cdc_incremental_planning, evaluate_compaction_planning,
     evaluate_delete_tombstone_compatibility, evaluate_layout_health,
     evaluate_partition_evolution_compatibility, evaluate_schema_evolution_compatibility,
     plan_benchmark_claim_evidence, plan_correctness_differential_harness,
     plan_cpu_operator_specialization, plan_execution_certificate_evidence_surface,
-    plan_native_io_envelope, plan_stateful_reuse, plan_universal_harness,
-    plan_world_class_sufficiency,
+    plan_native_io_envelope, plan_observability_schema_coverage, plan_stateful_reuse,
+    plan_universal_harness, plan_world_class_sufficiency,
 };
 use shardloom_exec::{
     AdaptiveSizer, AdaptiveSizingPolicy, AttemptId, BackpressurePlanInput, BackpressurePlanReport,
@@ -212,7 +213,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|agent-contract-pack|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance]|security-plan|effect-budget-plan|agent-safety-plan|redaction-plan|kernel-registry|feature-footprint|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|layout-health-plan|compaction-plan|table-intelligence-plan|object-store-request-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|dynamic-work-shaping-plan [balanced|memory-pressure|object-store-throttled|small-tasks]|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|benchmark-claim-evidence-plan [foundation|traditional-analytics]|traditional-analytics-run|traditional-analytics-vortex-run|vortex-count-benchmark|correctness-plan|correctness-harness-plan|execution-certificate-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-filter-project|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|operator-memory-spill-declarations|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|agent-contract-pack|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance]|security-plan|effect-budget-plan|agent-safety-plan|redaction-plan|kernel-registry|feature-footprint|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|layout-health-plan|compaction-plan|table-intelligence-plan|object-store-request-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|dynamic-work-shaping-plan [balanced|memory-pressure|object-store-throttled|small-tasks]|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|benchmark-claim-evidence-plan [foundation|traditional-analytics]|traditional-analytics-run|traditional-analytics-vortex-run|vortex-count-benchmark|correctness-plan|correctness-harness-plan|execution-certificate-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|observability-schema-coverage|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-filter-project|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|operator-memory-spill-declarations|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -5985,6 +5986,92 @@ fn operator_memory_spill_declaration_fields(
             &mut fields,
             &format!("{prefix}_claim_blocked"),
             declaration.blocks_large_workload_claim(),
+        );
+    }
+    fields
+}
+
+fn observability_schema_coverage_fields(
+    report: &ObservabilitySchemaCoverageReport,
+) -> Vec<(String, String)> {
+    let mut fields = Vec::new();
+    push_field(&mut fields, "mode", "observability_schema_coverage");
+    push_field(&mut fields, "schema_version", report.schema_version);
+    push_count_field(&mut fields, "observability_area_count", report.area_count());
+    push_count_field(
+        &mut fields,
+        "complete_observability_area_count",
+        report.complete_area_count(),
+    );
+    push_count_field(
+        &mut fields,
+        "missing_observability_area_count",
+        report.missing_area_count(),
+    );
+    push_bool_field(
+        &mut fields,
+        "schema_coverage_complete",
+        report.schema_coverage_complete(),
+    );
+    push_bool_field(
+        &mut fields,
+        "local_json_required",
+        report.local_json_required,
+    );
+    push_bool_field(
+        &mut fields,
+        "exporter_integration_enabled",
+        report.exporter_integration_enabled,
+    );
+    push_bool_field(
+        &mut fields,
+        "runtime_collection_enabled",
+        report.runtime_collection_enabled,
+    );
+    push_bool_field(
+        &mut fields,
+        "debug_bundle_schema_present",
+        report.debug_bundle_schema_present,
+    );
+    push_bool_field(&mut fields, "redaction_required", report.redaction_required);
+    push_bool_field(
+        &mut fields,
+        "certificate_link_required",
+        report.certificate_link_required,
+    );
+    push_bool_field(&mut fields, "fallback_attempted", report.fallback_attempted);
+    for (index, entry) in report.entries.iter().enumerate() {
+        let prefix = format!("observability_area_{index}");
+        push_field(&mut fields, &format!("{prefix}_name"), entry.area.as_str());
+        push_field(
+            &mut fields,
+            &format!("{prefix}_trace_span_schema"),
+            entry.trace_span_schema.as_str(),
+        );
+        push_field(
+            &mut fields,
+            &format!("{prefix}_structured_event_schema"),
+            entry.structured_event_schema.as_str(),
+        );
+        push_field(
+            &mut fields,
+            &format!("{prefix}_profile_schema"),
+            entry.profile_schema.as_str(),
+        );
+        push_field(
+            &mut fields,
+            &format!("{prefix}_log_schema"),
+            entry.log_schema.as_str(),
+        );
+        push_bool_field(
+            &mut fields,
+            &format!("{prefix}_certificate_link_required"),
+            entry.certificate_link_required,
+        );
+        push_bool_field(
+            &mut fields,
+            &format!("{prefix}_redaction_required"),
+            entry.redaction_required,
         );
     }
     fields
@@ -19146,6 +19233,19 @@ fn run(args: Vec<String>) -> ExitCode {
                         "not_performed".to_string(),
                     ),
                 ],
+            );
+            ExitCode::SUCCESS
+        }
+        Some("observability-schema-coverage") => {
+            let report = plan_observability_schema_coverage();
+            emit(
+                "observability-schema-coverage",
+                format,
+                CommandStatus::Success,
+                "observability schema coverage".to_string(),
+                report.to_human_text(),
+                vec![],
+                observability_schema_coverage_fields(&report),
             );
             ExitCode::SUCCESS
         }
