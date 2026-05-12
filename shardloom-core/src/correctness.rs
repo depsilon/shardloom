@@ -368,6 +368,11 @@ impl ExternalOracleArtifactStatus {
             Self::DeclaredNotExecuted => "declared_not_executed",
         }
     }
+    pub const fn is_populated(&self) -> bool {
+        match self {
+            Self::DeclaredNotExecuted => false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -402,6 +407,9 @@ impl ExternalOracleResultArtifact {
     }
     pub const fn is_test_only(&self) -> bool {
         self.comparison_only && !self.external_engine_invoked && !self.fallback_attempted
+    }
+    pub const fn is_populated(&self) -> bool {
+        self.status.is_populated()
     }
 }
 
@@ -1207,6 +1215,17 @@ impl CorrectnessValidationPlan {
     pub fn external_oracle_result_artifact_count(&self) -> usize {
         self.external_oracle_result_artifacts.len()
     }
+    pub fn external_oracle_result_populated_count(&self) -> usize {
+        self.external_oracle_result_artifacts
+            .iter()
+            .filter(|artifact| artifact.is_populated())
+            .count()
+    }
+    pub fn external_oracle_results_populated(&self) -> bool {
+        !self.external_oracle_result_artifacts.is_empty()
+            && self.external_oracle_result_populated_count()
+                == self.external_oracle_result_artifacts.len()
+    }
     pub fn external_oracle_result_artifact_id_order(&self) -> Vec<&str> {
         self.external_oracle_result_artifacts
             .iter()
@@ -1305,6 +1324,8 @@ pub struct CorrectnessDifferentialHarnessReport {
     pub baseline_count: usize,
     pub baseline_engine_order: Vec<String>,
     pub external_oracle_result_artifact_count: usize,
+    pub external_oracle_result_populated_count: usize,
+    pub external_oracle_results_populated: bool,
     pub external_oracle_result_artifact_id_order: Vec<String>,
     pub external_oracle_result_artifact_status_order: Vec<String>,
     pub external_oracle_artifacts_test_only: bool,
@@ -1314,10 +1335,12 @@ pub struct CorrectnessDifferentialHarnessReport {
     pub planned_surface_count: usize,
     pub blocked_surface_count: usize,
     pub blocked_surface_order: Vec<String>,
+    pub benchmark_claim_blocker_order: Vec<String>,
     pub decoded_reference_outputs_required: bool,
     pub differential_oracles_required: bool,
     pub property_fuzzing_required: bool,
     pub benchmark_claim_gate_required: bool,
+    pub property_fuzz_execution_performed: bool,
     pub reference_roles_test_only: bool,
     pub baselines_fallback_free: bool,
     pub production_claim_allowed: bool,
@@ -1451,6 +1474,8 @@ pub fn plan_correctness_differential_harness(
         .map(ToString::to_string)
         .collect::<Vec<_>>();
     let external_oracle_result_artifact_count = plan.external_oracle_result_artifact_count();
+    let external_oracle_result_populated_count = plan.external_oracle_result_populated_count();
+    let external_oracle_results_populated = plan.external_oracle_results_populated();
     let external_oracle_result_artifact_id_order = plan
         .external_oracle_result_artifact_id_order()
         .into_iter()
@@ -1469,6 +1494,19 @@ pub fn plan_correctness_differential_harness(
         .collect::<Vec<_>>();
     let generated_property_fixture_count = plan.generated_property_fixture_count();
     let fuzz_seed_count = plan.fuzz_seeds.len();
+    let property_fuzz_execution_performed = false;
+    let benchmark_claim_blocker_order = correctness_benchmark_claim_blockers(
+        not_yet_defined_fixture_count,
+        decoded_reference_output_coverage_complete,
+        external_oracle_result_artifact_count,
+        external_oracle_result_populated_count,
+        generated_property_fixture_count,
+        fuzz_seed_count,
+        property_fuzz_execution_performed,
+        reference_roles_test_only,
+        baselines_fallback_free,
+        external_oracle_artifacts_test_only,
+    );
 
     let blocked_surface_order = correctness_harness_blocked_surfaces(
         fixture_count,
@@ -1482,18 +1520,15 @@ pub fn plan_correctness_differential_harness(
         external_oracle_result_artifact_count,
         generated_property_fixture_count,
         fuzz_seed_count,
-        not_yet_defined_fixture_count,
-        reference_roles_test_only,
+        &benchmark_claim_blocker_order,
         baselines_fallback_free,
         external_oracle_artifacts_test_only,
     );
     let blocked_surface_count = blocked_surface_order.len();
     let planned_surface_count =
         CorrectnessDifferentialHarnessReport::surface_order().len() - blocked_surface_count;
-    let production_claim_allowed = blocked_surface_count == 0
-        && not_yet_defined_fixture_count == 0
-        && reference_roles_test_only
-        && baselines_fallback_free;
+    let production_claim_allowed =
+        blocked_surface_count == 0 && benchmark_claim_blocker_order.is_empty();
     let status = if !reference_roles_test_only || !baselines_fallback_free {
         CorrectnessDifferentialHarnessStatus::UnsafeFallbackPolicy
     } else if production_claim_allowed {
@@ -1531,6 +1566,8 @@ pub fn plan_correctness_differential_harness(
         baseline_count,
         baseline_engine_order,
         external_oracle_result_artifact_count,
+        external_oracle_result_populated_count,
+        external_oracle_results_populated,
         external_oracle_result_artifact_id_order,
         external_oracle_result_artifact_status_order,
         external_oracle_artifacts_test_only,
@@ -1540,10 +1577,12 @@ pub fn plan_correctness_differential_harness(
         planned_surface_count,
         blocked_surface_count,
         blocked_surface_order,
+        benchmark_claim_blocker_order,
         decoded_reference_outputs_required: true,
         differential_oracles_required: true,
         property_fuzzing_required: true,
         benchmark_claim_gate_required: true,
+        property_fuzz_execution_performed,
         reference_roles_test_only,
         baselines_fallback_free,
         production_claim_allowed,
@@ -1573,8 +1612,7 @@ fn correctness_harness_blocked_surfaces(
     external_oracle_result_artifact_count: usize,
     generated_property_fixture_count: usize,
     fuzz_seed_count: usize,
-    not_yet_defined_fixture_count: usize,
-    reference_roles_test_only: bool,
+    benchmark_claim_blocker_order: &[String],
     baselines_fallback_free: bool,
     external_oracle_artifacts_test_only: bool,
 ) -> Vec<String> {
@@ -1606,18 +1644,50 @@ fn correctness_harness_blocked_surfaces(
     if generated_property_fixture_count == 0 || fuzz_seed_count == 0 {
         blocked.push("property_fuzzing".to_string());
     }
-    if not_yet_defined_fixture_count > 0
-        || !decoded_reference_output_coverage_complete
-        || external_oracle_result_artifact_count == 0
-        || generated_property_fixture_count == 0
-        || fuzz_seed_count == 0
-        || !reference_roles_test_only
-        || !baselines_fallback_free
-        || !external_oracle_artifacts_test_only
-    {
+    if !benchmark_claim_blocker_order.is_empty() {
         blocked.push("benchmark_claim_gate".to_string());
     }
     blocked
+}
+
+#[allow(clippy::fn_params_excessive_bools, clippy::too_many_arguments)]
+fn correctness_benchmark_claim_blockers(
+    not_yet_defined_fixture_count: usize,
+    decoded_reference_output_coverage_complete: bool,
+    external_oracle_result_artifact_count: usize,
+    external_oracle_result_populated_count: usize,
+    generated_property_fixture_count: usize,
+    fuzz_seed_count: usize,
+    property_fuzz_execution_performed: bool,
+    reference_roles_test_only: bool,
+    baselines_fallback_free: bool,
+    external_oracle_artifacts_test_only: bool,
+) -> Vec<String> {
+    let mut blockers = Vec::new();
+    if not_yet_defined_fixture_count > 0 {
+        blockers.push("not_yet_defined_fixtures".to_string());
+    }
+    if !decoded_reference_output_coverage_complete {
+        blockers.push("decoded_reference_outputs".to_string());
+    }
+    if external_oracle_result_artifact_count == 0 {
+        blockers.push("external_oracle_result_artifacts_missing".to_string());
+    } else if external_oracle_result_populated_count < external_oracle_result_artifact_count {
+        blockers.push("external_oracle_results_not_populated".to_string());
+    }
+    if generated_property_fixture_count == 0 || fuzz_seed_count == 0 {
+        blockers.push("property_fuzz_metadata_missing".to_string());
+    }
+    if !property_fuzz_execution_performed {
+        blockers.push("property_fuzz_execution_not_performed".to_string());
+    }
+    if !reference_roles_test_only
+        || !baselines_fallback_free
+        || !external_oracle_artifacts_test_only
+    {
+        blockers.push("unsafe_reference_or_fallback_policy".to_string());
+    }
+    blockers
 }
 
 fn correctness_harness_diagnostics(
@@ -1877,6 +1947,8 @@ mod tests {
         assert_eq!(plan.unsupported_expected_output_count(), 1);
         assert_eq!(plan.baseline_count(), 7);
         assert_eq!(plan.external_oracle_result_artifact_count(), 63);
+        assert_eq!(plan.external_oracle_result_populated_count(), 0);
+        assert!(!plan.external_oracle_results_populated());
         assert_eq!(
             plan.external_oracle_result_artifact_status_order(),
             vec!["declared_not_executed"]
@@ -1927,11 +1999,22 @@ mod tests {
         assert_eq!(report.fuzz_seed_count, 3);
         assert_eq!(report.baseline_count, 7);
         assert_eq!(report.external_oracle_result_artifact_count, 63);
+        assert_eq!(report.external_oracle_result_populated_count, 0);
+        assert!(!report.external_oracle_results_populated);
         assert_eq!(
             report.external_oracle_result_artifact_status_order,
             vec!["declared_not_executed".to_string()]
         );
         assert!(report.external_oracle_artifacts_test_only);
+        assert_eq!(
+            report.benchmark_claim_blocker_order,
+            vec![
+                "not_yet_defined_fixtures".to_string(),
+                "external_oracle_results_not_populated".to_string(),
+                "property_fuzz_execution_not_performed".to_string()
+            ]
+        );
+        assert!(!report.property_fuzz_execution_performed);
         assert_eq!(report.planned_surface_count, 9);
         assert_eq!(report.blocked_surface_count, 1);
         assert_eq!(

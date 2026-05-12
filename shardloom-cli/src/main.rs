@@ -1025,6 +1025,14 @@ fn correctness_plan_fields(plan: &CorrectnessValidationPlan) -> Vec<(String, Str
             plan.external_oracle_result_artifact_count().to_string(),
         ),
         (
+            "external_oracle_result_populated_count".to_string(),
+            plan.external_oracle_result_populated_count().to_string(),
+        ),
+        (
+            "external_oracle_results_populated".to_string(),
+            plan.external_oracle_results_populated().to_string(),
+        ),
+        (
             "external_oracle_result_artifact_id_order".to_string(),
             plan.external_oracle_result_artifact_id_order().join(","),
         ),
@@ -1195,6 +1203,16 @@ fn correctness_harness_fields(
         "external_oracle_result_artifact_count",
         report.external_oracle_result_artifact_count,
     );
+    push_count_field(
+        &mut fields,
+        "external_oracle_result_populated_count",
+        report.external_oracle_result_populated_count,
+    );
+    push_bool_field(
+        &mut fields,
+        "external_oracle_results_populated",
+        report.external_oracle_results_populated,
+    );
     push_field(
         &mut fields,
         "external_oracle_result_artifact_id_order",
@@ -1223,6 +1241,16 @@ fn correctness_harness_fields(
         report.generated_property_fixture_count,
     );
     push_count_field(&mut fields, "fuzz_seed_count", report.fuzz_seed_count);
+    push_bool_field(
+        &mut fields,
+        "property_fuzz_execution_performed",
+        report.property_fuzz_execution_performed,
+    );
+    push_field(
+        &mut fields,
+        "benchmark_claim_blocker_order",
+        &report.benchmark_claim_blocker_order.join(","),
+    );
     push_bool_field(
         &mut fields,
         "decoded_reference_outputs_required",
@@ -31673,12 +31701,28 @@ mod tests {
             "63"
         );
         assert_eq!(
+            output_field(&fields, "external_oracle_result_populated_count"),
+            "0"
+        );
+        assert_eq!(
+            output_field(&fields, "external_oracle_results_populated"),
+            "false"
+        );
+        assert_eq!(
             output_field(&fields, "external_oracle_result_artifact_status_order"),
             "declared_not_executed"
         );
         assert_eq!(
             output_field(&fields, "external_oracle_artifacts_test_only"),
             "true"
+        );
+        assert_eq!(
+            output_field(&fields, "benchmark_claim_blocker_order"),
+            "not_yet_defined_fixtures,external_oracle_results_not_populated,property_fuzz_execution_not_performed"
+        );
+        assert_eq!(
+            output_field(&fields, "property_fuzz_execution_performed"),
+            "false"
         );
         assert_eq!(output_field(&fields, "production_claim_allowed"), "false");
         assert_eq!(

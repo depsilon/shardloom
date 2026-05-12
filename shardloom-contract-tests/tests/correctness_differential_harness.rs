@@ -68,11 +68,22 @@ fn correctness_harness_aggregates_current_cg5_evidence_without_execution() {
     assert!(report.decoded_reference_output_coverage_complete);
     assert_eq!(report.baseline_count, 7);
     assert_eq!(report.external_oracle_result_artifact_count, 63);
+    assert_eq!(report.external_oracle_result_populated_count, 0);
+    assert!(!report.external_oracle_results_populated);
     assert_eq!(
         report.external_oracle_result_artifact_status_order,
         vec!["declared_not_executed".to_string()]
     );
     assert!(report.external_oracle_artifacts_test_only);
+    assert_eq!(
+        report.benchmark_claim_blocker_order,
+        vec![
+            "not_yet_defined_fixtures".to_string(),
+            "external_oracle_results_not_populated".to_string(),
+            "property_fuzz_execution_not_performed".to_string()
+        ]
+    );
+    assert!(!report.property_fuzz_execution_performed);
     assert!(report.external_oracle_result_artifact_id_order.contains(
         &"vortex-edge-count-all-empty-input.external-oracle.spark.declared-result".to_string()
     ));

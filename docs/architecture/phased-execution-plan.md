@@ -96,6 +96,7 @@ Use this section for the next implementation sequence. Keep it ordered by depend
     - [x] CG-5.15 generated edge-case executable fixture matrix covers empty, single-row, all-null, mixed-null, duplicate, low/high-cardinality, sorted/unsorted, dictionary, run-length, sparse-validity, and temporal primitive cases with test-only decoded-reference artifacts.
     - [x] CG-5.16 generated property fixture families and reproducible fuzz seeds are present without executing property/fuzz tests.
     - [x] CG-5.17 source-backed edge fixture manifest coverage and declared external-oracle result artifact slots are present without executing external engines.
+    - [x] CG-5.18 benchmark claim gate explicitly stays blocked until external-oracle artifacts are populated and property/fuzz execution is performed.
     - [ ] Populated/executed external-oracle results, property/fuzz execution, and remaining `NotYetDefined` fixture families remain open before claim-grade correctness closeout.
   - [ ] CG-6 query-runtime benchmark rows, reproducibility metadata, work-avoidance evidence, and claim-gate blockers for each new primitive path.
   - [ ] CG-16 execution certificates and CG-19 per-path Native I/O certificates for each supported source/sink path.
@@ -332,6 +333,34 @@ Use this section for the next implementation sequence. Keep it ordered by depend
 
 ## Active
 
+- [x] Session label: CG-5.18 claim-gate execution blockers for declared evidence
+  - Primary files:
+    - `shardloom-core/src/correctness.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/correctness_plan_snapshots.rs`
+    - `shardloom-cli/tests/correctness_harness_plan_snapshots.rs`
+    - `shardloom-contract-tests/tests/correctness_fixture_manifest.rs`
+    - `shardloom-contract-tests/tests/correctness_differential_harness.rs`
+    - `docs/architecture/correctness-differential-harness.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: make the CG-5 aggregate benchmark claim gate depend on populated external-oracle result artifacts and performed property/fuzz execution, not merely declared metadata.
+  - Checklist:
+    - [x] Add explicit populated-result counts and status fields for declared external-oracle artifacts.
+    - [x] Add an explicit property/fuzz execution-performed field while execution remains deferred.
+    - [x] Surface `benchmark_claim_blocker_order` through the correctness harness.
+    - [x] Keep `benchmark_claim_gate` blocked while fixtures are unresolved, external-oracle results are unpopulated, and property/fuzz execution is not performed.
+    - [x] Preserve no execution: no external engines, decoded references, property/fuzz runs, data reads, writes, object-store IO, benchmark reruns, production certification, or fallback execution.
+  - Validation status:
+    - [x] `RUSTUP_TOOLCHAIN=1.91.1 rustc --version`
+    - [x] `RUSTUP_TOOLCHAIN=1.91.1 cargo fmt --all -- --check`
+    - [x] `RUSTUP_TOOLCHAIN=1.91.1 CARGO_TARGET_DIR=target-codex-cg5-claim-blockers-full cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `RUSTUP_TOOLCHAIN=1.91.1 CARGO_TARGET_DIR=target-codex-cg5-claim-blockers-full cargo test --workspace --all-targets`
+    - [x] `git diff --check` and changed-file hidden/bidi scan passed locally.
+
+## Completed
+
+### Recent Completed Session Ledger
 - [x] Session label: CG-5.17 source-backed edge fixture and external-oracle artifact metadata
   - Primary files:
     - `shardloom-core/src/correctness.rs`
@@ -358,10 +387,6 @@ Use this section for the next implementation sequence. Keep it ordered by depend
     - [x] `RUSTUP_TOOLCHAIN=1.91.1 CARGO_TARGET_DIR=target-codex-cg5-source-oracle-full cargo clippy --workspace --all-targets -- -D warnings`
     - [x] `RUSTUP_TOOLCHAIN=1.91.1 CARGO_TARGET_DIR=target-codex-cg5-source-oracle-full cargo test --workspace --all-targets`
   - Explicitly not included: external oracle execution, property/fuzz execution, decoded-reference execution, data reads, reader/adapters, non-local/object-store sources, SQL/DataFrame/Python runtime expansion, writes, spill, benchmark reruns, production certification, superiority claims, or fallback execution.
-
-## Completed
-
-### Recent Completed Session Ledger
 - [x] Session label: Priority 2.5 / 2.6 / 3.7 docs/report hardening
   - Primary files:
     - `README.md`
@@ -2511,6 +2536,7 @@ Status legend:
   - [x] CG-5.15 generated edge-case executable fixture matrix with decoded-reference artifact metadata
   - [x] CG-5.16 generated property fixture families and reproducible fuzz seeds
   - [x] CG-5.17 source-backed edge fixture manifest and declared external-oracle result artifact slots
+  - [x] CG-5.18 benchmark claim gate blockers for declared-but-unpopulated external oracles and unperformed property/fuzz execution
   - Expected evidence:
     - golden Vortex fixtures
     - decoded reference outputs for future executable fixture families as they are added
@@ -2940,6 +2966,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-5.15 generated edge-case executable fixture matrix covers current widened primitive edge cases without execution
 - [x] CG-5.16 generated property fixture families and reproducible fuzz seeds are present without execution
 - [x] CG-5.17 source-backed edge fixture manifest and declared external-oracle result artifact slots are present without execution
+- [x] CG-5.18 benchmark claim gate explicitly blocks on unpopulated external-oracle results and unperformed property/fuzz execution
 - [~] decoded-reference output artifacts for future executable fixture families as they are added
 - [~] property/fuzz execution remains deferred; fixture families and reproducible seeds are present
 - [~] populated/executed external-oracle result artifacts remain deferred; declared slots are present for current source-backed edge fixtures

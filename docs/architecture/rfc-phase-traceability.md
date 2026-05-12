@@ -743,6 +743,14 @@ No fallback execution.
 - The aggregate harness now distinguishes `source_backed_edge_fixtures` and `external_oracle_result_artifacts` surfaces while keeping only `benchmark_claim_gate` blocked.
 - This phase adds no external oracle execution, property/fuzz execution, decoded-reference execution, data reads, reader/adapters, non-local sources, object-store IO, SQL/DataFrame runtime, writes, spill, benchmark reruns, production certification, superiority claim, or fallback execution.
 
+## CG-5.18 claim-gate execution blockers for declared evidence
+
+- Primary RFC linkage: RFC 0015 Correctness/testing, RFC 0025 Competitive/no-fallback, RFC 0029 Correctness/Benchmarks/Execution Certificates, RFC 0031 Universal Native I/O Envelope, and RFC 0032 capability certification.
+- `CorrectnessDifferentialHarnessReport` now surfaces `external_oracle_result_populated_count`, `external_oracle_results_populated`, `property_fuzz_execution_performed`, and `benchmark_claim_blocker_order`.
+- The benchmark claim gate remains blocked by remaining `NotYetDefined` fixtures, declared-but-unpopulated external-oracle result artifacts, and unperformed property/fuzz execution.
+- Declared external-oracle artifacts remain comparison-only and non-executed; their presence no longer risks claim completion once fixture expectations are filled in later.
+- This phase adds no external oracle execution, property/fuzz execution, decoded-reference execution, data reads, reader/adapters, non-local sources, object-store IO, SQL/DataFrame runtime, writes, spill, benchmark reruns, production certification, superiority claim, or fallback execution.
+
 ## CG-5.1 metadata query primitive correctness fixtures
 
 - Primary RFC linkage: RFC 0015 Correctness/Semantics/Differential Testing, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.

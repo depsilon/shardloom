@@ -76,6 +76,8 @@ fn correctness_plan_json_exposes_reference_and_gap_counts() {
     assert!(output.contains(&field("unsupported_expected_output_count", "1")));
     assert!(output.contains(&field("baseline_count", "7")));
     assert!(output.contains(&field("external_oracle_result_artifact_count", "63")));
+    assert!(output.contains(&field("external_oracle_result_populated_count", "0")));
+    assert!(output.contains(&field("external_oracle_results_populated", "false")));
     assert!(output.contains(&field(
         "external_oracle_result_artifact_status_order",
         "declared_not_executed"
