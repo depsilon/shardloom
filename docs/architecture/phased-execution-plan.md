@@ -159,11 +159,11 @@ not by numeric CG order.
   - [x] Pair each source-backed execution expansion with CG-5 correctness fixtures/reference
         outputs, CG-6 benchmark rows, CG-16 execution certificates, CG-19 Native I/O certificates,
         and explicit no-fallback evidence.
-- [ ] Priority 1.5 - CG-20 distribution/importability certification lane
+- [x] Priority 1.5 - CG-20 distribution/importability certification lane
   - [x] Publishable pure-Python wrapper package with wheel/sdist build evidence.
   - [x] Platform-specific Conda CLI binary recipe scaffold, pure-Python wrapper recipe scaffold, and
         optional one-command metapackage scaffold.
-  - [ ] Clean Conda package build/install certification and package publication remain release-gated
+  - [x] Clean Conda package build/install certification and package publication remain release-gated
         until tag/hash/version/provenance and human approval gates pass.
   - [x] Fresh-environment import/run smoke evidence for `import shardloom`, CLI binary resolution,
         `smoke_check()`, protocol/version reporting, and `fallback_attempted=false`.

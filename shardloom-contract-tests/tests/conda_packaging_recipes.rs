@@ -16,6 +16,8 @@ fn conda_packaging_scaffold_declares_three_package_split() {
     assert!(README.contains("shardloom-cli"));
     assert!(README.contains("shardloom-python"));
     assert!(README.contains("shardloom"));
+    assert!(README.contains("shardloom.conda_build_install_certification.v1"));
+    assert!(README.contains("tagged archive, source"));
     assert!(README.contains("No package publication is authorized"));
 
     assert!(CLI_RECIPE.contains("name: shardloom-cli"));

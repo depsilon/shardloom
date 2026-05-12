@@ -16,20 +16,20 @@ use shardloom_core::{
     CapabilityCertificationStatus, CatalogKind, CatalogRef, CdcEventKind, CdcEventSummary,
     CdcIncrementalPlanningReport, ChangeSet, CliApiJsonProtocolReport, ColumnRef, CommandStatus,
     CompactionPlanningPolicy, CompactionPlanningReport, ComparisonOp,
-    CorrectnessDifferentialHarnessReport, CorrectnessFixture, CorrectnessValidationMode,
-    CorrectnessValidationPlan, CpuOperatorSpecializationReport, DatasetFormat, DatasetManifest,
-    DatasetRef, DatasetUri, DeleteModel, DeleteTombstoneCompatibilityReport, Diagnostic,
-    EffectBudgetReport, EncodedSegment, EncodingKind, ExecutionCertificate,
-    ExecutionCertificateEvidenceSurfaceReport, ExecutionEvidenceArtifactKind, ExpectedOutcome,
-    ExtensionId, ExtensionInspectionReport, ExtensionLicenseKind, ExtensionManifest,
-    ExtensionProvenance, ExtensionRegistrySnapshot, ExtensionVersion, FeatureFootprintReport,
-    FieldId, FieldName, FieldPath, FileDescriptor, FileRole, IncrementalPlanSkeleton,
-    InputAdapterRegistrySnapshot, KernelRegistrySnapshot, LayoutHealthPolicy, LayoutHealthReport,
-    LayoutKind, LogicalDType, ManifestId, ManifestSegment, MetricValue, NativeIoCertificate,
-    NativeIoEnvelopeReport, Nullability, ObservabilityPlan, ObservabilitySchemaCoverageReport,
-    OperatorMemoryCertification, OutputEnvelope, OutputFormat, OutputTarget,
-    PartitionEvolutionCompatibilityReport, PartitionField, PartitionSpec, PartitionTransform,
-    PhysicalKernelRegistryPlan, PhysicalOperatorExecutionLevel,
+    CondaBuildInstallCertificationReport, CorrectnessDifferentialHarnessReport, CorrectnessFixture,
+    CorrectnessValidationMode, CorrectnessValidationPlan, CpuOperatorSpecializationReport,
+    DatasetFormat, DatasetManifest, DatasetRef, DatasetUri, DeleteModel,
+    DeleteTombstoneCompatibilityReport, Diagnostic, EffectBudgetReport, EncodedSegment,
+    EncodingKind, ExecutionCertificate, ExecutionCertificateEvidenceSurfaceReport,
+    ExecutionEvidenceArtifactKind, ExpectedOutcome, ExtensionId, ExtensionInspectionReport,
+    ExtensionLicenseKind, ExtensionManifest, ExtensionProvenance, ExtensionRegistrySnapshot,
+    ExtensionVersion, FeatureFootprintReport, FieldId, FieldName, FieldPath, FileDescriptor,
+    FileRole, IncrementalPlanSkeleton, InputAdapterRegistrySnapshot, KernelRegistrySnapshot,
+    LayoutHealthPolicy, LayoutHealthReport, LayoutKind, LogicalDType, ManifestId, ManifestSegment,
+    MetricValue, NativeIoCertificate, NativeIoEnvelopeReport, Nullability, ObservabilityPlan,
+    ObservabilitySchemaCoverageReport, OperatorMemoryCertification, OutputEnvelope, OutputFormat,
+    OutputTarget, PartitionEvolutionCompatibilityReport, PartitionField, PartitionSpec,
+    PartitionTransform, PhysicalKernelRegistryPlan, PhysicalOperatorExecutionLevel,
     PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorKind, PhysicalOperatorPlan,
     PredicateExpr, PythonWrapperFoundationReport, RedactionPolicy, ReleaseEvidenceRequirementKind,
     ReleasePlan, ReleasePublicationBoundaryKind, ReleasePublicationBoundaryReport,
@@ -5420,6 +5420,10 @@ fn release_plan_fields(
     push_count_field(&mut fields, "release_checklist_count", plan.checklist.len());
     append_release_evidence_requirement_fields(&mut fields, evidence);
     append_release_publication_boundary_fields(&mut fields, publication);
+    append_conda_build_install_certification_fields(
+        &mut fields,
+        &plan.conda_build_install_certification(),
+    );
     push_field(&mut fields, "published", "false");
     push_field(&mut fields, "write_io", "false");
     push_field(&mut fields, "execution", "not_performed");
@@ -5521,6 +5525,149 @@ fn append_release_publication_boundary_fields(
         fields,
         "publication_fallback_dependency_allowed",
         publication.fallback_dependency_allowed,
+    );
+}
+
+fn append_conda_build_install_certification_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &CondaBuildInstallCertificationReport,
+) {
+    append_conda_certification_identity_fields(fields, report);
+    append_conda_certification_required_gate_fields(fields, report);
+    append_conda_certification_gate_status_fields(fields, report);
+    append_conda_certification_side_effect_fields(fields, report);
+}
+
+fn append_conda_certification_identity_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &CondaBuildInstallCertificationReport,
+) {
+    push_field(
+        fields,
+        "conda_certification_schema_version",
+        report.schema_version,
+    );
+    push_field(fields, "conda_certification_report_id", report.report_id);
+    push_count_field(fields, "conda_package_count", report.package_count());
+    push_count_field(
+        fields,
+        "conda_recipe_scaffold_count",
+        report.recipe_scaffold_count(),
+    );
+    push_count_field(
+        fields,
+        "conda_certified_package_count",
+        report.certified_package_count(),
+    );
+    push_count_field(
+        fields,
+        "conda_release_gate_blocking_count",
+        report.release_gate_blocking_count(),
+    );
+}
+
+fn append_conda_certification_required_gate_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &CondaBuildInstallCertificationReport,
+) {
+    push_bool_field(
+        fields,
+        "conda_tagged_archive_required",
+        report.tagged_archive_required,
+    );
+    push_bool_field(
+        fields,
+        "conda_source_hash_required",
+        report.source_hash_required,
+    );
+    push_bool_field(
+        fields,
+        "conda_version_alignment_required",
+        report.version_alignment_required,
+    );
+    push_bool_field(
+        fields,
+        "conda_provenance_attestation_required",
+        report.provenance_attestation_required,
+    );
+    push_bool_field(
+        fields,
+        "conda_human_approval_required",
+        report.human_approval_required,
+    );
+}
+
+fn append_conda_certification_gate_status_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &CondaBuildInstallCertificationReport,
+) {
+    push_bool_field(
+        fields,
+        "conda_tagged_archive_present",
+        report.tagged_archive_present,
+    );
+    push_bool_field(
+        fields,
+        "conda_source_hash_verified",
+        report.source_hash_verified,
+    );
+    push_bool_field(
+        fields,
+        "conda_version_alignment_verified",
+        report.version_alignment_verified,
+    );
+    push_bool_field(
+        fields,
+        "conda_provenance_attestation_present",
+        report.provenance_attestation_present,
+    );
+    push_bool_field(
+        fields,
+        "conda_human_approval_present",
+        report.human_approval_present,
+    );
+    push_bool_field(
+        fields,
+        "conda_clean_build_certified",
+        report.clean_build_certified,
+    );
+    push_bool_field(
+        fields,
+        "conda_clean_install_certified",
+        report.clean_install_certified,
+    );
+    push_bool_field(
+        fields,
+        "conda_package_publication_allowed",
+        report.package_publication_allowed,
+    );
+}
+
+fn append_conda_certification_side_effect_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &CondaBuildInstallCertificationReport,
+) {
+    push_bool_field(fields, "conda_build_invoked", report.conda_build_invoked);
+    push_bool_field(
+        fields,
+        "conda_install_invoked",
+        report.conda_install_invoked,
+    );
+    push_bool_field(
+        fields,
+        "conda_external_publish_performed",
+        report.external_publish_performed,
+    );
+    push_bool_field(fields, "conda_release_gated", report.release_gated());
+    push_bool_field(
+        fields,
+        "conda_side_effect_free",
+        report.is_side_effect_free(),
+    );
+    push_bool_field(
+        fields,
+        "conda_fallback_dependency_allowed",
+        report.fallback_dependency_allowed,
     );
 }
 
@@ -30522,6 +30669,33 @@ mod tests {
         assert_eq!(output_field(&fields, "external_publish_performed"), "false");
         assert_eq!(output_field(&fields, "runtime_execution"), "false");
         assert_eq!(output_field(&fields, "fallback_attempted"), "false");
+        assert_eq!(
+            output_field(&fields, "conda_certification_schema_version"),
+            "shardloom.conda_build_install_certification.v1"
+        );
+        assert_eq!(output_field(&fields, "conda_package_count"), "3");
+        assert_eq!(output_field(&fields, "conda_recipe_scaffold_count"), "3");
+        assert_eq!(output_field(&fields, "conda_certified_package_count"), "0");
+        assert_eq!(
+            output_field(&fields, "conda_release_gate_blocking_count"),
+            "5"
+        );
+        assert_eq!(
+            output_field(&fields, "conda_clean_build_certified"),
+            "false"
+        );
+        assert_eq!(
+            output_field(&fields, "conda_clean_install_certified"),
+            "false"
+        );
+        assert_eq!(
+            output_field(&fields, "conda_package_publication_allowed"),
+            "false"
+        );
+        assert_eq!(output_field(&fields, "conda_build_invoked"), "false");
+        assert_eq!(output_field(&fields, "conda_install_invoked"), "false");
+        assert_eq!(output_field(&fields, "conda_release_gated"), "true");
+        assert_eq!(output_field(&fields, "conda_side_effect_free"), "true");
     }
 
     #[test]
@@ -30564,6 +30738,44 @@ mod tests {
         );
         assert_eq!(
             output_field(&fields, "publication_fallback_dependency_allowed"),
+            "false"
+        );
+        assert_eq!(
+            output_field(&fields, "conda_tagged_archive_required"),
+            "true"
+        );
+        assert_eq!(output_field(&fields, "conda_source_hash_required"), "true");
+        assert_eq!(
+            output_field(&fields, "conda_version_alignment_required"),
+            "true"
+        );
+        assert_eq!(
+            output_field(&fields, "conda_provenance_attestation_required"),
+            "true"
+        );
+        assert_eq!(
+            output_field(&fields, "conda_human_approval_required"),
+            "true"
+        );
+        assert_eq!(
+            output_field(&fields, "conda_tagged_archive_present"),
+            "false"
+        );
+        assert_eq!(output_field(&fields, "conda_source_hash_verified"), "false");
+        assert_eq!(
+            output_field(&fields, "conda_version_alignment_verified"),
+            "false"
+        );
+        assert_eq!(
+            output_field(&fields, "conda_provenance_attestation_present"),
+            "false"
+        );
+        assert_eq!(
+            output_field(&fields, "conda_human_approval_present"),
+            "false"
+        );
+        assert_eq!(
+            output_field(&fields, "conda_fallback_dependency_allowed"),
             "false"
         );
     }
