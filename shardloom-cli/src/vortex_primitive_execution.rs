@@ -2,8 +2,8 @@
 //!
 //! This module starts the physical split for Vortex primitive command handlers
 //! while preserving existing no-fallback execution contracts. This slice only
-//! owns `vortex-count`, `vortex-count-where`, and `vortex-query-trace`;
-//! broader projection/filter/run extraction remains staged.
+//! owns `vortex-count`, `vortex-count-where`, `vortex-project`, and
+//! `vortex-query-trace`; broader filter/run extraction remains staged.
 
 use std::process::ExitCode;
 
@@ -264,6 +264,102 @@ pub(crate) fn handle_vortex_count_where(
             &evidence,
             local_execution.as_ref(),
         ),
+    );
+    if command_has_errors {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+pub(crate) fn handle_vortex_project(
+    mut args: std::vec::IntoIter<String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let Some(uri_arg) = args.next() else {
+        eprintln!(
+            "usage: shardloom vortex-project <dataset_uri> <columns> [--execute-local-primitive <memory_gb> <max_parallelism>]"
+        );
+        return ExitCode::from(2);
+    };
+    let Some(columns_arg) = args.next() else {
+        eprintln!(
+            "usage: shardloom vortex-project <dataset_uri> <columns> [--execute-local-primitive <memory_gb> <max_parallelism>]"
+        );
+        return ExitCode::from(2);
+    };
+    let uri = match DatasetUri::new(uri_arg) {
+        Ok(uri) => uri,
+        Err(error) => {
+            return emit_error("vortex-project", format, "vortex project failed", &error);
+        }
+    };
+    let projection = match crate::parse_projection_columns(&columns_arg) {
+        Ok(projection) => projection,
+        Err(error) => {
+            return emit_error("vortex-project", format, "vortex project failed", &error);
+        }
+    };
+    let local_execution_request =
+        match crate::parse_vortex_local_primitive_cli_execution_args(&mut args) {
+            Ok(request) => request,
+            Err(error) => {
+                return emit_error("vortex-project", format, "vortex project failed", &error);
+            }
+        };
+    let request = VortexQueryPrimitiveRequest::project(uri.clone(), projection);
+    let summary = open_vortex_metadata_only(VortexMetadataOpenRequest::metadata_only(uri))
+        .ok()
+        .and_then(|report| report.metadata_summary)
+        .unwrap_or_else(|| {
+            summarize_vortex_metadata_probe(&VortexMetadataProbeReport::deferred_api_unclear())
+        });
+    let result = match evaluate_vortex_query_primitive(request.clone(), &summary) {
+        Ok(result) => result,
+        Err(error) => {
+            return emit_error("vortex-project", format, "vortex project failed", &error);
+        }
+    };
+    let local_execution = match local_execution_request.as_ref() {
+        Some(local_request) => {
+            match crate::vortex_local_primitive_cli_execution_evidence(&request, local_request) {
+                Ok(evidence) => Some(evidence),
+                Err(error) => {
+                    return emit_error(
+                        "vortex-project",
+                        format,
+                        "vortex project local primitive execution failed",
+                        &error,
+                    );
+                }
+            }
+        }
+        None => None,
+    };
+    let command_has_errors = local_execution.as_ref().map_or_else(
+        || result.has_errors(),
+        crate::VortexLocalPrimitiveCliExecutionEvidence::has_errors,
+    );
+    let mut diagnostics = result.diagnostics.clone();
+    if let Some(local) = &local_execution {
+        diagnostics.extend(local.report.diagnostics.clone());
+        diagnostics.extend(local.native_io_certificate.diagnostics.clone());
+        if let Some(certificate) = &local.execution_certificate {
+            diagnostics.extend(certificate.diagnostics.clone());
+        }
+    }
+    emit(
+        "vortex-project",
+        format,
+        if command_has_errors {
+            CommandStatus::Unsupported
+        } else {
+            CommandStatus::Success
+        },
+        "vortex project primitive".to_string(),
+        crate::vortex_project_human_text(&result, local_execution.as_ref()),
+        diagnostics,
+        crate::vortex_project_fields(&result, columns_arg, local_execution.as_ref()),
     );
     if command_has_errors {
         ExitCode::from(1)

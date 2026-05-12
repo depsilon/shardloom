@@ -11594,7 +11594,7 @@ pub(crate) fn parse_vortex_count_where_local_execution_args(
     parse_vortex_local_primitive_cli_execution_args(&mut args)
 }
 
-fn parse_vortex_local_primitive_cli_execution_args(
+pub(crate) fn parse_vortex_local_primitive_cli_execution_args(
     args: &mut impl Iterator<Item = String>,
 ) -> shardloom_core::Result<Option<VortexLocalPrimitiveCliExecutionRequest>> {
     let Some(option) = args.next() else {
@@ -11659,7 +11659,7 @@ pub(crate) fn vortex_count_where_local_execution_evidence(
     vortex_local_primitive_cli_execution_evidence(request, local_request)
 }
 
-fn vortex_local_primitive_cli_execution_evidence(
+pub(crate) fn vortex_local_primitive_cli_execution_evidence(
     request: &VortexQueryPrimitiveRequest,
     local_request: &VortexLocalPrimitiveCliExecutionRequest,
 ) -> shardloom_core::Result<VortexLocalPrimitiveCliExecutionEvidence> {
@@ -12114,7 +12114,7 @@ fn append_vortex_count_where_local_execution_claim_fields(
     );
 }
 
-fn vortex_project_human_text(
+pub(crate) fn vortex_project_human_text(
     result: &VortexQueryPrimitiveResult,
     local_execution: Option<&VortexLocalPrimitiveCliExecutionEvidence>,
 ) -> String {
@@ -12131,7 +12131,7 @@ fn vortex_project_human_text(
     sections.join("\n\n")
 }
 
-fn vortex_project_fields(
+pub(crate) fn vortex_project_fields(
     result: &VortexQueryPrimitiveResult,
     columns_arg: String,
     local_execution: Option<&VortexLocalPrimitiveCliExecutionEvidence>,
@@ -13410,7 +13410,7 @@ fn append_vortex_count_where_filter_admission_fields(
     );
 }
 
-fn parse_projection_columns(value: &str) -> Result<ProjectionRequest, ShardLoomError> {
+pub(crate) fn parse_projection_columns(value: &str) -> Result<ProjectionRequest, ShardLoomError> {
     if value == "*" {
         return Ok(ProjectionRequest::all());
     }
@@ -25971,106 +25971,7 @@ fn run(args: Vec<String>) -> ExitCode {
         Some("vortex-count-where") => {
             vortex_primitive_execution::handle_vortex_count_where(args, format)
         }
-        Some("vortex-project") => {
-            let Some(uri_arg) = args.next() else {
-                eprintln!(
-                    "usage: shardloom vortex-project <dataset_uri> <columns> [--execute-local-primitive <memory_gb> <max_parallelism>]"
-                );
-                return ExitCode::from(2);
-            };
-            let Some(columns_arg) = args.next() else {
-                eprintln!(
-                    "usage: shardloom vortex-project <dataset_uri> <columns> [--execute-local-primitive <memory_gb> <max_parallelism>]"
-                );
-                return ExitCode::from(2);
-            };
-            let uri = match DatasetUri::new(uri_arg) {
-                Ok(uri) => uri,
-                Err(error) => {
-                    return emit_error("vortex-project", format, "vortex project failed", &error);
-                }
-            };
-            let projection = match parse_projection_columns(&columns_arg) {
-                Ok(projection) => projection,
-                Err(error) => {
-                    return emit_error("vortex-project", format, "vortex project failed", &error);
-                }
-            };
-            let local_execution_request =
-                match parse_vortex_local_primitive_cli_execution_args(&mut args) {
-                    Ok(request) => request,
-                    Err(error) => {
-                        return emit_error(
-                            "vortex-project",
-                            format,
-                            "vortex project failed",
-                            &error,
-                        );
-                    }
-                };
-            let request =
-                shardloom_vortex::VortexQueryPrimitiveRequest::project(uri.clone(), projection);
-            let summary = open_vortex_metadata_only(VortexMetadataOpenRequest::metadata_only(uri))
-                .ok()
-                .and_then(|report| report.metadata_summary)
-                .unwrap_or_else(|| {
-                    summarize_vortex_metadata_probe(
-                        &VortexMetadataProbeReport::deferred_api_unclear(),
-                    )
-                });
-            let result = match evaluate_vortex_query_primitive(request.clone(), &summary) {
-                Ok(result) => result,
-                Err(error) => {
-                    return emit_error("vortex-project", format, "vortex project failed", &error);
-                }
-            };
-            let local_execution = match local_execution_request.as_ref() {
-                Some(local_request) => {
-                    match vortex_local_primitive_cli_execution_evidence(&request, local_request) {
-                        Ok(evidence) => Some(evidence),
-                        Err(error) => {
-                            return emit_error(
-                                "vortex-project",
-                                format,
-                                "vortex project local primitive execution failed",
-                                &error,
-                            );
-                        }
-                    }
-                }
-                None => None,
-            };
-            let command_has_errors = local_execution.as_ref().map_or_else(
-                || result.has_errors(),
-                VortexLocalPrimitiveCliExecutionEvidence::has_errors,
-            );
-            let mut diagnostics = result.diagnostics.clone();
-            if let Some(local) = &local_execution {
-                diagnostics.extend(local.report.diagnostics.clone());
-                diagnostics.extend(local.native_io_certificate.diagnostics.clone());
-                if let Some(certificate) = &local.execution_certificate {
-                    diagnostics.extend(certificate.diagnostics.clone());
-                }
-            }
-            emit(
-                "vortex-project",
-                format,
-                if command_has_errors {
-                    CommandStatus::Unsupported
-                } else {
-                    CommandStatus::Success
-                },
-                "vortex project primitive".to_string(),
-                vortex_project_human_text(&result, local_execution.as_ref()),
-                diagnostics,
-                vortex_project_fields(&result, columns_arg, local_execution.as_ref()),
-            );
-            if command_has_errors {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            }
-        }
+        Some("vortex-project") => vortex_primitive_execution::handle_vortex_project(args, format),
         Some("vortex-filter-project") => {
             let Some(uri_arg) = args.next() else {
                 eprintln!(
