@@ -269,6 +269,11 @@ actionable work.
           base Vortex read/output/translation plans, dependency readiness, mapping reports,
           metadata-open/summary, and query-primitive planning without enabling dataset execution,
           materialization, writes, external engines, or fallback behavior.
+    - [x] Move the remaining Vortex readiness/approval planning handlers into
+          `shardloom-cli/src/vortex_planning.rs`, covering metadata physical-kernel planning,
+          count/filtered-count/projection readiness planning, encoded-count approval planning, and
+          layout-driver approval planning without changing report-only, local-guard, or no-fallback
+          behavior.
     - [x] Move operational runtime, memory/spill, fault-tolerance, observability, object-store,
           plan-portability, CG-20 evidence, Vortex output/commit/staged artifact, and Vortex
           runtime-readiness handler clusters into focused modules while preserving existing
