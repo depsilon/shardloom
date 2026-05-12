@@ -16,6 +16,37 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: release-readiness evidence blockers
+  - Primary files:
+    - `shardloom-core/src/release.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/main.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: make RFC 0024 release-readiness blockers machine-readable before any public package,
+    release, or benchmark claim can be reported as ready.
+  - Checklist:
+    - [x] Add `ReleaseReadinessEvidenceReport` and release evidence requirement kinds/statuses for
+          schema-version, API-stability, dependency/license, SBOM, provenance attestation,
+          reproducible build, release notes, benchmark accountability, no-fallback, and human
+          approval evidence.
+    - [x] Keep release readiness report-only: no build, signing, publishing, network, package
+          upload, artifact creation, benchmark execution, external engine invocation, or fallback.
+    - [x] Surface release-readiness evidence through `release-plan` and `package-plan` fields while
+          keeping `publish_allowed=false`, `external_publish_performed=false`,
+          `runtime_execution=false`, and `fallback_attempted=false`.
+    - [x] Keep missing SBOM/provenance/reproducible-build/release-note/benchmark/human-approval
+          evidence as explicit release blockers.
+  - Validation status:
+    - [x] `cargo test -p shardloom-core release --lib`
+    - [x] `cargo test -p shardloom-cli release_plan`
+    - [x] `cargo fmt --all -- --check`
+    - [x] `cargo clippy -p shardloom-core --lib -- -D warnings`
+    - [x] `cargo clippy -p shardloom-cli --all-targets -- -D warnings`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+  - Non-goals preserved:
+    - [x] No release publication, package upload, tag creation, generated SBOM, signing, container
+          build, benchmark execution, dependency change, external engine invocation, or fallback
+          execution.
 - [x] Session label: Markdown physical-formatting cleanup
   - Primary files:
     - `README.md`
