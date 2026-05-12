@@ -31,7 +31,7 @@ fn python_wrapper_plan_json_exposes_cli_json_foundation() {
 
     assert!(output.contains("\"command\":\"python-wrapper-plan\""));
     assert!(output.contains("\"status\":\"success\""));
-    assert!(output.contains("\"schema_version\":\"shardloom.output.v1\""));
+    assert!(output.contains("\"schema_version\":\"shardloom.output.v2\""));
     assert!(output.contains(&field("mode", "python_wrapper_plan")));
     assert!(output.contains(&field(
         "schema_version",
@@ -42,7 +42,7 @@ fn python_wrapper_plan_json_exposes_cli_json_foundation() {
     assert!(output.contains(&field("transport_protocol_id", "shardloom.cli_json.v1")));
     assert!(output.contains(&field(
         "output_envelope_schema_version",
-        "shardloom.output.v1"
+        "shardloom.output.v2"
     )));
     assert!(output.contains(&field("invocation_model", "subprocess_cli_json")));
     assert!(output.contains(&field(

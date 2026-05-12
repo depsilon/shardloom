@@ -5842,6 +5842,21 @@ fn api_protocol_fields(report: &CliApiJsonProtocolReport) -> Vec<(String, String
     );
     push_field(
         &mut fields,
+        "required_typed_payload_fields",
+        &report.required_typed_payload_fields.join(","),
+    );
+    push_bool_field(
+        &mut fields,
+        "legacy_fields_mirror_present",
+        report.legacy_fields_mirror_present,
+    );
+    push_bool_field(
+        &mut fields,
+        "flat_fields_primary_payload_allowed",
+        report.flat_fields_primary_payload_allowed,
+    );
+    push_field(
+        &mut fields,
         "command_status_values",
         &report.command_status_values.join(","),
     );

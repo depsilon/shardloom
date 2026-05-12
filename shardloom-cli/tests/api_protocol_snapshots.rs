@@ -31,7 +31,7 @@ fn api_compat_plan_json_exposes_cli_api_protocol_contract() {
 
     assert!(output.contains("\"command\":\"api-compat-plan\""));
     assert!(output.contains("\"status\":\"success\""));
-    assert!(output.contains("\"schema_version\":\"shardloom.output.v1\""));
+    assert!(output.contains("\"schema_version\":\"shardloom.output.v2\""));
     assert!(output.contains(&field("mode", "api_compat_plan")));
     assert!(output.contains(&field(
         "schema_version",
@@ -41,12 +41,15 @@ fn api_compat_plan_json_exposes_cli_api_protocol_contract() {
     assert!(output.contains(&field("protocol_stability", "experimental")));
     assert!(output.contains(&field(
         "output_envelope_schema_version",
-        "shardloom.output.v1"
+        "shardloom.output.v2"
     )));
     assert!(output.contains(&field(
         "required_envelope_fields",
-        "schema_version,command,status,summary,human_text,fallback,diagnostics,fields"
+        "schema_version,command,status,summary,human_text,fallback,diagnostics,result,result_refs,artifacts,artifact_refs,certificates,policy,lifecycle,capability_snapshot,fields"
     )));
+    assert!(output.contains(&field("required_typed_payload_fields", "fields")));
+    assert!(output.contains(&field("legacy_fields_mirror_present", "true")));
+    assert!(output.contains(&field("flat_fields_primary_payload_allowed", "false")));
     assert!(output.contains(&field(
         "command_status_values",
         "success,warning,error,unsupported"

@@ -142,7 +142,7 @@ impl AgentContractPack {
                 AgentContractSurface::available(
                     AgentContractSurfaceKind::OutputEnvelope,
                     None,
-                    "shardloom.output.v1",
+                    "shardloom.output.v2",
                 ),
                 AgentContractSurface::available(
                     AgentContractSurfaceKind::Diagnostics,
@@ -172,7 +172,7 @@ impl AgentContractPack {
                 AgentContractSurface::available(
                     AgentContractSurfaceKind::ExplainEstimate,
                     Some("explain,estimate"),
-                    "shardloom.output.v1",
+                    "shardloom.output.v2",
                 ),
                 AgentContractSurface::available(
                     AgentContractSurfaceKind::PlanPortability,

@@ -2,7 +2,8 @@
 
 This package is the first thin Python surface for ShardLoom. It invokes the
 workspace `shardloom` CLI with `--format json`, parses the stable
-`OutputEnvelope`, and preserves diagnostics, fields, and fallback status.
+`OutputEnvelope`, and preserves typed result/artifact/certificate payloads,
+diagnostics, fallback status, and the temporary legacy field mirror.
 
 It is intentionally not a native binding, DataFrame API, SQL runtime, UDF
 runtime, or fallback execution path. Importing the package has no ShardLoom

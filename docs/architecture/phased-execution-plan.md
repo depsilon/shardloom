@@ -102,6 +102,12 @@ Supporting docs:
     extensibility, table/catalog compatibility, plan interop, and extension sandboxing; it does not
     authorize parser expansion, dependency expansion, imported-plan execution, extension execution,
     external effects, external engine invocation, or fallback execution.
+- `docs/architecture/typed-command-result-envelope.md`
+  - Role: Priority 3.9 typed command/result envelope reference for the `shardloom.output.v2`
+    protocol slice and remaining command-family migration work.
+  - Status rule: records the typed envelope slots and temporary legacy field mirror; it does not
+    authorize runtime expansion, command effects, external engine invocation, REST/server behavior,
+    or fallback execution.
 - `docs/architecture/incumbent-gap-opportunity-map.md`, `lakehouse-value-prop-compatibility.md`,
   `universal-input-contract.md`, and `spill-reservation-lifecycle-integration.md`
   - Role: reference maps and constraints.
@@ -134,21 +140,16 @@ Completed checked-off work that used to live in this section is recorded in
 `docs/architecture/phased-execution-completed-ledger.md`. Keep this section focused on remaining
 actionable work.
 
-- [ ] Priority 3.9 - typed command/result envelope and CLI modularity overhaul
-  - [ ] Replace the early flat CLI `OutputEnvelope` with a typed command/result/evidence envelope.
-    - [ ] Because ShardLoom is unreleased, replace the early flat `(key, value)` primary payload
-          model instead of layering a backward-compatible v2.
-    - [ ] Add typed payload slots for `result`, `result_refs`, `artifacts`, `artifact_refs`,
-          `certificates`, `diagnostics`, `fallback`, `policy`, `lifecycle`, and
-          `capability_snapshot`.
-    - [ ] Attach or reference execution certificates, Native I/O certificates,
-          `EvidenceArtifactEnvelope`, materialization boundary reports, benchmark rows, Foundry
-          reports, source/sink reports, and capability snapshots through typed payloads.
-    - [ ] Keep human text rendering-only; machine-readable typed payloads are the source of truth.
-    - [ ] Update the Python wrapper to parse and preserve typed payloads.
-    - [ ] Add golden JSON fixtures for success, unsupported, blocked, certified execution,
-          evidence-incomplete execution, source-backed execution, benchmark rows, missing binary,
-          and Foundry boundary reports.
+- [ ] Priority 3.9 - complete typed command/result envelope and CLI modularity overhaul
+  - [ ] Migrate command families from the temporary top-level legacy `fields` mirror into explicit
+        typed result, artifact, certificate, policy, lifecycle, and capability payload helpers.
+  - [ ] Attach or reference execution certificates, Native I/O certificates,
+        `EvidenceArtifactEnvelope`, materialization boundary reports, benchmark rows, Foundry
+        reports, source/sink reports, and capability snapshots through typed payloads instead of
+        ad hoc fields.
+  - [ ] Expand golden JSON fixtures for success, unsupported, blocked, certified execution,
+        evidence-incomplete execution, source-backed execution, benchmark rows, missing binary, and
+        Foundry boundary reports.
   - [ ] Modularize CLI command routing around typed command handlers and shared rendering.
     - [ ] Split handlers by status/capabilities, Vortex primitive execution,
           prepared/source-backed execution, evidence/certificates, benchmarks,
