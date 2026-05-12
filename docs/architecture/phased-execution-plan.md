@@ -167,6 +167,9 @@ actionable work.
           without publishing packages, pushing artifacts, or invoking external engines.
     - [x] Move benchmark planning handlers into `shardloom-cli/src/benchmark_planning.rs`
           without running benchmarks, invoking external engines, or publishing performance claims.
+    - [x] Move operational hardening/security handlers into
+          `shardloom-cli/src/operational_hardening.rs` without resolving credentials, loading
+          secrets, executing effects, or weakening no-fallback behavior.
     - [ ] Move remaining command-family handlers out of `main.rs` after the shared
           `typed_envelope` routing module and `command_family` taxonomy.
     - [ ] Split handlers by status/capabilities, Vortex primitive execution,

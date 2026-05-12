@@ -17,6 +17,7 @@ use std::{
 mod benchmark_planning;
 mod cli_output;
 mod command_family;
+mod operational_hardening;
 mod packaging_deployment;
 mod rest_api_planning;
 mod status_capabilities;
@@ -46,11 +47,11 @@ use shardloom_core::{
     PartitionEvolutionCompatibilityReport, PartitionField, PartitionSpec, PartitionTransform,
     PhysicalKernelRegistryPlan, PhysicalOperatorExecutionLevel,
     PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorKind, PhysicalOperatorPlan,
-    PredicateExpr, PythonWrapperFoundationReport, RedactionPolicy, ReleaseEvidenceRequirementKind,
-    ReleasePlan, ReleasePublicationBoundaryKind, ReleasePublicationBoundaryReport,
+    PredicateExpr, PythonWrapperFoundationReport, ReleaseEvidenceRequirementKind, ReleasePlan,
+    ReleasePublicationBoundaryKind, ReleasePublicationBoundaryReport,
     ReleaseReadinessEvidenceReport, RfcCoverageFollowThroughReport, RuntimeObservabilityReport,
     SchemaDefinition, SchemaEvolutionCompatibilityReport, SchemaEvolutionPolicy, SchemaField,
-    SchemaId, SchemaVersion, SecurityGovernanceEvidenceGateReport, SecurityPlan, SegmentChange,
+    SchemaId, SchemaVersion, SecurityGovernanceEvidenceGateReport, SegmentChange,
     SegmentChangeKind, SegmentId, SegmentLayout, SegmentStats, ShardLoomError, SnapshotId,
     SnapshotRef, StatValue, StatefulReusePromotionGateReport, StatefulReuseReport,
     TableCompatibilityPlan, TableCompatibilityReport, TableFormatKind, TableIntelligenceReport,
@@ -62,8 +63,7 @@ use shardloom_core::{
     plan_approx_sketch_function_gate, plan_catalog_metadata_integration_gate,
     plan_correctness_differential_harness, plan_cpu_operator_specialization,
     plan_execution_certificate_evidence_surface, plan_native_io_envelope,
-    plan_observability_schema_coverage, plan_rfc_coverage_followthrough,
-    plan_security_governance_evidence_gate, plan_stateful_reuse,
+    plan_observability_schema_coverage, plan_rfc_coverage_followthrough, plan_stateful_reuse,
     plan_stateful_reuse_promotion_gate, plan_universal_harness,
     plan_user_capability_promotion_gate, plan_world_class_sufficiency,
 };
@@ -1557,7 +1557,7 @@ fn feature_footprint_fields(report: &FeatureFootprintReport) -> Vec<(String, Str
     ]
 }
 
-fn effect_budget_fields(report: &EffectBudgetReport) -> Vec<(String, String)> {
+pub(crate) fn effect_budget_fields(report: &EffectBudgetReport) -> Vec<(String, String)> {
     vec![
         ("mode".to_string(), "effect_budget_plan".to_string()),
         (
@@ -1653,7 +1653,7 @@ fn effect_budget_fields(report: &EffectBudgetReport) -> Vec<(String, String)> {
     ]
 }
 
-fn security_governance_evidence_gate_fields(
+pub(crate) fn security_governance_evidence_gate_fields(
     report: &SecurityGovernanceEvidenceGateReport,
 ) -> Vec<(String, String)> {
     let mut fields = Vec::new();
@@ -20496,129 +20496,13 @@ fn run(args: Vec<String>) -> ExitCode {
             );
             ExitCode::SUCCESS
         }
-        Some("security-plan") => {
-            let plan = SecurityPlan::default_safe();
-            let text = plan.to_human_text();
-            emit(
-                "security-plan",
-                format,
-                CommandStatus::Success,
-                "security plan skeleton".to_string(),
-                text,
-                vec![],
-                vec![
-                    (
-                        "fallback_execution_allowed".to_string(),
-                        "false".to_string(),
-                    ),
-                    ("mode".to_string(), "security_plan".to_string()),
-                    ("write_io".to_string(), "false".to_string()),
-                    ("execution".to_string(), "not_performed".to_string()),
-                    ("plan_only".to_string(), "true".to_string()),
-                    ("external_effects".to_string(), "disabled".to_string()),
-                    ("credentials_resolved".to_string(), "false".to_string()),
-                    ("secrets_loaded".to_string(), "false".to_string()),
-                ],
-            );
-            ExitCode::SUCCESS
-        }
+        Some("security-plan") => operational_hardening::handle_security_plan(format),
         Some("security-governance-evidence-gate") => {
-            let report = plan_security_governance_evidence_gate();
-            let status = if report.has_errors() {
-                CommandStatus::Unsupported
-            } else {
-                CommandStatus::Success
-            };
-            emit(
-                "security-governance-evidence-gate",
-                format,
-                status,
-                "security governance evidence gate".to_string(),
-                report.to_human_text(),
-                report.diagnostics.clone(),
-                security_governance_evidence_gate_fields(&report),
-            );
-            if report.has_errors() {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            }
+            operational_hardening::handle_security_governance_evidence_gate(format)
         }
-        Some("effect-budget-plan") => {
-            let report = EffectBudgetReport::planning_default();
-            let status = if report.has_errors() {
-                CommandStatus::Unsupported
-            } else {
-                CommandStatus::Success
-            };
-            emit(
-                "effect-budget-plan",
-                format,
-                status,
-                "effect budget plan".to_string(),
-                report.to_human_text(),
-                report.diagnostics.clone(),
-                effect_budget_fields(&report),
-            );
-            if report.has_errors() {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            }
-        }
-        Some("agent-safety-plan") => {
-            let mut plan = SecurityPlan::default_safe();
-            plan.agent_mode = shardloom_core::AgentSafetyMode::AgentDryRunOnly;
-            let text = plan.to_human_text();
-            emit(
-                "agent-safety-plan",
-                format,
-                CommandStatus::Success,
-                "agent safety plan skeleton".to_string(),
-                text,
-                vec![],
-                vec![
-                    (
-                        "fallback_execution_allowed".to_string(),
-                        "false".to_string(),
-                    ),
-                    ("mode".to_string(), "agent_safety_plan".to_string()),
-                    ("write_io".to_string(), "false".to_string()),
-                    ("execution".to_string(), "not_performed".to_string()),
-                    ("plan_only".to_string(), "true".to_string()),
-                    ("external_effects".to_string(), "disabled".to_string()),
-                    ("credentials_resolved".to_string(), "false".to_string()),
-                    ("secrets_loaded".to_string(), "false".to_string()),
-                ],
-            );
-            ExitCode::SUCCESS
-        }
-        Some("redaction-plan") => {
-            let redaction = RedactionPolicy::strict();
-            let text = redaction.summary();
-            emit(
-                "redaction-plan",
-                format,
-                CommandStatus::Success,
-                "redaction plan skeleton".to_string(),
-                text,
-                vec![],
-                vec![
-                    (
-                        "fallback_execution_allowed".to_string(),
-                        "false".to_string(),
-                    ),
-                    ("mode".to_string(), "redaction_plan".to_string()),
-                    ("write_io".to_string(), "false".to_string()),
-                    ("execution".to_string(), "not_performed".to_string()),
-                    ("plan_only".to_string(), "true".to_string()),
-                    ("external_effects".to_string(), "disabled".to_string()),
-                    ("credentials_resolved".to_string(), "false".to_string()),
-                    ("secrets_loaded".to_string(), "false".to_string()),
-                ],
-            );
-            ExitCode::SUCCESS
-        }
+        Some("effect-budget-plan") => operational_hardening::handle_effect_budget_plan(format),
+        Some("agent-safety-plan") => operational_hardening::handle_agent_safety_plan(format),
+        Some("redaction-plan") => operational_hardening::handle_redaction_plan(format),
         Some("plan-ir") => {
             let plan_id = match PlanId::new("plan-placeholder") {
                 Ok(v) => v,
