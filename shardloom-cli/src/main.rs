@@ -24,6 +24,7 @@ mod packaging_deployment;
 mod rest_api_planning;
 mod status_capabilities;
 mod typed_envelope;
+mod workflow_planning;
 
 use cli_output::{emit, emit_error};
 use shardloom_core::{
@@ -42,9 +43,9 @@ use shardloom_core::{
     ExecutionEvidenceArtifactKind, ExpectedOutcome, ExtensionId, ExtensionInspectionReport,
     ExtensionLicenseKind, ExtensionManifest, ExtensionProvenance, ExtensionRegistrySnapshot,
     ExtensionVersion, FeatureFootprintReport, FieldId, FieldName, FieldPath, FileDescriptor,
-    FileRole, IncrementalPlanSkeleton, InputAdapterRegistrySnapshot, KernelRegistrySnapshot,
-    LayoutHealthPolicy, LayoutHealthReport, LayoutKind, LogicalDType, ManifestId, ManifestSegment,
-    MetricValue, NativeIoCertificate, NativeIoEnvelopeReport, Nullability, ObservabilityPlan,
+    FileRole, InputAdapterRegistrySnapshot, KernelRegistrySnapshot, LayoutHealthPolicy,
+    LayoutHealthReport, LayoutKind, LogicalDType, ManifestId, ManifestSegment, MetricValue,
+    NativeIoCertificate, NativeIoEnvelopeReport, Nullability, ObservabilityPlan,
     ObservabilitySchemaCoverageReport, OperatorMemoryCertification, OutputFormat, OutputTarget,
     PartitionEvolutionCompatibilityReport, PartitionField, PartitionSpec, PartitionTransform,
     PhysicalKernelRegistryPlan, PhysicalOperatorExecutionLevel,
@@ -62,9 +63,8 @@ use shardloom_core::{
     evaluate_cdc_incremental_planning, evaluate_compaction_planning,
     evaluate_delete_tombstone_compatibility, evaluate_layout_health,
     evaluate_partition_evolution_compatibility, evaluate_schema_evolution_compatibility,
-    plan_approx_sketch_function_gate, plan_catalog_metadata_integration_gate,
-    plan_cpu_operator_specialization, plan_observability_schema_coverage,
-    plan_rfc_coverage_followthrough, plan_stateful_reuse, plan_stateful_reuse_promotion_gate,
+    plan_approx_sketch_function_gate, plan_cpu_operator_specialization,
+    plan_observability_schema_coverage, plan_rfc_coverage_followthrough,
     plan_user_capability_promotion_gate, plan_world_class_sufficiency,
 };
 use shardloom_exec::{
@@ -7285,7 +7285,7 @@ fn append_execution_certificate_surface_side_effect_fields(
     push_count_field(fields, "diagnostic_count", report.diagnostics.len());
 }
 
-fn stateful_reuse_fields(report: &StatefulReuseReport) -> Vec<(String, String)> {
+pub(crate) fn stateful_reuse_fields(report: &StatefulReuseReport) -> Vec<(String, String)> {
     let mut fields = vec![];
     append_stateful_reuse_identity_fields(&mut fields, report);
     append_stateful_reuse_requirement_fields(&mut fields, report);
@@ -7409,7 +7409,7 @@ fn append_stateful_reuse_side_effect_fields(
     push_count_field(fields, "diagnostic_count", report.diagnostics.len());
 }
 
-fn stateful_reuse_promotion_gate_fields(
+pub(crate) fn stateful_reuse_promotion_gate_fields(
     report: &StatefulReusePromotionGateReport,
 ) -> Vec<(String, String)> {
     let mut fields = vec![];
@@ -16924,7 +16924,7 @@ fn append_encoded_count_kernel_admission_fields(
     );
 }
 
-fn emit_layout_health_plan(format: OutputFormat, scenario: &str) -> ExitCode {
+pub(crate) fn emit_layout_health_plan(format: OutputFormat, scenario: &str) -> ExitCode {
     let manifest = match layout_health_fixture(scenario) {
         Ok(manifest) => manifest,
         Err(error) => {
@@ -17060,7 +17060,7 @@ fn append_layout_health_side_effect_fields(
     );
 }
 
-fn emit_compaction_plan(format: OutputFormat, scenario: &str) -> ExitCode {
+pub(crate) fn emit_compaction_plan(format: OutputFormat, scenario: &str) -> ExitCode {
     let manifest = match layout_health_fixture(scenario) {
         Ok(manifest) => manifest,
         Err(error) => {
@@ -17209,7 +17209,7 @@ fn append_compaction_side_effect_fields(
     );
 }
 
-fn emit_table_intelligence_plan(format: OutputFormat) -> ExitCode {
+pub(crate) fn emit_table_intelligence_plan(format: OutputFormat) -> ExitCode {
     let report = TableIntelligenceReport::report_only_foundation();
     let status = if report.has_errors() {
         CommandStatus::Unsupported
@@ -17293,7 +17293,7 @@ fn table_intelligence_output_fields(report: &TableIntelligenceReport) -> Vec<(St
     fields
 }
 
-fn catalog_metadata_integration_gate_fields(
+pub(crate) fn catalog_metadata_integration_gate_fields(
     report: &CatalogMetadataIntegrationGateReport,
 ) -> Vec<(String, String)> {
     let mut fields = vec![];
@@ -18897,7 +18897,7 @@ fn layout_health_segment(
     ))
 }
 
-fn emit_cdc_incremental_plan(format: OutputFormat, scenario: &str) -> ExitCode {
+pub(crate) fn emit_cdc_incremental_plan(format: OutputFormat, scenario: &str) -> ExitCode {
     let (change_set, cdc_events) = match cdc_incremental_fixture(scenario) {
         Ok(parts) => parts,
         Err(error) => {
@@ -21702,110 +21702,14 @@ fn run(args: Vec<String>) -> ExitCode {
         Some("benchmark-claim-evidence-plan") => {
             benchmark_planning::handle_benchmark_claim_evidence_plan(args, format)
         }
-        Some("manifest-plan") => {
-            let Some(dataset_uri) = args.next() else {
-                eprintln!("usage: shardloom manifest-plan <dataset_uri>");
-                return ExitCode::from(2);
-            };
-            let uri = match DatasetUri::new(dataset_uri) {
-                Ok(uri) => uri,
-                Err(error) => {
-                    return emit_error(
-                        "manifest-plan",
-                        format,
-                        "invalid dataset uri",
-                        &ShardLoomError::InvalidOperation(format!("invalid dataset uri: {error}")),
-                    );
-                }
-            };
-            let dataset = match DatasetRef::from_uri(uri) {
-                Ok(dataset) => dataset,
-                Err(error) => {
-                    eprintln!("failed to create dataset reference: {error}");
-                    return ExitCode::from(2);
-                }
-            };
-            let snapshot =
-                SnapshotRef::new(SnapshotId::new("snapshot-placeholder").expect("valid"));
-            let manifest = DatasetManifest::new(
-                ManifestId::new("manifest-placeholder").expect("valid"),
-                dataset,
-                snapshot,
-            );
-            emit(
-                "manifest-plan",
-                format,
-                CommandStatus::Success,
-                "manifest plan".to_string(),
-                manifest.summary(),
-                vec![],
-                vec![("mode".to_string(), "plan_only".to_string())],
-            );
-            ExitCode::SUCCESS
-        }
-        Some("layout-health-plan") => {
-            let scenario = args.next().unwrap_or_else(|| "healthy".to_string());
-            if let Some(extra) = args.next() {
-                return emit_error(
-                    "layout-health-plan",
-                    format,
-                    "layout health planning failed",
-                    &cli_unknown_arg_error("layout-health-plan", &extra),
-                );
-            }
-            emit_layout_health_plan(format, &scenario)
-        }
-        Some("compaction-plan") => {
-            let scenario = args.next().unwrap_or_else(|| "healthy".to_string());
-            if let Some(extra) = args.next() {
-                return emit_error(
-                    "compaction-plan",
-                    format,
-                    "compaction planning failed",
-                    &cli_unknown_arg_error("compaction-plan", &extra),
-                );
-            }
-            emit_compaction_plan(format, &scenario)
-        }
+        Some("manifest-plan") => workflow_planning::handle_manifest_plan(args, format),
+        Some("layout-health-plan") => workflow_planning::handle_layout_health_plan(args, format),
+        Some("compaction-plan") => workflow_planning::handle_compaction_plan(args, format),
         Some("table-intelligence-plan") => {
-            if let Some(extra) = args.next() {
-                return emit_error(
-                    "table-intelligence-plan",
-                    format,
-                    "table intelligence planning failed",
-                    &cli_unknown_arg_error("table-intelligence-plan", &extra),
-                );
-            }
-            emit_table_intelligence_plan(format)
+            workflow_planning::handle_table_intelligence_plan(args, format)
         }
         Some("cg9-catalog-metadata-gate") => {
-            if let Some(extra) = args.next() {
-                return emit_error(
-                    "cg9-catalog-metadata-gate",
-                    format,
-                    "CG-9 catalog metadata gate failed",
-                    &cli_unknown_arg_error("cg9-catalog-metadata-gate", &extra),
-                );
-            }
-            let report = plan_catalog_metadata_integration_gate();
-            emit(
-                "cg9-catalog-metadata-gate",
-                format,
-                if report.has_errors() {
-                    CommandStatus::Unsupported
-                } else {
-                    CommandStatus::Success
-                },
-                "CG-9 catalog metadata integration gate".to_string(),
-                report.to_human_text(),
-                report.diagnostics.clone(),
-                catalog_metadata_integration_gate_fields(&report),
-            );
-            if report.has_errors() {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            }
+            workflow_planning::handle_catalog_metadata_gate(args, format)
         }
         Some("object-store-request-plan") => {
             let scenario = args.next().unwrap_or_else(|| "ready".to_string());
@@ -21908,95 +21812,9 @@ fn run(args: Vec<String>) -> ExitCode {
             }
             emit_object_store_commit_plan(format, &scenario)
         }
-        Some("incremental-plan") => {
-            let Some(snapshot_id) = args.next() else {
-                eprintln!("usage: shardloom incremental-plan <snapshot_id>|cdc <scenario>");
-                return ExitCode::from(2);
-            };
-            if snapshot_id == "cdc" {
-                if let Some(scenario) = args.next() {
-                    if let Some(extra) = args.next() {
-                        return emit_error(
-                            "incremental-plan",
-                            format,
-                            "CDC incremental plan failed",
-                            &cli_unknown_arg_error("incremental-plan cdc", &extra),
-                        );
-                    }
-                    return emit_cdc_incremental_plan(format, &scenario);
-                }
-            } else if let Some(extra) = args.next() {
-                return emit_error(
-                    "incremental-plan",
-                    format,
-                    "incremental plan failed",
-                    &cli_unknown_arg_error("incremental-plan", &extra),
-                );
-            }
-            let snapshot_id = match SnapshotId::new(snapshot_id) {
-                Ok(snapshot) => snapshot,
-                Err(error) => {
-                    eprintln!("invalid snapshot id: {error}");
-                    return ExitCode::from(2);
-                }
-            };
-            let change_set = ChangeSet::new(snapshot_id);
-            let plan = IncrementalPlanSkeleton::from_change_set(change_set);
-            emit(
-                "incremental-plan",
-                format,
-                CommandStatus::Success,
-                "incremental plan".to_string(),
-                plan.to_human_text(),
-                vec![],
-                vec![],
-            );
-            ExitCode::SUCCESS
-        }
-        Some("stateful-reuse-plan") => {
-            let command = "stateful-reuse-plan";
-            let report = plan_stateful_reuse();
-            emit(
-                command,
-                format,
-                if report.has_errors() {
-                    CommandStatus::Unsupported
-                } else {
-                    CommandStatus::Success
-                },
-                "stateful reuse plan".to_string(),
-                report.to_human_text(),
-                report.diagnostics.clone(),
-                stateful_reuse_fields(&report),
-            );
-            if report.has_errors() {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            }
-        }
-        Some("cg17-stateful-reuse-gate") => {
-            let command = "cg17-stateful-reuse-gate";
-            let report = plan_stateful_reuse_promotion_gate();
-            emit(
-                command,
-                format,
-                if report.has_errors() {
-                    CommandStatus::Unsupported
-                } else {
-                    CommandStatus::Success
-                },
-                "CG-17 stateful reuse promotion gate".to_string(),
-                report.to_human_text(),
-                report.diagnostics.clone(),
-                stateful_reuse_promotion_gate_fields(&report),
-            );
-            if report.has_errors() {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            }
-        }
+        Some("incremental-plan") => workflow_planning::handle_incremental_plan(args, format),
+        Some("stateful-reuse-plan") => workflow_planning::handle_stateful_reuse_plan(format),
+        Some("cg17-stateful-reuse-gate") => workflow_planning::handle_stateful_reuse_gate(format),
         Some("universal-harness-plan") => {
             evidence_certificates::handle_universal_harness_plan(format)
         }

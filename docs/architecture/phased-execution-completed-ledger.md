@@ -16,6 +16,41 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 workflow/table planning handler module split
+  - Primary files:
+    - `shardloom-cli/src/workflow_planning.rs`
+    - `shardloom-cli/src/main.rs`
+    - `docs/architecture/typed-command-result-envelope.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/rfcs/0039-typed-command-result-envelope-cli-modularity.md`
+  - Scope: move report-only manifest, layout-health, compaction, table-intelligence, CG-9 catalog
+    metadata, incremental, and stateful reuse planning handlers into a focused workflow module.
+  - Checklist:
+    - [x] Add `shardloom-cli/src/workflow_planning.rs`.
+    - [x] Delegate `manifest-plan`, `layout-health-plan`, `compaction-plan`,
+          `table-intelligence-plan`, `cg9-catalog-metadata-gate`, `incremental-plan`,
+          `stateful-reuse-plan`, and `cg17-stateful-reuse-gate` from `main.rs`.
+    - [x] Keep dataset reads, catalog probes, plan execution, writes, materialization, external
+          engines, and fallback disabled.
+    - [x] Update Priority 3.9 docs and RFC traceability while leaving remaining handler families in
+          the Planned queue.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --bin shardloom manifest_plan`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --bin shardloom incremental_plan`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --bin shardloom layout_health`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --bin shardloom compaction_plan`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test cg9_catalog_metadata_gate`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test cg17_stateful_reuse_gate`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test stateful_reuse_plan_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test table_intelligence_plan_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo clippy -p shardloom-cli --bin shardloom -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `git diff --check`
+  - Runtime stance: handler-placement refactor only; no dataset read, catalog probe, plan
+    execution, write, materialization, external engine invocation, network effect, credential
+    resolution, secret loading, runtime expansion, or fallback execution changes.
+
 - [x] Session label: Priority 3.9 evidence/certificate planning handler module split
   - Primary files:
     - `shardloom-cli/src/evidence_certificates.rs`
