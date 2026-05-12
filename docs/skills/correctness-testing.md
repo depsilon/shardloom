@@ -2,7 +2,8 @@
 
 ## Purpose
 
-Use this skill when designing or implementing tests, kernels, pruning rules, metadata-only answers, output translation, diagnostics, SQL semantics, UDF semantics, or reference comparisons.
+Use this skill when designing or implementing tests, kernels, pruning rules, metadata-only answers,
+output translation, diagnostics, SQL semantics, UDF semantics, or reference comparisons.
 
 ShardLoom must be correct before it is fast.
 
@@ -86,4 +87,6 @@ For diagnostics:
 
 ## Example Codex prompt fragment
 
-"Use the Correctness Testing skill. Add edge-case tests for nulls, empty inputs, all-null inputs, unsupported behavior, decoded reference comparison where appropriate, and deterministic diagnostics. External engines may be test oracles only, not fallback execution."
+"Use the Correctness Testing skill. Add edge-case tests for nulls, empty inputs, all-null inputs,
+unsupported behavior, decoded reference comparison where appropriate, and deterministic diagnostics.
+External engines may be test oracles only, not fallback execution."

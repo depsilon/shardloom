@@ -77,7 +77,8 @@ executable support from older PR-specific sections that say "this PR" or
 
 ## API discovery update
 
-- Added `docs/architecture/vortex-public-api-inventory.md` to track inspected upstream public API areas and adapter boundaries.
+- Added `docs/architecture/vortex-public-api-inventory.md` to track inspected upstream public API
+  areas and adapter boundaries.
 - Current adapter work remains mapping/readiness only.
 - No actual Vortex IO is implemented in this phase.
 - No fallback execution was introduced.
@@ -85,7 +86,8 @@ executable support from older PR-specific sections that say "this PR" or
 
 ## Typed DType mapping update
 
-- Typed DType mapping is deferred in this PR because a compile-safe public typed API could not be confirmed in this environment.
+- Typed DType mapping is deferred in this PR because a compile-safe public typed API could not be
+  confirmed in this environment.
 - Public upstream typed API used: none.
 - Name-based DType mapping remains available as a temporary adapter utility.
 - No actual Vortex IO was implemented.
@@ -102,7 +104,9 @@ executable support from older PR-specific sections that say "this PR" or
 
 ## Typed statistics mapping update
 
-- Typed statistics mapping: deferred in this PR (`deferred_api_unclear`) because a compile-safe, unambiguous public upstream API surface for typed statistics mapping was not confirmed in this environment.
+- Typed statistics mapping: deferred in this PR (`deferred_api_unclear`) because a compile-safe,
+  unambiguous public upstream API surface for typed statistics mapping was not confirmed in this
+  environment.
 - Public upstream statistics API used: none.
 - `ShardLoom` `SegmentStats` placeholder mapping remains available for planning/reporting utility.
 - No actual Vortex IO implemented.
@@ -122,28 +126,38 @@ executable support from older PR-specific sections that say "this PR" or
 
 - Upstream `vortex` dependency is now feature-gated in `shardloom-vortex` (`upstream-vortex`).
 - Default workspace builds do not enable the broad upstream Vortex graph by default.
-- `vortex-file-io`, `vortex-object-store`, and `vortex-write` are declared as staged feature gates only.
+- `vortex-file-io`, `vortex-object-store`, and `vortex-write` are declared as staged feature gates
+  only.
 - File IO and object-store IO remain disabled by default and unimplemented.
 - No DataFusion/Spark/DuckDB/Polars/Velox/vortex-datafusion direct dependencies were introduced.
 - No fallback execution behavior was introduced.
 
 ## Universal-format local benchmark bridge dependencies
 
-- `shardloom-vortex` now gates local structured-file benchmark bridge support behind `universal-format-io`, which is pulled only by the existing `vortex-traditional-analytics-benchmark` feature.
+- `shardloom-vortex` now gates local structured-file benchmark bridge support behind
+  `universal-format-io`, which is pulled only by the existing
+  `vortex-traditional-analytics-benchmark` feature.
 - Rust crates added under that gate:
   - `parquet 58.2.0` for local Parquet record-batch reads/writes.
   - `arrow-ipc 58.2.0` for Arrow IPC reads/writes.
   - `arrow-avro 58.2.0` for Avro reads/writes.
   - `orc-rust 0.8.0` for ORC reads/writes.
   - `arrow-array 58.2.0` and `arrow-schema 58.2.0` for Arrow boundary arrays and schemas.
-  - `arrow-json 58.2.0` is reserved under the same gate for JSON/NDJSON boundary work; the current deterministic JSONL fixture parser remains local and narrow.
+  - `arrow-json 58.2.0` is reserved under the same gate for JSON/NDJSON boundary work; the current
+    deterministic JSONL fixture parser remains local and narrow.
 - License/provenance:
   - Apache Arrow Rust crates are Apache-2.0.
   - `orc-rust` is Apache-2.0.
-  - Benchmark fixture generation uses Python `fastavro 1.12.2` in `benchmarks/traditional_analytics/requirements.txt`; `pip show fastavro` reports MIT license.
+  - Benchmark fixture generation uses Python `fastavro 1.12.2` in
+    `benchmarks/traditional_analytics/requirements.txt`; `pip show fastavro` reports MIT license.
 - Scope:
   - Default workspace builds remain lightweight and do not enable these dependencies.
-  - These dependencies do not introduce Spark, DataFusion, DuckDB, Polars, Velox, Trino, Dask, Ray, Calcite, or `vortex-datafusion`.
-  - They are file-format boundary readers/writers for local benchmark smoke and troubleshooting only, not execution engines or fallback paths.
-  - Compatibility-format input is imported into native local Vortex output before the temporary benchmark operator runs.
-  - Production adapter certification, object-store IO, catalog/table metadata IO, distributed execution, SQL/DataFrame/UDF runtime, and performance/superiority claims remain separate future work.
+  - These dependencies do not introduce Spark, DataFusion, DuckDB, Polars, Velox, Trino, Dask, Ray,
+    Calcite, or `vortex-datafusion`.
+  - They are file-format boundary readers/writers for local benchmark smoke and troubleshooting
+    only, not execution engines or fallback paths.
+  - Compatibility-format input is imported into native local Vortex output before the temporary
+    benchmark operator runs.
+  - Production adapter certification, object-store IO, catalog/table metadata IO, distributed
+    execution, SQL/DataFrame/UDF runtime, and performance/superiority claims remain separate future
+    work.

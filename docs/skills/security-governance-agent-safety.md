@@ -2,7 +2,8 @@
 
 ## Purpose
 
-Guide security-sensitive ShardLoom work so credentials, permissions, side effects, auditability, and agent behavior remain explicit, deterministic, and no-fallback.
+Guide security-sensitive ShardLoom work so credentials, permissions, side effects, auditability, and
+agent behavior remain explicit, deterministic, and no-fallback.
 
 ## When to use
 
@@ -41,4 +42,6 @@ Use this skill for:
 
 ## Example Codex prompt fragment
 
-"Design capability-gated external write behavior for `<target>` with explicit approval, dry-run-safe validation, redacted diagnostics/audit output, deterministic failure codes, and no fallback execution."
+"Design capability-gated external write behavior for `<target>` with explicit approval, dry-run-safe
+validation, redacted diagnostics/audit output, deterministic failure codes, and no fallback
+execution."

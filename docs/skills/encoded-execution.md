@@ -4,7 +4,8 @@
 
 Use this skill when designing or implementing execution over encoded columnar data.
 
-The goal is to make ShardLoom compute directly over encoded segments where possible, rather than always decoding into a generic representation first.
+The goal is to make ShardLoom compute directly over encoded segments where possible, rather than
+always decoding into a generic representation first.
 
 ## When to use
 
@@ -84,4 +85,6 @@ For late materialization:
 
 When implementing encoded execution, include this instruction:
 
-"Use the Encoded Execution skill. Prefer metadata, pruning, encoded evaluation, partial decode, and late materialization in that order. Preserve selection vectors. Test null semantics and compare against decoded reference results. Do not add fallback execution."
+"Use the Encoded Execution skill. Prefer metadata, pruning, encoded evaluation, partial decode, and
+late materialization in that order. Preserve selection vectors. Test null semantics and compare
+against decoded reference results. Do not add fallback execution."

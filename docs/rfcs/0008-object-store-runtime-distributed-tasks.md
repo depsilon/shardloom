@@ -8,17 +8,23 @@ Draft
 
 This RFC defines ShardLoom's object-store-native runtime and future distributed task model.
 
-ShardLoom's goal is not only to compete with single-node engines. To displace Spark for massive workloads, ShardLoom needs a runtime model for object-store reads, segment-level tasks, retries, idempotency, bounded resource use, shuffle avoidance, and eventually distributed execution.
+ShardLoom's goal is not only to compete with single-node engines. To displace Spark for massive
+workloads, ShardLoom needs a runtime model for object-store reads, segment-level tasks, retries,
+idempotency, bounded resource use, shuffle avoidance, and eventually distributed execution.
 
 This RFC defines the architecture direction without implementing distributed execution yet.
 
 ## Context
 
-Spark remains useful because it handles scale, retries, distributed tasks, shuffle, and large writes.
+Spark remains useful because it handles scale, retries, distributed tasks, shuffle, and large
+writes.
 
-ShardLoom must eventually support large workloads without Spark fallback. That requires treating object storage as the primary data environment and encoded Vortex segments as the primary scheduling unit.
+ShardLoom must eventually support large workloads without Spark fallback. That requires treating
+object storage as the primary data environment and encoded Vortex segments as the primary scheduling
+unit.
 
-ShardLoom should avoid becoming "Spark but in Rust." It should preserve its encoded-columnar, metadata-first, and shuffle-avoidant design.
+ShardLoom should avoid becoming "Spark but in Rust." It should preserve its encoded-columnar,
+metadata-first, and shuffle-avoidant design.
 
 ## Goals
 
@@ -61,7 +67,8 @@ ShardLoom should design toward a runtime with these concepts:
 - CommitPlan.
 - RuntimeDiagnostics.
 
-Distributed execution should be introduced only after the single-node encoded execution contracts are clear.
+Distributed execution should be introduced only after the single-node encoded execution contracts
+are clear.
 
 ## Runtime principles
 
@@ -460,7 +467,8 @@ Output commit behavior should eventually support:
 - Cleanup.
 - Failure diagnostics.
 
-Atomicity depends on storage/catalog capabilities. If atomic commit cannot be guaranteed, ShardLoom must document the limitation.
+Atomicity depends on storage/catalog capabilities. If atomic commit cannot be guaranteed, ShardLoom
+must document the limitation.
 
 ## Failure behavior
 
@@ -498,13 +506,15 @@ ShardLoom may study or benchmark against other systems, but must own its runtime
 
 Rejected.
 
-ShardLoom should establish single-node encoded execution, Vortex IO, statistics/pruning, and translation contracts first.
+ShardLoom should establish single-node encoded execution, Vortex IO, statistics/pruning, and
+translation contracts first.
 
 ### Schedule by file instead of segment
 
 Rejected as the primary model.
 
-File-level scheduling may be useful for coarse planning, but segment-level planning better fits Vortex-native execution.
+File-level scheduling may be useful for coarse planning, but segment-level planning better fits
+Vortex-native execution.
 
 ## Risks
 
@@ -551,7 +561,8 @@ Future implementation PRs should verify:
 
 ### Future runtime vocabulary
 
-The following runtime vocabulary is conceptual contract direction only and does not authorize distributed execution in the current phase.
+The following runtime vocabulary is conceptual contract direction only and does not authorize
+distributed execution in the current phase.
 
 #### SplitSource
 
@@ -650,7 +661,8 @@ Conceptual terms added for future runtime contracts:
 - `TaskGranularityPolicy`
 
 Artifact taxonomy note:
-- spill, exchange, runtime filters, commit staging, and profile samples are distinct artifact classes.
+- spill, exchange, runtime filters, commit staging, and profile samples are distinct artifact
+  classes.
 
 R5.1 scope note:
 - no object-store IO is implemented in this pass.

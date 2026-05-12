@@ -2,7 +2,9 @@
 
 ## Summary
 
-ShardLoom is a standalone encoded-columnar distributed execution engine designed to compute directly over Vortex-native layouts, produce Vortex-native and lakehouse-compatible outputs, and eliminate Spark dependency for massive object-store workloads.
+ShardLoom is a standalone encoded-columnar distributed execution engine designed to compute directly
+over Vortex-native layouts, produce Vortex-native and lakehouse-compatible outputs, and eliminate
+Spark dependency for massive object-store workloads.
 
 ## Goals
 

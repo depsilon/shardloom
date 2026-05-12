@@ -2,7 +2,8 @@
 
 ## Purpose
 
-Use this skill when working on object-store IO, distributed execution, task scheduling, retries, byte ranges, manifests, spilling, or commit behavior.
+Use this skill when working on object-store IO, distributed execution, task scheduling, retries,
+byte ranges, manifests, spilling, or commit behavior.
 
 The goal is to make ShardLoom object-store-native and Spark-free for large lakehouse workloads.
 
@@ -79,4 +80,5 @@ For output commits:
 
 When working on object-store or runtime behavior, include this instruction:
 
-"Use the Object Store and Runtime skill. Plan around byte ranges, retries, idempotency, bounded resources, and atomic or documented commit behavior. Avoid shuffle and do not add Spark fallback."
+"Use the Object Store and Runtime skill. Plan around byte ranges, retries, idempotency, bounded
+resources, and atomic or documented commit behavior. Avoid shuffle and do not add Spark fallback."

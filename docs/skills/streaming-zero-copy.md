@@ -2,7 +2,9 @@
 
 ## Purpose
 
-Use this skill when designing or implementing streaming execution, zero-copy interoperability, zero-decode execution, sink-driven output, materialization boundaries, Arrow-like boundaries, or future Flight/FlightSQL-like surfaces.
+Use this skill when designing or implementing streaming execution, zero-copy interoperability,
+zero-decode execution, sink-driven output, materialization boundaries, Arrow-like boundaries, or
+future Flight/FlightSQL-like surfaces.
 
 ShardLoom should minimize data work in this order:
 
@@ -118,4 +120,7 @@ For diagnostics:
 
 ## Example Codex prompt fragment
 
-"Use the Streaming, Zero-Copy, and Zero-Decode skill. Prefer metadata-only, pruning, encoded execution, zero-copy boundaries, partial decode, and late materialization in that order. Streaming must be explicit and diagnosable. Do not silently fallback to full in-memory execution. Arrow-like boundaries are interop surfaces, not internal execution."
+"Use the Streaming, Zero-Copy, and Zero-Decode skill. Prefer metadata-only, pruning, encoded
+execution, zero-copy boundaries, partial decode, and late materialization in that order. Streaming
+must be explicit and diagnosable. Do not silently fallback to full in-memory execution. Arrow-like
+boundaries are interop surfaces, not internal execution."

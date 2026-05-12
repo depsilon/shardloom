@@ -2,9 +2,11 @@
 
 ## Purpose
 
-Use this skill when designing or implementing public APIs, CLI commands, diagnostics, explain output, estimate output, config files, docs, examples, or agent-facing behavior.
+Use this skill when designing or implementing public APIs, CLI commands, diagnostics, explain
+output, estimate output, config files, docs, examples, or agent-facing behavior.
 
-ShardLoom should be highly performant internally while remaining flexible, familiar, easy to use, and excellent for human developers and LLM agents.
+ShardLoom should be highly performant internally while remaining flexible, familiar, easy to use,
+and excellent for human developers and LLM agents.
 
 ## When to use
 
@@ -33,7 +35,8 @@ Use this skill for tasks involving:
 - APIs should feel familiar to data engineers and application developers.
 - CLI commands should be scriptable.
 - Agent-facing output should be deterministic and machine-readable where possible.
-- Agents should use `agent-contract-pack --format json` to discover stable command surfaces and inspection order before relying on human text.
+- Agents should use `agent-contract-pack --format json` to discover stable command surfaces and
+  inspection order before relying on human text.
 - Errors should be specific, actionable, and stable.
 - Unsupported behavior must fail explicitly.
 - Diagnostics should explain that no fallback execution occurred.
@@ -88,4 +91,6 @@ For agent-facing behavior:
 
 ## Example Codex prompt fragment
 
-"Use the Developer and Agent Experience skill. Keep the external API familiar and simple, expose structured diagnostics, support future machine-readable output, make native Vortex output obvious, and do not introduce fallback execution."
+"Use the Developer and Agent Experience skill. Keep the external API familiar and simple, expose
+structured diagnostics, support future machine-readable output, make native Vortex output obvious,
+and do not introduce fallback execution."

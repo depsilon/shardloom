@@ -8,15 +8,20 @@ Draft
 
 This RFC defines ShardLoom's native dataset, manifest, snapshot, and incremental change model.
 
-ShardLoom's long-term goal is to handle massive object-store and lakehouse workloads without Spark fallback. To do that, ShardLoom needs a native way to reason about datasets as collections of encoded Vortex segments, immutable snapshots, manifests, changed segments, and idempotent commits.
+ShardLoom's long-term goal is to handle massive object-store and lakehouse workloads without Spark
+fallback. To do that, ShardLoom needs a native way to reason about datasets as collections of
+encoded Vortex segments, immutable snapshots, manifests, changed segments, and idempotent commits.
 
-This RFC does not define a new lakehouse table format. Instead, it defines ShardLoom's internal dataset planning model.
+This RFC does not define a new lakehouse table format. Instead, it defines ShardLoom's internal
+dataset planning model.
 
 ## Context
 
-Spark remains difficult to displace for massive workloads because it handles large-scale scans, incremental writes, retries, task distribution, shuffle, and operational recovery.
+Spark remains difficult to displace for massive workloads because it handles large-scale scans,
+incremental writes, retries, task distribution, shuffle, and operational recovery.
 
-ShardLoom cannot displace Spark only by being faster on single-node scans. It needs a native model for:
+ShardLoom cannot displace Spark only by being faster on single-node scans. It needs a native model
+for:
 
 - Dataset snapshots.
 - Segment manifests.
@@ -28,7 +33,9 @@ ShardLoom cannot displace Spark only by being faster on single-node scans. It ne
 - Native Vortex output.
 - Compatibility exports.
 
-ShardLoom should avoid table-format overreach early. Iceberg, Delta, and other table formats already solve snapshot and table semantics for many environments. ShardLoom should first define the internal model it needs to plan and execute efficiently.
+ShardLoom should avoid table-format overreach early. Iceberg, Delta, and other table formats already
+solve snapshot and table semantics for many environments. ShardLoom should first define the internal
+model it needs to plan and execute efficiently.
 
 ## Goals
 
@@ -68,11 +75,13 @@ A NativeDataset may be backed by:
 - Object-store paths.
 - Future compatibility bridges to lakehouse table formats.
 
-A NativeDataset is not necessarily a database table. It is ShardLoom's planning unit for encoded-columnar execution.
+A NativeDataset is not necessarily a database table. It is ShardLoom's planning unit for
+encoded-columnar execution.
 
 ### DatasetManifest
 
-A metadata document describing the physical files, segments, statistics, layout hints, schema information, and snapshot identity needed to plan execution.
+A metadata document describing the physical files, segments, statistics, layout hints, schema
+information, and snapshot identity needed to plan execution.
 
 A manifest should enable ShardLoom to answer these questions before reading data:
 
@@ -169,7 +178,8 @@ A CommitRecord should describe:
 
 ## Decision
 
-ShardLoom should introduce a native dataset planning model based on immutable snapshots and segment manifests.
+ShardLoom should introduce a native dataset planning model based on immutable snapshots and segment
+manifests.
 
 The initial design should prioritize:
 
@@ -207,7 +217,8 @@ Snapshot identity may be based on:
 - External table-format snapshot id.
 - Manifest hash.
 
-The exact implementation can evolve, but snapshots should be stable enough for repeatable reads and incremental planning.
+The exact implementation can evolve, but snapshots should be stable enough for repeatable reads and
+incremental planning.
 
 ### Manifest structure
 
@@ -254,7 +265,8 @@ ShardLoom should identify:
 - Segments that can be reused.
 - Segments that can be skipped.
 
-This is necessary for Spark-displacement workloads because massive data volumes are often incrementally updated rather than fully recomputed.
+This is necessary for Spark-displacement workloads because massive data volumes are often
+incrementally updated rather than fully recomputed.
 
 ### Changed-segment planning
 
@@ -381,7 +393,8 @@ A write should be represented as:
 6. Record commit metadata.
 7. Clean up temporary files when possible.
 
-Atomicity depends on the storage system and catalog. If atomicity cannot be guaranteed, ShardLoom must document the limitation clearly.
+Atomicity depends on the storage system and catalog. If atomicity cannot be guaranteed, ShardLoom
+must document the limitation clearly.
 
 ## Failure behavior
 
@@ -405,7 +418,9 @@ Failures must not trigger Spark, DataFusion, or another engine as fallback.
 
 Rejected for early ShardLoom.
 
-Iceberg and Delta are valuable compatibility targets, but using them as the native model too early could tie ShardLoom's internal execution to external table semantics before its Vortex-native segment model is mature.
+Iceberg and Delta are valuable compatibility targets, but using them as the native model too early
+could tie ShardLoom's internal execution to external table semantics before its Vortex-native
+segment model is mature.
 
 ### Use Vortex files only, with no manifest model
 

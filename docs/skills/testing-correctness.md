@@ -2,7 +2,8 @@
 
 ## Purpose
 
-Use this skill when adding tests, changing behavior, implementing operators, changing errors, or validating encoded execution against decoded reference behavior.
+Use this skill when adding tests, changing behavior, implementing operators, changing errors, or
+validating encoded execution against decoded reference behavior.
 
 The goal is to make ShardLoom correct before it is fast.
 
@@ -78,4 +79,6 @@ For operator changes:
 
 When adding or changing behavior, include this instruction:
 
-"Use the Testing and Correctness skill. Add success and failure tests, including empty inputs, nulls, unsupported diagnostics, and decoded reference checks where appropriate. Correctness comes before performance."
+"Use the Testing and Correctness skill. Add success and failure tests, including empty inputs,
+nulls, unsupported diagnostics, and decoded reference checks where appropriate. Correctness comes
+before performance."

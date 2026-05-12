@@ -8,7 +8,9 @@ Draft
 
 This RFC defines ShardLoom's extension, plugin ABI, and sandboxing design.
 
-ShardLoom should be flexible enough to support UDFs, connectors, output targets, LLM/API effects, embeddings, vector search, and enterprise-specific integrations. That flexibility must not compromise correctness, safety, licensing, governance, or no-fallback architecture.
+ShardLoom should be flexible enough to support UDFs, connectors, output targets, LLM/API effects,
+embeddings, vector search, and enterprise-specific integrations. That flexibility must not
+compromise correctness, safety, licensing, governance, or no-fallback architecture.
 
 ## Context
 
@@ -30,7 +32,9 @@ ShardLoom is designed to support modular use cases:
 - Observability exporters.
 - Catalog integrations.
 
-Extensions will eventually shape how users integrate external systems, define custom compute behavior, and compose effectful operations. Without explicit contracts, extension flexibility can hide fallback execution, introduce safety gaps, or weaken deterministic diagnostics.
+Extensions will eventually shape how users integrate external systems, define custom compute
+behavior, and compose effectful operations. Without explicit contracts, extension flexibility can
+hide fallback execution, introduce safety gaps, or weaken deterministic diagnostics.
 
 ## Goals
 
@@ -56,7 +60,8 @@ Extensions will eventually shape how users integrate external systems, define cu
 
 ## Core principle
 
-Extensions should expand ShardLoom's capability surface without hiding execution, effects, dependencies, permissions, or fallback behavior.
+Extensions should expand ShardLoom's capability surface without hiding execution, effects,
+dependencies, permissions, or fallback behavior.
 
 An extension must declare:
 
@@ -95,7 +100,8 @@ ShardLoom should model extension categories explicitly:
 - Observability exporter.
 - Benchmark provider.
 
-Category-specific contracts should remain strict about effects, determinism, and execution boundaries.
+Category-specific contracts should remain strict about effects, determinism, and execution
+boundaries.
 
 ### Extension manifest
 
@@ -182,7 +188,8 @@ Future UDF execution modes may include:
 - SQL-defined UDFs.
 - External service UDFs.
 
-Tradeoff evaluation should prioritize correctness, deterministic diagnostics, sandbox isolation, overhead transparency, and no-fallback guarantees.
+Tradeoff evaluation should prioritize correctness, deterministic diagnostics, sandbox isolation,
+overhead transparency, and no-fallback guarantees.
 
 ### ABI/API stability
 
@@ -267,11 +274,13 @@ Extension diagnostics should include:
 
 Agents should inspect extension manifests safely without executing extension code.
 
-Agent-facing capability discovery should remain deterministic, machine-readable, and explicit about unsupported behavior.
+Agent-facing capability discovery should remain deterministic, machine-readable, and explicit about
+unsupported behavior.
 
 ## Failure behavior
 
-Unsupported or unsafe extension behavior must fail explicitly with clear deterministic diagnostics and must not invoke Spark, DataFusion, DuckDB, Polars, Velox, or any fallback execution engine.
+Unsupported or unsafe extension behavior must fail explicitly with clear deterministic diagnostics
+and must not invoke Spark, DataFusion, DuckDB, Polars, Velox, or any fallback execution engine.
 
 ## Alternatives considered
 

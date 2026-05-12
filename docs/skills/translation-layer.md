@@ -2,9 +2,12 @@
 
 ## Purpose
 
-Use this skill when implementing or designing output translation from ShardLoom's native execution representation into Vortex, Parquet, Arrow IPC, Iceberg-compatible files, Delta-compatible files, or other formats.
+Use this skill when implementing or designing output translation from ShardLoom's native execution
+representation into Vortex, Parquet, Arrow IPC, Iceberg-compatible files, Delta-compatible files, or
+other formats.
 
-The goal is to preserve Vortex as the highest-fidelity native output while supporting practical ecosystem compatibility.
+The goal is to preserve Vortex as the highest-fidelity native output while supporting practical
+ecosystem compatibility.
 
 ## When to use
 
@@ -31,9 +34,11 @@ Use this skill for tasks involving:
 - If a target cannot preserve Vortex-specific metadata, the loss should be explicit.
 - Prefer a translation report or compatibility report over silent metadata loss.
 - Schema, nullability, ordering, statistics, and layout hints should be preserved where possible.
-- Translation should avoid unnecessary materialization when the target can support efficient columnar output.
+- Translation should avoid unnecessary materialization when the target can support efficient
+  columnar output.
 - Output behavior should be deterministic and testable.
-- Do not make Iceberg or Delta table semantics part of the core engine too early. Treat them initially as compatible output layouts unless an RFC says otherwise.
+- Do not make Iceberg or Delta table semantics part of the core engine too early. Treat them
+  initially as compatible output layouts unless an RFC says otherwise.
 
 ## Required checks
 
@@ -69,4 +74,6 @@ For translation reports:
 
 When working on output formats, include this instruction:
 
-"Use the Translation Layer skill. Preserve Vortex as the highest-fidelity native output. Treat Parquet, Arrow IPC, Iceberg-compatible, and Delta-compatible outputs as compatibility exports. Report metadata loss explicitly. Do not add fallback execution."
+"Use the Translation Layer skill. Preserve Vortex as the highest-fidelity native output. Treat
+Parquet, Arrow IPC, Iceberg-compatible, and Delta-compatible outputs as compatibility exports.
+Report metadata loss explicitly. Do not add fallback execution."

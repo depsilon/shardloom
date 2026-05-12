@@ -2,15 +2,18 @@
 
 ## Purpose
 
-Use this skill when designing extension, plugin ABI, UDF runtime boundary, connector safety, or capability manifest behavior.
+Use this skill when designing extension, plugin ABI, UDF runtime boundary, connector safety, or
+capability manifest behavior.
 
 ## When to use
 
-Use this document when work touches extension manifests, plugin lifecycle, capability reporting, permission models, effect models, sandboxing policy, or agent-safe extension inspection.
+Use this document when work touches extension manifests, plugin lifecycle, capability reporting,
+permission models, effect models, sandboxing policy, or agent-safe extension inspection.
 
 ## Rules
 
-- Extensions must declare capabilities, permissions, effect level, determinism, materialization requirements, and license/provenance metadata.
+- Extensions must declare capabilities, permissions, effect level, determinism, materialization
+  requirements, and license/provenance metadata.
 - Untrusted code must be sandbox-aware and must not run with unrestricted host access.
 - Extension inspection must not execute extension code.
 - Planned capabilities must not appear as supported.
@@ -33,8 +36,11 @@ Use this document when work touches extension manifests, plugin lifecycle, capab
 - Extension loading paths that execute code during metadata inspection.
 - Missing permission/effect declarations for external reads, writes, model calls, or API calls.
 - Unbounded filesystem/network/secret access in default plugin settings.
-- Hidden dependencies that imply Spark, DataFusion, DuckDB, Polars, Velox, or other fallback execution.
+- Hidden dependencies that imply Spark, DataFusion, DuckDB, Polars, Velox, or other fallback
+  execution.
 
 ## Example Codex prompt fragment
 
-"Design this extension contract as manifest-first and sandbox-aware. Require explicit capability, permission, effect, determinism, materialization, and license/provenance fields. Ensure inspection is non-executing and preserve no-fallback execution with deterministic unsupported diagnostics."
+"Design this extension contract as manifest-first and sandbox-aware. Require explicit capability,
+permission, effect, determinism, materialization, and license/provenance fields. Ensure inspection
+is non-executing and preserve no-fallback execution with deterministic unsupported diagnostics."

@@ -2,7 +2,9 @@
 
 ## Purpose
 
-This document inventories feature, dependency, capability, and doctor status surfaces that should converge on `FeatureFootprintReport`. Active queue and completion state live in `docs/architecture/phased-execution-plan.md`.
+This document inventories feature, dependency, capability, and doctor status surfaces that should
+converge on `FeatureFootprintReport`. Active queue and completion state live in
+`docs/architecture/phased-execution-plan.md`.
 
 It does not implement runtime behavior, authorize fallback execution, or add dependencies.
 
@@ -12,7 +14,8 @@ It does not implement runtime behavior, authorize fallback execution, or add dep
 - Upstream `Vortex` remains feature-gated.
 - Feature-gated Vortex IO paths must stay explicit and narrow.
 - Fallback engines remain absent and disallowed.
-- `doctor`, `capabilities`, and output envelopes should expose consistent feature/fallback state through stable report fields.
+- `doctor`, `capabilities`, and output envelopes should expose consistent feature/fallback state
+  through stable report fields.
 
 ## Surface Inventory
 
@@ -62,7 +65,8 @@ It does not implement runtime behavior, authorize fallback execution, or add dep
   - No direct or transitive DataFusion runtime dependency.
   - No direct or transitive `vortex-datafusion` runtime dependency.
   - No direct or transitive DuckDB, Polars, or Velox runtime dependency.
-  - External engines may appear only in external baseline scopes and must not be runtime dependencies.
+  - External engines may appear only in external baseline scopes and must not be runtime
+    dependencies.
 - [~] Future tests
   - Default `shardloom-vortex` feature graph remains lightweight.
   - `FeatureFootprintReport` fallback allowed false.
@@ -90,7 +94,8 @@ It does not implement runtime behavior, authorize fallback execution, or add dep
 - [x] R3.5e
   - Added direct `feature-footprint` CLI exposure for the no-probe report.
   - Routed `doctor` through `FeatureFootprintReport`.
-  - Kept behavior deterministic with no environment probes, dependencies, runtime execution, or fallback execution.
+  - Kept behavior deterministic with no environment probes, dependencies, runtime execution, or
+    fallback execution.
 
 ## Guardrails
 

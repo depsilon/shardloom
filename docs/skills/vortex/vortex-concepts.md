@@ -2,9 +2,11 @@
 
 ## Purpose
 
-Use this skill when reasoning about Vortex DTypes, arrays, encodings, layouts, statistics, validity, or native execution boundaries.
+Use this skill when reasoning about Vortex DTypes, arrays, encodings, layouts, statistics, validity,
+or native execution boundaries.
 
-The goal is to ensure ShardLoom understands Vortex's logical and physical model before implementing execution behavior.
+The goal is to ensure ShardLoom understands Vortex's logical and physical model before implementing
+execution behavior.
 
 ## Key concepts
 
@@ -56,4 +58,6 @@ Before implementing Vortex-related behavior, identify:
 
 ## Example Codex prompt fragment
 
-"Use the Vortex Concepts skill. Preserve the distinction between logical DType and physical encoding. Do not assume decoded Arrow execution. Identify DType, encoding, layout, statistics, and validity before implementing behavior."
+"Use the Vortex Concepts skill. Preserve the distinction between logical DType and physical
+encoding. Do not assume decoded Arrow execution. Identify DType, encoding, layout, statistics, and
+validity before implementing behavior."

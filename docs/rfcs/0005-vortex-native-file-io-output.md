@@ -8,13 +8,17 @@ Draft
 
 This RFC defines ShardLoom's Vortex-native file IO and output contract.
 
-ShardLoom must treat Vortex as both a first-class input format and a first-class output format. Reading Vortex should preserve metadata, statistics, encodings, layouts, and validity information where possible. Writing Vortex should be the highest-fidelity persistence path.
+ShardLoom must treat Vortex as both a first-class input format and a first-class output format.
+Reading Vortex should preserve metadata, statistics, encodings, layouts, and validity information
+where possible. Writing Vortex should be the highest-fidelity persistence path.
 
 ## Context
 
-ShardLoom's architecture depends on computing over encoded Vortex-native layouts. If ShardLoom reads Vortex into decoded Arrow arrays as the default path, it loses its main advantage.
+ShardLoom's architecture depends on computing over encoded Vortex-native layouts. If ShardLoom reads
+Vortex into decoded Arrow arrays as the default path, it loses its main advantage.
 
-Likewise, if ShardLoom writes only Parquet or Arrow IPC, it loses the ability to preserve native physical metadata for future incremental and encoded execution.
+Likewise, if ShardLoom writes only Parquet or Arrow IPC, it loses the ability to preserve native
+physical metadata for future incremental and encoded execution.
 
 ShardLoom therefore needs a clear Vortex-native file IO contract.
 
@@ -54,7 +58,8 @@ ShardLoom should define native Vortex IO around the following concepts:
 - VortexOutputCommit.
 - VortexUnsupportedDiagnostic.
 
-These concepts should keep Vortex-specific behavior isolated primarily in the Vortex crate while exposing clean domain types to the planner and runtime.
+These concepts should keep Vortex-specific behavior isolated primarily in the Vortex crate while
+exposing clean domain types to the planner and runtime.
 
 ## Detailed design
 
@@ -268,7 +273,8 @@ This would erase the primary ShardLoom advantage.
 
 Rejected for core execution.
 
-ShardLoom may compare against DataFusion or learn from integrations, but it must not use DataFusion as execution fallback.
+ShardLoom may compare against DataFusion or learn from integrations, but it must not use DataFusion
+as execution fallback.
 
 ### Write Parquet first
 

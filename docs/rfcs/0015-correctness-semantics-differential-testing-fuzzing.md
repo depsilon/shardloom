@@ -10,13 +10,18 @@ This RFC defines ShardLoom's correctness, semantics, differential testing, and f
 
 ShardLoom must be correct before it is fast. Fast wrong answers are unacceptable.
 
-ShardLoom's execution model is ambitious: Vortex-native encoded execution, metadata-only answers, pruning, partial decode, late materialization, streaming, spill, UDFs, SQL, unstructured data, LLM/API effects, embeddings, and compatibility exports.
+ShardLoom's execution model is ambitious: Vortex-native encoded execution, metadata-only answers,
+pruning, partial decode, late materialization, streaming, spill, UDFs, SQL, unstructured data,
+LLM/API effects, embeddings, and compatibility exports.
 
-That complexity requires a rigorous correctness strategy before serious execution kernels are implemented.
+That complexity requires a rigorous correctness strategy before serious execution kernels are
+implemented.
 
 ## Context
 
-ShardLoom is designed to avoid unnecessary reads, decoding, copying, materialization, shuffle, and distribution. These optimizations can create correctness risk if they are not tested against stable semantics.
+ShardLoom is designed to avoid unnecessary reads, decoding, copying, materialization, shuffle, and
+distribution. These optimizations can create correctness risk if they are not tested against stable
+semantics.
 
 Examples of correctness risks:
 
@@ -66,9 +71,11 @@ ShardLoom needs a correctness system that catches these before performance claim
 
 ShardLoom should never trade correctness for performance.
 
-The execution optimizer may avoid work only when correctness can be proven or conservatively preserved.
+The execution optimizer may avoid work only when correctness can be proven or conservatively
+preserved.
 
-Incorrect pruning, incorrect metadata-only answers, incorrect null handling, and incorrect materialization boundaries are correctness bugs.
+Incorrect pruning, incorrect metadata-only answers, incorrect null handling, and incorrect
+materialization boundaries are correctness bugs.
 
 ## Semantic areas
 
@@ -186,7 +193,8 @@ Pruning is only correct when a segment can be proven irrelevant.
 
 Pruning rules must be conservative.
 
-If statistics are missing, approximate, or insufficient, ShardLoom must use native execution or fail explicitly if native execution is unsupported.
+If statistics are missing, approximate, or insufficient, ShardLoom must use native execution or fail
+explicitly if native execution is unsupported.
 
 Incorrect pruning is a critical correctness bug.
 
@@ -246,7 +254,8 @@ Differential testing should record:
 - Known incompatibilities.
 - Repro instructions.
 
-If external engines disagree, ShardLoom must not blindly choose one. The semantic contract must be clarified.
+If external engines disagree, ShardLoom must not blindly choose one. The semantic contract must be
+clarified.
 
 ## SQLLogicTest-style fixtures
 
@@ -264,7 +273,8 @@ Fixtures should include:
 - Unsupported diagnostics.
 - Output translation behavior.
 
-SQLLogicTest-style testing is valuable because it makes many small query correctness cases easy to read and maintain.
+SQLLogicTest-style testing is valuable because it makes many small query correctness cases easy to
+read and maintain.
 
 ## Randomized testing
 

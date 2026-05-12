@@ -20,7 +20,8 @@ The profiles are deterministic examples:
 
 - `balanced`: stable feedback with bounded backpressure.
 - `memory-pressure`: target-task-byte reduction from high-memory-pressure feedback.
-- `object-store-throttled`: target-task-byte increase/coalescing pressure from object-store throttling.
+- `object-store-throttled`: target-task-byte increase/coalescing pressure from object-store
+  throttling.
 - `small-tasks`: target-task-byte increase from scheduler overhead pressure.
 
 ## Evidence Surfaces

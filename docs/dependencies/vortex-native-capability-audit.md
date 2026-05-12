@@ -9,7 +9,8 @@ No execution/IO implementation was added.
 
 - Keep upstream usage isolated in `shardloom-vortex`; this is currently true.
 - Keep default builds lightweight (`default = []`), and keep upstream Vortex opt-in.
-- Use upstream Vortex for type/encoding/layout/statistics semantics, but only through ShardLoom adapters.
+- Use upstream Vortex for type/encoding/layout/statistics semantics, but only through ShardLoom
+  adapters.
 - Build ShardLoom-native planning, diagnostics, runtime, memory, and policy layers.
 - Avoid broadening to file/object-store/write paths until feature-gated contracts are landed.
 

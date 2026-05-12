@@ -2,14 +2,18 @@
 
 ## Purpose
 
-This document inventories diagnostic normalization work needed before or alongside future CG implementation. Active status and queue placement live in `docs/architecture/phased-execution-plan.md`.
+This document inventories diagnostic normalization work needed before or alongside future CG
+implementation. Active status and queue placement live in
+`docs/architecture/phased-execution-plan.md`.
 
-It does not authorize runtime behavior, change diagnostic semantics by itself, or permit fallback execution.
+It does not authorize runtime behavior, change diagnostic semantics by itself, or permit fallback
+execution.
 
 ## Design Posture
 
 - `shardloom-core::Diagnostic` is the canonical structured diagnostic record.
-- `DiagnosticCode`, `DiagnosticSeverity`, `DiagnosticCategory`, and `FallbackStatus` exist centrally.
+- `DiagnosticCode`, `DiagnosticSeverity`, `DiagnosticCategory`, and `FallbackStatus` exist
+  centrally.
 - `OutputEnvelope` carries diagnostics and fallback state.
 - Plan/report surfaces should preserve `fallback_execution_allowed=false`.
 - User-visible CLI/parser/error plumbing should move toward stable structured diagnostics over time.
@@ -66,7 +70,8 @@ It does not authorize runtime behavior, change diagnostic semantics by itself, o
   - Added `cli_missing_arg_error(command, arg)`.
   - Added `cli_unknown_arg_error(command, value)`.
   - Added focused CLI tests for `ShardLoomError::to_diagnostic()` normalization.
-  - Deferred broad command-by-command migration, unknown signal normalization, and output envelope redesign.
+  - Deferred broad command-by-command migration, unknown signal normalization, and output envelope
+    redesign.
 - [x] R3.3b helper status
   - Added `cli_unknown_signal_error(command, signal_family, token)`.
   - Migrated encoded-read boundary and metadata-probe signal parser unknown-token branches.

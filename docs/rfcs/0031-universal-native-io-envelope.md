@@ -1,10 +1,15 @@
 # RFC 0031: Universal Native I/O Envelope
 
 ## Summary
-This RFC defines a ShardLoom-native universal I/O contract for planning and execution boundaries. Universal I/O does not mean universal decoded Arrow batches. Universal I/O means ShardLoom-native work envelopes preserving physical information, encoded representation, statistics, selection vectors, materialization state, pushdown proof, and sink requirements. No implementation is added in this PR.
+This RFC defines a ShardLoom-native universal I/O contract for planning and execution boundaries.
+Universal I/O does not mean universal decoded Arrow batches. Universal I/O means ShardLoom-native
+work envelopes preserving physical information, encoded representation, statistics, selection
+vectors, materialization state, pushdown proof, and sink requirements. No implementation is added in
+this PR.
 
 ## Motivation
-ShardLoom needs a portable, deterministic contract for source-to-sink data flow that preserves encoded semantics and avoids hidden decode/materialization pressure.
+ShardLoom needs a portable, deterministic contract for source-to-sink data flow that preserves
+encoded semantics and avoids hidden decode/materialization pressure.
 
 ## Goals
 - Define canonical envelope contracts for native work and results.
@@ -30,13 +35,23 @@ work to DataFusion, DuckDB, Spark, Polars, Velox, or similar engines remain
 external baselines or interoperability references only.
 
 ## Vortex Scan API alignment
-Vortex's Scan API direction is an important design reference for CG-19, especially its source/sink boundary, split-based work units, filter/projection pushdown, compressed data flow, and independently executable split model.
+Vortex's Scan API direction is an important design reference for CG-19, especially its source/sink
+boundary, split-based work units, filter/projection pushdown, compressed data flow, and
+independently executable split model.
 
-ShardLoom should preserve those lessons without coupling the internal execution model to an unstable upstream API surface. A future Vortex source/sink adapter may implement or bridge Scan API concepts, but it must still emit ShardLoom-native envelopes, capability reports, pushdown proofs, materialization boundaries, and per-source/sink-path native I/O certificates.
+ShardLoom should preserve those lessons without coupling the internal execution model to an unstable
+upstream API surface. A future Vortex source/sink adapter may implement or bridge Scan API concepts,
+but it must still emit ShardLoom-native envelopes, capability reports, pushdown proofs,
+materialization boundaries, and per-source/sink-path native I/O certificates.
 
-CG-19 adapters should also preserve range-read, coalescing, prefetch, backpressure, and segment-cache evidence where the source can provide it. These are scheduling and I/O-planning signals, not permission to delegate query execution to an external engine.
+CG-19 adapters should also preserve range-read, coalescing, prefetch, backpressure, and
+segment-cache evidence where the source can provide it. These are scheduling and I/O-planning
+signals, not permission to delegate query execution to an external engine.
 
-Vortex's own operator/vector, GPU, Arrow device array, cuDF, and Arrow-oriented integration work should remain a compatibility and implementation-reference signal for ShardLoom unless a later RFC certifies a native boundary. CG-19 must not treat fully decoded Arrow vectors, GPU output arrays, or external engine integrations as the implicit universal path.
+Vortex's own operator/vector, GPU, Arrow device array, cuDF, and Arrow-oriented integration work
+should remain a compatibility and implementation-reference signal for ShardLoom unless a later RFC
+certifies a native boundary. CG-19 must not treat fully decoded Arrow vectors, GPU output arrays, or
+external engine integrations as the implicit universal path.
 
 ## Contract vocabulary
 - `NativeWorkEnvelope`
@@ -93,8 +108,10 @@ Required fields:
 - `sink_requirement_report`: sink constraints and required representation.
 - `result_envelopes`: output `NativeWorkEnvelope`-compatible payload units.
 - `materialization_boundary_reports`: one or more `MaterializationBoundaryReport` entries.
-- `native_io_certificates`: one `NativeIoCertificate` per source/sink path represented in the result stream.
-- `native_io_certificate_summary`: optional aggregate certificate summary for the full run/report scope.
+- `native_io_certificates`: one `NativeIoCertificate` per source/sink path represented in the result
+  stream.
+- `native_io_certificate_summary`: optional aggregate certificate summary for the full run/report
+  scope.
 - `diagnostics`: stable output diagnostics.
 
 ## RepresentationState
@@ -120,8 +137,10 @@ Required fields:
 - Implies row materialization: no.
 - Can remain encoded: yes.
 - Clarification: `metadata_only` is a proof/answerability boundary, not an execution terminal state.
-- If metadata is sufficient, planner flow may transition to `pruned` or return a metadata-only result.
-- If metadata is insufficient but the source remains supported, planning may continue to `vortex_encoded` or `foreign_encoded`.
+- If metadata is sufficient, planner flow may transition to `pruned` or return a metadata-only
+  result.
+- If metadata is insufficient but the source remains supported, planning may continue to
+  `vortex_encoded` or `foreign_encoded`.
 - `unsupported` is reserved for capability-proof failure, not merely for metadata insufficiency.
 
 #### pruned
@@ -242,12 +261,17 @@ Required fields:
 - `fallback_attempted=false`
 
 Pushdown boundaries:
-- `accepted_operations` must name only operations the source can apply with the declared `guarantee`.
-- `residual_expression` must be present whenever `guarantee` is not fully exact for the whole predicate/projection.
+- `accepted_operations` must name only operations the source can apply with the declared
+  `guarantee`.
+- `residual_expression` must be present whenever `guarantee` is not fully exact for the whole
+  predicate/projection.
 - Conservative pushdown may include false positives but must not exclude valid rows.
-- Unsafe source behavior must be rejected instead of delegated or retried through another execution engine.
-- If a source or Vortex-native provider accepts only part of a predicate/projection, the residual must be executed by ShardLoom-native code or blocked with diagnostics.
-- `residual_executor` values are `none`, `shardloom_native`, `unsupported_blocked`, `external_baseline_only`, and `prohibited_external_fallback`.
+- Unsafe source behavior must be rejected instead of delegated or retried through another execution
+  engine.
+- If a source or Vortex-native provider accepts only part of a predicate/projection, the residual
+  must be executed by ShardLoom-native code or blocked with diagnostics.
+- `residual_executor` values are `none`, `shardloom_native`, `unsupported_blocked`,
+  `external_baseline_only`, and `prohibited_external_fallback`.
 - Pushdown proof is source capability evidence; it is not fallback execution.
 
 ## Vortex-native provider and upstream alignment
@@ -429,10 +453,14 @@ Required fields:
 - `fidelity_loss_policy`
 
 Sink boundaries:
-- Sinks that require decoded columnar data or materialized rows must force an explicit `MaterializationBoundaryReport`.
-- Compatibility sinks must report metadata/fidelity loss instead of silently dropping physical information.
-- Commit-capable sinks must declare idempotency, recovery, cleanup, and visibility semantics before certification.
-- Vortex sinks remain the highest-fidelity native path when their requirements can preserve encoded representation.
+- Sinks that require decoded columnar data or materialized rows must force an explicit
+  `MaterializationBoundaryReport`.
+- Compatibility sinks must report metadata/fidelity loss instead of silently dropping physical
+  information.
+- Commit-capable sinks must declare idempotency, recovery, cleanup, and visibility semantics before
+  certification.
+- Vortex sinks remain the highest-fidelity native path when their requirements can preserve encoded
+  representation.
 
 ## Adapter fidelity
 
@@ -456,9 +484,12 @@ Required fields:
 
 Fidelity boundaries:
 - Fidelity loss must distinguish metadata loss from representation loss and semantic-risk loss.
-- Foreign encoded preservation should be reported separately from Vortex-native encoded preservation.
-- An adapter that reads or writes data but drops statistics, ordering, partitioning, field identity, or layout hints must report that loss.
-- Adapter fidelity reports feed `NativeIoCertificate` evidence and cannot be replaced by a run-level summary.
+- Foreign encoded preservation should be reported separately from Vortex-native encoded
+  preservation.
+- An adapter that reads or writes data but drops statistics, ordering, partitioning, field identity,
+  or layout hints must report that loss.
+- Adapter fidelity reports feed `NativeIoCertificate` evidence and cannot be replaced by a run-level
+  summary.
 
 ## Materialization boundary
 
@@ -498,34 +529,51 @@ Required fields:
 - `fallback_attempted=false`
 
 Certificate-to-adapter alignment:
-- Each adapter source/sink path must reference the matching source capability, source pushdown, sink requirement, and adapter fidelity evidence.
-- Multi-source and multi-sink flows require one certificate per path, plus an optional run-level summary.
-- Adapter certification cannot claim read, write, pushdown, streaming, object-store-range, commit, or benchmark maturity without matching certificate evidence.
-- Certificate evidence must remain explicit even when the source or sink is local and side-effect-free.
-- `certificate_decision` must be one of `not_certified`, `partial_for_path`, `certified_for_path`, or `blocked`.
-- `known_limits` must include unsupported pushdown, representation loss, metadata loss, materialization, commit/recovery gaps, object-store limitations, and semantic risks when present.
+- Each adapter source/sink path must reference the matching source capability, source pushdown, sink
+  requirement, and adapter fidelity evidence.
+- Multi-source and multi-sink flows require one certificate per path, plus an optional run-level
+  summary.
+- Adapter certification cannot claim read, write, pushdown, streaming, object-store-range, commit,
+  or benchmark maturity without matching certificate evidence.
+- Certificate evidence must remain explicit even when the source or sink is local and
+  side-effect-free.
+- `certificate_decision` must be one of `not_certified`, `partial_for_path`, `certified_for_path`,
+  or `blocked`.
+- `known_limits` must include unsupported pushdown, representation loss, metadata loss,
+  materialization, commit/recovery gaps, object-store limitations, and semantic risks when present.
 
 ## Acceptance criteria
 - CG-19 cannot complete until every source/sink path emits a `NativeIoCertificate`.
 - A run-level certificate summary cannot replace per-path certificates.
 - Universal I/O must preserve `vortex_encoded` or `foreign_encoded` state whenever possible.
 - Universal I/O must not silently normalize to decoded Arrow.
-- All transitions to `decoded_columnar` or `materialized_rows` must include a `MaterializationBoundaryReport`.
+- All transitions to `decoded_columnar` or `materialized_rows` must include a
+  `MaterializationBoundaryReport`.
 
 ## CG-19 sufficiency gates
 
-CG-19 is a prerequisite evidence surface for CG-20 best-default certification. It must prove that broad adapters and sinks do not erase the native execution contract.
+CG-19 is a prerequisite evidence surface for CG-20 best-default certification. It must prove that
+broad adapters and sinks do not erase the native execution contract.
 
 CG-19 cannot be marked sufficient for a workload unless:
 
-- Every required source/sink path has a certificate with source capability, pushdown, sink requirement, adapter fidelity, materialization boundary, side-effect, diagnostics, and no-fallback evidence.
-- Multi-source and multi-sink plans preserve per-path evidence instead of collapsing the run into a single summary.
-- Foreign encoded representations are preserved or explicitly reported as partially decoded, decoded columnar, or materialized rows with reason and cost fields.
-- Source pushdown is exact, exact-with-residual, conservative, unsupported, or unsafe-rejected with proof; hidden remote execution is not accepted.
-- Sinks that require decoded columnar batches, rows, ordering, partitioning, or commit behavior declare those requirements before planning is certified.
-- Metadata, statistics, ordering, partitioning, field identity, and layout-hint loss are reported before any adapter path can count as certified.
-- Object-store/range-read, streaming/backpressure, retry/idempotency, commit/recovery, and cleanup semantics are declared where the workload requires them.
-- Any unsupported path fails explicitly with deterministic diagnostics and `fallback_attempted=false`.
+- Every required source/sink path has a certificate with source capability, pushdown, sink
+  requirement, adapter fidelity, materialization boundary, side-effect, diagnostics, and no-fallback
+  evidence.
+- Multi-source and multi-sink plans preserve per-path evidence instead of collapsing the run into a
+  single summary.
+- Foreign encoded representations are preserved or explicitly reported as partially decoded, decoded
+  columnar, or materialized rows with reason and cost fields.
+- Source pushdown is exact, exact-with-residual, conservative, unsupported, or unsafe-rejected with
+  proof; hidden remote execution is not accepted.
+- Sinks that require decoded columnar batches, rows, ordering, partitioning, or commit behavior
+  declare those requirements before planning is certified.
+- Metadata, statistics, ordering, partitioning, field identity, and layout-hint loss are reported
+  before any adapter path can count as certified.
+- Object-store/range-read, streaming/backpressure, retry/idempotency, commit/recovery, and cleanup
+  semantics are declared where the workload requires them.
+- Any unsupported path fails explicitly with deterministic diagnostics and
+  `fallback_attempted=false`.
 
 Disqualifiers:
 
@@ -536,13 +584,15 @@ Disqualifiers:
 - A certificate omits known fidelity, metadata, representation, commit, or semantic losses.
 
 ## Relationship to RFC 0013
-This RFC complements RFC 0013 by formalizing I/O envelope contracts that support streaming and zero-decode priorities.
+This RFC complements RFC 0013 by formalizing I/O envelope contracts that support streaming and
+zero-decode priorities.
 
 ## Relationship to CG-19
 This RFC defines the contract foundation for CG-19 (Universal Native I/O Envelope).
 
 ## No-fallback and no-delegation policy
-Universal I/O contracts must never imply execution fallback. Unsupported paths fail explicitly with deterministic diagnostics.
+Universal I/O contracts must never imply execution fallback. Unsupported paths fail explicitly with
+deterministic diagnostics.
 
 Using a policy-admitted upstream Vortex array, compute, scan, source, or sink
 API as a Vortex-native execution provider is allowed when evidence is recorded.
@@ -551,4 +601,5 @@ Velox, or another external engine to execute unsupported residual work is
 fallback/delegation and remains prohibited.
 
 ## Future implementation phases
-Future phases may implement these contracts incrementally in planner diagnostics, explain/estimate outputs, adapter interfaces, and execution certificates.
+Future phases may implement these contracts incrementally in planner diagnostics, explain/estimate
+outputs, adapter interfaces, and execution certificates.

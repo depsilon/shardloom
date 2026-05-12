@@ -8,7 +8,9 @@ Draft
 
 This RFC defines ShardLoom's fault tolerance, cancellation, and recovery design.
 
-ShardLoom aims to support massive object-store and lakehouse workloads without Spark fallback. At that scale, correctness and performance depend on predictable failure handling, cancellation, retries, cleanup, idempotent writes, spill recovery, and commit recovery.
+ShardLoom aims to support massive object-store and lakehouse workloads without Spark fallback. At
+that scale, correctness and performance depend on predictable failure handling, cancellation,
+retries, cleanup, idempotent writes, spill recovery, and commit recovery.
 
 ## Context
 
@@ -63,7 +65,8 @@ Fault tolerance is part of being Spark-displacing.
 
 ## Core principle
 
-ShardLoom should make failure states explicit, recoverable where possible, and deterministic when unrecoverable.
+ShardLoom should make failure states explicit, recoverable where possible, and deterministic when
+unrecoverable.
 
 ShardLoom should avoid ambiguous side effects.
 
@@ -185,7 +188,8 @@ ShardLoom should eventually support recovery for:
 
 Recovery behavior should be explicit.
 
-If recovery is unsupported, ShardLoom should fail deterministically and report what may need cleanup.
+If recovery is unsupported, ShardLoom should fail deterministically and report what may need
+cleanup.
 
 ## Idempotency
 
@@ -373,7 +377,8 @@ This violates ShardLoom's no-fallback architecture.
 
 Rejected.
 
-Fault-tolerance concepts should shape local execution, object-store writes, spill, and cancellation early.
+Fault-tolerance concepts should shape local execution, object-store writes, spill, and cancellation
+early.
 
 ### Promise exactly-once semantics everywhere
 

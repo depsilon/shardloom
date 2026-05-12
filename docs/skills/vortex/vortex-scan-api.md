@@ -2,9 +2,11 @@
 
 ## Purpose
 
-Use this skill when reasoning about Vortex scan/source/sink concepts, projection pushdown, filter pushdown, split planning, or query-engine integration boundaries.
+Use this skill when reasoning about Vortex scan/source/sink concepts, projection pushdown, filter
+pushdown, split planning, or query-engine integration boundaries.
 
-The goal is to learn from the Vortex Scan API model without over-coupling ShardLoom to unstable or incomplete API details.
+The goal is to learn from the Vortex Scan API model without over-coupling ShardLoom to unstable or
+incomplete API details.
 
 ## When to use
 
@@ -72,4 +74,7 @@ For source/sink integration:
 
 ## Example Codex prompt fragment
 
-"Use the Vortex Scan API skill. Treat upstream Scan API as a design reference and possible native-provider boundary, not as fallback execution. Keep ShardLoom's admission, policy, diagnostics, certificate, and capability model independent while preserving compressed paths where possible."
+"Use the Vortex Scan API skill. Treat upstream Scan API as a design reference and possible
+native-provider boundary, not as fallback execution. Keep ShardLoom's admission, policy,
+diagnostics, certificate, and capability model independent while preserving compressed paths where
+possible."

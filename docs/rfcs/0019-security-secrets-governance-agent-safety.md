@@ -8,13 +8,17 @@ Draft
 
 This RFC defines ShardLoom's security, secrets, governance, and agent safety design.
 
-ShardLoom is expected to support object-store access, UDFs, API calls, LLM calls, embeddings, vector search, unstructured data, agents, and compatibility exports. These features introduce security and governance risks.
+ShardLoom is expected to support object-store access, UDFs, API calls, LLM calls, embeddings, vector
+search, unstructured data, agents, and compatibility exports. These features introduce security and
+governance risks.
 
-ShardLoom must model credentials, permissions, external effects, redaction, sandboxing, dry runs, auditability, and agent safety explicitly.
+ShardLoom must model credentials, permissions, external effects, redaction, sandboxing, dry runs,
+auditability, and agent safety explicitly.
 
 ## Context
 
-ShardLoom's core engine is Vortex-native encoded execution, but real usage will involve sensitive systems:
+ShardLoom's core engine is Vortex-native encoded execution, but real usage will involve sensitive
+systems:
 
 - Object stores.
 - Local files.
@@ -78,7 +82,8 @@ ShardLoom should never store raw secrets in plans, diagnostics, logs, traces, or
 
 Rules:
 
-- Secrets must be referenced via handles, aliases, environment indirection, or secure runtime providers.
+- Secrets must be referenced via handles, aliases, environment indirection, or secure runtime
+  providers.
 - Machine-readable outputs should redact credential-bearing fields.
 - Explain/estimate/doctor/capabilities outputs must not trigger secret resolution side effects.
 - Error paths must never echo bearer tokens, key material, signed URLs, passwords, or private keys.
@@ -154,4 +159,6 @@ Unsupported sandbox requirements must fail explicitly before execution.
 
 ## Failure behavior
 
-Unsupported or unauthorized behavior must fail explicitly with deterministic diagnostics and `fallback_attempted=false`. No Spark, DataFusion, DuckDB, Polars, Velox, or other fallback engines may be used.
+Unsupported or unauthorized behavior must fail explicitly with deterministic diagnostics and
+`fallback_attempted=false`. No Spark, DataFusion, DuckDB, Polars, Velox, or other fallback engines
+may be used.

@@ -8,7 +8,9 @@ Draft
 
 This RFC defines ShardLoom's columnar translation layer contract.
 
-ShardLoom must be Vortex-native internally and for highest-fidelity output, while still supporting practical compatibility exports to formats such as Parquet, Arrow IPC, Iceberg-compatible files, and Delta-compatible files.
+ShardLoom must be Vortex-native internally and for highest-fidelity output, while still supporting
+practical compatibility exports to formats such as Parquet, Arrow IPC, Iceberg-compatible files, and
+Delta-compatible files.
 
 The translation layer is not fallback execution. It is output compatibility.
 
@@ -25,9 +27,11 @@ Users may need to write results to:
 - Delta-compatible files.
 - JSONL or CSV utility outputs in the future.
 
-However, ShardLoom's native execution advantages depend on preserving Vortex-specific metadata, encodings, layouts, statistics, and validity information.
+However, ShardLoom's native execution advantages depend on preserving Vortex-specific metadata,
+encodings, layouts, statistics, and validity information.
 
-Therefore, the translation layer must explicitly distinguish high-fidelity native output from compatibility exports that may lose information.
+Therefore, the translation layer must explicitly distinguish high-fidelity native output from
+compatibility exports that may lose information.
 
 ## Goals
 
@@ -63,7 +67,8 @@ ShardLoom should define a translation layer with these concepts:
 - MetadataPreservation.
 - UnsupportedOutputDiagnostic.
 
-The translation layer should allow ShardLoom to produce ecosystem-compatible outputs while making metadata loss explicit.
+The translation layer should allow ShardLoom to produce ecosystem-compatible outputs while making
+metadata loss explicit.
 
 ## Core concepts
 
@@ -222,13 +227,15 @@ It may lose:
 
 Iceberg-compatible output is a compatibility target.
 
-ShardLoom may write files and metadata compatible with an Iceberg-style workflow in the future, but this RFC does not make ShardLoom an Iceberg table engine.
+ShardLoom may write files and metadata compatible with an Iceberg-style workflow in the future, but
+this RFC does not make ShardLoom an Iceberg table engine.
 
 ### Delta-compatible files
 
 Delta-compatible output is a compatibility target.
 
-ShardLoom may write files and metadata compatible with a Delta-style workflow in the future, but this RFC does not make ShardLoom a Delta transaction engine.
+ShardLoom may write files and metadata compatible with a Delta-style workflow in the future, but
+this RFC does not make ShardLoom a Delta transaction engine.
 
 ## Rules
 
@@ -238,7 +245,8 @@ ShardLoom may write files and metadata compatible with a Delta-style workflow in
 - Metadata loss must be explicit where possible.
 - Unsupported output features must fail deterministically.
 - Compatibility exports must not weaken ShardLoom's native model.
-- Output code must not silently materialize everything without reporting that materialization occurred.
+- Output code must not silently materialize everything without reporting that materialization
+  occurred.
 
 ## Failure behavior
 
@@ -282,7 +290,8 @@ This violates standalone execution.
 
 Rejected.
 
-Compatibility outputs may lose physical metadata and must not be represented as equivalent to native Vortex output.
+Compatibility outputs may lose physical metadata and must not be represented as equivalent to native
+Vortex output.
 
 ## Risks
 

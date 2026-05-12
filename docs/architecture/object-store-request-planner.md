@@ -1,6 +1,8 @@
 # Object Store Request Planner
 
-This document defines the CG-10 aggregate surface that keeps object-store range, coalescing, scheduling, checkpoint/retry, and commit evidence together before ShardLoom performs object-store IO or distributed runtime work.
+This document defines the CG-10 aggregate surface that keeps object-store range, coalescing,
+scheduling, checkpoint/retry, and commit evidence together before ShardLoom performs object-store IO
+or distributed runtime work.
 
 The first implementation is `ObjectStoreRequestPlannerReport`, exposed through:
 
@@ -36,7 +38,9 @@ shardloom object-store-request-plan --format json
 - `write_io=false`
 - `fallback_execution_allowed=false`
 
-The aggregate report is request-planning evidence only. It does not certify object-store runtime execution, distributed execution, object-store writes, table-format commit execution, provider probing, cloud credentials, or fallback behavior.
+The aggregate report is request-planning evidence only. It does not certify object-store runtime
+execution, distributed execution, object-store writes, table-format commit execution, provider
+probing, cloud credentials, or fallback behavior.
 
 ## Surface Order
 
@@ -49,9 +53,12 @@ The aggregate report is request-planning evidence only. It does not certify obje
 ## Acceptance Boundaries
 
 - [x] Every existing CG-10 planning surface is represented in one deterministic report.
-- [x] The report keeps blocked component status visible instead of hiding it behind a generic unsupported result.
-- [x] The CLI emits machine-readable JSON fields for component statuses, request/task/retry/commit counts, required evidence, side-effect flags, diagnostics, and no-fallback status.
+- [x] The report keeps blocked component status visible instead of hiding it behind a generic
+      unsupported result.
+- [x] The CLI emits machine-readable JSON fields for component statuses, request/task/retry/commit
+      counts, required evidence, side-effect flags, diagnostics, and no-fallback status.
 - [x] Snapshot and contract tests assert the aggregate report is side-effect-free.
 - [ ] Future object-store read execution must update this report before enabling object-store IO.
 - [ ] Future distributed execution must update this report before coordinator/worker/task execution.
-- [ ] Future object-store commit execution must update this report before writes or provider-specific behavior.
+- [ ] Future object-store commit execution must update this report before writes or
+      provider-specific behavior.

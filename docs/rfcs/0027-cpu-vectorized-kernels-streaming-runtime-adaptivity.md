@@ -15,14 +15,17 @@ This RFC defines implementation contracts for:
 - Selection-vector execution is first-class.
 - SIMD/cache-friendly kernels are required where applicable.
 - GPU/FPGA acceleration is not required for the primary competitive claim.
-- CPU specialization must remain native to ShardLoom and must not delegate to Spark, DataFusion, DuckDB, Polars, Velox, or another execution engine.
-- Performance or superiority claims require correctness evidence and benchmark evidence before they can be emitted.
+- CPU specialization must remain native to ShardLoom and must not delegate to Spark, DataFusion,
+  DuckDB, Polars, Velox, or another execution engine.
+- Performance or superiority claims require correctness evidence and benchmark evidence before they
+  can be emitted.
 
 ## Operator API requirements
 
 - Encoded batch/segment operator API.
 - Filter/projection/count/aggregate primitive kernels with encoded awareness.
-- Portable scalar/native baselines are allowed only inside ShardLoom kernels and dispatch logic, never via external engines.
+- Portable scalar/native baselines are allowed only inside ShardLoom kernels and dispatch logic,
+  never via external engines.
 - Architecture-specific paths require explicit CPU feature guards.
 - Dispatch decisions must be deterministic and explainable.
 

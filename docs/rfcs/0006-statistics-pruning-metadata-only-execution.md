@@ -8,13 +8,18 @@ Draft
 
 This RFC defines ShardLoom's statistics, pruning, and metadata-only execution model.
 
-ShardLoom should avoid work before optimizing work. The first path to large performance and cost gains is not faster compute. It is eliminating unnecessary reads, decode, materialization, and movement.
+ShardLoom should avoid work before optimizing work. The first path to large performance and cost
+gains is not faster compute. It is eliminating unnecessary reads, decode, materialization, and
+movement.
 
 ## Context
 
-Spark and other large execution engines often perform substantial work before discovering that much of the data was unnecessary.
+Spark and other large execution engines often perform substantial work before discovering that much
+of the data was unnecessary.
 
-Vortex-native execution gives ShardLoom an opportunity to plan from metadata and encoded segment statistics before reading data. This can make some workloads nearly free relative to distributed compute.
+Vortex-native execution gives ShardLoom an opportunity to plan from metadata and encoded segment
+statistics before reading data. This can make some workloads nearly free relative to distributed
+compute.
 
 ShardLoom must be conservative. Incorrect pruning is a correctness bug.
 
@@ -174,7 +179,8 @@ For a predicate such as:
 
 value > 100
 
-A segment may be pruned only if statistics prove max(value) <= 100 and null semantics do not require reading the segment.
+A segment may be pruned only if statistics prove max(value) <= 100 and null semantics do not require
+reading the segment.
 
 ### Equality predicate
 
@@ -184,7 +190,8 @@ status = 'closed'
 
 A segment may be pruned if statistics or dictionary metadata prove that 'closed' cannot appear.
 
-A constant segment may be answered from metadata if it is known to contain only 'closed' or known not to contain 'closed'.
+A constant segment may be answered from metadata if it is known to contain only 'closed' or known
+not to contain 'closed'.
 
 ### IS NULL predicate
 

@@ -2,11 +2,13 @@
 
 ## Purpose
 
-Use this skill when planning release engineering, API compatibility, packaging policy, schema stability, dependency hygiene, and benchmark accountability.
+Use this skill when planning release engineering, API compatibility, packaging policy, schema
+stability, dependency hygiene, and benchmark accountability.
 
 ## When to use
 
-Use this document for release process design, package publication readiness, compatibility commitments, changelog/release note policy, and artifact governance.
+Use this document for release process design, package publication readiness, compatibility
+commitments, changelog/release note policy, and artifact governance.
 
 ## Rules
 
@@ -42,4 +44,6 @@ Use this document for release process design, package publication readiness, com
 
 ## Example Codex prompt fragment
 
-"Draft this release plan with explicit approval gates, API stability tiers, schema versioning requirements, dependency/license checks, and benchmark evidence requirements. Preserve no-fallback architecture and avoid overclaiming performance or Spark displacement."
+"Draft this release plan with explicit approval gates, API stability tiers, schema versioning
+requirements, dependency/license checks, and benchmark evidence requirements. Preserve no-fallback
+architecture and avoid overclaiming performance or Spark displacement."

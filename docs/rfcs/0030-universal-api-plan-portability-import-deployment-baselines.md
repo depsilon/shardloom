@@ -13,7 +13,9 @@ This RFC defines implementation contracts for:
 - Stable command schema.
 - No PyO3/maturin unless explicitly approved.
 - No Spark fallback.
-- CG-11 establishes the API/protocol foundation for Python and other clients. Mature Python wrapper, DataFrame/query-builder, notebook, Python UDF, packaging, and workload-certification evidence belongs to CG-20.
+- CG-11 establishes the API/protocol foundation for Python and other clients. Mature Python wrapper,
+  DataFrame/query-builder, notebook, Python UDF, packaging, and workload-certification evidence
+  belongs to CG-20.
 
 ## Plan portability contract
 
@@ -83,7 +85,8 @@ Acceptance:
 - Universal CLI JSON runner contract.
 - Package/import guidance independent of Foundry.
 - Basic Foundry transform/deployment examples remain optional under CG-18.
-- Richer Foundry packaging, governance, lineage, virtual-table, Marketplace, and Compute Module integration is governed by RFC 0036.
+- Richer Foundry packaging, governance, lineage, virtual-table, Marketplace, and Compute Module
+  integration is governed by RFC 0036.
 - Foundry is not the primary engine target.
 
 ## External baseline harness
@@ -163,7 +166,8 @@ External baseline requirements:
 Acceptance:
 - `universal-harness-plan --format json` emits the CG-18 contract with stable
   runner contract fields and deterministic surface/baseline ordering.
-- Foundry remains optional example context in this RFC, never a required deployment target. Richer Foundry integration must follow RFC 0036 and cannot weaken no-fallback execution.
+- Foundry remains optional example context in this RFC, never a required deployment target. Richer
+  Foundry integration must follow RFC 0036 and cannot weaken no-fallback execution.
 - Spark, DataFusion, and Polars are external comparison harness targets only.
 - The report is side-effect-free: no package import, deployment, Foundry
   invocation, baseline runner execution, parser execution, runtime execution,
@@ -358,5 +362,7 @@ Clarifications:
 
 ### Additional CG-18 reporting direction
 
-- Foundry remains an optional example under universal import/deployment, not the primary engine target.
-- Add an external baseline report dataset concept for stable, machine-readable cross-engine comparisons.
+- Foundry remains an optional example under universal import/deployment, not the primary engine
+  target.
+- Add an external baseline report dataset concept for stable, machine-readable cross-engine
+  comparisons.

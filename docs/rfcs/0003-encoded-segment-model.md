@@ -6,7 +6,10 @@ Proposed.
 
 ## Summary
 
-This RFC defines ShardLoom's architecture-level encoded segment abstraction before Rust trait and type implementation. The model establishes the contract for segment-oriented planning and execution across metadata-only evaluation, pruning, encoded evaluation, partial decoding, and full materialization.
+This RFC defines ShardLoom's architecture-level encoded segment abstraction before Rust trait and
+type implementation. The model establishes the contract for segment-oriented planning and execution
+across metadata-only evaluation, pruning, encoded evaluation, partial decoding, and full
+materialization.
 
 This RFC preserves ShardLoom's core boundaries:
 
@@ -18,9 +21,13 @@ This RFC preserves ShardLoom's core boundaries:
 
 ## Context
 
-RFC 0001 established the high-level architecture and RFC 0002 established the no-fallback and Vortex-native I/O policy. The next architectural dependency is a precise segment model that planner and runtime work can target consistently.
+RFC 0001 established the high-level architecture and RFC 0002 established the no-fallback and
+Vortex-native I/O policy. The next architectural dependency is a precise segment model that planner
+and runtime work can target consistently.
 
-Without an explicit segment model, encoded execution, pruning, and materialization decisions risk becoming ad hoc. This RFC defines conceptual contracts only; implementation details (traits, structs, APIs, and kernels) are intentionally deferred.
+Without an explicit segment model, encoded execution, pruning, and materialization decisions risk
+becoming ad hoc. This RFC defines conceptual contracts only; implementation details (traits,
+structs, APIs, and kernels) are intentionally deferred.
 
 ## Goals
 
@@ -43,15 +50,21 @@ Without an explicit segment model, encoded execution, pruning, and materializati
 
 ## Decision
 
-ShardLoom will treat execution data as a stream of `EncodedSegment` units with attached `SegmentStats`, `SegmentLayout`, and capability metadata. Planning and execution must prefer lower-cost states (metadata-only, then pruned, then encoded) before decoding. When decoding is required, it must be scoped by `SelectionVector` and `MaterializationPolicy`.
+ShardLoom will treat execution data as a stream of `EncodedSegment` units with attached
+`SegmentStats`, `SegmentLayout`, and capability metadata. Planning and execution must prefer
+lower-cost states (metadata-only, then pruned, then encoded) before decoding. When decoding is
+required, it must be scoped by `SelectionVector` and `MaterializationPolicy`.
 
-Unsupported encoded operations must fail explicitly with deterministic diagnostics. Decoded reference behavior may be used only for correctness validation in test and benchmark harnesses, and never as production fallback execution.
+Unsupported encoded operations must fail explicitly with deterministic diagnostics. Decoded
+reference behavior may be used only for correctness validation in test and benchmark harnesses, and
+never as production fallback execution.
 
 ## Detailed design
 
 ### 1. EncodedSegment (concept)
 
-`EncodedSegment` is the minimal independent unit of encoded-columnar execution. Conceptually, it represents:
+`EncodedSegment` is the minimal independent unit of encoded-columnar execution. Conceptually, it
+represents:
 
 - A bounded row domain.
 - One or more encoded column representations for that row domain.
@@ -67,7 +80,8 @@ Architectural requirements:
 
 ### 2. SegmentStats (concept)
 
-`SegmentStats` represents planner/runtime-visible summary metadata used for metadata-only answers and segment pruning.
+`SegmentStats` represents planner/runtime-visible summary metadata used for metadata-only answers
+and segment pruning.
 
 Conceptual fields include (non-exhaustive):
 
@@ -87,7 +101,8 @@ Architectural requirements:
 
 ### 3. SegmentLayout (concept)
 
-`SegmentLayout` describes how encoded data and metadata are organized for a segment, independent of concrete Rust representation.
+`SegmentLayout` describes how encoded data and metadata are organized for a segment, independent of
+concrete Rust representation.
 
 Conceptual components include:
 
@@ -106,7 +121,8 @@ Architectural requirements:
 
 ### 4. SelectionVector (concept)
 
-`SelectionVector` is the row-selection contract used to carry surviving row positions between execution stages.
+`SelectionVector` is the row-selection contract used to carry surviving row positions between
+execution stages.
 
 Conceptual behavior:
 
@@ -123,7 +139,8 @@ Architectural requirements:
 
 ### 5. MaterializationPolicy (concept)
 
-`MaterializationPolicy` governs if/when/how encoded values are decoded into materialized column vectors.
+`MaterializationPolicy` governs if/when/how encoded values are decoded into materialized column
+vectors.
 
 Conceptual policy dimensions:
 
@@ -140,7 +157,8 @@ Architectural requirements:
 
 ### 6. EncodedEvalCapability (concept)
 
-`EncodedEvalCapability` declares which operations can execute directly on encoded representations for a given segment/column/expression class.
+`EncodedEvalCapability` declares which operations can execute directly on encoded representations
+for a given segment/column/expression class.
 
 Conceptual examples:
 
@@ -157,12 +175,14 @@ Architectural requirements:
 
 ### 7. Execution state model
 
-ShardLoom execution over segments progresses through one of the following states, selected per operator/segment:
+ShardLoom execution over segments progresses through one of the following states, selected per
+operator/segment:
 
 1. **Metadata-only**: result derived entirely from metadata/statistics (no payload decode).
 2. **Pruned**: segment eliminated from further work by safe statistics or metadata conditions.
 3. **Encoded**: operation executed directly over encoded representation.
-4. **Partially decoded**: only required columns/rows are decoded, guided by `SelectionVector` and `MaterializationPolicy`.
+4. **Partially decoded**: only required columns/rows are decoded, guided by `SelectionVector` and
+   `MaterializationPolicy`.
 5. **Fully materialized**: all required rows/columns for downstream semantics are decoded.
 
 Requirements for state transitions:
@@ -179,7 +199,8 @@ Null handling must be first-class in all states:
 - Statistics-based pruning must be null-safe; null presence cannot be ignored.
 - Encoded predicate evaluation must preserve null semantics exactly.
 - `SelectionVector` must represent null-driven filtering outcomes deterministically.
-- Metadata-only answers must specify when null semantics make the result indeterminate without additional evaluation.
+- Metadata-only answers must specify when null semantics make the result indeterminate without
+  additional evaluation.
 
 No optimization may change null-observable query semantics.
 
@@ -187,7 +208,8 @@ No optimization may change null-observable query semantics.
 
 If an operation is not supported in encoded form for a segment, ShardLoom may:
 
-- Escalate to partial/full decode **within ShardLoom native execution**, if a defined native decoded path exists.
+- Escalate to partial/full decode **within ShardLoom native execution**, if a defined native decoded
+  path exists.
 - Otherwise fail explicitly with deterministic diagnostics.
 
 Failure diagnostics should include:
@@ -206,12 +228,14 @@ Disallowed behavior:
 Decoded reference behavior may be used in tests to validate correctness of encoded paths, including:
 
 - Reference-equality checks between encoded and decoded native ShardLoom outcomes.
-- Differential tests that compare encoded kernels against deterministic decoded reference evaluators.
+- Differential tests that compare encoded kernels against deterministic decoded reference
+  evaluators.
 
 Constraints:
 
 - Reference evaluators are validation tools, not production fallback execution.
-- Production execution must not route unsupported plans into reference decoded paths unless those paths are defined native execution operators in ShardLoom.
+- Production execution must not route unsupported plans into reference decoded paths unless those
+  paths are defined native execution operators in ShardLoom.
 
 ## Alternatives considered
 
@@ -244,8 +268,10 @@ Constraints:
 
 Future implementation PRs claiming compliance with this RFC must satisfy all of the following:
 
-1. Define concrete types/traits for segment, stats, layout, capability, selection, and materialization policy concepts.
-2. Implement explicit execution-state transitions (metadata-only, pruned, encoded, partial decode, full materialization).
+1. Define concrete types/traits for segment, stats, layout, capability, selection, and
+   materialization policy concepts.
+2. Implement explicit execution-state transitions (metadata-only, pruned, encoded, partial decode,
+   full materialization).
 3. Demonstrate null-safe behavior across pruning and encoded/decode evaluation paths.
 4. Emit deterministic diagnostics for unsupported encoded operations.
 5. Prove no external fallback execution path is introduced.

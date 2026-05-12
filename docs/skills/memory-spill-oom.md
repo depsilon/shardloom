@@ -2,9 +2,11 @@
 
 ## Purpose
 
-Use this skill when designing or implementing memory budgets, memory reservations, memory pressure behavior, spill policies, spill files, spillable operators, cleanup, or OOM-safe diagnostics.
+Use this skill when designing or implementing memory budgets, memory reservations, memory pressure
+behavior, spill policies, spill files, spillable operators, cleanup, or OOM-safe diagnostics.
 
-ShardLoom should not rely on process OOM behavior. It should plan, reserve, spill, throttle, or fail deterministically before OOM where possible.
+ShardLoom should not rely on process OOM behavior. It should plan, reserve, spill, throttle, or fail
+deterministically before OOM where possible.
 
 ## When to use
 
@@ -32,7 +34,8 @@ Use this skill for tasks involving:
 
 ## Rules
 
-- Avoid memory pressure first through pruning, streaming, zero-decode, late materialization, and adaptive sizing.
+- Avoid memory pressure first through pruning, streaming, zero-decode, late materialization, and
+  adaptive sizing.
 - Survive memory pressure through reservations, pressure detection, and spill.
 - Do not wait for process OOM.
 - Every stateful or memory-heavy operator should eventually declare memory behavior.
@@ -99,4 +102,6 @@ For sink/output work:
 
 ## Example Codex prompt fragment
 
-"Use the Memory, Spill, and OOM Safety skill. Represent memory reservations, pressure, spill policy, spill decisions, and cleanup explicitly. Unsupported spill behavior must fail deterministically before process OOM where possible. Do not add Spark, DataFusion, or fallback execution."
+"Use the Memory, Spill, and OOM Safety skill. Represent memory reservations, pressure, spill policy,
+spill decisions, and cleanup explicitly. Unsupported spill behavior must fail deterministically
+before process OOM where possible. Do not add Spark, DataFusion, or fallback execution."

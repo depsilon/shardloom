@@ -2,7 +2,8 @@
 
 ## Purpose
 
-Use this skill when designing or implementing Vortex file reads, Vortex file writes, file metadata inspection, byte-range planning, or Vortex persistence.
+Use this skill when designing or implementing Vortex file reads, Vortex file writes, file metadata
+inspection, byte-range planning, or Vortex persistence.
 
 The goal is to make Vortex file IO native, metadata-aware, and object-store-friendly.
 
@@ -28,7 +29,8 @@ Use this skill for tasks involving:
 - Treat Vortex output as the highest-fidelity output path.
 - Fail explicitly for unsupported file versions, encodings, layouts, or metadata.
 - Do not use another engine to read or write Vortex files for ShardLoom execution.
-- Do not turn Vortex file IO into generic decoded Arrow IO unless explicitly required by a translation boundary.
+- Do not turn Vortex file IO into generic decoded Arrow IO unless explicitly required by a
+  translation boundary.
 
 ## Required checks
 
@@ -67,4 +69,6 @@ For write behavior:
 
 ## Example Codex prompt fragment
 
-"Use the Vortex File IO skill. Inspect metadata before data. Prefer byte ranges and segment-level reads. Preserve Vortex metadata on output. Do not use Spark, DataFusion, or DuckDB as Vortex execution helpers."
+"Use the Vortex File IO skill. Inspect metadata before data. Prefer byte ranges and segment-level
+reads. Preserve Vortex metadata on output. Do not use Spark, DataFusion, or DuckDB as Vortex
+execution helpers."

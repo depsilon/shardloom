@@ -8,7 +8,10 @@ Draft
 
 This RFC defines ShardLoom's native plan IR and future interoperability direction.
 
-ShardLoom needs a stable internal representation for logical plans, physical plans, encoded execution plans, streaming plans, effect boundaries, translation boundaries, runtime adaptation, and diagnostics. The design should keep future Substrait-compatible interoperability in mind without adding Substrait as a dependency or allowing imported plans to become fallback execution.
+ShardLoom needs a stable internal representation for logical plans, physical plans, encoded
+execution plans, streaming plans, effect boundaries, translation boundaries, runtime adaptation, and
+diagnostics. The design should keep future Substrait-compatible interoperability in mind without
+adding Substrait as a dependency or allowing imported plans to become fallback execution.
 
 ## Context
 
@@ -26,7 +29,8 @@ ShardLoom planning spans multiple outputs and lifecycle stages:
 - Future optimizer/adaptive execution decisions.
 - Future table/catalog compatibility.
 
-A native-first plan IR contract is needed before public APIs, imported plans, plugin frontends, and production execution semantics can safely stabilize.
+A native-first plan IR contract is needed before public APIs, imported plans, plugin frontends, and
+production execution semantics can safely stabilize.
 
 ## Goals
 
@@ -52,7 +56,8 @@ A native-first plan IR contract is needed before public APIs, imported plans, pl
 
 ShardLoom's plan IR should be native first and interoperability-aware second.
 
-Imported plans, exported plans, or Substrait-compatible representations must not bypass ShardLoom's native capability checks.
+Imported plans, exported plans, or Substrait-compatible representations must not bypass ShardLoom's
+native capability checks.
 
 ## Detailed design
 
@@ -127,7 +132,8 @@ Plan nodes should declare requirements such as:
 
 ### Effect boundaries
 
-Effectful operations must be explicit and include API calls, LLM calls, embedding generation, vector search against external systems, external writes, and side-effecting UDFs.
+Effectful operations must be explicit and include API calls, LLM calls, embedding generation, vector
+search against external systems, external writes, and side-effecting UDFs.
 
 ### Translation boundaries
 
@@ -142,7 +148,8 @@ Translation boundaries should be explicit:
 
 ### Substrait-compatible thinking
 
-ShardLoom should design plan IR so future Substrait-compatible import/export is possible, while maintaining these constraints:
+ShardLoom should design plan IR so future Substrait-compatible import/export is possible, while
+maintaining these constraints:
 
 - No Substrait dependency now.
 - No full Substrait compatibility guarantee.
@@ -158,7 +165,8 @@ Future import paths may support:
 - Substrait-like logical plan subset.
 - Config-defined jobs.
 
-Imported plans must be validated for supported operations, functions, types, capabilities, effects, outputs, and no-fallback policy.
+Imported plans must be validated for supported operations, functions, types, capabilities, effects,
+outputs, and no-fallback policy.
 
 ### Plan export
 
@@ -193,11 +201,13 @@ Machine-readable plan schemas should be versioned before stability promises are 
 
 ### Diagnostics
 
-Plan IR diagnostics should include unsupported node/expression/function/type/effect/output conditions, missing capability, metadata loss, fallback attempted false, and suggested next step.
+Plan IR diagnostics should include unsupported node/expression/function/type/effect/output
+conditions, missing capability, metadata loss, fallback attempted false, and suggested next step.
 
 ## Failure behavior
 
-Unsupported plan behavior must fail explicitly with deterministic diagnostics and must not invoke Spark, DataFusion, DuckDB, Polars, Velox, or any fallback execution engine.
+Unsupported plan behavior must fail explicitly with deterministic diagnostics and must not invoke
+Spark, DataFusion, DuckDB, Polars, Velox, or any fallback execution engine.
 
 ## Alternatives considered
 
@@ -224,7 +234,8 @@ Unsupported plan behavior must fail explicitly with deterministic diagnostics an
 ## Verification plan
 
 - Review for consistency with no-fallback and Vortex-first RFCs.
-- Review for consistency with diagnostics/capabilities, modular extensibility, streaming, memory/spill, and correctness RFCs.
+- Review for consistency with diagnostics/capabilities, modular extensibility, streaming,
+  memory/spill, and correctness RFCs.
 - Define follow-up implementation issues for node schema, validation passes, and diagnostic codes.
 - Verify that import/export direction does not imply execution fallback.
 
@@ -233,7 +244,8 @@ Unsupported plan behavior must fail explicitly with deterministic diagnostics an
 - Which plan layer should be the first machine-readable external format?
 - What minimum redaction policy is required for exported agent-readable plans?
 - How should adaptive runtime updates map back to stable node ids across retries?
-- What subset of Substrait-like constructs should be considered for first interoperability experiments?
+- What subset of Substrait-like constructs should be considered for first interoperability
+  experiments?
 
 
 ### Plan portability reporting
@@ -277,7 +289,8 @@ Unsupported plan behavior must fail explicitly with deterministic diagnostics an
 - Imported plans must pass ShardLoom capability checks before any execution path is considered.
 - Unsupported imported plans must fail deterministically with explicit diagnostics.
 - Substrait-like export/import is for validation and interoperability only, not external execution.
-- Initial implementation may expose the report through `plan-ir`, `plan-import`, and `plan-export` before real serialization/import/export exists.
+- Initial implementation may expose the report through `plan-ir`, `plan-import`, and `plan-export`
+  before real serialization/import/export exists.
 
 ## Systems-learning portability vocabulary (R5.1)
 

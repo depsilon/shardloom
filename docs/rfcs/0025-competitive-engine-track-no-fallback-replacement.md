@@ -2,18 +2,23 @@
 
 ## Purpose
 
-Define the expanded Competitive Engine Track before CG-1 implementation starts, while preserving ShardLoom’s no-fallback architecture and Vortex-native execution direction.
+Define the expanded Competitive Engine Track before CG-1 implementation starts, while preserving
+ShardLoom’s no-fallback architecture and Vortex-native execution direction.
 
 ## Strategic target
 
-ShardLoom targets wholesale replacement of Spark, Polars, DataFusion, and Arrow-adjacent execution stacks for supported Vortex-native lakehouse workloads.
+ShardLoom targets wholesale replacement of Spark, Polars, DataFusion, and Arrow-adjacent execution
+stacks for supported Vortex-native lakehouse workloads.
 
-Replacement is achieved through ShardLoom-native, Vortex-native execution. It is not achieved through fallback, delegation, or hidden handoff to external engines.
+Replacement is achieved through ShardLoom-native, Vortex-native execution. It is not achieved
+through fallback, delegation, or hidden handoff to external engines.
 
 ## Non-goals
 
-- Implementing encoded reads, query execution, output payload writes, or benchmark harnesses in this RFC.
-- Adding Spark, DataFusion, vortex-datafusion, DuckDB, Polars, Velox, or any fallback execution path.
+- Implementing encoded reads, query execution, output payload writes, or benchmark harnesses in this
+  RFC.
+- Adding Spark, DataFusion, vortex-datafusion, DuckDB, Polars, Velox, or any fallback execution
+  path.
 - Introducing dependency changes.
 
 ## Competitive Engine Track
@@ -53,19 +58,23 @@ deployment, external compute execution, or claims by themselves.
 
 ## No-fallback policy
 
-- No runtime fallback/delegation to Spark, DataFusion, Polars, DuckDB, Velox, vortex-datafusion, or any other external execution engine.
+- No runtime fallback/delegation to Spark, DataFusion, Polars, DuckDB, Velox, vortex-datafusion, or
+  any other external execution engine.
 - Unsupported behavior must fail explicitly with deterministic diagnostics.
 - Arrow interop remains an explicit boundary, not an implicit default execution substrate.
 
 ## External baseline policy
 
-Spark, DataFusion, Polars, DuckDB, Velox, and vortex-datafusion may be used only as external baselines for correctness/differential checks and benchmarks. They must never execute ShardLoom runtime paths as fallback engines.
+Spark, DataFusion, Polars, DuckDB, Velox, and vortex-datafusion may be used only as external
+baselines for correctness/differential checks and benchmarks. They must never execute ShardLoom
+runtime paths as fallback engines.
 
 
 ## CG-3 completion clarification
 
 - Placeholder/local output payload artifacts are scaffolding and readiness evidence only.
-- CG-3 is not complete until at least one real executable Vortex-native output payload write path exists for a supported workload.
+- CG-3 is not complete until at least one real executable Vortex-native output payload write path
+  exists for a supported workload.
 - The real CG-3 path must be feature-gated, ShardLoom-owned, and no-fallback.
 - Arrow conversion must not become the default execution path for CG-3 completion.
 - Competitive claims remain disallowed until CG-5 correctness and CG-6 benchmarks are satisfied.
@@ -75,25 +84,46 @@ Spark, DataFusion, Polars, DuckDB, Velox, and vortex-datafusion may be used only
 - Competitive gates CG-1 through CG-23 remain visible and complete in planning artifacts.
 - Execution posture remains Vortex-native and no-fallback.
 - External baseline usage remains explicit and non-runtime.
-- Superiority claims are disallowed until both CG-5 (correctness) and CG-6 (benchmarks) are satisfied.
-- Best-default-engine claims are disallowed until CG-20 emits a workload-scoped sufficiency report backed by CG-5 correctness, CG-6 benchmark, CG-16 certificate, CG-19 native I/O certificate, and CG-20 capability evidence. User data-workflow claims additionally require CG-21 workflow evidence for the declared workload. Batch/live/hybrid execution-fabric claims additionally require CG-22 engine-selection, freshness, state, hot/cold, and no-fallback evidence for the declared workload. Remote API claims additionally require CG-23 control-plane, event-plane, data-plane, security/governance, certificate-linkage, and no-fallback evidence for the declared workload. Public availability and Foundry availability claims additionally require RFC 0036 package/provenance/platform evidence and must classify virtual tables and external compute as governed handles or baselines unless ShardLoom-native execution over staged/native data is certificate-backed.
+- Superiority claims are disallowed until both CG-5 (correctness) and CG-6 (benchmarks) are
+  satisfied.
+- Best-default-engine claims are disallowed until CG-20 emits a workload-scoped sufficiency report
+  backed by CG-5 correctness, CG-6 benchmark, CG-16 certificate, CG-19 native I/O certificate, and
+  CG-20 capability evidence. User data-workflow claims additionally require CG-21 workflow evidence
+  for the declared workload. Batch/live/hybrid execution-fabric claims additionally require CG-22
+  engine-selection, freshness, state, hot/cold, and no-fallback evidence for the declared workload.
+  Remote API claims additionally require CG-23 control-plane, event-plane, data-plane,
+  security/governance, certificate-linkage, and no-fallback evidence for the declared workload.
+  Public availability and Foundry availability claims additionally require RFC 0036
+  package/provenance/platform evidence and must classify virtual tables and external compute as
+  governed handles or baselines unless ShardLoom-native execution over staged/native data is
+  certificate-backed.
 
 ## Best-default evidence gate
 
-CG-20 is not complete from capability breadth alone. A final "best default" posture requires an explicit evidence bundle for each declared workload constitution.
+CG-20 is not complete from capability breadth alone. A final "best default" posture requires an
+explicit evidence bundle for each declared workload constitution.
 
-Required evidence before any best-default, best-choice, replacement, superiority, faster, cheaper, or world-class public claim:
+Required evidence before any best-default, best-choice, replacement, superiority, faster, cheaper,
+or world-class public claim:
 
-- `WorkloadConstitution` names the workload categories, required SQL features, operators, functions, adapters, semantic profiles, API surfaces, source/sink paths, scale shape, budgets, fixtures, benchmarks, and out-of-scope items.
-- `BestDefaultCertificationDossier` reports correctness, semantic conformance, benchmarks, operator/function/adapter certification, native I/O certificates, memory/spill safety, observability, migration, API ergonomics, deployment, dependency policy, and no-fallback integrity.
-- `WorldClassSufficiencyReport` records whether the CG-20 contract set is sufficient for the workload and lists blocking gaps when it is not.
+- `WorkloadConstitution` names the workload categories, required SQL features, operators, functions,
+  adapters, semantic profiles, API surfaces, source/sink paths, scale shape, budgets, fixtures,
+  benchmarks, and out-of-scope items.
+- `BestDefaultCertificationDossier` reports correctness, semantic conformance, benchmarks,
+  operator/function/adapter certification, native I/O certificates, memory/spill safety,
+  observability, migration, API ergonomics, deployment, dependency policy, and no-fallback
+  integrity.
+- `WorldClassSufficiencyReport` records whether the CG-20 contract set is sufficient for the
+  workload and lists blocking gaps when it is not.
 - CG-19 emits per-source/sink-path `NativeIoCertificate` evidence for every required adapter path.
 - CG-16 execution certificate evidence exists for every supported execution path in the workload.
 - External engines appear only as labeled correctness, migration, or benchmark baselines.
-- Unsupported, planned-only, or test-reference-only entries remain visible and cannot be counted as production support.
+- Unsupported, planned-only, or test-reference-only entries remain visible and cannot be counted as
+  production support.
 - `fallback_attempted=false` is present across the evidence chain.
 
-If any required evidence is absent, the only allowed publication status is `not_certified` or `partial_for_workload` with explicit blockers and known limits.
+If any required evidence is absent, the only allowed publication status is `not_certified` or
+`partial_for_workload` with explicit blockers and known limits.
 
 ## Risks
 
@@ -107,26 +137,38 @@ If any required evidence is absent, the only allowed publication status is `not_
 - Keep this RFC and downstream architecture docs consistent on CG-1 through CG-23.
 - Preserve explicit no-fallback wording.
 - Preserve external engines as baseline-only wording.
-- Preserve CG-18 as universal import/deployment/baseline harness. Foundry remains optional, with basic deployment/comparison examples under CG-18 and the richer Foundry Integration Pack governed by RFC 0036; Foundry is not the primary engine target.
+- Preserve CG-18 as universal import/deployment/baseline harness. Foundry remains optional, with
+  basic deployment/comparison examples under CG-18 and the richer Foundry Integration Pack governed
+  by RFC 0036; Foundry is not the primary engine target.
 
 
 ## Final competitive gate clarifications
 
 ### CG-19 — Universal Native I/O Envelope
-Define and adopt ShardLoom-native universal I/O contracts that preserve encoded representation, statistics, selection vectors, pushdown proof, materialization state, and sink requirements without defaulting to decoded Arrow batches.
+Define and adopt ShardLoom-native universal I/O contracts that preserve encoded representation,
+statistics, selection vectors, pushdown proof, materialization state, and sink requirements without
+defaulting to decoded Arrow batches.
 
 ### CG-20 — World-Class SQL, Operator, Function, Adapter, and User Capability Surface
-Define and validate a full capability-certification surface across SQL, operators, functions, adapters, semantic compatibility, migration tooling, Python/API, UDFs, common data/ETL, universal adapters, unstructured/media data, and user capability discovery.
+Define and validate a full capability-certification surface across SQL, operators, functions,
+adapters, semantic compatibility, migration tooling, Python/API, UDFs, common data/ETL, universal
+adapters, unstructured/media data, and user capability discovery.
 
 CG-20 is the final user-capability gate. It is broader than SQL support alone.
 
-CG-11 can establish stable API/protocol foundations, but mature Python wrapper, DataFrame/query-builder, notebook, Python UDF, packaging, common ETL, and universal-adapter certification belong to CG-20.
+CG-11 can establish stable API/protocol foundations, but mature Python wrapper,
+DataFrame/query-builder, notebook, Python UDF, packaging, common ETL, and universal-adapter
+certification belong to CG-20.
 
-ShardLoom's competitive target is best-default-engine certification for declared workloads, not merely a narrow Vortex accelerator. That certification target must remain evidence-gated and workload-scoped.
+ShardLoom's competitive target is best-default-engine certification for declared workloads, not
+merely a narrow Vortex accelerator. That certification target must remain evidence-gated and
+workload-scoped.
 
-No-fallback policy remains unchanged: ShardLoom must not delegate runtime execution to Spark, DataFusion, DuckDB, Polars, Velox, or other external engines.
+No-fallback policy remains unchanged: ShardLoom must not delegate runtime execution to Spark,
+DataFusion, DuckDB, Polars, Velox, or other external engines.
 
-No superiority claims are allowed before correctness and benchmark gates are satisfied (CG-5 and CG-6).
+No superiority claims are allowed before correctness and benchmark gates are satisfied (CG-5 and
+CG-6).
 
 ### CG-21 - User Data Workflow and ETL Surface
 Define a complete, inspectable, certified user data workflow around ShardLoom:

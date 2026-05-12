@@ -4,7 +4,8 @@
 
 Use this skill when designing or implementing boundaries between Vortex and Apache Arrow.
 
-The goal is to use Arrow interoperability where it helps without letting decoded Arrow become ShardLoom's default execution model.
+The goal is to use Arrow interoperability where it helps without letting decoded Arrow become
+ShardLoom's default execution model.
 
 ## When to use
 
@@ -64,4 +65,6 @@ For Arrow-to-Vortex conversion:
 
 ## Example Codex prompt fragment
 
-"Use the Vortex Arrow Interoperability skill. Arrow is allowed for compatibility, tests, and some boundaries, but not as hidden default execution. Preserve or report metadata loss. Do not add DataFusion."
+"Use the Vortex Arrow Interoperability skill. Arrow is allowed for compatibility, tests, and some
+boundaries, but not as hidden default execution. Preserve or report metadata loss. Do not add
+DataFusion."
