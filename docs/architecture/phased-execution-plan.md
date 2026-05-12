@@ -214,6 +214,9 @@ actionable work.
     - [x] Move the Vortex projection primitive handler, `vortex-project`, into
           `shardloom-cli/src/vortex_primitive_execution.rs` while preserving metadata/projection
           evidence and optional local primitive execution behavior.
+    - [x] Move the Vortex filter-project primitive handler, `vortex-filter-project`, into
+          `shardloom-cli/src/vortex_primitive_execution.rs` while preserving metadata/filter-
+          projection evidence and optional local primitive execution behavior.
     - [ ] Move remaining command-family handlers out of `main.rs` after the shared
           `typed_envelope` routing module and `command_family` taxonomy.
     - [ ] Split handlers by status/capabilities, Vortex primitive execution,
