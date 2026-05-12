@@ -18,6 +18,7 @@ mod benchmark_planning;
 mod cli_output;
 mod command_family;
 mod diagnostics;
+mod engine_runtime_planning;
 mod evidence_certificates;
 mod operational_hardening;
 mod packaging_deployment;
@@ -68,29 +69,28 @@ use shardloom_core::{
     plan_user_capability_promotion_gate, plan_world_class_sufficiency,
 };
 use shardloom_exec::{
-    AdaptiveSizer, AdaptiveSizingPolicy, AttemptId, BackpressurePlanInput, BackpressurePlanReport,
+    AdaptiveSizingPolicy, AttemptId, BackpressurePlanInput, BackpressurePlanReport,
     BoundedMemoryPolicy, ByteSize, CancellationReason, CancellationRequest, CancellationScope,
     CommitExecutionPromotionGateReport, DynamicRuntimePromotionGateReport,
     DynamicSizingFeedbackInput, DynamicSizingFeedbackReport, DynamicWorkShapingReport,
     EncodedStreamingBatchPlanInput, EncodedStreamingBatchPlanReport,
     FaultTolerancePromotionGateReport, MemoryBudget, MemoryOwner, MemoryPoolPlan,
     MemoryRuntimeHardeningGateReport, OomSafetyPlan, OperatorMemoryClass,
-    OperatorMemorySpillDeclarationReport, ParallelismLimit, ParallelismPlan, RecoveryPlan,
-    RetryPlan, RuntimePlanSkeleton, ShardLoomCancellationExecutionGateReport,
-    ShardLoomCancellationExecutionGateRequest, ShardLoomCancellationExecutionGateSignal,
-    ShardLoomCleanupExecutionRequest, ShardLoomRetryExecutionGateReport,
-    ShardLoomRetryExecutionGateRequest, ShardLoomRetryExecutionGateSignal, SizeEstimate,
-    SizingFeedbackSignal, SizingFeedbackSignalKind, SizingInput, SizingPlan, SpillLifecycleRequest,
-    SpillPayloadFsRef, SpillPayloadId, SpillPayloadPath, SpillPayloadRef,
+    OperatorMemorySpillDeclarationReport, RecoveryPlan, RetryPlan,
+    ShardLoomCancellationExecutionGateReport, ShardLoomCancellationExecutionGateRequest,
+    ShardLoomCancellationExecutionGateSignal, ShardLoomCleanupExecutionRequest,
+    ShardLoomRetryExecutionGateReport, ShardLoomRetryExecutionGateRequest,
+    ShardLoomRetryExecutionGateSignal, SizingFeedbackSignal, SizingFeedbackSignalKind,
+    SpillLifecycleRequest, SpillPayloadFsRef, SpillPayloadId, SpillPayloadPath, SpillPayloadRef,
     SpillPayloadRoundTripRequest, SpillPayloadWriteRequest, SpillPlan, SpillPolicy,
     SpillReservationIntegrationRequest, SpillWorkspaceId, SpillWorkspacePath,
     StreamingPlanSkeleton, StreamingSink, StreamingSource, SyntheticSpillPayload,
     TaskAttemptRecord, plan_backpressure, plan_cancellation_execution_gate,
-    plan_commit_execution_promotion_gate, plan_dynamic_runtime_promotion_gate,
-    plan_dynamic_sizing_feedback, plan_dynamic_work_shaping, plan_encoded_streaming_batches,
-    plan_fault_tolerance_promotion_gate, plan_memory_runtime_hardening_gate,
-    plan_operator_memory_spill_declarations, plan_retry_execution_gate, plan_spill_lifecycle,
-    plan_spill_reservation_integration, roundtrip_spill_payload, spill_payload_fs_feature_enabled,
+    plan_commit_execution_promotion_gate, plan_dynamic_sizing_feedback, plan_dynamic_work_shaping,
+    plan_encoded_streaming_batches, plan_fault_tolerance_promotion_gate,
+    plan_memory_runtime_hardening_gate, plan_operator_memory_spill_declarations,
+    plan_retry_execution_gate, plan_spill_lifecycle, plan_spill_reservation_integration,
+    roundtrip_spill_payload, spill_payload_fs_feature_enabled,
 };
 use shardloom_plan::{
     AdaptiveOptimizerMemoryReport, ImportedPlanCapabilityGateReport, NativePlanDocument,
@@ -2881,7 +2881,7 @@ fn append_vortex_count_benchmark_effect_fields(
     );
 }
 
-fn streaming_plan_fields(plan: &StreamingPlanSkeleton) -> Vec<(String, String)> {
+pub(crate) fn streaming_plan_fields(plan: &StreamingPlanSkeleton) -> Vec<(String, String)> {
     vec![
         ("mode".to_string(), plan.mode.as_str().to_string()),
         ("status".to_string(), plan.status.as_str().to_string()),
@@ -2951,7 +2951,7 @@ fn streaming_plan_fields(plan: &StreamingPlanSkeleton) -> Vec<(String, String)> 
     ]
 }
 
-fn encoded_streaming_batch_plan_fields(
+pub(crate) fn encoded_streaming_batch_plan_fields(
     report: &EncodedStreamingBatchPlanReport,
     memory_gb: u64,
     estimated_batch_mib: Option<u64>,
@@ -8748,7 +8748,7 @@ fn append_native_io_envelope_side_effect_fields(
     push_count_field(fields, "diagnostic_count", report.diagnostics.len());
 }
 
-fn backpressure_plan_fields(report: &BackpressurePlanReport) -> Vec<(String, String)> {
+pub(crate) fn backpressure_plan_fields(report: &BackpressurePlanReport) -> Vec<(String, String)> {
     let mut fields = vec![];
     push_field(&mut fields, "fallback_execution_allowed", "false");
     push_field(&mut fields, "mode", "backpressure_plan");
@@ -8790,7 +8790,9 @@ fn backpressure_plan_fields(report: &BackpressurePlanReport) -> Vec<(String, Str
     fields
 }
 
-fn parse_sizing_feedback_signals(value: &str) -> Result<Vec<SizingFeedbackSignal>, ShardLoomError> {
+pub(crate) fn parse_sizing_feedback_signals(
+    value: &str,
+) -> Result<Vec<SizingFeedbackSignal>, ShardLoomError> {
     let mut signals = Vec::new();
     for token in value
         .split(',')
@@ -8826,7 +8828,7 @@ fn parse_sizing_feedback_signals(value: &str) -> Result<Vec<SizingFeedbackSignal
     Ok(signals)
 }
 
-fn dynamic_sizing_feedback_fields(
+pub(crate) fn dynamic_sizing_feedback_fields(
     report: &DynamicSizingFeedbackReport,
     memory_gb: u64,
     signals_raw: &str,
@@ -8935,7 +8937,7 @@ fn dynamic_work_shaping_profile(
     }
 }
 
-fn dynamic_work_shaping_report_for_profile(
+pub(crate) fn dynamic_work_shaping_report_for_profile(
     profile: Option<&str>,
 ) -> shardloom_core::Result<DynamicWorkShapingReport> {
     let (profile_label, memory_gb, max_parallelism, signals_raw, estimated_chunk_bytes) =
@@ -8961,7 +8963,9 @@ fn dynamic_work_shaping_report_for_profile(
 }
 
 #[allow(clippy::too_many_lines)]
-fn dynamic_work_shaping_fields(report: &DynamicWorkShapingReport) -> Vec<(String, String)> {
+pub(crate) fn dynamic_work_shaping_fields(
+    report: &DynamicWorkShapingReport,
+) -> Vec<(String, String)> {
     let mut fields = Vec::new();
     push_field(&mut fields, "mode", "dynamic_work_shaping_plan");
     push_field(&mut fields, "schema_version", report.schema_version);
@@ -9127,7 +9131,7 @@ fn dynamic_work_shaping_fields(report: &DynamicWorkShapingReport) -> Vec<(String
 }
 
 #[allow(clippy::too_many_lines)]
-fn dynamic_runtime_promotion_gate_fields(
+pub(crate) fn dynamic_runtime_promotion_gate_fields(
     report: &DynamicRuntimePromotionGateReport,
 ) -> Vec<(String, String)> {
     let mut fields = Vec::new();
@@ -24404,590 +24408,25 @@ fn run(args: Vec<String>) -> ExitCode {
             );
             ExitCode::SUCCESS
         }
-        Some("streaming-plan") => {
-            let Some(dataset_uri) = args.next() else {
-                eprintln!("usage: shardloom streaming-plan <dataset_uri> <target_uri>");
-                return ExitCode::from(2);
-            };
-            let Some(target_uri) = args.next() else {
-                eprintln!("usage: shardloom streaming-plan <dataset_uri> <target_uri>");
-                return ExitCode::from(2);
-            };
-            let dataset_uri = match DatasetUri::new(dataset_uri) {
-                Ok(uri) => uri,
-                Err(error) => {
-                    eprintln!("invalid dataset uri: {error}");
-                    return ExitCode::from(2);
-                }
-            };
-            let dataset_ref = match DatasetRef::from_uri(dataset_uri) {
-                Ok(dataset_ref) => dataset_ref,
-                Err(error) => {
-                    eprintln!("failed to create dataset reference: {error}");
-                    return ExitCode::from(2);
-                }
-            };
-            let target_uri = match DatasetUri::new(target_uri) {
-                Ok(uri) => uri,
-                Err(error) => {
-                    eprintln!("invalid target uri: {error}");
-                    return ExitCode::from(2);
-                }
-            };
-            let output_target = OutputTarget::from_uri(target_uri);
-            let plan = StreamingPlanSkeleton::for_vortex_to_target(dataset_ref, output_target);
-            emit(
-                "streaming-plan",
-                format,
-                if plan.has_errors() {
-                    CommandStatus::Unsupported
-                } else {
-                    CommandStatus::Success
-                },
-                "streaming plan".to_string(),
-                plan.to_human_text(),
-                plan.diagnostics.clone(),
-                streaming_plan_fields(&plan),
-            );
-            if plan.has_errors() {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            }
-        }
+        Some("streaming-plan") => engine_runtime_planning::handle_streaming_plan(args, format),
         Some("streaming-batch-plan") => {
-            let Some(dataset_uri) = args.next() else {
-                eprintln!(
-                    "usage: shardloom streaming-batch-plan <dataset_uri> <target_uri> <memory_gb> <max_parallelism> [batch_mib]"
-                );
-                return ExitCode::from(2);
-            };
-            let Some(target_uri) = args.next() else {
-                eprintln!(
-                    "usage: shardloom streaming-batch-plan <dataset_uri> <target_uri> <memory_gb> <max_parallelism> [batch_mib]"
-                );
-                return ExitCode::from(2);
-            };
-            let Some(memory_gb_text) = args.next() else {
-                eprintln!(
-                    "usage: shardloom streaming-batch-plan <dataset_uri> <target_uri> <memory_gb> <max_parallelism> [batch_mib]"
-                );
-                return ExitCode::from(2);
-            };
-            let Some(max_parallelism_text) = args.next() else {
-                eprintln!(
-                    "usage: shardloom streaming-batch-plan <dataset_uri> <target_uri> <memory_gb> <max_parallelism> [batch_mib]"
-                );
-                return ExitCode::from(2);
-            };
-            let batch_mib = match args.next() {
-                Some(value) => match value.parse::<u64>() {
-                    Ok(parsed) if parsed > 0 => Some(parsed),
-                    _ => {
-                        return emit_error(
-                            "streaming-batch-plan",
-                            format,
-                            "encoded streaming-batch planning failed",
-                            &ShardLoomError::InvalidOperation(
-                                "batch_mib must be a positive integer".to_string(),
-                            ),
-                        );
-                    }
-                },
-                None => None,
-            };
-            if let Some(extra) = args.next() {
-                return emit_error(
-                    "streaming-batch-plan",
-                    format,
-                    "encoded streaming-batch planning failed",
-                    &cli_unknown_arg_error("streaming-batch-plan", &extra),
-                );
-            }
-            let dataset_uri = match DatasetUri::new(dataset_uri) {
-                Ok(uri) => uri,
-                Err(error) => {
-                    return emit_error(
-                        "streaming-batch-plan",
-                        format,
-                        "invalid dataset uri",
-                        &ShardLoomError::InvalidOperation(format!("invalid dataset uri: {error}")),
-                    );
-                }
-            };
-            let dataset_ref = match DatasetRef::from_uri(dataset_uri) {
-                Ok(dataset_ref) => dataset_ref,
-                Err(error) => {
-                    return emit_error(
-                        "streaming-batch-plan",
-                        format,
-                        "failed to create dataset reference",
-                        &error,
-                    );
-                }
-            };
-            let target_uri = match DatasetUri::new(target_uri) {
-                Ok(uri) => uri,
-                Err(error) => {
-                    return emit_error(
-                        "streaming-batch-plan",
-                        format,
-                        "invalid target uri",
-                        &ShardLoomError::InvalidOperation(format!("invalid target uri: {error}")),
-                    );
-                }
-            };
-            let output_target = OutputTarget::from_uri(target_uri);
-            let memory_gb: u64 = match memory_gb_text.parse() {
-                Ok(value) if value > 0 => value,
-                _ => {
-                    return emit_error(
-                        "streaming-batch-plan",
-                        format,
-                        "encoded streaming-batch planning failed",
-                        &ShardLoomError::InvalidOperation(
-                            "memory_gb must be a positive integer".to_string(),
-                        ),
-                    );
-                }
-            };
-            let max_parallelism: usize = match max_parallelism_text.parse() {
-                Ok(value) if value > 0 => value,
-                _ => {
-                    return emit_error(
-                        "streaming-batch-plan",
-                        format,
-                        "encoded streaming-batch planning failed",
-                        &ShardLoomError::InvalidOperation(
-                            "max_parallelism must be a positive integer".to_string(),
-                        ),
-                    );
-                }
-            };
-            let memory = BoundedMemoryPolicy::required(ByteSize::from_gib(memory_gb));
-            let mut input = match EncodedStreamingBatchPlanInput::for_vortex_to_target(
-                dataset_ref,
-                output_target,
-                memory,
-                max_parallelism,
-            ) {
-                Ok(input) => input,
-                Err(error) => {
-                    return emit_error(
-                        "streaming-batch-plan",
-                        format,
-                        "encoded streaming-batch planning failed",
-                        &error,
-                    );
-                }
-            };
-            if let Some(batch_mib) = batch_mib {
-                input = input.with_estimated_batch_bytes(ByteSize::from_mib(batch_mib));
-            }
-            let report = match plan_encoded_streaming_batches(input) {
-                Ok(report) => report,
-                Err(error) => {
-                    return emit_error(
-                        "streaming-batch-plan",
-                        format,
-                        "encoded streaming-batch planning failed",
-                        &error,
-                    );
-                }
-            };
-            emit(
-                "streaming-batch-plan",
-                format,
-                if report.has_errors() {
-                    CommandStatus::Unsupported
-                } else {
-                    CommandStatus::Success
-                },
-                "encoded streaming-batch plan".to_string(),
-                report.to_human_text(),
-                report.diagnostics.clone(),
-                encoded_streaming_batch_plan_fields(&report, memory_gb, batch_mib),
-            );
-            if report.has_errors() {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            }
+            engine_runtime_planning::handle_streaming_batch_plan(args, format)
         }
         Some("backpressure-plan") => {
-            let Some(memory_gb_text) = args.next() else {
-                eprintln!(
-                    "usage: shardloom backpressure-plan <memory_gb> <max_parallelism> [chunk_mib]"
-                );
-                return ExitCode::from(2);
-            };
-            let Some(max_parallelism_text) = args.next() else {
-                eprintln!(
-                    "usage: shardloom backpressure-plan <memory_gb> <max_parallelism> [chunk_mib]"
-                );
-                return ExitCode::from(2);
-            };
-            let memory_gb: u64 = match memory_gb_text.parse() {
-                Ok(value) => value,
-                Err(_) => {
-                    return emit_error(
-                        "backpressure-plan",
-                        format,
-                        "backpressure planning failed",
-                        &ShardLoomError::InvalidOperation(
-                            "memory_gb must be an unsigned integer".to_string(),
-                        ),
-                    );
-                }
-            };
-            let max_parallelism: usize = match max_parallelism_text.parse() {
-                Ok(value) => value,
-                Err(_) => {
-                    return emit_error(
-                        "backpressure-plan",
-                        format,
-                        "backpressure planning failed",
-                        &ShardLoomError::InvalidOperation(
-                            "max_parallelism must be an unsigned integer".to_string(),
-                        ),
-                    );
-                }
-            };
-            let chunk_mib = match args.next() {
-                Some(value) => match value.parse::<u64>() {
-                    Ok(parsed) => Some(parsed),
-                    Err(_) => {
-                        return emit_error(
-                            "backpressure-plan",
-                            format,
-                            "backpressure planning failed",
-                            &ShardLoomError::InvalidOperation(
-                                "chunk_mib must be an unsigned integer".to_string(),
-                            ),
-                        );
-                    }
-                },
-                None => None,
-            };
-            let memory = BoundedMemoryPolicy::required(ByteSize::from_gib(memory_gb));
-            let mut input = match BackpressurePlanInput::new(memory, max_parallelism) {
-                Ok(input) => input,
-                Err(error) => {
-                    return emit_error(
-                        "backpressure-plan",
-                        format,
-                        "backpressure planning failed",
-                        &error,
-                    );
-                }
-            };
-            if let Some(chunk_mib) = chunk_mib {
-                input = input.with_estimated_chunk_bytes(ByteSize::from_mib(chunk_mib));
-            }
-            let report = match plan_backpressure(input) {
-                Ok(report) => report,
-                Err(error) => {
-                    return emit_error(
-                        "backpressure-plan",
-                        format,
-                        "backpressure planning failed",
-                        &error,
-                    );
-                }
-            };
-            emit(
-                "backpressure-plan",
-                format,
-                if report.has_errors() {
-                    CommandStatus::Unsupported
-                } else {
-                    CommandStatus::Success
-                },
-                "backpressure plan".to_string(),
-                report.to_human_text(),
-                report.diagnostics.clone(),
-                backpressure_plan_fields(&report),
-            );
-            if report.has_errors() {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            }
+            engine_runtime_planning::handle_backpressure_plan(args, format)
         }
-        Some("runtime-plan") => {
-            let Some(dataset_uri) = args.next() else {
-                eprintln!("usage: shardloom runtime-plan <dataset_uri>");
-                return ExitCode::from(2);
-            };
-            let uri = match DatasetUri::new(dataset_uri) {
-                Ok(uri) => uri,
-                Err(error) => {
-                    eprintln!("invalid dataset uri: {error}");
-                    return ExitCode::from(2);
-                }
-            };
-            let dataset = match DatasetRef::from_uri(uri) {
-                Ok(dataset) => dataset,
-                Err(error) => {
-                    eprintln!("failed to create dataset reference: {error}");
-                    return ExitCode::from(2);
-                }
-            };
-            let plan = match RuntimePlanSkeleton::for_dataset(dataset) {
-                Ok(plan) => plan,
-                Err(error) => {
-                    eprintln!("failed to build runtime plan: {error}");
-                    return ExitCode::from(2);
-                }
-            };
-            emit(
-                "runtime-plan",
-                format,
-                CommandStatus::Success,
-                "runtime plan".to_string(),
-                plan.to_human_text(),
-                plan.diagnostics.clone(),
-                vec![],
-            );
-            ExitCode::SUCCESS
-        }
-        Some("sizing-plan") => {
-            let Some(dataset_uri) = args.next() else {
-                eprintln!("usage: shardloom sizing-plan <dataset_uri> --memory-gb <gb>");
-                return ExitCode::from(2);
-            };
-            let Some(memory_flag) = args.next() else {
-                eprintln!("usage: shardloom sizing-plan <dataset_uri> --memory-gb <gb>");
-                return ExitCode::from(2);
-            };
-            if memory_flag != "--memory-gb" {
-                eprintln!("usage: shardloom sizing-plan <dataset_uri> --memory-gb <gb>");
-                return ExitCode::from(2);
-            }
-            let Some(memory_gb_raw) = args.next() else {
-                eprintln!("usage: shardloom sizing-plan <dataset_uri> --memory-gb <gb>");
-                return ExitCode::from(2);
-            };
-            let memory_gb = match memory_gb_raw.parse::<u64>() {
-                Ok(value) if value > 0 => value,
-                _ => {
-                    return emit_error(
-                        "sizing-plan",
-                        format,
-                        "invalid memory setting",
-                        &ShardLoomError::InvalidOperation(
-                            "memory-gb must be a positive integer".to_string(),
-                        ),
-                    );
-                }
-            };
-            let uri = match DatasetUri::new(dataset_uri) {
-                Ok(uri) => uri,
-                Err(error) => {
-                    return emit_error(
-                        "sizing-plan",
-                        format,
-                        "invalid dataset uri",
-                        &ShardLoomError::InvalidOperation(format!("invalid dataset uri: {error}")),
-                    );
-                }
-            };
-            let dataset = match DatasetRef::from_uri(uri) {
-                Ok(dataset) => dataset,
-                Err(error) => {
-                    eprintln!("failed to create dataset reference: {error}");
-                    return ExitCode::from(2);
-                }
-            };
-            let policy = AdaptiveSizingPolicy::memory_limited(ByteSize::from_gib(memory_gb));
-            let sizer = AdaptiveSizer::new(policy.clone());
-            let input = SizingInput::new(
-                shardloom_core::SegmentId::new("placeholder-segment").expect("valid segment id"),
-                SizeEstimate::unknown(),
-            );
-            let decision = sizer.decide_for_segment(&input);
-            let parallelism =
-                ParallelismPlan::new(ParallelismLimit::auto(), 1, 1, "planning skeleton");
-            let mut plan = SizingPlan::new(policy, parallelism);
-            plan.add_decision(input.segment_id.clone(), decision);
-            emit(
-                "sizing-plan",
-                format,
-                CommandStatus::Success,
-                "sizing plan".to_string(),
-                format!("dataset: {}\n{}", dataset.summary(), plan.to_human_text()),
-                vec![],
-                vec![],
-            );
-            ExitCode::SUCCESS
-        }
+        Some("runtime-plan") => engine_runtime_planning::handle_runtime_plan(args, format),
+        Some("sizing-plan") => engine_runtime_planning::handle_sizing_plan(args, format),
         Some("sizing-feedback-plan") => {
-            let Some(memory_gb_text) = args.next() else {
-                eprintln!("usage: shardloom sizing-feedback-plan <memory_gb> <signals>");
-                return ExitCode::from(2);
-            };
-            let Some(signals_raw) = args.next() else {
-                eprintln!("usage: shardloom sizing-feedback-plan <memory_gb> <signals>");
-                return ExitCode::from(2);
-            };
-            if let Some(extra) = args.next() {
-                return emit_error(
-                    "sizing-feedback-plan",
-                    format,
-                    "dynamic sizing feedback planning failed",
-                    &cli_unknown_arg_error("sizing-feedback-plan", &extra),
-                );
-            }
-            let memory_gb: u64 = match memory_gb_text.parse() {
-                Ok(value) if value > 0 => value,
-                _ => {
-                    return emit_error(
-                        "sizing-feedback-plan",
-                        format,
-                        "dynamic sizing feedback planning failed",
-                        &ShardLoomError::InvalidOperation(
-                            "memory_gb must be a positive integer".to_string(),
-                        ),
-                    );
-                }
-            };
-            let signals = match parse_sizing_feedback_signals(&signals_raw) {
-                Ok(signals) => signals,
-                Err(error) => {
-                    return emit_error(
-                        "sizing-feedback-plan",
-                        format,
-                        "dynamic sizing feedback planning failed",
-                        &error,
-                    );
-                }
-            };
-            let mut input = DynamicSizingFeedbackInput::new(AdaptiveSizingPolicy::memory_limited(
-                ByteSize::from_gib(memory_gb),
-            ));
-            for signal in signals {
-                input.add_signal(signal);
-            }
-            let report = plan_dynamic_sizing_feedback(input);
-            emit(
-                "sizing-feedback-plan",
-                format,
-                if report.has_errors() {
-                    CommandStatus::Unsupported
-                } else {
-                    CommandStatus::Success
-                },
-                "dynamic sizing feedback plan".to_string(),
-                report.to_human_text(),
-                report.diagnostics.clone(),
-                dynamic_sizing_feedback_fields(&report, memory_gb, &signals_raw),
-            );
-            if report.has_errors() {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            }
+            engine_runtime_planning::handle_sizing_feedback_plan(args, format)
         }
         Some("dynamic-work-shaping-plan") => {
-            let profile = args.next();
-            if let Some(extra) = args.next() {
-                return emit_error(
-                    "dynamic-work-shaping-plan",
-                    format,
-                    "dynamic work shaping planning failed",
-                    &ShardLoomError::InvalidOperation(format!(
-                        "unknown extra dynamic-work-shaping-plan argument: {extra}"
-                    )),
-                );
-            }
-            let report = match dynamic_work_shaping_report_for_profile(profile.as_deref()) {
-                Ok(report) => report,
-                Err(error) => {
-                    return emit_error(
-                        "dynamic-work-shaping-plan",
-                        format,
-                        "dynamic work shaping planning failed",
-                        &error,
-                    );
-                }
-            };
-            emit(
-                "dynamic-work-shaping-plan",
-                format,
-                if report.has_errors() {
-                    CommandStatus::Unsupported
-                } else {
-                    CommandStatus::Success
-                },
-                "dynamic work shaping plan".to_string(),
-                report.to_human_text(),
-                report.diagnostics.clone(),
-                dynamic_work_shaping_fields(&report),
-            );
-            if report.has_errors() {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            }
+            engine_runtime_planning::handle_dynamic_work_shaping_plan(args, format)
         }
         Some("cg8-runtime-promotion-gate") => {
-            let report = plan_dynamic_runtime_promotion_gate();
-            emit(
-                "cg8-runtime-promotion-gate",
-                format,
-                if report.has_errors() {
-                    CommandStatus::Unsupported
-                } else {
-                    CommandStatus::Success
-                },
-                "CG-8 runtime promotion gate".to_string(),
-                report.to_human_text(),
-                report.diagnostics.clone(),
-                dynamic_runtime_promotion_gate_fields(&report),
-            );
-            if report.has_errors() {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            }
+            engine_runtime_planning::handle_dynamic_runtime_gate(format)
         }
-        Some("task-plan") => {
-            let Some(dataset_uri) = args.next() else {
-                eprintln!("usage: shardloom task-plan <dataset_uri>");
-                return ExitCode::from(2);
-            };
-            let uri = match DatasetUri::new(dataset_uri) {
-                Ok(uri) => uri,
-                Err(error) => {
-                    eprintln!("invalid dataset uri: {error}");
-                    return ExitCode::from(2);
-                }
-            };
-            let dataset = match DatasetRef::from_uri(uri) {
-                Ok(dataset) => dataset,
-                Err(error) => {
-                    eprintln!("failed to create dataset reference: {error}");
-                    return ExitCode::from(2);
-                }
-            };
-            let plan = match RuntimePlanSkeleton::for_dataset(dataset) {
-                Ok(plan) => plan,
-                Err(error) => {
-                    eprintln!("failed to build task plan: {error}");
-                    return ExitCode::from(2);
-                }
-            };
-            emit(
-                "task-plan",
-                format,
-                CommandStatus::Success,
-                "task plan".to_string(),
-                plan.graph.summary(),
-                vec![],
-                vec![],
-            );
-            ExitCode::SUCCESS
-        }
+        Some("task-plan") => engine_runtime_planning::handle_task_plan(args, format),
 
         Some("vortex-adaptive-sizing") => {
             let Some(dataset_uri) = args.next() else {
