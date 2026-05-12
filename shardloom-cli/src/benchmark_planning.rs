@@ -6,12 +6,12 @@
 
 use std::process::ExitCode;
 
-use shardloom_core::{CommandStatus, OutputFormat, ShardLoomError, plan_benchmark_claim_evidence};
-
-use crate::{
-    benchmark_claim_evidence_fields, benchmark_plan_fields, benchmark_plan_for_scope,
-    cli_output::{emit, emit_error},
+use shardloom_core::{
+    BenchmarkClaimEvidenceReport, BenchmarkPlan, CommandStatus, OutputFormat, ShardLoomError,
+    plan_benchmark_claim_evidence,
 };
+
+use crate::cli_output::{emit, emit_error};
 
 pub(crate) fn handle_benchmark_plan(
     mut args: impl Iterator<Item = String>,
@@ -92,4 +92,501 @@ pub(crate) fn handle_benchmark_claim_evidence_plan(
     } else {
         ExitCode::SUCCESS
     }
+}
+
+pub(crate) fn benchmark_plan_fields(plan: &BenchmarkPlan) -> Vec<(String, String)> {
+    let mut fields = Vec::new();
+    append_benchmark_plan_overview_fields(&mut fields, plan);
+    append_benchmark_plan_scenario_fields(&mut fields, plan);
+    append_benchmark_plan_metric_fields(&mut fields, plan);
+    append_benchmark_plan_claim_fields(&mut fields, plan);
+    fields
+}
+
+#[allow(clippy::too_many_lines)]
+pub(crate) fn benchmark_claim_evidence_fields(
+    report: &BenchmarkClaimEvidenceReport,
+) -> Vec<(String, String)> {
+    let mut fields = Vec::new();
+    push_field(&mut fields, "mode", "benchmark_claim_evidence");
+    push_field(&mut fields, "schema_version", report.schema_version);
+    push_field(&mut fields, "report_id", report.report_id);
+    push_field(&mut fields, "scope", &report.scope);
+    push_field(&mut fields, "claim_evidence_status", report.status.as_str());
+    push_field(
+        &mut fields,
+        "surface_order",
+        &BenchmarkClaimEvidenceReport::surface_order().join(","),
+    );
+    push_count_field(
+        &mut fields,
+        "surface_count",
+        BenchmarkClaimEvidenceReport::surface_order().len(),
+    );
+    push_count_field(
+        &mut fields,
+        "planned_surface_count",
+        report.planned_surface_count,
+    );
+    push_count_field(
+        &mut fields,
+        "blocked_surface_count",
+        report.blocked_surface_count,
+    );
+    push_field(
+        &mut fields,
+        "blocked_surface_order",
+        &report.blocked_surface_order.join(","),
+    );
+    push_count_field(&mut fields, "scenario_count", report.scenario_count);
+    push_field(
+        &mut fields,
+        "scenario_name_order",
+        &report.scenario_name_order.join(","),
+    );
+    push_field(
+        &mut fields,
+        "workload_class_order",
+        &report.workload_class_order.join(","),
+    );
+    push_count_field(
+        &mut fields,
+        "required_metric_count",
+        report.required_metric_count,
+    );
+    push_field(
+        &mut fields,
+        "required_metric_order",
+        &report.required_metric_order.join(","),
+    );
+    push_count_field(
+        &mut fields,
+        "required_foundation_metric_count",
+        report.required_foundation_metric_count,
+    );
+    push_count_field(
+        &mut fields,
+        "covered_required_foundation_metric_count",
+        report.covered_required_foundation_metric_count,
+    );
+    push_field(
+        &mut fields,
+        "missing_required_foundation_metrics",
+        &report.missing_required_foundation_metrics.join(","),
+    );
+    push_count_field(&mut fields, "baseline_count", report.baseline_count);
+    push_field(
+        &mut fields,
+        "baseline_engine_order",
+        &report.baseline_engine_order.join(","),
+    );
+    push_count_field(
+        &mut fields,
+        "external_baseline_count",
+        report.external_baseline_count,
+    );
+    push_field(
+        &mut fields,
+        "external_baseline_engine_order",
+        &report.external_baseline_engine_order.join(","),
+    );
+    push_count_field(
+        &mut fields,
+        "expected_result_count",
+        report.expected_result_count,
+    );
+    push_count_field(&mut fields, "result_count", report.result_count);
+    push_count_field(
+        &mut fields,
+        "missing_result_count",
+        report.missing_result_count,
+    );
+    push_count_field(
+        &mut fields,
+        "missing_external_result_count",
+        report.missing_external_result_count,
+    );
+    push_count_field(
+        &mut fields,
+        "missing_metric_count",
+        report.missing_metric_count,
+    );
+    push_field(
+        &mut fields,
+        "run_manifest_status",
+        report.run_manifest_status.as_str(),
+    );
+    push_bool_field(
+        &mut fields,
+        "run_manifest_emitted",
+        report.run_manifest_emitted,
+    );
+    push_count_field(
+        &mut fields,
+        "missing_engine_version_count",
+        report.missing_engine_version_count,
+    );
+    push_count_field(
+        &mut fields,
+        "dataset_profile_count",
+        report.dataset_profile_count,
+    );
+    push_count_field(
+        &mut fields,
+        "incomplete_dataset_profile_count",
+        report.incomplete_dataset_profile_count,
+    );
+    push_count_field(
+        &mut fields,
+        "reproduction_step_count",
+        report.reproduction_step_count,
+    );
+    push_field(&mut fields, "cache_state", report.cache_state.as_str());
+    push_field(
+        &mut fields,
+        "comparison_report_status",
+        report.comparison_report_status.as_str(),
+    );
+    push_bool_field(
+        &mut fields,
+        "comparison_report_emitted",
+        report.comparison_report_emitted,
+    );
+    push_field(
+        &mut fields,
+        "claim_gate_status",
+        report.claim_gate_status.as_str(),
+    );
+    push_field(
+        &mut fields,
+        "claim_gate_correctness_evidence",
+        report.correctness_evidence.as_str(),
+    );
+    push_field(
+        &mut fields,
+        "claim_gate_benchmark_evidence",
+        report.benchmark_evidence.as_str(),
+    );
+    push_field(
+        &mut fields,
+        "claim_gate_required_metrics",
+        report.required_metrics_evidence.as_str(),
+    );
+    push_field(
+        &mut fields,
+        "claim_gate_comparison_report",
+        report.comparison_report_evidence.as_str(),
+    );
+    push_field(
+        &mut fields,
+        "claim_gate_reproducibility_evidence",
+        report.reproducibility_evidence.as_str(),
+    );
+    push_bool_field(
+        &mut fields,
+        "claim_grade_source_backed_benchmark_closeout_required",
+        report.claim_grade_source_backed_benchmark_closeout_required,
+    );
+    push_bool_field(
+        &mut fields,
+        "claim_grade_source_backed_benchmark_closeout_allowed",
+        report.claim_grade_source_backed_benchmark_closeout_allowed,
+    );
+    push_field(
+        &mut fields,
+        "claim_grade_source_backed_benchmark_closeout_blocker_order",
+        &report
+            .claim_grade_source_backed_benchmark_closeout_blocker_order
+            .join(","),
+    );
+    push_bool_field(
+        &mut fields,
+        "measured_benchmark_result_rows_required",
+        report.measured_benchmark_result_rows_required,
+    );
+    push_bool_field(
+        &mut fields,
+        "measured_benchmark_result_rows_present",
+        report.measured_benchmark_result_rows_present,
+    );
+    push_bool_field(
+        &mut fields,
+        "reproducibility_manifest_population_required",
+        report.reproducibility_manifest_population_required,
+    );
+    push_bool_field(
+        &mut fields,
+        "reproducibility_manifest_populated",
+        report.reproducibility_manifest_populated,
+    );
+    push_bool_field(
+        &mut fields,
+        "approved_comparison_rows_required",
+        report.approved_comparison_rows_required,
+    );
+    push_bool_field(
+        &mut fields,
+        "approved_comparison_rows_present",
+        report.approved_comparison_rows_present,
+    );
+    push_bool_field(
+        &mut fields,
+        "benchmark_execution_implemented",
+        report.benchmark_execution_implemented,
+    );
+    push_bool_field(
+        &mut fields,
+        "benchmark_execution_performed",
+        report.benchmark_execution_performed,
+    );
+    push_bool_field(
+        &mut fields,
+        "external_engine_execution",
+        report.external_engine_execution,
+    );
+    push_bool_field(&mut fields, "query_execution", report.query_execution);
+    push_bool_field(&mut fields, "data_read", report.data_read);
+    push_bool_field(&mut fields, "object_store_io", report.object_store_io);
+    push_bool_field(&mut fields, "write_io", report.write_io);
+    push_bool_field(
+        &mut fields,
+        "fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(&mut fields, "fallback_attempted", report.fallback_attempted);
+    push_bool_field(
+        &mut fields,
+        "baselines_fallback_free",
+        report.baselines_fallback_free,
+    );
+    push_bool_field(
+        &mut fields,
+        "performance_claim_allowed",
+        report.performance_claim_allowed,
+    );
+    push_bool_field(
+        &mut fields,
+        "superiority_claim_allowed",
+        report.superiority_claim_allowed,
+    );
+    push_bool_field(
+        &mut fields,
+        "best_default_claim_allowed",
+        report.best_default_claim_allowed,
+    );
+    push_bool_field(&mut fields, "side_effect_free", report.side_effect_free());
+    push_count_field(&mut fields, "diagnostic_count", report.diagnostics.len());
+    fields
+}
+
+fn append_benchmark_plan_overview_fields(fields: &mut Vec<(String, String)>, plan: &BenchmarkPlan) {
+    let claim_gate = plan.claim_gate();
+    push_field(fields, "mode", "benchmark_plan");
+    push_field(fields, "status", "planned");
+    push_bool_field(
+        fields,
+        "benchmark_execution_implemented",
+        plan.benchmark_execution_implemented(),
+    );
+    push_bool_field(
+        fields,
+        "performance_claim_allowed",
+        claim_gate.can_publish_performance_claim(),
+    );
+    push_bool_field(fields, "fallback_execution_allowed", false);
+    push_field(fields, "external_baselines", "comparison_only");
+}
+
+fn append_benchmark_plan_scenario_fields(fields: &mut Vec<(String, String)>, plan: &BenchmarkPlan) {
+    push_count_field(fields, "scenario_count", plan.scenario_count());
+    push_field(
+        fields,
+        "scenario_name_order",
+        &plan.scenario_name_order().join(","),
+    );
+    push_field(
+        fields,
+        "workload_class_order",
+        &plan.workload_class_order().join(","),
+    );
+    push_field(
+        fields,
+        "correctness_validation_order",
+        &plan.correctness_validation_order().join(","),
+    );
+    push_count_field(
+        fields,
+        "scenario_with_correctness_validation_count",
+        plan.scenario_with_correctness_validation_count(),
+    );
+    push_count_field(
+        fields,
+        "scenario_with_required_metrics_count",
+        plan.scenario_with_required_metrics_count(),
+    );
+    push_count_field(
+        fields,
+        "scenario_with_baselines_count",
+        plan.scenario_with_baselines_count(),
+    );
+}
+
+fn append_benchmark_plan_metric_fields(fields: &mut Vec<(String, String)>, plan: &BenchmarkPlan) {
+    push_count_field(
+        fields,
+        "required_metric_count",
+        plan.required_metrics().len(),
+    );
+    push_field(
+        fields,
+        "required_metric_order",
+        &plan.required_metric_order().join(","),
+    );
+    push_count_field(
+        fields,
+        "required_foundation_metric_count",
+        BenchmarkPlan::required_foundation_metrics().len(),
+    );
+    push_count_field(
+        fields,
+        "covered_required_foundation_metric_count",
+        plan.covered_required_foundation_metric_count(),
+    );
+    push_field(
+        fields,
+        "missing_required_foundation_metrics",
+        &plan.missing_required_foundation_metrics().join(","),
+    );
+    push_bool_field(
+        fields,
+        "required_foundation_metrics_covered",
+        plan.required_foundation_metrics_covered(),
+    );
+    push_bool_field(
+        fields,
+        "runtime_metrics_covered",
+        plan.runtime_metrics_covered(),
+    );
+    push_bool_field(
+        fields,
+        "peak_memory_metric_covered",
+        plan.peak_memory_metric_covered(),
+    );
+    push_bool_field(
+        fields,
+        "bytes_read_written_metrics_covered",
+        plan.bytes_read_written_metrics_covered(),
+    );
+    push_bool_field(
+        fields,
+        "startup_latency_metric_covered",
+        plan.startup_latency_metric_covered(),
+    );
+    push_bool_field(
+        fields,
+        "query_runtime_metric_covered",
+        plan.query_runtime_metric_covered(),
+    );
+    push_bool_field(
+        fields,
+        "write_commit_latency_metric_covered",
+        plan.write_commit_latency_metric_covered(),
+    );
+    push_bool_field(
+        fields,
+        "spill_metrics_covered",
+        plan.spill_metrics_covered(),
+    );
+    push_bool_field(
+        fields,
+        "object_store_request_metric_covered",
+        plan.object_store_request_metric_covered(),
+    );
+    push_bool_field(
+        fields,
+        "materialization_metrics_covered",
+        plan.materialization_metrics_covered(),
+    );
+}
+
+fn append_benchmark_plan_claim_fields(fields: &mut Vec<(String, String)>, plan: &BenchmarkPlan) {
+    let claim_gate = plan.claim_gate();
+    push_field(
+        fields,
+        "baseline_engine_order",
+        &plan.baseline_engine_order().join(","),
+    );
+    push_field(
+        fields,
+        "external_baseline_engine_order",
+        &plan.external_baseline_engine_order().join(","),
+    );
+    push_count_field(
+        fields,
+        "external_baseline_count",
+        plan.external_baseline_count(),
+    );
+    push_count_field(
+        fields,
+        "expected_result_count",
+        plan.expected_result_count(),
+    );
+    push_field(fields, "claim_gate_status", claim_gate.status.as_str());
+    push_field(
+        fields,
+        "claim_gate_correctness_evidence",
+        claim_gate.correctness_evidence.as_str(),
+    );
+    push_field(
+        fields,
+        "claim_gate_benchmark_evidence",
+        claim_gate.benchmark_evidence.as_str(),
+    );
+    push_field(
+        fields,
+        "claim_gate_required_metrics",
+        claim_gate.required_metrics.as_str(),
+    );
+    push_field(
+        fields,
+        "claim_gate_comparison_report",
+        claim_gate.comparison_report.as_str(),
+    );
+    push_field(
+        fields,
+        "claim_gate_reproducibility_evidence",
+        claim_gate.reproducibility_evidence.as_str(),
+    );
+    push_field(fields, "claim_gate_fallback", claim_gate.fallback.as_str());
+    push_bool_field(
+        fields,
+        "baselines_fallback_free",
+        plan.baselines_are_fallback_free(),
+    );
+}
+
+pub(crate) fn benchmark_plan_for_scope(
+    scope: Option<&str>,
+) -> shardloom_core::Result<BenchmarkPlan> {
+    match scope {
+        None | Some("foundation") => Ok(BenchmarkPlan::default_foundation_plan()),
+        Some("traditional-analytics" | "traditional_analytics") => {
+            Ok(BenchmarkPlan::traditional_analytics_plan())
+        }
+        Some(other) => Err(ShardLoomError::InvalidOperation(format!(
+            "unknown benchmark plan scope: {other}"
+        ))),
+    }
+}
+
+fn push_field(fields: &mut Vec<(String, String)>, key: &str, value: &str) {
+    fields.push((key.to_string(), value.to_string()));
+}
+
+fn push_count_field(fields: &mut Vec<(String, String)>, key: &str, value: usize) {
+    push_field(fields, key, &value.to_string());
+}
+
+fn push_bool_field(fields: &mut Vec<(String, String)>, key: &str, value: bool) {
+    push_field(fields, key, &value.to_string());
 }

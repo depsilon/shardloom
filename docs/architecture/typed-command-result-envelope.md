@@ -153,6 +153,11 @@ The benchmark runtime family currently contains `traditional-analytics-run`,
 harness behavior; external engines remain comparison-only baselines and must not become fallback
 execution paths.
 
+Benchmark field construction ownership is now colocated with these families: `benchmark_plan`,
+`benchmark_claim_evidence`, and Vortex count benchmark report fields live in the benchmark planning
+or runtime modules. The shared duration conversion helpers used by benchmark and Vortex output
+surfaces live in `shardloom-cli/src/cli_time.rs`.
+
 The operational hardening/security family currently contains `security-plan`,
 `security-governance-evidence-gate`, `effect-budget-plan`, `agent-safety-plan`, and
 `redaction-plan`, and lives in `shardloom-cli/src/operational_hardening.rs`. These handlers remain
