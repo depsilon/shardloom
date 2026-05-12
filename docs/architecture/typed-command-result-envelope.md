@@ -144,6 +144,12 @@ The extension/UDF planning family now contains `extension-registry`, `extension-
 metadata-only and do not dynamically load extension code, execute UDFs, invoke external services,
 write data, or weaken no-fallback behavior.
 
+The prepared/source-backed execution family now contains the `vortex-encoded-read-probe` and
+`vortex-encoded-read-spike` handler entry points in
+`shardloom-cli/src/prepared_source_backed_execution.rs`. The split preserves the current probe-only
+and feature-gated spike behavior; `vortex-encoded-read-execute` keeps its existing executor contract
+while broader prepared/source-backed extraction continues.
+
 Command family classification lives in `shardloom-cli/src/command_family.rs` and is emitted in the
 typed lifecycle payload as `command_family`. This gives status/capabilities, Vortex primitive,
 prepared/source-backed, evidence/certificate, benchmark, packaging/deployment, Foundry,
