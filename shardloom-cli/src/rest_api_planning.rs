@@ -7,7 +7,7 @@ use std::process::ExitCode;
 
 use shardloom_core::{CliApiJsonProtocolReport, OutputFormat, ReleasePlan};
 
-use crate::{api_protocol_fields, cli_output::emit};
+use crate::cli_output::emit;
 
 pub(crate) fn handle_api_compat_plan(format: OutputFormat) -> ExitCode {
     let plan = ReleasePlan::default_foundation_plan();
@@ -24,4 +24,116 @@ pub(crate) fn handle_api_compat_plan(format: OutputFormat) -> ExitCode {
         api_protocol_fields(&protocol),
     );
     ExitCode::SUCCESS
+}
+
+pub(crate) fn api_protocol_fields(report: &CliApiJsonProtocolReport) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    push_field(&mut fields, "mode", "api_compat_plan");
+    push_field(&mut fields, "publish_allowed", "false");
+    push_field(&mut fields, "published", "false");
+    push_field(&mut fields, "execution", "not_performed");
+    push_field(&mut fields, "plan_only", "true");
+    push_field(&mut fields, "schema_version", report.schema_version);
+    push_field(&mut fields, "protocol_id", report.protocol_id);
+    push_field(&mut fields, "protocol_stability", report.protocol_stability);
+    push_field(
+        &mut fields,
+        "output_envelope_schema_version",
+        report.output_envelope_schema_version,
+    );
+    push_field(
+        &mut fields,
+        "required_envelope_fields",
+        &report.required_envelope_fields.join(","),
+    );
+    push_field(
+        &mut fields,
+        "required_fallback_fields",
+        &report.required_fallback_fields.join(","),
+    );
+    push_field(
+        &mut fields,
+        "required_diagnostic_fields",
+        &report.required_diagnostic_fields.join(","),
+    );
+    push_field(
+        &mut fields,
+        "required_field_entry_fields",
+        &report.required_field_entry_fields.join(","),
+    );
+    push_field(
+        &mut fields,
+        "required_typed_payload_fields",
+        &report.required_typed_payload_fields.join(","),
+    );
+    push_bool_field(
+        &mut fields,
+        "legacy_fields_mirror_present",
+        report.legacy_fields_mirror_present,
+    );
+    push_bool_field(
+        &mut fields,
+        "flat_fields_primary_payload_allowed",
+        report.flat_fields_primary_payload_allowed,
+    );
+    push_field(
+        &mut fields,
+        "command_status_values",
+        &report.command_status_values.join(","),
+    );
+    push_field(
+        &mut fields,
+        "output_formats",
+        &report.output_formats.join(","),
+    );
+    push_field(
+        &mut fields,
+        "thin_python_wrapper_boundary",
+        report.thin_python_wrapper_boundary,
+    );
+    push_bool_field(
+        &mut fields,
+        "pyo3_maturin_allowed",
+        report.pyo3_maturin_allowed,
+    );
+    push_bool_field(&mut fields, "foundry_required", report.foundry_required);
+    push_bool_field(
+        &mut fields,
+        "dataframe_api_implemented",
+        report.dataframe_api_implemented,
+    );
+    push_bool_field(&mut fields, "side_effect_free", report.side_effect_free);
+    push_bool_field(&mut fields, "filesystem_probe", report.filesystem_probe);
+    push_bool_field(&mut fields, "network_probe", report.network_probe);
+    push_bool_field(&mut fields, "catalog_probe", report.catalog_probe);
+    push_bool_field(&mut fields, "adapter_probe", report.adapter_probe);
+    push_bool_field(&mut fields, "parser_executed", report.parser_executed);
+    push_bool_field(&mut fields, "runtime_execution", report.runtime_execution);
+    push_bool_field(&mut fields, "write_io", report.write_io);
+    push_field(&mut fields, "external_publish", "not_performed");
+    push_bool_field(
+        &mut fields,
+        "external_publish_performed",
+        report.external_publish,
+    );
+    push_bool_field(
+        &mut fields,
+        "fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(&mut fields, "fallback_attempted", report.fallback_attempted);
+    push_count_field(&mut fields, "diagnostic_count", report.diagnostics.len());
+    fields
+}
+
+fn push_field(fields: &mut Vec<(String, String)>, key: &str, value: &str) {
+    fields.push((key.to_string(), value.to_string()));
+}
+
+fn push_count_field(fields: &mut Vec<(String, String)>, key: &str, value: usize) {
+    push_field(fields, key, &value.to_string());
+}
+
+fn push_bool_field(fields: &mut Vec<(String, String)>, key: &str, value: bool) {
+    push_field(fields, key, &value.to_string());
 }

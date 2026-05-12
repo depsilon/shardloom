@@ -193,6 +193,12 @@ actionable work.
           without enabling server behavior or remote execution.
     - [x] Move packaging/deployment handlers into `shardloom-cli/src/packaging_deployment.rs`
           without publishing packages, pushing artifacts, or invoking external engines.
+    - [x] Move packaging/deployment and REST/API helper ownership into
+          `shardloom-cli/src/packaging_deployment.rs` and
+          `shardloom-cli/src/rest_api_planning.rs`, covering release/package, Conda
+          certification, agent contract, Python wrapper, and CLI API protocol field
+          construction while preserving report-only semantics, no publishing, no server start, and
+          no-fallback behavior.
     - [x] Move benchmark planning handlers into `shardloom-cli/src/benchmark_planning.rs`
           without running benchmarks, invoking external engines, or publishing performance claims.
     - [x] Move executable traditional-analytics benchmark runtime handlers into
