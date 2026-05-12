@@ -153,9 +153,10 @@ while broader prepared/source-backed extraction continues.
 
 The Vortex primitive execution family now starts its physical split in
 `shardloom-cli/src/vortex_primitive_execution.rs` with `vortex-count`, `vortex-count-where`,
-`vortex-project`, `vortex-filter`, `vortex-filter-project`, `vortex-local-exec`, and
-`vortex-bounded-local-exec`, and `vortex-query-trace`. The broader `vortex-run` handler remains
-staged for later extraction.
+`vortex-project`, `vortex-filter`, `vortex-filter-project`, `vortex-run`, `vortex-local-exec`,
+`vortex-bounded-local-exec`, and `vortex-query-trace`. These handler splits preserve the existing
+local primitive, local-engine, bounded-policy, work-avoidance, certificate, why-report, and
+no-fallback output contracts while broader non-primitive handler extraction continues.
 
 Command family classification lives in `shardloom-cli/src/command_family.rs` and is emitted in the
 typed lifecycle payload as `command_family`. This gives status/capabilities, Vortex primitive,
