@@ -14,7 +14,9 @@ use shardloom_core::{
 };
 use shardloom_plan::ProjectionRequest;
 
-use crate::{VortexQueryPrimitiveKind, VortexQueryPrimitiveRequest};
+use crate::{
+    VortexQueryPrimitiveKind, VortexQueryPrimitiveRequest, VortexReaderBackedSplitEvidence,
+};
 
 /// Feature-gated local Vortex primitive execution status.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -83,6 +85,7 @@ pub struct VortexLocalPrimitiveExecutionReport {
     pub rows_projected: Option<u64>,
     pub projected_columns: Vec<String>,
     pub arrays_read_count: usize,
+    pub reader_splits: Vec<VortexReaderBackedSplitEvidence>,
     pub max_chunk_rows: usize,
     pub streaming_scan_used: bool,
     pub full_stream_collected: bool,
@@ -118,6 +121,7 @@ impl VortexLocalPrimitiveExecutionReport {
             rows_projected: None,
             projected_columns: Vec::new(),
             arrays_read_count: 0,
+            reader_splits: Vec::new(),
             max_chunk_rows: 0,
             streaming_scan_used: false,
             full_stream_collected: false,
@@ -187,6 +191,11 @@ impl VortexLocalPrimitiveExecutionReport {
             self.projected_columns.join(",")
         );
         let _ = writeln!(out, "arrays read count: {}", self.arrays_read_count);
+        let _ = writeln!(
+            out,
+            "reader split evidence count: {}",
+            self.reader_splits.len()
+        );
         let _ = writeln!(out, "max chunk rows: {}", self.max_chunk_rows);
         let _ = writeln!(out, "streaming scan used: {}", self.streaming_scan_used);
         let _ = writeln!(out, "full stream collected: {}", self.full_stream_collected);
@@ -1040,7 +1049,7 @@ fn execute_vortex_local_primitive_enabled(
     };
     match request.kind {
         VortexQueryPrimitiveKind::CountAll => {
-            let scan = read_local_vortex_scan(&path, request.kind, policy, |_| {
+            let scan = read_local_vortex_scan(uri, &path, request.kind, policy, |_| {
                 Ok(LocalVortexScanPlan::passthrough())
             })?;
             Ok(count_all_report(request.kind, &scan))
@@ -1057,7 +1066,7 @@ fn execute_vortex_local_primitive_enabled(
                     ),
                 ));
             };
-            let scan = read_local_vortex_scan(&path, request.kind, policy, |dtype| {
+            let scan = read_local_vortex_scan(uri, &path, request.kind, policy, |dtype| {
                 Ok(LocalVortexScanPlan::filter(predicate_to_vortex_expr(
                     predicate,
                     dtype,
@@ -1067,7 +1076,7 @@ fn execute_vortex_local_primitive_enabled(
             predicate_report(request.kind, &scan, predicate)
         }
         VortexQueryPrimitiveKind::ProjectColumns => {
-            let scan = read_local_vortex_scan(&path, request.kind, policy, |dtype| {
+            let scan = read_local_vortex_scan(uri, &path, request.kind, policy, |dtype| {
                 projection_scan_plan(dtype, &request.projection, request.kind)
             })?;
             projection_report(request.kind, &scan)
@@ -1084,7 +1093,7 @@ fn execute_vortex_local_primitive_enabled(
                     ),
                 ));
             };
-            let scan = read_local_vortex_scan(&path, request.kind, policy, |dtype| {
+            let scan = read_local_vortex_scan(uri, &path, request.kind, policy, |dtype| {
                 let mut plan = projection_scan_plan(dtype, &request.projection, request.kind)?;
                 plan.filter = Some(predicate_to_vortex_expr(predicate, dtype, request.kind)?);
                 Ok(plan)
@@ -1114,6 +1123,7 @@ struct LocalVortexScan {
     source_row_count: u64,
     result_row_count: usize,
     arrays_read_count: usize,
+    reader_splits: Vec<VortexReaderBackedSplitEvidence>,
     max_chunk_rows: usize,
     max_parallelism_requested: usize,
     scan_concurrency_per_worker: usize,
@@ -1190,6 +1200,7 @@ fn local_vortex_path(
 
 #[cfg(feature = "vortex-local-primitives")]
 fn read_local_vortex_scan(
+    source_uri: &DatasetUri,
     path: &std::path::Path,
     primitive_kind: VortexQueryPrimitiveKind,
     policy: VortexLocalPrimitiveExecutionPolicy,
@@ -1226,10 +1237,20 @@ fn read_local_vortex_scan(
     scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
     let mut result_row_count = 0usize;
     let mut arrays_read_count = 0usize;
+    let mut reader_splits = Vec::new();
     let mut max_chunk_rows = 0usize;
     for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
         let chunk = chunk.map_err(vortex_error)?;
         let rows = chunk.len();
+        reader_splits.push(VortexReaderBackedSplitEvidence::local_scan_chunk(
+            source_uri.clone(),
+            arrays_read_count,
+            rows,
+            chunk.dtype().to_string(),
+            chunk.encoding_id().to_string(),
+            chunk.nchildren(),
+            chunk.nbuffers(),
+        )?);
         result_row_count = result_row_count.checked_add(rows).ok_or_else(|| {
             ShardLoomError::InvalidOperation(
                 "local Vortex primitive result row count overflowed usize".to_string(),
@@ -1242,6 +1263,7 @@ fn read_local_vortex_scan(
         source_row_count,
         result_row_count,
         arrays_read_count,
+        reader_splits,
         max_chunk_rows,
         max_parallelism_requested: policy.max_parallelism,
         scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
@@ -1267,6 +1289,7 @@ fn count_all_report(
         rows_projected: None,
         projected_columns: Vec::new(),
         arrays_read_count: scan.arrays_read_count,
+        reader_splits: scan.reader_splits.clone(),
         max_chunk_rows: scan.max_chunk_rows,
         streaming_scan_used: true,
         full_stream_collected: false,
@@ -1309,6 +1332,7 @@ fn predicate_report(
         rows_projected: None,
         projected_columns: Vec::new(),
         arrays_read_count: scan.arrays_read_count,
+        reader_splits: scan.reader_splits.clone(),
         max_chunk_rows: scan.max_chunk_rows,
         streaming_scan_used: true,
         full_stream_collected: false,
@@ -1354,6 +1378,7 @@ fn projection_report(
         rows_projected: Some(rows),
         projected_columns: scan.projected_columns.clone(),
         arrays_read_count: scan.arrays_read_count,
+        reader_splits: scan.reader_splits.clone(),
         max_chunk_rows: scan.max_chunk_rows,
         streaming_scan_used: true,
         full_stream_collected: false,
@@ -1399,6 +1424,7 @@ fn filter_and_project_report(
         rows_projected: Some(rows),
         projected_columns: scan.projected_columns.clone(),
         arrays_read_count: scan.arrays_read_count,
+        reader_splits: scan.reader_splits.clone(),
         max_chunk_rows: scan.max_chunk_rows,
         streaming_scan_used: true,
         full_stream_collected: false,
@@ -1684,8 +1710,15 @@ fn vortex_error(error: impl std::fmt::Display) -> ShardLoomError {
 #[cfg(all(test, feature = "vortex-local-primitives"))]
 mod tests {
     use super::*;
+    use crate::{
+        VortexEncodedValuePredicateBatch, VortexReaderBackedEncodedExecutionStatus,
+        VortexSourceBackedEncodedValuePredicateBatch,
+        execute_vortex_reader_backed_filter_from_encoded_value_batches,
+    };
     use shardloom_core::{
-        ColumnRef, CorrectnessFixture, CorrectnessValidationPlan, ExecutionCertificateStatus,
+        ColumnRef, CorrectnessFixture, CorrectnessValidationPlan, EncodedSegment,
+        EncodedValueBatch, EncodingKind, ExecutionCertificateStatus, LayoutKind, LogicalDType,
+        Nullability, SegmentId, SegmentLayout, SegmentStats, UniversalInputSource,
     };
 
     fn unique_vortex_path(name: &str) -> std::path::PathBuf {
@@ -1815,6 +1848,17 @@ mod tests {
         DatasetUri::new(checked_in_struct_fixture_path().display().to_string()).expect("uri")
     }
 
+    fn prepared_metric_segment(id: &str, row_count: u64) -> EncodedSegment {
+        EncodedSegment::new(
+            SegmentId::new(id).expect("segment"),
+            ColumnRef::new("metric").expect("column"),
+            LogicalDType::Int64,
+            Nullability::Nullable,
+            SegmentLayout::new(EncodingKind::Constant, LayoutKind::Flat),
+            SegmentStats::with_row_count(row_count),
+        )
+    }
+
     #[test]
     fn count_all_scans_local_vortex_without_decode() {
         let path = unique_vortex_path("count-all");
@@ -1872,6 +1916,14 @@ mod tests {
         assert_eq!(report.max_parallelism_requested, 1);
         assert_eq!(report.scan_concurrency_per_worker, 1);
         assert!(report.arrays_read_count > 0);
+        assert_eq!(report.reader_splits.len(), report.arrays_read_count);
+        assert!(report.reader_splits.iter().all(|split| split.data_read));
+        assert!(
+            report
+                .reader_splits
+                .iter()
+                .all(|split| !split.has_forbidden_effects())
+        );
         assert!(report.max_chunk_rows > 0);
         assert!(report.filter_pushdown_applied);
         assert!(report.upstream_filter_expression_used);
@@ -1881,6 +1933,61 @@ mod tests {
         assert!(!report.row_read);
         assert!(!report.arrow_converted);
         assert!(!report.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn local_scan_split_refs_bind_reader_backed_prepared_filter_batches() {
+        let path = unique_vortex_path("reader-backed-bind");
+        write_struct_fixture(&path).expect("fixture");
+        let uri = DatasetUri::new(path.display().to_string()).expect("uri");
+        let predicate = PredicateExpr::Compare {
+            column: ColumnRef::new("metric").expect("column"),
+            op: ComparisonOp::GtEq,
+            value: StatValue::Int64(5),
+        };
+        let request = VortexQueryPrimitiveRequest::count_where(uri.clone(), predicate.clone());
+
+        let local_report = execute_vortex_local_primitive(&request).expect("local report");
+        let source = UniversalInputSource::from_dataset_uri(uri).expect("source");
+        let source_uri = source.uri.clone().expect("source uri");
+        let first_split = local_report
+            .reader_splits
+            .first()
+            .expect("reader split")
+            .clone();
+        let batch = VortexSourceBackedEncodedValuePredicateBatch::new(
+            source_uri,
+            first_split.split_ref.clone(),
+            VortexEncodedValuePredicateBatch::new(
+                prepared_metric_segment("reader-split.metric", first_split.row_count as u64),
+                EncodedValueBatch::Constant {
+                    value: Some(StatValue::Int64(5)),
+                    row_count: first_split.row_count as u64,
+                },
+            ),
+        )
+        .expect("prepared batch");
+
+        let bridge_report = execute_vortex_reader_backed_filter_from_encoded_value_batches(
+            &predicate,
+            &source,
+            &local_report.reader_splits,
+            &[batch],
+        )
+        .expect("bridge report");
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(
+            bridge_report.status,
+            VortexReaderBackedEncodedExecutionStatus::ExecutedReaderValidatedPreparedEncodedBatches
+        );
+        assert!(bridge_report.data_read);
+        assert!(bridge_report.runtime_execution_allowed);
+        assert!(bridge_report.prepared_batch_split_refs_covered_by_reader);
+        assert!(bridge_report.reader_validated_prepared_batches_consumed);
+        assert!(!bridge_report.reader_generated_prepared_batches);
+        assert!(bridge_report.avoids_forbidden_effects());
+        assert!(!bridge_report.has_errors());
     }
 
     #[test]

@@ -188,7 +188,7 @@ impl VortexGeneralizedEncodedPrimitiveGateEntry {
             primitive: VortexGeneralizedEncodedPrimitiveKind::FilteredCount,
             status: VortexGeneralizedEncodedPrimitiveStatus::SourceBackedPreparedEncodedFilterEvidence,
             current_scope:
-                "local .vortex CountWhere/FilterPredicate scan-pushdown evidence plus prepared encoded-value filter execution and source-bound prepared batch evidence; reader-generated batches/adapters still blocked"
+                "local .vortex CountWhere/FilterPredicate scan-pushdown evidence plus prepared encoded-value filter execution, source-bound prepared batch evidence, and reader split-ref validation; reader-generated batches/adapters still blocked"
                     .to_string(),
             current_evidence: vec![
                 "vortex-filtered-count-readiness-plan".to_string(),
@@ -202,16 +202,17 @@ impl VortexGeneralizedEncodedPrimitiveGateEntry {
                 "cg19.local_primitive.count_where/filter_predicate.native_io".to_string(),
                 "cg19.prepared_encoded_filter.native_io".to_string(),
                 "source-backed prepared encoded filter URI/split envelope".to_string(),
+                "reader-backed prepared encoded filter split-ref binding".to_string(),
             ],
             implementation_blockers: vec![
                 "non-local sources and object-store reads are not approved".to_string(),
-                "reader and adapter paths do not yet produce prepared encoded-value batches"
+                "reader and adapter paths validate split refs but do not yet produce prepared encoded-value batches"
                     .to_string(),
                 "claim-grade predicate null/type correctness and benchmark evidence is not complete"
                     .to_string(),
             ],
             required_next_evidence: vec![
-                "reader/read-start wiring that produces prepared encoded-value batches without decode"
+                "reader/read-start extraction that produces prepared encoded-value batches without decode"
                     .to_string(),
                 "selection-vector preservation through downstream operators beyond prepared filter evidence".to_string(),
                 "decoded-reference comparison fixtures for test-only validation".to_string(),
@@ -256,7 +257,7 @@ impl VortexGeneralizedEncodedPrimitiveGateEntry {
             primitive: VortexGeneralizedEncodedPrimitiveKind::Projection,
             status: VortexGeneralizedEncodedPrimitiveStatus::SourceBackedPreparedEncodedProjectionEvidence,
             current_scope:
-                "local .vortex ProjectColumns/FilterAndProject scan-pushdown evidence plus prepared encoded projection/filter-project execution and source-bound prepared projection evidence; reader-generated batches/adapters still blocked"
+                "local .vortex ProjectColumns/FilterAndProject scan-pushdown evidence plus prepared encoded projection/filter-project execution, source-bound prepared projection evidence, and reader split-ref validation; reader-generated batches/adapters still blocked"
                     .to_string(),
             current_evidence: vec![
                 "vortex-projection-readiness-plan".to_string(),
@@ -272,15 +273,16 @@ impl VortexGeneralizedEncodedPrimitiveGateEntry {
                 "cg19.local_primitive.project_columns/filter_and_project.native_io".to_string(),
                 "cg19.prepared_encoded_projection.native_io".to_string(),
                 "source-backed prepared encoded projection URI/split envelope".to_string(),
+                "reader-backed prepared encoded projection split-ref binding".to_string(),
             ],
             implementation_blockers: vec![
-                "reader and adapter paths do not yet produce prepared encoded projection batches"
+                "reader and adapter paths validate split refs but do not yet produce prepared encoded projection batches"
                     .to_string(),
                 "claim-grade projection null/nested correctness and benchmark evidence is not complete"
                     .to_string(),
             ],
             required_next_evidence: vec![
-                "reader/read-start wiring that produces prepared encoded projection batches without decode"
+                "reader/read-start extraction that produces prepared encoded projection batches without decode"
                     .to_string(),
                 "selection-vector preservation through downstream operators beyond prepared filter-project evidence".to_string(),
                 "projection fixtures for empty, null-heavy, wide, and nested columns".to_string(),
