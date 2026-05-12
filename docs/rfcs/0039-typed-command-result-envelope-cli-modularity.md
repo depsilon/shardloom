@@ -36,6 +36,9 @@ handler module in
 handler module in `shardloom-cli/src/vortex_primitive_execution.rs`, including
 `vortex-count-where`, `vortex-project`, `vortex-filter`, `vortex-filter-project`, and
 `vortex-run`, `vortex-local-exec`, `vortex-bounded-local-exec`, and `vortex-query-trace`, and
+the first Vortex planning handler module in `shardloom-cli/src/vortex_planning.rs`, including
+`vortex-metadata-plan`, `vortex-pruning-plan`, `vortex-metadata-probe`, and
+`vortex-api-inventory`, and
 typed-envelope
 contract snapshots for
 representative success, error, unsupported, blocked, evidence-incomplete, source-backed, benchmark,

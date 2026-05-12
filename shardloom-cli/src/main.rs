@@ -28,6 +28,7 @@ mod prepared_source_backed_execution;
 mod rest_api_planning;
 mod status_capabilities;
 mod typed_envelope;
+mod vortex_planning;
 mod vortex_primitive_execution;
 mod workflow_planning;
 
@@ -111,30 +112,30 @@ use shardloom_plan::{
     plan_object_store_request_planner, plan_object_store_runtime_promotion_gate,
 };
 use shardloom_vortex::{
-    VortexAdapterCapabilityReport, VortexAdapterReadiness, VortexAdaptiveSizingReport,
-    VortexBoundedExecutionReport, VortexCommitIntentReport, VortexCommitIntentRequest,
-    VortexCommitIntentSignal, VortexCommitMarkerContent, VortexCommitMarkerFileName,
-    VortexCommitMarkerFileRef, VortexCommitMarkerRequest, VortexCommitMarkerSignal,
-    VortexCommitMarkerWriteOption, VortexCommitProtocolReport, VortexCommitProtocolRequest,
-    VortexCommitProtocolSignal, VortexCommitProtocolState, VortexCommitProtocolTransition,
-    VortexCountCandidateSource, VortexCountReadinessRequest, VortexCountReadinessSignal,
-    VortexDTypeMappingReport, VortexEncodedCountKernelAdmissionReport,
-    VortexEncodedCountPhysicalKernelReport, VortexEncodedExecutionPathSelectionReport,
-    VortexEncodedPredicateEvaluationReport, VortexEncodedPredicateEvaluationStatus,
-    VortexEncodedReadBoundaryReport, VortexEncodedReadBoundaryRequest,
-    VortexEncodedReadBoundarySignal, VortexEncodedReadExecutionMode,
-    VortexEncodedReadExecutionStatus, VortexEncodedReadExecutorFeatureStatus,
-    VortexEncodedReadFixtureRef, VortexEncodedReadMetadataProbeReport,
-    VortexEncodedReadMetadataProbeRequest, VortexEncodedReadMetadataProbeSignal,
-    VortexEncodedReadReadinessStatus, VortexEncodingLayoutMappingReport,
-    VortexExecutionReadinessStatus, VortexFileRef, VortexFilteredCountCandidateSource,
-    VortexFilteredCountReadinessSignal, VortexFinalizedManifestArtifactWriteOption,
-    VortexFinalizedManifestContent, VortexFinalizedManifestFileName,
-    VortexFinalizedManifestFileRef, VortexGeneralizedEncodedPrimitiveGateReport,
-    VortexLayoutReaderDriverApprovalInput, VortexLayoutReaderDriverApprovalSignal,
-    VortexLocalCommitExecutionRequest, VortexLocalCommitExecutionSignal,
-    VortexLocalCommitRecoveryRequest, VortexLocalCommitRecoverySignal, VortexLocalEngineWhyReport,
-    VortexLocalExecutionReport, VortexLocalExecutionStatus, VortexLocalPrimitiveExecutionPolicy,
+    VortexAdapterReadiness, VortexAdaptiveSizingReport, VortexBoundedExecutionReport,
+    VortexCommitIntentReport, VortexCommitIntentRequest, VortexCommitIntentSignal,
+    VortexCommitMarkerContent, VortexCommitMarkerFileName, VortexCommitMarkerFileRef,
+    VortexCommitMarkerRequest, VortexCommitMarkerSignal, VortexCommitMarkerWriteOption,
+    VortexCommitProtocolReport, VortexCommitProtocolRequest, VortexCommitProtocolSignal,
+    VortexCommitProtocolState, VortexCommitProtocolTransition, VortexCountCandidateSource,
+    VortexCountReadinessRequest, VortexCountReadinessSignal, VortexDTypeMappingReport,
+    VortexEncodedCountKernelAdmissionReport, VortexEncodedCountPhysicalKernelReport,
+    VortexEncodedExecutionPathSelectionReport, VortexEncodedPredicateEvaluationReport,
+    VortexEncodedPredicateEvaluationStatus, VortexEncodedReadBoundaryReport,
+    VortexEncodedReadBoundaryRequest, VortexEncodedReadBoundarySignal,
+    VortexEncodedReadExecutionMode, VortexEncodedReadExecutionStatus,
+    VortexEncodedReadExecutorFeatureStatus, VortexEncodedReadFixtureRef,
+    VortexEncodedReadMetadataProbeReport, VortexEncodedReadMetadataProbeRequest,
+    VortexEncodedReadMetadataProbeSignal, VortexEncodedReadReadinessStatus,
+    VortexEncodingLayoutMappingReport, VortexExecutionReadinessStatus, VortexFileRef,
+    VortexFilteredCountCandidateSource, VortexFilteredCountReadinessSignal,
+    VortexFinalizedManifestArtifactWriteOption, VortexFinalizedManifestContent,
+    VortexFinalizedManifestFileName, VortexFinalizedManifestFileRef,
+    VortexGeneralizedEncodedPrimitiveGateReport, VortexLayoutReaderDriverApprovalInput,
+    VortexLayoutReaderDriverApprovalSignal, VortexLocalCommitExecutionRequest,
+    VortexLocalCommitExecutionSignal, VortexLocalCommitRecoveryRequest,
+    VortexLocalCommitRecoverySignal, VortexLocalEngineWhyReport, VortexLocalExecutionReport,
+    VortexLocalExecutionStatus, VortexLocalPrimitiveExecutionPolicy,
     VortexLocalPrimitiveExecutionReport, VortexManifestFinalizationRequest,
     VortexManifestFinalizationSignal, VortexMemoryBridgeReport,
     VortexMetadataCountKernelAdmissionReport, VortexMetadataFilterKernelAdmissionReport,
@@ -169,20 +170,18 @@ use shardloom_vortex::{
     execute_vortex_local_primitive_with_policy, execute_vortex_metadata_only,
     finalized_manifest_artifact_write_request_from_plan, local_encoded_count_execution_certificate,
     local_encoded_count_native_io_certificate, local_primitive_execution_certificate,
-    local_primitive_native_io_certificate, metadata_planning_is_side_effect_free,
-    metadata_pruning_is_side_effect_free, metadata_summary_is_plan_only,
+    local_primitive_native_io_certificate, metadata_summary_is_plan_only,
     native_output_payload_write_request_from_plan, open_vortex_metadata_only,
-    output_payload_artifact_write_request_from_plan, plan_from_vortex_metadata_summary,
-    plan_native_vortex_universal_input, plan_vortex_commit_intent, plan_vortex_commit_marker,
-    plan_vortex_commit_protocol, plan_vortex_count_readiness,
-    plan_vortex_encoded_count_data_path_approval,
+    output_payload_artifact_write_request_from_plan, plan_native_vortex_universal_input,
+    plan_vortex_commit_intent, plan_vortex_commit_marker, plan_vortex_commit_protocol,
+    plan_vortex_count_readiness, plan_vortex_encoded_count_data_path_approval,
     plan_vortex_encoded_count_data_path_approval_with_layout_driver,
     plan_vortex_encoded_execution_path_selection, plan_vortex_encoded_read_boundary,
     plan_vortex_encoded_read_probe, plan_vortex_filtered_count_readiness,
     plan_vortex_generalized_encoded_primitive_gate, plan_vortex_layout_reader_driver_approval,
     plan_vortex_local_commit_recovery, plan_vortex_manifest_finalization,
-    plan_vortex_memory_safety, plan_vortex_metadata_pruning, plan_vortex_output_payload,
-    plan_vortex_projection_readiness, plan_vortex_query_primitive,
+    plan_vortex_memory_safety, plan_vortex_output_payload, plan_vortex_projection_readiness,
+    plan_vortex_query_primitive,
     plan_vortex_query_primitive_result_physical_operators_with_evidence,
     plan_vortex_read_from_universal_input, plan_vortex_scheduler_queue,
     plan_vortex_staged_manifest_file, plan_vortex_write_intent, probe_vortex_encoded_read_metadata,
@@ -25984,272 +25983,12 @@ fn run(args: Vec<String>) -> ExitCode {
             vortex_primitive_execution::handle_vortex_query_trace(args, format)
         }
 
-        Some("vortex-metadata-plan") => {
-            let Some(uri_text) = args.next() else {
-                return emit_error(
-                    "vortex-metadata-plan",
-                    format,
-                    "missing dataset uri",
-                    &ShardLoomError::InvalidOperation(
-                        "missing required argument: <dataset_uri>".to_string(),
-                    ),
-                );
-            };
-            let uri = match DatasetUri::new(uri_text) {
-                Ok(uri) => uri,
-                Err(error) => {
-                    return emit_error(
-                        "vortex-metadata-plan",
-                        format,
-                        "invalid dataset uri",
-                        &ShardLoomError::InvalidOperation(format!("invalid dataset uri: {error}")),
-                    );
-                }
-            };
-            let probe = probe_vortex_metadata_only(uri)
-                .unwrap_or_else(|_| VortexMetadataProbeReport::deferred_api_unclear());
-            let summary = summarize_vortex_metadata_probe(&probe);
-            let report = match plan_from_vortex_metadata_summary(summary) {
-                Ok(report) => report,
-                Err(error) => {
-                    return emit_error(
-                        "vortex-metadata-plan",
-                        format,
-                        "vortex metadata plan failed",
-                        &error,
-                    );
-                }
-            };
-            emit(
-                "vortex-metadata-plan",
-                format,
-                if report.has_errors() {
-                    CommandStatus::Unsupported
-                } else {
-                    CommandStatus::Success
-                },
-                "vortex metadata planning".to_string(),
-                report.to_human_text(),
-                report.diagnostics.clone(),
-                vec![
-                    (
-                        "fallback_execution_allowed".to_string(),
-                        "false".to_string(),
-                    ),
-                    ("mode".to_string(), "vortex_metadata_plan".to_string()),
-                    ("metadata_only".to_string(), "true".to_string()),
-                    ("plan_only".to_string(), report.is_plan_only().to_string()),
-                    ("data_executed".to_string(), "false".to_string()),
-                    ("data_materialized".to_string(), "false".to_string()),
-                    ("object_store_io".to_string(), "false".to_string()),
-                    ("write_io".to_string(), "false".to_string()),
-                    ("write_io".to_string(), "false".to_string()),
-                    ("execution".to_string(), "not_performed".to_string()),
-                    ("plan_only".to_string(), "true".to_string()),
-                    (
-                        "side_effect_free".to_string(),
-                        metadata_planning_is_side_effect_free(&report).to_string(),
-                    ),
-                ],
-            );
-            if report.has_errors() {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            }
-        }
-
-        Some("vortex-pruning-plan") => {
-            let Some(uri_arg) = args.next() else {
-                return emit_error(
-                    "vortex-pruning-plan",
-                    format,
-                    "vortex pruning plan failed",
-                    &ShardLoomError::InvalidOperation("missing <dataset_uri> argument".to_string()),
-                );
-            };
-            let uri = match DatasetUri::new(uri_arg) {
-                Ok(uri) => uri,
-                Err(error) => {
-                    return emit_error(
-                        "vortex-pruning-plan",
-                        format,
-                        "vortex pruning plan failed",
-                        &error,
-                    );
-                }
-            };
-            let probe = match probe_vortex_metadata_only(uri) {
-                Ok(p) => p,
-                Err(error) => {
-                    return emit_error(
-                        "vortex-pruning-plan",
-                        format,
-                        "vortex pruning plan failed",
-                        &error,
-                    );
-                }
-            };
-            let summary = summarize_vortex_metadata_probe(&probe);
-            let planning = match plan_from_vortex_metadata_summary(summary) {
-                Ok(p) => p,
-                Err(error) => {
-                    return emit_error(
-                        "vortex-pruning-plan",
-                        format,
-                        "vortex pruning plan failed",
-                        &error,
-                    );
-                }
-            };
-            let report = match plan_vortex_metadata_pruning(planning, None) {
-                Ok(r) => r,
-                Err(error) => {
-                    return emit_error(
-                        "vortex-pruning-plan",
-                        format,
-                        "vortex pruning plan failed",
-                        &error,
-                    );
-                }
-            };
-            let text = report.to_human_text();
-            let status = if report.has_errors() {
-                CommandStatus::Error
-            } else {
-                CommandStatus::Success
-            };
-            emit(
-                "vortex-pruning-plan",
-                format,
-                status,
-                "vortex metadata pruning plan".to_string(),
-                text,
-                report.diagnostics.clone(),
-                vec![
-                    (
-                        "fallback_execution_allowed".to_string(),
-                        "false".to_string(),
-                    ),
-                    ("mode".to_string(), "vortex_pruning_plan".to_string()),
-                    ("metadata_only".to_string(), "true".to_string()),
-                    ("plan_only".to_string(), report.is_plan_only().to_string()),
-                    (
-                        "data_executed".to_string(),
-                        report.data_executed.to_string(),
-                    ),
-                    (
-                        "data_materialized".to_string(),
-                        report.data_materialized.to_string(),
-                    ),
-                    (
-                        "object_store_io".to_string(),
-                        report.object_store_io.to_string(),
-                    ),
-                    ("write_io".to_string(), report.write_io.to_string()),
-                    ("write_io".to_string(), "false".to_string()),
-                    ("execution".to_string(), "not_performed".to_string()),
-                    ("plan_only".to_string(), "true".to_string()),
-                    (
-                        "side_effect_free".to_string(),
-                        metadata_pruning_is_side_effect_free(&report).to_string(),
-                    ),
-                ],
-            );
-            if report.has_errors() {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            }
-        }
-
+        Some("vortex-metadata-plan") => vortex_planning::handle_vortex_metadata_plan(args, format),
+        Some("vortex-pruning-plan") => vortex_planning::handle_vortex_pruning_plan(args, format),
         Some("vortex-metadata-probe") => {
-            let Some(uri_text) = args.next() else {
-                return emit_error(
-                    "vortex-metadata-probe",
-                    format,
-                    "missing dataset uri",
-                    &ShardLoomError::InvalidOperation(
-                        "missing required argument: <dataset_uri>".to_string(),
-                    ),
-                );
-            };
-            let uri = match DatasetUri::new(uri_text) {
-                Ok(uri) => uri,
-                Err(error) => {
-                    return emit_error(
-                        "vortex-metadata-probe",
-                        format,
-                        "invalid dataset uri",
-                        &ShardLoomError::InvalidOperation(format!("invalid dataset uri: {error}")),
-                    );
-                }
-            };
-            let report = probe_vortex_metadata_only(uri)
-                .unwrap_or_else(|_| VortexMetadataProbeReport::deferred_api_unclear());
-            emit(
-                "vortex-metadata-probe",
-                format,
-                if report.has_errors() {
-                    CommandStatus::Unsupported
-                } else {
-                    CommandStatus::Success
-                },
-                "vortex metadata-only probe".to_string(),
-                report.to_human_text(),
-                report.diagnostics.clone(),
-                vec![
-                    (
-                        "fallback_execution_allowed".to_string(),
-                        "false".to_string(),
-                    ),
-                    ("mode".to_string(), "vortex_metadata_probe".to_string()),
-                    ("metadata_only".to_string(), "true".to_string()),
-                    ("data_materialized".to_string(), "false".to_string()),
-                    ("object_store_io".to_string(), "false".to_string()),
-                    ("write_io".to_string(), "false".to_string()),
-                    ("write_io".to_string(), "false".to_string()),
-                    ("execution".to_string(), "not_performed".to_string()),
-                    ("plan_only".to_string(), "true".to_string()),
-                    (
-                        "metadata_io_status".to_string(),
-                        report.status.as_str().to_string(),
-                    ),
-                ],
-            );
-            if report.has_errors() {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            }
+            vortex_planning::handle_vortex_metadata_probe(args, format)
         }
-        Some("vortex-api-inventory") => {
-            let report = VortexAdapterCapabilityReport::foundation();
-            emit(
-                "vortex-api-inventory",
-                format,
-                CommandStatus::Success,
-                "vortex API inventory".to_string(),
-                report.to_human_text(),
-                report.diagnostics.clone(),
-                vec![
-                    (
-                        "fallback_execution_allowed".to_string(),
-                        "false".to_string(),
-                    ),
-                    ("mode".to_string(), "vortex_api_inventory".to_string()),
-                    (
-                        "upstream_vortex_dependency".to_string(),
-                        "linked".to_string(),
-                    ),
-                    ("actual_io".to_string(), "not_implemented".to_string()),
-                    ("write_io".to_string(), "false".to_string()),
-                    ("execution".to_string(), "not_performed".to_string()),
-                    ("plan_only".to_string(), "true".to_string()),
-                ],
-            );
-            ExitCode::SUCCESS
-        }
+        Some("vortex-api-inventory") => vortex_planning::handle_vortex_api_inventory(format),
         Some("optimizer-plan") => {
             let report = OptimizerPlanSkeleton::not_implemented(
                 OptimizerPhase::VortexPhysical,

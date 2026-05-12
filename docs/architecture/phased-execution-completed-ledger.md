@@ -16,6 +16,42 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 Vortex metadata/report-only planning handler module split
+  - Primary files:
+    - `shardloom-cli/src/vortex_planning.rs`
+    - `shardloom-cli/src/main.rs`
+    - `docs/architecture/typed-command-result-envelope.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/rfcs/0039-typed-command-result-envelope-cli-modularity.md`
+  - Scope: move `vortex-metadata-plan`, `vortex-pruning-plan`, `vortex-metadata-probe`, and
+    `vortex-api-inventory` into the Vortex planning handler module while preserving metadata-only,
+    plan-only, API-inventory, and no-fallback behavior.
+  - Checklist:
+    - [x] Delegate `vortex-metadata-plan` from `main.rs`.
+    - [x] Delegate `vortex-pruning-plan` from `main.rs`.
+    - [x] Delegate `vortex-metadata-probe` from `main.rs`.
+    - [x] Delegate `vortex-api-inventory` from `main.rs`.
+    - [x] Preserve existing status mapping and legacy field output.
+    - [x] Preserve no external engine invocation, no writes, and no fallback execution.
+    - [x] Update Priority 3.9 docs, RFC traceability, and RFC 0039 status.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo check -p shardloom-cli --bin shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli vortex_metadata`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli vortex_api_inventory`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test typed_envelope_contract_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test python_wrapper_snapshots`
+    - [x] `.\target\debug\shardloom.exe vortex-api-inventory --format json`
+    - [x] `.\target\debug\shardloom.exe vortex-metadata-probe file:///tmp/example.vortex --format json` exits `1` for the unsupported probe path.
+    - [x] `.\target\debug\shardloom.exe vortex-metadata-plan file:///tmp/example.vortex --format json` exits `1` for the unsupported metadata-plan path.
+    - [x] `.\target\debug\shardloom.exe vortex-pruning-plan file:///tmp/example.vortex --format json` exits `1` for the unsupported pruning-plan path.
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo clippy -p shardloom-cli --bin shardloom -- -D warnings`
+    - [x] `git diff --check`
+  - Runtime stance: handler split only; no new metadata probe semantics, API behavior, task
+    execution, materialization, writes, external engine invocation, or fallback execution is
+    authorized.
+
 - [x] Session label: Priority 3.9 Vortex local engine handler module split
   - Primary files:
     - `shardloom-cli/src/vortex_primitive_execution.rs`
