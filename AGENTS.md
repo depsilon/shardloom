@@ -115,6 +115,8 @@ For any Vortex-related work, first read `docs/skills/vortex-internals.md`.
 Then read the relevant detailed Vortex skills:
 
 - Vortex concepts, DTypes, arrays, encodings, and layouts: `docs/skills/vortex/vortex-concepts.md`
+- Vortex-first provider check before inventing new ShardLoom abstractions:
+  `docs/skills/vortex/vortex-first-provider-check.md`
 - Vortex file reads/writes and metadata: `docs/skills/vortex/vortex-file-io.md`
 - Encoded operations and physical layouts: `docs/skills/vortex/vortex-encodings-layouts.md`
 - Statistics, metadata-only answers, and pruning: `docs/skills/vortex/vortex-stats-pruning.md`
@@ -122,6 +124,28 @@ Then read the relevant detailed Vortex skills:
 - Scan API and source/sink boundaries: `docs/skills/vortex/vortex-scan-api.md`
 - Arrow compatibility and decoded reference boundaries: `docs/skills/vortex/vortex-arrow-interop.md`
 - Upstream Vortex dependency/version behavior: `docs/skills/vortex/vortex-versioning-upstream.md`
+
+### Vortex-first provider check
+
+For any change touching Vortex data, encoded execution, source/sink I/O, layouts, statistics,
+selection vectors, scan pushdown, object-store reads, extension types, device/GPU paths,
+vector/media data, or Vortex benchmarks, use:
+
+- `docs/skills/vortex/vortex-concepts.md`
+- `docs/skills/vortex/vortex-first-provider-check.md`
+
+Do not invent a ShardLoom abstraction before checking whether Vortex already has a native concept or
+provider surface that should be used, wrapped, certified, or explicitly rejected.
+
+Allowed:
+
+- upstream Vortex array/compute/scan/source/sink APIs as ShardLoom-native providers when
+  feature-gated, version-recorded, policy-admitted, and certificate-backed.
+
+Not allowed:
+
+- Vortex query-engine integrations, DataFusion, DuckDB, Spark, Polars, Velox, Trino, Dask, Ray, or
+  similar systems executing unsupported ShardLoom work as fallback.
 
 ## Phase source of truth
 

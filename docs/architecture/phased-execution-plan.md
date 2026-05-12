@@ -85,6 +85,11 @@ Supporting docs:
     contract reference.
   - Status rule: contract reference only; it does not authorize new Vortex APIs, dependencies,
     runtime behavior, claims, or fallback execution.
+- `docs/skills/vortex/vortex-first-provider-check.md`
+  - Role: Vortex-adjacent implementation guard requiring agents to check upstream Vortex concepts
+    and classify decisions before inventing new ShardLoom abstractions.
+  - Status rule: process guard only; it does not authorize new Vortex API use, dependency changes,
+    runtime behavior, support claims, external engine invocation, or fallback execution.
 
 ## Planned
 
@@ -325,6 +330,15 @@ not by numeric CG order.
         Vortex support changes.
   - [x] Require Vortex-native providers to be feature-gated, version-recorded, policy-admitted, and
         certificate-backed before support claims.
+  - [x] Add a Vortex-first provider check skill and require it for Vortex-adjacent implementation.
+    - [x] Add `docs/skills/vortex/vortex-first-provider-check.md`.
+    - [x] Add AGENTS.md trigger language.
+    - [x] Require PR/implementation notes to classify Vortex-adjacent work as
+          `use_vortex_native_provider`, `wrap_vortex_concept`, `implement_shardloom_kernel`,
+          `baseline_or_oracle_only`, or `blocked_until_vortex_or_shardloom_evidence`.
+    - [x] Ensure residual handling, materialization/decode boundaries, provider refs,
+          certificates, Native I/O evidence, and no-fallback status are recorded before support
+          claims.
 - [ ] Priority 2.7 - source-backed correctness/benchmark population and benchmark-suite overhaul
   - [ ] Populate the source-backed correctness and benchmark matrix for current reader/source-backed
         encoded paths.

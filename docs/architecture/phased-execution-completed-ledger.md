@@ -16,6 +16,25 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Vortex-first provider check skill
+  - Primary files:
+    - `docs/skills/vortex/vortex-first-provider-check.md`
+    - `docs/skills/vortex/README.md`
+    - `AGENTS.md`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: add an operational Vortex-first provider check skill so Vortex-adjacent changes must
+    check upstream Vortex concepts before inventing new ShardLoom abstractions, classify the
+    decision, and preserve provider/certificate/Native I/O/no-fallback evidence requirements.
+  - Checklist:
+    - [x] Add `docs/skills/vortex/vortex-first-provider-check.md`.
+    - [x] Add Vortex skill-pack and `AGENTS.md` trigger language.
+    - [x] Add the skill to the phase plan supporting-docs ownership section.
+    - [x] Record the process guard under Priority 2.6 without authorizing runtime behavior,
+          dependency changes, external engine invocation, or fallback execution.
+  - Validation:
+    - [x] `git diff --check`
+    - [x] `rg -n "vortex-first-provider-check|Vortex-first provider check|use_vortex_native_provider|blocked_until_vortex_or_shardloom_evidence" AGENTS.md docs\skills\vortex docs\architecture\phased-execution-plan.md docs\architecture\phased-execution-completed-ledger.md`
+
 - [x] Session label: top-level plan and execution facade catch-up
   - Primary files:
     - `shardloom-plan/src/execution_facade.rs`

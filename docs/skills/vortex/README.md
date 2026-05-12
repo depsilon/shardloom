@@ -24,6 +24,7 @@ ShardLoom should preserve and use:
 ## Required reading by task type
 
 - Vortex concepts: `vortex-concepts.md`
+- Vortex-first provider checks before new ShardLoom abstractions: `vortex-first-provider-check.md`
 - File reading/writing: `vortex-file-io.md`
 - Encodings and layouts: `vortex-encodings-layouts.md`
 - Statistics and pruning: `vortex-stats-pruning.md`
@@ -47,6 +48,7 @@ ShardLoom should preserve and use:
 
 Every Vortex-related PR should answer:
 
+- Has the Vortex-first provider check been recorded?
 - Does this preserve Vortex-native execution?
 - Does this preserve Vortex-native output?
 - Does this avoid unnecessary decode?
