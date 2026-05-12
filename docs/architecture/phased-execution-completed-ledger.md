@@ -16,6 +16,41 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: CG-20 approximate aggregate/sketch function admission gate
+  - Primary files:
+    - `shardloom-core/src/approx_sketch.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/cg20_approx_sketch_gate.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/capability-certification-sequencing.md`
+  - Scope: add a report-only CG-20 approximate aggregate/sketch gate that names canonical
+    approximate distinct functions, aliases, grouped execution, sketch construction/merge,
+    serialization/deserialization, stable hash/seed policy, error model, value semantics,
+    encoded-aware strategies, exact-reference comparisons, benchmark/certificate/Native I/O
+    closeout, and no-fallback requirements.
+  - Checklist:
+    - [x] Add `ApproxSketchFunctionGateReport` with function coverage and RFC sequencing as
+          existing contract evidence while keeping actual function registry and sketch runtime
+          surfaces blocked.
+    - [x] Preserve dictionary, run-length, selection-vector/validity, and partial-decode
+          materialization strategy requirements without executing encoded sketch updates.
+    - [x] Expose the gate through `cg20-approx-sketch-gate` JSON/text output.
+  - Validation status:
+    - [x] `cargo test -p shardloom-core approx_sketch --lib`
+    - [x] `cargo test -p shardloom-cli --test cg20_approx_sketch_gate`
+    - [x] `cargo fmt --all -- --check`
+    - [x] `cargo clippy -p shardloom-core --lib -- -D warnings`
+    - [x] `cargo clippy -p shardloom-cli --all-targets -- -D warnings`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `git diff --check`
+  - Non-goals preserved:
+    - [x] No function registry mutation, sketch-state runtime, grouped aggregate runtime, sketch
+          serialization runtime, encoded sketch execution, partial-decode execution,
+          materialization without report, generic sketch dependency, claim publication, external
+          engine invocation, or fallback execution.
 - [x] Session label: CG-20 user capability promotion gate
   - Primary files:
     - `shardloom-core/src/certification.rs`
