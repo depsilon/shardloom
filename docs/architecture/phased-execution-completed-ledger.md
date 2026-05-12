@@ -16,6 +16,34 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 CLI output renderer module split
+  - Primary files:
+    - `shardloom-cli/src/cli_output.rs`
+    - `shardloom-cli/src/main.rs`
+    - `docs/architecture/typed-command-result-envelope.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/rfcs/0039-typed-command-result-envelope-cli-modularity.md`
+  - Scope: move shared JSON/text rendering and error emission out of the monolithic CLI entrypoint
+    into a focused output module that composes the existing `command_family` taxonomy and
+    `typed_envelope` field/ref router.
+  - Checklist:
+    - [x] Add `shardloom-cli/src/cli_output.rs` for `emit` and `emit_error`.
+    - [x] Keep command-family lifecycle metadata and typed-envelope field routing centralized in
+          the shared renderer.
+    - [x] Update Priority 3.9 docs and RFC traceability to record the output module split while
+          preserving physical command-handler movement as planned work.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test typed_envelope_contract_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test api_protocol_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli command_family --bin shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-cli --bin shardloom -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `git diff --check`
+  - Runtime stance: refactor-only renderer split; no command behavior changes, handler movement,
+    runtime expansion, external engine invocation, dataset probe, network effect, write,
+    materialization, or fallback execution changes.
+
 - [x] Session label: Priority 3.9 typed envelope golden contract fixtures
   - Primary files:
     - `shardloom-cli/tests/typed_envelope_contract_snapshots.rs`

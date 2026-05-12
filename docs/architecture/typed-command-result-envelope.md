@@ -13,6 +13,7 @@ OutputTypedPayload
 OutputTypedRef
 OutputTypedArtifact
 shardloom-cli/src/command_family.rs
+shardloom-cli/src/cli_output.rs
 shardloom-cli/src/typed_envelope.rs
 shardloom.output.v2
 ```
@@ -70,9 +71,10 @@ Reference routing is conservative: requirement booleans such as `execution_certi
 remain payload fields, while explicit `*_ref`, `*_id`, `*_path`, and `*_uri` values become typed
 refs when the value is a real reference rather than `false`, `none`, `not_performed`, or similar.
 
-Shared CLI typed-envelope routing lives in `shardloom-cli/src/typed_envelope.rs`. Command handlers
-still live mostly in `main.rs`; the module split is the first modularity step for shared rendering
-and protocol behavior.
+Shared CLI JSON/text rendering and error emission lives in `shardloom-cli/src/cli_output.rs`.
+Typed-envelope field/ref routing lives in `shardloom-cli/src/typed_envelope.rs`. Command handlers
+still live mostly in `main.rs`; the output module split is the next modularity step for shared
+rendering and protocol behavior.
 
 Command family classification lives in `shardloom-cli/src/command_family.rs` and is emitted in the
 typed lifecycle payload as `command_family`. This gives status/capabilities, Vortex primitive,
@@ -135,8 +137,8 @@ Attach inline evidence artifacts and richer report payloads through typed slots 
 more than a reference.
 Finish remaining golden fixtures for certified runtime execution, missing-binary protocol parity,
 and concrete Foundry boundary reports.
-Physically split CLI handlers by capability family and centralize rendering, diagnostics, fallback,
-policy, and side-effect reporting.
+Physically split CLI handlers by capability family and continue centralizing diagnostics, fallback,
+policy, and side-effect reporting around the shared renderer.
 ```
 
 ## Runtime posture

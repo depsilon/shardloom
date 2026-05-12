@@ -156,6 +156,9 @@ actionable work.
     - [ ] Add remaining certified runtime execution, missing-binary protocol parity, and concrete
           Foundry boundary report fixtures once those command surfaces are executable/reportable.
   - [ ] Modularize CLI command routing around typed command handlers and shared rendering.
+    - [x] Move shared CLI JSON/text rendering and error emission into
+          `shardloom-cli/src/cli_output.rs`, backed by the existing `typed_envelope` router and
+          `command_family` taxonomy.
     - [ ] Move remaining command-family handlers out of `main.rs` after the shared
           `typed_envelope` routing module and `command_family` taxonomy.
     - [ ] Split handlers by status/capabilities, Vortex primitive execution,
