@@ -158,6 +158,12 @@ The Vortex primitive execution family now starts its physical split in
 local primitive, local-engine, bounded-policy, work-avoidance, certificate, why-report, and
 no-fallback output contracts while broader non-primitive handler extraction continues.
 
+The Vortex planning family now has its first metadata/report-only module in
+`shardloom-cli/src/vortex_planning.rs`, covering `vortex-metadata-plan`,
+`vortex-pruning-plan`, `vortex-metadata-probe`, and `vortex-api-inventory`. These handlers remain
+metadata-only or plan-only surfaces and do not execute tasks, materialize outputs, write data,
+invoke external engines, or weaken no-fallback behavior.
+
 Command family classification lives in `shardloom-cli/src/command_family.rs` and is emitted in the
 typed lifecycle payload as `command_family`. This gives status/capabilities, Vortex primitive,
 prepared/source-backed, evidence/certificate, benchmark, packaging/deployment, Foundry,
