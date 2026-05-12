@@ -340,6 +340,11 @@ not by numeric CG order.
   - [ ] RFC 0018 observability, tracing, profiling, and debug bundles
     - [ ] Add trace/event/profile/log schema coverage for plan, execution, Vortex IO, object-store
           IO, memory/spill, translation/output, benchmark, certificate, and unsupported diagnostics.
+      - [x] Add an observability schema coverage report for trace spans, structured events,
+            profiles, logs, and debug bundles across plan, execution, Vortex IO, object-store IO,
+            memory/spill, translation/output, benchmark, certificate, and unsupported diagnostics,
+            with local JSON, redaction, certificate-link, no-exporter, no-runtime-collection, and
+            `fallback_attempted=false` evidence.
     - [ ] Keep OpenTelemetry/exporter integration optional and later; first make local
           CLI/Python/JSON reports complete, redacted, and certificate-linked.
   - [ ] RFC 0019 security, governance, credentials, egress, and agent safety
