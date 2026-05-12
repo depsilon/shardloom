@@ -210,6 +210,11 @@ actionable work.
     - [x] Move evidence/certificate planning handlers into
           `shardloom-cli/src/evidence_certificates.rs` without running harnesses, reading data,
           emitting runtime certificates from execution, or invoking external engines.
+    - [x] Move evidence/certificate helper ownership into
+          `shardloom-cli/src/evidence_certificates.rs`, covering correctness plan/harness,
+          execution-certificate surface, Native I/O envelope, universal harness, RFC coverage,
+          world-class sufficiency, and CG-20 capability/sketch field construction while keeping
+          everything report-only, side-effect-free, and no-fallback.
     - [x] Move workflow/table planning handlers for manifest, layout health, compaction, table
           intelligence, schema evolution, table compatibility, CG-9 catalog metadata,
           incremental, and stateful reuse surfaces into `shardloom-cli/src/workflow_planning.rs`
