@@ -122,6 +122,8 @@ fn input_plan_json_recognizes_common_structured_formats_without_reading() {
     assert!(parquet.contains(&field("capability_status", "planned")));
     assert!(parquet.contains(&field("compatibility_structured", "true")));
     assert!(parquet.contains(&field("data_read", "false")));
+    assert!(parquet.contains("\"artifact_kind\":\"source_report\""));
+    assert!(parquet.contains("\"artifact_id\":\"input-plan.source\""));
 
     let avro = run_input_plan_json("file://tmp/events.avro");
     assert!(avro.contains(&field("source_kind", "avro")));

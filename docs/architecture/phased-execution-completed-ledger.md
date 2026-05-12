@@ -16,6 +16,38 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 source/sink and capability typed payload slice
+  - Primary files:
+    - `shardloom-cli/src/typed_envelope.rs`
+    - `shardloom-cli/tests/input_adapters_snapshots.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/typed-command-result-envelope.md`
+  - Scope: continue typed-envelope migration for existing source/sink/capability report fields
+    without changing command behavior or executing runtime work.
+  - Checklist:
+    - [x] Attach inline `source_report` artifacts for `input-plan` JSON outputs.
+    - [x] Enrich the `input-adapters` typed `capability_snapshot` with adapter counts, adapter
+          family orderings, and adapter statuses.
+    - [x] Derive inline `source_report`, `source_pushdown_report`, `sink_report`, and
+          `adapter_fidelity_report` artifacts from emitted local Native I/O certificate field
+          groups for local CountAll and Vortex primitive commands.
+    - [x] Teach explicit source-pushdown and adapter-fidelity report refs to route into typed
+          artifact refs.
+    - [x] Preserve legacy top-level `fields`, no-fallback policy, report-only planning behavior,
+          and feature-disabled certificate behavior.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli typed_envelope`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test input_adapters_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo clippy -p shardloom-cli --all-targets -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test --workspace --all-targets`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `git diff --check`
+  - Runtime stance: protocol-only output routing; no adapter runtime, dataset probing, source/sink
+    I/O, object-store I/O, materialization, writes, external engine invocation, or fallback
+    execution is added.
+
 - [x] Session label: Priority 3.9 inline boundary report typed payload slice
   - Primary files:
     - `shardloom-cli/src/typed_envelope.rs`
