@@ -274,6 +274,11 @@ actionable work.
           count/filtered-count/projection readiness planning, encoded-count approval planning, and
           layout-driver approval planning without changing report-only, local-guard, or no-fallback
           behavior.
+    - [x] Move optimizer, kernel registry, and CPU specialization planning handlers into
+          `shardloom-cli/src/optimizer_planning.rs`, covering `kernel-registry`,
+          `optimizer-plan`, `optimizer-adaptive-memory-plan`, and `cpu-specialization-plan`
+          while preserving report-only kernel registry output, the unsupported optimizer skeleton,
+          CPU/adaptive planning reports, no execution, no writes, and no-fallback behavior.
     - [x] Move operational runtime, memory/spill, fault-tolerance, observability, object-store,
           plan-portability, CG-20 evidence, Vortex output/commit/staged artifact, and Vortex
           runtime-readiness handler clusters into focused modules while preserving existing

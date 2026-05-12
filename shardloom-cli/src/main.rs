@@ -21,6 +21,7 @@ mod extension_planning;
 mod input_planning;
 mod object_store_planning;
 mod operational_hardening;
+mod optimizer_planning;
 mod packaging_deployment;
 mod prepared_source_backed_execution;
 mod rest_api_planning;
@@ -47,13 +48,13 @@ use shardloom_core::{
     DeleteTombstoneCompatibilityReport, Diagnostic, EffectBudgetReport, EncodedSegment,
     EncodingKind, ExecutionCertificate, ExecutionCertificateEvidenceSurfaceReport,
     ExecutionEvidenceArtifactKind, ExpectedOutcome, FeatureFootprintReport, FieldId, FieldName,
-    FieldPath, FileDescriptor, FileRole, KernelRegistrySnapshot, LayoutHealthPolicy,
-    LayoutHealthReport, LayoutKind, LogicalDType, ManifestId, ManifestSegment, MetricValue,
-    NativeIoCertificate, NativeIoEnvelopeReport, Nullability, ObservabilitySchemaCoverageReport,
+    FieldPath, FileDescriptor, FileRole, LayoutHealthPolicy, LayoutHealthReport, LayoutKind,
+    LogicalDType, ManifestId, ManifestSegment, MetricValue, NativeIoCertificate,
+    NativeIoEnvelopeReport, Nullability, ObservabilitySchemaCoverageReport,
     OperatorMemoryCertification, OutputFormat, PartitionEvolutionCompatibilityReport,
-    PartitionField, PartitionSpec, PartitionTransform, PhysicalKernelRegistryPlan,
-    PhysicalOperatorExecutionLevel, PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorPlan,
-    PredicateExpr, PythonWrapperFoundationReport, ReleaseEvidenceRequirementKind, ReleasePlan,
+    PartitionField, PartitionSpec, PartitionTransform, PhysicalOperatorExecutionLevel,
+    PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorPlan, PredicateExpr,
+    PythonWrapperFoundationReport, ReleaseEvidenceRequirementKind, ReleasePlan,
     ReleasePublicationBoundaryKind, ReleasePublicationBoundaryReport,
     ReleaseReadinessEvidenceReport, RfcCoverageFollowThroughReport, SchemaDefinition,
     SchemaEvolutionCompatibilityReport, SchemaEvolutionPolicy, SchemaField, SchemaId,
@@ -65,7 +66,6 @@ use shardloom_core::{
     WorldClassSufficiencyReport, evaluate_cdc_incremental_planning, evaluate_compaction_planning,
     evaluate_delete_tombstone_compatibility, evaluate_layout_health,
     evaluate_partition_evolution_compatibility, evaluate_schema_evolution_compatibility,
-    plan_cpu_operator_specialization,
 };
 use shardloom_exec::{
     AdaptiveSizingPolicy, BackpressurePlanInput, BackpressurePlanReport, BoundedMemoryPolicy,
@@ -87,10 +87,9 @@ use shardloom_plan::{
     ObjectStoreCommitProtocolReport, ObjectStoreDistributedSchedulingPolicy,
     ObjectStoreDistributedSchedulingReport, ObjectStoreRangePlanningPolicy,
     ObjectStoreRangePlanningReport, ObjectStoreRequestCoalescingReport,
-    ObjectStoreRequestPlannerReport, ObjectStoreRuntimePromotionGateReport, OptimizerPhase,
-    OptimizerPlanSkeleton, PlanBoundaryKind, PlanCapabilityKind, PlanCapabilityRequirement, PlanId,
-    PlanInteropFormat, PlanLayer, PlanNodeId, PlanPortabilityReport, ProjectionRequest,
-    plan_adaptive_optimizer_memory, plan_object_store_checkpoint_retry,
+    ObjectStoreRequestPlannerReport, ObjectStoreRuntimePromotionGateReport, PlanBoundaryKind,
+    PlanCapabilityKind, PlanCapabilityRequirement, PlanId, PlanInteropFormat, PlanLayer,
+    PlanNodeId, PlanPortabilityReport, ProjectionRequest, plan_object_store_checkpoint_retry,
     plan_object_store_commit_protocol, plan_object_store_distributed_scheduling,
     plan_object_store_ranges, plan_object_store_request_coalescing,
     plan_object_store_request_planner,
@@ -6037,7 +6036,7 @@ pub(crate) fn append_vortex_local_engine_why_fields(
     push_bool_field(fields, "why_fallback_attempted", report.fallback_attempted);
 }
 
-fn adaptive_optimizer_memory_fields(
+pub(crate) fn adaptive_optimizer_memory_fields(
     report: &AdaptiveOptimizerMemoryReport,
 ) -> Vec<(String, String)> {
     let mut fields = vec![];
@@ -6174,7 +6173,7 @@ fn append_adaptive_optimizer_memory_side_effect_fields(
     push_count_field(fields, "diagnostic_count", report.diagnostics.len());
 }
 
-fn cpu_operator_specialization_fields(
+pub(crate) fn cpu_operator_specialization_fields(
     report: &CpuOperatorSpecializationReport,
 ) -> Vec<(String, String)> {
     let mut fields = vec![];
@@ -17817,553 +17816,7 @@ fn run(args: Vec<String>) -> ExitCode {
         Some("execution-certificate-plan") => {
             evidence_certificates::handle_execution_certificate_plan(format)
         }
-        Some("kernel-registry") => {
-            let snapshot = KernelRegistrySnapshot::empty();
-            let physical_plan = PhysicalKernelRegistryPlan::cg7_foundation();
-            let execution_profiles = PhysicalOperatorExecutionProfileMatrix::cg7_foundation();
-            emit(
-                "kernel-registry",
-                format,
-                CommandStatus::Success,
-                "kernel registry snapshot".to_string(),
-                format!("{}\n{}", snapshot.summary(), physical_plan.to_human_text()),
-                physical_plan.diagnostics.clone(),
-                vec![
-                    (
-                        "fallback_execution_allowed".to_string(),
-                        "false".to_string(),
-                    ),
-                    ("mode".to_string(), "kernel_registry_snapshot".to_string()),
-                    (
-                        "status".to_string(),
-                        "report_only_missing_required_kernels".to_string(),
-                    ),
-                    (
-                        "registered_kernel_count".to_string(),
-                        snapshot.kernel_count().to_string(),
-                    ),
-                    (
-                        "physical_kernel_schema_version".to_string(),
-                        physical_plan.schema_version.to_string(),
-                    ),
-                    (
-                        "physical_kernel_registry_id".to_string(),
-                        physical_plan.registry_id.clone(),
-                    ),
-                    (
-                        "physical_kernel_required_slot_count".to_string(),
-                        physical_plan.required_slot_count().to_string(),
-                    ),
-                    (
-                        "physical_kernel_present_slot_count".to_string(),
-                        physical_plan.present_slot_count().to_string(),
-                    ),
-                    (
-                        "physical_kernel_missing_slot_count".to_string(),
-                        physical_plan.missing_slot_count().to_string(),
-                    ),
-                    (
-                        "physical_kernel_reference_only_rejected_count".to_string(),
-                        physical_plan.reference_only_rejected_count().to_string(),
-                    ),
-                    (
-                        "physical_kernel_runtime_execution_allowed".to_string(),
-                        physical_plan.runtime_execution_allowed().to_string(),
-                    ),
-                    (
-                        "physical_kernel_fallback_execution_allowed".to_string(),
-                        physical_plan.fallback_execution_allowed().to_string(),
-                    ),
-                    (
-                        "physical_operator_native_execution_level_count".to_string(),
-                        execution_profiles
-                            .native_execution_level_count()
-                            .to_string(),
-                    ),
-                    (
-                        "physical_operator_metadata_only_level_count".to_string(),
-                        execution_profiles
-                            .allowed_level_count(PhysicalOperatorExecutionLevel::MetadataOnly)
-                            .to_string(),
-                    ),
-                    (
-                        "physical_operator_encoded_native_level_count".to_string(),
-                        execution_profiles
-                            .allowed_level_count(PhysicalOperatorExecutionLevel::EncodedNative)
-                            .to_string(),
-                    ),
-                    (
-                        "physical_operator_hybrid_native_level_count".to_string(),
-                        execution_profiles
-                            .allowed_level_count(PhysicalOperatorExecutionLevel::HybridNative)
-                            .to_string(),
-                    ),
-                    (
-                        "physical_operator_native_decoded_level_count".to_string(),
-                        execution_profiles
-                            .allowed_level_count(PhysicalOperatorExecutionLevel::NativeDecoded)
-                            .to_string(),
-                    ),
-                    (
-                        "metadata_physical_kernel_schema_version".to_string(),
-                        "shardloom.vortex_metadata_physical_kernel.v1".to_string(),
-                    ),
-                    (
-                        "metadata_physical_kernel_supported_primitives".to_string(),
-                        "count_all,count_where,filter_predicate".to_string(),
-                    ),
-                    (
-                        "metadata_physical_kernel_contextual_only".to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "metadata_physical_kernel_requires_correctness_evidence".to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "metadata_physical_kernel_requires_memory_safety_evidence".to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "metadata_physical_kernel_requires_benchmark_for_production".to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "metadata_physical_kernel_runtime_execution".to_string(),
-                        "false".to_string(),
-                    ),
-                    (
-                        "metadata_physical_kernel_fallback_execution_allowed".to_string(),
-                        "false".to_string(),
-                    ),
-                    (
-                        "metadata_count_kernel_admission_schema_version".to_string(),
-                        "shardloom.vortex_metadata_count_kernel_admission.v1".to_string(),
-                    ),
-                    (
-                        "metadata_count_kernel_admission_contextual_only".to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "metadata_count_kernel_admission_operator_kind".to_string(),
-                        "count_aggregate".to_string(),
-                    ),
-                    (
-                        "metadata_count_kernel_admission_required_kernel_kind".to_string(),
-                        "metadata".to_string(),
-                    ),
-                    (
-                        "metadata_count_kernel_admission_requires_metadata_kernel_evidence"
-                            .to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "metadata_count_kernel_admission_requires_correctness_evidence".to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "metadata_count_kernel_admission_requires_memory_safety_evidence"
-                            .to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "metadata_count_kernel_admission_requires_benchmark_for_production"
-                            .to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "metadata_count_kernel_admission_runtime_execution".to_string(),
-                        "false".to_string(),
-                    ),
-                    (
-                        "metadata_count_kernel_admission_fallback_execution_allowed".to_string(),
-                        "false".to_string(),
-                    ),
-                    (
-                        "metadata_filter_kernel_admission_schema_version".to_string(),
-                        "shardloom.vortex_metadata_filter_kernel_admission.v1".to_string(),
-                    ),
-                    (
-                        "metadata_filter_kernel_admission_contextual_only".to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "metadata_filter_kernel_admission_operator_kind".to_string(),
-                        "filter".to_string(),
-                    ),
-                    (
-                        "metadata_filter_kernel_admission_required_kernel_kind".to_string(),
-                        "metadata".to_string(),
-                    ),
-                    (
-                        "metadata_filter_kernel_admission_requires_metadata_kernel_evidence"
-                            .to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "metadata_filter_kernel_admission_requires_correctness_evidence"
-                            .to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "metadata_filter_kernel_admission_requires_memory_safety_evidence"
-                            .to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "metadata_filter_kernel_admission_requires_benchmark_for_production"
-                            .to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "metadata_filter_kernel_admission_runtime_execution".to_string(),
-                        "false".to_string(),
-                    ),
-                    (
-                        "metadata_filter_kernel_admission_fallback_execution_allowed".to_string(),
-                        "false".to_string(),
-                    ),
-                    (
-                        "metadata_projection_kernel_admission_schema_version".to_string(),
-                        "shardloom.vortex_metadata_projection_kernel_admission.v1".to_string(),
-                    ),
-                    (
-                        "metadata_projection_kernel_admission_contextual_only".to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "metadata_projection_kernel_admission_operator_kind".to_string(),
-                        "project".to_string(),
-                    ),
-                    (
-                        "metadata_projection_kernel_admission_required_kernel_kind".to_string(),
-                        "metadata".to_string(),
-                    ),
-                    (
-                        "metadata_projection_kernel_admission_requires_projection_readiness"
-                            .to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "metadata_projection_kernel_admission_requires_correctness_evidence"
-                            .to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "metadata_projection_kernel_admission_requires_memory_safety_evidence"
-                            .to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "metadata_projection_kernel_admission_requires_benchmark_for_production"
-                            .to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "metadata_projection_kernel_admission_runtime_execution".to_string(),
-                        "false".to_string(),
-                    ),
-                    (
-                        "metadata_projection_kernel_admission_fallback_execution_allowed"
-                            .to_string(),
-                        "false".to_string(),
-                    ),
-                    (
-                        "encoded_projection_kernel_admission_schema_version".to_string(),
-                        "shardloom.vortex_encoded_projection_kernel_admission.v1".to_string(),
-                    ),
-                    (
-                        "encoded_projection_kernel_admission_contextual_only".to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "encoded_projection_kernel_admission_operator_kind".to_string(),
-                        "project".to_string(),
-                    ),
-                    (
-                        "encoded_projection_kernel_admission_required_kernel_kind".to_string(),
-                        "encoded".to_string(),
-                    ),
-                    (
-                        "encoded_projection_kernel_admission_requires_projection_readiness"
-                            .to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "encoded_projection_kernel_admission_requires_encoded_column_path"
-                            .to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "encoded_projection_kernel_admission_requires_correctness_evidence"
-                            .to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "encoded_projection_kernel_admission_requires_memory_safety_evidence"
-                            .to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "encoded_projection_kernel_admission_requires_benchmark_for_production"
-                            .to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "encoded_projection_kernel_admission_runtime_execution".to_string(),
-                        "false".to_string(),
-                    ),
-                    (
-                        "encoded_projection_kernel_admission_fallback_execution_allowed"
-                            .to_string(),
-                        "false".to_string(),
-                    ),
-                    (
-                        "encoded_count_physical_kernel_schema_version".to_string(),
-                        "shardloom.vortex_encoded_count_physical_kernel.v1".to_string(),
-                    ),
-                    (
-                        "encoded_count_physical_kernel_supported_primitive".to_string(),
-                        "count_all".to_string(),
-                    ),
-                    (
-                        "encoded_count_physical_kernel_operator_kind".to_string(),
-                        "count_aggregate".to_string(),
-                    ),
-                    (
-                        "encoded_count_physical_kernel_kernel_kind".to_string(),
-                        "encoded".to_string(),
-                    ),
-                    (
-                        "encoded_count_physical_kernel_execution_level".to_string(),
-                        "encoded_native".to_string(),
-                    ),
-                    (
-                        "encoded_count_physical_kernel_contextual_only".to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "encoded_count_physical_kernel_requires_execution_certificate".to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "encoded_count_physical_kernel_runtime_execution".to_string(),
-                        "false".to_string(),
-                    ),
-                    (
-                        "encoded_count_physical_kernel_fallback_execution_allowed".to_string(),
-                        "false".to_string(),
-                    ),
-                    (
-                        "encoded_count_kernel_admission_schema_version".to_string(),
-                        "shardloom.vortex_encoded_count_kernel_admission.v1".to_string(),
-                    ),
-                    (
-                        "encoded_count_kernel_admission_contextual_only".to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "encoded_count_kernel_admission_operator_kind".to_string(),
-                        "count_aggregate".to_string(),
-                    ),
-                    (
-                        "encoded_count_kernel_admission_required_kernel_kind".to_string(),
-                        "encoded".to_string(),
-                    ),
-                    (
-                        "encoded_count_kernel_admission_requires_physical_kernel_evidence"
-                            .to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "encoded_count_kernel_admission_requires_correctness_evidence".to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "encoded_count_kernel_admission_requires_memory_safety_evidence"
-                            .to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "encoded_count_kernel_admission_requires_benchmark_for_production"
-                            .to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "encoded_count_kernel_admission_runtime_execution".to_string(),
-                        "false".to_string(),
-                    ),
-                    (
-                        "encoded_count_kernel_admission_fallback_execution_allowed".to_string(),
-                        "false".to_string(),
-                    ),
-                    (
-                        "encoded_predicate_evaluation_schema_version".to_string(),
-                        "shardloom.vortex_encoded_predicate_evaluation.v1".to_string(),
-                    ),
-                    (
-                        "encoded_predicate_evaluation_id".to_string(),
-                        "vortex.query-primitive.filter_predicate.encoded-predicate-evaluation"
-                            .to_string(),
-                    ),
-                    (
-                        "encoded_predicate_evaluation_operator_kind".to_string(),
-                        "filter".to_string(),
-                    ),
-                    (
-                        "encoded_predicate_evaluation_kernel_kind".to_string(),
-                        "encoded".to_string(),
-                    ),
-                    (
-                        "encoded_predicate_evaluation_execution_level".to_string(),
-                        "encoded_native".to_string(),
-                    ),
-                    (
-                        "encoded_predicate_evaluation_contextual_only".to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "encoded_predicate_evaluation_emits_selection_vectors".to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "encoded_predicate_evaluation_supports_metadata_proven_all".to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "encoded_predicate_evaluation_supports_metadata_proven_none".to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "encoded_predicate_evaluation_defers_inconclusive_to_encoded_values"
-                            .to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "encoded_predicate_evaluation_discovery_reads_data".to_string(),
-                        "false".to_string(),
-                    ),
-                    (
-                        "encoded_predicate_evaluation_runtime_execution".to_string(),
-                        "false".to_string(),
-                    ),
-                    (
-                        "encoded_predicate_evaluation_fallback_execution_allowed".to_string(),
-                        "false".to_string(),
-                    ),
-                    (
-                        "selection_vector_filter_kernel_schema_version".to_string(),
-                        "shardloom.vortex_selection_vector_filter_kernel.v1".to_string(),
-                    ),
-                    (
-                        "selection_vector_filter_kernel_id".to_string(),
-                        "vortex.query-primitive.filter_predicate.selection-vector-filter-kernel"
-                            .to_string(),
-                    ),
-                    (
-                        "selection_vector_filter_kernel_operator_kind".to_string(),
-                        "filter".to_string(),
-                    ),
-                    (
-                        "selection_vector_filter_kernel_kernel_kind".to_string(),
-                        "encoded".to_string(),
-                    ),
-                    (
-                        "selection_vector_filter_kernel_execution_level".to_string(),
-                        "encoded_native".to_string(),
-                    ),
-                    (
-                        "selection_vector_filter_kernel_contextual_only".to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "selection_vector_filter_kernel_requires_encoded_predicate_evaluation"
-                            .to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "selection_vector_filter_kernel_requires_selection_vectors".to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "selection_vector_filter_kernel_requires_correctness_evidence".to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "selection_vector_filter_kernel_requires_memory_safety_evidence"
-                            .to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "selection_vector_filter_kernel_requires_benchmark_for_production"
-                            .to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "selection_vector_filter_kernel_discovery_reads_data".to_string(),
-                        "false".to_string(),
-                    ),
-                    (
-                        "selection_vector_filter_kernel_runtime_execution".to_string(),
-                        "false".to_string(),
-                    ),
-                    (
-                        "selection_vector_filter_kernel_fallback_execution_allowed".to_string(),
-                        "false".to_string(),
-                    ),
-                    (
-                        "selection_vector_filter_kernel_admission_schema_version".to_string(),
-                        "shardloom.vortex_selection_vector_filter_kernel_admission.v1"
-                            .to_string(),
-                    ),
-                    (
-                        "selection_vector_filter_kernel_admission_contextual_only".to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "selection_vector_filter_kernel_admission_operator_kind".to_string(),
-                        "filter".to_string(),
-                    ),
-                    (
-                        "selection_vector_filter_kernel_admission_required_kernel_kind".to_string(),
-                        "encoded".to_string(),
-                    ),
-                    (
-                        "selection_vector_filter_kernel_admission_requires_filter_kernel_evidence"
-                            .to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "selection_vector_filter_kernel_admission_requires_correctness_evidence"
-                            .to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "selection_vector_filter_kernel_admission_requires_memory_safety_evidence"
-                            .to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "selection_vector_filter_kernel_admission_requires_benchmark_for_production"
-                            .to_string(),
-                        "true".to_string(),
-                    ),
-                    (
-                        "selection_vector_filter_kernel_admission_runtime_execution".to_string(),
-                        "false".to_string(),
-                    ),
-                    (
-                        "selection_vector_filter_kernel_admission_fallback_execution_allowed"
-                            .to_string(),
-                        "false".to_string(),
-                    ),
-                    ("write_io".to_string(), "false".to_string()),
-                    ("execution".to_string(), "not_performed".to_string()),
-                    ("plan_only".to_string(), "true".to_string()),
-                ],
-            );
-            ExitCode::SUCCESS
-        }
+        Some("kernel-registry") => optimizer_planning::handle_kernel_registry(format),
         Some("recovery-plan") => operational_hardening::handle_recovery_plan(format),
         Some("commit-execution-promotion-gate") => {
             operational_hardening::handle_commit_execution_promotion_gate(format)
@@ -18638,77 +18091,12 @@ fn run(args: Vec<String>) -> ExitCode {
             vortex_planning::handle_vortex_metadata_probe(args, format)
         }
         Some("vortex-api-inventory") => vortex_planning::handle_vortex_api_inventory(format),
-        Some("optimizer-plan") => {
-            let report = OptimizerPlanSkeleton::not_implemented(
-                OptimizerPhase::VortexPhysical,
-                "optimizer_execution",
-                "ShardLoom optimizer planning skeleton exists, but real optimizer execution is not implemented yet.",
-            );
-            emit(
-                "optimizer-plan",
-                format,
-                CommandStatus::Unsupported,
-                "optimizer plan skeleton".to_string(),
-                report.to_human_text(),
-                report.diagnostics.clone(),
-                vec![
-                    (
-                        "fallback_execution_allowed".to_string(),
-                        "false".to_string(),
-                    ),
-                    ("mode".to_string(), "optimizer_plan".to_string()),
-                    ("status".to_string(), "not_implemented".to_string()),
-                    ("write_io".to_string(), "false".to_string()),
-                    ("execution".to_string(), "not_performed".to_string()),
-                    ("plan_only".to_string(), "true".to_string()),
-                    ("optimizer_phase".to_string(), "vortex_physical".to_string()),
-                ],
-            );
-            ExitCode::from(1)
-        }
+        Some("optimizer-plan") => optimizer_planning::handle_optimizer_plan(format),
         Some("optimizer-adaptive-memory-plan") => {
-            let command = "optimizer-adaptive-memory-plan";
-            let report = plan_adaptive_optimizer_memory();
-            emit(
-                command,
-                format,
-                if report.has_errors() {
-                    CommandStatus::Unsupported
-                } else {
-                    CommandStatus::Success
-                },
-                "adaptive optimizer memory plan".to_string(),
-                report.to_human_text(),
-                report.diagnostics.clone(),
-                adaptive_optimizer_memory_fields(&report),
-            );
-            if report.has_errors() {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            }
+            optimizer_planning::handle_optimizer_adaptive_memory_plan(format)
         }
         Some("cpu-specialization-plan") => {
-            let command = "cpu-specialization-plan";
-            let report = plan_cpu_operator_specialization();
-            emit(
-                command,
-                format,
-                if report.has_errors() {
-                    CommandStatus::Unsupported
-                } else {
-                    CommandStatus::Success
-                },
-                "cpu operator specialization plan".to_string(),
-                report.to_human_text(),
-                report.diagnostics.clone(),
-                cpu_operator_specialization_fields(&report),
-            );
-            if report.has_errors() {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            }
+            optimizer_planning::handle_cpu_specialization_plan(format)
         }
         Some("estimate") => diagnostics::handle_estimate(args, format),
         Some(command) => {
