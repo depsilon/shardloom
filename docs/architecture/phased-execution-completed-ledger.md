@@ -16,6 +16,35 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 packaging/deployment handler module split
+  - Primary files:
+    - `shardloom-cli/src/packaging_deployment.rs`
+    - `shardloom-cli/src/main.rs`
+    - `docs/architecture/typed-command-result-envelope.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/rfcs/0039-typed-command-result-envelope-cli-modularity.md`
+  - Scope: move report-only release/package/Python wrapper/agent contract handlers into a focused
+    packaging/deployment module while preserving existing output fields and no-fallback behavior.
+  - Checklist:
+    - [x] Add `shardloom-cli/src/packaging_deployment.rs`.
+    - [x] Delegate `release-plan`, `package-plan`, `agent-contract-pack`, and
+          `python-wrapper-plan` from `main.rs`.
+    - [x] Keep helper field builders shared until broader helper extraction is warranted.
+    - [x] Update Priority 3.9 docs and RFC traceability while leaving remaining handler families in
+          the Planned queue.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test python_wrapper_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test agent_contract_pack_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli release_plan_fields --bin shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test typed_envelope_contract_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-cli --bin shardloom -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `git diff --check`
+  - Runtime stance: handler-placement refactor only; no package publication, external publish,
+    external engine invocation, runtime expansion, dataset probe, network effect, write,
+    materialization, or fallback execution changes.
+
 - [x] Session label: Priority 3.9 REST/API planning handler module split
   - Primary files:
     - `shardloom-cli/src/rest_api_planning.rs`

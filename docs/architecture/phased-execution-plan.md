@@ -163,6 +163,8 @@ actionable work.
           `shardloom-cli/src/status_capabilities.rs` without changing command output.
     - [x] Move the REST/API planning handler into `shardloom-cli/src/rest_api_planning.rs`
           without enabling server behavior or remote execution.
+    - [x] Move packaging/deployment handlers into `shardloom-cli/src/packaging_deployment.rs`
+          without publishing packages, pushing artifacts, or invoking external engines.
     - [ ] Move remaining command-family handlers out of `main.rs` after the shared
           `typed_envelope` routing module and `command_family` taxonomy.
     - [ ] Split handlers by status/capabilities, Vortex primitive execution,
