@@ -443,10 +443,13 @@ not by numeric CG order.
   - [x] CG-15 CPU operator specialization
     - [x] Add SIMD/cache-aware and encoding-aware operator specialization only after correctness
           fixtures and benchmark evidence can prove the specialization is safe and useful.
-  - [ ] CG-17 stateful reuse and incremental execution
-    - [ ] Implement stable reuse keys, invalidation, manifest-diff inputs, cache safety, state
-          certificates, and reuse benchmarks before publishing reuse or incremental performance
-          claims.
+  - [x] CG-17 stateful reuse and incremental execution promotion gate
+    - [x] Add stable reuse-key, invalidation, manifest-diff input, cache-safety, state-certificate,
+          execution-certificate, Native I/O certificate, reuse-benchmark, and no-fallback blockers
+          before publishing reuse or incremental performance claims.
+    - [x] Keep cache read/write/replay, manifest-diff reads, incremental recompute execution, state
+          certificate claims, reuse performance claims, external-engine invocation, and fallback
+          execution disabled until the gate has workload-scoped evidence.
   - [ ] CG-18 universal import/deployment/baseline harness
     - [ ] Mature import/deployment/baseline harnesses for local, CI, container, optional Foundry,
           and optional benchmark environments without turning external engines into runtime
