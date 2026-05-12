@@ -16,6 +16,37 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: security governance evidence gate
+  - Primary files:
+    - `shardloom-core/src/security.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/security_governance_evidence_gate.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: add an RFC 0019 report gate tying credential-reference, permission, redaction, audit,
+    external-effect, destructive-operation, data-egress, and agent-policy evidence to future
+    object-store/API/LLM/media/UDF/server claims.
+  - Checklist:
+    - [x] Add `SecurityGovernanceEvidenceArea`, `SecurityGovernanceEvidenceStatus`,
+          `SecurityGovernanceEvidenceEntry`, and `SecurityGovernanceEvidenceGateReport`.
+    - [x] Cover credential references, permission boundaries, redaction policy, audit trails,
+          external effects, destructive operations, data egress, and agent policy.
+    - [x] Keep effectful features denied or dry-run by default with credential references only,
+          no secret loading, no egress, no destructive operations, no agent execute/write/cancel,
+          and `fallback_attempted=false`.
+    - [x] Add the `security-governance-evidence-gate` CLI report and JSON contract tests.
+  - Validation status:
+    - [x] `cargo test -p shardloom-core security --lib`
+    - [x] `cargo test -p shardloom-cli security_governance_evidence_gate --test security_governance_evidence_gate`
+    - [x] `cargo fmt --all -- --check`
+    - [x] `cargo clippy -p shardloom-core --lib -- -D warnings`
+    - [x] `cargo clippy -p shardloom-cli --all-targets -- -D warnings`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `git diff --check`
+  - Non-goals preserved:
+    - [x] No credential resolution, secret loading, filesystem/network/catalog probe, object-store
+          access, API/server/model/UDF/plugin execution, data egress, destructive operation,
+          external engine invocation, or fallback execution.
 - [x] Session label: observability schema coverage report
   - Primary files:
     - `shardloom-core/src/observability.rs`
