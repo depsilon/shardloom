@@ -79,7 +79,7 @@ Use this section for the next implementation sequence. Keep it ordered by depend
   - [x] Prepared encoded-batch generalized projection and filter-project evidence beyond local scan-pushdown and explicit CLI primitive paths, with no row reads, no Arrow conversion, no object-store IO, no writes, no spill, and no fallback.
 - [ ] Priority 1.1 - reader-backed/source-backed generalized encoded execution
   - [x] Add source-bound prepared encoded filter/projection envelopes that require native Vortex source URI refs, stable split refs, source/batch URI matching, existing prepared encoded execution evidence, no external effects, and no fallback.
-  - [ ] Wire real Vortex reader/source/split paths into the prepared encoded-batch predicate, projection, and filter-project execution surfaces.
+  - [x] Wire real local Vortex reader/source/split evidence into the prepared encoded-batch predicate, projection, and filter-project execution surfaces by binding prepared batches to reader-emitted split refs while preserving explicit no-decode/no-materialization/no-fallback diagnostics.
   - [ ] Execute encoded filter, projection, and filter-project work over actual reader-backed Vortex paths with provider refs, residual boundaries, representation transitions, and reader-generated prepared encoded batches.
   - [ ] Keep upstream Vortex-native providers allowed only through feature-gated, version-recorded, policy-admitted, certificate-backed provider boundaries.
   - [ ] Reject or ShardLoom-native-execute residual expressions; never delegate residual evaluation to DataFusion, DuckDB, Spark, Polars, Velox, Trino, Dask, Ray, or Vortex query-engine integrations.
@@ -385,6 +385,28 @@ Use this section for the next implementation sequence. Keep it ordered by depend
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: reader-backed split-ref binding for prepared encoded execution
+  - Primary files:
+    - `shardloom-vortex/src/source_backed_encoded_execution.rs`
+    - `shardloom-vortex/src/local_primitives.rs`
+    - `shardloom-vortex/src/generalized_encoded_primitive_gate.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: wire real local Vortex reader/source/split evidence into prepared encoded filter/projection execution surfaces by recording reader-emitted scan chunk refs and requiring prepared batches to bind to those refs before reader-backed execution reports are accepted.
+  - Checklist:
+    - [x] Add reader-backed split evidence records with source URI, split ref, provider kind/API surface, row count, dtype, encoding ID, child/buffer counts, local data-read evidence, and no decode/materialization/Arrow/object-store/write/spill/fallback flags.
+    - [x] Add reader-backed filter and projection execution reports that wrap existing source-backed prepared execution, validate reader split refs against prepared batch split refs, permit only the approved local scan data-read effect, and keep `reader_generated_prepared_batches=false`.
+    - [x] Capture reader split evidence from actual local `VortexFile::scan().into_array_iter(...)` chunks for local primitive execution paths without converting to Arrow, reading rows, materializing values, writing, spilling, or invoking fallback.
+    - [x] Keep the next boundary explicit: reader split refs are now validated, but reader-produced prepared encoded-value/projection batches are still open work.
+  - Validation status:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_TARGET_DIR='target-codex-reader-backed'; cargo test -p shardloom-vortex source_backed --lib`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_TARGET_DIR='target-codex-reader-backed-local'; cargo test -p shardloom-vortex local_scan_split_refs_bind_reader_backed_prepared_filter_batches --lib --features vortex-local-primitives`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_TARGET_DIR='target-codex-reader-backed-gate'; cargo test -p shardloom-vortex generalized_encoded_primitive_gate --lib`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex local_primitives --lib --features vortex-local-primitives`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_TARGET_DIR='target-codex-reader-backed-cli'; cargo test -p shardloom-cli --test generalized_encoded_primitive_gate_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_TARGET_DIR='target-codex-reader-backed-clippy'; cargo clippy -p shardloom-vortex --lib -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_TARGET_DIR='target-codex-reader-backed-clippy-local'; cargo clippy -p shardloom-vortex --lib --features vortex-local-primitives -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
 - [x] Session label: source-backed prepared encoded execution envelope
   - Primary files:
     - `shardloom-vortex/src/source_backed_encoded_execution.rs`

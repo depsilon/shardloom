@@ -96,9 +96,13 @@ pub use generalized_projection_execution::{
     execute_vortex_generalized_projection_from_local_scan_pushdown,
 };
 pub use source_backed_encoded_execution::{
+    VortexReaderBackedEncodedExecutionStatus, VortexReaderBackedEncodedFilterExecutionReport,
+    VortexReaderBackedEncodedProjectionExecutionReport, VortexReaderBackedSplitEvidence,
     VortexSourceBackedEncodedExecutionStatus, VortexSourceBackedEncodedFilterExecutionReport,
     VortexSourceBackedEncodedProjectionColumn, VortexSourceBackedEncodedProjectionExecutionReport,
     VortexSourceBackedEncodedValuePredicateBatch,
+    execute_vortex_reader_backed_filter_from_encoded_value_batches,
+    execute_vortex_reader_backed_projection_from_encoded_projection_batches,
     execute_vortex_source_backed_filter_from_encoded_value_batches,
     execute_vortex_source_backed_projection_from_encoded_projection_batches,
 };
