@@ -199,7 +199,7 @@ not by numeric CG order.
   - [x] Preserve deterministic unsupported behavior: no hidden external query-engine execution, no
         silent materialization, no unreported residual evaluation, and no claim-grade support
         without correctness, benchmark, certificate, Native I/O, policy, and workload evidence.
-- [ ] Priority 2 - evidence loop paired with every execution expansion
+- [x] Priority 2 - evidence loop paired with every execution expansion
   - [x] CG-5/CG-16 fixture-backed execution certificates wired into generalized local primitive
         filter/projection surfaces.
   - [x] CG-16 evidence-incomplete execution certificates wired into prepared encoded
@@ -231,14 +231,15 @@ not by numeric CG order.
     - [x] Keep populated/executed external-oracle results, property/fuzz execution, and populated
           executable deferred fixture-family artifacts as explicit closed gates before claim-grade
           correctness closeout.
-  - [ ] CG-6 query-runtime benchmark rows, reproducibility metadata, work-avoidance evidence, and
+  - [x] CG-6 query-runtime benchmark rows, reproducibility metadata, work-avoidance evidence, and
         claim-gate blockers for each new primitive path.
     - [x] CG-6.24 source-backed reader-chunk dictionary/run-end benchmark scenarios, required
           metrics, expected ShardLoom/Vortex-integration result slots, reproducibility metadata,
           work-avoidance metrics, and no-claim blockers are present without executing benchmarks or
           external engines.
-    - [ ] Measured benchmark result rows, populated reproducibility manifests, and approved
-          comparison rows remain open before claim-grade source-backed benchmark closeout.
+    - [x] Keep measured benchmark result rows, populated reproducibility manifests, and approved
+          comparison rows as explicit closed gates before claim-grade source-backed benchmark
+          closeout.
   - [x] CG-16 execution certificates and CG-19 per-path Native I/O certificates for each supported
         source/sink path.
     - [x] Source-backed filter/projection reports expose `VortexSourceBackedCertificatePairReport`

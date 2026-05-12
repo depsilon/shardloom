@@ -2030,6 +2030,53 @@ fn benchmark_claim_evidence_fields(report: &BenchmarkClaimEvidenceReport) -> Vec
     );
     push_bool_field(
         &mut fields,
+        "claim_grade_source_backed_benchmark_closeout_required",
+        report.claim_grade_source_backed_benchmark_closeout_required,
+    );
+    push_bool_field(
+        &mut fields,
+        "claim_grade_source_backed_benchmark_closeout_allowed",
+        report.claim_grade_source_backed_benchmark_closeout_allowed,
+    );
+    push_field(
+        &mut fields,
+        "claim_grade_source_backed_benchmark_closeout_blocker_order",
+        &report
+            .claim_grade_source_backed_benchmark_closeout_blocker_order
+            .join(","),
+    );
+    push_bool_field(
+        &mut fields,
+        "measured_benchmark_result_rows_required",
+        report.measured_benchmark_result_rows_required,
+    );
+    push_bool_field(
+        &mut fields,
+        "measured_benchmark_result_rows_present",
+        report.measured_benchmark_result_rows_present,
+    );
+    push_bool_field(
+        &mut fields,
+        "reproducibility_manifest_population_required",
+        report.reproducibility_manifest_population_required,
+    );
+    push_bool_field(
+        &mut fields,
+        "reproducibility_manifest_populated",
+        report.reproducibility_manifest_populated,
+    );
+    push_bool_field(
+        &mut fields,
+        "approved_comparison_rows_required",
+        report.approved_comparison_rows_required,
+    );
+    push_bool_field(
+        &mut fields,
+        "approved_comparison_rows_present",
+        report.approved_comparison_rows_present,
+    );
+    push_bool_field(
+        &mut fields,
         "benchmark_execution_implemented",
         report.benchmark_execution_implemented,
     );

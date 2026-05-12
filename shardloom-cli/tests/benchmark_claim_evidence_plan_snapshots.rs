@@ -76,6 +76,27 @@ fn foundation_claim_evidence_preserves_no_execution_and_no_claims() {
     assert!(output.contains(&field("claim_gate_required_metrics", "present")));
     assert!(output.contains(&field("claim_gate_comparison_report", "present")));
     assert!(output.contains(&field("claim_gate_reproducibility_evidence", "missing")));
+    assert!(output.contains(&field(
+        "claim_grade_source_backed_benchmark_closeout_required",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "claim_grade_source_backed_benchmark_closeout_allowed",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "claim_grade_source_backed_benchmark_closeout_blocker_order",
+        "measured_benchmark_result_rows_not_populated,reproducibility_manifest_not_populated,approved_comparison_rows_missing"
+    )));
+    assert!(output.contains(&field("measured_benchmark_result_rows_required", "true")));
+    assert!(output.contains(&field("measured_benchmark_result_rows_present", "false")));
+    assert!(output.contains(&field(
+        "reproducibility_manifest_population_required",
+        "true"
+    )));
+    assert!(output.contains(&field("reproducibility_manifest_populated", "false")));
+    assert!(output.contains(&field("approved_comparison_rows_required", "true")));
+    assert!(output.contains(&field("approved_comparison_rows_present", "false")));
     assert!(output.contains(&field("benchmark_execution_implemented", "false")));
     assert!(output.contains(&field("benchmark_execution_performed", "false")));
     assert!(output.contains(&field("external_engine_execution", "false")));
