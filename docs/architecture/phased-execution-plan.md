@@ -347,11 +347,11 @@ not by numeric CG order.
             `fallback_attempted=false` evidence.
     - [ ] Keep OpenTelemetry/exporter integration optional and later; first make local
           CLI/Python/JSON reports complete, redacted, and certificate-linked.
-  - [ ] RFC 0019 security, governance, credentials, egress, and agent safety
-    - [ ] Add credential-reference, permission, redaction, audit, external-effect,
+  - [x] RFC 0019 security, governance, credentials, egress, and agent safety
+    - [x] Add credential-reference, permission, redaction, audit, external-effect,
           destructive-operation, data-egress, and agent-policy evidence before
           object-store/API/LLM/media/UDF/server claims.
-    - [ ] Default effectful features to denied or dry-run unless an explicit policy authorizes
+    - [x] Default effectful features to denied or dry-run unless an explicit policy authorizes
           execution.
   - [x] RFC 0024 release engineering, API compatibility, and packaging discipline
     - [x] Add schema-version, API-stability, dependency/license, SBOM/provenance, reproducible

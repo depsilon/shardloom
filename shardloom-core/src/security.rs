@@ -11,6 +11,7 @@
 )]
 
 use crate::{Diagnostic, DiagnosticCode, ObservedField, Result, ShardLoomError};
+use std::fmt::Write as _;
 
 fn validate_non_empty(label: &str, value: &str) -> Result<()> {
     if value.trim().is_empty() {
@@ -936,6 +937,310 @@ impl SecurityReport {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SecurityGovernanceEvidenceArea {
+    CredentialReference,
+    PermissionBoundary,
+    RedactionPolicy,
+    AuditTrail,
+    ExternalEffect,
+    DestructiveOperation,
+    DataEgress,
+    AgentPolicy,
+}
+impl SecurityGovernanceEvidenceArea {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::CredentialReference => "credential_reference",
+            Self::PermissionBoundary => "permission_boundary",
+            Self::RedactionPolicy => "redaction_policy",
+            Self::AuditTrail => "audit_trail",
+            Self::ExternalEffect => "external_effect",
+            Self::DestructiveOperation => "destructive_operation",
+            Self::DataEgress => "data_egress",
+            Self::AgentPolicy => "agent_policy",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SecurityGovernanceEvidenceStatus {
+    ReportOnly,
+    BlockedUntilPolicy,
+    BlockedUntilRuntimeEvidence,
+    Enforced,
+}
+impl SecurityGovernanceEvidenceStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::ReportOnly => "report_only",
+            Self::BlockedUntilPolicy => "blocked_until_policy",
+            Self::BlockedUntilRuntimeEvidence => "blocked_until_runtime_evidence",
+            Self::Enforced => "enforced",
+        }
+    }
+
+    #[must_use]
+    pub const fn allows_effectful_claims(&self) -> bool {
+        matches!(self, Self::Enforced)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SecurityGovernanceEvidenceEntry {
+    pub area: SecurityGovernanceEvidenceArea,
+    pub status: SecurityGovernanceEvidenceStatus,
+    pub required_for_claims: &'static str,
+    pub default_policy: &'static str,
+    pub evidence_field: &'static str,
+    pub effectful_claim_allowed: bool,
+}
+impl SecurityGovernanceEvidenceEntry {
+    #[must_use]
+    pub const fn report_only(
+        area: SecurityGovernanceEvidenceArea,
+        required_for_claims: &'static str,
+        default_policy: &'static str,
+        evidence_field: &'static str,
+    ) -> Self {
+        Self {
+            area,
+            status: SecurityGovernanceEvidenceStatus::ReportOnly,
+            required_for_claims,
+            default_policy,
+            evidence_field,
+            effectful_claim_allowed: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SecurityGovernanceEvidenceGateReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub entries: Vec<SecurityGovernanceEvidenceEntry>,
+    pub effectful_features_default_denied: bool,
+    pub dry_run_required_without_policy: bool,
+    pub credential_references_only: bool,
+    pub credentials_resolved: bool,
+    pub secrets_loaded: bool,
+    pub redaction_required: bool,
+    pub audit_required: bool,
+    pub external_effects_executed: bool,
+    pub external_effect_claims_allowed: bool,
+    pub destructive_operations_allowed: bool,
+    pub data_egress_allowed: bool,
+    pub object_store_claims_blocked: bool,
+    pub api_server_claims_blocked: bool,
+    pub llm_media_udf_claims_blocked: bool,
+    pub agent_execute_write_cancel_allowed: bool,
+    pub runtime_execution_performed: bool,
+    pub fallback_attempted: bool,
+    pub fallback_execution_allowed: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl SecurityGovernanceEvidenceGateReport {
+    #[must_use]
+    pub fn planning_default() -> Self {
+        Self {
+            schema_version: "shardloom.security_governance_evidence_gate.v1",
+            report_id: "cross_cutting.security_governance_evidence_gate",
+            entries: vec![
+                SecurityGovernanceEvidenceEntry::report_only(
+                    SecurityGovernanceEvidenceArea::CredentialReference,
+                    "object-store, API, model, catalog, plugin, UDF, and server claims",
+                    "references_only_no_secret_resolution",
+                    "credential_reference_evidence_present",
+                ),
+                SecurityGovernanceEvidenceEntry::report_only(
+                    SecurityGovernanceEvidenceArea::PermissionBoundary,
+                    "read, write, commit, network, model, plugin, UDF, and export claims",
+                    "deny_unconfigured_permissions",
+                    "permission_boundary_evidence_present",
+                ),
+                SecurityGovernanceEvidenceEntry::report_only(
+                    SecurityGovernanceEvidenceArea::RedactionPolicy,
+                    "diagnostic, certificate, trace, profile, artifact, and agent-visible claims",
+                    "strict_redaction_required",
+                    "redaction_policy_evidence_present",
+                ),
+                SecurityGovernanceEvidenceEntry::report_only(
+                    SecurityGovernanceEvidenceArea::AuditTrail,
+                    "effectful execution, writes, exports, API calls, and model-call claims",
+                    "audit_required_before_effects",
+                    "audit_trail_evidence_present",
+                ),
+                SecurityGovernanceEvidenceEntry::report_only(
+                    SecurityGovernanceEvidenceArea::ExternalEffect,
+                    "API, LLM, embedding, vector, UDF, plugin, workflow, and catalog claims",
+                    "dry_run_or_denied_without_policy",
+                    "external_effect_evidence_present",
+                ),
+                SecurityGovernanceEvidenceEntry::report_only(
+                    SecurityGovernanceEvidenceArea::DestructiveOperation,
+                    "commit, delete, overwrite, external-write, plugin, and UDF claims",
+                    "denied_until_explicit_destructive_policy",
+                    "destructive_operation_evidence_present",
+                ),
+                SecurityGovernanceEvidenceEntry::report_only(
+                    SecurityGovernanceEvidenceArea::DataEgress,
+                    "object-store write, compatibility export, API/model call, and server claims",
+                    "egress_denied_until_policy_and_redaction",
+                    "data_egress_evidence_present",
+                ),
+                SecurityGovernanceEvidenceEntry::report_only(
+                    SecurityGovernanceEvidenceArea::AgentPolicy,
+                    "agent-facing execute, write, cancel, export, and external-effect claims",
+                    "agent_dry_run_only_by_default",
+                    "agent_policy_evidence_present",
+                ),
+            ],
+            effectful_features_default_denied: true,
+            dry_run_required_without_policy: true,
+            credential_references_only: true,
+            credentials_resolved: false,
+            secrets_loaded: false,
+            redaction_required: true,
+            audit_required: true,
+            external_effects_executed: false,
+            external_effect_claims_allowed: false,
+            destructive_operations_allowed: false,
+            data_egress_allowed: false,
+            object_store_claims_blocked: true,
+            api_server_claims_blocked: true,
+            llm_media_udf_claims_blocked: true,
+            agent_execute_write_cancel_allowed: false,
+            runtime_execution_performed: false,
+            fallback_attempted: false,
+            fallback_execution_allowed: false,
+            diagnostics: Vec::new(),
+        }
+    }
+
+    #[must_use]
+    pub fn evidence_area_count(&self) -> usize {
+        self.entries.len()
+    }
+
+    #[must_use]
+    pub fn report_only_area_count(&self) -> usize {
+        self.entries
+            .iter()
+            .filter(|entry| entry.status == SecurityGovernanceEvidenceStatus::ReportOnly)
+            .count()
+    }
+
+    #[must_use]
+    pub fn effectful_claim_allowed_count(&self) -> usize {
+        self.entries
+            .iter()
+            .filter(|entry| entry.effectful_claim_allowed || entry.status.allows_effectful_claims())
+            .count()
+    }
+
+    #[must_use]
+    pub fn area_order(&self) -> Vec<&'static str> {
+        self.entries
+            .iter()
+            .map(|entry| entry.area.as_str())
+            .collect()
+    }
+
+    #[must_use]
+    pub fn all_evidence_surfaces_present(&self) -> bool {
+        self.entries.iter().all(|entry| {
+            !entry.required_for_claims.is_empty()
+                && !entry.default_policy.is_empty()
+                && !entry.evidence_field.is_empty()
+        })
+    }
+
+    #[must_use]
+    pub fn side_effect_free(&self) -> bool {
+        self.effectful_features_default_denied
+            && self.dry_run_required_without_policy
+            && self.credential_references_only
+            && !self.credentials_resolved
+            && !self.secrets_loaded
+            && !self.external_effects_executed
+            && !self.external_effect_claims_allowed
+            && !self.destructive_operations_allowed
+            && !self.data_egress_allowed
+            && self.object_store_claims_blocked
+            && self.api_server_claims_blocked
+            && self.llm_media_udf_claims_blocked
+            && !self.agent_execute_write_cancel_allowed
+            && !self.runtime_execution_performed
+            && !self.fallback_attempted
+            && !self.fallback_execution_allowed
+            && self.effectful_claim_allowed_count() == 0
+    }
+
+    #[must_use]
+    pub fn claims_blocked_by_default(&self) -> bool {
+        self.object_store_claims_blocked
+            && self.api_server_claims_blocked
+            && self.llm_media_udf_claims_blocked
+            && !self.external_effect_claims_allowed
+            && !self.destructive_operations_allowed
+            && !self.data_egress_allowed
+            && !self.agent_execute_write_cancel_allowed
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        !self.side_effect_free()
+            || !self.all_evidence_surfaces_present()
+            || self
+                .diagnostics
+                .iter()
+                .any(|d| d.severity.as_str() == "error" || d.severity.as_str() == "fatal")
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        let mut out = String::new();
+        out.push_str("security/governance evidence gate\n");
+        let _ = writeln!(out, "schema_version: {}", self.schema_version);
+        let _ = writeln!(out, "report_id: {}", self.report_id);
+        let _ = writeln!(
+            out,
+            "effectful features default denied: {}",
+            self.effectful_features_default_denied
+        );
+        let _ = writeln!(
+            out,
+            "claims blocked by default: {}",
+            self.claims_blocked_by_default()
+        );
+        let _ = writeln!(
+            out,
+            "runtime execution performed: {}",
+            self.runtime_execution_performed
+        );
+        let _ = writeln!(out, "fallback attempted: {}", self.fallback_attempted);
+        out.push_str("evidence areas:\n");
+        for entry in &self.entries {
+            let _ = writeln!(
+                out,
+                "  - {} [{}] default_policy={} claims_allowed={}",
+                entry.area.as_str(),
+                entry.status.as_str(),
+                entry.default_policy,
+                entry.effectful_claim_allowed
+            );
+        }
+        out
+    }
+}
+
+#[must_use]
+pub fn plan_security_governance_evidence_gate() -> SecurityGovernanceEvidenceGateReport {
+    SecurityGovernanceEvidenceGateReport::planning_default()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1073,5 +1378,43 @@ mod tests {
         let r = SecurityReport::from_plan(SecurityPlan::default_safe());
         assert!(!r.has_errors());
         assert!(!r.plan.allows_external_effects());
+    }
+
+    #[test]
+    fn security_governance_evidence_gate_covers_required_areas() {
+        let report = plan_security_governance_evidence_gate();
+        assert_eq!(report.evidence_area_count(), 8);
+        assert_eq!(report.report_only_area_count(), 8);
+        assert!(report.all_evidence_surfaces_present());
+        assert!(
+            report
+                .area_order()
+                .contains(&SecurityGovernanceEvidenceArea::CredentialReference.as_str())
+        );
+        assert!(
+            report
+                .area_order()
+                .contains(&SecurityGovernanceEvidenceArea::AgentPolicy.as_str())
+        );
+    }
+
+    #[test]
+    fn security_governance_evidence_gate_blocks_effects_and_claims_by_default() {
+        let report = plan_security_governance_evidence_gate();
+        assert!(report.side_effect_free());
+        assert!(!report.has_errors());
+        assert!(report.claims_blocked_by_default());
+        assert_eq!(report.effectful_claim_allowed_count(), 0);
+        assert!(report.effectful_features_default_denied);
+        assert!(report.dry_run_required_without_policy);
+        assert!(report.credential_references_only);
+        assert!(!report.credentials_resolved);
+        assert!(!report.secrets_loaded);
+        assert!(!report.external_effects_executed);
+        assert!(!report.destructive_operations_allowed);
+        assert!(!report.data_egress_allowed);
+        assert!(!report.agent_execute_write_cancel_allowed);
+        assert!(!report.fallback_attempted);
+        assert!(!report.fallback_execution_allowed);
     }
 }

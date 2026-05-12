@@ -212,8 +212,10 @@ pub use security::{
     AgentSafetyMode, ApprovalRequirement, AuditActionKind, AuditRecord, CredentialScope,
     CredentialScopeKind, DataSensitivity, DryRunSafety, ExternalEffectKind, ExternalEffectPolicy,
     PermissionKind, PermissionRequirement, PermissionStatus, RedactionPolicy, RedactionPolicyKind,
-    SecretProviderKind, SecretRef, SecretRefId, SecurityPlan, SecurityPolicyStatus, SecurityReport,
-    SensitiveField,
+    SecretProviderKind, SecretRef, SecretRefId, SecurityGovernanceEvidenceArea,
+    SecurityGovernanceEvidenceEntry, SecurityGovernanceEvidenceGateReport,
+    SecurityGovernanceEvidenceStatus, SecurityPlan, SecurityPolicyStatus, SecurityReport,
+    SensitiveField, plan_security_governance_evidence_gate,
 };
 
 pub use stateful_reuse::{

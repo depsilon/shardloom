@@ -35,18 +35,19 @@ use shardloom_core::{
     ReleasePlan, ReleasePublicationBoundaryKind, ReleasePublicationBoundaryReport,
     ReleaseReadinessEvidenceReport, RuntimeObservabilityReport, SchemaDefinition,
     SchemaEvolutionCompatibilityReport, SchemaEvolutionPolicy, SchemaField, SchemaId,
-    SchemaVersion, SecurityPlan, SegmentChange, SegmentChangeKind, SegmentId, SegmentLayout,
-    SegmentStats, ShardLoomError, SnapshotId, SnapshotRef, StatValue, StatefulReuseReport,
-    TableCompatibilityPlan, TableCompatibilityReport, TableFormatKind, TableIntelligenceReport,
-    TranslationPlan, UdfRuntimeKind, UniversalHarnessReport, WorkloadClass,
-    WorldClassSufficiencyDimensionKind, WorldClassSufficiencyReport, WriteIntent,
-    evaluate_cdc_incremental_planning, evaluate_compaction_planning,
-    evaluate_delete_tombstone_compatibility, evaluate_layout_health,
+    SchemaVersion, SecurityGovernanceEvidenceGateReport, SecurityPlan, SegmentChange,
+    SegmentChangeKind, SegmentId, SegmentLayout, SegmentStats, ShardLoomError, SnapshotId,
+    SnapshotRef, StatValue, StatefulReuseReport, TableCompatibilityPlan, TableCompatibilityReport,
+    TableFormatKind, TableIntelligenceReport, TranslationPlan, UdfRuntimeKind,
+    UniversalHarnessReport, WorkloadClass, WorldClassSufficiencyDimensionKind,
+    WorldClassSufficiencyReport, WriteIntent, evaluate_cdc_incremental_planning,
+    evaluate_compaction_planning, evaluate_delete_tombstone_compatibility, evaluate_layout_health,
     evaluate_partition_evolution_compatibility, evaluate_schema_evolution_compatibility,
     plan_benchmark_claim_evidence, plan_correctness_differential_harness,
     plan_cpu_operator_specialization, plan_execution_certificate_evidence_surface,
-    plan_native_io_envelope, plan_observability_schema_coverage, plan_stateful_reuse,
-    plan_universal_harness, plan_world_class_sufficiency,
+    plan_native_io_envelope, plan_observability_schema_coverage,
+    plan_security_governance_evidence_gate, plan_stateful_reuse, plan_universal_harness,
+    plan_world_class_sufficiency,
 };
 use shardloom_exec::{
     AdaptiveSizer, AdaptiveSizingPolicy, AttemptId, BackpressurePlanInput, BackpressurePlanReport,
@@ -213,7 +214,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|agent-contract-pack|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance]|security-plan|effect-budget-plan|agent-safety-plan|redaction-plan|kernel-registry|feature-footprint|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|layout-health-plan|compaction-plan|table-intelligence-plan|object-store-request-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|dynamic-work-shaping-plan [balanced|memory-pressure|object-store-throttled|small-tasks]|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|benchmark-claim-evidence-plan [foundation|traditional-analytics]|traditional-analytics-run|traditional-analytics-vortex-run|vortex-count-benchmark|correctness-plan|correctness-harness-plan|execution-certificate-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|observability-schema-coverage|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-filter-project|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|operator-memory-spill-declarations|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|agent-contract-pack|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance]|security-plan|security-governance-evidence-gate|effect-budget-plan|agent-safety-plan|redaction-plan|kernel-registry|feature-footprint|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|layout-health-plan|compaction-plan|table-intelligence-plan|object-store-request-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|dynamic-work-shaping-plan [balanced|memory-pressure|object-store-throttled|small-tasks]|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|benchmark-claim-evidence-plan [foundation|traditional-analytics]|traditional-analytics-run|traditional-analytics-vortex-run|vortex-count-benchmark|correctness-plan|correctness-harness-plan|execution-certificate-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|observability-schema-coverage|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-filter-project|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|operator-memory-spill-declarations|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -1600,6 +1601,145 @@ fn effect_budget_fields(report: &EffectBudgetReport) -> Vec<(String, String)> {
             report.diagnostics.len().to_string(),
         ),
     ]
+}
+
+fn security_governance_evidence_gate_fields(
+    report: &SecurityGovernanceEvidenceGateReport,
+) -> Vec<(String, String)> {
+    let mut fields = Vec::new();
+    append_security_governance_evidence_gate_summary_fields(&mut fields, report);
+    append_security_governance_evidence_gate_entry_fields(&mut fields, report);
+    fields
+}
+
+fn append_security_governance_evidence_gate_summary_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &SecurityGovernanceEvidenceGateReport,
+) {
+    push_field(fields, "mode", "security_governance_evidence_gate");
+    push_field(fields, "schema_version", report.schema_version);
+    push_field(fields, "report_id", report.report_id);
+    push_count_field(fields, "evidence_area_count", report.evidence_area_count());
+    push_count_field(
+        fields,
+        "report_only_area_count",
+        report.report_only_area_count(),
+    );
+    push_count_field(
+        fields,
+        "effectful_claim_allowed_count",
+        report.effectful_claim_allowed_count(),
+    );
+    push_field(fields, "area_order", &report.area_order().join(","));
+    push_bool_field(
+        fields,
+        "all_evidence_surfaces_present",
+        report.all_evidence_surfaces_present(),
+    );
+    push_bool_field(
+        fields,
+        "effectful_features_default_denied",
+        report.effectful_features_default_denied,
+    );
+    push_bool_field(
+        fields,
+        "dry_run_required_without_policy",
+        report.dry_run_required_without_policy,
+    );
+    push_bool_field(
+        fields,
+        "credential_references_only",
+        report.credential_references_only,
+    );
+    push_bool_field(fields, "credentials_resolved", report.credentials_resolved);
+    push_bool_field(fields, "secrets_loaded", report.secrets_loaded);
+    push_bool_field(fields, "redaction_required", report.redaction_required);
+    push_bool_field(fields, "audit_required", report.audit_required);
+    push_bool_field(
+        fields,
+        "external_effects_executed",
+        report.external_effects_executed,
+    );
+    push_bool_field(
+        fields,
+        "external_effect_claims_allowed",
+        report.external_effect_claims_allowed,
+    );
+    push_bool_field(
+        fields,
+        "destructive_operations_allowed",
+        report.destructive_operations_allowed,
+    );
+    push_bool_field(fields, "data_egress_allowed", report.data_egress_allowed);
+    push_bool_field(
+        fields,
+        "object_store_claims_blocked",
+        report.object_store_claims_blocked,
+    );
+    push_bool_field(
+        fields,
+        "api_server_claims_blocked",
+        report.api_server_claims_blocked,
+    );
+    push_bool_field(
+        fields,
+        "llm_media_udf_claims_blocked",
+        report.llm_media_udf_claims_blocked,
+    );
+    push_bool_field(
+        fields,
+        "agent_execute_write_cancel_allowed",
+        report.agent_execute_write_cancel_allowed,
+    );
+    push_bool_field(
+        fields,
+        "runtime_execution",
+        report.runtime_execution_performed,
+    );
+    push_bool_field(fields, "side_effect_free", report.side_effect_free());
+    push_bool_field(
+        fields,
+        "claims_blocked_by_default",
+        report.claims_blocked_by_default(),
+    );
+    push_bool_field(
+        fields,
+        "fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(fields, "fallback_attempted", report.fallback_attempted);
+    push_count_field(fields, "diagnostic_count", report.diagnostics.len());
+}
+
+fn append_security_governance_evidence_gate_entry_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &SecurityGovernanceEvidenceGateReport,
+) {
+    for (idx, entry) in report.entries.iter().enumerate() {
+        let prefix = format!("security_evidence_area_{idx}");
+        push_field(fields, &format!("{prefix}_name"), entry.area.as_str());
+        push_field(fields, &format!("{prefix}_status"), entry.status.as_str());
+        push_field(
+            fields,
+            &format!("{prefix}_default_policy"),
+            entry.default_policy,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_required_for_claims"),
+            entry.required_for_claims,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_evidence_field"),
+            entry.evidence_field,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_effectful_claim_allowed"),
+            entry.effectful_claim_allowed,
+        );
+    }
 }
 
 fn agent_contract_pack_fields(report: &AgentContractPack) -> Vec<(String, String)> {
@@ -18042,6 +18182,28 @@ fn run(args: Vec<String>) -> ExitCode {
                 ],
             );
             ExitCode::SUCCESS
+        }
+        Some("security-governance-evidence-gate") => {
+            let report = plan_security_governance_evidence_gate();
+            let status = if report.has_errors() {
+                CommandStatus::Unsupported
+            } else {
+                CommandStatus::Success
+            };
+            emit(
+                "security-governance-evidence-gate",
+                format,
+                status,
+                "security governance evidence gate".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                security_governance_evidence_gate_fields(&report),
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
         }
         Some("effect-budget-plan") => {
             let report = EffectBudgetReport::planning_default();
