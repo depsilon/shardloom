@@ -45,6 +45,8 @@ const LOCAL_SCAN_PROVIDER_KIND: &str = "vortex_scan";
 const LOCAL_SCAN_PROVIDER_API_SURFACE: &str = "VortexFile::scan.into_array_iter";
 const REPRESENTATION_VORTEX_READER_CHUNK: &str = "vortex_reader_chunk";
 const REPRESENTATION_PREPARED_CHUNK_ENVELOPE: &str = "reader_generated_prepared_chunk_envelope";
+const REPRESENTATION_PREPARED_ENCODED_KERNEL_INPUT: &str =
+    "reader_generated_prepared_encoded_kernel_input";
 const RESIDUAL_EXECUTOR_NONE: &str = "none";
 const RESIDUAL_EXECUTOR_UNSUPPORTED_BLOCKED: &str = "unsupported_blocked";
 
@@ -117,10 +119,15 @@ impl VortexReaderBackedEncodedExecutionStatus {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VortexReaderGeneratedPreparedBatchStatus {
     PreparedReaderChunkEnvelopes,
+    PreparedEncodedKernelInputs,
     BlockedNonNativeSource,
     BlockedMissingSourceUri,
     BlockedMissingReaderSplitEvidence,
     BlockedReaderSourceMismatch,
+    BlockedKernelInputSourceMismatch,
+    BlockedKernelInputSplitMismatch,
+    BlockedKernelInputRowCountMismatch,
+    BlockedKernelInputMappingEvidence,
     BlockedUnsafeReaderEffects,
 }
 
@@ -129,17 +136,25 @@ impl VortexReaderGeneratedPreparedBatchStatus {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::PreparedReaderChunkEnvelopes => "prepared_reader_chunk_envelopes",
+            Self::PreparedEncodedKernelInputs => "prepared_encoded_kernel_inputs",
             Self::BlockedNonNativeSource => "blocked_non_native_source",
             Self::BlockedMissingSourceUri => "blocked_missing_source_uri",
             Self::BlockedMissingReaderSplitEvidence => "blocked_missing_reader_split_evidence",
             Self::BlockedReaderSourceMismatch => "blocked_reader_source_mismatch",
+            Self::BlockedKernelInputSourceMismatch => "blocked_kernel_input_source_mismatch",
+            Self::BlockedKernelInputSplitMismatch => "blocked_kernel_input_split_mismatch",
+            Self::BlockedKernelInputRowCountMismatch => "blocked_kernel_input_row_count_mismatch",
+            Self::BlockedKernelInputMappingEvidence => "blocked_kernel_input_mapping_evidence",
             Self::BlockedUnsafeReaderEffects => "blocked_unsafe_reader_effects",
         }
     }
 
     #[must_use]
     pub const fn is_error(self) -> bool {
-        !matches!(self, Self::PreparedReaderChunkEnvelopes)
+        !matches!(
+            self,
+            Self::PreparedReaderChunkEnvelopes | Self::PreparedEncodedKernelInputs
+        )
     }
 }
 
@@ -257,6 +272,132 @@ impl VortexReaderBackedSplitEvidence {
 
 #[derive(Debug, Clone, PartialEq)]
 #[allow(clippy::struct_excessive_bools)]
+pub struct VortexReaderGeneratedEncodedKernelInput {
+    pub source_uri: DatasetUri,
+    pub split_ref: String,
+    pub provider_kind: &'static str,
+    pub provider_api_surface: &'static str,
+    pub batch: VortexEncodedValuePredicateBatch,
+    pub dtype_mapped_without_decode: bool,
+    pub encoding_mapped_without_decode: bool,
+    pub values_mapped_without_decode: bool,
+    pub row_count_matches_segment: bool,
+    pub data_read: bool,
+    pub data_decoded: bool,
+    pub data_materialized: bool,
+    pub row_read: bool,
+    pub arrow_converted: bool,
+    pub object_store_io: bool,
+    pub write_io: bool,
+    pub spill_io_performed: bool,
+    pub external_effects_executed: bool,
+    pub fallback_execution_allowed: bool,
+    pub fallback_attempted: bool,
+}
+
+impl VortexReaderGeneratedEncodedKernelInput {
+    /// # Errors
+    /// Returns an error when `split_ref` is empty or the encoded value row count
+    /// cannot be matched to the supplied segment metadata.
+    pub fn new(
+        source_uri: DatasetUri,
+        split_ref: impl Into<String>,
+        batch: VortexEncodedValuePredicateBatch,
+    ) -> Result<Self> {
+        let split_ref = validated_split_ref(split_ref)?;
+        let values_row_count = batch.values.row_count().ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "reader-generated encoded kernel input values require a known row count"
+                    .to_string(),
+            )
+        })?;
+        let segment_row_count = batch.segment.stats.row_count.ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "reader-generated encoded kernel input segment requires row-count metadata"
+                    .to_string(),
+            )
+        })?;
+        if values_row_count != segment_row_count {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "reader-generated encoded kernel input row count mismatch: values={values_row_count} segment={segment_row_count}"
+            )));
+        }
+        Ok(Self {
+            source_uri,
+            split_ref,
+            provider_kind: LOCAL_SCAN_PROVIDER_KIND,
+            provider_api_surface: LOCAL_SCAN_PROVIDER_API_SURFACE,
+            batch,
+            dtype_mapped_without_decode: true,
+            encoding_mapped_without_decode: true,
+            values_mapped_without_decode: true,
+            row_count_matches_segment: true,
+            data_read: true,
+            data_decoded: false,
+            data_materialized: false,
+            row_read: false,
+            arrow_converted: false,
+            object_store_io: false,
+            write_io: false,
+            spill_io_performed: false,
+            external_effects_executed: false,
+            fallback_execution_allowed: false,
+            fallback_attempted: false,
+        })
+    }
+
+    #[must_use]
+    pub const fn mapping_evidence_complete(&self) -> bool {
+        self.dtype_mapped_without_decode
+            && self.encoding_mapped_without_decode
+            && self.values_mapped_without_decode
+            && self.row_count_matches_segment
+    }
+
+    #[must_use]
+    pub const fn has_forbidden_effects(&self) -> bool {
+        self.data_decoded
+            || self.data_materialized
+            || self.row_read
+            || self.arrow_converted
+            || self.object_store_io
+            || self.write_io
+            || self.spill_io_performed
+            || self.external_effects_executed
+            || self.fallback_execution_allowed
+            || self.fallback_attempted
+    }
+
+    /// # Errors
+    /// Returns an error when the split ref fails source-backed batch validation.
+    pub fn to_source_backed_filter_batch(
+        &self,
+    ) -> Result<VortexSourceBackedEncodedValuePredicateBatch> {
+        VortexSourceBackedEncodedValuePredicateBatch::new(
+            self.source_uri.clone(),
+            self.split_ref.clone(),
+            self.batch.clone(),
+        )
+    }
+
+    /// # Errors
+    /// Returns an error when the split ref fails source-backed projection validation.
+    pub fn to_source_backed_projection_column(
+        &self,
+    ) -> Result<VortexSourceBackedEncodedProjectionColumn> {
+        VortexSourceBackedEncodedProjectionColumn::new(
+            self.source_uri.clone(),
+            self.split_ref.clone(),
+            VortexPreparedEncodedProjectionColumn::new(
+                self.batch.segment.clone(),
+                self.batch.values.clone(),
+            ),
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct VortexReaderGeneratedPreparedBatchEvidence {
     pub source_uri: DatasetUri,
     pub split_ref: String,
@@ -271,6 +412,7 @@ pub struct VortexReaderGeneratedPreparedBatchEvidence {
     pub representation_after: &'static str,
     pub encoded_value_batch_available: bool,
     pub encoded_projection_batch_available: bool,
+    pub encoded_kernel_input_count: usize,
     pub residual_required: bool,
     pub residual_executor: &'static str,
     pub data_read: bool,
@@ -288,7 +430,11 @@ pub struct VortexReaderGeneratedPreparedBatchEvidence {
 
 impl VortexReaderGeneratedPreparedBatchEvidence {
     #[must_use]
-    pub fn from_reader_split(split: &VortexReaderBackedSplitEvidence) -> Self {
+    pub fn from_reader_split(
+        split: &VortexReaderBackedSplitEvidence,
+        encoded_kernel_input_count: usize,
+    ) -> Self {
+        let encoded_kernel_inputs_available = encoded_kernel_input_count > 0;
         Self {
             source_uri: split.source_uri.clone(),
             split_ref: split.split_ref.clone(),
@@ -300,9 +446,14 @@ impl VortexReaderGeneratedPreparedBatchEvidence {
             child_count: split.child_count,
             buffer_count: split.buffer_count,
             representation_before: REPRESENTATION_VORTEX_READER_CHUNK,
-            representation_after: REPRESENTATION_PREPARED_CHUNK_ENVELOPE,
-            encoded_value_batch_available: false,
-            encoded_projection_batch_available: false,
+            representation_after: if encoded_kernel_inputs_available {
+                REPRESENTATION_PREPARED_ENCODED_KERNEL_INPUT
+            } else {
+                REPRESENTATION_PREPARED_CHUNK_ENVELOPE
+            },
+            encoded_value_batch_available: encoded_kernel_inputs_available,
+            encoded_projection_batch_available: encoded_kernel_inputs_available,
+            encoded_kernel_input_count,
             residual_required: false,
             residual_executor: RESIDUAL_EXECUTOR_NONE,
             data_read: split.data_read,
@@ -349,11 +500,17 @@ pub struct VortexReaderGeneratedPreparedBatchReport {
     pub generated_batch_count: usize,
     pub total_rows: usize,
     pub split_refs: Vec<String>,
+    pub encoded_kernel_input_split_refs: Vec<String>,
     pub reader_source_uri_matches_source: bool,
+    pub encoded_kernel_inputs_source_uri_matches_source: bool,
+    pub encoded_kernel_input_split_refs_covered_by_reader: bool,
+    pub encoded_kernel_input_row_counts_match_reader: bool,
+    pub encoded_kernel_input_mapping_evidence_complete: bool,
     pub reader_generated_prepared_batches: bool,
     pub reader_chunk_envelopes_available: bool,
     pub encoded_value_batch_available: bool,
     pub encoded_projection_batch_available: bool,
+    pub encoded_kernel_input_count: usize,
     pub kernel_input_lowering_blocked: bool,
     pub runtime_execution_allowed: bool,
     pub residual_required: bool,
@@ -381,12 +538,17 @@ impl VortexReaderGeneratedPreparedBatchReport {
         validation: ReaderGeneratedPreparedBatchValidation,
     ) -> Self {
         let chunk_envelopes_available = validation.status
-            == VortexReaderGeneratedPreparedBatchStatus::PreparedReaderChunkEnvelopes;
-        let encoded_value_batch_available = false;
-        let encoded_projection_batch_available = false;
-        let kernel_input_lowering_blocked = chunk_envelopes_available
-            && !encoded_value_batch_available
-            && !encoded_projection_batch_available;
+            == VortexReaderGeneratedPreparedBatchStatus::PreparedReaderChunkEnvelopes
+            || validation.status
+                == VortexReaderGeneratedPreparedBatchStatus::PreparedEncodedKernelInputs;
+        let encoded_kernel_inputs_available = validation.status
+            == VortexReaderGeneratedPreparedBatchStatus::PreparedEncodedKernelInputs
+            && validation.encoded_kernel_input_count > 0;
+        let encoded_value_batch_available = encoded_kernel_inputs_available;
+        let encoded_projection_batch_available = encoded_kernel_inputs_available;
+        let kernel_input_lowering_blocked = (chunk_envelopes_available
+            || validation.encoded_kernel_input_count > 0)
+            && !encoded_kernel_inputs_available;
         Self {
             schema_version: READER_GENERATED_BATCH_SCHEMA_VERSION,
             report_id: READER_GENERATED_BATCH_REPORT_ID.to_string(),
@@ -400,13 +562,23 @@ impl VortexReaderGeneratedPreparedBatchReport {
             generated_batch_count: validation.batches.len(),
             total_rows: validation.total_rows,
             split_refs: validation.reader_split_refs,
+            encoded_kernel_input_split_refs: validation.encoded_kernel_input_split_refs,
             reader_source_uri_matches_source: validation.reader_source_uri_matches_source,
+            encoded_kernel_inputs_source_uri_matches_source: validation
+                .encoded_kernel_inputs_source_uri_matches_source,
+            encoded_kernel_input_split_refs_covered_by_reader: validation
+                .encoded_kernel_input_split_refs_covered_by_reader,
+            encoded_kernel_input_row_counts_match_reader: validation
+                .encoded_kernel_input_row_counts_match_reader,
+            encoded_kernel_input_mapping_evidence_complete: validation
+                .encoded_kernel_input_mapping_evidence_complete,
             reader_generated_prepared_batches: chunk_envelopes_available,
             reader_chunk_envelopes_available: chunk_envelopes_available,
             encoded_value_batch_available,
             encoded_projection_batch_available,
+            encoded_kernel_input_count: validation.encoded_kernel_input_count,
             kernel_input_lowering_blocked,
-            runtime_execution_allowed: false,
+            runtime_execution_allowed: encoded_kernel_inputs_available,
             residual_required: kernel_input_lowering_blocked,
             residual_executor: if kernel_input_lowering_blocked {
                 RESIDUAL_EXECUTOR_UNSUPPORTED_BLOCKED
@@ -414,7 +586,11 @@ impl VortexReaderGeneratedPreparedBatchReport {
                 RESIDUAL_EXECUTOR_NONE
             },
             representation_before: REPRESENTATION_VORTEX_READER_CHUNK,
-            representation_after: REPRESENTATION_PREPARED_CHUNK_ENVELOPE,
+            representation_after: if encoded_kernel_inputs_available {
+                REPRESENTATION_PREPARED_ENCODED_KERNEL_INPUT
+            } else {
+                REPRESENTATION_PREPARED_CHUNK_ENVELOPE
+            },
             batches: validation.batches,
             data_read: validation.data_read,
             data_decoded: validation.data_decoded,
@@ -480,6 +656,11 @@ impl VortexReaderGeneratedPreparedBatchReport {
             &mut out,
             "encoded value batch available: {}",
             self.encoded_value_batch_available
+        );
+        let _ = writeln!(
+            &mut out,
+            "encoded kernel inputs: {}",
+            self.encoded_kernel_input_count
         );
         let _ = writeln!(
             &mut out,
@@ -953,7 +1134,8 @@ impl VortexReaderBackedEncodedFilterExecutionReport {
             runtime_execution_allowed,
             reader_split_evidence_consumed: runtime_execution_allowed,
             reader_validated_prepared_batches_consumed: runtime_execution_allowed,
-            reader_generated_prepared_batches: false,
+            reader_generated_prepared_batches: runtime_execution_allowed
+                && validation.reader_generated_prepared_batches,
             selection_vector_guaranteed: runtime_execution_allowed,
             correctness_certified,
             production_claim_allowed: false,
@@ -1125,7 +1307,8 @@ impl VortexReaderBackedEncodedProjectionExecutionReport {
             runtime_execution_allowed,
             reader_split_evidence_consumed: runtime_execution_allowed,
             reader_validated_prepared_batches_consumed: runtime_execution_allowed,
-            reader_generated_prepared_batches: false,
+            reader_generated_prepared_batches: runtime_execution_allowed
+                && validation.reader_generated_prepared_batches,
             encoded_projection_guaranteed: runtime_execution_allowed,
             selection_vector_preserved,
             correctness_certified,
@@ -1291,12 +1474,23 @@ pub fn execute_vortex_reader_backed_filter_from_encoded_value_batches(
     reader_splits: &[VortexReaderBackedSplitEvidence],
     batches: &[VortexSourceBackedEncodedValuePredicateBatch],
 ) -> Result<VortexReaderBackedEncodedFilterExecutionReport> {
+    execute_vortex_reader_backed_filter_inner(predicate, source, reader_splits, batches, false)
+}
+
+fn execute_vortex_reader_backed_filter_inner(
+    predicate: &PredicateExpr,
+    source: &UniversalInputSource,
+    reader_splits: &[VortexReaderBackedSplitEvidence],
+    batches: &[VortexSourceBackedEncodedValuePredicateBatch],
+    reader_generated_prepared_batches: bool,
+) -> Result<VortexReaderBackedEncodedFilterExecutionReport> {
     let validation = validate_reader_backed_refs(
         source,
         reader_splits,
         batches
             .iter()
             .map(|batch| (&batch.source_uri, batch.split_ref.as_str())),
+        reader_generated_prepared_batches,
     );
     let source_execution =
         execute_vortex_source_backed_filter_from_encoded_value_batches(predicate, source, batches)?;
@@ -1325,12 +1519,31 @@ pub fn execute_vortex_reader_backed_projection_from_encoded_projection_batches(
     batches: &[VortexSourceBackedEncodedProjectionColumn],
     filter_kernel: Option<&VortexSelectionVectorFilterKernelReport>,
 ) -> Result<VortexReaderBackedEncodedProjectionExecutionReport> {
+    execute_vortex_reader_backed_projection_inner(
+        requested_columns,
+        source,
+        reader_splits,
+        batches,
+        filter_kernel,
+        false,
+    )
+}
+
+fn execute_vortex_reader_backed_projection_inner(
+    requested_columns: &[ColumnRef],
+    source: &UniversalInputSource,
+    reader_splits: &[VortexReaderBackedSplitEvidence],
+    batches: &[VortexSourceBackedEncodedProjectionColumn],
+    filter_kernel: Option<&VortexSelectionVectorFilterKernelReport>,
+    reader_generated_prepared_batches: bool,
+) -> Result<VortexReaderBackedEncodedProjectionExecutionReport> {
     let validation = validate_reader_backed_refs(
         source,
         reader_splits,
         batches
             .iter()
             .map(|batch| (&batch.source_uri, batch.split_ref.as_str())),
+        reader_generated_prepared_batches,
     );
     let source_execution = execute_vortex_source_backed_projection_from_encoded_projection_batches(
         requested_columns,
@@ -1359,8 +1572,122 @@ pub fn plan_vortex_reader_generated_prepared_batch_envelopes(
     source: &UniversalInputSource,
     reader_splits: &[VortexReaderBackedSplitEvidence],
 ) -> VortexReaderGeneratedPreparedBatchReport {
-    let validation = validate_reader_generated_prepared_batches(source, reader_splits);
+    let validation = validate_reader_generated_prepared_batches(source, reader_splits, &[]);
     VortexReaderGeneratedPreparedBatchReport::from_validation(source, validation)
+}
+
+/// Builds reader-generated prepared-batch evidence and admits encoded kernel
+/// inputs only when explicit dtype, encoding, value, row-count, source, split,
+/// and no-effect evidence is present.
+///
+/// The supplied kernel inputs are already mapped encoded values. This function
+/// validates that they are covered by the reader split refs; it does not decode
+/// opaque Vortex chunks or infer values from metadata alone.
+#[must_use]
+pub fn plan_vortex_reader_generated_prepared_batch_kernel_inputs(
+    source: &UniversalInputSource,
+    reader_splits: &[VortexReaderBackedSplitEvidence],
+    encoded_kernel_inputs: &[VortexReaderGeneratedEncodedKernelInput],
+) -> VortexReaderGeneratedPreparedBatchReport {
+    let validation =
+        validate_reader_generated_prepared_batches(source, reader_splits, encoded_kernel_inputs);
+    VortexReaderGeneratedPreparedBatchReport::from_validation(source, validation)
+}
+
+/// Executes reader-generated encoded filter evidence only when reader split
+/// refs and explicit encoded kernel inputs can be matched without decode,
+/// materialization, row reads, Arrow conversion, or fallback execution.
+///
+/// # Errors
+/// Returns an error when source-backed batch construction or the underlying
+/// prepared encoded execution path fails to construct report evidence.
+pub fn execute_vortex_reader_generated_filter_from_encoded_kernel_inputs(
+    predicate: &PredicateExpr,
+    source: &UniversalInputSource,
+    reader_splits: &[VortexReaderBackedSplitEvidence],
+    encoded_kernel_inputs: &[VortexReaderGeneratedEncodedKernelInput],
+) -> Result<VortexReaderBackedEncodedFilterExecutionReport> {
+    let lowering = plan_vortex_reader_generated_prepared_batch_kernel_inputs(
+        source,
+        reader_splits,
+        encoded_kernel_inputs,
+    );
+    if !lowering.runtime_execution_allowed {
+        let mut report = execute_vortex_reader_backed_filter_inner(
+            predicate,
+            source,
+            reader_splits,
+            &[],
+            false,
+        )?;
+        report.diagnostics.extend(lowering.diagnostics.clone());
+        return Ok(report);
+    }
+    let batches = encoded_kernel_inputs
+        .iter()
+        .map(VortexReaderGeneratedEncodedKernelInput::to_source_backed_filter_batch)
+        .collect::<Result<Vec<_>>>()?;
+    let mut report = execute_vortex_reader_backed_filter_inner(
+        predicate,
+        source,
+        reader_splits,
+        &batches,
+        lowering.runtime_execution_allowed,
+    )?;
+    report.diagnostics.extend(lowering.diagnostics.clone());
+    Ok(report)
+}
+
+/// Executes reader-generated encoded projection or filter-project evidence
+/// only when reader split refs and explicit encoded kernel inputs can be
+/// matched without decode, materialization, row reads, Arrow conversion, or
+/// fallback execution.
+///
+/// Passing a safe `filter_kernel` preserves the filter-project selection-vector
+/// evidence through the projection path.
+///
+/// # Errors
+/// Returns an error when source-backed projection construction or the
+/// underlying prepared encoded execution path fails to construct report
+/// evidence.
+pub fn execute_vortex_reader_generated_projection_from_encoded_kernel_inputs(
+    requested_columns: &[ColumnRef],
+    source: &UniversalInputSource,
+    reader_splits: &[VortexReaderBackedSplitEvidence],
+    encoded_kernel_inputs: &[VortexReaderGeneratedEncodedKernelInput],
+    filter_kernel: Option<&VortexSelectionVectorFilterKernelReport>,
+) -> Result<VortexReaderBackedEncodedProjectionExecutionReport> {
+    let lowering = plan_vortex_reader_generated_prepared_batch_kernel_inputs(
+        source,
+        reader_splits,
+        encoded_kernel_inputs,
+    );
+    if !lowering.runtime_execution_allowed {
+        let mut report = execute_vortex_reader_backed_projection_inner(
+            requested_columns,
+            source,
+            reader_splits,
+            &[],
+            filter_kernel,
+            false,
+        )?;
+        report.diagnostics.extend(lowering.diagnostics.clone());
+        return Ok(report);
+    }
+    let batches = encoded_kernel_inputs
+        .iter()
+        .map(VortexReaderGeneratedEncodedKernelInput::to_source_backed_projection_column)
+        .collect::<Result<Vec<_>>>()?;
+    let mut report = execute_vortex_reader_backed_projection_inner(
+        requested_columns,
+        source,
+        reader_splits,
+        &batches,
+        filter_kernel,
+        lowering.runtime_execution_allowed,
+    )?;
+    report.diagnostics.extend(lowering.diagnostics.clone());
+    Ok(report)
 }
 
 #[derive(Debug, Clone)]
@@ -1391,6 +1718,7 @@ struct ReaderBackedValidation {
     external_effects_executed: bool,
     fallback_execution_allowed: bool,
     fallback_attempted: bool,
+    reader_generated_prepared_batches: bool,
     diagnostics: Vec<Diagnostic>,
 }
 
@@ -1399,7 +1727,13 @@ struct ReaderBackedValidation {
 struct ReaderGeneratedPreparedBatchValidation {
     status: VortexReaderGeneratedPreparedBatchStatus,
     reader_split_refs: Vec<String>,
+    encoded_kernel_input_split_refs: Vec<String>,
     reader_source_uri_matches_source: bool,
+    encoded_kernel_inputs_source_uri_matches_source: bool,
+    encoded_kernel_input_split_refs_covered_by_reader: bool,
+    encoded_kernel_input_row_counts_match_reader: bool,
+    encoded_kernel_input_mapping_evidence_complete: bool,
+    encoded_kernel_input_count: usize,
     batches: Vec<VortexReaderGeneratedPreparedBatchEvidence>,
     total_rows: usize,
     data_read: bool,
@@ -1501,6 +1835,7 @@ fn validate_source_backed_refs<'a>(
 fn validate_reader_generated_prepared_batches(
     source: &UniversalInputSource,
     reader_splits: &[VortexReaderBackedSplitEvidence],
+    encoded_kernel_inputs: &[VortexReaderGeneratedEncodedKernelInput],
 ) -> ReaderGeneratedPreparedBatchValidation {
     let mut reader_split_refs = reader_splits
         .iter()
@@ -1508,9 +1843,25 @@ fn validate_reader_generated_prepared_batches(
         .collect::<Vec<_>>();
     reader_split_refs.sort();
     reader_split_refs.dedup();
+    let mut encoded_kernel_input_split_refs = encoded_kernel_inputs
+        .iter()
+        .map(|input| input.split_ref.clone())
+        .collect::<Vec<_>>();
+    encoded_kernel_input_split_refs.sort();
+    encoded_kernel_input_split_refs.dedup();
+    let reader_split_ref_set = reader_split_refs.iter().cloned().collect::<BTreeSet<_>>();
     let batches = reader_splits
         .iter()
-        .map(VortexReaderGeneratedPreparedBatchEvidence::from_reader_split)
+        .map(|split| {
+            let encoded_kernel_input_count = encoded_kernel_inputs
+                .iter()
+                .filter(|input| input.split_ref == split.split_ref)
+                .count();
+            VortexReaderGeneratedPreparedBatchEvidence::from_reader_split(
+                split,
+                encoded_kernel_input_count,
+            )
+        })
         .collect::<Vec<_>>();
     let total_rows = reader_splits
         .iter()
@@ -1532,11 +1883,44 @@ fn validate_reader_generated_prepared_batches(
         .iter()
         .any(|split| split.fallback_execution_allowed);
     let fallback_attempted = reader_splits.iter().any(|split| split.fallback_attempted);
+    let encoded_kernel_inputs_source_uri_matches_source = source.uri.as_ref().is_some_and(|uri| {
+        encoded_kernel_inputs
+            .iter()
+            .all(|input| &input.source_uri == uri)
+    });
+    let encoded_kernel_input_split_refs_covered_by_reader = !encoded_kernel_inputs.is_empty()
+        && encoded_kernel_input_split_refs
+            .iter()
+            .all(|split_ref| reader_split_ref_set.contains(split_ref));
+    let encoded_kernel_input_mapping_evidence_complete = !encoded_kernel_inputs.is_empty()
+        && encoded_kernel_inputs
+            .iter()
+            .all(VortexReaderGeneratedEncodedKernelInput::mapping_evidence_complete);
+    let encoded_kernel_input_row_counts_match_reader = !encoded_kernel_inputs.is_empty()
+        && encoded_kernel_inputs.iter().all(|input| {
+            reader_splits
+                .iter()
+                .find(|split| split.split_ref == input.split_ref)
+                .is_some_and(|split| {
+                    input.batch.values.row_count()
+                        == Some(u64::try_from(split.row_count).unwrap_or(u64::MAX))
+                })
+        });
 
     let mut validation = ReaderGeneratedPreparedBatchValidation {
-        status: VortexReaderGeneratedPreparedBatchStatus::PreparedReaderChunkEnvelopes,
+        status: if encoded_kernel_inputs.is_empty() {
+            VortexReaderGeneratedPreparedBatchStatus::PreparedReaderChunkEnvelopes
+        } else {
+            VortexReaderGeneratedPreparedBatchStatus::PreparedEncodedKernelInputs
+        },
         reader_split_refs,
+        encoded_kernel_input_split_refs,
         reader_source_uri_matches_source: true,
+        encoded_kernel_inputs_source_uri_matches_source,
+        encoded_kernel_input_split_refs_covered_by_reader,
+        encoded_kernel_input_row_counts_match_reader,
+        encoded_kernel_input_mapping_evidence_complete,
+        encoded_kernel_input_count: encoded_kernel_inputs.len(),
         batches,
         total_rows,
         data_read,
@@ -1598,10 +1982,59 @@ fn validate_reader_generated_prepared_batches(
         ));
         return validation;
     }
+    if !encoded_kernel_inputs.is_empty() {
+        if !validation.encoded_kernel_inputs_source_uri_matches_source {
+            validation.status =
+                VortexReaderGeneratedPreparedBatchStatus::BlockedKernelInputSourceMismatch;
+            validation.diagnostics.push(Diagnostic::unsupported(
+                DiagnosticCode::NoFallbackExecution,
+                "vortex_reader_generated_prepared_batch_kernel_input",
+                "reader-generated encoded kernel inputs must all belong to the declared source URI",
+                Some("Reject mixed-source reader-generated encoded kernel inputs; construct separate source-backed plans or a certified multi-source plan later.".to_string()),
+            ));
+            return validation;
+        }
+        if !validation.encoded_kernel_input_split_refs_covered_by_reader {
+            validation.status =
+                VortexReaderGeneratedPreparedBatchStatus::BlockedKernelInputSplitMismatch;
+            validation.diagnostics.push(Diagnostic::unsupported(
+                DiagnosticCode::NoFallbackExecution,
+                "vortex_reader_generated_prepared_batch_kernel_input",
+                "reader-generated encoded kernel inputs must be covered by reader split refs",
+                Some("Only lower encoded kernel inputs whose split refs were emitted by the approved Vortex reader path.".to_string()),
+            ));
+            return validation;
+        }
+        if !validation.encoded_kernel_input_row_counts_match_reader {
+            validation.status =
+                VortexReaderGeneratedPreparedBatchStatus::BlockedKernelInputRowCountMismatch;
+            validation.diagnostics.push(Diagnostic::unsupported(
+                DiagnosticCode::NoFallbackExecution,
+                "vortex_reader_generated_prepared_batch_kernel_input",
+                "reader-generated encoded kernel input row counts must match reader split row counts",
+                Some("Reject encoded inputs when their value row count cannot be matched to the reader chunk boundary.".to_string()),
+            ));
+            return validation;
+        }
+        if !validation.encoded_kernel_input_mapping_evidence_complete {
+            validation.status =
+                VortexReaderGeneratedPreparedBatchStatus::BlockedKernelInputMappingEvidence;
+            validation.diagnostics.push(Diagnostic::unsupported(
+                DiagnosticCode::NoFallbackExecution,
+                "vortex_reader_generated_prepared_batch_kernel_input",
+                "reader-generated encoded kernel inputs require dtype, encoding, value, and row-count mapping evidence without decode",
+                Some("Keep opaque Vortex chunks as prepared chunk envelopes until the dtype and encoding can be mapped into ShardLoom encoded kernel inputs without decode or materialization.".to_string()),
+            ));
+            return validation;
+        }
+    }
     if validation
         .batches
         .iter()
         .any(VortexReaderGeneratedPreparedBatchEvidence::has_forbidden_effects)
+        || encoded_kernel_inputs
+            .iter()
+            .any(VortexReaderGeneratedEncodedKernelInput::has_forbidden_effects)
     {
         validation.status = VortexReaderGeneratedPreparedBatchStatus::BlockedUnsafeReaderEffects;
         validation.diagnostics.push(Diagnostic::unsupported(
@@ -1619,6 +2052,7 @@ fn validate_reader_backed_refs<'a>(
     source: &UniversalInputSource,
     reader_splits: &[VortexReaderBackedSplitEvidence],
     batch_refs: impl IntoIterator<Item = (&'a DatasetUri, &'a str)>,
+    reader_generated_prepared_batches: bool,
 ) -> ReaderBackedValidation {
     let batch_refs = batch_refs.into_iter().collect::<Vec<_>>();
     let mut diagnostics = Vec::new();
@@ -1673,6 +2107,7 @@ fn validate_reader_backed_refs<'a>(
             external_effects_executed,
             fallback_execution_allowed,
             fallback_attempted,
+            reader_generated_prepared_batches,
             diagnostics,
         };
     }
@@ -1699,6 +2134,7 @@ fn validate_reader_backed_refs<'a>(
             external_effects_executed,
             fallback_execution_allowed,
             fallback_attempted,
+            reader_generated_prepared_batches,
             diagnostics,
         };
     };
@@ -1727,6 +2163,7 @@ fn validate_reader_backed_refs<'a>(
             external_effects_executed,
             fallback_execution_allowed,
             fallback_attempted,
+            reader_generated_prepared_batches,
             diagnostics,
         };
     }
@@ -1757,6 +2194,7 @@ fn validate_reader_backed_refs<'a>(
             external_effects_executed,
             fallback_execution_allowed,
             fallback_attempted,
+            reader_generated_prepared_batches,
             diagnostics,
         };
     }
@@ -1787,6 +2225,7 @@ fn validate_reader_backed_refs<'a>(
             external_effects_executed,
             fallback_execution_allowed,
             fallback_attempted,
+            reader_generated_prepared_batches,
             diagnostics,
         };
     }
@@ -1820,6 +2259,7 @@ fn validate_reader_backed_refs<'a>(
             external_effects_executed,
             fallback_execution_allowed,
             fallback_attempted,
+            reader_generated_prepared_batches,
             diagnostics,
         };
     }
@@ -1840,6 +2280,7 @@ fn validate_reader_backed_refs<'a>(
         external_effects_executed,
         fallback_execution_allowed,
         fallback_attempted,
+        reader_generated_prepared_batches,
         diagnostics,
     }
 }
@@ -1961,6 +2402,28 @@ mod tests {
             ),
         )
         .expect("projection column")
+    }
+
+    fn reader_generated_constant_kernel_input(
+        source_uri: &DatasetUri,
+        split_ref: &str,
+        column: &str,
+        id: &str,
+        value: i64,
+        row_count: u64,
+    ) -> VortexReaderGeneratedEncodedKernelInput {
+        VortexReaderGeneratedEncodedKernelInput::new(
+            source_uri.clone(),
+            split_ref,
+            VortexEncodedValuePredicateBatch::new(
+                segment(column, id, row_count, EncodingKind::Constant),
+                EncodedValueBatch::Constant {
+                    value: Some(StatValue::Int64(value)),
+                    row_count,
+                },
+            ),
+        )
+        .expect("reader-generated kernel input")
     }
 
     #[test]
@@ -2205,6 +2668,258 @@ mod tests {
         assert!(!report.avoids_forbidden_effects());
         assert!(report.has_errors());
         assert!(report.diagnostics.iter().all(|d| !d.fallback.attempted));
+    }
+
+    #[test]
+    fn reader_generated_prepared_batch_kernel_inputs_admit_mapped_encoded_values() {
+        let source = source("file:///tmp/orders.vortex");
+        let source_uri = source.uri.clone().expect("uri");
+        let inputs = vec![
+            reader_generated_constant_kernel_input(
+                &source_uri,
+                "split-1",
+                "metric",
+                "reader-split-1.metric",
+                5,
+                5,
+            ),
+            reader_generated_constant_kernel_input(
+                &source_uri,
+                "split-2",
+                "metric",
+                "reader-split-2.metric",
+                9,
+                3,
+            ),
+        ];
+
+        let report = plan_vortex_reader_generated_prepared_batch_kernel_inputs(
+            &source,
+            &reader_splits(&source_uri),
+            &inputs,
+        );
+
+        assert_eq!(
+            report.status,
+            VortexReaderGeneratedPreparedBatchStatus::PreparedEncodedKernelInputs
+        );
+        assert_eq!(report.encoded_kernel_input_count, 2);
+        assert!(report.reader_generated_prepared_batches);
+        assert!(report.reader_chunk_envelopes_available);
+        assert!(report.encoded_value_batch_available);
+        assert!(report.encoded_projection_batch_available);
+        assert!(!report.kernel_input_lowering_blocked);
+        assert!(report.runtime_execution_allowed);
+        assert!(!report.residual_required);
+        assert_eq!(report.residual_executor, "none");
+        assert!(report.encoded_kernel_inputs_source_uri_matches_source);
+        assert!(report.encoded_kernel_input_split_refs_covered_by_reader);
+        assert!(report.encoded_kernel_input_row_counts_match_reader);
+        assert!(report.encoded_kernel_input_mapping_evidence_complete);
+        assert_eq!(
+            report.representation_after,
+            "reader_generated_prepared_encoded_kernel_input"
+        );
+        assert!(report.avoids_forbidden_effects());
+        assert!(!report.has_errors());
+    }
+
+    #[test]
+    fn reader_generated_prepared_batch_kernel_inputs_reject_split_mismatch() {
+        let source = source("file:///tmp/orders.vortex");
+        let source_uri = source.uri.clone().expect("uri");
+        let inputs = vec![reader_generated_constant_kernel_input(
+            &source_uri,
+            "missing-reader-split",
+            "metric",
+            "reader-split-1.metric",
+            5,
+            5,
+        )];
+
+        let report = plan_vortex_reader_generated_prepared_batch_kernel_inputs(
+            &source,
+            &reader_splits(&source_uri),
+            &inputs,
+        );
+
+        assert_eq!(
+            report.status,
+            VortexReaderGeneratedPreparedBatchStatus::BlockedKernelInputSplitMismatch
+        );
+        assert!(!report.runtime_execution_allowed);
+        assert!(report.kernel_input_lowering_blocked);
+        assert!(!report.encoded_kernel_input_split_refs_covered_by_reader);
+        assert!(report.has_errors());
+        assert!(report.diagnostics.iter().all(|d| !d.fallback.attempted));
+    }
+
+    #[test]
+    fn reader_generated_filter_blocks_unadmitted_kernel_inputs_without_execution() {
+        let source = source("file:///tmp/orders.vortex");
+        let source_uri = source.uri.clone().expect("uri");
+        let predicate = PredicateExpr::Compare {
+            column: column_ref("metric"),
+            op: ComparisonOp::GtEq,
+            value: StatValue::Int64(5),
+        };
+        let mut input = reader_generated_constant_kernel_input(
+            &source_uri,
+            "split-1",
+            "metric",
+            "reader-split-1.metric",
+            5,
+            5,
+        );
+        input.dtype_mapped_without_decode = false;
+        let inputs = vec![input];
+
+        let report = execute_vortex_reader_generated_filter_from_encoded_kernel_inputs(
+            &predicate,
+            &source,
+            &reader_splits(&source_uri),
+            &inputs,
+        )
+        .expect("report");
+
+        assert_eq!(
+            report.status,
+            VortexReaderBackedEncodedExecutionStatus::BlockedSourceBackedExecution
+        );
+        assert!(!report.runtime_execution_allowed);
+        assert!(!report.reader_generated_prepared_batches);
+        assert_eq!(report.source_batch_count, 0);
+        assert!(report.has_errors());
+        assert!(report.diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("require dtype, encoding, value, and row-count mapping evidence")
+        }));
+        assert!(report.diagnostics.iter().all(|d| !d.fallback.attempted));
+    }
+
+    #[test]
+    fn reader_generated_filter_executes_lowered_kernel_inputs() {
+        let source = source("file:///tmp/orders.vortex");
+        let source_uri = source.uri.clone().expect("uri");
+        let predicate = PredicateExpr::Compare {
+            column: column_ref("metric"),
+            op: ComparisonOp::GtEq,
+            value: StatValue::Int64(5),
+        };
+        let inputs = vec![
+            reader_generated_constant_kernel_input(
+                &source_uri,
+                "split-1",
+                "metric",
+                "reader-split-1.metric",
+                5,
+                5,
+            ),
+            reader_generated_constant_kernel_input(
+                &source_uri,
+                "split-2",
+                "metric",
+                "reader-split-2.metric",
+                9,
+                3,
+            ),
+        ];
+
+        let report = execute_vortex_reader_generated_filter_from_encoded_kernel_inputs(
+            &predicate,
+            &source,
+            &reader_splits(&source_uri),
+            &inputs,
+        )
+        .expect("report");
+
+        assert_eq!(
+            report.status,
+            VortexReaderBackedEncodedExecutionStatus::ExecutedReaderValidatedPreparedEncodedBatches
+        );
+        assert!(report.runtime_execution_allowed);
+        assert!(report.reader_generated_prepared_batches);
+        assert!(report.reader_split_evidence_consumed);
+        assert!(report.reader_validated_prepared_batches_consumed);
+        assert!(report.selection_vector_guaranteed);
+        assert!(report.data_read);
+        assert!(report.avoids_forbidden_effects());
+        assert!(!report.has_errors());
+    }
+
+    #[test]
+    fn reader_generated_projection_blocks_unadmitted_kernel_inputs_without_execution() {
+        let source = source("file:///tmp/orders.vortex");
+        let source_uri = source.uri.clone().expect("uri");
+        let mut input = reader_generated_constant_kernel_input(
+            &source_uri,
+            "split-1",
+            "metric",
+            "reader-split-1.metric",
+            5,
+            5,
+        );
+        input.values_mapped_without_decode = false;
+        let inputs = vec![input];
+
+        let report = execute_vortex_reader_generated_projection_from_encoded_kernel_inputs(
+            &[column_ref("metric")],
+            &source,
+            &reader_splits(&source_uri),
+            &inputs,
+            None,
+        )
+        .expect("report");
+
+        assert_eq!(
+            report.status,
+            VortexReaderBackedEncodedExecutionStatus::BlockedSourceBackedExecution
+        );
+        assert!(!report.runtime_execution_allowed);
+        assert!(!report.reader_generated_prepared_batches);
+        assert_eq!(report.source_batch_count, 0);
+        assert!(report.has_errors());
+        assert!(report.diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .message
+                .contains("require dtype, encoding, value, and row-count mapping evidence")
+        }));
+        assert!(report.diagnostics.iter().all(|d| !d.fallback.attempted));
+    }
+
+    #[test]
+    fn reader_generated_projection_executes_lowered_kernel_inputs() {
+        let source = source("file:///tmp/orders.vortex");
+        let source_uri = source.uri.clone().expect("uri");
+        let inputs = vec![reader_generated_constant_kernel_input(
+            &source_uri,
+            "split-1",
+            "metric",
+            "reader-split-1.metric",
+            5,
+            5,
+        )];
+
+        let report = execute_vortex_reader_generated_projection_from_encoded_kernel_inputs(
+            &[column_ref("metric")],
+            &source,
+            &reader_splits(&source_uri),
+            &inputs,
+            None,
+        )
+        .expect("report");
+
+        assert_eq!(
+            report.status,
+            VortexReaderBackedEncodedExecutionStatus::ExecutedReaderValidatedPreparedEncodedBatches
+        );
+        assert!(report.runtime_execution_allowed);
+        assert!(report.reader_generated_prepared_batches);
+        assert!(report.encoded_projection_guaranteed);
+        assert!(report.data_read);
+        assert!(report.avoids_forbidden_effects());
+        assert!(!report.has_errors());
     }
 
     #[test]
