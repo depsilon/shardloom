@@ -14,11 +14,12 @@ use shardloom_core::{
 use shardloom_exec::{AdaptiveSizingPolicy, ByteSize, MemoryBudget};
 use shardloom_vortex::{
     VortexEncodedReadBoundaryRequest, VortexEncodedReadFixtureRef,
-    VortexEncodedReadMetadataProbeRequest, build_vortex_runtime_task_graph,
-    evaluate_vortex_encoded_read_readiness, plan_native_vortex_universal_input,
+    VortexEncodedReadMetadataProbeRequest, VortexEncodedReadReadinessStatus,
+    build_vortex_runtime_task_graph, evaluate_vortex_encoded_read_readiness,
+    execute_vortex_encoded_read_contract, plan_native_vortex_universal_input,
     plan_vortex_encoded_read_boundary, plan_vortex_encoded_read_probe,
     plan_vortex_read_from_universal_input, probe_vortex_encoded_read_metadata,
-    vortex_encoded_read_public_api_boundary,
+    vortex_encoded_read_executor_feature_enabled, vortex_encoded_read_public_api_boundary,
 };
 
 use crate::cli_output::{emit, emit_error};
@@ -218,6 +219,215 @@ pub(crate) fn handle_vortex_encoded_read_metadata_probe(
         ExitCode::from(1)
     } else {
         ExitCode::SUCCESS
+    }
+}
+
+#[allow(clippy::too_many_lines)]
+pub(crate) fn handle_vortex_encoded_read_readiness(
+    mut args: std::vec::IntoIter<String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let command = "vortex-encoded-read-readiness";
+    let Some(dataset_uri) = args.next() else {
+        eprintln!("usage: shardloom {command} <dataset_uri> <memory_gb> <max_parallelism>");
+        return ExitCode::from(2);
+    };
+    let Some(memory_gb_text) = args.next() else {
+        eprintln!("usage: shardloom {command} <dataset_uri> <memory_gb> <max_parallelism>");
+        return ExitCode::from(2);
+    };
+    let Some(max_parallelism_text) = args.next() else {
+        eprintln!("usage: shardloom {command} <dataset_uri> <memory_gb> <max_parallelism>");
+        return ExitCode::from(2);
+    };
+    let uri = match DatasetUri::new(dataset_uri) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                command,
+                format,
+                "vortex encoded-read readiness failed",
+                &error,
+            );
+        }
+    };
+    let memory_gb: u64 = match memory_gb_text.parse() {
+        Ok(v) => v,
+        Err(_) => {
+            return emit_error(
+                command,
+                format,
+                "vortex encoded-read readiness failed",
+                &ShardLoomError::InvalidOperation(
+                    "memory_gb must be an unsigned integer".to_string(),
+                ),
+            );
+        }
+    };
+    let max_parallelism: usize = match max_parallelism_text.parse() {
+        Ok(v) => v,
+        Err(_) => {
+            return emit_error(
+                command,
+                format,
+                "vortex encoded-read readiness failed",
+                &ShardLoomError::InvalidOperation(
+                    "max_parallelism must be an unsigned integer".to_string(),
+                ),
+            );
+        }
+    };
+    let source = match UniversalInputSource::from_dataset_uri(uri) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                command,
+                format,
+                "vortex encoded-read readiness failed",
+                &error,
+            );
+        }
+    };
+    let input_plan = match plan_native_vortex_universal_input(source) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                command,
+                format,
+                "vortex encoded-read readiness failed",
+                &error,
+            );
+        }
+    };
+    if input_plan.has_errors() || !input_plan.source.is_native_vortex() {
+        return ExitCode::from(1);
+    }
+    let read_report = match plan_vortex_read_from_universal_input(input_plan) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                command,
+                format,
+                "vortex encoded-read readiness failed",
+                &error,
+            );
+        }
+    };
+    let runtime_report = match build_vortex_runtime_task_graph(read_report) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                command,
+                format,
+                "vortex encoded-read readiness failed",
+                &error,
+            );
+        }
+    };
+    let sizing_report = match shardloom_vortex::size_vortex_runtime_task_graph(
+        runtime_report,
+        AdaptiveSizingPolicy::memory_limited(ByteSize::from_gib(memory_gb)),
+    ) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                command,
+                format,
+                "vortex encoded-read readiness failed",
+                &error,
+            );
+        }
+    };
+    let budget = match MemoryBudget::from_gib(memory_gb) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                command,
+                format,
+                "vortex encoded-read readiness failed",
+                &error,
+            );
+        }
+    };
+    let memory_report = match shardloom_vortex::plan_vortex_memory_safety(sizing_report, budget) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                command,
+                format,
+                "vortex encoded-read readiness failed",
+                &error,
+            );
+        }
+    };
+    let scheduler_report =
+        match shardloom_vortex::plan_vortex_scheduler_queue(memory_report, max_parallelism) {
+            Ok(v) => v,
+            Err(error) => {
+                return emit_error(
+                    command,
+                    format,
+                    "vortex encoded-read readiness failed",
+                    &error,
+                );
+            }
+        };
+    let report = match evaluate_vortex_encoded_read_readiness(scheduler_report) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                command,
+                format,
+                "vortex encoded-read readiness failed",
+                &error,
+            );
+        }
+    };
+    let is_supported = !report.has_errors()
+        && matches!(
+            report.status,
+            VortexEncodedReadReadinessStatus::ReadyForFutureEncodedRead
+                | VortexEncodedReadReadinessStatus::ReadyForContract
+                | VortexEncodedReadReadinessStatus::NoEncodedReadCandidates
+        );
+    emit(
+        command,
+        format,
+        if is_supported {
+            CommandStatus::Success
+        } else {
+            CommandStatus::Unsupported
+        },
+        "vortex encoded-read readiness report".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        vec![
+            (
+                "fallback_execution_allowed".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "mode".to_string(),
+                "vortex_encoded_read_readiness".to_string(),
+            ),
+            ("readiness_only".to_string(), "true".to_string()),
+            ("encoded_read_executed".to_string(), "false".to_string()),
+            ("data_read".to_string(), "false".to_string()),
+            ("data_decoded".to_string(), "false".to_string()),
+            ("data_materialized".to_string(), "false".to_string()),
+            ("object_store_io".to_string(), "false".to_string()),
+            ("write_io".to_string(), "false".to_string()),
+            ("spill_io_performed".to_string(), "false".to_string()),
+            ("external_effects_executed".to_string(), "false".to_string()),
+            ("execution".to_string(), "not_performed".to_string()),
+            ("memory_gb".to_string(), memory_gb.to_string()),
+            ("max_parallelism".to_string(), max_parallelism.to_string()),
+        ],
+    );
+    if is_supported {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::from(1)
     }
 }
 
@@ -438,6 +648,219 @@ pub(crate) fn handle_vortex_encoded_read_probe(
             ),
             ("mode".to_string(), "vortex_encoded_read_probe".to_string()),
             ("probe_only".to_string(), "true".to_string()),
+            ("data_read".to_string(), "false".to_string()),
+            ("data_decoded".to_string(), "false".to_string()),
+            ("data_materialized".to_string(), "false".to_string()),
+            ("object_store_io".to_string(), "false".to_string()),
+            ("write_io".to_string(), "false".to_string()),
+            ("spill_io_performed".to_string(), "false".to_string()),
+            ("external_effects_executed".to_string(), "false".to_string()),
+            ("execution".to_string(), "not_performed".to_string()),
+            ("memory_gb".to_string(), memory_gb.to_string()),
+            ("max_parallelism".to_string(), max_parallelism.to_string()),
+        ],
+    );
+    if report.has_errors() {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+#[allow(clippy::too_many_lines)]
+pub(crate) fn handle_vortex_encoded_read_execute(
+    mut args: std::vec::IntoIter<String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let command = "vortex-encoded-read-execute";
+    let Some(dataset_uri) = args.next() else {
+        eprintln!("usage: shardloom {command} <dataset_uri> <memory_gb> <max_parallelism>");
+        return ExitCode::from(2);
+    };
+    let Some(memory_gb_text) = args.next() else {
+        eprintln!("usage: shardloom {command} <dataset_uri> <memory_gb> <max_parallelism>");
+        return ExitCode::from(2);
+    };
+    let Some(max_parallelism_text) = args.next() else {
+        eprintln!("usage: shardloom {command} <dataset_uri> <memory_gb> <max_parallelism>");
+        return ExitCode::from(2);
+    };
+    let uri = match DatasetUri::new(dataset_uri) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                command,
+                format,
+                "vortex encoded-read execute failed",
+                &error,
+            );
+        }
+    };
+    let memory_gb: u64 = match memory_gb_text.parse() {
+        Ok(v) => v,
+        Err(_) => {
+            return emit_error(
+                command,
+                format,
+                "vortex encoded-read execute failed",
+                &ShardLoomError::InvalidOperation(
+                    "memory_gb must be an unsigned integer".to_string(),
+                ),
+            );
+        }
+    };
+    let max_parallelism: usize = match max_parallelism_text.parse() {
+        Ok(v) => v,
+        Err(_) => {
+            return emit_error(
+                command,
+                format,
+                "vortex encoded-read execute failed",
+                &ShardLoomError::InvalidOperation(
+                    "max_parallelism must be an unsigned integer".to_string(),
+                ),
+            );
+        }
+    };
+    let source = match UniversalInputSource::from_dataset_uri(uri) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                command,
+                format,
+                "vortex encoded-read execute failed",
+                &error,
+            );
+        }
+    };
+    let input_plan = match plan_native_vortex_universal_input(source) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                command,
+                format,
+                "vortex encoded-read execute failed",
+                &error,
+            );
+        }
+    };
+    let read_report = match plan_vortex_read_from_universal_input(input_plan) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                command,
+                format,
+                "vortex encoded-read execute failed",
+                &error,
+            );
+        }
+    };
+    let runtime_report = match build_vortex_runtime_task_graph(read_report) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                command,
+                format,
+                "vortex encoded-read execute failed",
+                &error,
+            );
+        }
+    };
+    let sizing_report = match shardloom_vortex::size_vortex_runtime_task_graph(
+        runtime_report,
+        AdaptiveSizingPolicy::memory_limited(ByteSize::from_gib(memory_gb)),
+    ) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                command,
+                format,
+                "vortex encoded-read execute failed",
+                &error,
+            );
+        }
+    };
+    let budget = match MemoryBudget::from_gib(memory_gb) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                command,
+                format,
+                "vortex encoded-read execute failed",
+                &error,
+            );
+        }
+    };
+    let memory_report = match shardloom_vortex::plan_vortex_memory_safety(sizing_report, budget) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                command,
+                format,
+                "vortex encoded-read execute failed",
+                &error,
+            );
+        }
+    };
+    let scheduler_report =
+        match shardloom_vortex::plan_vortex_scheduler_queue(memory_report, max_parallelism) {
+            Ok(v) => v,
+            Err(error) => {
+                return emit_error(
+                    command,
+                    format,
+                    "vortex encoded-read execute failed",
+                    &error,
+                );
+            }
+        };
+    let readiness_report = match evaluate_vortex_encoded_read_readiness(scheduler_report) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                command,
+                format,
+                "vortex encoded-read execute failed",
+                &error,
+            );
+        }
+    };
+    let report = match execute_vortex_encoded_read_contract(readiness_report) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                command,
+                format,
+                "vortex encoded-read execute failed",
+                &error,
+            );
+        }
+    };
+    emit(
+        command,
+        format,
+        if report.has_errors() {
+            CommandStatus::Unsupported
+        } else {
+            CommandStatus::Success
+        },
+        "vortex encoded-read executor skeleton report".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        vec![
+            (
+                "fallback_execution_allowed".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "mode".to_string(),
+                "vortex_encoded_read_execute".to_string(),
+            ),
+            (
+                "executor_feature_enabled".to_string(),
+                vortex_encoded_read_executor_feature_enabled().to_string(),
+            ),
+            ("encoded_read_executed".to_string(), "false".to_string()),
             ("data_read".to_string(), "false".to_string()),
             ("data_decoded".to_string(), "false".to_string()),
             ("data_materialized".to_string(), "false".to_string()),

@@ -186,11 +186,12 @@ write data, or weaken no-fallback behavior.
 
 The prepared/source-backed execution family now contains the `vortex-encoded-read-api`,
 `vortex-encoded-read-boundary`, `vortex-encoded-read-metadata-probe`,
-`vortex-encoded-read-probe`, and `vortex-encoded-read-spike` handler entry points in
+`vortex-encoded-read-readiness`, `vortex-encoded-read-probe`,
+`vortex-encoded-read-execute`, and `vortex-encoded-read-spike` handler entry points in
 `shardloom-cli/src/prepared_source_backed_execution.rs`. The split preserves the current report-only
-API/boundary/metadata-probe behavior plus the probe-only and feature-gated spike behavior;
-`vortex-encoded-read-execute` keeps its existing executor contract while broader
-prepared/source-backed extraction continues.
+API/boundary/metadata-probe behavior plus readiness-only, probe-only, executor-contract, and
+feature-gated spike behavior without reading, decoding, materializing, writing, or weakening
+no-fallback evidence.
 
 The Vortex primitive execution family now starts its physical split in
 `shardloom-cli/src/vortex_primitive_execution.rs` with `vortex-count`, `vortex-count-where`,
@@ -202,9 +203,14 @@ no-fallback output contracts while broader non-primitive handler extraction cont
 The Vortex planning family now has its metadata/report-only module in
 `shardloom-cli/src/vortex_planning.rs`, covering `vortex-metadata-plan`,
 `vortex-pruning-plan`, `vortex-metadata-probe`, `vortex-api-inventory`,
-`vortex-encoded-path-selection-plan`, and `vortex-generalized-encoded-primitive-gate`. These
-handlers remain metadata-only, plan-only, or report-only surfaces and do not execute tasks,
-materialize outputs, write data, invoke external engines, or weaken no-fallback behavior.
+`vortex-encoded-path-selection-plan`, `vortex-generalized-encoded-primitive-gate`,
+`vortex-metadata-execute`, `vortex-dry-run`, `vortex-plan`, `translation-plan`,
+`vortex-output-plan`, `vortex-readiness`, `vortex-dtype-mapping`,
+`vortex-encoding-layout-mapping`, `vortex-statistics-mapping`,
+`vortex-file-metadata-open`, `vortex-metadata-summary`, and
+`vortex-query-primitive-plan`. These handlers remain metadata-only, plan-only, executor-contract,
+or report-only surfaces and do not execute tasks beyond their existing contract, materialize
+outputs, write data, invoke external engines, or weaken no-fallback behavior.
 
 Command family classification lives in `shardloom-cli/src/command_family.rs` and is emitted in the
 typed lifecycle payload as `command_family`. This gives status/capabilities, Vortex primitive,

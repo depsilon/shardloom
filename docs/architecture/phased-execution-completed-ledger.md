@@ -16,6 +16,41 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 prepared/source-backed and Vortex planning handler split
+  - Primary files:
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/src/prepared_source_backed_execution.rs`
+    - `shardloom-cli/src/vortex_planning.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/typed-command-result-envelope.md`
+  - Scope: move the remaining encoded-read readiness/execute handlers and the broader Vortex
+    metadata/readiness/report-only planning cluster out of `main.rs` while keeping dispatch
+    behavior, typed envelope fields, and no-fallback evidence stable.
+  - Checklist:
+    - [x] Route `vortex-encoded-read-readiness` and `vortex-encoded-read-execute` through
+          `prepared_source_backed_execution.rs`, preserving readiness-only and executor-contract
+          no-read/no-decode/no-materialize semantics.
+    - [x] Route Vortex metadata execution planning, dry-run, base read/output/translation plans,
+          readiness, mapping reports, metadata-open/summary, and query-primitive planning through
+          `vortex_planning.rs`.
+    - [x] Keep external engines, dataset execution, writes, materialization, and fallback behavior
+          disabled unless the existing command contract explicitly reports otherwise.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --bin shardloom vortex_encoded_read`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --bin shardloom vortex_metadata`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --bin shardloom vortex_query_primitive`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --bin shardloom vortex_readiness`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --bin shardloom vortex_file_metadata_open`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --bin shardloom vortex_dtype_mapping`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --bin shardloom translation_plan`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test --workspace --all-targets`
+    - [x] `git diff --check`
+  - Runtime stance: handler routing/module ownership only; no new provider, external engine,
+    dataset execution, source/sink I/O, object-store I/O, write path, package publication, network
+    effect, materialization, or fallback execution is added.
+
 - [x] Session label: Priority 3.9 missing-binary protocol parity fixture
   - Primary files:
     - `python/src/shardloom/errors.py`
