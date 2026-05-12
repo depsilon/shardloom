@@ -141,8 +141,8 @@ Completed checked-off work that used to live in this section is recorded in
 actionable work.
 
 - [ ] Priority 3.9 - complete typed command/result envelope and CLI modularity overhaul
-  - [ ] Migrate command families from the temporary top-level legacy `fields` mirror into explicit
-        typed result, artifact, certificate, policy, lifecycle, and capability payload helpers.
+  - [ ] Migrate command-family-specific result fields from the temporary top-level legacy `fields`
+        mirror into explicit typed result, artifact, certificate, and report payload helpers.
   - [ ] Attach or reference execution certificates, Native I/O certificates,
         `EvidenceArtifactEnvelope`, materialization boundary reports, benchmark rows, Foundry
         reports, source/sink reports, and capability snapshots through typed payloads instead of

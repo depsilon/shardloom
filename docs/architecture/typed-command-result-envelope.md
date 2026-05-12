@@ -33,6 +33,22 @@ capability_snapshot
 `OutputEnvelope::with_field` mirrors current command fields into `result.fields`, so the typed
 `result` payload is available without rewriting every command family in the same PR.
 
+The CLI renderer now performs a first-pass route for common fields:
+
+```text
+policy
+  fallback, side-effect, probe, network, write, external-engine, and policy fields
+
+lifecycle
+  mode, schema/protocol/version/status/phase, and transport fields
+
+capability_snapshot
+  capability, support, certification, feature-gate, readiness, and coverage fields
+
+result
+  command-specific result fields that do not match one of the above typed slots
+```
+
 The old top-level `fields` array is still present as a temporary legacy mirror for existing tests,
 the Python client, and command-family migration safety. It is no longer the intended primary
 machine-readable payload model.
@@ -60,7 +76,7 @@ payload-specific accessors.
 Remaining work is command-family migration and CLI modularization:
 
 ```text
-Migrate command families from ad hoc field construction to typed payload helpers.
+Migrate command-family-specific result fields from ad hoc field construction to typed payload helpers.
 Attach real execution certificates, Native I/O certificates, evidence artifacts, benchmark rows,
 source/sink reports, and future Foundry reports through typed slots.
 Expand golden fixtures for success, unsupported, blocked, certified execution, evidence incomplete,
