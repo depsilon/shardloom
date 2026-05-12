@@ -8,9 +8,12 @@ Draft
 
 This RFC defines ShardLoom's observability, tracing, profiling, and runtime introspection design.
 
-ShardLoom should be easy to inspect when it is fast, slow, memory-bound, IO-bound, spill-bound, effect-bound, or unsupported. Users and agents should be able to understand what the engine planned, what it actually did, what it avoided, and where time and resources went.
+ShardLoom should be easy to inspect when it is fast, slow, memory-bound, IO-bound, spill-bound,
+effect-bound, or unsupported. Users and agents should be able to understand what the engine planned,
+what it actually did, what it avoided, and where time and resources went.
 
-Observability is not an afterthought. It is part of making ShardLoom trustworthy, debuggable, benchmarkable, and usable at scale.
+Observability is not an afterthought. It is part of making ShardLoom trustworthy, debuggable,
+benchmarkable, and usable at scale.
 
 ## Context
 
@@ -32,9 +35,11 @@ ShardLoom's execution model includes:
 - Future distributed tasks.
 - Future UDFs, API calls, LLM calls, embeddings, and vector search.
 
-Without strong observability, these optimizations become invisible magic. Users need to understand why a workload was cheap, expensive, unsupported, or memory-bound.
+Without strong observability, these optimizations become invisible magic. Users need to understand
+why a workload was cheap, expensive, unsupported, or memory-bound.
 
-LLM agents also need structured observability so they can diagnose integration failures and propose safe next steps.
+LLM agents also need structured observability so they can diagnose integration failures and propose
+safe next steps.
 
 ## Goals
 
@@ -392,7 +397,8 @@ This prevents accidental assumptions that Spark, DataFusion, DuckDB, Polars, or 
 
 ## Failure behavior
 
-If observability data cannot be collected, ShardLoom should continue safely where possible and emit diagnostics.
+If observability data cannot be collected, ShardLoom should continue safely where possible and emit
+diagnostics.
 
 Examples:
 
@@ -430,7 +436,8 @@ Secrets and sensitive data must be protected.
 
 Rejected.
 
-This RFC defines design only. Dependencies should be added later through implementation PRs and license review.
+This RFC defines design only. Dependencies should be added later through implementation PRs and
+license review.
 
 ## Risks
 

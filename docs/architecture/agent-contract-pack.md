@@ -2,11 +2,14 @@
 
 ## Purpose
 
-This document centralizes the machine-readable surfaces an autonomous agent should inspect before planning, executing, benchmarking, or stopping.
+This document centralizes the machine-readable surfaces an autonomous agent should inspect before
+planning, executing, benchmarking, or stopping.
 
 Active queue and completion state live in `docs/architecture/phased-execution-plan.md`.
 
-The agent contract pack is report-only. It does not execute commands, probe the environment, resolve credentials, read data, call external systems, run benchmarks, publish artifacts, or authorize fallback execution.
+The agent contract pack is report-only. It does not execute commands, probe the environment, resolve
+credentials, read data, call external systems, run benchmarks, publish artifacts, or authorize
+fallback execution.
 
 ## Default Workflow
 
@@ -55,7 +58,8 @@ Human text is useful for explanations, but JSON fields are the authoritative aut
 - [~] Future integration
   - Agent-facing reports should include next-action hints when a gate blocks.
   - Future effectful commands should require `EffectBudgetReport` references.
-  - Future execution commands should emit execution certificates and native I/O certificate references.
+  - Future execution commands should emit execution certificates and native I/O certificate
+    references.
   - Future benchmark publication should require benchmark evidence and claim gates.
   - Future Python/API wrappers should expose the same pack fields without text scraping.
 
@@ -63,5 +67,6 @@ Human text is useful for explanations, but JSON fields are the authoritative aut
 
 - Do not make human text the source of truth for automation.
 - Do not let agents infer support from planned or docs-only status.
-- Do not hide fallback status, effect budgets, materialization, row reads, decode, Arrow conversion, object-store IO, writes, or benchmark claim gates.
+- Do not hide fallback status, effect budgets, materialization, row reads, decode, Arrow conversion,
+  object-store IO, writes, or benchmark claim gates.
 - Do not execute external engines except as explicit correctness or benchmark baselines.

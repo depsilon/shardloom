@@ -2,7 +2,8 @@
 
 ## Purpose
 
-Use this skill when creating benchmarks, comparing ShardLoom to other systems, or making any performance, cost, memory, IO, decode, or scalability claim.
+Use this skill when creating benchmarks, comparing ShardLoom to other systems, or making any
+performance, cost, memory, IO, decode, or scalability claim.
 
 The goal is to make ShardLoom performance claims reproducible, credible, and engineering-grade.
 
@@ -28,7 +29,8 @@ Use this skill for tasks involving:
 - Every benchmark must identify hardware, operating system, runtime versions, and configuration.
 - Distinguish cold-cache from warm-cache results.
 - Measure more than wall-clock time.
-- Track bytes read, bytes decoded, rows scanned, rows materialized, allocations, peak memory, CPU time, and wall time where possible.
+- Track bytes read, bytes decoded, rows scanned, rows materialized, allocations, peak memory, CPU
+  time, and wall time where possible.
 - Benchmarks against other systems must name exact versions and configurations.
 - Spark, DataFusion, DuckDB, Polars, and Velox may be benchmark baselines, not execution fallbacks.
 - Prefer reproducible scripts over manually reported numbers.
@@ -64,4 +66,6 @@ A benchmark PR should include:
 
 When creating benchmarks, include this instruction:
 
-"Use the Benchmarking skill. Include dataset shape, engine versions, hardware/runtime context, cold/warm cache notes, and metrics beyond wall time. Do not make performance claims without reproducible measurements."
+"Use the Benchmarking skill. Include dataset shape, engine versions, hardware/runtime context,
+cold/warm cache notes, and metrics beyond wall time. Do not make performance claims without
+reproducible measurements."

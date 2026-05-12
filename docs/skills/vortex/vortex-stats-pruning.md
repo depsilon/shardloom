@@ -2,9 +2,11 @@
 
 ## Purpose
 
-Use this skill when implementing metadata-only answers, segment pruning, predicate pushdown, projection pushdown, or statistics-aware execution.
+Use this skill when implementing metadata-only answers, segment pruning, predicate pushdown,
+projection pushdown, or statistics-aware execution.
 
-The goal is to avoid reading, decoding, and materializing data whenever Vortex metadata can prove work is unnecessary.
+The goal is to avoid reading, decoding, and materializing data whenever Vortex metadata can prove
+work is unnecessary.
 
 ## When to use
 
@@ -27,7 +29,8 @@ Use this skill for tasks involving:
 - Always check whether a query can be answered from metadata before reading data.
 - Always check whether a segment can be pruned before reading segment bytes.
 - Use statistics conservatively. Incorrect pruning is a correctness bug.
-- If statistics are missing or insufficient, fall back to ShardLoom-native encoded or decoded execution, not another engine.
+- If statistics are missing or insufficient, fall back to ShardLoom-native encoded or decoded
+  execution, not another engine.
 - Do not assume statistics are exact unless the source contract says they are exact.
 - Make pruning decisions explainable.
 - Record whether a segment was read, pruned, or answered from metadata.
@@ -67,4 +70,6 @@ For metadata-only answers:
 
 ## Example Codex prompt fragment
 
-"Use the Vortex Statistics and Pruning skill. Check metadata-only answers and segment pruning before reads. Treat incorrect pruning as a correctness bug. Missing stats should trigger ShardLoom-native execution, not fallback to another engine."
+"Use the Vortex Statistics and Pruning skill. Check metadata-only answers and segment pruning before
+reads. Treat incorrect pruning as a correctness bug. Missing stats should trigger ShardLoom-native
+execution, not fallback to another engine."

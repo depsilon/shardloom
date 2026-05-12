@@ -2,9 +2,12 @@
 
 ## Purpose
 
-This document records memory/spill/recovery integration points that support future bounded execution. Active phase status lives in `docs/architecture/phased-execution-plan.md`; this document is a supporting checklist and completed ledger.
+This document records memory/spill/recovery integration points that support future bounded
+execution. Active phase status lives in `docs/architecture/phased-execution-plan.md`; this document
+is a supporting checklist and completed ledger.
 
-It does not authorize broad query-data spill, object-store spill, output dataset writes, retry execution, cancellation execution, or fallback execution.
+It does not authorize broad query-data spill, object-store spill, output dataset writes, retry
+execution, cancellation execution, or fallback execution.
 
 ## Integrated Surface Map
 

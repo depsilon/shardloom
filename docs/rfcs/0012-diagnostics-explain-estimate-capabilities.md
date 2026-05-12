@@ -6,9 +6,12 @@ Draft
 
 ## Summary
 
-This RFC defines ShardLoom's structured diagnostics, explain, estimate, doctor, and capability discovery contract.
+This RFC defines ShardLoom's structured diagnostics, explain, estimate, doctor, and capability
+discovery contract.
 
-ShardLoom should be highly performant internally, but it must also be easy for humans and LLM agents to understand. Unsupported behavior must be explicit, deterministic, and actionable. Execution behavior should be inspectable before and after running work.
+ShardLoom should be highly performant internally, but it must also be easy for humans and LLM agents
+to understand. Unsupported behavior must be explicit, deterministic, and actionable. Execution
+behavior should be inspectable before and after running work.
 
 This RFC defines the design for:
 
@@ -38,13 +41,16 @@ ShardLoom's architecture includes complex internal concepts:
 - Snapshot manifests.
 - Object-store planning.
 - Future distributed segment tasks.
-- Optional modular extensions such as SQL, UDFs, LLM calls, API calls, embeddings, and vector search.
+- Optional modular extensions such as SQL, UDFs, LLM calls, API calls, embeddings, and vector
+  search.
 
 Users should not need to understand all of this to use ShardLoom.
 
-However, when something is unsupported, expensive, lossy, or effectful, ShardLoom must explain what happened.
+However, when something is unsupported, expensive, lossy, or effectful, ShardLoom must explain what
+happened.
 
-This is especially important for LLM agents. Agents need stable, machine-readable outputs that let them decide what to do next without guessing.
+This is especially important for LLM agents. Agents need stable, machine-readable outputs that let
+them decide what to do next without guessing.
 
 ## Goals
 
@@ -93,7 +99,8 @@ ShardLoom diagnostics should follow these principles:
 
 ### Diagnostic
 
-A Diagnostic is a structured message describing an error, warning, information item, or planning note.
+A Diagnostic is a structured message describing an error, warning, information item, or planning
+note.
 
 A diagnostic should include:
 
@@ -150,7 +157,8 @@ Suggested severity levels:
 - `error`
 - `fatal`
 
-Severity should not replace category. For example, unsupported behavior is a category and may be an error or fatal depending on context.
+Severity should not replace category. For example, unsupported behavior is a category and may be an
+error or fatal depending on context.
 
 ### DiagnosticCategory
 
@@ -326,7 +334,8 @@ Potential doctor checks:
 - Dependency/license status if available.
 - Benchmark setup status if relevant.
 
-Doctor checks should be safe and should not execute queries or external effects unless explicitly requested.
+Doctor checks should be safe and should not execute queries or external effects unless explicitly
+requested.
 
 ## Capability discovery
 
@@ -448,7 +457,8 @@ Explain, estimate, capabilities, and doctor must not accidentally execute:
 - Vector index mutations.
 - Destructive file operations.
 
-Effectful operations should be represented as planned or disabled, not executed, unless execution is explicitly requested.
+Effectful operations should be represented as planned or disabled, not executed, unless execution is
+explicitly requested.
 
 ## Interaction with translation
 
@@ -512,7 +522,8 @@ Human-readable diagnostics are still required.
 
 Rejected.
 
-Better UX must come from clear diagnostics, capability discovery, explain, estimate, and safe extension points, not hidden execution delegation.
+Better UX must come from clear diagnostics, capability discovery, explain, estimate, and safe
+extension points, not hidden execution delegation.
 
 ### Delay diagnostics until after engine implementation
 
@@ -569,14 +580,16 @@ Future implementation PRs should verify:
 
 ### Future report schemas
 
-The following report schemas are RFC-level contract targets. They define required semantics and acceptance behavior, but they do **not** yet define final JSON schema bindings.
+The following report schemas are RFC-level contract targets. They define required semantics and
+acceptance behavior, but they do **not** yet define final JSON schema bindings.
 
 #### PushdownProofReport
 
 Required fields:
 - `operation`
 - `accepted`
-- `guarantee` with enum values: `exact`, `exact_with_residual`, `conservative_may_include_false_positives`, `unsupported`
+- `guarantee` with enum values: `exact`, `exact_with_residual`,
+  `conservative_may_include_false_positives`, `unsupported`
 - `proof_basis`
 - `residual_expression`
 - `metadata_loss`
@@ -585,7 +598,8 @@ Required fields:
 - `diagnostics`
 
 Acceptance criteria:
-- Unsupported pushdown must fail or continue with explicit ShardLoom-native residual behavior and must **not** become fallback execution.
+- Unsupported pushdown must fail or continue with explicit ShardLoom-native residual behavior and
+  must **not** become fallback execution.
 - Residual work must be explicit and machine-readable.
 - Exactness/guarantee class must be machine-readable.
 

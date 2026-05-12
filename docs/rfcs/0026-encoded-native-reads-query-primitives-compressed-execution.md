@@ -86,5 +86,6 @@ Acceptance boundaries:
 
 - No object-store IO.
 - No fallback engines.
-- No real broad query execution beyond explicitly scoped primitives until dedicated CG implementation PRs.
+- No real broad query execution beyond explicitly scoped primitives until dedicated CG
+  implementation PRs.
 - No Arrow-default execution.

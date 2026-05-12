@@ -30,7 +30,8 @@ Use this skill for tasks involving:
 - Preserve nullability and validity information.
 - If ShardLoom cannot preserve metadata, report the loss explicitly.
 - If another output target loses information, compare it against the Vortex-native output path.
-- Do not use Spark, DataFusion, DuckDB, or another engine to write Vortex output for ShardLoom execution.
+- Do not use Spark, DataFusion, DuckDB, or another engine to write Vortex output for ShardLoom
+  execution.
 
 ## Required checks
 
@@ -63,4 +64,6 @@ For comparison with lower-fidelity output:
 
 ## Example Codex prompt fragment
 
-"Use the Vortex Native Output skill. Vortex must be the first-class highest-fidelity output. Preserve DTypes, statistics, layout intent, and validity where possible. Report metadata loss explicitly."
+"Use the Vortex Native Output skill. Vortex must be the first-class highest-fidelity output.
+Preserve DTypes, statistics, layout intent, and validity where possible. Report metadata loss
+explicitly."

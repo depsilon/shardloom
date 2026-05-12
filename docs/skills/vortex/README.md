@@ -2,11 +2,13 @@
 
 This directory contains Vortex-specific operating procedures for ShardLoom.
 
-ShardLoom's core advantage depends on treating Vortex as more than a file format. Vortex must be a native execution substrate.
+ShardLoom's core advantage depends on treating Vortex as more than a file format. Vortex must be a
+native execution substrate.
 
 ## Core principle
 
-ShardLoom should not simply read Vortex into decoded Arrow arrays and then execute generic columnar operations.
+ShardLoom should not simply read Vortex into decoded Arrow arrays and then execute generic columnar
+operations.
 
 ShardLoom should preserve and use:
 

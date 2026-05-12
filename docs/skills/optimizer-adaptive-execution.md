@@ -2,7 +2,9 @@
 
 ## Purpose
 
-Use this skill when designing or implementing optimizer rules, cost models, physical planning, adaptive execution, runtime filters, dynamic pruning, join strategy, aggregation strategy, skew handling, or optimizer diagnostics.
+Use this skill when designing or implementing optimizer rules, cost models, physical planning,
+adaptive execution, runtime filters, dynamic pruning, join strategy, aggregation strategy, skew
+handling, or optimizer diagnostics.
 
 ShardLoom should avoid work before making work faster.
 
@@ -90,4 +92,6 @@ For skew handling:
 
 ## Example Codex prompt fragment
 
-"Use the Optimizer and Adaptive Execution skill. Prefer metadata-only, pruning, encoded execution, partial decode, late materialization, and shuffle avoidance. Runtime filters must be conservative. Adaptive changes must be diagnosable. Do not add Spark/DataFusion fallback."
+"Use the Optimizer and Adaptive Execution skill. Prefer metadata-only, pruning, encoded execution,
+partial decode, late materialization, and shuffle avoidance. Runtime filters must be conservative.
+Adaptive changes must be diagnosable. Do not add Spark/DataFusion fallback."

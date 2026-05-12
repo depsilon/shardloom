@@ -2,7 +2,8 @@
 
 ## Purpose
 
-Use this skill when writing RFCs, architecture documents, project policy, design notes, README updates, or contributor guidance.
+Use this skill when writing RFCs, architecture documents, project policy, design notes, README
+updates, or contributor guidance.
 
 The goal is to keep ShardLoom's architecture explicit so future implementation does not drift.
 
@@ -54,7 +55,8 @@ A substantial RFC should include:
 - Verification plan.
 - Open questions.
 
-Shorter docs may use a lighter structure, but should still be clear about decision, scope, and verification.
+Shorter docs may use a lighter structure, but should still be clear about decision, scope, and
+verification.
 
 ## Red flags
 
@@ -70,4 +72,6 @@ Shorter docs may use a lighter structure, but should still be clear about decisi
 
 When writing architecture docs, include this instruction:
 
-"Use the Documentation and RFC skill. Include decision, goals, non-goals, alternatives, risks, acceptance criteria, and verification plan. Preserve ShardLoom's standalone Vortex-native no-fallback architecture."
+"Use the Documentation and RFC skill. Include decision, goals, non-goals, alternatives, risks,
+acceptance criteria, and verification plan. Preserve ShardLoom's standalone Vortex-native
+no-fallback architecture."

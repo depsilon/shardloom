@@ -4,7 +4,8 @@
 
 Use this skill as the top-level entry point for Vortex-related ShardLoom work.
 
-ShardLoom's main technical advantage depends on treating Vortex as a native execution substrate, not just a file format.
+ShardLoom's main technical advantage depends on treating Vortex as a native execution substrate, not
+just a file format.
 
 Vortex-native execution may include upstream Vortex array, compute, scan,
 source, or sink APIs when they are isolated behind approved ShardLoom
@@ -57,4 +58,6 @@ For any Vortex-related implementation, confirm:
 
 ## Example Codex prompt fragment
 
-"Use `docs/skills/vortex-internals.md` and the detailed Vortex skill pack under `docs/skills/vortex/`. Preserve Vortex as native input and output, avoid unnecessary decode, preserve metadata where possible, and fail explicitly for unsupported behavior."
+"Use `docs/skills/vortex-internals.md` and the detailed Vortex skill pack under
+`docs/skills/vortex/`. Preserve Vortex as native input and output, avoid unnecessary decode,
+preserve metadata where possible, and fail explicitly for unsupported behavior."

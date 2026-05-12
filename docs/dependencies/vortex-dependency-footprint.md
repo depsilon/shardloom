@@ -1,7 +1,8 @@
 # Vortex Dependency Footprint
 
 ## Purpose
-ShardLoom is auditing the upstream Vortex dependency graph before deeper integration so default builds stay lightweight while preserving a controlled path to upstream Vortex capability work.
+ShardLoom is auditing the upstream Vortex dependency graph before deeper integration so default
+builds stay lightweight while preserving a controlled path to upstream Vortex capability work.
 
 ## Current state
 - Current direct dependency in `shardloom-vortex`: optional umbrella `vortex = 0.70`.
@@ -14,12 +15,15 @@ ShardLoom is auditing the upstream Vortex dependency graph before deeper integra
 From `cargo tree` inspection of `shardloom-vortex` with upstream enabled:
 - Vortex workspace crates: `vortex-*` crates across array/layout/file/scan/session/etc.
 - Arrow interop crates: `arrow-array`, `arrow-schema`, `arrow-*` family transitively from Vortex.
-- Encoding/compression crates: `vortex-alp`, `vortex-btrblocks`, `vortex-pco`, `vortex-fsst`, `vortex-zstd`, and related compression helpers.
-- FlatBuffers/Proto/metadata crates: `flatbuffers`, `prost`, `prost-types`, `vortex-flatbuffers`, `vortex-proto`.
+- Encoding/compression crates: `vortex-alp`, `vortex-btrblocks`, `vortex-pco`, `vortex-fsst`,
+  `vortex-zstd`, and related compression helpers.
+- FlatBuffers/Proto/metadata crates: `flatbuffers`, `prost`, `prost-types`, `vortex-flatbuffers`,
+  `vortex-proto`.
 - Async/runtime/IO crates: `futures`, `tokio`, `async-*`, `vortex-io`, `vortex-file`, `vortex-scan`.
 - Build/native tooling crates: proc-macro crates and observed transitive build tooling in the graph.
 - WASM/WIT-related crates: none confirmed as direct ShardLoom dependencies in this change.
-- Fallback-engine-like crates: none observed for DataFusion/Spark/DuckDB/Polars/Velox/vortex-datafusion.
+- Fallback-engine-like crates: none observed for
+  DataFusion/Spark/DuckDB/Polars/Velox/vortex-datafusion.
 
 ## Direct fallback dependency check
 Direct dependencies in `shardloom-vortex`:

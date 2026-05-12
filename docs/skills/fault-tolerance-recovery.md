@@ -2,9 +2,12 @@
 
 ## Purpose
 
-Use this skill when designing or implementing task attempts, retries, cancellation, recovery, idempotency, partial output cleanup, commit states, spill cleanup, or external effect failure behavior.
+Use this skill when designing or implementing task attempts, retries, cancellation, recovery,
+idempotency, partial output cleanup, commit states, spill cleanup, or external effect failure
+behavior.
 
-ShardLoom should make failure states explicit, recoverable where possible, and deterministic when unrecoverable.
+ShardLoom should make failure states explicit, recoverable where possible, and deterministic when
+unrecoverable.
 
 ## When to use
 
@@ -87,4 +90,6 @@ For external effects:
 
 ## Example Codex prompt fragment
 
-"Use the Fault Tolerance and Recovery skill. Represent task attempts, retries, cancellation, idempotency, commit states, partial outputs, and cleanup explicitly. Unsupported recovery must fail deterministically. Do not add Spark/DataFusion fallback."
+"Use the Fault Tolerance and Recovery skill. Represent task attempts, retries, cancellation,
+idempotency, commit states, partial outputs, and cleanup explicitly. Unsupported recovery must fail
+deterministically. Do not add Spark/DataFusion fallback."

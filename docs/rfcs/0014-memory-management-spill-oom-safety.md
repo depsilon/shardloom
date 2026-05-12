@@ -8,15 +8,21 @@ Draft
 
 This RFC defines ShardLoom's memory management, spill, and out-of-memory safety design.
 
-ShardLoom should not rely only on adaptive sizing, streaming, pruning, and zero-decode execution to avoid memory pressure. Those techniques reduce memory pressure, but they do not eliminate it.
+ShardLoom should not rely only on adaptive sizing, streaming, pruning, and zero-decode execution to
+avoid memory pressure. Those techniques reduce memory pressure, but they do not eliminate it.
 
-ShardLoom must eventually support native memory accounting, memory reservations, memory pressure diagnostics, spillable operators, spill files, cleanup, and deterministic failure before process OOM.
+ShardLoom must eventually support native memory accounting, memory reservations, memory pressure
+diagnostics, spillable operators, spill files, cleanup, and deterministic failure before process
+OOM.
 
 ## Context
 
 ShardLoom aims to challenge Spark-like workloads without Spark fallback.
 
-Spark remains useful for massive workloads partly because it handles memory pressure, shuffle, spilling, task retries, and large stateful operations. Lightweight engines can be faster and cheaper, but they often fail or become difficult to use when joins, aggregations, sorts, or exports exceed memory.
+Spark remains useful for massive workloads partly because it handles memory pressure, shuffle,
+spilling, task retries, and large stateful operations. Lightweight engines can be faster and
+cheaper, but they often fail or become difficult to use when joins, aggregations, sorts, or exports
+exceed memory.
 
 ShardLoom needs both:
 
@@ -453,7 +459,8 @@ Example diagnostic code ideas:
 
 Adaptive sizing avoids memory pressure by choosing smaller tasks.
 
-Memory management and spill survive memory pressure when estimates are wrong or operators need state.
+Memory management and spill survive memory pressure when estimates are wrong or operators need
+state.
 
 The planner should combine:
 

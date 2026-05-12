@@ -2,9 +2,13 @@
 
 ## Purpose
 
-This document maps incumbent-system pain points into ShardLoom-native design opportunities. Active phase status, active queue placement, and CG closeout decisions live in `docs/architecture/phased-execution-plan.md`.
+This document maps incumbent-system pain points into ShardLoom-native design opportunities. Active
+phase status, active queue placement, and CG closeout decisions live in
+`docs/architecture/phased-execution-plan.md`.
 
-ShardLoom is not trying to clone Spark, DataFusion, Arrow, Iceberg, Delta, or Hudi. It should be the Vortex-native, no-fallback, metadata-first engine that explains every decision, avoids work by default, and is safe for humans and LLM agents to operate.
+ShardLoom is not trying to clone Spark, DataFusion, Arrow, Iceberg, Delta, or Hudi. It should be the
+Vortex-native, no-fallback, metadata-first engine that explains every decision, avoids work by
+default, and is safe for humans and LLM agents to operate.
 
 ## ShardLoom Response Themes
 
@@ -14,7 +18,8 @@ ShardLoom is not trying to clone Spark, DataFusion, Arrow, Iceberg, Delta, or Hu
 - Metadata-first execution posture.
 - No fallback engines.
 - Agent-friendly CLI/API behavior.
-- Complete user workflow certification from install/import through read/validate/transform/write/certify.
+- Complete user workflow certification from install/import through
+  read/validate/transform/write/certify.
 - Batch/live/hybrid engine modes only when ShardLoom-native and evidence-backed.
 - Remote control, event, and data-plane APIs that expose proof instead of hiding execution.
 
@@ -27,10 +32,12 @@ ShardLoom is not trying to clone Spark, DataFusion, Arrow, Iceberg, Delta, or Hu
   - Response: opinionated defaults, memory/spill diagnostics, explicit blockers.
   - Owning roadmap area: CG-14, memory/spill, DecisionTrace.
 - Adaptive behavior opacity
-  - Response: DecisionTrace and why-reports for pruning, sizing, scheduling, memory, and execution decisions.
+  - Response: DecisionTrace and why-reports for pruning, sizing, scheduling, memory, and execution
+    decisions.
   - Owning roadmap area: CG-14, CG-16, observability certification.
 - Shuffle, memory, and spill surprises
-  - Response: reservation-aware scheduling, spill-required blockers, deterministic fail-before-OOM paths.
+  - Response: reservation-aware scheduling, spill-required blockers, deterministic fail-before-OOM
+    paths.
   - Owning roadmap area: CG-8, CG-14, memory/spill, correctness harness.
 - Late failures
   - Response: fail left through deterministic readiness gates before touching data.
@@ -48,13 +55,17 @@ ShardLoom is not trying to clone Spark, DataFusion, Arrow, Iceberg, Delta, or Hu
   - Response: stable JSON schemas, deterministic diagnostics, suggested remediation steps.
   - Owning roadmap area: CG-11, CG-16, CG-20.
 - Broad user workflow complexity
-  - Response: one inspectable workflow across install/import, capability discovery, local files, schemas, data quality, transforms, outputs, observability, migration, benchmarks, notebooks, UDFs, and governance.
+  - Response: one inspectable workflow across install/import, capability discovery, local files,
+    schemas, data quality, transforms, outputs, observability, migration, benchmarks, notebooks,
+    UDFs, and governance.
   - Owning roadmap area: CG-20, CG-21.
 - Batch/streaming split
-  - Response: explicit batch/live/hybrid engine modes with engine selection reports, freshness/state certificates, and hot/cold contribution evidence.
+  - Response: explicit batch/live/hybrid engine modes with engine selection reports, freshness/state
+    certificates, and hot/cold contribution evidence.
   - Owning roadmap area: CG-8, CG-16, CG-19, CG-22.
 - Remote orchestration and API surface
-  - Response: REST as control/proof plane, event APIs for progress/live updates, explicit result data-plane policies, and governance/audit controls.
+  - Response: REST as control/proof plane, event APIs for progress/live updates, explicit result
+    data-plane policies, and governance/audit controls.
   - Owning roadmap area: CG-11, CG-16, CG-19, CG-20, CG-23.
 
 ## DataFusion Gap Map
@@ -66,7 +77,8 @@ ShardLoom is not trying to clone Spark, DataFusion, Arrow, Iceberg, Delta, or Hu
 - Arrow-first habits
   - Response: Arrow as boundary/interchange, not default internal execution substrate.
 - Extensibility without certification
-  - Response: typed UDF/plugin/function/operator reports with no-fallback and materialization evidence.
+  - Response: typed UDF/plugin/function/operator reports with no-fallback and materialization
+    evidence.
 
 ## Arrow Gap Map
 
@@ -107,41 +119,58 @@ ShardLoom is not trying to clone Spark, DataFusion, Arrow, Iceberg, Delta, or Hu
 ## Cross-Cutting Epic Map
 
 - Epic A - DecisionTrace / WhyReport
-  - Causal explanations for pruning, sizing, scheduling, memory, spill, execution, and output decisions.
+  - Causal explanations for pruning, sizing, scheduling, memory, spill, execution, and output
+    decisions.
 - Epic B - WorkAvoidedReport
-  - Quantify segments, rows, bytes, decode, materialization, object-store requests, and spill avoided.
+  - Quantify segments, rows, bytes, decode, materialization, object-store requests, and spill
+    avoided.
 - Epic C - LayoutHealthReport
-  - Detect small files, small segments, partitioning issues, stale clustering, and compaction opportunities.
+  - Detect small files, small segments, partitioning issues, stale clustering, and compaction
+    opportunities.
 - Epic D - FeatureFootprintReport
-  - Show compiled features, enabled adapters, Vortex gates, object-store/write gates, and fallback-engine absence.
+  - Show compiled features, enabled adapters, Vortex gates, object-store/write gates, and
+    fallback-engine absence.
 - Epic E - EffectBudgetReport
   - Track side effects, estimated cost, approvals, caching, redaction, and retry policy.
 - Epic F - Agent Contract Pack
-  - Stable JSON schemas, next-step hints, deterministic diagnostic codes, and repo integration templates.
+  - Stable JSON schemas, next-step hints, deterministic diagnostic codes, and repo integration
+    templates.
 - Epic G - Table Intelligence Layer
-  - Snapshots, partition evolution, schema evolution, deletes/tombstones, and CDC/incremental planning.
+  - Snapshots, partition evolution, schema evolution, deletes/tombstones, and CDC/incremental
+    planning.
 - Epic H - Object Store Request Planner
   - Request/range budgets, coalescing, manifest-first planning, and retry/latency policy.
 - Epic I - Correctness and Differential Harness
   - Differential tests, fuzzing, golden metadata/probe fixtures, and semantic edge cases.
 - Epic J - Benchmark and Competitive Claims
-  - Compare against external engines only as benchmark/correctness oracles, never as fallback execution.
+  - Compare against external engines only as benchmark/correctness oracles, never as fallback
+    execution.
 - Epic K - Dynamic Work Shaping
   - Adjust task granularity, memory shape, and scheduling policy without changing query semantics.
 
 ## Competitive Gate Rationale
 
-- CG-13 encoded-native compressed execution proves direct predicate/filter/project behavior over compressed layouts.
+- CG-13 encoded-native compressed execution proves direct predicate/filter/project behavior over
+  compressed layouts.
 - CG-14 runtime adaptivity keeps plans robust under throughput shifts and memory pressure.
-- CG-15 CPU specialization captures commodity CPU vectorized paths without requiring GPU/FPGA acceleration.
-- CG-16 execution certificates make plan/input hashes, skipped work, and side effects reproducible and auditable.
+- CG-15 CPU specialization captures commodity CPU vectorized paths without requiring GPU/FPGA
+  acceleration.
+- CG-16 execution certificates make plan/input hashes, skipped work, and side effects reproducible
+  and auditable.
 - CG-17 stateful reuse reduces repeated work through explicit invalidation guarantees.
-- CG-18 universal import/deployment/baseline harness stays universal-first and treats Foundry as optional deployment/comparison context only.
-- CG-19 universal native I/O prevents common adapters from erasing encoded-native representation state.
-- CG-20 capability certification makes SQL, operators, functions, adapters, APIs, observability, deployment, migration, and security part of best-default evidence.
-- CG-21 user data workflow and ETL surface makes the install/import/read/validate/transform/write/explain/certify/benchmark/diagnose journey the unit of user-facing certification.
-- CG-22 three-engine certified data execution fabric adds batch, live, and hybrid engine modes only as ShardLoom-native, certificate-backed internal execution choices.
-- CG-23 REST, event, and remote API surface makes remote access a proof, orchestration, progress, result, lineage, and governance layer rather than a hidden fallback path.
+- CG-18 universal import/deployment/baseline harness stays universal-first and treats Foundry as
+  optional deployment/comparison context only.
+- CG-19 universal native I/O prevents common adapters from erasing encoded-native representation
+  state.
+- CG-20 capability certification makes SQL, operators, functions, adapters, APIs, observability,
+  deployment, migration, and security part of best-default evidence.
+- CG-21 user data workflow and ETL surface makes the
+  install/import/read/validate/transform/write/explain/certify/benchmark/diagnose journey the unit
+  of user-facing certification.
+- CG-22 three-engine certified data execution fabric adds batch, live, and hybrid engine modes only
+  as ShardLoom-native, certificate-backed internal execution choices.
+- CG-23 REST, event, and remote API surface makes remote access a proof, orchestration, progress,
+  result, lineage, and governance layer rather than a hidden fallback path.
 
 ## Guardrails
 
@@ -152,5 +181,7 @@ ShardLoom is not trying to clone Spark, DataFusion, Arrow, Iceberg, Delta, or Hu
 - Do not broaden the default dependency graph without explicit approval.
 - Do not execute effectful inputs without explicit enablement.
 - Do not implement object-store/write/spill execution before the relevant phase.
-- Do not claim benchmark wins, superiority, replacement, or best-default status without CG-5 correctness and CG-6 benchmark evidence.
-- Do not infer CG completion from this reference map; use `docs/architecture/phased-execution-plan.md`.
+- Do not claim benchmark wins, superiority, replacement, or best-default status without CG-5
+  correctness and CG-6 benchmark evidence.
+- Do not infer CG completion from this reference map; use
+  `docs/architecture/phased-execution-plan.md`.

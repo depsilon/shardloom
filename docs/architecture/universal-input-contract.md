@@ -2,7 +2,9 @@
 
 ## Purpose
 
-`ShardLoom` supports universal inputs through adapter contracts and normalized planning metadata, not by compiling every reader by default. Active implementation status for input work lives in `docs/architecture/phased-execution-plan.md`; this document is the supporting contract reference.
+`ShardLoom` supports universal inputs through adapter contracts and normalized planning metadata,
+not by compiling every reader by default. Active implementation status for input work lives in
+`docs/architecture/phased-execution-plan.md`; this document is the supporting contract reference.
 
 ## Core Principles
 
@@ -34,12 +36,17 @@
   - Native bridge is represented through `shardloom-vortex` planning/reporting surfaces.
   - Approved IO remains narrow and feature-gated.
 - Compatibility structured files
-  - CSV, JSON/NDJSON, Parquet, Arrow IPC, Avro, and ORC have feature-gated local benchmark bridge coverage.
-  - Production-certified adapters remain separate phases and must emit full capability, pushdown, fidelity, and certificate evidence.
+  - CSV, JSON/NDJSON, Parquet, Arrow IPC, Avro, and ORC have feature-gated local benchmark bridge
+    coverage.
+  - Production-certified adapters remain separate phases and must emit full capability, pushdown,
+    fidelity, and certificate evidence.
 - Catalog/table refs
-  - Iceberg-compatible metadata, Delta-compatible metadata, Hive-style partitions, snapshots, catalogs, and schema evolution require explicit metadata and security/governance contracts.
+  - Iceberg-compatible metadata, Delta-compatible metadata, Hive-style partitions, snapshots,
+    catalogs, and schema evolution require explicit metadata and security/governance contracts.
 - Object-store manifests
-  - Local filesystem, S3-compatible, Google Cloud Storage, Azure Blob/ADLS, and safe HTTP range reads require request budgets, range policy, retries, credentials policy where applicable, and no-fallback diagnostics.
+  - Local filesystem, S3-compatible, Google Cloud Storage, Azure Blob/ADLS, and safe HTTP range
+    reads require request budgets, range policy, retries, credentials policy where applicable, and
+    no-fallback diagnostics.
 - Unstructured data
   - Requires typed references, extracted-field contracts, and effect/security policy.
 - API/LLM/embedding/vector effectful inputs
@@ -57,24 +64,39 @@
   - No fallback execution is introduced.
 - Native Vortex input bridge
   - Native `Vortex` universal inputs can route through `shardloom-vortex` metadata planning.
-  - Bridge remains plan-only and side-effect-free unless an explicitly feature-gated metadata-only path is enabled.
+  - Bridge remains plan-only and side-effect-free unless an explicitly feature-gated metadata-only
+    path is enabled.
   - It does not scan, decode, materialize, write, or inspect object stores.
 - Compatibility adapter bridge
-  - Future adapters must emit source capability, pushdown proof, fidelity loss, materialization risk, and native I/O certificate evidence.
+  - Future adapters must emit source capability, pushdown proof, fidelity loss, materialization
+    risk, and native I/O certificate evidence.
 - Benchmark-only local compatibility-to-Vortex smoke bridge
-  - `vortex-traditional-analytics-benchmark` enables a narrow local benchmark path that parses deterministic traditional analytics fixtures in CSV, JSONL/NDJSON, Parquet, Arrow IPC, Avro, or ORC form, writes local Vortex files, reopens and scans those files through upstream Vortex, and emits native I/O evidence fields.
-  - The same feature-gated bridge can emit compatibility outputs in CSV, JSONL, Parquet, Arrow IPC, Avro, or ORC from Vortex-derived tables for roundtrip and troubleshooting evidence.
-  - This bridge exists to make universal-I/O benchmark work visible while production adapter certification, SQL, DataFrame/API, object-store, catalog, table-format, and distributed adapter coverage remain deferred.
-  - Resource sizing is automatic by default: applied parallelism is derived from local parallelism, and batch/partition sizing is derived from resource budget and source footprint unless memory or parallelism caps are provided.
-  - Temporary traditional analytics operators currently consume Vortex-derived arrays after an explicit materialization boundary; this bridge is not mature encoded-native operator coverage.
+  - `vortex-traditional-analytics-benchmark` enables a narrow local benchmark path that parses
+    deterministic traditional analytics fixtures in CSV, JSONL/NDJSON, Parquet, Arrow IPC, Avro, or
+    ORC form, writes local Vortex files, reopens and scans those files through upstream Vortex, and
+    emits native I/O evidence fields.
+  - The same feature-gated bridge can emit compatibility outputs in CSV, JSONL, Parquet, Arrow IPC,
+    Avro, or ORC from Vortex-derived tables for roundtrip and troubleshooting evidence.
+  - This bridge exists to make universal-I/O benchmark work visible while production adapter
+    certification, SQL, DataFrame/API, object-store, catalog, table-format, and distributed adapter
+    coverage remain deferred.
+  - Resource sizing is automatic by default: applied parallelism is derived from local parallelism,
+    and batch/partition sizing is derived from resource budget and source footprint unless memory or
+    parallelism caps are provided.
+  - Temporary traditional analytics operators currently consume Vortex-derived arrays after an
+    explicit materialization boundary; this bridge is not mature encoded-native operator coverage.
 - Effectful input bridge
-  - Future effectful inputs must participate in the core `EffectBudgetReport` and security/governance reporting.
-  - Default `EffectBudgetReport` creation remains no-probe and denies external effects, destructive effects, network egress, credential resolution, and fallback execution.
+  - Future effectful inputs must participate in the core `EffectBudgetReport` and
+    security/governance reporting.
+  - Default `EffectBudgetReport` creation remains no-probe and denies external effects, destructive
+    effects, network egress, credential resolution, and fallback execution.
 
 ## Symmetry With Output Contract
 
-- Output planning tracks output target, fidelity, metadata loss, commit requirements, and materialization.
-- Input planning tracks input source, fidelity, metadata availability, pushdown capability, materialization risk, and effect level.
+- Output planning tracks output target, fidelity, metadata loss, commit requirements, and
+  materialization.
+- Input planning tracks input source, fidelity, metadata availability, pushdown capability,
+  materialization risk, and effect level.
 - CG-19 unifies these through native work envelopes and native I/O certificates.
 
 ## Feature Gates
@@ -109,7 +131,8 @@
 - `input-llm`
 - `input-embeddings`
 - `input-vector`
-- `vortex-traditional-analytics-benchmark` (benchmark-only local compatibility-file-to-Vortex smoke path)
+- `vortex-traditional-analytics-benchmark` (benchmark-only local compatibility-file-to-Vortex smoke
+  path)
 
 ## Guardrails
 

@@ -8,15 +8,23 @@ Draft
 
 This RFC defines ShardLoom's native expression engine and kernel registry.
 
-ShardLoom needs a native expression and kernel system that can evaluate filters, projections, aggregates, UDFs, encoded kernels, decoded reference kernels, and future vector/model/API-related functions without relying on Spark, DataFusion, DuckDB, Polars, Velox, or another fallback engine.
+ShardLoom needs a native expression and kernel system that can evaluate filters, projections,
+aggregates, UDFs, encoded kernels, decoded reference kernels, and future vector/model/API-related
+functions without relying on Spark, DataFusion, DuckDB, Polars, Velox, or another fallback engine.
 
 ## Context
 
-ShardLoom's execution advantage depends on avoiding unnecessary read, decode, copy, materialization, shuffle, and distribution.
+ShardLoom's execution advantage depends on avoiding unnecessary read, decode, copy, materialization,
+shuffle, and distribution.
 
-Expressions are where these decisions become concrete. Expression evaluation must understand whether a result can be produced from metadata, encoded Vortex-native data, partial decode, full materialization, pure UDF evaluation, effectful operation boundaries, or explicit unsupported diagnostics.
+Expressions are where these decisions become concrete. Expression evaluation must understand whether
+a result can be produced from metadata, encoded Vortex-native data, partial decode, full
+materialization, pure UDF evaluation, effectful operation boundaries, or explicit unsupported
+diagnostics.
 
-Without a clear expression/kernel contract, future SQL frontends, UDF APIs, plugins, bindings, plan import/export, and production execution will drift toward hidden fallback behavior. That is explicitly disallowed.
+Without a clear expression/kernel contract, future SQL frontends, UDF APIs, plugins, bindings, plan
+import/export, and production execution will drift toward hidden fallback behavior. That is
+explicitly disallowed.
 
 ## Goals
 
@@ -60,7 +68,8 @@ External engine fallback is not allowed.
 
 ### Expression IR
 
-Expression IR should include typed, null-aware, deterministic/effect-aware nodes that are serializable or explainable and independent of external execution engines.
+Expression IR should include typed, null-aware, deterministic/effect-aware nodes that are
+serializable or explainable and independent of external execution engines.
 
 Expected node families:
 
@@ -112,7 +121,8 @@ The engine should preserve explicit distinctions between:
 - Extension type.
 - Compatibility output type.
 
-Type coercion must be explicit, deterministic, and diagnosable. Unsupported coercion must fail deterministically.
+Type coercion must be explicit, deterministic, and diagnosable. Unsupported coercion must fail
+deterministically.
 
 ### Null semantics
 
@@ -188,7 +198,8 @@ Kernel kinds should include:
 - Compatibility kernel.
 - Effect kernel.
 
-Decoded reference kernels are allowed for tests and explicit native paths, but must not act as hidden fallback execution.
+Decoded reference kernels are allowed for tests and explicit native paths, but must not act as
+hidden fallback execution.
 
 ### Kernel registry
 
@@ -246,7 +257,8 @@ UDF registration without required metadata should fail explicitly.
 
 ### Effect integration
 
-LLM/API/embedding/vector calls should be represented as explicit effectful expressions and effect kernels.
+LLM/API/embedding/vector calls should be represented as explicit effectful expressions and effect
+kernels.
 
 Effectful kernels must not run during explain, estimate, doctor, or capabilities flows.
 
@@ -282,12 +294,14 @@ Kernel diagnostics should include:
 
 ## Failure behavior
 
-Unsupported expression/kernel behavior must fail explicitly with deterministic diagnostics and must not invoke Spark, DataFusion, DuckDB, Polars, Velox, or any fallback execution engine.
+Unsupported expression/kernel behavior must fail explicitly with deterministic diagnostics and must
+not invoke Spark, DataFusion, DuckDB, Polars, Velox, or any fallback execution engine.
 
 ## Alternatives considered
 
 - Use another engine's expression system: rejected.
-- Implement decoded kernels only first: partially accepted for tests/reference paths, but architecture prioritizes metadata/encoded execution.
+- Implement decoded kernels only first: partially accepted for tests/reference paths, but
+  architecture prioritizes metadata/encoded execution.
 - Add JIT early: rejected for now.
 - Treat UDFs as opaque black boxes: rejected.
 
@@ -319,4 +333,5 @@ Unsupported expression/kernel behavior must fail explicitly with deterministic d
 - Which cost model dimensions are mandatory in the first kernel selector iteration?
 - How should extension scalar types be versioned for plugin/UDF ecosystems?
 - What minimum effect policy model is required before external-call expressions are enabled?
-- Which decoded reference kernels should be required before each encoded kernel can be marked production-ready?
+- Which decoded reference kernels should be required before each encoded kernel can be marked
+  production-ready?

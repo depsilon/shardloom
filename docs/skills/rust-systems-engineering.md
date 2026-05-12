@@ -2,9 +2,11 @@
 
 ## Purpose
 
-Use this skill when modifying ShardLoom's Rust workspace, crates, APIs, runtime logic, errors, tests, or command-line interface.
+Use this skill when modifying ShardLoom's Rust workspace, crates, APIs, runtime logic, errors,
+tests, or command-line interface.
 
-The goal is to build a clean, safe, performant Rust systems project without accidentally introducing fallback execution or unclear ownership boundaries.
+The goal is to build a clean, safe, performant Rust systems project without accidentally introducing
+fallback execution or unclear ownership boundaries.
 
 ## When to use
 
@@ -24,9 +26,11 @@ Use this skill for tasks involving:
 
 - Keep modules small and cohesive.
 - Prefer explicit types over loosely structured strings or maps.
-- Use clear domain types for ShardLoom concepts such as segments, layouts, statistics, selection vectors, physical plans, and translation reports.
+- Use clear domain types for ShardLoom concepts such as segments, layouts, statistics, selection
+  vectors, physical plans, and translation reports.
 - Use explicit errors for unsupported functionality.
-- Unsupported execution must not silently fall back to Spark, DataFusion, DuckDB, Polars, Velox, or another engine.
+- Unsupported execution must not silently fall back to Spark, DataFusion, DuckDB, Polars, Velox, or
+  another engine.
 - Do not introduce `unsafe` code without an RFC and a clear safety contract.
 - Avoid hidden global mutable state.
 - Avoid broad dependencies when a small local abstraction will do.
@@ -66,4 +70,6 @@ Also confirm:
 
 When modifying Rust code, include this instruction:
 
-"Use the Rust Systems Engineering skill. Keep the change small and reviewable. Do not add Spark, DataFusion, or fallback execution. Use explicit errors for unsupported behavior. Run fmt, clippy, and tests before opening the PR."
+"Use the Rust Systems Engineering skill. Keep the change small and reviewable. Do not add Spark,
+DataFusion, or fallback execution. Use explicit errors for unsupported behavior. Run fmt, clippy,
+and tests before opening the PR."

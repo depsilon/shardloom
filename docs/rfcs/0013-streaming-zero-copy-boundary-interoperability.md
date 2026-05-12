@@ -6,9 +6,11 @@ Draft
 
 ## Summary
 
-This RFC defines ShardLoom's streaming execution, zero-copy interoperability, zero-decode execution, sink-driven output, and boundary interoperability principles.
+This RFC defines ShardLoom's streaming execution, zero-copy interoperability, zero-decode execution,
+sink-driven output, and boundary interoperability principles.
 
-ShardLoom should not only be fast because it uses a modern storage format. It should be fast because it avoids unnecessary data work:
+ShardLoom should not only be fast because it uses a modern storage format. It should be fast because
+it avoids unnecessary data work:
 
 1. Do not read.
 2. Do not decode.
@@ -17,7 +19,8 @@ ShardLoom should not only be fast because it uses a modern storage format. It sh
 5. Do not shuffle.
 6. Do not distribute unless necessary.
 
-Streaming and zero-copy are important, but the deeper ShardLoom goal is zero-decode execution over Vortex-native encoded layouts wherever possible.
+Streaming and zero-copy are important, but the deeper ShardLoom goal is zero-decode execution over
+Vortex-native encoded layouts wherever possible.
 
 ## Context
 
@@ -38,7 +41,10 @@ The project already defines or plans:
 
 The next design concern is how data flows through the engine without forcing full materialization.
 
-Many modern systems use streaming to process larger-than-memory workloads and reduce peak memory. Many columnar systems use zero-copy interoperability to move data across process/language boundaries efficiently. Vortex adds a stronger opportunity: ShardLoom can often avoid decoding in the first place.
+Many modern systems use streaming to process larger-than-memory workloads and reduce peak memory.
+Many columnar systems use zero-copy interoperability to move data across process/language boundaries
+efficiently. Vortex adds a stronger opportunity: ShardLoom can often avoid decoding in the first
+place.
 
 ## Goals
 
@@ -48,7 +54,8 @@ Many modern systems use streaming to process larger-than-memory workloads and re
 - Define sink-driven execution.
 - Define streaming source/operator/sink concepts.
 - Define backpressure and bounded-memory planning concepts.
-- Define Arrow-like boundary interoperability without making Arrow the default internal execution model.
+- Define Arrow-like boundary interoperability without making Arrow the default internal execution
+  model.
 - Define future Flight/FlightSQL-like surfaces without adding dependencies.
 - Define diagnostics for unsupported streaming and materialization boundaries.
 - Preserve no-fallback execution.
@@ -114,7 +121,8 @@ This hierarchy should shape planning, execution, diagnostics, and benchmarks.
 
 ## Streaming execution
 
-Streaming execution means work is performed in bounded chunks rather than collecting an entire dataset into memory.
+Streaming execution means work is performed in bounded chunks rather than collecting an entire
+dataset into memory.
 
 ShardLoom should eventually support streaming pipelines composed of:
 
@@ -241,7 +249,8 @@ Example:
 
 Zero-copy is useful, but zero-decode is more important to ShardLoom.
 
-Zero-decode means ShardLoom evaluates work against encoded Vortex representation instead of decoding values first.
+Zero-decode means ShardLoom evaluates work against encoded Vortex representation instead of decoding
+values first.
 
 Examples:
 
@@ -376,7 +385,8 @@ The planner should be able to choose:
 
 ## Streaming and effects
 
-LLM calls, API calls, embedding generation, vector search, and external writes are effectful operations.
+LLM calls, API calls, embedding generation, vector search, and external writes are effectful
+operations.
 
 Streaming plans must model effectful operators explicitly.
 
@@ -513,7 +523,8 @@ Expected behavior:
 
 Rejected for core execution.
 
-Polars streaming is an important inspiration, but ShardLoom must preserve Vortex-native execution and no fallback architecture.
+Polars streaming is an important inspiration, but ShardLoom must preserve Vortex-native execution
+and no fallback architecture.
 
 ### Use Arrow as the internal execution model
 

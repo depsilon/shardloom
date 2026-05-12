@@ -1049,7 +1049,7 @@ CG-22 should not take over lower-level responsibilities:
 - Spice Cayenne data accelerator:
   `https://spiceai.org/docs/components/data-accelerators/cayenne`
 - Apache Flink dynamic tables:
-  `https://nightlies.apache.org/flink/flink-docs-master/docs/concepts/sql-table-concepts/dynamic_tables/`
+`https://nightlies.apache.org/flink/flink-docs-master/docs/concepts/sql-table-concepts/dynamic_tables/`
 - Universal Native I/O Envelope:
   `docs/rfcs/0031-universal-native-io-envelope.md`
 - World-Class SQL, Operator, Function, Adapter, and User Capability Surface:

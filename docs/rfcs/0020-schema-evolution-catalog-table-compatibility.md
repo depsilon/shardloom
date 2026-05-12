@@ -8,11 +8,14 @@ Draft
 
 This RFC defines ShardLoom's schema evolution, catalog integration, and table compatibility design.
 
-ShardLoom is not a new lakehouse table format, but real adoption requires compatibility with evolving schemas, cataloged datasets, and table-format ecosystems such as Iceberg-compatible and Delta-compatible workflows.
+ShardLoom is not a new lakehouse table format, but real adoption requires compatibility with
+evolving schemas, cataloged datasets, and table-format ecosystems such as Iceberg-compatible and
+Delta-compatible workflows.
 
 ## Context
 
-ShardLoom must read and write datasets that evolve over time while preserving Vortex-native fidelity and explicit diagnostics for compatibility boundaries.
+ShardLoom must read and write datasets that evolve over time while preserving Vortex-native fidelity
+and explicit diagnostics for compatibility boundaries.
 
 ## Goals
 
@@ -31,7 +34,8 @@ ShardLoom must read and write datasets that evolve over time while preserving Vo
 
 ## Core principle
 
-Schema evolution should be explicit, deterministic, and compatibility-scored. Unsupported schema transitions must fail with stable diagnostics rather than silently coercing to lossy behavior.
+Schema evolution should be explicit, deterministic, and compatibility-scored. Unsupported schema
+transitions must fail with stable diagnostics rather than silently coercing to lossy behavior.
 
 ## Detailed design
 
@@ -314,11 +318,13 @@ Validation should check:
 - Metadata preservation/loss reporting.
 - No-fallback policy adherence.
 
-Diagnostics should include stable codes, affected field paths, attempted operation, and suggested next step.
+Diagnostics should include stable codes, affected field paths, attempted operation, and suggested
+next step.
 
 ## Failure behavior
 
-Unsupported evolution, unsafe coercion, or missing catalog capability must fail explicitly with deterministic diagnostics and no fallback execution.
+Unsupported evolution, unsafe coercion, or missing catalog capability must fail explicitly with
+deterministic diagnostics and no fallback execution.
 
 ## Alternatives considered
 

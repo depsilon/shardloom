@@ -2,9 +2,12 @@
 
 ## Purpose
 
-Use this skill when designing or implementing SQL support, UDFs, unstructured data support, LLM calls, API calls, embeddings, vector search, connector interfaces, or agent-facing capability discovery.
+Use this skill when designing or implementing SQL support, UDFs, unstructured data support, LLM
+calls, API calls, embeddings, vector search, connector interfaces, or agent-facing capability
+discovery.
 
-ShardLoom should remain a high-performance Vortex-native execution engine while being flexible and frictionless for common and adjacent workflows.
+ShardLoom should remain a high-performance Vortex-native execution engine while being flexible and
+frictionless for common and adjacent workflows.
 
 ## When to use
 
@@ -35,13 +38,16 @@ Use this skill for tasks involving:
 - Do not hide external calls inside ordinary filters or projections.
 - Do not execute LLM calls, API calls, or external writes during explain, estimate, or dry run.
 - SQL is a frontend into ShardLoom planning, not a fallback engine.
-- UDFs must declare types, null behavior, determinism, effect level, encoded capability, and materialization requirements.
+- UDFs must declare types, null behavior, determinism, effect level, encoded capability, and
+  materialization requirements.
 - Unstructured data should use typed references, chunks, extracted fields, and manifests.
 - LLM calls should be explicit ModelCall effects.
 - API calls should be explicit ExternalRead or ExternalWrite effects.
-- Embeddings should be typed and should declare model, dimensionality, metric, and generation behavior.
+- Embeddings should be typed and should declare model, dimensionality, metric, and generation
+  behavior.
 - Vector search should be explicit and capability-discovered.
-- Agent-facing capability discovery should expose supported, planned, disabled, and unsupported features.
+- Agent-facing capability discovery should expose supported, planned, disabled, and unsupported
+  features.
 - Do not add Spark or DataFusion fallback for convenience.
 - Do not add dependencies without license and architecture review.
 
@@ -108,4 +114,7 @@ For embeddings/vector work:
 
 ## Example Codex prompt fragment
 
-"Use the Modular Extensibility skill. SQL must be a frontend only. UDFs must declare types, null behavior, determinism, effect level, encoded capability, and materialization requirements. LLM/API/embedding operations must be explicit effects with safe dry-run behavior. Do not add Spark, DataFusion, or fallback execution."
+"Use the Modular Extensibility skill. SQL must be a frontend only. UDFs must declare types, null
+behavior, determinism, effect level, encoded capability, and materialization requirements.
+LLM/API/embedding operations must be explicit effects with safe dry-run behavior. Do not add Spark,
+DataFusion, or fallback execution."

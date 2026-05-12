@@ -8,7 +8,8 @@ Draft
 
 This RFC defines ShardLoom's developer experience and agent usability principles.
 
-ShardLoom may be technically complex internally, but it should feel simple, familiar, inspectable, and safe to use.
+ShardLoom may be technically complex internally, but it should feel simple, familiar, inspectable,
+and safe to use.
 
 ShardLoom should be usable by:
 
@@ -37,9 +38,11 @@ The internal system may include:
 - Translation reports.
 - Distributed segment tasks.
 
-Those concepts are necessary internally, but most users should not need to understand all of them to get value.
+Those concepts are necessary internally, but most users should not need to understand all of them to
+get value.
 
-ShardLoom should expose simple, familiar interfaces while preserving advanced controls for users who need them.
+ShardLoom should expose simple, familiar interfaces while preserving advanced controls for users who
+need them.
 
 ## Goals
 
@@ -318,7 +321,8 @@ Agent-facing commands and APIs should support:
 - Deterministic unsupported errors.
 - No silent fallback execution.
 
-Agents should be able to integrate ShardLoom into a repository without guessing internal architecture.
+Agents should be able to integrate ShardLoom into a repository without guessing internal
+architecture.
 
 ## Safety and write behavior
 
@@ -342,9 +346,11 @@ Destructive operations should require explicit opt-in.
 
 Performance optimizations must not make the user experience opaque.
 
-If ShardLoom avoids reads, prunes segments, uses encoded execution, or materializes late, users should be able to inspect that behavior.
+If ShardLoom avoids reads, prunes segments, uses encoded execution, or materializes late, users
+should be able to inspect that behavior.
 
-The system should expose performance wins through diagnostics and explain output, not through hidden magic.
+The system should expose performance wins through diagnostics and explain output, not through hidden
+magic.
 
 ## API design rules
 

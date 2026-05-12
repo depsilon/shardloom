@@ -8,7 +8,9 @@ Draft
 
 This RFC defines ShardLoom's release engineering, API compatibility, and packaging design.
 
-ShardLoom is intended to become serious open-source data infrastructure. That requires reliable releases, clear versioning, API stability rules, packaging discipline, license hygiene, security practices, reproducible builds, and benchmark accountability.
+ShardLoom is intended to become serious open-source data infrastructure. That requires reliable
+releases, clear versioning, API stability rules, packaging discipline, license hygiene, security
+practices, reproducible builds, and benchmark accountability.
 
 ## Context
 
@@ -25,7 +27,8 @@ ShardLoom may expose:
 - Release notes.
 - Future extension/plugin APIs.
 
-Release and packaging contracts must preserve ShardLoom's architecture, diagnostics, and no-fallback guarantees while making behavior changes understandable and auditable for users and integrators.
+Release and packaging contracts must preserve ShardLoom's architecture, diagnostics, and no-fallback
+guarantees while making behavior changes understandable and auditable for users and integrators.
 
 ## Goals
 
@@ -68,7 +71,8 @@ Users should understand:
 
 ### Versioning
 
-ShardLoom should use a cautious 0.x policy while APIs evolve and adopt strict semver behavior once stability targets are met.
+ShardLoom should use a cautious 0.x policy while APIs evolve and adopt strict semver behavior once
+stability targets are met.
 
 Version surfaces should include:
 
@@ -136,11 +140,14 @@ Schemas should eventually include version fields before stability promises are m
 
 ### Python package strategy
 
-Python packaging should be introduced only when the Rust core has meaningful value and should preserve no-fallback policy and native Vortex input/output.
+Python packaging should be introduced only when the Rust core has meaningful value and should
+preserve no-fallback policy and native Vortex input/output.
 
 ### Container strategy
 
-Container design should support CLI, benchmarks, and future server mode if introduced, while ensuring images are versioned, avoid embedded secrets, use minimal bases where practical, include license notices, avoid unnecessary dependencies, and do not include fallback engines.
+Container design should support CLI, benchmarks, and future server mode if introduced, while
+ensuring images are versioned, avoid embedded secrets, use minimal bases where practical, include
+license notices, avoid unnecessary dependencies, and do not include fallback engines.
 
 ### Documentation releases
 
@@ -242,7 +249,8 @@ Release readiness should include checks for:
 
 ## Failure behavior
 
-Release-blocking issues should fail explicitly and include deterministic diagnostics where relevant, including:
+Release-blocking issues should fail explicitly and include deterministic diagnostics where relevant,
+including:
 
 - Missing license metadata.
 - Incompatible dependency.
@@ -258,7 +266,8 @@ Release-blocking issues should fail explicitly and include deterministic diagnos
 - Release early without process: rejected.
 - Stabilize APIs immediately: rejected.
 - Delay packaging discussions: partially rejected.
-- Allow fallback dependencies in optional packages: rejected unless a future RFC defines a non-execution interoperability package.
+- Allow fallback dependencies in optional packages: rejected unless a future RFC defines a
+  non-execution interoperability package.
 
 ## Risks
 

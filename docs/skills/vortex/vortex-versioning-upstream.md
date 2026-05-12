@@ -2,7 +2,8 @@
 
 ## Purpose
 
-Use this skill when depending on Vortex crates, upstream APIs, release behavior, documentation, or implementation details.
+Use this skill when depending on Vortex crates, upstream APIs, release behavior, documentation, or
+implementation details.
 
 The goal is to keep ShardLoom compatible with Vortex without being fragile.
 
@@ -28,11 +29,13 @@ Use this skill for tasks involving:
 - Pin or document Vortex dependency versions when added.
 - Track upstream API volatility.
 - Treat active-development APIs with caution.
-- If ShardLoom needs an upstream Vortex capability, consider contributing upstream rather than forking behavior locally.
+- If ShardLoom needs an upstream Vortex capability, consider contributing upstream rather than
+  forking behavior locally.
 - Upstream Vortex array, compute, scan, source, and sink APIs may become
   ShardLoom-native providers only through isolated, feature-gated,
   version-recorded, certificate-backed boundaries.
-- Do not vendor or copy upstream implementation code unless license and provenance are explicitly reviewed.
+- Do not vendor or copy upstream implementation code unless license and provenance are explicitly
+  reviewed.
 - Keep adapter boundaries small and testable.
 
 ## Required checks
@@ -68,4 +71,6 @@ For upstream changes:
 
 ## Example Codex prompt fragment
 
-"Use the Vortex Versioning and Upstream skill. Keep Vortex-specific code isolated, prefer public APIs, document version assumptions, and do not copy upstream implementation code. Avoid fallback execution."
+"Use the Vortex Versioning and Upstream skill. Keep Vortex-specific code isolated, prefer public
+APIs, document version assumptions, and do not copy upstream implementation code. Avoid fallback
+execution."

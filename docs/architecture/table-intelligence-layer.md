@@ -1,6 +1,8 @@
 # Table Intelligence Layer
 
-This document defines the CG-9 aggregate surface that keeps table, schema, CDC, layout, and compaction evidence visible before ShardLoom performs catalog reads, table metadata reads, data reads, maintenance writes, or table-format runtime behavior.
+This document defines the CG-9 aggregate surface that keeps table, schema, CDC, layout, and
+compaction evidence visible before ShardLoom performs catalog reads, table metadata reads, data
+reads, maintenance writes, or table-format runtime behavior.
 
 The first implementation is `TableIntelligenceReport`, exposed through:
 
@@ -32,7 +34,8 @@ shardloom table-intelligence-plan --format json
 - `fallback_attempted=false`
 - `fallback_execution_allowed=false`
 
-The aggregate report is evidence and routing context only. It does not certify that Iceberg, Delta, Hudi-like, catalog, manifest, recovery, or table-maintenance runtime behavior exists.
+The aggregate report is evidence and routing context only. It does not certify that Iceberg, Delta,
+Hudi-like, catalog, manifest, recovery, or table-maintenance runtime behavior exists.
 
 ## Surface Order
 
@@ -52,7 +55,10 @@ The aggregate report is evidence and routing context only. It does not certify t
 - [x] Every CG-9 surface is represented in one deterministic report.
 - [x] Report-only surfaces point to their existing command surfaces where available.
 - [x] Planned surfaces remain visible without implying runtime support.
-- [x] The CLI emits machine-readable JSON fields for counts, surface order, compatibility profiles, IO flags, dependency flags, and no-fallback status.
+- [x] The CLI emits machine-readable JSON fields for counts, surface order, compatibility profiles,
+      IO flags, dependency flags, and no-fallback status.
 - [x] Contract tests assert the aggregate report is side-effect-free.
-- [ ] Future catalog/table metadata integration must update this report before enabling runtime behavior.
-- [ ] Future table-format dependencies must be approved through dependency/license policy and must not introduce external execution fallback.
+- [ ] Future catalog/table metadata integration must update this report before enabling runtime
+      behavior.
+- [ ] Future table-format dependencies must be approved through dependency/license policy and must
+      not introduce external execution fallback.

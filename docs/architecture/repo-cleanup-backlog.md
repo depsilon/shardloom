@@ -2,9 +2,12 @@
 
 ## Purpose
 
-This document inventories cleanup, refactor, and audit work that supports future Competitive Engine (CG) implementation. It is a supporting backlog only. Active status, active queue, and CG closeout decisions live in `docs/architecture/phased-execution-plan.md`.
+This document inventories cleanup, refactor, and audit work that supports future Competitive Engine
+(CG) implementation. It is a supporting backlog only. Active status, active queue, and CG closeout
+decisions live in `docs/architecture/phased-execution-plan.md`.
 
-This document does not authorize runtime behavior, IO behavior, dependency additions, or fallback execution.
+This document does not authorize runtime behavior, IO behavior, dependency additions, or fallback
+execution.
 
 ## How To Use
 
@@ -30,7 +33,8 @@ This document does not authorize runtime behavior, IO behavior, dependency addit
 - [x] P2 - Diagnostics normalization
   - Route missing/unknown CLI arguments through stable invalid-input diagnostics where feasible.
   - Preserve `fallback_execution_allowed=false`.
-  - Distinguish invalid input, unsupported feature, configuration, planning, execution, object-store, materialization, and no-fallback categories.
+  - Distinguish invalid input, unsupported feature, configuration, planning, execution,
+    object-store, materialization, and no-fallback categories.
 - [x] P3 - Terminology consolidation
   - Keep layer-specific public types stable.
   - Prefer mapping helpers before type consolidation.

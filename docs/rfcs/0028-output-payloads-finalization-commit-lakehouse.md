@@ -15,7 +15,8 @@ This RFC defines implementation contracts for:
 - Manifest finalization must produce finalized-candidate state distinct from committed state.
 - Committed manifests remain separate from finalized candidates.
 - Existing local placeholder output payload artifacts are not real Vortex payloads.
-- Real executable Vortex output payload writes are a separate milestone from placeholder artifact support.
+- Real executable Vortex output payload writes are a separate milestone from placeholder artifact
+  support.
 - Manifest finalization/commit must not treat placeholder payload artifacts as production output.
 - CG-3 acceptance requires real payload fidelity over at least one supported workload path.
 

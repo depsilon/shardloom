@@ -2,7 +2,10 @@
 
 ## Purpose
 
-This document inventories terminology families that are intentionally distinct today but need stable mappings before deeper CG implementation. Active queue placement lives in `docs/architecture/phased-execution-plan.md`; canonical definitions live in `docs/architecture/canonical-terminology.md`.
+This document inventories terminology families that are intentionally distinct today but need stable
+mappings before deeper CG implementation. Active queue placement lives in
+`docs/architecture/phased-execution-plan.md`; canonical definitions live in
+`docs/architecture/canonical-terminology.md`.
 
 It does not authorize runtime behavior, rename public types, or collapse layer boundaries by itself.
 
@@ -21,7 +24,8 @@ It does not authorize runtime behavior, rename public types, or collapse layer b
   - Keep `MaterializationRequirement`.
   - Keep `MaterializationBoundary`.
   - Add mapping helpers only when cross-layer rendering requires them.
-  - Candidate helpers: `materialization_policy_to_requirement`, `materialization_requirement_to_boundary`, `materialization_boundary_to_execution_state`.
+  - Candidate helpers: `materialization_policy_to_requirement`,
+    `materialization_requirement_to_boundary`, `materialization_boundary_to_execution_state`.
 - [ ] P1 - Execution/data-work terminology family
   - Keep `ExecutionState`.
   - Keep `DataWorkLevel`.
@@ -31,18 +35,21 @@ It does not authorize runtime behavior, rename public types, or collapse layer b
   - Keep `DatasetFormat` and `OutputTargetKind` separate.
   - Keep `FidelityLevel` canonical.
   - Treat `VortexOutputFidelity` as adapter-local and map it to `FidelityLevel`.
-  - Candidate helpers: `dataset_format_to_default_output_target_kind`, `vortex_output_fidelity_to_fidelity_level`, `output_target_kind_to_default_fidelity_level`.
+  - Candidate helpers: `dataset_format_to_default_output_target_kind`,
+    `vortex_output_fidelity_to_fidelity_level`, `output_target_kind_to_default_fidelity_level`.
 - [ ] P3 - Resource/memory terminology family
   - Keep `ResourceBudget`.
   - Keep `MemoryBudget`.
   - Keep `BoundedMemoryPolicy`.
-  - Candidate helpers: `resource_budget_to_memory_budget_summary`, `bounded_memory_policy_to_spill_requirement`.
+  - Candidate helpers: `resource_budget_to_memory_budget_summary`,
+    `bounded_memory_policy_to_spill_requirement`.
 - [ ] P4 - Plan skeleton terminology family
   - Keep `RuntimePlanSkeleton`.
   - Keep `StreamingPlanSkeleton`.
   - Keep `ScanPlanSkeleton`.
   - Add shared field/report helpers later if duplication becomes material.
-  - Candidate helpers: `plan_skeleton_common_fields`, `plan_skeleton_diagnostics_summary`, `plan_skeleton_side_effect_summary`.
+  - Candidate helpers: `plan_skeleton_common_fields`, `plan_skeleton_diagnostics_summary`,
+    `plan_skeleton_side_effect_summary`.
 - [ ] P5 - Status/report naming conventions
   - `Request`: caller-provided intent/input.
   - `Plan`: planned behavior, usually no side effects.

@@ -2,7 +2,8 @@
 
 ## Purpose
 
-Use this skill when adding dependencies, reviewing generated code, using external references, or implementing algorithms inspired by papers, documentation, or other projects.
+Use this skill when adding dependencies, reviewing generated code, using external references, or
+implementing algorithms inspired by papers, documentation, or other projects.
 
 The goal is to keep ShardLoom clean, enterprise-adoptable, and compatible with Apache-2.0.
 
@@ -22,15 +23,21 @@ Use this skill for tasks involving:
 ## Rules
 
 - ShardLoom is Apache-2.0 licensed.
-- Prefer dependencies with permissive licenses such as Apache-2.0, MIT, BSD, ISC, Zlib, or Unicode-style licenses.
+- Prefer dependencies with permissive licenses such as Apache-2.0, MIT, BSD, ISC, Zlib, or
+  Unicode-style licenses.
 - MPL-2.0 may require additional review because it has file-level copyleft obligations.
-- Do not copy implementation code from GPL, AGPL, SSPL, BUSL, proprietary, source-available, or unknown-license sources.
-- Do not paste code from blogs, forums, generated snippets, or repositories unless provenance and license compatibility are clear.
-- It is acceptable to independently implement ideas from papers, specifications, standards, and documentation.
+- Do not copy implementation code from GPL, AGPL, SSPL, BUSL, proprietary, source-available, or
+  unknown-license sources.
+- Do not paste code from blogs, forums, generated snippets, or repositories unless provenance and
+  license compatibility are clear.
+- It is acceptable to independently implement ideas from papers, specifications, standards, and
+  documentation.
 - Attribute external ideas when appropriate.
 - Keep dependency choices minimal and justified.
-- AI-assisted code is allowed, but the contributor is responsible for originality, tests, and license compatibility.
-- If a dependency is required for parsing, testing, or benchmarking, it must not become an execution fallback unless explicitly approved by RFC. Spark and DataFusion fallback are not allowed.
+- AI-assisted code is allowed, but the contributor is responsible for originality, tests, and
+  license compatibility.
+- If a dependency is required for parsing, testing, or benchmarking, it must not become an execution
+  fallback unless explicitly approved by RFC. Spark and DataFusion fallback are not allowed.
 
 ## Required checks
 
@@ -63,4 +70,6 @@ For externally inspired implementations:
 
 When adding or reviewing dependencies, include this instruction:
 
-"Use the License and Provenance skill. Verify dependency license compatibility with Apache-2.0. Do not copy implementation code from incompatible or unknown-license sources. Do not add Spark, DataFusion, or fallback execution."
+"Use the License and Provenance skill. Verify dependency license compatibility with Apache-2.0. Do
+not copy implementation code from incompatible or unknown-license sources. Do not add Spark,
+DataFusion, or fallback execution."

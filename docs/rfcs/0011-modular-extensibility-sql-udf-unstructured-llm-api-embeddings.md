@@ -13,7 +13,8 @@ external-service dependencies, package publication, or fallback execution.
 
 This RFC defines ShardLoom's modular extensibility architecture for common and adjacent workloads.
 
-ShardLoom's core execution engine is Vortex-native and encoded-columnar, but users and LLM agents will expect it to gracefully support familiar and adjacent workflows:
+ShardLoom's core execution engine is Vortex-native and encoded-columnar, but users and LLM agents
+will expect it to gracefully support familiar and adjacent workflows:
 
 - SQL.
 - UDFs.
@@ -25,7 +26,8 @@ ShardLoom's core execution engine is Vortex-native and encoded-columnar, but use
 - Retrieval-augmented workflows.
 - Agent-driven implementation in existing repositories.
 
-These features may not all be in ShardLoom's initial scope, but the architecture should be designed so that they can be added without violating ShardLoom's core principles.
+These features may not all be in ShardLoom's initial scope, but the architecture should be designed
+so that they can be added without violating ShardLoom's core principles.
 
 ## Context
 
@@ -43,7 +45,9 @@ Users often need to:
 - Use LLMs to summarize, classify, extract, or explain.
 - Integrate an engine into a repo through a coding agent.
 
-ShardLoom should not become an LLM framework, API gateway, vector database, or unstructured-data platform. However, it should expose modular extension points so these workflows can be composed cleanly around the native execution engine.
+ShardLoom should not become an LLM framework, API gateway, vector database, or unstructured-data
+platform. However, it should expose modular extension points so these workflows can be composed
+cleanly around the native execution engine.
 
 ## Goals
 
@@ -82,13 +86,15 @@ ShardLoom should support adjacent workloads through modular boundaries, not hidd
 
 The core principle is:
 
-> Keep deterministic encoded execution pure where possible, and model non-deterministic or external effects explicitly.
+> Keep deterministic encoded execution pure where possible, and model non-deterministic or external
+  effects explicitly.
 
 This enables ShardLoom to stay fast, explainable, safe, and agent-friendly.
 
 ## Core extension model
 
-ShardLoom should eventually expose a modular extension architecture with these conceptual registries:
+ShardLoom should eventually expose a modular extension architecture with these conceptual
+registries:
 
 - FrontendRegistry.
 - FunctionRegistry.
@@ -103,7 +109,8 @@ These registries define what ShardLoom can parse, plan, execute, call, translate
 
 ## FrontendRegistry
 
-The FrontendRegistry should allow ShardLoom to accept familiar user-facing syntaxes without changing the core execution model.
+The FrontendRegistry should allow ShardLoom to accept familiar user-facing syntaxes without changing
+the core execution model.
 
 Potential frontends:
 
@@ -321,7 +328,8 @@ LLM operations should declare:
 
 LLM calls should be visible in explain output.
 
-LLM calls should be optional and modular. ShardLoom's core Vortex-native execution must not depend on them.
+LLM calls should be optional and modular. ShardLoom's core Vortex-native execution must not depend
+on them.
 
 ## API calls
 
@@ -820,7 +828,8 @@ Failures must not trigger fallback execution.
 
 Rejected.
 
-Users and LLM agents will naturally need SQL, UDFs, unstructured data, API calls, embeddings, and LLM workflows around data execution.
+Users and LLM agents will naturally need SQL, UDFs, unstructured data, API calls, embeddings, and
+LLM workflows around data execution.
 
 ### Build everything immediately
 
@@ -844,7 +853,8 @@ SQL may be a frontend, but execution must remain ShardLoom-native.
 
 Rejected.
 
-ShardLoom should support LLM/model calls as modular effects, not become a general LLM orchestration system.
+ShardLoom should support LLM/model calls as modular effects, not become a general LLM orchestration
+system.
 
 ## Risks
 
@@ -863,7 +873,8 @@ This RFC is accepted when the project agrees that:
 
 - SQL should be a frontend into ShardLoom plans, not external fallback execution.
 - UDFs should be modular, typed, and explicit about determinism and materialization.
-- Unstructured data should be represented through typed references, chunks, extracted fields, and manifests.
+- Unstructured data should be represented through typed references, chunks, extracted fields, and
+  manifests.
 - LLM calls should be explicit effectful model calls.
 - API calls should be explicit external effects.
 - Embeddings should be modular and typed.

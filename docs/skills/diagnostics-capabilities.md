@@ -2,9 +2,11 @@
 
 ## Purpose
 
-Use this skill when designing or implementing diagnostics, errors, explain output, estimate output, doctor checks, capability discovery, or machine-readable agent-facing output.
+Use this skill when designing or implementing diagnostics, errors, explain output, estimate output,
+doctor checks, capability discovery, or machine-readable agent-facing output.
 
-ShardLoom should be easy for humans to understand and easy for LLM agents to integrate without guessing.
+ShardLoom should be easy for humans to understand and easy for LLM agents to integrate without
+guessing.
 
 ## When to use
 
@@ -37,7 +39,8 @@ Use this skill for tasks involving:
 - Explain output should expose execution boundaries.
 - Estimate output should describe uncertainty.
 - Doctor checks should be safe and avoid side effects.
-- Capability discovery should distinguish supported, partially supported, planned, disabled, requires configuration, requires explicit enablement, and unsupported.
+- Capability discovery should distinguish supported, partially supported, planned, disabled,
+  requires configuration, requires explicit enablement, and unsupported.
 - Effectful operations must not run during explain, estimate, doctor, or capabilities.
 - Vortex-native input/output status should be visible where relevant.
 - Metadata loss should be explicit in translation diagnostics.
@@ -96,4 +99,7 @@ For capabilities:
 
 ## Example Codex prompt fragment
 
-"Use the Diagnostics and Capabilities skill. Add deterministic structured diagnostics with stable codes, clear categories, fallback status, and actionable next steps. Explain/estimate/doctor/capabilities must be machine-readable where relevant and must not trigger effectful operations."
+"Use the Diagnostics and Capabilities skill. Add deterministic structured diagnostics with stable
+codes, clear categories, fallback status, and actionable next steps.
+Explain/estimate/doctor/capabilities must be machine-readable where relevant and must not trigger
+effectful operations."

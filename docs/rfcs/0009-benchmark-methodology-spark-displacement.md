@@ -8,11 +8,14 @@ Draft
 
 This RFC defines ShardLoom's benchmark methodology and Spark-displacement workload categories.
 
-ShardLoom should not claim to overtake Spark, DataFusion, DuckDB, Polars, Velox, or other engines without reproducible evidence. Performance claims must be specific, measured, and tied to workload classes.
+ShardLoom should not claim to overtake Spark, DataFusion, DuckDB, Polars, Velox, or other engines
+without reproducible evidence. Performance claims must be specific, measured, and tied to workload
+classes.
 
 ## Context
 
-ShardLoom's near-term competition with single-node engines may be easier than full Spark displacement.
+ShardLoom's near-term competition with single-node engines may be easier than full Spark
+displacement.
 
 Spark displacement requires more than fast scans. It requires credible results on:
 
@@ -103,7 +106,8 @@ Benchmark baselines must include:
 
 Purpose:
 
-Measure whether ShardLoom can challenge DataFusion, DuckDB, Polars, or Vortex integrations on local or medium-scale data.
+Measure whether ShardLoom can challenge DataFusion, DuckDB, Polars, or Vortex integrations on local
+or medium-scale data.
 
 Example workloads:
 
@@ -120,7 +124,8 @@ Example workloads:
 
 Purpose:
 
-Measure performance on object-store-backed datasets where IO, metadata, range reads, and pruning dominate.
+Measure performance on object-store-backed datasets where IO, metadata, range reads, and pruning
+dominate.
 
 Example workloads:
 
@@ -258,7 +263,8 @@ Benchmarks should collect as many of these as possible:
 
 ### Local competition claim
 
-ShardLoom may claim local or single-node competitiveness only for workloads measured against relevant local engines with reproducible results.
+ShardLoom may claim local or single-node competitiveness only for workloads measured against
+relevant local engines with reproducible results.
 
 ### Spark-displacement claim
 
@@ -332,7 +338,8 @@ ShardLoom must also understand single-node and native-engine baselines.
 
 Rejected.
 
-ShardLoom's thesis depends on reducing reads, decode, movement, materialization, and cost, not only wall time.
+ShardLoom's thesis depends on reducing reads, decode, movement, materialization, and cost, not only
+wall time.
 
 ### Use baselines as fallback engines
 

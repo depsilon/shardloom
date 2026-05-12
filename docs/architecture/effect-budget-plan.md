@@ -2,11 +2,14 @@
 
 ## Purpose
 
-This document centralizes the report-only effect budget used by future Python, UDF, plugin, object-store, catalog, event/API/SaaS, LLM, embedding, vector, and unstructured/media surfaces.
+This document centralizes the report-only effect budget used by future Python, UDF, plugin,
+object-store, catalog, event/API/SaaS, LLM, embedding, vector, and unstructured/media surfaces.
 
 Active queue and completion state live in `docs/architecture/phased-execution-plan.md`.
 
-The effect budget does not authorize runtime behavior, credentials, network calls, object-store IO, catalog probes, file probes, UDF/plugin execution, model calls, media extraction, writes, benchmarks, or fallback execution.
+The effect budget does not authorize runtime behavior, credentials, network calls, object-store IO,
+catalog probes, file probes, UDF/plugin execution, model calls, media extraction, writes,
+benchmarks, or fallback execution.
 
 ## Default Policy
 
@@ -15,7 +18,8 @@ The effect budget does not authorize runtime behavior, credentials, network call
 - Network egress is denied by default.
 - Credential resolution and secret loading are not performed by default.
 - Redaction and audit requirements are explicit budget fields, not hidden side behavior.
-- Materialization boundaries must be declared when an effect can expose rows, decoded data, media payloads, or external service inputs.
+- Materialization boundaries must be declared when an effect can expose rows, decoded data, media
+  payloads, or external service inputs.
 - Fallback execution remains disabled regardless of effect approval.
 
 ## EffectBudgetReport Checklist
@@ -53,8 +57,10 @@ The effect budget does not authorize runtime behavior, credentials, network call
   - Python wrapper and notebook APIs consume effect budgets before external work.
   - UDF/plugin execution checks budget, sandbox, permission, and audit fields.
   - Object-store and catalog adapters connect budget approval to source/sink plans.
-  - Unstructured/media extraction, LLM, embedding, vector, and event/API/SaaS adapters require explicit budget approval.
-  - Execution certificates and native I/O certificates include consumed effect-budget references when effects are approved.
+  - Unstructured/media extraction, LLM, embedding, vector, and event/API/SaaS adapters require
+    explicit budget approval.
+  - Execution certificates and native I/O certificates include consumed effect-budget references
+    when effects are approved.
 
 ## Guardrails
 
@@ -62,4 +68,5 @@ The effect budget does not authorize runtime behavior, credentials, network call
 - Do not resolve secrets or credentials inside the budget report.
 - Do not treat benchmark baselines as effect approval.
 - Do not let effect approval authorize fallback execution.
-- Do not hide row reads, decode, materialization, Arrow conversion, network egress, or writes behind a user-facing API.
+- Do not hide row reads, decode, materialization, Arrow conversion, network egress, or writes behind
+  a user-facing API.

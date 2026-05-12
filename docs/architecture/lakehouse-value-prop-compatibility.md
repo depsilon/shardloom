@@ -4,15 +4,21 @@ Status: Draft
 
 ## Summary
 
-This document defines how ShardLoom maps common lakehouse table-system value props (Iceberg, Delta, Hudi, and similar ecosystems) into ShardLoom-native architecture.
+This document defines how ShardLoom maps common lakehouse table-system value props (Iceberg, Delta,
+Hudi, and similar ecosystems) into ShardLoom-native architecture.
 
-ShardLoom remains a standalone execution engine with native Vortex input/output. Lakehouse table systems are treated as compatibility and table-management surfaces, not execution dependencies and not execution fallback engines.
+ShardLoom remains a standalone execution engine with native Vortex input/output. Lakehouse table
+systems are treated as compatibility and table-management surfaces, not execution dependencies and
+not execution fallback engines.
 
-Active phase status and CG closeout decisions live in `docs/architecture/phased-execution-plan.md`. This matrix is a reference contract for future CG-9, CG-10, CG-18, CG-19, and CG-20 work.
+Active phase status and CG closeout decisions live in `docs/architecture/phased-execution-plan.md`.
+This matrix is a reference contract for future CG-9, CG-10, CG-18, CG-19, and CG-20 work.
 
 ## Context
 
-Teams expect lakehouse semantics such as snapshots, schema evolution, and incremental processing. These features are valuable, but ShardLoom must not couple execution to external engines or silently adopt semantics it cannot enforce.
+Teams expect lakehouse semantics such as snapshots, schema evolution, and incremental processing.
+These features are valuable, but ShardLoom must not couple execution to external engines or silently
+adopt semantics it cannot enforce.
 
 This matrix provides a planning and diagnostics contract so contributors can reason about:
 
@@ -44,7 +50,8 @@ Each value prop can be tagged with one or more of the following states:
 
 - `shardloom_native`: Implemented as a native ShardLoom concept.
 - `vortex_native`: Implemented in native Vortex layouts/metadata as highest-fidelity representation.
-- `compatibility_target`: Exposed through adapter/translation contracts with external table ecosystems.
+- `compatibility_target`: Exposed through adapter/translation contracts with external table
+  ecosystems.
 - `planned`: Intended near-/mid-term design target, not yet implemented.
 - `deferred`: Explicitly postponed pending other architecture work.
 - `unsupported`: Not supported; requests must fail deterministically.
@@ -84,7 +91,8 @@ When a capability is not fully native, ShardLoom should model it as:
    - Vortex remains first-class native input and highest-fidelity output.
 
 2. **No fallback execution**
-   - Iceberg/Delta/Hudi semantics do not authorize delegation to Spark, DataFusion, DuckDB, Polars, Velox, or other engines.
+   - Iceberg/Delta/Hudi semantics do not authorize delegation to Spark, DataFusion, DuckDB, Polars,
+     Velox, or other engines.
 
 3. **Explicit unsupported behavior**
    - Unsupported semantics fail with deterministic diagnostic codes and actionable remediation.
@@ -96,7 +104,8 @@ When a capability is not fully native, ShardLoom should model it as:
    - Translation/compatibility pathways must report dropped or downgraded metadata explicitly.
 
 6. **Lightweight default build**
-   - Compatibility modeling must not force heavyweight connectors or runtime dependencies in the default build.
+   - Compatibility modeling must not force heavyweight connectors or runtime dependencies in the
+     default build.
 
 ## Diagnostic contract (design-level)
 
@@ -107,15 +116,19 @@ For lakehouse compatibility semantics, diagnostics should include at least:
 - `fallback_execution_allowed`: always `false` by default.
 - `fallback_attempted`: `false` unless a forbidden path was requested and rejected.
 - `feature`: value prop name (e.g., `tombstone_semantics`, `snapshot_time_travel`).
-- `status`: implementation-state classification at request time (`planned`, `deferred`, or `unsupported`; use `shardloom_native`/`vortex_native`/`compatibility_target` in `classification`).
+- `status`: implementation-state classification at request time (`planned`, `deferred`, or
+  `unsupported`; use `shardloom_native`/`vortex_native`/`compatibility_target` in `classification`).
 - `classification`: one or more capability-kind tags from the classification model.
 - `metadata_loss`: explicit description when fidelity cannot be preserved.
-- `next_step`: actionable guidance (choose native Vortex path, enable explicit adapter, or simplify request).
+- `next_step`: actionable guidance (choose native Vortex path, enable explicit adapter, or simplify
+  request).
 
 ## Alternatives considered
 
-- **Direct dependence on one table format as internal substrate**: rejected; would compromise standalone identity and increase coupling.
-- **Generic “best effort” compatibility without explicit failures**: rejected; risks silent correctness loss.
+- **Direct dependence on one table format as internal substrate**: rejected; would compromise
+  standalone identity and increase coupling.
+- **Generic “best effort” compatibility without explicit failures**: rejected; risks silent
+  correctness loss.
 - **Treating compatibility systems as execution fallback**: rejected by architecture policy.
 
 ## Risks
@@ -124,7 +137,8 @@ For lakehouse compatibility semantics, diagnostics should include at least:
 - Under-modeling can lead to inconsistent adapter behavior later.
 - Compatibility expectations may exceed the existing skeleton-phase scope.
 
-Mitigation: keep statuses explicit (`planned`, `deferred`, `unsupported`) and require deterministic diagnostics.
+Mitigation: keep statuses explicit (`planned`, `deferred`, `unsupported`) and require deterministic
+diagnostics.
 
 ## Acceptance criteria
 
@@ -133,8 +147,10 @@ Mitigation: keep statuses explicit (`planned`, `deferred`, `unsupported`) and re
 - No section implies external-engine fallback execution.
 - Delete/tombstone and metadata-loss requirements are explicit.
 - Document is compatible with standalone, Vortex-native architecture.
-- Future adapter implementations should emit machine-readable status for each applicable value prop after the phase plan authorizes that adapter work.
-- Future phase-plan items should define mandatory versus optional compatibility semantics per adapter profile.
+- Future adapter implementations should emit machine-readable status for each applicable value prop
+  after the phase plan authorizes that adapter work.
+- Future phase-plan items should define mandatory versus optional compatibility semantics per
+  adapter profile.
 
 ## Verification plan
 
@@ -145,4 +161,5 @@ Mitigation: keep statuses explicit (`planned`, `deferred`, `unsupported`) and re
 
 - Which compatibility semantics should be mandatory versus optional per adapter profile?
 - What is the minimal stable diagnostic code set for compatibility failures?
-- How should ShardLoom-native manifest schema evolve to represent snapshot lineage and row-level mutations uniformly across compatibility inputs?
+- How should ShardLoom-native manifest schema evolve to represent snapshot lineage and row-level
+  mutations uniformly across compatibility inputs?

@@ -2,7 +2,8 @@
 
 ## Purpose
 
-Use this skill when designing or implementing behavior that depends on Vortex physical encodings or layouts.
+Use this skill when designing or implementing behavior that depends on Vortex physical encodings or
+layouts.
 
 The goal is to let ShardLoom exploit encoded representations rather than erasing them.
 
@@ -28,11 +29,13 @@ Use this skill for tasks involving:
 
 - Planning should inspect encoding and layout before choosing an execution strategy.
 - Encoded operations should declare their supported encodings.
-- Unsupported encoded operations should fail explicitly or choose a documented ShardLoom-native partial decode path.
+- Unsupported encoded operations should fail explicitly or choose a documented ShardLoom-native
+  partial decode path.
 - A partial decode path is not the same as fallback execution.
 - A decoded reference path may be used for tests but must not become hidden production fallback.
 - Avoid row-wise loops unless explicitly justified.
-- Track whether an operation ran as metadata-only, encoded, partially decoded, or fully materialized.
+- Track whether an operation ran as metadata-only, encoded, partially decoded, or fully
+  materialized.
 - Preserve layout information until the materialization boundary.
 
 ## Required checks
@@ -68,4 +71,6 @@ For partial decode:
 
 ## Example Codex prompt fragment
 
-"Use the Vortex Encodings and Layouts skill. Inspect encoding/layout first. Prefer encoded kernels, partial decode, and late materialization. Track execution state and compare against decoded reference tests."
+"Use the Vortex Encodings and Layouts skill. Inspect encoding/layout first. Prefer encoded kernels,
+partial decode, and late materialization. Track execution state and compare against decoded
+reference tests."

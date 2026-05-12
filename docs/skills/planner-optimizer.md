@@ -2,9 +2,11 @@
 
 ## Purpose
 
-Use this skill when designing or implementing logical plans, physical plans, optimization rules, diagnostics, or cost decisions.
+Use this skill when designing or implementing logical plans, physical plans, optimization rules,
+diagnostics, or cost decisions.
 
-The goal is to create a standalone ShardLoom planner that produces encoded-columnar physical plans without relying on Spark or DataFusion fallback execution.
+The goal is to create a standalone ShardLoom planner that produces encoded-columnar physical plans
+without relying on Spark or DataFusion fallback execution.
 
 ## When to use
 
@@ -27,7 +29,8 @@ Use this skill for tasks involving:
 
 - ShardLoom must own its physical execution model.
 - Do not add DataFusion or Spark as planning or execution fallback.
-- Third-party libraries may be considered for parsing only if approved, but parsing must not imply execution delegation.
+- Third-party libraries may be considered for parsing only if approved, but parsing must not imply
+  execution delegation.
 - Optimizer rewrites must preserve semantics.
 - Optimizer rules must be testable in isolation.
 - Plan nodes should make materialization boundaries explicit.
@@ -67,4 +70,6 @@ For optimizer rules:
 
 When working on planning or optimization, include this instruction:
 
-"Use the Planner and Optimizer skill. Produce standalone ShardLoom plan types. Rewrites must preserve semantics. Unsupported plans must fail explicitly. Do not add Spark, DataFusion, or fallback execution."
+"Use the Planner and Optimizer skill. Produce standalone ShardLoom plan types. Rewrites must
+preserve semantics. Unsupported plans must fail explicitly. Do not add Spark, DataFusion, or
+fallback execution."
