@@ -4,8 +4,12 @@
 
 This RFC defines a hard architectural boundary for ShardLoom:
 
-- ShardLoom is a standalone execution engine.
-- ShardLoom must not use Spark or DataFusion as fallback execution engines.
+- ShardLoom is standalone from external query-engine fallback.
+- ShardLoom must not use Spark, DataFusion, DuckDB, Polars, Velox, Trino,
+  Dask, Ray, or Vortex query-engine integrations as fallback execution engines.
+- Upstream Vortex array, compute, scan, source, and sink APIs may be native
+  providers when approved, feature-gated, version-recorded, policy-admitted,
+  and certificate-backed.
 - Unsupported execution plans must fail explicitly with clear diagnostics.
 - Vortex is a first-class native input format and first-class native output format.
 - Vortex output is the highest-fidelity persistence target.
@@ -76,11 +80,21 @@ Benchmark comparison does not grant permission to execute production plans throu
 
 ### 1) Standalone engine requirement
 
-ShardLoom must remain a standalone engine. Core plan compilation, optimization, and execution semantics must be owned and performed by ShardLoom.
+ShardLoom must remain standalone from external query-engine fallback. It owns
+admission, plan compilation, optimization policy, diagnostics, capability
+status, and certificate semantics.
+
+Standalone does not mean isolated from upstream Vortex compute. Upstream Vortex
+array, compute, scan, source, and sink APIs may serve as Vortex-native execution
+providers when they are invoked through approved ShardLoom boundaries,
+feature-gated, version-recorded, policy-admitted, and certificate-backed.
 
 ### 2) No Spark or DataFusion execution fallback
 
-ShardLoom must not use Spark or DataFusion as execution fallback engines under any mode, including “temporary,” “compatibility,” or “best-effort” modes.
+ShardLoom must not use Spark, DataFusion, DuckDB, Polars, Velox, Trino, Dask,
+Ray, Vortex query-engine integrations, or similar systems as execution fallback
+engines under any mode, including "temporary", "compatibility", or
+"best-effort" modes.
 
 ### 3) Explicit failure for unsupported execution plans
 

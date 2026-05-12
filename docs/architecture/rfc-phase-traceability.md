@@ -751,6 +751,16 @@ No fallback execution.
 - Declared external-oracle artifacts remain comparison-only and non-executed; their presence no longer risks claim completion once fixture expectations are filled in later.
 - This phase adds no external oracle execution, property/fuzz execution, decoded-reference execution, data reads, reader/adapters, non-local sources, object-store IO, SQL/DataFrame runtime, writes, spill, benchmark reruns, production certification, superiority claim, or fallback execution.
 
+## RFC/Vortex provider alignment drift cleanup
+
+- Primary RFC linkage: RFC 0002 No Fallback/Vortex I/O, RFC 0031 Universal Native I/O Envelope, RFC 0032 Capability Surface, RFC 0033 User Workflow, RFC 0034 Engine Fabric, and RFC 0035 REST/Event/API.
+- The phase plan's Active section now reflects the current docs session and moves merged CG-5.18 evidence into the completed ledger.
+- RFC 0002 now clarifies that ShardLoom is standalone from external query-engine fallback while upstream Vortex array, compute, scan, source, and sink APIs may be native providers when approved, feature-gated, version-recorded, policy-admitted, and certificate-backed.
+- The Vortex Scan API skill prompt now preserves ShardLoom-owned admission, policy, diagnostics, certificate, and capability semantics instead of implying low-level upstream Vortex scan/source/sink providers are forbidden.
+- The Vortex upstream dependency review now labels old PR-era fields as historical and points readers to the phase plan plus Vortex public API inventory for current executable support.
+- The current RFC/phase mapping already covers the newly supplied CG-21 user workflow, CG-22 batch/live/hybrid, CG-23 remote API, operational evidence/policy/workload/protocol hardening, and Vortex upstream/provider alignment items; no new CG lane is introduced.
+- This phase adds no runtime behavior, dependency, Vortex API call, reader/writer, benchmark execution, package publication, external engine invocation, superiority claim, or fallback execution.
+
 ## CG-5.1 metadata query primitive correctness fixtures
 
 - Primary RFC linkage: RFC 0015 Correctness/Semantics/Differential Testing, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.
