@@ -16,6 +16,33 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 typed envelope CLI module split
+  - Primary files:
+    - `shardloom-cli/src/typed_envelope.rs`
+    - `shardloom-cli/src/main.rs`
+    - `docs/architecture/typed-command-result-envelope.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/rfcs/0039-typed-command-result-envelope-cli-modularity.md`
+  - Scope: move shared typed-envelope field/ref routing out of the monolithic CLI entrypoint into
+    a dedicated protocol module without changing command behavior.
+  - Checklist:
+    - [x] Add `shardloom-cli/src/typed_envelope.rs` for shared policy/lifecycle/capability/result
+          field routing and typed result/artifact/certificate ref attachment.
+    - [x] Keep command handlers in `main.rs` for now, but route all emitted fields through the
+          shared module.
+    - [x] Move typed-envelope routing unit tests into the module.
+    - [x] Update RFC/traceability/typed-envelope docs and keep broader handler-family
+          modularization active in the Planned queue.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli typed_envelope --bin shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test api_protocol_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `git diff --check`
+  - Runtime stance: protocol/refactor slice only; no runtime expansion, external engine
+    invocation, network effect, dataset probe, write, materialization, or fallback execution
+    changes.
+
 - [x] Session label: Priority 3.9 typed envelope reference routing
   - Primary files:
     - `shardloom-cli/src/main.rs`
