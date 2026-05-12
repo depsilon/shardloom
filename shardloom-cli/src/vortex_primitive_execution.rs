@@ -3,8 +3,9 @@
 //! This module starts the physical split for Vortex primitive command handlers
 //! while preserving existing no-fallback execution contracts. This slice only
 //! owns `vortex-count`, `vortex-count-where`, `vortex-project`,
-//! `vortex-filter`, `vortex-filter-project`, and `vortex-query-trace`;
-//! broader run/local-engine extraction remains staged.
+//! `vortex-filter`, `vortex-filter-project`, `vortex-local-exec`, and
+//! `vortex-query-trace`; broader run/bounded-local-engine extraction remains
+//! staged.
 
 use std::process::ExitCode;
 
@@ -13,8 +14,8 @@ use shardloom_plan::ProjectionRequest;
 use shardloom_vortex::{
     VortexMetadataOpenRequest, VortexMetadataProbeReport, VortexQueryPrimitiveRequest,
     VortexQueryPrimitiveValue, evaluate_vortex_query_primitive,
-    evaluate_vortex_query_primitive_with_analysis, open_vortex_metadata_only,
-    summarize_vortex_metadata_probe,
+    evaluate_vortex_query_primitive_with_analysis, execute_vortex_local_query_primitive,
+    open_vortex_metadata_only, summarize_vortex_metadata_probe,
 };
 
 use crate::cli_output::{emit, emit_error};
@@ -524,6 +525,97 @@ pub(crate) fn handle_vortex_filter(
         crate::vortex_filter_fields(&result, predicate_arg, local_execution.as_ref()),
     );
     if command_has_errors {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+pub(crate) fn handle_vortex_local_exec(
+    mut args: std::vec::IntoIter<String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let Some(uri_arg) = args.next() else {
+        eprintln!("usage: shardloom vortex-local-exec <dataset_uri> <primitive>");
+        return ExitCode::from(2);
+    };
+    let Some(primitive_arg) = args.next() else {
+        eprintln!("usage: shardloom vortex-local-exec <dataset_uri> <primitive>");
+        return ExitCode::from(2);
+    };
+    let uri = match DatasetUri::new(uri_arg) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                "vortex-local-exec",
+                format,
+                "vortex local exec failed",
+                &error,
+            );
+        }
+    };
+    let request = match crate::parse_vortex_primitive_request(uri.clone(), &primitive_arg) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                "vortex-local-exec",
+                format,
+                "vortex local exec failed",
+                &error,
+            );
+        }
+    };
+    let summary = open_vortex_metadata_only(VortexMetadataOpenRequest::metadata_only(uri))
+        .ok()
+        .and_then(|report| report.metadata_summary);
+    let report = match execute_vortex_local_query_primitive(request, summary) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                "vortex-local-exec",
+                format,
+                "vortex local exec failed",
+                &error,
+            );
+        }
+    };
+    emit(
+        "vortex-local-exec",
+        format,
+        if report.has_errors() {
+            CommandStatus::Unsupported
+        } else {
+            CommandStatus::Success
+        },
+        "vortex local execution loop skeleton".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        vec![
+            (
+                "fallback_execution_allowed".to_string(),
+                "false".to_string(),
+            ),
+            ("mode".to_string(), "vortex_local_exec".to_string()),
+            ("primitive".to_string(), primitive_arg),
+            ("tasks_executed".to_string(), "false".to_string()),
+            ("data_read".to_string(), "false".to_string()),
+            ("data_decoded".to_string(), "false".to_string()),
+            ("data_materialized".to_string(), "false".to_string()),
+            ("object_store_io".to_string(), "false".to_string()),
+            ("write_io".to_string(), "false".to_string()),
+            ("spill_io_performed".to_string(), "false".to_string()),
+            ("external_effects_executed".to_string(), "false".to_string()),
+            (
+                "execution".to_string(),
+                "metadata_only_or_not_performed".to_string(),
+            ),
+            (
+                "result_known".to_string(),
+                report.value.is_known().to_string(),
+            ),
+        ],
+    );
+    if report.has_errors() {
         ExitCode::from(1)
     } else {
         ExitCode::SUCCESS

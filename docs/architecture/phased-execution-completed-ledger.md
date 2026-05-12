@@ -16,6 +16,34 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 Vortex local execution skeleton handler module split
+  - Primary files:
+    - `shardloom-cli/src/vortex_primitive_execution.rs`
+    - `shardloom-cli/src/main.rs`
+    - `docs/architecture/typed-command-result-envelope.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/rfcs/0039-typed-command-result-envelope-cli-modularity.md`
+  - Scope: move `vortex-local-exec` into the Vortex primitive execution handler module while
+    preserving its metadata-only or report-only execution-loop skeleton behavior.
+  - Checklist:
+    - [x] Delegate `vortex-local-exec` from `main.rs`.
+    - [x] Preserve metadata-only local execution-loop skeleton behavior.
+    - [x] Preserve typed no-fallback lifecycle/policy fields.
+    - [x] Preserve no external engine invocation and no fallback execution.
+    - [x] Update Priority 3.9 docs, RFC traceability, and RFC 0039 status.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo check -p shardloom-cli --bin shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli vortex_local_exec`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test typed_envelope_contract_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test python_wrapper_snapshots`
+    - [x] `.\target\debug\shardloom.exe vortex-local-exec file:///tmp/example.vortex count --format json`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo clippy -p shardloom-cli --bin shardloom -- -D warnings`
+    - [x] `git diff --check`
+  - Runtime stance: handler split only; no new primitive semantics, benchmark behavior,
+    external engine invocation, materialization, writes, or fallback execution is authorized.
+
 - [x] Session label: Priority 3.9 Vortex filter primitive handler module split
   - Primary files:
     - `shardloom-cli/src/vortex_primitive_execution.rs`
