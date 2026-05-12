@@ -16,6 +16,38 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 Vortex local engine handler module split
+  - Primary files:
+    - `shardloom-cli/src/vortex_primitive_execution.rs`
+    - `shardloom-cli/src/main.rs`
+    - `docs/architecture/typed-command-result-envelope.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/rfcs/0039-typed-command-result-envelope-cli-modularity.md`
+  - Scope: move `vortex-run` into the Vortex primitive execution handler module while preserving
+    local-engine parsing, work-avoidance fields, local primitive Native I/O certificate fields,
+    local primitive execution certificate fields, why-report reconciliation, and no-fallback
+    output behavior.
+  - Checklist:
+    - [x] Delegate `vortex-run` from `main.rs`.
+    - [x] Preserve local engine request parsing for primitive, memory budget, and parallelism.
+    - [x] Preserve work-avoidance, Native I/O certificate, execution-certificate, and why-report
+          field emission.
+    - [x] Preserve typed no-fallback lifecycle/policy fields.
+    - [x] Preserve no external engine invocation and no fallback execution.
+    - [x] Update Priority 3.9 docs, RFC traceability, and RFC 0039 status.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo check -p shardloom-cli --bin shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli vortex_run`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test typed_envelope_contract_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test python_wrapper_snapshots`
+    - [x] `.\target\debug\shardloom.exe vortex-run file:///tmp/example.vortex count 1 2 --format json | Out-Null; $code = $LASTEXITCODE; if ($code -ne 0) { throw "expected success exit 0, got $code" }; exit 0`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo clippy -p shardloom-cli --bin shardloom -- -D warnings`
+    - [x] `git diff --check`
+  - Runtime stance: handler split only; no new local-engine semantics, benchmark behavior,
+    external engine invocation, materialization, writes, or fallback execution is authorized.
+
 - [x] Session label: Priority 3.9 Vortex bounded local execution handler module split
   - Primary files:
     - `shardloom-cli/src/vortex_primitive_execution.rs`

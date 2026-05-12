@@ -172,10 +172,10 @@ use shardloom_vortex::{
     local_primitive_native_io_certificate, metadata_planning_is_side_effect_free,
     metadata_pruning_is_side_effect_free, metadata_summary_is_plan_only,
     native_output_payload_write_request_from_plan, open_vortex_metadata_only,
-    output_payload_artifact_write_request_from_plan, parse_vortex_local_engine_primitive,
-    plan_from_vortex_metadata_summary, plan_native_vortex_universal_input,
-    plan_vortex_commit_intent, plan_vortex_commit_marker, plan_vortex_commit_protocol,
-    plan_vortex_count_readiness, plan_vortex_encoded_count_data_path_approval,
+    output_payload_artifact_write_request_from_plan, plan_from_vortex_metadata_summary,
+    plan_native_vortex_universal_input, plan_vortex_commit_intent, plan_vortex_commit_marker,
+    plan_vortex_commit_protocol, plan_vortex_count_readiness,
+    plan_vortex_encoded_count_data_path_approval,
     plan_vortex_encoded_count_data_path_approval_with_layout_driver,
     plan_vortex_encoded_execution_path_selection, plan_vortex_encoded_read_boundary,
     plan_vortex_encoded_read_probe, plan_vortex_filtered_count_readiness,
@@ -186,9 +186,8 @@ use shardloom_vortex::{
     plan_vortex_query_primitive_result_physical_operators_with_evidence,
     plan_vortex_read_from_universal_input, plan_vortex_scheduler_queue,
     plan_vortex_staged_manifest_file, plan_vortex_write_intent, probe_vortex_encoded_read_metadata,
-    probe_vortex_metadata_only, run_vortex_local_engine, setup_vortex_staged_workspace,
-    size_vortex_runtime_task_graph, summarize_vortex_metadata_probe,
-    vortex_encoded_count_local_guard_discovery_report,
+    probe_vortex_metadata_only, setup_vortex_staged_workspace, size_vortex_runtime_task_graph,
+    summarize_vortex_metadata_probe, vortex_encoded_count_local_guard_discovery_report,
     vortex_encoded_count_physical_kernel_discovery_report,
     vortex_encoded_predicate_evaluation_discovery_report,
     vortex_encoded_read_executor_feature_enabled,
@@ -6434,7 +6433,7 @@ fn append_vortex_work_avoided_metric_fields(
     );
 }
 
-fn reconcile_vortex_local_engine_why_with_execution_certificate(
+pub(crate) fn reconcile_vortex_local_engine_why_with_execution_certificate(
     report: &mut VortexLocalEngineWhyReport,
     certificate: Option<&ExecutionCertificate>,
 ) {
@@ -6455,7 +6454,7 @@ fn reconcile_vortex_local_engine_why_with_execution_certificate(
     }
 }
 
-fn append_vortex_local_engine_why_fields(
+pub(crate) fn append_vortex_local_engine_why_fields(
     fields: &mut Vec<(String, String)>,
     report: &VortexLocalEngineWhyReport,
 ) {
@@ -14130,7 +14129,7 @@ fn local_foundation_fixture_for_target(
         })
 }
 
-fn local_primitive_correctness_fixture_for_request(
+pub(crate) fn local_primitive_correctness_fixture_for_request(
     request: &VortexQueryPrimitiveRequest,
     report: &shardloom_vortex::VortexLocalPrimitiveExecutionReport,
 ) -> Option<CorrectnessFixture> {
@@ -14820,7 +14819,7 @@ fn append_vortex_count_local_native_io_side_effect_fields(
     );
 }
 
-fn append_vortex_local_primitive_native_io_certificate_fields(
+pub(crate) fn append_vortex_local_primitive_native_io_certificate_fields(
     fields: &mut Vec<(String, String)>,
     certificate: Option<&NativeIoCertificate>,
 ) {
@@ -15052,7 +15051,7 @@ fn append_vortex_local_primitive_native_io_side_effect_fields(
     );
 }
 
-fn append_vortex_local_primitive_execution_certificate_fields(
+pub(crate) fn append_vortex_local_primitive_execution_certificate_fields(
     fields: &mut Vec<(String, String)>,
     certificate: Option<&ExecutionCertificate>,
 ) {
@@ -25980,404 +25979,7 @@ fn run(args: Vec<String>) -> ExitCode {
         Some("vortex-bounded-local-exec") => {
             vortex_primitive_execution::handle_vortex_bounded_local_exec(args, format)
         }
-        Some("vortex-run") => {
-            let Some(uri_arg) = args.next() else {
-                eprintln!(
-                    "usage: shardloom vortex-run <dataset_uri> <primitive> <memory_gb> <max_parallelism>"
-                );
-                return ExitCode::from(2);
-            };
-            let Some(primitive_arg) = args.next() else {
-                eprintln!(
-                    "usage: shardloom vortex-run <dataset_uri> <primitive> <memory_gb> <max_parallelism>"
-                );
-                return ExitCode::from(2);
-            };
-            let Some(memory_gb_text) = args.next() else {
-                eprintln!(
-                    "usage: shardloom vortex-run <dataset_uri> <primitive> <memory_gb> <max_parallelism>"
-                );
-                return ExitCode::from(2);
-            };
-            let Some(max_parallelism_text) = args.next() else {
-                eprintln!(
-                    "usage: shardloom vortex-run <dataset_uri> <primitive> <memory_gb> <max_parallelism>"
-                );
-                return ExitCode::from(2);
-            };
-            let uri = match DatasetUri::new(uri_arg) {
-                Ok(v) => v,
-                Err(error) => return emit_error("vortex-run", format, "vortex run failed", &error),
-            };
-            let primitive = match parse_vortex_local_engine_primitive(&primitive_arg) {
-                Ok(v) => v,
-                Err(error) => return emit_error("vortex-run", format, "vortex run failed", &error),
-            };
-            let memory_gb: u64 = match memory_gb_text.parse() {
-                Ok(v) => v,
-                Err(_) => {
-                    return emit_error(
-                        "vortex-run",
-                        format,
-                        "vortex run failed",
-                        &ShardLoomError::InvalidOperation(
-                            "memory_gb must be an unsigned integer".to_string(),
-                        ),
-                    );
-                }
-            };
-            let max_parallelism: usize = match max_parallelism_text.parse() {
-                Ok(v) => v,
-                Err(_) => {
-                    return emit_error(
-                        "vortex-run",
-                        format,
-                        "vortex run failed",
-                        &ShardLoomError::InvalidOperation(
-                            "max_parallelism must be an unsigned integer".to_string(),
-                        ),
-                    );
-                }
-            };
-            let request = match shardloom_vortex::VortexLocalEngineRequest::new(
-                uri,
-                primitive,
-                memory_gb,
-                max_parallelism,
-            ) {
-                Ok(v) => v,
-                Err(error) => return emit_error("vortex-run", format, "vortex run failed", &error),
-            };
-            let report = match run_vortex_local_engine(request) {
-                Ok(v) => v,
-                Err(error) => return emit_error("vortex-run", format, "vortex run failed", &error),
-            };
-            let runtime_work_avoided = report.runtime_work_avoided_report();
-            let mut why_report = report.why_report();
-            let local_primitive_native_io_certificate = match (
-                report.query_request.as_ref(),
-                report.local_primitive_execution_report.as_ref(),
-            ) {
-                (Some(query_request), Some(local_report)) => {
-                    match local_primitive_native_io_certificate(query_request, local_report) {
-                        Ok(certificate) => Some(certificate),
-                        Err(error) => {
-                            return emit_error(
-                                "vortex-run",
-                                format,
-                                "vortex local primitive native I/O certificate failed",
-                                &error,
-                            );
-                        }
-                    }
-                }
-                _ => None,
-            };
-            let local_primitive_execution_certificate = match (
-                report.query_request.as_ref(),
-                report.local_primitive_execution_report.as_ref(),
-            ) {
-                (Some(query_request), Some(local_report)) => {
-                    match local_primitive_correctness_fixture_for_request(
-                        query_request,
-                        local_report,
-                    ) {
-                        Some(fixture) => {
-                            match local_primitive_execution_certificate(
-                                &fixture,
-                                query_request,
-                                local_report,
-                            ) {
-                                Ok(certificate) => Some(certificate),
-                                Err(error) => {
-                                    return emit_error(
-                                        "vortex-run",
-                                        format,
-                                        "vortex local primitive execution certificate failed",
-                                        &error,
-                                    );
-                                }
-                            }
-                        }
-                        None => None,
-                    }
-                }
-                _ => None,
-            };
-            reconcile_vortex_local_engine_why_with_execution_certificate(
-                &mut why_report,
-                local_primitive_execution_certificate.as_ref(),
-            );
-            let row_read = report
-                .local_primitive_execution_report
-                .as_ref()
-                .is_some_and(|local| local.row_read);
-            let arrow_converted = report
-                .local_primitive_execution_report
-                .as_ref()
-                .is_some_and(|local| local.arrow_converted);
-            let mut fields = vec![
-                (
-                    "fallback_execution_allowed".to_string(),
-                    "false".to_string(),
-                ),
-                ("mode".to_string(), "vortex_run".to_string()),
-                ("primitive".to_string(), primitive_arg),
-                ("memory_gb".to_string(), memory_gb.to_string()),
-                ("max_parallelism".to_string(), max_parallelism.to_string()),
-                (
-                    "metadata_open_report_present".to_string(),
-                    report.metadata_open_report.is_some().to_string(),
-                ),
-                (
-                    "metadata_open_status".to_string(),
-                    report.metadata_open_report.as_ref().map_or_else(
-                        || "none".to_string(),
-                        |open| open.open_status.as_str().to_string(),
-                    ),
-                ),
-                (
-                    "metadata_open_feature_enabled".to_string(),
-                    report.metadata_open_report.as_ref().map_or_else(
-                        || "false".to_string(),
-                        |open| open.feature_status.is_enabled().to_string(),
-                    ),
-                ),
-                (
-                    "file_io_performed".to_string(),
-                    report.metadata_open_report.as_ref().map_or_else(
-                        || "false".to_string(),
-                        |open| open.file_io_performed.to_string(),
-                    ),
-                ),
-                (
-                    "data_io_performed".to_string(),
-                    report.data_read.to_string(),
-                ),
-                (
-                    "object_store_io_performed".to_string(),
-                    report.object_store_io.to_string(),
-                ),
-                (
-                    "write_io_performed".to_string(),
-                    report.write_io.to_string(),
-                ),
-                ("result_known".to_string(), report.result_known.to_string()),
-                (
-                    "tasks_executed".to_string(),
-                    report.tasks_executed.to_string(),
-                ),
-                ("data_read".to_string(), report.data_read.to_string()),
-                ("data_decoded".to_string(), report.data_decoded.to_string()),
-                (
-                    "data_materialized".to_string(),
-                    report.data_materialized.to_string(),
-                ),
-                ("row_read".to_string(), row_read.to_string()),
-                ("arrow_converted".to_string(), arrow_converted.to_string()),
-                (
-                    "object_store_io".to_string(),
-                    report.object_store_io.to_string(),
-                ),
-                ("write_io".to_string(), report.write_io.to_string()),
-                (
-                    "spill_io_performed".to_string(),
-                    report.spill_io_performed.to_string(),
-                ),
-                (
-                    "external_effects_executed".to_string(),
-                    report.external_effects_executed.to_string(),
-                ),
-                (
-                    "local_primitive_report_present".to_string(),
-                    report
-                        .local_primitive_execution_report
-                        .is_some()
-                        .to_string(),
-                ),
-                (
-                    "local_primitive_status".to_string(),
-                    report
-                        .local_primitive_execution_report
-                        .as_ref()
-                        .map_or_else(
-                            || "none".to_string(),
-                            |local| local.status.as_str().to_string(),
-                        ),
-                ),
-                (
-                    "local_primitive_mode".to_string(),
-                    report
-                        .local_primitive_execution_report
-                        .as_ref()
-                        .map_or_else(
-                            || "none".to_string(),
-                            |local| local.mode.as_str().to_string(),
-                        ),
-                ),
-                (
-                    "local_primitive_rows_scanned".to_string(),
-                    report
-                        .local_primitive_execution_report
-                        .as_ref()
-                        .map_or_else(|| "0".to_string(), |local| local.rows_scanned.to_string()),
-                ),
-                (
-                    "local_primitive_rows_selected".to_string(),
-                    report
-                        .local_primitive_execution_report
-                        .as_ref()
-                        .and_then(|local| local.rows_selected)
-                        .map_or_else(|| "none".to_string(), |rows| rows.to_string()),
-                ),
-                (
-                    "local_primitive_projected_columns".to_string(),
-                    report
-                        .local_primitive_execution_report
-                        .as_ref()
-                        .map_or_else(String::new, |local| local.projected_columns.join(",")),
-                ),
-                (
-                    "local_primitive_arrays_read_count".to_string(),
-                    report
-                        .local_primitive_execution_report
-                        .as_ref()
-                        .map_or_else(
-                            || "0".to_string(),
-                            |local| local.arrays_read_count.to_string(),
-                        ),
-                ),
-                (
-                    "local_primitive_max_chunk_rows".to_string(),
-                    report
-                        .local_primitive_execution_report
-                        .as_ref()
-                        .map_or_else(|| "0".to_string(), |local| local.max_chunk_rows.to_string()),
-                ),
-                (
-                    "local_primitive_streaming_scan_used".to_string(),
-                    report
-                        .local_primitive_execution_report
-                        .as_ref()
-                        .is_some_and(|local| local.streaming_scan_used)
-                        .to_string(),
-                ),
-                (
-                    "local_primitive_full_stream_collected".to_string(),
-                    report
-                        .local_primitive_execution_report
-                        .as_ref()
-                        .is_some_and(|local| local.full_stream_collected)
-                        .to_string(),
-                ),
-                (
-                    "local_primitive_max_parallelism_requested".to_string(),
-                    report
-                        .local_primitive_execution_report
-                        .as_ref()
-                        .map_or_else(
-                            || "0".to_string(),
-                            |local| local.max_parallelism_requested.to_string(),
-                        ),
-                ),
-                (
-                    "local_primitive_scan_concurrency_per_worker".to_string(),
-                    report
-                        .local_primitive_execution_report
-                        .as_ref()
-                        .map_or_else(
-                            || "0".to_string(),
-                            |local| local.scan_concurrency_per_worker.to_string(),
-                        ),
-                ),
-                (
-                    "local_primitive_filter_pushdown_applied".to_string(),
-                    report
-                        .local_primitive_execution_report
-                        .as_ref()
-                        .is_some_and(|local| local.filter_pushdown_applied)
-                        .to_string(),
-                ),
-                (
-                    "local_primitive_projection_pushdown_applied".to_string(),
-                    report
-                        .local_primitive_execution_report
-                        .as_ref()
-                        .is_some_and(|local| local.projection_pushdown_applied)
-                        .to_string(),
-                ),
-                (
-                    "local_primitive_upstream_filter_expression_used".to_string(),
-                    report
-                        .local_primitive_execution_report
-                        .as_ref()
-                        .is_some_and(|local| local.upstream_filter_expression_used)
-                        .to_string(),
-                ),
-                (
-                    "local_primitive_upstream_projection_expression_used".to_string(),
-                    report
-                        .local_primitive_execution_report
-                        .as_ref()
-                        .is_some_and(|local| local.upstream_projection_expression_used)
-                        .to_string(),
-                ),
-                (
-                    "local_primitive_materialization_boundary_reported".to_string(),
-                    report
-                        .local_primitive_execution_report
-                        .as_ref()
-                        .is_some_and(|local| local.materialization_boundary_reported)
-                        .to_string(),
-                ),
-                (
-                    "execution".to_string(),
-                    if report.data_read {
-                        "local_vortex_primitive_performed".to_string()
-                    } else {
-                        "metadata_only_or_not_performed".to_string()
-                    },
-                ),
-            ];
-            append_vortex_work_avoided_fields(&mut fields, Some(&runtime_work_avoided));
-            append_vortex_local_primitive_native_io_certificate_fields(
-                &mut fields,
-                local_primitive_native_io_certificate.as_ref(),
-            );
-            append_vortex_local_primitive_execution_certificate_fields(
-                &mut fields,
-                local_primitive_execution_certificate.as_ref(),
-            );
-            append_vortex_local_engine_why_fields(&mut fields, &why_report);
-            let execution_certificate_text = local_primitive_execution_certificate
-                .as_ref()
-                .map_or_else(String::new, |certificate| {
-                    format!("\n\n{}", certificate.to_human_text())
-                });
-            emit(
-                "vortex-run",
-                format,
-                if report.has_errors() {
-                    CommandStatus::Unsupported
-                } else {
-                    CommandStatus::Success
-                },
-                "vortex local engine surface".to_string(),
-                format!(
-                    "{}\n{}{}",
-                    report.to_human_text(),
-                    why_report.to_human_text(),
-                    execution_certificate_text
-                ),
-                report.diagnostics.clone(),
-                fields,
-            );
-            if report.has_errors() {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            }
-        }
+        Some("vortex-run") => vortex_primitive_execution::handle_vortex_run(args, format),
         Some("vortex-query-trace") => {
             vortex_primitive_execution::handle_vortex_query_trace(args, format)
         }

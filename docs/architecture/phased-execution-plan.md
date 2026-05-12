@@ -226,6 +226,9 @@ actionable work.
     - [x] Move the Vortex bounded local execution handler, `vortex-bounded-local-exec`, into
           `shardloom-cli/src/vortex_primitive_execution.rs` while preserving bounded policy,
           guard-field, and no-fallback behavior.
+    - [x] Move the broader Vortex local engine handler, `vortex-run`, into
+          `shardloom-cli/src/vortex_primitive_execution.rs` while preserving local-engine
+          certificate, why-report, work-avoidance, and no-fallback behavior.
     - [ ] Move remaining command-family handlers out of `main.rs` after the shared
           `typed_envelope` routing module and `command_family` taxonomy.
     - [ ] Split handlers by status/capabilities, Vortex primitive execution,
