@@ -11,6 +11,20 @@ When a session or PR completes, add its completed block near the top of the Rece
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: reader-generated encoded kernel-input lowering admission
+  - Primary files:
+    - `shardloom-vortex/src/source_backed_encoded_execution.rs`
+    - `shardloom-vortex/src/generalized_encoded_primitive_gate.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: add a conservative reader-generated encoded kernel-input admission surface that can execute filter, projection, and filter-project prepared paths only when explicit source, split, row-count, dtype/encoding/value mapping, reader-effect, and no-fallback evidence exists.
+  - Checklist:
+    - [x] Add `VortexReaderGeneratedEncodedKernelInput` for explicitly mapped encoded values tied to reader split refs.
+    - [x] Extend reader-generated prepared-batch reports with encoded-kernel-input counts, split-ref coverage, source matching, row-count matching, mapping evidence, and runtime-admission fields.
+    - [x] Add reader-generated filter and projection execution helpers that lower admitted kernel inputs into source-backed prepared execution while marking opaque chunk extraction as still blocked.
+    - [x] Keep direct extraction from actual opaque Vortex reader chunks open until upstream chunk dtype/encoding APIs expose values without decode or materialization.
+  - Non-goals preserved:
+    - [x] No decoded Arrow/row materialization, object-store IO, writes, spill IO, external effects, external query-engine residual evaluation, package/dependency change, or fallback execution.
 - [x] Session label: completed ledger split from compact phase plan
   - Primary files:
     - `docs/architecture/phased-execution-plan.md`
