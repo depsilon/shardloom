@@ -16,6 +16,37 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: claim-grade correctness closeout gate
+  - Primary files:
+    - `shardloom-core/src/correctness.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/correctness_harness_plan_snapshots.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: make claim-grade CG-5 correctness closeout explicitly blocked until external-oracle
+    results, property/fuzz execution, and deferred fixture-family artifacts are populated without
+    treating declared evidence as executed evidence.
+  - Checklist:
+    - [x] Add claim-grade correctness closeout required/allowed fields and blocker ordering to
+          `CorrectnessDifferentialHarnessReport`.
+    - [x] Surface external-oracle execution and deferred fixture-family artifact population
+          requirements through the CLI JSON contract.
+    - [x] Keep `production_claim_allowed=false` and benchmark claims blocked while the closeout
+          blockers remain.
+    - [x] Preserve no-execution/no-fallback status for decoded references, external engines,
+          property/fuzz runs, data reads, object-store IO, and writes.
+  - Validation status:
+    - [x] `cargo test -p shardloom-core correctness_harness --lib`
+    - [x] `cargo test -p shardloom-cli --bin shardloom correctness_harness_fields`
+    - [x] `cargo test -p shardloom-cli correctness_harness --test correctness_harness_plan_snapshots`
+    - [x] `cargo fmt --all -- --check`
+    - [x] `cargo clippy -p shardloom-core --lib -- -D warnings`
+    - [x] `cargo clippy -p shardloom-cli --all-targets -- -D warnings`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `git diff --check`
+  - Non-goals preserved:
+    - [x] No decoded-reference execution, external-oracle execution, external engine invocation,
+          property/fuzz execution, data read, object-store IO, write IO, benchmark execution,
+          production correctness claim, benchmark claim, or fallback execution.
 - [x] Session label: Conda build/install certification gate
   - Primary files:
     - `shardloom-core/src/release.rs`

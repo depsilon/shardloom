@@ -1349,6 +1349,33 @@ fn correctness_harness_fields(
     );
     push_bool_field(
         &mut fields,
+        "claim_grade_correctness_closeout_required",
+        report.claim_grade_correctness_closeout_required,
+    );
+    push_bool_field(
+        &mut fields,
+        "claim_grade_correctness_closeout_allowed",
+        report.claim_grade_correctness_closeout_allowed,
+    );
+    push_field(
+        &mut fields,
+        "claim_grade_correctness_closeout_blocker_order",
+        &report
+            .claim_grade_correctness_closeout_blocker_order
+            .join(","),
+    );
+    push_bool_field(
+        &mut fields,
+        "external_oracle_execution_required",
+        report.external_oracle_execution_required,
+    );
+    push_bool_field(
+        &mut fields,
+        "deferred_fixture_family_artifact_population_required",
+        report.deferred_fixture_family_artifact_population_required,
+    );
+    push_bool_field(
+        &mut fields,
         "decoded_reference_outputs_required",
         report.decoded_reference_outputs_required,
     );
@@ -32986,7 +33013,7 @@ mod tests {
     }
 
     #[test]
-    fn correctness_harness_fields_include_claim_blockers_and_no_execution() {
+    fn correctness_harness_fields_include_fixture_and_oracle_gaps() {
         let report = plan_correctness_differential_harness(
             CorrectnessValidationPlan::default_foundation_plan(),
         );
@@ -33067,9 +33094,41 @@ mod tests {
             output_field(&fields, "external_oracle_artifacts_test_only"),
             "true"
         );
+    }
+
+    #[test]
+    fn correctness_harness_fields_include_claim_closeout_blockers_and_no_execution() {
+        let report = plan_correctness_differential_harness(
+            CorrectnessValidationPlan::default_foundation_plan(),
+        );
+        let fields = correctness_harness_fields(&report);
+
         assert_eq!(
             output_field(&fields, "benchmark_claim_blocker_order"),
             "deferred_fixture_family_artifacts_not_populated,external_oracle_results_not_populated,property_fuzz_execution_not_performed"
+        );
+        assert_eq!(
+            output_field(&fields, "claim_grade_correctness_closeout_required"),
+            "true"
+        );
+        assert_eq!(
+            output_field(&fields, "claim_grade_correctness_closeout_allowed"),
+            "false"
+        );
+        assert_eq!(
+            output_field(&fields, "claim_grade_correctness_closeout_blocker_order"),
+            "deferred_fixture_family_artifacts_not_populated,external_oracle_results_not_populated,property_fuzz_execution_not_performed"
+        );
+        assert_eq!(
+            output_field(&fields, "external_oracle_execution_required"),
+            "true"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "deferred_fixture_family_artifact_population_required"
+            ),
+            "true"
         );
         assert_eq!(
             output_field(&fields, "property_fuzz_execution_performed"),
