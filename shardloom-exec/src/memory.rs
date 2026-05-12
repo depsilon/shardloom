@@ -870,6 +870,389 @@ pub fn plan_operator_memory_spill_declarations() -> OperatorMemorySpillDeclarati
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MemoryRuntimeHardeningSurface {
+    MemoryReservationAdmission,
+    OperatorMemorySpillDeclarationGate,
+    SpillReservationIntegrationPlan,
+    SpillLifecyclePlan,
+    DynamicRuntimePromotionReference,
+    ResourceDerivedChunkSizingRuntime,
+    AdaptiveParallelismRuntime,
+    MemoryReservationReleaseRuntime,
+    PressureReactionRuntime,
+    NativeSpillWriteRuntime,
+    NativeSpillReadRuntime,
+    SpillCleanupExecution,
+    AllocatorRuntimeIntegration,
+    BenchmarkCertificateCloseout,
+}
+
+impl MemoryRuntimeHardeningSurface {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::MemoryReservationAdmission => "memory_reservation_admission",
+            Self::OperatorMemorySpillDeclarationGate => "operator_memory_spill_declaration_gate",
+            Self::SpillReservationIntegrationPlan => "spill_reservation_integration_plan",
+            Self::SpillLifecyclePlan => "spill_lifecycle_plan",
+            Self::DynamicRuntimePromotionReference => "dynamic_runtime_promotion_reference",
+            Self::ResourceDerivedChunkSizingRuntime => "resource_derived_chunk_sizing_runtime",
+            Self::AdaptiveParallelismRuntime => "adaptive_parallelism_runtime",
+            Self::MemoryReservationReleaseRuntime => "memory_reservation_release_runtime",
+            Self::PressureReactionRuntime => "pressure_reaction_runtime",
+            Self::NativeSpillWriteRuntime => "native_spill_write_runtime",
+            Self::NativeSpillReadRuntime => "native_spill_read_runtime",
+            Self::SpillCleanupExecution => "spill_cleanup_execution",
+            Self::AllocatorRuntimeIntegration => "allocator_runtime_integration",
+            Self::BenchmarkCertificateCloseout => "benchmark_certificate_closeout",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MemoryRuntimeHardeningStatus {
+    ExistingNarrowEvidence,
+    BlockedUntilCertified,
+}
+
+impl MemoryRuntimeHardeningStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::ExistingNarrowEvidence => "existing_narrow_evidence",
+            Self::BlockedUntilCertified => "blocked_until_certified",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_existing_evidence(&self) -> bool {
+        matches!(self, Self::ExistingNarrowEvidence)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct MemoryRuntimeHardeningGateEntry {
+    pub surface: MemoryRuntimeHardeningSurface,
+    pub status: MemoryRuntimeHardeningStatus,
+    pub existing_report_ref: Option<&'static str>,
+    pub requires_runtime_metrics: bool,
+    pub requires_memory_budget: bool,
+    pub requires_reservation_lifecycle: bool,
+    pub requires_spill_policy: bool,
+    pub requires_cleanup_recovery: bool,
+    pub requires_execution_certificate: bool,
+    pub requires_native_io_certificate: bool,
+    pub requires_benchmark_evidence: bool,
+    pub runtime_allowed: bool,
+    pub spill_io_allowed: bool,
+    pub fallback_execution_allowed: bool,
+}
+
+impl MemoryRuntimeHardeningGateEntry {
+    #[must_use]
+    pub const fn existing(
+        surface: MemoryRuntimeHardeningSurface,
+        existing_report_ref: &'static str,
+    ) -> Self {
+        Self {
+            surface,
+            status: MemoryRuntimeHardeningStatus::ExistingNarrowEvidence,
+            existing_report_ref: Some(existing_report_ref),
+            requires_runtime_metrics: false,
+            requires_memory_budget: false,
+            requires_reservation_lifecycle: false,
+            requires_spill_policy: false,
+            requires_cleanup_recovery: false,
+            requires_execution_certificate: false,
+            requires_native_io_certificate: false,
+            requires_benchmark_evidence: false,
+            runtime_allowed: false,
+            spill_io_allowed: false,
+            fallback_execution_allowed: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn blocked(surface: MemoryRuntimeHardeningSurface) -> Self {
+        Self {
+            surface,
+            status: MemoryRuntimeHardeningStatus::BlockedUntilCertified,
+            existing_report_ref: None,
+            requires_runtime_metrics: true,
+            requires_memory_budget: true,
+            requires_reservation_lifecycle: true,
+            requires_spill_policy: true,
+            requires_cleanup_recovery: true,
+            requires_execution_certificate: true,
+            requires_native_io_certificate: true,
+            requires_benchmark_evidence: true,
+            runtime_allowed: false,
+            spill_io_allowed: false,
+            fallback_execution_allowed: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn side_effect_free(&self) -> bool {
+        !self.runtime_allowed && !self.spill_io_allowed && !self.fallback_execution_allowed
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct MemoryRuntimeHardeningGateReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub entries: Vec<MemoryRuntimeHardeningGateEntry>,
+    pub existing_report_refs: Vec<&'static str>,
+    pub existing_memory_reservation_admission_present: bool,
+    pub existing_operator_memory_spill_declaration_gate_present: bool,
+    pub existing_spill_reservation_integration_present: bool,
+    pub existing_spill_lifecycle_plan_present: bool,
+    pub existing_dynamic_runtime_promotion_gate_present: bool,
+    pub resource_derived_chunk_sizing_allowed: bool,
+    pub adaptive_parallelism_allowed: bool,
+    pub memory_reservation_release_allowed: bool,
+    pub pressure_reaction_runtime_allowed: bool,
+    pub native_spill_write_allowed: bool,
+    pub native_spill_read_allowed: bool,
+    pub spill_cleanup_execution_allowed: bool,
+    pub allocator_runtime_allowed: bool,
+    pub runtime_policy_mutation_allowed: bool,
+    pub large_workload_claim_allowed: bool,
+    pub runtime_metrics_required: bool,
+    pub memory_budget_required: bool,
+    pub reservation_lifecycle_required: bool,
+    pub spill_policy_required: bool,
+    pub cleanup_recovery_required: bool,
+    pub execution_certificate_required: bool,
+    pub native_io_certificate_required: bool,
+    pub benchmark_evidence_required: bool,
+    pub no_fallback_evidence_required: bool,
+    pub runtime_execution: bool,
+    pub tasks_executed: bool,
+    pub data_read: bool,
+    pub data_materialized: bool,
+    pub object_store_io: bool,
+    pub write_io: bool,
+    pub spill_io_performed: bool,
+    pub fallback_execution_allowed: bool,
+    pub fallback_attempted: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl MemoryRuntimeHardeningGateReport {
+    #[must_use]
+    pub fn planning_default() -> Self {
+        Self {
+            schema_version: "shardloom.memory_runtime_hardening_gate.v1",
+            report_id: "cg14.memory_runtime_hardening_gate",
+            entries: memory_runtime_hardening_entries(),
+            existing_report_refs: memory_runtime_hardening_existing_report_refs(),
+            existing_memory_reservation_admission_present: true,
+            existing_operator_memory_spill_declaration_gate_present: true,
+            existing_spill_reservation_integration_present: true,
+            existing_spill_lifecycle_plan_present: true,
+            existing_dynamic_runtime_promotion_gate_present: true,
+            resource_derived_chunk_sizing_allowed: false,
+            adaptive_parallelism_allowed: false,
+            memory_reservation_release_allowed: false,
+            pressure_reaction_runtime_allowed: false,
+            native_spill_write_allowed: false,
+            native_spill_read_allowed: false,
+            spill_cleanup_execution_allowed: false,
+            allocator_runtime_allowed: false,
+            runtime_policy_mutation_allowed: false,
+            large_workload_claim_allowed: false,
+            runtime_metrics_required: true,
+            memory_budget_required: true,
+            reservation_lifecycle_required: true,
+            spill_policy_required: true,
+            cleanup_recovery_required: true,
+            execution_certificate_required: true,
+            native_io_certificate_required: true,
+            benchmark_evidence_required: true,
+            no_fallback_evidence_required: true,
+            runtime_execution: false,
+            tasks_executed: false,
+            data_read: false,
+            data_materialized: false,
+            object_store_io: false,
+            write_io: false,
+            spill_io_performed: false,
+            fallback_execution_allowed: false,
+            fallback_attempted: false,
+            diagnostics: Vec::new(),
+        }
+    }
+
+    #[must_use]
+    pub fn surface_count(&self) -> usize {
+        self.entries.len()
+    }
+
+    #[must_use]
+    pub fn existing_evidence_surface_count(&self) -> usize {
+        self.entries
+            .iter()
+            .filter(|entry| entry.status.is_existing_evidence())
+            .count()
+    }
+
+    #[must_use]
+    pub fn blocked_surface_count(&self) -> usize {
+        self.entries
+            .iter()
+            .filter(|entry| {
+                matches!(
+                    entry.status,
+                    MemoryRuntimeHardeningStatus::BlockedUntilCertified
+                )
+            })
+            .count()
+    }
+
+    #[must_use]
+    pub fn surface_order(&self) -> Vec<&'static str> {
+        self.entries
+            .iter()
+            .map(|entry| entry.surface.as_str())
+            .collect()
+    }
+
+    #[must_use]
+    pub fn runtime_promotions_blocked(&self) -> bool {
+        !self.resource_derived_chunk_sizing_allowed
+            && !self.adaptive_parallelism_allowed
+            && !self.memory_reservation_release_allowed
+            && !self.pressure_reaction_runtime_allowed
+            && !self.native_spill_write_allowed
+            && !self.native_spill_read_allowed
+            && !self.spill_cleanup_execution_allowed
+            && !self.allocator_runtime_allowed
+            && !self.runtime_policy_mutation_allowed
+            && self
+                .entries
+                .iter()
+                .all(|entry| !entry.runtime_allowed && !entry.spill_io_allowed)
+    }
+
+    #[must_use]
+    pub const fn claim_blocked(&self) -> bool {
+        !self.large_workload_claim_allowed
+    }
+
+    #[must_use]
+    pub fn side_effect_free(&self) -> bool {
+        self.runtime_promotions_blocked()
+            && !self.runtime_execution
+            && !self.tasks_executed
+            && !self.data_read
+            && !self.data_materialized
+            && !self.object_store_io
+            && !self.write_io
+            && !self.spill_io_performed
+            && !self.fallback_execution_allowed
+            && !self.fallback_attempted
+            && self
+                .entries
+                .iter()
+                .all(MemoryRuntimeHardeningGateEntry::side_effect_free)
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        !self.side_effect_free()
+            || !self.claim_blocked()
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "memory runtime hardening gate\nschema_version: {}\nreport_id: {}\nruntime promotions blocked: {}\nlarge workload claim allowed: {}\nruntime execution: false\nspill IO performed: false\nfallback execution: disabled",
+            self.schema_version,
+            self.report_id,
+            self.runtime_promotions_blocked(),
+            self.large_workload_claim_allowed
+        )
+    }
+}
+
+fn memory_runtime_hardening_entries() -> Vec<MemoryRuntimeHardeningGateEntry> {
+    vec![
+        MemoryRuntimeHardeningGateEntry::existing(
+            MemoryRuntimeHardeningSurface::MemoryReservationAdmission,
+            "shardloom.memory_admission.v1",
+        ),
+        MemoryRuntimeHardeningGateEntry::existing(
+            MemoryRuntimeHardeningSurface::OperatorMemorySpillDeclarationGate,
+            "operator-memory-spill-declarations",
+        ),
+        MemoryRuntimeHardeningGateEntry::existing(
+            MemoryRuntimeHardeningSurface::SpillReservationIntegrationPlan,
+            "spill-reservation-plan",
+        ),
+        MemoryRuntimeHardeningGateEntry::existing(
+            MemoryRuntimeHardeningSurface::SpillLifecyclePlan,
+            "spill-lifecycle",
+        ),
+        MemoryRuntimeHardeningGateEntry::existing(
+            MemoryRuntimeHardeningSurface::DynamicRuntimePromotionReference,
+            "cg8-runtime-promotion-gate",
+        ),
+        MemoryRuntimeHardeningGateEntry::blocked(
+            MemoryRuntimeHardeningSurface::ResourceDerivedChunkSizingRuntime,
+        ),
+        MemoryRuntimeHardeningGateEntry::blocked(
+            MemoryRuntimeHardeningSurface::AdaptiveParallelismRuntime,
+        ),
+        MemoryRuntimeHardeningGateEntry::blocked(
+            MemoryRuntimeHardeningSurface::MemoryReservationReleaseRuntime,
+        ),
+        MemoryRuntimeHardeningGateEntry::blocked(
+            MemoryRuntimeHardeningSurface::PressureReactionRuntime,
+        ),
+        MemoryRuntimeHardeningGateEntry::blocked(
+            MemoryRuntimeHardeningSurface::NativeSpillWriteRuntime,
+        ),
+        MemoryRuntimeHardeningGateEntry::blocked(
+            MemoryRuntimeHardeningSurface::NativeSpillReadRuntime,
+        ),
+        MemoryRuntimeHardeningGateEntry::blocked(
+            MemoryRuntimeHardeningSurface::SpillCleanupExecution,
+        ),
+        MemoryRuntimeHardeningGateEntry::blocked(
+            MemoryRuntimeHardeningSurface::AllocatorRuntimeIntegration,
+        ),
+        MemoryRuntimeHardeningGateEntry::blocked(
+            MemoryRuntimeHardeningSurface::BenchmarkCertificateCloseout,
+        ),
+    ]
+}
+
+fn memory_runtime_hardening_existing_report_refs() -> Vec<&'static str> {
+    vec![
+        "shardloom.memory_admission.v1",
+        "shardloom.operator_memory_spill_declaration.v1",
+        "shardloom.spill_reservation_integration.v1",
+        "shardloom.spill_lifecycle.v1",
+        "shardloom.dynamic_runtime_promotion_gate.v1",
+    ]
+}
+
+#[must_use]
+pub fn plan_memory_runtime_hardening_gate() -> MemoryRuntimeHardeningGateReport {
+    MemoryRuntimeHardeningGateReport::planning_default()
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SpillFileStatus {
     Planned,
     Written,
@@ -1515,6 +1898,75 @@ mod tests {
         assert_eq!(report.missing_required_count(), 0);
         assert_eq!(report.omitted_required_class_count(), 0);
         assert_eq!(report.claim_blocker_count(), 0);
+    }
+    #[test]
+    fn memory_runtime_hardening_gate_aggregates_existing_evidence() {
+        let report = plan_memory_runtime_hardening_gate();
+
+        assert_eq!(
+            report.schema_version,
+            "shardloom.memory_runtime_hardening_gate.v1"
+        );
+        assert_eq!(report.surface_count(), 14);
+        assert_eq!(report.existing_evidence_surface_count(), 5);
+        assert_eq!(report.blocked_surface_count(), 9);
+        assert!(report.existing_memory_reservation_admission_present);
+        assert!(report.existing_operator_memory_spill_declaration_gate_present);
+        assert!(report.existing_spill_reservation_integration_present);
+        assert!(report.existing_spill_lifecycle_plan_present);
+        assert!(report.existing_dynamic_runtime_promotion_gate_present);
+        assert_eq!(
+            report.surface_order(),
+            vec![
+                "memory_reservation_admission",
+                "operator_memory_spill_declaration_gate",
+                "spill_reservation_integration_plan",
+                "spill_lifecycle_plan",
+                "dynamic_runtime_promotion_reference",
+                "resource_derived_chunk_sizing_runtime",
+                "adaptive_parallelism_runtime",
+                "memory_reservation_release_runtime",
+                "pressure_reaction_runtime",
+                "native_spill_write_runtime",
+                "native_spill_read_runtime",
+                "spill_cleanup_execution",
+                "allocator_runtime_integration",
+                "benchmark_certificate_closeout",
+            ]
+        );
+    }
+    #[test]
+    fn memory_runtime_hardening_gate_blocks_runtime_spill_and_claims() {
+        let report = plan_memory_runtime_hardening_gate();
+
+        assert!(report.runtime_promotions_blocked());
+        assert!(report.claim_blocked());
+        assert!(report.side_effect_free());
+        assert!(!report.has_errors());
+        assert!(report.runtime_metrics_required);
+        assert!(report.memory_budget_required);
+        assert!(report.reservation_lifecycle_required);
+        assert!(report.spill_policy_required);
+        assert!(report.cleanup_recovery_required);
+        assert!(report.execution_certificate_required);
+        assert!(report.native_io_certificate_required);
+        assert!(report.benchmark_evidence_required);
+        assert!(report.no_fallback_evidence_required);
+        assert!(!report.resource_derived_chunk_sizing_allowed);
+        assert!(!report.adaptive_parallelism_allowed);
+        assert!(!report.native_spill_write_allowed);
+        assert!(!report.native_spill_read_allowed);
+        assert!(!report.spill_cleanup_execution_allowed);
+        assert!(!report.allocator_runtime_allowed);
+        assert!(!report.large_workload_claim_allowed);
+        assert!(!report.runtime_execution);
+        assert!(!report.spill_io_performed);
+        assert!(!report.fallback_attempted);
+        assert!(
+            report
+                .to_human_text()
+                .contains("runtime promotions blocked: true")
+        );
     }
     #[test]
     fn format_vortex_native_columnar() {

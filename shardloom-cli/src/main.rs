@@ -58,9 +58,10 @@ use shardloom_exec::{
     CommitExecutionPromotionGateReport, DynamicRuntimePromotionGateReport,
     DynamicSizingFeedbackInput, DynamicSizingFeedbackReport, DynamicWorkShapingReport,
     EncodedStreamingBatchPlanInput, EncodedStreamingBatchPlanReport,
-    FaultTolerancePromotionGateReport, MemoryBudget, MemoryOwner, MemoryPoolPlan, OomSafetyPlan,
-    OperatorMemoryClass, OperatorMemorySpillDeclarationReport, ParallelismLimit, ParallelismPlan,
-    RecoveryPlan, RetryPlan, RuntimePlanSkeleton, ShardLoomCancellationExecutionGateReport,
+    FaultTolerancePromotionGateReport, MemoryBudget, MemoryOwner, MemoryPoolPlan,
+    MemoryRuntimeHardeningGateReport, OomSafetyPlan, OperatorMemoryClass,
+    OperatorMemorySpillDeclarationReport, ParallelismLimit, ParallelismPlan, RecoveryPlan,
+    RetryPlan, RuntimePlanSkeleton, ShardLoomCancellationExecutionGateReport,
     ShardLoomCancellationExecutionGateRequest, ShardLoomCancellationExecutionGateSignal,
     ShardLoomCleanupExecutionRequest, ShardLoomRetryExecutionGateReport,
     ShardLoomRetryExecutionGateRequest, ShardLoomRetryExecutionGateSignal, SizeEstimate,
@@ -72,9 +73,9 @@ use shardloom_exec::{
     TaskAttemptRecord, plan_backpressure, plan_cancellation_execution_gate,
     plan_commit_execution_promotion_gate, plan_dynamic_runtime_promotion_gate,
     plan_dynamic_sizing_feedback, plan_dynamic_work_shaping, plan_encoded_streaming_batches,
-    plan_fault_tolerance_promotion_gate, plan_operator_memory_spill_declarations,
-    plan_retry_execution_gate, plan_spill_lifecycle, plan_spill_reservation_integration,
-    roundtrip_spill_payload, spill_payload_fs_feature_enabled,
+    plan_fault_tolerance_promotion_gate, plan_memory_runtime_hardening_gate,
+    plan_operator_memory_spill_declarations, plan_retry_execution_gate, plan_spill_lifecycle,
+    plan_spill_reservation_integration, roundtrip_spill_payload, spill_payload_fs_feature_enabled,
 };
 use shardloom_plan::{
     AdaptiveOptimizerMemoryReport, EstimateReport, ExplainReport, ImportedPlanCapabilityGateReport,
@@ -222,7 +223,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|agent-contract-pack|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance]|security-plan|security-governance-evidence-gate|effect-budget-plan|agent-safety-plan|redaction-plan|kernel-registry|feature-footprint|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|cg20-user-capability-gate|cg20-approx-sketch-gate|layout-health-plan|compaction-plan|table-intelligence-plan|cg9-catalog-metadata-gate|object-store-request-plan|cg10-object-store-runtime-gate|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|dynamic-work-shaping-plan [balanced|memory-pressure|object-store-throttled|small-tasks]|cg8-runtime-promotion-gate|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|benchmark-claim-evidence-plan [foundation|traditional-analytics]|traditional-analytics-run|traditional-analytics-vortex-run|vortex-count-benchmark|correctness-plan|correctness-harness-plan|execution-certificate-plan|recovery-plan|commit-execution-promotion-gate|fault-tolerance-promotion-gate|cancellation-plan|retry-plan|observability-plan|observability-schema-coverage|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-filter-project|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|operator-memory-spill-declarations|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|agent-contract-pack|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance]|security-plan|security-governance-evidence-gate|effect-budget-plan|agent-safety-plan|redaction-plan|kernel-registry|feature-footprint|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|cg20-user-capability-gate|cg20-approx-sketch-gate|layout-health-plan|compaction-plan|table-intelligence-plan|cg9-catalog-metadata-gate|object-store-request-plan|cg10-object-store-runtime-gate|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|dynamic-work-shaping-plan [balanced|memory-pressure|object-store-throttled|small-tasks]|cg8-runtime-promotion-gate|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|benchmark-claim-evidence-plan [foundation|traditional-analytics]|traditional-analytics-run|traditional-analytics-vortex-run|vortex-count-benchmark|correctness-plan|correctness-harness-plan|execution-certificate-plan|recovery-plan|commit-execution-promotion-gate|fault-tolerance-promotion-gate|cancellation-plan|retry-plan|observability-plan|observability-schema-coverage|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-filter-project|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|operator-memory-spill-declarations|cg14-memory-runtime-hardening-gate|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -6358,6 +6359,232 @@ fn operator_memory_spill_declaration_fields(
         );
     }
     fields
+}
+
+fn memory_runtime_hardening_gate_fields(
+    report: &MemoryRuntimeHardeningGateReport,
+) -> Vec<(String, String)> {
+    let mut fields = Vec::new();
+    append_memory_runtime_hardening_identity_fields(&mut fields, report);
+    append_memory_runtime_hardening_existing_fields(&mut fields, report);
+    append_memory_runtime_hardening_gate_fields(&mut fields, report);
+    append_memory_runtime_hardening_requirement_fields(&mut fields, report);
+    append_memory_runtime_hardening_side_effect_fields(&mut fields, report);
+    append_memory_runtime_hardening_surface_fields(&mut fields, report);
+    fields
+}
+
+fn append_memory_runtime_hardening_identity_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &MemoryRuntimeHardeningGateReport,
+) {
+    push_field(fields, "mode", "cg14_memory_runtime_hardening_gate");
+    push_field(fields, "execution", "not_performed");
+    push_field(fields, "schema_version", report.schema_version);
+    push_field(fields, "report_id", report.report_id);
+    push_count_field(fields, "surface_count", report.surface_count());
+    push_count_field(
+        fields,
+        "existing_evidence_surface_count",
+        report.existing_evidence_surface_count(),
+    );
+    push_count_field(
+        fields,
+        "blocked_surface_count",
+        report.blocked_surface_count(),
+    );
+    push_field(fields, "surface_order", &report.surface_order().join(","));
+}
+
+fn append_memory_runtime_hardening_existing_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &MemoryRuntimeHardeningGateReport,
+) {
+    push_bool_field(
+        fields,
+        "existing_memory_reservation_admission_present",
+        report.existing_memory_reservation_admission_present,
+    );
+    push_bool_field(
+        fields,
+        "existing_operator_memory_spill_declaration_gate_present",
+        report.existing_operator_memory_spill_declaration_gate_present,
+    );
+    push_bool_field(
+        fields,
+        "existing_spill_reservation_integration_present",
+        report.existing_spill_reservation_integration_present,
+    );
+    push_bool_field(
+        fields,
+        "existing_spill_lifecycle_plan_present",
+        report.existing_spill_lifecycle_plan_present,
+    );
+    push_bool_field(
+        fields,
+        "existing_dynamic_runtime_promotion_gate_present",
+        report.existing_dynamic_runtime_promotion_gate_present,
+    );
+}
+
+fn append_memory_runtime_hardening_gate_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &MemoryRuntimeHardeningGateReport,
+) {
+    push_bool_field(
+        fields,
+        "resource_derived_chunk_sizing_allowed",
+        report.resource_derived_chunk_sizing_allowed,
+    );
+    push_bool_field(
+        fields,
+        "adaptive_parallelism_allowed",
+        report.adaptive_parallelism_allowed,
+    );
+    push_bool_field(
+        fields,
+        "memory_reservation_release_allowed",
+        report.memory_reservation_release_allowed,
+    );
+    push_bool_field(
+        fields,
+        "pressure_reaction_runtime_allowed",
+        report.pressure_reaction_runtime_allowed,
+    );
+    push_bool_field(
+        fields,
+        "native_spill_write_allowed",
+        report.native_spill_write_allowed,
+    );
+    push_bool_field(
+        fields,
+        "native_spill_read_allowed",
+        report.native_spill_read_allowed,
+    );
+    push_bool_field(
+        fields,
+        "spill_cleanup_execution_allowed",
+        report.spill_cleanup_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "allocator_runtime_allowed",
+        report.allocator_runtime_allowed,
+    );
+    push_bool_field(
+        fields,
+        "runtime_policy_mutation_allowed",
+        report.runtime_policy_mutation_allowed,
+    );
+    push_bool_field(
+        fields,
+        "large_workload_claim_allowed",
+        report.large_workload_claim_allowed,
+    );
+}
+
+fn append_memory_runtime_hardening_requirement_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &MemoryRuntimeHardeningGateReport,
+) {
+    push_bool_field(
+        fields,
+        "runtime_metrics_required",
+        report.runtime_metrics_required,
+    );
+    push_bool_field(
+        fields,
+        "memory_budget_required",
+        report.memory_budget_required,
+    );
+    push_bool_field(
+        fields,
+        "reservation_lifecycle_required",
+        report.reservation_lifecycle_required,
+    );
+    push_bool_field(
+        fields,
+        "spill_policy_required",
+        report.spill_policy_required,
+    );
+    push_bool_field(
+        fields,
+        "cleanup_recovery_required",
+        report.cleanup_recovery_required,
+    );
+    push_bool_field(
+        fields,
+        "execution_certificate_required",
+        report.execution_certificate_required,
+    );
+    push_bool_field(
+        fields,
+        "native_io_certificate_required",
+        report.native_io_certificate_required,
+    );
+    push_bool_field(
+        fields,
+        "benchmark_evidence_required",
+        report.benchmark_evidence_required,
+    );
+    push_bool_field(
+        fields,
+        "no_fallback_evidence_required",
+        report.no_fallback_evidence_required,
+    );
+    push_bool_field(
+        fields,
+        "runtime_promotions_blocked",
+        report.runtime_promotions_blocked(),
+    );
+    push_bool_field(fields, "claim_blocked", report.claim_blocked());
+    push_bool_field(fields, "side_effect_free", report.side_effect_free());
+}
+
+fn append_memory_runtime_hardening_side_effect_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &MemoryRuntimeHardeningGateReport,
+) {
+    push_bool_field(fields, "runtime_execution", report.runtime_execution);
+    push_bool_field(fields, "tasks_executed", report.tasks_executed);
+    push_bool_field(fields, "data_read", report.data_read);
+    push_bool_field(fields, "data_materialized", report.data_materialized);
+    push_bool_field(fields, "object_store_io", report.object_store_io);
+    push_bool_field(fields, "write_io", report.write_io);
+    push_bool_field(fields, "spill_io_performed", report.spill_io_performed);
+    push_bool_field(
+        fields,
+        "fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(fields, "fallback_attempted", report.fallback_attempted);
+    push_count_field(fields, "diagnostic_count", report.diagnostics.len());
+}
+
+fn append_memory_runtime_hardening_surface_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &MemoryRuntimeHardeningGateReport,
+) {
+    for (index, entry) in report.entries.iter().enumerate() {
+        let prefix = format!("runtime_hardening_surface_{index}");
+        push_field(fields, &format!("{prefix}_name"), entry.surface.as_str());
+        push_field(fields, &format!("{prefix}_status"), entry.status.as_str());
+        push_bool_field(
+            fields,
+            &format!("{prefix}_runtime_allowed"),
+            entry.runtime_allowed,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_spill_io_allowed"),
+            entry.spill_io_allowed,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_fallback_execution_allowed"),
+            entry.fallback_execution_allowed,
+        );
+    }
 }
 
 fn observability_schema_coverage_fields(
@@ -20349,6 +20576,20 @@ fn run(args: Vec<String>) -> ExitCode {
                 report.to_human_text(),
                 report.diagnostics.clone(),
                 operator_memory_spill_declaration_fields(&report),
+            );
+            ExitCode::SUCCESS
+        }
+        Some("cg14-memory-runtime-hardening-gate") => {
+            let command = "cg14-memory-runtime-hardening-gate";
+            let report = plan_memory_runtime_hardening_gate();
+            emit(
+                command,
+                format,
+                CommandStatus::Success,
+                "CG-14 memory runtime hardening gate".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                memory_runtime_hardening_gate_fields(&report),
             );
             ExitCode::SUCCESS
         }
