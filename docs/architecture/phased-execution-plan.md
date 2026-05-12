@@ -150,6 +150,11 @@ actionable work.
   - [ ] Expand golden JSON fixtures for success, unsupported, blocked, certified execution,
         evidence-incomplete execution, source-backed execution, benchmark rows, missing binary, and
         Foundry boundary reports.
+    - [x] Add typed-envelope contract snapshots for success, invalid input, unsupported
+          source-backed blocking, capability-claim blocking, certificate-surface reporting,
+          evidence-incomplete benchmark rows, and Foundry-adjacent optional harness reporting.
+    - [ ] Add remaining certified runtime execution, missing-binary protocol parity, and concrete
+          Foundry boundary report fixtures once those command surfaces are executable/reportable.
   - [ ] Modularize CLI command routing around typed command handlers and shared rendering.
     - [ ] Move remaining command-family handlers out of `main.rs` after the shared
           `typed_envelope` routing module and `command_family` taxonomy.

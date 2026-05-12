@@ -15,11 +15,13 @@ Partially implemented as protocol and CLI implementation guidance.
 
 The first implementation slices add `shardloom.output.v2`, typed payload slots, API/Python protocol
 reporting, Python typed-payload parsing, shared CLI routing for common policy/lifecycle/capability
-fields, and conservative typed reference attachment for explicit result, artifact, and certificate
-refs/ids/paths/URIs in `shardloom-cli/src/typed_envelope.rs`. Command-family-specific result
-migration, command-family lifecycle classification in `shardloom-cli/src/command_family.rs`,
-richer inline artifact/report payloads, expanded golden fixtures, and broader CLI handler
-modularization remain planned.
+fields, conservative typed reference attachment for explicit result, artifact, and certificate
+refs/ids/paths/URIs in `shardloom-cli/src/typed_envelope.rs`, command-family lifecycle
+classification in `shardloom-cli/src/command_family.rs`, and typed-envelope contract snapshots for
+representative success, error, unsupported, blocked, evidence-incomplete, source-backed, benchmark,
+and Foundry-adjacent report surfaces. Command-family-specific result migration, richer inline
+artifact/report payloads, remaining certified-runtime/missing-binary/Foundry-boundary golden
+fixtures, and broader CLI handler modularization remain planned.
 
 This RFC does not authorize REST server behavior, generated clients, DB-API/SQLAlchemy/Ibis/dbt
 wrappers, benchmark execution, runtime expansion, package publication, external engine invocation,
