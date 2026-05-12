@@ -16,6 +16,42 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: CG-20 user capability promotion gate
+  - Primary files:
+    - `shardloom-core/src/certification.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/cg20_user_capability_gate.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/capability-certification-sequencing.md`
+  - Scope: add a report-only CG-20 promotion gate that names broad SQL/DataFrame/UDF,
+    unstructured/media, adapter, semantic-profile, workload-certified, and best-default publication
+    surfaces while keeping them blocked until world-class sufficiency, coverage,
+    adapter-certification, correctness, benchmark, certificate, Native I/O, workload, policy,
+    governance, protocol-parity, and no-fallback evidence exists.
+  - Checklist:
+    - [x] Add `UserCapabilityPromotionGateReport` with world-class sufficiency, Python wrapper,
+          input adapter registry, and unstructured workflow boundary contracts as existing
+          report-only evidence.
+    - [x] Keep SQL frontend runtime, DataFrame query-builder runtime, notebook runtime,
+          UDF/plugin runtime, media/model effects, universal/event/API adapters,
+          adapter read/write/commit, semantic-profile conformance, workload-certified closeout, and
+          best-default dossier publication blocked until certification evidence exists.
+    - [x] Expose the gate through `cg20-user-capability-gate` JSON/text output.
+  - Validation status:
+    - [x] `cargo test -p shardloom-core user_capability_promotion_gate --lib`
+    - [x] `cargo test -p shardloom-cli --test cg20_user_capability_gate`
+    - [x] `cargo fmt --all -- --check`
+    - [x] `cargo clippy -p shardloom-core --lib -- -D warnings`
+    - [x] `cargo clippy -p shardloom-cli --all-targets -- -D warnings`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `git diff --check`
+  - Non-goals preserved:
+    - [x] No SQL parsing/execution, DataFrame runtime, notebook runtime, UDF/plugin execution,
+          OCR/transcription/embedding/LLM call, adapter runtime, external API call, catalog probe,
+          object-store IO, write IO, claim publication, external engine invocation, or fallback
+          execution.
 - [x] Session label: CG-10 object-store runtime promotion gate
   - Primary files:
     - `shardloom-plan/src/object_store.rs`
