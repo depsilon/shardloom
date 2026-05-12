@@ -208,6 +208,9 @@ actionable work.
     - [x] Move the Vortex primitive trace handler, `vortex-query-trace`, into
           `shardloom-cli/src/vortex_primitive_execution.rs` while preserving report-only
           no-fallback trace behavior.
+    - [x] Move the Vortex filtered-count primitive handler, `vortex-count-where`, into
+          `shardloom-cli/src/vortex_primitive_execution.rs` while preserving metadata/filter
+          evidence and optional local primitive execution behavior.
     - [ ] Move remaining command-family handlers out of `main.rs` after the shared
           `typed_envelope` routing module and `command_family` taxonomy.
     - [ ] Split handlers by status/capabilities, Vortex primitive execution,

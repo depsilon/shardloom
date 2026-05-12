@@ -2,12 +2,12 @@
 //!
 //! This module starts the physical split for Vortex primitive command handlers
 //! while preserving existing no-fallback execution contracts. This slice only
-//! owns `vortex-count`; broader filter/projection/run/benchmark extraction
-//! remains staged.
+//! owns `vortex-count`, `vortex-count-where`, and `vortex-query-trace`;
+//! broader projection/filter/run extraction remains staged.
 
 use std::process::ExitCode;
 
-use shardloom_core::{CommandStatus, DatasetUri, OutputFormat};
+use shardloom_core::{CommandStatus, DatasetUri, OutputFormat, PredicateExpr};
 use shardloom_vortex::{
     VortexMetadataOpenRequest, VortexMetadataProbeReport, VortexQueryPrimitiveRequest,
     VortexQueryPrimitiveValue, evaluate_vortex_query_primitive,
@@ -167,6 +167,172 @@ pub(crate) fn handle_vortex_query_trace(
     } else {
         ExitCode::SUCCESS
     }
+}
+
+pub(crate) fn handle_vortex_count_where(
+    args: std::vec::IntoIter<String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let (uri, predicate_arg, predicate, local_execution_request) =
+        match parse_vortex_count_where_args(args, format) {
+            Ok(parsed) => parsed,
+            Err(code) => return code,
+        };
+    let request = VortexQueryPrimitiveRequest::count_where(uri.clone(), predicate.clone());
+    let open = open_vortex_metadata_only(VortexMetadataOpenRequest::metadata_only(uri));
+    let summary = if let Ok(report) = open {
+        report.metadata_summary.unwrap_or_else(|| {
+            summarize_vortex_metadata_probe(&VortexMetadataProbeReport::deferred_api_unclear())
+        })
+    } else {
+        summarize_vortex_metadata_probe(&VortexMetadataProbeReport::deferred_api_unclear())
+    };
+    let result = match evaluate_vortex_query_primitive(request.clone(), &summary) {
+        Ok(result) => result,
+        Err(error) => {
+            return emit_error(
+                "vortex-count-where",
+                format,
+                "vortex count where failed",
+                &error,
+            );
+        }
+    };
+    let local_execution = match local_execution_request.as_ref() {
+        Some(local_request) => {
+            match crate::vortex_count_where_local_execution_evidence(&request, local_request) {
+                Ok(evidence) => Some(evidence),
+                Err(error) => {
+                    return emit_error(
+                        "vortex-count-where",
+                        format,
+                        "vortex count where local primitive execution failed",
+                        &error,
+                    );
+                }
+            }
+        }
+        None => None,
+    };
+    let evidence = match crate::vortex_count_where_filter_evidence(&predicate, &summary) {
+        Ok(evidence) => evidence,
+        Err(error) => {
+            return emit_error(
+                "vortex-count-where",
+                format,
+                "vortex count where filter evidence failed",
+                &error,
+            );
+        }
+    };
+    let command_has_errors = local_execution.as_ref().map_or_else(
+        || result.has_errors(),
+        crate::VortexCountWhereLocalExecutionEvidence::has_errors,
+    );
+    let status = if command_has_errors {
+        CommandStatus::Unsupported
+    } else {
+        CommandStatus::Success
+    };
+    let metadata_count = match result.value {
+        VortexQueryPrimitiveValue::Count(v) => Some(v),
+        _ => None,
+    };
+    let count = local_execution
+        .as_ref()
+        .and_then(crate::VortexCountWhereLocalExecutionEvidence::count)
+        .or(metadata_count);
+    let mut diagnostics = result.diagnostics.clone();
+    if let Some(local) = &local_execution {
+        diagnostics.extend(local.report.diagnostics.clone());
+        diagnostics.extend(local.native_io_certificate.diagnostics.clone());
+        if let Some(certificate) = &local.execution_certificate {
+            diagnostics.extend(certificate.diagnostics.clone());
+        }
+    }
+    emit(
+        "vortex-count-where",
+        format,
+        status,
+        "vortex count where primitive".to_string(),
+        crate::vortex_count_where_human_text(&result, &evidence, local_execution.as_ref()),
+        diagnostics,
+        crate::vortex_count_where_fields(
+            &result,
+            count,
+            predicate_arg,
+            &evidence,
+            local_execution.as_ref(),
+        ),
+    );
+    if command_has_errors {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+fn parse_vortex_count_where_args(
+    mut args: std::vec::IntoIter<String>,
+    format: OutputFormat,
+) -> std::result::Result<
+    (
+        DatasetUri,
+        String,
+        PredicateExpr,
+        Option<crate::VortexCountWhereLocalExecutionRequest>,
+    ),
+    ExitCode,
+> {
+    let Some(uri_arg) = args.next() else {
+        eprintln!(
+            "usage: shardloom vortex-count-where <dataset_uri> <predicate> [--execute-local-primitive <memory_gb> <max_parallelism>]"
+        );
+        return Err(ExitCode::from(2));
+    };
+    let Some(predicate_arg) = args.next() else {
+        eprintln!(
+            "usage: shardloom vortex-count-where <dataset_uri> <predicate> [--execute-local-primitive <memory_gb> <max_parallelism>]"
+        );
+        return Err(ExitCode::from(2));
+    };
+    let uri = match DatasetUri::new(uri_arg) {
+        Ok(uri) => uri,
+        Err(error) => {
+            emit_error(
+                "vortex-count-where",
+                format,
+                "vortex count where failed",
+                &error,
+            );
+            return Err(ExitCode::from(1));
+        }
+    };
+    let predicate = match crate::parse_tiny_predicate(&predicate_arg) {
+        Ok(predicate) => predicate,
+        Err(error) => {
+            emit_error(
+                "vortex-count-where",
+                format,
+                "vortex count where failed",
+                &error,
+            );
+            return Err(ExitCode::from(1));
+        }
+    };
+    let local_execution_request = match crate::parse_vortex_count_where_local_execution_args(args) {
+        Ok(request) => request,
+        Err(error) => {
+            emit_error(
+                "vortex-count-where",
+                format,
+                "vortex count where failed",
+                &error,
+            );
+            return Err(ExitCode::from(1));
+        }
+    };
+    Ok((uri, predicate_arg, predicate, local_execution_request))
 }
 
 fn handle_vortex_count_metadata(uri: DatasetUri, format: OutputFormat) -> ExitCode {

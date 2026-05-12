@@ -11444,7 +11444,7 @@ fn parse_plan_interop_format(value: &str) -> PlanInteropFormat {
     }
 }
 
-fn parse_tiny_predicate(value: &str) -> Result<PredicateExpr, ShardLoomError> {
+pub(crate) fn parse_tiny_predicate(value: &str) -> Result<PredicateExpr, ShardLoomError> {
     let parts = value.split(':').collect::<Vec<_>>();
     match parts.as_slice() {
         ["is_null", column] => Ok(PredicateExpr::IsNull {
@@ -11483,45 +11483,45 @@ fn parse_tiny_predicate(value: &str) -> Result<PredicateExpr, ShardLoomError> {
     }
 }
 
-struct VortexCountWhereFilterEvidence {
+pub(crate) struct VortexCountWhereFilterEvidence {
     predicate_evaluation: VortexEncodedPredicateEvaluationReport,
     filter_kernel: VortexSelectionVectorFilterKernelReport,
     filter_kernel_admission: VortexSelectionVectorFilterKernelAdmissionReport,
 }
 
-struct VortexLocalPrimitiveCliExecutionRequest {
+pub(crate) struct VortexLocalPrimitiveCliExecutionRequest {
     memory_gb: u64,
     max_parallelism: usize,
 }
 
-type VortexCountWhereLocalExecutionRequest = VortexLocalPrimitiveCliExecutionRequest;
-type VortexCountWhereLocalExecutionEvidence = VortexLocalPrimitiveCliExecutionEvidence;
+pub(crate) type VortexCountWhereLocalExecutionRequest = VortexLocalPrimitiveCliExecutionRequest;
+pub(crate) type VortexCountWhereLocalExecutionEvidence = VortexLocalPrimitiveCliExecutionEvidence;
 
-struct VortexLocalPrimitiveCliExecutionEvidence {
-    memory_gb: u64,
-    max_parallelism: usize,
-    report: VortexLocalPrimitiveExecutionReport,
-    native_io_certificate: NativeIoCertificate,
-    execution_certificate: Option<ExecutionCertificate>,
+pub(crate) struct VortexLocalPrimitiveCliExecutionEvidence {
+    pub(crate) memory_gb: u64,
+    pub(crate) max_parallelism: usize,
+    pub(crate) report: VortexLocalPrimitiveExecutionReport,
+    pub(crate) native_io_certificate: NativeIoCertificate,
+    pub(crate) execution_certificate: Option<ExecutionCertificate>,
 }
 impl VortexLocalPrimitiveCliExecutionEvidence {
-    fn has_errors(&self) -> bool {
+    pub(crate) fn has_errors(&self) -> bool {
         self.report.has_errors() || !self.native_io_certificate.is_certified()
     }
 
-    fn count(&self) -> Option<u64> {
+    pub(crate) fn count(&self) -> Option<u64> {
         self.report.rows_selected
     }
 
-    fn selected_rows(&self) -> Option<u64> {
+    pub(crate) fn selected_rows(&self) -> Option<u64> {
         self.report.rows_selected
     }
 
-    fn projected_rows(&self) -> Option<u64> {
+    pub(crate) fn projected_rows(&self) -> Option<u64> {
         self.report.rows_projected
     }
 
-    fn selection_vector_guaranteed(&self) -> bool {
+    pub(crate) fn selection_vector_guaranteed(&self) -> bool {
         self.native_io_certificate.is_certified()
             && self.native_io_certificate.representation_transition_order()
                 == "vortex_encoded->selection_vector_encoded"
@@ -11588,7 +11588,7 @@ impl VortexLocalPrimitiveCliExecutionEvidence {
     }
 }
 
-fn parse_vortex_count_where_local_execution_args(
+pub(crate) fn parse_vortex_count_where_local_execution_args(
     mut args: impl Iterator<Item = String>,
 ) -> shardloom_core::Result<Option<VortexCountWhereLocalExecutionRequest>> {
     parse_vortex_local_primitive_cli_execution_args(&mut args)
@@ -11638,7 +11638,7 @@ fn parse_vortex_local_primitive_cli_execution_args(
     }))
 }
 
-fn vortex_count_where_filter_evidence(
+pub(crate) fn vortex_count_where_filter_evidence(
     predicate: &PredicateExpr,
     summary: &VortexMetadataSummaryReport,
 ) -> shardloom_core::Result<VortexCountWhereFilterEvidence> {
@@ -11652,7 +11652,7 @@ fn vortex_count_where_filter_evidence(
     })
 }
 
-fn vortex_count_where_local_execution_evidence(
+pub(crate) fn vortex_count_where_local_execution_evidence(
     request: &VortexQueryPrimitiveRequest,
     local_request: &VortexCountWhereLocalExecutionRequest,
 ) -> shardloom_core::Result<VortexCountWhereLocalExecutionEvidence> {
@@ -11679,7 +11679,7 @@ fn vortex_local_primitive_cli_execution_evidence(
     })
 }
 
-fn vortex_count_where_human_text(
+pub(crate) fn vortex_count_where_human_text(
     result: &VortexQueryPrimitiveResult,
     evidence: &VortexCountWhereFilterEvidence,
     local_execution: Option<&VortexCountWhereLocalExecutionEvidence>,
@@ -11702,7 +11702,7 @@ fn vortex_count_where_human_text(
     sections.join("\n\n")
 }
 
-fn vortex_count_where_fields(
+pub(crate) fn vortex_count_where_fields(
     result: &VortexQueryPrimitiveResult,
     count: Option<u64>,
     predicate_arg: String,
@@ -25969,149 +25969,7 @@ fn run(args: Vec<String>) -> ExitCode {
             benchmark_runtime::handle_vortex_count_benchmark(args, format)
         }
         Some("vortex-count-where") => {
-            let Some(uri_arg) = args.next() else {
-                eprintln!(
-                    "usage: shardloom vortex-count-where <dataset_uri> <predicate> [--execute-local-primitive <memory_gb> <max_parallelism>]"
-                );
-                return ExitCode::from(2);
-            };
-            let Some(predicate_arg) = args.next() else {
-                eprintln!(
-                    "usage: shardloom vortex-count-where <dataset_uri> <predicate> [--execute-local-primitive <memory_gb> <max_parallelism>]"
-                );
-                return ExitCode::from(2);
-            };
-            let uri = match DatasetUri::new(uri_arg) {
-                Ok(uri) => uri,
-                Err(error) => {
-                    return emit_error(
-                        "vortex-count-where",
-                        format,
-                        "vortex count where failed",
-                        &error,
-                    );
-                }
-            };
-            let predicate = match parse_tiny_predicate(&predicate_arg) {
-                Ok(predicate) => predicate,
-                Err(error) => {
-                    return emit_error(
-                        "vortex-count-where",
-                        format,
-                        "vortex count where failed",
-                        &error,
-                    );
-                }
-            };
-            let local_execution_request = match parse_vortex_count_where_local_execution_args(args)
-            {
-                Ok(request) => request,
-                Err(error) => {
-                    return emit_error(
-                        "vortex-count-where",
-                        format,
-                        "vortex count where failed",
-                        &error,
-                    );
-                }
-            };
-            let request = shardloom_vortex::VortexQueryPrimitiveRequest::count_where(
-                uri.clone(),
-                predicate.clone(),
-            );
-            let open = open_vortex_metadata_only(VortexMetadataOpenRequest::metadata_only(uri));
-            let summary = if let Ok(report) = open {
-                report.metadata_summary.unwrap_or_else(|| {
-                    summarize_vortex_metadata_probe(
-                        &VortexMetadataProbeReport::deferred_api_unclear(),
-                    )
-                })
-            } else {
-                summarize_vortex_metadata_probe(&VortexMetadataProbeReport::deferred_api_unclear())
-            };
-            let result = match evaluate_vortex_query_primitive(request.clone(), &summary) {
-                Ok(result) => result,
-                Err(error) => {
-                    return emit_error(
-                        "vortex-count-where",
-                        format,
-                        "vortex count where failed",
-                        &error,
-                    );
-                }
-            };
-            let local_execution = match local_execution_request.as_ref() {
-                Some(local_request) => {
-                    match vortex_count_where_local_execution_evidence(&request, local_request) {
-                        Ok(evidence) => Some(evidence),
-                        Err(error) => {
-                            return emit_error(
-                                "vortex-count-where",
-                                format,
-                                "vortex count where local primitive execution failed",
-                                &error,
-                            );
-                        }
-                    }
-                }
-                None => None,
-            };
-            let evidence = match vortex_count_where_filter_evidence(&predicate, &summary) {
-                Ok(evidence) => evidence,
-                Err(error) => {
-                    return emit_error(
-                        "vortex-count-where",
-                        format,
-                        "vortex count where filter evidence failed",
-                        &error,
-                    );
-                }
-            };
-            let command_has_errors = local_execution.as_ref().map_or_else(
-                || result.has_errors(),
-                VortexCountWhereLocalExecutionEvidence::has_errors,
-            );
-            let status = if command_has_errors {
-                CommandStatus::Unsupported
-            } else {
-                CommandStatus::Success
-            };
-            let metadata_count = match result.value {
-                shardloom_vortex::VortexQueryPrimitiveValue::Count(v) => Some(v),
-                _ => None,
-            };
-            let count = local_execution
-                .as_ref()
-                .and_then(VortexCountWhereLocalExecutionEvidence::count)
-                .or(metadata_count);
-            let mut diagnostics = result.diagnostics.clone();
-            if let Some(local) = &local_execution {
-                diagnostics.extend(local.report.diagnostics.clone());
-                diagnostics.extend(local.native_io_certificate.diagnostics.clone());
-                if let Some(certificate) = &local.execution_certificate {
-                    diagnostics.extend(certificate.diagnostics.clone());
-                }
-            }
-            emit(
-                "vortex-count-where",
-                format,
-                status,
-                "vortex count where primitive".to_string(),
-                vortex_count_where_human_text(&result, &evidence, local_execution.as_ref()),
-                diagnostics,
-                vortex_count_where_fields(
-                    &result,
-                    count,
-                    predicate_arg,
-                    &evidence,
-                    local_execution.as_ref(),
-                ),
-            );
-            if command_has_errors {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            }
+            vortex_primitive_execution::handle_vortex_count_where(args, format)
         }
         Some("vortex-project") => {
             let Some(uri_arg) = args.next() else {
