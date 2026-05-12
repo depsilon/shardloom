@@ -199,6 +199,31 @@ not by numeric CG order.
   - [x] Preserve deterministic unsupported behavior: no hidden external query-engine execution, no
         silent materialization, no unreported residual evaluation, and no claim-grade support
         without correctness, benchmark, certificate, Native I/O, policy, and workload evidence.
+- [ ] Priority 1.7 - top-level plan and execution facade catch-up
+  - [ ] Replace the minimal `PlanKind::NativeVortexScan` skeleton with typed plan variants for the
+        current ShardLoom/Vortex execution-provider surfaces.
+    - [ ] Represent local Vortex primitive requests for `CountAll`, `CountWhere`,
+          `FilterPredicate`, `ProjectColumns`, and `FilterAndProject`.
+    - [ ] Represent prepared encoded filter, projection, and filter-project requests where explicit
+          encoded batches are available.
+    - [ ] Represent source-bound and reader-backed encoded filter/projection/filter-project
+          requests where source URI, split refs, provider boundary, residual boundary, and Native
+          I/O evidence are available.
+    - [ ] Remove or replace placeholder no-op success semantics instead of preserving a legacy
+          `NativeVortexScan` compatibility path before release.
+  - [ ] Replace top-level `shardloom-exec::execute(&Plan) -> Result<()>` with a typed
+        `ShardLoomExecutionResult` facade that dispatches admitted plans into current provider
+        surfaces.
+    - [ ] Execution results carry status, plan id/ref, engine mode, execution-provider kind,
+          provider API surface, source refs, split refs, result refs, artifact refs, representation
+          transitions, execution-certificate refs, Native I/O certificate refs,
+          materialization/decode status, residual-boundary refs, diagnostics, and fallback status.
+    - [ ] Vortex-specific reports are attached as typed artifacts or converted into the shared
+          execution-result shape without discarding provider/certificate/Native I/O evidence.
+    - [ ] Unsupported or non-admitted plans return deterministic diagnostics with
+          `fallback_attempted=false`.
+    - [ ] No SQL/DataFrame runtime, broad adapter execution, object-store runtime, writes, external
+          engine invocation, or fallback execution is introduced by this facade work.
 - [x] Priority 2 - evidence loop paired with every execution expansion
   - [x] CG-5/CG-16 fixture-backed execution certificates wired into generalized local primitive
         filter/projection surfaces.
@@ -300,6 +325,49 @@ not by numeric CG order.
         Vortex support changes.
   - [x] Require Vortex-native providers to be feature-gated, version-recorded, policy-admitted, and
         certificate-backed before support claims.
+- [ ] Priority 2.7 - source-backed correctness/benchmark population and benchmark-suite overhaul
+  - [ ] Populate the source-backed correctness and benchmark matrix for current reader/source-backed
+        encoded paths.
+    - [ ] Include prepared-batch-only encoded filter, projection, and filter-project rows.
+    - [ ] Include source-bound encoded filter, projection, and filter-project rows.
+    - [ ] Include reader-backed constant, dictionary, and run-end/run-length kernel-input
+          filter/projection/filter-project rows where executable evidence exists.
+    - [ ] Include blocked sparse, nullable dictionary/RLE, device-buffer, nested, and extension
+          dtype rows with deterministic blockers and `fallback_attempted=false`.
+    - [ ] Require source URI, split refs, provider kind/API surface, Vortex version, row counts,
+          selected/projected counts, representation transitions, residual executor, execution
+          certificate ref, Native I/O certificate ref, correctness fixture/ref-output ref,
+          benchmark row ref, Rust performance profile, and no-fallback evidence for executable
+          rows.
+  - [ ] Add `CG-6.25 / Platform-learning benchmark and capability hardening` as a local-first,
+        platform-neutral benchmark architecture overhaul.
+    - [ ] Replace the single flat traditional analytics comparison model with a benchmark suite
+          catalog, scenario taxonomy, dataset-profile matrix, plugin-based local engines,
+          benchmark constitutions, coverage reporting, and richer result evidence.
+    - [ ] Keep Photon, Microsoft Fabric, Snowflake, BigQuery, Redshift, Databricks managed
+          services, and other managed platforms as design references only, not benchmark
+          dependencies or default benchmark lanes.
+    - [ ] Preserve current local optional engines as comparison-only baselines and keep external
+          engines out of runtime fallback.
+    - [ ] Add scenario categories for scan/pruning, projection/layout, aggregation, joins,
+          sort/window, ETL/write, messy lakehouse data, incremental/state, and
+          operational/cache/concurrency cases.
+    - [ ] Add dataset profiles for width, skew, null density, high-cardinality strings, small files,
+          partitioning, clustering, schema drift, dirty data, nested JSON, and CDC overlays.
+    - [ ] Add timing and support/coverage reports, including provider kind, residual executor,
+          representation transitions, certificate status, Native I/O status, materialization/decode
+          status, external-engine status, and `fallback_attempted=false`.
+- [ ] Priority 2.8 - crate-level posture and public export cleanup after executable-surface growth
+  - [ ] Refresh crate-level docs and historical posture comments for `shardloom-vortex`,
+        `shardloom-plan`, `shardloom-exec`, and `shardloom-cli`.
+    - [ ] Clearly distinguish executable local/prepared/source-backed paths, report-only contract
+          surfaces, blocked/deferred runtime surfaces, future provider/adapter surfaces, and
+          prohibited external fallback.
+    - [ ] Rewrite stale setup-phase or compile-only statements outright where they no longer match
+          current code; retain historical notes only when explicitly labeled historical.
+    - [ ] Group or document public exports by executable paths, report-only planning surfaces,
+          blocked runtime surfaces, and future provider/adapter surfaces.
+    - [ ] Do not expand runtime behavior while cleaning docs and export posture.
 - [ ] Priority 3 - broader platform work after the primitive/evidence loop advances
   - [x] CG-4 broader commit execution.
     - [x] Add `CommitExecutionPromotionGateReport` so broader commit surfaces are named and kept
@@ -450,6 +518,15 @@ not by numeric CG order.
     - [x] Keep cache read/write/replay, manifest-diff reads, incremental recompute execution, state
           certificate claims, reuse performance claims, external-engine invocation, and fallback
           execution disabled until the gate has workload-scoped evidence.
+  - [ ] Workspace feature/build validation matrix
+    - [ ] Validate default features, `--all-features`, and `--no-default-features` where supported.
+    - [ ] Validate key feature combinations for upstream Vortex, Vortex file I/O,
+          Vortex local primitives, Vortex encoded-read spike paths, packaging/deployment surfaces,
+          benchmark extras, and future optional Foundry package surfaces.
+    - [ ] Keep docs/report-only commands compiling and running without requiring runtime feature
+          gates.
+    - [ ] Ensure feature-disabled execution commands return deterministic unsupported diagnostics.
+    - [ ] Block public release/package claims until the matrix passes.
   - [ ] CG-18 universal import/deployment/baseline harness
     - [ ] Mature import/deployment/baseline harnesses for local, CI, container, optional Foundry,
           and optional benchmark environments without turning external engines into runtime
@@ -567,6 +644,31 @@ not by numeric CG order.
         construction does not probe datasets, capability discovery is side-effect-free, unsupported
         behavior is structured, large results use artifact refs/Arrow/Flight/Vortex outputs instead
         of giant JSON, and no wrapper may execute unsupported work through external engines.
+- [ ] Priority 3.9 - typed command/result envelope and CLI modularity overhaul
+  - [ ] Replace the early flat CLI `OutputEnvelope` with a typed command/result/evidence envelope.
+    - [ ] Because ShardLoom is unreleased, replace the early flat `(key, value)` primary payload
+          model instead of layering a backward-compatible v2.
+    - [ ] Add typed payload slots for `result`, `result_refs`, `artifacts`, `artifact_refs`,
+          `certificates`, `diagnostics`, `fallback`, `policy`, `lifecycle`, and
+          `capability_snapshot`.
+    - [ ] Attach or reference execution certificates, Native I/O certificates,
+          `EvidenceArtifactEnvelope`, materialization boundary reports, benchmark rows, Foundry
+          reports, source/sink reports, and capability snapshots through typed payloads.
+    - [ ] Keep human text rendering-only; machine-readable typed payloads are the source of truth.
+    - [ ] Update the Python wrapper to parse and preserve typed payloads.
+    - [ ] Add golden JSON fixtures for success, unsupported, blocked, certified execution,
+          evidence-incomplete execution, source-backed execution, benchmark rows, missing binary,
+          and Foundry boundary reports.
+  - [ ] Modularize CLI command routing around typed command handlers and shared rendering.
+    - [ ] Split handlers by status/capabilities, Vortex primitive execution,
+          prepared/source-backed execution, evidence/certificates, benchmarks,
+          packaging/deployment, Foundry, operational hardening, diagnostics, and future REST/API
+          planning families.
+    - [ ] Centralize rendering, diagnostics, fallback fields, policy fields, and side-effect
+          reporting.
+    - [ ] Ensure no command manually constructs incompatible JSON or omits no-fallback status.
+    - [ ] Keep dataset probes, external-engine execution, materialization, writes, and network
+          effects disabled unless a command contract explicitly allows them and emits evidence.
 - [ ] Priority 4 - CG-21 user data workflow and ETL surface implementation lane
   - [ ] CG-21A install/import/runtime discovery
     - [ ] Provide a one-command local install path once packaging approval is complete.
