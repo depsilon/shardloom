@@ -20,6 +20,7 @@ mod command_family;
 mod diagnostics;
 mod engine_runtime_planning;
 mod evidence_certificates;
+mod extension_planning;
 mod input_planning;
 mod operational_hardening;
 mod packaging_deployment;
@@ -42,25 +43,23 @@ use shardloom_core::{
     DatasetFormat, DatasetManifest, DatasetRef, DatasetUri, DeleteModel,
     DeleteTombstoneCompatibilityReport, Diagnostic, EffectBudgetReport, EncodedSegment,
     EncodingKind, ExecutionCertificate, ExecutionCertificateEvidenceSurfaceReport,
-    ExecutionEvidenceArtifactKind, ExpectedOutcome, ExtensionId, ExtensionInspectionReport,
-    ExtensionLicenseKind, ExtensionManifest, ExtensionProvenance, ExtensionRegistrySnapshot,
-    ExtensionVersion, FeatureFootprintReport, FieldId, FieldName, FieldPath, FileDescriptor,
-    FileRole, KernelRegistrySnapshot, LayoutHealthPolicy, LayoutHealthReport, LayoutKind,
-    LogicalDType, ManifestId, ManifestSegment, MetricValue, NativeIoCertificate,
-    NativeIoEnvelopeReport, Nullability, ObservabilityPlan, ObservabilitySchemaCoverageReport,
-    OperatorMemoryCertification, OutputFormat, OutputTarget, PartitionEvolutionCompatibilityReport,
-    PartitionField, PartitionSpec, PartitionTransform, PhysicalKernelRegistryPlan,
-    PhysicalOperatorExecutionLevel, PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorKind,
-    PhysicalOperatorPlan, PredicateExpr, PythonWrapperFoundationReport,
-    ReleaseEvidenceRequirementKind, ReleasePlan, ReleasePublicationBoundaryKind,
-    ReleasePublicationBoundaryReport, ReleaseReadinessEvidenceReport,
-    RfcCoverageFollowThroughReport, RuntimeObservabilityReport, SchemaDefinition,
-    SchemaEvolutionCompatibilityReport, SchemaEvolutionPolicy, SchemaField, SchemaId,
-    SchemaVersion, SecurityGovernanceEvidenceGateReport, SegmentChange, SegmentChangeKind,
-    SegmentId, SegmentLayout, SegmentStats, ShardLoomError, SnapshotId, SnapshotRef, StatValue,
-    StatefulReusePromotionGateReport, StatefulReuseReport, TableCompatibilityPlan,
-    TableCompatibilityReport, TableFormatKind, TableIntelligenceReport, TranslationPlan,
-    UdfRuntimeKind, UniversalHarnessReport, UserCapabilityPromotionGateReport, WorkloadClass,
+    ExecutionEvidenceArtifactKind, ExpectedOutcome, FeatureFootprintReport, FieldId, FieldName,
+    FieldPath, FileDescriptor, FileRole, KernelRegistrySnapshot, LayoutHealthPolicy,
+    LayoutHealthReport, LayoutKind, LogicalDType, ManifestId, ManifestSegment, MetricValue,
+    NativeIoCertificate, NativeIoEnvelopeReport, Nullability, ObservabilityPlan,
+    ObservabilitySchemaCoverageReport, OperatorMemoryCertification, OutputFormat, OutputTarget,
+    PartitionEvolutionCompatibilityReport, PartitionField, PartitionSpec, PartitionTransform,
+    PhysicalKernelRegistryPlan, PhysicalOperatorExecutionLevel,
+    PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorKind, PhysicalOperatorPlan,
+    PredicateExpr, PythonWrapperFoundationReport, ReleaseEvidenceRequirementKind, ReleasePlan,
+    ReleasePublicationBoundaryKind, ReleasePublicationBoundaryReport,
+    ReleaseReadinessEvidenceReport, RfcCoverageFollowThroughReport, RuntimeObservabilityReport,
+    SchemaDefinition, SchemaEvolutionCompatibilityReport, SchemaEvolutionPolicy, SchemaField,
+    SchemaId, SchemaVersion, SecurityGovernanceEvidenceGateReport, SegmentChange,
+    SegmentChangeKind, SegmentId, SegmentLayout, SegmentStats, ShardLoomError, SnapshotId,
+    SnapshotRef, StatValue, StatefulReusePromotionGateReport, StatefulReuseReport,
+    TableCompatibilityPlan, TableCompatibilityReport, TableFormatKind, TableIntelligenceReport,
+    TranslationPlan, UniversalHarnessReport, UserCapabilityPromotionGateReport, WorkloadClass,
     WorldClassSufficiencyDimensionKind, WorldClassSufficiencyReport, WriteIntent,
     evaluate_cdc_incremental_planning, evaluate_compaction_planning,
     evaluate_delete_tombstone_compatibility, evaluate_layout_health,
@@ -19448,125 +19447,9 @@ fn run(args: Vec<String>) -> ExitCode {
         }
         Some("table-compat-plan") => workflow_planning::handle_table_compat_plan(args, format),
         Some("capabilities") => status_capabilities::handle_capabilities(args, format),
-        Some("extension-registry") => {
-            let snapshot = ExtensionRegistrySnapshot::empty();
-            emit(
-                "extension-registry",
-                format,
-                CommandStatus::Success,
-                "extension registry metadata-only snapshot".to_string(),
-                snapshot.to_human_text(),
-                snapshot.diagnostics.clone(),
-                vec![
-                    (
-                        "fallback_execution_allowed".to_string(),
-                        "false".to_string(),
-                    ),
-                    ("mode".to_string(), "extension_registry".to_string()),
-                    ("write_io".to_string(), "false".to_string()),
-                    ("execution".to_string(), "not_performed".to_string()),
-                    ("plan_only".to_string(), "true".to_string()),
-                    ("extension_code_executed".to_string(), "false".to_string()),
-                    ("dynamic_loading".to_string(), "false".to_string()),
-                ],
-            );
-            ExitCode::SUCCESS
-        }
-        Some("extension-inspect") => {
-            let Some(extension_id) = args.next() else {
-                return emit_error(
-                    "extension-inspect",
-                    format,
-                    "extension inspect failed",
-                    &ShardLoomError::InvalidOperation("missing extension_id".to_string()),
-                );
-            };
-            let id = match ExtensionId::new(extension_id.clone()) {
-                Ok(v) => v,
-                Err(e) => {
-                    return emit_error("extension-inspect", format, "extension inspect failed", &e);
-                }
-            };
-            let manifest = match ExtensionManifest::new(
-                id,
-                extension_id,
-                ExtensionVersion::new(0, 1, 0),
-                shardloom_core::ExtensionCategory::Unknown,
-                ExtensionProvenance::new(ExtensionLicenseKind::Unknown),
-            ) {
-                Ok(v) => v,
-                Err(e) => {
-                    return emit_error("extension-inspect", format, "extension inspect failed", &e);
-                }
-            };
-            let report = ExtensionInspectionReport::requires_review(
-                manifest,
-                "Extension inspection is metadata-only and requires provenance review.",
-            );
-            let status = if report.has_errors() {
-                CommandStatus::Warning
-            } else {
-                CommandStatus::Success
-            };
-            emit(
-                "extension-inspect",
-                format,
-                status,
-                "extension inspection metadata-only report".to_string(),
-                report.to_human_text(),
-                report.diagnostics.clone(),
-                vec![
-                    (
-                        "fallback_execution_allowed".to_string(),
-                        "false".to_string(),
-                    ),
-                    ("mode".to_string(), "extension_inspect".to_string()),
-                    ("write_io".to_string(), "false".to_string()),
-                    ("execution".to_string(), "not_performed".to_string()),
-                    ("plan_only".to_string(), "true".to_string()),
-                    ("extension_code_executed".to_string(), "false".to_string()),
-                    ("dynamic_loading".to_string(), "false".to_string()),
-                ],
-            );
-            ExitCode::SUCCESS
-        }
-        Some("udf-runtime-plan") => {
-            let runtime = match args.next().as_deref() {
-                Some("rust") => UdfRuntimeKind::RustNative,
-                Some("wasm") => UdfRuntimeKind::Wasm,
-                Some("python") => UdfRuntimeKind::Python,
-                Some("sql") => UdfRuntimeKind::SqlDefined,
-                Some("external") => UdfRuntimeKind::ExternalService,
-                Some(_) | None => UdfRuntimeKind::Unknown,
-            };
-            let text = format!(
-                "udf runtime={} available_initially={} sandboxing_required={} execution=not_performed fallback_execution=disabled",
-                runtime.as_str(),
-                runtime.is_available_initially(),
-                runtime.requires_sandboxing()
-            );
-            emit(
-                "udf-runtime-plan",
-                format,
-                CommandStatus::Success,
-                "udf runtime availability skeleton".to_string(),
-                text,
-                vec![],
-                vec![
-                    (
-                        "fallback_execution_allowed".to_string(),
-                        "false".to_string(),
-                    ),
-                    ("mode".to_string(), "udf_runtime_plan".to_string()),
-                    ("write_io".to_string(), "false".to_string()),
-                    ("execution".to_string(), "not_performed".to_string()),
-                    ("plan_only".to_string(), "true".to_string()),
-                    ("extension_code_executed".to_string(), "false".to_string()),
-                    ("dynamic_loading".to_string(), "false".to_string()),
-                ],
-            );
-            ExitCode::SUCCESS
-        }
+        Some("extension-registry") => extension_planning::handle_extension_registry(format),
+        Some("extension-inspect") => extension_planning::handle_extension_inspect(args, format),
+        Some("udf-runtime-plan") => extension_planning::handle_udf_runtime_plan(args, format),
         Some("security-plan") => operational_hardening::handle_security_plan(format),
         Some("security-governance-evidence-gate") => {
             operational_hardening::handle_security_governance_evidence_gate(format)

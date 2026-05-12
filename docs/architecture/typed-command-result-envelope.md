@@ -139,11 +139,16 @@ The engine/runtime planning family now contains `streaming-plan`, `streaming-bat
 datasets, execute tasks, collect profiles, write data, materialize outputs, invoke external engines,
 or weaken no-fallback behavior.
 
+The extension/UDF planning family now contains `extension-registry`, `extension-inspect`, and
+`udf-runtime-plan`, and lives in `shardloom-cli/src/extension_planning.rs`. These handlers remain
+metadata-only and do not dynamically load extension code, execute UDFs, invoke external services,
+write data, or weaken no-fallback behavior.
+
 Command family classification lives in `shardloom-cli/src/command_family.rs` and is emitted in the
 typed lifecycle payload as `command_family`. This gives status/capabilities, Vortex primitive,
 prepared/source-backed, evidence/certificate, benchmark, packaging/deployment, Foundry,
-operational-hardening, diagnostic, REST/API-planning, workflow-planning, and engine-runtime
-commands a stable family taxonomy before their handlers are physically split.
+operational-hardening, diagnostic, REST/API-planning, workflow-planning, engine-runtime, and
+extension-planning commands a stable family taxonomy before their handlers are physically split.
 
 Golden typed-envelope contract snapshots now live in:
 

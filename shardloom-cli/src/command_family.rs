@@ -18,6 +18,7 @@ pub(crate) enum CommandFamily {
     RestApiPlanning,
     WorkflowPlanning,
     EngineRuntimePlanning,
+    ExtensionPlanning,
     Other,
 }
 
@@ -37,6 +38,7 @@ impl CommandFamily {
             Self::RestApiPlanning => "rest_api_planning",
             Self::WorkflowPlanning => "workflow_planning",
             Self::EngineRuntimePlanning => "engine_runtime_planning",
+            Self::ExtensionPlanning => "extension_planning",
             Self::Other => "other",
         }
     }
@@ -71,6 +73,8 @@ pub(crate) fn classify_command(command: &str) -> CommandFamily {
         CommandFamily::WorkflowPlanning
     } else if is_engine_runtime_planning_command(command) {
         CommandFamily::EngineRuntimePlanning
+    } else if is_extension_planning_command(command) {
+        CommandFamily::ExtensionPlanning
     } else {
         CommandFamily::Other
     }
@@ -230,6 +234,13 @@ fn is_engine_runtime_planning_command(command: &str) -> bool {
     )
 }
 
+fn is_extension_planning_command(command: &str) -> bool {
+    matches!(
+        command,
+        "extension-registry" | "extension-inspect" | "udf-runtime-plan"
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -267,6 +278,10 @@ mod tests {
         assert_eq!(
             classify_command("api-compat-plan"),
             CommandFamily::RestApiPlanning
+        );
+        assert_eq!(
+            classify_command("udf-runtime-plan"),
+            CommandFamily::ExtensionPlanning
         );
     }
 
