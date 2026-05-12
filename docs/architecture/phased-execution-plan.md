@@ -201,6 +201,12 @@ actionable work.
     - [x] Move the local Vortex count benchmark runtime handler, `vortex-count-benchmark`, into
           `shardloom-cli/src/benchmark_runtime.rs` without changing benchmark semantics, adding
           external baseline execution, or weakening no-fallback behavior.
+    - [x] Move benchmark planning/runtime helper ownership into
+          `shardloom-cli/src/benchmark_planning.rs` and
+          `shardloom-cli/src/benchmark_runtime.rs`, covering benchmark plan, benchmark claim
+          evidence, and Vortex count benchmark field construction while preserving report-only
+          planning or local benchmark semantics, comparison-only external baselines, and
+          no-fallback behavior.
     - [x] Move operational hardening/security handlers into
           `shardloom-cli/src/operational_hardening.rs` without resolving credentials, loading
           secrets, executing effects, or weakening no-fallback behavior.

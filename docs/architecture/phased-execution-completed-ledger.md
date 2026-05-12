@@ -16,6 +16,39 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 benchmark helper ownership split
+  - Primary files:
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/src/benchmark_planning.rs`
+    - `shardloom-cli/src/benchmark_runtime.rs`
+    - `shardloom-cli/src/cli_time.rs`
+    - `shardloom-cli/src/vortex_output_commit.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/typed-command-result-envelope.md`
+  - Scope: move benchmark planning and local benchmark report field construction out of `main.rs`
+    while preserving report-only planning surfaces, local benchmark semantics, comparison-only
+    external baselines, and no-fallback evidence.
+  - Checklist:
+    - [x] Route benchmark plan, benchmark claim evidence, and benchmark scope helper construction
+          through `benchmark_planning.rs`.
+    - [x] Move Vortex count benchmark iteration/report construction and field emission into
+          `benchmark_runtime.rs`.
+    - [x] Move shared CLI duration conversion helpers into `cli_time.rs` so Vortex output/commit
+          helpers do not depend on benchmark internals.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --bin shardloom benchmark_claim_evidence`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --bin shardloom vortex_count_benchmark`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test benchmark_plan_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test benchmark_claim_evidence_plan_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test typed_envelope_contract_snapshots benchmark`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test --workspace --all-targets`
+    - [x] `git diff --check`
+  - Runtime stance: helper/module ownership only; no benchmark results are fabricated, no external
+    baselines execute, no dataset probing is added to report-only commands, and no fallback
+    execution is enabled.
+
 - [x] Session label: Priority 3.9 evidence/certificate helper ownership split
   - Primary files:
     - `shardloom-cli/src/main.rs`
