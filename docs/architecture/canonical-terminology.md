@@ -13,7 +13,7 @@ This file is the authoritative ShardLoom glossary and concept index. It should s
 - **Entry-point summary**: `README.md` keeps only the short core-concepts doorway and links here.
 - **External lessons**: `docs/architecture/systems-learning-map.md` records technique transfer from Vortex, Spark, DataFusion, Modal's GPU glossary, and other systems; it does not own ShardLoom vocabulary definitions.
 - **Deep contracts**: RFCs define field-level contracts, acceptance criteria, non-goals, and verification plans.
-- **Active status**: `docs/architecture/phased-execution-plan.md` remains the only mutable source of truth for current status, queue placement, completed phase ledger, and CG closeout state.
+- **Active status**: `docs/architecture/phased-execution-plan.md` remains the mutable source of truth for current planned queue placement, deferred work, and CG closeout ordering; `docs/architecture/phased-execution-completed-ledger.md` owns detailed completed session and historical phase provenance.
 
 Concept groups:
 

@@ -2,7 +2,12 @@
 
 ## Status
 
-Draft
+Accepted as modular extension contract; implementation deferred.
+
+This RFC defines extension boundaries and evidence contracts. It does not
+authorize SQL execution, UDF execution, OCR, media decoding, transcription,
+embedding generation, LLM calls, model inference, API calls, vector indexes,
+external-service dependencies, package publication, or fallback execution.
 
 ## Summary
 
@@ -381,6 +386,109 @@ Unstructured data should be handled as:
 4. Extracted structured fields.
 5. Optional external/model processing steps.
 
+ShardLoom should not be the media or model runtime by default. Pipeline code,
+Foundry media transforms, AIP Logic, approved model services, or user-owned
+orchestration should perform OCR, transcription, document conversion, image
+tiling, embedding generation, LLM calls, model inference, retries, rate limits,
+prompt handling, human review, and platform-specific credential behavior.
+
+ShardLoom should own the contracts around those stages:
+
+- Media references.
+- Media and document manifests.
+- Extracted text and chunk tables.
+- Embedding/vector tables.
+- Extraction provenance.
+- Model-call boundary reports.
+- Effect, cost, credential, redaction, and retention policy.
+- Data-quality checks.
+- Lineage and certificates.
+- Downstream structured analytics over extracted outputs.
+
+## Media references and manifests
+
+`MediaRef` should represent media without forcing ShardLoom to load raw bytes:
+
+```text
+media_set_ref / dataset path / object URI
+media_item_id / path
+MIME type
+size
+checksum if available
+source system
+branch / transaction / version
+access policy
+extraction status
+```
+
+`MediaManifest` should represent a collection of media refs:
+
+```text
+manifest_id
+media_refs
+schema
+source system
+virtual/external status
+update detection policy
+known limitations
+redaction policy
+fallback_attempted=false
+```
+
+Virtual or external media handles remain governed references until staged or
+natively accessed through certified source paths.
+
+## Extraction and model-call boundaries
+
+Media extraction, OCR, transcription, metadata parsing, chunking, embeddings,
+LLM calls, and model inference must be explicit effect boundaries.
+
+`ExtractionBoundaryReport` fields:
+
+```text
+boundary_type
+input_kind
+operation
+executor
+shardloom_native_execution=false
+output_kind
+deterministic
+materialization_boundary
+provenance_ref
+confidence_policy
+redaction_policy
+fallback_attempted=false
+```
+
+`ModelCallBoundaryReport` fields:
+
+```text
+boundary_type
+model_kind
+provider
+model_ref
+model_version
+input_artifact_ref
+output_artifact_ref
+prompt_template_hash
+temperature/settings
+token_budget
+cost_accounting
+deterministic=false
+external_effect=true
+human_review_policy
+output_validation_schema
+shardloom_native_execution=false
+fallback_attempted=false
+```
+
+`EmbeddingBoundaryReport` is a model-call boundary specialized for vector
+outputs and should record embedding model, dimension, normalization, input
+hash, provider boundary, redaction, cost, and reproducibility status.
+
+These reports allow ShardLoom to certify the data workflow without claiming it
+performed the model/media work.
+
 ## Chunk and extraction model
 
 For unstructured data, ShardLoom should eventually support:
@@ -397,6 +505,25 @@ For unstructured data, ShardLoom should eventually support:
 - Output schema.
 
 This enables retrieval and LLM workflows while preserving auditability.
+
+`TextChunkTable` should be treated as a structured table contract:
+
+```text
+document_id
+chunk_id
+text
+start_offset / end_offset
+page_number
+section
+extraction_method
+extraction_version
+confidence
+provenance_ref
+redaction_status
+```
+
+ShardLoom can validate, filter, join, aggregate, write, certify, and benchmark
+chunk tables as structured data once the table source path itself is certified.
 
 ## Embeddings
 
@@ -429,6 +556,58 @@ Embedding operations should declare:
 - Reproducibility expectations.
 
 Embedding data may eventually be represented in Vortex-compatible forms when appropriate.
+
+`EmbeddingTable` should be treated as structured model output:
+
+```text
+entity_id / document_id / chunk_id
+embedding_model
+model_version
+vector
+dimension
+normalization
+created_at
+input_hash
+redaction_policy
+provider_boundary
+```
+
+Embedding generation remains an explicit model-call boundary. Vector similarity
+scan, ANN/top-K, vector indexes, and native vector execution are separate
+capability claims that require their own correctness, benchmark, Native I/O,
+execution-certificate, and no-fallback evidence.
+
+## Unstructured workflow certificate
+
+`UnstructuredWorkflowCertificate` should summarize an end-to-end unstructured
+workflow:
+
+```text
+input media refs
+extraction boundaries
+chunking boundaries
+embedding/model boundaries
+structured outputs
+validation checks
+redaction policy
+cost/effect policy
+lineage refs
+downstream ShardLoom analytics refs
+fallback_attempted=false
+```
+
+Maturity levels:
+
+```text
+U0 declared only
+U1 media reference discovery
+U2 extraction boundary recorded
+U3 chunk table emitted
+U4 embedding/model boundary recorded
+U5 structured outputs validated
+U6 downstream ShardLoom analytics certified
+U7 Foundry workflow certified
+```
 
 ## Vector search
 
