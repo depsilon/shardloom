@@ -966,6 +966,234 @@ impl ReleaseReadinessEvidenceReport {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkspaceFeatureBuildMatrixFeatureSet {
+    DefaultFeatures,
+    AllFeatures,
+    NoDefaultFeatures,
+    UpstreamVortex,
+    VortexFileIo,
+    VortexLocalPrimitives,
+    VortexEncodedReadSpike,
+    PackagingDeployment,
+    BenchmarkExtras,
+    FutureFoundryOptional,
+}
+as_str_enum!(WorkspaceFeatureBuildMatrixFeatureSet{DefaultFeatures=>"default_features",AllFeatures=>"all_features",NoDefaultFeatures=>"no_default_features",UpstreamVortex=>"upstream_vortex",VortexFileIo=>"vortex_file_io",VortexLocalPrimitives=>"vortex_local_primitives",VortexEncodedReadSpike=>"vortex_encoded_read_spike",PackagingDeployment=>"packaging_deployment",BenchmarkExtras=>"benchmark_extras",FutureFoundryOptional=>"future_foundry_optional"});
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkspaceFeatureBuildMatrixRowStatus {
+    Required,
+    Passed,
+    Blocked,
+    NotApplicableYet,
+}
+as_str_enum!(WorkspaceFeatureBuildMatrixRowStatus{Required=>"required",Passed=>"passed",Blocked=>"blocked",NotApplicableYet=>"not_applicable_yet"});
+
+impl WorkspaceFeatureBuildMatrixRowStatus {
+    pub const fn satisfies_release_claim(&self) -> bool {
+        matches!(self, Self::Passed | Self::NotApplicableYet)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WorkspaceFeatureBuildMatrixRow {
+    pub workspace_crate: &'static str,
+    pub feature_set: WorkspaceFeatureBuildMatrixFeatureSet,
+    pub command: &'static str,
+    pub status: WorkspaceFeatureBuildMatrixRowStatus,
+    pub docs_report_only_commands_compile_required: bool,
+    pub feature_disabled_unsupported_diagnostics_required: bool,
+    pub public_release_claim_allowed: bool,
+    pub external_engine_invoked: bool,
+    pub fallback_attempted: bool,
+}
+
+impl WorkspaceFeatureBuildMatrixRow {
+    pub const fn required(
+        workspace_crate: &'static str,
+        feature_set: WorkspaceFeatureBuildMatrixFeatureSet,
+        command: &'static str,
+        feature_disabled_unsupported_diagnostics_required: bool,
+    ) -> Self {
+        Self {
+            workspace_crate,
+            feature_set,
+            command,
+            status: WorkspaceFeatureBuildMatrixRowStatus::Required,
+            docs_report_only_commands_compile_required: true,
+            feature_disabled_unsupported_diagnostics_required,
+            public_release_claim_allowed: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+
+    pub const fn not_applicable_yet(
+        workspace_crate: &'static str,
+        feature_set: WorkspaceFeatureBuildMatrixFeatureSet,
+        command: &'static str,
+    ) -> Self {
+        Self {
+            workspace_crate,
+            feature_set,
+            command,
+            status: WorkspaceFeatureBuildMatrixRowStatus::NotApplicableYet,
+            docs_report_only_commands_compile_required: true,
+            feature_disabled_unsupported_diagnostics_required: true,
+            public_release_claim_allowed: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+
+    pub const fn fallback_free(&self) -> bool {
+        !self.external_engine_invoked && !self.fallback_attempted
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WorkspaceFeatureBuildMatrixReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub rows: Vec<WorkspaceFeatureBuildMatrixRow>,
+    pub public_release_claim_blocked_until_matrix_passes: bool,
+    pub public_package_claim_blocked_until_matrix_passes: bool,
+    pub docs_report_only_commands_must_compile_without_runtime_features: bool,
+    pub feature_disabled_execution_commands_require_unsupported_diagnostics: bool,
+    pub package_publication_performed: bool,
+    pub dependency_expansion_performed: bool,
+    pub runtime_expansion_performed: bool,
+    pub external_engine_invoked: bool,
+    pub fallback_attempted: bool,
+}
+
+impl WorkspaceFeatureBuildMatrixReport {
+    pub fn required_release_readiness_matrix() -> Self {
+        Self {
+            schema_version: "shardloom.workspace_feature_build_matrix.v1",
+            report_id: "priority_3_5.workspace_feature_build_matrix.required",
+            rows: workspace_feature_build_matrix_rows(),
+            public_release_claim_blocked_until_matrix_passes: true,
+            public_package_claim_blocked_until_matrix_passes: true,
+            docs_report_only_commands_must_compile_without_runtime_features: true,
+            feature_disabled_execution_commands_require_unsupported_diagnostics: true,
+            package_publication_performed: false,
+            dependency_expansion_performed: false,
+            runtime_expansion_performed: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+
+    pub fn has_required_feature_coverage(&self) -> bool {
+        self.has_feature_set(WorkspaceFeatureBuildMatrixFeatureSet::DefaultFeatures)
+            && self.has_feature_set(WorkspaceFeatureBuildMatrixFeatureSet::AllFeatures)
+            && self.has_feature_set(WorkspaceFeatureBuildMatrixFeatureSet::NoDefaultFeatures)
+            && self.has_feature_set(WorkspaceFeatureBuildMatrixFeatureSet::UpstreamVortex)
+            && self.has_feature_set(WorkspaceFeatureBuildMatrixFeatureSet::VortexFileIo)
+            && self.has_feature_set(WorkspaceFeatureBuildMatrixFeatureSet::VortexLocalPrimitives)
+            && self.has_feature_set(WorkspaceFeatureBuildMatrixFeatureSet::VortexEncodedReadSpike)
+            && self.has_feature_set(WorkspaceFeatureBuildMatrixFeatureSet::PackagingDeployment)
+            && self.has_feature_set(WorkspaceFeatureBuildMatrixFeatureSet::BenchmarkExtras)
+            && self.has_feature_set(WorkspaceFeatureBuildMatrixFeatureSet::FutureFoundryOptional)
+    }
+
+    pub fn release_claims_remain_blocked(&self) -> bool {
+        self.public_release_claim_blocked_until_matrix_passes
+            && self.public_package_claim_blocked_until_matrix_passes
+            && self
+                .rows
+                .iter()
+                .filter(|row| row.status != WorkspaceFeatureBuildMatrixRowStatus::NotApplicableYet)
+                .all(|row| !row.status.satisfies_release_claim())
+    }
+
+    pub fn no_runtime_or_fallback_expansion(&self) -> bool {
+        !self.package_publication_performed
+            && !self.dependency_expansion_performed
+            && !self.runtime_expansion_performed
+            && !self.external_engine_invoked
+            && !self.fallback_attempted
+            && self
+                .rows
+                .iter()
+                .all(WorkspaceFeatureBuildMatrixRow::fallback_free)
+    }
+
+    fn has_feature_set(&self, feature_set: WorkspaceFeatureBuildMatrixFeatureSet) -> bool {
+        self.rows.iter().any(|row| row.feature_set == feature_set)
+    }
+}
+
+pub fn plan_workspace_feature_build_matrix() -> WorkspaceFeatureBuildMatrixReport {
+    WorkspaceFeatureBuildMatrixReport::required_release_readiness_matrix()
+}
+
+fn workspace_feature_build_matrix_rows() -> Vec<WorkspaceFeatureBuildMatrixRow> {
+    vec![
+        WorkspaceFeatureBuildMatrixRow::required(
+            "workspace",
+            WorkspaceFeatureBuildMatrixFeatureSet::DefaultFeatures,
+            "cargo check --workspace",
+            true,
+        ),
+        WorkspaceFeatureBuildMatrixRow::required(
+            "workspace",
+            WorkspaceFeatureBuildMatrixFeatureSet::AllFeatures,
+            "cargo check --workspace --all-features",
+            true,
+        ),
+        WorkspaceFeatureBuildMatrixRow::required(
+            "workspace",
+            WorkspaceFeatureBuildMatrixFeatureSet::NoDefaultFeatures,
+            "cargo check --workspace --no-default-features",
+            true,
+        ),
+        WorkspaceFeatureBuildMatrixRow::required(
+            "shardloom-vortex",
+            WorkspaceFeatureBuildMatrixFeatureSet::UpstreamVortex,
+            "cargo check -p shardloom-vortex --features upstream-vortex",
+            false,
+        ),
+        WorkspaceFeatureBuildMatrixRow::required(
+            "shardloom-vortex",
+            WorkspaceFeatureBuildMatrixFeatureSet::VortexFileIo,
+            "cargo check -p shardloom-vortex --features vortex-file-io",
+            false,
+        ),
+        WorkspaceFeatureBuildMatrixRow::required(
+            "shardloom-vortex",
+            WorkspaceFeatureBuildMatrixFeatureSet::VortexLocalPrimitives,
+            "cargo check -p shardloom-vortex --features vortex-local-primitives",
+            true,
+        ),
+        WorkspaceFeatureBuildMatrixRow::required(
+            "shardloom-vortex",
+            WorkspaceFeatureBuildMatrixFeatureSet::VortexEncodedReadSpike,
+            "cargo check -p shardloom-vortex --features vortex-encoded-read-spike",
+            true,
+        ),
+        WorkspaceFeatureBuildMatrixRow::required(
+            "shardloom-contract-tests",
+            WorkspaceFeatureBuildMatrixFeatureSet::PackagingDeployment,
+            "cargo test -p shardloom-contract-tests --test conda_packaging_recipes",
+            false,
+        ),
+        WorkspaceFeatureBuildMatrixRow::required(
+            "shardloom-vortex",
+            WorkspaceFeatureBuildMatrixFeatureSet::BenchmarkExtras,
+            "cargo check -p shardloom-vortex --features vortex-traditional-analytics-benchmark",
+            true,
+        ),
+        WorkspaceFeatureBuildMatrixRow::not_applicable_yet(
+            "shardloom-foundry",
+            WorkspaceFeatureBuildMatrixFeatureSet::FutureFoundryOptional,
+            "future optional package; no crate exists yet",
+        ),
+    ]
+}
+
 fn schema_version_status(plan: &ReleasePlan) -> ReleaseEvidenceRequirementStatus {
     if plan.schemas.is_empty() {
         ReleaseEvidenceRequirementStatus::Missing
@@ -1679,5 +1907,32 @@ mod tests {
         assert!(!report.fallback_dependency_allowed);
         assert!(report.release_gated());
         assert!(report.is_side_effect_free());
+    }
+
+    #[test]
+    fn workspace_feature_build_matrix_declares_required_release_checks_without_runtime_expansion() {
+        let report = plan_workspace_feature_build_matrix();
+
+        assert_eq!(
+            report.schema_version,
+            "shardloom.workspace_feature_build_matrix.v1"
+        );
+        assert!(report.has_required_feature_coverage());
+        assert!(report.release_claims_remain_blocked());
+        assert!(report.no_runtime_or_fallback_expansion());
+        assert!(report.rows.iter().any(|row| {
+            row.feature_set == WorkspaceFeatureBuildMatrixFeatureSet::AllFeatures
+                && row.command == "cargo check --workspace --all-features"
+        }));
+        assert!(report.rows.iter().any(|row| {
+            row.feature_set == WorkspaceFeatureBuildMatrixFeatureSet::FutureFoundryOptional
+                && row.status == WorkspaceFeatureBuildMatrixRowStatus::NotApplicableYet
+        }));
+        assert!(
+            report
+                .rows
+                .iter()
+                .all(|row| !row.public_release_claim_allowed)
+        );
     }
 }

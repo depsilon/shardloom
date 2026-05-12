@@ -546,7 +546,7 @@ fn execute_request(request: SpillLifecycleRequest) -> SpillLifecycleReport {
         if std::path::Path::new(&marker).exists() {
             if let Err(error) = std::fs::remove_file(&marker) {
                 report.add_diagnostic(Diagnostic::new(
-                    DiagnosticCode::InvalidOperation,
+                    DiagnosticCode::InvalidInput,
                     DiagnosticSeverity::Error,
                     DiagnosticCategory::Execution,
                     format!("failed to remove spill lifecycle marker: {error}"),
@@ -570,7 +570,7 @@ fn execute_request(request: SpillLifecycleRequest) -> SpillLifecycleReport {
         let mut report = SpillLifecycleReport::workspace_ready(request, plan);
         if let Err(error) = std::fs::create_dir_all(&workspace) {
             report.add_diagnostic(Diagnostic::new(
-                DiagnosticCode::InvalidOperation,
+                DiagnosticCode::InvalidInput,
                 DiagnosticSeverity::Error,
                 DiagnosticCategory::Execution,
                 format!("failed to create spill workspace: {error}"),
@@ -585,7 +585,7 @@ fn execute_request(request: SpillLifecycleRequest) -> SpillLifecycleReport {
         report.workspace_created = SpillIoState::Yes;
         if let Err(error) = std::fs::write(marker, b"lifecycle-marker") {
             report.add_diagnostic(Diagnostic::new(
-                DiagnosticCode::InvalidOperation,
+                DiagnosticCode::InvalidInput,
                 DiagnosticSeverity::Error,
                 DiagnosticCategory::Execution,
                 format!("failed to write spill lifecycle marker: {error}"),
