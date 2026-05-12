@@ -73,6 +73,7 @@ pub mod source_backed_encoded_execution;
 pub mod staged_manifest;
 pub mod staged_output;
 pub mod streaming_batch_runtime;
+pub mod top_level_facade;
 pub mod traditional_analytics;
 pub mod vortex_compatibility;
 pub mod vortex_compute_provider;
@@ -547,6 +548,7 @@ pub use streaming_batch_runtime::{
     vortex_streaming_batch_runtime_is_side_effect_free,
     vortex_streaming_batch_runtime_schema_version,
 };
+pub use top_level_facade::VortexTopLevelExecutionProvider;
 
 pub use metadata_summary::{
     VortexColumnMetadataSummary, VortexFileMetadataSummary, VortexMetadataAvailability,

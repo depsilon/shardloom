@@ -1,9 +1,11 @@
-//! Execution skeleton for `ShardLoom`.
+//! Execution facade for `ShardLoom`.
 //!
-//! This crate owns native execution orchestration with explicit unsupported-path
-//! failures and no fallback delegation architecture.
+//! This crate owns native execution orchestration contracts with explicit
+//! unsupported-path failures and no fallback delegation architecture. Provider
+//! crates attach concrete execution through the `ShardLoomExecutionProvider`
+//! trait to avoid reversing crate dependencies.
 
-use shardloom_core::{Result, ShardLoomError};
+use shardloom_core::{Diagnostic, DiagnosticCode, ExecutionProviderKind, FallbackStatus, Result};
 use shardloom_plan::{Plan, PlanKind};
 
 pub mod memory;
@@ -21,6 +23,134 @@ pub struct ExecStatus {
     pub summary: String,
 }
 
+/// Top-level execution result status.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShardLoomExecutionStatus {
+    Executed,
+    ReportOnly,
+    BlockedProviderDispatchRequired,
+    BlockedUnsupported,
+}
+
+impl ShardLoomExecutionStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Executed => "executed",
+            Self::ReportOnly => "report_only",
+            Self::BlockedProviderDispatchRequired => "blocked_provider_dispatch_required",
+            Self::BlockedUnsupported => "blocked_unsupported",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_success(self) -> bool {
+        matches!(self, Self::Executed | Self::ReportOnly)
+    }
+}
+
+/// Typed top-level execution result returned by the execution facade.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ShardLoomExecutionResult {
+    pub status: ShardLoomExecutionStatus,
+    pub plan_id: String,
+    pub plan_kind: String,
+    pub engine_mode: String,
+    pub execution_provider_kind: Option<ExecutionProviderKind>,
+    pub provider_api_surface: Option<String>,
+    pub source_refs: Vec<String>,
+    pub split_refs: Vec<String>,
+    pub result_refs: Vec<String>,
+    pub artifact_refs: Vec<String>,
+    pub execution_certificate_refs: Vec<String>,
+    pub native_io_certificate_refs: Vec<String>,
+    pub materialization_boundary_refs: Vec<String>,
+    pub residual_boundary_refs: Vec<String>,
+    pub representation_transitions: Vec<String>,
+    pub diagnostics: Vec<Diagnostic>,
+    pub fallback: FallbackStatus,
+    pub external_engine_invoked: bool,
+}
+
+impl ShardLoomExecutionResult {
+    #[must_use]
+    pub fn from_plan(plan: &Plan, status: ShardLoomExecutionStatus) -> Self {
+        Self {
+            status,
+            plan_id: plan.id.as_str().to_string(),
+            plan_kind: plan.kind.as_str().to_string(),
+            engine_mode: "batch".to_string(),
+            execution_provider_kind: plan.provider_kind(),
+            provider_api_surface: plan.provider_api_surface().map(str::to_string),
+            source_refs: plan.source_refs(),
+            split_refs: plan.split_refs(),
+            result_refs: vec![],
+            artifact_refs: vec![],
+            execution_certificate_refs: vec![],
+            native_io_certificate_refs: vec![],
+            materialization_boundary_refs: vec![],
+            residual_boundary_refs: plan.residual_boundary_refs(),
+            representation_transitions: vec![],
+            diagnostics: plan.diagnostics(),
+            fallback: FallbackStatus::disabled_by_policy(),
+            external_engine_invoked: false,
+        }
+    }
+
+    #[must_use]
+    pub fn report_only(plan: &Plan) -> Self {
+        Self::from_plan(plan, ShardLoomExecutionStatus::ReportOnly)
+    }
+
+    #[must_use]
+    pub fn blocked_provider_dispatch_required(plan: &Plan) -> Self {
+        let mut result = Self::from_plan(
+            plan,
+            ShardLoomExecutionStatus::BlockedProviderDispatchRequired,
+        );
+        result.diagnostics.push(plan.unsupported_diagnostic());
+        result
+    }
+
+    #[must_use]
+    pub fn blocked_unsupported(plan: &Plan, diagnostic: Diagnostic) -> Self {
+        let mut result = Self::from_plan(plan, ShardLoomExecutionStatus::BlockedUnsupported);
+        result.diagnostics.push(diagnostic);
+        result
+    }
+
+    #[must_use]
+    pub fn executed(plan: &Plan) -> Self {
+        Self::from_plan(plan, ShardLoomExecutionStatus::Executed)
+    }
+
+    #[must_use]
+    pub const fn fallback_attempted(&self) -> bool {
+        self.fallback.attempted
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        !self.status.is_success()
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    shardloom_core::DiagnosticSeverity::Error
+                        | shardloom_core::DiagnosticSeverity::Fatal
+                )
+            })
+    }
+}
+
+/// Provider-side top-level execution dispatch.
+pub trait ShardLoomExecutionProvider {
+    /// Execute a top-level plan through the provider.
+    ///
+    /// # Errors
+    /// Returns an error when the provider cannot construct its typed execution result.
+    fn execute_plan(&self, plan: &Plan) -> Result<ShardLoomExecutionResult>;
+}
+
 /// Return a simple system status for initial workspace validation.
 #[must_use]
 pub fn status() -> ExecStatus {
@@ -29,24 +159,52 @@ pub fn status() -> ExecStatus {
     }
 }
 
-/// Execute a plan in the native engine.
+/// Execute a plan through the provider-neutral facade.
+///
+/// Provider-specific executable plans must be dispatched via
+/// `execute_with_provider`. The provider-neutral path never returns no-op
+/// success for executable plans.
 ///
 /// # Errors
-/// This skeletal implementation reserves errors for future execution failures.
-pub fn execute(plan: &Plan) -> Result<()> {
-    match plan.kind {
-        PlanKind::NativeVortexScan => Ok(()),
+/// This provider-neutral facade currently constructs deterministic blocked
+/// diagnostics and does not perform fallible IO or provider dispatch.
+pub fn execute(plan: &Plan) -> Result<ShardLoomExecutionResult> {
+    if matches!(plan.kind, PlanKind::ReportOnly(_)) {
+        Ok(ShardLoomExecutionResult::report_only(plan))
+    } else {
+        Ok(ShardLoomExecutionResult::blocked_provider_dispatch_required(plan))
     }
+}
+
+/// Execute a plan through a concrete native provider.
+///
+/// # Errors
+/// Returns provider errors from the selected execution provider.
+pub fn execute_with_provider(
+    plan: &Plan,
+    provider: &dyn ShardLoomExecutionProvider,
+) -> Result<ShardLoomExecutionResult> {
+    provider.execute_plan(plan)
 }
 
 /// Fail explicitly for unsupported operations in the early skeleton.
 ///
 /// # Errors
-/// Always returns an explicit unsupported-path error.
-pub fn unsupported(operation: &str) -> Result<()> {
-    Err(ShardLoomError::new(format!(
-        "unsupported execution path: {operation}; no fallback engines are enabled"
-    )))
+/// Returns an error when the synthetic unsupported plan id cannot be constructed.
+pub fn unsupported(operation: &str) -> Result<ShardLoomExecutionResult> {
+    let plan = Plan::report_only(
+        shardloom_plan::PlanId::new(format!("unsupported.{operation}"))?,
+        shardloom_plan::ReportOnlyPlan::new("unsupported_operation"),
+    );
+    Ok(ShardLoomExecutionResult::blocked_unsupported(
+        &plan,
+        Diagnostic::unsupported(
+            DiagnosticCode::NoFallbackExecution,
+            operation,
+            format!("unsupported execution path: {operation}; no fallback engines are enabled"),
+            Some("Use a ShardLoom-native supported plan surface.".to_string()),
+        ),
+    ))
 }
 
 pub use memory::{
@@ -129,9 +287,9 @@ pub use runtime::{
 
 #[cfg(test)]
 mod tests {
-    use shardloom_plan::build_native_vortex_scan_plan;
+    use shardloom_plan::{Plan, PlanId, ReportOnlyPlan, build_vortex_count_all_plan};
 
-    use super::{execute, status, unsupported};
+    use super::{ShardLoomExecutionStatus, execute, status, unsupported};
 
     #[test]
     fn reports_status() {
@@ -139,14 +297,41 @@ mod tests {
     }
 
     #[test]
-    fn executes_native_plan() {
-        let plan = build_native_vortex_scan_plan().expect("plan");
-        execute(&plan).expect("execution should succeed");
+    fn executable_plan_requires_provider_dispatch() {
+        let plan =
+            build_vortex_count_all_plan("plan.count", "file://tmp/data.vortex").expect("plan");
+        let result = execute(&plan).expect("execution result");
+        assert_eq!(
+            result.status,
+            ShardLoomExecutionStatus::BlockedProviderDispatchRequired
+        );
+        assert_eq!(
+            result.provider_api_surface.as_deref(),
+            Some("vortex_local_primitive")
+        );
+        assert!(!result.fallback_attempted());
+        assert!(!result.external_engine_invoked);
+        assert!(result.has_errors());
+    }
+
+    #[test]
+    fn report_only_plan_is_not_noop_execution() {
+        let plan = Plan::report_only(
+            PlanId::new("plan.report").expect("plan id"),
+            ReportOnlyPlan::new("architecture_spine"),
+        );
+        let result = execute(&plan).expect("execution result");
+        assert_eq!(result.status, ShardLoomExecutionStatus::ReportOnly);
+        assert!(!result.fallback_attempted());
+        assert!(!result.external_engine_invoked);
+        assert!(result.result_refs.is_empty());
     }
 
     #[test]
     fn unsupported_fails_explicitly() {
-        let error = unsupported("join").expect_err("must fail");
-        assert!(error.to_string().contains("no fallback engines"));
+        let result = unsupported("join").expect("unsupported result");
+        assert_eq!(result.status, ShardLoomExecutionStatus::BlockedUnsupported);
+        assert!(result.has_errors());
+        assert!(!result.fallback_attempted());
     }
 }

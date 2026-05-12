@@ -199,30 +199,30 @@ not by numeric CG order.
   - [x] Preserve deterministic unsupported behavior: no hidden external query-engine execution, no
         silent materialization, no unreported residual evaluation, and no claim-grade support
         without correctness, benchmark, certificate, Native I/O, policy, and workload evidence.
-- [ ] Priority 1.7 - top-level plan and execution facade catch-up
-  - [ ] Replace the minimal `PlanKind::NativeVortexScan` skeleton with typed plan variants for the
+- [x] Priority 1.7 - top-level plan and execution facade catch-up
+  - [x] Replace the minimal `PlanKind::NativeVortexScan` skeleton with typed plan variants for the
         current ShardLoom/Vortex execution-provider surfaces.
-    - [ ] Represent local Vortex primitive requests for `CountAll`, `CountWhere`,
+    - [x] Represent local Vortex primitive requests for `CountAll`, `CountWhere`,
           `FilterPredicate`, `ProjectColumns`, and `FilterAndProject`.
-    - [ ] Represent prepared encoded filter, projection, and filter-project requests where explicit
+    - [x] Represent prepared encoded filter, projection, and filter-project requests where explicit
           encoded batches are available.
-    - [ ] Represent source-bound and reader-backed encoded filter/projection/filter-project
+    - [x] Represent source-bound and reader-backed encoded filter/projection/filter-project
           requests where source URI, split refs, provider boundary, residual boundary, and Native
           I/O evidence are available.
-    - [ ] Remove or replace placeholder no-op success semantics instead of preserving a legacy
+    - [x] Remove or replace placeholder no-op success semantics instead of preserving a legacy
           `NativeVortexScan` compatibility path before release.
-  - [ ] Replace top-level `shardloom-exec::execute(&Plan) -> Result<()>` with a typed
+  - [x] Replace top-level `shardloom-exec::execute(&Plan) -> Result<()>` with a typed
         `ShardLoomExecutionResult` facade that dispatches admitted plans into current provider
         surfaces.
-    - [ ] Execution results carry status, plan id/ref, engine mode, execution-provider kind,
+    - [x] Execution results carry status, plan id/ref, engine mode, execution-provider kind,
           provider API surface, source refs, split refs, result refs, artifact refs, representation
           transitions, execution-certificate refs, Native I/O certificate refs,
           materialization/decode status, residual-boundary refs, diagnostics, and fallback status.
-    - [ ] Vortex-specific reports are attached as typed artifacts or converted into the shared
+    - [x] Vortex-specific reports are attached as typed artifacts or converted into the shared
           execution-result shape without discarding provider/certificate/Native I/O evidence.
-    - [ ] Unsupported or non-admitted plans return deterministic diagnostics with
+    - [x] Unsupported or non-admitted plans return deterministic diagnostics with
           `fallback_attempted=false`.
-    - [ ] No SQL/DataFrame runtime, broad adapter execution, object-store runtime, writes, external
+    - [x] No SQL/DataFrame runtime, broad adapter execution, object-store runtime, writes, external
           engine invocation, or fallback execution is introduced by this facade work.
 - [x] Priority 2 - evidence loop paired with every execution expansion
   - [x] CG-5/CG-16 fixture-backed execution certificates wired into generalized local primitive
