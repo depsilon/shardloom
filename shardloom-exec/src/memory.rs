@@ -238,6 +238,23 @@ impl MemoryReservationStatus {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MemoryAdmissionDecisionKind {
+    Granted,
+    DeniedBeforeOom,
+}
+impl MemoryAdmissionDecisionKind {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Granted => "granted",
+            Self::DeniedBeforeOom => "denied_before_oom",
+        }
+    }
+    pub const fn granted(&self) -> bool {
+        matches!(self, Self::Granted)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MemoryReservation {
     pub id: MemoryReservationId,
@@ -281,6 +298,86 @@ impl MemoryReservation {
             self.requested.to_human_text(),
             self.granted.to_human_text(),
             self.status.as_str()
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MemoryAdmissionReport {
+    pub schema_version: &'static str,
+    pub reservation: MemoryReservation,
+    pub decision: MemoryAdmissionDecisionKind,
+    pub pressure_before: MemoryPressureLevel,
+    pub pressure_after: MemoryPressureLevel,
+    pub reserved_before: ByteSize,
+    pub reserved_after: ByteSize,
+    pub fail_before_oom: bool,
+    pub fallback_attempted: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl MemoryAdmissionReport {
+    pub fn granted(
+        reservation: MemoryReservation,
+        pressure_before: MemoryPressureLevel,
+        pressure_after: MemoryPressureLevel,
+        reserved_before: ByteSize,
+        reserved_after: ByteSize,
+    ) -> Self {
+        Self {
+            schema_version: "shardloom.memory_admission.v1",
+            reservation,
+            decision: MemoryAdmissionDecisionKind::Granted,
+            pressure_before,
+            pressure_after,
+            reserved_before,
+            reserved_after,
+            fail_before_oom: false,
+            fallback_attempted: false,
+            diagnostics: vec![],
+        }
+    }
+    pub fn denied_before_oom(
+        reservation: MemoryReservation,
+        pressure_before: MemoryPressureLevel,
+        reserved_before: ByteSize,
+        diagnostic: Diagnostic,
+    ) -> Self {
+        Self {
+            schema_version: "shardloom.memory_admission.v1",
+            reservation,
+            decision: MemoryAdmissionDecisionKind::DeniedBeforeOom,
+            pressure_before,
+            pressure_after: pressure_before,
+            reserved_before,
+            reserved_after: reserved_before,
+            fail_before_oom: true,
+            fallback_attempted: false,
+            diagnostics: vec![diagnostic],
+        }
+    }
+    pub const fn granted_decision(&self) -> bool {
+        self.decision.granted()
+    }
+    pub fn has_errors(&self) -> bool {
+        self.diagnostics.iter().any(|d| {
+            matches!(
+                d.severity,
+                DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+            )
+        })
+    }
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "memory admission\nschema_version: {}\nreservation: {}\ndecision: {}\npressure before: {}\npressure after: {}\nreserved before: {}\nreserved after: {}\nfail before oom: {}\nfallback attempted: {}",
+            self.schema_version,
+            self.reservation.summary(),
+            self.decision.as_str(),
+            self.pressure_before.as_str(),
+            self.pressure_after.as_str(),
+            self.reserved_before.to_human_text(),
+            self.reserved_after.to_human_text(),
+            self.fail_before_oom,
+            self.fallback_attempted
         )
     }
 }
@@ -337,6 +434,67 @@ impl MemoryPoolPlan {
     }
     pub fn add_diagnostic(&mut self, diagnostic: Diagnostic) {
         self.diagnostics.push(diagnostic);
+    }
+    pub fn admit_reservation(
+        &mut self,
+        id: MemoryReservationId,
+        owner: MemoryOwner,
+        requested: ByteSize,
+    ) -> Result<MemoryAdmissionReport> {
+        if requested.as_bytes() == 0 {
+            return Err(invalid_operation(
+                "memory reservation request must be greater than zero",
+            ));
+        }
+        self.recompute_snapshot();
+        let reserved_before = self.snapshot.reserved;
+        let pressure_before = self.pressure();
+        let would_reserve = ByteSize::from_bytes(
+            reserved_before
+                .as_bytes()
+                .saturating_add(requested.as_bytes()),
+        );
+        if would_reserve <= self.snapshot.budget.hard_limit {
+            let reservation = MemoryReservation::request(id, owner, requested).granted(requested);
+            self.add_reservation(reservation.clone());
+            self.recompute_snapshot();
+            return Ok(MemoryAdmissionReport::granted(
+                reservation,
+                pressure_before,
+                self.pressure(),
+                reserved_before,
+                self.snapshot.reserved,
+            ));
+        }
+
+        let reservation = MemoryReservation::request(id, owner, requested).denied();
+        let diagnostic = Diagnostic::new(
+            DiagnosticCode::ResourceBudgetExceeded,
+            DiagnosticSeverity::Error,
+            DiagnosticCategory::ResourceBudget,
+            "Memory reservation denied before process OOM.",
+            Some("memory_admission".to_string()),
+            Some(format!(
+                "requested {}, reserved {}, hard limit {}; no fallback execution attempted",
+                requested.to_human_text(),
+                reserved_before.to_human_text(),
+                self.snapshot.budget.hard_limit.to_human_text()
+            )),
+            Some(
+                "Reduce task size, reduce parallelism, enable native spill when available, or increase the memory budget."
+                    .to_string(),
+            ),
+            FallbackStatus::disabled_by_policy(),
+        );
+        self.add_reservation(reservation.clone());
+        self.add_diagnostic(diagnostic.clone());
+        self.recompute_snapshot();
+        Ok(MemoryAdmissionReport::denied_before_oom(
+            reservation,
+            pressure_before,
+            reserved_before,
+            diagnostic,
+        ))
     }
     pub fn reserved_bytes(&self) -> ByteSize {
         ByteSize::from_bytes(
@@ -971,6 +1129,51 @@ mod tests {
         ));
         p.recompute_snapshot();
         assert_eq!(p.snapshot.reservation_count, 1);
+    }
+    #[test]
+    fn pool_admits_reservation_under_hard_limit() {
+        let mut pool =
+            MemoryPoolPlan::new(MemoryBudget::with_limits(bs(100), bs(80), bs(90)).unwrap());
+        let owner = MemoryOwner::new(OperatorMemoryClass::Scan, "scan").unwrap();
+        let report = pool
+            .admit_reservation(MemoryReservationId::new("r1").unwrap(), owner, bs(40))
+            .expect("admission report");
+
+        assert!(report.granted_decision());
+        assert_eq!(report.decision, MemoryAdmissionDecisionKind::Granted);
+        assert_eq!(report.reserved_before, bs(0));
+        assert_eq!(report.reserved_after, bs(40));
+        assert!(!report.fail_before_oom);
+        assert!(!report.fallback_attempted);
+        assert_eq!(pool.reserved_bytes(), bs(40));
+    }
+    #[test]
+    fn pool_denies_reservation_before_oom_past_hard_limit() {
+        let mut pool =
+            MemoryPoolPlan::new(MemoryBudget::with_limits(bs(100), bs(80), bs(90)).unwrap());
+        let owner = MemoryOwner::new(OperatorMemoryClass::Join, "join").unwrap();
+        pool.admit_reservation(
+            MemoryReservationId::new("r1").unwrap(),
+            owner.clone(),
+            bs(80),
+        )
+        .expect("first reservation");
+        let report = pool
+            .admit_reservation(MemoryReservationId::new("r2").unwrap(), owner, bs(20))
+            .expect("denial report");
+
+        assert_eq!(
+            report.decision,
+            MemoryAdmissionDecisionKind::DeniedBeforeOom
+        );
+        assert!(!report.granted_decision());
+        assert!(report.fail_before_oom);
+        assert!(!report.fallback_attempted);
+        assert_eq!(report.reserved_before, bs(80));
+        assert_eq!(report.reserved_after, bs(80));
+        assert!(report.has_errors());
+        assert!(pool.has_errors());
+        assert_eq!(pool.reserved_bytes(), bs(80));
     }
     #[test]
     fn policy_best_effort_allows() {

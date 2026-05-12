@@ -323,6 +323,9 @@ not by numeric CG order.
     - [ ] Turn resource-derived chunk sizing, parallelism, memory reservation, pressure detection,
           spill policy, and fail-before-OOM diagnostics into runtime behavior after primitive
           execution is stable.
+      - [x] Add runtime-facing memory reservation admission that grants requests under the hard
+            budget and denies over-budget requests before process OOM with pressure
+            before/after, reservation evidence, diagnostics, and `fallback_attempted=false`.
     - [ ] Require operator-level memory/spill declarations for joins, aggregations, sorts, windows,
           repartition, shuffle, UDFs, sinks, and external-effect boundaries before large-workload
           claims.

@@ -16,6 +16,29 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: memory reservation admission and fail-before-OOM diagnostics
+  - Primary files:
+    - `shardloom-exec/src/memory.rs`
+    - `shardloom-exec/src/lib.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: turn memory reservations from append-only planning records into deterministic
+    runtime-facing admission behavior under a hard memory limit.
+  - Checklist:
+    - [x] Add `MemoryAdmissionDecisionKind` and `MemoryAdmissionReport` with pressure
+          before/after, reserved bytes before/after, fail-before-OOM status, diagnostics, and
+          `fallback_attempted=false`.
+    - [x] Add `MemoryPoolPlan::admit_reservation` so over-budget requests are denied before
+          process OOM instead of being silently accepted.
+    - [x] Preserve granted-only reserved-byte accounting and attach resource-budget diagnostics to
+          denied reservations.
+  - Validation status:
+    - [x] `cargo test -p shardloom-exec memory --lib`
+    - [x] `cargo fmt --all -- --check`
+    - [x] `cargo clippy -p shardloom-exec --lib -- -D warnings`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+  - Non-goals preserved:
+    - [x] No live allocator, host-memory detection, real spill IO, object-store spill, operator
+          spill implementation, retry execution, external engine invocation, or fallback execution.
 - [x] Session label: release publication boundary separation
   - Primary files:
     - `shardloom-core/src/release.rs`
