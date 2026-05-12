@@ -1528,6 +1528,11 @@ pub struct CorrectnessDifferentialHarnessReport {
     pub blocked_surface_count: usize,
     pub blocked_surface_order: Vec<String>,
     pub benchmark_claim_blocker_order: Vec<String>,
+    pub claim_grade_correctness_closeout_required: bool,
+    pub claim_grade_correctness_closeout_allowed: bool,
+    pub claim_grade_correctness_closeout_blocker_order: Vec<String>,
+    pub external_oracle_execution_required: bool,
+    pub deferred_fixture_family_artifact_population_required: bool,
     pub decoded_reference_outputs_required: bool,
     pub differential_oracles_required: bool,
     pub property_fuzzing_required: bool,
@@ -1727,6 +1732,10 @@ pub fn plan_correctness_differential_harness(
         deferred_fixture_family_artifacts_test_only,
         external_oracle_artifacts_test_only,
     );
+    let claim_grade_correctness_closeout_allowed = benchmark_claim_blocker_order.is_empty();
+    let external_oracle_execution_required = external_oracle_result_artifact_count > 0;
+    let deferred_fixture_family_artifact_population_required =
+        deferred_fixture_family_artifact_count > 0;
 
     let blocked_surface_order = correctness_harness_blocked_surfaces(
         fixture_count,
@@ -1811,7 +1820,12 @@ pub fn plan_correctness_differential_harness(
         planned_surface_count,
         blocked_surface_count,
         blocked_surface_order,
-        benchmark_claim_blocker_order,
+        benchmark_claim_blocker_order: benchmark_claim_blocker_order.clone(),
+        claim_grade_correctness_closeout_required: true,
+        claim_grade_correctness_closeout_allowed,
+        claim_grade_correctness_closeout_blocker_order: benchmark_claim_blocker_order,
+        external_oracle_execution_required,
+        deferred_fixture_family_artifact_population_required,
         decoded_reference_outputs_required: true,
         differential_oracles_required: true,
         property_fuzzing_required: true,
@@ -2318,6 +2332,14 @@ mod tests {
                 "property_fuzz_execution_not_performed".to_string()
             ]
         );
+        assert!(report.claim_grade_correctness_closeout_required);
+        assert!(!report.claim_grade_correctness_closeout_allowed);
+        assert_eq!(
+            report.claim_grade_correctness_closeout_blocker_order,
+            report.benchmark_claim_blocker_order
+        );
+        assert!(report.external_oracle_execution_required);
+        assert!(report.deferred_fixture_family_artifact_population_required);
         assert!(!report.property_fuzz_execution_performed);
         assert_eq!(report.planned_surface_count, 9);
         assert_eq!(report.blocked_surface_count, 2);

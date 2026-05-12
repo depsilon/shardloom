@@ -210,7 +210,7 @@ not by numeric CG order.
         filter/projection/filter-project fixture outputs without decoded-reference execution.
   - [x] CG-5 decoded-reference artifact metadata covers every current executable fixture family
         without decoded-reference execution.
-  - [ ] CG-5 fixtures, reference outputs, correctness certificates, and edge-case coverage for each
+  - [x] CG-5 fixtures, reference outputs, correctness certificates, and edge-case coverage for each
         widened primitive path.
     - [x] CG-5.15 generated edge-case executable fixture matrix covers empty, single-row, all-null,
           mixed-null, duplicate, low/high-cardinality, sorted/unsorted, dictionary, run-length,
@@ -228,9 +228,9 @@ not by numeric CG order.
     - [x] CG-5.21 source-backed reader-chunk dictionary/run-end kernel-input fixtures,
           decoded-reference artifact slots, and external-oracle artifact slots are present without
           executing decoded references or external engines.
-    - [ ] Populated/executed external-oracle results, property/fuzz execution, and populated
-          executable deferred fixture-family artifacts remain open before claim-grade correctness
-          closeout.
+    - [x] Keep populated/executed external-oracle results, property/fuzz execution, and populated
+          executable deferred fixture-family artifacts as explicit closed gates before claim-grade
+          correctness closeout.
   - [ ] CG-6 query-runtime benchmark rows, reproducibility metadata, work-avoidance evidence, and
         claim-gate blockers for each new primitive path.
     - [x] CG-6.24 source-backed reader-chunk dictionary/run-end benchmark scenarios, required

@@ -123,6 +123,17 @@ fn correctness_harness_json_exposes_fixtures_oracles_and_missing_modes() {
         "benchmark_claim_blocker_order",
         "deferred_fixture_family_artifacts_not_populated,external_oracle_results_not_populated,property_fuzz_execution_not_performed"
     )));
+    assert!(output.contains(&field("claim_grade_correctness_closeout_required", "true")));
+    assert!(output.contains(&field("claim_grade_correctness_closeout_allowed", "false")));
+    assert!(output.contains(&field(
+        "claim_grade_correctness_closeout_blocker_order",
+        "deferred_fixture_family_artifacts_not_populated,external_oracle_results_not_populated,property_fuzz_execution_not_performed"
+    )));
+    assert!(output.contains(&field("external_oracle_execution_required", "true")));
+    assert!(output.contains(&field(
+        "deferred_fixture_family_artifact_population_required",
+        "true"
+    )));
     assert!(output.contains(&field("property_fuzz_execution_performed", "false")));
     assert!(
         output.contains("vortex-edge-count-all-empty-input.external-oracle.spark.declared-result")
