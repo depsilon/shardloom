@@ -14,6 +14,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+mod benchmark_planning;
 mod cli_output;
 mod command_family;
 mod packaging_deployment;
@@ -58,10 +59,10 @@ use shardloom_core::{
     evaluate_cdc_incremental_planning, evaluate_compaction_planning,
     evaluate_delete_tombstone_compatibility, evaluate_layout_health,
     evaluate_partition_evolution_compatibility, evaluate_schema_evolution_compatibility,
-    plan_approx_sketch_function_gate, plan_benchmark_claim_evidence,
-    plan_catalog_metadata_integration_gate, plan_correctness_differential_harness,
-    plan_cpu_operator_specialization, plan_execution_certificate_evidence_surface,
-    plan_native_io_envelope, plan_observability_schema_coverage, plan_rfc_coverage_followthrough,
+    plan_approx_sketch_function_gate, plan_catalog_metadata_integration_gate,
+    plan_correctness_differential_harness, plan_cpu_operator_specialization,
+    plan_execution_certificate_evidence_surface, plan_native_io_envelope,
+    plan_observability_schema_coverage, plan_rfc_coverage_followthrough,
     plan_security_governance_evidence_gate, plan_stateful_reuse,
     plan_stateful_reuse_promotion_gate, plan_universal_harness,
     plan_user_capability_promotion_gate, plan_world_class_sufficiency,
@@ -1862,7 +1863,7 @@ pub(crate) fn agent_contract_pack_fields(report: &AgentContractPack) -> Vec<(Str
     ]
 }
 
-fn benchmark_plan_fields(plan: &BenchmarkPlan) -> Vec<(String, String)> {
+pub(crate) fn benchmark_plan_fields(plan: &BenchmarkPlan) -> Vec<(String, String)> {
     let mut fields = Vec::new();
     append_benchmark_plan_overview_fields(&mut fields, plan);
     append_benchmark_plan_scenario_fields(&mut fields, plan);
@@ -1872,7 +1873,9 @@ fn benchmark_plan_fields(plan: &BenchmarkPlan) -> Vec<(String, String)> {
 }
 
 #[allow(clippy::too_many_lines)]
-fn benchmark_claim_evidence_fields(report: &BenchmarkClaimEvidenceReport) -> Vec<(String, String)> {
+pub(crate) fn benchmark_claim_evidence_fields(
+    report: &BenchmarkClaimEvidenceReport,
+) -> Vec<(String, String)> {
     let mut fields = Vec::new();
     push_field(&mut fields, "mode", "benchmark_claim_evidence");
     push_field(&mut fields, "schema_version", report.schema_version);
@@ -2331,7 +2334,9 @@ fn append_benchmark_plan_claim_fields(fields: &mut Vec<(String, String)>, plan: 
     );
 }
 
-fn benchmark_plan_for_scope(scope: Option<&str>) -> shardloom_core::Result<BenchmarkPlan> {
+pub(crate) fn benchmark_plan_for_scope(
+    scope: Option<&str>,
+) -> shardloom_core::Result<BenchmarkPlan> {
     match scope {
         None | Some("foundation") => Ok(BenchmarkPlan::default_foundation_plan()),
         Some("traditional-analytics" | "traditional_analytics") => {
@@ -21933,78 +21938,9 @@ fn run(args: Vec<String>) -> ExitCode {
                 ExitCode::SUCCESS
             }
         }
-        Some("benchmark-plan") => {
-            let scope = args.next();
-            if let Some(extra) = args.next() {
-                return emit_error(
-                    "benchmark-plan",
-                    format,
-                    "benchmark plan failed",
-                    &ShardLoomError::InvalidOperation(format!(
-                        "unknown extra benchmark-plan argument: {extra}"
-                    )),
-                );
-            }
-            let plan = match benchmark_plan_for_scope(scope.as_deref()) {
-                Ok(plan) => plan,
-                Err(error) => {
-                    return emit_error("benchmark-plan", format, "benchmark plan failed", &error);
-                }
-            };
-            emit(
-                "benchmark-plan",
-                format,
-                CommandStatus::Success,
-                "benchmark plan".to_string(),
-                plan.to_human_text(),
-                vec![],
-                benchmark_plan_fields(&plan),
-            );
-            ExitCode::SUCCESS
-        }
+        Some("benchmark-plan") => benchmark_planning::handle_benchmark_plan(args, format),
         Some("benchmark-claim-evidence-plan") => {
-            let scope = args.next();
-            if let Some(extra) = args.next() {
-                return emit_error(
-                    "benchmark-claim-evidence-plan",
-                    format,
-                    "benchmark claim evidence plan failed",
-                    &ShardLoomError::InvalidOperation(format!(
-                        "unknown extra benchmark-claim-evidence-plan argument: {extra}"
-                    )),
-                );
-            }
-            let plan = match benchmark_plan_for_scope(scope.as_deref()) {
-                Ok(plan) => plan,
-                Err(error) => {
-                    return emit_error(
-                        "benchmark-claim-evidence-plan",
-                        format,
-                        "benchmark claim evidence plan failed",
-                        &error,
-                    );
-                }
-            };
-            let scope_label = scope.unwrap_or_else(|| "foundation".to_string());
-            let report = plan_benchmark_claim_evidence(scope_label, &plan);
-            emit(
-                "benchmark-claim-evidence-plan",
-                format,
-                if report.has_errors() {
-                    CommandStatus::Unsupported
-                } else {
-                    CommandStatus::Success
-                },
-                "benchmark claim evidence plan".to_string(),
-                report.to_human_text(),
-                report.diagnostics.clone(),
-                benchmark_claim_evidence_fields(&report),
-            );
-            if report.has_errors() {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            }
+            benchmark_planning::handle_benchmark_claim_evidence_plan(args, format)
         }
         Some("manifest-plan") => {
             let Some(dataset_uri) = args.next() else {

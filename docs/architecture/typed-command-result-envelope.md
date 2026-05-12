@@ -92,6 +92,11 @@ The packaging/deployment family currently contains `release-plan`, `package-plan
 `shardloom-cli/src/packaging_deployment.rs`. These handlers remain report-only and do not publish
 packages, push artifacts, invoke external engines, or weaken no-fallback behavior.
 
+The benchmark planning family currently contains `benchmark-plan` and
+`benchmark-claim-evidence-plan`, and lives in `shardloom-cli/src/benchmark_planning.rs`. These
+handlers remain report-only and do not run comparative benchmarks, invoke baseline engines, publish
+performance claims, or weaken no-fallback behavior.
+
 Command family classification lives in `shardloom-cli/src/command_family.rs` and is emitted in the
 typed lifecycle payload as `command_family`. This gives status/capabilities, Vortex primitive,
 prepared/source-backed, evidence/certificate, benchmark, packaging/deployment, Foundry,

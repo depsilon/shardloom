@@ -16,6 +16,33 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 benchmark planning handler module split
+  - Primary files:
+    - `shardloom-cli/src/benchmark_planning.rs`
+    - `shardloom-cli/src/main.rs`
+    - `docs/architecture/typed-command-result-envelope.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/rfcs/0039-typed-command-result-envelope-cli-modularity.md`
+  - Scope: move report-only benchmark planning handlers into a focused module while preserving
+    existing typed-envelope output, claim blockers, and no-fallback behavior.
+  - Checklist:
+    - [x] Add `shardloom-cli/src/benchmark_planning.rs`.
+    - [x] Delegate `benchmark-plan` and `benchmark-claim-evidence-plan` from `main.rs`.
+    - [x] Keep actual benchmark runners in `main.rs` for a later, separate execution-family split.
+    - [x] Update Priority 3.9 docs and RFC traceability while leaving remaining handler families in
+          the Planned queue.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test benchmark_plan_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test benchmark_claim_evidence_plan_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test typed_envelope_contract_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-cli --bin shardloom -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `git diff --check`
+  - Runtime stance: handler-placement refactor only; no benchmark execution, comparative baseline
+    invocation, external engine invocation, runtime expansion, dataset probe, network effect, write,
+    materialization, performance claim publication, or fallback execution changes.
+
 - [x] Session label: Priority 3.9 packaging/deployment handler module split
   - Primary files:
     - `shardloom-cli/src/packaging_deployment.rs`
