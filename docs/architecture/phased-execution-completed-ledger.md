@@ -16,6 +16,36 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 typed envelope golden contract fixtures
+  - Primary files:
+    - `shardloom-cli/tests/typed_envelope_contract_snapshots.rs`
+    - `docs/architecture/typed-command-result-envelope.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/rfcs/0039-typed-command-result-envelope-cli-modularity.md`
+  - Scope: add cross-family typed-envelope JSON contract snapshots for currently available CLI
+    report surfaces while preserving the remaining certified-runtime, missing-binary, and concrete
+    Foundry boundary fixture work in the Planned queue.
+  - Checklist:
+    - [x] Cover success/status envelopes with typed policy/lifecycle/capability slots.
+    - [x] Cover invalid-input diagnostics with typed lifecycle and no-fallback metadata.
+    - [x] Cover unsupported source-backed encoded-read boundary output.
+    - [x] Cover blocked capability-promotion gate fields in typed policy and capability slots.
+    - [x] Cover certificate-surface reporting through the typed envelope.
+    - [x] Cover evidence-incomplete benchmark claim-gate output.
+    - [x] Cover Foundry-adjacent optional universal harness fields without claiming a concrete
+          Foundry boundary command exists.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test typed_envelope_contract_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test api_protocol_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli command_family --bin shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-cli --bin shardloom -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `git diff --check`
+  - Runtime stance: protocol/test coverage slice only; no runtime expansion, external engine
+    invocation, dataset probe, network effect, write, materialization, Foundry execution, or
+    fallback execution changes.
+
 - [x] Session label: Priority 3.9 CLI command-family taxonomy
   - Primary files:
     - `shardloom-cli/src/command_family.rs`

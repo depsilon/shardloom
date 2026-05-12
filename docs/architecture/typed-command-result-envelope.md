@@ -80,6 +80,29 @@ prepared/source-backed, evidence/certificate, benchmark, packaging/deployment, F
 operational-hardening, diagnostic, REST/API-planning, workflow-planning, and engine-runtime
 commands a stable family taxonomy before their handlers are physically split.
 
+Golden typed-envelope contract snapshots now live in:
+
+```text
+shardloom-cli/tests/typed_envelope_contract_snapshots.rs
+```
+
+The current fixture coverage spans:
+
+```text
+success status envelope
+invalid-input diagnostics envelope
+unsupported source-backed encoded-read boundary
+blocked capability promotion gate
+certificate-surface report
+evidence-incomplete benchmark row report
+Foundry-adjacent optional universal harness report
+```
+
+Concrete certified runtime execution, missing-binary protocol parity, and first-class Foundry
+boundary-report fixtures remain planned because those surfaces are either feature-gated, owned by
+the Python binary-resolution layer, or not yet represented by a concrete CLI Foundry boundary
+command.
+
 The old top-level `fields` array is still present as a temporary legacy mirror for existing tests,
 the Python client, and command-family migration safety. It is no longer the intended primary
 machine-readable payload model.
@@ -110,8 +133,8 @@ Remaining work is command-family migration and CLI modularization:
 Migrate command-family-specific result fields from ad hoc field construction to typed payload helpers.
 Attach inline evidence artifacts and richer report payloads through typed slots where a command has
 more than a reference.
-Expand golden fixtures for success, unsupported, blocked, certified execution, evidence incomplete,
-source-backed execution, benchmark rows, missing binary, and Foundry boundary reports.
+Finish remaining golden fixtures for certified runtime execution, missing-binary protocol parity,
+and concrete Foundry boundary reports.
 Physically split CLI handlers by capability family and centralize rendering, diagnostics, fallback,
 policy, and side-effect reporting.
 ```
