@@ -171,8 +171,11 @@ actionable work.
     - [x] Add feature-gated certified runtime execution typed-envelope coverage for the local
           Vortex primitive path with inline execution certificate, Native I/O certificate,
           source, pushdown, sink, and adapter-fidelity artifacts.
-    - [ ] Add remaining missing-binary protocol parity and concrete Foundry boundary report
-          fixtures once those command surfaces are executable/reportable.
+    - [x] Add missing-binary protocol parity coverage in the Python client so deterministic binary
+          resolution errors expose no-fallback diagnostics and a `shardloom.output.v2`-shaped
+          payload without invoking a CLI binary.
+    - [ ] Add remaining concrete Foundry boundary report fixtures once those command surfaces are
+          executable/reportable.
   - [ ] Modularize CLI command routing around typed command handlers and shared rendering.
     - [x] Move shared CLI JSON/text rendering and error emission into
           `shardloom-cli/src/cli_output.rs`, backed by the existing `typed_envelope` router and
