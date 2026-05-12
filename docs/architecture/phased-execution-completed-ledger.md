@@ -16,6 +16,38 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 input planning handler module split
+  - Primary files:
+    - `shardloom-cli/src/input_planning.rs`
+    - `shardloom-cli/src/main.rs`
+    - `README.md`
+    - `docs/architecture/typed-command-result-envelope.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/rfcs/0039-typed-command-result-envelope-cli-modularity.md`
+  - Scope: move input-adapter, universal input, Vortex input, Vortex read, and Vortex task-graph
+    planning handlers into a focused CLI module.
+  - Checklist:
+    - [x] Add `shardloom-cli/src/input_planning.rs`.
+    - [x] Delegate `input-adapters`, `input-plan`, `vortex-input-plan`, `vortex-read-plan`, and
+          `vortex-task-graph` from `main.rs`.
+    - [x] Refresh the top-level README current-state/about section for the typed execution facade,
+          typed envelope, CLI modularity, benchmark taxonomy runner, and Vortex-first audit posture.
+    - [x] Keep these surfaces metadata/planning only, with no dataset reads, object-store probes,
+          task execution, materialization, external engines, or fallback execution.
+    - [x] Update Priority 3.9 docs, RFC traceability, and RFC 0039 status.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo check -p shardloom-cli --bin shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test typed_envelope_contract_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test python_wrapper_snapshots`
+    - [x] `.\target\debug\shardloom.exe input-adapters --format json`
+    - [x] `.\target\debug\shardloom.exe input-plan file:///tmp/example.vortex --format json`
+    - [x] `.\target\debug\shardloom.exe vortex-input-plan file:///tmp/example.vortex --format json`
+    - [x] `.\target\debug\shardloom.exe vortex-read-plan file:///tmp/example.vortex --format json`
+    - [x] `.\target\debug\shardloom.exe vortex-task-graph file:///tmp/example.vortex --format json`
+  - Runtime stance: handler split only; no new input adapter runtime, file IO, object-store IO,
+    task execution, external engine invocation, or fallback execution is authorized.
+
 - [x] Session label: Priority 3.9 schema/table workflow handler routing
   - Primary files:
     - `shardloom-cli/src/workflow_planning.rs`

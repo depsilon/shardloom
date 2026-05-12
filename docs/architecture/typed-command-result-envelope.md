@@ -83,6 +83,12 @@ The first physical handler-family split moves the status and capabilities comman
 `shardloom-cli/src/status_capabilities.rs`. The module still reuses shared capability helper
 functions while broader command-family extraction continues.
 
+The input planning family currently contains `input-adapters`, `input-plan`, `vortex-input-plan`,
+`vortex-read-plan`, and `vortex-task-graph`, and lives in
+`shardloom-cli/src/input_planning.rs`. These handlers remain metadata/planning surfaces and do not
+read datasets, probe object stores, execute tasks, materialize outputs, invoke external engines, or
+weaken no-fallback behavior.
+
 The REST/API planning family currently contains `api-compat-plan` and lives in
 `shardloom-cli/src/rest_api_planning.rs`. It remains report-only and does not start a REST server,
 open sockets, perform remote execution, or weaken no-fallback behavior.
