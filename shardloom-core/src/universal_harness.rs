@@ -176,6 +176,8 @@ pub struct ExternalBaselineHarnessRequirement {
     pub correctness_result_required: bool,
     pub benchmark_metrics_required: bool,
     pub comparison_report_required: bool,
+    pub optional_environment_only: bool,
+    pub shardloom_runtime_dependency_allowed: bool,
     pub external_only: bool,
     pub runner_execution_performed: bool,
     pub fallback_execution_allowed: bool,
@@ -195,6 +197,8 @@ impl ExternalBaselineHarnessRequirement {
             correctness_result_required: true,
             benchmark_metrics_required: true,
             comparison_report_required: true,
+            optional_environment_only: true,
+            shardloom_runtime_dependency_allowed: false,
             external_only: true,
             runner_execution_performed: false,
             fallback_execution_allowed: false,
@@ -206,8 +210,133 @@ impl ExternalBaselineHarnessRequirement {
     #[must_use]
     pub const fn has_errors(&self) -> bool {
         !self.external_only
+            || !self.optional_environment_only
+            || self.shardloom_runtime_dependency_allowed
             || self.runner_execution_performed
             || self.fallback_execution_allowed
+            || self.fallback_attempted
+    }
+}
+
+/// Import/deployment harness environments required by CG-18.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UniversalHarnessEnvironmentKind {
+    Local,
+    ContinuousIntegration,
+    Container,
+    FoundryOptional,
+    BenchmarkExtrasOptional,
+}
+
+impl UniversalHarnessEnvironmentKind {
+    /// Stable machine-readable environment label.
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Local => "local",
+            Self::ContinuousIntegration => "ci",
+            Self::Container => "container",
+            Self::FoundryOptional => "foundry_optional",
+            Self::BenchmarkExtrasOptional => "benchmark_extras_optional",
+        }
+    }
+}
+
+/// Maturity status for a universal import/deployment harness environment.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UniversalHarnessEnvironmentStatus {
+    Required,
+    EvidenceIncomplete,
+    Certified,
+    Blocked,
+}
+
+impl UniversalHarnessEnvironmentStatus {
+    /// Stable machine-readable status label.
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Required => "required",
+            Self::EvidenceIncomplete => "evidence_incomplete",
+            Self::Certified => "certified",
+            Self::Blocked => "blocked",
+        }
+    }
+
+    /// Returns whether this environment status is an error.
+    #[must_use]
+    pub const fn is_error(&self) -> bool {
+        matches!(self, Self::Blocked)
+    }
+}
+
+/// One required local/CI/container/optional-platform harness contract.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct UniversalHarnessEnvironmentRequirement {
+    pub environment_id: &'static str,
+    pub kind: UniversalHarnessEnvironmentKind,
+    pub status: UniversalHarnessEnvironmentStatus,
+    pub command_contract: &'static str,
+    pub environment_file_required: bool,
+    pub clean_import_required: bool,
+    pub cli_binary_resolution_required: bool,
+    pub output_envelope_fixture_required: bool,
+    pub artifact_root_required: bool,
+    pub foundry_optional: bool,
+    pub optional_benchmark_environment: bool,
+    pub external_engines_runtime_dependencies_allowed: bool,
+    pub package_publication_required: bool,
+    pub harness_execution_performed: bool,
+    pub filesystem_probe: bool,
+    pub network_probe: bool,
+    pub external_engine_invoked: bool,
+    pub fallback_attempted: bool,
+}
+
+impl UniversalHarnessEnvironmentRequirement {
+    /// Creates a report-only harness environment requirement.
+    #[must_use]
+    pub const fn required(
+        environment_id: &'static str,
+        kind: UniversalHarnessEnvironmentKind,
+        command_contract: &'static str,
+    ) -> Self {
+        Self {
+            environment_id,
+            kind,
+            status: UniversalHarnessEnvironmentStatus::Required,
+            command_contract,
+            environment_file_required: true,
+            clean_import_required: true,
+            cli_binary_resolution_required: true,
+            output_envelope_fixture_required: true,
+            artifact_root_required: true,
+            foundry_optional: matches!(kind, UniversalHarnessEnvironmentKind::FoundryOptional),
+            optional_benchmark_environment: matches!(
+                kind,
+                UniversalHarnessEnvironmentKind::BenchmarkExtrasOptional
+            ),
+            external_engines_runtime_dependencies_allowed: false,
+            package_publication_required: false,
+            harness_execution_performed: false,
+            filesystem_probe: false,
+            network_probe: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+
+    /// Returns whether this harness environment has an error state.
+    #[must_use]
+    pub const fn has_errors(&self) -> bool {
+        self.status.is_error()
+            || self.external_engines_runtime_dependencies_allowed
+            || self.package_publication_required
+            || self.harness_execution_performed
+            || self.filesystem_probe
+            || self.network_probe
+            || self.external_engine_invoked
             || self.fallback_attempted
     }
 }
@@ -221,6 +350,7 @@ pub struct UniversalHarnessReport {
     pub status: UniversalHarnessStatus,
     pub runner_contract_fields: Vec<&'static str>,
     pub surfaces: Vec<UniversalHarnessSurface>,
+    pub harness_environments: Vec<UniversalHarnessEnvironmentRequirement>,
     pub external_baselines: Vec<ExternalBaselineHarnessRequirement>,
     pub output_envelope_required: bool,
     pub stable_command_schema_required: bool,
@@ -234,6 +364,12 @@ pub struct UniversalHarnessReport {
     pub benchmark_evidence_required: bool,
     pub foundry_required: bool,
     pub foundry_optional_example: bool,
+    pub local_harness_required: bool,
+    pub ci_harness_required: bool,
+    pub container_harness_required: bool,
+    pub foundry_optional_harness_required: bool,
+    pub optional_benchmark_environment_required: bool,
+    pub external_engines_as_runtime_dependencies_allowed: bool,
     pub package_import_performed: bool,
     pub deployment_performed: bool,
     pub external_baseline_execution: bool,
@@ -258,9 +394,10 @@ impl UniversalHarnessReport {
         Self {
             schema_version: "shardloom.universal_harness.v1",
             report_id: "cg18.universal-harness".to_string(),
-            status: UniversalHarnessStatus::ReportOnlyPlanned,
+            status: UniversalHarnessStatus::EvidenceIncomplete,
             runner_contract_fields: cg18_runner_contract_fields(),
             surfaces: cg18_harness_surfaces(),
+            harness_environments: cg18_harness_environments(),
             external_baselines: cg18_external_baselines(),
             output_envelope_required: true,
             stable_command_schema_required: true,
@@ -274,6 +411,12 @@ impl UniversalHarnessReport {
             benchmark_evidence_required: true,
             foundry_required: false,
             foundry_optional_example: true,
+            local_harness_required: true,
+            ci_harness_required: true,
+            container_harness_required: true,
+            foundry_optional_harness_required: true,
+            optional_benchmark_environment_required: true,
+            external_engines_as_runtime_dependencies_allowed: false,
             package_import_performed: false,
             deployment_performed: false,
             external_baseline_execution: false,
@@ -304,12 +447,28 @@ impl UniversalHarnessReport {
         self.external_baselines.len()
     }
 
+    /// Number of import/deployment harness environments.
+    #[must_use]
+    pub fn harness_environment_count(&self) -> usize {
+        self.harness_environments.len()
+    }
+
     /// Stable comma-separated surface-kind order for CLI reporting.
     #[must_use]
     pub fn surface_kind_order(&self) -> String {
         self.surfaces
             .iter()
             .map(|surface| surface.kind.as_str())
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    /// Stable comma-separated harness-environment order for CLI reporting.
+    #[must_use]
+    pub fn harness_environment_kind_order(&self) -> String {
+        self.harness_environments
+            .iter()
+            .map(|environment| environment.kind.as_str())
             .collect::<Vec<_>>()
             .join(",")
     }
@@ -328,6 +487,31 @@ impl UniversalHarnessReport {
             .map(|requirement| requirement.baseline_engine.as_str())
             .collect::<Vec<_>>()
             .join(",")
+    }
+
+    /// Returns whether every required import/deployment environment is represented.
+    #[must_use]
+    pub fn has_required_harness_environments(&self) -> bool {
+        self.has_harness_environment(UniversalHarnessEnvironmentKind::Local)
+            && self.has_harness_environment(UniversalHarnessEnvironmentKind::ContinuousIntegration)
+            && self.has_harness_environment(UniversalHarnessEnvironmentKind::Container)
+            && self.has_harness_environment(UniversalHarnessEnvironmentKind::FoundryOptional)
+            && self
+                .has_harness_environment(UniversalHarnessEnvironmentKind::BenchmarkExtrasOptional)
+    }
+
+    /// Returns whether optional baselines remain comparison-only and outside `ShardLoom` runtime deps.
+    #[must_use]
+    pub fn baselines_are_comparison_only_and_runtime_dependency_free(&self) -> bool {
+        !self.external_engines_as_runtime_dependencies_allowed
+            && self.external_baselines.iter().all(|baseline| {
+                baseline.external_only
+                    && baseline.optional_environment_only
+                    && !baseline.shardloom_runtime_dependency_allowed
+                    && !baseline.runner_execution_performed
+                    && !baseline.fallback_execution_allowed
+                    && !baseline.fallback_attempted
+            })
     }
 
     /// Returns whether the report avoids all execution and IO side effects.
@@ -353,10 +537,15 @@ impl UniversalHarnessReport {
     pub fn has_errors(&self) -> bool {
         self.status.is_error()
             || self.foundry_required
+            || self.external_engines_as_runtime_dependencies_allowed
             || self
                 .surfaces
                 .iter()
                 .any(UniversalHarnessSurface::has_errors)
+            || self
+                .harness_environments
+                .iter()
+                .any(UniversalHarnessEnvironmentRequirement::has_errors)
             || self
                 .external_baselines
                 .iter()
@@ -380,6 +569,12 @@ impl UniversalHarnessReport {
             self.surface_count(),
             self.external_baseline_count(),
         )
+    }
+
+    fn has_harness_environment(&self, kind: UniversalHarnessEnvironmentKind) -> bool {
+        self.harness_environments
+            .iter()
+            .any(|environment| environment.kind == kind)
     }
 }
 
@@ -430,11 +625,44 @@ fn cg18_harness_surfaces() -> Vec<UniversalHarnessSurface> {
     ]
 }
 
+fn cg18_harness_environments() -> Vec<UniversalHarnessEnvironmentRequirement> {
+    vec![
+        UniversalHarnessEnvironmentRequirement::required(
+            "harness.environment.local",
+            UniversalHarnessEnvironmentKind::Local,
+            "python -c \"import shardloom\" && shardloom status --format json",
+        ),
+        UniversalHarnessEnvironmentRequirement::required(
+            "harness.environment.ci",
+            UniversalHarnessEnvironmentKind::ContinuousIntegration,
+            "cargo test --workspace && python -m pytest python/tests",
+        ),
+        UniversalHarnessEnvironmentRequirement::required(
+            "harness.environment.container",
+            UniversalHarnessEnvironmentKind::Container,
+            "container smoke: shardloom --version && shardloom status --format json",
+        ),
+        UniversalHarnessEnvironmentRequirement::required(
+            "harness.environment.foundry_optional",
+            UniversalHarnessEnvironmentKind::FoundryOptional,
+            "optional Foundry transform smoke with Conda package and certificate output",
+        ),
+        UniversalHarnessEnvironmentRequirement::required(
+            "harness.environment.benchmark_extras_optional",
+            UniversalHarnessEnvironmentKind::BenchmarkExtrasOptional,
+            "optional local baseline benchmark smoke in isolated extras environment",
+        ),
+    ]
+}
+
 fn cg18_external_baselines() -> Vec<ExternalBaselineHarnessRequirement> {
     vec![
         ExternalBaselineHarnessRequirement::external_only(BaselineEngine::Spark),
         ExternalBaselineHarnessRequirement::external_only(BaselineEngine::DataFusion),
         ExternalBaselineHarnessRequirement::external_only(BaselineEngine::Polars),
+        ExternalBaselineHarnessRequirement::external_only(BaselineEngine::DuckDb),
+        ExternalBaselineHarnessRequirement::external_only(BaselineEngine::Dask),
+        ExternalBaselineHarnessRequirement::external_only(BaselineEngine::Pandas),
     ]
 }
 
@@ -452,9 +680,10 @@ mod tests {
     fn universal_harness_foundation_is_report_only() {
         let report = UniversalHarnessReport::cg18_foundation();
 
-        assert_eq!(report.status, UniversalHarnessStatus::ReportOnlyPlanned);
+        assert_eq!(report.status, UniversalHarnessStatus::EvidenceIncomplete);
         assert_eq!(report.surface_count(), 7);
-        assert_eq!(report.external_baseline_count(), 3);
+        assert_eq!(report.harness_environment_count(), 5);
+        assert_eq!(report.external_baseline_count(), 6);
         assert_eq!(
             report.runner_contract_field_order(),
             "command,schema_version,exit_code,status,diagnostics,fallback_execution_allowed,side_effects,output_artifacts,metrics"
@@ -463,7 +692,16 @@ mod tests {
             report.surface_kind_order(),
             "cli_json_runner,package_import,deployment_profile,foundry_example,external_baseline_runner,comparison_report_dataset,portability_check"
         );
-        assert_eq!(report.baseline_engine_order(), "spark,datafusion,polars");
+        assert_eq!(
+            report.harness_environment_kind_order(),
+            "local,ci,container,foundry_optional,benchmark_extras_optional"
+        );
+        assert_eq!(
+            report.baseline_engine_order(),
+            "spark,datafusion,polars,duckdb,dask,pandas"
+        );
+        assert!(report.has_required_harness_environments());
+        assert!(report.baselines_are_comparison_only_and_runtime_dependency_free());
         assert!(report.output_envelope_required);
         assert!(report.stable_command_schema_required);
         assert!(report.comparison_dataset_required);
@@ -471,6 +709,12 @@ mod tests {
         assert!(report.benchmark_evidence_required);
         assert!(!report.foundry_required);
         assert!(report.foundry_optional_example);
+        assert!(report.local_harness_required);
+        assert!(report.ci_harness_required);
+        assert!(report.container_harness_required);
+        assert!(report.foundry_optional_harness_required);
+        assert!(report.optional_benchmark_environment_required);
+        assert!(!report.external_engines_as_runtime_dependencies_allowed);
         assert!(report.is_side_effect_free());
         assert!(!report.has_errors());
         assert!(!report.package_import_performed);

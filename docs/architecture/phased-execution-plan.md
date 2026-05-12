@@ -89,6 +89,12 @@ Supporting docs:
   - Role: Priority 3.5 workspace feature/build validation matrix reference.
   - Status rule: records required validation rows and release blockers; it does not authorize
     package publication, dependency expansion, runtime expansion, or fallback execution.
+- `docs/architecture/universal-import-deployment-baseline-harness.md`
+  - Role: Priority 3.5 / CG-18 universal import, deployment, and baseline harness maturity
+    reference.
+  - Status rule: records required local/CI/container/optional Foundry/optional benchmark harness
+    rows and comparison-only baseline environment boundaries; it does not authorize harness
+    execution, package publication, external engine invocation, or fallback execution.
 - `docs/architecture/incumbent-gap-opportunity-map.md`, `lakehouse-value-prop-compatibility.md`,
   `universal-input-contract.md`, and `spill-reservation-lifecycle-integration.md`
   - Role: reference maps and constraints.
@@ -121,11 +127,6 @@ Completed checked-off work that used to live in this section is recorded in
 `docs/architecture/phased-execution-completed-ledger.md`. Keep this section focused on remaining
 actionable work.
 
-- [ ] Priority 3.5 - cross-RFC platform hardening and release-readiness lane
-  - [ ] CG-18 universal import/deployment/baseline harness
-    - [ ] Mature import/deployment/baseline harnesses for local, CI, container, optional Foundry,
-          and optional benchmark environments without turning external engines into runtime
-          dependencies.
 - [ ] Priority 3.6 - RFC coverage follow-through before broader user/runtime expansion
   - [ ] RFC 0010 developer and agent usability
     - [ ] Keep every new CLI, Python, future REST, capability, diagnostic, benchmark, and

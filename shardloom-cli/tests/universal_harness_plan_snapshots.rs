@@ -35,9 +35,10 @@ fn universal_harness_json_exposes_cg18_contract() {
     assert!(output.contains(&field("execution", "not_performed")));
     assert!(output.contains(&field("plan_only", "true")));
     assert!(output.contains(&field("schema_version", "shardloom.universal_harness.v1")));
-    assert!(output.contains(&field("universal_harness_status", "report_only_planned")));
+    assert!(output.contains(&field("universal_harness_status", "evidence_incomplete")));
     assert!(output.contains(&field("surface_count", "7")));
-    assert!(output.contains(&field("external_baseline_count", "3")));
+    assert!(output.contains(&field("harness_environment_count", "5")));
+    assert!(output.contains(&field("external_baseline_count", "6")));
     assert!(output.contains(&field(
         "runner_contract_field_order",
         "command,schema_version,exit_code,status,diagnostics,fallback_execution_allowed,side_effects,output_artifacts,metrics"
@@ -46,7 +47,14 @@ fn universal_harness_json_exposes_cg18_contract() {
         "surface_kind_order",
         "cli_json_runner,package_import,deployment_profile,foundry_example,external_baseline_runner,comparison_report_dataset,portability_check"
     )));
-    assert!(output.contains(&field("baseline_engine_order", "spark,datafusion,polars")));
+    assert!(output.contains(&field(
+        "harness_environment_kind_order",
+        "local,ci,container,foundry_optional,benchmark_extras_optional"
+    )));
+    assert!(output.contains(&field(
+        "baseline_engine_order",
+        "spark,datafusion,polars,duckdb,dask,pandas"
+    )));
 }
 
 #[test]
@@ -65,6 +73,19 @@ fn universal_harness_json_preserves_no_execution_or_publish_effects() {
     assert!(output.contains(&field("benchmark_evidence_required", "true")));
     assert!(output.contains(&field("foundry_required", "false")));
     assert!(output.contains(&field("foundry_optional_example", "true")));
+    assert!(output.contains(&field("local_harness_required", "true")));
+    assert!(output.contains(&field("ci_harness_required", "true")));
+    assert!(output.contains(&field("container_harness_required", "true")));
+    assert!(output.contains(&field("foundry_optional_harness_required", "true")));
+    assert!(output.contains(&field("optional_benchmark_environment_required", "true")));
+    assert!(output.contains(&field(
+        "external_engines_as_runtime_dependencies_allowed",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "baselines_comparison_only_runtime_dependency_free",
+        "true"
+    )));
     assert!(output.contains(&field("package_import_performed", "false")));
     assert!(output.contains(&field("deployment_performed", "false")));
     assert!(output.contains(&field("external_baseline_execution", "false")));

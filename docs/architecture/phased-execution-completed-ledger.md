@@ -16,6 +16,40 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: CG-18 universal import/deployment/baseline harness maturity
+  - Primary files:
+    - `shardloom-core/src/universal_harness.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/universal_harness_plan_snapshots.rs`
+    - `docs/architecture/universal-import-deployment-baseline-harness.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/rfcs/0030-universal-api-plan-portability-import-deployment-baselines.md`
+  - Scope: mature the existing CG-18 `UniversalHarnessReport` surface so local, CI, container,
+    optional Foundry, and optional benchmark-extra harness environments are explicit and optional
+    Spark/DataFusion/Polars/DuckDB/Dask/pandas baseline environments remain comparison-only.
+  - Checklist:
+    - [x] Add `UniversalHarnessEnvironmentRequirement` rows for local, CI, container, optional
+          Foundry, and optional benchmark-extra harnesses.
+    - [x] Expand external baseline harness requirements to Spark, DataFusion, Polars, DuckDB, Dask,
+          and pandas while keeping them external-only and outside ShardLoom runtime dependencies.
+    - [x] Expose harness environment counts/order and baseline runtime-dependency policy through
+          `universal-harness-plan` fields.
+    - [x] Add the architecture/RFC/traceability docs and remove CG-18 from the active Planned
+          queue.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-core universal_harness --lib`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli universal_harness --bin shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-core --lib -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-cli --bin shardloom -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `git diff --check`
+  - Runtime stance: report and CLI JSON contract maturity only; no harness execution, package
+    publication, container publication, Foundry invocation, benchmark execution, comparison dataset
+    materialization, external engine invocation, runtime dependency expansion, or fallback
+    execution.
+
 - [x] Session label: phased-plan completed queue compaction
   - Primary files:
     - `docs/architecture/phased-execution-plan.md`
