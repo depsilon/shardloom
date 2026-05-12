@@ -225,8 +225,10 @@ pub use stateful_reuse::{
 };
 
 pub use table_intelligence::{
-    TableIntelligenceReport, TableIntelligenceSurface, TableIntelligenceSurfaceKind,
-    TableIntelligenceSurfaceStatus,
+    CatalogMetadataIntegrationGateEntry, CatalogMetadataIntegrationGateReport,
+    CatalogMetadataIntegrationStatus, CatalogMetadataIntegrationSurface, TableIntelligenceReport,
+    TableIntelligenceSurface, TableIntelligenceSurfaceKind, TableIntelligenceSurfaceStatus,
+    plan_catalog_metadata_integration_gate,
 };
 
 pub use translation::{

@@ -16,6 +16,41 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: CG-9 catalog/table metadata integration gate
+  - Primary files:
+    - `shardloom-core/src/table_intelligence.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/cg9_catalog_metadata_gate.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/table-intelligence-layer.md`
+  - Scope: add a report-only CG-9 promotion gate that names catalog/table metadata integration
+    surfaces and keeps them blocked until table-intelligence, catalog/snapshot, schema/partition,
+    dependency, credential/effect, materialization, benchmark, certificate, Native I/O, and
+    no-fallback evidence exists.
+  - Checklist:
+    - [x] Add `CatalogMetadataIntegrationGateReport` with table-intelligence foundation,
+          catalog-ref skeleton, snapshot/manifest boundary, catalog table resolution, table
+          metadata read, partition metadata read, delete/tombstone metadata read, CDC metadata read,
+          table-format dependency admission, commit/recovery metadata binding, and metadata cache
+          invalidation surfaces.
+    - [x] Preserve existing report-only table-intelligence and catalog-ref skeleton evidence while
+          keeping runtime catalog resolution, metadata reads, dependency activation, credential
+          resolution, cache runtime, and metadata-integration claims blocked.
+    - [x] Expose the gate through `cg9-catalog-metadata-gate` JSON/text output.
+  - Validation status:
+    - [x] `cargo test -p shardloom-core catalog_metadata_gate --lib`
+    - [x] `cargo test -p shardloom-cli --test cg9_catalog_metadata_gate`
+    - [x] `cargo fmt --all -- --check`
+    - [x] `cargo clippy -p shardloom-core --lib -- -D warnings`
+    - [x] `cargo clippy -p shardloom-cli --all-targets -- -D warnings`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `git diff --check`
+  - Non-goals preserved:
+    - [x] No catalog IO, table metadata IO, object-store IO, data reads, writes, credential
+          resolution, table-format dependency activation, metadata-cache runtime, claim publication,
+          external engine fallback, or fallback execution.
 - [x] Session label: CG-8 dynamic runtime promotion gate
   - Primary files:
     - `shardloom-exec/src/sizing.rs`

@@ -10,6 +10,13 @@ The first implementation is `TableIntelligenceReport`, exposed through:
 shardloom table-intelligence-plan --format json
 ```
 
+The catalog/table metadata promotion gate is `CatalogMetadataIntegrationGateReport`, exposed
+through:
+
+```powershell
+shardloom cg9-catalog-metadata-gate --format json
+```
+
 ## Scope
 
 - [x] Aggregate existing schema evolution compatibility evidence.
@@ -19,7 +26,9 @@ shardloom table-intelligence-plan --format json
 - [x] Aggregate CDC incremental planning evidence.
 - [x] Aggregate layout health planning evidence.
 - [x] Aggregate compaction planning evidence.
-- [~] Track snapshot/manifest, catalog compatibility, and commit/recovery surfaces as planned.
+- [x] Track snapshot/manifest, catalog compatibility, and commit/recovery surfaces as planned.
+- [x] Gate catalog/table metadata integration surfaces through
+      `CatalogMetadataIntegrationGateReport` before enabling runtime metadata access.
 - [ ] Execute catalog/table metadata reads.
 - [ ] Execute data reads.
 - [ ] Execute compaction or table maintenance writes.
@@ -31,6 +40,20 @@ shardloom table-intelligence-plan --format json
 - `data_io_performed=false`
 - `write_io_performed=false`
 - `external_table_format_dependency_added=false`
+- `fallback_attempted=false`
+- `fallback_execution_allowed=false`
+
+For the CG-9 metadata gate:
+
+- `snapshot_manifest_metadata_read_allowed=false`
+- `catalog_resolution_allowed=false`
+- `table_metadata_read_allowed=false`
+- `catalog_io_allowed=false`
+- `object_store_io_allowed=false`
+- `external_table_format_dependency_allowed=false`
+- `credential_resolution_allowed=false`
+- `metadata_cache_runtime_allowed=false`
+- `metadata_integration_claim_allowed=false`
 - `fallback_attempted=false`
 - `fallback_execution_allowed=false`
 
@@ -58,7 +81,7 @@ Hudi-like, catalog, manifest, recovery, or table-maintenance runtime behavior ex
 - [x] The CLI emits machine-readable JSON fields for counts, surface order, compatibility profiles,
       IO flags, dependency flags, and no-fallback status.
 - [x] Contract tests assert the aggregate report is side-effect-free.
-- [ ] Future catalog/table metadata integration must update this report before enabling runtime
+- [x] Future catalog/table metadata integration must update this report before enabling runtime
       behavior.
 - [ ] Future table-format dependencies must be approved through dependency/license policy and must
       not introduce external execution fallback.
