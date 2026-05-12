@@ -57,6 +57,39 @@ These are roadmap targets, not blanket support claims. A surface counts as suppo
 native execution path or explicit materialization/source/sink boundary, diagnostics, certificates,
 correctness evidence, and benchmark or workload evidence are present for the declared workload.
 
+## Current State
+
+ShardLoom is pre-release. The current repository is strongest as an evidence-first Vortex-native
+engine prototype plus protocol/benchmark scaffolding, not as a general SQL/DataFrame/REST platform
+yet.
+
+Implemented or actively wired surfaces include:
+
+- typed top-level plan variants and execution results for current Vortex primitive, prepared
+  encoded, source-backed, reader-backed, and report-only plan shapes
+- a Vortex top-level execution provider bridge for the current local/prepared/source-backed
+  execution reports
+- `shardloom.output.v2`, a typed CLI JSON envelope with result refs, artifact refs, certificates,
+  policy, lifecycle, capability snapshot, diagnostics, fallback status, and a temporary legacy
+  `fields` mirror
+- modular CLI handler families for status/capabilities, input planning, REST planning,
+  packaging/deployment, benchmark planning/runtime, diagnostics, evidence/certificates,
+  workflow/table planning, engine/runtime planning, and operational hardening
+- local traditional-analytics benchmark harness support with a machine-readable scenario catalog,
+  taxonomy metadata, benchmark constitution fields, generated dataset profiles, and support/coverage
+  output separate from timing rows
+- Vortex-first guardrails and runtime-utilization audit docs covering arrays, layouts, Scan
+  Source/Sink/Split concepts, field masks, predicate ordering, I/O evidence, sessions/registries,
+  device posture, and extension-type posture
+
+Still planned or gated:
+
+- broad SQL, DataFrame, notebook, UDF, adapter, object-store, catalog/table, live/hybrid, REST
+  server, generated-client, Foundry, and Marketplace surfaces
+- production package publication and public performance/superiority claims
+- full comparative benchmark reruns and claim-grade source-backed benchmark rows
+- any external engine execution as ShardLoom fallback
+
 ## Core Concepts
 
 The full vocabulary lives in
@@ -122,10 +155,11 @@ before publication.
 ## Python Client
 
 The source-tree Python client in [`python/`](python/) is a thin wrapper over the
-ShardLoom CLI JSON protocol. It parses `OutputEnvelope` responses and preserves
-diagnostics, fields, and fallback status. It is not a native binding, DataFrame
-runtime, SQL engine, UDF runtime, package publication, or fallback execution
-path.
+ShardLoom CLI JSON protocol. It parses `shardloom.output.v2` envelopes and
+preserves typed result/artifact/certificate payloads, diagnostics, fallback
+status, and the temporary legacy field mirror. It is not a native binding,
+DataFrame runtime, SQL engine, UDF runtime, package publication, or fallback
+execution path.
 
 It also exposes the current local live ETL smoke commands for explicit testing:
 CSV-to-Vortex through `traditional-analytics-run` and existing native Vortex

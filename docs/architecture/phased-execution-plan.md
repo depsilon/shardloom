@@ -162,6 +162,9 @@ actionable work.
           `command_family` taxonomy.
     - [x] Move the status/capabilities command-family handlers into
           `shardloom-cli/src/status_capabilities.rs` without changing command output.
+    - [x] Move input adapter/source planning handlers into `shardloom-cli/src/input_planning.rs`
+          without reading datasets, probing object stores, executing tasks, materializing outputs,
+          or invoking external engines.
     - [x] Move the REST/API planning handler into `shardloom-cli/src/rest_api_planning.rs`
           without enabling server behavior or remote execution.
     - [x] Move packaging/deployment handlers into `shardloom-cli/src/packaging_deployment.rs`
