@@ -16,6 +16,36 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 status/capabilities handler module split
+  - Primary files:
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-cli/src/main.rs`
+    - `docs/architecture/typed-command-result-envelope.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/rfcs/0039-typed-command-result-envelope-cli-modularity.md`
+  - Scope: move the status/capabilities command-family handlers out of the monolithic CLI
+    dispatch body while preserving existing output fields, typed envelope routing, diagnostics, and
+    no-fallback behavior.
+  - Checklist:
+    - [x] Add `shardloom-cli/src/status_capabilities.rs` for `status` and `capabilities`.
+    - [x] Delegate the `status` and `capabilities` match arms from `main.rs`.
+    - [x] Keep capability report helper reuse explicit until broader capability helper extraction
+          is warranted.
+    - [x] Update Priority 3.9 docs and RFC traceability while leaving remaining handler families in
+          the Planned queue.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test typed_envelope_contract_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test capability_discovery_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test api_protocol_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli capabilities_ --bin shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-cli --bin shardloom -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `git diff --check`
+  - Runtime stance: handler-placement refactor only; no runtime expansion, external engine
+    invocation, dataset probe, network effect, write, materialization, or fallback execution
+    changes.
+
 - [x] Session label: Priority 3.9 CLI output renderer module split
   - Primary files:
     - `shardloom-cli/src/cli_output.rs`
