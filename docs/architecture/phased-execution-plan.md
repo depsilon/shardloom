@@ -181,9 +181,10 @@ actionable work.
           `shardloom-cli/src/evidence_certificates.rs` without running harnesses, reading data,
           emitting runtime certificates from execution, or invoking external engines.
     - [x] Move workflow/table planning handlers for manifest, layout health, compaction, table
-          intelligence, CG-9 catalog metadata, incremental, and stateful reuse surfaces into
-          `shardloom-cli/src/workflow_planning.rs` without reading datasets, probing catalogs,
-          executing plans, writing data, materializing outputs, or invoking external engines.
+          intelligence, schema evolution, table compatibility, CG-9 catalog metadata,
+          incremental, and stateful reuse surfaces into `shardloom-cli/src/workflow_planning.rs`
+          without reading datasets, probing catalogs, executing plans, writing data,
+          materializing outputs, or invoking external engines.
     - [x] Move engine/runtime planning handlers for streaming, streaming batch, backpressure,
           runtime/task, sizing, dynamic sizing feedback, dynamic work shaping, and CG-8 promotion
           surfaces into `shardloom-cli/src/engine_runtime_planning.rs` without reading datasets,

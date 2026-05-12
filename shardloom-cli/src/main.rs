@@ -3720,31 +3720,7 @@ fn detect_requested_output_format(args: &[String]) -> OutputFormat {
     format
 }
 
-fn handle_schema_plan(mut args: std::vec::IntoIter<String>, format: OutputFormat) -> ExitCode {
-    match args.next().as_deref() {
-        None => emit_schema_plan_skeleton(format),
-        Some("evolution") => {
-            let scenario = args.next().unwrap_or_else(|| "add-nullable".to_string());
-            if let Some(extra) = args.next() {
-                return emit_error(
-                    "schema-plan",
-                    format,
-                    "schema evolution plan failed",
-                    &cli_unknown_arg_error("schema-plan evolution", &extra),
-                );
-            }
-            emit_schema_evolution_plan(format, &scenario)
-        }
-        Some(value) => emit_error(
-            "schema-plan",
-            format,
-            "schema plan failed",
-            &cli_unknown_arg_error("schema-plan", value),
-        ),
-    }
-}
-
-fn emit_schema_plan_skeleton(format: OutputFormat) -> ExitCode {
+pub(crate) fn emit_schema_plan_skeleton(format: OutputFormat) -> ExitCode {
     let schema = match (SchemaId::new("schema-placeholder"), SchemaVersion::new(1)) {
         (Ok(id), Ok(version)) => SchemaDefinition::new(id, version),
         (Err(error), _) | (_, Err(error)) => {
@@ -3784,7 +3760,7 @@ fn emit_schema_plan_skeleton(format: OutputFormat) -> ExitCode {
     ExitCode::SUCCESS
 }
 
-fn emit_schema_evolution_plan(format: OutputFormat, scenario: &str) -> ExitCode {
+pub(crate) fn emit_schema_evolution_plan(format: OutputFormat, scenario: &str) -> ExitCode {
     let (from, to, policy) = match schema_evolution_fixture(scenario) {
         Ok(parts) => parts,
         Err(error) => {
@@ -4055,52 +4031,7 @@ fn schema_fixture_field(
     }
 }
 
-fn handle_table_compat_plan(
-    mut args: std::vec::IntoIter<String>,
-    format: OutputFormat,
-) -> ExitCode {
-    match args.next().as_deref() {
-        Some("aggregate") => {
-            let scenario = args.next().unwrap_or_else(|| "compatible".to_string());
-            if let Some(extra) = args.next() {
-                return emit_error(
-                    "table-compat-plan",
-                    format,
-                    "table compatibility aggregation failed",
-                    &cli_unknown_arg_error("table-compat-plan aggregate", &extra),
-                );
-            }
-            emit_table_compatibility_aggregation(format, &scenario)
-        }
-        Some("partition-evolution") => {
-            let scenario = args.next().unwrap_or_else(|| "add-field".to_string());
-            if let Some(extra) = args.next() {
-                return emit_error(
-                    "table-compat-plan",
-                    format,
-                    "partition evolution plan failed",
-                    &cli_unknown_arg_error("table-compat-plan partition-evolution", &extra),
-                );
-            }
-            emit_partition_evolution_plan(format, &scenario)
-        }
-        Some("delete-semantics") => {
-            let scenario = args.next().unwrap_or_else(|| "file-level".to_string());
-            if let Some(extra) = args.next() {
-                return emit_error(
-                    "table-compat-plan",
-                    format,
-                    "delete/tombstone plan failed",
-                    &cli_unknown_arg_error("table-compat-plan delete-semantics", &extra),
-                );
-            }
-            emit_delete_tombstone_plan(format, &scenario)
-        }
-        maybe_format => emit_table_compat_plan(format, maybe_format),
-    }
-}
-
-fn emit_table_compat_plan(format: OutputFormat, format_token: Option<&str>) -> ExitCode {
+pub(crate) fn emit_table_compat_plan(format: OutputFormat, format_token: Option<&str>) -> ExitCode {
     let format_kind = match format_token {
         Some("vortex") => TableFormatKind::NativeVortexManifest,
         Some("iceberg") => TableFormatKind::IcebergCompatible,
@@ -4154,7 +4085,10 @@ fn emit_table_compat_plan(format: OutputFormat, format_token: Option<&str>) -> E
     }
 }
 
-fn emit_table_compatibility_aggregation(format: OutputFormat, scenario: &str) -> ExitCode {
+pub(crate) fn emit_table_compatibility_aggregation(
+    format: OutputFormat,
+    scenario: &str,
+) -> ExitCode {
     let (schema_scenario, partition_scenario, delete_scenario) =
         match table_compatibility_aggregation_fixture(scenario) {
             Ok(parts) => parts,
@@ -4360,7 +4294,7 @@ fn table_compatibility_aggregation_diagnostics(
     diagnostics
 }
 
-fn emit_partition_evolution_plan(format: OutputFormat, scenario: &str) -> ExitCode {
+pub(crate) fn emit_partition_evolution_plan(format: OutputFormat, scenario: &str) -> ExitCode {
     let (from_spec, to_spec) = match partition_evolution_fixture(scenario) {
         Ok(parts) => parts,
         Err(error) => {
@@ -4474,7 +4408,7 @@ fn partition_evolution_output_fields(
     ]
 }
 
-fn emit_delete_tombstone_plan(format: OutputFormat, scenario: &str) -> ExitCode {
+pub(crate) fn emit_delete_tombstone_plan(format: OutputFormat, scenario: &str) -> ExitCode {
     let (source_model, target_model) = match delete_tombstone_fixture(scenario) {
         Ok(models) => models,
         Err(error) => {
@@ -20072,7 +20006,7 @@ fn run(args: Vec<String>) -> ExitCode {
             }
         }
 
-        Some("schema-plan") => handle_schema_plan(args, format),
+        Some("schema-plan") => workflow_planning::handle_schema_plan(args, format),
         Some("catalog-plan") => {
             let kind = match args.next().as_deref() {
                 Some("local") => CatalogKind::LocalManifest,
@@ -20121,7 +20055,7 @@ fn run(args: Vec<String>) -> ExitCode {
             );
             ExitCode::SUCCESS
         }
-        Some("table-compat-plan") => handle_table_compat_plan(args, format),
+        Some("table-compat-plan") => workflow_planning::handle_table_compat_plan(args, format),
         Some("capabilities") => status_capabilities::handle_capabilities(args, format),
         Some("extension-registry") => {
             let snapshot = ExtensionRegistrySnapshot::empty();
