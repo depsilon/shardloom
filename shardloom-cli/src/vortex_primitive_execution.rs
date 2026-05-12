@@ -9,13 +9,14 @@
 
 use std::process::ExitCode;
 
-use shardloom_core::{CommandStatus, DatasetUri, OutputFormat, PredicateExpr};
+use shardloom_core::{CommandStatus, DatasetUri, OutputFormat, PredicateExpr, ShardLoomError};
 use shardloom_plan::ProjectionRequest;
 use shardloom_vortex::{
-    VortexMetadataOpenRequest, VortexMetadataProbeReport, VortexQueryPrimitiveRequest,
-    VortexQueryPrimitiveValue, evaluate_vortex_query_primitive,
-    evaluate_vortex_query_primitive_with_analysis, execute_vortex_local_query_primitive,
-    open_vortex_metadata_only, summarize_vortex_metadata_probe,
+    VortexBoundedExecutionPolicy, VortexMetadataOpenRequest, VortexMetadataProbeReport,
+    VortexQueryPrimitiveRequest, VortexQueryPrimitiveValue, evaluate_vortex_query_primitive,
+    evaluate_vortex_query_primitive_with_analysis, execute_vortex_bounded_local_query,
+    execute_vortex_local_query_primitive, open_vortex_metadata_only,
+    summarize_vortex_metadata_probe,
 };
 
 use crate::cli_output::{emit, emit_error};
@@ -387,6 +388,14 @@ struct VortexFilterArgs {
     local_execution_request: Option<crate::VortexLocalPrimitiveCliExecutionRequest>,
 }
 
+struct VortexBoundedLocalExecArgs {
+    uri: DatasetUri,
+    primitive_arg: String,
+    request: VortexQueryPrimitiveRequest,
+    memory_gb: u64,
+    max_parallelism: usize,
+}
+
 pub(crate) fn handle_vortex_filter_project(
     args: std::vec::IntoIter<String>,
     format: OutputFormat,
@@ -622,6 +631,77 @@ pub(crate) fn handle_vortex_local_exec(
     }
 }
 
+pub(crate) fn handle_vortex_bounded_local_exec(
+    args: std::vec::IntoIter<String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let parsed = match parse_vortex_bounded_local_exec_args(args, format) {
+        Ok(parsed) => parsed,
+        Err(code) => return code,
+    };
+    let VortexBoundedLocalExecArgs {
+        uri,
+        primitive_arg,
+        request,
+        memory_gb,
+        max_parallelism,
+    } = parsed;
+    let summary = open_vortex_metadata_only(VortexMetadataOpenRequest::metadata_only(uri))
+        .ok()
+        .and_then(|report| report.metadata_summary);
+    let local = match execute_vortex_local_query_primitive(request, summary) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                "vortex-bounded-local-exec",
+                format,
+                "vortex bounded local exec failed",
+                &error,
+            );
+        }
+    };
+    let policy = match VortexBoundedExecutionPolicy::memory_limited(memory_gb, max_parallelism) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                "vortex-bounded-local-exec",
+                format,
+                "vortex bounded local exec failed",
+                &error,
+            );
+        }
+    };
+    let report = match execute_vortex_bounded_local_query(local, policy) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                "vortex-bounded-local-exec",
+                format,
+                "vortex bounded local exec failed",
+                &error,
+            );
+        }
+    };
+    emit(
+        "vortex-bounded-local-exec",
+        format,
+        if report.has_errors() {
+            CommandStatus::Unsupported
+        } else {
+            CommandStatus::Success
+        },
+        "vortex bounded local execution".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        crate::bounded_local_execution_fields(&report, &primitive_arg, memory_gb, max_parallelism),
+    );
+    if report.has_errors() {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
 fn parse_vortex_filter_project_args(
     mut args: std::vec::IntoIter<String>,
     format: OutputFormat,
@@ -734,6 +814,93 @@ fn parse_vortex_filter_args(
         predicate_arg,
         predicate,
         local_execution_request,
+    })
+}
+
+fn parse_vortex_bounded_local_exec_args(
+    mut args: std::vec::IntoIter<String>,
+    format: OutputFormat,
+) -> std::result::Result<VortexBoundedLocalExecArgs, ExitCode> {
+    let Some(uri_arg) = args.next() else {
+        eprintln!(
+            "usage: shardloom vortex-bounded-local-exec <dataset_uri> <primitive> <memory_gb> <max_parallelism>"
+        );
+        return Err(ExitCode::from(2));
+    };
+    let Some(primitive_arg) = args.next() else {
+        eprintln!(
+            "usage: shardloom vortex-bounded-local-exec <dataset_uri> <primitive> <memory_gb> <max_parallelism>"
+        );
+        return Err(ExitCode::from(2));
+    };
+    let Some(memory_gb_text) = args.next() else {
+        eprintln!(
+            "usage: shardloom vortex-bounded-local-exec <dataset_uri> <primitive> <memory_gb> <max_parallelism>"
+        );
+        return Err(ExitCode::from(2));
+    };
+    let Some(max_parallelism_text) = args.next() else {
+        eprintln!(
+            "usage: shardloom vortex-bounded-local-exec <dataset_uri> <primitive> <memory_gb> <max_parallelism>"
+        );
+        return Err(ExitCode::from(2));
+    };
+    let uri = DatasetUri::new(uri_arg).map_err(|error| {
+        emit_error(
+            "vortex-bounded-local-exec",
+            format,
+            "vortex bounded local exec failed",
+            &error,
+        )
+    })?;
+    let request =
+        crate::parse_vortex_primitive_request(uri.clone(), &primitive_arg).map_err(|error| {
+            emit_error(
+                "vortex-bounded-local-exec",
+                format,
+                "vortex bounded local exec failed",
+                &error,
+            )
+        })?;
+    let memory_gb = parse_bounded_local_u64(&memory_gb_text, "memory_gb", format)?;
+    let max_parallelism =
+        parse_bounded_local_usize(&max_parallelism_text, "max_parallelism", format)?;
+    Ok(VortexBoundedLocalExecArgs {
+        uri,
+        primitive_arg,
+        request,
+        memory_gb,
+        max_parallelism,
+    })
+}
+
+fn parse_bounded_local_u64(
+    value: &str,
+    field: &str,
+    format: OutputFormat,
+) -> std::result::Result<u64, ExitCode> {
+    value.parse().map_err(|_| {
+        emit_error(
+            "vortex-bounded-local-exec",
+            format,
+            "vortex bounded local exec failed",
+            &ShardLoomError::InvalidOperation(format!("{field} must be an unsigned integer")),
+        )
+    })
+}
+
+fn parse_bounded_local_usize(
+    value: &str,
+    field: &str,
+    format: OutputFormat,
+) -> std::result::Result<usize, ExitCode> {
+    value.parse().map_err(|_| {
+        emit_error(
+            "vortex-bounded-local-exec",
+            format,
+            "vortex bounded local exec failed",
+            &ShardLoomError::InvalidOperation(format!("{field} must be an unsigned integer")),
+        )
     })
 }
 
