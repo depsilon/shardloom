@@ -17,7 +17,9 @@ use crate::{
     catalog_metadata_integration_gate_fields,
     cli_output::{emit, emit_error},
     cli_unknown_arg_error, emit_cdc_incremental_plan, emit_compaction_plan,
-    emit_layout_health_plan, emit_table_intelligence_plan, stateful_reuse_fields,
+    emit_delete_tombstone_plan, emit_layout_health_plan, emit_partition_evolution_plan,
+    emit_schema_evolution_plan, emit_schema_plan_skeleton, emit_table_compat_plan,
+    emit_table_compatibility_aggregation, emit_table_intelligence_plan, stateful_reuse_fields,
     stateful_reuse_promotion_gate_fields,
 };
 
@@ -110,6 +112,78 @@ pub(crate) fn handle_table_intelligence_plan(
         );
     }
     emit_table_intelligence_plan(format)
+}
+
+pub(crate) fn handle_schema_plan(
+    mut args: std::vec::IntoIter<String>,
+    format: OutputFormat,
+) -> ExitCode {
+    match args.next().as_deref() {
+        None => emit_schema_plan_skeleton(format),
+        Some("evolution") => {
+            let scenario = args.next().unwrap_or_else(|| "add-nullable".to_string());
+            if let Some(extra) = args.next() {
+                return emit_error(
+                    "schema-plan",
+                    format,
+                    "schema evolution plan failed",
+                    &cli_unknown_arg_error("schema-plan evolution", &extra),
+                );
+            }
+            emit_schema_evolution_plan(format, &scenario)
+        }
+        Some(value) => emit_error(
+            "schema-plan",
+            format,
+            "schema plan failed",
+            &cli_unknown_arg_error("schema-plan", value),
+        ),
+    }
+}
+
+pub(crate) fn handle_table_compat_plan(
+    mut args: std::vec::IntoIter<String>,
+    format: OutputFormat,
+) -> ExitCode {
+    match args.next().as_deref() {
+        Some("aggregate") => {
+            let scenario = args.next().unwrap_or_else(|| "compatible".to_string());
+            if let Some(extra) = args.next() {
+                return emit_error(
+                    "table-compat-plan",
+                    format,
+                    "table compatibility aggregation failed",
+                    &cli_unknown_arg_error("table-compat-plan aggregate", &extra),
+                );
+            }
+            emit_table_compatibility_aggregation(format, &scenario)
+        }
+        Some("partition-evolution") => {
+            let scenario = args.next().unwrap_or_else(|| "add-field".to_string());
+            if let Some(extra) = args.next() {
+                return emit_error(
+                    "table-compat-plan",
+                    format,
+                    "partition evolution plan failed",
+                    &cli_unknown_arg_error("table-compat-plan partition-evolution", &extra),
+                );
+            }
+            emit_partition_evolution_plan(format, &scenario)
+        }
+        Some("delete-semantics") => {
+            let scenario = args.next().unwrap_or_else(|| "file-level".to_string());
+            if let Some(extra) = args.next() {
+                return emit_error(
+                    "table-compat-plan",
+                    format,
+                    "delete/tombstone plan failed",
+                    &cli_unknown_arg_error("table-compat-plan delete-semantics", &extra),
+                );
+            }
+            emit_delete_tombstone_plan(format, &scenario)
+        }
+        maybe_format => emit_table_compat_plan(format, maybe_format),
+    }
 }
 
 pub(crate) fn handle_catalog_metadata_gate(

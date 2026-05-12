@@ -119,8 +119,9 @@ remain report-only and do not run harnesses, read data, emit runtime certificate
 invoke external engines, or weaken no-fallback behavior.
 
 The workflow/table planning family now contains `manifest-plan`, `layout-health-plan`,
-`compaction-plan`, `table-intelligence-plan`, `cg9-catalog-metadata-gate`, `incremental-plan`,
-`stateful-reuse-plan`, and `cg17-stateful-reuse-gate`, and lives in
+`compaction-plan`, `table-intelligence-plan`, `schema-plan`, `table-compat-plan`,
+`cg9-catalog-metadata-gate`, `incremental-plan`, `stateful-reuse-plan`, and
+`cg17-stateful-reuse-gate`, and lives in
 `shardloom-cli/src/workflow_planning.rs`. These handlers remain report-only and do not read
 datasets, probe catalogs, execute plans, write data, materialize outputs, invoke external engines,
 or weaken no-fallback behavior.

@@ -16,6 +16,30 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 schema/table workflow handler routing
+  - Primary files:
+    - `shardloom-cli/src/workflow_planning.rs`
+    - `shardloom-cli/src/main.rs`
+    - `docs/architecture/typed-command-result-envelope.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: route `schema-plan` and `table-compat-plan` through the workflow/table planning CLI
+    module while leaving the existing report builders and protocol output unchanged.
+  - Checklist:
+    - [x] Delegate `schema-plan` to `workflow_planning::handle_schema_plan`.
+    - [x] Delegate `table-compat-plan` to `workflow_planning::handle_table_compat_plan`.
+    - [x] Keep schema/table compatibility surfaces report-only with no dataset reads, catalog
+          probes, writes, external engines, or fallback execution.
+    - [x] Update Priority 3.9 docs and RFC traceability.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo check -p shardloom-cli --bin shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test typed_envelope_contract_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test python_wrapper_snapshots`
+    - [x] `.\target\debug\shardloom.exe schema-plan --format json`
+    - [x] `.\target\debug\shardloom.exe table-compat-plan aggregate --format json`
+  - Runtime stance: handler routing only; no new schema/table runtime behavior, catalog IO, data IO,
+    write IO, external engine invocation, or fallback execution is authorized.
+
 - [x] Session label: Priority 3.9 benchmark runtime handler module split
   - Primary files:
     - `shardloom-cli/src/benchmark_runtime.rs`
