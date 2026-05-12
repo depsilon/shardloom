@@ -16,6 +16,36 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 typed envelope reference routing
+  - Primary files:
+    - `shardloom-cli/src/main.rs`
+    - `docs/architecture/typed-command-result-envelope.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/rfcs/0039-typed-command-result-envelope-cli-modularity.md`
+  - Scope: attach typed `certificates`, `artifact_refs`, and `result_refs` when existing command
+    fields already carry explicit refs/ids/paths/URIs, while preserving legacy top-level fields.
+  - Checklist:
+    - [x] Add conservative typed ref routing for explicit `*_ref`, `*_id`, `*_path`, and `*_uri`
+          fields.
+    - [x] Classify execution and Native I/O certificate references into `certificates`.
+    - [x] Classify evidence artifact, materialization boundary, benchmark row, Foundry report,
+          source report, and sink report references into `artifact_refs`.
+    - [x] Classify explicit result references into `result_refs`.
+    - [x] Leave requirement booleans such as `execution_certificate_required` as payload fields,
+          not typed refs.
+    - [x] Keep richer inline artifact/report payload attachment and CLI modularization active in
+          the Planned queue.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli typed_envelope_routing_tests --bin shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test api_protocol_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-cli --bin shardloom -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `git diff --check`
+  - Runtime stance: protocol/refactor slice only; no runtime expansion, external engine
+    invocation, network effect, dataset probe, write, materialization, or fallback execution
+    changes.
+
 - [x] Session label: Priority 3.9 typed envelope common field routing
   - Primary files:
     - `shardloom-core/src/output.rs`
