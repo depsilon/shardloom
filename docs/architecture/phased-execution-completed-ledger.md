@@ -16,6 +16,32 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 REST/API planning handler module split
+  - Primary files:
+    - `shardloom-cli/src/rest_api_planning.rs`
+    - `shardloom-cli/src/main.rs`
+    - `docs/architecture/typed-command-result-envelope.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/rfcs/0039-typed-command-result-envelope-cli-modularity.md`
+  - Scope: move the report-only `api-compat-plan` handler into a focused REST/API planning module
+    without enabling server behavior, sockets, remote execution, or fallback behavior.
+  - Checklist:
+    - [x] Add `shardloom-cli/src/rest_api_planning.rs` for `api-compat-plan`.
+    - [x] Delegate the `api-compat-plan` match arm from `main.rs`.
+    - [x] Keep API protocol fields routed through the shared typed output renderer.
+    - [x] Update Priority 3.9 docs and RFC traceability while leaving remaining handler families in
+          the Planned queue.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test api_protocol_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test typed_envelope_contract_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-cli --bin shardloom -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `git diff --check`
+  - Runtime stance: handler-placement refactor only; no REST server, remote API behavior, runtime
+    expansion, external engine invocation, dataset probe, network effect, write, materialization, or
+    fallback execution changes.
+
 - [x] Session label: Priority 3.9 status/capabilities handler module split
   - Primary files:
     - `shardloom-cli/src/status_capabilities.rs`

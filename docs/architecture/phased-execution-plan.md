@@ -161,6 +161,8 @@ actionable work.
           `command_family` taxonomy.
     - [x] Move the status/capabilities command-family handlers into
           `shardloom-cli/src/status_capabilities.rs` without changing command output.
+    - [x] Move the REST/API planning handler into `shardloom-cli/src/rest_api_planning.rs`
+          without enabling server behavior or remote execution.
     - [ ] Move remaining command-family handlers out of `main.rs` after the shared
           `typed_envelope` routing module and `command_family` taxonomy.
     - [ ] Split handlers by status/capabilities, Vortex primitive execution,
