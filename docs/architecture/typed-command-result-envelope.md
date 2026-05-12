@@ -14,6 +14,7 @@ OutputTypedRef
 OutputTypedArtifact
 shardloom-cli/src/command_family.rs
 shardloom-cli/src/cli_output.rs
+shardloom-cli/src/status_capabilities.rs
 shardloom-cli/src/typed_envelope.rs
 shardloom.output.v2
 ```
@@ -75,6 +76,10 @@ Shared CLI JSON/text rendering and error emission lives in `shardloom-cli/src/cl
 Typed-envelope field/ref routing lives in `shardloom-cli/src/typed_envelope.rs`. Command handlers
 still live mostly in `main.rs`; the output module split is the next modularity step for shared
 rendering and protocol behavior.
+
+The first physical handler-family split moves the status and capabilities command handlers into
+`shardloom-cli/src/status_capabilities.rs`. The module still reuses shared capability helper
+functions while broader command-family extraction continues.
 
 Command family classification lives in `shardloom-cli/src/command_family.rs` and is emitted in the
 typed lifecycle payload as `command_family`. This gives status/capabilities, Vortex primitive,

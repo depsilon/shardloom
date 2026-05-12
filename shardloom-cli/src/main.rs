@@ -16,6 +16,7 @@ use std::{
 
 mod cli_output;
 mod command_family;
+mod status_capabilities;
 mod typed_envelope;
 
 use cli_output::{emit, emit_error};
@@ -3670,7 +3671,7 @@ fn cli_missing_arg_error(command: &str, arg: &str) -> ShardLoomError {
     ShardLoomError::InvalidOperation(format!("{command} missing required argument: <{arg}>"))
 }
 
-fn cli_unknown_arg_error(command: &str, value: &str) -> ShardLoomError {
+pub(crate) fn cli_unknown_arg_error(command: &str, value: &str) -> ShardLoomError {
     ShardLoomError::InvalidOperation(format!("{command} unknown argument/value: {value}"))
 }
 
@@ -5235,7 +5236,7 @@ fn run_vortex_metadata_physical_kernel_plan(format: OutputFormat, args: Vec<Stri
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum CapabilityDiscoveryScope {
+pub(crate) enum CapabilityDiscoveryScope {
     Engine,
     Sql,
     Functions,
@@ -5260,7 +5261,7 @@ enum CapabilityDiscoveryScope {
 }
 
 impl CapabilityDiscoveryScope {
-    fn parse(value: Option<&str>) -> Result<Self, ShardLoomError> {
+    pub(crate) fn parse(value: Option<&str>) -> Result<Self, ShardLoomError> {
         match value {
             None => Ok(Self::Engine),
             Some("sql") => Ok(Self::Sql),
@@ -5288,7 +5289,7 @@ impl CapabilityDiscoveryScope {
     }
 
     #[must_use]
-    const fn as_str(self) -> &'static str {
+    pub(crate) const fn as_str(self) -> &'static str {
         match self {
             Self::Engine => "engine",
             Self::Sql => "sql",
@@ -5315,7 +5316,7 @@ impl CapabilityDiscoveryScope {
     }
 
     #[must_use]
-    const fn world_class_dimension(self) -> Option<WorldClassSufficiencyDimensionKind> {
+    pub(crate) const fn world_class_dimension(self) -> Option<WorldClassSufficiencyDimensionKind> {
         match self {
             Self::DataEtl => Some(WorldClassSufficiencyDimensionKind::DataEtlSurface),
             Self::Python => Some(WorldClassSufficiencyDimensionKind::PythonSurface),
@@ -10829,7 +10830,7 @@ fn certification_summary_header(
     )
 }
 
-fn emit_capability_certification(
+pub(crate) fn emit_capability_certification(
     scope: CapabilityDiscoveryScope,
     format: OutputFormat,
     report: &CapabilityCertificationReport,
@@ -11012,7 +11013,7 @@ fn world_class_surface_text(
     )
 }
 
-fn emit_world_class_surface_capability(
+pub(crate) fn emit_world_class_surface_capability(
     scope: CapabilityDiscoveryScope,
     format: OutputFormat,
     report: &WorldClassSufficiencyReport,
@@ -19694,22 +19695,7 @@ fn run(args: Vec<String>) -> ExitCode {
             }
         }
 
-        Some("status") => {
-            let status = shardloom_exec::status();
-            emit(
-                "status",
-                format,
-                CommandStatus::Success,
-                "engine status".to_string(),
-                format!("{}\nfallback execution: disabled", status.summary),
-                vec![],
-                vec![(
-                    "fallback_execution_allowed".to_string(),
-                    "false".to_string(),
-                )],
-            );
-            ExitCode::SUCCESS
-        }
+        Some("status") => status_capabilities::handle_status(format),
         Some("release-plan") => {
             let plan = ReleasePlan::default_foundation_plan();
             let evidence = plan.release_readiness_evidence();
@@ -20467,55 +20453,7 @@ fn run(args: Vec<String>) -> ExitCode {
             ExitCode::SUCCESS
         }
         Some("table-compat-plan") => handle_table_compat_plan(args, format),
-        Some("capabilities") => {
-            let scope = match CapabilityDiscoveryScope::parse(args.next().as_deref()) {
-                Ok(scope) => scope,
-                Err(error) => {
-                    return emit_error(
-                        "capabilities",
-                        format,
-                        "capability discovery failed",
-                        &error,
-                    );
-                }
-            };
-            if let Some(extra) = args.next() {
-                return emit_error(
-                    "capabilities",
-                    format,
-                    "capability discovery failed",
-                    &cli_unknown_arg_error("capabilities", &extra),
-                );
-            }
-            if scope.world_class_dimension().is_some() {
-                let report = plan_world_class_sufficiency();
-                emit_world_class_surface_capability(scope, format, &report);
-                return ExitCode::SUCCESS;
-            }
-            if scope != CapabilityDiscoveryScope::Engine {
-                let report = CapabilityCertificationReport::contract_only();
-                emit_capability_certification(scope, format, &report);
-                return ExitCode::SUCCESS;
-            }
-            let capabilities = shardloom_core::EngineCapabilities::current();
-            emit(
-                "capabilities",
-                format,
-                CommandStatus::Success,
-                "engine capabilities".to_string(),
-                capabilities.to_human_text(),
-                vec![],
-                vec![
-                    (
-                        "fallback_execution_allowed".to_string(),
-                        "false".to_string(),
-                    ),
-                    ("native_input".to_string(), "vortex".to_string()),
-                    ("native_output".to_string(), "vortex".to_string()),
-                ],
-            );
-            ExitCode::SUCCESS
-        }
+        Some("capabilities") => status_capabilities::handle_capabilities(args, format),
         Some("extension-registry") => {
             let snapshot = ExtensionRegistrySnapshot::empty();
             emit(

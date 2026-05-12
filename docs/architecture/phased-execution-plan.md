@@ -159,6 +159,8 @@ actionable work.
     - [x] Move shared CLI JSON/text rendering and error emission into
           `shardloom-cli/src/cli_output.rs`, backed by the existing `typed_envelope` router and
           `command_family` taxonomy.
+    - [x] Move the status/capabilities command-family handlers into
+          `shardloom-cli/src/status_capabilities.rs` without changing command output.
     - [ ] Move remaining command-family handlers out of `main.rs` after the shared
           `typed_envelope` routing module and `command_family` taxonomy.
     - [ ] Split handlers by status/capabilities, Vortex primitive execution,
