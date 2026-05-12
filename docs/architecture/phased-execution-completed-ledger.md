@@ -16,6 +16,42 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: crate posture and public export cleanup
+  - Primary files:
+    - `docs/architecture/crate-posture-public-exports.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-plan/src/lib.rs`
+    - `shardloom-exec/src/lib.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `shardloom-cli/src/main.rs`
+  - Scope: refresh crate-level docs and public export posture after the executable-surface growth,
+    replacing stale setup-phase wording and documenting executable, report-only, blocked, future,
+    and prohibited-fallback surfaces for core, plan, exec, vortex, and CLI.
+  - Vortex-first provider check:
+    - Subject area: Vortex crate public export posture.
+    - Decision: `wrap_vortex_concept`.
+    - Runtime stance: documentation/posture only; no upstream Vortex API expansion, no runtime
+      promotion, no dependency change, no external engine invocation, and no fallback execution.
+  - Checklist:
+    - [x] Refresh crate docs for `shardloom-core`, `shardloom-plan`, `shardloom-exec`,
+          `shardloom-vortex`, and `shardloom-cli`.
+    - [x] Document export roles in `docs/architecture/crate-posture-public-exports.md`.
+    - [x] Replace stale setup-phase or compile-only wording where it no longer matched current
+          executable/report-only posture.
+    - [x] Mark Priority 2.8 complete without adding runtime behavior.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-exec status --lib`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex adapter_readiness_dependency_added_compile_only_text_mentions_blocked_adapter_io --lib`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-core --lib -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-plan --lib -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-exec --lib -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-vortex --lib -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-cli --bin shardloom -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `git diff --check`
+
 - [x] Session label: source-backed benchmark matrix and benchmark-suite catalog
   - Primary files:
     - `shardloom-core/src/benchmark_suite.rs`
