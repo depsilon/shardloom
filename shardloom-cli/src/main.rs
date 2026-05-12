@@ -161,22 +161,21 @@ use shardloom_vortex::{
     evaluate_vortex_encoded_predicate_segments, evaluate_vortex_encoded_read_readiness,
     evaluate_vortex_execution_readiness, evaluate_vortex_local_encoded_count_physical_kernel,
     evaluate_vortex_metadata_physical_kernels, evaluate_vortex_selection_vector_filter_kernel,
-    execute_vortex_bounded_local_query, execute_vortex_count_all_from_approved_local_scan,
+    execute_vortex_count_all_from_approved_local_scan,
     execute_vortex_count_all_from_approved_local_scan_result,
     execute_vortex_count_all_from_encoded_count_data_path_approval,
     execute_vortex_encoded_read_contract, execute_vortex_encoded_read_spike,
     execute_vortex_local_commit, execute_vortex_local_commit_rollback,
-    execute_vortex_local_primitive_with_policy, execute_vortex_local_query_primitive,
-    execute_vortex_metadata_only, finalized_manifest_artifact_write_request_from_plan,
-    local_encoded_count_execution_certificate, local_encoded_count_native_io_certificate,
-    local_primitive_execution_certificate, local_primitive_native_io_certificate,
-    metadata_planning_is_side_effect_free, metadata_pruning_is_side_effect_free,
-    metadata_summary_is_plan_only, native_output_payload_write_request_from_plan,
-    open_vortex_metadata_only, output_payload_artifact_write_request_from_plan,
-    parse_vortex_local_engine_primitive, plan_from_vortex_metadata_summary,
-    plan_native_vortex_universal_input, plan_vortex_commit_intent, plan_vortex_commit_marker,
-    plan_vortex_commit_protocol, plan_vortex_count_readiness,
-    plan_vortex_encoded_count_data_path_approval,
+    execute_vortex_local_primitive_with_policy, execute_vortex_metadata_only,
+    finalized_manifest_artifact_write_request_from_plan, local_encoded_count_execution_certificate,
+    local_encoded_count_native_io_certificate, local_primitive_execution_certificate,
+    local_primitive_native_io_certificate, metadata_planning_is_side_effect_free,
+    metadata_pruning_is_side_effect_free, metadata_summary_is_plan_only,
+    native_output_payload_write_request_from_plan, open_vortex_metadata_only,
+    output_payload_artifact_write_request_from_plan, parse_vortex_local_engine_primitive,
+    plan_from_vortex_metadata_summary, plan_native_vortex_universal_input,
+    plan_vortex_commit_intent, plan_vortex_commit_marker, plan_vortex_commit_protocol,
+    plan_vortex_count_readiness, plan_vortex_encoded_count_data_path_approval,
     plan_vortex_encoded_count_data_path_approval_with_layout_driver,
     plan_vortex_encoded_execution_path_selection, plan_vortex_encoded_read_boundary,
     plan_vortex_encoded_read_probe, plan_vortex_filtered_count_readiness,
@@ -9267,7 +9266,7 @@ fn scheduler_bridge_report_fields(
     fields
 }
 
-fn bounded_local_execution_fields(
+pub(crate) fn bounded_local_execution_fields(
     report: &VortexBoundedExecutionReport,
     primitive: &str,
     memory_gb: u64,
@@ -25979,135 +25978,7 @@ fn run(args: Vec<String>) -> ExitCode {
             vortex_primitive_execution::handle_vortex_local_exec(args, format)
         }
         Some("vortex-bounded-local-exec") => {
-            let Some(uri_arg) = args.next() else {
-                eprintln!(
-                    "usage: shardloom vortex-bounded-local-exec <dataset_uri> <primitive> <memory_gb> <max_parallelism>"
-                );
-                return ExitCode::from(2);
-            };
-            let Some(primitive_arg) = args.next() else {
-                eprintln!(
-                    "usage: shardloom vortex-bounded-local-exec <dataset_uri> <primitive> <memory_gb> <max_parallelism>"
-                );
-                return ExitCode::from(2);
-            };
-            let Some(memory_gb_text) = args.next() else {
-                eprintln!(
-                    "usage: shardloom vortex-bounded-local-exec <dataset_uri> <primitive> <memory_gb> <max_parallelism>"
-                );
-                return ExitCode::from(2);
-            };
-            let Some(max_parallelism_text) = args.next() else {
-                eprintln!(
-                    "usage: shardloom vortex-bounded-local-exec <dataset_uri> <primitive> <memory_gb> <max_parallelism>"
-                );
-                return ExitCode::from(2);
-            };
-            let uri = match DatasetUri::new(uri_arg) {
-                Ok(v) => v,
-                Err(error) => {
-                    return emit_error(
-                        "vortex-bounded-local-exec",
-                        format,
-                        "vortex bounded local exec failed",
-                        &error,
-                    );
-                }
-            };
-            let request = match parse_vortex_primitive_request(uri.clone(), &primitive_arg) {
-                Ok(v) => v,
-                Err(error) => {
-                    return emit_error(
-                        "vortex-bounded-local-exec",
-                        format,
-                        "vortex bounded local exec failed",
-                        &error,
-                    );
-                }
-            };
-            let memory_gb: u64 = match memory_gb_text.parse() {
-                Ok(v) => v,
-                Err(_) => {
-                    return emit_error(
-                        "vortex-bounded-local-exec",
-                        format,
-                        "vortex bounded local exec failed",
-                        &ShardLoomError::InvalidOperation(
-                            "memory_gb must be an unsigned integer".to_string(),
-                        ),
-                    );
-                }
-            };
-            let max_parallelism: usize = match max_parallelism_text.parse() {
-                Ok(v) => v,
-                Err(_) => {
-                    return emit_error(
-                        "vortex-bounded-local-exec",
-                        format,
-                        "vortex bounded local exec failed",
-                        &ShardLoomError::InvalidOperation(
-                            "max_parallelism must be an unsigned integer".to_string(),
-                        ),
-                    );
-                }
-            };
-            let summary = open_vortex_metadata_only(VortexMetadataOpenRequest::metadata_only(uri))
-                .ok()
-                .and_then(|report| report.metadata_summary);
-            let local = match execute_vortex_local_query_primitive(request, summary) {
-                Ok(v) => v,
-                Err(error) => {
-                    return emit_error(
-                        "vortex-bounded-local-exec",
-                        format,
-                        "vortex bounded local exec failed",
-                        &error,
-                    );
-                }
-            };
-            let policy = match shardloom_vortex::VortexBoundedExecutionPolicy::memory_limited(
-                memory_gb,
-                max_parallelism,
-            ) {
-                Ok(v) => v,
-                Err(error) => {
-                    return emit_error(
-                        "vortex-bounded-local-exec",
-                        format,
-                        "vortex bounded local exec failed",
-                        &error,
-                    );
-                }
-            };
-            let report = match execute_vortex_bounded_local_query(local, policy) {
-                Ok(v) => v,
-                Err(error) => {
-                    return emit_error(
-                        "vortex-bounded-local-exec",
-                        format,
-                        "vortex bounded local exec failed",
-                        &error,
-                    );
-                }
-            };
-            emit(
-                "vortex-bounded-local-exec",
-                format,
-                if report.has_errors() {
-                    CommandStatus::Unsupported
-                } else {
-                    CommandStatus::Success
-                },
-                "vortex bounded local execution".to_string(),
-                report.to_human_text(),
-                report.diagnostics.clone(),
-                bounded_local_execution_fields(&report, &primitive_arg, memory_gb, max_parallelism),
-            );
-            if report.has_errors() {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            }
+            vortex_primitive_execution::handle_vortex_bounded_local_exec(args, format)
         }
         Some("vortex-run") => {
             let Some(uri_arg) = args.next() else {
