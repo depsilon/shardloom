@@ -8,6 +8,7 @@ pub mod agent_contract;
 pub mod approx_sketch;
 pub mod architecture_spine;
 pub mod benchmark;
+pub mod benchmark_suite;
 pub mod capabilities;
 pub mod certification;
 pub mod correctness;
@@ -60,6 +61,12 @@ pub use benchmark::{
     BenchmarkReproducibilityStatus, BenchmarkResult, BenchmarkResultGap, BenchmarkRunManifest,
     BenchmarkScenario, CorrectnessValidationMode, MetricValue, WorkloadClass,
     plan_benchmark_claim_evidence,
+};
+pub use benchmark_suite::{
+    BenchmarkConstitutionRequirementReport, BenchmarkCoverageStatus, BenchmarkCoverageTableRow,
+    BenchmarkEnginePluginContract, BenchmarkEngineRole, BenchmarkResultSchemaV2Report,
+    BenchmarkScenarioCategory, BenchmarkSuiteCatalogReport, BenchmarkSuiteDatasetProfileKind,
+    BenchmarkSuiteKind, plan_benchmark_suite_catalog,
 };
 pub use capabilities::{Capability, CapabilityStatus, EngineCapabilities};
 pub use certification::{

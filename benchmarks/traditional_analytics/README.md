@@ -16,6 +16,25 @@ external comparison engines:
 The external engines are benchmark tooling only. They are never ShardLoom
 runtime dependencies and never execute unsupported ShardLoom plans as fallback engines.
 
+## Suite Catalog Direction
+
+The current harness is the local analytics suite. The broader benchmark architecture is recorded in
+`docs/architecture/benchmark-suite-catalog.md` and keeps future suites local-first and
+platform-neutral:
+
+- `common`
+- `local_analytics`
+- `native_vortex`
+- `etl_workflows`
+- `source_backed_encoded`
+- `layout_and_pruning`
+- `incremental_state`
+- `stress`
+
+Timing tables and support/coverage tables are separate. Managed platforms such as Photon, Fabric,
+Snowflake, BigQuery, Redshift, and Databricks managed services are design references only, not
+default benchmark lanes or fallback engines.
+
 ## Workloads
 
 The deterministic generator creates a fact table and a dimension table as CSV,

@@ -16,6 +16,47 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: source-backed benchmark matrix and benchmark-suite catalog
+  - Primary files:
+    - `shardloom-core/src/benchmark_suite.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-vortex/src/source_backed_benchmark_matrix.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `benchmarks/traditional_analytics/README.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: populate Priority 2.7 source-backed correctness/benchmark matrix rows and CG-6.25
+    benchmark-suite catalog surfaces so benchmark coverage can move from a single flat harness
+    toward local-first suites, scenario taxonomy, dataset profiles, plugin-based optional local
+    baselines, benchmark constitution requirements, coverage rows, and richer result schema fields.
+  - Vortex-first provider check:
+    - Subject area: source-backed benchmark matrix and Vortex integration baseline policy.
+    - Decision: `wrap_vortex_concept` and `baseline_or_oracle_only`.
+    - Runtime stance: no benchmark execution, no upstream Vortex API expansion, no managed-platform
+      benchmark lane, no external engine invocation, no performance claim, and no fallback
+      execution.
+  - Checklist:
+    - [x] Add `BenchmarkSuiteCatalogReport`, `BenchmarkConstitutionRequirementReport`,
+          plugin-contract rows, coverage rows, and benchmark result schema requirements.
+    - [x] Add `SourceBackedBenchmarkMatrixReport` covering prepared, source-bound, reader-backed
+          constant, reader-backed dictionary, reader-backed run-end, and deterministic blocked
+          source-backed lanes.
+    - [x] Keep measured benchmark rows, correctness refs, Rust performance profiles, and
+          source-backed claim closeout blocked until comparative benchmark execution happens in a
+          later release-readiness pass.
+    - [x] Record the suite catalog and source-backed matrix in architecture docs, traceability, and
+          the phase plan.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-core benchmark_suite --lib`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex source_backed_benchmark_matrix --lib`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-core --lib -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-vortex --lib -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test --workspace --all-targets`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `git diff --check`
+
 - [x] Session label: Vortex runtime utilization audit and execution-spine reports
   - Primary files:
     - `docs/rfcs/0042-vortex-runtime-utilization-execution-spine.md`
