@@ -27,6 +27,7 @@ Concept groups:
 - **User capability surfaces**: `user data workflow surface`, `data/ETL capability report`, `Python surface report`, `unstructured media capability report`, `universal adapter catalog`, `API surface certification`, `observability certification`, `deployment readiness report`, `extension capability report`, `security governance report`.
 - **Multi-engine execution fabric**: `certified data execution fabric`, `engine mode`, `batch engine`, `live engine`, `hybrid engine`, `boundedness`, `update mode`, `output mode`, `engine selection report`, `freshness certificate`, `state certificate`, `delta overlay certificate`, `hot/cold contribution report`, `continuous view certificate`.
 - **Remote API surfaces**: `REST control plane`, `event plane`, `data plane`, `result delivery policy`, `problem details`, `OpenAPI contract`, `AsyncAPI contract`, `CloudEvents envelope`, `OpenTelemetry export`, `OpenLineage facet`, `MCP agent API`.
+- **Foundry integration pack**: `shardloom-foundry`, `FoundryExecutionContext`, `FoundryDatasetTransactionReport`, `FoundryDatasetSource`, `FoundryDatasetSink`, `FoundryVirtualTableRef`, `FoundryExternalComputeBoundaryReport`, `FoundryDataHealthBridge`, `FoundryLineageFacet`, `FoundryGovernanceBoundaryReport`, `FoundryMarketplaceStarterProduct`.
 - **Agent/context capability**: `functional context scope`, `evidence routing`, `context structure preservation`, `stateful certificate history`.
 - **agent contract pack**: machine-readable inventory of agent-safe command surfaces, schemas, recommended inspection order, no-probe defaults, effect defaults, fallback status, and JSON authority.
 
@@ -40,6 +41,7 @@ Primary governing references:
 - User data workflow and ETL surface: `docs/rfcs/0033-user-data-workflow-etl-surface.md`
 - Three-engine certified data execution fabric: `docs/rfcs/0034-three-engine-certified-data-execution-fabric.md`
 - REST, event, and remote API surface: `docs/rfcs/0035-rest-event-remote-api-surface.md`
+- Foundry integration pack and availability surface: `docs/rfcs/0036-foundry-integration-pack-availability-surface.md`
 
 ## Core principles
 
@@ -52,6 +54,7 @@ Primary governing references:
 - Use "zero-decode" for Vortex-native encoded execution.
 - Use "zero-copy" for boundary/interoperability sharing.
 - Use "materialization" only when values/rows/columns become concrete for an operator/sink/boundary.
+- Use "Foundry virtual table" for a governed external table handle; it is not ShardLoom-native execution unless ShardLoom stages or natively accesses the data and emits the required certificates.
 
 ## Materialization family
 

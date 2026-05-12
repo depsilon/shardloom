@@ -381,10 +381,57 @@ Use this section for the next implementation sequence. Keep it ordered by depend
   - [ ] Add workload-scoped certification dossiers that combine CG-5 correctness, CG-6 benchmarks, CG-16 execution certificates, CG-19 Native I/O certificates, CG-20 capability evidence, CG-21 workflow evidence, CG-22 engine evidence, and CG-23 API evidence.
   - [ ] Keep CG-21, CG-22, and CG-23 logically after the current planned CG-1 through CG-20 work unless a later implementation item is explicitly pulled forward as a contract/report-only lane.
   - [ ] Preserve no-runtime, no-dependency, no-fallback, and no-claim posture for docs/report-only synthesis.
+- [ ] Priority 8 - general availability and external proof-of-use
+  - [ ] Define public release identity and versioning policy for PyPI `shardloom`, conda-forge `shardloom-cli`, `shardloom-python`, `shardloom` metapackage, GitHub Release artifacts, GHCR/OCI image posture, and selected crates.io protocol/client crates.
+  - [ ] Add release workflow contracts for Git tag, source archive, platform binaries, Python wheel/sdist, Conda recipe/feedstock status, checksums, SBOM, artifact attestation, changelog, compatibility matrix, known unsupported paths, and no-fallback release checks.
+  - [ ] Prefer PyPI trusted publishing/OIDC and prohibit long-lived package tokens in release automation unless explicitly approved by maintainers.
+  - [ ] Keep package publication, release tags, feedstock submission, crates.io publication, OCI pushes, and Marketplace publication human-approved and release-gated.
+  - [ ] Make Conda the primary "it just works" path by proving clean-environment installs for `shardloom-cli`, `shardloom-python`, and `shardloom` metapackage with CLI binary resolution and `fallback_attempted=false` smoke evidence.
+  - [ ] Add the public first-10-minutes proof: `conda install shardloom`, `import shardloom`, `ShardLoomClient.from_env().smoke_check()`, `client.capabilities()`, `shardloom status --format json`, and `shardloom capabilities --format json`.
+  - [ ] Add external proof examples with README, environment file, input fixture, expected output, expected certificate fields, and known limitations for `examples/local-python-smoke/`, `examples/local-vortex-benchmark/`, and `examples/foundry-lightweight-transform/`.
+  - [ ] Publish user-facing docs for install, quickstart, Python client, CLI, Conda packages, Foundry usage, benchmarking, certificates, no-fallback policy, Vortex compatibility, maturity statuses, and unsupported diagnostics.
+  - [ ] Keep benchmark extras, Spark/DataFusion/DuckDB/Polars/pandas baselines, and optional comparison tooling out of the core install path and report them as baselines only.
+- [ ] Priority 9 - RFC 0036 Foundry integration pack and platform availability
+  - [ ] Treat Foundry as an optional integration pack, not the primary engine target and not a new core engine gate.
+  - [ ] Add `shardloom-foundry` helper package posture for deterministic `SHARDLOOM_BIN` resolution, Foundry transform metadata capture, input/output RID capture, certificate output writing, benchmark metrics writing, staging/materialization reports, and no-fallback propagation without adding execution semantics.
+  - [ ] Add the Foundry maturity ladder: `F0` declared only, `F1` package/import in Code Repository, `F2` smoke transform with CLI resolution, `F3` dataset source/sink staging with certificate output, `F4` Data Expectations/Data Health bridge, `F5` lineage and transaction/branch evidence, `F6` virtual-table/external-compute boundary awareness, `F7` Marketplace starter product, `F8` Compute Module/REST service, `F9` Ontology/AIP/Workshop integration, and `F10` workload-certified Foundry deployment.
+  - [ ] Add `FoundryExecutionContext`, `FoundryDatasetTransactionReport`, `FoundryBranchContextReport`, `FoundryPreviewModeReport`, and `FoundryReleaseReadinessReport` surfaces so certificates identify transform, branch, preview/build/incremental mode, transactions, package versions, workload constitution, and expected evidence.
+  - [ ] Add `FoundryDatasetSource`, `FoundryDatasetSink`, and `FoundryCertificateOutput` schema surfaces for staged local files, table-compatible outputs, certificate/metrics datasets, optional Vortex artifact sidecars, materialization/fidelity reports, commit/recovery status, and `fallback_attempted=false`.
+  - [ ] Add `FoundryIncrementalRunReport` aligning Foundry incremental builds with ShardLoom batch/live/hybrid evidence without treating Foundry incremental mode as live/hybrid certification by itself.
+  - [ ] Add `FoundryDataHealthBridge` and Data Expectations mapping for certificate presence, no-fallback status, Native I/O evidence, schema digest, output row requirements, data-quality checks, materialization policy, and benchmark-claim blockers.
+  - [ ] Add `FoundryLineageFacet`, `FoundryScheduleBuildReport`, and `FoundryDataConnectionBoundaryReport` for datasets, virtual tables, media sets, artifacts, schedules, syncs, exports, webhooks, external transforms, credential refs, egress policy, and ShardLoom role classification.
+  - [ ] Add `FoundryS3DatasetAdapter` posture for future S3-compatible dataset access with dataset RID, branch, object key, range-read support, multipart/write support where allowed, bytes/request counts, credential mode, and Native I/O certificates.
+  - [ ] Add `FoundryVirtualTableSource`, `FoundryVirtualTableSink`, and `FoundryVirtualTableRef` surfaces so Snowflake, Databricks, BigQuery, S3, ADLS, GCS, Iceberg, and similar virtual tables are governed external handles with metadata, staging, update-detection, security, and materialization policy.
+  - [ ] Classify Snowflake/Databricks/BigQuery/Foundry Spark/Snowpark/Databricks Connect/Ibis compute pushdown through `FoundryExternalComputeBoundaryReport` as baseline, oracle, migration reference, or prohibited fallback, never as ShardLoom-native execution.
+  - [ ] Add `FoundryIcebergTableSource` and `FoundryIcebergTableSink` posture for catalog/table metadata, snapshot/manifest awareness, schema/partition evidence, compatibility reads, `TranslationReport` requirements, and commit/recovery evidence.
+  - [ ] Add `FoundryMediaSetSource` and `FoundryMediaSetSink` posture for media item refs, MIME/schema, OCR/extraction/model/materialization boundaries, provenance/confidence, incremental media status, redaction, and explicit no silent OCR/transcription/embedding/model calls.
+  - [ ] Add Foundry Ontology, Functions, AIP Logic, model, and scenario report-first surfaces: `FoundryOntologyMappingReport`, `FoundryFunctionSurface`, `FoundryAipLogicBridge`, `FoundryModelBoundaryReport`, and `FoundryScenarioBoundaryReport`.
+  - [ ] Add BYOC and Compute Module posture through `FoundryByocImageReport`, `FoundryComputeModuleSurface`, and `FoundryComputeModuleReadinessReport`, keeping Compute Modules blocked until CG-23 API/security/package evidence exists.
+  - [ ] Add `FoundryGovernanceBoundaryReport` for markings, organizations, inherited markings, certificate visibility, redaction, export policy, agent visibility, and artifact safety.
+  - [ ] Add `FoundryMarketplaceStarterProduct` as an adoption artifact with Conda dependency instructions, smoke transform, benchmark transform, certificate output dataset, Data Expectations bridge, optional virtual-table staging example, optional external-compute baseline example, optional Compute Module API example, schedule, and docs.
+  - [ ] Add Foundry benchmark schema and lanes that label ShardLoom lightweight, Polars lightweight, DataFusion/DuckDB baseline, Spark distributed, and Snowflake/Databricks/BigQuery pushdown rows separately with compute mode, materialization boundary, certificates, correctness digest, and versions.
+  - [ ] Preserve the central Foundry rule: virtual tables and external compute are first-class workflow handles and comparison boundaries, but ShardLoom-native execution requires staged/native data plus certificates; no Snowflake/Databricks/BigQuery/Spark/Foundry compute pushdown may be reported as ShardLoom execution.
 
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: RFC 0036 Foundry integration pack and availability intake
+  - Primary files:
+    - `docs/rfcs/0036-foundry-integration-pack-availability-surface.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/canonical-terminology.md`
+    - `docs/architecture/systems-learning-map.md`
+    - `docs/rfcs/0025-competitive-engine-track-no-fallback-replacement.md`
+    - `docs/rfcs/0030-universal-api-plan-portability-import-deployment-baselines.md`
+    - `README.md`
+    - `AGENTS.md`
+  - Scope: add the optional Foundry Integration Pack and late-stage availability surface as a formal RFC, place public release proof and Foundry platform work near the end of the Planned sequence, and keep Foundry virtual tables/external compute as governed handles or baselines rather than ShardLoom execution.
+  - Checklist:
+    - [x] Add RFC 0036 covering Conda-first/PyPI-friendly/GitHub-release-backed availability, provenance artifacts, external proof examples, `shardloom-foundry`, Foundry maturity ladder, datasets, transactions, branches, incremental runs, Data Health, lineage, schedules, Data Connection, virtual tables, external compute boundaries, S3-compatible datasets, media sets, Ontology/AIP/Functions, BYOC, Compute Modules, Marketplace, governance, and Foundry benchmark schema.
+    - [x] Add `Priority 8` general availability and external proof-of-use and `Priority 9` Foundry integration pack/platform availability to the Planned queue after CG-21/22/23 closeout.
+    - [x] Update traceability, terminology, README, systems-learning map, competitive-gate policy, universal deployment RFC, and agent instructions so RFC 0036 is discoverable without becoming a core engine gate.
+    - [x] Preserve explicit non-goals: no package publication, Foundry invocation, external compute execution, virtual-table native execution, runtime behavior, dependency, fallback execution, or support claims from this docs intake alone.
 - [x] Session label: reader-backed split-ref binding for prepared encoded execution
   - Primary files:
     - `shardloom-vortex/src/source_backed_encoded_execution.rs`

@@ -35,6 +35,7 @@ ShardLoom is not intended to stop at a narrow local accelerator. The roadmap exp
 - **complete user data workflows**: install, import, discover capabilities, read data, validate schemas, transform, write outputs, explain, certify, benchmark, and diagnose.
 - **three ShardLoom-native engine modes**: batch for finite analytical work, live for continuous incremental computation, and hybrid for fresh analytical state over Vortex base data plus explicit deltas.
 - **remote API access**: REST for control/proof/orchestration and small results; event APIs for progress and live/hybrid updates; explicit data-plane choices such as Vortex artifacts, object references, Arrow IPC boundaries, JSON Lines, Flight, or ADBC where approved.
+- **availability and platform integration**: Conda-first release proof, PyPI-friendly Python packaging, provenance-backed GitHub releases, and optional Foundry integration that treats Foundry datasets and virtual tables as governed workflow handles rather than ShardLoom execution shortcuts.
 
 These are roadmap targets, not blanket support claims. A surface counts as supported only when its native execution path or explicit materialization/source/sink boundary, diagnostics, certificates, correctness evidence, and benchmark or workload evidence are present for the declared workload.
 
@@ -56,7 +57,7 @@ The full vocabulary lives in [`docs/architecture/canonical-terminology.md`](docs
 
 Active implementation state is tracked in [`docs/architecture/phased-execution-plan.md`](docs/architecture/phased-execution-plan.md).
 
-The competitive roadmap is organized as CG-1 through CG-23. CG-21 defines the user data workflow and ETL surface, CG-22 defines the three-engine certified data execution fabric, and CG-23 defines the REST, event, and remote API surface. Supporting RFCs live in [`docs/rfcs`](docs/rfcs), and phase/RFC mapping lives in [`docs/architecture/rfc-phase-traceability.md`](docs/architecture/rfc-phase-traceability.md).
+The competitive roadmap is organized as CG-1 through CG-23. CG-21 defines the user data workflow and ETL surface, CG-22 defines the three-engine certified data execution fabric, and CG-23 defines the REST, event, and remote API surface. RFC 0036 defines the optional Foundry integration pack and late-stage availability surface around those gates; it is not a new core engine gate. Supporting RFCs live in [`docs/rfcs`](docs/rfcs), and phase/RFC mapping lives in [`docs/architecture/rfc-phase-traceability.md`](docs/architecture/rfc-phase-traceability.md).
 
 This README intentionally does not duplicate active status checklists.
 
