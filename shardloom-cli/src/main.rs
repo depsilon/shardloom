@@ -16,6 +16,7 @@ use std::{
 
 mod cli_output;
 mod command_family;
+mod rest_api_planning;
 mod status_capabilities;
 mod typed_envelope;
 
@@ -5777,7 +5778,7 @@ fn append_release_evidence_requirement_fields(
     }
 }
 
-fn api_protocol_fields(report: &CliApiJsonProtocolReport) -> Vec<(String, String)> {
+pub(crate) fn api_protocol_fields(report: &CliApiJsonProtocolReport) -> Vec<(String, String)> {
     let mut fields = vec![];
     push_field(&mut fields, "mode", "api_compat_plan");
     push_field(&mut fields, "publish_allowed", "false");
@@ -19736,22 +19737,7 @@ fn run(args: Vec<String>) -> ExitCode {
             );
             ExitCode::SUCCESS
         }
-        Some("api-compat-plan") => {
-            let plan = ReleasePlan::default_foundation_plan();
-            let protocol = CliApiJsonProtocolReport::contract_only();
-            let mut diagnostics = plan.diagnostics.clone();
-            diagnostics.extend(protocol.diagnostics.clone());
-            emit(
-                "api-compat-plan",
-                format,
-                protocol.status(),
-                "api compatibility and cli json protocol foundation".to_string(),
-                format!("{}\n\n{}", plan.to_human_text(), protocol.to_human_text()),
-                diagnostics,
-                api_protocol_fields(&protocol),
-            );
-            ExitCode::SUCCESS
-        }
+        Some("api-compat-plan") => rest_api_planning::handle_api_compat_plan(format),
         Some("agent-contract-pack") => {
             let report = AgentContractPack::default_pack();
             let status = if report.has_errors() {

@@ -14,6 +14,7 @@ OutputTypedRef
 OutputTypedArtifact
 shardloom-cli/src/command_family.rs
 shardloom-cli/src/cli_output.rs
+shardloom-cli/src/rest_api_planning.rs
 shardloom-cli/src/status_capabilities.rs
 shardloom-cli/src/typed_envelope.rs
 shardloom.output.v2
@@ -80,6 +81,10 @@ rendering and protocol behavior.
 The first physical handler-family split moves the status and capabilities command handlers into
 `shardloom-cli/src/status_capabilities.rs`. The module still reuses shared capability helper
 functions while broader command-family extraction continues.
+
+The REST/API planning family currently contains `api-compat-plan` and lives in
+`shardloom-cli/src/rest_api_planning.rs`. It remains report-only and does not start a REST server,
+open sockets, perform remote execution, or weaken no-fallback behavior.
 
 Command family classification lives in `shardloom-cli/src/command_family.rs` and is emitted in the
 typed lifecycle payload as `command_family`. This gives status/capabilities, Vortex primitive,
