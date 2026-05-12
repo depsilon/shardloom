@@ -16,6 +16,41 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 typed envelope common field routing
+  - Primary files:
+    - `shardloom-core/src/output.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/api_protocol_snapshots.rs`
+    - `docs/architecture/typed-command-result-envelope.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/rfcs/0039-typed-command-result-envelope-cli-modularity.md`
+  - Scope: route common CLI fields into typed `policy`, `lifecycle`, and
+    `capability_snapshot` payload slots while preserving the temporary legacy top-level
+    `fields` mirror for command consumers and tests.
+  - Checklist:
+    - [x] Add typed result and legacy-only field helpers to `OutputEnvelope`.
+    - [x] Centralize first-pass CLI field routing for policy, lifecycle, capability snapshot, and
+          result payload slots.
+    - [x] Preserve top-level legacy `fields` order so existing Python/client helpers keep working
+          during the migration.
+    - [x] Add snapshot coverage proving report-only policy fields and lifecycle fields are routed
+          into typed slots.
+    - [x] Keep command-family-specific result migration, certificate/artifact attachment, expanded
+          fixtures, and CLI handler modularization active in the Planned queue.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-core output --lib`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test api_protocol_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo run -q -p shardloom-cli -- status --format json`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo run -q -p shardloom-cli -- api-compat-plan --format json`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-core --lib -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-cli --bin shardloom -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `git diff --check`
+  - Runtime stance: protocol/refactor slice only; no runtime expansion, external engine
+    invocation, network effect, dataset probe, write, materialization, or fallback execution
+    changes.
+
 - [x] Session label: Priority 3.9 typed envelope v2 foundation
   - Primary files:
     - `shardloom-core/src/output.rs`

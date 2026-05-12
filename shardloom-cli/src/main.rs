@@ -3708,6 +3708,96 @@ fn detect_requested_output_format(args: &[String]) -> OutputFormat {
     format
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TypedEnvelopeFieldSlot {
+    Result,
+    Policy,
+    Lifecycle,
+    CapabilitySnapshot,
+}
+
+fn typed_envelope_field_slot(key: &str) -> TypedEnvelopeFieldSlot {
+    let normalized = key.to_ascii_lowercase();
+    if is_policy_envelope_field(&normalized) {
+        TypedEnvelopeFieldSlot::Policy
+    } else if is_capability_envelope_field(&normalized) {
+        TypedEnvelopeFieldSlot::CapabilitySnapshot
+    } else if is_lifecycle_envelope_field(&normalized) {
+        TypedEnvelopeFieldSlot::Lifecycle
+    } else {
+        TypedEnvelopeFieldSlot::Result
+    }
+}
+
+fn is_policy_envelope_field(key: &str) -> bool {
+    key.contains("fallback")
+        || key.contains("side_effect")
+        || key.contains("external_engine")
+        || key.contains("external_runtime")
+        || key.contains("network_effect")
+        || key.contains("network_probe")
+        || key.contains("filesystem_probe")
+        || key.contains("catalog_probe")
+        || key.contains("adapter_probe")
+        || key.contains("dataset_probe")
+        || key.contains("write_effect")
+        || key.contains("write_io")
+        || key.contains("unsafe_effect")
+        || key.contains("destructive")
+        || key.contains("policy")
+        || key.ends_with("_allowed")
+        || key.ends_with("_prohibited")
+}
+
+fn is_lifecycle_envelope_field(key: &str) -> bool {
+    matches!(
+        key,
+        "mode"
+            | "schema_version"
+            | "protocol_id"
+            | "protocol_stability"
+            | "output_envelope_schema_version"
+            | "transport_protocol_id"
+            | "invocation_model"
+            | "command_status_values"
+            | "output_formats"
+    ) || key.ends_with("_mode")
+        || key.ends_with("_version")
+        || key.ends_with("_status")
+        || key.ends_with("_phase")
+        || key.ends_with("_protocol")
+}
+
+fn is_capability_envelope_field(key: &str) -> bool {
+    key.contains("capability")
+        || key.contains("certification")
+        || key.contains("feature_gate")
+        || key.contains("supported")
+        || key.contains("unsupported")
+        || key.contains("readiness")
+        || key.contains("coverage")
+        || key.ends_with("_ready")
+}
+
+fn apply_typed_envelope_field(
+    envelope: OutputEnvelope,
+    key: String,
+    value: String,
+) -> OutputEnvelope {
+    match typed_envelope_field_slot(&key) {
+        TypedEnvelopeFieldSlot::Result => envelope.with_result_field(key, value),
+        TypedEnvelopeFieldSlot::Policy => envelope
+            .with_policy_field(key.clone(), value.clone())
+            .with_legacy_field(key, value),
+        TypedEnvelopeFieldSlot::Lifecycle => envelope
+            .with_lifecycle_field(key.clone(), value.clone())
+            .with_legacy_field(key, value),
+        TypedEnvelopeFieldSlot::CapabilitySnapshot => envelope
+            .with_capability_snapshot_field(key.clone(), value.clone())
+            .with_legacy_field(key, value),
+    }
+}
+
 fn emit(
     command: &str,
     format: OutputFormat,
@@ -3722,7 +3812,7 @@ fn emit(
         envelope.add_diagnostic(diagnostic);
     }
     for (key, value) in fields {
-        envelope = envelope.with_field(key, value);
+        envelope = apply_typed_envelope_field(envelope, key, value);
     }
     println!("{}", envelope.render(format));
 }

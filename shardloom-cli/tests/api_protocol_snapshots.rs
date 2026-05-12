@@ -83,3 +83,23 @@ fn api_compat_plan_json_is_report_only_and_no_fallback() {
     assert!(output.contains("\"attempted\":false"));
     assert!(output.contains("\"allowed\":false"));
 }
+
+#[test]
+fn api_compat_plan_json_routes_common_fields_into_typed_slots() {
+    let output = run_api_compat_plan();
+
+    assert!(
+        output.contains("\"policy\":{\"fields\":[{\"key\":\"publish_allowed\",\"value\":\"false\"")
+    );
+    assert!(output.contains(&field("fallback_execution_allowed", "false")));
+    assert!(
+        output
+            .contains("\"lifecycle\":{\"fields\":[{\"key\":\"mode\",\"value\":\"api_compat_plan\"")
+    );
+    assert!(output.contains(&field(
+        "schema_version",
+        "shardloom.cli_api_json_protocol.v1"
+    )));
+    assert!(output.contains("\"capability_snapshot\":{\"fields\":[]}"));
+    assert!(output.contains("\"fields\":[{\"key\":\"mode\",\"value\":\"api_compat_plan\""));
+}

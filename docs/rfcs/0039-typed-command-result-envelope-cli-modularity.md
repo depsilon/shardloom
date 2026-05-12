@@ -13,8 +13,9 @@ typed protocol surface, not a collection of ad hoc key/value fields.
 
 Partially implemented as protocol and CLI implementation guidance.
 
-The first implementation slice adds `shardloom.output.v2`, typed payload slots, API/Python protocol
-reporting, and Python typed-payload parsing. Command-family migration, real artifact/certificate
+The first implementation slices add `shardloom.output.v2`, typed payload slots, API/Python protocol
+reporting, Python typed-payload parsing, and shared CLI routing for common policy, lifecycle, and
+capability snapshot fields. Command-family-specific result migration, real artifact/certificate
 attachment, expanded golden fixtures, and CLI handler modularization remain planned.
 
 This RFC does not authorize REST server behavior, generated clients, DB-API/SQLAlchemy/Ibis/dbt

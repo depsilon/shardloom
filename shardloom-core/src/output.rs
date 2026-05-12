@@ -255,6 +255,17 @@ impl OutputEnvelope {
     }
 
     #[must_use]
+    pub fn with_result_field(self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.with_field(key, value)
+    }
+
+    #[must_use]
+    pub fn with_legacy_field(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.fields.push((key.into(), value.into()));
+        self
+    }
+
+    #[must_use]
     pub fn with_result_ref(mut self, reference: OutputTypedRef) -> Self {
         self.result_refs.push(reference);
         self
@@ -938,6 +949,30 @@ mod tests {
             vec![("key".to_string(), "value".to_string())]
         );
     }
+
+    #[test]
+    fn typed_policy_field_can_preserve_legacy_mirror_without_result_payload() {
+        let envelope = OutputEnvelope::success("status", "ok", "ok")
+            .with_policy_field("fallback_execution_allowed", "false")
+            .with_legacy_field("fallback_execution_allowed", "false");
+
+        assert!(envelope.result.fields.is_empty());
+        assert_eq!(
+            envelope.policy.fields,
+            vec![(
+                "fallback_execution_allowed".to_string(),
+                "false".to_string()
+            )]
+        );
+        assert_eq!(
+            envelope.fields,
+            vec![(
+                "fallback_execution_allowed".to_string(),
+                "false".to_string()
+            )]
+        );
+    }
+
     #[test]
     fn render_text_returns_text() {
         assert_eq!(
