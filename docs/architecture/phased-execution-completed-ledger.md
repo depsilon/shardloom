@@ -16,6 +16,49 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: top-level plan and execution facade catch-up
+  - Primary files:
+    - `shardloom-plan/src/execution_facade.rs`
+    - `shardloom-plan/src/lib.rs`
+    - `shardloom-exec/src/lib.rs`
+    - `shardloom-vortex/src/top_level_facade.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: replace the unreleased placeholder `PlanKind::NativeVortexScan` and top-level
+    `execute(&Plan) -> Result<()>` no-op shape with typed plan variants, a typed
+    `ShardLoomExecutionResult`, and provider-side Vortex dispatch that preserves provider,
+    artifact, certificate, Native I/O, residual, diagnostic, and no-fallback evidence.
+  - Checklist:
+    - [x] Add top-level plan variants for local Vortex primitives, prepared encoded plans,
+          source-backed encoded plans, reader-backed encoded plans, and report-only plans.
+    - [x] Add typed local primitive, prepared encoded, source-backed, and reader-backed plan payloads
+          for filter, projection, and filter-project surfaces.
+    - [x] Replace provider-neutral execution success with deterministic
+          `BlockedProviderDispatchRequired` results unless a provider dispatches the plan.
+    - [x] Add `ShardLoomExecutionProvider` and provider-side `VortexTopLevelExecutionProvider`
+          dispatch to current Vortex local/prepared/source-backed/reader-backed report surfaces.
+    - [x] Convert Vortex reports into `ShardLoomExecutionResult` artifact refs, certificate refs,
+          Native I/O refs, representation transitions, source/split refs, diagnostics, and
+          fallback status.
+    - [x] Keep SQL/DataFrame runtime, broad adapters, object-store runtime, writes, external engine
+          invocation, and fallback execution out of the facade work.
+  - Validation:
+    - [x] `cargo test -p shardloom-plan --lib`
+    - [x] `cargo test -p shardloom-exec --lib`
+    - [x] `cargo test -p shardloom-vortex top_level_facade --lib`
+    - [x] `cargo test --workspace --all-targets`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `cargo fmt --all -- --check`
+    - [x] `git diff --check`
+  - Notes:
+    - The provider dispatch bridge lives in `shardloom-vortex` because `shardloom-vortex` already
+      depends on `shardloom-exec`; importing Vortex directly from `shardloom-exec` would create a
+      crate dependency cycle.
+    - Windows emitted non-fatal Cargo incremental hard-link warnings during workspace test/clippy
+      checks; both commands exited successfully.
+
 - [x] Session label: engine facade, typed protocol, benchmark suite, and feature-matrix RFC intake
   - Primary files:
     - `docs/architecture/phased-execution-plan.md`
