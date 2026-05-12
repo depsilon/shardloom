@@ -228,7 +228,9 @@ pub use security::{
 
 pub use stateful_reuse::{
     InvalidationProofRequirement, InvalidationSignalKind, ReuseBoundaryStatus, ReuseCacheKind,
-    StatefulReuseBoundary, StatefulReuseReport, StatefulReuseStatus, plan_stateful_reuse,
+    StatefulReuseBoundary, StatefulReusePromotionGateEntry, StatefulReusePromotionGateReport,
+    StatefulReusePromotionStatus, StatefulReusePromotionSurface, StatefulReuseReport,
+    StatefulReuseStatus, plan_stateful_reuse, plan_stateful_reuse_promotion_gate,
 };
 
 pub use table_intelligence::{

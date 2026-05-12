@@ -16,6 +16,47 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: CG-17 stateful reuse promotion gate
+  - Primary files:
+    - `shardloom-core/src/stateful_reuse.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/cg17_stateful_reuse_gate.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: add a report-only CG-17 promotion gate that aggregates the existing stateful reuse
+    boundary report and CDC incremental planning report while blocking stable reuse-key derivation,
+    key digest/scope, manifest-diff inputs, invalidation decision matrix, cache safety, state
+    certificate schema, execution-certificate linkage, Native I/O linkage, reuse benchmark
+    constitution, incremental recompute execution, and production reuse claims until evidence
+    exists.
+  - Checklist:
+    - [x] Add `StatefulReusePromotionGateReport` with ordered existing and blocked reuse/incremental
+          promotion surfaces.
+    - [x] Preserve `cache_read_allowed=false`, `cache_write_allowed=false`,
+          `cache_replay_allowed=false`, `manifest_diff_read_allowed=false`,
+          `incremental_execution_allowed=false`, `external_engine_invoked=false`,
+          `fallback_execution_allowed=false`, and `fallback_attempted=false`.
+    - [x] Expose stable CLI JSON/text fields through `cg17-stateful-reuse-gate`.
+    - [x] Add CLI snapshot-style coverage for required evidence, blocked cache/runtime fields,
+          claim blockers, and fallback-disabled status.
+    - [x] Mark the Priority 3.5 CG-17 planned item complete as a promotion gate, not as executable
+          cache reuse or incremental recompute.
+    - [x] Update RFC traceability for Priority 3.5 / CG-17 and RFC 0029.
+  - Validation:
+    - [x] `cargo test -p shardloom-core stateful_reuse --lib`
+    - [x] `cargo test -p shardloom-cli --test cg17_stateful_reuse_gate`
+    - [x] `cargo test -p shardloom-cli usage_includes_cg17_stateful_reuse_gate`
+    - [x] `cargo fmt --all -- --check`
+    - [x] `cargo clippy -p shardloom-core --lib -- -D warnings`
+    - [x] `cargo clippy -p shardloom-cli --all-targets -- -D warnings`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `git diff --check`
+  - Notes:
+    - Windows Cargo emitted non-fatal hard-link/incremental-cache warnings; all completed commands
+      exited successfully.
+
 - [x] Session label: CG-14 memory runtime hardening gate
   - Primary files:
     - `shardloom-exec/src/memory.rs`

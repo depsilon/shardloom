@@ -4,6 +4,8 @@
 //! requirements only. It does not read caches, write caches, replay cached
 //! results, or execute incremental recomputation.
 
+use std::fmt::Write as _;
+
 use crate::{Diagnostic, DiagnosticSeverity};
 
 /// Report-level status for stateful reuse planning.
@@ -392,6 +394,433 @@ impl StatefulReuseReport {
     }
 }
 
+/// CG-17 promotion surfaces that must be kept explicit before reuse can execute.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StatefulReusePromotionSurface {
+    BoundaryReportFoundation,
+    CdcIncrementalPlanningFoundation,
+    StableReuseKeyDerivation,
+    ReuseKeyDigestAndScope,
+    ManifestDiffInputEvidence,
+    InvalidationDecisionMatrix,
+    CacheSafetyPolicy,
+    StateCertificateSchema,
+    ExecutionCertificateLinkage,
+    NativeIoCertificateLinkage,
+    ReuseBenchmarkConstitution,
+    IncrementalRecomputeExecution,
+    ProductionReuseClaimCloseout,
+}
+
+impl StatefulReusePromotionSurface {
+    /// Stable machine-readable surface label.
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::BoundaryReportFoundation => "boundary_report_foundation",
+            Self::CdcIncrementalPlanningFoundation => "cdc_incremental_planning_foundation",
+            Self::StableReuseKeyDerivation => "stable_reuse_key_derivation",
+            Self::ReuseKeyDigestAndScope => "reuse_key_digest_and_scope",
+            Self::ManifestDiffInputEvidence => "manifest_diff_input_evidence",
+            Self::InvalidationDecisionMatrix => "invalidation_decision_matrix",
+            Self::CacheSafetyPolicy => "cache_safety_policy",
+            Self::StateCertificateSchema => "state_certificate_schema",
+            Self::ExecutionCertificateLinkage => "execution_certificate_linkage",
+            Self::NativeIoCertificateLinkage => "native_io_certificate_linkage",
+            Self::ReuseBenchmarkConstitution => "reuse_benchmark_constitution",
+            Self::IncrementalRecomputeExecution => "incremental_recompute_execution",
+            Self::ProductionReuseClaimCloseout => "production_reuse_claim_closeout",
+        }
+    }
+}
+
+/// Evidence status for one CG-17 promotion surface.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StatefulReusePromotionStatus {
+    ExistingContractEvidence,
+    BlockedUntilCertified,
+}
+
+impl StatefulReusePromotionStatus {
+    /// Stable machine-readable status label.
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::ExistingContractEvidence => "existing_contract_evidence",
+            Self::BlockedUntilCertified => "blocked_until_certified",
+        }
+    }
+
+    /// Returns whether this surface is already represented by existing report contracts.
+    #[must_use]
+    pub const fn is_existing_evidence(&self) -> bool {
+        matches!(self, Self::ExistingContractEvidence)
+    }
+}
+
+/// One CG-17 promotion gate entry.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct StatefulReusePromotionGateEntry {
+    pub surface: StatefulReusePromotionSurface,
+    pub status: StatefulReusePromotionStatus,
+    pub existing_report_ref: Option<&'static str>,
+    pub requires_stable_key: bool,
+    pub requires_key_digest: bool,
+    pub requires_manifest_diff_input: bool,
+    pub requires_invalidation_evidence: bool,
+    pub requires_cache_safety_policy: bool,
+    pub requires_state_certificate: bool,
+    pub requires_correctness_evidence: bool,
+    pub requires_execution_certificate: bool,
+    pub requires_native_io_certificate: bool,
+    pub requires_reuse_benchmark: bool,
+    pub cache_read_allowed: bool,
+    pub cache_write_allowed: bool,
+    pub cache_replay_allowed: bool,
+    pub incremental_execution_allowed: bool,
+    pub runtime_allowed: bool,
+    pub external_engine_invoked: bool,
+    pub fallback_execution_allowed: bool,
+}
+
+impl StatefulReusePromotionGateEntry {
+    /// Existing report-only evidence already available in the repo.
+    #[must_use]
+    pub const fn existing(
+        surface: StatefulReusePromotionSurface,
+        existing_report_ref: &'static str,
+    ) -> Self {
+        Self {
+            surface,
+            status: StatefulReusePromotionStatus::ExistingContractEvidence,
+            existing_report_ref: Some(existing_report_ref),
+            requires_stable_key: false,
+            requires_key_digest: false,
+            requires_manifest_diff_input: false,
+            requires_invalidation_evidence: false,
+            requires_cache_safety_policy: false,
+            requires_state_certificate: false,
+            requires_correctness_evidence: false,
+            requires_execution_certificate: false,
+            requires_native_io_certificate: false,
+            requires_reuse_benchmark: false,
+            cache_read_allowed: false,
+            cache_write_allowed: false,
+            cache_replay_allowed: false,
+            incremental_execution_allowed: false,
+            runtime_allowed: false,
+            external_engine_invoked: false,
+            fallback_execution_allowed: false,
+        }
+    }
+
+    /// Blocked promotion surface that needs evidence before execution or claims.
+    #[must_use]
+    pub const fn blocked(surface: StatefulReusePromotionSurface) -> Self {
+        Self {
+            surface,
+            status: StatefulReusePromotionStatus::BlockedUntilCertified,
+            existing_report_ref: None,
+            requires_stable_key: true,
+            requires_key_digest: true,
+            requires_manifest_diff_input: true,
+            requires_invalidation_evidence: true,
+            requires_cache_safety_policy: true,
+            requires_state_certificate: true,
+            requires_correctness_evidence: true,
+            requires_execution_certificate: true,
+            requires_native_io_certificate: true,
+            requires_reuse_benchmark: true,
+            cache_read_allowed: false,
+            cache_write_allowed: false,
+            cache_replay_allowed: false,
+            incremental_execution_allowed: false,
+            runtime_allowed: false,
+            external_engine_invoked: false,
+            fallback_execution_allowed: false,
+        }
+    }
+
+    /// Returns whether this entry has no runtime, IO, cache, or fallback effects.
+    #[must_use]
+    pub const fn side_effect_free(&self) -> bool {
+        !self.cache_read_allowed
+            && !self.cache_write_allowed
+            && !self.cache_replay_allowed
+            && !self.incremental_execution_allowed
+            && !self.runtime_allowed
+            && !self.external_engine_invoked
+            && !self.fallback_execution_allowed
+    }
+}
+
+/// Report-only gate for promoting CG-17 stateful reuse and incremental execution.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct StatefulReusePromotionGateReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub entries: Vec<StatefulReusePromotionGateEntry>,
+    pub existing_report_refs: Vec<&'static str>,
+    pub existing_stateful_reuse_boundary_report_present: bool,
+    pub existing_cdc_incremental_planning_report_present: bool,
+    pub stable_reuse_keys_required: bool,
+    pub key_digest_and_scope_required: bool,
+    pub manifest_diff_inputs_required: bool,
+    pub invalidation_evidence_required: bool,
+    pub cache_safety_policy_required: bool,
+    pub state_certificates_required: bool,
+    pub correctness_evidence_required: bool,
+    pub execution_certificate_required: bool,
+    pub native_io_certificate_required: bool,
+    pub reuse_benchmark_required: bool,
+    pub cache_read_allowed: bool,
+    pub cache_write_allowed: bool,
+    pub cache_replay_allowed: bool,
+    pub incremental_execution_allowed: bool,
+    pub runtime_execution_allowed: bool,
+    pub manifest_diff_read_allowed: bool,
+    pub state_certificate_claim_allowed: bool,
+    pub reuse_performance_claim_allowed: bool,
+    pub incremental_performance_claim_allowed: bool,
+    pub production_claim_allowed: bool,
+    pub external_engine_invoked: bool,
+    pub fallback_execution_allowed: bool,
+    pub fallback_attempted: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl StatefulReusePromotionGateReport {
+    /// Creates the default report-only CG-17 promotion gate.
+    #[must_use]
+    pub fn planning_default() -> Self {
+        Self {
+            schema_version: "shardloom.stateful_reuse_promotion_gate.v1",
+            report_id: "cg17.stateful_reuse_promotion_gate",
+            entries: stateful_reuse_promotion_entries(),
+            existing_report_refs: stateful_reuse_promotion_existing_report_refs(),
+            existing_stateful_reuse_boundary_report_present: true,
+            existing_cdc_incremental_planning_report_present: true,
+            stable_reuse_keys_required: true,
+            key_digest_and_scope_required: true,
+            manifest_diff_inputs_required: true,
+            invalidation_evidence_required: true,
+            cache_safety_policy_required: true,
+            state_certificates_required: true,
+            correctness_evidence_required: true,
+            execution_certificate_required: true,
+            native_io_certificate_required: true,
+            reuse_benchmark_required: true,
+            cache_read_allowed: false,
+            cache_write_allowed: false,
+            cache_replay_allowed: false,
+            incremental_execution_allowed: false,
+            runtime_execution_allowed: false,
+            manifest_diff_read_allowed: false,
+            state_certificate_claim_allowed: false,
+            reuse_performance_claim_allowed: false,
+            incremental_performance_claim_allowed: false,
+            production_claim_allowed: false,
+            external_engine_invoked: false,
+            fallback_execution_allowed: false,
+            fallback_attempted: false,
+            diagnostics: Vec::new(),
+        }
+    }
+
+    /// Number of promotion surfaces.
+    #[must_use]
+    pub fn surface_count(&self) -> usize {
+        self.entries.len()
+    }
+
+    /// Number of existing evidence surfaces.
+    #[must_use]
+    pub fn existing_evidence_surface_count(&self) -> usize {
+        self.entries
+            .iter()
+            .filter(|entry| entry.status.is_existing_evidence())
+            .count()
+    }
+
+    /// Number of blocked surfaces.
+    #[must_use]
+    pub fn blocked_surface_count(&self) -> usize {
+        self.entries
+            .iter()
+            .filter(|entry| {
+                matches!(
+                    entry.status,
+                    StatefulReusePromotionStatus::BlockedUntilCertified
+                )
+            })
+            .count()
+    }
+
+    /// Stable surface order for CLI reporting.
+    #[must_use]
+    pub fn surface_order(&self) -> Vec<&'static str> {
+        self.entries
+            .iter()
+            .map(|entry| entry.surface.as_str())
+            .collect()
+    }
+
+    /// Returns whether all cache/reuse runtime promotions are blocked.
+    #[must_use]
+    pub fn runtime_promotions_blocked(&self) -> bool {
+        !self.cache_read_allowed
+            && !self.cache_write_allowed
+            && !self.cache_replay_allowed
+            && !self.incremental_execution_allowed
+            && !self.runtime_execution_allowed
+            && !self.manifest_diff_read_allowed
+            && !self.external_engine_invoked
+            && self.entries.iter().all(|entry| {
+                !entry.cache_read_allowed
+                    && !entry.cache_write_allowed
+                    && !entry.cache_replay_allowed
+                    && !entry.incremental_execution_allowed
+                    && !entry.runtime_allowed
+                    && !entry.external_engine_invoked
+            })
+    }
+
+    /// Returns whether every cache/reuse claim remains blocked.
+    #[must_use]
+    pub const fn claim_blocked(&self) -> bool {
+        !self.state_certificate_claim_allowed
+            && !self.reuse_performance_claim_allowed
+            && !self.incremental_performance_claim_allowed
+            && !self.production_claim_allowed
+    }
+
+    /// Returns whether this gate has no execution, IO, cache, external-engine, or fallback effects.
+    #[must_use]
+    pub fn side_effect_free(&self) -> bool {
+        self.runtime_promotions_blocked()
+            && !self.fallback_execution_allowed
+            && !self.fallback_attempted
+            && self
+                .entries
+                .iter()
+                .all(StatefulReusePromotionGateEntry::side_effect_free)
+    }
+
+    /// Returns whether the gate has impossible or unsafe state.
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        !self.side_effect_free()
+            || !self.claim_blocked()
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    /// Human-readable gate summary.
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        let mut out = String::new();
+        let _ = writeln!(out, "schema_version: {}", self.schema_version);
+        let _ = writeln!(out, "report_id: {}", self.report_id);
+        let _ = writeln!(
+            out,
+            "existing report refs: {}",
+            self.existing_report_refs.join(",")
+        );
+        let _ = writeln!(
+            out,
+            "runtime promotions blocked: {}",
+            self.runtime_promotions_blocked()
+        );
+        let _ = writeln!(out, "claim blocked: {}", self.claim_blocked());
+        let _ = writeln!(out, "side effect free: {}", self.side_effect_free());
+        let _ = writeln!(out, "fallback attempted: {}", self.fallback_attempted);
+        let _ = writeln!(
+            out,
+            "fallback execution allowed: {}",
+            self.fallback_execution_allowed
+        );
+        let _ = writeln!(out, "surfaces:");
+        for entry in &self.entries {
+            let _ = writeln!(
+                out,
+                "  - {} [{}] existing_ref={} requires_stable_key={} requires_manifest_diff_input={} requires_state_certificate={} requires_reuse_benchmark={} cache_read_allowed={} incremental_execution_allowed={} fallback_execution_allowed={}",
+                entry.surface.as_str(),
+                entry.status.as_str(),
+                entry.existing_report_ref.unwrap_or("none"),
+                entry.requires_stable_key,
+                entry.requires_manifest_diff_input,
+                entry.requires_state_certificate,
+                entry.requires_reuse_benchmark,
+                entry.cache_read_allowed,
+                entry.incremental_execution_allowed,
+                entry.fallback_execution_allowed
+            );
+        }
+        out
+    }
+}
+
+fn stateful_reuse_promotion_entries() -> Vec<StatefulReusePromotionGateEntry> {
+    vec![
+        StatefulReusePromotionGateEntry::existing(
+            StatefulReusePromotionSurface::BoundaryReportFoundation,
+            "stateful-reuse-plan",
+        ),
+        StatefulReusePromotionGateEntry::existing(
+            StatefulReusePromotionSurface::CdcIncrementalPlanningFoundation,
+            "incremental-plan cdc",
+        ),
+        StatefulReusePromotionGateEntry::blocked(
+            StatefulReusePromotionSurface::StableReuseKeyDerivation,
+        ),
+        StatefulReusePromotionGateEntry::blocked(
+            StatefulReusePromotionSurface::ReuseKeyDigestAndScope,
+        ),
+        StatefulReusePromotionGateEntry::blocked(
+            StatefulReusePromotionSurface::ManifestDiffInputEvidence,
+        ),
+        StatefulReusePromotionGateEntry::blocked(
+            StatefulReusePromotionSurface::InvalidationDecisionMatrix,
+        ),
+        StatefulReusePromotionGateEntry::blocked(StatefulReusePromotionSurface::CacheSafetyPolicy),
+        StatefulReusePromotionGateEntry::blocked(
+            StatefulReusePromotionSurface::StateCertificateSchema,
+        ),
+        StatefulReusePromotionGateEntry::blocked(
+            StatefulReusePromotionSurface::ExecutionCertificateLinkage,
+        ),
+        StatefulReusePromotionGateEntry::blocked(
+            StatefulReusePromotionSurface::NativeIoCertificateLinkage,
+        ),
+        StatefulReusePromotionGateEntry::blocked(
+            StatefulReusePromotionSurface::ReuseBenchmarkConstitution,
+        ),
+        StatefulReusePromotionGateEntry::blocked(
+            StatefulReusePromotionSurface::IncrementalRecomputeExecution,
+        ),
+        StatefulReusePromotionGateEntry::blocked(
+            StatefulReusePromotionSurface::ProductionReuseClaimCloseout,
+        ),
+    ]
+}
+
+fn stateful_reuse_promotion_existing_report_refs() -> Vec<&'static str> {
+    vec![
+        "stateful-reuse-plan",
+        "incremental-plan cdc",
+        "execution-certificate-plan",
+        "native-io-envelope-plan",
+        "benchmark-claim-evidence-plan",
+        "operational_contracts.evidence_artifact_envelope",
+    ]
+}
+
 fn cg17_reuse_boundaries() -> Vec<StatefulReuseBoundary> {
     vec![
         StatefulReuseBoundary::planned("reuse.segment_result", ReuseCacheKind::SegmentResult),
@@ -468,6 +897,12 @@ pub fn plan_stateful_reuse() -> StatefulReuseReport {
     StatefulReuseReport::cg17_foundation()
 }
 
+/// Produces the CG-17 stateful reuse promotion gate.
+#[must_use]
+pub fn plan_stateful_reuse_promotion_gate() -> StatefulReusePromotionGateReport {
+    StatefulReusePromotionGateReport::planning_default()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -532,5 +967,63 @@ mod tests {
         boundary.cross_dataset_reuse_allowed = true;
 
         assert!(boundary.has_errors());
+    }
+
+    #[test]
+    fn stateful_reuse_promotion_gate_blocks_reuse_runtime_and_claims() {
+        let report = plan_stateful_reuse_promotion_gate();
+
+        assert_eq!(
+            report.schema_version,
+            "shardloom.stateful_reuse_promotion_gate.v1"
+        );
+        assert_eq!(report.report_id, "cg17.stateful_reuse_promotion_gate");
+        assert_eq!(report.surface_count(), 13);
+        assert_eq!(report.existing_evidence_surface_count(), 2);
+        assert_eq!(report.blocked_surface_count(), 11);
+        assert_eq!(
+            report.surface_order().join(","),
+            "boundary_report_foundation,cdc_incremental_planning_foundation,stable_reuse_key_derivation,reuse_key_digest_and_scope,manifest_diff_input_evidence,invalidation_decision_matrix,cache_safety_policy,state_certificate_schema,execution_certificate_linkage,native_io_certificate_linkage,reuse_benchmark_constitution,incremental_recompute_execution,production_reuse_claim_closeout"
+        );
+        assert!(report.existing_stateful_reuse_boundary_report_present);
+        assert!(report.existing_cdc_incremental_planning_report_present);
+        assert!(report.stable_reuse_keys_required);
+        assert!(report.key_digest_and_scope_required);
+        assert!(report.manifest_diff_inputs_required);
+        assert!(report.invalidation_evidence_required);
+        assert!(report.cache_safety_policy_required);
+        assert!(report.state_certificates_required);
+        assert!(report.correctness_evidence_required);
+        assert!(report.execution_certificate_required);
+        assert!(report.native_io_certificate_required);
+        assert!(report.reuse_benchmark_required);
+        assert!(report.runtime_promotions_blocked());
+        assert!(report.claim_blocked());
+        assert!(report.side_effect_free());
+        assert!(!report.has_errors());
+        assert!(!report.cache_read_allowed);
+        assert!(!report.cache_write_allowed);
+        assert!(!report.cache_replay_allowed);
+        assert!(!report.incremental_execution_allowed);
+        assert!(!report.runtime_execution_allowed);
+        assert!(!report.manifest_diff_read_allowed);
+        assert!(!report.external_engine_invoked);
+        assert!(!report.fallback_execution_allowed);
+        assert!(!report.fallback_attempted);
+    }
+
+    #[test]
+    fn stateful_reuse_promotion_gate_flags_runtime_or_claims_as_errors() {
+        let mut report = plan_stateful_reuse_promotion_gate();
+        report.cache_read_allowed = true;
+        assert!(report.has_errors());
+
+        let mut report = plan_stateful_reuse_promotion_gate();
+        report.incremental_execution_allowed = true;
+        assert!(report.has_errors());
+
+        let mut report = plan_stateful_reuse_promotion_gate();
+        report.reuse_performance_claim_allowed = true;
+        assert!(report.has_errors());
     }
 }
