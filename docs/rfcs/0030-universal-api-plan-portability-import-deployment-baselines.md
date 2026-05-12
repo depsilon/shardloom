@@ -82,7 +82,8 @@ Acceptance:
 
 - Universal CLI JSON runner contract.
 - Package/import guidance independent of Foundry.
-- Foundry appears only as optional transform/deployment examples under CG-18.
+- Basic Foundry transform/deployment examples remain optional under CG-18.
+- Richer Foundry packaging, governance, lineage, virtual-table, Marketplace, and Compute Module integration is governed by RFC 0036.
 - Foundry is not the primary engine target.
 
 ## External baseline harness
@@ -162,7 +163,7 @@ External baseline requirements:
 Acceptance:
 - `universal-harness-plan --format json` emits the CG-18 contract with stable
   runner contract fields and deterministic surface/baseline ordering.
-- Foundry remains optional example context, never a required deployment target.
+- Foundry remains optional example context in this RFC, never a required deployment target. Richer Foundry integration must follow RFC 0036 and cannot weaken no-fallback execution.
 - Spark, DataFusion, and Polars are external comparison harness targets only.
 - The report is side-effect-free: no package import, deployment, Foundry
   invocation, baseline runner execution, parser execution, runtime execution,

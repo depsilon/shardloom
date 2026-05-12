@@ -45,9 +45,11 @@ Competitive success gates (CG) are roadmap gates, not canonical phase-ID aliases
 23. CG-23: REST, event, and remote API surface.
 
 CG-21 is defined by RFC 0033. CG-22 is defined by RFC 0034. CG-23 is defined by
-RFC 0035. CG-21 through CG-23 are logically after the current CG-1 through
-CG-20 plan and do not authorize runtime behavior, dependencies, fallback
-execution, or claims by themselves.
+RFC 0035. RFC 0036 defines optional Foundry integration and late-stage
+availability work around these gates, but it is not a new core engine
+competitive gate. CG-21 through CG-23 and RFC 0036 do not authorize runtime
+behavior, dependencies, fallback execution, package publication, platform
+deployment, external compute execution, or claims by themselves.
 
 ## No-fallback policy
 
@@ -74,7 +76,7 @@ Spark, DataFusion, Polars, DuckDB, Velox, and vortex-datafusion may be used only
 - Execution posture remains Vortex-native and no-fallback.
 - External baseline usage remains explicit and non-runtime.
 - Superiority claims are disallowed until both CG-5 (correctness) and CG-6 (benchmarks) are satisfied.
-- Best-default-engine claims are disallowed until CG-20 emits a workload-scoped sufficiency report backed by CG-5 correctness, CG-6 benchmark, CG-16 certificate, CG-19 native I/O certificate, and CG-20 capability evidence. User data-workflow claims additionally require CG-21 workflow evidence for the declared workload. Batch/live/hybrid execution-fabric claims additionally require CG-22 engine-selection, freshness, state, hot/cold, and no-fallback evidence for the declared workload. Remote API claims additionally require CG-23 control-plane, event-plane, data-plane, security/governance, certificate-linkage, and no-fallback evidence for the declared workload.
+- Best-default-engine claims are disallowed until CG-20 emits a workload-scoped sufficiency report backed by CG-5 correctness, CG-6 benchmark, CG-16 certificate, CG-19 native I/O certificate, and CG-20 capability evidence. User data-workflow claims additionally require CG-21 workflow evidence for the declared workload. Batch/live/hybrid execution-fabric claims additionally require CG-22 engine-selection, freshness, state, hot/cold, and no-fallback evidence for the declared workload. Remote API claims additionally require CG-23 control-plane, event-plane, data-plane, security/governance, certificate-linkage, and no-fallback evidence for the declared workload. Public availability and Foundry availability claims additionally require RFC 0036 package/provenance/platform evidence and must classify virtual tables and external compute as governed handles or baselines unless ShardLoom-native execution over staged/native data is certificate-backed.
 
 ## Best-default evidence gate
 
@@ -105,7 +107,7 @@ If any required evidence is absent, the only allowed publication status is `not_
 - Keep this RFC and downstream architecture docs consistent on CG-1 through CG-23.
 - Preserve explicit no-fallback wording.
 - Preserve external engines as baseline-only wording.
-- Preserve CG-18 as universal import/deployment/baseline harness with Foundry only as optional deployment/comparison example.
+- Preserve CG-18 as universal import/deployment/baseline harness. Foundry remains optional, with basic deployment/comparison examples under CG-18 and the richer Foundry Integration Pack governed by RFC 0036; Foundry is not the primary engine target.
 
 
 ## Final competitive gate clarifications
