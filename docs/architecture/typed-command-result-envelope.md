@@ -113,6 +113,13 @@ The evidence/certificate planning family currently contains `correctness-plan`,
 remain report-only and do not run harnesses, read data, emit runtime certificates from execution,
 invoke external engines, or weaken no-fallback behavior.
 
+The workflow/table planning family now contains `manifest-plan`, `layout-health-plan`,
+`compaction-plan`, `table-intelligence-plan`, `cg9-catalog-metadata-gate`, `incremental-plan`,
+`stateful-reuse-plan`, and `cg17-stateful-reuse-gate`, and lives in
+`shardloom-cli/src/workflow_planning.rs`. These handlers remain report-only and do not read
+datasets, probe catalogs, execute plans, write data, materialize outputs, invoke external engines,
+or weaken no-fallback behavior.
+
 Command family classification lives in `shardloom-cli/src/command_family.rs` and is emitted in the
 typed lifecycle payload as `command_family`. This gives status/capabilities, Vortex primitive,
 prepared/source-backed, evidence/certificate, benchmark, packaging/deployment, Foundry,

@@ -25,7 +25,8 @@ emission in `shardloom-cli/src/cli_output.rs`, the status/capabilities handler-f
 `shardloom-cli/src/benchmark_planning.rs`, the operational hardening/security handler module in
 `shardloom-cli/src/operational_hardening.rs`, the diagnostics handler module in
 `shardloom-cli/src/diagnostics.rs`, the evidence/certificate planning handler module in
-`shardloom-cli/src/evidence_certificates.rs`, and typed-envelope contract snapshots for
+`shardloom-cli/src/evidence_certificates.rs`, the workflow/table planning handler module in
+`shardloom-cli/src/workflow_planning.rs`, and typed-envelope contract snapshots for
 representative success, error, unsupported, blocked, evidence-incomplete, source-backed, benchmark,
 and Foundry-adjacent report surfaces. Command-family-specific result migration, richer inline
 artifact/report payloads, remaining certified-runtime/missing-binary/Foundry-boundary golden
