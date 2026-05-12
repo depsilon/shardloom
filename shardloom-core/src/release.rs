@@ -787,6 +787,9 @@ impl ReleasePlan {
     pub fn release_readiness_evidence(&self) -> ReleaseReadinessEvidenceReport {
         ReleaseReadinessEvidenceReport::from_plan(self)
     }
+    pub fn publication_boundary_report(&self) -> ReleasePublicationBoundaryReport {
+        ReleasePublicationBoundaryReport::from_plan(self)
+    }
     pub fn has_errors(&self) -> bool {
         self.diagnostics.iter().any(|d| {
             matches!(
@@ -1036,6 +1039,186 @@ fn no_fallback_status(plan: &ReleasePlan) -> ReleaseEvidenceRequirementStatus {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReleasePublicationBoundaryKind {
+    LocalDevelopment,
+    PublicPackage,
+    GitHubRelease,
+    ContainerImage,
+    ServerMode,
+    BenchmarkExtras,
+    FoundryArtifact,
+}
+as_str_enum!(ReleasePublicationBoundaryKind{LocalDevelopment=>"local_development",PublicPackage=>"public_package",GitHubRelease=>"github_release",ContainerImage=>"container_image",ServerMode=>"server_mode",BenchmarkExtras=>"benchmark_extras",FoundryArtifact=>"foundry_artifact"});
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReleasePublicationBoundaryStatus {
+    Enabled,
+    Planned,
+    Disabled,
+    Blocked,
+}
+as_str_enum!(ReleasePublicationBoundaryStatus{Enabled=>"enabled",Planned=>"planned",Disabled=>"disabled",Blocked=>"blocked"});
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReleasePublicationBoundary {
+    pub kind: ReleasePublicationBoundaryKind,
+    pub status: ReleasePublicationBoundaryStatus,
+    pub role: &'static str,
+    pub publish_allowed: bool,
+    pub requires_human_approval: bool,
+    pub runtime_execution_allowed: bool,
+    pub benchmark_extras_dependency: bool,
+    pub fallback_dependency_allowed: bool,
+}
+impl ReleasePublicationBoundary {
+    pub const fn new(
+        kind: ReleasePublicationBoundaryKind,
+        status: ReleasePublicationBoundaryStatus,
+        role: &'static str,
+    ) -> Self {
+        Self {
+            kind,
+            status,
+            role,
+            publish_allowed: false,
+            requires_human_approval: false,
+            runtime_execution_allowed: false,
+            benchmark_extras_dependency: false,
+            fallback_dependency_allowed: false,
+        }
+    }
+    pub const fn with_publish_boundary(mut self, requires_human_approval: bool) -> Self {
+        self.requires_human_approval = requires_human_approval;
+        self
+    }
+    pub const fn with_benchmark_extras_dependency(mut self, value: bool) -> Self {
+        self.benchmark_extras_dependency = value;
+        self
+    }
+    pub fn summary(&self) -> String {
+        format!(
+            "{} {} publish_allowed={} runtime_execution_allowed={} fallback_dependency_allowed={}",
+            self.kind.as_str(),
+            self.status.as_str(),
+            self.publish_allowed,
+            self.runtime_execution_allowed,
+            self.fallback_dependency_allowed
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReleasePublicationBoundaryReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub boundaries: Vec<ReleasePublicationBoundary>,
+    pub local_development_available: bool,
+    pub package_publication_distinct_from_local_development: bool,
+    pub container_publication_distinct_from_local_development: bool,
+    pub server_publication_distinct_from_local_development: bool,
+    pub benchmark_extras_optional: bool,
+    pub benchmark_extras_comparison_only: bool,
+    pub external_publish_performed: bool,
+    pub fallback_attempted: bool,
+    pub fallback_dependency_allowed: bool,
+}
+impl ReleasePublicationBoundaryReport {
+    pub fn from_plan(plan: &ReleasePlan) -> Self {
+        let public_package_status = if plan.package_targets.iter().any(|target| {
+            target.enabled
+                && matches!(
+                    target.kind,
+                    PackageTargetKind::CratesIo | PackageTargetKind::PyPi | PackageTargetKind::Npm
+                )
+        }) {
+            ReleasePublicationBoundaryStatus::Planned
+        } else {
+            ReleasePublicationBoundaryStatus::Disabled
+        };
+        let github_release_status = if plan
+            .package_targets
+            .iter()
+            .any(|target| target.enabled && target.kind == PackageTargetKind::GitHubRelease)
+        {
+            ReleasePublicationBoundaryStatus::Planned
+        } else {
+            ReleasePublicationBoundaryStatus::Disabled
+        };
+        let boundaries = vec![
+            ReleasePublicationBoundary::new(
+                ReleasePublicationBoundaryKind::LocalDevelopment,
+                ReleasePublicationBoundaryStatus::Enabled,
+                "local build, tests, CLI, source-tree Python, and docs without public artifact publication",
+            ),
+            ReleasePublicationBoundary::new(
+                ReleasePublicationBoundaryKind::PublicPackage,
+                public_package_status,
+                "public package channels such as crates.io, PyPI, npm, or Conda",
+            )
+            .with_publish_boundary(true),
+            ReleasePublicationBoundary::new(
+                ReleasePublicationBoundaryKind::GitHubRelease,
+                github_release_status,
+                "GitHub release artifacts, checksums, SBOMs, attestations, and changelog bundles",
+            )
+            .with_publish_boundary(true),
+            ReleasePublicationBoundary::new(
+                ReleasePublicationBoundaryKind::ContainerImage,
+                ReleasePublicationBoundaryStatus::Disabled,
+                "OCI/GHCR image publication remains separate from local development support",
+            )
+            .with_publish_boundary(true),
+            ReleasePublicationBoundary::new(
+                ReleasePublicationBoundaryKind::ServerMode,
+                ReleasePublicationBoundaryStatus::Disabled,
+                "server/API deployment remains separate from CLI/package publication",
+            ),
+            ReleasePublicationBoundary::new(
+                ReleasePublicationBoundaryKind::BenchmarkExtras,
+                ReleasePublicationBoundaryStatus::Planned,
+                "optional comparison-only benchmark extras, never core install dependencies",
+            )
+            .with_benchmark_extras_dependency(true),
+        ];
+        Self {
+            schema_version: "shardloom.release_publication_boundaries.v1",
+            report_id: "release-publication-boundaries-foundation",
+            boundaries,
+            local_development_available: true,
+            package_publication_distinct_from_local_development: true,
+            container_publication_distinct_from_local_development: true,
+            server_publication_distinct_from_local_development: true,
+            benchmark_extras_optional: true,
+            benchmark_extras_comparison_only: true,
+            external_publish_performed: false,
+            fallback_attempted: false,
+            fallback_dependency_allowed: false,
+        }
+    }
+    pub fn status_for(
+        &self,
+        kind: ReleasePublicationBoundaryKind,
+    ) -> ReleasePublicationBoundaryStatus {
+        self.boundaries
+            .iter()
+            .find(|boundary| boundary.kind == kind)
+            .map_or(ReleasePublicationBoundaryStatus::Disabled, |boundary| {
+                boundary.status
+            })
+    }
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "release publication boundaries\nschema_version: {}\nlocal development available: {}\nbenchmark extras optional: {}\nexternal publish performed: {}\nfallback dependency allowed: {}",
+            self.schema_version,
+            self.local_development_available,
+            self.benchmark_extras_optional,
+            self.external_publish_performed,
+            self.fallback_dependency_allowed
+        )
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReleaseReport {
     pub plan: ReleasePlan,
@@ -1264,5 +1447,43 @@ mod tests {
         );
         assert!(evidence.fallback_execution_allowed);
         assert!(!evidence.public_package_claim_allowed);
+    }
+
+    #[test]
+    fn publication_boundary_report_separates_local_dev_publication_and_bench_extras() {
+        let plan = ReleasePlan::default_foundation_plan();
+        let report = plan.publication_boundary_report();
+
+        assert_eq!(
+            report.schema_version,
+            "shardloom.release_publication_boundaries.v1"
+        );
+        assert_eq!(
+            report.status_for(ReleasePublicationBoundaryKind::LocalDevelopment),
+            ReleasePublicationBoundaryStatus::Enabled
+        );
+        assert_eq!(
+            report.status_for(ReleasePublicationBoundaryKind::PublicPackage),
+            ReleasePublicationBoundaryStatus::Planned
+        );
+        assert_eq!(
+            report.status_for(ReleasePublicationBoundaryKind::ContainerImage),
+            ReleasePublicationBoundaryStatus::Disabled
+        );
+        assert_eq!(
+            report.status_for(ReleasePublicationBoundaryKind::ServerMode),
+            ReleasePublicationBoundaryStatus::Disabled
+        );
+        assert_eq!(
+            report.status_for(ReleasePublicationBoundaryKind::BenchmarkExtras),
+            ReleasePublicationBoundaryStatus::Planned
+        );
+        assert!(report.package_publication_distinct_from_local_development);
+        assert!(report.container_publication_distinct_from_local_development);
+        assert!(report.server_publication_distinct_from_local_development);
+        assert!(report.benchmark_extras_optional);
+        assert!(report.benchmark_extras_comparison_only);
+        assert!(!report.external_publish_performed);
+        assert!(!report.fallback_dependency_allowed);
     }
 }

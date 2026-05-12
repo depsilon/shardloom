@@ -31,15 +31,16 @@ use shardloom_core::{
     PartitionField, PartitionSpec, PartitionTransform, PhysicalKernelRegistryPlan,
     PhysicalOperatorExecutionLevel, PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorKind,
     PhysicalOperatorPlan, PredicateExpr, PythonWrapperFoundationReport, RedactionPolicy,
-    ReleaseEvidenceRequirementKind, ReleasePlan, ReleaseReadinessEvidenceReport,
-    RuntimeObservabilityReport, SchemaDefinition, SchemaEvolutionCompatibilityReport,
-    SchemaEvolutionPolicy, SchemaField, SchemaId, SchemaVersion, SecurityPlan, SegmentChange,
-    SegmentChangeKind, SegmentId, SegmentLayout, SegmentStats, ShardLoomError, SnapshotId,
-    SnapshotRef, StatValue, StatefulReuseReport, TableCompatibilityPlan, TableCompatibilityReport,
-    TableFormatKind, TableIntelligenceReport, TranslationPlan, UdfRuntimeKind,
-    UniversalHarnessReport, WorkloadClass, WorldClassSufficiencyDimensionKind,
-    WorldClassSufficiencyReport, WriteIntent, evaluate_cdc_incremental_planning,
-    evaluate_compaction_planning, evaluate_delete_tombstone_compatibility, evaluate_layout_health,
+    ReleaseEvidenceRequirementKind, ReleasePlan, ReleasePublicationBoundaryKind,
+    ReleasePublicationBoundaryReport, ReleaseReadinessEvidenceReport, RuntimeObservabilityReport,
+    SchemaDefinition, SchemaEvolutionCompatibilityReport, SchemaEvolutionPolicy, SchemaField,
+    SchemaId, SchemaVersion, SecurityPlan, SegmentChange, SegmentChangeKind, SegmentId,
+    SegmentLayout, SegmentStats, ShardLoomError, SnapshotId, SnapshotRef, StatValue,
+    StatefulReuseReport, TableCompatibilityPlan, TableCompatibilityReport, TableFormatKind,
+    TableIntelligenceReport, TranslationPlan, UdfRuntimeKind, UniversalHarnessReport,
+    WorkloadClass, WorldClassSufficiencyDimensionKind, WorldClassSufficiencyReport, WriteIntent,
+    evaluate_cdc_incremental_planning, evaluate_compaction_planning,
+    evaluate_delete_tombstone_compatibility, evaluate_layout_health,
     evaluate_partition_evolution_compatibility, evaluate_schema_evolution_compatibility,
     plan_benchmark_claim_evidence, plan_correctness_differential_harness,
     plan_cpu_operator_specialization, plan_execution_certificate_evidence_surface,
@@ -5222,6 +5223,7 @@ fn certification_fields(
 fn release_plan_fields(
     plan: &ReleasePlan,
     evidence: &ReleaseReadinessEvidenceReport,
+    publication: &ReleasePublicationBoundaryReport,
     mode: &str,
 ) -> Vec<(String, String)> {
     let mut fields = vec![];
@@ -5274,6 +5276,7 @@ fn release_plan_fields(
     );
     push_count_field(&mut fields, "release_checklist_count", plan.checklist.len());
     append_release_evidence_requirement_fields(&mut fields, evidence);
+    append_release_publication_boundary_fields(&mut fields, publication);
     push_field(&mut fields, "published", "false");
     push_field(&mut fields, "write_io", "false");
     push_field(&mut fields, "execution", "not_performed");
@@ -5296,6 +5299,86 @@ fn release_plan_fields(
         evidence.fallback_attempted,
     );
     fields
+}
+
+fn append_release_publication_boundary_fields(
+    fields: &mut Vec<(String, String)>,
+    publication: &ReleasePublicationBoundaryReport,
+) {
+    push_field(
+        fields,
+        "publication_boundary_schema_version",
+        publication.schema_version,
+    );
+    push_field(
+        fields,
+        "publication_boundary_report_id",
+        publication.report_id,
+    );
+    for (field, kind) in [
+        (
+            "local_development_boundary",
+            ReleasePublicationBoundaryKind::LocalDevelopment,
+        ),
+        (
+            "public_package_boundary",
+            ReleasePublicationBoundaryKind::PublicPackage,
+        ),
+        (
+            "github_release_boundary",
+            ReleasePublicationBoundaryKind::GitHubRelease,
+        ),
+        (
+            "container_image_boundary",
+            ReleasePublicationBoundaryKind::ContainerImage,
+        ),
+        (
+            "server_mode_boundary",
+            ReleasePublicationBoundaryKind::ServerMode,
+        ),
+        (
+            "benchmark_extras_boundary",
+            ReleasePublicationBoundaryKind::BenchmarkExtras,
+        ),
+    ] {
+        push_field(fields, field, publication.status_for(kind).as_str());
+    }
+    push_bool_field(
+        fields,
+        "local_development_available",
+        publication.local_development_available,
+    );
+    push_bool_field(
+        fields,
+        "package_publication_distinct_from_local_development",
+        publication.package_publication_distinct_from_local_development,
+    );
+    push_bool_field(
+        fields,
+        "container_publication_distinct_from_local_development",
+        publication.container_publication_distinct_from_local_development,
+    );
+    push_bool_field(
+        fields,
+        "server_publication_distinct_from_local_development",
+        publication.server_publication_distinct_from_local_development,
+    );
+    push_bool_field(
+        fields,
+        "benchmark_extras_optional",
+        publication.benchmark_extras_optional,
+    );
+    push_bool_field(
+        fields,
+        "benchmark_extras_comparison_only",
+        publication.benchmark_extras_comparison_only,
+    );
+    push_bool_field(fields, "benchmark_extras_core_dependency", false);
+    push_bool_field(
+        fields,
+        "publication_fallback_dependency_allowed",
+        publication.fallback_dependency_allowed,
+    );
 }
 
 fn append_release_evidence_requirement_fields(
@@ -16841,28 +16924,40 @@ fn run(args: Vec<String>) -> ExitCode {
         Some("release-plan") => {
             let plan = ReleasePlan::default_foundation_plan();
             let evidence = plan.release_readiness_evidence();
+            let publication = plan.publication_boundary_report();
             emit(
                 "release-plan",
                 format,
                 CommandStatus::Success,
                 "release plan skeleton".to_string(),
-                format!("{}\n\n{}", plan.to_human_text(), evidence.to_human_text()),
+                format!(
+                    "{}\n\n{}\n\n{}",
+                    plan.to_human_text(),
+                    evidence.to_human_text(),
+                    publication.to_human_text()
+                ),
                 plan.diagnostics.clone(),
-                release_plan_fields(&plan, &evidence, "release_plan"),
+                release_plan_fields(&plan, &evidence, &publication, "release_plan"),
             );
             ExitCode::SUCCESS
         }
         Some("package-plan") => {
             let plan = ReleasePlan::default_foundation_plan();
             let evidence = plan.release_readiness_evidence();
+            let publication = plan.publication_boundary_report();
             emit(
                 "package-plan",
                 format,
                 CommandStatus::Success,
                 "package plan skeleton".to_string(),
-                format!("{}\n\n{}", plan.to_human_text(), evidence.to_human_text()),
+                format!(
+                    "{}\n\n{}\n\n{}",
+                    plan.to_human_text(),
+                    evidence.to_human_text(),
+                    publication.to_human_text()
+                ),
                 plan.diagnostics.clone(),
-                release_plan_fields(&plan, &evidence, "package_plan"),
+                release_plan_fields(&plan, &evidence, &publication, "package_plan"),
             );
             ExitCode::SUCCESS
         }
@@ -29768,7 +29863,8 @@ mod tests {
     fn release_plan_fields_expose_release_readiness_blockers_without_publish() {
         let plan = ReleasePlan::default_foundation_plan();
         let evidence = plan.release_readiness_evidence();
-        let fields = release_plan_fields(&plan, &evidence, "release_plan");
+        let publication = plan.publication_boundary_report();
+        let fields = release_plan_fields(&plan, &evidence, &publication, "release_plan");
 
         assert_eq!(
             output_field(&fields, "schema_version"),
@@ -29794,6 +29890,50 @@ mod tests {
         assert_eq!(output_field(&fields, "external_publish_performed"), "false");
         assert_eq!(output_field(&fields, "runtime_execution"), "false");
         assert_eq!(output_field(&fields, "fallback_attempted"), "false");
+    }
+
+    #[test]
+    fn release_plan_fields_keep_publication_boundaries_distinct() {
+        let plan = ReleasePlan::default_foundation_plan();
+        let evidence = plan.release_readiness_evidence();
+        let publication = plan.publication_boundary_report();
+        let fields = release_plan_fields(&plan, &evidence, &publication, "package_plan");
+
+        assert_eq!(
+            output_field(&fields, "publication_boundary_schema_version"),
+            "shardloom.release_publication_boundaries.v1"
+        );
+        assert_eq!(
+            output_field(&fields, "local_development_boundary"),
+            "enabled"
+        );
+        assert_eq!(output_field(&fields, "public_package_boundary"), "planned");
+        assert_eq!(output_field(&fields, "github_release_boundary"), "planned");
+        assert_eq!(
+            output_field(&fields, "container_image_boundary"),
+            "disabled"
+        );
+        assert_eq!(output_field(&fields, "server_mode_boundary"), "disabled");
+        assert_eq!(
+            output_field(&fields, "benchmark_extras_boundary"),
+            "planned"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "package_publication_distinct_from_local_development"
+            ),
+            "true"
+        );
+        assert_eq!(output_field(&fields, "benchmark_extras_optional"), "true");
+        assert_eq!(
+            output_field(&fields, "benchmark_extras_core_dependency"),
+            "false"
+        );
+        assert_eq!(
+            output_field(&fields, "publication_fallback_dependency_allowed"),
+            "false"
+        );
     }
 
     #[test]

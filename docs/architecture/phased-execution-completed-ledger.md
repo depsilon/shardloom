@@ -16,6 +16,31 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: release publication boundary separation
+  - Primary files:
+    - `shardloom-core/src/release.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/main.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: keep local development, public package publication, GitHub releases, container images,
+    server mode, Foundry artifacts, and optional benchmark extras distinct in release evidence.
+  - Checklist:
+    - [x] Add `ReleasePublicationBoundaryReport`, boundary kinds, and boundary statuses.
+    - [x] Surface publication boundaries through `release-plan` and `package-plan` fields.
+    - [x] Mark public package and GitHub release publication as planned and human-gated, while
+          container/server publication remains disabled and separate from local development support.
+    - [x] Keep benchmark extras optional and comparison-only, never core install dependencies or
+          fallback dependencies.
+  - Validation status:
+    - [x] `cargo test -p shardloom-core release --lib`
+    - [x] `cargo test -p shardloom-cli release_plan`
+    - [x] `cargo fmt --all -- --check`
+    - [x] `cargo clippy -p shardloom-core --lib -- -D warnings`
+    - [x] `cargo clippy -p shardloom-cli --all-targets -- -D warnings`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+  - Non-goals preserved:
+    - [x] No release publication, package upload, tag creation, container/server implementation,
+          benchmark execution, dependency change, external engine invocation, or fallback execution.
 - [x] Session label: release-readiness evidence blockers
   - Primary files:
     - `shardloom-core/src/release.rs`
