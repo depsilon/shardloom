@@ -372,18 +372,24 @@ not by numeric CG order.
           DataFrame runtime, notebook runtime, UDF/plugin execution, OCR/transcription/embedding/LLM
           calls, adapter runtime, external API calls, catalog probes, object-store IO, writes,
           claim publication, external engine invocation, or fallback execution.
-  - [ ] CG-20 approximate aggregate/sketch function implementation after function-registry,
+  - [x] CG-20 approximate aggregate/sketch function admission gate before function-registry,
         aggregate-state, sketch-serialization, correctness, benchmark, execution-certificate, and
         Native I/O evidence gates are ready.
-    - [ ] Support `approx_count_distinct`, grouped approximate distinct, partial sketch merge,
+    - [x] Add `ApproxSketchFunctionGateReport` so `approx_count_distinct`, `approx_distinct`,
+          `approx_n_unique`, grouped approximate distinct, partial sketch construction/merge,
           sketch serialization/deserialization, stable hash/seed policy, error bounds, confidence,
-          null/string/temporal/dictionary/nested-ish value handling, and exact-reference comparison.
-    - [ ] Add encoded-aware sketch strategies for dictionary values plus row/filter evidence,
-          run-length updates once per run value, sparse selection-vector-aware updates, and explicit
-          materialization boundaries when an encoding-aware path is unavailable.
-    - [ ] Keep DataFusion, Polars, Spark, DuckDB, Dask, pandas, and generic sketch libraries as
+          null/string/temporal/dictionary/nested-ish value handling, and exact-reference comparison
+          surfaces are named without promoting runtime support.
+    - [x] Add encoded-aware sketch strategy admission surfaces for dictionary values plus
+          row/filter evidence, run-length updates once per run value, selection-vector/validity
+          interaction, and explicit partial-decode materialization boundaries.
+    - [x] Keep DataFusion, Polars, Spark, DuckDB, Dask, pandas, and generic sketch libraries as
           comparison/reference inputs only unless a dependency/RFC approval explicitly permits a
           native implementation dependency.
+    - [x] Expose the gate through `cg20-approx-sketch-gate` without function registry mutation,
+          sketch-state runtime, grouped aggregate runtime, sketch serialization runtime, encoded
+          sketch execution, partial-decode execution, materialization without report, generic sketch
+          dependency, claim publication, external engine invocation, or fallback execution.
 - [ ] Priority 3.5 - cross-RFC platform hardening and release-readiness lane
   - [ ] RFC 0014 / CG-14 memory, spill, and OOM-safe execution
     - [ ] Turn resource-derived chunk sizing, parallelism, memory reservation, pressure detection,

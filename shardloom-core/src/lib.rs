@@ -5,6 +5,7 @@
 //! `Vortex`-first execution.
 
 pub mod agent_contract;
+pub mod approx_sketch;
 pub mod architecture_spine;
 pub mod benchmark;
 pub mod capabilities;
@@ -38,6 +39,10 @@ pub mod wrapper_architecture;
 
 pub use agent_contract::{
     AgentContractPack, AgentContractSurface, AgentContractSurfaceKind, AgentContractSurfaceStatus,
+};
+pub use approx_sketch::{
+    ApproxSketchFunctionGateEntry, ApproxSketchFunctionGateReport, ApproxSketchFunctionStatus,
+    ApproxSketchFunctionSurface, plan_approx_sketch_function_gate,
 };
 pub use architecture_spine::{
     ComputeEngineArchitectureSpineReport, ComputeEngineLayerContract, ComputeEngineLayerKind,

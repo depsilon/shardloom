@@ -10,27 +10,27 @@ use std::{
 };
 
 use shardloom_core::{
-    AgentContractPack, BaselineEngine, BenchmarkClaimEvidenceReport, BenchmarkComparisonReport,
-    BenchmarkEvidenceState, BenchmarkFallbackState, BenchmarkMetric, BenchmarkPlan,
-    BenchmarkResult, BenchmarkScenario, ByteRange, CapabilityCertificationReport,
-    CapabilityCertificationStatus, CatalogKind, CatalogMetadataIntegrationGateReport, CatalogRef,
-    CdcEventKind, CdcEventSummary, CdcIncrementalPlanningReport, ChangeSet,
-    CliApiJsonProtocolReport, ColumnRef, CommandStatus, CompactionPlanningPolicy,
-    CompactionPlanningReport, ComparisonOp, CondaBuildInstallCertificationReport,
-    CorrectnessDifferentialHarnessReport, CorrectnessFixture, CorrectnessValidationMode,
-    CorrectnessValidationPlan, CpuOperatorSpecializationReport, DatasetFormat, DatasetManifest,
-    DatasetRef, DatasetUri, DeleteModel, DeleteTombstoneCompatibilityReport, Diagnostic,
-    EffectBudgetReport, EncodedSegment, EncodingKind, ExecutionCertificate,
-    ExecutionCertificateEvidenceSurfaceReport, ExecutionEvidenceArtifactKind, ExpectedOutcome,
-    ExtensionId, ExtensionInspectionReport, ExtensionLicenseKind, ExtensionManifest,
-    ExtensionProvenance, ExtensionRegistrySnapshot, ExtensionVersion, FeatureFootprintReport,
-    FieldId, FieldName, FieldPath, FileDescriptor, FileRole, IncrementalPlanSkeleton,
-    InputAdapterRegistrySnapshot, KernelRegistrySnapshot, LayoutHealthPolicy, LayoutHealthReport,
-    LayoutKind, LogicalDType, ManifestId, ManifestSegment, MetricValue, NativeIoCertificate,
-    NativeIoEnvelopeReport, Nullability, ObservabilityPlan, ObservabilitySchemaCoverageReport,
-    OperatorMemoryCertification, OutputEnvelope, OutputFormat, OutputTarget,
-    PartitionEvolutionCompatibilityReport, PartitionField, PartitionSpec, PartitionTransform,
-    PhysicalKernelRegistryPlan, PhysicalOperatorExecutionLevel,
+    AgentContractPack, ApproxSketchFunctionGateReport, BaselineEngine,
+    BenchmarkClaimEvidenceReport, BenchmarkComparisonReport, BenchmarkEvidenceState,
+    BenchmarkFallbackState, BenchmarkMetric, BenchmarkPlan, BenchmarkResult, BenchmarkScenario,
+    ByteRange, CapabilityCertificationReport, CapabilityCertificationStatus, CatalogKind,
+    CatalogMetadataIntegrationGateReport, CatalogRef, CdcEventKind, CdcEventSummary,
+    CdcIncrementalPlanningReport, ChangeSet, CliApiJsonProtocolReport, ColumnRef, CommandStatus,
+    CompactionPlanningPolicy, CompactionPlanningReport, ComparisonOp,
+    CondaBuildInstallCertificationReport, CorrectnessDifferentialHarnessReport, CorrectnessFixture,
+    CorrectnessValidationMode, CorrectnessValidationPlan, CpuOperatorSpecializationReport,
+    DatasetFormat, DatasetManifest, DatasetRef, DatasetUri, DeleteModel,
+    DeleteTombstoneCompatibilityReport, Diagnostic, EffectBudgetReport, EncodedSegment,
+    EncodingKind, ExecutionCertificate, ExecutionCertificateEvidenceSurfaceReport,
+    ExecutionEvidenceArtifactKind, ExpectedOutcome, ExtensionId, ExtensionInspectionReport,
+    ExtensionLicenseKind, ExtensionManifest, ExtensionProvenance, ExtensionRegistrySnapshot,
+    ExtensionVersion, FeatureFootprintReport, FieldId, FieldName, FieldPath, FileDescriptor,
+    FileRole, IncrementalPlanSkeleton, InputAdapterRegistrySnapshot, KernelRegistrySnapshot,
+    LayoutHealthPolicy, LayoutHealthReport, LayoutKind, LogicalDType, ManifestId, ManifestSegment,
+    MetricValue, NativeIoCertificate, NativeIoEnvelopeReport, Nullability, ObservabilityPlan,
+    ObservabilitySchemaCoverageReport, OperatorMemoryCertification, OutputEnvelope, OutputFormat,
+    OutputTarget, PartitionEvolutionCompatibilityReport, PartitionField, PartitionSpec,
+    PartitionTransform, PhysicalKernelRegistryPlan, PhysicalOperatorExecutionLevel,
     PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorKind, PhysicalOperatorPlan,
     PredicateExpr, PythonWrapperFoundationReport, RedactionPolicy, ReleaseEvidenceRequirementKind,
     ReleasePlan, ReleasePublicationBoundaryKind, ReleasePublicationBoundaryReport,
@@ -45,12 +45,12 @@ use shardloom_core::{
     evaluate_cdc_incremental_planning, evaluate_compaction_planning,
     evaluate_delete_tombstone_compatibility, evaluate_layout_health,
     evaluate_partition_evolution_compatibility, evaluate_schema_evolution_compatibility,
-    plan_benchmark_claim_evidence, plan_catalog_metadata_integration_gate,
-    plan_correctness_differential_harness, plan_cpu_operator_specialization,
-    plan_execution_certificate_evidence_surface, plan_native_io_envelope,
-    plan_observability_schema_coverage, plan_security_governance_evidence_gate,
-    plan_stateful_reuse, plan_universal_harness, plan_user_capability_promotion_gate,
-    plan_world_class_sufficiency,
+    plan_approx_sketch_function_gate, plan_benchmark_claim_evidence,
+    plan_catalog_metadata_integration_gate, plan_correctness_differential_harness,
+    plan_cpu_operator_specialization, plan_execution_certificate_evidence_surface,
+    plan_native_io_envelope, plan_observability_schema_coverage,
+    plan_security_governance_evidence_gate, plan_stateful_reuse, plan_universal_harness,
+    plan_user_capability_promotion_gate, plan_world_class_sufficiency,
 };
 use shardloom_exec::{
     AdaptiveSizer, AdaptiveSizingPolicy, AttemptId, BackpressurePlanInput, BackpressurePlanReport,
@@ -222,7 +222,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|agent-contract-pack|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance]|security-plan|security-governance-evidence-gate|effect-budget-plan|agent-safety-plan|redaction-plan|kernel-registry|feature-footprint|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|cg20-user-capability-gate|layout-health-plan|compaction-plan|table-intelligence-plan|cg9-catalog-metadata-gate|object-store-request-plan|cg10-object-store-runtime-gate|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|dynamic-work-shaping-plan [balanced|memory-pressure|object-store-throttled|small-tasks]|cg8-runtime-promotion-gate|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|benchmark-claim-evidence-plan [foundation|traditional-analytics]|traditional-analytics-run|traditional-analytics-vortex-run|vortex-count-benchmark|correctness-plan|correctness-harness-plan|execution-certificate-plan|recovery-plan|commit-execution-promotion-gate|fault-tolerance-promotion-gate|cancellation-plan|retry-plan|observability-plan|observability-schema-coverage|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-filter-project|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|operator-memory-spill-declarations|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|agent-contract-pack|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance]|security-plan|security-governance-evidence-gate|effect-budget-plan|agent-safety-plan|redaction-plan|kernel-registry|feature-footprint|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|cg20-user-capability-gate|cg20-approx-sketch-gate|layout-health-plan|compaction-plan|table-intelligence-plan|cg9-catalog-metadata-gate|object-store-request-plan|cg10-object-store-runtime-gate|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|dynamic-work-shaping-plan [balanced|memory-pressure|object-store-throttled|small-tasks]|cg8-runtime-promotion-gate|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|benchmark-claim-evidence-plan [foundation|traditional-analytics]|traditional-analytics-run|traditional-analytics-vortex-run|vortex-count-benchmark|correctness-plan|correctness-harness-plan|execution-certificate-plan|recovery-plan|commit-execution-promotion-gate|fault-tolerance-promotion-gate|cancellation-plan|retry-plan|observability-plan|observability-schema-coverage|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-filter-project|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|operator-memory-spill-declarations|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -7778,6 +7778,243 @@ fn append_user_capability_required_fields(
 fn append_user_capability_status_fields(
     fields: &mut Vec<(String, String)>,
     report: &UserCapabilityPromotionGateReport,
+) {
+    push_bool_field(
+        fields,
+        "runtime_promotions_blocked",
+        report.runtime_promotions_blocked(),
+    );
+    push_bool_field(fields, "claim_blocked", report.claim_blocked());
+    push_bool_field(fields, "fallback_attempted", report.fallback_attempted);
+    push_bool_field(
+        fields,
+        "fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(fields, "side_effect_free", report.side_effect_free());
+    push_count_field(fields, "diagnostic_count", report.diagnostics.len());
+}
+
+fn approx_sketch_function_gate_fields(
+    report: &ApproxSketchFunctionGateReport,
+) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    push_field(&mut fields, "mode", "cg20_approx_sketch_function_gate");
+    push_field(&mut fields, "execution", "not_performed");
+    push_field(&mut fields, "plan_only", "true");
+    push_field(&mut fields, "schema_version", report.schema_version);
+    push_field(&mut fields, "report_id", report.report_id);
+    push_field(
+        &mut fields,
+        "canonical_function_name",
+        report.canonical_function_name,
+    );
+    push_field(&mut fields, "alias_names", &report.alias_names.join(","));
+    push_field(
+        &mut fields,
+        "value_handling_order",
+        &report.value_handling_order(),
+    );
+    push_count_field(&mut fields, "surface_count", report.surface_count());
+    push_count_field(
+        &mut fields,
+        "existing_evidence_surface_count",
+        report.existing_evidence_surface_count(),
+    );
+    push_count_field(
+        &mut fields,
+        "blocked_surface_count",
+        report.blocked_surface_count(),
+    );
+    push_field(
+        &mut fields,
+        "surface_order",
+        &report.surface_order().join(","),
+    );
+    push_field(
+        &mut fields,
+        "existing_report_refs",
+        &report.existing_report_refs.join(","),
+    );
+    append_approx_sketch_existing_fields(&mut fields, report);
+    append_approx_sketch_allowed_fields(&mut fields, report);
+    append_approx_sketch_required_fields(&mut fields, report);
+    append_approx_sketch_status_fields(&mut fields, report);
+    fields
+}
+
+fn append_approx_sketch_existing_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &ApproxSketchFunctionGateReport,
+) {
+    push_bool_field(
+        fields,
+        "existing_function_coverage_matrix_entry_present",
+        report.existing_function_coverage_matrix_entry_present,
+    );
+    push_bool_field(
+        fields,
+        "existing_rfc_sequencing_contract_present",
+        report.existing_rfc_sequencing_contract_present,
+    );
+}
+
+fn append_approx_sketch_allowed_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &ApproxSketchFunctionGateReport,
+) {
+    push_bool_field(
+        fields,
+        "function_registry_entry_allowed",
+        report.function_registry_entry_allowed,
+    );
+    push_bool_field(
+        fields,
+        "sketch_state_runtime_allowed",
+        report.sketch_state_runtime_allowed,
+    );
+    push_bool_field(
+        fields,
+        "sketch_merge_runtime_allowed",
+        report.sketch_merge_runtime_allowed,
+    );
+    push_bool_field(
+        fields,
+        "sketch_serialization_runtime_allowed",
+        report.sketch_serialization_runtime_allowed,
+    );
+    push_bool_field(
+        fields,
+        "grouped_aggregate_runtime_allowed",
+        report.grouped_aggregate_runtime_allowed,
+    );
+    push_bool_field(
+        fields,
+        "encoded_dictionary_strategy_allowed",
+        report.encoded_dictionary_strategy_allowed,
+    );
+    push_bool_field(
+        fields,
+        "encoded_run_length_strategy_allowed",
+        report.encoded_run_length_strategy_allowed,
+    );
+    push_bool_field(
+        fields,
+        "selection_vector_strategy_allowed",
+        report.selection_vector_strategy_allowed,
+    );
+    push_bool_field(
+        fields,
+        "partial_decode_execution_allowed",
+        report.partial_decode_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "materialization_without_report_allowed",
+        report.materialization_without_report_allowed,
+    );
+    push_bool_field(
+        fields,
+        "generic_sketch_dependency_allowed",
+        report.generic_sketch_dependency_allowed,
+    );
+    push_bool_field(fields, "exact_claim_allowed", report.exact_claim_allowed);
+    push_bool_field(
+        fields,
+        "approximate_function_claim_allowed",
+        report.approximate_function_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "external_engine_invoked",
+        report.external_engine_invoked,
+    );
+}
+
+fn append_approx_sketch_required_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &ApproxSketchFunctionGateReport,
+) {
+    push_bool_field(
+        fields,
+        "function_registry_required",
+        report.function_registry_required,
+    );
+    push_bool_field(
+        fields,
+        "aggregate_state_required",
+        report.aggregate_state_required,
+    );
+    push_bool_field(
+        fields,
+        "sketch_serialization_required",
+        report.sketch_serialization_required,
+    );
+    push_bool_field(
+        fields,
+        "stable_hash_seed_policy_required",
+        report.stable_hash_seed_policy_required,
+    );
+    push_bool_field(
+        fields,
+        "error_bounds_required",
+        report.error_bounds_required,
+    );
+    push_bool_field(
+        fields,
+        "confidence_model_required",
+        report.confidence_model_required,
+    );
+    push_bool_field(
+        fields,
+        "exact_reference_fixtures_required",
+        report.exact_reference_fixtures_required,
+    );
+    push_bool_field(
+        fields,
+        "encoded_dictionary_strategy_required",
+        report.encoded_dictionary_strategy_required,
+    );
+    push_bool_field(
+        fields,
+        "encoded_run_length_strategy_required",
+        report.encoded_run_length_strategy_required,
+    );
+    push_bool_field(
+        fields,
+        "selection_vector_strategy_required",
+        report.selection_vector_strategy_required,
+    );
+    push_bool_field(
+        fields,
+        "partial_decode_materialization_boundary_required",
+        report.partial_decode_materialization_boundary_required,
+    );
+    push_bool_field(
+        fields,
+        "correctness_evidence_required",
+        report.correctness_evidence_required,
+    );
+    push_bool_field(
+        fields,
+        "benchmark_evidence_required",
+        report.benchmark_evidence_required,
+    );
+    push_bool_field(
+        fields,
+        "execution_certificate_required",
+        report.execution_certificate_required,
+    );
+    push_bool_field(
+        fields,
+        "native_io_certificate_required",
+        report.native_io_certificate_required,
+    );
+}
+
+fn append_approx_sketch_status_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &ApproxSketchFunctionGateReport,
 ) {
     push_bool_field(
         fields,
@@ -21678,6 +21915,35 @@ fn run(args: Vec<String>) -> ExitCode {
                 report.to_human_text(),
                 report.diagnostics.clone(),
                 user_capability_promotion_gate_fields(&report),
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
+        Some("cg20-approx-sketch-gate") => {
+            if let Some(extra) = args.next() {
+                return emit_error(
+                    "cg20-approx-sketch-gate",
+                    format,
+                    "CG-20 approximate sketch gate failed",
+                    &cli_unknown_arg_error("cg20-approx-sketch-gate", &extra),
+                );
+            }
+            let report = plan_approx_sketch_function_gate();
+            emit(
+                "cg20-approx-sketch-gate",
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "CG-20 approximate sketch function gate".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                approx_sketch_function_gate_fields(&report),
             );
             if report.has_errors() {
                 ExitCode::from(1)

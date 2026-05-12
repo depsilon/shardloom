@@ -333,6 +333,8 @@ Checklist:
   run-length, validity, selection-vector, and partial-decode cases.
 - [x] Link approximate/sketch production certification to CG-5, CG-6, CG-7,
   CG-13, CG-16, and CG-19 evidence.
+- [x] Add `ApproxSketchFunctionGateReport` and `cg20-approx-sketch-gate` so the approximate
+  aggregate lane has a side-effect-free admission surface before runtime implementation.
 - [ ] Implement approximate aggregate function registry entries.
 - [ ] Implement sketch state, merge, serialization, and encoded-aware update
   kernels.
@@ -349,6 +351,9 @@ R5.4.4a outcome:
   expectations only; they are not runtime dependencies or fallback engines.
 - No function registry, sketch implementation, operator kernel, dependency,
   benchmark claim, production certification, or fallback behavior is added.
+- `cg20-approx-sketch-gate` exposes canonical names, aliases, grouped/ungrouped surfaces, sketch
+  state requirements, encoded-aware strategy requirements, exact-reference/benchmark/certificate
+  blockers, and no-fallback invariants without executing a sketch or mutating a function registry.
 
 Acceptance:
 
