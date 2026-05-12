@@ -169,6 +169,13 @@ The evidence/certificate planning family currently contains `correctness-plan`,
 remain report-only and do not run harnesses, read data, emit runtime certificates from execution,
 invoke external engines, or weaken no-fallback behavior.
 
+`shardloom-cli/src/evidence_certificates.rs` now also owns the field construction helpers for the
+correctness plan/harness, execution-certificate surface, Native I/O envelope, universal harness,
+RFC coverage follow-through, world-class sufficiency, CG-20 user capability gate, and CG-20
+approximate sketch gate. The helper move preserves report-only and no-fallback output contracts and
+does not add harness execution, data reads, artifact writes, runtime certificates, external engines,
+or side effects.
+
 The workflow/table planning family now contains `manifest-plan`, `layout-health-plan`,
 `compaction-plan`, `table-intelligence-plan`, `schema-plan`, `table-compat-plan`,
 `cg9-catalog-metadata-gate`, `incremental-plan`, `stateful-reuse-plan`, and
