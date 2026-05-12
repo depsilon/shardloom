@@ -16,6 +16,41 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 engine/runtime planning handler module split
+  - Primary files:
+    - `shardloom-cli/src/engine_runtime_planning.rs`
+    - `shardloom-cli/src/main.rs`
+    - `docs/architecture/typed-command-result-envelope.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/rfcs/0039-typed-command-result-envelope-cli-modularity.md`
+  - Scope: move report-only streaming, streaming-batch, backpressure, runtime/task, sizing,
+    sizing-feedback, dynamic work-shaping, and CG-8 runtime-promotion planning handlers into a
+    focused engine/runtime module.
+  - Checklist:
+    - [x] Add `shardloom-cli/src/engine_runtime_planning.rs`.
+    - [x] Delegate `streaming-plan`, `streaming-batch-plan`, `backpressure-plan`,
+          `runtime-plan`, `task-plan`, `sizing-plan`, `sizing-feedback-plan`,
+          `dynamic-work-shaping-plan`, and `cg8-runtime-promotion-gate` from `main.rs`.
+    - [x] Keep dataset reads, task execution, runtime profile collection, writes,
+          materialization, external engines, and fallback disabled.
+    - [x] Update Priority 3.9 docs and RFC traceability while leaving remaining handler families in
+          the Planned queue.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo check -p shardloom-cli --bin shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test streaming_plan_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test streaming_batch_plan_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test backpressure_plan_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test sizing_feedback_plan_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test dynamic_work_shaping_plan_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test cg8_runtime_promotion_gate`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo clippy -p shardloom-cli --bin shardloom -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `git diff --check`
+  - Runtime stance: handler-placement refactor only; no dataset read, task execution, runtime
+    profile collection, write, materialization, external engine invocation, network effect,
+    credential resolution, secret loading, runtime expansion, or fallback execution changes.
+
 - [x] Session label: Priority 3.9 workflow/table planning handler module split
   - Primary files:
     - `shardloom-cli/src/workflow_planning.rs`

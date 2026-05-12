@@ -120,6 +120,13 @@ The workflow/table planning family now contains `manifest-plan`, `layout-health-
 datasets, probe catalogs, execute plans, write data, materialize outputs, invoke external engines,
 or weaken no-fallback behavior.
 
+The engine/runtime planning family now contains `streaming-plan`, `streaming-batch-plan`,
+`backpressure-plan`, `runtime-plan`, `task-plan`, `sizing-plan`, `sizing-feedback-plan`,
+`dynamic-work-shaping-plan`, and `cg8-runtime-promotion-gate`, and lives in
+`shardloom-cli/src/engine_runtime_planning.rs`. These handlers remain report-only and do not read
+datasets, execute tasks, collect profiles, write data, materialize outputs, invoke external engines,
+or weaken no-fallback behavior.
+
 Command family classification lives in `shardloom-cli/src/command_family.rs` and is emitted in the
 typed lifecycle payload as `command_family`. This gives status/capabilities, Vortex primitive,
 prepared/source-backed, evidence/certificate, benchmark, packaging/deployment, Foundry,
