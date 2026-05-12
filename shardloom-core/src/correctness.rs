@@ -358,6 +358,53 @@ impl FuzzSeed {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExternalOracleArtifactStatus {
+    DeclaredNotExecuted,
+}
+impl ExternalOracleArtifactStatus {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::DeclaredNotExecuted => "declared_not_executed",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExternalOracleResultArtifact {
+    pub artifact_id: String,
+    pub fixture_id: String,
+    pub engine: BaselineEngine,
+    pub status: ExternalOracleArtifactStatus,
+    pub semantic_profile: String,
+    pub materialization_boundary: String,
+    pub comparison_only: bool,
+    pub external_engine_invoked: bool,
+    pub fallback_attempted: bool,
+}
+impl ExternalOracleResultArtifact {
+    pub fn declared_not_executed(fixture_id: impl Into<String>, engine: BaselineEngine) -> Self {
+        let fixture_id = fixture_id.into();
+        Self {
+            artifact_id: format!(
+                "{fixture_id}.external-oracle.{}.declared-result",
+                engine.as_str()
+            ),
+            fixture_id,
+            engine,
+            status: ExternalOracleArtifactStatus::DeclaredNotExecuted,
+            semantic_profile: "shardloom_native_external_oracle_reference".to_string(),
+            materialization_boundary: "declared_external_oracle_result_artifact_slot".to_string(),
+            comparison_only: true,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+    pub const fn is_test_only(&self) -> bool {
+        self.comparison_only && !self.external_engine_invoked && !self.fallback_attempted
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct CorrectnessFixture {
     pub id: FixtureId,
@@ -623,7 +670,8 @@ fn edge_case_executable_fixture(
     };
     let mut fixture =
         CorrectnessFixture::new(FixtureId::new(id).expect("valid"), FixtureFormat::Generated)
-            .with_expected(expected);
+            .with_expected(expected)
+            .with_source_ref("docs/fixtures/correctness/source-backed-edge-fixtures.json");
     fixture.add_semantic_area(primary_area);
     for edge_case in edge_cases {
         fixture.add_edge_case(*edge_case);
@@ -790,6 +838,7 @@ pub struct CorrectnessValidationPlan {
     pub status: CorrectnessPlanStatus,
     pub fixtures: Vec<CorrectnessFixture>,
     pub baselines: Vec<DifferentialBaseline>,
+    pub external_oracle_result_artifacts: Vec<ExternalOracleResultArtifact>,
     pub diagnostic_expectations: Vec<DiagnosticExpectation>,
     pub fuzz_seeds: Vec<FuzzSeed>,
     pub diagnostics: Vec<Diagnostic>,
@@ -808,6 +857,7 @@ impl CorrectnessValidationPlan {
             status: CorrectnessPlanStatus::Planned,
             fixtures: vec![],
             baselines: vec![],
+            external_oracle_result_artifacts: vec![],
             diagnostic_expectations: vec![],
             fuzz_seeds: vec![],
             diagnostics: vec![],
@@ -908,6 +958,7 @@ impl CorrectnessValidationPlan {
         for baseline in default_external_oracle_baselines() {
             plan.add_baseline(baseline);
         }
+        plan.add_source_backed_edge_external_oracle_artifacts();
         plan
     }
     pub fn add_fixture(&mut self, fixture: CorrectnessFixture) {
@@ -915,6 +966,33 @@ impl CorrectnessValidationPlan {
     }
     pub fn add_baseline(&mut self, baseline: DifferentialBaseline) {
         self.baselines.push(baseline);
+    }
+    pub fn add_external_oracle_result_artifact(&mut self, artifact: ExternalOracleResultArtifact) {
+        self.external_oracle_result_artifacts.push(artifact);
+    }
+    fn add_source_backed_edge_external_oracle_artifacts(&mut self) {
+        let source_backed_edge_fixture_ids = self
+            .fixtures
+            .iter()
+            .filter(|fixture| fixture.id.as_str().starts_with("vortex-edge-"))
+            .filter(|fixture| fixture.source_ref.is_some())
+            .map(|fixture| fixture.id.as_str().to_string())
+            .collect::<Vec<_>>();
+        let engines = self
+            .baselines
+            .iter()
+            .map(|baseline| baseline.engine)
+            .collect::<Vec<_>>();
+        for fixture_id in source_backed_edge_fixture_ids {
+            for engine in &engines {
+                self.add_external_oracle_result_artifact(
+                    ExternalOracleResultArtifact::declared_not_executed(
+                        fixture_id.clone(),
+                        *engine,
+                    ),
+                );
+            }
+        }
     }
     pub fn add_diagnostic_expectation(&mut self, expectation: DiagnosticExpectation) {
         self.diagnostic_expectations.push(expectation);
@@ -987,6 +1065,21 @@ impl CorrectnessValidationPlan {
             .iter()
             .filter(|fixture| fixture.source_ref.is_some())
             .count()
+    }
+    pub fn source_backed_edge_fixture_count(&self) -> usize {
+        self.fixtures
+            .iter()
+            .filter(|fixture| fixture.id.as_str().starts_with("vortex-edge-"))
+            .filter(|fixture| fixture.source_ref.is_some())
+            .count()
+    }
+    pub fn source_backed_edge_fixture_id_order(&self) -> Vec<&str> {
+        self.fixtures
+            .iter()
+            .filter(|fixture| fixture.id.as_str().starts_with("vortex-edge-"))
+            .filter(|fixture| fixture.source_ref.is_some())
+            .map(|fixture| fixture.id.as_str())
+            .collect()
     }
     pub fn golden_fixture_count(&self) -> usize {
         self.fixtures
@@ -1106,9 +1199,34 @@ impl CorrectnessValidationPlan {
                 .baselines
                 .iter()
                 .all(|baseline| !baseline.role.is_production_execution())
+            && self.external_oracle_artifacts_are_test_only()
     }
     pub fn baseline_count(&self) -> usize {
         self.baselines.len()
+    }
+    pub fn external_oracle_result_artifact_count(&self) -> usize {
+        self.external_oracle_result_artifacts.len()
+    }
+    pub fn external_oracle_result_artifact_id_order(&self) -> Vec<&str> {
+        self.external_oracle_result_artifacts
+            .iter()
+            .map(|artifact| artifact.artifact_id.as_str())
+            .collect()
+    }
+    pub fn external_oracle_result_artifact_status_order(&self) -> Vec<&'static str> {
+        let mut statuses = Vec::new();
+        for artifact in &self.external_oracle_result_artifacts {
+            let label = artifact.status.as_str();
+            if !statuses.contains(&label) {
+                statuses.push(label);
+            }
+        }
+        statuses
+    }
+    pub fn external_oracle_artifacts_are_test_only(&self) -> bool {
+        self.external_oracle_result_artifacts
+            .iter()
+            .all(ExternalOracleResultArtifact::is_test_only)
     }
     pub fn has_baseline(&self, engine: BaselineEngine) -> bool {
         self.baselines
@@ -1171,6 +1289,8 @@ pub struct CorrectnessDifferentialHarnessReport {
     pub status: CorrectnessDifferentialHarnessStatus,
     pub fixture_count: usize,
     pub fixtures_with_source_ref_count: usize,
+    pub source_backed_edge_fixture_count: usize,
+    pub source_backed_edge_fixture_id_order: Vec<String>,
     pub golden_fixture_count: usize,
     pub reference_artifact_count: usize,
     pub decoded_reference_output_count: usize,
@@ -1184,6 +1304,10 @@ pub struct CorrectnessDifferentialHarnessReport {
     pub missing_required_edge_cases: Vec<String>,
     pub baseline_count: usize,
     pub baseline_engine_order: Vec<String>,
+    pub external_oracle_result_artifact_count: usize,
+    pub external_oracle_result_artifact_id_order: Vec<String>,
+    pub external_oracle_result_artifact_status_order: Vec<String>,
+    pub external_oracle_artifacts_test_only: bool,
     pub reference_role_order: Vec<String>,
     pub generated_property_fixture_count: usize,
     pub fuzz_seed_count: usize,
@@ -1213,8 +1337,10 @@ impl CorrectnessDifferentialHarnessReport {
         vec![
             "fixture_manifest",
             "golden_fixtures",
+            "source_backed_edge_fixtures",
             "decoded_reference_outputs",
             "differential_oracles",
+            "external_oracle_result_artifacts",
             "semantic_edge_cases",
             "unsupported_diagnostics",
             "property_fuzzing",
@@ -1291,6 +1417,12 @@ pub fn plan_correctness_differential_harness(
     let baselines_fallback_free = plan.baselines_are_fallback_free();
     let fixture_count = plan.fixture_count();
     let fixtures_with_source_ref_count = plan.fixtures_with_source_ref_count();
+    let source_backed_edge_fixture_count = plan.source_backed_edge_fixture_count();
+    let source_backed_edge_fixture_id_order = plan
+        .source_backed_edge_fixture_id_order()
+        .into_iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>();
     let golden_fixture_count = plan.golden_fixture_count();
     let reference_artifact_count = plan.reference_artifact_count();
     let decoded_reference_output_count = plan.decoded_reference_output_count();
@@ -1318,6 +1450,18 @@ pub fn plan_correctness_differential_harness(
         .into_iter()
         .map(ToString::to_string)
         .collect::<Vec<_>>();
+    let external_oracle_result_artifact_count = plan.external_oracle_result_artifact_count();
+    let external_oracle_result_artifact_id_order = plan
+        .external_oracle_result_artifact_id_order()
+        .into_iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>();
+    let external_oracle_result_artifact_status_order = plan
+        .external_oracle_result_artifact_status_order()
+        .into_iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>();
+    let external_oracle_artifacts_test_only = plan.external_oracle_artifacts_are_test_only();
     let reference_role_order = plan
         .reference_role_order()
         .into_iter()
@@ -1329,16 +1473,19 @@ pub fn plan_correctness_differential_harness(
     let blocked_surface_order = correctness_harness_blocked_surfaces(
         fixture_count,
         golden_fixture_count,
+        source_backed_edge_fixture_count,
         decoded_reference_output_coverage_complete,
         unsupported_diagnostic_fixture_count,
         covered_required_edge_case_count,
         required_edge_case_count,
         baseline_count,
+        external_oracle_result_artifact_count,
         generated_property_fixture_count,
         fuzz_seed_count,
         not_yet_defined_fixture_count,
         reference_roles_test_only,
         baselines_fallback_free,
+        external_oracle_artifacts_test_only,
     );
     let blocked_surface_count = blocked_surface_order.len();
     let planned_surface_count =
@@ -1368,6 +1515,8 @@ pub fn plan_correctness_differential_harness(
         status,
         fixture_count,
         fixtures_with_source_ref_count,
+        source_backed_edge_fixture_count,
+        source_backed_edge_fixture_id_order,
         golden_fixture_count,
         reference_artifact_count,
         decoded_reference_output_count,
@@ -1381,6 +1530,10 @@ pub fn plan_correctness_differential_harness(
         missing_required_edge_cases,
         baseline_count,
         baseline_engine_order,
+        external_oracle_result_artifact_count,
+        external_oracle_result_artifact_id_order,
+        external_oracle_result_artifact_status_order,
+        external_oracle_artifacts_test_only,
         reference_role_order,
         generated_property_fixture_count,
         fuzz_seed_count,
@@ -1407,20 +1560,23 @@ pub fn plan_correctness_differential_harness(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::fn_params_excessive_bools, clippy::too_many_arguments)]
 fn correctness_harness_blocked_surfaces(
     fixture_count: usize,
     golden_fixture_count: usize,
+    source_backed_edge_fixture_count: usize,
     decoded_reference_output_coverage_complete: bool,
     unsupported_diagnostic_fixture_count: usize,
     covered_required_edge_case_count: usize,
     required_edge_case_count: usize,
     baseline_count: usize,
+    external_oracle_result_artifact_count: usize,
     generated_property_fixture_count: usize,
     fuzz_seed_count: usize,
     not_yet_defined_fixture_count: usize,
     reference_roles_test_only: bool,
     baselines_fallback_free: bool,
+    external_oracle_artifacts_test_only: bool,
 ) -> Vec<String> {
     let mut blocked = Vec::new();
     if fixture_count == 0 {
@@ -1429,11 +1585,17 @@ fn correctness_harness_blocked_surfaces(
     if golden_fixture_count == 0 {
         blocked.push("golden_fixtures".to_string());
     }
+    if source_backed_edge_fixture_count == 0 {
+        blocked.push("source_backed_edge_fixtures".to_string());
+    }
     if !decoded_reference_output_coverage_complete {
         blocked.push("decoded_reference_outputs".to_string());
     }
     if baseline_count == 0 || !baselines_fallback_free {
         blocked.push("differential_oracles".to_string());
+    }
+    if external_oracle_result_artifact_count == 0 || !external_oracle_artifacts_test_only {
+        blocked.push("external_oracle_result_artifacts".to_string());
     }
     if covered_required_edge_case_count < required_edge_case_count {
         blocked.push("semantic_edge_cases".to_string());
@@ -1446,10 +1608,12 @@ fn correctness_harness_blocked_surfaces(
     }
     if not_yet_defined_fixture_count > 0
         || !decoded_reference_output_coverage_complete
+        || external_oracle_result_artifact_count == 0
         || generated_property_fixture_count == 0
         || fuzz_seed_count == 0
         || !reference_roles_test_only
         || !baselines_fallback_free
+        || !external_oracle_artifacts_test_only
     {
         blocked.push("benchmark_claim_gate".to_string());
     }
@@ -1701,7 +1865,8 @@ mod tests {
         let plan = CorrectnessValidationPlan::default_foundation_plan();
 
         assert_eq!(plan.fixture_count(), 34);
-        assert_eq!(plan.fixtures_with_source_ref_count(), 7);
+        assert_eq!(plan.fixtures_with_source_ref_count(), 16);
+        assert_eq!(plan.source_backed_edge_fixture_count(), 9);
         assert_eq!(plan.golden_fixture_count(), 19);
         assert_eq!(plan.reference_artifact_count(), 18);
         assert_eq!(plan.decoded_reference_output_count(), 18);
@@ -1711,6 +1876,12 @@ mod tests {
         assert_eq!(plan.diagnostic_expected_output_count(), 1);
         assert_eq!(plan.unsupported_expected_output_count(), 1);
         assert_eq!(plan.baseline_count(), 7);
+        assert_eq!(plan.external_oracle_result_artifact_count(), 63);
+        assert_eq!(
+            plan.external_oracle_result_artifact_status_order(),
+            vec!["declared_not_executed"]
+        );
+        assert!(plan.external_oracle_artifacts_are_test_only());
         assert!(plan.required_foundation_edge_cases_covered());
         assert_eq!(plan.covered_required_foundation_edge_case_count(), 7);
         assert!(plan.missing_required_foundation_edge_cases().is_empty());
@@ -1747,13 +1918,21 @@ mod tests {
         assert_eq!(report.fixture_count, 34);
         assert_eq!(report.golden_fixture_count, 19);
         assert_eq!(report.executable_expected_output_count, 18);
+        assert_eq!(report.fixtures_with_source_ref_count, 16);
+        assert_eq!(report.source_backed_edge_fixture_count, 9);
         assert_eq!(report.reference_artifact_count, 18);
         assert_eq!(report.decoded_reference_output_count, 18);
         assert!(report.decoded_reference_output_coverage_complete);
         assert_eq!(report.generated_property_fixture_count, 3);
         assert_eq!(report.fuzz_seed_count, 3);
         assert_eq!(report.baseline_count, 7);
-        assert_eq!(report.planned_surface_count, 7);
+        assert_eq!(report.external_oracle_result_artifact_count, 63);
+        assert_eq!(
+            report.external_oracle_result_artifact_status_order,
+            vec!["declared_not_executed".to_string()]
+        );
+        assert!(report.external_oracle_artifacts_test_only);
+        assert_eq!(report.planned_surface_count, 9);
         assert_eq!(report.blocked_surface_count, 1);
         assert_eq!(
             report.blocked_surface_order,

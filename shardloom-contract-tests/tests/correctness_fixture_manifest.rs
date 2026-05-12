@@ -1,8 +1,8 @@
 use std::path::Path;
 
 use shardloom_core::{
-    CorrectnessFixture, CorrectnessValidationPlan, EdgeCase, ExpectedOutcome, FixtureFormat,
-    ReferenceRole, SemanticArea,
+    BaselineEngine, CorrectnessFixture, CorrectnessValidationPlan, EdgeCase, ExpectedOutcome,
+    ExternalOracleArtifactStatus, FixtureFormat, ReferenceRole, SemanticArea,
 };
 
 fn fixture<'a>(plan: &'a CorrectnessValidationPlan, id: &str) -> &'a CorrectnessFixture {
@@ -266,7 +266,15 @@ fn foundation_plan_declares_edge_case_reference_outputs() {
     for (id, expected, area, edge_case, suffix) in cases {
         let fixture = fixture(&plan, id);
         assert_eq!(fixture.format, FixtureFormat::Generated);
-        assert_eq!(fixture.source_ref, None);
+        assert_eq!(
+            fixture.source_ref.as_deref(),
+            Some("docs/fixtures/correctness/source-backed-edge-fixtures.json")
+        );
+        let workspace_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("workspace root");
+        let fixture_path = workspace_root.join(fixture.source_ref.as_ref().expect("source ref"));
+        assert!(fixture_path.is_file(), "{fixture_path:?}");
         assert_eq!(fixture.expected, expected);
         assert!(fixture.expected.requires_execution());
         assert!(fixture.covers_area(area));
@@ -404,7 +412,22 @@ fn foundation_plan_reports_reference_and_gap_counts() {
     let plan = CorrectnessValidationPlan::default_foundation_plan();
 
     assert_eq!(plan.fixture_count(), 34);
-    assert_eq!(plan.fixtures_with_source_ref_count(), 7);
+    assert_eq!(plan.fixtures_with_source_ref_count(), 16);
+    assert_eq!(plan.source_backed_edge_fixture_count(), 9);
+    assert_eq!(
+        plan.source_backed_edge_fixture_id_order(),
+        vec![
+            "vortex-edge-count-all-empty-input",
+            "vortex-edge-project-single-row",
+            "vortex-edge-filter-all-null",
+            "vortex-edge-filter-mixed-null-sparse",
+            "vortex-edge-filter-duplicate-low-cardinality",
+            "vortex-edge-project-high-cardinality",
+            "vortex-edge-filter-project-sorted-dictionary",
+            "vortex-edge-filter-project-unsorted-rle",
+            "vortex-edge-filter-temporal-values",
+        ]
+    );
     assert_eq!(plan.golden_fixture_count(), 19);
     assert_eq!(plan.reference_artifact_count(), 18);
     assert_eq!(plan.decoded_reference_output_count(), 18);
@@ -437,5 +460,46 @@ fn foundation_plan_reports_reference_and_gap_counts() {
     assert_eq!(plan.diagnostic_expected_output_count(), 1);
     assert_eq!(plan.unsupported_expected_output_count(), 1);
     assert_eq!(plan.baseline_count(), 7);
+    assert_eq!(plan.external_oracle_result_artifact_count(), 63);
+    assert_eq!(
+        plan.external_oracle_result_artifact_status_order(),
+        vec!["declared_not_executed"]
+    );
+    assert!(plan.external_oracle_artifacts_are_test_only());
     assert!(plan.baselines_are_fallback_free());
+}
+
+#[test]
+fn foundation_plan_declares_external_oracle_result_artifact_slots_without_execution() {
+    let plan = CorrectnessValidationPlan::default_foundation_plan();
+
+    assert_eq!(plan.external_oracle_result_artifact_count(), 63);
+    let first = &plan.external_oracle_result_artifacts[0];
+    assert_eq!(
+        first.artifact_id,
+        "vortex-edge-count-all-empty-input.external-oracle.spark.declared-result"
+    );
+    assert_eq!(first.fixture_id, "vortex-edge-count-all-empty-input");
+    assert_eq!(first.engine, BaselineEngine::Spark);
+    assert_eq!(
+        first.status,
+        ExternalOracleArtifactStatus::DeclaredNotExecuted
+    );
+    assert_eq!(
+        first.semantic_profile,
+        "shardloom_native_external_oracle_reference"
+    );
+    assert_eq!(
+        first.materialization_boundary,
+        "declared_external_oracle_result_artifact_slot"
+    );
+    assert!(first.comparison_only);
+    assert!(!first.external_engine_invoked);
+    assert!(!first.fallback_attempted);
+    assert!(first.is_test_only());
+    assert!(
+        plan.external_oracle_result_artifact_id_order()
+            .contains(&"vortex-edge-filter-temporal-values.external-oracle.velox.declared-result")
+    );
+    assert!(plan.external_oracle_artifacts_are_test_only());
 }

@@ -1,0 +1,62 @@
+{
+  "schema_version": "shardloom.correctness.source_backed_edge_fixtures.v1",
+  "purpose": "checked-in source metadata for CG-5 edge fixture families; report-only, not executed by the aggregate harness",
+  "fallback_attempted": false,
+  "external_engine_invoked": false,
+  "fixtures": [
+    {
+      "fixture_id": "vortex-edge-count-all-empty-input",
+      "operation": "count_all",
+      "edge_cases": ["empty_input"],
+      "expected": { "encoded_count": 0 }
+    },
+    {
+      "fixture_id": "vortex-edge-project-single-row",
+      "operation": "project",
+      "edge_cases": ["single_row"],
+      "expected": { "rows": 1 }
+    },
+    {
+      "fixture_id": "vortex-edge-filter-all-null",
+      "operation": "filter",
+      "edge_cases": ["all_null"],
+      "expected": { "rows": 0 }
+    },
+    {
+      "fixture_id": "vortex-edge-filter-mixed-null-sparse",
+      "operation": "filter",
+      "edge_cases": ["mixed_nulls", "sparse_validity"],
+      "expected": { "rows": 2 }
+    },
+    {
+      "fixture_id": "vortex-edge-filter-duplicate-low-cardinality",
+      "operation": "filter",
+      "edge_cases": ["duplicate_values", "low_cardinality"],
+      "expected": { "rows": 4 }
+    },
+    {
+      "fixture_id": "vortex-edge-project-high-cardinality",
+      "operation": "project",
+      "edge_cases": ["high_cardinality"],
+      "expected": { "rows": 1024 }
+    },
+    {
+      "fixture_id": "vortex-edge-filter-project-sorted-dictionary",
+      "operation": "filter_project",
+      "edge_cases": ["sorted_input", "dictionary_encoded"],
+      "expected": { "rows": 3 }
+    },
+    {
+      "fixture_id": "vortex-edge-filter-project-unsorted-rle",
+      "operation": "filter_project",
+      "edge_cases": ["unsorted_input", "run_length_encoded"],
+      "expected": { "rows": 3 }
+    },
+    {
+      "fixture_id": "vortex-edge-filter-temporal-values",
+      "operation": "filter",
+      "edge_cases": ["temporal_values"],
+      "expected": { "rows": 2 }
+    }
+  ]
+}

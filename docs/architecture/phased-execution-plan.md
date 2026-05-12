@@ -95,7 +95,8 @@ Use this section for the next implementation sequence. Keep it ordered by depend
   - [ ] CG-5 fixtures, reference outputs, correctness certificates, and edge-case coverage for each widened primitive path.
     - [x] CG-5.15 generated edge-case executable fixture matrix covers empty, single-row, all-null, mixed-null, duplicate, low/high-cardinality, sorted/unsorted, dictionary, run-length, sparse-validity, and temporal primitive cases with test-only decoded-reference artifacts.
     - [x] CG-5.16 generated property fixture families and reproducible fuzz seeds are present without executing property/fuzz tests.
-    - [ ] Broader source-backed edge fixtures and external-oracle result artifacts remain open before claim-grade correctness closeout.
+    - [x] CG-5.17 source-backed edge fixture manifest coverage and declared external-oracle result artifact slots are present without executing external engines.
+    - [ ] Populated/executed external-oracle results, property/fuzz execution, and remaining `NotYetDefined` fixture families remain open before claim-grade correctness closeout.
   - [ ] CG-6 query-runtime benchmark rows, reproducibility metadata, work-avoidance evidence, and claim-gate blockers for each new primitive path.
   - [ ] CG-16 execution certificates and CG-19 per-path Native I/O certificates for each supported source/sink path.
 - [ ] Priority 2.5 - Vortex upstream alignment and compatibility hardening
@@ -331,18 +332,61 @@ Use this section for the next implementation sequence. Keep it ordered by depend
 
 ## Active
 
-- [x] Session label: Priority 2.5 / 2.6 / 3.7 docs/report hardening
-  - Scope: incorporate shared operational contracts, Vortex upstream alignment, and Vortex-native compute-provider terminology into RFCs, phase plan, terminology, and Vortex inventory docs.
+- [x] Session label: CG-5.17 source-backed edge fixture and external-oracle artifact metadata
+  - Primary files:
+    - `shardloom-core/src/correctness.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/correctness_plan_snapshots.rs`
+    - `shardloom-cli/tests/correctness_harness_plan_snapshots.rs`
+    - `shardloom-contract-tests/tests/correctness_fixture_manifest.rs`
+    - `shardloom-contract-tests/tests/correctness_differential_harness.rs`
+    - `docs/fixtures/correctness/source-backed-edge-fixtures.json`
+    - `docs/architecture/correctness-differential-harness.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: add report-only source-backed fixture manifest coverage and declared external-oracle result artifact slots to the CG-5 aggregate correctness harness.
   - Checklist:
-    - [x] Add planned lanes for Vortex compatibility/alignment, Vortex compute-provider boundaries, and cross-surface operational hardening.
-    - [x] Clarify that ShardLoom is standalone from external query-engine fallback, not isolated from upstream Vortex compute APIs.
-    - [x] Add RFC references for evidence envelopes, execution policy, lifecycle, protocol parity, workload/benchmark constitutions, Vortex compatibility, Scan API alignment, residual boundaries, and provider reports.
-    - [x] Update stale Vortex public API inventory and dependency review headers with current-status snapshots.
-    - [x] Preserve docs/report-only scope: no runtime behavior, dependencies, package publication, benchmark execution, external engine invocation, or fallback execution.
+    - [x] Add a checked-in source-backed edge fixture manifest for the current executable edge-case families.
+    - [x] Attach the edge fixture family source refs to the correctness plan without reading or executing data.
+    - [x] Declare comparison-only external-oracle result artifact slots for Spark, DataFusion, DuckDB, Polars, pandas, Dask, and Velox across source-backed edge fixtures.
+    - [x] Surface source-backed fixture and external-oracle artifact counts/statuses through `correctness-plan` and `correctness-harness-plan`.
+    - [x] Preserve no execution: no external engines, decoded references, property/fuzz runs, data reads, writes, object-store IO, benchmark reruns, production certification, or fallback execution.
+  - Local validation status:
+    - [x] `RUSTUP_TOOLCHAIN=1.91.1 rustc --version`
+    - [x] `RUSTUP_TOOLCHAIN=1.91.1 cargo fmt --all -- --check`
+    - [x] `RUSTUP_TOOLCHAIN=1.91.1 CARGO_TARGET_DIR=target-codex-cg5-source-oracle-full cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `RUSTUP_TOOLCHAIN=1.91.1 CARGO_TARGET_DIR=target-codex-cg5-source-oracle-full cargo test --workspace --all-targets`
+  - Explicitly not included: external oracle execution, property/fuzz execution, decoded-reference execution, data reads, reader/adapters, non-local/object-store sources, SQL/DataFrame/Python runtime expansion, writes, spill, benchmark reruns, production certification, superiority claims, or fallback execution.
 
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 2.5 / 2.6 / 3.7 docs/report hardening
+  - Primary files:
+    - `README.md`
+    - `AGENTS.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/canonical-terminology.md`
+    - `docs/architecture/systems-learning-map.md`
+    - `docs/architecture/operational-evidence-policy-hardening.md`
+    - `docs/architecture/vortex-upstream-alignment-hardening.md`
+    - `docs/architecture/vortex-public-api-inventory.md`
+    - `docs/dependencies/vortex-upstream-review.md`
+    - `docs/rfcs/0031-universal-native-io-envelope.md`
+    - `docs/rfcs/0032-world-class-sql-operators-functions-adapters-user-capability.md`
+    - `docs/rfcs/0033-user-data-workflow-etl-surface.md`
+    - `docs/rfcs/0034-three-engine-certified-data-execution-fabric.md`
+    - `docs/rfcs/0035-rest-event-remote-api-surface.md`
+  - Scope: incorporate shared operational contracts, Vortex upstream alignment, and Vortex-native compute-provider terminology into RFCs, phase plan, terminology, and Vortex inventory docs.
+  - Completed:
+    - [x] Added planned lanes for Vortex compatibility/alignment, Vortex compute-provider boundaries, and cross-surface operational hardening.
+    - [x] Clarified that ShardLoom is standalone from external query-engine fallback, not isolated from upstream Vortex compute APIs.
+    - [x] Added RFC references for evidence envelopes, execution policy, lifecycle, protocol parity, workload/benchmark constitutions, Vortex compatibility, Scan API alignment, residual boundaries, and provider reports.
+    - [x] Updated stale Vortex public API inventory and dependency review headers with current-status snapshots.
+    - [x] Preserved docs/report-only scope: no runtime behavior, dependencies, package publication, benchmark execution, external engine invocation, or fallback execution.
+  - Explicitly not included: runtime behavior, dependencies, package publication, benchmark execution, HTTP server implementation, SQL/DataFrame/adapters/UDF runtime, external engine invocation, superiority claims, or fallback execution.
 - [x] Session label: CG-5.16 generated property/fuzz fixture metadata
   - Primary files:
     - `shardloom-core/src/correctness.rs`
@@ -2466,11 +2510,13 @@ Status legend:
   - [x] CG-5.14 complete decoded-reference artifact coverage for current executable fixture families
   - [x] CG-5.15 generated edge-case executable fixture matrix with decoded-reference artifact metadata
   - [x] CG-5.16 generated property fixture families and reproducible fuzz seeds
+  - [x] CG-5.17 source-backed edge fixture manifest and declared external-oracle result artifact slots
   - Expected evidence:
     - golden Vortex fixtures
     - decoded reference outputs for future executable fixture families as they are added
     - null/nested/dictionary/sparse/run-length/temporal edge-case coverage
     - external engine baselines used only as correctness oracles (never runtime fallback)
+    - populated external-oracle result artifacts before claim-grade correctness closeout
     - property/fuzz fixtures and reproducible seeds before broad encoded execution claims
 
 - [ ] CG-6 — Benchmarks (**planned**)
@@ -2893,9 +2939,10 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-5.14 complete decoded-reference artifact coverage for current executable fixture families
 - [x] CG-5.15 generated edge-case executable fixture matrix covers current widened primitive edge cases without execution
 - [x] CG-5.16 generated property fixture families and reproducible fuzz seeds are present without execution
+- [x] CG-5.17 source-backed edge fixture manifest and declared external-oracle result artifact slots are present without execution
 - [~] decoded-reference output artifacts for future executable fixture families as they are added
 - [~] property/fuzz execution remains deferred; fixture families and reproducible seeds are present
-- [~] external-oracle result artifacts remain deferred; engines are policy-only baselines until explicit benchmark/correctness runs
+- [~] populated/executed external-oracle result artifacts remain deferred; declared slots are present for current source-backed edge fixtures
 
 #### CG-6 detailed checklist
 - [x] CG-6.1 benchmark evidence manifest
