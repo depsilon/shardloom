@@ -1,0 +1,845 @@
+use std::{collections::BTreeSet, fmt::Write as _};
+
+use shardloom_core::{
+    ColumnRef, DatasetUri, Diagnostic, DiagnosticCode, DiagnosticSeverity, PredicateExpr, Result,
+    ShardLoomError, UniversalInputSource,
+};
+
+use crate::{
+    VortexEncodedValuePredicateBatch, VortexGeneralizedEncodedFilterExecutionReport,
+    VortexGeneralizedEncodedFilterExecutionStatus,
+    VortexGeneralizedEncodedProjectionExecutionReport,
+    VortexGeneralizedEncodedProjectionExecutionStatus, VortexPreparedEncodedProjectionColumn,
+    VortexSelectionVectorFilterKernelReport,
+    execute_vortex_generalized_filter_from_encoded_value_batches,
+    execute_vortex_generalized_projection_from_encoded_projection_batches,
+};
+
+const FILTER_SCHEMA_VERSION: &str = "shardloom.vortex_source_backed_encoded_filter_execution.v1";
+const FILTER_REPORT_ID: &str = "vortex.cg2.source-backed-filter.prepared-encoded-values";
+const FILTER_EXECUTION_KIND: &str = "vortex.source_backed_prepared_encoded_filter";
+
+const PROJECTION_SCHEMA_VERSION: &str =
+    "shardloom.vortex_source_backed_encoded_projection_execution.v1";
+const PROJECTION_REPORT_ID: &str = "vortex.cg2.source-backed-projection.prepared-encoded-columns";
+const PROJECTION_EXECUTION_KIND: &str = "vortex.source_backed_prepared_encoded_projection";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexSourceBackedEncodedExecutionStatus {
+    ExecutedSourceBackedPreparedEncodedBatches,
+    BlockedNonNativeSource,
+    BlockedMissingSourceUri,
+    BlockedSourceBatchMismatch,
+    BlockedMissingSplitRef,
+    BlockedPreparedExecution,
+}
+
+impl VortexSourceBackedEncodedExecutionStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::ExecutedSourceBackedPreparedEncodedBatches => {
+                "executed_source_backed_prepared_encoded_batches"
+            }
+            Self::BlockedNonNativeSource => "blocked_non_native_source",
+            Self::BlockedMissingSourceUri => "blocked_missing_source_uri",
+            Self::BlockedSourceBatchMismatch => "blocked_source_batch_mismatch",
+            Self::BlockedMissingSplitRef => "blocked_missing_split_ref",
+            Self::BlockedPreparedExecution => "blocked_prepared_execution",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_error(self) -> bool {
+        !matches!(self, Self::ExecutedSourceBackedPreparedEncodedBatches)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct VortexSourceBackedEncodedValuePredicateBatch {
+    pub source_uri: DatasetUri,
+    pub split_ref: String,
+    pub batch: VortexEncodedValuePredicateBatch,
+}
+
+impl VortexSourceBackedEncodedValuePredicateBatch {
+    /// # Errors
+    /// Returns an error when `split_ref` is empty or whitespace only.
+    pub fn new(
+        source_uri: DatasetUri,
+        split_ref: impl Into<String>,
+        batch: VortexEncodedValuePredicateBatch,
+    ) -> Result<Self> {
+        let split_ref = validated_split_ref(split_ref)?;
+        Ok(Self {
+            source_uri,
+            split_ref,
+            batch,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct VortexSourceBackedEncodedProjectionColumn {
+    pub source_uri: DatasetUri,
+    pub split_ref: String,
+    pub column: VortexPreparedEncodedProjectionColumn,
+}
+
+impl VortexSourceBackedEncodedProjectionColumn {
+    /// # Errors
+    /// Returns an error when `split_ref` is empty or whitespace only.
+    pub fn new(
+        source_uri: DatasetUri,
+        split_ref: impl Into<String>,
+        column: VortexPreparedEncodedProjectionColumn,
+    ) -> Result<Self> {
+        let split_ref = validated_split_ref(split_ref)?;
+        Ok(Self {
+            source_uri,
+            split_ref,
+            column,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexSourceBackedEncodedFilterExecutionReport {
+    pub schema_version: &'static str,
+    pub report_id: String,
+    pub execution_kind: &'static str,
+    pub source_summary: String,
+    pub source_uri: Option<DatasetUri>,
+    pub status: VortexSourceBackedEncodedExecutionStatus,
+    pub split_count: usize,
+    pub source_batch_count: usize,
+    pub source_uri_matches_batches: bool,
+    pub prepared_execution: VortexGeneralizedEncodedFilterExecutionReport,
+    pub runtime_execution_allowed: bool,
+    pub source_backed_batches_consumed: bool,
+    pub selection_vector_guaranteed: bool,
+    pub correctness_certified: bool,
+    pub production_claim_allowed: bool,
+    pub data_read: bool,
+    pub data_decoded: bool,
+    pub data_materialized: bool,
+    pub row_read: bool,
+    pub arrow_converted: bool,
+    pub object_store_io: bool,
+    pub write_io: bool,
+    pub spill_io_performed: bool,
+    pub external_effects_executed: bool,
+    pub fallback_execution_allowed: bool,
+    pub fallback_attempted: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl VortexSourceBackedEncodedFilterExecutionReport {
+    fn from_parts(
+        source: &UniversalInputSource,
+        validation: SourceBackedValidation,
+        prepared_execution: VortexGeneralizedEncodedFilterExecutionReport,
+    ) -> Self {
+        let mut diagnostics = validation.diagnostics;
+        diagnostics.extend(prepared_execution.diagnostics.clone());
+        let status = validation.status.unwrap_or_else(|| {
+            if prepared_execution.status
+                == VortexGeneralizedEncodedFilterExecutionStatus::ExecutedPreparedEncodedValues
+                && prepared_execution.runtime_execution_allowed
+                && !prepared_execution.has_errors()
+            {
+                VortexSourceBackedEncodedExecutionStatus::ExecutedSourceBackedPreparedEncodedBatches
+            } else {
+                VortexSourceBackedEncodedExecutionStatus::BlockedPreparedExecution
+            }
+        });
+        let runtime_execution_allowed = status
+            == VortexSourceBackedEncodedExecutionStatus::ExecutedSourceBackedPreparedEncodedBatches;
+        Self {
+            schema_version: FILTER_SCHEMA_VERSION,
+            report_id: FILTER_REPORT_ID.to_string(),
+            execution_kind: FILTER_EXECUTION_KIND,
+            source_summary: source.summary(),
+            source_uri: source.uri.clone(),
+            status,
+            split_count: validation.split_count,
+            source_batch_count: validation.source_batch_count,
+            source_uri_matches_batches: validation.source_uri_matches_batches,
+            runtime_execution_allowed,
+            source_backed_batches_consumed: runtime_execution_allowed,
+            selection_vector_guaranteed: runtime_execution_allowed,
+            correctness_certified: runtime_execution_allowed
+                && prepared_execution.correctness_certified,
+            production_claim_allowed: false,
+            data_read: prepared_execution.data_read,
+            data_decoded: prepared_execution.data_decoded,
+            data_materialized: prepared_execution.data_materialized,
+            row_read: prepared_execution.row_read,
+            arrow_converted: prepared_execution.arrow_converted,
+            object_store_io: prepared_execution.object_store_io,
+            write_io: prepared_execution.write_io,
+            spill_io_performed: prepared_execution.spill_io_performed,
+            external_effects_executed: prepared_execution.external_effects_executed,
+            fallback_execution_allowed: prepared_execution.fallback_execution_allowed,
+            fallback_attempted: prepared_execution.fallback_attempted
+                || diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.fallback.attempted),
+            prepared_execution,
+            diagnostics,
+        }
+    }
+
+    #[must_use]
+    pub const fn avoids_unsafe_effects(&self) -> bool {
+        !self.data_read
+            && !self.data_decoded
+            && !self.data_materialized
+            && !self.row_read
+            && !self.arrow_converted
+            && !self.object_store_io
+            && !self.write_io
+            && !self.spill_io_performed
+            && !self.external_effects_executed
+            && !self.fallback_execution_allowed
+            && !self.fallback_attempted
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.status.is_error()
+            || self.production_claim_allowed
+            || self.fallback_attempted
+            || self.fallback_execution_allowed
+            || self.prepared_execution.has_errors()
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        let mut out = String::new();
+        let _ = writeln!(&mut out, "Vortex source-backed encoded filter execution");
+        let _ = writeln!(&mut out, "schema_version: {}", self.schema_version);
+        let _ = writeln!(&mut out, "report: {}", self.report_id);
+        let _ = writeln!(&mut out, "execution kind: {}", self.execution_kind);
+        let _ = writeln!(&mut out, "source: {}", self.source_summary);
+        let _ = writeln!(
+            &mut out,
+            "source uri: {}",
+            self.source_uri.as_ref().map_or("none", DatasetUri::as_str)
+        );
+        let _ = writeln!(&mut out, "status: {}", self.status.as_str());
+        let _ = writeln!(&mut out, "split count: {}", self.split_count);
+        let _ = writeln!(&mut out, "source batches: {}", self.source_batch_count);
+        let _ = writeln!(
+            &mut out,
+            "runtime execution allowed: {}",
+            self.runtime_execution_allowed
+        );
+        let _ = writeln!(
+            &mut out,
+            "selection vector guaranteed: {}",
+            self.selection_vector_guaranteed
+        );
+        let _ = writeln!(
+            &mut out,
+            "correctness certified: {}",
+            self.correctness_certified
+        );
+        let _ = writeln!(&mut out, "fallback execution allowed: false");
+        out
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexSourceBackedEncodedProjectionExecutionReport {
+    pub schema_version: &'static str,
+    pub report_id: String,
+    pub execution_kind: &'static str,
+    pub source_summary: String,
+    pub source_uri: Option<DatasetUri>,
+    pub status: VortexSourceBackedEncodedExecutionStatus,
+    pub split_count: usize,
+    pub source_batch_count: usize,
+    pub source_uri_matches_batches: bool,
+    pub prepared_execution: VortexGeneralizedEncodedProjectionExecutionReport,
+    pub runtime_execution_allowed: bool,
+    pub source_backed_batches_consumed: bool,
+    pub encoded_projection_guaranteed: bool,
+    pub selection_vector_preserved: bool,
+    pub correctness_certified: bool,
+    pub production_claim_allowed: bool,
+    pub data_read: bool,
+    pub data_decoded: bool,
+    pub data_materialized: bool,
+    pub row_read: bool,
+    pub arrow_converted: bool,
+    pub object_store_io: bool,
+    pub write_io: bool,
+    pub spill_io_performed: bool,
+    pub external_effects_executed: bool,
+    pub fallback_execution_allowed: bool,
+    pub fallback_attempted: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl VortexSourceBackedEncodedProjectionExecutionReport {
+    fn from_parts(
+        source: &UniversalInputSource,
+        validation: SourceBackedValidation,
+        prepared_execution: VortexGeneralizedEncodedProjectionExecutionReport,
+    ) -> Self {
+        let mut diagnostics = validation.diagnostics;
+        diagnostics.extend(prepared_execution.diagnostics.clone());
+        let status = validation.status.unwrap_or_else(|| {
+            if prepared_execution.status
+                == VortexGeneralizedEncodedProjectionExecutionStatus::ExecutedPreparedEncodedProjection
+                && prepared_execution.runtime_execution_allowed
+                && !prepared_execution.has_errors()
+            {
+                VortexSourceBackedEncodedExecutionStatus::ExecutedSourceBackedPreparedEncodedBatches
+            } else {
+                VortexSourceBackedEncodedExecutionStatus::BlockedPreparedExecution
+            }
+        });
+        let runtime_execution_allowed = status
+            == VortexSourceBackedEncodedExecutionStatus::ExecutedSourceBackedPreparedEncodedBatches;
+        Self {
+            schema_version: PROJECTION_SCHEMA_VERSION,
+            report_id: PROJECTION_REPORT_ID.to_string(),
+            execution_kind: PROJECTION_EXECUTION_KIND,
+            source_summary: source.summary(),
+            source_uri: source.uri.clone(),
+            status,
+            split_count: validation.split_count,
+            source_batch_count: validation.source_batch_count,
+            source_uri_matches_batches: validation.source_uri_matches_batches,
+            runtime_execution_allowed,
+            source_backed_batches_consumed: runtime_execution_allowed,
+            encoded_projection_guaranteed: runtime_execution_allowed,
+            selection_vector_preserved: runtime_execution_allowed
+                && prepared_execution.selection_vector_preserved,
+            correctness_certified: runtime_execution_allowed
+                && prepared_execution.correctness_certified,
+            production_claim_allowed: false,
+            data_read: prepared_execution.data_read,
+            data_decoded: prepared_execution.data_decoded,
+            data_materialized: prepared_execution.data_materialized,
+            row_read: prepared_execution.row_read,
+            arrow_converted: prepared_execution.arrow_converted,
+            object_store_io: prepared_execution.object_store_io,
+            write_io: prepared_execution.write_io,
+            spill_io_performed: prepared_execution.spill_io_performed,
+            external_effects_executed: prepared_execution.external_effects_executed,
+            fallback_execution_allowed: prepared_execution.fallback_execution_allowed,
+            fallback_attempted: prepared_execution.fallback_attempted
+                || diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.fallback.attempted),
+            prepared_execution,
+            diagnostics,
+        }
+    }
+
+    #[must_use]
+    pub const fn avoids_unsafe_effects(&self) -> bool {
+        !self.data_read
+            && !self.data_decoded
+            && !self.data_materialized
+            && !self.row_read
+            && !self.arrow_converted
+            && !self.object_store_io
+            && !self.write_io
+            && !self.spill_io_performed
+            && !self.external_effects_executed
+            && !self.fallback_execution_allowed
+            && !self.fallback_attempted
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.status.is_error()
+            || self.production_claim_allowed
+            || self.fallback_attempted
+            || self.fallback_execution_allowed
+            || self.prepared_execution.has_errors()
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        let mut out = String::new();
+        let _ = writeln!(
+            &mut out,
+            "Vortex source-backed encoded projection execution"
+        );
+        let _ = writeln!(&mut out, "schema_version: {}", self.schema_version);
+        let _ = writeln!(&mut out, "report: {}", self.report_id);
+        let _ = writeln!(&mut out, "execution kind: {}", self.execution_kind);
+        let _ = writeln!(&mut out, "source: {}", self.source_summary);
+        let _ = writeln!(
+            &mut out,
+            "source uri: {}",
+            self.source_uri.as_ref().map_or("none", DatasetUri::as_str)
+        );
+        let _ = writeln!(&mut out, "status: {}", self.status.as_str());
+        let _ = writeln!(&mut out, "split count: {}", self.split_count);
+        let _ = writeln!(&mut out, "source batches: {}", self.source_batch_count);
+        let _ = writeln!(
+            &mut out,
+            "runtime execution allowed: {}",
+            self.runtime_execution_allowed
+        );
+        let _ = writeln!(
+            &mut out,
+            "encoded projection guaranteed: {}",
+            self.encoded_projection_guaranteed
+        );
+        let _ = writeln!(
+            &mut out,
+            "correctness certified: {}",
+            self.correctness_certified
+        );
+        let _ = writeln!(&mut out, "fallback execution allowed: false");
+        out
+    }
+}
+
+/// Executes generalized encoded filter evidence over source-bound prepared
+/// encoded-value batches.
+///
+/// This is not broad reader wiring: callers must provide the encoded batches
+/// and source/split refs explicitly. The function verifies the native Vortex
+/// source boundary before delegating to the prepared encoded filter execution
+/// path.
+///
+/// # Errors
+/// Returns an error when the prepared execution path fails to build its
+/// certificate evidence.
+pub fn execute_vortex_source_backed_filter_from_encoded_value_batches(
+    predicate: &PredicateExpr,
+    source: &UniversalInputSource,
+    batches: &[VortexSourceBackedEncodedValuePredicateBatch],
+) -> Result<VortexSourceBackedEncodedFilterExecutionReport> {
+    let validation = validate_source_backed_refs(
+        source,
+        batches
+            .iter()
+            .map(|batch| (&batch.source_uri, batch.split_ref.as_str())),
+    );
+    let prepared_batches = batches
+        .iter()
+        .map(|batch| batch.batch.clone())
+        .collect::<Vec<_>>();
+    let prepared_execution =
+        execute_vortex_generalized_filter_from_encoded_value_batches(predicate, &prepared_batches)?;
+    Ok(VortexSourceBackedEncodedFilterExecutionReport::from_parts(
+        source,
+        validation,
+        prepared_execution,
+    ))
+}
+
+/// Executes generalized encoded projection evidence over source-bound prepared
+/// encoded projection batches.
+///
+/// This verifies the source/split envelope and then delegates to the prepared
+/// encoded projection execution path. It does not open files, read object
+/// stores, decode rows, materialize values, write outputs, or invoke fallback
+/// execution.
+///
+/// # Errors
+/// Returns an error when the prepared execution path fails to build its
+/// certificate evidence.
+pub fn execute_vortex_source_backed_projection_from_encoded_projection_batches(
+    requested_columns: &[ColumnRef],
+    source: &UniversalInputSource,
+    batches: &[VortexSourceBackedEncodedProjectionColumn],
+    filter_kernel: Option<&VortexSelectionVectorFilterKernelReport>,
+) -> Result<VortexSourceBackedEncodedProjectionExecutionReport> {
+    let validation = validate_source_backed_refs(
+        source,
+        batches
+            .iter()
+            .map(|batch| (&batch.source_uri, batch.split_ref.as_str())),
+    );
+    let prepared_batches = batches
+        .iter()
+        .map(|batch| batch.column.clone())
+        .collect::<Vec<_>>();
+    let prepared_execution = execute_vortex_generalized_projection_from_encoded_projection_batches(
+        requested_columns,
+        &prepared_batches,
+        filter_kernel,
+    )?;
+    Ok(
+        VortexSourceBackedEncodedProjectionExecutionReport::from_parts(
+            source,
+            validation,
+            prepared_execution,
+        ),
+    )
+}
+
+#[derive(Debug, Clone)]
+struct SourceBackedValidation {
+    status: Option<VortexSourceBackedEncodedExecutionStatus>,
+    source_batch_count: usize,
+    split_count: usize,
+    source_uri_matches_batches: bool,
+    diagnostics: Vec<Diagnostic>,
+}
+
+fn validate_source_backed_refs<'a>(
+    source: &UniversalInputSource,
+    refs: impl IntoIterator<Item = (&'a DatasetUri, &'a str)>,
+) -> SourceBackedValidation {
+    let refs = refs.into_iter().collect::<Vec<_>>();
+    let mut diagnostics = Vec::new();
+    let mut split_refs = BTreeSet::new();
+    for (_, split_ref) in &refs {
+        split_refs.insert((*split_ref).to_string());
+    }
+    if !source.is_native_vortex() {
+        diagnostics.push(Diagnostic::unsupported(
+            DiagnosticCode::NoFallbackExecution,
+            "vortex_source_backed_encoded_execution",
+            "source-backed encoded execution requires a native Vortex source",
+            Some("Use a Vortex input source; compatibility inputs must pass through explicit compatibility import boundaries before encoded execution.".to_string()),
+        ));
+        return SourceBackedValidation {
+            status: Some(VortexSourceBackedEncodedExecutionStatus::BlockedNonNativeSource),
+            source_batch_count: refs.len(),
+            split_count: split_refs.len(),
+            source_uri_matches_batches: false,
+            diagnostics,
+        };
+    }
+    let Some(source_uri) = &source.uri else {
+        diagnostics.push(Diagnostic::configuration_error(
+            "vortex_source_backed_encoded_execution",
+            "native Vortex source-backed encoded execution requires a source URI",
+            "Provide a DatasetUri for the source before binding prepared encoded batches.",
+        ));
+        return SourceBackedValidation {
+            status: Some(VortexSourceBackedEncodedExecutionStatus::BlockedMissingSourceUri),
+            source_batch_count: refs.len(),
+            split_count: split_refs.len(),
+            source_uri_matches_batches: false,
+            diagnostics,
+        };
+    };
+    if refs
+        .iter()
+        .any(|(_, split_ref)| split_ref.trim().is_empty())
+    {
+        diagnostics.push(Diagnostic::configuration_error(
+            "vortex_source_backed_encoded_execution",
+            "source-backed encoded execution requires non-empty split refs",
+            "Attach a stable split ref to every prepared encoded batch.",
+        ));
+        return SourceBackedValidation {
+            status: Some(VortexSourceBackedEncodedExecutionStatus::BlockedMissingSplitRef),
+            source_batch_count: refs.len(),
+            split_count: split_refs.len(),
+            source_uri_matches_batches: false,
+            diagnostics,
+        };
+    }
+    let source_uri_matches_batches = refs.iter().all(|(batch_uri, _)| *batch_uri == source_uri);
+    if !source_uri_matches_batches {
+        diagnostics.push(Diagnostic::unsupported(
+            DiagnosticCode::NoFallbackExecution,
+            "vortex_source_backed_encoded_execution",
+            "prepared encoded batches must all be bound to the declared source URI",
+            Some("Reject mixed-source encoded batches; execute separate source-backed plans or construct a certified multi-source plan later.".to_string()),
+        ));
+        return SourceBackedValidation {
+            status: Some(VortexSourceBackedEncodedExecutionStatus::BlockedSourceBatchMismatch),
+            source_batch_count: refs.len(),
+            split_count: split_refs.len(),
+            source_uri_matches_batches,
+            diagnostics,
+        };
+    }
+    SourceBackedValidation {
+        status: None,
+        source_batch_count: refs.len(),
+        split_count: split_refs.len(),
+        source_uri_matches_batches,
+        diagnostics,
+    }
+}
+
+fn validated_split_ref(split_ref: impl Into<String>) -> Result<String> {
+    let split_ref = split_ref.into();
+    if split_ref.trim().is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "source-backed encoded batch split ref must not be empty".to_string(),
+        ));
+    }
+    Ok(split_ref)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use shardloom_core::{
+        ComparisonOp, EncodedSegment, EncodedValueBatch, EncodedValueRun, EncodingKind, LayoutKind,
+        LogicalDType, Nullability, SegmentId, SegmentLayout, SegmentStats, StatValue,
+    };
+
+    fn source(uri: &str) -> UniversalInputSource {
+        UniversalInputSource::from_dataset_uri(DatasetUri::new(uri).expect("uri")).expect("source")
+    }
+
+    fn column_ref(name: &str) -> ColumnRef {
+        ColumnRef::new(name).expect("column")
+    }
+
+    fn segment(column: &str, id: &str, row_count: u64, encoding: EncodingKind) -> EncodedSegment {
+        EncodedSegment::new(
+            SegmentId::new(id).expect("segment"),
+            column_ref(column),
+            LogicalDType::Int64,
+            Nullability::Nullable,
+            SegmentLayout::new(encoding, LayoutKind::Flat),
+            SegmentStats::with_row_count(row_count),
+        )
+    }
+
+    fn filter_batches(
+        source_uri: &DatasetUri,
+    ) -> Vec<VortexSourceBackedEncodedValuePredicateBatch> {
+        vec![
+            VortexSourceBackedEncodedValuePredicateBatch::new(
+                source_uri.clone(),
+                "split-1",
+                VortexEncodedValuePredicateBatch::new(
+                    segment("metric", "segment-1.metric", 5, EncodingKind::Dictionary),
+                    EncodedValueBatch::Dictionary {
+                        dictionary: vec![
+                            Some(StatValue::Int64(1)),
+                            Some(StatValue::Int64(5)),
+                            None,
+                        ],
+                        codes: vec![Some(0), Some(1), None, Some(1), Some(0)],
+                    },
+                ),
+            )
+            .expect("batch"),
+            VortexSourceBackedEncodedValuePredicateBatch::new(
+                source_uri.clone(),
+                "split-2",
+                VortexEncodedValuePredicateBatch::new(
+                    segment("metric", "segment-2.metric", 3, EncodingKind::RunLength),
+                    EncodedValueBatch::RunLength {
+                        runs: vec![EncodedValueRun::new(Some(StatValue::Int64(9)), 3)],
+                    },
+                ),
+            )
+            .expect("batch"),
+        ]
+    }
+
+    fn projection_column(
+        source_uri: &DatasetUri,
+        split_ref: &str,
+        column: &str,
+        id: &str,
+        values: EncodedValueBatch,
+    ) -> VortexSourceBackedEncodedProjectionColumn {
+        VortexSourceBackedEncodedProjectionColumn::new(
+            source_uri.clone(),
+            split_ref,
+            VortexPreparedEncodedProjectionColumn::new(
+                segment(
+                    column,
+                    id,
+                    values.row_count().expect("row count"),
+                    values.encoding_kind(),
+                ),
+                values,
+            ),
+        )
+        .expect("projection column")
+    }
+
+    #[test]
+    fn source_backed_batch_constructor_rejects_blank_split_ref() {
+        let source_uri = DatasetUri::new("file:///tmp/orders.vortex").expect("uri");
+        let error = VortexSourceBackedEncodedValuePredicateBatch::new(
+            source_uri,
+            " ",
+            VortexEncodedValuePredicateBatch::new(
+                segment("metric", "segment-1.metric", 1, EncodingKind::Constant),
+                EncodedValueBatch::Constant {
+                    value: Some(StatValue::Int64(1)),
+                    row_count: 1,
+                },
+            ),
+        )
+        .expect_err("blank split ref should be rejected");
+
+        assert!(error.to_string().contains("split ref must not be empty"));
+    }
+
+    #[test]
+    fn source_backed_filter_accepts_native_source_bound_batches() {
+        let source = source("file:///tmp/orders.vortex");
+        let source_uri = source.uri.clone().expect("uri");
+        let predicate = PredicateExpr::Compare {
+            column: column_ref("metric"),
+            op: ComparisonOp::GtEq,
+            value: StatValue::Int64(5),
+        };
+
+        let report = execute_vortex_source_backed_filter_from_encoded_value_batches(
+            &predicate,
+            &source,
+            &filter_batches(&source_uri),
+        )
+        .expect("report");
+
+        assert_eq!(
+            report.status,
+            VortexSourceBackedEncodedExecutionStatus::ExecutedSourceBackedPreparedEncodedBatches
+        );
+        assert_eq!(report.split_count, 2);
+        assert_eq!(report.source_batch_count, 2);
+        assert!(report.source_uri_matches_batches);
+        assert!(report.runtime_execution_allowed);
+        assert!(report.source_backed_batches_consumed);
+        assert!(report.selection_vector_guaranteed);
+        assert!(report.correctness_certified);
+        assert!(report.prepared_execution.runtime_execution_allowed);
+        assert!(report.avoids_unsafe_effects());
+        assert!(!report.has_errors());
+    }
+
+    #[test]
+    fn source_backed_filter_rejects_mixed_source_batches_without_fallback() {
+        let source = source("file:///tmp/orders.vortex");
+        let source_uri = source.uri.clone().expect("uri");
+        let mut batches = filter_batches(&source_uri);
+        batches[1].source_uri = DatasetUri::new("file:///tmp/other.vortex").expect("uri");
+        let predicate = PredicateExpr::Compare {
+            column: column_ref("metric"),
+            op: ComparisonOp::GtEq,
+            value: StatValue::Int64(5),
+        };
+
+        let report = execute_vortex_source_backed_filter_from_encoded_value_batches(
+            &predicate, &source, &batches,
+        )
+        .expect("report");
+
+        assert_eq!(
+            report.status,
+            VortexSourceBackedEncodedExecutionStatus::BlockedSourceBatchMismatch
+        );
+        assert!(!report.runtime_execution_allowed);
+        assert!(!report.source_uri_matches_batches);
+        assert!(report.prepared_execution.runtime_execution_allowed);
+        assert!(report.avoids_unsafe_effects());
+        assert!(report.has_errors());
+        assert!(report.diagnostics.iter().all(|d| !d.fallback.attempted));
+    }
+
+    #[test]
+    fn source_backed_projection_accepts_native_source_bound_columns() {
+        let source = source("file:///tmp/orders.vortex");
+        let source_uri = source.uri.clone().expect("uri");
+        let batches = vec![
+            projection_column(
+                &source_uri,
+                "split-1",
+                "metric",
+                "segment-1.metric",
+                EncodedValueBatch::Dictionary {
+                    dictionary: vec![Some(StatValue::Int64(10)), Some(StatValue::Int64(20))],
+                    codes: vec![Some(0), Some(1), Some(0)],
+                },
+            ),
+            projection_column(
+                &source_uri,
+                "split-1",
+                "other",
+                "segment-1.other",
+                EncodedValueBatch::Constant {
+                    value: Some(StatValue::Int64(1)),
+                    row_count: 3,
+                },
+            ),
+        ];
+
+        let report = execute_vortex_source_backed_projection_from_encoded_projection_batches(
+            &[column_ref("metric")],
+            &source,
+            &batches,
+            None,
+        )
+        .expect("report");
+
+        assert_eq!(
+            report.status,
+            VortexSourceBackedEncodedExecutionStatus::ExecutedSourceBackedPreparedEncodedBatches
+        );
+        assert_eq!(report.split_count, 1);
+        assert_eq!(report.source_batch_count, 2);
+        assert!(report.source_uri_matches_batches);
+        assert!(report.runtime_execution_allowed);
+        assert!(report.source_backed_batches_consumed);
+        assert!(report.encoded_projection_guaranteed);
+        assert!(!report.selection_vector_preserved);
+        assert!(report.correctness_certified);
+        assert!(report.avoids_unsafe_effects());
+        assert!(!report.has_errors());
+    }
+
+    #[test]
+    fn source_backed_projection_rejects_non_native_source_without_fallback() {
+        let source = source("file:///tmp/orders.csv");
+        let source_uri = DatasetUri::new("file:///tmp/orders.vortex").expect("uri");
+        let batches = vec![projection_column(
+            &source_uri,
+            "split-1",
+            "metric",
+            "segment-1.metric",
+            EncodedValueBatch::Constant {
+                value: Some(StatValue::Int64(1)),
+                row_count: 1,
+            },
+        )];
+
+        let report = execute_vortex_source_backed_projection_from_encoded_projection_batches(
+            &[column_ref("metric")],
+            &source,
+            &batches,
+            None,
+        )
+        .expect("report");
+
+        assert_eq!(
+            report.status,
+            VortexSourceBackedEncodedExecutionStatus::BlockedNonNativeSource
+        );
+        assert!(!report.runtime_execution_allowed);
+        assert!(report.prepared_execution.runtime_execution_allowed);
+        assert!(report.avoids_unsafe_effects());
+        assert!(report.has_errors());
+        assert!(report.diagnostics.iter().all(|d| !d.fallback.attempted));
+    }
+}
