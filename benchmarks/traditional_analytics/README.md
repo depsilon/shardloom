@@ -16,10 +16,11 @@ external comparison engines:
 The external engines are benchmark tooling only. They are never ShardLoom
 runtime dependencies and never execute unsupported ShardLoom plans as fallback engines.
 
-## Suite Catalog Direction
+## Taxonomy-Driven Local Suite
 
-The current harness is the local analytics suite. The broader benchmark architecture is recorded in
-`docs/architecture/benchmark-suite-catalog.md` and keeps future suites local-first and
+The current harness is the executable `local_analytics` suite. Its machine-readable scenario
+catalog lives at `benchmarks/common/scenario_catalog.json`; the broader benchmark architecture is
+recorded in `docs/architecture/benchmark-suite-catalog.md` and keeps future suites local-first and
 platform-neutral:
 
 - `common`
@@ -34,6 +35,18 @@ platform-neutral:
 Timing tables and support/coverage tables are separate. Managed platforms such as Photon, Fabric,
 Snowflake, BigQuery, Redshift, and Databricks managed services are design references only, not
 default benchmark lanes or fallback engines.
+
+Every result row now records:
+
+- `benchmark_suite`
+- `scenario_id`
+- `scenario_category`
+- `dataset_profile`
+- `engine_role`
+- `benchmark_constitution`
+
+The JSON artifact also includes a `coverage_table` so functional support/coverage remains visible
+even when timing rows fail, are unsupported, or belong to external baselines.
 
 ## Workloads
 
@@ -54,6 +67,14 @@ The scenarios are:
 - `hash join`
 - `wide projection`
 - `distinct count`
+
+The opt-in taxonomy-expanded local analytics scenarios are available with
+`--include-taxonomy-extra` or repeated `--scenario` flags:
+
+- `filter + projection + limit`
+- `multi-key group by`
+- `join + aggregate`
+- `row number window`
 
 An opt-in stress lane is available with `--include-stress`:
 
@@ -118,6 +139,11 @@ Numeric benchmark outputs are rounded to four decimal places before correctness
 hashing. This keeps result comparison stable across engines with different
 floating-point aggregation orders while preserving the two-decimal source metric
 precision used by the deterministic dataset.
+
+The generated dataset profile defaults to `narrow_fact_dim`. The runnable harness currently
+supports `tiny_smoke`, `narrow_fact_dim`, `skewed_keys`, and `high_cardinality_strings`; additional
+profiles such as `wide_table`, `null_heavy`, `many_small_files`, and `dirty_csv` remain declared in
+the catalog until their fixture generation and engine-specific behavior are implemented.
 
 ShardLoom traditional analytics rows call the workspace-local native Rust
 command `shardloom traditional-analytics-run`. Build time is excluded from
@@ -205,6 +231,12 @@ For a fast smoke run:
 benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --rows 10000 --iterations 1
 ```
 
+Run the taxonomy-expanded local analytics suite:
+
+```powershell
+benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --include-taxonomy-extra --rows 10000 --iterations 1
+```
+
 Run one engine or one scenario while troubleshooting:
 
 ```powershell
@@ -228,6 +260,12 @@ Run the optional stress lane:
 
 ```powershell
 benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --include-stress --rows 1000000 --iterations 3
+```
+
+Run with a skewed local dataset profile:
+
+```powershell
+benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --dataset-profile skewed_keys --include-taxonomy-extra --rows 100000 --iterations 3
 ```
 
 Artifacts are written to `benchmarks/traditional_analytics/results/` by default.

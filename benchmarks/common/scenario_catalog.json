@@ -1,0 +1,238 @@
+{
+  "schema_version": "shardloom.benchmark.scenario_catalog.v1",
+  "default_suite": "local_analytics",
+  "suite_families": [
+    "common",
+    "local_analytics",
+    "native_vortex",
+    "etl_workflows",
+    "source_backed_encoded",
+    "layout_and_pruning",
+    "incremental_state",
+    "stress"
+  ],
+  "scenario_categories": [
+    "scan_and_pruning",
+    "projection_and_layout",
+    "aggregation",
+    "joins",
+    "sort_and_window",
+    "etl_write",
+    "messy_lakehouse_data",
+    "incremental_state",
+    "operational_cache_concurrency"
+  ],
+  "dataset_profiles": [
+    "tiny_smoke",
+    "narrow_fact_dim",
+    "wide_table",
+    "very_wide_table",
+    "high_cardinality_strings",
+    "null_heavy",
+    "skewed_keys",
+    "many_small_files",
+    "few_large_files",
+    "partitioned_by_date",
+    "poorly_clustered",
+    "well_clustered",
+    "schema_drift",
+    "dirty_csv",
+    "nested_json",
+    "cdc_delta_overlay"
+  ],
+  "local_optional_baselines": [
+    "pandas",
+    "polars",
+    "duckdb",
+    "datafusion",
+    "dask",
+    "spark-default",
+    "spark-local-tuned"
+  ],
+  "managed_platform_design_references": [
+    "Photon",
+    "Microsoft Fabric",
+    "Snowflake",
+    "BigQuery",
+    "Redshift",
+    "Databricks managed services"
+  ],
+  "scenarios": [
+    {
+      "id": "csv_file_ingest",
+      "name": "csv/file ingest",
+      "suite": "local_analytics",
+      "category": "scan_and_pruning",
+      "default": true,
+      "stress": false,
+      "executable": true,
+      "dataset_profiles": ["tiny_smoke", "narrow_fact_dim", "skewed_keys"],
+      "description": "Read fact rows and aggregate a basic metric."
+    },
+    {
+      "id": "selective_filter",
+      "name": "selective filter",
+      "suite": "local_analytics",
+      "category": "scan_and_pruning",
+      "default": true,
+      "stress": false,
+      "executable": true,
+      "dataset_profiles": ["tiny_smoke", "narrow_fact_dim", "skewed_keys"],
+      "description": "Apply a selective flag/value predicate and aggregate the surviving rows."
+    },
+    {
+      "id": "filter_projection_limit",
+      "name": "filter + projection + limit",
+      "suite": "local_analytics",
+      "category": "scan_and_pruning",
+      "default": false,
+      "stress": false,
+      "executable": true,
+      "dataset_profiles": ["tiny_smoke", "narrow_fact_dim", "skewed_keys"],
+      "description": "Filter rows, project a narrow output, order deterministically, and limit."
+    },
+    {
+      "id": "wide_projection",
+      "name": "wide projection",
+      "suite": "local_analytics",
+      "category": "projection_and_layout",
+      "default": true,
+      "stress": false,
+      "executable": true,
+      "dataset_profiles": ["tiny_smoke", "narrow_fact_dim", "wide_table"],
+      "description": "Project a subset of columns from the fact table."
+    },
+    {
+      "id": "group_by_aggregation",
+      "name": "group by aggregation",
+      "suite": "local_analytics",
+      "category": "aggregation",
+      "default": true,
+      "stress": false,
+      "executable": true,
+      "dataset_profiles": ["tiny_smoke", "narrow_fact_dim", "skewed_keys"],
+      "description": "Group fact rows by a low-cardinality key."
+    },
+    {
+      "id": "multi_key_group_by",
+      "name": "multi-key group by",
+      "suite": "local_analytics",
+      "category": "aggregation",
+      "default": false,
+      "stress": false,
+      "executable": true,
+      "dataset_profiles": ["tiny_smoke", "narrow_fact_dim", "skewed_keys"],
+      "description": "Group fact rows by both group key and category."
+    },
+    {
+      "id": "distinct_count",
+      "name": "distinct count",
+      "suite": "local_analytics",
+      "category": "aggregation",
+      "default": true,
+      "stress": false,
+      "executable": true,
+      "dataset_profiles": ["tiny_smoke", "narrow_fact_dim", "high_cardinality_strings"],
+      "description": "Count distinct fact categories."
+    },
+    {
+      "id": "hash_join",
+      "name": "hash join",
+      "suite": "local_analytics",
+      "category": "joins",
+      "default": true,
+      "stress": false,
+      "executable": true,
+      "dataset_profiles": ["tiny_smoke", "narrow_fact_dim", "skewed_keys"],
+      "description": "Join fact and dimension rows, then aggregate by dimension label."
+    },
+    {
+      "id": "join_aggregate",
+      "name": "join + aggregate",
+      "suite": "local_analytics",
+      "category": "joins",
+      "default": false,
+      "stress": false,
+      "executable": true,
+      "dataset_profiles": ["tiny_smoke", "narrow_fact_dim", "skewed_keys"],
+      "description": "Join fact and dimension rows, filter, and aggregate by dimension label and category."
+    },
+    {
+      "id": "sort_top_k",
+      "name": "sort and top-k",
+      "suite": "local_analytics",
+      "category": "sort_and_window",
+      "default": true,
+      "stress": false,
+      "executable": true,
+      "dataset_profiles": ["tiny_smoke", "narrow_fact_dim"],
+      "description": "Sort by metric and return the top rows."
+    },
+    {
+      "id": "row_number_window",
+      "name": "row number window",
+      "suite": "local_analytics",
+      "category": "sort_and_window",
+      "default": false,
+      "stress": false,
+      "executable": true,
+      "dataset_profiles": ["tiny_smoke", "narrow_fact_dim", "skewed_keys"],
+      "description": "Rank rows within each group and return the top row per group."
+    },
+    {
+      "id": "scale_stress_skewed_join_aggregation",
+      "name": "scale stress skewed join aggregation",
+      "suite": "stress",
+      "category": "operational_cache_concurrency",
+      "default": false,
+      "stress": true,
+      "executable": true,
+      "dataset_profiles": ["skewed_keys", "narrow_fact_dim"],
+      "description": "Opt-in shuffle-heavy skewed join aggregation."
+    },
+    {
+      "id": "scale_stress_multi_stage_etl",
+      "name": "scale stress multi-stage etl",
+      "suite": "stress",
+      "category": "etl_write",
+      "default": false,
+      "stress": true,
+      "executable": true,
+      "dataset_profiles": ["skewed_keys", "narrow_fact_dim"],
+      "description": "Opt-in multi-stage ETL-style join/filter/aggregate workload."
+    },
+    {
+      "id": "clean_cast_filter_write",
+      "name": "clean/cast/filter/write",
+      "suite": "etl_workflows",
+      "category": "etl_write",
+      "default": false,
+      "stress": false,
+      "executable": false,
+      "dataset_profiles": ["dirty_csv", "schema_drift"],
+      "description": "Future write-path scenario; declared in the catalog but not yet executed by the local runner."
+    },
+    {
+      "id": "malformed_timestamp_dirty_csv",
+      "name": "malformed timestamp / dirty CSV",
+      "suite": "etl_workflows",
+      "category": "messy_lakehouse_data",
+      "default": false,
+      "stress": false,
+      "executable": false,
+      "dataset_profiles": ["dirty_csv"],
+      "description": "Future messy-data diagnostics scenario; declared in the catalog but not yet executed by the local runner."
+    },
+    {
+      "id": "small_change_over_large_base",
+      "name": "small change over large base",
+      "suite": "incremental_state",
+      "category": "incremental_state",
+      "default": false,
+      "stress": false,
+      "executable": false,
+      "dataset_profiles": ["cdc_delta_overlay"],
+      "description": "Future incremental/state scenario; declared in the catalog but not yet executed by the local runner."
+    }
+  ]
+}

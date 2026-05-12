@@ -79,8 +79,9 @@ Supporting docs:
 - `docs/architecture/benchmark-suite-catalog.md`
   - Role: CG-6.25 benchmark-suite catalog and Priority 2.7 source-backed correctness/benchmark
     matrix orientation.
-  - Status rule: records matrix/catalog report surfaces and claim blockers; comparative benchmark
-    execution remains a separate planned/release-readiness action.
+  - Status rule: records matrix/catalog report surfaces, the executable local taxonomy runner
+    status, and claim blockers; full comparative benchmark reruns and performance claims remain
+    separate planned/release-readiness actions.
 - `docs/architecture/crate-posture-public-exports.md`
   - Role: Priority 2.8 crate posture and public export grouping reference.
   - Status rule: documents current executable/report-only/blocked/future/prohibited-fallback export

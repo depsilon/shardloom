@@ -17,6 +17,54 @@ external engines comparison-only
 fallback_attempted=false
 ```
 
+## Executable Local Analytics Runner Status
+
+The runnable local analytics harness now consumes the machine-readable scenario catalog at:
+
+```text
+benchmarks/common/scenario_catalog.json
+```
+
+The harness remains local-first and platform-neutral. It now records taxonomy and constitution
+metadata on every result row:
+
+```text
+benchmark_suite
+scenario_id
+scenario_category
+dataset_profile
+engine_role
+benchmark_constitution
+```
+
+The JSON artifact also emits a `coverage_table` separate from timing rows. Coverage rows classify
+ShardLoom rows as certified/supported/unsupported/blocked based on visible evidence, and classify
+external local engines as `external_baseline_only`.
+
+The default local run remains conservative. `--include-taxonomy-extra` adds executable local
+taxonomy scenarios for:
+
+```text
+filter + projection + limit
+multi-key group by
+join + aggregate
+row number window
+```
+
+The runnable generator currently supports these dataset profiles:
+
+```text
+tiny_smoke
+narrow_fact_dim
+skewed_keys
+high_cardinality_strings
+```
+
+Other catalog profiles such as `wide_table`, `null_heavy`, `many_small_files`, and `dirty_csv`
+remain declared future coverage until their fixtures and engine-specific behavior are implemented.
+The catalog intentionally includes future non-executable ETL, messy-data, and incremental/state
+scenarios so coverage gaps are visible without pretending the local runner can execute them.
+
 ## Code Surfaces
 
 ShardLoom core owns the suite-level benchmark catalog:

@@ -23,6 +23,7 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("def render_universal_io_table("));
     assert!(script.contains("def render_resource_metrics_table("));
     assert!(script.contains("def render_shardloom_effects_table("));
+    assert!(script.contains("def render_coverage_table("));
     assert!(script.contains("def warmup_runner("));
     assert!(script.contains("\"startup_time_millis\""));
     assert!(script.contains("\"bytes_written\""));
@@ -46,9 +47,13 @@ fn traditional_benchmark_harness_covers_core_and_stress_scenarios() {
     for scenario in [
         "csv/file ingest",
         "selective filter",
+        "filter + projection + limit",
         "group by aggregation",
+        "multi-key group by",
         "sort and top-k",
         "hash join",
+        "join + aggregate",
+        "row number window",
         "wide projection",
         "distinct count",
         "scale stress skewed join aggregation",
@@ -57,6 +62,8 @@ fn traditional_benchmark_harness_covers_core_and_stress_scenarios() {
         assert!(script.contains(scenario), "missing scenario {scenario}");
     }
     assert!(script.contains("--include-stress"));
+    assert!(script.contains("--include-taxonomy-extra"));
+    assert!(script.contains("scenario_catalog.json"));
 }
 
 #[test]
@@ -66,6 +73,14 @@ fn traditional_benchmark_harness_records_fairness_and_universal_io_boundaries() 
     for required_text in [
         "\"cache_mode\"",
         "\"timing_scope\"",
+        "\"benchmark_suite\"",
+        "\"scenario_id\"",
+        "\"scenario_category\"",
+        "\"dataset_profile\"",
+        "\"engine_role\"",
+        "\"benchmark_constitution\"",
+        "\"coverage_table\"",
+        "\"taxonomy_extra_included\"",
         "\"stress_lane_included\"",
         "\"shardloom_build_profile\"",
         "\"shardloom_build_time_excluded\"",
@@ -94,6 +109,47 @@ fn traditional_benchmark_harness_records_fairness_and_universal_io_boundaries() 
         assert!(
             script.contains(required_text),
             "missing required benchmark fairness text: {required_text}"
+        );
+    }
+}
+
+#[test]
+fn traditional_benchmark_catalog_declares_taxonomy_and_planned_profiles() {
+    let catalog = read_workspace_file("benchmarks/common/scenario_catalog.json");
+
+    for required_text in [
+        "\"schema_version\": \"shardloom.benchmark.scenario_catalog.v1\"",
+        "\"local_analytics\"",
+        "\"scan_and_pruning\"",
+        "\"projection_and_layout\"",
+        "\"aggregation\"",
+        "\"joins\"",
+        "\"sort_and_window\"",
+        "\"etl_write\"",
+        "\"messy_lakehouse_data\"",
+        "\"incremental_state\"",
+        "\"tiny_smoke\"",
+        "\"narrow_fact_dim\"",
+        "\"skewed_keys\"",
+        "\"wide_table\"",
+        "\"null_heavy\"",
+        "\"many_small_files\"",
+        "\"dirty_csv\"",
+        "\"filter + projection + limit\"",
+        "\"multi-key group by\"",
+        "\"join + aggregate\"",
+        "\"row number window\"",
+        "\"clean/cast/filter/write\"",
+        "\"malformed timestamp / dirty CSV\"",
+        "\"small change over large base\"",
+        "\"executable\": false",
+        "\"Photon\"",
+        "\"Microsoft Fabric\"",
+        "\"Snowflake\"",
+    ] {
+        assert!(
+            catalog.contains(required_text),
+            "missing required benchmark catalog text: {required_text}"
         );
     }
 }
@@ -148,6 +204,7 @@ fn traditional_benchmark_docs_state_no_fallback_and_markdown_outputs() {
     let normalized = readme.replace('\n', " ");
 
     assert!(readme.contains("human-readable Markdown"));
+    assert!(readme.contains("coverage_table"));
     assert!(readme.contains("fairness parameters"));
     assert!(readme.contains("resource metrics"));
     assert!(readme.contains("runtime-effect evidence"));
