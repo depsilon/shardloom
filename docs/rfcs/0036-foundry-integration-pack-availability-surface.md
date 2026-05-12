@@ -532,6 +532,51 @@ fallback_attempted=false
 ShardLoom must not silently OCR, transcribe, embed, classify, decode, or call
 models as part of normal ETL. Those are explicit effect boundaries.
 
+Foundry-specific unstructured/model contracts:
+
+```text
+FoundryMediaSetSource
+FoundryVirtualMediaSetSource
+FoundryMediaSetSink
+FoundryMediaExtractionBoundaryReport
+FoundryModelCallBoundaryReport
+FoundryEmbeddingBoundaryReport
+FoundryAipLogicBoundaryReport
+FoundryUnstructuredWorkflowCertificate
+```
+
+`FoundryVirtualMediaSetSource` is a governed external media handle until
+ShardLoom has staged or natively accessed the media-derived data through a
+certified source path. Virtual-media update/delete awareness, transformed
+output persistence, redaction, access policy, and known platform limitations
+must be reported rather than hidden.
+
+`FoundryMediaExtractionBoundaryReport` should record:
+
+```text
+input media set / virtual media set
+operation: OCR | raw_text_extract | transcribe | image_tile | metadata_parse | document_to_image | other
+executor: Foundry media transform | user pipeline | external service
+output artifact: TextChunkTable | metadata table | media sidecar | other
+deterministic status
+materialization boundary
+confidence/provenance refs
+redaction policy
+ShardLoom native execution: false
+fallback_attempted=false
+```
+
+`FoundryModelCallBoundaryReport` and `FoundryEmbeddingBoundaryReport` should
+record the Foundry model or AIP/model-service reference, model version when
+available, prompt/template hash where relevant, token/dimension/cost policy,
+input and output artifact refs, human-review policy, output validation schema,
+and `ShardLoom native execution: false`.
+
+ShardLoom may then validate, filter, join, aggregate, certify, benchmark, and
+write the structured outputs of those Foundry media/model stages. It must not
+claim that OCR, embedding, LLM, AIP Logic, or model inference occurred inside
+ShardLoom core.
+
 ## Ontology, Functions, AIP, models, and scenarios
 
 These are powerful adoption surfaces, but they are later than dataset/package
