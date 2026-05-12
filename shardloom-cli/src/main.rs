@@ -40,15 +40,17 @@ use shardloom_core::{
     SegmentChangeKind, SegmentId, SegmentLayout, SegmentStats, ShardLoomError, SnapshotId,
     SnapshotRef, StatValue, StatefulReuseReport, TableCompatibilityPlan, TableCompatibilityReport,
     TableFormatKind, TableIntelligenceReport, TranslationPlan, UdfRuntimeKind,
-    UniversalHarnessReport, WorkloadClass, WorldClassSufficiencyDimensionKind,
-    WorldClassSufficiencyReport, WriteIntent, evaluate_cdc_incremental_planning,
-    evaluate_compaction_planning, evaluate_delete_tombstone_compatibility, evaluate_layout_health,
+    UniversalHarnessReport, UserCapabilityPromotionGateReport, WorkloadClass,
+    WorldClassSufficiencyDimensionKind, WorldClassSufficiencyReport, WriteIntent,
+    evaluate_cdc_incremental_planning, evaluate_compaction_planning,
+    evaluate_delete_tombstone_compatibility, evaluate_layout_health,
     evaluate_partition_evolution_compatibility, evaluate_schema_evolution_compatibility,
     plan_benchmark_claim_evidence, plan_catalog_metadata_integration_gate,
     plan_correctness_differential_harness, plan_cpu_operator_specialization,
     plan_execution_certificate_evidence_surface, plan_native_io_envelope,
     plan_observability_schema_coverage, plan_security_governance_evidence_gate,
-    plan_stateful_reuse, plan_universal_harness, plan_world_class_sufficiency,
+    plan_stateful_reuse, plan_universal_harness, plan_user_capability_promotion_gate,
+    plan_world_class_sufficiency,
 };
 use shardloom_exec::{
     AdaptiveSizer, AdaptiveSizingPolicy, AttemptId, BackpressurePlanInput, BackpressurePlanReport,
@@ -220,7 +222,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|agent-contract-pack|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance]|security-plan|security-governance-evidence-gate|effect-budget-plan|agent-safety-plan|redaction-plan|kernel-registry|feature-footprint|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|layout-health-plan|compaction-plan|table-intelligence-plan|cg9-catalog-metadata-gate|object-store-request-plan|cg10-object-store-runtime-gate|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|dynamic-work-shaping-plan [balanced|memory-pressure|object-store-throttled|small-tasks]|cg8-runtime-promotion-gate|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|benchmark-claim-evidence-plan [foundation|traditional-analytics]|traditional-analytics-run|traditional-analytics-vortex-run|vortex-count-benchmark|correctness-plan|correctness-harness-plan|execution-certificate-plan|recovery-plan|commit-execution-promotion-gate|fault-tolerance-promotion-gate|cancellation-plan|retry-plan|observability-plan|observability-schema-coverage|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-filter-project|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|operator-memory-spill-declarations|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|agent-contract-pack|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance]|security-plan|security-governance-evidence-gate|effect-budget-plan|agent-safety-plan|redaction-plan|kernel-registry|feature-footprint|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|cg20-user-capability-gate|layout-health-plan|compaction-plan|table-intelligence-plan|cg9-catalog-metadata-gate|object-store-request-plan|cg10-object-store-runtime-gate|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|dynamic-work-shaping-plan [balanced|memory-pressure|object-store-throttled|small-tasks]|cg8-runtime-promotion-gate|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|benchmark-claim-evidence-plan [foundation|traditional-analytics]|traditional-analytics-run|traditional-analytics-vortex-run|vortex-count-benchmark|correctness-plan|correctness-harness-plan|execution-certificate-plan|recovery-plan|commit-execution-promotion-gate|fault-tolerance-promotion-gate|cancellation-plan|retry-plan|observability-plan|observability-schema-coverage|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-filter-project|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|operator-memory-spill-declarations|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -7553,6 +7555,243 @@ fn append_world_class_sufficiency_side_effect_fields(
         report.production_claim_allowed,
     );
     push_bool_field(fields, "side_effect_free", report.is_side_effect_free());
+    push_count_field(fields, "diagnostic_count", report.diagnostics.len());
+}
+
+fn user_capability_promotion_gate_fields(
+    report: &UserCapabilityPromotionGateReport,
+) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    push_field(&mut fields, "mode", "cg20_user_capability_promotion_gate");
+    push_field(&mut fields, "execution", "not_performed");
+    push_field(&mut fields, "plan_only", "true");
+    push_field(&mut fields, "schema_version", report.schema_version);
+    push_field(&mut fields, "report_id", report.report_id);
+    push_count_field(&mut fields, "surface_count", report.surface_count());
+    push_count_field(
+        &mut fields,
+        "existing_evidence_surface_count",
+        report.existing_evidence_surface_count(),
+    );
+    push_count_field(
+        &mut fields,
+        "blocked_surface_count",
+        report.blocked_surface_count(),
+    );
+    push_field(
+        &mut fields,
+        "surface_order",
+        &report.surface_order().join(","),
+    );
+    push_field(
+        &mut fields,
+        "existing_report_refs",
+        &report.existing_report_refs.join(","),
+    );
+    append_user_capability_existing_fields(&mut fields, report);
+    append_user_capability_allowed_fields(&mut fields, report);
+    append_user_capability_required_fields(&mut fields, report);
+    append_user_capability_status_fields(&mut fields, report);
+    fields
+}
+
+fn append_user_capability_existing_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &UserCapabilityPromotionGateReport,
+) {
+    push_bool_field(
+        fields,
+        "existing_world_class_sufficiency_report_present",
+        report.existing_world_class_sufficiency_report_present,
+    );
+    push_bool_field(
+        fields,
+        "existing_python_wrapper_foundation_present",
+        report.existing_python_wrapper_foundation_present,
+    );
+    push_bool_field(
+        fields,
+        "existing_input_adapter_registry_present",
+        report.existing_input_adapter_registry_present,
+    );
+    push_bool_field(
+        fields,
+        "existing_unstructured_workflow_boundary_contracts_present",
+        report.existing_unstructured_workflow_boundary_contracts_present,
+    );
+}
+
+fn append_user_capability_allowed_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &UserCapabilityPromotionGateReport,
+) {
+    push_bool_field(fields, "sql_runtime_allowed", report.sql_runtime_allowed);
+    push_bool_field(
+        fields,
+        "dataframe_runtime_allowed",
+        report.dataframe_runtime_allowed,
+    );
+    push_bool_field(
+        fields,
+        "notebook_runtime_allowed",
+        report.notebook_runtime_allowed,
+    );
+    push_bool_field(
+        fields,
+        "udf_execution_allowed",
+        report.udf_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "plugin_execution_allowed",
+        report.plugin_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "unstructured_media_decode_allowed",
+        report.unstructured_media_decode_allowed,
+    );
+    push_bool_field(
+        fields,
+        "ocr_transcription_embedding_llm_allowed",
+        report.ocr_transcription_embedding_llm_allowed,
+    );
+    push_bool_field(
+        fields,
+        "adapter_runtime_allowed",
+        report.adapter_runtime_allowed,
+    );
+    push_bool_field(
+        fields,
+        "external_api_call_allowed",
+        report.external_api_call_allowed,
+    );
+    push_bool_field(
+        fields,
+        "catalog_probe_allowed",
+        report.catalog_probe_allowed,
+    );
+    push_bool_field(
+        fields,
+        "object_store_io_allowed",
+        report.object_store_io_allowed,
+    );
+    push_bool_field(fields, "write_io_allowed", report.write_io_allowed);
+    push_bool_field(
+        fields,
+        "external_engine_invoked",
+        report.external_engine_invoked,
+    );
+    push_bool_field(
+        fields,
+        "best_default_claim_allowed",
+        report.best_default_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "user_capability_claim_allowed",
+        report.user_capability_claim_allowed,
+    );
+}
+
+fn append_user_capability_required_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &UserCapabilityPromotionGateReport,
+) {
+    push_bool_field(
+        fields,
+        "world_class_sufficiency_report_required",
+        report.world_class_sufficiency_report_required,
+    );
+    push_bool_field(
+        fields,
+        "semantic_profile_required",
+        report.semantic_profile_required,
+    );
+    push_bool_field(
+        fields,
+        "sql_coverage_required",
+        report.sql_coverage_required,
+    );
+    push_bool_field(
+        fields,
+        "operator_coverage_required",
+        report.operator_coverage_required,
+    );
+    push_bool_field(
+        fields,
+        "function_coverage_required",
+        report.function_coverage_required,
+    );
+    push_bool_field(
+        fields,
+        "adapter_certification_required",
+        report.adapter_certification_required,
+    );
+    push_bool_field(
+        fields,
+        "native_io_certificate_required",
+        report.native_io_certificate_required,
+    );
+    push_bool_field(
+        fields,
+        "execution_certificate_required",
+        report.execution_certificate_required,
+    );
+    push_bool_field(
+        fields,
+        "correctness_evidence_required",
+        report.correctness_evidence_required,
+    );
+    push_bool_field(
+        fields,
+        "benchmark_evidence_required",
+        report.benchmark_evidence_required,
+    );
+    push_bool_field(
+        fields,
+        "workload_constitution_required",
+        report.workload_constitution_required,
+    );
+    push_bool_field(
+        fields,
+        "materialization_boundary_required",
+        report.materialization_boundary_required,
+    );
+    push_bool_field(
+        fields,
+        "effect_policy_required",
+        report.effect_policy_required,
+    );
+    push_bool_field(
+        fields,
+        "security_governance_required",
+        report.security_governance_required,
+    );
+    push_bool_field(
+        fields,
+        "protocol_surface_parity_required",
+        report.protocol_surface_parity_required,
+    );
+}
+
+fn append_user_capability_status_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &UserCapabilityPromotionGateReport,
+) {
+    push_bool_field(
+        fields,
+        "runtime_promotions_blocked",
+        report.runtime_promotions_blocked(),
+    );
+    push_bool_field(fields, "claim_blocked", report.claim_blocked());
+    push_bool_field(fields, "fallback_attempted", report.fallback_attempted);
+    push_bool_field(
+        fields,
+        "fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(fields, "side_effect_free", report.side_effect_free());
     push_count_field(fields, "diagnostic_count", report.diagnostics.len());
 }
 
@@ -21410,6 +21649,35 @@ fn run(args: Vec<String>) -> ExitCode {
                 report.to_human_text(),
                 report.diagnostics.clone(),
                 world_class_sufficiency_fields(&report),
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
+        Some("cg20-user-capability-gate") => {
+            if let Some(extra) = args.next() {
+                return emit_error(
+                    "cg20-user-capability-gate",
+                    format,
+                    "CG-20 user capability gate failed",
+                    &cli_unknown_arg_error("cg20-user-capability-gate", &extra),
+                );
+            }
+            let report = plan_user_capability_promotion_gate();
+            emit(
+                "cg20-user-capability-gate",
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "CG-20 user capability promotion gate".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                user_capability_promotion_gate_fields(&report),
             );
             if report.has_errors() {
                 ExitCode::from(1)

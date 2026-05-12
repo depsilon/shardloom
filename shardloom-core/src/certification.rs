@@ -1589,6 +1589,457 @@ pub fn plan_world_class_sufficiency() -> WorldClassSufficiencyReport {
     WorldClassSufficiencyReport::contract_only()
 }
 
+/// Broad CG-20 user-facing surfaces that must not be promoted by implication.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UserCapabilityPromotionSurface {
+    WorldClassSufficiencyFoundation,
+    PythonWrapperFoundation,
+    InputAdapterRegistryFoundation,
+    UnstructuredWorkflowBoundaryContracts,
+    SqlFrontendRuntime,
+    DataFrameQueryBuilderRuntime,
+    NotebookRuntime,
+    UdfPluginRuntime,
+    UnstructuredMediaEffectRuntime,
+    UniversalAdapterRuntime,
+    EventApiSaasAdapterRuntime,
+    AdapterReadWriteCommitRuntime,
+    SemanticProfileConformanceRuntime,
+    WorkloadCertifiedCapabilityCloseout,
+    BestDefaultDossierPublication,
+}
+
+impl UserCapabilityPromotionSurface {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::WorldClassSufficiencyFoundation => "world_class_sufficiency_foundation",
+            Self::PythonWrapperFoundation => "python_wrapper_foundation",
+            Self::InputAdapterRegistryFoundation => "input_adapter_registry_foundation",
+            Self::UnstructuredWorkflowBoundaryContracts => {
+                "unstructured_workflow_boundary_contracts"
+            }
+            Self::SqlFrontendRuntime => "sql_frontend_runtime",
+            Self::DataFrameQueryBuilderRuntime => "dataframe_query_builder_runtime",
+            Self::NotebookRuntime => "notebook_runtime",
+            Self::UdfPluginRuntime => "udf_plugin_runtime",
+            Self::UnstructuredMediaEffectRuntime => "unstructured_media_effect_runtime",
+            Self::UniversalAdapterRuntime => "universal_adapter_runtime",
+            Self::EventApiSaasAdapterRuntime => "event_api_saas_adapter_runtime",
+            Self::AdapterReadWriteCommitRuntime => "adapter_read_write_commit_runtime",
+            Self::SemanticProfileConformanceRuntime => "semantic_profile_conformance_runtime",
+            Self::WorkloadCertifiedCapabilityCloseout => "workload_certified_capability_closeout",
+            Self::BestDefaultDossierPublication => "best_default_dossier_publication",
+        }
+    }
+}
+
+/// Status for the broad CG-20 promotion gate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UserCapabilityPromotionStatus {
+    ExistingReportOnlyEvidence,
+    BlockedUntilCertified,
+}
+
+impl UserCapabilityPromotionStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::ExistingReportOnlyEvidence => "existing_report_only_evidence",
+            Self::BlockedUntilCertified => "blocked_until_certified",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_existing_evidence(&self) -> bool {
+        matches!(self, Self::ExistingReportOnlyEvidence)
+    }
+}
+
+/// One CG-20 broad user-capability surface and the evidence needed before promotion.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct UserCapabilityPromotionGateEntry {
+    pub surface: UserCapabilityPromotionSurface,
+    pub status: UserCapabilityPromotionStatus,
+    pub existing_report_ref: Option<&'static str>,
+    pub requires_world_class_sufficiency_report: bool,
+    pub requires_semantic_profile: bool,
+    pub requires_sql_coverage: bool,
+    pub requires_operator_coverage: bool,
+    pub requires_function_coverage: bool,
+    pub requires_adapter_certification: bool,
+    pub requires_native_io_certificate: bool,
+    pub requires_execution_certificate: bool,
+    pub requires_correctness_evidence: bool,
+    pub requires_benchmark_evidence: bool,
+    pub requires_workload_constitution: bool,
+    pub requires_materialization_boundary: bool,
+    pub requires_effect_policy: bool,
+    pub requires_security_governance: bool,
+    pub requires_protocol_surface_parity: bool,
+    pub runtime_allowed: bool,
+    pub external_engine_invoked: bool,
+    pub fallback_execution_allowed: bool,
+}
+
+impl UserCapabilityPromotionGateEntry {
+    #[must_use]
+    pub const fn existing(
+        surface: UserCapabilityPromotionSurface,
+        existing_report_ref: &'static str,
+    ) -> Self {
+        Self {
+            surface,
+            status: UserCapabilityPromotionStatus::ExistingReportOnlyEvidence,
+            existing_report_ref: Some(existing_report_ref),
+            requires_world_class_sufficiency_report: false,
+            requires_semantic_profile: false,
+            requires_sql_coverage: false,
+            requires_operator_coverage: false,
+            requires_function_coverage: false,
+            requires_adapter_certification: false,
+            requires_native_io_certificate: false,
+            requires_execution_certificate: false,
+            requires_correctness_evidence: false,
+            requires_benchmark_evidence: false,
+            requires_workload_constitution: false,
+            requires_materialization_boundary: false,
+            requires_effect_policy: false,
+            requires_security_governance: false,
+            requires_protocol_surface_parity: false,
+            runtime_allowed: false,
+            external_engine_invoked: false,
+            fallback_execution_allowed: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn blocked(surface: UserCapabilityPromotionSurface) -> Self {
+        Self {
+            surface,
+            status: UserCapabilityPromotionStatus::BlockedUntilCertified,
+            existing_report_ref: None,
+            requires_world_class_sufficiency_report: true,
+            requires_semantic_profile: true,
+            requires_sql_coverage: true,
+            requires_operator_coverage: true,
+            requires_function_coverage: true,
+            requires_adapter_certification: true,
+            requires_native_io_certificate: true,
+            requires_execution_certificate: true,
+            requires_correctness_evidence: true,
+            requires_benchmark_evidence: true,
+            requires_workload_constitution: true,
+            requires_materialization_boundary: true,
+            requires_effect_policy: true,
+            requires_security_governance: true,
+            requires_protocol_surface_parity: true,
+            runtime_allowed: false,
+            external_engine_invoked: false,
+            fallback_execution_allowed: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn side_effect_free(&self) -> bool {
+        !self.runtime_allowed && !self.external_engine_invoked && !self.fallback_execution_allowed
+    }
+}
+
+/// Report-only CG-20 gate for promoting broad user capability surfaces.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct UserCapabilityPromotionGateReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub entries: Vec<UserCapabilityPromotionGateEntry>,
+    pub existing_report_refs: Vec<&'static str>,
+    pub existing_world_class_sufficiency_report_present: bool,
+    pub existing_python_wrapper_foundation_present: bool,
+    pub existing_input_adapter_registry_present: bool,
+    pub existing_unstructured_workflow_boundary_contracts_present: bool,
+    pub sql_runtime_allowed: bool,
+    pub dataframe_runtime_allowed: bool,
+    pub notebook_runtime_allowed: bool,
+    pub udf_execution_allowed: bool,
+    pub plugin_execution_allowed: bool,
+    pub unstructured_media_decode_allowed: bool,
+    pub ocr_transcription_embedding_llm_allowed: bool,
+    pub adapter_runtime_allowed: bool,
+    pub external_api_call_allowed: bool,
+    pub catalog_probe_allowed: bool,
+    pub object_store_io_allowed: bool,
+    pub write_io_allowed: bool,
+    pub external_engine_invoked: bool,
+    pub fallback_execution_allowed: bool,
+    pub fallback_attempted: bool,
+    pub best_default_claim_allowed: bool,
+    pub user_capability_claim_allowed: bool,
+    pub world_class_sufficiency_report_required: bool,
+    pub semantic_profile_required: bool,
+    pub sql_coverage_required: bool,
+    pub operator_coverage_required: bool,
+    pub function_coverage_required: bool,
+    pub adapter_certification_required: bool,
+    pub native_io_certificate_required: bool,
+    pub execution_certificate_required: bool,
+    pub correctness_evidence_required: bool,
+    pub benchmark_evidence_required: bool,
+    pub workload_constitution_required: bool,
+    pub materialization_boundary_required: bool,
+    pub effect_policy_required: bool,
+    pub security_governance_required: bool,
+    pub protocol_surface_parity_required: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl UserCapabilityPromotionGateReport {
+    #[must_use]
+    pub fn planning_default() -> Self {
+        Self {
+            schema_version: "shardloom.user_capability_promotion_gate.v1",
+            report_id: "cg20.user_capability_promotion_gate",
+            entries: user_capability_promotion_entries(),
+            existing_report_refs: user_capability_existing_report_refs(),
+            existing_world_class_sufficiency_report_present: true,
+            existing_python_wrapper_foundation_present: true,
+            existing_input_adapter_registry_present: true,
+            existing_unstructured_workflow_boundary_contracts_present: true,
+            sql_runtime_allowed: false,
+            dataframe_runtime_allowed: false,
+            notebook_runtime_allowed: false,
+            udf_execution_allowed: false,
+            plugin_execution_allowed: false,
+            unstructured_media_decode_allowed: false,
+            ocr_transcription_embedding_llm_allowed: false,
+            adapter_runtime_allowed: false,
+            external_api_call_allowed: false,
+            catalog_probe_allowed: false,
+            object_store_io_allowed: false,
+            write_io_allowed: false,
+            external_engine_invoked: false,
+            fallback_execution_allowed: false,
+            fallback_attempted: false,
+            best_default_claim_allowed: false,
+            user_capability_claim_allowed: false,
+            world_class_sufficiency_report_required: true,
+            semantic_profile_required: true,
+            sql_coverage_required: true,
+            operator_coverage_required: true,
+            function_coverage_required: true,
+            adapter_certification_required: true,
+            native_io_certificate_required: true,
+            execution_certificate_required: true,
+            correctness_evidence_required: true,
+            benchmark_evidence_required: true,
+            workload_constitution_required: true,
+            materialization_boundary_required: true,
+            effect_policy_required: true,
+            security_governance_required: true,
+            protocol_surface_parity_required: true,
+            diagnostics: Vec::new(),
+        }
+    }
+
+    #[must_use]
+    pub fn surface_count(&self) -> usize {
+        self.entries.len()
+    }
+
+    #[must_use]
+    pub fn existing_evidence_surface_count(&self) -> usize {
+        self.entries
+            .iter()
+            .filter(|entry| entry.status.is_existing_evidence())
+            .count()
+    }
+
+    #[must_use]
+    pub fn blocked_surface_count(&self) -> usize {
+        self.entries
+            .iter()
+            .filter(|entry| {
+                matches!(
+                    entry.status,
+                    UserCapabilityPromotionStatus::BlockedUntilCertified
+                )
+            })
+            .count()
+    }
+
+    #[must_use]
+    pub fn surface_order(&self) -> Vec<&'static str> {
+        self.entries
+            .iter()
+            .map(|entry| entry.surface.as_str())
+            .collect()
+    }
+
+    #[must_use]
+    pub fn runtime_promotions_blocked(&self) -> bool {
+        !self.sql_runtime_allowed
+            && !self.dataframe_runtime_allowed
+            && !self.notebook_runtime_allowed
+            && !self.udf_execution_allowed
+            && !self.plugin_execution_allowed
+            && !self.unstructured_media_decode_allowed
+            && !self.ocr_transcription_embedding_llm_allowed
+            && !self.adapter_runtime_allowed
+            && !self.external_api_call_allowed
+            && !self.catalog_probe_allowed
+            && !self.object_store_io_allowed
+            && !self.write_io_allowed
+            && !self.external_engine_invoked
+            && self
+                .entries
+                .iter()
+                .all(|entry| !entry.runtime_allowed && !entry.external_engine_invoked)
+    }
+
+    #[must_use]
+    pub const fn claim_blocked(&self) -> bool {
+        !self.best_default_claim_allowed && !self.user_capability_claim_allowed
+    }
+
+    #[must_use]
+    pub fn side_effect_free(&self) -> bool {
+        self.runtime_promotions_blocked()
+            && !self.fallback_attempted
+            && !self.fallback_execution_allowed
+            && self
+                .entries
+                .iter()
+                .all(UserCapabilityPromotionGateEntry::side_effect_free)
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        !self.side_effect_free()
+            || !self.claim_blocked()
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        let mut out = String::new();
+        let _ = writeln!(out, "schema_version: {}", self.schema_version);
+        let _ = writeln!(out, "report_id: {}", self.report_id);
+        let _ = writeln!(
+            out,
+            "existing report refs: {}",
+            self.existing_report_refs.join(",")
+        );
+        let _ = writeln!(
+            out,
+            "runtime promotions blocked: {}",
+            self.runtime_promotions_blocked()
+        );
+        let _ = writeln!(out, "claim blocked: {}", self.claim_blocked());
+        let _ = writeln!(out, "side effect free: {}", self.side_effect_free());
+        let _ = writeln!(out, "fallback attempted: {}", self.fallback_attempted);
+        let _ = writeln!(
+            out,
+            "fallback execution allowed: {}",
+            self.fallback_execution_allowed
+        );
+        let _ = writeln!(out, "surfaces:");
+        for entry in &self.entries {
+            let _ = writeln!(
+                out,
+                "  - {} [{}] existing_ref={} runtime_allowed={} external_engine_invoked={} requires_world_class_sufficiency_report={} requires_semantic_profile={} requires_sql_coverage={} requires_function_coverage={} requires_adapter_certification={} requires_execution_certificate={} requires_native_io_certificate={} fallback_execution_allowed={}",
+                entry.surface.as_str(),
+                entry.status.as_str(),
+                entry.existing_report_ref.unwrap_or("none"),
+                entry.runtime_allowed,
+                entry.external_engine_invoked,
+                entry.requires_world_class_sufficiency_report,
+                entry.requires_semantic_profile,
+                entry.requires_sql_coverage,
+                entry.requires_function_coverage,
+                entry.requires_adapter_certification,
+                entry.requires_execution_certificate,
+                entry.requires_native_io_certificate,
+                entry.fallback_execution_allowed
+            );
+        }
+        out
+    }
+}
+
+fn user_capability_promotion_entries() -> Vec<UserCapabilityPromotionGateEntry> {
+    vec![
+        UserCapabilityPromotionGateEntry::existing(
+            UserCapabilityPromotionSurface::WorldClassSufficiencyFoundation,
+            "world-class-sufficiency-plan",
+        ),
+        UserCapabilityPromotionGateEntry::existing(
+            UserCapabilityPromotionSurface::PythonWrapperFoundation,
+            "python-wrapper-plan",
+        ),
+        UserCapabilityPromotionGateEntry::existing(
+            UserCapabilityPromotionSurface::InputAdapterRegistryFoundation,
+            "input-adapters",
+        ),
+        UserCapabilityPromotionGateEntry::existing(
+            UserCapabilityPromotionSurface::UnstructuredWorkflowBoundaryContracts,
+            "cg21p.unstructured_workflow_boundaries",
+        ),
+        UserCapabilityPromotionGateEntry::blocked(
+            UserCapabilityPromotionSurface::SqlFrontendRuntime,
+        ),
+        UserCapabilityPromotionGateEntry::blocked(
+            UserCapabilityPromotionSurface::DataFrameQueryBuilderRuntime,
+        ),
+        UserCapabilityPromotionGateEntry::blocked(UserCapabilityPromotionSurface::NotebookRuntime),
+        UserCapabilityPromotionGateEntry::blocked(UserCapabilityPromotionSurface::UdfPluginRuntime),
+        UserCapabilityPromotionGateEntry::blocked(
+            UserCapabilityPromotionSurface::UnstructuredMediaEffectRuntime,
+        ),
+        UserCapabilityPromotionGateEntry::blocked(
+            UserCapabilityPromotionSurface::UniversalAdapterRuntime,
+        ),
+        UserCapabilityPromotionGateEntry::blocked(
+            UserCapabilityPromotionSurface::EventApiSaasAdapterRuntime,
+        ),
+        UserCapabilityPromotionGateEntry::blocked(
+            UserCapabilityPromotionSurface::AdapterReadWriteCommitRuntime,
+        ),
+        UserCapabilityPromotionGateEntry::blocked(
+            UserCapabilityPromotionSurface::SemanticProfileConformanceRuntime,
+        ),
+        UserCapabilityPromotionGateEntry::blocked(
+            UserCapabilityPromotionSurface::WorkloadCertifiedCapabilityCloseout,
+        ),
+        UserCapabilityPromotionGateEntry::blocked(
+            UserCapabilityPromotionSurface::BestDefaultDossierPublication,
+        ),
+    ]
+}
+
+fn user_capability_existing_report_refs() -> Vec<&'static str> {
+    vec![
+        "world-class-sufficiency-plan",
+        "capabilities certification",
+        "python-wrapper-plan",
+        "input-adapters",
+        "native-io-envelope-plan",
+        "execution-certificate-plan",
+        "cg21p.unstructured_workflow_boundaries",
+        "operational_contracts.protocol_surface_parity",
+    ]
+}
+
+#[must_use]
+pub fn plan_user_capability_promotion_gate() -> UserCapabilityPromotionGateReport {
+    UserCapabilityPromotionGateReport::planning_default()
+}
+
 fn planned_world_class_sufficiency_dimensions() -> Vec<WorldClassSufficiencyDimension> {
     WorldClassSufficiencyDimensionKind::all()
         .iter()
@@ -1892,6 +2343,76 @@ mod tests {
         report.production_claim_allowed = true;
         assert!(report.has_errors());
         assert!(!report.can_publish_best_default_claim());
+    }
+
+    #[test]
+    fn user_capability_promotion_gate_keeps_broad_surfaces_blocked() {
+        let report = plan_user_capability_promotion_gate();
+        assert_eq!(
+            report.schema_version,
+            "shardloom.user_capability_promotion_gate.v1"
+        );
+        assert_eq!(report.surface_count(), 15);
+        assert_eq!(report.existing_evidence_surface_count(), 4);
+        assert_eq!(report.blocked_surface_count(), 11);
+        assert_eq!(
+            report.surface_order(),
+            vec![
+                "world_class_sufficiency_foundation",
+                "python_wrapper_foundation",
+                "input_adapter_registry_foundation",
+                "unstructured_workflow_boundary_contracts",
+                "sql_frontend_runtime",
+                "dataframe_query_builder_runtime",
+                "notebook_runtime",
+                "udf_plugin_runtime",
+                "unstructured_media_effect_runtime",
+                "universal_adapter_runtime",
+                "event_api_saas_adapter_runtime",
+                "adapter_read_write_commit_runtime",
+                "semantic_profile_conformance_runtime",
+                "workload_certified_capability_closeout",
+                "best_default_dossier_publication",
+            ]
+        );
+        assert!(report.runtime_promotions_blocked());
+        assert!(report.claim_blocked());
+        assert!(report.side_effect_free());
+        assert!(!report.has_errors());
+    }
+
+    #[test]
+    fn user_capability_promotion_gate_requires_evidence_before_user_claims() {
+        let report = plan_user_capability_promotion_gate();
+        assert!(report.existing_world_class_sufficiency_report_present);
+        assert!(report.existing_python_wrapper_foundation_present);
+        assert!(report.existing_input_adapter_registry_present);
+        assert!(report.existing_unstructured_workflow_boundary_contracts_present);
+        assert!(report.world_class_sufficiency_report_required);
+        assert!(report.semantic_profile_required);
+        assert!(report.sql_coverage_required);
+        assert!(report.operator_coverage_required);
+        assert!(report.function_coverage_required);
+        assert!(report.adapter_certification_required);
+        assert!(report.native_io_certificate_required);
+        assert!(report.execution_certificate_required);
+        assert!(report.correctness_evidence_required);
+        assert!(report.benchmark_evidence_required);
+        assert!(report.workload_constitution_required);
+        assert!(report.materialization_boundary_required);
+        assert!(report.effect_policy_required);
+        assert!(report.security_governance_required);
+        assert!(report.protocol_surface_parity_required);
+        assert!(!report.sql_runtime_allowed);
+        assert!(!report.dataframe_runtime_allowed);
+        assert!(!report.udf_execution_allowed);
+        assert!(!report.unstructured_media_decode_allowed);
+        assert!(!report.ocr_transcription_embedding_llm_allowed);
+        assert!(!report.adapter_runtime_allowed);
+        assert!(!report.external_engine_invoked);
+        assert!(!report.fallback_attempted);
+        assert!(!report.user_capability_claim_allowed);
+        assert!(!report.best_default_claim_allowed);
     }
 
     #[test]

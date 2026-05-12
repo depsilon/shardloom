@@ -50,6 +50,26 @@ Implementation order for those gates now lives in the Planned section of
 `docs/architecture/phased-execution-plan.md`. This document should not become a
 second queue for CG-21, CG-22, or CG-23 work.
 
+## Promotion gate
+
+The broad user-capability promotion boundary is exposed through:
+
+```text
+shardloom cg20-user-capability-gate --format json
+```
+
+`UserCapabilityPromotionGateReport` keeps SQL frontend runtime, DataFrame query-builder runtime,
+notebook runtime, UDF/plugin runtime, unstructured/media effects, universal/event/API adapters,
+adapter read/write/commit behavior, semantic-profile conformance, workload-certified closeout, and
+best-default dossier publication blocked until the required world-class sufficiency, semantic
+profile, coverage, adapter-certification, correctness, benchmark, execution-certificate, Native I/O,
+workload, materialization, effect-policy, governance, protocol-parity, and no-fallback evidence
+exists.
+
+The gate is report-only. It performs no SQL parsing/execution, DataFrame runtime work, UDF/plugin
+execution, OCR/transcription/embedding/LLM calls, adapter runtime work, external API calls, catalog
+probes, object-store I/O, writes, external engine invocation, or fallback execution.
+
 ## Non-goals
 
 - No SQL parser implementation.

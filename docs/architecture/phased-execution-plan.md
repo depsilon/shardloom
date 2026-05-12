@@ -356,8 +356,22 @@ not by numeric CG order.
           full-file reads, object-store IO, data reads, writes, coordinator/worker startup,
           task execution, checkpoint/retry/cleanup/commit execution, credential resolution, runtime
           claims, or fallback execution.
-  - [ ] CG-20 SQL/DataFrame/UDF/unstructured/media/adapters once the encoded primitive evidence loop
+  - [x] CG-20 SQL/DataFrame/UDF/unstructured/media/adapters once the encoded primitive evidence loop
         and importability lane are no longer the bottleneck.
+    - [x] Add `UserCapabilityPromotionGateReport` so broad SQL frontend, DataFrame query-builder,
+          notebook, UDF/plugin, unstructured/media, universal adapter, event/API adapter,
+          adapter read/write/commit, semantic-profile conformance, workload-certified closeout, and
+          best-default dossier publication surfaces are named and kept blocked behind world-class
+          sufficiency, semantic-profile, coverage, adapter-certification, correctness, benchmark,
+          execution-certificate, Native I/O, workload-constitution, materialization, effect-policy,
+          governance, protocol-parity, and no-fallback evidence.
+    - [x] Preserve existing report-only world-class sufficiency, Python wrapper, input adapter
+          registry, and unstructured workflow boundary contracts as narrow evidence without
+          promoting SQL/DataFrame/UDF/media/adapter runtime behavior.
+    - [x] Expose the gate through `cg20-user-capability-gate` without SQL parsing/execution,
+          DataFrame runtime, notebook runtime, UDF/plugin execution, OCR/transcription/embedding/LLM
+          calls, adapter runtime, external API calls, catalog probes, object-store IO, writes,
+          claim publication, external engine invocation, or fallback execution.
   - [ ] CG-20 approximate aggregate/sketch function implementation after function-registry,
         aggregate-state, sketch-serialization, correctness, benchmark, execution-certificate, and
         Native I/O evidence gates are ready.
