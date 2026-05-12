@@ -54,6 +54,12 @@ Supporting docs:
 - `docs/architecture/vortex-public-api-inventory.md`
   - Role: Vortex public API evidence and adapter-boundary inventory.
   - Status rule: API findings inform CG-1/CG-2/CG-3 queue items here.
+- `docs/architecture/vortex-runtime-utilization-audit.md`
+  - Role: Vortex-first runtime utilization audit for arrays, execution layers, Scan
+    Source/Sink/Split, layouts, I/O, sessions/registries, device posture, extension types, and
+    benchmark discipline.
+  - Status rule: report/code surfaces here do not authorize runtime provider promotion; actionable
+    provider or benchmark work must remain represented in this phase plan.
 - `docs/architecture/vortex-adapter-integration-plan.md`
   - Role: Vortex adapter rationale, boundaries, and historical integration notes.
   - Status rule: adapter work is actionable only after represented in this phase plan.
@@ -339,6 +345,28 @@ not by numeric CG order.
     - [x] Ensure residual handling, materialization/decode boundaries, provider refs,
           certificates, Native I/O evidence, and no-fallback status are recorded before support
           claims.
+- [x] Priority 2.6.5 - Vortex runtime utilization audit and execution-spine hardening
+  - [x] Add RFC 0042 for Vortex runtime utilization, execution-spine, layout-advisor,
+        session/registry, and benchmark-discipline guidance.
+  - [x] Add `docs/architecture/vortex-runtime-utilization-audit.md` as the report-only architecture
+        home for this lane.
+  - [x] Promote `VortexCapabilityUtilizationReport` and `VortexRuntimeUtilizationAuditReport` into
+        code surfaces so ShardLoom can report which Vortex capabilities are used, wrapped, planned,
+        blocked, or baseline-only.
+  - [x] Promote `VortexScanExecutionSpineReport`, `VortexFieldMaskEvidence`, and
+        `VortexPredicateOrderingEvidence` into code surfaces for future Source/Sink/Split work-unit
+        evidence without enabling runtime behavior.
+  - [x] Promote `VortexLayoutAdvisorReport` into report surfaces for Vortex layout strategy,
+        chunking, zone statistics, dictionary strategy, object-store request shape, device-read
+        friendliness, write/read tradeoffs, and compaction posture.
+  - [x] Promote `VortexArrayExecutionCertificate` into report surfaces for array-tree,
+        reduce/reduce-parent/execute-parent/execute, canonicalization, and materialization evidence.
+  - [x] Promote `ShardLoomSessionModelReport` into core report surfaces so future operator,
+        function, aggregate, sketch, source/sink adapter, provider, semantic-profile, evidence, and
+        policy registries require explicit session context rather than hidden globals.
+  - [x] Keep the lane report-only: no new upstream Vortex API calls, object-store I/O, writes,
+        GPU/device execution, external query-engine invocation, managed-platform benchmark lane,
+        runtime support claim, or fallback execution.
 - [ ] Priority 2.7 - source-backed correctness/benchmark population and benchmark-suite overhaul
   - [ ] Populate the source-backed correctness and benchmark matrix for current reader/source-backed
         encoded paths.

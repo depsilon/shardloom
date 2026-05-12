@@ -1,9 +1,10 @@
 //! Vortex-native IO contract skeleton for `ShardLoom`.
 //!
-//! This crate defines planning-time Vortex input/output boundary types without
-//! performing file IO. Native Vortex read/write execution is intentionally not
-//! implemented yet, fallback execution is disabled, and no upstream Vortex
-//! APIs are used in this phase beyond dependency-link readiness checks.
+//! This crate defines Vortex-facing execution, planning, and evidence surfaces.
+//! Narrow local/prepared/source-backed paths have executable evidence; broader
+//! Scan API, layout, object-store, write, device, and integration behavior stays
+//! report-only or blocked until explicit provider/certificate evidence exists.
+//! Fallback execution remains disabled.
 // Intentionally scoped to `shardloom-vortex`: report-contract modules naturally
 // use pairs like request/report/status/mode/plan. Keep strict `-D warnings`
 // for all other lints, and do not add broader lint exceptions.
@@ -67,6 +68,7 @@ pub mod query_primitives;
 pub mod query_trace;
 pub mod read_planning;
 pub mod runtime_bridge;
+pub mod runtime_utilization;
 pub mod scheduler_bridge;
 pub mod selection_vector_filter_kernel;
 pub mod source_backed_encoded_execution;
@@ -116,6 +118,13 @@ pub use generalized_filter_execution::{
 pub use generalized_projection_execution::{
     VortexGeneralizedProjectionExecutionReport, VortexGeneralizedProjectionExecutionStatus,
     execute_vortex_generalized_projection_from_local_scan_pushdown,
+};
+pub use runtime_utilization::{
+    VortexArrayExecutionCertificate, VortexCapabilityUse, VortexCapabilityUtilizationReport,
+    VortexCapabilityUtilizationRow, VortexFieldMaskEvidence, VortexLayoutAdvisorReport,
+    VortexPredicateOrderingEvidence, VortexRuntimeCapabilityArea,
+    VortexRuntimeUtilizationAuditReport, VortexScanExecutionSpineReport,
+    plan_vortex_runtime_utilization_audit,
 };
 pub use source_backed_encoded_execution::{
     VortexNativeProviderBoundary, VortexReaderBackedEncodedExecutionStatus,
