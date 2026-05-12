@@ -156,6 +156,9 @@ actionable work.
     - [x] Add emitted-runtime certificate prefix helpers so existing local CountAll and Vortex
           primitive execution/native-I/O certificate field groups become inline typed artifacts
           when a command actually emits the certificate.
+    - [x] Add inline materialization-boundary report payloads for `streaming-plan` and
+          `streaming-batch-plan`, plus a typed `streaming_batch_runtime_report` payload for emitted
+          Vortex streaming-batch runtime field groups.
   - [ ] Expand golden JSON fixtures for success, unsupported, blocked, certified execution,
         evidence-incomplete execution, source-backed execution, benchmark rows, missing binary, and
         Foundry boundary reports.

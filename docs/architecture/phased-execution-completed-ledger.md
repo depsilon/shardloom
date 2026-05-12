@@ -16,6 +16,37 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 inline boundary report typed payload slice
+  - Primary files:
+    - `shardloom-cli/src/typed_envelope.rs`
+    - `shardloom-cli/tests/streaming_plan_snapshots.rs`
+    - `shardloom-cli/tests/streaming_batch_plan_snapshots.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/typed-command-result-envelope.md`
+  - Scope: extend typed-envelope inline payload routing for existing streaming and
+    materialization-boundary report fields without changing command behavior or executing runtime
+    work.
+  - Checklist:
+    - [x] Attach inline `materialization_boundary_report` artifacts for `streaming-plan` and
+          `streaming-batch-plan` JSON outputs.
+    - [x] Attach an emitted `streaming_batch_runtime_report` artifact from existing
+          `streaming_batch_runtime_*` field groups.
+    - [x] Preserve legacy top-level `fields`, policy/lifecycle/capability routing, diagnostics,
+          fallback status, and no-fallback behavior.
+    - [x] Add unit and integration coverage for the new inline boundary report payloads.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli typed_envelope`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test streaming_plan_snapshots --test streaming_batch_plan_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo clippy -p shardloom-cli --all-targets -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test --workspace --all-targets`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `git diff --check`
+  - Runtime stance: protocol-only output routing; no streaming execution, dataset probing,
+    materialization, object-store I/O, writes, external engine invocation, or fallback execution is
+    added.
+
 - [x] Session label: Priority 3.9 typed report payload helper migration slice
   - Primary files:
     - `shardloom-cli/src/typed_envelope.rs`
