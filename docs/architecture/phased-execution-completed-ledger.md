@@ -16,6 +16,32 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 Vortex count benchmark runtime handler module split
+  - Primary files:
+    - `shardloom-cli/src/benchmark_runtime.rs`
+    - `shardloom-cli/src/main.rs`
+    - `docs/architecture/typed-command-result-envelope.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/rfcs/0039-typed-command-result-envelope-cli-modularity.md`
+  - Scope: move the local Vortex count benchmark runtime handler into the benchmark runtime module.
+  - Checklist:
+    - [x] Delegate `vortex-count-benchmark` from `main.rs`.
+    - [x] Keep existing local encoded count benchmark semantics and report fields.
+    - [x] Preserve external baselines as comparison-only and never fallback execution.
+    - [x] Update Priority 3.9 docs, RFC traceability, and RFC 0039 status.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo check -p shardloom-cli --bin shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test typed_envelope_contract_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test python_wrapper_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli command_family`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli vortex_count_benchmark`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo clippy -p shardloom-cli --bin shardloom -- -D warnings`
+    - [x] `git diff --check`
+  - Runtime stance: handler split only; no new benchmark scenario, managed-platform baseline,
+    external baseline execution, runtime expansion, or fallback execution is authorized.
+
 - [x] Session label: Priority 3.9 Vortex query-trace handler module split
   - Primary files:
     - `shardloom-cli/src/vortex_primitive_execution.rs`

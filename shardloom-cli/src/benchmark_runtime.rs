@@ -3,9 +3,9 @@
 //! These handlers remain local benchmark harness surfaces. External engines are
 //! comparison-only baselines and must not become fallback execution paths.
 
-use std::{path::PathBuf, process::ExitCode};
+use std::{path::PathBuf, process::ExitCode, time::Instant};
 
-use shardloom_core::{CommandStatus, OutputFormat, ShardLoomError};
+use shardloom_core::{CommandStatus, DatasetUri, OutputFormat, ShardLoomError};
 
 use crate::{
     cli_output::{emit, emit_error},
@@ -268,4 +268,121 @@ pub(crate) fn handle_traditional_analytics_vortex_run(
         report.fields(),
     );
     ExitCode::SUCCESS
+}
+
+pub(crate) fn handle_vortex_count_benchmark(
+    args: std::vec::IntoIter<String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let (uri, memory_gb, max_parallelism, iteration_count) =
+        match parse_vortex_count_benchmark_args(args) {
+            Ok(parsed) => parsed,
+            Err(code) => return code,
+        };
+    let mut iterations = Vec::new();
+    for _ in 0..iteration_count {
+        let started = Instant::now();
+        let (encoded_report, local_report) = match crate::run_vortex_approved_local_encoded_count(
+            uri.clone(),
+            memory_gb,
+            max_parallelism,
+        ) {
+            Ok(reports) => reports,
+            Err(error) => {
+                return emit_error(
+                    "vortex-count-benchmark",
+                    format,
+                    "vortex count benchmark failed",
+                    &error,
+                );
+            }
+        };
+        let duration = started.elapsed();
+        iterations.push(crate::VortexCountBenchmarkIterationSummary::from_reports(
+            duration,
+            &encoded_report,
+            &local_report,
+        ));
+    }
+    let report = match crate::VortexCountBenchmarkReport::from_iterations(
+        uri,
+        memory_gb,
+        max_parallelism,
+        iteration_count,
+        iterations,
+    ) {
+        Ok(report) => report,
+        Err(error) => {
+            return emit_error(
+                "vortex-count-benchmark",
+                format,
+                "vortex count benchmark report failed",
+                &error,
+            );
+        }
+    };
+    let has_errors = report.has_errors();
+    emit(
+        "vortex-count-benchmark",
+        format,
+        if has_errors {
+            CommandStatus::Unsupported
+        } else {
+            CommandStatus::Success
+        },
+        "vortex local encoded count benchmark".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        crate::vortex_count_benchmark_fields(&report),
+    );
+    if has_errors {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+fn parse_vortex_count_benchmark_args(
+    mut args: std::vec::IntoIter<String>,
+) -> std::result::Result<(DatasetUri, u64, usize, usize), ExitCode> {
+    let Some(dataset_uri) = args.next() else {
+        eprintln!(
+            "usage: shardloom vortex-count-benchmark <dataset_uri> <memory_gb> <max_parallelism> [--iterations <n>]"
+        );
+        return Err(ExitCode::from(2));
+    };
+    let Some(memory_gb_text) = args.next() else {
+        eprintln!(
+            "usage: shardloom vortex-count-benchmark <dataset_uri> <memory_gb> <max_parallelism> [--iterations <n>]"
+        );
+        return Err(ExitCode::from(2));
+    };
+    let Some(max_parallelism_text) = args.next() else {
+        eprintln!(
+            "usage: shardloom vortex-count-benchmark <dataset_uri> <memory_gb> <max_parallelism> [--iterations <n>]"
+        );
+        return Err(ExitCode::from(2));
+    };
+    let uri = DatasetUri::new(dataset_uri).map_err(|_| ExitCode::from(2))?;
+    let memory_gb = memory_gb_text.parse().map_err(|_| ExitCode::from(2))?;
+    let max_parallelism = max_parallelism_text
+        .parse()
+        .map_err(|_| ExitCode::from(2))?;
+    let mut iterations = 3_usize;
+    while let Some(option) = args.next() {
+        if option != "--iterations" {
+            eprintln!("unknown option for shardloom vortex-count-benchmark: {option}");
+            return Err(ExitCode::from(2));
+        }
+        let Some(iterations_text) = args.next() else {
+            eprintln!("usage: shardloom vortex-count-benchmark ... --iterations <n>");
+            return Err(ExitCode::from(2));
+        };
+        iterations = iterations_text.parse().map_err(|_| ExitCode::from(2))?;
+        if iterations == 0 {
+            eprintln!("shardloom vortex-count-benchmark requires at least one iteration");
+            return Err(ExitCode::from(2));
+        }
+    }
+    Ok((uri, memory_gb, max_parallelism, iterations))
 }
