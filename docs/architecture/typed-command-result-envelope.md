@@ -216,6 +216,13 @@ executor-contract, local-guard, or report-only surfaces and do not execute tasks
 existing contract, materialize outputs, write data, invoke external engines, or weaken no-fallback
 behavior.
 
+The optimizer/kernel planning family now contains `kernel-registry`, `optimizer-plan`,
+`optimizer-adaptive-memory-plan`, and `cpu-specialization-plan` in
+`shardloom-cli/src/optimizer_planning.rs`. These handlers preserve the current report-only kernel
+registry snapshot, unsupported optimizer skeleton, adaptive memory planning report, and CPU
+specialization planning report without running optimizer execution, physical kernels,
+CPU-specialized kernels, writes, materialization, external engines, or fallback execution.
+
 Command family classification lives in `shardloom-cli/src/command_family.rs` and is emitted in the
 typed lifecycle payload as `command_family`. This gives status/capabilities, Vortex primitive,
 prepared/source-backed, evidence/certificate, benchmark, packaging/deployment, Foundry,

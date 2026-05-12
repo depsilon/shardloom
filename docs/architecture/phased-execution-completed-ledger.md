@@ -16,6 +16,38 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 optimizer/kernel planning handler split
+  - Primary files:
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/src/optimizer_planning.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/typed-command-result-envelope.md`
+  - Scope: move optimizer, kernel registry, and CPU specialization planning command handlers out
+    of `main.rs` while preserving existing command output, typed envelope fields, unsupported
+    optimizer status, and no-fallback evidence.
+  - Checklist:
+    - [x] Route `kernel-registry`, `optimizer-plan`, `optimizer-adaptive-memory-plan`, and
+          `cpu-specialization-plan` through `optimizer_planning.rs`.
+    - [x] Preserve the report-only kernel registry snapshot and physical-kernel readiness fields
+          without running physical kernels or enabling runtime execution.
+    - [x] Preserve adaptive optimizer memory and CPU specialization planning reports without
+          running optimizer execution, CPU-specialized kernels, writes, materialization, external
+          engines, or fallback execution.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test kernel_registry_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --bin shardloom optimizer_plan`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --bin shardloom optimizer_adaptive_memory_plan`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --bin shardloom cpu_specialization_plan`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test adaptive_optimizer_memory_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test cpu_specialization_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test --workspace --all-targets`
+    - [x] `git diff --check`
+  - Runtime stance: handler routing/module ownership only; no optimizer execution, physical kernel
+    execution, CPU-specialized runtime path, dataset execution, source/sink I/O, object-store I/O,
+    write path, network effect, materialization, external engine, or fallback execution is added.
+
 - [x] Session label: Priority 3.9 Vortex readiness/approval planning handler split
   - Primary files:
     - `shardloom-cli/src/main.rs`
