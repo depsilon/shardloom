@@ -16,6 +16,42 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 2.7 executable benchmark taxonomy runner
+  - Primary files:
+    - `benchmarks/common/scenario_catalog.json`
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+  - Scope: wire the documented CG-6.25 taxonomy into the runnable local analytics benchmark
+    harness without adding managed-platform benchmark lanes or fallback behavior.
+  - Checklist:
+    - [x] Add a machine-readable local benchmark scenario catalog under `benchmarks/common`.
+    - [x] Attach `benchmark_suite`, `scenario_id`, `scenario_category`, `dataset_profile`,
+          `engine_role`, and `benchmark_constitution` metadata to every benchmark result row.
+    - [x] Emit a support/coverage table separate from timing rows.
+    - [x] Add opt-in taxonomy-extra executable local scenarios for filter/projection/limit,
+          multi-key group by, join+aggregate, and row-number window.
+    - [x] Add generated dataset profile selection for `tiny_smoke`, `narrow_fact_dim`,
+          `skewed_keys`, and `high_cardinality_strings`, while leaving broader catalog profiles
+          declared future coverage.
+    - [x] Keep Photon, Fabric, Snowflake, BigQuery, Redshift, and managed Databricks as design
+          references only, not default lanes or runtime dependencies.
+  - Validation:
+    - [x] `python -m py_compile benchmarks\traditional_analytics\run.py`
+    - [x] `python benchmarks\traditional_analytics\run.py --engines pandas --formats csv --scenario "filter + projection + limit" --dataset-profile skewed_keys --rows 200 --dim-rows 20 --iterations 1 --skip-shardloom-native --no-markdown --output target-codex-benchmark-taxonomy\smoke.json --data-dir target-codex-benchmark-taxonomy\data --regenerate`
+    - [x] `python benchmarks\traditional_analytics\run.py --engines pandas --formats csv --include-taxonomy-extra --dataset-profile narrow_fact_dim --rows 200 --dim-rows 20 --iterations 1 --skip-shardloom-native --no-markdown --output target-codex-benchmark-taxonomy\taxonomy-extra.json --data-dir target-codex-benchmark-taxonomy\data-extra --regenerate`
+    - [x] `python benchmarks\traditional_analytics\run.py --engines polars,duckdb --formats csv --include-taxonomy-extra --dataset-profile narrow_fact_dim --rows 200 --dim-rows 20 --iterations 1 --skip-shardloom-native --no-markdown --output target-codex-benchmark-taxonomy\polars-duckdb.json --data-dir target-codex-benchmark-taxonomy\data-polars-duckdb --regenerate`
+    - [x] `python benchmarks\traditional_analytics\run.py --engines shardloom --formats csv --scenario "row number window" --dataset-profile tiny_smoke --rows 50 --dim-rows 10 --iterations 1 --skip-shardloom-native --no-markdown --shardloom-build-profile debug --output target-codex-benchmark-taxonomy\shardloom-unsupported.json --data-dir target-codex-benchmark-taxonomy\data-shardloom --regenerate`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `git diff --check`
+  - Runtime stance: local benchmark harness structure update only; no managed-platform benchmark
+    dependencies, runtime fallback, new ShardLoom execution support claims, package publication,
+    credential resolution, object-store benchmark lane, or performance claim publication.
+
 - [x] Session label: Priority 3.9 engine/runtime planning handler module split
   - Primary files:
     - `shardloom-cli/src/engine_runtime_planning.rs`
