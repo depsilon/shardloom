@@ -80,7 +80,8 @@ Use this section for the next implementation sequence. Keep it ordered by depend
 - [ ] Priority 1.1 - reader-backed/source-backed generalized encoded execution
   - [x] Add source-bound prepared encoded filter/projection envelopes that require native Vortex source URI refs, stable split refs, source/batch URI matching, existing prepared encoded execution evidence, no external effects, and no fallback.
   - [x] Wire real local Vortex reader/source/split evidence into the prepared encoded-batch predicate, projection, and filter-project execution surfaces by binding prepared batches to reader-emitted split refs while preserving explicit no-decode/no-materialization/no-fallback diagnostics.
-  - [ ] Execute encoded filter, projection, and filter-project work over actual reader-backed Vortex paths with provider refs, residual boundaries, representation transitions, and reader-generated prepared encoded batches.
+  - [x] Generate reader-backed prepared chunk envelopes from actual local Vortex scan chunks with provider refs, split refs, representation transitions, residual boundary status, and no decode/materialization/fallback evidence while keeping simplified encoded kernel-input lowering blocked for opaque chunks.
+  - [ ] Lower reader-generated prepared chunk envelopes into truthful encoded filter, projection, and filter-project kernel inputs only when Vortex chunk dtype/encoding evidence can be mapped without decode/materialization, then execute those paths over actual reader-backed Vortex data.
   - [ ] Keep upstream Vortex-native providers allowed only through feature-gated, version-recorded, policy-admitted, certificate-backed provider boundaries.
   - [ ] Reject or ShardLoom-native-execute residual expressions; never delegate residual evaluation to DataFusion, DuckDB, Spark, Polars, Velox, Trino, Dask, Ray, or Vortex query-engine integrations.
   - [ ] Pair each source-backed execution expansion with CG-5 correctness fixtures/reference outputs, CG-6 benchmark rows, CG-16 execution certificates, CG-19 Native I/O certificates, and explicit no-fallback evidence.
@@ -415,6 +416,20 @@ Use this section for the next implementation sequence. Keep it ordered by depend
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: reader-generated prepared chunk envelope evidence
+  - Primary files:
+    - `shardloom-vortex/src/source_backed_encoded_execution.rs`
+    - `shardloom-vortex/src/local_primitives.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: add report-only reader-generated prepared chunk envelopes from real local Vortex scan split evidence without claiming that opaque Vortex chunks have been lowered into ShardLoom `EncodedValueBatch` or projection kernel inputs.
+  - Checklist:
+    - [x] Add `VortexReaderGeneratedPreparedBatchEvidence`, `VortexReaderGeneratedPreparedBatchReport`, and `VortexReaderGeneratedPreparedBatchStatus` with provider kind/API surface, split refs, dtype/encoding summaries, representation transition labels, residual executor status, and no-fallback/no-decode/no-materialization fields.
+    - [x] Add `plan_vortex_reader_generated_prepared_batch_envelopes` so real reader split evidence can produce prepared chunk-envelope evidence while keeping `encoded_value_batch_available=false`, `encoded_projection_batch_available=false`, and `kernel_input_lowering_blocked=true`.
+    - [x] Attach the reader-generated prepared batch report to local Vortex primitive execution reports emitted from actual `VortexFile::scan.into_array_iter` chunks.
+    - [x] Add focused tests for accepted reader-generated chunk envelopes, rejected unsafe reader effects, and local scan report propagation.
+  - Non-goals preserved:
+    - [x] No decoded Arrow/row materialization, object-store IO, writes, spill IO, external effects, fallback execution, external query-engine residual evaluation, or claim that opaque Vortex chunks are truthful ShardLoom encoded kernel inputs.
 - [x] Session label: RFC 0036 Foundry integration pack and availability intake
   - Primary files:
     - `docs/rfcs/0036-foundry-integration-pack-availability-surface.md`
