@@ -301,7 +301,19 @@ not by numeric CG order.
   - [x] Require Vortex-native providers to be feature-gated, version-recorded, policy-admitted, and
         certificate-backed before support claims.
 - [ ] Priority 3 - broader platform work after the primitive/evidence loop advances
-  - [ ] CG-4 broader commit execution.
+  - [x] CG-4 broader commit execution.
+    - [x] Add `CommitExecutionPromotionGateReport` so broader commit surfaces are named and kept
+          blocked behind output manifest, sink requirements, materialization/fidelity,
+          idempotency, recovery/rollback, ambiguous-commit diagnostics, backend atomicity,
+          table/catalog transaction, credential/effect policy, execution-certificate, Native I/O,
+          and no-fallback evidence.
+    - [x] Keep existing feature-gated local committed-manifest copy and local rollback cleanup
+          visible as narrow local paths while keeping generalized local sink, object-store,
+          table/catalog, source/sink, Foundry dataset transaction, and live/hybrid checkpoint commit
+          promotion blocked.
+    - [x] Expose the gate through `commit-execution-promotion-gate` without runtime execution,
+          write IO, object-store IO, catalog IO, external effects, claim publication, or fallback
+          execution.
   - [ ] CG-8 dynamic sizing feedback execution and bounded parallel encoded/read runtime.
   - [ ] CG-9 catalog/table metadata integration.
   - [ ] CG-10 object-store/distributed runtime execution.

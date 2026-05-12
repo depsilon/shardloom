@@ -52,8 +52,8 @@ use shardloom_core::{
 use shardloom_exec::{
     AdaptiveSizer, AdaptiveSizingPolicy, AttemptId, BackpressurePlanInput, BackpressurePlanReport,
     BoundedMemoryPolicy, ByteSize, CancellationReason, CancellationRequest, CancellationScope,
-    DynamicSizingFeedbackInput, DynamicSizingFeedbackReport, DynamicWorkShapingReport,
-    EncodedStreamingBatchPlanInput, EncodedStreamingBatchPlanReport,
+    CommitExecutionPromotionGateReport, DynamicSizingFeedbackInput, DynamicSizingFeedbackReport,
+    DynamicWorkShapingReport, EncodedStreamingBatchPlanInput, EncodedStreamingBatchPlanReport,
     FaultTolerancePromotionGateReport, MemoryBudget, MemoryOwner, MemoryPoolPlan, OomSafetyPlan,
     OperatorMemoryClass, OperatorMemorySpillDeclarationReport, ParallelismLimit, ParallelismPlan,
     RecoveryPlan, RetryPlan, RuntimePlanSkeleton, ShardLoomCancellationExecutionGateReport,
@@ -66,10 +66,10 @@ use shardloom_exec::{
     SpillReservationIntegrationRequest, SpillWorkspaceId, SpillWorkspacePath,
     StreamingPlanSkeleton, StreamingSink, StreamingSource, SyntheticSpillPayload,
     TaskAttemptRecord, plan_backpressure, plan_cancellation_execution_gate,
-    plan_dynamic_sizing_feedback, plan_dynamic_work_shaping, plan_encoded_streaming_batches,
-    plan_fault_tolerance_promotion_gate, plan_operator_memory_spill_declarations,
-    plan_retry_execution_gate, plan_spill_lifecycle, plan_spill_reservation_integration,
-    roundtrip_spill_payload, spill_payload_fs_feature_enabled,
+    plan_commit_execution_promotion_gate, plan_dynamic_sizing_feedback, plan_dynamic_work_shaping,
+    plan_encoded_streaming_batches, plan_fault_tolerance_promotion_gate,
+    plan_operator_memory_spill_declarations, plan_retry_execution_gate, plan_spill_lifecycle,
+    plan_spill_reservation_integration, roundtrip_spill_payload, spill_payload_fs_feature_enabled,
 };
 use shardloom_plan::{
     AdaptiveOptimizerMemoryReport, EstimateReport, ExplainReport, ImportedPlanCapabilityGateReport,
@@ -216,7 +216,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|agent-contract-pack|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance]|security-plan|security-governance-evidence-gate|effect-budget-plan|agent-safety-plan|redaction-plan|kernel-registry|feature-footprint|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|layout-health-plan|compaction-plan|table-intelligence-plan|object-store-request-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|dynamic-work-shaping-plan [balanced|memory-pressure|object-store-throttled|small-tasks]|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|benchmark-claim-evidence-plan [foundation|traditional-analytics]|traditional-analytics-run|traditional-analytics-vortex-run|vortex-count-benchmark|correctness-plan|correctness-harness-plan|execution-certificate-plan|recovery-plan|fault-tolerance-promotion-gate|cancellation-plan|retry-plan|observability-plan|observability-schema-coverage|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-filter-project|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|operator-memory-spill-declarations|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|agent-contract-pack|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance]|security-plan|security-governance-evidence-gate|effect-budget-plan|agent-safety-plan|redaction-plan|kernel-registry|feature-footprint|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|layout-health-plan|compaction-plan|table-intelligence-plan|object-store-request-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|dynamic-work-shaping-plan [balanced|memory-pressure|object-store-throttled|small-tasks]|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|benchmark-claim-evidence-plan [foundation|traditional-analytics]|traditional-analytics-run|traditional-analytics-vortex-run|vortex-count-benchmark|correctness-plan|correctness-harness-plan|execution-certificate-plan|recovery-plan|commit-execution-promotion-gate|fault-tolerance-promotion-gate|cancellation-plan|retry-plan|observability-plan|observability-schema-coverage|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-filter-project|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|operator-memory-spill-declarations|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -9759,6 +9759,282 @@ fn readiness_is_blocked(status: VortexExecutionReadinessStatus) -> bool {
             | VortexExecutionReadinessStatus::BlockedBySpillPolicy
             | VortexExecutionReadinessStatus::BlockedByFeatureGate
     )
+}
+
+fn commit_execution_promotion_gate_fields(
+    report: &CommitExecutionPromotionGateReport,
+) -> Vec<(String, String)> {
+    let mut fields = Vec::new();
+    append_commit_execution_promotion_gate_summary_fields(&mut fields, report);
+    append_commit_execution_promotion_gate_evidence_fields(&mut fields, report);
+    append_commit_execution_promotion_gate_execution_fields(&mut fields, report);
+    append_commit_execution_promotion_gate_entry_fields(&mut fields, report);
+    fields
+}
+
+fn append_commit_execution_promotion_gate_summary_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &CommitExecutionPromotionGateReport,
+) {
+    push_field(fields, "mode", "commit_execution_promotion_gate");
+    push_field(fields, "schema_version", report.schema_version);
+    push_field(fields, "report_id", report.report_id);
+    push_count_field(fields, "surface_count", report.surface_count());
+    push_count_field(
+        fields,
+        "existing_limited_surface_count",
+        report.existing_limited_surface_count(),
+    );
+    push_count_field(
+        fields,
+        "blocked_surface_count",
+        report.blocked_surface_count(),
+    );
+    push_count_field(
+        fields,
+        "broader_execution_ready_surface_count",
+        report.broader_execution_ready_surface_count(),
+    );
+    push_field(fields, "surface_order", &report.surface_order().join(","));
+    push_bool_field(
+        fields,
+        "existing_local_commit_execution_present",
+        report.existing_local_commit_execution_present,
+    );
+    push_bool_field(
+        fields,
+        "existing_local_rollback_execution_present",
+        report.existing_local_rollback_execution_present,
+    );
+    push_bool_field(
+        fields,
+        "broader_execution_promotions_blocked",
+        report.broader_execution_promotions_blocked(),
+    );
+    push_bool_field(
+        fields,
+        "commit_claims_blocked",
+        report.commit_claims_blocked(),
+    );
+    push_bool_field(fields, "side_effect_free", report.side_effect_free());
+    push_bool_field(
+        fields,
+        "fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(fields, "fallback_attempted", report.fallback_attempted);
+    push_count_field(fields, "diagnostic_count", report.diagnostics.len());
+}
+
+fn append_commit_execution_promotion_gate_evidence_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &CommitExecutionPromotionGateReport,
+) {
+    push_bool_field(
+        fields,
+        "output_manifest_required",
+        report.output_manifest_required,
+    );
+    push_bool_field(
+        fields,
+        "sink_requirement_report_required",
+        report.sink_requirement_report_required,
+    );
+    push_bool_field(
+        fields,
+        "materialization_fidelity_report_required",
+        report.materialization_fidelity_report_required,
+    );
+    push_bool_field(
+        fields,
+        "execution_certificate_required",
+        report.execution_certificate_required,
+    );
+    push_bool_field(
+        fields,
+        "native_io_certificate_required",
+        report.native_io_certificate_required,
+    );
+    push_bool_field(
+        fields,
+        "idempotency_key_required",
+        report.idempotency_key_required,
+    );
+    push_bool_field(
+        fields,
+        "rollback_recovery_proof_required",
+        report.rollback_recovery_proof_required,
+    );
+    push_bool_field(
+        fields,
+        "ambiguous_commit_diagnostics_required",
+        report.ambiguous_commit_diagnostics_required,
+    );
+    push_bool_field(
+        fields,
+        "object_store_atomicity_policy_required",
+        report.object_store_atomicity_policy_required,
+    );
+    push_bool_field(
+        fields,
+        "table_catalog_transaction_policy_required",
+        report.table_catalog_transaction_policy_required,
+    );
+    push_bool_field(
+        fields,
+        "credential_effect_policy_required",
+        report.credential_effect_policy_required,
+    );
+}
+
+fn append_commit_execution_promotion_gate_execution_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &CommitExecutionPromotionGateReport,
+) {
+    push_bool_field(
+        fields,
+        "broader_commit_execution_allowed",
+        report.broader_commit_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "generalized_local_sink_commit_allowed",
+        report.generalized_local_sink_commit_allowed,
+    );
+    push_bool_field(
+        fields,
+        "object_store_commit_execution_allowed",
+        report.object_store_commit_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "table_catalog_commit_execution_allowed",
+        report.table_catalog_commit_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "native_source_sink_commit_execution_allowed",
+        report.native_source_sink_commit_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "foundry_dataset_commit_execution_allowed",
+        report.foundry_dataset_commit_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "live_hybrid_checkpoint_commit_execution_allowed",
+        report.live_hybrid_checkpoint_commit_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "runtime_execution",
+        report.runtime_execution_performed,
+    );
+    push_bool_field(fields, "write_io", report.write_io);
+    push_bool_field(fields, "object_store_io", report.object_store_io);
+    push_bool_field(fields, "catalog_io", report.catalog_io);
+    push_bool_field(
+        fields,
+        "external_effects_executed",
+        report.external_effects_executed,
+    );
+    push_bool_field(
+        fields,
+        "exactly_once_claim_allowed",
+        report.exactly_once_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "atomic_commit_claim_allowed",
+        report.atomic_commit_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "recovery_claim_allowed",
+        report.recovery_claim_allowed,
+    );
+}
+
+fn append_commit_execution_promotion_gate_entry_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &CommitExecutionPromotionGateReport,
+) {
+    for (idx, entry) in report.entries.iter().enumerate() {
+        let prefix = format!("commit_promotion_surface_{idx}");
+        push_field(fields, &format!("{prefix}_name"), entry.surface.as_str());
+        push_field(fields, &format!("{prefix}_status"), entry.status.as_str());
+        push_field(
+            fields,
+            &format!("{prefix}_required_evidence"),
+            entry.required_evidence,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_existing_limited_local_path"),
+            entry.existing_limited_local_path,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_requires_execution_certificate"),
+            entry.requires_execution_certificate,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_requires_native_io_certificate"),
+            entry.requires_native_io_certificate,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_requires_output_manifest"),
+            entry.requires_output_manifest,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_requires_sink_requirement_report"),
+            entry.requires_sink_requirement_report,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_requires_materialization_fidelity_report"),
+            entry.requires_materialization_fidelity_report,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_requires_idempotency_key"),
+            entry.requires_idempotency_key,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_requires_recovery_rollback_proof"),
+            entry.requires_recovery_rollback_proof,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_requires_ambiguous_commit_diagnostics"),
+            entry.requires_ambiguous_commit_diagnostics,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_requires_backend_atomicity_policy"),
+            entry.requires_backend_atomicity_policy,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_requires_table_catalog_transaction_policy"),
+            entry.requires_table_catalog_transaction_policy,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_requires_foundry_transaction_context"),
+            entry.requires_foundry_transaction_context,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_broader_execution_allowed"),
+            entry.broader_execution_allowed,
+        );
+    }
 }
 
 fn fault_tolerance_promotion_gate_fields(
@@ -19623,6 +19899,28 @@ fn run(args: Vec<String>) -> ExitCode {
                 ],
             );
             ExitCode::from(1)
+        }
+        Some("commit-execution-promotion-gate") => {
+            let report = plan_commit_execution_promotion_gate();
+            let status = if report.has_errors() {
+                CommandStatus::Unsupported
+            } else {
+                CommandStatus::Success
+            };
+            emit(
+                "commit-execution-promotion-gate",
+                format,
+                status,
+                "commit execution promotion gate".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                commit_execution_promotion_gate_fields(&report),
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
         }
         Some("fault-tolerance-promotion-gate") => {
             let report = plan_fault_tolerance_promotion_gate();

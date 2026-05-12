@@ -16,6 +16,41 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: CG-4 broader commit execution promotion gate
+  - Primary files:
+    - `shardloom-exec/src/recovery.rs`
+    - `shardloom-exec/src/lib.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/commit_execution_promotion_gate.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: add a report-only CG-4 promotion gate that names broader commit execution surfaces and
+    keeps them blocked until commit, recovery, Native I/O, certificate, policy, and no-fallback
+    evidence exists.
+  - Checklist:
+    - [x] Add `CommitExecutionPromotionGateReport` with local, generalized local sink,
+          object-store, table/catalog, native source/sink, Foundry dataset transaction, and
+          live/hybrid checkpoint commit surfaces.
+    - [x] Preserve existing feature-gated local committed-manifest copy and local rollback cleanup
+          as narrow local paths without promoting generalized commit execution.
+    - [x] Keep generalized local sink, object-store, table/catalog, source/sink, Foundry dataset,
+          and live/hybrid checkpoint commits blocked behind output manifest, sink requirement,
+          materialization/fidelity, idempotency, rollback/recovery, ambiguous-commit, backend
+          atomicity, table/catalog transaction, credential/effect, execution-certificate, Native
+          I/O, and no-fallback evidence.
+    - [x] Expose the gate through `commit-execution-promotion-gate` JSON/text output.
+  - Validation status:
+    - [x] `cargo test -p shardloom-exec commit_execution_promotion_gate --lib`
+    - [x] `cargo test -p shardloom-cli --test commit_execution_promotion_gate`
+    - [x] `cargo fmt --all -- --check`
+    - [x] `cargo clippy -p shardloom-exec --lib -- -D warnings`
+    - [x] `cargo clippy -p shardloom-cli --all-targets -- -D warnings`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `git diff --check`
+  - Non-goals preserved:
+    - [x] No broader commit execution, new write IO, object-store IO, catalog IO, Foundry dataset
+          transaction, live/hybrid checkpoint commit, claim publication, external engine fallback,
+          or fallback execution.
 - [x] Session label: claim-grade source-backed benchmark closeout gate
   - Primary files:
     - `shardloom-core/src/benchmark.rs`
