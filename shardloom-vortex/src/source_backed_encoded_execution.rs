@@ -35,8 +35,18 @@ const READER_PROJECTION_REPORT_ID: &str =
     "vortex.cg2.reader-backed-projection.reader-validated-prepared-encoded-columns";
 const READER_PROJECTION_EXECUTION_KIND: &str =
     "vortex.reader_backed_reader_validated_prepared_encoded_projection";
+const READER_GENERATED_BATCH_SCHEMA_VERSION: &str =
+    "shardloom.vortex_reader_generated_prepared_batch_envelope.v1";
+const READER_GENERATED_BATCH_REPORT_ID: &str =
+    "vortex.cg2.reader-generated-prepared-batch-envelope";
+const READER_GENERATED_BATCH_EXECUTION_KIND: &str =
+    "vortex.reader_generated_prepared_chunk_envelope";
 const LOCAL_SCAN_PROVIDER_KIND: &str = "vortex_scan";
 const LOCAL_SCAN_PROVIDER_API_SURFACE: &str = "VortexFile::scan.into_array_iter";
+const REPRESENTATION_VORTEX_READER_CHUNK: &str = "vortex_reader_chunk";
+const REPRESENTATION_PREPARED_CHUNK_ENVELOPE: &str = "reader_generated_prepared_chunk_envelope";
+const RESIDUAL_EXECUTOR_NONE: &str = "none";
+const RESIDUAL_EXECUTOR_UNSUPPORTED_BLOCKED: &str = "unsupported_blocked";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VortexSourceBackedEncodedExecutionStatus {
@@ -101,6 +111,35 @@ impl VortexReaderBackedEncodedExecutionStatus {
     #[must_use]
     pub const fn is_error(self) -> bool {
         !matches!(self, Self::ExecutedReaderValidatedPreparedEncodedBatches)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexReaderGeneratedPreparedBatchStatus {
+    PreparedReaderChunkEnvelopes,
+    BlockedNonNativeSource,
+    BlockedMissingSourceUri,
+    BlockedMissingReaderSplitEvidence,
+    BlockedReaderSourceMismatch,
+    BlockedUnsafeReaderEffects,
+}
+
+impl VortexReaderGeneratedPreparedBatchStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::PreparedReaderChunkEnvelopes => "prepared_reader_chunk_envelopes",
+            Self::BlockedNonNativeSource => "blocked_non_native_source",
+            Self::BlockedMissingSourceUri => "blocked_missing_source_uri",
+            Self::BlockedMissingReaderSplitEvidence => "blocked_missing_reader_split_evidence",
+            Self::BlockedReaderSourceMismatch => "blocked_reader_source_mismatch",
+            Self::BlockedUnsafeReaderEffects => "blocked_unsafe_reader_effects",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_error(self) -> bool {
+        !matches!(self, Self::PreparedReaderChunkEnvelopes)
     }
 }
 
@@ -213,6 +252,242 @@ impl VortexReaderBackedSplitEvidence {
             self.child_count,
             self.buffer_count
         )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexReaderGeneratedPreparedBatchEvidence {
+    pub source_uri: DatasetUri,
+    pub split_ref: String,
+    pub provider_kind: &'static str,
+    pub provider_api_surface: &'static str,
+    pub row_count: usize,
+    pub dtype_summary: String,
+    pub encoding_id: String,
+    pub child_count: usize,
+    pub buffer_count: usize,
+    pub representation_before: &'static str,
+    pub representation_after: &'static str,
+    pub encoded_value_batch_available: bool,
+    pub encoded_projection_batch_available: bool,
+    pub residual_required: bool,
+    pub residual_executor: &'static str,
+    pub data_read: bool,
+    pub data_decoded: bool,
+    pub data_materialized: bool,
+    pub row_read: bool,
+    pub arrow_converted: bool,
+    pub object_store_io: bool,
+    pub write_io: bool,
+    pub spill_io_performed: bool,
+    pub external_effects_executed: bool,
+    pub fallback_execution_allowed: bool,
+    pub fallback_attempted: bool,
+}
+
+impl VortexReaderGeneratedPreparedBatchEvidence {
+    #[must_use]
+    pub fn from_reader_split(split: &VortexReaderBackedSplitEvidence) -> Self {
+        Self {
+            source_uri: split.source_uri.clone(),
+            split_ref: split.split_ref.clone(),
+            provider_kind: split.provider_kind,
+            provider_api_surface: split.provider_api_surface,
+            row_count: split.row_count,
+            dtype_summary: split.dtype_summary.clone(),
+            encoding_id: split.encoding_id.clone(),
+            child_count: split.child_count,
+            buffer_count: split.buffer_count,
+            representation_before: REPRESENTATION_VORTEX_READER_CHUNK,
+            representation_after: REPRESENTATION_PREPARED_CHUNK_ENVELOPE,
+            encoded_value_batch_available: false,
+            encoded_projection_batch_available: false,
+            residual_required: false,
+            residual_executor: RESIDUAL_EXECUTOR_NONE,
+            data_read: split.data_read,
+            data_decoded: split.data_decoded,
+            data_materialized: split.data_materialized,
+            row_read: split.row_read,
+            arrow_converted: split.arrow_converted,
+            object_store_io: split.object_store_io,
+            write_io: split.write_io,
+            spill_io_performed: split.spill_io_performed,
+            external_effects_executed: split.external_effects_executed,
+            fallback_execution_allowed: split.fallback_execution_allowed,
+            fallback_attempted: split.fallback_attempted,
+        }
+    }
+
+    #[must_use]
+    pub const fn has_forbidden_effects(&self) -> bool {
+        self.data_decoded
+            || self.data_materialized
+            || self.row_read
+            || self.arrow_converted
+            || self.object_store_io
+            || self.write_io
+            || self.spill_io_performed
+            || self.external_effects_executed
+            || self.fallback_execution_allowed
+            || self.fallback_attempted
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexReaderGeneratedPreparedBatchReport {
+    pub schema_version: &'static str,
+    pub report_id: String,
+    pub execution_kind: &'static str,
+    pub source_summary: String,
+    pub source_uri: Option<DatasetUri>,
+    pub status: VortexReaderGeneratedPreparedBatchStatus,
+    pub provider_kind: &'static str,
+    pub provider_api_surface: &'static str,
+    pub reader_split_count: usize,
+    pub generated_batch_count: usize,
+    pub total_rows: usize,
+    pub split_refs: Vec<String>,
+    pub reader_source_uri_matches_source: bool,
+    pub reader_generated_prepared_batches: bool,
+    pub reader_chunk_envelopes_available: bool,
+    pub encoded_value_batch_available: bool,
+    pub encoded_projection_batch_available: bool,
+    pub kernel_input_lowering_blocked: bool,
+    pub runtime_execution_allowed: bool,
+    pub residual_required: bool,
+    pub residual_executor: &'static str,
+    pub representation_before: &'static str,
+    pub representation_after: &'static str,
+    pub batches: Vec<VortexReaderGeneratedPreparedBatchEvidence>,
+    pub data_read: bool,
+    pub data_decoded: bool,
+    pub data_materialized: bool,
+    pub row_read: bool,
+    pub arrow_converted: bool,
+    pub object_store_io: bool,
+    pub write_io: bool,
+    pub spill_io_performed: bool,
+    pub external_effects_executed: bool,
+    pub fallback_execution_allowed: bool,
+    pub fallback_attempted: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl VortexReaderGeneratedPreparedBatchReport {
+    fn from_validation(
+        source: &UniversalInputSource,
+        validation: ReaderGeneratedPreparedBatchValidation,
+    ) -> Self {
+        let chunk_envelopes_available = validation.status
+            == VortexReaderGeneratedPreparedBatchStatus::PreparedReaderChunkEnvelopes;
+        let encoded_value_batch_available = false;
+        let encoded_projection_batch_available = false;
+        let kernel_input_lowering_blocked = chunk_envelopes_available
+            && !encoded_value_batch_available
+            && !encoded_projection_batch_available;
+        Self {
+            schema_version: READER_GENERATED_BATCH_SCHEMA_VERSION,
+            report_id: READER_GENERATED_BATCH_REPORT_ID.to_string(),
+            execution_kind: READER_GENERATED_BATCH_EXECUTION_KIND,
+            source_summary: source.summary(),
+            source_uri: source.uri.clone(),
+            status: validation.status,
+            provider_kind: LOCAL_SCAN_PROVIDER_KIND,
+            provider_api_surface: LOCAL_SCAN_PROVIDER_API_SURFACE,
+            reader_split_count: validation.reader_split_refs.len(),
+            generated_batch_count: validation.batches.len(),
+            total_rows: validation.total_rows,
+            split_refs: validation.reader_split_refs,
+            reader_source_uri_matches_source: validation.reader_source_uri_matches_source,
+            reader_generated_prepared_batches: chunk_envelopes_available,
+            reader_chunk_envelopes_available: chunk_envelopes_available,
+            encoded_value_batch_available,
+            encoded_projection_batch_available,
+            kernel_input_lowering_blocked,
+            runtime_execution_allowed: false,
+            residual_required: kernel_input_lowering_blocked,
+            residual_executor: if kernel_input_lowering_blocked {
+                RESIDUAL_EXECUTOR_UNSUPPORTED_BLOCKED
+            } else {
+                RESIDUAL_EXECUTOR_NONE
+            },
+            representation_before: REPRESENTATION_VORTEX_READER_CHUNK,
+            representation_after: REPRESENTATION_PREPARED_CHUNK_ENVELOPE,
+            batches: validation.batches,
+            data_read: validation.data_read,
+            data_decoded: validation.data_decoded,
+            data_materialized: validation.data_materialized,
+            row_read: validation.row_read,
+            arrow_converted: validation.arrow_converted,
+            object_store_io: validation.object_store_io,
+            write_io: validation.write_io,
+            spill_io_performed: validation.spill_io_performed,
+            external_effects_executed: validation.external_effects_executed,
+            fallback_execution_allowed: validation.fallback_execution_allowed,
+            fallback_attempted: validation.fallback_attempted
+                || validation
+                    .diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.fallback.attempted),
+            diagnostics: validation.diagnostics,
+        }
+    }
+
+    #[must_use]
+    pub const fn avoids_forbidden_effects(&self) -> bool {
+        !self.data_decoded
+            && !self.data_materialized
+            && !self.row_read
+            && !self.arrow_converted
+            && !self.object_store_io
+            && !self.write_io
+            && !self.spill_io_performed
+            && !self.external_effects_executed
+            && !self.fallback_execution_allowed
+            && !self.fallback_attempted
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.status.is_error()
+            || !self.avoids_forbidden_effects()
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        let mut out = String::new();
+        let _ = writeln!(&mut out, "Vortex reader-generated prepared batch envelope");
+        let _ = writeln!(&mut out, "schema_version: {}", self.schema_version);
+        let _ = writeln!(&mut out, "report: {}", self.report_id);
+        let _ = writeln!(&mut out, "execution kind: {}", self.execution_kind);
+        let _ = writeln!(&mut out, "source: {}", self.source_summary);
+        let _ = writeln!(&mut out, "status: {}", self.status.as_str());
+        let _ = writeln!(&mut out, "reader splits: {}", self.reader_split_count);
+        let _ = writeln!(
+            &mut out,
+            "generated chunk envelopes: {}",
+            self.generated_batch_count
+        );
+        let _ = writeln!(
+            &mut out,
+            "encoded value batch available: {}",
+            self.encoded_value_batch_available
+        );
+        let _ = writeln!(
+            &mut out,
+            "kernel input lowering blocked: {}",
+            self.kernel_input_lowering_blocked
+        );
+        let _ = writeln!(&mut out, "fallback execution allowed: false");
+        out
     }
 }
 
@@ -1072,6 +1347,22 @@ pub fn execute_vortex_reader_backed_projection_from_encoded_projection_batches(
     )
 }
 
+/// Builds report-only prepared chunk envelopes from split evidence emitted by
+/// an approved Vortex reader/scan path.
+///
+/// This records that a real reader produced encoded chunk boundaries and
+/// provider refs. It deliberately does not lower opaque Vortex chunks into
+/// `EncodedValueBatch` or projection kernel inputs, because doing so without
+/// dtype/encoding-specific evidence would overstate the representation.
+#[must_use]
+pub fn plan_vortex_reader_generated_prepared_batch_envelopes(
+    source: &UniversalInputSource,
+    reader_splits: &[VortexReaderBackedSplitEvidence],
+) -> VortexReaderGeneratedPreparedBatchReport {
+    let validation = validate_reader_generated_prepared_batches(source, reader_splits);
+    VortexReaderGeneratedPreparedBatchReport::from_validation(source, validation)
+}
+
 #[derive(Debug, Clone)]
 struct SourceBackedValidation {
     status: Option<VortexSourceBackedEncodedExecutionStatus>,
@@ -1089,6 +1380,28 @@ struct ReaderBackedValidation {
     prepared_batch_split_refs: Vec<String>,
     reader_source_uri_matches_source: bool,
     prepared_batch_split_refs_covered_by_reader: bool,
+    data_read: bool,
+    data_decoded: bool,
+    data_materialized: bool,
+    row_read: bool,
+    arrow_converted: bool,
+    object_store_io: bool,
+    write_io: bool,
+    spill_io_performed: bool,
+    external_effects_executed: bool,
+    fallback_execution_allowed: bool,
+    fallback_attempted: bool,
+    diagnostics: Vec<Diagnostic>,
+}
+
+#[derive(Debug, Clone)]
+#[allow(clippy::struct_excessive_bools)]
+struct ReaderGeneratedPreparedBatchValidation {
+    status: VortexReaderGeneratedPreparedBatchStatus,
+    reader_split_refs: Vec<String>,
+    reader_source_uri_matches_source: bool,
+    batches: Vec<VortexReaderGeneratedPreparedBatchEvidence>,
+    total_rows: usize,
     data_read: bool,
     data_decoded: bool,
     data_materialized: bool,
@@ -1182,6 +1495,123 @@ fn validate_source_backed_refs<'a>(
         source_uri_matches_batches,
         diagnostics,
     }
+}
+
+#[allow(clippy::too_many_lines)]
+fn validate_reader_generated_prepared_batches(
+    source: &UniversalInputSource,
+    reader_splits: &[VortexReaderBackedSplitEvidence],
+) -> ReaderGeneratedPreparedBatchValidation {
+    let mut reader_split_refs = reader_splits
+        .iter()
+        .map(|split| split.split_ref.clone())
+        .collect::<Vec<_>>();
+    reader_split_refs.sort();
+    reader_split_refs.dedup();
+    let batches = reader_splits
+        .iter()
+        .map(VortexReaderGeneratedPreparedBatchEvidence::from_reader_split)
+        .collect::<Vec<_>>();
+    let total_rows = reader_splits
+        .iter()
+        .map(|split| split.row_count)
+        .try_fold(0usize, usize::checked_add)
+        .unwrap_or(usize::MAX);
+    let data_read = reader_splits.iter().any(|split| split.data_read);
+    let data_decoded = reader_splits.iter().any(|split| split.data_decoded);
+    let data_materialized = reader_splits.iter().any(|split| split.data_materialized);
+    let row_read = reader_splits.iter().any(|split| split.row_read);
+    let arrow_converted = reader_splits.iter().any(|split| split.arrow_converted);
+    let object_store_io = reader_splits.iter().any(|split| split.object_store_io);
+    let write_io = reader_splits.iter().any(|split| split.write_io);
+    let spill_io_performed = reader_splits.iter().any(|split| split.spill_io_performed);
+    let external_effects_executed = reader_splits
+        .iter()
+        .any(|split| split.external_effects_executed);
+    let fallback_execution_allowed = reader_splits
+        .iter()
+        .any(|split| split.fallback_execution_allowed);
+    let fallback_attempted = reader_splits.iter().any(|split| split.fallback_attempted);
+
+    let mut validation = ReaderGeneratedPreparedBatchValidation {
+        status: VortexReaderGeneratedPreparedBatchStatus::PreparedReaderChunkEnvelopes,
+        reader_split_refs,
+        reader_source_uri_matches_source: true,
+        batches,
+        total_rows,
+        data_read,
+        data_decoded,
+        data_materialized,
+        row_read,
+        arrow_converted,
+        object_store_io,
+        write_io,
+        spill_io_performed,
+        external_effects_executed,
+        fallback_execution_allowed,
+        fallback_attempted,
+        diagnostics: Vec::new(),
+    };
+
+    if !source.is_native_vortex() {
+        validation.status = VortexReaderGeneratedPreparedBatchStatus::BlockedNonNativeSource;
+        validation.reader_source_uri_matches_source = false;
+        validation.diagnostics.push(Diagnostic::unsupported(
+            DiagnosticCode::NoFallbackExecution,
+            "vortex_reader_generated_prepared_batch_envelope",
+            "reader-generated prepared chunk envelopes require a native Vortex source",
+            Some("Use a Vortex source or pass compatibility data through an explicit compatibility import boundary before reader-generated encoded evidence.".to_string()),
+        ));
+        return validation;
+    }
+    let Some(source_uri) = &source.uri else {
+        validation.status = VortexReaderGeneratedPreparedBatchStatus::BlockedMissingSourceUri;
+        validation.reader_source_uri_matches_source = false;
+        validation.diagnostics.push(Diagnostic::configuration_error(
+            "vortex_reader_generated_prepared_batch_envelope",
+            "reader-generated prepared chunk envelopes require a source URI",
+            "Attach a DatasetUri before producing reader-generated chunk evidence.",
+        ));
+        return validation;
+    };
+    if reader_splits.is_empty() {
+        validation.status =
+            VortexReaderGeneratedPreparedBatchStatus::BlockedMissingReaderSplitEvidence;
+        validation.reader_source_uri_matches_source = false;
+        validation.diagnostics.push(Diagnostic::configuration_error(
+            "vortex_reader_generated_prepared_batch_envelope",
+            "reader-generated prepared chunk envelopes require reader split evidence",
+            "Run an approved Vortex reader/scan path before producing reader-generated chunk envelopes.",
+        ));
+        return validation;
+    }
+    validation.reader_source_uri_matches_source = reader_splits
+        .iter()
+        .all(|split| &split.source_uri == source_uri);
+    if !validation.reader_source_uri_matches_source {
+        validation.status = VortexReaderGeneratedPreparedBatchStatus::BlockedReaderSourceMismatch;
+        validation.diagnostics.push(Diagnostic::unsupported(
+            DiagnosticCode::NoFallbackExecution,
+            "vortex_reader_generated_prepared_batch_envelope",
+            "reader-generated prepared chunk envelopes must all belong to the declared source URI",
+            Some("Reject mixed-source reader split evidence; execute separate source-backed plans or construct a certified multi-source plan later.".to_string()),
+        ));
+        return validation;
+    }
+    if validation
+        .batches
+        .iter()
+        .any(VortexReaderGeneratedPreparedBatchEvidence::has_forbidden_effects)
+    {
+        validation.status = VortexReaderGeneratedPreparedBatchStatus::BlockedUnsafeReaderEffects;
+        validation.diagnostics.push(Diagnostic::unsupported(
+            DiagnosticCode::NoFallbackExecution,
+            "vortex_reader_generated_prepared_batch_envelope",
+            "reader-generated chunk envelope evidence includes decode, materialization, row, Arrow, object-store, write, spill, external-effect, or fallback evidence",
+            Some("Only local Vortex scan chunk evidence with data-read and no decode/materialization/fallback effects may produce reader-generated prepared chunk envelopes.".to_string()),
+        ));
+    }
+    validation
 }
 
 #[allow(clippy::too_many_lines)]
@@ -1718,6 +2148,63 @@ mod tests {
         assert!(split.data_read);
         assert!(!split.has_forbidden_effects());
         assert!(split.summary().contains("rows=11"));
+    }
+
+    #[test]
+    fn reader_generated_prepared_batch_envelopes_preserve_reader_chunks() {
+        let source = source("file:///tmp/orders.vortex");
+        let source_uri = source.uri.clone().expect("uri");
+
+        let report = plan_vortex_reader_generated_prepared_batch_envelopes(
+            &source,
+            &reader_splits(&source_uri),
+        );
+
+        assert_eq!(
+            report.status,
+            VortexReaderGeneratedPreparedBatchStatus::PreparedReaderChunkEnvelopes
+        );
+        assert_eq!(report.reader_split_count, 2);
+        assert_eq!(report.generated_batch_count, 2);
+        assert_eq!(report.total_rows, 8);
+        assert!(report.reader_generated_prepared_batches);
+        assert!(report.reader_chunk_envelopes_available);
+        assert!(!report.encoded_value_batch_available);
+        assert!(!report.encoded_projection_batch_available);
+        assert!(report.kernel_input_lowering_blocked);
+        assert!(!report.runtime_execution_allowed);
+        assert!(report.residual_required);
+        assert_eq!(report.residual_executor, "unsupported_blocked");
+        assert_eq!(report.representation_before, "vortex_reader_chunk");
+        assert_eq!(
+            report.representation_after,
+            "reader_generated_prepared_chunk_envelope"
+        );
+        assert!(report.data_read);
+        assert!(report.avoids_forbidden_effects());
+        assert!(!report.has_errors());
+        assert!(report.diagnostics.iter().all(|d| !d.fallback.attempted));
+    }
+
+    #[test]
+    fn reader_generated_prepared_batch_envelopes_reject_decode_effects() {
+        let source = source("file:///tmp/orders.vortex");
+        let source_uri = source.uri.clone().expect("uri");
+        let mut splits = reader_splits(&source_uri);
+        splits[0].data_decoded = true;
+
+        let report = plan_vortex_reader_generated_prepared_batch_envelopes(&source, &splits);
+
+        assert_eq!(
+            report.status,
+            VortexReaderGeneratedPreparedBatchStatus::BlockedUnsafeReaderEffects
+        );
+        assert!(!report.reader_generated_prepared_batches);
+        assert!(report.data_read);
+        assert!(report.data_decoded);
+        assert!(!report.avoids_forbidden_effects());
+        assert!(report.has_errors());
+        assert!(report.diagnostics.iter().all(|d| !d.fallback.attempted));
     }
 
     #[test]

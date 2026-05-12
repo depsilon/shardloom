@@ -98,13 +98,16 @@ pub use generalized_projection_execution::{
 pub use source_backed_encoded_execution::{
     VortexReaderBackedEncodedExecutionStatus, VortexReaderBackedEncodedFilterExecutionReport,
     VortexReaderBackedEncodedProjectionExecutionReport, VortexReaderBackedSplitEvidence,
-    VortexSourceBackedEncodedExecutionStatus, VortexSourceBackedEncodedFilterExecutionReport,
-    VortexSourceBackedEncodedProjectionColumn, VortexSourceBackedEncodedProjectionExecutionReport,
+    VortexReaderGeneratedPreparedBatchEvidence, VortexReaderGeneratedPreparedBatchReport,
+    VortexReaderGeneratedPreparedBatchStatus, VortexSourceBackedEncodedExecutionStatus,
+    VortexSourceBackedEncodedFilterExecutionReport, VortexSourceBackedEncodedProjectionColumn,
+    VortexSourceBackedEncodedProjectionExecutionReport,
     VortexSourceBackedEncodedValuePredicateBatch,
     execute_vortex_reader_backed_filter_from_encoded_value_batches,
     execute_vortex_reader_backed_projection_from_encoded_projection_batches,
     execute_vortex_source_backed_filter_from_encoded_value_batches,
     execute_vortex_source_backed_projection_from_encoded_projection_batches,
+    plan_vortex_reader_generated_prepared_batch_envelopes,
 };
 
 pub use file_io::{

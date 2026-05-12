@@ -2,8 +2,6 @@
 
 use std::fmt::Write as _;
 
-#[cfg(feature = "vortex-local-primitives")]
-use shardloom_core::UriScheme;
 use shardloom_core::{
     ComparisonOp, CorrectnessFixture, CorrectnessValidationPlan, DatasetUri, Diagnostic,
     DiagnosticCode, DiagnosticSeverity, ExecutionCertificate, ExecutionCertificateInput,
@@ -12,10 +10,15 @@ use shardloom_core::{
     NativeIoSourceCapabilityReport, NativeIoSourcePushdownReport, PredicateExpr,
     RepresentationState, Result, ShardLoomError, StatValue,
 };
+#[cfg(feature = "vortex-local-primitives")]
+use shardloom_core::{UniversalInputSource, UriScheme};
 use shardloom_plan::ProjectionRequest;
 
+#[cfg(feature = "vortex-local-primitives")]
+use crate::plan_vortex_reader_generated_prepared_batch_envelopes;
 use crate::{
     VortexQueryPrimitiveKind, VortexQueryPrimitiveRequest, VortexReaderBackedSplitEvidence,
+    VortexReaderGeneratedPreparedBatchReport,
 };
 
 /// Feature-gated local Vortex primitive execution status.
@@ -86,6 +89,7 @@ pub struct VortexLocalPrimitiveExecutionReport {
     pub projected_columns: Vec<String>,
     pub arrays_read_count: usize,
     pub reader_splits: Vec<VortexReaderBackedSplitEvidence>,
+    pub reader_generated_prepared_batch_report: Option<VortexReaderGeneratedPreparedBatchReport>,
     pub max_chunk_rows: usize,
     pub streaming_scan_used: bool,
     pub full_stream_collected: bool,
@@ -122,6 +126,7 @@ impl VortexLocalPrimitiveExecutionReport {
             projected_columns: Vec::new(),
             arrays_read_count: 0,
             reader_splits: Vec::new(),
+            reader_generated_prepared_batch_report: None,
             max_chunk_rows: 0,
             streaming_scan_used: false,
             full_stream_collected: false,
@@ -195,6 +200,21 @@ impl VortexLocalPrimitiveExecutionReport {
             out,
             "reader split evidence count: {}",
             self.reader_splits.len()
+        );
+        let _ = writeln!(
+            out,
+            "reader-generated prepared batch report: {}",
+            self.reader_generated_prepared_batch_report
+                .as_ref()
+                .map_or("none", |report| report.status.as_str())
+        );
+        let _ = writeln!(
+            out,
+            "reader-generated kernel input available: {}",
+            self.reader_generated_prepared_batch_report
+                .as_ref()
+                .is_some_and(|report| report.encoded_value_batch_available
+                    || report.encoded_projection_batch_available)
         );
         let _ = writeln!(out, "max chunk rows: {}", self.max_chunk_rows);
         let _ = writeln!(out, "streaming scan used: {}", self.streaming_scan_used);
@@ -1124,6 +1144,7 @@ struct LocalVortexScan {
     result_row_count: usize,
     arrays_read_count: usize,
     reader_splits: Vec<VortexReaderBackedSplitEvidence>,
+    reader_generated_prepared_batch_report: VortexReaderGeneratedPreparedBatchReport,
     max_chunk_rows: usize,
     max_parallelism_requested: usize,
     scan_concurrency_per_worker: usize,
@@ -1259,11 +1280,15 @@ fn read_local_vortex_scan(
         max_chunk_rows = max_chunk_rows.max(rows);
         arrays_read_count += 1;
     }
+    let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
+    let reader_generated_prepared_batch_report =
+        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits);
     Ok(LocalVortexScan {
         source_row_count,
         result_row_count,
         arrays_read_count,
         reader_splits,
+        reader_generated_prepared_batch_report,
         max_chunk_rows,
         max_parallelism_requested: policy.max_parallelism,
         scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
@@ -1290,6 +1315,9 @@ fn count_all_report(
         projected_columns: Vec::new(),
         arrays_read_count: scan.arrays_read_count,
         reader_splits: scan.reader_splits.clone(),
+        reader_generated_prepared_batch_report: Some(
+            scan.reader_generated_prepared_batch_report.clone(),
+        ),
         max_chunk_rows: scan.max_chunk_rows,
         streaming_scan_used: true,
         full_stream_collected: false,
@@ -1333,6 +1361,9 @@ fn predicate_report(
         projected_columns: Vec::new(),
         arrays_read_count: scan.arrays_read_count,
         reader_splits: scan.reader_splits.clone(),
+        reader_generated_prepared_batch_report: Some(
+            scan.reader_generated_prepared_batch_report.clone(),
+        ),
         max_chunk_rows: scan.max_chunk_rows,
         streaming_scan_used: true,
         full_stream_collected: false,
@@ -1379,6 +1410,9 @@ fn projection_report(
         projected_columns: scan.projected_columns.clone(),
         arrays_read_count: scan.arrays_read_count,
         reader_splits: scan.reader_splits.clone(),
+        reader_generated_prepared_batch_report: Some(
+            scan.reader_generated_prepared_batch_report.clone(),
+        ),
         max_chunk_rows: scan.max_chunk_rows,
         streaming_scan_used: true,
         full_stream_collected: false,
@@ -1425,6 +1459,9 @@ fn filter_and_project_report(
         projected_columns: scan.projected_columns.clone(),
         arrays_read_count: scan.arrays_read_count,
         reader_splits: scan.reader_splits.clone(),
+        reader_generated_prepared_batch_report: Some(
+            scan.reader_generated_prepared_batch_report.clone(),
+        ),
         max_chunk_rows: scan.max_chunk_rows,
         streaming_scan_used: true,
         full_stream_collected: false,
@@ -1924,6 +1961,21 @@ mod tests {
                 .iter()
                 .all(|split| !split.has_forbidden_effects())
         );
+        let prepared_report = report
+            .reader_generated_prepared_batch_report
+            .as_ref()
+            .expect("reader-generated prepared batch report");
+        assert!(prepared_report.reader_generated_prepared_batches);
+        assert_eq!(
+            prepared_report.generated_batch_count,
+            report.arrays_read_count
+        );
+        assert_eq!(prepared_report.total_rows, 3);
+        assert!(prepared_report.kernel_input_lowering_blocked);
+        assert!(!prepared_report.encoded_value_batch_available);
+        assert!(!prepared_report.encoded_projection_batch_available);
+        assert!(!prepared_report.runtime_execution_allowed);
+        assert!(prepared_report.avoids_forbidden_effects());
         assert!(report.max_chunk_rows > 0);
         assert!(report.filter_pushdown_applied);
         assert!(report.upstream_filter_expression_used);
