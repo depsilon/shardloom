@@ -43,12 +43,342 @@ const READER_GENERATED_BATCH_EXECUTION_KIND: &str =
     "vortex.reader_generated_prepared_chunk_envelope";
 const LOCAL_SCAN_PROVIDER_KIND: &str = "vortex_scan";
 const LOCAL_SCAN_PROVIDER_API_SURFACE: &str = "VortexFile::scan.into_array_iter";
+const LOCAL_SCAN_PROVIDER_CRATE: &str = "vortex";
+const LOCAL_SCAN_PROVIDER_VERSION: &str = "0.70";
+const LOCAL_SCAN_FEATURE_GATE: &str = "vortex-local-primitives";
+const LOCAL_SCAN_ADMISSION_POLICY: &str = "shardloom.vortex.local_scan_primitive.v1";
+const LOCAL_SCAN_CERTIFICATE_REQUIREMENT: &str =
+    "cg16_execution_certificate_and_cg19_native_io_certificate";
 const REPRESENTATION_VORTEX_READER_CHUNK: &str = "vortex_reader_chunk";
 const REPRESENTATION_PREPARED_CHUNK_ENVELOPE: &str = "reader_generated_prepared_chunk_envelope";
 const REPRESENTATION_PREPARED_ENCODED_KERNEL_INPUT: &str =
     "reader_generated_prepared_encoded_kernel_input";
 const RESIDUAL_EXECUTOR_NONE: &str = "none";
+const RESIDUAL_EXECUTOR_SHARDLOOM_NATIVE: &str = "shardloom_native";
 const RESIDUAL_EXECUTOR_UNSUPPORTED_BLOCKED: &str = "unsupported_blocked";
+const RESIDUAL_EXECUTOR_EXTERNAL_BASELINE_ONLY: &str = "external_baseline_only";
+const RESIDUAL_EXECUTOR_PROHIBITED_EXTERNAL_FALLBACK: &str = "prohibited_external_fallback";
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexResidualBoundaryReport {
+    pub residual_required: bool,
+    pub residual_executor: &'static str,
+    pub residual_expression: Option<String>,
+    pub accepted_operations: Vec<String>,
+    pub rejected_operations: Vec<String>,
+    pub shardloom_native_residual_execution: bool,
+    pub external_engine_invoked: bool,
+    pub prohibited_external_fallback: bool,
+    pub fallback_attempted: bool,
+}
+
+impl VortexResidualBoundaryReport {
+    #[must_use]
+    pub fn none(accepted_operation: impl Into<String>) -> Self {
+        Self {
+            residual_required: false,
+            residual_executor: RESIDUAL_EXECUTOR_NONE,
+            residual_expression: None,
+            accepted_operations: vec![accepted_operation.into()],
+            rejected_operations: Vec::new(),
+            shardloom_native_residual_execution: false,
+            external_engine_invoked: false,
+            prohibited_external_fallback: true,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
+    pub fn unsupported_blocked(
+        residual_expression: impl Into<String>,
+        rejected_operation: impl Into<String>,
+    ) -> Self {
+        Self {
+            residual_required: true,
+            residual_executor: RESIDUAL_EXECUTOR_UNSUPPORTED_BLOCKED,
+            residual_expression: Some(residual_expression.into()),
+            accepted_operations: Vec::new(),
+            rejected_operations: vec![rejected_operation.into()],
+            shardloom_native_residual_execution: false,
+            external_engine_invoked: false,
+            prohibited_external_fallback: true,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
+    pub fn shardloom_native(
+        residual_expression: impl Into<String>,
+        accepted_operation: impl Into<String>,
+    ) -> Self {
+        Self {
+            residual_required: true,
+            residual_executor: RESIDUAL_EXECUTOR_SHARDLOOM_NATIVE,
+            residual_expression: Some(residual_expression.into()),
+            accepted_operations: vec![accepted_operation.into()],
+            rejected_operations: Vec::new(),
+            shardloom_native_residual_execution: true,
+            external_engine_invoked: false,
+            prohibited_external_fallback: true,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
+    pub fn external_baseline_only(
+        residual_expression: impl Into<String>,
+        rejected_operation: impl Into<String>,
+    ) -> Self {
+        Self {
+            residual_required: true,
+            residual_executor: RESIDUAL_EXECUTOR_EXTERNAL_BASELINE_ONLY,
+            residual_expression: Some(residual_expression.into()),
+            accepted_operations: Vec::new(),
+            rejected_operations: vec![rejected_operation.into()],
+            shardloom_native_residual_execution: false,
+            external_engine_invoked: false,
+            prohibited_external_fallback: true,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
+    pub fn prohibited_external_fallback(
+        residual_expression: impl Into<String>,
+        rejected_operation: impl Into<String>,
+    ) -> Self {
+        Self {
+            residual_required: true,
+            residual_executor: RESIDUAL_EXECUTOR_PROHIBITED_EXTERNAL_FALLBACK,
+            residual_expression: Some(residual_expression.into()),
+            accepted_operations: Vec::new(),
+            rejected_operations: vec![rejected_operation.into()],
+            shardloom_native_residual_execution: false,
+            external_engine_invoked: false,
+            prohibited_external_fallback: true,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn residual_executor_values() -> &'static [&'static str] {
+        &[
+            RESIDUAL_EXECUTOR_NONE,
+            RESIDUAL_EXECUTOR_SHARDLOOM_NATIVE,
+            RESIDUAL_EXECUTOR_UNSUPPORTED_BLOCKED,
+            RESIDUAL_EXECUTOR_EXTERNAL_BASELINE_ONLY,
+            RESIDUAL_EXECUTOR_PROHIBITED_EXTERNAL_FALLBACK,
+        ]
+    }
+
+    #[must_use]
+    pub const fn external_fallback_blocked(&self) -> bool {
+        !self.external_engine_invoked
+            && self.prohibited_external_fallback
+            && !self.fallback_attempted
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexSourceBackedExpansionEvidenceReport {
+    pub schema_version: &'static str,
+    pub report_id: String,
+    pub execution_kind: &'static str,
+    pub source_report_id: String,
+    pub correctness_evidence_present: bool,
+    pub correctness_refs: Vec<String>,
+    pub benchmark_rows_required: bool,
+    pub benchmark_rows_present: bool,
+    pub benchmark_refs: Vec<String>,
+    pub benchmark_claim_allowed: bool,
+    pub execution_certificate_present: bool,
+    pub execution_certificate_refs: Vec<String>,
+    pub native_io_certificate_present: bool,
+    pub native_io_certificate_refs: Vec<String>,
+    pub native_io_certificate_path_refs: Vec<String>,
+    pub certificate_pair_report_ref: String,
+    pub no_fallback_evidence_present: bool,
+    pub external_engine_invoked: bool,
+    pub fallback_execution_allowed: bool,
+    pub fallback_attempted: bool,
+    pub production_claim_allowed: bool,
+}
+
+impl VortexSourceBackedExpansionEvidenceReport {
+    fn from_filter(report: &VortexSourceBackedEncodedFilterExecutionReport) -> Self {
+        let execution_certificate = &report.prepared_execution.execution_certificate;
+        let native_io_certificate = &report.prepared_execution.native_io_certificate;
+        let correctness_refs = execution_certificate
+            .correctness_fixture_id
+            .clone()
+            .map_or_else(
+                || vec![execution_certificate.certificate_id.clone()],
+                |fixture_id| vec![fixture_id],
+            );
+        Self {
+            schema_version: "shardloom.vortex_source_backed_expansion_evidence.v1",
+            report_id: format!("{}.evidence", report.report_id),
+            execution_kind: report.execution_kind,
+            source_report_id: report.report_id.clone(),
+            correctness_evidence_present: report.correctness_certified,
+            correctness_refs,
+            benchmark_rows_required: true,
+            benchmark_rows_present: false,
+            benchmark_refs: vec![
+                "cg6.source_backed_encoded_execution.deferred_no_claim".to_string(),
+            ],
+            benchmark_claim_allowed: false,
+            execution_certificate_present: execution_certificate.is_certified(),
+            execution_certificate_refs: vec![execution_certificate.certificate_id.clone()],
+            native_io_certificate_present: native_io_certificate.is_certified(),
+            native_io_certificate_refs: vec![native_io_certificate.certificate_id.clone()],
+            native_io_certificate_path_refs: vec![native_io_certificate.path_id.clone()],
+            certificate_pair_report_ref: format!("{}.certificate-pair", report.report_id),
+            no_fallback_evidence_present: !report.fallback_attempted
+                && !report.fallback_execution_allowed
+                && !report.external_effects_executed,
+            external_engine_invoked: false,
+            fallback_execution_allowed: report.fallback_execution_allowed,
+            fallback_attempted: report.fallback_attempted,
+            production_claim_allowed: false,
+        }
+    }
+
+    fn from_projection(report: &VortexSourceBackedEncodedProjectionExecutionReport) -> Self {
+        let execution_certificate = &report.prepared_execution.execution_certificate;
+        let native_io_certificate = &report.prepared_execution.native_io_certificate;
+        let correctness_refs = execution_certificate
+            .correctness_fixture_id
+            .clone()
+            .map_or_else(
+                || vec![execution_certificate.certificate_id.clone()],
+                |fixture_id| vec![fixture_id],
+            );
+        Self {
+            schema_version: "shardloom.vortex_source_backed_expansion_evidence.v1",
+            report_id: format!("{}.evidence", report.report_id),
+            execution_kind: report.execution_kind,
+            source_report_id: report.report_id.clone(),
+            correctness_evidence_present: report.correctness_certified,
+            correctness_refs,
+            benchmark_rows_required: true,
+            benchmark_rows_present: false,
+            benchmark_refs: vec![
+                "cg6.source_backed_encoded_execution.deferred_no_claim".to_string(),
+            ],
+            benchmark_claim_allowed: false,
+            execution_certificate_present: execution_certificate.is_certified(),
+            execution_certificate_refs: vec![execution_certificate.certificate_id.clone()],
+            native_io_certificate_present: native_io_certificate.is_certified(),
+            native_io_certificate_refs: vec![native_io_certificate.certificate_id.clone()],
+            native_io_certificate_path_refs: vec![native_io_certificate.path_id.clone()],
+            certificate_pair_report_ref: format!("{}.certificate-pair", report.report_id),
+            no_fallback_evidence_present: !report.fallback_attempted
+                && !report.fallback_execution_allowed
+                && !report.external_effects_executed,
+            external_engine_invoked: false,
+            fallback_execution_allowed: report.fallback_execution_allowed,
+            fallback_attempted: report.fallback_attempted,
+            production_claim_allowed: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn blocks_claims_without_benchmarks(&self) -> bool {
+        self.benchmark_rows_required
+            && !self.benchmark_rows_present
+            && !self.benchmark_claim_allowed
+            && !self.production_claim_allowed
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexSourceBackedCertificatePairReport {
+    pub schema_version: &'static str,
+    pub report_id: String,
+    pub execution_kind: &'static str,
+    pub source_report_id: String,
+    pub execution_certificate_id: String,
+    pub execution_certificate_status: &'static str,
+    pub execution_certificate_present: bool,
+    pub native_io_certificate_id: String,
+    pub native_io_certificate_path_id: String,
+    pub native_io_certificate_status: &'static str,
+    pub native_io_certificate_present: bool,
+    pub per_path_native_io_certificate: bool,
+    pub certificate_pair_complete: bool,
+    pub external_engine_invoked: bool,
+    pub fallback_execution_allowed: bool,
+    pub fallback_attempted: bool,
+}
+
+impl VortexSourceBackedCertificatePairReport {
+    fn from_filter(report: &VortexSourceBackedEncodedFilterExecutionReport) -> Self {
+        let execution_certificate = &report.prepared_execution.execution_certificate;
+        let native_io_certificate = &report.prepared_execution.native_io_certificate;
+        let per_path_native_io_certificate = !native_io_certificate.path_id.trim().is_empty();
+        let certificate_pair_complete = execution_certificate.is_certified()
+            && native_io_certificate.is_certified()
+            && per_path_native_io_certificate
+            && !report.fallback_attempted
+            && !report.fallback_execution_allowed;
+        Self {
+            schema_version: "shardloom.vortex_source_backed_certificate_pair.v1",
+            report_id: format!("{}.certificate-pair", report.report_id),
+            execution_kind: report.execution_kind,
+            source_report_id: report.report_id.clone(),
+            execution_certificate_id: execution_certificate.certificate_id.clone(),
+            execution_certificate_status: execution_certificate.status.as_str(),
+            execution_certificate_present: execution_certificate.is_certified(),
+            native_io_certificate_id: native_io_certificate.certificate_id.clone(),
+            native_io_certificate_path_id: native_io_certificate.path_id.clone(),
+            native_io_certificate_status: native_io_certificate.status(),
+            native_io_certificate_present: native_io_certificate.is_certified(),
+            per_path_native_io_certificate,
+            certificate_pair_complete,
+            external_engine_invoked: false,
+            fallback_execution_allowed: report.fallback_execution_allowed,
+            fallback_attempted: report.fallback_attempted,
+        }
+    }
+
+    fn from_projection(report: &VortexSourceBackedEncodedProjectionExecutionReport) -> Self {
+        let execution_certificate = &report.prepared_execution.execution_certificate;
+        let native_io_certificate = &report.prepared_execution.native_io_certificate;
+        let per_path_native_io_certificate = !native_io_certificate.path_id.trim().is_empty();
+        let certificate_pair_complete = execution_certificate.is_certified()
+            && native_io_certificate.is_certified()
+            && per_path_native_io_certificate
+            && !report.fallback_attempted
+            && !report.fallback_execution_allowed;
+        Self {
+            schema_version: "shardloom.vortex_source_backed_certificate_pair.v1",
+            report_id: format!("{}.certificate-pair", report.report_id),
+            execution_kind: report.execution_kind,
+            source_report_id: report.report_id.clone(),
+            execution_certificate_id: execution_certificate.certificate_id.clone(),
+            execution_certificate_status: execution_certificate.status.as_str(),
+            execution_certificate_present: execution_certificate.is_certified(),
+            native_io_certificate_id: native_io_certificate.certificate_id.clone(),
+            native_io_certificate_path_id: native_io_certificate.path_id.clone(),
+            native_io_certificate_status: native_io_certificate.status(),
+            native_io_certificate_present: native_io_certificate.is_certified(),
+            per_path_native_io_certificate,
+            certificate_pair_complete,
+            external_engine_invoked: false,
+            fallback_execution_allowed: report.fallback_execution_allowed,
+            fallback_attempted: report.fallback_attempted,
+        }
+    }
+
+    #[must_use]
+    pub const fn claim_ready_before_benchmarks(&self) -> bool {
+        false
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VortexSourceBackedEncodedExecutionStatus {
@@ -158,11 +488,55 @@ impl VortexReaderGeneratedPreparedBatchStatus {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct VortexNativeProviderBoundary {
+    pub provider_kind: &'static str,
+    pub provider_crate: &'static str,
+    pub provider_version: &'static str,
+    pub provider_api_surface: &'static str,
+    pub feature_gate: &'static str,
+    pub admission_policy: &'static str,
+    pub certificate_requirement: &'static str,
+    pub support_claim_allowed_without_certificate: bool,
+    pub external_query_engine_invoked: bool,
+    pub fallback_attempted: bool,
+}
+
+impl VortexNativeProviderBoundary {
+    #[must_use]
+    pub const fn local_scan() -> Self {
+        Self {
+            provider_kind: LOCAL_SCAN_PROVIDER_KIND,
+            provider_crate: LOCAL_SCAN_PROVIDER_CRATE,
+            provider_version: LOCAL_SCAN_PROVIDER_VERSION,
+            provider_api_surface: LOCAL_SCAN_PROVIDER_API_SURFACE,
+            feature_gate: LOCAL_SCAN_FEATURE_GATE,
+            admission_policy: LOCAL_SCAN_ADMISSION_POLICY,
+            certificate_requirement: LOCAL_SCAN_CERTIFICATE_REQUIREMENT,
+            support_claim_allowed_without_certificate: false,
+            external_query_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
+    pub fn is_policy_admitted(&self) -> bool {
+        self.feature_gate == LOCAL_SCAN_FEATURE_GATE
+            && self.admission_policy == LOCAL_SCAN_ADMISSION_POLICY
+            && self.provider_crate == LOCAL_SCAN_PROVIDER_CRATE
+            && self.provider_version == LOCAL_SCAN_PROVIDER_VERSION
+            && !self.support_claim_allowed_without_certificate
+            && !self.external_query_engine_invoked
+            && !self.fallback_attempted
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct VortexReaderBackedSplitEvidence {
     pub source_uri: DatasetUri,
     pub split_ref: String,
+    pub provider_boundary: VortexNativeProviderBoundary,
     pub provider_kind: &'static str,
     pub provider_api_surface: &'static str,
     pub row_count: usize,
@@ -199,6 +573,7 @@ impl VortexReaderBackedSplitEvidence {
         Ok(Self {
             source_uri,
             split_ref,
+            provider_boundary: VortexNativeProviderBoundary::local_scan(),
             provider_kind: LOCAL_SCAN_PROVIDER_KIND,
             provider_api_surface: LOCAL_SCAN_PROVIDER_API_SURFACE,
             row_count,
@@ -275,6 +650,7 @@ impl VortexReaderBackedSplitEvidence {
 pub struct VortexReaderGeneratedEncodedKernelInput {
     pub source_uri: DatasetUri,
     pub split_ref: String,
+    pub provider_boundary: VortexNativeProviderBoundary,
     pub provider_kind: &'static str,
     pub provider_api_surface: &'static str,
     pub batch: VortexEncodedValuePredicateBatch,
@@ -325,6 +701,7 @@ impl VortexReaderGeneratedEncodedKernelInput {
         Ok(Self {
             source_uri,
             split_ref,
+            provider_boundary: VortexNativeProviderBoundary::local_scan(),
             provider_kind: LOCAL_SCAN_PROVIDER_KIND,
             provider_api_surface: LOCAL_SCAN_PROVIDER_API_SURFACE,
             batch,
@@ -401,6 +778,7 @@ impl VortexReaderGeneratedEncodedKernelInput {
 pub struct VortexReaderGeneratedPreparedBatchEvidence {
     pub source_uri: DatasetUri,
     pub split_ref: String,
+    pub provider_boundary: VortexNativeProviderBoundary,
     pub provider_kind: &'static str,
     pub provider_api_surface: &'static str,
     pub row_count: usize,
@@ -415,6 +793,7 @@ pub struct VortexReaderGeneratedPreparedBatchEvidence {
     pub encoded_kernel_input_count: usize,
     pub residual_required: bool,
     pub residual_executor: &'static str,
+    pub residual_boundary: VortexResidualBoundaryReport,
     pub data_read: bool,
     pub data_decoded: bool,
     pub data_materialized: bool,
@@ -435,9 +814,18 @@ impl VortexReaderGeneratedPreparedBatchEvidence {
         encoded_kernel_input_count: usize,
     ) -> Self {
         let encoded_kernel_inputs_available = encoded_kernel_input_count > 0;
+        let residual_boundary = if encoded_kernel_inputs_available {
+            VortexResidualBoundaryReport::none("reader_generated_encoded_kernel_input")
+        } else {
+            VortexResidualBoundaryReport::unsupported_blocked(
+                "opaque_vortex_reader_chunk",
+                "reader_chunk_residual_without_encoded_kernel_input",
+            )
+        };
         Self {
             source_uri: split.source_uri.clone(),
             split_ref: split.split_ref.clone(),
+            provider_boundary: split.provider_boundary,
             provider_kind: split.provider_kind,
             provider_api_surface: split.provider_api_surface,
             row_count: split.row_count,
@@ -454,8 +842,9 @@ impl VortexReaderGeneratedPreparedBatchEvidence {
             encoded_value_batch_available: encoded_kernel_inputs_available,
             encoded_projection_batch_available: encoded_kernel_inputs_available,
             encoded_kernel_input_count,
-            residual_required: false,
-            residual_executor: RESIDUAL_EXECUTOR_NONE,
+            residual_required: residual_boundary.residual_required,
+            residual_executor: residual_boundary.residual_executor,
+            residual_boundary,
             data_read: split.data_read,
             data_decoded: split.data_decoded,
             data_materialized: split.data_materialized,
@@ -482,6 +871,7 @@ impl VortexReaderGeneratedPreparedBatchEvidence {
             || self.external_effects_executed
             || self.fallback_execution_allowed
             || self.fallback_attempted
+            || !self.residual_boundary.external_fallback_blocked()
     }
 }
 
@@ -494,6 +884,7 @@ pub struct VortexReaderGeneratedPreparedBatchReport {
     pub source_summary: String,
     pub source_uri: Option<DatasetUri>,
     pub status: VortexReaderGeneratedPreparedBatchStatus,
+    pub provider_boundary: VortexNativeProviderBoundary,
     pub provider_kind: &'static str,
     pub provider_api_surface: &'static str,
     pub reader_split_count: usize,
@@ -515,6 +906,7 @@ pub struct VortexReaderGeneratedPreparedBatchReport {
     pub runtime_execution_allowed: bool,
     pub residual_required: bool,
     pub residual_executor: &'static str,
+    pub residual_boundary: VortexResidualBoundaryReport,
     pub representation_before: &'static str,
     pub representation_after: &'static str,
     pub batches: Vec<VortexReaderGeneratedPreparedBatchEvidence>,
@@ -549,6 +941,14 @@ impl VortexReaderGeneratedPreparedBatchReport {
         let kernel_input_lowering_blocked = (chunk_envelopes_available
             || validation.encoded_kernel_input_count > 0)
             && !encoded_kernel_inputs_available;
+        let residual_boundary = if kernel_input_lowering_blocked {
+            VortexResidualBoundaryReport::unsupported_blocked(
+                "opaque_vortex_reader_chunk",
+                "reader_chunk_residual_without_encoded_kernel_input",
+            )
+        } else {
+            VortexResidualBoundaryReport::none("reader_generated_encoded_kernel_inputs")
+        };
         Self {
             schema_version: READER_GENERATED_BATCH_SCHEMA_VERSION,
             report_id: READER_GENERATED_BATCH_REPORT_ID.to_string(),
@@ -556,6 +956,7 @@ impl VortexReaderGeneratedPreparedBatchReport {
             source_summary: source.summary(),
             source_uri: source.uri.clone(),
             status: validation.status,
+            provider_boundary: VortexNativeProviderBoundary::local_scan(),
             provider_kind: LOCAL_SCAN_PROVIDER_KIND,
             provider_api_surface: LOCAL_SCAN_PROVIDER_API_SURFACE,
             reader_split_count: validation.reader_split_refs.len(),
@@ -579,12 +980,9 @@ impl VortexReaderGeneratedPreparedBatchReport {
             encoded_kernel_input_count: validation.encoded_kernel_input_count,
             kernel_input_lowering_blocked,
             runtime_execution_allowed: encoded_kernel_inputs_available,
-            residual_required: kernel_input_lowering_blocked,
-            residual_executor: if kernel_input_lowering_blocked {
-                RESIDUAL_EXECUTOR_UNSUPPORTED_BLOCKED
-            } else {
-                RESIDUAL_EXECUTOR_NONE
-            },
+            residual_required: residual_boundary.residual_required,
+            residual_executor: residual_boundary.residual_executor,
+            residual_boundary,
             representation_before: REPRESENTATION_VORTEX_READER_CHUNK,
             representation_after: if encoded_kernel_inputs_available {
                 REPRESENTATION_PREPARED_ENCODED_KERNEL_INPUT
@@ -623,6 +1021,7 @@ impl VortexReaderGeneratedPreparedBatchReport {
             && !self.external_effects_executed
             && !self.fallback_execution_allowed
             && !self.fallback_attempted
+            && self.residual_boundary.external_fallback_blocked()
     }
 
     #[must_use]
@@ -872,6 +1271,16 @@ impl VortexSourceBackedEncodedFilterExecutionReport {
         let _ = writeln!(&mut out, "fallback execution allowed: false");
         out
     }
+
+    #[must_use]
+    pub fn evidence_gate_report(&self) -> VortexSourceBackedExpansionEvidenceReport {
+        VortexSourceBackedExpansionEvidenceReport::from_filter(self)
+    }
+
+    #[must_use]
+    pub fn certificate_pair_report(&self) -> VortexSourceBackedCertificatePairReport {
+        VortexSourceBackedCertificatePairReport::from_filter(self)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1032,6 +1441,16 @@ impl VortexSourceBackedEncodedProjectionExecutionReport {
         let _ = writeln!(&mut out, "fallback execution allowed: false");
         out
     }
+
+    #[must_use]
+    pub fn evidence_gate_report(&self) -> VortexSourceBackedExpansionEvidenceReport {
+        VortexSourceBackedExpansionEvidenceReport::from_projection(self)
+    }
+
+    #[must_use]
+    pub fn certificate_pair_report(&self) -> VortexSourceBackedCertificatePairReport {
+        VortexSourceBackedCertificatePairReport::from_projection(self)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1043,6 +1462,7 @@ pub struct VortexReaderBackedEncodedFilterExecutionReport {
     pub source_summary: String,
     pub source_uri: Option<DatasetUri>,
     pub status: VortexReaderBackedEncodedExecutionStatus,
+    pub provider_boundary: VortexNativeProviderBoundary,
     pub provider_kind: &'static str,
     pub provider_api_surface: &'static str,
     pub reader_split_count: usize,
@@ -1121,6 +1541,7 @@ impl VortexReaderBackedEncodedFilterExecutionReport {
             source_summary: source.summary(),
             source_uri: source.uri.clone(),
             status,
+            provider_boundary: VortexNativeProviderBoundary::local_scan(),
             provider_kind: LOCAL_SCAN_PROVIDER_KIND,
             provider_api_surface: LOCAL_SCAN_PROVIDER_API_SURFACE,
             reader_split_count: validation.reader_split_refs.len(),
@@ -1213,6 +1634,7 @@ pub struct VortexReaderBackedEncodedProjectionExecutionReport {
     pub source_summary: String,
     pub source_uri: Option<DatasetUri>,
     pub status: VortexReaderBackedEncodedExecutionStatus,
+    pub provider_boundary: VortexNativeProviderBoundary,
     pub provider_kind: &'static str,
     pub provider_api_surface: &'static str,
     pub reader_split_count: usize,
@@ -1294,6 +1716,7 @@ impl VortexReaderBackedEncodedProjectionExecutionReport {
             source_summary: source.summary(),
             source_uri: source.uri.clone(),
             status,
+            provider_boundary: VortexNativeProviderBoundary::local_scan(),
             provider_kind: LOCAL_SCAN_PROVIDER_KIND,
             provider_api_surface: LOCAL_SCAN_PROVIDER_API_SURFACE,
             reader_split_count: validation.reader_split_refs.len(),
@@ -2474,6 +2897,35 @@ mod tests {
         assert!(report.selection_vector_guaranteed);
         assert!(report.correctness_certified);
         assert!(report.prepared_execution.runtime_execution_allowed);
+        let evidence = report.evidence_gate_report();
+        assert!(evidence.correctness_evidence_present);
+        assert!(evidence.execution_certificate_present);
+        assert!(evidence.native_io_certificate_present);
+        assert_eq!(
+            evidence.native_io_certificate_path_refs,
+            vec!["prepared_vortex_encoded_batches_to_selection_vector_filter_result".to_string()]
+        );
+        assert!(evidence.no_fallback_evidence_present);
+        assert!(evidence.blocks_claims_without_benchmarks());
+        assert!(!evidence.external_engine_invoked);
+        let certificate_pair = report.certificate_pair_report();
+        assert_eq!(
+            certificate_pair.report_id,
+            evidence.certificate_pair_report_ref
+        );
+        assert!(certificate_pair.execution_certificate_present);
+        assert_eq!(certificate_pair.execution_certificate_status, "certified");
+        assert!(certificate_pair.native_io_certificate_present);
+        assert_eq!(certificate_pair.native_io_certificate_status, "certified");
+        assert_eq!(
+            certificate_pair.native_io_certificate_path_id,
+            "prepared_vortex_encoded_batches_to_selection_vector_filter_result"
+        );
+        assert!(certificate_pair.per_path_native_io_certificate);
+        assert!(certificate_pair.certificate_pair_complete);
+        assert!(!certificate_pair.claim_ready_before_benchmarks());
+        assert!(!certificate_pair.external_engine_invoked);
+        assert!(!certificate_pair.fallback_attempted);
         assert!(report.avoids_unsafe_effects());
         assert!(!report.has_errors());
     }
@@ -2554,6 +3006,35 @@ mod tests {
         assert!(report.encoded_projection_guaranteed);
         assert!(!report.selection_vector_preserved);
         assert!(report.correctness_certified);
+        let evidence = report.evidence_gate_report();
+        assert!(evidence.correctness_evidence_present);
+        assert!(evidence.execution_certificate_present);
+        assert!(evidence.native_io_certificate_present);
+        assert_eq!(
+            evidence.native_io_certificate_path_refs,
+            vec!["prepared_vortex_encoded_batches_to_encoded_projection_result".to_string()]
+        );
+        assert!(evidence.no_fallback_evidence_present);
+        assert!(evidence.blocks_claims_without_benchmarks());
+        assert!(!evidence.external_engine_invoked);
+        let certificate_pair = report.certificate_pair_report();
+        assert_eq!(
+            certificate_pair.report_id,
+            evidence.certificate_pair_report_ref
+        );
+        assert!(certificate_pair.execution_certificate_present);
+        assert_eq!(certificate_pair.execution_certificate_status, "certified");
+        assert!(certificate_pair.native_io_certificate_present);
+        assert_eq!(certificate_pair.native_io_certificate_status, "certified");
+        assert_eq!(
+            certificate_pair.native_io_certificate_path_id,
+            "prepared_vortex_encoded_batches_to_encoded_projection_result"
+        );
+        assert!(certificate_pair.per_path_native_io_certificate);
+        assert!(certificate_pair.certificate_pair_complete);
+        assert!(!certificate_pair.claim_ready_before_benchmarks());
+        assert!(!certificate_pair.external_engine_invoked);
+        assert!(!certificate_pair.fallback_attempted);
         assert!(report.avoids_unsafe_effects());
         assert!(!report.has_errors());
     }
@@ -2608,6 +3089,26 @@ mod tests {
 
         assert_eq!(split.split_ref, "vortex-local-scan-chunk-7");
         assert_eq!(split.provider_kind, "vortex_scan");
+        assert_eq!(split.provider_boundary.provider_crate, "vortex");
+        assert_eq!(split.provider_boundary.provider_version, "0.70");
+        assert_eq!(
+            split.provider_boundary.feature_gate,
+            "vortex-local-primitives"
+        );
+        assert_eq!(
+            split.provider_boundary.admission_policy,
+            "shardloom.vortex.local_scan_primitive.v1"
+        );
+        assert_eq!(
+            split.provider_boundary.certificate_requirement,
+            "cg16_execution_certificate_and_cg19_native_io_certificate"
+        );
+        assert!(
+            !split
+                .provider_boundary
+                .support_claim_allowed_without_certificate
+        );
+        assert!(split.provider_boundary.is_policy_admitted());
         assert!(split.data_read);
         assert!(!split.has_forbidden_effects());
         assert!(split.summary().contains("rows=11"));
@@ -2632,12 +3133,32 @@ mod tests {
         assert_eq!(report.total_rows, 8);
         assert!(report.reader_generated_prepared_batches);
         assert!(report.reader_chunk_envelopes_available);
+        assert!(report.provider_boundary.is_policy_admitted());
+        assert!(
+            report
+                .batches
+                .iter()
+                .all(|batch| batch.provider_boundary.is_policy_admitted())
+        );
         assert!(!report.encoded_value_batch_available);
         assert!(!report.encoded_projection_batch_available);
         assert!(report.kernel_input_lowering_blocked);
         assert!(!report.runtime_execution_allowed);
         assert!(report.residual_required);
         assert_eq!(report.residual_executor, "unsupported_blocked");
+        assert_eq!(
+            report.residual_boundary.residual_expression.as_deref(),
+            Some("opaque_vortex_reader_chunk")
+        );
+        assert!(!report.residual_boundary.external_engine_invoked);
+        assert!(report.residual_boundary.prohibited_external_fallback);
+        assert!(report.residual_boundary.external_fallback_blocked());
+        assert!(
+            report
+                .batches
+                .iter()
+                .all(|batch| batch.residual_boundary.external_fallback_blocked())
+        );
         assert_eq!(report.representation_before, "vortex_reader_chunk");
         assert_eq!(
             report.representation_after,
@@ -2647,6 +3168,42 @@ mod tests {
         assert!(report.avoids_forbidden_effects());
         assert!(!report.has_errors());
         assert!(report.diagnostics.iter().all(|d| !d.fallback.attempted));
+    }
+
+    #[test]
+    fn residual_boundary_reports_all_allowed_executor_values_without_fallback() {
+        assert_eq!(
+            VortexResidualBoundaryReport::residual_executor_values(),
+            &[
+                "none",
+                "shardloom_native",
+                "unsupported_blocked",
+                "external_baseline_only",
+                "prohibited_external_fallback"
+            ]
+        );
+
+        let native = VortexResidualBoundaryReport::shardloom_native(
+            "residual_filter",
+            "shardloom_native_residual_filter",
+        );
+        assert_eq!(native.residual_executor, "shardloom_native");
+        assert!(native.shardloom_native_residual_execution);
+        assert!(native.external_fallback_blocked());
+
+        let baseline =
+            VortexResidualBoundaryReport::external_baseline_only("residual_filter", "datafusion");
+        assert_eq!(baseline.residual_executor, "external_baseline_only");
+        assert!(!baseline.external_engine_invoked);
+        assert!(baseline.external_fallback_blocked());
+
+        let prohibited = VortexResidualBoundaryReport::prohibited_external_fallback(
+            "residual_filter",
+            "datafusion_runtime_fallback",
+        );
+        assert_eq!(prohibited.residual_executor, "prohibited_external_fallback");
+        assert!(prohibited.prohibited_external_fallback);
+        assert!(prohibited.external_fallback_blocked());
     }
 
     #[test]
@@ -2710,8 +3267,18 @@ mod tests {
         assert!(report.encoded_projection_batch_available);
         assert!(!report.kernel_input_lowering_blocked);
         assert!(report.runtime_execution_allowed);
+        assert!(report.provider_boundary.is_policy_admitted());
+        assert!(
+            inputs
+                .iter()
+                .all(|input| input.provider_boundary.is_policy_admitted())
+        );
         assert!(!report.residual_required);
         assert_eq!(report.residual_executor, "none");
+        assert!(!report.residual_boundary.residual_required);
+        assert!(!report.residual_boundary.external_engine_invoked);
+        assert!(report.residual_boundary.prohibited_external_fallback);
+        assert!(report.residual_boundary.external_fallback_blocked());
         assert!(report.encoded_kernel_inputs_source_uri_matches_source);
         assert!(report.encoded_kernel_input_split_refs_covered_by_reader);
         assert!(report.encoded_kernel_input_row_counts_match_reader);

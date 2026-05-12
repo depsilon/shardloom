@@ -38,10 +38,10 @@ fn benchmark_plan_json_exposes_scenario_inventory() {
     assert!(output.contains("\"status\":\"success\""));
     assert!(output.contains(&field("mode", "benchmark_plan")));
     assert!(output.contains(&field("status", "planned")));
-    assert!(output.contains(&field("scenario_count", "5")));
+    assert!(output.contains(&field("scenario_count", "7")));
     assert!(output.contains(&field(
         "scenario_name_order",
-        "single-node encoded execution,massive object-store scan,incremental recomputation,native output and translation,failure and unsupported behavior"
+        "single-node encoded execution,source-backed dictionary reader chunk,source-backed run-end reader chunk,massive object-store scan,incremental recomputation,native output and translation,failure and unsupported behavior"
     )));
     assert!(output.contains(&field(
         "workload_class_order",
@@ -51,9 +51,9 @@ fn benchmark_plan_json_exposes_scenario_inventory() {
         "correctness_validation_order",
         "expected_output,property_based,unsupported_diagnostic_only"
     )));
-    assert!(output.contains(&field("scenario_with_correctness_validation_count", "5")));
-    assert!(output.contains(&field("scenario_with_required_metrics_count", "5")));
-    assert!(output.contains(&field("scenario_with_baselines_count", "5")));
+    assert!(output.contains(&field("scenario_with_correctness_validation_count", "7")));
+    assert!(output.contains(&field("scenario_with_required_metrics_count", "7")));
+    assert!(output.contains(&field("scenario_with_baselines_count", "7")));
 }
 
 #[test]
@@ -63,7 +63,7 @@ fn benchmark_plan_json_exposes_metric_coverage_inventory() {
     assert!(output.contains(&field("required_metric_count", "21")));
     assert!(output.contains(&field(
         "required_metric_order",
-        "startup_latency_millis,wall_time_millis,query_runtime_millis,peak_memory_bytes,bytes_read,bytes_decoded,bytes_decode_avoided,rows_materialization_avoided,segments_pruned,work_avoided_units,spill_required_bytes,spill_avoided_bytes,segments_considered,object_store_requests,rows_materialized,cost_proxy,write_commit_latency_millis,bytes_written,output_files,output_bytes,segments_metadata_answered"
+        "startup_latency_millis,wall_time_millis,query_runtime_millis,peak_memory_bytes,bytes_read,bytes_decoded,bytes_decode_avoided,rows_materialization_avoided,segments_pruned,work_avoided_units,spill_required_bytes,spill_avoided_bytes,rows_materialized,segments_considered,object_store_requests,cost_proxy,write_commit_latency_millis,bytes_written,output_files,output_bytes,segments_metadata_answered"
     )));
     assert!(output.contains(&field("required_foundation_metric_count", "21")));
     assert!(output.contains(&field("covered_required_foundation_metric_count", "21")));
@@ -90,14 +90,14 @@ fn benchmark_plan_json_preserves_no_claim_no_fallback_boundaries() {
     assert!(output.contains(&field("external_baselines", "comparison_only")));
     assert!(output.contains(&field(
         "baseline_engine_order",
-        "shardloom,datafusion,spark,polars,vortex_integration,other"
+        "shardloom,datafusion,vortex_integration,spark,polars,other"
     )));
     assert!(output.contains(&field(
         "external_baseline_engine_order",
-        "datafusion,spark,polars,vortex_integration,other"
+        "datafusion,vortex_integration,spark,polars,other"
     )));
     assert!(output.contains(&field("external_baseline_count", "5")));
-    assert!(output.contains(&field("expected_result_count", "10")));
+    assert!(output.contains(&field("expected_result_count", "14")));
     assert!(output.contains(&field("claim_gate_status", "evidence_missing")));
     assert!(output.contains(&field("claim_gate_correctness_evidence", "missing")));
     assert!(output.contains(&field("claim_gate_benchmark_evidence", "missing")));

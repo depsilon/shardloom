@@ -188,7 +188,7 @@ impl VortexGeneralizedEncodedPrimitiveGateEntry {
             primitive: VortexGeneralizedEncodedPrimitiveKind::FilteredCount,
             status: VortexGeneralizedEncodedPrimitiveStatus::SourceBackedPreparedEncodedFilterEvidence,
             current_scope:
-                "local .vortex CountWhere/FilterPredicate scan-pushdown evidence plus prepared encoded-value filter execution, source-bound prepared batch evidence, reader split-ref validation, and explicit reader-generated encoded kernel-input admission; direct opaque chunk extraction and adapters still blocked"
+                "local .vortex CountWhere/FilterPredicate scan-pushdown evidence plus prepared encoded-value filter execution, source-bound prepared batch evidence, reader split-ref validation, explicit reader-generated encoded kernel-input admission, and direct constant/dictionary/run-end reader-chunk lowering; sparse and other opaque chunk extraction plus adapters still blocked"
                     .to_string(),
             current_evidence: vec![
                 "vortex-filtered-count-readiness-plan".to_string(),
@@ -204,16 +204,18 @@ impl VortexGeneralizedEncodedPrimitiveGateEntry {
                 "source-backed prepared encoded filter URI/split envelope".to_string(),
                 "reader-backed prepared encoded filter split-ref binding".to_string(),
                 "reader-generated encoded filter kernel-input lowering admission".to_string(),
+                "direct constant/dictionary/run-end reader-chunk kernel-input lowering via ArrayRef::as_constant, DictArray slots, and RunEnd slots"
+                    .to_string(),
             ],
             implementation_blockers: vec![
                 "non-local sources and object-store reads are not approved".to_string(),
-                "opaque Vortex reader chunks are not yet directly lowered into prepared encoded-value batches"
+                "sparse, nullable, nested, and other opaque Vortex reader chunks are not directly lowered into prepared encoded-value batches"
                     .to_string(),
                 "claim-grade predicate null/type correctness and benchmark evidence is not complete"
                     .to_string(),
             ],
             required_next_evidence: vec![
-                "upstream reader/read-start extraction that maps opaque chunks into prepared encoded-value batches without decode"
+                "upstream reader/read-start extraction that maps sparse or other encoded chunks into prepared encoded-value batches without decode"
                     .to_string(),
                 "selection-vector preservation through downstream operators beyond prepared filter evidence".to_string(),
                 "decoded-reference comparison fixtures for test-only validation".to_string(),
@@ -258,7 +260,7 @@ impl VortexGeneralizedEncodedPrimitiveGateEntry {
             primitive: VortexGeneralizedEncodedPrimitiveKind::Projection,
             status: VortexGeneralizedEncodedPrimitiveStatus::SourceBackedPreparedEncodedProjectionEvidence,
             current_scope:
-                "local .vortex ProjectColumns/FilterAndProject scan-pushdown evidence plus prepared encoded projection/filter-project execution, source-bound prepared projection evidence, reader split-ref validation, and explicit reader-generated encoded kernel-input admission; direct opaque chunk extraction and adapters still blocked"
+                "local .vortex ProjectColumns/FilterAndProject scan-pushdown evidence plus prepared encoded projection/filter-project execution, source-bound prepared projection evidence, reader split-ref validation, explicit reader-generated encoded kernel-input admission, and direct constant/dictionary/run-end reader-chunk lowering; sparse and other opaque chunk extraction plus adapters still blocked"
                     .to_string(),
             current_evidence: vec![
                 "vortex-projection-readiness-plan".to_string(),
@@ -277,15 +279,17 @@ impl VortexGeneralizedEncodedPrimitiveGateEntry {
                 "reader-backed prepared encoded projection split-ref binding".to_string(),
                 "reader-generated encoded projection/filter-project kernel-input lowering admission"
                     .to_string(),
+                "direct constant/dictionary/run-end reader-chunk kernel-input lowering via ArrayRef::as_constant, DictArray slots, and RunEnd slots"
+                    .to_string(),
             ],
             implementation_blockers: vec![
-                "opaque Vortex reader chunks are not yet directly lowered into prepared encoded projection batches"
+                "sparse, nullable, nested, and other opaque Vortex reader chunks are not directly lowered into prepared encoded projection batches"
                     .to_string(),
                 "claim-grade projection null/nested correctness and benchmark evidence is not complete"
                     .to_string(),
             ],
             required_next_evidence: vec![
-                "upstream reader/read-start extraction that maps opaque chunks into prepared encoded projection batches without decode"
+                "upstream reader/read-start extraction that maps sparse or other encoded chunks into prepared encoded projection batches without decode"
                     .to_string(),
                 "selection-vector preservation through downstream operators beyond prepared filter-project evidence".to_string(),
                 "projection fixtures for empty, null-heavy, wide, and nested columns".to_string(),
@@ -610,7 +614,7 @@ fn generalized_execution_blocked_diagnostic() -> Diagnostic {
         "Generalized encoded primitive execution remains blocked.",
         Some("vortex.generalized_encoded_primitive_execution".to_string()),
         Some(
-            "Local file/file:// `.vortex` CountAll, CountWhere, FilterPredicate, ProjectColumns, and FilterAndProject scan-pushdown paths have runtime and Native I/O evidence, prepared encoded-value filter/projection execution is available, source-bound prepared batch envelopes exist, and explicit reader-generated kernel-input admission exists, but direct opaque chunk extraction, non-local sources, adapters, correctness, and benchmark evidence still block generalized execution."
+            "Local file/file:// `.vortex` CountAll, CountWhere, FilterPredicate, ProjectColumns, and FilterAndProject scan-pushdown paths have runtime and Native I/O evidence, prepared encoded-value filter/projection execution is available, source-bound prepared batch envelopes exist, explicit reader-generated kernel-input admission exists, and actual constant/dictionary/run-end reader chunks can lower through upstream `ArrayRef::as_constant()`, dictionary slots, and run-end slots without decode. Sparse/other opaque chunk extraction, non-local sources, adapters, correctness, and benchmark evidence still block generalized execution."
                 .to_string(),
         ),
         Some(

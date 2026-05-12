@@ -11,6 +11,365 @@ When a session or PR completes, add its completed block near the top of the Rece
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: unstructured media/model boundary contracts
+  - Primary files:
+    - `shardloom-core/src/unstructured_workflow.rs`
+    - `shardloom-core/src/lib.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: promote CG-21P.1 unstructured, media, model, and embedding workflow boundaries into report-only code surfaces.
+  - Checklist:
+    - [x] Add `MediaRef`, `MediaManifest`, `TextChunkTable`, and `EmbeddingTable` contracts for typed media references and structured model-derived outputs.
+    - [x] Add `ExtractionBoundaryReport`, `ModelCallBoundaryReport`, `EmbeddingBoundaryReport`, and `UnstructuredWorkflowCertificate`.
+    - [x] Add Foundry media/AIP posture for media set sources/sinks, virtual media sets, media/model/embedding boundary reports, and AIP Logic policy-gated access.
+    - [x] Keep OCR, transcription, media conversion, embeddings, LLM calls, model inference, prompts, retries, rate limits, human review, and Ontology edits owned by pipeline code, Foundry media transforms, AIP Logic, or governed model services.
+    - [x] Keep embedding/vector tables as structured outputs while vector search, ANN/top-K, indexes, and native vector execution remain separately certified extension-type/vector work.
+  - Validation status:
+    - [x] `cargo test -p shardloom-core unstructured_workflow --lib`
+  - Non-goals preserved:
+    - [x] No OCR, transcription, media decode, embedding generation, LLM call, model inference, provider SDK, Foundry runtime call, new dependency, vector execution claim, external engine invocation, or fallback execution.
+- [x] Session label: client wrapper architecture report surfaces
+  - Primary files:
+    - `shardloom-core/src/wrapper_architecture.rs`
+    - `shardloom-core/src/lib.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: promote RFC 0037/Priority 3.8 client, wrapper, SDK, and ecosystem architecture into report-only code surfaces.
+  - Checklist:
+    - [x] Add `ClientWrapperArchitectureReport` with protocol schema, transport adapter, client core, language SDK, and ecosystem wrapper layers.
+    - [x] Add wrapper maturity `W0` through `W7`, transport kinds for CLI/REST/Flight-ADBC/mock/recording-replay, and client-core operation contracts.
+    - [x] Add language SDK, Python ecosystem, workflow/orchestration, remote/data-plane, and agent wrapper registries.
+    - [x] Add `WrapperCapabilityReport` for the current Python CLI JSON client and `WrapperGoldenContractFixtureCatalog` for envelopes, unsupported errors, capabilities, result refs, materialization reports, and certificates.
+    - [x] Preserve wrapper invariants: import/client construction side-effect-free, structured unsupported behavior, large-result refs/columnar boundaries, certificate visibility, and no external-engine fallback.
+  - Validation status:
+    - [x] `cargo test -p shardloom-core wrapper_architecture --lib`
+  - Non-goals preserved:
+    - [x] No generated client, REST server, Flight/ADBC endpoint, DB-API/SQLAlchemy/Ibis/dbt/Airflow/Dagster/Prefect/MCP implementation, new dependency, external engine invocation, package publication, or fallback execution.
+- [x] Session label: operational contracts report surfaces
+  - Primary files:
+    - `shardloom-core/src/operational_contracts.rs`
+    - `shardloom-core/src/lib.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: promote Priority 3.7 cross-surface evidence, policy, lifecycle, protocol, workload, semantic-profile, standards, benchmark-constitution, cost, and Rust performance-profile contracts into report-only code surfaces.
+  - Checklist:
+    - [x] Add `EvidenceArtifactEnvelope`, `EvidenceArtifactSafety`, `ShardLoomExecutionPolicy`, `QueryLifecycleContract`, and `ProtocolSurfaceParityReport`.
+    - [x] Add a starter `WorkloadConstitutionCatalog` for local Vortex primitives, local file ETL, Conda import smoke, Python DataFrame local ETL, REST discovery-only, batch Vortex analytics, hybrid base/delta fixture, local Vortex read/write adapter, and traditional analytics benchmark workloads.
+    - [x] Add a concrete `ShardLoomNativeSemanticProfile` dimension floor before SQL/DataFrame semantics can claim maturity.
+    - [x] Add `StandardsDependencyDecisionReport`, `BenchmarkConstitution`, `CostSimulationReport`, and `RustPerformanceProfileEvidence`.
+    - [x] Aggregate the surfaces through `OperationalContractsReport` with report-only, no-runtime, no-external-engine, no-claim, and no-fallback invariants.
+  - Validation status:
+    - [x] `cargo test -p shardloom-core operational_contracts --lib`
+  - Non-goals preserved:
+    - [x] No runtime behavior, parser, adapter, server, package publication, benchmark execution, external engine invocation, dependency approval, performance/cost/support claim, or fallback execution.
+- [x] Session label: Vortex compute-provider alignment
+  - Primary files:
+    - `shardloom-core/src/execution_certificate.rs`
+    - `shardloom-vortex/src/vortex_compute_provider.rs`
+    - `shardloom-vortex/src/source_backed_encoded_execution.rs`
+    - `shardloom-vortex/src/local_execution.rs`
+    - `shardloom-vortex/src/local_primitives.rs`
+    - `shardloom-vortex/src/generalized_encoded_filter_execution.rs`
+    - `shardloom-vortex/src/generalized_encoded_projection_execution.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `shardloom-cli/src/main.rs`
+    - `docs/architecture/vortex-public-api-inventory.md`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: make Vortex-native compute-provider identity explicit in execution certificates and report surfaces while preserving the distinction between upstream Vortex native providers and external query-engine fallback.
+  - Checklist:
+    - [x] Add execution-provider fields to `ExecutionCertificate` and `ExecutionCertificateInput`, blocking external query-engine and external-baseline provider kinds from certifying as ShardLoom execution.
+    - [x] Tag local Vortex scan certificate inputs as `ExecutionProviderKind::VortexScan` with Vortex crate/version/API surface, feature-gate admission policy, and no-fallback evidence.
+    - [x] Add `VortexComputeProviderReport`, `VortexComputeProviderAlignmentReport`, `VortexIntegrationBoundaryReport`, and integration-role rows.
+    - [x] Add residual executor values for `none`, `shardloom_native`, `unsupported_blocked`, `external_baseline_only`, and `prohibited_external_fallback`.
+    - [x] Update CLI certificate field emission and Vortex public API inventory to expose provider boundary status.
+  - Validation status:
+    - [x] `cargo test -p shardloom-core execution_certificate --lib`
+    - [x] `cargo test -p shardloom-contract-tests --test execution_certificate_contracts`
+    - [x] `cargo test -p shardloom-vortex vortex_compute_provider --lib`
+    - [x] `cargo test -p shardloom-vortex residual_boundary_reports_all_allowed_executor_values_without_fallback --lib`
+  - Non-goals preserved:
+    - [x] No new Vortex API admission, DataFusion/DuckDB/Spark/Trino integration execution, external residual executor, object-store IO, write path, benchmark execution, support claim, package/dependency change, or fallback execution.
+- [x] Session label: Vortex operational hardening facets
+  - Primary files:
+    - `shardloom-vortex/src/vortex_operational_facets.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: add report-only code surfaces for the remaining Priority 2.5 Vortex upstream operational facets without enabling runtime, write, object-store, telemetry, benchmark, package, or foreign-runtime support claims.
+  - Checklist:
+    - [x] Add `StreamingSinkCertificate`, `IoBackendEvidence`, `ExecutionTelemetryFacet`, `IntegrityAndEncryptionReport`, `PythonVortexInteropReport`, `ForeignRuntimePosture`, and `VortexBenchmarkInterop`.
+    - [x] Add `ApproxAnalyticsCertificate` separately from `CompressionAdvisorReport` so approximate query answers require exact-reference/error-bound evidence while compression-advisor sketches remain encoding/layout advice only.
+    - [x] Aggregate the surfaces through `VortexOperationalHardeningReport` with report-only, claims-blocked, no-external-engine, and no-fallback invariants.
+    - [x] Keep upstream Vortex integration benchmark rows distinct from ShardLoom-native benchmark rows.
+  - Validation status:
+    - [x] `cargo test -p shardloom-vortex vortex_operational_facets --lib`
+  - Non-goals preserved:
+    - [x] No streaming writer runtime, object-store IO, telemetry capture/exporter, approximate query function, compression choice execution, encryption runtime, PyVortex dependency, foreign runtime, benchmark execution, Vortex integration fallback, benchmark superiority claim, or fallback execution.
+- [x] Session label: extension type capability matrix
+  - Primary files:
+    - `shardloom-vortex/src/extension_type_capability.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: add a report-only extension dtype capability matrix for rich Vortex/ShardLoom type families without enabling vector, geospatial, raster, media, model, or extension execution claims.
+  - Checklist:
+    - [x] Track vector, tensor/matrix, fixed-size binary, map, variant/JSON, UUID, geospatial WKB/GeoArrow, raster/image reference, embedding reference, and document/media reference families.
+    - [x] Split dtype recognition, metadata preservation, scan support, expression support, write support, and certified execution status so naming a type family cannot imply execution support.
+    - [x] Keep vector similarity scan separate from ANN/top-K/index claims and keep media/model work classified as an effect boundary.
+    - [x] Preserve no external engine and no fallback status for every row.
+  - Validation status:
+    - [x] `cargo test -p shardloom-vortex extension_type_capability --lib`
+  - Non-goals preserved:
+    - [x] No vector search, ANN/top-K, geospatial operation, raster/media decode, OCR, embedding/model call, write path, object-store IO, external engine invocation, or fallback execution.
+- [x] Session label: device residency report
+  - Primary files:
+    - `shardloom-vortex/src/device_residency.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: add report-only CPU/GPU/device residency evidence without enabling GPU runtime support.
+  - Checklist:
+    - [x] Add CPU-default device residency evidence with zero host/device copy counts and host output boundary.
+    - [x] Add future CUDA posture fields for device buffers, direct-storage candidate, GPU memory pool, kernel registry, fused-expression candidate, and device output boundary.
+    - [x] Keep GPU runtime claims blocked until runtime, certificate, and benchmark evidence exists.
+    - [x] Preserve no external engine and no fallback status.
+  - Validation status:
+    - [x] `cargo test -p shardloom-vortex device_residency --lib`
+  - Non-goals preserved:
+    - [x] No CUDA dependency, GPU runtime, GPUDirect claim, cuDF/Arrow device path, object-store change, benchmark execution, or fallback execution.
+- [x] Session label: execute-step evidence report
+  - Primary files:
+    - `shardloom-vortex/src/execute_step_evidence.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: add a report-only execute-step evidence surface for representation and execution-stage tracking.
+  - Checklist:
+    - [x] Record current reader-chunk path from `vortex_reader_chunk` through reader-generated kernel-input admission and prepared encoded filter/projection execution.
+    - [x] Distinguish deferred operations, executed operations, fused operations, reduce steps, canonicalization steps, materialization steps, execution context IDs, trace spans, and final representation.
+    - [x] Keep deferred/fused/reduced/canonicalized/materialized execution claims blocked when trace/certificate evidence is absent.
+    - [x] Preserve no canonicalization, no materialization, no external engine, and no fallback status for the current report.
+  - Validation status:
+    - [x] `cargo test -p shardloom-vortex execute_step_evidence --lib`
+  - Non-goals preserved:
+    - [x] No Vortex execute API call, trace capture, fusion optimizer, canonicalization, materialization, GPU/device execution, external engine invocation, or fallback execution.
+- [x] Session label: composite pushdown capability matrix
+  - Primary files:
+    - `shardloom-vortex/src/composite_pushdown.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: add a report-only matrix that tracks operator combinations separately from primitive support.
+  - Checklist:
+    - [x] Track filter+projection, filter+limit, projection+limit, filter+projection+limit, ordered limit, reverse scan, top-N, range predicate+projection, zone-pruned filter+residual, filter-only column discard, and external residual evaluation combinations.
+    - [x] Mark current filter+projection evidence as certified while keeping limit/order/reverse/top-N/zone-pruned residual combinations deferred.
+    - [x] Mark external residual evaluation unsupported/blocked with deterministic diagnostics and no external query-engine residual fallback.
+    - [x] Require correctness, benchmark, execution-certificate, and Native I/O certificate evidence before support claims for composite rows.
+  - Validation status:
+    - [x] `cargo test -p shardloom-vortex composite_pushdown --lib`
+  - Non-goals preserved:
+    - [x] No limit/order/reverse/top-N runtime, new optimizer rule, external residual executor, benchmark execution, support widening, or fallback execution.
+- [x] Session label: Vortex Scan API compatibility report
+  - Primary files:
+    - `shardloom-vortex/src/vortex_scan_compatibility.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: add a report-only alignment surface between ShardLoom Native I/O envelopes and Vortex Source/Sink/Split scan concepts.
+  - Checklist:
+    - [x] Record Source, Sink, and Split conceptual alignment for NativeWorkStream and NativeResultStream.
+    - [x] Track projection, filter, limit, field-mask, split-estimate, split-serialization, and external-residual pushdown decisions.
+    - [x] Require split-level Native I/O certificate evidence.
+    - [x] Keep field-mask/filter-only-column and split-estimate concepts visible while split serialization remains deferred.
+    - [x] Block external residual evaluation rather than allowing DataFusion/DuckDB/Spark/Polars/Velox or Vortex query-engine integrations as runtime fallback.
+  - Validation status:
+    - [x] `cargo test -p shardloom-vortex vortex_scan_compatibility --lib`
+  - Non-goals preserved:
+    - [x] No generalized Vortex Source/Sink execution, split serialization runtime, object-store IO, writes, external query-engine integration, residual fallback, benchmark claim, or support widening.
+- [x] Session label: Vortex compatibility matrix report
+  - Primary files:
+    - `shardloom-vortex/src/vortex_compatibility.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: add a typed report-only Vortex compatibility matrix for crate/API/file-format alignment without probing runtime APIs or widening execution.
+  - Checklist:
+    - [x] Record Vortex crate version `0.70`, file-format stability assumption, Rust toolchain compatibility, and enabled feature gates.
+    - [x] Track certified, evidence-incomplete, report-only, deferred, baseline-only, and blocked Vortex compatibility rows.
+    - [x] Cover local metadata/footer, local primitive scan, reader-chunk constant/dictionary/run-end lowering, Scan API alignment, dtype/layout/statistics, Arrow boundary, Source/Sink/split serialization, object-store scan, writes, GPU/device, extension dtypes, Vortex query-engine integrations, and prohibited residual fallback.
+    - [x] Keep Vortex query-engine integrations baseline-only and all rows fallback-free.
+    - [x] Require evidence refs for any row that allows support claims.
+  - Validation status:
+    - [x] `cargo test -p shardloom-vortex vortex_compatibility --lib`
+  - Non-goals preserved:
+    - [x] No runtime Vortex API probing, Source/Sink integration, object-store IO, writes, GPU execution, vector/geospatial/media execution, external query-engine invocation, support claim widening, or fallback execution.
+- [x] Session label: source-backed certificate-pair report
+  - Primary files:
+    - `shardloom-vortex/src/source_backed_encoded_execution.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: make the CG-16 execution certificate and CG-19 per-path Native I/O certificate linkage explicit for source-backed encoded filter/projection paths.
+  - Checklist:
+    - [x] Add `VortexSourceBackedCertificatePairReport`.
+    - [x] Surface execution-certificate ID/status, Native I/O certificate ID/path ID/status, per-path certificate presence, certificate-pair completeness, external-engine status, and fallback status.
+    - [x] Link the certificate-pair report from source-backed expansion evidence.
+    - [x] Assert source-backed filter and projection reports expose certified execution and per-path Native I/O certificate pairs while remaining blocked for benchmark/production claims without CG-6 result evidence.
+  - Validation status:
+    - [x] `cargo test -p shardloom-vortex --features vortex-local-primitives source_backed --lib`
+  - Non-goals preserved:
+    - [x] No generalized Source/Sink API integration, adapter widening, object-store IO, write path, benchmark execution, external engine invocation, production claim, or fallback execution.
+- [x] Session label: reader-chunk source-backed benchmark evidence slots
+  - Primary files:
+    - `shardloom-core/src/benchmark.rs`
+    - `shardloom-contract-tests/tests/benchmark_evidence_manifest.rs`
+    - `shardloom-contract-tests/tests/benchmark_claim_evidence.rs`
+    - `shardloom-cli/tests/benchmark_plan_snapshots.rs`
+    - `shardloom-cli/tests/benchmark_claim_evidence_plan_snapshots.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: extend CG-6 foundation benchmark evidence inventory for the newly admitted source-backed dictionary and run-end reader-chunk kernel-input paths while keeping benchmark execution and performance claims blocked.
+  - Checklist:
+    - [x] Add report-only foundation benchmark scenarios for `source-backed dictionary reader chunk` and `source-backed run-end reader chunk`.
+    - [x] Attach scenario reproducibility metadata for source-backed edge fixtures, Vortex storage, and reader-chunk operations.
+    - [x] Require query runtime, wall time, startup, peak memory, bytes read/decoded/decode-avoided, rows materialized/materialization-avoided, segment, work-avoidance, and spill metrics for the new scenarios.
+    - [x] Add expected ShardLoom and Vortex-integration comparison result slots without measured rows, external execution, or fallback.
+    - [x] Update benchmark-plan and benchmark-claim evidence snapshots so the widened plan stays visible to CLI clients and agents.
+  - Validation status:
+    - [x] `cargo test -p shardloom-core benchmark --lib`
+    - [x] `cargo test -p shardloom-contract-tests --test benchmark_evidence_manifest`
+    - [x] `cargo test -p shardloom-contract-tests --test benchmark_claim_evidence`
+    - [x] `cargo test -p shardloom-cli --test benchmark_plan_snapshots --test benchmark_claim_evidence_plan_snapshots`
+  - Non-goals preserved:
+    - [x] No benchmark execution, populated benchmark result rows, external comparison execution, reproducibility claim, performance/superiority claim, external engine dependency, or fallback execution.
+- [x] Session label: reader-chunk source-backed correctness fixture coverage
+  - Primary files:
+    - `shardloom-core/src/correctness.rs`
+    - `docs/fixtures/correctness/source-backed-edge-fixtures.json`
+    - `shardloom-contract-tests/tests/correctness_fixture_manifest.rs`
+    - `shardloom-contract-tests/tests/correctness_differential_harness.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: extend CG-5 source-backed edge fixture coverage for the newly admitted local reader-chunk dictionary and run-end kernel-input paths while keeping decoded-reference execution and external-oracle execution declared-only.
+  - Checklist:
+    - [x] Add source-backed edge fixtures for reader-chunk dictionary and run-end kernel-input paths.
+    - [x] Add matching decoded-reference artifact slots and expected-output rows for the new executable fixture families.
+    - [x] Expand source-backed edge fixture accounting from 9 to 11 and external-oracle declared artifact slots from 63 to 77 across the seven comparison-only baselines.
+    - [x] Preserve comparison-only/test-only external oracle posture with no external engine invocation and no fallback execution.
+  - Validation status:
+    - [x] `cargo test -p shardloom-core correctness --lib`
+    - [x] `cargo test -p shardloom-contract-tests --test correctness_fixture_manifest`
+    - [x] `cargo test -p shardloom-contract-tests --test correctness_differential_harness`
+  - Non-goals preserved:
+    - [x] No decoded-reference execution, property/fuzz execution, external-oracle execution, benchmark claim, production claim, new dependency, external engine execution, or fallback execution.
+- [x] Session label: modular compute-engine architecture spine report
+  - Primary files:
+    - `shardloom-core/src/architecture_spine.rs`
+    - `shardloom-core/src/lib.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: add a typed report-only architecture spine that fixes the implementation layering, crate/module boundaries, provider taxonomy, registry prerequisites, shared data-model primitives, runtime graph prerequisites, evidence outputs, and deterministic unsupported/no-fallback posture before broad runtime expansion.
+  - Checklist:
+    - [x] Add `ComputeEngineArchitectureSpineReport` with ordered layer contracts from frontend/adapter lowering through evidence artifact emission.
+    - [x] Add first-class `ExecutionProviderKind` and provider contracts distinguishing ShardLoom kernels, metadata paths, upstream Vortex-native providers, compatibility boundaries, external baselines, and prohibited fallback.
+    - [x] Add registry contracts for operator, function, aggregate, sketch, window, join, sort/top-N, and sink surfaces with typed capability, semantic profile, state, memory, materialization, and certificate requirements.
+    - [x] Add shared data-model primitive coverage for DTypes, encoded state, selection vectors, segment statistics, null semantics, dictionary/run-length/sparse encodings, materialization/decode boundaries, and Native I/O envelopes.
+    - [x] Add runtime task-graph prerequisites for dynamic sizing, target-task policy, bounded queues, cancellation, retry, backpressure, memory/spill reservations, object-store request budgets, and cost/fairness accounting.
+    - [x] Treat evidence artifacts, diagnostics, lineage, profiles, benchmark rows, execution certificates, and Native I/O certificates as first-class outputs.
+  - Validation status:
+    - [x] `cargo test -p shardloom-core architecture_spine --lib`
+  - Non-goals preserved:
+    - [x] No runtime execution, parser/runtime widening, new dependencies, adapter execution, benchmark execution, production/support claim, external engine invocation, or fallback execution.
+- [x] Session label: source-backed expansion evidence gate
+  - Primary files:
+    - `shardloom-vortex/src/source_backed_encoded_execution.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/vortex-public-api-inventory.md`
+  - Scope: add a compact evidence-gate report for source-backed encoded filter/projection expansion so correctness, benchmark, execution-certificate, Native I/O certificate, and no-fallback requirements are visible before support or benchmark claims.
+  - Checklist:
+    - [x] Add `VortexSourceBackedExpansionEvidenceReport`.
+    - [x] Link source-backed filter/projection reports to correctness evidence, CG-16 execution certificate refs, CG-19 Native I/O certificate refs, and no-fallback evidence.
+    - [x] Require CG-6 benchmark rows before benchmark, production, superiority, or support-widening claims, while keeping benchmark rows deferred/no-claim for the current source-backed path.
+    - [x] Assert the evidence gate preserves `external_engine_invoked=false`, `fallback_attempted=false`, and benchmark/production claim blockers.
+  - Validation status:
+    - [x] `cargo test -p shardloom-vortex --features vortex-local-primitives source_backed --lib`
+  - Non-goals preserved:
+    - [x] No new benchmark execution, performance claim, production claim, external baseline invocation, dependency, Source/Sink widening, object-store IO, write path, external query-engine fallback, or fallback execution.
+- [x] Session label: explicit reader residual-boundary blocking
+  - Primary files:
+    - `shardloom-vortex/src/source_backed_encoded_execution.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/vortex-public-api-inventory.md`
+  - Scope: make residual handling explicit for reader-generated prepared-batch reports so admitted encoded kernel inputs report no residual executor and unsupported/opaque residual work is blocked rather than delegated to external query engines.
+  - Checklist:
+    - [x] Add `VortexResidualBoundaryReport` with residual executor, residual expression, accepted/rejected operations, ShardLoom-native residual flag, external-engine flag, prohibited fallback flag, and fallback-attempt status.
+    - [x] Attach residual-boundary evidence to reader-generated prepared-batch evidence and reports.
+    - [x] Mark opaque reader-chunk residual work as `unsupported_blocked` and admitted constant/dictionary/run-end inputs as `none`.
+    - [x] Assert residual boundaries do not invoke external engines and keep external fallback prohibited.
+    - [x] Re-export the residual-boundary report for downstream API/certificate surfaces.
+  - Validation status:
+    - [x] `cargo test -p shardloom-vortex --features vortex-local-primitives source_backed --lib`
+  - Non-goals preserved:
+    - [x] No DataFusion, DuckDB, Spark, Polars, Velox, Trino, Dask, Ray, Vortex query-engine integration, external residual executor, new dependency, source widening, object-store IO, write path, benchmark claim, or fallback execution.
+- [x] Session label: dictionary and run-end reader-chunk kernel-input lowering
+  - Primary files:
+    - `shardloom-vortex/src/local_primitives.rs`
+    - `shardloom-vortex/src/generalized_encoded_primitive_gate.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/vortex-public-api-inventory.md`
+  - Scope: extend actual local Vortex reader-chunk lowering beyond constants by admitting only non-null host primitive dictionary and run-end arrays whose upstream slots expose codes, values, and run ends without scalar row reads, Arrow conversion, canonicalization, decode, or materialization.
+  - Checklist:
+    - [x] Lower `DictArray` codes and values into ShardLoom dictionary encoded kernel inputs when both slots are direct non-null host primitive arrays.
+    - [x] Lower `RunEnd` ends and values into ShardLoom run-length encoded kernel inputs when slots are direct non-null host primitive arrays and run ends exactly cover the chunk row count.
+    - [x] Keep nullable dictionary/RLE, sparse, nested, extension, device-buffer, and other opaque reader chunks blocked until explicit validity, layout, device, or encoded-batch evidence exists.
+    - [x] Preserve provider-boundary, source URI, split ref, row-count, dtype/encoding/value mapping, no-decode, no-materialization, no-Arrow, and no-fallback evidence on all admitted inputs.
+    - [x] Update the generalized encoded primitive gate and Vortex public API inventory to avoid overclaiming sparse/other encoded extraction.
+  - Validation status:
+    - [x] `cargo test -p shardloom-vortex --features vortex-local-primitives reader_chunk_dictionary_values_lower_into_encoded_kernel_inputs -- --nocapture`
+    - [x] `cargo test -p shardloom-vortex --features vortex-local-primitives reader_chunk_run_end_values_lower_into_encoded_kernel_inputs -- --nocapture`
+    - [x] `cargo test -p shardloom-vortex --features vortex-local-primitives nullable_dictionary_reader_chunk_lowering_stays_blocked -- --nocapture`
+    - [x] `cargo test -p shardloom-vortex --features vortex-local-primitives nullable_run_end_reader_chunk_lowering_stays_blocked -- --nocapture`
+    - [x] `cargo test -p shardloom-vortex --features vortex-local-primitives sparse_reader_chunk_lowering_stays_blocked -- --nocapture`
+    - [x] `cargo test -p shardloom-vortex --features vortex-local-primitives local_primitives::tests:: -- --nocapture`
+    - [x] `cargo test -p shardloom-vortex --features vortex-local-primitives source_backed --lib`
+    - [x] `cargo test -p shardloom-vortex --features vortex-local-primitives generalized_encoded_primitive_gate --lib`
+    - [x] `cargo clippy -p shardloom-vortex --lib --features vortex-local-primitives -- -D warnings`
+    - [x] `cargo fmt --all -- --check`
+    - [x] `git diff --check`
+  - Non-goals preserved:
+    - [x] No generalized Source/Sink API integration, object-store scan, nullable/sparse/device/nested extraction, scalar row reads, decoded Arrow/row materialization, canonicalization, writes, spill IO, external effects, external query-engine residual evaluation, package/dependency change, benchmark claim, or fallback execution.
+- [x] Session label: Vortex-native provider boundary evidence
+  - Primary files:
+    - `shardloom-vortex/src/source_backed_encoded_execution.rs`
+    - `shardloom-vortex/src/local_primitives.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/vortex-public-api-inventory.md`
+  - Scope: make the approved upstream Vortex local scan provider boundary explicit in code/report surfaces so reader-backed evidence carries feature-gate, provider version, admission-policy, certificate-requirement, external-engine, and fallback status rather than only a provider kind string.
+  - Checklist:
+    - [x] Add `VortexNativeProviderBoundary` with provider kind, provider crate/version, API surface, feature gate, ShardLoom admission policy, certificate requirement, support-claim-without-certificate blocker, external-engine flag, and fallback flag.
+    - [x] Thread the boundary through reader split evidence, reader-generated encoded kernel inputs, reader-generated prepared-batch evidence/reports, and reader-backed filter/projection execution reports.
+    - [x] Keep current provider version recorded as Vortex `0.70` and the current approved feature gate as `vortex-local-primitives`.
+    - [x] Assert provider boundaries are policy-admitted in source-backed and local primitive tests.
+  - Validation status:
+    - [x] `cargo test -p shardloom-vortex --features vortex-local-primitives source_backed --lib`
+    - [x] `cargo test -p shardloom-vortex --features vortex-local-primitives local_scan_lowers_constant_reader_chunks_into_encoded_kernel_inputs -- --nocapture`
+    - [x] `cargo test -p shardloom-vortex --features vortex-local-primitives local_primitives::tests:: -- --nocapture`
+    - [x] `cargo test -p shardloom-vortex --features vortex-local-primitives generalized_encoded_primitive_gate --lib`
+    - [x] `cargo clippy -p shardloom-vortex --lib --features vortex-local-primitives -- -D warnings`
+    - [x] `cargo fmt --all -- --check`
+  - Non-goals preserved:
+    - [x] No new upstream Vortex API admission, external query-engine integration, fallback execution, package/dependency change, broad Source/Sink integration, object-store scan, writes, or benchmark/support claim.
+- [x] Session label: direct constant reader-chunk kernel-input lowering
+  - Primary files:
+    - `shardloom-vortex/src/local_primitives.rs`
+    - `shardloom-vortex/src/generalized_encoded_primitive_gate.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/vortex-public-api-inventory.md`
+  - Scope: lower actual local Vortex reader chunks into reader-generated encoded kernel inputs only when upstream `ArrayRef::as_constant()` exposes a whole-chunk or struct-field constant scalar without decode, row reads, Arrow conversion, or materialization.
+  - Checklist:
+    - [x] Collect reader-generated encoded kernel inputs while iterating real local `VortexFile::scan().into_array_iter(...)` chunks.
+    - [x] Map only non-null primitive, boolean, and UTF-8 constant scalars into ShardLoom constant encoded batches with row-count, dtype, nullability, min/max, and constant-stat evidence.
+    - [x] Keep non-constant opaque chunks, null constants without typed value mapping, decimal/binary/nested/variant constants, scalar row access, canonicalization, Arrow conversion, object-store IO, writes, spill, and fallback blocked.
+    - [x] Wire admitted constant reader-generated inputs into local primitive prepared-batch reports through the existing source/split/row-count/mapping/no-effect admission surface.
+    - [x] Update gate and Vortex API inventory wording so constant reader-chunk lowering is represented without overclaiming generalized non-constant extraction.
+  - Validation status:
+    - [x] `cargo test -p shardloom-vortex --features vortex-local-primitives local_scan_lowers_constant_reader_chunks_into_encoded_kernel_inputs -- --nocapture`
+    - [x] `cargo test -p shardloom-vortex --features vortex-local-primitives local_primitives::tests:: -- --nocapture`
+    - [x] `cargo test -p shardloom-vortex --features vortex-local-primitives source_backed --lib`
+    - [x] `cargo test -p shardloom-vortex --features vortex-local-primitives generalized_encoded_primitive_gate --lib`
+    - [x] `cargo clippy -p shardloom-vortex --lib --features vortex-local-primitives -- -D warnings`
+    - [x] `cargo fmt --all -- --check`
+  - Non-goals preserved:
+    - [x] No generalized Source/Sink API integration, object-store scan, non-constant opaque chunk extraction, row reads, decoded Arrow/row materialization, writes, spill IO, external effects, external query-engine residual evaluation, package/dependency change, benchmark claim, or fallback execution.
 - [x] Session label: reader-generated encoded kernel-input lowering admission
   - Primary files:
     - `shardloom-vortex/src/source_backed_encoded_execution.rs`

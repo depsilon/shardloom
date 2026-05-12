@@ -3,9 +3,10 @@ use std::fmt::Write as _;
 use shardloom_core::{
     ColumnRef, CorrectnessFixture, CorrectnessValidationPlan, Diagnostic, DiagnosticCategory,
     DiagnosticCode, DiagnosticSeverity, EncodedValueBatch, ExecutionCertificate,
-    ExecutionCertificateInput, ExpectedOutcome, NativeIoAdapterFidelityReport, NativeIoCertificate,
-    NativeIoRepresentationTransition, NativeIoSideEffectReport, NativeIoSinkRequirementReport,
-    NativeIoSourceCapabilityReport, NativeIoSourcePushdownReport, RepresentationState, Result,
+    ExecutionCertificateInput, ExecutionProviderKind, ExpectedOutcome,
+    NativeIoAdapterFidelityReport, NativeIoCertificate, NativeIoRepresentationTransition,
+    NativeIoSideEffectReport, NativeIoSinkRequirementReport, NativeIoSourceCapabilityReport,
+    NativeIoSourcePushdownReport, RepresentationState, Result,
 };
 
 use crate::{
@@ -267,6 +268,11 @@ fn prepared_encoded_projection_execution_certificate(
         "cg16.prepared_encoded_projection.execution-certificate",
         EXECUTION_KIND,
     )?;
+    input.execution_provider_kind = ExecutionProviderKind::ShardLoomKernel;
+    input.provider_crate = Some("shardloom-vortex".to_string());
+    input.provider_api_surface =
+        Some("execute_vortex_generalized_projection_from_encoded_projection_batches".to_string());
+    input.shardloom_admission_policy = Some("shardloom.prepared_encoded_projection.v1".to_string());
     input.plan_ref =
         Some("execute_vortex_generalized_projection_from_encoded_projection_batches".to_string());
     input.input_ref = Some(format!(

@@ -30,29 +30,29 @@ fn foundation_benchmark_plan_covers_cg6_evidence_categories() {
         BenchmarkMetric::ObjectStoreRequests,
     ];
 
-    assert!(plan.scenarios.len() >= 5);
+    assert!(plan.scenarios.len() >= 7);
     for metric in required {
         assert!(plan.covers_metric(metric), "missing {}", metric.as_str());
     }
-    assert_eq!(plan.scenario_count(), 5);
+    assert_eq!(plan.scenario_count(), 7);
     assert_eq!(plan.required_metrics().len(), 21);
     assert_eq!(BenchmarkPlan::required_foundation_metrics().len(), 21);
     assert_eq!(plan.covered_required_foundation_metric_count(), 21);
     assert!(plan.required_foundation_metrics_covered());
     assert!(plan.missing_required_foundation_metrics().is_empty());
-    assert_eq!(plan.scenario_with_correctness_validation_count(), 5);
-    assert_eq!(plan.scenario_with_required_metrics_count(), 5);
-    assert_eq!(plan.scenario_with_baselines_count(), 5);
-    assert_eq!(plan.expected_result_count(), 10);
+    assert_eq!(plan.scenario_with_correctness_validation_count(), 7);
+    assert_eq!(plan.scenario_with_required_metrics_count(), 7);
+    assert_eq!(plan.scenario_with_baselines_count(), 7);
+    assert_eq!(plan.expected_result_count(), 14);
     assert_eq!(plan.external_baseline_count(), 5);
     assert_eq!(
         plan.baseline_engine_order(),
         vec![
             "shardloom",
             "datafusion",
+            "vortex_integration",
             "spark",
             "polars",
-            "vortex_integration",
             "other"
         ]
     );

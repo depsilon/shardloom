@@ -13577,6 +13577,42 @@ fn append_vortex_local_primitive_execution_certificate_identity_fields(
     );
     push_field(
         fields,
+        "local_primitive_execution_certificate_provider_kind",
+        certificate.execution_provider_kind.as_str(),
+    );
+    push_field(
+        fields,
+        "local_primitive_execution_certificate_provider_scope",
+        &certificate.provider_scope,
+    );
+    push_field(
+        fields,
+        "local_primitive_execution_certificate_provider_crate",
+        certificate.provider_crate.as_deref().unwrap_or("none"),
+    );
+    push_field(
+        fields,
+        "local_primitive_execution_certificate_provider_version",
+        certificate.provider_version.as_deref().unwrap_or("none"),
+    );
+    push_field(
+        fields,
+        "local_primitive_execution_certificate_provider_api_surface",
+        certificate
+            .provider_api_surface
+            .as_deref()
+            .unwrap_or("none"),
+    );
+    push_field(
+        fields,
+        "local_primitive_execution_certificate_shardloom_admission_policy",
+        certificate
+            .shardloom_admission_policy
+            .as_deref()
+            .unwrap_or("none"),
+    );
+    push_field(
+        fields,
         "local_primitive_execution_certificate_status",
         certificate.status.as_str(),
     );
@@ -13638,6 +13674,11 @@ fn append_vortex_local_primitive_execution_certificate_effect_fields(
         fields,
         "local_primitive_execution_certificate_spill_io_performed",
         certificate.spill_io_performed,
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_execution_certificate_external_query_engine_invoked",
+        certificate.external_query_engine_invoked,
     );
     push_bool_field(
         fields,
@@ -13750,6 +13791,42 @@ fn append_execution_certificate_fields(
     );
     push_field(
         fields,
+        "execution_certificate_provider_kind",
+        certificate.execution_provider_kind.as_str(),
+    );
+    push_field(
+        fields,
+        "execution_certificate_provider_scope",
+        &certificate.provider_scope,
+    );
+    push_field(
+        fields,
+        "execution_certificate_provider_crate",
+        certificate.provider_crate.as_deref().unwrap_or("none"),
+    );
+    push_field(
+        fields,
+        "execution_certificate_provider_version",
+        certificate.provider_version.as_deref().unwrap_or("none"),
+    );
+    push_field(
+        fields,
+        "execution_certificate_provider_api_surface",
+        certificate
+            .provider_api_surface
+            .as_deref()
+            .unwrap_or("none"),
+    );
+    push_field(
+        fields,
+        "execution_certificate_shardloom_admission_policy",
+        certificate
+            .shardloom_admission_policy
+            .as_deref()
+            .unwrap_or("none"),
+    );
+    push_field(
+        fields,
         "execution_certificate_status",
         certificate.status.as_str(),
     );
@@ -13807,6 +13884,11 @@ fn append_execution_certificate_fields(
         fields,
         "execution_certificate_spill_io_performed",
         certificate.spill_io_performed,
+    );
+    push_bool_field(
+        fields,
+        "execution_certificate_external_query_engine_invoked",
+        certificate.external_query_engine_invoked,
     );
     push_bool_field(
         fields,
@@ -31780,11 +31862,11 @@ mod tests {
         assert!(output_field(&fields, "baseline_engine_order").contains("dask"));
         assert_eq!(
             output_field(&fields, "fixtures_with_source_ref_count"),
-            "16"
+            "18"
         );
         assert_eq!(
             output_field(&fields, "source_backed_edge_fixture_count"),
-            "9"
+            "11"
         );
         assert_eq!(output_field(&fields, "not_yet_defined_fixture_count"), "0");
         assert_eq!(output_field(&fields, "deferred_fixture_family_count"), "8");
@@ -31818,7 +31900,7 @@ mod tests {
         );
         assert_eq!(
             output_field(&fields, "external_oracle_result_artifact_count"),
-            "63"
+            "77"
         );
         assert_eq!(
             output_field(&fields, "external_oracle_result_populated_count"),

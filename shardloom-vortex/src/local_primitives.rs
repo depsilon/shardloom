@@ -2,20 +2,28 @@
 
 use std::fmt::Write as _;
 
+#[cfg(feature = "vortex-local-primitives")]
+use shardloom_core::{
+    ColumnRef, EncodedSegment, EncodedValueBatch, EncodedValueRun, EncodingKind, LayoutKind,
+    LogicalDType, Nullability as ShardLoomNullability, SegmentId, SegmentLayout, SegmentStats,
+    UniversalInputSource, UriScheme,
+};
 use shardloom_core::{
     ComparisonOp, CorrectnessFixture, CorrectnessValidationPlan, DatasetUri, Diagnostic,
     DiagnosticCode, DiagnosticSeverity, ExecutionCertificate, ExecutionCertificateInput,
-    ExpectedOutcome, NativeIoAdapterFidelityReport, NativeIoCertificate,
+    ExecutionProviderKind, ExpectedOutcome, NativeIoAdapterFidelityReport, NativeIoCertificate,
     NativeIoRepresentationTransition, NativeIoSideEffectReport, NativeIoSinkRequirementReport,
     NativeIoSourceCapabilityReport, NativeIoSourcePushdownReport, PredicateExpr,
     RepresentationState, Result, ShardLoomError, StatValue,
 };
-#[cfg(feature = "vortex-local-primitives")]
-use shardloom_core::{UniversalInputSource, UriScheme};
 use shardloom_plan::ProjectionRequest;
 
 #[cfg(feature = "vortex-local-primitives")]
-use crate::plan_vortex_reader_generated_prepared_batch_envelopes;
+use crate::{
+    VortexEncodedValuePredicateBatch, VortexReaderGeneratedEncodedKernelInput,
+    plan_vortex_reader_generated_prepared_batch_envelopes,
+    plan_vortex_reader_generated_prepared_batch_kernel_inputs,
+};
 use crate::{
     VortexQueryPrimitiveKind, VortexQueryPrimitiveRequest, VortexReaderBackedSplitEvidence,
     VortexReaderGeneratedPreparedBatchReport,
@@ -304,6 +312,11 @@ pub fn local_primitive_execution_certificate(
     );
     let execution_kind = format!("vortex.local_primitive.{}", report.primitive_kind.as_str());
     let mut input = ExecutionCertificateInput::new(certificate_id, execution_kind)?;
+    input.execution_provider_kind = ExecutionProviderKind::VortexScan;
+    input.provider_crate = Some("vortex".to_string());
+    input.provider_version = Some("0.70".to_string());
+    input.provider_api_surface = Some("VortexFile::scan.into_array_iter".to_string());
+    input.shardloom_admission_policy = Some("shardloom.vortex.local_scan_primitive.v1".to_string());
     input.plan_ref = Some(format!("vortex-run:{}", report.primitive_kind.as_str()));
     input.input_ref = request
         .source_uri
@@ -1259,11 +1272,12 @@ fn read_local_vortex_scan(
     let mut result_row_count = 0usize;
     let mut arrays_read_count = 0usize;
     let mut reader_splits = Vec::new();
+    let mut encoded_kernel_inputs = Vec::new();
     let mut max_chunk_rows = 0usize;
     for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
         let chunk = chunk.map_err(vortex_error)?;
         let rows = chunk.len();
-        reader_splits.push(VortexReaderBackedSplitEvidence::local_scan_chunk(
+        let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
             source_uri.clone(),
             arrays_read_count,
             rows,
@@ -1271,7 +1285,13 @@ fn read_local_vortex_scan(
             chunk.encoding_id().to_string(),
             chunk.nchildren(),
             chunk.nbuffers(),
+        )?;
+        encoded_kernel_inputs.extend(reader_generated_encoded_kernel_inputs_from_vortex_chunk(
+            source_uri,
+            &split.split_ref,
+            &chunk,
         )?);
+        reader_splits.push(split);
         result_row_count = result_row_count.checked_add(rows).ok_or_else(|| {
             ShardLoomError::InvalidOperation(
                 "local Vortex primitive result row count overflowed usize".to_string(),
@@ -1281,8 +1301,15 @@ fn read_local_vortex_scan(
         arrays_read_count += 1;
     }
     let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
-    let reader_generated_prepared_batch_report =
-        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits);
+    let reader_generated_prepared_batch_report = if encoded_kernel_inputs.is_empty() {
+        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits)
+    } else {
+        plan_vortex_reader_generated_prepared_batch_kernel_inputs(
+            &source,
+            &reader_splits,
+            &encoded_kernel_inputs,
+        )
+    };
     Ok(LocalVortexScan {
         source_row_count,
         result_row_count,
@@ -1296,6 +1323,446 @@ fn read_local_vortex_scan(
         filter_pushdown_applied,
         projection_pushdown_applied,
     })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn reader_generated_encoded_kernel_inputs_from_vortex_chunk(
+    source_uri: &DatasetUri,
+    split_ref: &str,
+    chunk: &vortex::array::ArrayRef,
+) -> Result<Vec<VortexReaderGeneratedEncodedKernelInput>> {
+    if chunk.dtype().is_struct() {
+        return chunk
+            .named_children()
+            .into_iter()
+            .filter_map(|(field_name, field)| {
+                encoded_kernel_input_from_vortex_array(source_uri, split_ref, &field_name, &field)
+                    .transpose()
+            })
+            .collect();
+    }
+    encoded_kernel_input_from_vortex_array(source_uri, split_ref, "value", chunk)
+        .map(|input| input.into_iter().collect())
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn encoded_kernel_input_from_vortex_array(
+    source_uri: &DatasetUri,
+    split_ref: &str,
+    column_name: &str,
+    array: &vortex::array::ArrayRef,
+) -> Result<Option<VortexReaderGeneratedEncodedKernelInput>> {
+    let row_count = u64::try_from(array.len()).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "local Vortex reader child array row count overflowed u64: {error}"
+        ))
+    })?;
+    if let Some(input) = constant_kernel_input_from_vortex_array(
+        source_uri,
+        split_ref,
+        column_name,
+        row_count,
+        array,
+    )? {
+        return Ok(Some(input));
+    }
+    if let Some(input) =
+        dictionary_kernel_input_from_vortex_array(source_uri, split_ref, column_name, array)?
+    {
+        return Ok(Some(input));
+    }
+    run_end_kernel_input_from_vortex_array(source_uri, split_ref, column_name, row_count, array)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn constant_kernel_input_from_vortex_array(
+    source_uri: &DatasetUri,
+    split_ref: &str,
+    column_name: &str,
+    row_count: u64,
+    array: &vortex::array::ArrayRef,
+) -> Result<Option<VortexReaderGeneratedEncodedKernelInput>> {
+    let Some(constant) = array.as_constant() else {
+        return Ok(None);
+    };
+    let Some(value) = vortex_scalar_to_stat_value(&constant) else {
+        return Ok(None);
+    };
+    let mut stats = SegmentStats::with_row_count(row_count);
+    stats.null_count = Some(0);
+    stats.min_value = Some(value.clone());
+    stats.max_value = Some(value.clone());
+    stats.is_constant = Some(true);
+    let segment = EncodedSegment::new(
+        SegmentId::new(format!("{split_ref}.{column_name}.constant"))?,
+        ColumnRef::new(column_name)?,
+        value.dtype(),
+        shardloom_nullability_from_vortex_dtype(array.dtype()),
+        SegmentLayout::new(EncodingKind::Constant, LayoutKind::Flat),
+        stats,
+    );
+    let batch = VortexEncodedValuePredicateBatch::new(
+        segment,
+        EncodedValueBatch::Constant {
+            value: Some(value),
+            row_count,
+        },
+    );
+    VortexReaderGeneratedEncodedKernelInput::new(source_uri.clone(), split_ref, batch).map(Some)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn dictionary_kernel_input_from_vortex_array(
+    source_uri: &DatasetUri,
+    split_ref: &str,
+    column_name: &str,
+    array: &vortex::array::ArrayRef,
+) -> Result<Option<VortexReaderGeneratedEncodedKernelInput>> {
+    use vortex::array::arrays::dict::DictArraySlotsExt as _;
+
+    let Some(dictionary_array) = array.as_opt::<vortex::array::arrays::Dict>() else {
+        return Ok(None);
+    };
+    let Some(dtype) = shardloom_logical_dtype_from_vortex_dtype(array.dtype()) else {
+        return Ok(None);
+    };
+    let Some(dictionary) = primitive_stat_values_from_vortex_array(dictionary_array.values())
+    else {
+        return Ok(None);
+    };
+    let Some(codes) = primitive_u32_codes_from_vortex_array(dictionary_array.codes()) else {
+        return Ok(None);
+    };
+    let row_count = u64::try_from(codes.len()).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "local Vortex dictionary code count overflowed u64: {error}"
+        ))
+    })?;
+    if row_count
+        != u64::try_from(array.len()).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "local Vortex dictionary array row count overflowed u64: {error}"
+            ))
+        })?
+    {
+        return Ok(None);
+    }
+
+    let mut stats = SegmentStats::with_row_count(row_count);
+    stats.null_count = Some(0);
+    stats.is_constant = Some(dictionary.len() == 1);
+    let segment = EncodedSegment::new(
+        SegmentId::new(format!("{split_ref}.{column_name}.dictionary"))?,
+        ColumnRef::new(column_name)?,
+        dtype,
+        ShardLoomNullability::NonNullable,
+        SegmentLayout::new(EncodingKind::Dictionary, LayoutKind::Flat),
+        stats,
+    );
+    let batch = VortexEncodedValuePredicateBatch::new(
+        segment,
+        EncodedValueBatch::Dictionary {
+            dictionary: dictionary.into_iter().map(Some).collect(),
+            codes: codes.into_iter().map(Some).collect(),
+        },
+    );
+    VortexReaderGeneratedEncodedKernelInput::new(source_uri.clone(), split_ref, batch).map(Some)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn run_end_kernel_input_from_vortex_array(
+    source_uri: &DatasetUri,
+    split_ref: &str,
+    column_name: &str,
+    row_count: u64,
+    array: &vortex::array::ArrayRef,
+) -> Result<Option<VortexReaderGeneratedEncodedKernelInput>> {
+    use vortex::encodings::runend::RunEndArrayExt as _;
+
+    let Some(run_end_array) = array.as_opt::<vortex::encodings::runend::RunEnd>() else {
+        return Ok(None);
+    };
+    if run_end_array.offset() != 0 {
+        return Ok(None);
+    }
+    let Some(dtype) = shardloom_logical_dtype_from_vortex_dtype(array.dtype()) else {
+        return Ok(None);
+    };
+    let Some(ends) = primitive_u64_values_from_vortex_array(run_end_array.ends()) else {
+        return Ok(None);
+    };
+    let Some(values) = primitive_stat_values_from_vortex_array(run_end_array.values()) else {
+        return Ok(None);
+    };
+    if ends.len() != values.len() {
+        return Ok(None);
+    }
+
+    let mut previous_end = 0_u64;
+    let mut runs = Vec::with_capacity(ends.len());
+    for (end, value) in ends.into_iter().zip(values) {
+        if end < previous_end || end > row_count {
+            return Ok(None);
+        }
+        runs.push(EncodedValueRun {
+            value: Some(value),
+            len: end - previous_end,
+        });
+        previous_end = end;
+    }
+    if previous_end != row_count {
+        return Ok(None);
+    }
+
+    let mut stats = SegmentStats::with_row_count(row_count);
+    stats.null_count = Some(0);
+    stats.run_count = Some(u64::try_from(runs.len()).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!("local Vortex run count overflowed u64: {error}"))
+    })?);
+    stats.is_constant = Some(runs.len() <= 1);
+    let segment = EncodedSegment::new(
+        SegmentId::new(format!("{split_ref}.{column_name}.run_end"))?,
+        ColumnRef::new(column_name)?,
+        dtype,
+        ShardLoomNullability::NonNullable,
+        SegmentLayout::new(EncodingKind::RunLength, LayoutKind::Flat),
+        stats,
+    );
+    let batch =
+        VortexEncodedValuePredicateBatch::new(segment, EncodedValueBatch::RunLength { runs });
+    VortexReaderGeneratedEncodedKernelInput::new(source_uri.clone(), split_ref, batch).map(Some)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn primitive_stat_values_from_vortex_array(
+    array: &vortex::array::ArrayRef,
+) -> Option<Vec<StatValue>> {
+    use vortex::array::arrays::primitive::PrimitiveArrayExt as _;
+    use vortex::array::dtype::PType;
+
+    let primitive = direct_non_nullable_host_primitive(array)?;
+    match primitive.ptype() {
+        PType::U8 => Some(
+            primitive
+                .as_slice::<u8>()
+                .iter()
+                .map(|value| StatValue::UInt64(u64::from(*value)))
+                .collect(),
+        ),
+        PType::U16 => Some(
+            primitive
+                .as_slice::<u16>()
+                .iter()
+                .map(|value| StatValue::UInt64(u64::from(*value)))
+                .collect(),
+        ),
+        PType::U32 => Some(
+            primitive
+                .as_slice::<u32>()
+                .iter()
+                .map(|value| StatValue::UInt64(u64::from(*value)))
+                .collect(),
+        ),
+        PType::U64 => Some(
+            primitive
+                .as_slice::<u64>()
+                .iter()
+                .map(|value| StatValue::UInt64(*value))
+                .collect(),
+        ),
+        PType::I8 => Some(
+            primitive
+                .as_slice::<i8>()
+                .iter()
+                .map(|value| StatValue::Int64(i64::from(*value)))
+                .collect(),
+        ),
+        PType::I16 => Some(
+            primitive
+                .as_slice::<i16>()
+                .iter()
+                .map(|value| StatValue::Int64(i64::from(*value)))
+                .collect(),
+        ),
+        PType::I32 => Some(
+            primitive
+                .as_slice::<i32>()
+                .iter()
+                .map(|value| StatValue::Int64(i64::from(*value)))
+                .collect(),
+        ),
+        PType::I64 => Some(
+            primitive
+                .as_slice::<i64>()
+                .iter()
+                .map(|value| StatValue::Int64(*value))
+                .collect(),
+        ),
+        PType::F16 => None,
+        PType::F32 => Some(
+            primitive
+                .as_slice::<f32>()
+                .iter()
+                .map(|value| StatValue::Float64(f64::from(*value)))
+                .collect(),
+        ),
+        PType::F64 => Some(
+            primitive
+                .as_slice::<f64>()
+                .iter()
+                .map(|value| StatValue::Float64(*value))
+                .collect(),
+        ),
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn primitive_u32_codes_from_vortex_array(array: &vortex::array::ArrayRef) -> Option<Vec<u32>> {
+    use vortex::array::arrays::primitive::PrimitiveArrayExt as _;
+    use vortex::array::dtype::PType;
+
+    let primitive = direct_non_nullable_host_primitive(array)?;
+    match primitive.ptype() {
+        PType::U8 => Some(
+            primitive
+                .as_slice::<u8>()
+                .iter()
+                .map(|value| u32::from(*value))
+                .collect(),
+        ),
+        PType::U16 => Some(
+            primitive
+                .as_slice::<u16>()
+                .iter()
+                .map(|value| u32::from(*value))
+                .collect(),
+        ),
+        PType::U32 => Some(primitive.as_slice::<u32>().to_vec()),
+        PType::U64 => primitive
+            .as_slice::<u64>()
+            .iter()
+            .map(|value| u32::try_from(*value).ok())
+            .collect(),
+        PType::I8 | PType::I16 | PType::I32 | PType::I64 | PType::F16 | PType::F32 | PType::F64 => {
+            None
+        }
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn primitive_u64_values_from_vortex_array(array: &vortex::array::ArrayRef) -> Option<Vec<u64>> {
+    use vortex::array::arrays::primitive::PrimitiveArrayExt as _;
+    use vortex::array::dtype::PType;
+
+    let primitive = direct_non_nullable_host_primitive(array)?;
+    match primitive.ptype() {
+        PType::U8 => Some(
+            primitive
+                .as_slice::<u8>()
+                .iter()
+                .map(|value| u64::from(*value))
+                .collect(),
+        ),
+        PType::U16 => Some(
+            primitive
+                .as_slice::<u16>()
+                .iter()
+                .map(|value| u64::from(*value))
+                .collect(),
+        ),
+        PType::U32 => Some(
+            primitive
+                .as_slice::<u32>()
+                .iter()
+                .map(|value| u64::from(*value))
+                .collect(),
+        ),
+        PType::U64 => Some(primitive.as_slice::<u64>().to_vec()),
+        PType::I8 | PType::I16 | PType::I32 | PType::I64 | PType::F16 | PType::F32 | PType::F64 => {
+            None
+        }
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn direct_non_nullable_host_primitive(
+    array: &vortex::array::ArrayRef,
+) -> Option<vortex::array::ArrayView<'_, vortex::array::arrays::Primitive>> {
+    use vortex::array::arrays::primitive::PrimitiveArrayExt;
+    use vortex::array::validity::Validity;
+
+    if !array.is_host() {
+        return None;
+    }
+    let primitive = array.as_opt::<vortex::array::arrays::Primitive>()?;
+    match PrimitiveArrayExt::validity(&primitive) {
+        Validity::NonNullable | Validity::AllValid => Some(primitive),
+        Validity::AllInvalid | Validity::Array(_) => None,
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn shardloom_logical_dtype_from_vortex_dtype(
+    dtype: &vortex::array::dtype::DType,
+) -> Option<LogicalDType> {
+    use vortex::array::dtype::PType;
+
+    match dtype {
+        vortex::array::dtype::DType::Bool(_) => Some(LogicalDType::Boolean),
+        vortex::array::dtype::DType::Primitive(ptype, _) => match ptype {
+            PType::U8 | PType::U16 | PType::U32 | PType::U64 => Some(LogicalDType::UInt64),
+            PType::I8 | PType::I16 | PType::I32 | PType::I64 => Some(LogicalDType::Int64),
+            PType::F16 => None,
+            PType::F32 | PType::F64 => Some(LogicalDType::Float64),
+        },
+        vortex::array::dtype::DType::Utf8(_) => Some(LogicalDType::Utf8),
+        vortex::array::dtype::DType::Null
+        | vortex::array::dtype::DType::Decimal(_, _)
+        | vortex::array::dtype::DType::Binary(_)
+        | vortex::array::dtype::DType::Struct(_, _)
+        | vortex::array::dtype::DType::List(_, _)
+        | vortex::array::dtype::DType::FixedSizeList(_, _, _)
+        | vortex::array::dtype::DType::Extension(_)
+        | vortex::array::dtype::DType::Variant(_) => None,
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn vortex_scalar_to_stat_value(scalar: &vortex::array::scalar::Scalar) -> Option<StatValue> {
+    use vortex::array::scalar::{PValue, ScalarValue};
+
+    match scalar.value()? {
+        ScalarValue::Bool(value) => Some(StatValue::Boolean(*value)),
+        ScalarValue::Primitive(value) => match value {
+            PValue::U8(value) => Some(StatValue::UInt64(u64::from(*value))),
+            PValue::U16(value) => Some(StatValue::UInt64(u64::from(*value))),
+            PValue::U32(value) => Some(StatValue::UInt64(u64::from(*value))),
+            PValue::U64(value) => Some(StatValue::UInt64(*value)),
+            PValue::I8(value) => Some(StatValue::Int64(i64::from(*value))),
+            PValue::I16(value) => Some(StatValue::Int64(i64::from(*value))),
+            PValue::I32(value) => Some(StatValue::Int64(i64::from(*value))),
+            PValue::I64(value) => Some(StatValue::Int64(*value)),
+            PValue::F16(_) => None,
+            PValue::F32(value) => Some(StatValue::Float64(f64::from(*value))),
+            PValue::F64(value) => Some(StatValue::Float64(*value)),
+        },
+        ScalarValue::Utf8(value) => Some(StatValue::Utf8(value.as_str().to_string())),
+        ScalarValue::Decimal(_)
+        | ScalarValue::Binary(_)
+        | ScalarValue::Tuple(_)
+        | ScalarValue::Variant(_) => None,
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn shardloom_nullability_from_vortex_dtype(
+    dtype: &vortex::array::dtype::DType,
+) -> ShardLoomNullability {
+    if dtype.is_nullable() {
+        ShardLoomNullability::Nullable
+    } else {
+        ShardLoomNullability::NonNullable
+    }
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -1749,13 +2216,13 @@ mod tests {
     use super::*;
     use crate::{
         VortexEncodedValuePredicateBatch, VortexReaderBackedEncodedExecutionStatus,
-        VortexSourceBackedEncodedValuePredicateBatch,
+        VortexReaderGeneratedPreparedBatchStatus, VortexSourceBackedEncodedValuePredicateBatch,
         execute_vortex_reader_backed_filter_from_encoded_value_batches,
     };
     use shardloom_core::{
         ColumnRef, CorrectnessFixture, CorrectnessValidationPlan, EncodedSegment,
-        EncodedValueBatch, EncodingKind, ExecutionCertificateStatus, LayoutKind, LogicalDType,
-        Nullability, SegmentId, SegmentLayout, SegmentStats, UniversalInputSource,
+        EncodedValueBatch, EncodedValueRun, EncodingKind, ExecutionCertificateStatus, LayoutKind,
+        LogicalDType, Nullability, SegmentId, SegmentLayout, SegmentStats, UniversalInputSource,
     };
 
     fn unique_vortex_path(name: &str) -> std::path::PathBuf {
@@ -1866,6 +2333,14 @@ mod tests {
         write_array(path, &array)
     }
 
+    fn write_constant_primitive_fixture(path: &std::path::Path) -> Result<()> {
+        use vortex::array::IntoArray as _;
+        use vortex::array::arrays::ConstantArray;
+
+        let array = ConstantArray::new(7_i64, 4).into_array();
+        write_array(path, &array)
+    }
+
     fn correctness_fixture(id: &str) -> CorrectnessFixture {
         CorrectnessValidationPlan::default_foundation_plan()
             .fixtures
@@ -1920,6 +2395,245 @@ mod tests {
         assert!(!report.data_decoded);
         assert!(!report.data_materialized);
         assert!(!report.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn local_scan_lowers_constant_reader_chunks_into_encoded_kernel_inputs() {
+        let path = unique_vortex_path("constant-kernel-input");
+        write_constant_primitive_fixture(&path).expect("fixture");
+        let uri = DatasetUri::new(path.display().to_string()).expect("uri");
+        let request = VortexQueryPrimitiveRequest::count_all(uri);
+
+        let report = execute_vortex_local_primitive(&request).expect("report");
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(report.result_summary.as_deref(), Some("4"));
+        let prepared_report = report
+            .reader_generated_prepared_batch_report
+            .as_ref()
+            .expect("reader-generated prepared batch report");
+        assert_eq!(
+            prepared_report.status,
+            VortexReaderGeneratedPreparedBatchStatus::PreparedEncodedKernelInputs
+        );
+        assert!(prepared_report.reader_generated_prepared_batches);
+        assert!(prepared_report.reader_chunk_envelopes_available);
+        assert!(prepared_report.provider_boundary.is_policy_admitted());
+        assert!(prepared_report.encoded_value_batch_available);
+        assert!(prepared_report.encoded_projection_batch_available);
+        assert_eq!(
+            prepared_report.encoded_kernel_input_count,
+            report.arrays_read_count
+        );
+        assert!(!prepared_report.kernel_input_lowering_blocked);
+        assert!(prepared_report.runtime_execution_allowed);
+        assert_eq!(prepared_report.residual_executor, "none");
+        assert_eq!(
+            prepared_report.representation_after,
+            "reader_generated_prepared_encoded_kernel_input"
+        );
+        assert!(prepared_report.encoded_kernel_inputs_source_uri_matches_source);
+        assert!(prepared_report.encoded_kernel_input_split_refs_covered_by_reader);
+        assert!(prepared_report.encoded_kernel_input_row_counts_match_reader);
+        assert!(prepared_report.encoded_kernel_input_mapping_evidence_complete);
+        assert!(prepared_report.avoids_forbidden_effects());
+        assert!(!prepared_report.has_errors());
+        assert!(!report.data_decoded);
+        assert!(!report.data_materialized);
+        assert!(!report.row_read);
+        assert!(!report.arrow_converted);
+        assert!(!report.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn reader_chunk_dictionary_values_lower_into_encoded_kernel_inputs() {
+        use vortex::array::IntoArray as _;
+        use vortex::array::arrays::{DictArray, PrimitiveArray};
+
+        let codes = [0_u8, 1, 0, 2]
+            .into_iter()
+            .collect::<PrimitiveArray>()
+            .into_array();
+        let values = [10_u64, 20, 30]
+            .into_iter()
+            .collect::<PrimitiveArray>()
+            .into_array();
+        let chunk = DictArray::try_new(codes, values)
+            .expect("dictionary array")
+            .into_array();
+        let source_uri = DatasetUri::new("file:///tmp/dictionary-values.vortex").expect("uri");
+
+        let inputs = reader_generated_encoded_kernel_inputs_from_vortex_chunk(
+            &source_uri,
+            "split-dict",
+            &chunk,
+        )
+        .expect("kernel inputs");
+
+        assert_eq!(inputs.len(), 1);
+        let input = inputs.first().expect("input");
+        assert!(input.provider_boundary.is_policy_admitted());
+        assert!(input.mapping_evidence_complete());
+        assert!(!input.has_forbidden_effects());
+        assert_eq!(
+            input.batch.segment.layout.encoding,
+            EncodingKind::Dictionary
+        );
+        assert_eq!(input.batch.segment.dtype, LogicalDType::UInt64);
+        assert_eq!(input.batch.segment.stats.row_count, Some(4));
+        assert_eq!(input.batch.segment.stats.null_count, Some(0));
+        match &input.batch.values {
+            EncodedValueBatch::Dictionary { dictionary, codes } => {
+                assert_eq!(
+                    dictionary,
+                    &vec![
+                        Some(StatValue::UInt64(10)),
+                        Some(StatValue::UInt64(20)),
+                        Some(StatValue::UInt64(30)),
+                    ]
+                );
+                assert_eq!(codes, &vec![Some(0), Some(1), Some(0), Some(2)]);
+            }
+            other => panic!("expected dictionary batch, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn reader_chunk_run_end_values_lower_into_encoded_kernel_inputs() {
+        use vortex::array::IntoArray as _;
+        use vortex::array::VortexSessionExecute as _;
+        use vortex::array::arrays::PrimitiveArray;
+        use vortex::encodings::runend::RunEnd;
+
+        let ends = [2_u64, 5]
+            .into_iter()
+            .collect::<PrimitiveArray>()
+            .into_array();
+        let values = [5_i64, 9]
+            .into_iter()
+            .collect::<PrimitiveArray>()
+            .into_array();
+        let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+        let chunk = RunEnd::try_new(ends, values, &mut ctx)
+            .expect("run-end array")
+            .into_array();
+        let source_uri = DatasetUri::new("file:///tmp/run-end-values.vortex").expect("uri");
+
+        let inputs = reader_generated_encoded_kernel_inputs_from_vortex_chunk(
+            &source_uri,
+            "split-run-end",
+            &chunk,
+        )
+        .expect("kernel inputs");
+
+        assert_eq!(inputs.len(), 1);
+        let input = inputs.first().expect("input");
+        assert!(input.provider_boundary.is_policy_admitted());
+        assert!(input.mapping_evidence_complete());
+        assert!(!input.has_forbidden_effects());
+        assert_eq!(input.batch.segment.layout.encoding, EncodingKind::RunLength);
+        assert_eq!(input.batch.segment.dtype, LogicalDType::Int64);
+        assert_eq!(input.batch.segment.stats.row_count, Some(5));
+        assert_eq!(input.batch.segment.stats.null_count, Some(0));
+        assert_eq!(input.batch.segment.stats.run_count, Some(2));
+        match &input.batch.values {
+            EncodedValueBatch::RunLength { runs } => {
+                assert_eq!(
+                    runs,
+                    &vec![
+                        EncodedValueRun::new(Some(StatValue::Int64(5)), 2),
+                        EncodedValueRun::new(Some(StatValue::Int64(9)), 3),
+                    ]
+                );
+            }
+            other => panic!("expected run-length batch, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn nullable_dictionary_reader_chunk_lowering_stays_blocked() {
+        use vortex::array::IntoArray as _;
+        use vortex::array::arrays::{DictArray, PrimitiveArray};
+        use vortex::array::validity::Validity;
+
+        let codes =
+            PrimitiveArray::new(vec![0_u8, 0], Validity::from_iter([true, false])).into_array();
+        let values =
+            PrimitiveArray::new(vec![10_u64, 20], Validity::from_iter([true, true])).into_array();
+        let chunk = DictArray::try_new(codes, values)
+            .expect("nullable dictionary array")
+            .into_array();
+        let source_uri = DatasetUri::new("file:///tmp/nullable-dictionary.vortex").expect("uri");
+
+        let inputs = reader_generated_encoded_kernel_inputs_from_vortex_chunk(
+            &source_uri,
+            "split-nullable-dict",
+            &chunk,
+        )
+        .expect("kernel inputs");
+
+        assert!(inputs.is_empty());
+    }
+
+    #[test]
+    fn nullable_run_end_reader_chunk_lowering_stays_blocked() {
+        use vortex::array::IntoArray as _;
+        use vortex::array::VortexSessionExecute as _;
+        use vortex::array::arrays::PrimitiveArray;
+        use vortex::array::validity::Validity;
+        use vortex::encodings::runend::RunEnd;
+
+        let ends = [2_u64, 5]
+            .into_iter()
+            .collect::<PrimitiveArray>()
+            .into_array();
+        let values =
+            PrimitiveArray::new(vec![5_i64, 9], Validity::from_iter([true, false])).into_array();
+        let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+        let chunk = RunEnd::try_new(ends, values, &mut ctx)
+            .expect("nullable run-end array")
+            .into_array();
+        let source_uri = DatasetUri::new("file:///tmp/nullable-run-end.vortex").expect("uri");
+
+        let inputs = reader_generated_encoded_kernel_inputs_from_vortex_chunk(
+            &source_uri,
+            "split-nullable-run-end",
+            &chunk,
+        )
+        .expect("kernel inputs");
+
+        assert!(inputs.is_empty());
+    }
+
+    #[test]
+    fn sparse_reader_chunk_lowering_stays_blocked() {
+        use vortex::array::IntoArray as _;
+        use vortex::array::arrays::PrimitiveArray;
+        use vortex::array::scalar::Scalar;
+        use vortex::encodings::sparse::Sparse;
+
+        let indices = [1_u64, 3]
+            .into_iter()
+            .collect::<PrimitiveArray>()
+            .into_array();
+        let values = [42_i32, 77]
+            .into_iter()
+            .collect::<PrimitiveArray>()
+            .into_array();
+        let chunk = Sparse::try_new(indices, values, 5, Scalar::from(0_i32))
+            .expect("sparse array")
+            .into_array();
+        let source_uri = DatasetUri::new("file:///tmp/sparse.vortex").expect("uri");
+
+        let inputs = reader_generated_encoded_kernel_inputs_from_vortex_chunk(
+            &source_uri,
+            "split-sparse",
+            &chunk,
+        )
+        .expect("kernel inputs");
+
+        assert!(inputs.is_empty());
     }
 
     #[test]

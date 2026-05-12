@@ -57,11 +57,11 @@ fn foundation_claim_evidence_lists_publication_blockers() {
         "blocked_surface_order",
         "correctness_evidence,benchmark_result_rows,external_comparison_results,reproducibility_manifest,claim_publication_gate"
     )));
-    assert!(output.contains(&field("scenario_count", "5")));
+    assert!(output.contains(&field("scenario_count", "7")));
     assert!(output.contains(&field("required_metric_count", "21")));
-    assert!(output.contains(&field("expected_result_count", "10")));
+    assert!(output.contains(&field("expected_result_count", "14")));
     assert!(output.contains(&field("result_count", "0")));
-    assert!(output.contains(&field("missing_result_count", "10")));
+    assert!(output.contains(&field("missing_result_count", "14")));
     assert!(output.contains(&field("run_manifest_status", "incomplete")));
     assert!(output.contains(&field("comparison_report_status", "evidence_missing")));
 }

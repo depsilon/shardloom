@@ -5,6 +5,7 @@
 //! `Vortex`-first execution.
 
 pub mod agent_contract;
+pub mod architecture_spine;
 pub mod benchmark;
 pub mod capabilities;
 pub mod certification;
@@ -22,6 +23,7 @@ pub mod input;
 pub mod manifest;
 pub mod native_io;
 pub mod observability;
+pub mod operational_contracts;
 pub mod operator;
 pub mod output;
 pub mod release;
@@ -31,9 +33,17 @@ pub mod stateful_reuse;
 pub mod table_intelligence;
 pub mod translation;
 pub mod universal_harness;
+pub mod unstructured_workflow;
+pub mod wrapper_architecture;
 
 pub use agent_contract::{
     AgentContractPack, AgentContractSurface, AgentContractSurfaceKind, AgentContractSurfaceStatus,
+};
+pub use architecture_spine::{
+    ComputeEngineArchitectureSpineReport, ComputeEngineLayerContract, ComputeEngineLayerKind,
+    ComputeRegistryContract, ComputeRegistryKind, EvidenceOutputKind, ExecutionProviderContract,
+    ExecutionProviderKind, RuntimeTaskGraphContract, SharedDataModelPrimitiveKind,
+    plan_compute_engine_architecture_spine,
 };
 pub use benchmark::{
     BaselineEngine, BenchmarkCacheState, BenchmarkClaimEvidenceReport,
@@ -148,6 +158,14 @@ pub use observability::{
     StructuredEvent, StructuredEventKind, TraceSpanCategory, TraceSpanId, TraceSpanSkeleton,
     TraceSpanStatus,
 };
+pub use operational_contracts::{
+    BenchmarkConstitution, CostSimulationReport, EvidenceArtifactEnvelope, EvidenceArtifactSafety,
+    OperationalContractsReport, ProtocolSurfaceParityReport, ProtocolSurfaceParityRow,
+    QueryLifecycleContract, QueryLifecycleState, RustPerformanceProfileEvidence,
+    ShardLoomExecutionPolicy, ShardLoomNativeSemanticDimension, ShardLoomNativeSemanticProfile,
+    StandardsDecisionStatus, StandardsDependencyDecision, StandardsDependencyDecisionReport,
+    WorkloadConstitutionCatalog, WorkloadConstitutionEntry, plan_operational_contracts,
+};
 
 pub use operator::{
     PhysicalKernelAdmissionReport, PhysicalKernelAdmissionStatus, PhysicalKernelRegistryPlan,
@@ -212,6 +230,19 @@ pub use universal_harness::{
     ExternalBaselineHarnessRequirement, UniversalHarnessReport, UniversalHarnessStatus,
     UniversalHarnessSurface, UniversalHarnessSurfaceKind, UniversalHarnessSurfaceStatus,
     plan_universal_harness,
+};
+pub use unstructured_workflow::{
+    BoundaryExecutor, DeterminismLevel, EmbeddingBoundaryReport, EmbeddingTable,
+    ExtractionBoundaryReport, FoundryAipLogicBoundaryReport, FoundryMediaBoundaryPosture,
+    MediaKind, MediaLocationKind, MediaManifest, MediaRef, ModelCallBoundaryReport, TextChunkTable,
+    UnstructuredMaturity, UnstructuredWorkflowBoundaryReport, UnstructuredWorkflowCertificate,
+    WorkflowBoundaryKind, plan_unstructured_workflow_boundaries,
+};
+pub use wrapper_architecture::{
+    ClientCoreOperation, ClientWrapperArchitectureReport, ProtocolSchemaArtifact,
+    WrapperCapabilityReport, WrapperFamily, WrapperGoldenContractFixture,
+    WrapperGoldenContractFixtureCatalog, WrapperMaturityLevel, WrapperRegistryEntry,
+    WrapperTransportKind, plan_client_wrapper_architecture,
 };
 
 /// Canonical crate-level result type for `ShardLoom`.

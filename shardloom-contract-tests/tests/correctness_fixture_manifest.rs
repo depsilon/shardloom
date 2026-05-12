@@ -411,9 +411,9 @@ fn reference_roles_remain_test_only_not_production_fallback() {
 fn foundation_plan_reports_reference_and_gap_counts() {
     let plan = CorrectnessValidationPlan::default_foundation_plan();
 
-    assert_eq!(plan.fixture_count(), 34);
-    assert_eq!(plan.fixtures_with_source_ref_count(), 16);
-    assert_eq!(plan.source_backed_edge_fixture_count(), 9);
+    assert_eq!(plan.fixture_count(), 36);
+    assert_eq!(plan.fixtures_with_source_ref_count(), 18);
+    assert_eq!(plan.source_backed_edge_fixture_count(), 11);
     assert_eq!(
         plan.source_backed_edge_fixture_id_order(),
         vec![
@@ -425,12 +425,14 @@ fn foundation_plan_reports_reference_and_gap_counts() {
             "vortex-edge-project-high-cardinality",
             "vortex-edge-filter-project-sorted-dictionary",
             "vortex-edge-filter-project-unsorted-rle",
+            "vortex-edge-reader-chunk-dictionary-kernel-input",
+            "vortex-edge-reader-chunk-run-end-kernel-input",
             "vortex-edge-filter-temporal-values",
         ]
     );
-    assert_eq!(plan.golden_fixture_count(), 19);
-    assert_eq!(plan.reference_artifact_count(), 18);
-    assert_eq!(plan.decoded_reference_output_count(), 18);
+    assert_eq!(plan.golden_fixture_count(), 21);
+    assert_eq!(plan.reference_artifact_count(), 20);
+    assert_eq!(plan.decoded_reference_output_count(), 20);
     assert_eq!(
         plan.decoded_reference_artifact_id_order(),
         vec![
@@ -451,11 +453,13 @@ fn foundation_plan_reports_reference_and_gap_counts() {
             "vortex-edge-project-high-cardinality.decoded-reference.rows",
             "vortex-edge-filter-project-sorted-dictionary.decoded-reference.rows",
             "vortex-edge-filter-project-unsorted-rle.decoded-reference.rows",
+            "vortex-edge-reader-chunk-dictionary-kernel-input.decoded-reference.rows",
+            "vortex-edge-reader-chunk-run-end-kernel-input.decoded-reference.rows",
             "vortex-edge-filter-temporal-values.decoded-reference.rows",
         ]
     );
     assert!(plan.decoded_reference_output_coverage_complete());
-    assert_eq!(plan.executable_expected_output_count(), 18);
+    assert_eq!(plan.executable_expected_output_count(), 20);
     assert_eq!(plan.not_yet_defined_fixture_count(), 0);
     assert_eq!(plan.deferred_fixture_family_count(), 8);
     assert_eq!(
@@ -495,7 +499,7 @@ fn foundation_plan_reports_reference_and_gap_counts() {
     assert_eq!(plan.diagnostic_expected_output_count(), 1);
     assert_eq!(plan.unsupported_expected_output_count(), 1);
     assert_eq!(plan.baseline_count(), 7);
-    assert_eq!(plan.external_oracle_result_artifact_count(), 63);
+    assert_eq!(plan.external_oracle_result_artifact_count(), 77);
     assert_eq!(plan.external_oracle_result_populated_count(), 0);
     assert!(!plan.external_oracle_results_populated());
     assert_eq!(
@@ -510,7 +514,7 @@ fn foundation_plan_reports_reference_and_gap_counts() {
 fn foundation_plan_declares_external_oracle_result_artifact_slots_without_execution() {
     let plan = CorrectnessValidationPlan::default_foundation_plan();
 
-    assert_eq!(plan.external_oracle_result_artifact_count(), 63);
+    assert_eq!(plan.external_oracle_result_artifact_count(), 77);
     let first = &plan.external_oracle_result_artifacts[0];
     assert_eq!(
         first.artifact_id,

@@ -808,6 +808,18 @@ fn add_edge_case_executable_fixtures(plan: &mut CorrectnessValidationPlan) {
             ExpectedOutcome::Rows { row_count: Some(3) },
         ),
         edge_case_executable_fixture(
+            "vortex-edge-reader-chunk-dictionary-kernel-input",
+            SemanticArea::EncodedExecution,
+            &[EdgeCase::DictionaryEncoded, EdgeCase::NoNulls],
+            ExpectedOutcome::Rows { row_count: Some(4) },
+        ),
+        edge_case_executable_fixture(
+            "vortex-edge-reader-chunk-run-end-kernel-input",
+            SemanticArea::EncodedExecution,
+            &[EdgeCase::RunLengthEncoded, EdgeCase::NoNulls],
+            ExpectedOutcome::Rows { row_count: Some(5) },
+        ),
+        edge_case_executable_fixture(
             "vortex-edge-filter-temporal-values",
             SemanticArea::Temporal,
             &[EdgeCase::TemporalValues],
@@ -2194,14 +2206,14 @@ mod tests {
     fn foundation_plan_exposes_coverage_inventory() {
         let plan = CorrectnessValidationPlan::default_foundation_plan();
 
-        assert_eq!(plan.fixture_count(), 34);
-        assert_eq!(plan.fixtures_with_source_ref_count(), 16);
-        assert_eq!(plan.source_backed_edge_fixture_count(), 9);
-        assert_eq!(plan.golden_fixture_count(), 19);
-        assert_eq!(plan.reference_artifact_count(), 18);
-        assert_eq!(plan.decoded_reference_output_count(), 18);
+        assert_eq!(plan.fixture_count(), 36);
+        assert_eq!(plan.fixtures_with_source_ref_count(), 18);
+        assert_eq!(plan.source_backed_edge_fixture_count(), 11);
+        assert_eq!(plan.golden_fixture_count(), 21);
+        assert_eq!(plan.reference_artifact_count(), 20);
+        assert_eq!(plan.decoded_reference_output_count(), 20);
         assert!(plan.decoded_reference_output_coverage_complete());
-        assert_eq!(plan.executable_expected_output_count(), 18);
+        assert_eq!(plan.executable_expected_output_count(), 20);
         assert_eq!(plan.not_yet_defined_fixture_count(), 0);
         assert_eq!(plan.deferred_fixture_family_count(), 8);
         assert_eq!(
@@ -2228,7 +2240,7 @@ mod tests {
         assert_eq!(plan.diagnostic_expected_output_count(), 1);
         assert_eq!(plan.unsupported_expected_output_count(), 1);
         assert_eq!(plan.baseline_count(), 7);
-        assert_eq!(plan.external_oracle_result_artifact_count(), 63);
+        assert_eq!(plan.external_oracle_result_artifact_count(), 77);
         assert_eq!(plan.external_oracle_result_populated_count(), 0);
         assert!(!plan.external_oracle_results_populated());
         assert_eq!(
@@ -2269,9 +2281,9 @@ mod tests {
             report.report_id,
             "cg5.correctness_differential_harness.aggregate"
         );
-        assert_eq!(report.fixture_count, 34);
-        assert_eq!(report.golden_fixture_count, 19);
-        assert_eq!(report.executable_expected_output_count, 18);
+        assert_eq!(report.fixture_count, 36);
+        assert_eq!(report.golden_fixture_count, 21);
+        assert_eq!(report.executable_expected_output_count, 20);
         assert_eq!(report.not_yet_defined_fixture_count, 0);
         assert_eq!(report.deferred_fixture_family_count, 8);
         assert_eq!(report.deferred_fixture_family_artifact_count, 8);
@@ -2282,15 +2294,15 @@ mod tests {
             vec!["declared_not_populated".to_string()]
         );
         assert!(report.deferred_fixture_family_artifacts_test_only);
-        assert_eq!(report.fixtures_with_source_ref_count, 16);
-        assert_eq!(report.source_backed_edge_fixture_count, 9);
-        assert_eq!(report.reference_artifact_count, 18);
-        assert_eq!(report.decoded_reference_output_count, 18);
+        assert_eq!(report.fixtures_with_source_ref_count, 18);
+        assert_eq!(report.source_backed_edge_fixture_count, 11);
+        assert_eq!(report.reference_artifact_count, 20);
+        assert_eq!(report.decoded_reference_output_count, 20);
         assert!(report.decoded_reference_output_coverage_complete);
         assert_eq!(report.generated_property_fixture_count, 3);
         assert_eq!(report.fuzz_seed_count, 3);
         assert_eq!(report.baseline_count, 7);
-        assert_eq!(report.external_oracle_result_artifact_count, 63);
+        assert_eq!(report.external_oracle_result_artifact_count, 77);
         assert_eq!(report.external_oracle_result_populated_count, 0);
         assert!(!report.external_oracle_results_populated);
         assert_eq!(

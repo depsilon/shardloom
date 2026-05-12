@@ -11,8 +11,12 @@ Status words in historical sections below describe evidence recorded at the time
 
 - Approved historical metadata/footer path: feature-gated local metadata/footer fixture open.
 - Approved local primitive scan paths: feature-gated local `.vortex` primitive paths for `CountAll`, `CountWhere`, `FilterPredicate`, `ProjectColumns`, and `FilterAndProject` where recorded in `docs/architecture/phased-execution-plan.md`.
-- Prepared encoded execution surfaces: prepared encoded filter, projection, and filter-project evidence paths without generalized reader wiring.
-- Vortex-native provider framing: upstream Vortex array, compute, scan, source, and sink APIs may be native providers only when isolated in approved ShardLoom boundaries, version-recorded, feature-gated, policy-admitted, and certificate-backed.
+- Prepared encoded execution surfaces: prepared encoded filter, projection, and filter-project evidence paths with source-bound prepared batch envelopes, reader split-ref validation, explicit reader-generated kernel-input admission, and narrow direct reader-chunk lowering for constants through `ArrayRef::as_constant()`, dictionaries through `DictArray` slots, and run-end arrays through `RunEnd` slots.
+- Still blocked reader-chunk lowering: nullable dictionaries/RLE, sparse internals, nested/extension values, scalar row access, canonicalization, Arrow conversion, decoded row materialization, and generalized Source/Sink extraction remain deferred until phase-plan work proves dtype/encoding-specific no-decode mappings.
+- Vortex-native provider framing: upstream Vortex array, compute, scan, source, and sink APIs may be native providers only when isolated in approved ShardLoom boundaries, version-recorded, feature-gated, policy-admitted, certificate-required, and no-fallback. Current reader-backed evidence carries `VortexNativeProviderBoundary` with provider kind, crate/version, API surface, feature gate, admission policy, certificate requirement, external-engine status, and fallback status.
+- Compute-provider report framing: execution certificates carry `ExecutionProviderKind` fields, while `VortexComputeProviderReport`, `VortexComputeProviderAlignmentReport`, and `VortexIntegrationBoundaryReport` keep upstream Vortex-native provider boundaries distinct from Vortex query-engine integrations and external baselines.
+- Residual boundary framing: reader-generated prepared-batch reports carry `VortexResidualBoundaryReport`; admitted constant/dictionary/run-end kernel inputs use `residual_executor=none`, while opaque/sparse/nullable/unsupported chunks use `residual_executor=unsupported_blocked` with `external_engine_invoked=false`, prohibited external fallback, and `fallback_attempted=false`.
+- Source-backed expansion evidence: source-backed encoded filter/projection reports expose `VortexSourceBackedExpansionEvidenceReport`, linking correctness, execution-certificate, Native I/O certificate, benchmark-row requirement, no-fallback evidence, and benchmark/production claim blockers for the expansion.
 - Still deferred: generalized Source/Sink API integration, object-store scan, table/catalog scan, broad reader wiring, writes, Arrow-default execution, GPU/device execution, vector/geospatial/media execution, and external query-engine integration execution.
 - Prohibited: DataFusion, DuckDB, Spark, Polars, Velox, `vortex-datafusion`, or similar engines executing unsupported ShardLoom residual work as fallback.
 
@@ -42,25 +46,25 @@ Status words in historical sections below describe evidence recorded at the time
 
 ## Candidate API areas
 ### DType / logical type APIs
-- Public API names discovered: not confirmed yet.
-- Use now: yes, via temporary name-based mapping only.
-- Stability for first adapter work: partially acceptable (name-based placeholder).
+- Public API names discovered: `vortex::array::dtype::DType::is_struct`, `DType::is_nullable`, `DType::to_string`, and primitive/logical type variants used for no-decode dictionary/run-end dtype mapping.
+- Use now: yes, for local primitive scan evidence and narrow constant/dictionary/run-end reader-chunk kernel-input lowering.
+- Stability for first adapter work: partially acceptable for feature-gated local evidence; broad dtype mapping remains staged.
 - Adapter support: planned.
-- Risks: upstream typed API names may shift; avoid guessing.
+- Risks: upstream typed API names may shift; do not infer unsupported nested/extension semantics from string or generic dtype access.
 
 ### Array APIs
-- Public API names discovered: not confirmed yet.
-- Use now: no.
-- Stability: not confirmed yet.
-- Adapter support: deferred (real payload write path remains future, feature-gated, and explicitly approved).
-- Risks: coupling to internal array APIs.
+- Public API names discovered: `vortex::array::ArrayRef::len`, `ArrayRef::dtype`, `ArrayRef::encoding_id`, `ArrayRef::nchildren`, `ArrayRef::nbuffers`, `ArrayRef::named_children`, `ArrayRef::as_constant`, `ArrayRef::as_opt::<Dict>`, `ArrayRef::as_opt::<RunEnd>`, and direct host primitive buffers for dictionary codes/values and run ends/values.
+- Use now: yes, only in feature-gated local primitive scan evidence and direct constant/dictionary/run-end reader-chunk kernel-input lowering where upstream APIs expose whole-chunk values, dictionary slots, or run-end slots without decode/materialization.
+- Stability: acceptable only for narrow local evidence; broad encoded-value extraction remains staged.
+- Adapter support: local reader chunk evidence plus constant, dictionary, and run-end lowering; real payload write path remains future, feature-gated, and explicitly approved.
+- Risks: `scalar_at`, `execute_scalar`, canonicalization, Arrow execution, validity row reads, nullable dictionary/RLE handling, sparse patch/fill interpretation, and broad child traversal can silently become row/decode/materialization behavior if admitted without separate evidence.
 
 ### Encoding APIs
-- Public API names discovered: not confirmed yet.
-- Use now: yes, via temporary name-based mapping only.
-- Stability: partially acceptable for placeholders.
-- Adapter support: planned.
-- Risks: encoding taxonomy drift.
+- Public API names discovered: `DictArray` slots (`codes`, `values`) and `RunEndArray` slots (`ends`, `values`, `offset`) for narrow no-decode local reader-chunk lowering.
+- Use now: yes, for non-null host primitive dictionary and run-end arrays only; sparse and other encodings remain blocked.
+- Stability: partially acceptable for feature-gated local evidence; broad encoding mapping remains staged.
+- Adapter support: planned beyond the narrow local lowering path.
+- Risks: encoding taxonomy drift, nullable validity handling, sparse patch/fill semantics, and device/non-host buffers require separate evidence before support claims.
 
 ### Layout APIs
 - Public API names discovered: not confirmed yet.
@@ -84,10 +88,10 @@ Status words in historical sections below describe evidence recorded at the time
 - Risks: broadening this path could accidentally introduce scan/read/decode/write behavior without CG approval.
 
 ### Scan/source APIs
-- Public API names discovered: not confirmed yet.
-- Use now: no.
-- Stability: not confirmed yet.
-- Adapter support: deferred.
+- Public API names discovered: `VortexFile::scan`, `ScanBuilder::with_filter`, `ScanBuilder::with_projection`, `ScanBuilder::with_concurrency`, and `ScanBuilder::into_array_iter`.
+- Use now: yes, for approved feature-gated local primitive scan paths and reader split evidence.
+- Stability: acceptable only for local primitive evidence; generalized Source/Sink, object-store, table/catalog, split serialization, and residual execution remain staged.
+- Adapter support: local scan evidence only.
 - Risks: accidental execution coupling.
 
 ### Write/sink APIs

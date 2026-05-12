@@ -62,22 +62,22 @@ fn correctness_harness_json_exposes_fixtures_oracles_and_missing_modes() {
         "expected_output,decoded_reference,differential_comparison,property_based,fuzz,golden_diagnostic,unsupported_diagnostic_only"
     )));
     assert!(output.contains(&field("missing_validation_mode_order", "")));
-    assert!(output.contains(&field("fixture_count", "34")));
-    assert!(output.contains(&field("fixtures_with_source_ref_count", "16")));
-    assert!(output.contains(&field("source_backed_edge_fixture_count", "9")));
+    assert!(output.contains(&field("fixture_count", "36")));
+    assert!(output.contains(&field("fixtures_with_source_ref_count", "18")));
+    assert!(output.contains(&field("source_backed_edge_fixture_count", "11")));
     assert!(output.contains(&field(
         "source_backed_edge_fixture_id_order",
-        "vortex-edge-count-all-empty-input,vortex-edge-project-single-row,vortex-edge-filter-all-null,vortex-edge-filter-mixed-null-sparse,vortex-edge-filter-duplicate-low-cardinality,vortex-edge-project-high-cardinality,vortex-edge-filter-project-sorted-dictionary,vortex-edge-filter-project-unsorted-rle,vortex-edge-filter-temporal-values"
+        "vortex-edge-count-all-empty-input,vortex-edge-project-single-row,vortex-edge-filter-all-null,vortex-edge-filter-mixed-null-sparse,vortex-edge-filter-duplicate-low-cardinality,vortex-edge-project-high-cardinality,vortex-edge-filter-project-sorted-dictionary,vortex-edge-filter-project-unsorted-rle,vortex-edge-reader-chunk-dictionary-kernel-input,vortex-edge-reader-chunk-run-end-kernel-input,vortex-edge-filter-temporal-values"
     )));
-    assert!(output.contains(&field("golden_fixture_count", "19")));
-    assert!(output.contains(&field("reference_artifact_count", "18")));
-    assert!(output.contains(&field("decoded_reference_output_count", "18")));
+    assert!(output.contains(&field("golden_fixture_count", "21")));
+    assert!(output.contains(&field("reference_artifact_count", "20")));
+    assert!(output.contains(&field("decoded_reference_output_count", "20")));
     assert!(output.contains(&field(
         "decoded_reference_artifact_id_order",
-        "vortex-local-encoded-count-u64-20000.decoded-reference.count,vortex-local-count-all-struct-five.decoded-reference.count,vortex-local-count-where-struct-five.decoded-reference.rows,vortex-local-project-struct-five.decoded-reference.rows,vortex-local-filter-struct-five.decoded-reference.rows,vortex-local-filter-project-struct-five.decoded-reference.rows,vortex-prepared-encoded-filter-dictionary-run.decoded-reference.rows,vortex-prepared-encoded-projection-dictionary.decoded-reference.rows,vortex-prepared-encoded-filter-project-selection-vector.decoded-reference.rows,vortex-edge-count-all-empty-input.decoded-reference.count,vortex-edge-project-single-row.decoded-reference.rows,vortex-edge-filter-all-null.decoded-reference.rows,vortex-edge-filter-mixed-null-sparse.decoded-reference.rows,vortex-edge-filter-duplicate-low-cardinality.decoded-reference.rows,vortex-edge-project-high-cardinality.decoded-reference.rows,vortex-edge-filter-project-sorted-dictionary.decoded-reference.rows,vortex-edge-filter-project-unsorted-rle.decoded-reference.rows,vortex-edge-filter-temporal-values.decoded-reference.rows"
+        "vortex-local-encoded-count-u64-20000.decoded-reference.count,vortex-local-count-all-struct-five.decoded-reference.count,vortex-local-count-where-struct-five.decoded-reference.rows,vortex-local-project-struct-five.decoded-reference.rows,vortex-local-filter-struct-five.decoded-reference.rows,vortex-local-filter-project-struct-five.decoded-reference.rows,vortex-prepared-encoded-filter-dictionary-run.decoded-reference.rows,vortex-prepared-encoded-projection-dictionary.decoded-reference.rows,vortex-prepared-encoded-filter-project-selection-vector.decoded-reference.rows,vortex-edge-count-all-empty-input.decoded-reference.count,vortex-edge-project-single-row.decoded-reference.rows,vortex-edge-filter-all-null.decoded-reference.rows,vortex-edge-filter-mixed-null-sparse.decoded-reference.rows,vortex-edge-filter-duplicate-low-cardinality.decoded-reference.rows,vortex-edge-project-high-cardinality.decoded-reference.rows,vortex-edge-filter-project-sorted-dictionary.decoded-reference.rows,vortex-edge-filter-project-unsorted-rle.decoded-reference.rows,vortex-edge-reader-chunk-dictionary-kernel-input.decoded-reference.rows,vortex-edge-reader-chunk-run-end-kernel-input.decoded-reference.rows,vortex-edge-filter-temporal-values.decoded-reference.rows"
     )));
     assert!(output.contains(&field("decoded_reference_output_coverage_complete", "true")));
-    assert!(output.contains(&field("executable_expected_output_count", "18")));
+    assert!(output.contains(&field("executable_expected_output_count", "20")));
     assert!(output.contains(&field("not_yet_defined_fixture_count", "0")));
     assert!(output.contains(&field("deferred_fixture_family_count", "8")));
     assert!(output.contains(&field(
@@ -111,7 +111,7 @@ fn correctness_harness_json_exposes_fixtures_oracles_and_missing_modes() {
         "baseline_engine_order",
         "spark,datafusion,duckdb,polars,pandas,dask,velox"
     )));
-    assert!(output.contains(&field("external_oracle_result_artifact_count", "63")));
+    assert!(output.contains(&field("external_oracle_result_artifact_count", "77")));
     assert!(output.contains(&field("external_oracle_result_populated_count", "0")));
     assert!(output.contains(&field("external_oracle_results_populated", "false")));
     assert!(output.contains(&field(
