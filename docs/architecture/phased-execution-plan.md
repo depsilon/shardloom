@@ -168,6 +168,9 @@ actionable work.
           without publishing packages, pushing artifacts, or invoking external engines.
     - [x] Move benchmark planning handlers into `shardloom-cli/src/benchmark_planning.rs`
           without running benchmarks, invoking external engines, or publishing performance claims.
+    - [x] Move executable traditional-analytics benchmark runtime handlers into
+          `shardloom-cli/src/benchmark_runtime.rs` without changing benchmark behavior, adding
+          managed-platform lanes, or allowing external engines to become runtime fallback.
     - [x] Move operational hardening/security handlers into
           `shardloom-cli/src/operational_hardening.rs` without resolving credentials, loading
           secrets, executing effects, or weakening no-fallback behavior.

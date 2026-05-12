@@ -97,6 +97,11 @@ The benchmark planning family currently contains `benchmark-plan` and
 handlers remain report-only and do not run comparative benchmarks, invoke baseline engines, publish
 performance claims, or weaken no-fallback behavior.
 
+The benchmark runtime family currently contains `traditional-analytics-run` and
+`traditional-analytics-vortex-run`, and lives in `shardloom-cli/src/benchmark_runtime.rs`. These
+handlers preserve the existing local benchmark harness behavior; external engines remain
+comparison-only baselines and must not become fallback execution paths.
+
 The operational hardening/security family currently contains `security-plan`,
 `security-governance-evidence-gate`, `effect-budget-plan`, `agent-safety-plan`, and
 `redaction-plan`, and lives in `shardloom-cli/src/operational_hardening.rs`. These handlers remain
