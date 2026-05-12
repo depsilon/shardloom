@@ -35,7 +35,7 @@ class ShardLoomClientTests(unittest.TestCase):
                 import json, sys
                 assert sys.argv[1:] == ["status", "--format", "json"], sys.argv
                 print(json.dumps({
-                    "schema_version": "shardloom.output.v1",
+                    "schema_version": "shardloom.output.v2",
                     "command": "status",
                     "status": "success",
                     "summary": "ok",
@@ -55,6 +55,45 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertFalse(result.fallback.attempted)
         self.assertEqual(result.field_map["engine"], "shardloom")
 
+    def test_typed_envelope_payloads_are_preserved(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == ["status", "--format", "json"], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "status",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "result": {"fields": [{"key": "engine", "value": "shardloom"}]},
+                    "result_refs": [{"id": "result.local", "kind": "json", "status": "available", "uri": None}],
+                    "artifacts": [{"artifact_id": "artifact.evidence", "artifact_kind": "evidence", "status": "available", "payload": {"fields": []}}],
+                    "artifact_refs": [{"id": "artifact.ref", "kind": "file", "status": "available", "uri": "artifact.json"}],
+                    "certificates": [{"id": "certificate.execution", "kind": "execution_certificate", "status": "available", "uri": None}],
+                    "policy": {"fields": [{"key": "fallback_execution_allowed", "value": "false"}]},
+                    "lifecycle": {"fields": [{"key": "phase", "value": "report_only"}]},
+                    "capability_snapshot": {"fields": [{"key": "scope", "value": "status"}]},
+                    "fields": [{"key": "engine", "value": "shardloom"}],
+                }))
+                """
+            )
+        )
+
+        result = ShardLoomClient(binary=binary).status()
+
+        self.assertEqual(result.result["fields"][0]["key"], "engine")
+        self.assertEqual(result.result_refs[0]["id"], "result.local")
+        self.assertEqual(result.artifacts[0]["artifact_id"], "artifact.evidence")
+        self.assertEqual(result.artifact_refs[0]["uri"], "artifact.json")
+        self.assertEqual(result.certificates[0]["kind"], "execution_certificate")
+        self.assertEqual(result.policy["fields"][0]["key"], "fallback_execution_allowed")
+        self.assertEqual(result.lifecycle["fields"][0]["value"], "report_only")
+        self.assertEqual(result.capability_snapshot["fields"][0]["value"], "status")
+
     def test_capabilities_scope_uses_explicit_scope(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
@@ -62,7 +101,7 @@ class ShardLoomClientTests(unittest.TestCase):
                 import json, sys
                 assert sys.argv[1:] == ["capabilities", "python", "--format", "json"], sys.argv
                 print(json.dumps({
-                    "schema_version": "shardloom.output.v1",
+                    "schema_version": "shardloom.output.v2",
                     "command": "capabilities",
                     "status": "success",
                     "summary": "ok",
@@ -86,7 +125,7 @@ class ShardLoomClientTests(unittest.TestCase):
                 import json, sys
                 assert sys.argv[1:] == ["status", "--format", "json"], sys.argv
                 print(json.dumps({
-                    "schema_version": "shardloom.output.v1",
+                    "schema_version": "shardloom.output.v2",
                     "command": "status",
                     "status": "success",
                     "summary": "ok",
@@ -135,7 +174,7 @@ class ShardLoomClientTests(unittest.TestCase):
                 else:
                     raise AssertionError(args)
                 print(json.dumps({
-                    "schema_version": "shardloom.output.v1",
+                    "schema_version": "shardloom.output.v2",
                     "command": command,
                     "status": "success",
                     "summary": "ok",
@@ -166,7 +205,7 @@ class ShardLoomClientTests(unittest.TestCase):
                 import json, sys
                 assert sys.argv[1:] == ["vortex-run", "file.vortex", "count", "8", "2", "--format", "json"], sys.argv
                 print(json.dumps({
-                    "schema_version": "shardloom.output.v1",
+                    "schema_version": "shardloom.output.v2",
                     "command": "vortex-run",
                     "status": "success",
                     "summary": "ok",
@@ -209,7 +248,7 @@ class ShardLoomClientTests(unittest.TestCase):
                 else:
                     raise AssertionError(args)
                 print(json.dumps({
-                    "schema_version": "shardloom.output.v1",
+                    "schema_version": "shardloom.output.v2",
                     "command": "vortex-count",
                     "status": "success",
                     "summary": "ok",
@@ -250,7 +289,7 @@ class ShardLoomClientTests(unittest.TestCase):
                 if command is None:
                     raise AssertionError(args)
                 print(json.dumps({
-                    "schema_version": "shardloom.output.v1",
+                    "schema_version": "shardloom.output.v2",
                     "command": command,
                     "status": "success",
                     "summary": "ok",
@@ -312,7 +351,7 @@ class ShardLoomClientTests(unittest.TestCase):
                     "json",
                 ], sys.argv
                 print(json.dumps({
-                    "schema_version": "shardloom.output.v1",
+                    "schema_version": "shardloom.output.v2",
                     "command": "vortex-project",
                     "status": "success",
                     "summary": "ok",
@@ -345,7 +384,7 @@ class ShardLoomClientTests(unittest.TestCase):
                 if command is None:
                     raise AssertionError(args)
                 print(json.dumps({
-                    "schema_version": "shardloom.output.v1",
+                    "schema_version": "shardloom.output.v2",
                     "command": command,
                     "status": "success",
                     "summary": "ok",
@@ -401,7 +440,7 @@ class ShardLoomClientTests(unittest.TestCase):
                 """
                 import json, sys
                 print(json.dumps({
-                    "schema_version": "shardloom.output.v1",
+                    "schema_version": "shardloom.output.v2",
                     "command": "capabilities",
                     "status": "unsupported",
                     "summary": "unsupported",
@@ -439,7 +478,7 @@ class ShardLoomClientTests(unittest.TestCase):
             ShardLoomClient(binary=binary).status()
 
     def test_missing_envelope_fields_raise_protocol_error(self) -> None:
-        binary = self.fake_cli("print('{\"schema_version\":\"shardloom.output.v1\"}')")
+        binary = self.fake_cli("print('{\"schema_version\":\"shardloom.output.v2\"}')")
 
         with self.assertRaises(ShardLoomProtocolError):
             ShardLoomClient(binary=binary).status()
@@ -450,7 +489,7 @@ class ShardLoomClientTests(unittest.TestCase):
                 """
                 import json
                 print(json.dumps({
-                    "schema_version": "shardloom.output.v1",
+                    "schema_version": "shardloom.output.v2",
                     "command": "status",
                     "status": "success",
                     "summary": "ok",
@@ -489,7 +528,7 @@ class ShardLoomClientTests(unittest.TestCase):
                 """
                 import json
                 print(json.dumps({
-                    "schema_version": "shardloom.output.v1",
+                    "schema_version": "shardloom.output.v2",
                     "command": "api-compat-plan",
                     "status": "success",
                     "summary": "ok",
@@ -528,7 +567,7 @@ class ShardLoomClientTests(unittest.TestCase):
                 assert os.environ.get("SHARDLOOM_TEST_INHERITED") == "base"
                 assert os.environ.get("SHARDLOOM_TEST_OVERRIDE") == "override"
                 print(json.dumps({
-                    "schema_version": "shardloom.output.v1",
+                    "schema_version": "shardloom.output.v2",
                     "command": "status",
                     "status": "success",
                     "summary": "ok",
@@ -624,7 +663,7 @@ class ShardLoomClientTests(unittest.TestCase):
                     "json",
                 ], sys.argv
                 print(json.dumps({
-                    "schema_version": "shardloom.output.v1",
+                    "schema_version": "shardloom.output.v2",
                     "command": "traditional-analytics-vortex-run",
                     "status": "success",
                     "summary": "ok",
@@ -661,7 +700,7 @@ class ShardLoomClientTests(unittest.TestCase):
                     "json",
                 ], sys.argv
                 print(json.dumps({
-                    "schema_version": "shardloom.output.v1",
+                    "schema_version": "shardloom.output.v2",
                     "command": "traditional-analytics-run",
                     "status": "success",
                     "summary": "ok",
@@ -695,7 +734,7 @@ class ShardLoomClientTests(unittest.TestCase):
                     "json",
                 ], sys.argv
                 print(json.dumps({
-                    "schema_version": "shardloom.output.v1",
+                    "schema_version": "shardloom.output.v2",
                     "command": "traditional-analytics-vortex-run",
                     "status": "success",
                     "summary": "ok",
@@ -739,7 +778,7 @@ class ShardLoomClientTests(unittest.TestCase):
                     "json",
                 ], sys.argv
                 print(json.dumps({
-                    "schema_version": "shardloom.output.v1",
+                    "schema_version": "shardloom.output.v2",
                     "command": "traditional-analytics-run",
                     "status": "success",
                     "summary": "ok",
@@ -790,7 +829,7 @@ class ShardLoomClientTests(unittest.TestCase):
                     "json",
                 ]:
                     print(json.dumps({
-                        "schema_version": "shardloom.output.v1",
+                        "schema_version": "shardloom.output.v2",
                         "command": "traditional-analytics-run",
                         "status": "success",
                         "summary": "csv ok",
@@ -811,7 +850,7 @@ class ShardLoomClientTests(unittest.TestCase):
                     "json",
                 ]:
                     print(json.dumps({
-                        "schema_version": "shardloom.output.v1",
+                        "schema_version": "shardloom.output.v2",
                         "command": "traditional-analytics-vortex-run",
                         "status": "success",
                         "summary": "native ok",
@@ -861,7 +900,7 @@ class ShardLoomClientTests(unittest.TestCase):
                     "json",
                 ], sys.argv
                 print(json.dumps({
-                    "schema_version": "shardloom.output.v1",
+                    "schema_version": "shardloom.output.v2",
                     "command": "traditional-analytics-run",
                     "status": "success",
                     "summary": "csv ok",
@@ -894,7 +933,7 @@ class ShardLoomClientTests(unittest.TestCase):
                 """
                 import json
                 print(json.dumps({
-                    "schema_version": "shardloom.output.v1",
+                    "schema_version": "shardloom.output.v2",
                     "command": "traditional-analytics-run",
                     "status": "success",
                     "summary": "csv ok",
@@ -927,7 +966,7 @@ class ShardLoomClientTests(unittest.TestCase):
                     "json",
                 ], sys.argv
                 print(json.dumps({
-                    "schema_version": "shardloom.output.v1",
+                    "schema_version": "shardloom.output.v2",
                     "command": "dynamic-work-shaping-plan",
                     "status": "success",
                     "summary": "ok",
@@ -958,7 +997,7 @@ class ShardLoomClientTests(unittest.TestCase):
                     "json",
                 ], sys.argv
                 print(json.dumps({
-                    "schema_version": "shardloom.output.v1",
+                    "schema_version": "shardloom.output.v2",
                     "command": "sizing-feedback-plan",
                     "status": "success",
                     "summary": "ok",
@@ -987,7 +1026,7 @@ class ShardLoomClientTests(unittest.TestCase):
                     "json",
                 ], sys.argv
                 print(json.dumps({
-                    "schema_version": "shardloom.output.v1",
+                    "schema_version": "shardloom.output.v2",
                     "command": "benchmark-claim-evidence-plan",
                     "status": "success",
                     "summary": "ok",
@@ -1013,7 +1052,7 @@ class ShardLoomClientTests(unittest.TestCase):
                 import json, sys
                 assert sys.argv[1:] == ["input-adapters", "--format", "json"], sys.argv
                 print(json.dumps({
-                    "schema_version": "shardloom.output.v1",
+                    "schema_version": "shardloom.output.v2",
                     "command": "input-adapters",
                     "status": "success",
                     "summary": "ok",
@@ -1040,7 +1079,7 @@ class ShardLoomClientTests(unittest.TestCase):
                 import json, sys
                 assert sys.argv[1:] == ["input-plan", "file://tmp/data.parquet", "--format", "json"], sys.argv
                 print(json.dumps({
-                    "schema_version": "shardloom.output.v1",
+                    "schema_version": "shardloom.output.v2",
                     "command": "input-plan",
                     "status": "success",
                     "summary": "ok",

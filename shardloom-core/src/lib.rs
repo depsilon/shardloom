@@ -203,8 +203,8 @@ pub use operator::{
 };
 
 pub use output::{
-    CliApiJsonProtocolReport, CommandStatus, OutputEnvelope, OutputFormat,
-    PythonWrapperFoundationReport,
+    CliApiJsonProtocolReport, CommandStatus, OutputEnvelope, OutputFormat, OutputTypedArtifact,
+    OutputTypedPayload, OutputTypedRef, PythonWrapperFoundationReport,
 };
 
 pub use release::{

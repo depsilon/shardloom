@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping
 
-OUTPUT_ENVELOPE_SCHEMA_VERSION = "shardloom.output.v1"
+OUTPUT_ENVELOPE_SCHEMA_VERSION = "shardloom.output.v2"
 REQUIRED_OUTPUT_ENVELOPE_FIELDS = frozenset(
     {
         "schema_version",
@@ -16,6 +16,18 @@ REQUIRED_OUTPUT_ENVELOPE_FIELDS = frozenset(
         "fallback",
         "diagnostics",
         "fields",
+    }
+)
+TYPED_OUTPUT_PAYLOAD_FIELDS = frozenset(
+    {
+        "result",
+        "result_refs",
+        "artifacts",
+        "artifact_refs",
+        "certificates",
+        "policy",
+        "lifecycle",
+        "capability_snapshot",
     }
 )
 
@@ -90,6 +102,14 @@ class OutputEnvelope:
     human_text: str
     fallback: FallbackStatus
     diagnostics: tuple[Diagnostic, ...]
+    result: Mapping[str, Any]
+    result_refs: tuple[Mapping[str, Any], ...]
+    artifacts: tuple[Mapping[str, Any], ...]
+    artifact_refs: tuple[Mapping[str, Any], ...]
+    certificates: tuple[Mapping[str, Any], ...]
+    policy: Mapping[str, Any]
+    lifecycle: Mapping[str, Any]
+    capability_snapshot: Mapping[str, Any]
     fields: tuple[FieldEntry, ...]
     raw: Mapping[str, Any]
 
@@ -122,6 +142,16 @@ class OutputEnvelope:
             human_text=str(payload.get("human_text", "")),
             fallback=FallbackStatus.from_json(_mapping_or_none(payload.get("fallback"))),
             diagnostics=diagnostics,
+            result=dict(_mapping_or_none(payload.get("result")) or {}),
+            result_refs=_mapping_sequence(payload.get("result_refs")),
+            artifacts=_mapping_sequence(payload.get("artifacts")),
+            artifact_refs=_mapping_sequence(payload.get("artifact_refs")),
+            certificates=_mapping_sequence(payload.get("certificates")),
+            policy=dict(_mapping_or_none(payload.get("policy")) or {}),
+            lifecycle=dict(_mapping_or_none(payload.get("lifecycle")) or {}),
+            capability_snapshot=dict(
+                _mapping_or_none(payload.get("capability_snapshot")) or {}
+            ),
             fields=fields,
             raw=dict(payload),
         )
@@ -192,3 +222,7 @@ def _sequence(value: Any) -> tuple[Any, ...]:
     if isinstance(value, list):
         return tuple(value)
     return ()
+
+
+def _mapping_sequence(value: Any) -> tuple[Mapping[str, Any], ...]:
+    return tuple(item for item in _sequence(value) if isinstance(item, Mapping))

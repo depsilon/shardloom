@@ -1031,7 +1031,10 @@ fn run_capabilities_scope(scope: &str) -> String {
 }
 
 fn field_keys(output: &str) -> Vec<&str> {
-    output
+    let (_, top_level_fields) = output
+        .rsplit_once("\"fields\":[")
+        .expect("top-level legacy fields mirror is present");
+    top_level_fields
         .split("{\"key\":\"")
         .skip(1)
         .map(|part| {

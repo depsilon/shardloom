@@ -16,6 +16,47 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 typed envelope v2 foundation
+  - Primary files:
+    - `shardloom-core/src/output.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-core/src/agent_contract.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/api_protocol_snapshots.rs`
+    - `shardloom-cli/tests/python_wrapper_snapshots.rs`
+    - `python/src/shardloom/models.py`
+    - `python/tests/test_cli_client.py`
+    - `docs/architecture/typed-command-result-envelope.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/rfcs/0039-typed-command-result-envelope-cli-modularity.md`
+  - Scope: introduce `shardloom.output.v2` typed command/result payload slots and Python parsing
+    while retaining the old top-level `fields` array as a temporary legacy mirror during command
+    family migration.
+  - Checklist:
+    - [x] Add typed `result`, `result_refs`, `artifacts`, `artifact_refs`, `certificates`,
+          `policy`, `lifecycle`, and `capability_snapshot` slots to every real CLI JSON envelope.
+    - [x] Mirror existing `with_field` output into `result.fields` so typed payloads are present
+          before command handlers are split.
+    - [x] Update API protocol and Python wrapper reports to declare `shardloom.output.v2` and mark
+          flat fields as no longer the primary payload model.
+    - [x] Update the Python wrapper model to parse and preserve typed payloads.
+    - [x] Keep remaining command-family migration and CLI modularization in the active Planned
+          queue.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-core output --lib`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test api_protocol_snapshots --test python_wrapper_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --tests`
+    - [x] `$env:PYTHONPATH='python\src'; python -m pytest python\tests`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-core --lib -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-cli --bin shardloom -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo check --workspace`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `git diff --check`
+  - Runtime stance: protocol/refactor slice only; no REST server, wrapper ecosystem implementation,
+    benchmark execution, runtime expansion, external engine invocation, network effect, dataset
+    probe, write, or fallback execution changes.
+
 - [x] Session label: Priority 3.6 RFC coverage follow-through
   - Primary files:
     - `shardloom-core/src/rfc_coverage.rs`

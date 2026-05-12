@@ -6,6 +6,9 @@
 use crate::{Diagnostic, DiagnosticSeverity, FallbackStatus, Result, ShardLoomError};
 use std::fmt::Write as _;
 
+/// Current machine-readable CLI output schema.
+pub const OUTPUT_ENVELOPE_SCHEMA_VERSION: &str = "shardloom.output.v2";
+
 /// Output rendering format.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OutputFormat {
@@ -64,6 +67,114 @@ impl CommandStatus {
     }
 }
 
+/// Typed key/value payload used inside explicit envelope slots.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct OutputTypedPayload {
+    pub fields: Vec<(String, String)>,
+}
+
+impl OutputTypedPayload {
+    /// Creates an empty typed payload.
+    #[must_use]
+    pub const fn empty() -> Self {
+        Self { fields: Vec::new() }
+    }
+
+    /// Adds a stable machine-readable field to this payload.
+    pub fn add_field(&mut self, key: impl Into<String>, value: impl Into<String>) {
+        self.fields.push((key.into(), value.into()));
+    }
+
+    #[must_use]
+    fn to_json(&self) -> String {
+        format!("{{\"fields\":[{}]}}", key_value_fields_json(&self.fields))
+    }
+}
+
+/// Typed reference to a result, artifact, or certificate carried by the envelope.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OutputTypedRef {
+    pub id: String,
+    pub kind: String,
+    pub status: String,
+    pub uri: Option<String>,
+}
+
+impl OutputTypedRef {
+    /// Creates a typed envelope reference.
+    #[must_use]
+    pub fn new(id: impl Into<String>, kind: impl Into<String>, status: impl Into<String>) -> Self {
+        Self {
+            id: id.into(),
+            kind: kind.into(),
+            status: status.into(),
+            uri: None,
+        }
+    }
+
+    /// Adds an optional URI/path/reference target.
+    #[must_use]
+    pub fn with_uri(mut self, uri: impl Into<String>) -> Self {
+        self.uri = Some(uri.into());
+        self
+    }
+
+    #[must_use]
+    fn to_json(&self) -> String {
+        format!(
+            "{{\"id\":{},\"kind\":{},\"status\":{},\"uri\":{}}}",
+            json_string(&self.id),
+            json_string(&self.kind),
+            json_string(&self.status),
+            json_optional_string(self.uri.as_deref()),
+        )
+    }
+}
+
+/// Inline typed artifact payload.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OutputTypedArtifact {
+    pub artifact_id: String,
+    pub artifact_kind: String,
+    pub status: String,
+    pub payload: OutputTypedPayload,
+}
+
+impl OutputTypedArtifact {
+    /// Creates an inline artifact with an empty payload.
+    #[must_use]
+    pub fn new(
+        artifact_id: impl Into<String>,
+        artifact_kind: impl Into<String>,
+        status: impl Into<String>,
+    ) -> Self {
+        Self {
+            artifact_id: artifact_id.into(),
+            artifact_kind: artifact_kind.into(),
+            status: status.into(),
+            payload: OutputTypedPayload::empty(),
+        }
+    }
+
+    /// Adds a stable machine-readable field to the artifact payload.
+    #[must_use]
+    pub fn with_field(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.payload.add_field(key, value);
+        self
+    }
+
+    #[must_use]
+    fn to_json(&self) -> String {
+        format!(
+            "{{\"artifact_id\":{},\"artifact_kind\":{},\"status\":{},\"payload\":{}}}",
+            json_string(&self.artifact_id),
+            json_string(&self.artifact_kind),
+            json_string(&self.status),
+            self.payload.to_json(),
+        )
+    }
+}
+
 /// Stable command envelope for machine-readable CLI output.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OutputEnvelope {
@@ -74,6 +185,17 @@ pub struct OutputEnvelope {
     pub human_text: String,
     pub fallback: FallbackStatus,
     pub diagnostics: Vec<Diagnostic>,
+    pub result: OutputTypedPayload,
+    pub result_refs: Vec<OutputTypedRef>,
+    pub artifacts: Vec<OutputTypedArtifact>,
+    pub artifact_refs: Vec<OutputTypedRef>,
+    pub certificates: Vec<OutputTypedRef>,
+    pub policy: OutputTypedPayload,
+    pub lifecycle: OutputTypedPayload,
+    pub capability_snapshot: OutputTypedPayload,
+    /// Deprecated key/value mirror retained only while existing command families
+    /// are migrated to typed handlers. The primary machine-readable payload is
+    /// `result` plus typed refs/artifact/certificate/policy/lifecycle slots.
     pub fields: Vec<(String, String)>,
 }
 
@@ -86,13 +208,21 @@ impl OutputEnvelope {
         human_text: impl Into<String>,
     ) -> Self {
         Self {
-            schema_version: "shardloom.output.v1",
+            schema_version: OUTPUT_ENVELOPE_SCHEMA_VERSION,
             command: command.into(),
             status,
             summary: summary.into(),
             human_text: human_text.into(),
             fallback: FallbackStatus::disabled_by_policy(),
             diagnostics: Vec::new(),
+            result: OutputTypedPayload::empty(),
+            result_refs: Vec::new(),
+            artifacts: Vec::new(),
+            artifact_refs: Vec::new(),
+            certificates: Vec::new(),
+            policy: OutputTypedPayload::empty(),
+            lifecycle: OutputTypedPayload::empty(),
+            capability_snapshot: OutputTypedPayload::empty(),
             fields: Vec::new(),
         }
     }
@@ -117,7 +247,60 @@ impl OutputEnvelope {
 
     #[must_use]
     pub fn with_field(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
-        self.fields.push((key.into(), value.into()));
+        let key = key.into();
+        let value = value.into();
+        self.result.add_field(key.clone(), value.clone());
+        self.fields.push((key, value));
+        self
+    }
+
+    #[must_use]
+    pub fn with_result_ref(mut self, reference: OutputTypedRef) -> Self {
+        self.result_refs.push(reference);
+        self
+    }
+
+    #[must_use]
+    pub fn with_artifact(mut self, artifact: OutputTypedArtifact) -> Self {
+        self.artifacts.push(artifact);
+        self
+    }
+
+    #[must_use]
+    pub fn with_artifact_ref(mut self, reference: OutputTypedRef) -> Self {
+        self.artifact_refs.push(reference);
+        self
+    }
+
+    #[must_use]
+    pub fn with_certificate(mut self, reference: OutputTypedRef) -> Self {
+        self.certificates.push(reference);
+        self
+    }
+
+    #[must_use]
+    pub fn with_policy_field(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.policy.add_field(key, value);
+        self
+    }
+
+    #[must_use]
+    pub fn with_lifecycle_field(
+        mut self,
+        key: impl Into<String>,
+        value: impl Into<String>,
+    ) -> Self {
+        self.lifecycle.add_field(key, value);
+        self
+    }
+
+    #[must_use]
+    pub fn with_capability_snapshot_field(
+        mut self,
+        key: impl Into<String>,
+        value: impl Into<String>,
+    ) -> Self {
+        self.capability_snapshot.add_field(key, value);
         self
     }
 
@@ -200,20 +383,18 @@ impl OutputEnvelope {
             .map(Diagnostic::to_json)
             .collect::<Vec<_>>()
             .join(",");
-        let fields = self
-            .fields
+        let result_refs = typed_ref_array_json(&self.result_refs);
+        let artifacts = self
+            .artifacts
             .iter()
-            .map(|(k, v)| {
-                format!(
-                    "{{\"key\":{},\"value\":{}}}",
-                    json_string(k),
-                    json_string(v)
-                )
-            })
+            .map(OutputTypedArtifact::to_json)
             .collect::<Vec<_>>()
             .join(",");
+        let artifact_refs = typed_ref_array_json(&self.artifact_refs);
+        let certificates = typed_ref_array_json(&self.certificates);
+        let fields = key_value_fields_json(&self.fields);
         format!(
-            "{{\"schema_version\":{},\"command\":{},\"status\":{},\"summary\":{},\"human_text\":{},\"fallback\":{},\"diagnostics\":[{}],\"fields\":[{}]}}",
+            "{{\"schema_version\":{},\"command\":{},\"status\":{},\"summary\":{},\"human_text\":{},\"fallback\":{},\"diagnostics\":[{}],\"result\":{},\"result_refs\":[{}],\"artifacts\":[{}],\"artifact_refs\":[{}],\"certificates\":[{}],\"policy\":{},\"lifecycle\":{},\"capability_snapshot\":{},\"fields\":[{}]}}",
             json_string(self.schema_version),
             json_string(&self.command),
             json_string(self.status.as_str()),
@@ -221,6 +402,14 @@ impl OutputEnvelope {
             json_string(&self.human_text),
             self.fallback.to_json(),
             diagnostics,
+            self.result.to_json(),
+            result_refs,
+            artifacts,
+            artifact_refs,
+            certificates,
+            self.policy.to_json(),
+            self.lifecycle.to_json(),
+            self.capability_snapshot.to_json(),
             fields,
         )
     }
@@ -251,6 +440,9 @@ pub struct CliApiJsonProtocolReport {
     pub required_fallback_fields: Vec<&'static str>,
     pub required_diagnostic_fields: Vec<&'static str>,
     pub required_field_entry_fields: Vec<&'static str>,
+    pub required_typed_payload_fields: Vec<&'static str>,
+    pub legacy_fields_mirror_present: bool,
+    pub flat_fields_primary_payload_allowed: bool,
     pub command_status_values: Vec<&'static str>,
     pub output_formats: Vec<&'static str>,
     pub thin_python_wrapper_boundary: &'static str,
@@ -332,7 +524,7 @@ impl PythonWrapperFoundationReport {
             wrapper_id: "shardloom_python_cli_json_client",
             wrapper_status: "source_tree_foundation",
             transport_protocol_id: "shardloom.cli_json.v1",
-            output_envelope_schema_version: "shardloom.output.v1",
+            output_envelope_schema_version: OUTPUT_ENVELOPE_SCHEMA_VERSION,
             invocation_model: "subprocess_cli_json",
             initial_command_scope: vec![
                 "status",
@@ -460,7 +652,7 @@ impl CliApiJsonProtocolReport {
             schema_version: "shardloom.cli_api_json_protocol.v1",
             protocol_id: "shardloom.cli_json.v1",
             protocol_stability: "experimental",
-            output_envelope_schema_version: "shardloom.output.v1",
+            output_envelope_schema_version: OUTPUT_ENVELOPE_SCHEMA_VERSION,
             required_envelope_fields: vec![
                 "schema_version",
                 "command",
@@ -469,6 +661,14 @@ impl CliApiJsonProtocolReport {
                 "human_text",
                 "fallback",
                 "diagnostics",
+                "result",
+                "result_refs",
+                "artifacts",
+                "artifact_refs",
+                "certificates",
+                "policy",
+                "lifecycle",
+                "capability_snapshot",
                 "fields",
             ],
             required_fallback_fields: vec!["attempted", "allowed", "engine", "reason"],
@@ -483,6 +683,9 @@ impl CliApiJsonProtocolReport {
                 "fallback",
             ],
             required_field_entry_fields: vec!["key", "value"],
+            required_typed_payload_fields: vec!["fields"],
+            legacy_fields_mirror_present: true,
+            flat_fields_primary_payload_allowed: false,
             command_status_values: vec!["success", "warning", "error", "unsupported"],
             output_formats: vec!["text", "json"],
             thin_python_wrapper_boundary: "cli_json_subprocess_first",
@@ -517,6 +720,7 @@ impl CliApiJsonProtocolReport {
     pub fn has_errors(&self) -> bool {
         self.fallback_execution_allowed
             || self.fallback_attempted
+            || self.flat_fields_primary_payload_allowed
             || self.runtime_execution
             || self.write_io
             || self.external_publish
@@ -568,6 +772,31 @@ pub(crate) fn json_escape(value: &str) -> String {
 
 pub(crate) fn json_string(value: &str) -> String {
     format!("\"{}\"", json_escape(value))
+}
+
+pub(crate) fn json_optional_string(value: Option<&str>) -> String {
+    value.map_or_else(|| "null".to_string(), json_string)
+}
+
+fn key_value_fields_json(fields: &[(String, String)]) -> String {
+    fields
+        .iter()
+        .map(|(key, value)| {
+            format!(
+                "{{\"key\":{},\"value\":{}}}",
+                json_string(key),
+                json_string(value)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn typed_ref_array_json(refs: &[OutputTypedRef]) -> String {
+    refs.iter()
+        .map(OutputTypedRef::to_json)
+        .collect::<Vec<_>>()
+        .join(",")
 }
 
 #[must_use]
@@ -661,6 +890,52 @@ mod tests {
             OutputEnvelope::success("status", "ok", "ok")
                 .to_json()
                 .contains("\"diagnostics\":[")
+        );
+    }
+    #[test]
+    fn to_json_includes_typed_payload_slots() {
+        let json = OutputEnvelope::success("status", "ok", "ok")
+            .with_field("engine", "shardloom")
+            .with_result_ref(OutputTypedRef::new("result.local", "json", "available"))
+            .with_artifact(
+                OutputTypedArtifact::new("artifact.evidence", "evidence", "available")
+                    .with_field("kind", "test"),
+            )
+            .with_artifact_ref(
+                OutputTypedRef::new("artifact.ref", "file", "available").with_uri("artifact.json"),
+            )
+            .with_certificate(OutputTypedRef::new(
+                "certificate.execution",
+                "execution_certificate",
+                "available",
+            ))
+            .with_policy_field("fallback_execution_allowed", "false")
+            .with_lifecycle_field("phase", "report_only")
+            .with_capability_snapshot_field("scope", "status")
+            .to_json();
+
+        assert!(json.contains("\"schema_version\":\"shardloom.output.v2\""));
+        assert!(json.contains("\"result\":{\"fields\":[{\"key\":\"engine\""));
+        assert!(json.contains("\"result_refs\":[{\"id\":\"result.local\""));
+        assert!(json.contains("\"artifacts\":[{\"artifact_id\":\"artifact.evidence\""));
+        assert!(json.contains("\"artifact_refs\":[{\"id\":\"artifact.ref\""));
+        assert!(json.contains("\"certificates\":[{\"id\":\"certificate.execution\""));
+        assert!(json.contains("\"policy\":{\"fields\":[{\"key\":\"fallback_execution_allowed\""));
+        assert!(json.contains("\"lifecycle\":{\"fields\":[{\"key\":\"phase\""));
+        assert!(json.contains("\"capability_snapshot\":{\"fields\":[{\"key\":\"scope\""));
+        assert!(json.contains("\"fields\":[{\"key\":\"engine\""));
+    }
+    #[test]
+    fn with_field_mirrors_into_typed_result_payload() {
+        let envelope = OutputEnvelope::success("status", "ok", "ok").with_field("key", "value");
+
+        assert_eq!(
+            envelope.fields,
+            vec![("key".to_string(), "value".to_string())]
+        );
+        assert_eq!(
+            envelope.result.fields,
+            vec![("key".to_string(), "value".to_string())]
         );
     }
     #[test]
@@ -879,9 +1154,14 @@ mod tests {
     #[test]
     fn cli_api_json_protocol_is_report_only() {
         let report = CliApiJsonProtocolReport::contract_only();
-        assert_eq!(report.output_envelope_schema_version, "shardloom.output.v1");
+        assert_eq!(report.output_envelope_schema_version, "shardloom.output.v2");
         assert!(report.required_envelope_fields.contains(&"fallback"));
+        assert!(report.required_envelope_fields.contains(&"result"));
+        assert!(report.required_envelope_fields.contains(&"certificates"));
         assert!(report.required_diagnostic_fields.contains(&"code"));
+        assert_eq!(report.required_typed_payload_fields, vec!["fields"]);
+        assert!(report.legacy_fields_mirror_present);
+        assert!(!report.flat_fields_primary_payload_allowed);
         assert!(!report.fallback_execution_allowed);
         assert!(!report.fallback_attempted);
         assert!(!report.runtime_execution);
