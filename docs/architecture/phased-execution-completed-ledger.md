@@ -16,6 +16,36 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 packaging/API helper ownership split
+  - Primary files:
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/src/packaging_deployment.rs`
+    - `shardloom-cli/src/rest_api_planning.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/typed-command-result-envelope.md`
+  - Scope: move packaging/deployment and REST/API field construction out of `main.rs` while
+    preserving report-only planning, no package publication, no server startup, no remote
+    execution, and no-fallback evidence.
+  - Checklist:
+    - [x] Route release/package readiness, publication boundary, and Conda certification field
+          construction through `packaging_deployment.rs`.
+    - [x] Move agent contract pack and Python wrapper field construction into
+          `packaging_deployment.rs`.
+    - [x] Move CLI API protocol field construction into `rest_api_planning.rs`.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --bin shardloom release_plan`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --bin shardloom agent_contract_pack`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --bin shardloom python_wrapper`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test api_protocol_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test agent_contract_pack_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test python_wrapper_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test --workspace --all-targets`
+    - [x] `git diff --check`
+  - Runtime stance: helper/module ownership only; no publication, package upload, server start,
+    socket open, remote execution, external engine execution, or fallback execution is added.
+
 - [x] Session label: Priority 3.9 benchmark helper ownership split
   - Primary files:
     - `shardloom-cli/src/main.rs`

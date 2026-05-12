@@ -137,10 +137,17 @@ The REST/API planning family currently contains `api-compat-plan` and lives in
 `shardloom-cli/src/rest_api_planning.rs`. It remains report-only and does not start a REST server,
 open sockets, perform remote execution, or weaken no-fallback behavior.
 
+The CLI API protocol field group lives beside the REST/API planning handler in
+`shardloom-cli/src/rest_api_planning.rs`.
+
 The packaging/deployment family currently contains `release-plan`, `package-plan`,
 `agent-contract-pack`, and `python-wrapper-plan`, and lives in
 `shardloom-cli/src/packaging_deployment.rs`. These handlers remain report-only and do not publish
 packages, push artifacts, invoke external engines, or weaken no-fallback behavior.
+
+Packaging/deployment field construction is colocated with that family: release/package readiness,
+Conda certification, agent contract, and Python wrapper field groups live in
+`shardloom-cli/src/packaging_deployment.rs`.
 
 The benchmark planning family currently contains `benchmark-plan` and
 `benchmark-claim-evidence-plan`, and lives in `shardloom-cli/src/benchmark_planning.rs`. These
