@@ -13,12 +13,213 @@ use shardloom_core::{
 };
 use shardloom_exec::{AdaptiveSizingPolicy, ByteSize, MemoryBudget};
 use shardloom_vortex::{
-    build_vortex_runtime_task_graph, evaluate_vortex_encoded_read_readiness,
-    plan_native_vortex_universal_input, plan_vortex_encoded_read_probe,
-    plan_vortex_read_from_universal_input, vortex_encoded_read_public_api_boundary,
+    VortexEncodedReadBoundaryRequest, VortexEncodedReadFixtureRef,
+    VortexEncodedReadMetadataProbeRequest, build_vortex_runtime_task_graph,
+    evaluate_vortex_encoded_read_readiness, plan_native_vortex_universal_input,
+    plan_vortex_encoded_read_boundary, plan_vortex_encoded_read_probe,
+    plan_vortex_read_from_universal_input, probe_vortex_encoded_read_metadata,
+    vortex_encoded_read_public_api_boundary,
 };
 
 use crate::cli_output::{emit, emit_error};
+
+pub(crate) fn handle_vortex_encoded_read_api(format: OutputFormat) -> ExitCode {
+    let command = "vortex-encoded-read-api";
+    let report = vortex_encoded_read_public_api_boundary();
+    emit(
+        command,
+        format,
+        if report.has_errors() {
+            CommandStatus::Unsupported
+        } else {
+            CommandStatus::Success
+        },
+        "vortex encoded-read API boundary report".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        vec![
+            (
+                "fallback_execution_allowed".to_string(),
+                "false".to_string(),
+            ),
+            ("mode".to_string(), "vortex_encoded_read_api".to_string()),
+            ("contract_only".to_string(), "true".to_string()),
+            ("execution_usable".to_string(), "false".to_string()),
+            ("data_read".to_string(), "false".to_string()),
+            ("data_decoded".to_string(), "false".to_string()),
+            ("data_materialized".to_string(), "false".to_string()),
+            ("object_store_io".to_string(), "false".to_string()),
+            ("write_io".to_string(), "false".to_string()),
+            ("spill_io_performed".to_string(), "false".to_string()),
+            ("execution".to_string(), "not_performed".to_string()),
+        ],
+    );
+    if report.has_errors() {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+pub(crate) fn handle_vortex_encoded_read_boundary(
+    mut args: std::vec::IntoIter<String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let command = "vortex-encoded-read-boundary";
+    let Some(target_uri) = args.next() else {
+        eprintln!("usage: shardloom {command} <target_uri> <signals>");
+        return ExitCode::from(2);
+    };
+    let Some(signals_raw) = args.next() else {
+        eprintln!("usage: shardloom {command} <target_uri> <signals>");
+        return ExitCode::from(2);
+    };
+    let target_uri = match DatasetUri::new(target_uri) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                command,
+                format,
+                "vortex encoded-read boundary failed",
+                &error,
+            );
+        }
+    };
+    let signals = match crate::parse_vortex_encoded_read_boundary_signals(&signals_raw) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                command,
+                format,
+                "vortex encoded-read boundary failed",
+                &error,
+            );
+        }
+    };
+    let mut request = VortexEncodedReadBoundaryRequest::new(target_uri);
+    for signal in signals {
+        request.add_signal(signal);
+    }
+    let report = match plan_vortex_encoded_read_boundary(request) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                command,
+                format,
+                "vortex encoded-read boundary failed",
+                &error,
+            );
+        }
+    };
+    emit(
+        command,
+        format,
+        if report.has_errors() {
+            CommandStatus::Unsupported
+        } else {
+            CommandStatus::Success
+        },
+        "vortex encoded-read boundary report".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        crate::vortex_encoded_read_boundary_fields(&report),
+    );
+    if report.has_errors() {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+pub(crate) fn handle_vortex_encoded_read_metadata_probe(
+    mut args: std::vec::IntoIter<String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let command = "vortex-encoded-read-metadata-probe";
+    let Some(target_uri) = args.next() else {
+        eprintln!("usage: shardloom {command} <target_uri> <fixture_ref> <signals>");
+        return ExitCode::from(2);
+    };
+    let Some(fixture_ref_raw) = args.next() else {
+        return emit_error(
+            command,
+            format,
+            "vortex encoded read metadata probe failed",
+            &crate::cli_missing_arg_error(command, "fixture_ref"),
+        );
+    };
+    let Some(signals_raw) = args.next() else {
+        eprintln!("usage: shardloom {command} <target_uri> <fixture_ref> <signals>");
+        return ExitCode::from(2);
+    };
+    let target_uri = match DatasetUri::new(target_uri) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                command,
+                format,
+                "vortex encoded-read metadata probe failed",
+                &error,
+            );
+        }
+    };
+    let fixture_ref = match VortexEncodedReadFixtureRef::new(fixture_ref_raw) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                command,
+                format,
+                "vortex encoded-read metadata probe failed",
+                &error,
+            );
+        }
+    };
+    let signals = match crate::parse_vortex_encoded_read_metadata_probe_signals(&signals_raw) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                command,
+                format,
+                "vortex encoded-read metadata probe failed",
+                &error,
+            );
+        }
+    };
+    let mut request = VortexEncodedReadMetadataProbeRequest::new(target_uri, fixture_ref)
+        .fixture_ref_provided(true);
+    for signal in signals {
+        request.add_signal(signal);
+    }
+    let report = match probe_vortex_encoded_read_metadata(request) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                command,
+                format,
+                "vortex encoded-read metadata probe failed",
+                &error,
+            );
+        }
+    };
+    emit(
+        command,
+        format,
+        if report.has_errors() {
+            CommandStatus::Unsupported
+        } else {
+            CommandStatus::Success
+        },
+        "vortex encoded-read metadata probe report".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        crate::vortex_encoded_read_metadata_probe_fields(&report),
+    );
+    if report.has_errors() {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
 
 #[allow(clippy::too_many_lines)]
 pub(crate) fn handle_vortex_encoded_read_probe(
