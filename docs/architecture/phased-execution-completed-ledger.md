@@ -16,6 +16,43 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 certified runtime fixture and Vortex planning handler split
+  - Primary files:
+    - `shardloom-cli/tests/typed_envelope_contract_snapshots.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/src/vortex_planning.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/typed-command-result-envelope.md`
+  - Scope: add feature-gated typed-envelope contract coverage for a certified local Vortex
+    primitive runtime execution and continue CLI modularity by moving encoded primitive
+    planning/report handlers into the Vortex planning module.
+  - Checklist:
+    - [x] Add a `vortex-project --execute-local-primitive` typed-envelope fixture using the checked
+          in local primitive Vortex fixture and the `vortex-local-primitives` feature.
+    - [x] Assert inline certified Native I/O certificate, execution certificate, source report,
+          source-pushdown report, sink report, and adapter-fidelity report artifacts for the
+          certified runtime execution surface.
+    - [x] Move `vortex-encoded-path-selection-plan` and
+          `vortex-generalized-encoded-primitive-gate` handlers and field helpers into
+          `shardloom-cli/src/vortex_planning.rs`.
+    - [x] Preserve report-only/plan-only Vortex planning behavior with no dataset reads,
+          materialization, writes, external engine invocation, or fallback execution.
+    - [x] Leave missing-binary protocol parity and concrete Foundry boundary fixtures planned
+          until their owning surfaces are represented by executable/reportable command contracts.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --features vortex-local-primitives --test typed_envelope_contract_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test encoded_path_selection_snapshots --test generalized_encoded_primitive_gate_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli vortex_encoded_path_selection_plan_returns_success`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli vortex_generalized_encoded_primitive_gate_returns_success`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo clippy -p shardloom-cli --all-targets -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo clippy -p shardloom-cli --features vortex-local-primitives --all-targets -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test --workspace --all-targets`
+  - Runtime stance: feature-gated test coverage and handler relocation only; no new production
+    runtime behavior, package publication, dataset probe outside the explicit local fixture test,
+    source/sink I/O expansion, object-store I/O, network effect, write path, external engine
+    dependency, or fallback execution is added.
+
 - [x] Session label: Priority 3.9 encoded-read API/boundary handler module split
   - Primary files:
     - `shardloom-cli/src/main.rs`
