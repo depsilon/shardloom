@@ -118,9 +118,14 @@ Typed-envelope field/ref routing lives in `shardloom-cli/src/typed_envelope.rs`.
 still live mostly in `main.rs`; the output module split is the next modularity step for shared
 rendering and protocol behavior.
 
-The first physical handler-family split moves the status and capabilities command handlers into
-`shardloom-cli/src/status_capabilities.rs`. The module still reuses shared capability helper
-functions while broader command-family extraction continues.
+The first physical handler-family split moved the status and capabilities command handlers into
+`shardloom-cli/src/status_capabilities.rs`.
+
+`shardloom-cli/src/status_capabilities.rs` now also owns capability-discovery helper construction:
+`CapabilityDiscoveryScope`, certification field/text emitters, operator discovery fields, and
+world-class user-surface capability emitters. These helpers remain report-only and side-effect-free;
+they do not probe datasets, run parsers, execute runtime work, invoke external engines, or weaken
+no-fallback reporting.
 
 The input planning family currently contains `input-adapters`, `input-plan`, `vortex-input-plan`,
 `vortex-read-plan`, and `vortex-task-graph`, and lives in

@@ -16,6 +16,36 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 status/capability helper ownership split
+  - Primary files:
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/typed-command-result-envelope.md`
+  - Scope: move the status/capabilities helper cluster out of `main.rs` while preserving command
+    output, capability certification fields, operator discovery fields, world-class surface
+    capability output, and no-fallback evidence.
+  - Checklist:
+    - [x] Route `CapabilityDiscoveryScope`, certification field/text helpers, and
+          `emit_capability_certification` through `status_capabilities.rs`.
+    - [x] Move operator capability discovery helpers, including Vortex kernel discovery field
+          groups, into `status_capabilities.rs`.
+    - [x] Move world-class user-surface capability field/text helpers and emission into
+          `status_capabilities.rs` without enabling runtime execution, parser execution, dataset
+          probes, external effects, or fallback execution.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --bin shardloom capabilities_`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --bin shardloom certification_discovery_fields_are_side_effect_free`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test capability_discovery_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test world_class_sufficiency_plan_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test --workspace --all-targets`
+    - [x] `git diff --check`
+  - Runtime stance: helper/module ownership only; no parser execution, dataset probing, runtime
+    execution, source/sink I/O, object-store I/O, write path, network effect, materialization,
+    external engine, or fallback execution is added.
+
 - [x] Session label: Priority 3.9 optimizer/kernel planning handler split
   - Primary files:
     - `shardloom-cli/src/main.rs`

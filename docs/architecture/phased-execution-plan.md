@@ -182,6 +182,10 @@ actionable work.
           `command_family` taxonomy.
     - [x] Move the status/capabilities command-family handlers into
           `shardloom-cli/src/status_capabilities.rs` without changing command output.
+    - [x] Move status/capability-discovery helper ownership into
+          `shardloom-cli/src/status_capabilities.rs`, covering capability scopes,
+          certification fields/text, operator discovery fields, and world-class surface capability
+          emitters while keeping discovery report-only, side-effect-free, and no-fallback.
     - [x] Move input adapter/source planning handlers into `shardloom-cli/src/input_planning.rs`
           without reading datasets, probing object stores, executing tasks, materializing outputs,
           or invoking external engines.
