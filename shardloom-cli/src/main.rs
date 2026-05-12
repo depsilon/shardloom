@@ -972,6 +972,14 @@ fn correctness_plan_fields(plan: &CorrectnessValidationPlan) -> Vec<(String, Str
             plan.fixtures_with_source_ref_count().to_string(),
         ),
         (
+            "source_backed_edge_fixture_count".to_string(),
+            plan.source_backed_edge_fixture_count().to_string(),
+        ),
+        (
+            "source_backed_edge_fixture_id_order".to_string(),
+            plan.source_backed_edge_fixture_id_order().join(","),
+        ),
+        (
             "golden_fixture_count".to_string(),
             plan.golden_fixture_count().to_string(),
         ),
@@ -1011,6 +1019,23 @@ fn correctness_plan_fields(plan: &CorrectnessValidationPlan) -> Vec<(String, Str
         (
             "baseline_count".to_string(),
             plan.baseline_count().to_string(),
+        ),
+        (
+            "external_oracle_result_artifact_count".to_string(),
+            plan.external_oracle_result_artifact_count().to_string(),
+        ),
+        (
+            "external_oracle_result_artifact_id_order".to_string(),
+            plan.external_oracle_result_artifact_id_order().join(","),
+        ),
+        (
+            "external_oracle_result_artifact_status_order".to_string(),
+            plan.external_oracle_result_artifact_status_order()
+                .join(","),
+        ),
+        (
+            "external_oracle_artifacts_test_only".to_string(),
+            plan.external_oracle_artifacts_are_test_only().to_string(),
         ),
         (
             "covered_required_foundation_edge_case_count".to_string(),
@@ -1096,6 +1121,16 @@ fn correctness_harness_fields(
     );
     push_count_field(
         &mut fields,
+        "source_backed_edge_fixture_count",
+        report.source_backed_edge_fixture_count,
+    );
+    push_field(
+        &mut fields,
+        "source_backed_edge_fixture_id_order",
+        &report.source_backed_edge_fixture_id_order.join(","),
+    );
+    push_count_field(
+        &mut fields,
         "golden_fixture_count",
         report.golden_fixture_count,
     );
@@ -1154,6 +1189,28 @@ fn correctness_harness_fields(
         &mut fields,
         "baseline_engine_order",
         &report.baseline_engine_order.join(","),
+    );
+    push_count_field(
+        &mut fields,
+        "external_oracle_result_artifact_count",
+        report.external_oracle_result_artifact_count,
+    );
+    push_field(
+        &mut fields,
+        "external_oracle_result_artifact_id_order",
+        &report.external_oracle_result_artifact_id_order.join(","),
+    );
+    push_field(
+        &mut fields,
+        "external_oracle_result_artifact_status_order",
+        &report
+            .external_oracle_result_artifact_status_order
+            .join(","),
+    );
+    push_bool_field(
+        &mut fields,
+        "external_oracle_artifacts_test_only",
+        report.external_oracle_artifacts_test_only,
     );
     push_field(
         &mut fields,
@@ -31595,7 +31652,7 @@ mod tests {
             "cg5.correctness_differential_harness.aggregate"
         );
         assert_eq!(output_field(&fields, "harness_status"), "needs_evidence");
-        assert_eq!(output_field(&fields, "planned_surface_count"), "7");
+        assert_eq!(output_field(&fields, "planned_surface_count"), "9");
         assert_eq!(output_field(&fields, "blocked_surface_count"), "1");
         assert_eq!(
             output_field(&fields, "blocked_surface_order"),
@@ -31603,6 +31660,26 @@ mod tests {
         );
         assert_eq!(output_field(&fields, "baseline_count"), "7");
         assert!(output_field(&fields, "baseline_engine_order").contains("dask"));
+        assert_eq!(
+            output_field(&fields, "fixtures_with_source_ref_count"),
+            "16"
+        );
+        assert_eq!(
+            output_field(&fields, "source_backed_edge_fixture_count"),
+            "9"
+        );
+        assert_eq!(
+            output_field(&fields, "external_oracle_result_artifact_count"),
+            "63"
+        );
+        assert_eq!(
+            output_field(&fields, "external_oracle_result_artifact_status_order"),
+            "declared_not_executed"
+        );
+        assert_eq!(
+            output_field(&fields, "external_oracle_artifacts_test_only"),
+            "true"
+        );
         assert_eq!(output_field(&fields, "production_claim_allowed"), "false");
         assert_eq!(
             output_field(&fields, "benchmark_claims_blocked_by_correctness"),

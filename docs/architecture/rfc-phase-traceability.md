@@ -734,6 +734,15 @@ No fallback execution.
 - `correctness-harness-plan` now surfaces 34 total fixtures, 3 generated property fixtures, 3 fuzz seeds, and only `benchmark_claim_gate` as the remaining blocked aggregate surface.
 - This phase adds no property/fuzz execution, source-backed generated data files, external oracle execution, decoded-reference execution, data reads, reader/adapters, non-local sources, object-store IO, SQL/DataFrame runtime, writes, spill, benchmark reruns, production certification, superiority claim, or fallback execution.
 
+## CG-5.17 source-backed edge fixture and external-oracle artifact metadata
+
+- Primary RFC linkage: RFC 0015 Correctness/testing, RFC 0025 Competitive/no-fallback, RFC 0029 Correctness/Benchmarks/Execution Certificates, RFC 0031 Universal Native I/O Envelope, and RFC 0032 capability certification.
+- The executable edge-case fixture families now reference the checked-in `docs/fixtures/correctness/source-backed-edge-fixtures.json` manifest without reading or executing it.
+- `ExternalOracleResultArtifact` declares comparison-only result artifact slots for each source-backed edge fixture across Spark, DataFusion, DuckDB, Polars, pandas, Dask, and Velox.
+- `CorrectnessDifferentialHarnessReport`, `correctness-plan`, and `correctness-harness-plan` surface source-backed edge fixture counts, external-oracle artifact counts, artifact status order, and test-only/no-fallback fields.
+- The aggregate harness now distinguishes `source_backed_edge_fixtures` and `external_oracle_result_artifacts` surfaces while keeping only `benchmark_claim_gate` blocked.
+- This phase adds no external oracle execution, property/fuzz execution, decoded-reference execution, data reads, reader/adapters, non-local sources, object-store IO, SQL/DataFrame runtime, writes, spill, benchmark reruns, production certification, superiority claim, or fallback execution.
+
 ## CG-5.1 metadata query primitive correctness fixtures
 
 - Primary RFC linkage: RFC 0015 Correctness/Semantics/Differential Testing, RFC 0012 Diagnostics/Capabilities, RFC 0025 Competitive/no-fallback, and RFC 0026 Vortex encoded-read/query-readiness boundaries.

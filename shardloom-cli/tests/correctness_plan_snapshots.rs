@@ -56,7 +56,12 @@ fn correctness_plan_json_exposes_reference_and_gap_counts() {
         "reference_role_order",
         "golden_fixture,decoded_reference,generated_property,external_oracle"
     )));
-    assert!(output.contains(&field("fixtures_with_source_ref_count", "7")));
+    assert!(output.contains(&field("fixtures_with_source_ref_count", "16")));
+    assert!(output.contains(&field("source_backed_edge_fixture_count", "9")));
+    assert!(output.contains(&field(
+        "source_backed_edge_fixture_id_order",
+        "vortex-edge-count-all-empty-input,vortex-edge-project-single-row,vortex-edge-filter-all-null,vortex-edge-filter-mixed-null-sparse,vortex-edge-filter-duplicate-low-cardinality,vortex-edge-project-high-cardinality,vortex-edge-filter-project-sorted-dictionary,vortex-edge-filter-project-unsorted-rle,vortex-edge-filter-temporal-values"
+    )));
     assert!(output.contains(&field("golden_fixture_count", "19")));
     assert!(output.contains(&field("reference_artifact_count", "18")));
     assert!(output.contains(&field("decoded_reference_output_count", "18")));
@@ -70,6 +75,15 @@ fn correctness_plan_json_exposes_reference_and_gap_counts() {
     assert!(output.contains(&field("diagnostic_expected_output_count", "1")));
     assert!(output.contains(&field("unsupported_expected_output_count", "1")));
     assert!(output.contains(&field("baseline_count", "7")));
+    assert!(output.contains(&field("external_oracle_result_artifact_count", "63")));
+    assert!(output.contains(&field(
+        "external_oracle_result_artifact_status_order",
+        "declared_not_executed"
+    )));
+    assert!(output.contains(&field("external_oracle_artifacts_test_only", "true")));
+    assert!(
+        output.contains("vortex-edge-count-all-empty-input.external-oracle.spark.declared-result")
+    );
     assert!(output.contains(&field("covered_required_foundation_edge_case_count", "7")));
     assert!(output.contains(&field("required_foundation_edge_case_count", "7")));
     assert!(output.contains(&field("missing_required_foundation_edge_cases", "")));
