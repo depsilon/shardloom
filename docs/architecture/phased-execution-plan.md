@@ -199,6 +199,9 @@ actionable work.
     - [x] Move prepared/source-backed encoded-read probe and spike handlers into
           `shardloom-cli/src/prepared_source_backed_execution.rs` while preserving existing
           feature gates, no-fallback evidence, and encoded-read execute semantics.
+    - [x] Move the first Vortex primitive execution handler, `vortex-count`, into
+          `shardloom-cli/src/vortex_primitive_execution.rs` while leaving broader
+          filter/projection/run/benchmark extraction staged.
     - [ ] Move remaining command-family handlers out of `main.rs` after the shared
           `typed_envelope` routing module and `command_family` taxonomy.
     - [ ] Split handlers by status/capabilities, Vortex primitive execution,
