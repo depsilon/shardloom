@@ -16,6 +16,45 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Vortex runtime utilization audit and execution-spine reports
+  - Primary files:
+    - `docs/rfcs/0042-vortex-runtime-utilization-execution-spine.md`
+    - `docs/architecture/vortex-runtime-utilization-audit.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `shardloom-core/src/session.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-vortex/src/runtime_utilization.rs`
+    - `shardloom-vortex/src/lib.rs`
+  - Scope: add a report-only Vortex runtime utilization lane so ShardLoom can track arrays,
+    deferred/layered execution, Scan Source/Sink/Split posture, field masks, predicate ordering,
+    layout strategy, I/O coalescing/prefetch, sessions/registries, device residency, extension
+    types, benchmark discipline, and Vortex integrations as baselines only.
+  - Vortex-first provider check:
+    - Subject area: Vortex runtime utilization and execution-spine hardening.
+    - Decision: `wrap_vortex_concept` and `blocked_until_vortex_or_shardloom_evidence`.
+    - Runtime stance: no new upstream Vortex API calls, object-store I/O, writes, GPU/device
+      execution, external query-engine invocation, managed-platform benchmark lane, runtime support
+      claim, or fallback execution.
+  - Checklist:
+    - [x] Add RFC 0042 and the architecture audit document.
+    - [x] Add `ShardLoomSessionModelReport` to core for explicit session/registry posture without
+          hidden global mutable registries.
+    - [x] Add `VortexCapabilityUtilizationReport` and `VortexRuntimeUtilizationAuditReport`.
+    - [x] Add `VortexScanExecutionSpineReport`, `VortexFieldMaskEvidence`, and
+          `VortexPredicateOrderingEvidence`.
+    - [x] Add `VortexLayoutAdvisorReport` and `VortexArrayExecutionCertificate`.
+    - [x] Export the new report surfaces from `shardloom-core` and `shardloom-vortex`.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-core session --lib`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex runtime_utilization --lib`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-core --lib -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-vortex --lib -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test --workspace --all-targets`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `git diff --check`
+
 - [x] Session label: Vortex-first provider check skill
   - Primary files:
     - `docs/skills/vortex/vortex-first-provider-check.md`

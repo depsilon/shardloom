@@ -30,6 +30,7 @@ pub mod output;
 pub mod release;
 pub mod schema;
 pub mod security;
+pub mod session;
 pub mod stateful_reuse;
 pub mod table_intelligence;
 pub mod translation;
@@ -224,6 +225,11 @@ pub use security::{
     SecurityGovernanceEvidenceEntry, SecurityGovernanceEvidenceGateReport,
     SecurityGovernanceEvidenceStatus, SecurityPlan, SecurityPolicyStatus, SecurityReport,
     SensitiveField, plan_security_governance_evidence_gate,
+};
+
+pub use session::{
+    ShardLoomSessionModelReport, ShardLoomSessionRegistryEntry, ShardLoomSessionRegistryKind,
+    ShardLoomSessionRegistryStatus, plan_shardloom_session_model,
 };
 
 pub use stateful_reuse::{
