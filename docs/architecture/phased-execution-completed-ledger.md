@@ -16,6 +16,38 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Conda build/install certification gate
+  - Primary files:
+    - `shardloom-core/src/release.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/main.rs`
+    - `packaging/conda/README.md`
+    - `shardloom-contract-tests/tests/conda_packaging_recipes.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: expose clean Conda build/install certification as a release-gated report while keeping
+    package publication blocked until tagged archive, source hash, version alignment, provenance
+    attestation, and human approval gates pass.
+  - Checklist:
+    - [x] Add `CondaBuildInstallCertificationReport` with CLI, Python wrapper, and metapackage
+          entries.
+    - [x] Keep recipes scaffolded but uncertified until clean build/install evidence exists.
+    - [x] Surface Conda certification blockers through `release-plan` and `package-plan` JSON.
+    - [x] Document the distinction between local Conda recipe scaffolds and release-certified
+          Conda build/install artifacts.
+  - Validation status:
+    - [x] `cargo test -p shardloom-core release --lib`
+    - [x] `cargo test -p shardloom-cli --bin shardloom release_plan_fields`
+    - [x] `cargo test -p shardloom-contract-tests conda_packaging --test conda_packaging_recipes`
+    - [x] `cargo fmt --all -- --check`
+    - [x] `cargo clippy -p shardloom-core --lib -- -D warnings`
+    - [x] `cargo clippy -p shardloom-cli --all-targets -- -D warnings`
+    - [x] `cargo clippy -p shardloom-contract-tests --all-targets -- -D warnings`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `git diff --check`
+  - Non-goals preserved:
+    - [x] No Conda build invocation, Conda install invocation, feedstock submission, package
+          publication, tag creation, source hash assertion, provenance attestation generation,
+          runtime dependency expansion, external engine invocation, or fallback execution.
 - [x] Session label: CPU specialization admission gates
   - Primary files:
     - `shardloom-core/src/cpu_specialization.rs`

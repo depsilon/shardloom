@@ -23,6 +23,12 @@ must replace that source with a tagged archive and verified hash, align Cargo,
 Python, and Conda versions, review third-party license metadata, and receive
 explicit human release approval.
 
+`shardloom release-plan --format json` exposes the
+`shardloom.conda_build_install_certification.v1` report so package consumers
+can distinguish scaffolded local recipes from clean Conda build/install
+certification. The certification remains closed until tagged archive, source
+hash, version alignment, provenance attestation, and human approval gates pass.
+
 Local packaging smoke, when Conda build tooling is available:
 
 ```powershell

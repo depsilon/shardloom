@@ -790,6 +790,9 @@ impl ReleasePlan {
     pub fn publication_boundary_report(&self) -> ReleasePublicationBoundaryReport {
         ReleasePublicationBoundaryReport::from_plan(self)
     }
+    pub fn conda_build_install_certification(&self) -> CondaBuildInstallCertificationReport {
+        CondaBuildInstallCertificationReport::foundation()
+    }
     pub fn has_errors(&self) -> bool {
         self.diagnostics.iter().any(|d| {
             matches!(
@@ -1219,6 +1222,162 @@ impl ReleasePublicationBoundaryReport {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CondaPackageKind {
+    CliBinary,
+    PythonWrapper,
+    Metapackage,
+}
+as_str_enum!(CondaPackageKind{CliBinary=>"cli_binary",PythonWrapper=>"python_wrapper",Metapackage=>"metapackage"});
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CondaPackageBuildInstallEntry {
+    pub kind: CondaPackageKind,
+    pub package_name: &'static str,
+    pub recipe_path: &'static str,
+    pub recipe_scaffolded: bool,
+    pub clean_build_certified: bool,
+    pub clean_install_certified: bool,
+    pub publish_allowed: bool,
+    pub fallback_dependency_allowed: bool,
+}
+impl CondaPackageBuildInstallEntry {
+    pub const fn scaffolded(
+        kind: CondaPackageKind,
+        package_name: &'static str,
+        recipe_path: &'static str,
+    ) -> Self {
+        Self {
+            kind,
+            package_name,
+            recipe_path,
+            recipe_scaffolded: true,
+            clean_build_certified: false,
+            clean_install_certified: false,
+            publish_allowed: false,
+            fallback_dependency_allowed: false,
+        }
+    }
+
+    pub const fn is_certified(&self) -> bool {
+        self.recipe_scaffolded
+            && self.clean_build_certified
+            && self.clean_install_certified
+            && !self.fallback_dependency_allowed
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CondaBuildInstallCertificationReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub entries: Vec<CondaPackageBuildInstallEntry>,
+    pub tagged_archive_required: bool,
+    pub source_hash_required: bool,
+    pub version_alignment_required: bool,
+    pub provenance_attestation_required: bool,
+    pub human_approval_required: bool,
+    pub tagged_archive_present: bool,
+    pub source_hash_verified: bool,
+    pub version_alignment_verified: bool,
+    pub provenance_attestation_present: bool,
+    pub human_approval_present: bool,
+    pub clean_build_certified: bool,
+    pub clean_install_certified: bool,
+    pub package_publication_allowed: bool,
+    pub conda_build_invoked: bool,
+    pub conda_install_invoked: bool,
+    pub external_publish_performed: bool,
+    pub fallback_attempted: bool,
+    pub fallback_dependency_allowed: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl CondaBuildInstallCertificationReport {
+    pub fn foundation() -> Self {
+        Self {
+            schema_version: "shardloom.conda_build_install_certification.v1",
+            report_id: "conda-build-install-certification-foundation",
+            entries: vec![
+                CondaPackageBuildInstallEntry::scaffolded(
+                    CondaPackageKind::CliBinary,
+                    "shardloom-cli",
+                    "packaging/conda/shardloom-cli/meta.yaml",
+                ),
+                CondaPackageBuildInstallEntry::scaffolded(
+                    CondaPackageKind::PythonWrapper,
+                    "shardloom-python",
+                    "packaging/conda/shardloom-python/meta.yaml",
+                ),
+                CondaPackageBuildInstallEntry::scaffolded(
+                    CondaPackageKind::Metapackage,
+                    "shardloom",
+                    "packaging/conda/shardloom/meta.yaml",
+                ),
+            ],
+            tagged_archive_required: true,
+            source_hash_required: true,
+            version_alignment_required: true,
+            provenance_attestation_required: true,
+            human_approval_required: true,
+            tagged_archive_present: false,
+            source_hash_verified: false,
+            version_alignment_verified: false,
+            provenance_attestation_present: false,
+            human_approval_present: false,
+            clean_build_certified: false,
+            clean_install_certified: false,
+            package_publication_allowed: false,
+            conda_build_invoked: false,
+            conda_install_invoked: false,
+            external_publish_performed: false,
+            fallback_attempted: false,
+            fallback_dependency_allowed: false,
+            diagnostics: Vec::new(),
+        }
+    }
+
+    pub fn package_count(&self) -> usize {
+        self.entries.len()
+    }
+
+    pub fn recipe_scaffold_count(&self) -> usize {
+        self.entries
+            .iter()
+            .filter(|entry| entry.recipe_scaffolded)
+            .count()
+    }
+
+    pub fn certified_package_count(&self) -> usize {
+        self.entries
+            .iter()
+            .filter(|entry| entry.is_certified())
+            .count()
+    }
+
+    pub const fn release_gate_blocking_count(&self) -> usize {
+        (!self.tagged_archive_present as usize)
+            + (!self.source_hash_verified as usize)
+            + (!self.version_alignment_verified as usize)
+            + (!self.provenance_attestation_present as usize)
+            + (!self.human_approval_present as usize)
+    }
+
+    pub const fn release_gated(&self) -> bool {
+        self.release_gate_blocking_count() > 0
+            || !self.clean_build_certified
+            || !self.clean_install_certified
+            || !self.package_publication_allowed
+    }
+
+    pub const fn is_side_effect_free(&self) -> bool {
+        !self.conda_build_invoked
+            && !self.conda_install_invoked
+            && !self.external_publish_performed
+            && !self.fallback_attempted
+            && !self.fallback_dependency_allowed
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReleaseReport {
     pub plan: ReleasePlan,
@@ -1485,5 +1644,40 @@ mod tests {
         assert!(report.benchmark_extras_comparison_only);
         assert!(!report.external_publish_performed);
         assert!(!report.fallback_dependency_allowed);
+    }
+
+    #[test]
+    fn conda_build_install_certification_keeps_publication_release_gated() {
+        let plan = ReleasePlan::default_foundation_plan();
+        let report = plan.conda_build_install_certification();
+
+        assert_eq!(
+            report.schema_version,
+            "shardloom.conda_build_install_certification.v1"
+        );
+        assert_eq!(report.package_count(), 3);
+        assert_eq!(report.recipe_scaffold_count(), 3);
+        assert_eq!(report.certified_package_count(), 0);
+        assert_eq!(report.release_gate_blocking_count(), 5);
+        assert!(report.tagged_archive_required);
+        assert!(report.source_hash_required);
+        assert!(report.version_alignment_required);
+        assert!(report.provenance_attestation_required);
+        assert!(report.human_approval_required);
+        assert!(!report.tagged_archive_present);
+        assert!(!report.source_hash_verified);
+        assert!(!report.version_alignment_verified);
+        assert!(!report.provenance_attestation_present);
+        assert!(!report.human_approval_present);
+        assert!(!report.clean_build_certified);
+        assert!(!report.clean_install_certified);
+        assert!(!report.package_publication_allowed);
+        assert!(!report.conda_build_invoked);
+        assert!(!report.conda_install_invoked);
+        assert!(!report.external_publish_performed);
+        assert!(!report.fallback_attempted);
+        assert!(!report.fallback_dependency_allowed);
+        assert!(report.release_gated());
+        assert!(report.is_side_effect_free());
     }
 }

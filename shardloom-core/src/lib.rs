@@ -185,7 +185,8 @@ pub use output::{
 };
 
 pub use release::{
-    ApiStabilityTier, ChecklistStatus, DependencyLicenseClass, DependencyReview,
+    ApiStabilityTier, ChecklistStatus, CondaBuildInstallCertificationReport,
+    CondaPackageBuildInstallEntry, CondaPackageKind, DependencyLicenseClass, DependencyReview,
     DependencyReviewStatus, MachineReadableSchemaKind, NoFallbackReleaseCheck, PackageTarget,
     PackageTargetKind, ProjectVersion, PublicSurface, PublicSurfaceKind, ReleaseArtifactKind,
     ReleaseArtifactPlan, ReleaseChannel, ReleaseChecklistItem, ReleaseChecklistItemKind,
