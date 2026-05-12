@@ -36,6 +36,7 @@ pub mod operational_contracts;
 pub mod operator;
 pub mod output;
 pub mod release;
+pub mod rfc_coverage;
 pub mod schema;
 pub mod security;
 pub mod session;
@@ -219,6 +220,10 @@ pub use release::{
     SchemaStability, WorkspaceFeatureBuildMatrixFeatureSet, WorkspaceFeatureBuildMatrixReport,
     WorkspaceFeatureBuildMatrixRow, WorkspaceFeatureBuildMatrixRowStatus,
     plan_workspace_feature_build_matrix,
+};
+pub use rfc_coverage::{
+    RfcCoverageFollowThroughArea, RfcCoverageFollowThroughEntry, RfcCoverageFollowThroughReport,
+    RfcCoverageFollowThroughStatus, plan_rfc_coverage_followthrough,
 };
 pub use schema::{
     CatalogKind, CatalogRef, DeleteModel, DeleteTombstoneCompatibilityLevel,

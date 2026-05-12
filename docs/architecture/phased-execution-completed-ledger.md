@@ -16,6 +16,39 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.6 RFC coverage follow-through
+  - Primary files:
+    - `shardloom-core/src/rfc_coverage.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/main.rs`
+    - `docs/architecture/rfc-coverage-followthrough.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: add a report-only RFC coverage gate for RFC 0010, RFC 0011, RFC 0020, RFC 0022, and
+    RFC 0023 before broader user/runtime expansion.
+  - Checklist:
+    - [x] Add `RfcCoverageFollowThroughReport` rows for developer/agent usability, modular
+          extensibility, table/catalog compatibility, native plan interop, and extension/plugin
+          sandboxing.
+    - [x] Keep runtime expansion, parser expansion, adapter expansion, dependency expansion,
+          imported-plan execution, extension execution, external effects, external engines, and
+          fallback execution blocked.
+    - [x] Expose the gate through `rfc-coverage-followthrough-plan` machine-readable CLI fields.
+    - [x] Add architecture and traceability docs and remove Priority 3.6 from the active Planned
+          queue.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-core rfc_coverage --lib`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli rfc_coverage --bin shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo run -p shardloom-cli -- rfc-coverage-followthrough-plan --format json`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-core --lib -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-cli --bin shardloom -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo check --workspace`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `git diff --check`
+  - Runtime stance: report and CLI JSON contract only; no parser, adapter, dependency, imported-plan
+    execution, extension execution, external effect, external engine invocation, or fallback
+    execution changes.
+
 - [x] Session label: CG-18 universal import/deployment/baseline harness maturity
   - Primary files:
     - `shardloom-core/src/universal_harness.rs`
