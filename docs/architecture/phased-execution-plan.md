@@ -144,10 +144,18 @@ actionable work.
 - [ ] Priority 3.9 - complete typed command/result envelope and CLI modularity overhaul
   - [ ] Migrate command-family-specific result fields from the temporary top-level legacy `fields`
         mirror into explicit typed result, artifact, certificate, and report payload helpers.
+    - [x] Add shared batch typed-envelope field routing plus inline report artifact helpers for
+          execution-certificate, Native I/O envelope, benchmark-plan, and benchmark claim evidence
+          JSON outputs while preserving the temporary legacy `fields` mirror.
   - [ ] Attach richer inline execution certificates, Native I/O certificates,
         `EvidenceArtifactEnvelope`, materialization boundary reports, benchmark rows, Foundry
         reports, source/sink reports, and capability snapshots through typed payloads where a
         command has more than explicit refs.
+    - [x] Attach first inline typed report payloads for the execution certificate surface, Native
+          I/O envelope report, benchmark plan report, and benchmark claim evidence report.
+    - [x] Add emitted-runtime certificate prefix helpers so existing local CountAll and Vortex
+          primitive execution/native-I/O certificate field groups become inline typed artifacts
+          when a command actually emits the certificate.
   - [ ] Expand golden JSON fixtures for success, unsupported, blocked, certified execution,
         evidence-incomplete execution, source-backed execution, benchmark rows, missing binary, and
         Foundry boundary reports.
@@ -233,6 +241,11 @@ actionable work.
           `vortex-metadata-plan`, `vortex-pruning-plan`, `vortex-metadata-probe`, and
           `vortex-api-inventory`, into `shardloom-cli/src/vortex_planning.rs` while preserving
           metadata-only, plan-only, and no-fallback behavior.
+    - [x] Move operational runtime, memory/spill, fault-tolerance, observability, object-store,
+          plan-portability, CG-20 evidence, Vortex output/commit/staged artifact, and Vortex
+          runtime-readiness handler clusters into focused modules while preserving existing
+          report-only, feature-gated artifact, no-write-by-default, no external engine, and
+          no-fallback behavior.
     - [ ] Move remaining command-family handlers out of `main.rs` after the shared
           `typed_envelope` routing module and `command_family` taxonomy.
     - [ ] Split handlers by status/capabilities, Vortex primitive execution,

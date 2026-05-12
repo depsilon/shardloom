@@ -8,10 +8,32 @@ use std::process::ExitCode;
 
 use shardloom_core::{
     AgentSafetyMode, CommandStatus, EffectBudgetReport, OutputFormat, RedactionPolicy,
-    SecurityPlan, plan_security_governance_evidence_gate,
+    SecurityPlan, ShardLoomError, plan_security_governance_evidence_gate,
+};
+use shardloom_exec::{
+    AttemptId, ByteSize, CancellationReason, CancellationRequest, CancellationScope,
+    CommitExecutionPromotionGateReport, FaultTolerancePromotionGateReport, MemoryBudget,
+    MemoryOwner, MemoryPoolPlan, MemoryRuntimeHardeningGateReport, OomSafetyPlan,
+    OperatorMemoryClass, OperatorMemorySpillDeclarationReport, RecoveryPlan, RetryPlan,
+    ShardLoomCancellationExecutionGateReport, ShardLoomCleanupExecutionRequest,
+    ShardLoomRetryExecutionGateReport, SpillLifecycleRequest, SpillPayloadFsRef, SpillPayloadId,
+    SpillPayloadPath, SpillPayloadRef, SpillPayloadRoundTripReport, SpillPayloadRoundTripRequest,
+    SpillPayloadWriteRequest, SpillPlan, SpillPolicy, SpillReservationIntegrationRequest,
+    SpillWorkspaceId, SpillWorkspacePath, SyntheticSpillPayload, TaskAttemptRecord,
+    plan_cancellation_execution_gate, plan_commit_execution_promotion_gate,
+    plan_fault_tolerance_promotion_gate, plan_memory_runtime_hardening_gate,
+    plan_operator_memory_spill_declarations, plan_retry_execution_gate, plan_spill_lifecycle,
+    plan_spill_reservation_integration, roundtrip_spill_payload, spill_payload_fs_feature_enabled,
 };
 
-use crate::{cli_output::emit, effect_budget_fields, security_governance_evidence_gate_fields};
+use crate::{
+    cancellation_gate_plan_fields,
+    cli_output::{emit, emit_error},
+    commit_execution_promotion_gate_fields, effect_budget_fields,
+    fault_tolerance_promotion_gate_fields, memory_runtime_hardening_gate_fields,
+    operator_memory_spill_declaration_fields, retry_gate_plan_fields,
+    security_governance_evidence_gate_fields,
+};
 
 pub(crate) fn handle_security_plan(format: OutputFormat) -> ExitCode {
     let plan = SecurityPlan::default_safe();
@@ -93,6 +115,785 @@ pub(crate) fn handle_redaction_plan(format: OutputFormat) -> ExitCode {
     )
 }
 
+#[allow(clippy::too_many_lines)]
+pub(crate) fn handle_spill_lifecycle(
+    mut args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let Some(workspace_id_text) = args.next() else {
+        eprintln!("usage: shardloom spill-lifecycle <workspace_id> <workspace_path> <mode>");
+        return ExitCode::from(2);
+    };
+    let Some(workspace_path_text) = args.next() else {
+        eprintln!("usage: shardloom spill-lifecycle <workspace_id> <workspace_path> <mode>");
+        return ExitCode::from(2);
+    };
+    let Some(mode_text) = args.next() else {
+        eprintln!("usage: shardloom spill-lifecycle <workspace_id> <workspace_path> <mode>");
+        return ExitCode::from(2);
+    };
+    let workspace_id = match SpillWorkspaceId::new(workspace_id_text) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error("spill-lifecycle", format, "spill lifecycle failed", &error);
+        }
+    };
+    let workspace_path = match SpillWorkspacePath::new(workspace_path_text) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error("spill-lifecycle", format, "spill lifecycle failed", &error);
+        }
+    };
+    let request = match mode_text.as_str() {
+        "report-only" => SpillLifecycleRequest::report_only(workspace_id, workspace_path),
+        "local-workspace" => SpillLifecycleRequest::local_workspace(workspace_id, workspace_path),
+        "cleanup-only" => SpillLifecycleRequest::cleanup_only(workspace_id, workspace_path),
+        _ => {
+            return emit_error(
+                "spill-lifecycle",
+                format,
+                "spill lifecycle failed",
+                &ShardLoomError::InvalidOperation(
+                    "mode must be report-only, local-workspace, or cleanup-only".to_string(),
+                ),
+            );
+        }
+    };
+    let report = match plan_spill_lifecycle(request) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error("spill-lifecycle", format, "spill lifecycle failed", &error);
+        }
+    };
+    emit(
+        "spill-lifecycle",
+        format,
+        if report.has_errors() {
+            CommandStatus::Unsupported
+        } else {
+            CommandStatus::Success
+        },
+        "spill lifecycle report".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        vec![
+            (
+                "fallback_execution_allowed".to_string(),
+                "false".to_string(),
+            ),
+            ("mode".to_string(), "spill_lifecycle".to_string()),
+            ("spill_lifecycle_mode".to_string(), mode_text),
+            (
+                "workspace_created".to_string(),
+                report.workspace_created.as_bool().to_string(),
+            ),
+            (
+                "marker_created".to_string(),
+                report.marker_created.as_bool().to_string(),
+            ),
+            (
+                "cleanup_performed".to_string(),
+                report.cleanup_performed.as_bool().to_string(),
+            ),
+            ("spill_data_written".to_string(), "false".to_string()),
+            ("spill_data_read".to_string(), "false".to_string()),
+            (
+                "reservation_integration_status".to_string(),
+                "not_applicable".to_string(),
+            ),
+            ("reservation_granted".to_string(), "false".to_string()),
+            ("estimated_bytes_known".to_string(), "false".to_string()),
+            (
+                "reservation_lifecycle_integration".to_string(),
+                "true".to_string(),
+            ),
+            ("memory_integration".to_string(), "true".to_string()),
+            (
+                "vortex_memory_bridge_integration".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "bounded_execution_integration".to_string(),
+                "true".to_string(),
+            ),
+            ("object_store_io".to_string(), "false".to_string()),
+            ("execution".to_string(), "not_performed".to_string()),
+        ],
+    );
+    exit_for_errors(report.has_errors())
+}
+
+#[allow(clippy::too_many_lines)]
+pub(crate) fn handle_spill_reservation_plan(
+    mut args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let Some(label) = args.next() else {
+        eprintln!(
+            "usage: shardloom spill-reservation-plan <reservation_label> <policy> <estimated_bytes>"
+        );
+        return ExitCode::from(2);
+    };
+    let Some(policy_text) = args.next() else {
+        eprintln!(
+            "usage: shardloom spill-reservation-plan <reservation_label> <policy> <estimated_bytes>"
+        );
+        return ExitCode::from(2);
+    };
+    let Some(estimated_text) = args.next() else {
+        eprintln!(
+            "usage: shardloom spill-reservation-plan <reservation_label> <policy> <estimated_bytes>"
+        );
+        return ExitCode::from(2);
+    };
+    let policy = match policy_text.as_str() {
+        "never" => SpillPolicy::Never,
+        "best-effort" => SpillPolicy::BestEffort,
+        "required" => SpillPolicy::Required,
+        _ => {
+            return emit_error(
+                "spill-reservation-plan",
+                format,
+                "spill reservation plan failed",
+                &ShardLoomError::InvalidOperation(
+                    "policy must be never, best-effort, or required".to_string(),
+                ),
+            );
+        }
+    };
+    let mut request = match SpillReservationIntegrationRequest::new(label, policy) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                "spill-reservation-plan",
+                format,
+                "spill reservation plan failed",
+                &error,
+            );
+        }
+    };
+    if estimated_text != "unknown" {
+        let bytes: u64 = match estimated_text.parse() {
+            Ok(v) => v,
+            Err(_) => {
+                return emit_error(
+                    "spill-reservation-plan",
+                    format,
+                    "spill reservation plan failed",
+                    &ShardLoomError::InvalidOperation(
+                        "estimated_bytes must be unknown or unsigned integer".to_string(),
+                    ),
+                );
+            }
+        };
+        request = request.with_estimated_bytes(ByteSize::from_bytes(bytes));
+    }
+    let report = match plan_spill_reservation_integration(request) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                "spill-reservation-plan",
+                format,
+                "spill reservation plan failed",
+                &error,
+            );
+        }
+    };
+    emit(
+        "spill-reservation-plan",
+        format,
+        if report.has_errors() {
+            CommandStatus::Unsupported
+        } else {
+            CommandStatus::Success
+        },
+        "spill reservation integration report".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        vec![
+            (
+                "fallback_execution_allowed".to_string(),
+                "false".to_string(),
+            ),
+            ("mode".to_string(), "spill_reservation_plan".to_string()),
+            (
+                "reservation_integration_status".to_string(),
+                report.status.as_str().to_string(),
+            ),
+            (
+                "reservation_granted".to_string(),
+                report.reservation_granted.to_string(),
+            ),
+            (
+                "estimated_bytes_known".to_string(),
+                report.estimated_bytes_known.to_string(),
+            ),
+            ("spill_data_written".to_string(), "false".to_string()),
+            ("spill_data_read".to_string(), "false".to_string()),
+            ("object_store_io".to_string(), "false".to_string()),
+            ("execution".to_string(), "not_performed".to_string()),
+        ],
+    );
+    exit_for_errors(report.has_errors())
+}
+
+#[allow(clippy::too_many_lines)]
+pub(crate) fn handle_spill_payload_roundtrip(
+    mut args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let Some(workspace_path_text) = args.next() else {
+        eprintln!(
+            "usage: shardloom spill-payload-roundtrip <workspace_path> <payload_id> <payload_text> [--cleanup]"
+        );
+        return ExitCode::from(2);
+    };
+    let Some(payload_id_text) = args.next() else {
+        eprintln!(
+            "usage: shardloom spill-payload-roundtrip <workspace_path> <payload_id> <payload_text> [--cleanup]"
+        );
+        return ExitCode::from(2);
+    };
+    let Some(payload_text) = args.next() else {
+        eprintln!(
+            "usage: shardloom spill-payload-roundtrip <workspace_path> <payload_id> <payload_text> [--cleanup]"
+        );
+        return ExitCode::from(2);
+    };
+    let mut cleanup_after = false;
+    if let Some(extra) = args.next() {
+        if extra == "--cleanup" {
+            cleanup_after = true;
+        } else {
+            return emit_error(
+                "spill-payload-roundtrip",
+                format,
+                "spill payload roundtrip failed",
+                &ShardLoomError::InvalidOperation(
+                    "unknown trailing argument; expected optional --cleanup".to_string(),
+                ),
+            );
+        }
+        if args.next().is_some() {
+            return emit_error(
+                "spill-payload-roundtrip",
+                format,
+                "spill payload roundtrip failed",
+                &ShardLoomError::InvalidOperation(
+                    "too many arguments for spill-payload-roundtrip".to_string(),
+                ),
+            );
+        }
+    }
+    let workspace_path = match SpillPayloadPath::new(workspace_path_text) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                "spill-payload-roundtrip",
+                format,
+                "spill payload roundtrip failed",
+                &error,
+            );
+        }
+    };
+    let payload_id = match SpillPayloadId::new(payload_id_text) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                "spill-payload-roundtrip",
+                format,
+                "spill payload roundtrip failed",
+                &error,
+            );
+        }
+    };
+    let payload = match SyntheticSpillPayload::from_text(payload_text) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                "spill-payload-roundtrip",
+                format,
+                "spill payload roundtrip failed",
+                &error,
+            );
+        }
+    };
+    let payload_ref = match SpillPayloadRef::new(payload_id, "shardloom_cli_workspace") {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                "spill-payload-roundtrip",
+                format,
+                "spill payload roundtrip failed",
+                &error,
+            );
+        }
+    };
+    let fs_ref = SpillPayloadFsRef::new(payload_ref, workspace_path);
+    let write_request = SpillPayloadWriteRequest::new(fs_ref, payload);
+    let request = SpillPayloadRoundTripRequest::new(write_request).cleanup_after(cleanup_after);
+    let report = match roundtrip_spill_payload(request) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                "spill-payload-roundtrip",
+                format,
+                "spill payload roundtrip failed",
+                &error,
+            );
+        }
+    };
+    emit_spill_payload_roundtrip(format, &report)
+}
+
+#[allow(clippy::too_many_lines)]
+pub(crate) fn handle_cleanup_synthetic_payload(
+    mut args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let Some(workspace_path_text) = args.next() else {
+        eprintln!("usage: shardloom cleanup-synthetic-payload <workspace_path> <payload_id>");
+        return ExitCode::from(2);
+    };
+    let Some(payload_id_text) = args.next() else {
+        eprintln!("usage: shardloom cleanup-synthetic-payload <workspace_path> <payload_id>");
+        return ExitCode::from(2);
+    };
+    if args.next().is_some() {
+        return emit_error(
+            "cleanup-synthetic-payload",
+            format,
+            "synthetic spill payload cleanup failed",
+            &ShardLoomError::InvalidOperation(
+                "too many arguments for cleanup-synthetic-payload".to_string(),
+            ),
+        );
+    }
+    let workspace_path = match SpillPayloadPath::new(workspace_path_text) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                "cleanup-synthetic-payload",
+                format,
+                "synthetic spill payload cleanup failed",
+                &error,
+            );
+        }
+    };
+    let payload_id = match SpillPayloadId::new(payload_id_text) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                "cleanup-synthetic-payload",
+                format,
+                "synthetic spill payload cleanup failed",
+                &error,
+            );
+        }
+    };
+    let payload_ref = match SpillPayloadRef::new(payload_id.clone(), "shardloom_cli_workspace") {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                "cleanup-synthetic-payload",
+                format,
+                "synthetic spill payload cleanup failed",
+                &error,
+            );
+        }
+    };
+    let fs_ref = SpillPayloadFsRef::new(payload_ref, workspace_path);
+    let request = ShardLoomCleanupExecutionRequest::synthetic_payload(
+        shardloom_exec::recovery::RecoveryArtifactRef::synthetic_spill_payload(&fs_ref),
+        fs_ref,
+    )
+    .allow_synthetic_payload_cleanup(true);
+    let report = match shardloom_exec::recovery::execute_cleanup_plan(request) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                "cleanup-synthetic-payload",
+                format,
+                "synthetic spill payload cleanup failed",
+                &error,
+            );
+        }
+    };
+    emit(
+        "cleanup-synthetic-payload",
+        format,
+        if report.has_errors() {
+            CommandStatus::Unsupported
+        } else {
+            CommandStatus::Success
+        },
+        "synthetic spill payload cleanup report".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        vec![
+            (
+                "fallback_execution_allowed".to_string(),
+                "false".to_string(),
+            ),
+            ("mode".to_string(), "cleanup_synthetic_payload".to_string()),
+            (
+                "cleanup_executed".to_string(),
+                report.cleanup_executed().to_string(),
+            ),
+            (
+                "cleanup_performed".to_string(),
+                report.cleanup_executed().to_string(),
+            ),
+            (
+                "retry_executed".to_string(),
+                report.retry_executed().to_string(),
+            ),
+            (
+                "cancellation_executed".to_string(),
+                report.cancellation_executed().to_string(),
+            ),
+            (
+                "external_effects_executed".to_string(),
+                report.external_effects_executed().to_string(),
+            ),
+            (
+                "object_store_io".to_string(),
+                report.object_store_io().to_string(),
+            ),
+            (
+                "output_dataset_write".to_string(),
+                report.output_dataset_write().to_string(),
+            ),
+            (
+                "execution".to_string(),
+                "cleanup_or_not_performed".to_string(),
+            ),
+            (
+                "artifact_kind".to_string(),
+                "synthetic_spill_payload".to_string(),
+            ),
+            ("payload_id".to_string(), payload_id.as_str().to_string()),
+        ],
+    );
+    exit_for_errors(report.has_errors())
+}
+
+pub(crate) fn handle_memory_plan(
+    mut args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let Some(memory_gb) = args.next() else {
+        eprintln!("usage: shardloom memory-plan <memory_gb>");
+        return ExitCode::from(2);
+    };
+    let memory_gb = match memory_gb.parse::<u64>() {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                "memory-plan",
+                format,
+                "invalid memory_gb",
+                &ShardLoomError::InvalidOperation(format!("invalid memory_gb: {error}")),
+            );
+        }
+    };
+    let budget = match MemoryBudget::from_gib(memory_gb) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error("memory-plan", format, "invalid memory budget", &error);
+        }
+    };
+    let plan = OomSafetyPlan::new(MemoryPoolPlan::new(budget));
+    emit(
+        "memory-plan",
+        format,
+        CommandStatus::Success,
+        "memory plan".to_string(),
+        plan.to_human_text(),
+        vec![],
+        vec![("mode".to_string(), "plan_only".to_string())],
+    );
+    ExitCode::SUCCESS
+}
+
+pub(crate) fn handle_operator_memory_spill_declarations(format: OutputFormat) -> ExitCode {
+    let report = plan_operator_memory_spill_declarations();
+    emit_operator_memory_spill_declarations(format, &report)
+}
+
+pub(crate) fn handle_memory_runtime_hardening_gate(format: OutputFormat) -> ExitCode {
+    let report = plan_memory_runtime_hardening_gate();
+    emit_memory_runtime_hardening_gate(format, &report)
+}
+
+pub(crate) fn handle_spill_plan(
+    mut args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let Some(operator_label) = args.next() else {
+        eprintln!("usage: shardloom spill-plan <operator_label> <memory_gb>");
+        return ExitCode::from(2);
+    };
+    let Some(memory_gb) = args.next() else {
+        eprintln!("usage: shardloom spill-plan <operator_label> <memory_gb>");
+        return ExitCode::from(2);
+    };
+    let memory_gb = match memory_gb.parse::<u64>() {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                "spill-plan",
+                format,
+                "invalid memory_gb",
+                &ShardLoomError::InvalidOperation(format!("invalid memory_gb: {error}")),
+            );
+        }
+    };
+    let budget = match MemoryBudget::from_gib(memory_gb) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error("spill-plan", format, "invalid memory budget", &error);
+        }
+    };
+    let pool = MemoryPoolPlan::new(budget);
+    let lower = operator_label.to_lowercase();
+    let class = if lower.contains("sort") {
+        OperatorMemoryClass::Sort
+    } else if lower.contains("join") {
+        OperatorMemoryClass::Join
+    } else if lower.contains("agg") || lower.contains("aggregate") {
+        OperatorMemoryClass::Aggregate
+    } else {
+        OperatorMemoryClass::Unknown
+    };
+    let owner = match MemoryOwner::new(class, operator_label) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error("spill-plan", format, "invalid operator label", &error);
+        }
+    };
+    let spill_plan = SpillPlan::spill_not_implemented(owner, SpillPolicy::BestEffort);
+    let mut plan = OomSafetyPlan::new(pool);
+    plan.add_spill_plan(spill_plan);
+    let status = if plan.has_errors() {
+        CommandStatus::Unsupported
+    } else {
+        CommandStatus::Success
+    };
+    emit(
+        "spill-plan",
+        format,
+        status,
+        "spill plan".to_string(),
+        plan.to_human_text(),
+        vec![],
+        vec![("mode".to_string(), "plan_only".to_string())],
+    );
+    exit_for_errors(plan.has_errors())
+}
+
+pub(crate) fn handle_recovery_plan(format: OutputFormat) -> ExitCode {
+    let plan = RecoveryPlan::recovery_not_implemented(
+        "recovery_execution",
+        "Recovery planning skeleton exists, but actual recovery execution is not implemented yet.",
+    );
+    emit(
+        "recovery-plan",
+        format,
+        CommandStatus::Unsupported,
+        "recovery plan skeleton".to_string(),
+        plan.to_human_text(),
+        plan.diagnostics.clone(),
+        vec![
+            (
+                "fallback_execution_allowed".to_string(),
+                "false".to_string(),
+            ),
+            ("mode".to_string(), "recovery_plan".to_string()),
+            ("write_io".to_string(), "false".to_string()),
+            ("execution".to_string(), "not_performed".to_string()),
+            ("plan_only".to_string(), "true".to_string()),
+        ],
+    );
+    ExitCode::from(1)
+}
+
+pub(crate) fn handle_commit_execution_promotion_gate(format: OutputFormat) -> ExitCode {
+    let report = plan_commit_execution_promotion_gate();
+    emit_commit_execution_promotion_gate(format, &report)
+}
+
+pub(crate) fn handle_fault_tolerance_promotion_gate(format: OutputFormat) -> ExitCode {
+    let report = plan_fault_tolerance_promotion_gate();
+    emit_fault_tolerance_promotion_gate(format, &report)
+}
+
+pub(crate) fn handle_cancellation_plan(
+    mut args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let scope = match args.next().as_deref() {
+        Some("query") => CancellationScope::Query,
+        Some("task") => CancellationScope::Task,
+        Some("scan") => CancellationScope::Scan,
+        Some("output-write") => CancellationScope::OutputWrite,
+        Some("external-effect") => CancellationScope::ExternalEffect,
+        Some("spill-cleanup") => CancellationScope::SpillCleanup,
+        Some("runtime" | _) | None => CancellationScope::Runtime,
+    };
+    let request = CancellationRequest::new(scope, CancellationReason::UserRequested);
+    emit(
+        "cancellation-plan",
+        format,
+        CommandStatus::Success,
+        "cancellation plan skeleton".to_string(),
+        request.summary(),
+        request.diagnostics.clone(),
+        vec![
+            (
+                "fallback_execution_allowed".to_string(),
+                "false".to_string(),
+            ),
+            ("mode".to_string(), "cancellation_plan".to_string()),
+            ("write_io".to_string(), "false".to_string()),
+            ("execution".to_string(), "not_performed".to_string()),
+            ("plan_only".to_string(), "true".to_string()),
+        ],
+    );
+    ExitCode::SUCCESS
+}
+
+pub(crate) fn handle_retry_plan(
+    mut args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let Some(task_id) = args.next() else {
+        eprintln!("usage: shardloom retry-plan <task_id> <attempt_id>");
+        return ExitCode::from(2);
+    };
+    let Some(attempt_id) = args.next() else {
+        eprintln!("usage: shardloom retry-plan <task_id> <attempt_id>");
+        return ExitCode::from(2);
+    };
+    let task_id = match shardloom_exec::TaskId::new(task_id) {
+        Ok(v) => v,
+        Err(error) => return emit_error("retry-plan", format, "invalid task id", &error),
+    };
+    let attempt_id = match AttemptId::new(attempt_id) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error("retry-plan", format, "invalid attempt id", &error);
+        }
+    };
+    let attempt = TaskAttemptRecord::new(task_id, attempt_id);
+    let plan =
+        RetryPlan::from_attempt(shardloom_exec::RetryPolicy::default_read_retries(), attempt);
+    emit(
+        "retry-plan",
+        format,
+        CommandStatus::Success,
+        "retry plan skeleton".to_string(),
+        plan.summary(),
+        plan.diagnostics.clone(),
+        vec![
+            (
+                "fallback_execution_allowed".to_string(),
+                "false".to_string(),
+            ),
+            ("mode".to_string(), "retry_plan".to_string()),
+            ("write_io".to_string(), "false".to_string()),
+            ("execution".to_string(), "not_performed".to_string()),
+            ("plan_only".to_string(), "true".to_string()),
+        ],
+    );
+    ExitCode::SUCCESS
+}
+
+pub(crate) fn handle_retry_gate_plan(
+    mut args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let Some(raw) = args.next() else {
+        return emit_retry_gate_signal_error(format, "retry-gate-plan requires <signals>");
+    };
+    if raw.trim().is_empty() {
+        return emit_retry_gate_signal_error(format, "retry-gate-plan requires <signals>");
+    }
+    if args.next().is_some() {
+        return emit_retry_gate_signal_error(format, "too many arguments for retry-gate-plan");
+    }
+    let request = match crate::parse_retry_gate_signals(&raw) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                "retry-gate-plan",
+                format,
+                "invalid retry gate signal list",
+                &error,
+            );
+        }
+    };
+    let report = match plan_retry_execution_gate(request) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                "retry-gate-plan",
+                format,
+                "retry gate planning failed",
+                &error,
+            );
+        }
+    };
+    emit_retry_gate_plan(format, &report)
+}
+
+pub(crate) fn handle_cancellation_gate_plan(
+    mut args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let Some(raw) = args.next() else {
+        return emit_cancellation_gate_signal_error(
+            format,
+            "cancellation-gate-plan requires <signals>",
+        );
+    };
+    if raw.trim().is_empty() {
+        return emit_cancellation_gate_signal_error(
+            format,
+            "cancellation-gate-plan requires <signals>",
+        );
+    }
+    if args.next().is_some() {
+        return emit_cancellation_gate_signal_error(
+            format,
+            "too many arguments for cancellation-gate-plan",
+        );
+    }
+    let request = match crate::parse_cancellation_gate_signals(&raw) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                "cancellation-gate-plan",
+                format,
+                "invalid cancellation gate signal list",
+                &error,
+            );
+        }
+    };
+    let report = match plan_cancellation_execution_gate(request) {
+        Ok(v) => v,
+        Err(error) => {
+            return emit_error(
+                "cancellation-gate-plan",
+                format,
+                "cancellation gate planning failed",
+                &error,
+            );
+        }
+    };
+    emit_cancellation_gate_plan(format, &report)
+}
+
 fn emit_security_style_plan(
     command: &str,
     summary: &str,
@@ -122,4 +923,210 @@ fn emit_security_style_plan(
         ],
     );
     ExitCode::SUCCESS
+}
+
+fn emit_spill_payload_roundtrip(
+    format: OutputFormat,
+    report: &SpillPayloadRoundTripReport,
+) -> ExitCode {
+    let bytes_read = report.read_report.as_ref().map_or(0, |v| v.bytes_read);
+    let verification_passed = report
+        .read_report
+        .as_ref()
+        .is_some_and(|v| v.verification_passed);
+    emit(
+        "spill-payload-roundtrip",
+        format,
+        if report.has_errors() {
+            CommandStatus::Unsupported
+        } else {
+            CommandStatus::Success
+        },
+        "spill payload roundtrip report".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        vec![
+            (
+                "fallback_execution_allowed".to_string(),
+                "false".to_string(),
+            ),
+            ("mode".to_string(), "spill_payload_roundtrip".to_string()),
+            (
+                "spill_payload_feature_enabled".to_string(),
+                spill_payload_fs_feature_enabled().to_string(),
+            ),
+            (
+                "payload_written".to_string(),
+                report.payload_written().to_string(),
+            ),
+            (
+                "payload_read".to_string(),
+                report.payload_read().to_string(),
+            ),
+            (
+                "cleanup_performed".to_string(),
+                report.cleanup_performed().to_string(),
+            ),
+            (
+                "object_store_io".to_string(),
+                report.object_store_io().to_string(),
+            ),
+            (
+                "output_dataset_write".to_string(),
+                report.output_dataset_write().to_string(),
+            ),
+            (
+                "execution".to_string(),
+                "spill_payload_roundtrip_or_not_performed".to_string(),
+            ),
+            (
+                "bytes_written".to_string(),
+                report.write_report.bytes_written.to_string(),
+            ),
+            ("bytes_read".to_string(), bytes_read.to_string()),
+            (
+                "verification_passed".to_string(),
+                verification_passed.to_string(),
+            ),
+        ],
+    );
+    exit_for_errors(report.has_errors())
+}
+
+fn emit_operator_memory_spill_declarations(
+    format: OutputFormat,
+    report: &OperatorMemorySpillDeclarationReport,
+) -> ExitCode {
+    emit(
+        "operator-memory-spill-declarations",
+        format,
+        CommandStatus::Success,
+        "operator memory/spill declaration gate".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        operator_memory_spill_declaration_fields(report),
+    );
+    ExitCode::SUCCESS
+}
+
+fn emit_memory_runtime_hardening_gate(
+    format: OutputFormat,
+    report: &MemoryRuntimeHardeningGateReport,
+) -> ExitCode {
+    emit(
+        "cg14-memory-runtime-hardening-gate",
+        format,
+        CommandStatus::Success,
+        "CG-14 memory runtime hardening gate".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        memory_runtime_hardening_gate_fields(report),
+    );
+    ExitCode::SUCCESS
+}
+
+fn emit_commit_execution_promotion_gate(
+    format: OutputFormat,
+    report: &CommitExecutionPromotionGateReport,
+) -> ExitCode {
+    emit(
+        "commit-execution-promotion-gate",
+        format,
+        if report.has_errors() {
+            CommandStatus::Unsupported
+        } else {
+            CommandStatus::Success
+        },
+        "commit execution promotion gate".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        commit_execution_promotion_gate_fields(report),
+    );
+    exit_for_errors(report.has_errors())
+}
+
+fn emit_fault_tolerance_promotion_gate(
+    format: OutputFormat,
+    report: &FaultTolerancePromotionGateReport,
+) -> ExitCode {
+    emit(
+        "fault-tolerance-promotion-gate",
+        format,
+        if report.has_errors() {
+            CommandStatus::Unsupported
+        } else {
+            CommandStatus::Success
+        },
+        "fault tolerance promotion gate".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        fault_tolerance_promotion_gate_fields(report),
+    );
+    exit_for_errors(report.has_errors())
+}
+
+fn emit_retry_gate_plan(
+    format: OutputFormat,
+    report: &ShardLoomRetryExecutionGateReport,
+) -> ExitCode {
+    emit(
+        "retry-gate-plan",
+        format,
+        if report.has_errors() {
+            CommandStatus::Unsupported
+        } else {
+            CommandStatus::Success
+        },
+        "retry execution gate plan".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        retry_gate_plan_fields(report),
+    );
+    exit_for_errors(report.has_errors())
+}
+
+fn emit_cancellation_gate_plan(
+    format: OutputFormat,
+    report: &ShardLoomCancellationExecutionGateReport,
+) -> ExitCode {
+    emit(
+        "cancellation-gate-plan",
+        format,
+        if report.has_errors() {
+            CommandStatus::Unsupported
+        } else {
+            CommandStatus::Success
+        },
+        "cancellation execution gate plan".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        cancellation_gate_plan_fields(report),
+    );
+    exit_for_errors(report.has_errors())
+}
+
+fn emit_retry_gate_signal_error(format: OutputFormat, message: &str) -> ExitCode {
+    emit_error(
+        "retry-gate-plan",
+        format,
+        "invalid retry gate signal list",
+        &ShardLoomError::InvalidOperation(message.to_string()),
+    )
+}
+
+fn emit_cancellation_gate_signal_error(format: OutputFormat, message: &str) -> ExitCode {
+    emit_error(
+        "cancellation-gate-plan",
+        format,
+        "invalid cancellation gate signal list",
+        &ShardLoomError::InvalidOperation(message.to_string()),
+    )
+}
+
+fn exit_for_errors(has_errors: bool) -> ExitCode {
+    if has_errors {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
 }

@@ -120,6 +120,24 @@ fn certificate_surface_fixture_routes_certificate_plan_fields() {
     assert!(output.contains(&field("machine_readable_certificate_surface", "true")));
     assert!(output.contains(&field("certificate_evaluation_performed", "false")));
     assert!(output.contains(&field("fallback_attempted", "false")));
+    assert!(output.contains("\"artifact_kind\":\"execution_certificate_report\""));
+    assert!(output.contains("\"artifact_id\":\"cg16.execution-certificate-evidence-surface\""));
+    assert!(output.contains(
+        "\"payload\":{\"fields\":[{\"key\":\"mode\",\"value\":\"execution_certificate_plan\""
+    ));
+}
+
+#[test]
+fn native_io_fixture_routes_inline_report_payload() {
+    let output = run_command(&["native-io-envelope-plan", "--format", "json"], true);
+
+    assert_common_typed_slots(&output, "native-io-envelope-plan", "success");
+    assert!(output.contains(&field("command_family", "evidence_certificates")));
+    assert!(output.contains(&field("mode", "native_io_envelope_plan")));
+    assert!(output.contains(&field("schema_version", "shardloom.native_io_envelope.v1")));
+    assert!(output.contains("\"artifact_kind\":\"native_io_report\""));
+    assert!(output.contains("\"artifact_id\":\"cg19.native-io-envelope\""));
+    assert!(output.contains(&field("certificate_path_requirement_count", "3")));
 }
 
 #[test]
@@ -138,6 +156,21 @@ fn evidence_incomplete_benchmark_fixture_routes_claim_gate_fields() {
         "datafusion,vortex_integration,spark,polars,other"
     )));
     assert!(output.contains(&field("claim_gate_fallback", "not_attempted")));
+    assert!(output.contains("\"artifact_kind\":\"benchmark_plan_report\""));
+    assert!(output.contains("\"artifact_id\":\"benchmark-plan.report\""));
+}
+
+#[test]
+fn benchmark_claim_evidence_fixture_routes_inline_report_payload() {
+    let output = run_command(&["benchmark-claim-evidence-plan", "--format", "json"], true);
+
+    assert_common_typed_slots(&output, "benchmark-claim-evidence-plan", "success");
+    assert!(output.contains(&field("command_family", "evidence_certificates")));
+    assert!(output.contains(&field("mode", "benchmark_claim_evidence")));
+    assert!(output.contains(&field("claim_gate_status", "evidence_missing")));
+    assert!(output.contains(&field("measured_benchmark_result_rows_present", "false")));
+    assert!(output.contains("\"artifact_kind\":\"benchmark_claim_evidence_report\""));
+    assert!(output.contains("\"artifact_id\":\"cg6.benchmark_claim_evidence.aggregate\""));
 }
 
 #[test]

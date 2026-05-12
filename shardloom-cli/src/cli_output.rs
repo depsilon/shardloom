@@ -9,7 +9,7 @@ use std::process::ExitCode;
 
 use shardloom_core::{CommandStatus, Diagnostic, OutputEnvelope, OutputFormat, ShardLoomError};
 
-use crate::{command_family::classify_command, typed_envelope::apply_typed_envelope_field};
+use crate::{command_family::classify_command, typed_envelope::apply_typed_envelope_fields};
 
 pub(crate) fn emit(
     command: &str,
@@ -25,9 +25,7 @@ pub(crate) fn emit(
     for diagnostic in diagnostics {
         envelope.add_diagnostic(diagnostic);
     }
-    for (key, value) in fields {
-        envelope = apply_typed_envelope_field(envelope, key, value);
-    }
+    envelope = apply_typed_envelope_fields(envelope, command, fields);
     println!("{}", envelope.render(format));
 }
 
