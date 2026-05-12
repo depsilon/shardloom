@@ -7604,12 +7604,22 @@ fn append_universal_harness_identity_fields(
         "external_baseline_count",
         report.external_baseline_count(),
     );
+    push_count_field(
+        fields,
+        "harness_environment_count",
+        report.harness_environment_count(),
+    );
     push_field(
         fields,
         "runner_contract_field_order",
         &report.runner_contract_field_order(),
     );
     push_field(fields, "surface_kind_order", &report.surface_kind_order());
+    push_field(
+        fields,
+        "harness_environment_kind_order",
+        &report.harness_environment_kind_order(),
+    );
     push_field(
         fields,
         "baseline_engine_order",
@@ -7664,6 +7674,42 @@ fn append_universal_harness_requirement_fields(
         fields,
         "foundry_optional_example",
         report.foundry_optional_example,
+    );
+    push_bool_field(
+        fields,
+        "local_harness_required",
+        report.local_harness_required,
+    );
+    push_bool_field(fields, "ci_harness_required", report.ci_harness_required);
+    push_bool_field(
+        fields,
+        "container_harness_required",
+        report.container_harness_required,
+    );
+    push_bool_field(
+        fields,
+        "foundry_optional_harness_required",
+        report.foundry_optional_harness_required,
+    );
+    push_bool_field(
+        fields,
+        "optional_benchmark_environment_required",
+        report.optional_benchmark_environment_required,
+    );
+    push_bool_field(
+        fields,
+        "external_engines_as_runtime_dependencies_allowed",
+        report.external_engines_as_runtime_dependencies_allowed,
+    );
+    push_bool_field(
+        fields,
+        "required_harness_environments_present",
+        report.has_required_harness_environments(),
+    );
+    push_bool_field(
+        fields,
+        "baselines_comparison_only_runtime_dependency_free",
+        report.baselines_are_comparison_only_and_runtime_dependency_free(),
     );
 }
 
@@ -30566,6 +30612,48 @@ mod tests {
     fn universal_harness_plan_returns_success() {
         let code = run(vec!["universal-harness-plan".to_string()]);
         assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn universal_harness_fields_expose_import_deployment_and_baseline_maturity() {
+        let report = plan_universal_harness();
+        let fields = universal_harness_fields(&report);
+
+        assert_eq!(
+            output_field(&fields, "universal_harness_status"),
+            "evidence_incomplete"
+        );
+        assert_eq!(output_field(&fields, "harness_environment_count"), "5");
+        assert_eq!(output_field(&fields, "external_baseline_count"), "6");
+        assert_eq!(
+            output_field(&fields, "harness_environment_kind_order"),
+            "local,ci,container,foundry_optional,benchmark_extras_optional"
+        );
+        assert_eq!(
+            output_field(&fields, "baseline_engine_order"),
+            "spark,datafusion,polars,duckdb,dask,pandas"
+        );
+        assert_eq!(output_field(&fields, "local_harness_required"), "true");
+        assert_eq!(output_field(&fields, "ci_harness_required"), "true");
+        assert_eq!(output_field(&fields, "container_harness_required"), "true");
+        assert_eq!(
+            output_field(&fields, "foundry_optional_harness_required"),
+            "true"
+        );
+        assert_eq!(
+            output_field(&fields, "optional_benchmark_environment_required"),
+            "true"
+        );
+        assert_eq!(
+            output_field(&fields, "external_engines_as_runtime_dependencies_allowed"),
+            "false"
+        );
+        assert_eq!(
+            output_field(&fields, "baselines_comparison_only_runtime_dependency_free"),
+            "true"
+        );
+        assert_eq!(output_field(&fields, "side_effect_free"), "true");
+        assert_eq!(output_field(&fields, "fallback_attempted"), "false");
     }
 
     #[test]

@@ -94,6 +94,9 @@ Acceptance:
 - Spark baseline runner, external only.
 - Polars baseline runner, external only.
 - DataFusion baseline runner, external only.
+- DuckDB baseline runner, external only.
+- Dask baseline runner, external only.
+- pandas baseline runner, external only.
 - Stable comparison report dataset.
 - No runtime fallback.
 
@@ -168,13 +171,46 @@ Acceptance:
   runner contract fields and deterministic surface/baseline ordering.
 - Foundry remains optional example context in this RFC, never a required deployment target. Richer
   Foundry integration must follow RFC 0036 and cannot weaken no-fallback execution.
-- Spark, DataFusion, and Polars are external comparison harness targets only.
+- Spark, DataFusion, Polars, DuckDB, Dask, and pandas are external comparison harness targets only.
 - The report is side-effect-free: no package import, deployment, Foundry
   invocation, baseline runner execution, parser execution, runtime execution,
   filesystem/network/catalog/adapter probing, read/write IO, external publish,
   or fallback execution.
 - Real import/deployment, comparison dataset materialization, baseline runner
   scripts, and portability execution remain deferred until later CG-18 gates.
+
+### CG-18 import/deployment/baseline harness maturity
+
+The CG-18 maturity surface extends `UniversalHarnessReport` beyond the initial foundation by naming
+the required reproducible harness environments and optional baseline environments.
+
+Harness environments:
+- local package import and CLI binary resolution smoke
+- CI workspace/package smoke
+- container smoke
+- optional Foundry transform smoke
+- optional benchmark-extra environment smoke
+
+External baseline environments:
+- Spark
+- DataFusion
+- Polars
+- DuckDB
+- Dask
+- pandas
+
+Acceptance:
+- `UniversalHarnessReport` records all required harness environments in stable order.
+- `universal-harness-plan --format json` exposes environment counts, environment order, baseline
+  order, required local/CI/container/optional Foundry/optional benchmark harness flags, and
+  `external_engines_as_runtime_dependencies_allowed=false`.
+- External engines remain optional comparison-only environments and must not become ShardLoom
+  runtime dependencies.
+- Foundry remains optional context in RFC 0030; richer Foundry packaging and platform integration
+  remains governed by RFC 0036.
+- No harness execution, package publication, container publication, Foundry invocation, benchmark
+  execution, comparison dataset materialization, external engine invocation, runtime expansion, or
+  fallback execution is authorized by this maturity surface.
 
 
 ### Universal CLI JSON runner contract
