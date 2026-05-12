@@ -38,6 +38,15 @@ struct InlinePrefixedPayloadSpec {
     status_key: &'static str,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct InlineFieldSubsetPayloadSpec {
+    artifact_kind: &'static str,
+    emitted_key: &'static str,
+    id_key: &'static str,
+    status_key: &'static str,
+    payload_keys: &'static [&'static str],
+}
+
 const INLINE_PREFIXED_PAYLOAD_SPECS: &[InlinePrefixedPayloadSpec] = &[
     InlinePrefixedPayloadSpec {
         key_prefix: "local_count_native_io_",
@@ -73,6 +82,65 @@ const INLINE_PREFIXED_PAYLOAD_SPECS: &[InlinePrefixedPayloadSpec] = &[
         emitted_key: "streaming_batch_runtime_report_emitted",
         id_key: "streaming_batch_runtime_report_id",
         status_key: "streaming_batch_runtime_status",
+    },
+];
+
+const INLINE_FIELD_SUBSET_PAYLOAD_SPECS: &[InlineFieldSubsetPayloadSpec] = &[
+    InlineFieldSubsetPayloadSpec {
+        artifact_kind: "source_report",
+        emitted_key: "local_count_native_io_certificate_emitted",
+        id_key: "local_count_native_io_source_report_id",
+        status_key: "local_count_native_io_certificate_status",
+        payload_keys: LOCAL_COUNT_NATIVE_IO_SOURCE_REPORT_PAYLOAD_KEYS,
+    },
+    InlineFieldSubsetPayloadSpec {
+        artifact_kind: "source_pushdown_report",
+        emitted_key: "local_count_native_io_certificate_emitted",
+        id_key: "local_count_native_io_source_pushdown_report_id",
+        status_key: "local_count_native_io_certificate_status",
+        payload_keys: LOCAL_COUNT_NATIVE_IO_SOURCE_PUSHDOWN_REPORT_PAYLOAD_KEYS,
+    },
+    InlineFieldSubsetPayloadSpec {
+        artifact_kind: "sink_report",
+        emitted_key: "local_count_native_io_certificate_emitted",
+        id_key: "local_count_native_io_sink_report_id",
+        status_key: "local_count_native_io_certificate_status",
+        payload_keys: LOCAL_COUNT_NATIVE_IO_SINK_REPORT_PAYLOAD_KEYS,
+    },
+    InlineFieldSubsetPayloadSpec {
+        artifact_kind: "adapter_fidelity_report",
+        emitted_key: "local_count_native_io_certificate_emitted",
+        id_key: "local_count_native_io_adapter_fidelity_report_id",
+        status_key: "local_count_native_io_certificate_status",
+        payload_keys: LOCAL_COUNT_NATIVE_IO_ADAPTER_FIDELITY_REPORT_PAYLOAD_KEYS,
+    },
+    InlineFieldSubsetPayloadSpec {
+        artifact_kind: "source_report",
+        emitted_key: "local_primitive_native_io_certificate_emitted",
+        id_key: "local_primitive_native_io_source_report_id",
+        status_key: "local_primitive_native_io_certificate_status",
+        payload_keys: LOCAL_PRIMITIVE_NATIVE_IO_SOURCE_REPORT_PAYLOAD_KEYS,
+    },
+    InlineFieldSubsetPayloadSpec {
+        artifact_kind: "source_pushdown_report",
+        emitted_key: "local_primitive_native_io_certificate_emitted",
+        id_key: "local_primitive_native_io_source_pushdown_report_id",
+        status_key: "local_primitive_native_io_certificate_status",
+        payload_keys: LOCAL_PRIMITIVE_NATIVE_IO_SOURCE_PUSHDOWN_REPORT_PAYLOAD_KEYS,
+    },
+    InlineFieldSubsetPayloadSpec {
+        artifact_kind: "sink_report",
+        emitted_key: "local_primitive_native_io_certificate_emitted",
+        id_key: "local_primitive_native_io_sink_report_id",
+        status_key: "local_primitive_native_io_certificate_status",
+        payload_keys: LOCAL_PRIMITIVE_NATIVE_IO_SINK_REPORT_PAYLOAD_KEYS,
+    },
+    InlineFieldSubsetPayloadSpec {
+        artifact_kind: "adapter_fidelity_report",
+        emitted_key: "local_primitive_native_io_certificate_emitted",
+        id_key: "local_primitive_native_io_adapter_fidelity_report_id",
+        status_key: "local_primitive_native_io_certificate_status",
+        payload_keys: LOCAL_PRIMITIVE_NATIVE_IO_ADAPTER_FIDELITY_REPORT_PAYLOAD_KEYS,
     },
 ];
 
@@ -163,6 +231,31 @@ const BENCHMARK_CLAIM_EVIDENCE_REPORT_PAYLOAD_KEYS: &[&str] = &[
     "fallback_attempted",
 ];
 
+const INPUT_PLAN_SOURCE_REPORT_PAYLOAD_KEYS: &[&str] = &[
+    "mode",
+    "source_kind",
+    "adapter_kind",
+    "dataset_format",
+    "uri_scheme",
+    "capability_status",
+    "metadata_availability",
+    "fidelity",
+    "materialization_risk",
+    "effect_level",
+    "native_vortex",
+    "compatibility_structured",
+    "requires_credentials",
+    "side_effect_free",
+    "data_read",
+    "data_materialized",
+    "object_store_io",
+    "external_effects_executed",
+    "write_io",
+    "execution",
+    "plan_only",
+    "fallback_execution_allowed",
+];
+
 const STREAMING_PLAN_REPORT_PAYLOAD_KEYS: &[&str] = &[
     "mode",
     "status",
@@ -202,6 +295,96 @@ const STREAMING_BATCH_PLAN_REPORT_PAYLOAD_KEYS: &[&str] = &[
     "data_read",
     "data_decoded",
     "data_materialized",
+    "fallback_execution_allowed",
+];
+
+const LOCAL_COUNT_NATIVE_IO_SOURCE_REPORT_PAYLOAD_KEYS: &[&str] = &[
+    "local_count_native_io_source_kind",
+    "local_count_native_io_adapter_id",
+    "local_count_native_io_encoded_representation_preserved",
+    "local_count_native_io_streaming_capability",
+];
+
+const LOCAL_COUNT_NATIVE_IO_SOURCE_PUSHDOWN_REPORT_PAYLOAD_KEYS: &[&str] = &[
+    "local_count_native_io_pushdown_accepted_operations",
+    "local_count_native_io_pushdown_rejected_operations",
+    "local_count_native_io_pushdown_guarantee",
+    "local_count_native_io_representation_transitions",
+    "local_count_native_io_materialization_boundaries",
+    "local_count_native_io_materializing_transitions_have_boundaries",
+];
+
+const LOCAL_COUNT_NATIVE_IO_SINK_REPORT_PAYLOAD_KEYS: &[&str] = &[
+    "local_count_native_io_sink_target_format",
+    "local_count_native_io_sink_accepts_encoded",
+];
+
+const LOCAL_COUNT_NATIVE_IO_ADAPTER_FIDELITY_REPORT_PAYLOAD_KEYS: &[&str] =
+    &["local_count_native_io_adapter_materialization_required"];
+
+const LOCAL_PRIMITIVE_NATIVE_IO_SOURCE_REPORT_PAYLOAD_KEYS: &[&str] = &[
+    "local_primitive_native_io_source_kind",
+    "local_primitive_native_io_adapter_id",
+    "local_primitive_native_io_encoded_representation_preserved",
+    "local_primitive_native_io_streaming_capability",
+];
+
+const LOCAL_PRIMITIVE_NATIVE_IO_SOURCE_PUSHDOWN_REPORT_PAYLOAD_KEYS: &[&str] = &[
+    "local_primitive_native_io_pushdown_accepted_operations",
+    "local_primitive_native_io_pushdown_rejected_operations",
+    "local_primitive_native_io_pushdown_guarantee",
+    "local_primitive_native_io_representation_transitions",
+    "local_primitive_native_io_materialization_boundaries",
+    "local_primitive_native_io_materializing_transitions_have_boundaries",
+];
+
+const LOCAL_PRIMITIVE_NATIVE_IO_SINK_REPORT_PAYLOAD_KEYS: &[&str] = &[
+    "local_primitive_native_io_sink_target_format",
+    "local_primitive_native_io_sink_accepts_encoded",
+    "local_primitive_native_io_sink_requires_decoded_columnar",
+    "local_primitive_native_io_sink_requires_rows",
+    "local_primitive_native_io_sink_supports_streaming",
+];
+
+const LOCAL_PRIMITIVE_NATIVE_IO_ADAPTER_FIDELITY_REPORT_PAYLOAD_KEYS: &[&str] = &[
+    "local_primitive_native_io_adapter_materialization_required",
+    "local_primitive_native_io_adapter_encoded_representation_preserved",
+];
+
+const INPUT_ADAPTER_CAPABILITY_SNAPSHOT_KEYS: &[&str] = &[
+    "adapter_count",
+    "adapter_order",
+    "common_structured_adapter_order",
+    "critical_structured_adapter_order",
+    "lakehouse_adapter_order",
+    "object_store_adapter_order",
+    "catalog_adapter_order",
+    "effectful_adapter_order",
+    "unstructured_adapter_order",
+    "supported_adapter_count",
+    "planned_adapter_count",
+    "explicit_enablement_adapter_count",
+    "native_vortex_status",
+    "parquet_status",
+    "arrow_ipc_status",
+    "csv_status",
+    "jsonl_status",
+    "avro_status",
+    "orc_status",
+    "iceberg_compatible_status",
+    "delta_compatible_status",
+    "local_filesystem_status",
+    "s3_compatible_status",
+    "gcs_status",
+    "azure_blob_adls_status",
+    "http_range_status",
+    "local_catalog_status",
+    "hive_compatible_catalog_status",
+    "unstructured_text_status",
+    "plan_only",
+    "execution",
+    "write_io",
+    "external_effects_executed",
     "fallback_execution_allowed",
 ];
 
@@ -293,6 +476,12 @@ fn inline_report_payload_spec(command: &str) -> Option<InlineReportPayloadSpec> 
             artifact_kind: "benchmark_claim_evidence_report",
             status_key: "claim_gate_status",
             payload_keys: BENCHMARK_CLAIM_EVIDENCE_REPORT_PAYLOAD_KEYS,
+        }),
+        "input-plan" => Some(InlineReportPayloadSpec {
+            artifact_id_fallback: "input-plan.source",
+            artifact_kind: "source_report",
+            status_key: "capability_status",
+            payload_keys: INPUT_PLAN_SOURCE_REPORT_PAYLOAD_KEYS,
         }),
         "streaming-plan" => Some(InlineReportPayloadSpec {
             artifact_id_fallback: "streaming-plan.materialization-boundary",
@@ -395,6 +584,82 @@ fn inline_prefixed_payloads(
         .collect()
 }
 
+fn inline_field_subset_payload(
+    command: &str,
+    spec: InlineFieldSubsetPayloadSpec,
+    fields: &[(String, String)],
+) -> Option<OutputTypedArtifact> {
+    if field_value(fields, spec.emitted_key) != Some("true") {
+        return None;
+    }
+    let artifact_id = inline_payload_artifact_id(
+        command,
+        spec.artifact_kind,
+        field_value(fields, spec.id_key),
+    );
+    let status = field_value(fields, spec.status_key).unwrap_or("available");
+    let mut artifact = OutputTypedArtifact::new(artifact_id, spec.artifact_kind, status);
+    for key in spec.payload_keys {
+        if let Some(value) = field_value(fields, key) {
+            artifact = artifact.with_field(*key, value);
+        }
+    }
+    if artifact.payload.fields.is_empty() {
+        None
+    } else {
+        Some(artifact)
+    }
+}
+
+fn inline_field_subset_payloads(
+    command: &str,
+    fields: &[(String, String)],
+) -> Vec<OutputTypedArtifact> {
+    INLINE_FIELD_SUBSET_PAYLOAD_SPECS
+        .iter()
+        .filter_map(|spec| inline_field_subset_payload(command, *spec, fields))
+        .collect()
+}
+
+fn command_capability_snapshot_keys(command: &str) -> Option<&'static [&'static str]> {
+    match command {
+        "input-adapters" => Some(INPUT_ADAPTER_CAPABILITY_SNAPSHOT_KEYS),
+        _ => None,
+    }
+}
+
+fn command_capability_snapshot_fields(
+    command: &str,
+    fields: &[(String, String)],
+) -> Vec<(String, String)> {
+    let Some(keys) = command_capability_snapshot_keys(command) else {
+        return Vec::new();
+    };
+    keys.iter()
+        .filter_map(|key| {
+            field_value(fields, key).map(|value| ((*key).to_string(), value.to_string()))
+        })
+        .collect()
+}
+
+fn apply_command_capability_snapshot_fields(
+    mut envelope: OutputEnvelope,
+    fields: Vec<(String, String)>,
+) -> OutputEnvelope {
+    for (key, value) in fields {
+        if envelope
+            .capability_snapshot
+            .fields
+            .iter()
+            .any(|(existing_key, _)| existing_key == &key)
+        {
+            continue;
+        }
+        envelope = envelope.with_capability_snapshot_field(key, value);
+    }
+    envelope
+}
+
 fn typed_envelope_ref_slot(key: &str) -> Option<(TypedEnvelopeRefSlot, &'static str)> {
     let normalized = key.to_ascii_lowercase();
     if !is_reference_field_key(&normalized) {
@@ -418,6 +683,10 @@ fn typed_envelope_ref_slot(key: &str) -> Option<(TypedEnvelopeRefSlot, &'static 
         Some((TypedEnvelopeRefSlot::ArtifactRef, "benchmark_row"))
     } else if normalized.contains("foundry") && normalized.contains("report") {
         Some((TypedEnvelopeRefSlot::ArtifactRef, "foundry_boundary_report"))
+    } else if normalized.contains("source_pushdown") && normalized.contains("report") {
+        Some((TypedEnvelopeRefSlot::ArtifactRef, "source_pushdown_report"))
+    } else if normalized.contains("adapter_fidelity") && normalized.contains("report") {
+        Some((TypedEnvelopeRefSlot::ArtifactRef, "adapter_fidelity_report"))
     } else if normalized.contains("source") && normalized.contains("report") {
         Some((TypedEnvelopeRefSlot::ArtifactRef, "source_report"))
     } else if normalized.contains("sink") && normalized.contains("report") {
@@ -536,14 +805,21 @@ pub(crate) fn apply_typed_envelope_fields(
 ) -> OutputEnvelope {
     let inline_report = inline_report_payload(command, &fields);
     let inline_prefixed_payloads = inline_prefixed_payloads(command, &fields);
+    let inline_field_subset_payloads = inline_field_subset_payloads(command, &fields);
+    let command_capability_snapshot_fields = command_capability_snapshot_fields(command, &fields);
     let mut envelope = envelope;
     for (key, value) in fields {
         envelope = apply_typed_envelope_field(envelope, key, value);
     }
+    envelope =
+        apply_command_capability_snapshot_fields(envelope, command_capability_snapshot_fields);
     if let Some(artifact) = inline_report {
         envelope = envelope.with_artifact(artifact);
     }
     for artifact in inline_prefixed_payloads {
+        envelope = envelope.with_artifact(artifact);
+    }
+    for artifact in inline_field_subset_payloads {
         envelope = envelope.with_artifact(artifact);
     }
     envelope
@@ -591,6 +867,34 @@ mod tests {
             envelope.artifact_refs[0].uri.as_deref(),
             Some("artifacts/materialization.json")
         );
+    }
+
+    #[test]
+    fn native_io_subreport_ref_fields_attach_specific_artifact_refs() {
+        let envelope = apply_typed_envelope_fields(
+            OutputEnvelope::success("test", "ok", "ok"),
+            "test",
+            vec![
+                (
+                    "source_pushdown_report_ref".to_string(),
+                    "artifacts/source-pushdown.json".to_string(),
+                ),
+                (
+                    "adapter_fidelity_report_ref".to_string(),
+                    "artifacts/adapter-fidelity.json".to_string(),
+                ),
+            ],
+        );
+
+        assert_eq!(envelope.artifact_refs.len(), 2);
+        assert!(envelope.artifact_refs.iter().any(|reference| {
+            reference.kind == "source_pushdown_report"
+                && reference.uri.as_deref() == Some("artifacts/source-pushdown.json")
+        }));
+        assert!(envelope.artifact_refs.iter().any(|reference| {
+            reference.kind == "adapter_fidelity_report"
+                && reference.uri.as_deref() == Some("artifacts/adapter-fidelity.json")
+        }));
     }
 
     #[test]
@@ -681,9 +985,8 @@ mod tests {
         )));
     }
 
-    #[test]
-    fn command_fields_attach_inline_emitted_runtime_certificate_payloads() {
-        let envelope = apply_typed_envelope_fields(
+    fn emitted_runtime_certificate_envelope() -> OutputEnvelope {
+        apply_typed_envelope_fields(
             OutputEnvelope::success("vortex-run", "ok", "ok"),
             "vortex-run",
             vec![
@@ -704,6 +1007,22 @@ mod tests {
                     "vortex_file".to_string(),
                 ),
                 (
+                    "local_primitive_native_io_adapter_id".to_string(),
+                    "vortex-local".to_string(),
+                ),
+                (
+                    "local_primitive_native_io_pushdown_guarantee".to_string(),
+                    "metadata_only".to_string(),
+                ),
+                (
+                    "local_primitive_native_io_sink_target_format".to_string(),
+                    "vortex".to_string(),
+                ),
+                (
+                    "local_primitive_native_io_adapter_materialization_required".to_string(),
+                    "false".to_string(),
+                ),
+                (
                     "local_primitive_execution_certificate_emitted".to_string(),
                     "true".to_string(),
                 ),
@@ -720,9 +1039,14 @@ mod tests {
                     "vortex-local-count-where-struct-five".to_string(),
                 ),
             ],
-        );
+        )
+    }
 
-        assert_eq!(envelope.artifacts.len(), 2);
+    #[test]
+    fn command_fields_attach_inline_emitted_runtime_certificate_payloads() {
+        let envelope = emitted_runtime_certificate_envelope();
+
+        assert_eq!(envelope.artifacts.len(), 6);
         assert!(envelope.artifacts.iter().any(|artifact| {
             artifact.artifact_id == "native-io.local.fixture"
                 && artifact.artifact_kind == "native_io_certificate"
@@ -739,6 +1063,48 @@ mod tests {
                 && artifact.payload.fields.contains(&(
                     "local_primitive_execution_certificate_fixture_id".to_string(),
                     "vortex-local-count-where-struct-five".to_string(),
+                ))
+        }));
+    }
+
+    #[test]
+    fn command_fields_attach_inline_emitted_native_io_subreports() {
+        let envelope = emitted_runtime_certificate_envelope();
+
+        assert!(envelope.artifacts.iter().any(|artifact| {
+            artifact.artifact_id == "vortex-run.source_report"
+                && artifact.artifact_kind == "source_report"
+                && artifact.status == "certified"
+                && artifact.payload.fields.contains(&(
+                    "local_primitive_native_io_adapter_id".to_string(),
+                    "vortex-local".to_string(),
+                ))
+        }));
+        assert!(envelope.artifacts.iter().any(|artifact| {
+            artifact.artifact_id == "vortex-run.source_pushdown_report"
+                && artifact.artifact_kind == "source_pushdown_report"
+                && artifact.status == "certified"
+                && artifact.payload.fields.contains(&(
+                    "local_primitive_native_io_pushdown_guarantee".to_string(),
+                    "metadata_only".to_string(),
+                ))
+        }));
+        assert!(envelope.artifacts.iter().any(|artifact| {
+            artifact.artifact_id == "vortex-run.sink_report"
+                && artifact.artifact_kind == "sink_report"
+                && artifact.status == "certified"
+                && artifact.payload.fields.contains(&(
+                    "local_primitive_native_io_sink_target_format".to_string(),
+                    "vortex".to_string(),
+                ))
+        }));
+        assert!(envelope.artifacts.iter().any(|artifact| {
+            artifact.artifact_id == "vortex-run.adapter_fidelity_report"
+                && artifact.artifact_kind == "adapter_fidelity_report"
+                && artifact.status == "certified"
+                && artifact.payload.fields.contains(&(
+                    "local_primitive_native_io_adapter_materialization_required".to_string(),
+                    "false".to_string(),
                 ))
         }));
     }
@@ -847,5 +1213,78 @@ mod tests {
             "materialization_boundary".to_string(),
             "full_materialization_boundary".to_string()
         )));
+    }
+
+    #[test]
+    fn command_fields_attach_inline_input_source_report_payload() {
+        let envelope = apply_typed_envelope_fields(
+            OutputEnvelope::success("input-plan", "ok", "ok"),
+            "input-plan",
+            vec![
+                ("mode".to_string(), "input_plan".to_string()),
+                ("source_kind".to_string(), "parquet".to_string()),
+                ("adapter_kind".to_string(), "structured_file".to_string()),
+                ("dataset_format".to_string(), "parquet".to_string()),
+                ("uri_scheme".to_string(), "s3".to_string()),
+                ("capability_status".to_string(), "planned".to_string()),
+                ("data_read".to_string(), "false".to_string()),
+                (
+                    "fallback_execution_allowed".to_string(),
+                    "false".to_string(),
+                ),
+            ],
+        );
+
+        assert_eq!(envelope.artifacts.len(), 1);
+        assert_eq!(envelope.artifacts[0].artifact_id, "input-plan.source");
+        assert_eq!(envelope.artifacts[0].artifact_kind, "source_report");
+        assert_eq!(envelope.artifacts[0].status, "planned");
+        assert!(
+            envelope.artifacts[0]
+                .payload
+                .fields
+                .contains(&("source_kind".to_string(), "parquet".to_string()))
+        );
+    }
+
+    #[test]
+    fn command_fields_enrich_input_adapter_capability_snapshot() {
+        let envelope = apply_typed_envelope_fields(
+            OutputEnvelope::success("input-adapters", "ok", "ok"),
+            "input-adapters",
+            vec![
+                ("mode".to_string(), "input_adapters".to_string()),
+                ("adapter_count".to_string(), "32".to_string()),
+                ("supported_adapter_count".to_string(), "0".to_string()),
+                ("planned_adapter_count".to_string(), "22".to_string()),
+                ("native_vortex_status".to_string(), "planned".to_string()),
+                (
+                    "fallback_execution_allowed".to_string(),
+                    "false".to_string(),
+                ),
+            ],
+        );
+
+        assert!(
+            envelope
+                .capability_snapshot
+                .fields
+                .contains(&("adapter_count".to_string(), "32".to_string()))
+        );
+        assert!(
+            envelope
+                .capability_snapshot
+                .fields
+                .contains(&("native_vortex_status".to_string(), "planned".to_string()))
+        );
+        assert_eq!(
+            envelope
+                .capability_snapshot
+                .fields
+                .iter()
+                .filter(|(key, _)| key == "supported_adapter_count")
+                .count(),
+            1
+        );
     }
 }

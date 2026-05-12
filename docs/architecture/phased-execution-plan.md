@@ -159,6 +159,9 @@ actionable work.
     - [x] Add inline materialization-boundary report payloads for `streaming-plan` and
           `streaming-batch-plan`, plus a typed `streaming_batch_runtime_report` payload for emitted
           Vortex streaming-batch runtime field groups.
+    - [x] Add inline `input-plan` source reports, `input-adapters` capability snapshot enrichment,
+          and emitted local Native I/O source/pushdown/sink/adapter-fidelity subreports for local
+          CountAll and Vortex primitive certificate field groups.
   - [ ] Expand golden JSON fixtures for success, unsupported, blocked, certified execution,
         evidence-incomplete execution, source-backed execution, benchmark rows, missing binary, and
         Foundry boundary reports.
