@@ -153,7 +153,7 @@ while broader prepared/source-backed extraction continues.
 
 The Vortex primitive execution family now starts its physical split in
 `shardloom-cli/src/vortex_primitive_execution.rs` with `vortex-count`, `vortex-count-where`,
-`vortex-project`, `vortex-filter-project`, and `vortex-query-trace`. Filter-only and local engine
+`vortex-project`, `vortex-filter`, `vortex-filter-project`, and `vortex-query-trace`. Local engine
 handlers remain staged for later extraction.
 
 Command family classification lives in `shardloom-cli/src/command_family.rs` and is emitted in the
