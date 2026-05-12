@@ -66,6 +66,21 @@ fn correctness_harness_aggregates_current_cg5_evidence_without_execution() {
         ]
     );
     assert!(report.decoded_reference_output_coverage_complete);
+    assert_eq!(report.not_yet_defined_fixture_count, 0);
+    assert_eq!(report.deferred_fixture_family_count, 8);
+    assert_eq!(
+        report.deferred_fixture_family_id_order,
+        vec![
+            "null-semantics".to_string(),
+            "pruning-correctness".to_string(),
+            "encoded-vs-decoded-reference".to_string(),
+            "nested-data-edge-corpus".to_string(),
+            "dictionary-encoded-edge-corpus".to_string(),
+            "sparse-validity-edge-corpus".to_string(),
+            "run-length-edge-corpus".to_string(),
+            "temporal-semantics".to_string(),
+        ]
+    );
     assert_eq!(report.baseline_count, 7);
     assert_eq!(report.external_oracle_result_artifact_count, 63);
     assert_eq!(report.external_oracle_result_populated_count, 0);
@@ -78,7 +93,7 @@ fn correctness_harness_aggregates_current_cg5_evidence_without_execution() {
     assert_eq!(
         report.benchmark_claim_blocker_order,
         vec![
-            "not_yet_defined_fixtures".to_string(),
+            "deferred_fixture_families".to_string(),
             "external_oracle_results_not_populated".to_string(),
             "property_fuzz_execution_not_performed".to_string()
         ]

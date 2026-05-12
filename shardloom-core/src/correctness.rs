@@ -227,6 +227,7 @@ pub enum ExpectedOutcome {
     Unsupported { feature: String },
     MetadataOnly,
     NoSideEffects,
+    DeferredFixtureFamily { requirement: String },
     NotYetDefined,
 }
 impl ExpectedOutcome {
@@ -241,6 +242,9 @@ impl ExpectedOutcome {
             Self::Unsupported { feature } => format!("unsupported: {feature}"),
             Self::MetadataOnly => "metadata-only expectation".to_string(),
             Self::NoSideEffects => "plan-only no-side-effect expectation".to_string(),
+            Self::DeferredFixtureFamily { requirement } => {
+                format!("deferred fixture family required: {requirement}")
+            }
             Self::NotYetDefined => "not yet defined".to_string(),
         }
     }
@@ -531,6 +535,12 @@ fn generated_fixture(
     fixture
 }
 
+fn deferred_fixture_family(requirement: &str) -> ExpectedOutcome {
+    ExpectedOutcome::DeferredFixtureFamily {
+        requirement: requirement.to_string(),
+    }
+}
+
 fn add_decoded_reference_artifact(fixture: &mut CorrectnessFixture, suffix: &str) {
     fixture.add_reference_artifact(ReferenceArtifact::decoded_reference_output(
         format!("{}.decoded-reference.{suffix}", fixture.id.as_str()),
@@ -806,6 +816,108 @@ fn add_property_fuzz_foundation(plan: &mut CorrectnessValidationPlan) {
     );
 }
 
+fn add_deferred_fixture_family_requirement(
+    plan: &mut CorrectnessValidationPlan,
+    id: &str,
+    area: SemanticArea,
+    edge: EdgeCase,
+    requirement: &str,
+) {
+    plan.add_fixture(generated_fixture(
+        id,
+        area,
+        edge,
+        deferred_fixture_family(requirement),
+    ));
+}
+
+fn add_remaining_foundation_fixture_requirements(plan: &mut CorrectnessValidationPlan) {
+    add_deferred_fixture_family_requirement(
+        plan,
+        "null-semantics",
+        SemanticArea::Nulls,
+        EdgeCase::AllNull,
+        "native null comparison, null filtering, and all-null aggregate reference outputs",
+    );
+    plan.add_fixture(generated_fixture(
+        "metadata-only-correctness",
+        SemanticArea::MetadataOnly,
+        EdgeCase::MissingStatistics,
+        ExpectedOutcome::MetadataOnly,
+    ));
+    add_deferred_fixture_family_requirement(
+        plan,
+        "pruning-correctness",
+        SemanticArea::Pruning,
+        EdgeCase::ApproximateStatistics,
+        "statistics-pruning exactness and conservative approximate-statistics reference cases",
+    );
+    add_deferred_fixture_family_requirement(
+        plan,
+        "encoded-vs-decoded-reference",
+        SemanticArea::EncodedExecution,
+        EdgeCase::UnsupportedEncoding,
+        "encoded-vs-decoded reference parity for unsupported or partially supported encodings",
+    );
+    plan.add_fixture(generated_fixture(
+        "translation-metadata-loss",
+        SemanticArea::Translation,
+        EdgeCase::MetadataLoss,
+        ExpectedOutcome::Diagnostic {
+            code: DiagnosticCode::MetadataLoss,
+        },
+    ));
+    plan.add_fixture(generated_fixture(
+        "unsupported-diagnostics",
+        SemanticArea::UnsupportedDiagnostics,
+        EdgeCase::UnsupportedPlanShape,
+        ExpectedOutcome::Unsupported {
+            feature: "unsupported plan shape".to_string(),
+        },
+    ));
+    plan.add_fixture(generated_fixture(
+        "plan-only-no-side-effects",
+        SemanticArea::ExternalEffects,
+        EdgeCase::EmptyInput,
+        ExpectedOutcome::NoSideEffects,
+    ));
+    add_deferred_fixture_family_requirement(
+        plan,
+        "nested-data-edge-corpus",
+        SemanticArea::NestedData,
+        EdgeCase::NestedStructList,
+        "nested struct/list fixture corpus with ShardLoomNative equality and projection semantics",
+    );
+    add_deferred_fixture_family_requirement(
+        plan,
+        "dictionary-encoded-edge-corpus",
+        SemanticArea::EncodedExecution,
+        EdgeCase::DictionaryEncoded,
+        "dictionary-encoded primitive fixture corpus with decoded reference outputs",
+    );
+    add_deferred_fixture_family_requirement(
+        plan,
+        "sparse-validity-edge-corpus",
+        SemanticArea::SelectionVectors,
+        EdgeCase::SparseValidity,
+        "sparse-validity selection-vector fixture corpus with null-preservation references",
+    );
+    add_deferred_fixture_family_requirement(
+        plan,
+        "run-length-edge-corpus",
+        SemanticArea::EncodedExecution,
+        EdgeCase::RunLengthEncoded,
+        "run-length encoded primitive fixture corpus with run-aware reference outputs",
+    );
+    add_deferred_fixture_family_requirement(
+        plan,
+        "temporal-semantics",
+        SemanticArea::Temporal,
+        EdgeCase::TemporalValues,
+        "temporal value fixture corpus with timestamp/date/timezone semantic references",
+    );
+}
+
 fn default_external_oracle_baselines() -> Vec<DifferentialBaseline> {
     [
         BaselineEngine::Spark,
@@ -883,86 +995,7 @@ impl CorrectnessValidationPlan {
         add_prepared_encoded_foundation_fixtures(&mut plan);
         add_edge_case_executable_fixtures(&mut plan);
         add_property_fuzz_foundation(&mut plan);
-        for fixture in [
-            generated_fixture(
-                "null-semantics",
-                SemanticArea::Nulls,
-                EdgeCase::AllNull,
-                ExpectedOutcome::NotYetDefined,
-            ),
-            generated_fixture(
-                "metadata-only-correctness",
-                SemanticArea::MetadataOnly,
-                EdgeCase::MissingStatistics,
-                ExpectedOutcome::MetadataOnly,
-            ),
-            generated_fixture(
-                "pruning-correctness",
-                SemanticArea::Pruning,
-                EdgeCase::ApproximateStatistics,
-                ExpectedOutcome::NotYetDefined,
-            ),
-            generated_fixture(
-                "encoded-vs-decoded-reference",
-                SemanticArea::EncodedExecution,
-                EdgeCase::UnsupportedEncoding,
-                ExpectedOutcome::NotYetDefined,
-            ),
-            generated_fixture(
-                "translation-metadata-loss",
-                SemanticArea::Translation,
-                EdgeCase::MetadataLoss,
-                ExpectedOutcome::Diagnostic {
-                    code: DiagnosticCode::MetadataLoss,
-                },
-            ),
-            generated_fixture(
-                "unsupported-diagnostics",
-                SemanticArea::UnsupportedDiagnostics,
-                EdgeCase::UnsupportedPlanShape,
-                ExpectedOutcome::Unsupported {
-                    feature: "unsupported plan shape".to_string(),
-                },
-            ),
-            generated_fixture(
-                "plan-only-no-side-effects",
-                SemanticArea::ExternalEffects,
-                EdgeCase::EmptyInput,
-                ExpectedOutcome::NoSideEffects,
-            ),
-            generated_fixture(
-                "nested-data-edge-corpus",
-                SemanticArea::NestedData,
-                EdgeCase::NestedStructList,
-                ExpectedOutcome::NotYetDefined,
-            ),
-            generated_fixture(
-                "dictionary-encoded-edge-corpus",
-                SemanticArea::EncodedExecution,
-                EdgeCase::DictionaryEncoded,
-                ExpectedOutcome::NotYetDefined,
-            ),
-            generated_fixture(
-                "sparse-validity-edge-corpus",
-                SemanticArea::SelectionVectors,
-                EdgeCase::SparseValidity,
-                ExpectedOutcome::NotYetDefined,
-            ),
-            generated_fixture(
-                "run-length-edge-corpus",
-                SemanticArea::EncodedExecution,
-                EdgeCase::RunLengthEncoded,
-                ExpectedOutcome::NotYetDefined,
-            ),
-            generated_fixture(
-                "temporal-semantics",
-                SemanticArea::Temporal,
-                EdgeCase::TemporalValues,
-                ExpectedOutcome::NotYetDefined,
-            ),
-        ] {
-            plan.add_fixture(fixture);
-        }
+        add_remaining_foundation_fixture_requirements(&mut plan);
         for baseline in default_external_oracle_baselines() {
             plan.add_baseline(baseline);
         }
@@ -1148,6 +1181,29 @@ impl CorrectnessValidationPlan {
             .filter(|fixture| fixture.expected == ExpectedOutcome::NotYetDefined)
             .count()
     }
+    pub fn deferred_fixture_family_count(&self) -> usize {
+        self.fixtures
+            .iter()
+            .filter(|fixture| {
+                matches!(
+                    fixture.expected,
+                    ExpectedOutcome::DeferredFixtureFamily { .. }
+                )
+            })
+            .count()
+    }
+    pub fn deferred_fixture_family_id_order(&self) -> Vec<&str> {
+        self.fixtures
+            .iter()
+            .filter(|fixture| {
+                matches!(
+                    fixture.expected,
+                    ExpectedOutcome::DeferredFixtureFamily { .. }
+                )
+            })
+            .map(|fixture| fixture.id.as_str())
+            .collect()
+    }
     pub fn diagnostic_expected_output_count(&self) -> usize {
         self.fixtures
             .iter()
@@ -1317,6 +1373,8 @@ pub struct CorrectnessDifferentialHarnessReport {
     pub decoded_reference_output_coverage_complete: bool,
     pub executable_expected_output_count: usize,
     pub not_yet_defined_fixture_count: usize,
+    pub deferred_fixture_family_count: usize,
+    pub deferred_fixture_family_id_order: Vec<String>,
     pub unsupported_diagnostic_fixture_count: usize,
     pub required_edge_case_count: usize,
     pub covered_required_edge_case_count: usize,
@@ -1458,6 +1516,12 @@ pub fn plan_correctness_differential_harness(
         plan.decoded_reference_output_coverage_complete();
     let executable_expected_output_count = plan.executable_expected_output_count();
     let not_yet_defined_fixture_count = plan.not_yet_defined_fixture_count();
+    let deferred_fixture_family_count = plan.deferred_fixture_family_count();
+    let deferred_fixture_family_id_order = plan
+        .deferred_fixture_family_id_order()
+        .into_iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>();
     let unsupported_diagnostic_fixture_count = plan.unsupported_diagnostic_fixture_count();
     let required_edge_case_count =
         CorrectnessValidationPlan::required_foundation_edge_cases().len();
@@ -1497,6 +1561,7 @@ pub fn plan_correctness_differential_harness(
     let property_fuzz_execution_performed = false;
     let benchmark_claim_blocker_order = correctness_benchmark_claim_blockers(
         not_yet_defined_fixture_count,
+        deferred_fixture_family_count,
         decoded_reference_output_coverage_complete,
         external_oracle_result_artifact_count,
         external_oracle_result_populated_count,
@@ -1539,6 +1604,7 @@ pub fn plan_correctness_differential_harness(
     let diagnostics = correctness_harness_diagnostics(
         &blocked_surface_order,
         not_yet_defined_fixture_count,
+        deferred_fixture_family_count,
         status,
     );
 
@@ -1559,6 +1625,8 @@ pub fn plan_correctness_differential_harness(
         decoded_reference_output_coverage_complete,
         executable_expected_output_count,
         not_yet_defined_fixture_count,
+        deferred_fixture_family_count,
+        deferred_fixture_family_id_order,
         unsupported_diagnostic_fixture_count,
         required_edge_case_count,
         covered_required_edge_case_count,
@@ -1653,6 +1721,7 @@ fn correctness_harness_blocked_surfaces(
 #[allow(clippy::fn_params_excessive_bools, clippy::too_many_arguments)]
 fn correctness_benchmark_claim_blockers(
     not_yet_defined_fixture_count: usize,
+    deferred_fixture_family_count: usize,
     decoded_reference_output_coverage_complete: bool,
     external_oracle_result_artifact_count: usize,
     external_oracle_result_populated_count: usize,
@@ -1666,6 +1735,9 @@ fn correctness_benchmark_claim_blockers(
     let mut blockers = Vec::new();
     if not_yet_defined_fixture_count > 0 {
         blockers.push("not_yet_defined_fixtures".to_string());
+    }
+    if deferred_fixture_family_count > 0 {
+        blockers.push("deferred_fixture_families".to_string());
     }
     if !decoded_reference_output_coverage_complete {
         blockers.push("decoded_reference_outputs".to_string());
@@ -1693,6 +1765,7 @@ fn correctness_benchmark_claim_blockers(
 fn correctness_harness_diagnostics(
     blocked_surfaces: &[String],
     not_yet_defined_fixture_count: usize,
+    deferred_fixture_family_count: usize,
     status: CorrectnessDifferentialHarnessStatus,
 ) -> Vec<Diagnostic> {
     if status == CorrectnessDifferentialHarnessStatus::UnsafeFallbackPolicy {
@@ -1718,9 +1791,10 @@ fn correctness_harness_diagnostics(
         "correctness harness evidence is incomplete",
         Some("correctness_differential_harness".to_string()),
         Some(format!(
-            "blocked_surfaces={}; not_yet_defined_fixtures={}",
+            "blocked_surfaces={}; not_yet_defined_fixtures={}; deferred_fixture_families={}",
             blocked_surfaces.join(","),
-            not_yet_defined_fixture_count
+            not_yet_defined_fixture_count,
+            deferred_fixture_family_count
         )),
         Some(
             "Add decoded reference outputs, property/fuzz evidence, and resolved fixture expectations before opening production or competitive benchmark claims.".to_string(),
@@ -1888,6 +1962,15 @@ mod tests {
         );
     }
     #[test]
+    fn expected_outcome_deferred_fixture_family_no_exec() {
+        assert!(
+            !ExpectedOutcome::DeferredFixtureFamily {
+                requirement: "fixture family".to_string()
+            }
+            .requires_execution()
+        );
+    }
+    #[test]
     fn expected_outcome_rows_exec() {
         assert!(ExpectedOutcome::Rows { row_count: None }.requires_execution());
     }
@@ -1942,7 +2025,21 @@ mod tests {
         assert_eq!(plan.decoded_reference_output_count(), 18);
         assert!(plan.decoded_reference_output_coverage_complete());
         assert_eq!(plan.executable_expected_output_count(), 18);
-        assert_eq!(plan.not_yet_defined_fixture_count(), 8);
+        assert_eq!(plan.not_yet_defined_fixture_count(), 0);
+        assert_eq!(plan.deferred_fixture_family_count(), 8);
+        assert_eq!(
+            plan.deferred_fixture_family_id_order(),
+            vec![
+                "null-semantics",
+                "pruning-correctness",
+                "encoded-vs-decoded-reference",
+                "nested-data-edge-corpus",
+                "dictionary-encoded-edge-corpus",
+                "sparse-validity-edge-corpus",
+                "run-length-edge-corpus",
+                "temporal-semantics"
+            ]
+        );
         assert_eq!(plan.diagnostic_expected_output_count(), 1);
         assert_eq!(plan.unsupported_expected_output_count(), 1);
         assert_eq!(plan.baseline_count(), 7);
@@ -1990,6 +2087,8 @@ mod tests {
         assert_eq!(report.fixture_count, 34);
         assert_eq!(report.golden_fixture_count, 19);
         assert_eq!(report.executable_expected_output_count, 18);
+        assert_eq!(report.not_yet_defined_fixture_count, 0);
+        assert_eq!(report.deferred_fixture_family_count, 8);
         assert_eq!(report.fixtures_with_source_ref_count, 16);
         assert_eq!(report.source_backed_edge_fixture_count, 9);
         assert_eq!(report.reference_artifact_count, 18);
@@ -2009,7 +2108,7 @@ mod tests {
         assert_eq!(
             report.benchmark_claim_blocker_order,
             vec![
-                "not_yet_defined_fixtures".to_string(),
+                "deferred_fixture_families".to_string(),
                 "external_oracle_results_not_populated".to_string(),
                 "property_fuzz_execution_not_performed".to_string()
             ]

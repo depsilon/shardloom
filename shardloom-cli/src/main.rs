@@ -1009,6 +1009,14 @@ fn correctness_plan_fields(plan: &CorrectnessValidationPlan) -> Vec<(String, Str
             plan.not_yet_defined_fixture_count().to_string(),
         ),
         (
+            "deferred_fixture_family_count".to_string(),
+            plan.deferred_fixture_family_count().to_string(),
+        ),
+        (
+            "deferred_fixture_family_id_order".to_string(),
+            plan.deferred_fixture_family_id_order().join(","),
+        ),
+        (
             "diagnostic_expected_output_count".to_string(),
             plan.diagnostic_expected_output_count().to_string(),
         ),
@@ -1171,6 +1179,16 @@ fn correctness_harness_fields(
         &mut fields,
         "not_yet_defined_fixture_count",
         report.not_yet_defined_fixture_count,
+    );
+    push_count_field(
+        &mut fields,
+        "deferred_fixture_family_count",
+        report.deferred_fixture_family_count,
+    );
+    push_field(
+        &mut fields,
+        "deferred_fixture_family_id_order",
+        &report.deferred_fixture_family_id_order.join(","),
     );
     push_count_field(
         &mut fields,
@@ -31696,6 +31714,12 @@ mod tests {
             output_field(&fields, "source_backed_edge_fixture_count"),
             "9"
         );
+        assert_eq!(output_field(&fields, "not_yet_defined_fixture_count"), "0");
+        assert_eq!(output_field(&fields, "deferred_fixture_family_count"), "8");
+        assert!(
+            output_field(&fields, "deferred_fixture_family_id_order")
+                .contains("encoded-vs-decoded-reference")
+        );
         assert_eq!(
             output_field(&fields, "external_oracle_result_artifact_count"),
             "63"
@@ -31718,7 +31742,7 @@ mod tests {
         );
         assert_eq!(
             output_field(&fields, "benchmark_claim_blocker_order"),
-            "not_yet_defined_fixtures,external_oracle_results_not_populated,property_fuzz_execution_not_performed"
+            "deferred_fixture_families,external_oracle_results_not_populated,property_fuzz_execution_not_performed"
         );
         assert_eq!(
             output_field(&fields, "property_fuzz_execution_performed"),
