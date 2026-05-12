@@ -76,6 +76,11 @@ Supporting docs:
     contracts.
   - Status rule: records lessons and guardrails only; it does not authorize dependencies, runtime
     behavior, or CG completion.
+- `docs/architecture/benchmark-suite-catalog.md`
+  - Role: CG-6.25 benchmark-suite catalog and Priority 2.7 source-backed correctness/benchmark
+    matrix orientation.
+  - Status rule: records matrix/catalog report surfaces and claim blockers; comparative benchmark
+    execution remains a separate planned/release-readiness action.
 - `docs/architecture/incumbent-gap-opportunity-map.md`, `lakehouse-value-prop-compatibility.md`,
   `universal-input-contract.md`, and `spill-reservation-lifecycle-integration.md`
   - Role: reference maps and constraints.
@@ -367,36 +372,38 @@ not by numeric CG order.
   - [x] Keep the lane report-only: no new upstream Vortex API calls, object-store I/O, writes,
         GPU/device execution, external query-engine invocation, managed-platform benchmark lane,
         runtime support claim, or fallback execution.
-- [ ] Priority 2.7 - source-backed correctness/benchmark population and benchmark-suite overhaul
-  - [ ] Populate the source-backed correctness and benchmark matrix for current reader/source-backed
+- [x] Priority 2.7 - source-backed correctness/benchmark population and benchmark-suite overhaul
+  - [x] Populate the source-backed correctness and benchmark matrix for current reader/source-backed
         encoded paths.
-    - [ ] Include prepared-batch-only encoded filter, projection, and filter-project rows.
-    - [ ] Include source-bound encoded filter, projection, and filter-project rows.
-    - [ ] Include reader-backed constant, dictionary, and run-end/run-length kernel-input
+    - [x] Include prepared-batch-only encoded filter, projection, and filter-project rows.
+    - [x] Include source-bound encoded filter, projection, and filter-project rows.
+    - [x] Include reader-backed constant, dictionary, and run-end/run-length kernel-input
           filter/projection/filter-project rows where executable evidence exists.
-    - [ ] Include blocked sparse, nullable dictionary/RLE, device-buffer, nested, and extension
+    - [x] Include blocked sparse, nullable dictionary/RLE, device-buffer, nested, and extension
           dtype rows with deterministic blockers and `fallback_attempted=false`.
-    - [ ] Require source URI, split refs, provider kind/API surface, Vortex version, row counts,
+    - [x] Require source URI, split refs, provider kind/API surface, Vortex version, row counts,
           selected/projected counts, representation transitions, residual executor, execution
           certificate ref, Native I/O certificate ref, correctness fixture/ref-output ref,
           benchmark row ref, Rust performance profile, and no-fallback evidence for executable
           rows.
-  - [ ] Add `CG-6.25 / Platform-learning benchmark and capability hardening` as a local-first,
+    - [x] Keep source-backed performance claims blocked until measured benchmark rows, correctness
+          refs, Rust performance profiles, and approved comparison rows are populated.
+  - [x] Add `CG-6.25 / Platform-learning benchmark and capability hardening` as a local-first,
         platform-neutral benchmark architecture overhaul.
-    - [ ] Replace the single flat traditional analytics comparison model with a benchmark suite
+    - [x] Replace the single flat traditional analytics comparison model with a benchmark suite
           catalog, scenario taxonomy, dataset-profile matrix, plugin-based local engines,
           benchmark constitutions, coverage reporting, and richer result evidence.
-    - [ ] Keep Photon, Microsoft Fabric, Snowflake, BigQuery, Redshift, Databricks managed
+    - [x] Keep Photon, Microsoft Fabric, Snowflake, BigQuery, Redshift, Databricks managed
           services, and other managed platforms as design references only, not benchmark
           dependencies or default benchmark lanes.
-    - [ ] Preserve current local optional engines as comparison-only baselines and keep external
+    - [x] Preserve current local optional engines as comparison-only baselines and keep external
           engines out of runtime fallback.
-    - [ ] Add scenario categories for scan/pruning, projection/layout, aggregation, joins,
+    - [x] Add scenario categories for scan/pruning, projection/layout, aggregation, joins,
           sort/window, ETL/write, messy lakehouse data, incremental/state, and
           operational/cache/concurrency cases.
-    - [ ] Add dataset profiles for width, skew, null density, high-cardinality strings, small files,
+    - [x] Add dataset profiles for width, skew, null density, high-cardinality strings, small files,
           partitioning, clustering, schema drift, dirty data, nested JSON, and CDC overlays.
-    - [ ] Add timing and support/coverage reports, including provider kind, residual executor,
+    - [x] Add timing and support/coverage reports, including provider kind, residual executor,
           representation transitions, certificate status, Native I/O status, materialization/decode
           status, external-engine status, and `fallback_attempted=false`.
 - [ ] Priority 2.8 - crate-level posture and public export cleanup after executable-surface growth

@@ -71,6 +71,7 @@ pub mod runtime_bridge;
 pub mod runtime_utilization;
 pub mod scheduler_bridge;
 pub mod selection_vector_filter_kernel;
+pub mod source_backed_benchmark_matrix;
 pub mod source_backed_encoded_execution;
 pub mod staged_manifest;
 pub mod staged_output;
@@ -125,6 +126,11 @@ pub use runtime_utilization::{
     VortexPredicateOrderingEvidence, VortexRuntimeCapabilityArea,
     VortexRuntimeUtilizationAuditReport, VortexScanExecutionSpineReport,
     plan_vortex_runtime_utilization_audit,
+};
+pub use source_backed_benchmark_matrix::{
+    SourceBackedBenchmarkLane, SourceBackedBenchmarkMatrixReport, SourceBackedBenchmarkMatrixRow,
+    SourceBackedBenchmarkOperation, SourceBackedBenchmarkRowStatus,
+    plan_source_backed_benchmark_matrix,
 };
 pub use source_backed_encoded_execution::{
     VortexNativeProviderBoundary, VortexReaderBackedEncodedExecutionStatus,
