@@ -173,6 +173,9 @@ actionable work.
     - [x] Move diagnostic/explain/estimate handlers into `shardloom-cli/src/diagnostics.rs`
           without probing datasets, collecting profiles, executing plans, or invoking external
           engines.
+    - [x] Move evidence/certificate planning handlers into
+          `shardloom-cli/src/evidence_certificates.rs` without running harnesses, reading data,
+          emitting runtime certificates from execution, or invoking external engines.
     - [ ] Move remaining command-family handlers out of `main.rs` after the shared
           `typed_envelope` routing module and `command_family` taxonomy.
     - [ ] Split handlers by status/capabilities, Vortex primitive execution,

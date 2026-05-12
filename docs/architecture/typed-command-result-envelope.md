@@ -107,6 +107,12 @@ The diagnostics family currently contains `feature-footprint`, `doctor`, `explai
 and lives in `shardloom-cli/src/diagnostics.rs`. These handlers remain report-only and do not probe
 datasets, collect profiles, execute plans, invoke external engines, or weaken no-fallback behavior.
 
+The evidence/certificate planning family currently contains `correctness-plan`,
+`correctness-harness-plan`, `execution-certificate-plan`, `universal-harness-plan`, and
+`native-io-envelope-plan`, and lives in `shardloom-cli/src/evidence_certificates.rs`. These handlers
+remain report-only and do not run harnesses, read data, emit runtime certificates from execution,
+invoke external engines, or weaken no-fallback behavior.
+
 Command family classification lives in `shardloom-cli/src/command_family.rs` and is emitted in the
 typed lifecycle payload as `command_family`. This gives status/capabilities, Vortex primitive,
 prepared/source-backed, evidence/certificate, benchmark, packaging/deployment, Foundry,

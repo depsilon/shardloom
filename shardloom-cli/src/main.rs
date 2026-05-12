@@ -18,6 +18,7 @@ mod benchmark_planning;
 mod cli_output;
 mod command_family;
 mod diagnostics;
+mod evidence_certificates;
 mod operational_hardening;
 mod packaging_deployment;
 mod rest_api_planning;
@@ -62,10 +63,8 @@ use shardloom_core::{
     evaluate_delete_tombstone_compatibility, evaluate_layout_health,
     evaluate_partition_evolution_compatibility, evaluate_schema_evolution_compatibility,
     plan_approx_sketch_function_gate, plan_catalog_metadata_integration_gate,
-    plan_correctness_differential_harness, plan_cpu_operator_specialization,
-    plan_execution_certificate_evidence_surface, plan_native_io_envelope,
-    plan_observability_schema_coverage, plan_rfc_coverage_followthrough, plan_stateful_reuse,
-    plan_stateful_reuse_promotion_gate, plan_universal_harness,
+    plan_cpu_operator_specialization, plan_observability_schema_coverage,
+    plan_rfc_coverage_followthrough, plan_stateful_reuse, plan_stateful_reuse_promotion_gate,
     plan_user_capability_promotion_gate, plan_world_class_sufficiency,
 };
 use shardloom_exec::{
@@ -975,7 +974,7 @@ fn vortex_generalized_encoded_primitive_gate_side_effect_fields(
 }
 
 #[allow(clippy::too_many_lines)]
-fn correctness_plan_fields(plan: &CorrectnessValidationPlan) -> Vec<(String, String)> {
+pub(crate) fn correctness_plan_fields(plan: &CorrectnessValidationPlan) -> Vec<(String, String)> {
     vec![
         ("mode".to_string(), "correctness_plan".to_string()),
         ("status".to_string(), plan.status.as_str().to_string()),
@@ -1152,7 +1151,7 @@ fn correctness_plan_fields(plan: &CorrectnessValidationPlan) -> Vec<(String, Str
 }
 
 #[allow(clippy::too_many_lines)]
-fn correctness_harness_fields(
+pub(crate) fn correctness_harness_fields(
     report: &CorrectnessDifferentialHarnessReport,
 ) -> Vec<(String, String)> {
     let mut fields = Vec::new();
@@ -7123,7 +7122,7 @@ fn append_cpu_specialization_side_effect_fields(
     push_count_field(fields, "diagnostic_count", report.diagnostics.len());
 }
 
-fn execution_certificate_surface_fields(
+pub(crate) fn execution_certificate_surface_fields(
     report: &ExecutionCertificateEvidenceSurfaceReport,
 ) -> Vec<(String, String)> {
     let mut fields = vec![];
@@ -7577,7 +7576,7 @@ fn append_stateful_reuse_promotion_gate_side_effect_fields(
     push_count_field(fields, "diagnostic_count", report.diagnostics.len());
 }
 
-fn universal_harness_fields(report: &UniversalHarnessReport) -> Vec<(String, String)> {
+pub(crate) fn universal_harness_fields(report: &UniversalHarnessReport) -> Vec<(String, String)> {
     let mut fields = vec![];
     append_universal_harness_identity_fields(&mut fields, report);
     append_universal_harness_requirement_fields(&mut fields, report);
@@ -7898,7 +7897,7 @@ fn append_rfc_coverage_followthrough_side_effect_fields(
     push_count_field(fields, "diagnostic_count", report.diagnostics.len());
 }
 
-fn native_io_envelope_fields(report: &NativeIoEnvelopeReport) -> Vec<(String, String)> {
+pub(crate) fn native_io_envelope_fields(report: &NativeIoEnvelopeReport) -> Vec<(String, String)> {
     let mut fields = vec![];
     append_native_io_envelope_identity_fields(&mut fields, report);
     append_native_io_envelope_requirement_fields(&mut fields, report);
@@ -20760,64 +20759,12 @@ fn run(args: Vec<String>) -> ExitCode {
                 ExitCode::SUCCESS
             }
         }
-        Some("correctness-plan") => {
-            let plan = CorrectnessValidationPlan::default_foundation_plan();
-            emit(
-                "correctness-plan",
-                format,
-                CommandStatus::Success,
-                "correctness validation foundation plan".to_string(),
-                plan.to_human_text(),
-                vec![],
-                correctness_plan_fields(&plan),
-            );
-            ExitCode::SUCCESS
-        }
+        Some("correctness-plan") => evidence_certificates::handle_correctness_plan(format),
         Some("correctness-harness-plan") => {
-            let command = "correctness-harness-plan";
-            let report = plan_correctness_differential_harness(
-                CorrectnessValidationPlan::default_foundation_plan(),
-            );
-            emit(
-                command,
-                format,
-                if report.has_errors() {
-                    CommandStatus::Unsupported
-                } else {
-                    CommandStatus::Success
-                },
-                "correctness and differential harness plan".to_string(),
-                report.to_human_text(),
-                report.diagnostics.clone(),
-                correctness_harness_fields(&report),
-            );
-            if report.has_errors() {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            }
+            evidence_certificates::handle_correctness_harness_plan(format)
         }
         Some("execution-certificate-plan") => {
-            let command = "execution-certificate-plan";
-            let report = plan_execution_certificate_evidence_surface();
-            emit(
-                command,
-                format,
-                if report.has_errors() {
-                    CommandStatus::Unsupported
-                } else {
-                    CommandStatus::Success
-                },
-                "execution certificate evidence surface".to_string(),
-                report.to_human_text(),
-                report.diagnostics.clone(),
-                execution_certificate_surface_fields(&report),
-            );
-            if report.has_errors() {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            }
+            evidence_certificates::handle_execution_certificate_plan(format)
         }
         Some("kernel-registry") => {
             let snapshot = KernelRegistrySnapshot::empty();
@@ -22051,26 +21998,7 @@ fn run(args: Vec<String>) -> ExitCode {
             }
         }
         Some("universal-harness-plan") => {
-            let command = "universal-harness-plan";
-            let report = plan_universal_harness();
-            emit(
-                command,
-                format,
-                if report.has_errors() {
-                    CommandStatus::Unsupported
-                } else {
-                    CommandStatus::Success
-                },
-                "universal harness plan".to_string(),
-                report.to_human_text(),
-                report.diagnostics.clone(),
-                universal_harness_fields(&report),
-            );
-            if report.has_errors() {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            }
+            evidence_certificates::handle_universal_harness_plan(format)
         }
         Some("rfc-coverage-followthrough-plan") => {
             let command = "rfc-coverage-followthrough-plan";
@@ -22095,26 +22023,7 @@ fn run(args: Vec<String>) -> ExitCode {
             }
         }
         Some("native-io-envelope-plan") => {
-            let command = "native-io-envelope-plan";
-            let report = plan_native_io_envelope();
-            emit(
-                command,
-                format,
-                if report.has_errors() {
-                    CommandStatus::Unsupported
-                } else {
-                    CommandStatus::Success
-                },
-                "native I/O envelope plan".to_string(),
-                report.to_human_text(),
-                report.diagnostics.clone(),
-                native_io_envelope_fields(&report),
-            );
-            if report.has_errors() {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            }
+            evidence_certificates::handle_native_io_envelope_plan(format)
         }
         Some("world-class-sufficiency-plan") => {
             let command = "world-class-sufficiency-plan";
@@ -30362,7 +30271,7 @@ mod tests {
 
     #[test]
     fn universal_harness_fields_expose_import_deployment_and_baseline_maturity() {
-        let report = plan_universal_harness();
+        let report = shardloom_core::plan_universal_harness();
         let fields = universal_harness_fields(&report);
 
         assert_eq!(
@@ -35003,7 +34912,7 @@ mod tests {
 
     #[test]
     fn correctness_harness_fields_include_fixture_and_oracle_gaps() {
-        let report = plan_correctness_differential_harness(
+        let report = shardloom_core::plan_correctness_differential_harness(
             CorrectnessValidationPlan::default_foundation_plan(),
         );
         let fields = correctness_harness_fields(&report);
@@ -35087,7 +34996,7 @@ mod tests {
 
     #[test]
     fn correctness_harness_fields_include_claim_closeout_blockers_and_no_execution() {
-        let report = plan_correctness_differential_harness(
+        let report = shardloom_core::plan_correctness_differential_harness(
             CorrectnessValidationPlan::default_foundation_plan(),
         );
         let fields = correctness_harness_fields(&report);
