@@ -62,9 +62,11 @@ pub use recovery::{
     AmbiguousCommitRecord, AttemptId, CancellationReason, CancellationRequest, CancellationScope,
     CancellationStatus, CleanupExecutionOption, CleanupRequirement, CleanupStatus,
     CleanupTargetKind, CommitRecoveryState, FailureDomain, FailureKind, FailureRecord,
-    FaultToleranceLevel, PartialOutputRecord, RecoveryAction, RecoveryActionKind, RecoveryPlan,
-    RecoveryPlanStatus, RecoveryReport, RetryDecision, RetryDecisionKind, RetryEligibility,
-    RetryPlan, ShardLoomCancellationExecutionGateEffect, ShardLoomCancellationExecutionGateMode,
+    FaultToleranceLevel, FaultTolerancePromotionArea, FaultTolerancePromotionGateEntry,
+    FaultTolerancePromotionGateReport, FaultTolerancePromotionStatus, PartialOutputRecord,
+    RecoveryAction, RecoveryActionKind, RecoveryPlan, RecoveryPlanStatus, RecoveryReport,
+    RetryDecision, RetryDecisionKind, RetryEligibility, RetryPlan,
+    ShardLoomCancellationExecutionGateEffect, ShardLoomCancellationExecutionGateMode,
     ShardLoomCancellationExecutionGateReport, ShardLoomCancellationExecutionGateRequest,
     ShardLoomCancellationExecutionGateSignal, ShardLoomCancellationExecutionGateStatus,
     ShardLoomCleanupExecutionEffect, ShardLoomCleanupExecutionMode,
@@ -74,8 +76,8 @@ pub use recovery::{
     ShardLoomRetryExecutionGateRequest, ShardLoomRetryExecutionGateSignal,
     ShardLoomRetryExecutionGateStatus, TaskAttemptRecord, TaskAttemptStatus,
     cancellation_execution_gate_is_side_effect_free, cleanup_execution_plan_is_side_effect_free,
-    plan_cancellation_execution_gate, plan_cleanup_execution, plan_retry_execution_gate,
-    retry_execution_gate_is_side_effect_free,
+    plan_cancellation_execution_gate, plan_cleanup_execution, plan_fault_tolerance_promotion_gate,
+    plan_retry_execution_gate, retry_execution_gate_is_side_effect_free,
 };
 
 pub use sizing::{

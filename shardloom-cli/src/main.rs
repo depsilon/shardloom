@@ -53,21 +53,23 @@ use shardloom_exec::{
     AdaptiveSizer, AdaptiveSizingPolicy, AttemptId, BackpressurePlanInput, BackpressurePlanReport,
     BoundedMemoryPolicy, ByteSize, CancellationReason, CancellationRequest, CancellationScope,
     DynamicSizingFeedbackInput, DynamicSizingFeedbackReport, DynamicWorkShapingReport,
-    EncodedStreamingBatchPlanInput, EncodedStreamingBatchPlanReport, MemoryBudget, MemoryOwner,
-    MemoryPoolPlan, OomSafetyPlan, OperatorMemoryClass, OperatorMemorySpillDeclarationReport,
-    ParallelismLimit, ParallelismPlan, RecoveryPlan, RetryPlan, RuntimePlanSkeleton,
-    ShardLoomCancellationExecutionGateReport, ShardLoomCancellationExecutionGateRequest,
-    ShardLoomCancellationExecutionGateSignal, ShardLoomCleanupExecutionRequest,
-    ShardLoomRetryExecutionGateReport, ShardLoomRetryExecutionGateRequest,
-    ShardLoomRetryExecutionGateSignal, SizeEstimate, SizingFeedbackSignal,
-    SizingFeedbackSignalKind, SizingInput, SizingPlan, SpillLifecycleRequest, SpillPayloadFsRef,
-    SpillPayloadId, SpillPayloadPath, SpillPayloadRef, SpillPayloadRoundTripRequest,
-    SpillPayloadWriteRequest, SpillPlan, SpillPolicy, SpillReservationIntegrationRequest,
-    SpillWorkspaceId, SpillWorkspacePath, StreamingPlanSkeleton, StreamingSink, StreamingSource,
-    SyntheticSpillPayload, TaskAttemptRecord, plan_backpressure, plan_cancellation_execution_gate,
+    EncodedStreamingBatchPlanInput, EncodedStreamingBatchPlanReport,
+    FaultTolerancePromotionGateReport, MemoryBudget, MemoryOwner, MemoryPoolPlan, OomSafetyPlan,
+    OperatorMemoryClass, OperatorMemorySpillDeclarationReport, ParallelismLimit, ParallelismPlan,
+    RecoveryPlan, RetryPlan, RuntimePlanSkeleton, ShardLoomCancellationExecutionGateReport,
+    ShardLoomCancellationExecutionGateRequest, ShardLoomCancellationExecutionGateSignal,
+    ShardLoomCleanupExecutionRequest, ShardLoomRetryExecutionGateReport,
+    ShardLoomRetryExecutionGateRequest, ShardLoomRetryExecutionGateSignal, SizeEstimate,
+    SizingFeedbackSignal, SizingFeedbackSignalKind, SizingInput, SizingPlan, SpillLifecycleRequest,
+    SpillPayloadFsRef, SpillPayloadId, SpillPayloadPath, SpillPayloadRef,
+    SpillPayloadRoundTripRequest, SpillPayloadWriteRequest, SpillPlan, SpillPolicy,
+    SpillReservationIntegrationRequest, SpillWorkspaceId, SpillWorkspacePath,
+    StreamingPlanSkeleton, StreamingSink, StreamingSource, SyntheticSpillPayload,
+    TaskAttemptRecord, plan_backpressure, plan_cancellation_execution_gate,
     plan_dynamic_sizing_feedback, plan_dynamic_work_shaping, plan_encoded_streaming_batches,
-    plan_operator_memory_spill_declarations, plan_retry_execution_gate, plan_spill_lifecycle,
-    plan_spill_reservation_integration, roundtrip_spill_payload, spill_payload_fs_feature_enabled,
+    plan_fault_tolerance_promotion_gate, plan_operator_memory_spill_declarations,
+    plan_retry_execution_gate, plan_spill_lifecycle, plan_spill_reservation_integration,
+    roundtrip_spill_payload, spill_payload_fs_feature_enabled,
 };
 use shardloom_plan::{
     AdaptiveOptimizerMemoryReport, EstimateReport, ExplainReport, ImportedPlanCapabilityGateReport,
@@ -214,7 +216,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|agent-contract-pack|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance]|security-plan|security-governance-evidence-gate|effect-budget-plan|agent-safety-plan|redaction-plan|kernel-registry|feature-footprint|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|layout-health-plan|compaction-plan|table-intelligence-plan|object-store-request-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|dynamic-work-shaping-plan [balanced|memory-pressure|object-store-throttled|small-tasks]|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|benchmark-claim-evidence-plan [foundation|traditional-analytics]|traditional-analytics-run|traditional-analytics-vortex-run|vortex-count-benchmark|correctness-plan|correctness-harness-plan|execution-certificate-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|observability-schema-coverage|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-filter-project|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|operator-memory-spill-declarations|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|agent-contract-pack|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance]|security-plan|security-governance-evidence-gate|effect-budget-plan|agent-safety-plan|redaction-plan|kernel-registry|feature-footprint|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|layout-health-plan|compaction-plan|table-intelligence-plan|object-store-request-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|dynamic-work-shaping-plan [balanced|memory-pressure|object-store-throttled|small-tasks]|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|benchmark-claim-evidence-plan [foundation|traditional-analytics]|traditional-analytics-run|traditional-analytics-vortex-run|vortex-count-benchmark|correctness-plan|correctness-harness-plan|execution-certificate-plan|recovery-plan|fault-tolerance-promotion-gate|cancellation-plan|retry-plan|observability-plan|observability-schema-coverage|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-filter-project|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|operator-memory-spill-declarations|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -9490,6 +9492,208 @@ fn readiness_is_blocked(status: VortexExecutionReadinessStatus) -> bool {
             | VortexExecutionReadinessStatus::BlockedBySpillPolicy
             | VortexExecutionReadinessStatus::BlockedByFeatureGate
     )
+}
+
+fn fault_tolerance_promotion_gate_fields(
+    report: &FaultTolerancePromotionGateReport,
+) -> Vec<(String, String)> {
+    let mut fields = Vec::new();
+    append_fault_tolerance_promotion_gate_summary_fields(&mut fields, report);
+    append_fault_tolerance_promotion_gate_entry_fields(&mut fields, report);
+    fields
+}
+
+fn append_fault_tolerance_promotion_gate_summary_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &FaultTolerancePromotionGateReport,
+) {
+    push_field(fields, "mode", "fault_tolerance_promotion_gate");
+    push_field(fields, "schema_version", report.schema_version);
+    push_field(fields, "report_id", report.report_id);
+    push_count_field(
+        fields,
+        "promotion_area_count",
+        report.promotion_area_count(),
+    );
+    push_count_field(fields, "blocked_area_count", report.blocked_area_count());
+    push_count_field(
+        fields,
+        "execution_ready_area_count",
+        report.execution_ready_area_count(),
+    );
+    push_field(fields, "area_order", &report.area_order().join(","));
+    append_fault_tolerance_promotion_gate_evidence_fields(fields, report);
+    append_fault_tolerance_promotion_gate_execution_fields(fields, report);
+    append_fault_tolerance_promotion_gate_claim_fields(fields, report);
+    push_bool_field(fields, "side_effect_free", report.side_effect_free());
+    push_bool_field(
+        fields,
+        "fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(fields, "fallback_attempted", report.fallback_attempted);
+    push_count_field(fields, "diagnostic_count", report.diagnostics.len());
+}
+
+fn append_fault_tolerance_promotion_gate_evidence_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &FaultTolerancePromotionGateReport,
+) {
+    push_bool_field(
+        fields,
+        "side_effect_boundaries_certified",
+        report.side_effect_boundaries_certified,
+    );
+    push_bool_field(
+        fields,
+        "commit_semantics_certified",
+        report.commit_semantics_certified,
+    );
+    push_bool_field(
+        fields,
+        "execution_certificate_required",
+        report.execution_certificate_required,
+    );
+    push_bool_field(
+        fields,
+        "native_io_certificate_required",
+        report.native_io_certificate_required,
+    );
+    push_bool_field(
+        fields,
+        "cg4_output_commit_evidence_required",
+        report.cg4_output_commit_evidence_required,
+    );
+    push_bool_field(
+        fields,
+        "cg8_write_recovery_evidence_required",
+        report.cg8_write_recovery_evidence_required,
+    );
+    push_bool_field(
+        fields,
+        "cg10_object_store_evidence_required",
+        report.cg10_object_store_evidence_required,
+    );
+    push_bool_field(
+        fields,
+        "cg16_execution_certificate_evidence_required",
+        report.cg16_execution_certificate_evidence_required,
+    );
+    push_bool_field(
+        fields,
+        "cg22_engine_mode_evidence_required",
+        report.cg22_engine_mode_evidence_required,
+    );
+}
+
+fn append_fault_tolerance_promotion_gate_execution_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &FaultTolerancePromotionGateReport,
+) {
+    push_bool_field(
+        fields,
+        "retry_execution_allowed",
+        report.retry_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "cancellation_execution_allowed",
+        report.cancellation_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "cleanup_execution_allowed",
+        report.cleanup_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "ambiguous_commit_resolution_allowed",
+        report.ambiguous_commit_resolution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "idempotent_write_claim_allowed",
+        report.idempotent_write_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "execution_promotions_blocked",
+        report.execution_promotions_blocked(),
+    );
+    push_bool_field(
+        fields,
+        "runtime_execution",
+        report.runtime_execution_performed,
+    );
+    push_bool_field(fields, "object_store_io", report.object_store_io);
+    push_bool_field(fields, "output_dataset_write", report.output_dataset_write);
+    push_bool_field(
+        fields,
+        "external_effects_executed",
+        report.external_effects_executed,
+    );
+}
+
+fn append_fault_tolerance_promotion_gate_claim_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &FaultTolerancePromotionGateReport,
+) {
+    push_bool_field(
+        fields,
+        "exactly_once_claim_allowed",
+        report.exactly_once_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "resumability_claim_allowed",
+        report.resumability_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "recovery_claim_allowed",
+        report.recovery_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "execution_promotions_blocked",
+        report.execution_promotions_blocked(),
+    );
+    push_bool_field(
+        fields,
+        "exactly_once_resumability_recovery_claims_blocked",
+        report.exactly_once_resumability_recovery_claims_blocked(),
+    );
+}
+
+fn append_fault_tolerance_promotion_gate_entry_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &FaultTolerancePromotionGateReport,
+) {
+    for (idx, entry) in report.entries.iter().enumerate() {
+        let prefix = format!("fault_tolerance_promotion_area_{idx}");
+        push_field(fields, &format!("{prefix}_name"), entry.area.as_str());
+        push_field(fields, &format!("{prefix}_status"), entry.status.as_str());
+        push_field(
+            fields,
+            &format!("{prefix}_required_evidence"),
+            entry.required_evidence,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_requires_side_effect_boundary"),
+            entry.requires_side_effect_boundary,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_requires_commit_semantics"),
+            entry.requires_commit_semantics,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_execution_allowed"),
+            entry.execution_allowed,
+        );
+    }
 }
 
 fn parse_retry_gate_signals(
@@ -19152,6 +19356,28 @@ fn run(args: Vec<String>) -> ExitCode {
                 ],
             );
             ExitCode::from(1)
+        }
+        Some("fault-tolerance-promotion-gate") => {
+            let report = plan_fault_tolerance_promotion_gate();
+            let status = if report.has_errors() {
+                CommandStatus::Unsupported
+            } else {
+                CommandStatus::Success
+            };
+            emit(
+                "fault-tolerance-promotion-gate",
+                format,
+                status,
+                "fault tolerance promotion gate".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                fault_tolerance_promotion_gate_fields(&report),
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
         }
         Some("cancellation-plan") => {
             let scope = match args.next().as_deref() {
