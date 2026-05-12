@@ -26,7 +26,11 @@ Use this skill for tasks involving:
 - Verify current upstream API behavior before implementing against it.
 - Do not assume the full Scan API surface is stable.
 - Prefer small adapters that can evolve with upstream Vortex.
-- Keep ShardLoom's internal execution model independent.
+- Keep ShardLoom's admission, policy, diagnostics, certificate, and capability
+  model independent.
+- Upstream Vortex scan/source/sink APIs may serve as native providers behind
+  approved ShardLoom boundaries when feature-gated, version-recorded,
+  policy-admitted, and certificate-backed.
 - A Vortex source/sink integration is allowed.
 - Execution fallback to another engine through Scan API is not allowed.
 - Push projection and filters as close to storage as possible.
@@ -63,6 +67,8 @@ For source/sink integration:
 - Pulling all data into decoded Arrow arrays immediately.
 - Failing silently when a filter/projection cannot be pushed down.
 - Assuming scan splits are equivalent to ShardLoom execution tasks without design review.
+- Treating Vortex DataFusion, DuckDB, Spark, Trino, or similar integrations as
+  ShardLoom runtime execution.
 
 ## Example Codex prompt fragment
 

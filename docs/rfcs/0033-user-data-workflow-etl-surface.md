@@ -1423,6 +1423,29 @@ execution or explicit materialization path, source/sink evidence, correctness
 evidence, diagnostics, and no-fallback fields are all present for the declared
 workload.
 
+## Shared operational contracts
+
+CG-21 user workflows must use the same shared contracts as CG-20 capability
+reports, CG-22 engine selection, and CG-23 remote APIs:
+
+- `EvidenceArtifactEnvelope` for certificates, profile rows, benchmark rows,
+  scorecards, lineage events, and future API artifacts.
+- `EvidenceArtifactSafety` for redaction, retention, data classification,
+  sample/path/query/schema exposure, export permission, and agent visibility.
+- `ShardLoomExecutionPolicy` for engine, fallback, materialization, decode,
+  result, evidence, effect, credential, redaction, retention, memory, spill,
+  network, destructive-operation, benchmark, and agent policy.
+- `QueryLifecycleContract` for accepted, validating, planned, blocked, queued,
+  running, cancelling, cancelled, failed, succeeded, and expired workflow states.
+- `ProtocolSurfaceParityReport` so CLI JSON, Python, future REST, and future
+  agent surfaces expose the same support, diagnostics, certificates, policies,
+  results, and no-fallback fields.
+- Starter `WorkloadConstitution` catalog entries so user-supported workflows are
+  declared and certified by workload rather than by broad feature labels.
+
+CG-21 implementation must not invent user-surface-specific variants of these
+contracts unless the divergence is explicitly documented.
+
 ## Design warning
 
 The biggest risk is not missing a few adapters. The biggest risk is letting:

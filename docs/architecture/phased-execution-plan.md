@@ -53,6 +53,12 @@ Supporting docs:
 - `docs/architecture/incumbent-gap-opportunity-map.md`, `lakehouse-value-prop-compatibility.md`, `universal-input-contract.md`, and `spill-reservation-lifecycle-integration.md`
   - Role: reference maps and constraints.
   - Status rule: they guide design decisions but do not mark CG completion.
+- `docs/architecture/operational-evidence-policy-hardening.md`
+  - Role: shared evidence, policy, workload, lifecycle, protocol-parity, benchmark-constitution, and artifact-safety contracts for CG-20 through CG-23.
+  - Status rule: contract reference only; actionable implementation work must be represented in this Planned/Active/Completed queue.
+- `docs/architecture/vortex-upstream-alignment-hardening.md`
+  - Role: Vortex compatibility, Scan API, compute-provider, residual-boundary, device, extension-type, object-store telemetry, integration-boundary, and benchmark-interoperability contract reference.
+  - Status rule: contract reference only; it does not authorize new Vortex APIs, dependencies, runtime behavior, claims, or fallback execution.
 
 ## Planned
 
@@ -92,6 +98,24 @@ Use this section for the next implementation sequence. Keep it ordered by depend
     - [ ] Broader source-backed edge fixtures and external-oracle result artifacts remain open before claim-grade correctness closeout.
   - [ ] CG-6 query-runtime benchmark rows, reproducibility metadata, work-avoidance evidence, and claim-gate blockers for each new primitive path.
   - [ ] CG-16 execution certificates and CG-19 per-path Native I/O certificates for each supported source/sink path.
+- [ ] Priority 2.5 - Vortex upstream alignment and compatibility hardening
+  - [ ] Promote `VortexCompatibilityMatrix` into report/code surfaces covering crate version, file-format assumption, Rust/toolchain fit, enabled features, local read/write posture, Scan API, Source/Sink, split serialization, DType/layout/statistics mapping, encoding/layout coverage, Arrow boundaries, PyVortex, object-store, GPU/device, extension dtype, and known unsupported Vortex APIs.
+  - [ ] Promote `VortexScanCompatibilityReport` into report/code surfaces aligning ShardLoom Native I/O envelopes with Vortex Source/Sink/Split concepts for projection, filter, limit, field masks, split estimates, split serialization, sink requirements, pushdown decisions, residuals, and Native I/O certificates.
+  - [ ] Promote `CompositePushdownCapabilityMatrix` into capability/report surfaces so filter/projection/limit/order/reverse/top-N/range/zone-pruned combinations are tracked separately from individual primitive support.
+  - [ ] Promote `ExecuteStepEvidence` into certificate/report surfaces for deferred, fused, reduced, canonicalized, materialized, and final-representation stages.
+  - [ ] Promote `DeviceResidencyReport` into report surfaces for future CPU/GPU/device evidence while keeping CPU default and GPU claims blocked until runtime evidence exists.
+  - [ ] Promote `ExtensionTypeCapabilityMatrix` into capability/report surfaces for vector, tensor, map, variant/JSON, UUID, geospatial, raster, embedding, document, and media-reference types without implying execution support.
+  - [ ] Promote `StreamingSinkCertificate`, `IoBackendEvidence`, `ExecutionTelemetryFacet`, `CompressionAdvisorReport`, `IntegrityAndEncryptionReport`, `PythonVortexInteropReport`, and `VortexBenchmarkInterop` into report/code surfaces.
+  - [ ] Keep all items docs/report-only unless later promoted; no Vortex integration fallback, GPU claim, vector/geospatial/media claim, object-store/write/streaming claim, or benchmark superiority claim.
+- [ ] Priority 2.6 - Vortex compute-provider alignment
+  - [ ] Keep README, RFCs, terminology, AGENTS, and Vortex inventory language aligned that "standalone" means standalone from external query-engine fallback, not isolated from upstream Vortex compute.
+  - [ ] Use `Vortex-native execution provider` terminology for upstream Vortex array, compute, scan, source, and sink APIs admitted through ShardLoom policy and certificate evidence.
+  - [ ] Promote `ExecutionProviderKind` fields into execution certificates so each path can distinguish ShardLoom kernels, ShardLoom metadata, Vortex array kernels, Vortex compute functions, Vortex scan/source/sink providers, compatibility import/export, external baselines, and prohibited external fallback.
+  - [ ] Promote `VortexComputeProviderReport` into report/code surfaces with provider kind, Vortex version, feature gate, API surface, operation, dtype/encoding/layout/null/selection-vector/materialization behavior, residual status, external-engine status, and no-fallback evidence.
+  - [ ] Promote `ResidualBoundaryReport` and `residual_executor` values into report/code surfaces: `none`, `shardloom_native`, `unsupported_blocked`, `external_baseline_only`, and `prohibited_external_fallback`.
+  - [ ] Promote `VortexIntegrationBoundaryReport` into report/code surfaces classifying upstream Vortex native APIs as allowed native providers while Vortex DataFusion, DuckDB, Spark, Trino, and similar integrations remain baseline/reference/oracle-only.
+  - [ ] Keep Vortex public API inventory and dependency-review top matter current when executable Vortex support changes.
+  - [ ] Require Vortex-native providers to be feature-gated, version-recorded, policy-admitted, and certificate-backed before support claims.
 - [ ] Priority 3 - broader platform work after the primitive/evidence loop advances
   - [ ] CG-4 broader commit execution.
   - [ ] CG-8 dynamic sizing feedback execution and bounded parallel encoded/read runtime.
@@ -137,6 +161,16 @@ Use this section for the next implementation sequence. Keep it ordered by depend
   - [ ] RFC 0023 extension/plugin ABI and sandboxing
     - [ ] Add manifest, lifecycle, permission, provenance, signing, sandbox, resource-limit, and agent-inspection evidence before plugin or UDF execution.
     - [ ] Inspect extension manifests without executing extension code and keep unsafe extension behavior deterministically unsupported.
+- [ ] Priority 3.7 - evidence, policy, workload, and protocol hardening
+  - [ ] Promote `EvidenceArtifactEnvelope` into report/code surfaces as the shared identity/provenance/digest/redaction/retention wrapper for certificates, benchmark rows, scorecards, profiles, lineage events, and future API artifacts.
+  - [ ] Promote `EvidenceArtifactSafety` into report/code surfaces for classification, value/path/query/schema exposure, credential absence, redaction, retention, export, and agent visibility.
+  - [ ] Promote `ShardLoomExecutionPolicy` into CLI, Python, future REST, and agent surfaces so they share requested/allowed engine, fallback, materialization, decode, result, evidence, effect, credential, redaction, retention, memory, spill, network, destructive-operation, benchmark, and agent policy fields.
+  - [ ] Promote `QueryLifecycleContract` into lifecycle report surfaces for accepted, validating, planned, blocked, queued, running, cancelling, cancelled, failed, succeeded, and expired states.
+  - [ ] Promote `ProtocolSurfaceParityReport` across CLI JSON, Python wrapper, future REST/OpenAPI, future MCP resources, and future Flight/ADBC metadata.
+  - [ ] Add machine-readable starter workload constitution catalog entries for local Vortex primitives, local file ETL, Conda import smoke, Python DataFrame local ETL, REST discovery-only, batch Vortex analytics, hybrid base/delta fixture, local Vortex read/write adapter, and traditional analytics benchmark workloads.
+  - [ ] Add the concrete `ShardLoomNative` semantic-profile floor as a reportable/table-backed contract before serious SQL/DataFrame execution.
+  - [ ] Promote `StandardsDependencyDecision`, `BenchmarkConstitution`, and `RustPerformanceProfileEvidence` into report/code surfaces.
+  - [ ] Keep this lane docs/report-only: no runtime, parser, adapter, server, package publication, benchmark execution, external engine invocation, dependency, or fallback execution.
 - [ ] Priority 4 - CG-21 user data workflow and ETL surface implementation lane
   - [ ] CG-21A install/import/runtime discovery
     - [ ] Provide a one-command local install path once packaging approval is complete.
@@ -297,7 +331,14 @@ Use this section for the next implementation sequence. Keep it ordered by depend
 
 ## Active
 
-- [ ] No active session. Promote the next Planned item here before implementation begins.
+- [x] Session label: Priority 2.5 / 2.6 / 3.7 docs/report hardening
+  - Scope: incorporate shared operational contracts, Vortex upstream alignment, and Vortex-native compute-provider terminology into RFCs, phase plan, terminology, and Vortex inventory docs.
+  - Checklist:
+    - [x] Add planned lanes for Vortex compatibility/alignment, Vortex compute-provider boundaries, and cross-surface operational hardening.
+    - [x] Clarify that ShardLoom is standalone from external query-engine fallback, not isolated from upstream Vortex compute APIs.
+    - [x] Add RFC references for evidence envelopes, execution policy, lifecycle, protocol parity, workload/benchmark constitutions, Vortex compatibility, Scan API alignment, residual boundaries, and provider reports.
+    - [x] Update stale Vortex public API inventory and dependency review headers with current-status snapshots.
+    - [x] Preserve docs/report-only scope: no runtime behavior, dependencies, package publication, benchmark execution, external engine invocation, or fallback execution.
 
 ## Completed
 

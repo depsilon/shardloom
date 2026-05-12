@@ -1,11 +1,20 @@
 # Vortex Public API Inventory
 
 ## Purpose
-This document records upstream `vortex` public APIs inspected for ShardLoom adapter work and defines narrow adapter boundaries. It is explicitly not a broad Vortex scan/read/write implementation; the only approved IO path is the feature-gated local metadata/footer fixture open described below.
+This document records upstream `vortex` public APIs inspected for ShardLoom adapter work and defines narrow adapter boundaries. It is an API evidence inventory, not an implementation authorization document.
 
 Active phase status, active queue placement, and CG closeout decisions live in `docs/architecture/phased-execution-plan.md`. This document is an API evidence inventory. It may record what was inspected, but it does not authorize new Vortex IO or mark CG-1/CG-2/CG-3 complete.
 
 Status words in historical sections below describe evidence recorded at the time of the original phase note. They are not active queue state and do not override `phased-execution-plan.md`.
+
+## Current status snapshot
+
+- Approved historical metadata/footer path: feature-gated local metadata/footer fixture open.
+- Approved local primitive scan paths: feature-gated local `.vortex` primitive paths for `CountAll`, `CountWhere`, `FilterPredicate`, `ProjectColumns`, and `FilterAndProject` where recorded in `docs/architecture/phased-execution-plan.md`.
+- Prepared encoded execution surfaces: prepared encoded filter, projection, and filter-project evidence paths without generalized reader wiring.
+- Vortex-native provider framing: upstream Vortex array, compute, scan, source, and sink APIs may be native providers only when isolated in approved ShardLoom boundaries, version-recorded, feature-gated, policy-admitted, and certificate-backed.
+- Still deferred: generalized Source/Sink API integration, object-store scan, table/catalog scan, broad reader wiring, writes, Arrow-default execution, GPU/device execution, vector/geospatial/media execution, and external query-engine integration execution.
+- Prohibited: DataFusion, DuckDB, Spark, Polars, Velox, `vortex-datafusion`, or similar engines executing unsupported ShardLoom residual work as fallback.
 
 ## Inventory Rules
 
@@ -13,6 +22,7 @@ Status words in historical sections below describe evidence recorded at the time
 - Record public API discovery method.
 - Classify DType, array, encoding, layout, statistics, file/open, scan/source, write/sink, and Arrow interoperability surfaces.
 - Keep all broad scan, read-start, row-read, decode, Arrow conversion, object-store, write, and fallback paths explicitly blocked unless a phase-plan item authorizes them.
+- Keep upstream Vortex-native providers distinct from Vortex query-engine integrations.
 - Re-validate upstream public API shapes before any generalized encoded-data execution path.
 - Promote any new executable API usage into `phased-execution-plan.md` before implementation.
 
@@ -21,7 +31,7 @@ Status words in historical sections below describe evidence recorded at the time
 - Version: `0.70`
 - License: Apache-2.0 (per dependency review)
 - ShardLoom crate using it: `shardloom-vortex`
-- Actual Vortex IO implemented: feature-gated local metadata/footer fixture open only
+- Actual Vortex IO implemented: historical metadata/footer fixture open plus approved feature-gated local primitive scan paths where recorded in the phase plan
 - Fallback execution introduced: no
 
 ## Public API discovery method

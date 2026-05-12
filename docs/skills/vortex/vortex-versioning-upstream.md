@@ -29,6 +29,9 @@ Use this skill for tasks involving:
 - Track upstream API volatility.
 - Treat active-development APIs with caution.
 - If ShardLoom needs an upstream Vortex capability, consider contributing upstream rather than forking behavior locally.
+- Upstream Vortex array, compute, scan, source, and sink APIs may become
+  ShardLoom-native providers only through isolated, feature-gated,
+  version-recorded, certificate-backed boundaries.
 - Do not vendor or copy upstream implementation code unless license and provenance are explicitly reviewed.
 - Keep adapter boundaries small and testable.
 
@@ -59,6 +62,7 @@ For upstream changes:
 - Copying Vortex implementation code.
 - Assuming active-development APIs are stable.
 - Adding Vortex integrations that force ShardLoom into another engine's execution model.
+- Treating Vortex query-engine integrations as ShardLoom-native execution.
 - Making ShardLoom impossible to update when Vortex changes.
 - Ignoring upstream changes to DTypes, encodings, layouts, or Scan API.
 

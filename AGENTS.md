@@ -2,9 +2,15 @@
 
 ShardLoom is a standalone encoded-columnar execution engine designed to compute directly over Vortex-native layouts and produce Vortex-native and lakehouse-compatible outputs.
 
+In this repository, "standalone" means standalone from external query-engine
+fallback, not isolated from upstream Vortex compute. Upstream Vortex array,
+compute, scan, source, and sink APIs may be native execution providers when they
+are feature-gated, isolated in approved boundaries, admitted through ShardLoom
+policy, and reported through ShardLoom certificates.
+
 ShardLoom's core identity is:
 
-- Standalone execution.
+- Standalone execution from external query-engine fallback.
 - Vortex-native input and output.
 - Encoded-columnar execution.
 - Late materialization.
@@ -24,9 +30,16 @@ Agents and contributors must follow these requirements:
 - Unsupported execution paths must fail explicitly with clear, deterministic diagnostics.
 - Vortex must be treated as a first-class native input target.
 - Vortex must be treated as a first-class native output target.
+- Upstream Vortex array/compute/scan/source/sink APIs are allowed inside
+  approved ShardLoom-native boundaries when feature-gated, version-recorded,
+  policy-admitted, and certificate-backed.
 - Vortex output is the highest-fidelity persistence target.
 - Parquet, Arrow IPC, Iceberg-compatible files, and Delta-compatible files are translation/export targets, not execution fallbacks.
 - Keep the core engine standalone.
+- Do not use `vortex-datafusion`, `vortex-duckdb`, `vortex-spark`, or another
+  Vortex query-engine integration to execute unsupported ShardLoom work.
+- Do not report DataFusion, DuckDB, Spark, Polars, Velox, or another external
+  engine's residual evaluation as ShardLoom execution.
 - Prefer original implementation over copying from existing engines.
 - Do not copy implementation code from GPL, AGPL, SSPL, BUSL, proprietary, source-available, or unknown-license projects.
 - Use Apache-2.0-compatible dependencies only unless explicitly approved through an RFC.
@@ -326,7 +339,11 @@ Before adding any upstream Vortex dependency, read:
 Rules:
 - Do not add upstream Vortex without license/provenance review.
 - Keep upstream Vortex API usage isolated in shardloom-vortex.
+- Treat upstream Vortex array, compute, scan, source, and sink APIs as potential
+  native providers, not as fallback engines, when admitted through ShardLoom
+  policy and certificate evidence.
 - Do not use DataFusion/Spark/DuckDB/Polars/Velox as Vortex helpers.
+- Do not use Vortex query-engine integrations as ShardLoom runtime helpers.
 - Do not default to decode-to-Arrow execution.
 - Preserve Vortex as native input and output.
 - Unsupported upstream features must fail explicitly.
