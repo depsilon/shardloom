@@ -13774,6 +13774,16 @@ fn append_execution_certificate_fields(
     certificate: &ExecutionCertificate,
 ) {
     push_bool_field(fields, "execution_certificate_emitted", true);
+    append_execution_certificate_identity_fields(fields, certificate);
+    append_execution_certificate_provider_fields(fields, certificate);
+    append_execution_certificate_io_fields(fields, certificate);
+    append_execution_certificate_effect_fields(fields, certificate);
+}
+
+fn append_execution_certificate_identity_fields(
+    fields: &mut Vec<(String, String)>,
+    certificate: &ExecutionCertificate,
+) {
     push_field(
         fields,
         "execution_certificate_schema_version",
@@ -13789,6 +13799,32 @@ fn append_execution_certificate_fields(
         "execution_certificate_execution_kind",
         &certificate.execution_kind,
     );
+    push_field(
+        fields,
+        "execution_certificate_status",
+        certificate.status.as_str(),
+    );
+    push_field(
+        fields,
+        "execution_certificate_input_ref",
+        certificate.input_ref.as_deref().unwrap_or("none"),
+    );
+    push_field(
+        fields,
+        "execution_certificate_output_ref",
+        certificate.output_ref.as_deref().unwrap_or("none"),
+    );
+    push_bool_field(
+        fields,
+        "execution_certificate_correctness_passed",
+        certificate.correctness_passed,
+    );
+}
+
+fn append_execution_certificate_provider_fields(
+    fields: &mut Vec<(String, String)>,
+    certificate: &ExecutionCertificate,
+) {
     push_field(
         fields,
         "execution_certificate_provider_kind",
@@ -13825,26 +13861,12 @@ fn append_execution_certificate_fields(
             .as_deref()
             .unwrap_or("none"),
     );
-    push_field(
-        fields,
-        "execution_certificate_status",
-        certificate.status.as_str(),
-    );
-    push_field(
-        fields,
-        "execution_certificate_input_ref",
-        certificate.input_ref.as_deref().unwrap_or("none"),
-    );
-    push_field(
-        fields,
-        "execution_certificate_output_ref",
-        certificate.output_ref.as_deref().unwrap_or("none"),
-    );
-    push_bool_field(
-        fields,
-        "execution_certificate_correctness_passed",
-        certificate.correctness_passed,
-    );
+}
+
+fn append_execution_certificate_io_fields(
+    fields: &mut Vec<(String, String)>,
+    certificate: &ExecutionCertificate,
+) {
     push_bool_field(
         fields,
         "execution_certificate_data_read",
@@ -13885,6 +13907,12 @@ fn append_execution_certificate_fields(
         "execution_certificate_spill_io_performed",
         certificate.spill_io_performed,
     );
+}
+
+fn append_execution_certificate_effect_fields(
+    fields: &mut Vec<(String, String)>,
+    certificate: &ExecutionCertificate,
+) {
     push_bool_field(
         fields,
         "execution_certificate_external_query_engine_invoked",
