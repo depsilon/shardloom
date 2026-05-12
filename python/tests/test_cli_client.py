@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import sys
 import tempfile
@@ -13,6 +14,7 @@ from shardloom import (
     ShardLoomClient,
     ShardLoomCommandError,
     ShardLoomProtocolError,
+    OutputEnvelope,
 )
 
 
@@ -617,9 +619,37 @@ class ShardLoomClientTests(unittest.TestCase):
         with self.assertRaises(ShardLoomBinaryNotFoundError) as raised:
             client.status()
 
-        message = str(raised.exception)
+        error = raised.exception
+        message = str(error)
         self.assertIn("ShardLoom CLI binary could not be resolved", message)
         self.assertIn("SHARDLOOM_BIN", message)
+        self.assertFalse(error.fallback.attempted)
+        self.assertFalse(error.fallback.allowed)
+        self.assertEqual(error.diagnostics[0].code, "SL_BINARY_NOT_FOUND")
+        self.assertEqual(error.diagnostics[0].category, "configuration")
+        self.assertEqual(error.diagnostics[0].feature, "python_cli_binary_resolution")
+        self.assertFalse(error.diagnostics[0].fallback.attempted)
+
+        payload = error.to_error_payload("status")
+        self.assertEqual(payload["schema_version"], "shardloom.output.v2")
+        self.assertEqual(payload["command"], "status")
+        self.assertEqual(payload["status"], "error")
+        self.assertEqual(payload["fallback"]["attempted"], False)
+        self.assertEqual(payload["fallback"]["allowed"], False)
+        self.assertEqual(payload["diagnostics"][0]["code"], "SL_BINARY_NOT_FOUND")
+        self.assertEqual(payload["result"], {"fields": []})
+        self.assertEqual(payload["artifacts"], [])
+        self.assertEqual(payload["certificates"], [])
+        self.assertIn(
+            {"key": "command_family", "value": "python_binary_resolution"},
+            payload["lifecycle"]["fields"],
+        )
+        self.assertIn(
+            {"key": "fallback_execution_allowed", "value": "false"},
+            payload["policy"]["fields"],
+        )
+        self.assertEqual(OutputEnvelope.from_json(payload).command, "status")
+        json.dumps(payload, sort_keys=True)
 
     def test_invalid_env_binary_raises_deterministic_error(self) -> None:
         tempdir = tempfile.TemporaryDirectory()
@@ -632,7 +662,10 @@ class ShardLoomClientTests(unittest.TestCase):
         with self.assertRaises(ShardLoomBinaryNotFoundError) as raised:
             client.status()
 
-        self.assertIn("SHARDLOOM_BIN points to", str(raised.exception))
+        error = raised.exception
+        self.assertIn("SHARDLOOM_BIN points to", str(error))
+        self.assertIn("missing-shardloom", error.diagnostics[0].reason or "")
+        self.assertFalse(error.to_error_payload("status")["fallback"]["attempted"])
 
     def test_from_repo_resolves_target_binary_lazily(self) -> None:
         tempdir = tempfile.TemporaryDirectory()

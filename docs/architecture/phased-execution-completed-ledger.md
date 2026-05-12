@@ -16,6 +16,35 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 missing-binary protocol parity fixture
+  - Primary files:
+    - `python/src/shardloom/errors.py`
+    - `python/tests/test_cli_client.py`
+    - `python/README.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/typed-command-result-envelope.md`
+  - Scope: make Python-side missing-binary failures expose deterministic no-fallback diagnostics
+    and a `shardloom.output.v2`-shaped payload without invoking a CLI binary.
+  - Checklist:
+    - [x] Extend `ShardLoomBinaryNotFoundError` with stable fallback status, structured diagnostic
+          fields, and `to_error_payload(command)`.
+    - [x] Cover missing PATH binary resolution and invalid `SHARDLOOM_BIN` resolution with Python
+          tests that validate diagnostic parity and parse the payload through `OutputEnvelope`.
+    - [x] Document the protocol-shaped missing-binary evidence surface for wrappers and agents.
+    - [x] Leave concrete Foundry boundary fixtures planned until real Foundry boundary command
+          surfaces exist.
+  - Validation:
+    - [x] `$env:PYTHONPATH='python/src'; python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_missing_binary_raises_deterministic_error python.tests.test_cli_client.ShardLoomClientTests.test_invalid_env_binary_raises_deterministic_error`
+    - [x] `$env:PYTHONPATH='python/src'; python -m unittest discover python\tests`
+    - [x] `python -m compileall python\src`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test --workspace --all-targets`
+    - [x] `git diff --check`
+  - Runtime stance: Python exception/protocol modeling only; no binary execution, package
+    publication, dataset probing, source/sink I/O, object-store I/O, network effect, write path,
+    external engine dependency, or fallback execution is added.
+
 - [x] Session label: Priority 3.9 certified runtime fixture and Vortex planning handler split
   - Primary files:
     - `shardloom-cli/tests/typed_envelope_contract_snapshots.rs`

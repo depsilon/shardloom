@@ -230,12 +230,12 @@ Native I/O envelope report
 evidence-incomplete benchmark row report
 benchmark claim evidence report
 certified runtime execution with inline certificates
+missing-binary protocol parity through the Python binary-resolution layer
 Foundry-adjacent optional universal harness report
 ```
 
-Missing-binary protocol parity and first-class Foundry boundary-report fixtures remain planned
-because those surfaces are owned by the Python binary-resolution layer or not yet represented by a
-concrete CLI Foundry boundary command.
+First-class Foundry boundary-report fixtures remain planned because those surfaces are not yet
+represented by a concrete CLI Foundry boundary command.
 
 The old top-level `fields` array is still present as a temporary legacy mirror for existing tests,
 the Python client, and command-family migration safety. It is no longer the intended primary
@@ -269,8 +269,7 @@ payload helpers beyond the first inline report payloads.
 Attach inline evidence artifacts, certificate payloads, Foundry boundary reports, source/sink
 reports, materialization boundary reports, and richer capability snapshots through typed slots where
 a command has more than a reference.
-Finish remaining golden fixtures for missing-binary protocol parity and concrete Foundry boundary
-reports.
+Finish remaining golden fixtures for concrete Foundry boundary reports.
 Physically split CLI handlers by capability family and continue centralizing diagnostics, fallback,
 policy, and side-effect reporting around the shared renderer.
 ```

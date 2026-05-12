@@ -71,7 +71,10 @@ Supported environment variables:
 
 If no CLI binary is available, explicit client commands raise
 `ShardLoomBinaryNotFoundError` with installation/configuration guidance instead
-of leaking a raw subprocess error. Importing the package and constructing
+of leaking a raw subprocess error. The exception carries deterministic
+no-fallback diagnostics plus a `shardloom.output.v2`-shaped error payload via
+`to_error_payload(command)` for agents and wrappers that need protocol-shaped
+missing-binary evidence. Importing the package and constructing
 `ShardLoomClient.from_env()` remain side-effect-free.
 
 ## Package Build Smoke
