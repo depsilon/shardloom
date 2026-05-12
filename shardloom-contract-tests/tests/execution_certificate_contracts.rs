@@ -1,6 +1,7 @@
 use shardloom_core::{
     Diagnostic, DiagnosticCategory, DiagnosticCode, DiagnosticSeverity, ExecutionCertificate,
-    ExecutionCertificateInput, ExecutionCertificateStatus, ExpectedOutcome, FallbackStatus,
+    ExecutionCertificateInput, ExecutionCertificateStatus, ExecutionProviderKind, ExpectedOutcome,
+    FallbackStatus,
 };
 
 fn certified_input() -> ExecutionCertificateInput {
@@ -38,6 +39,12 @@ fn execution_certificate_certifies_matching_reference_output() {
         Some(ExpectedOutcome::EncodedCount { count: 20000 })
     );
     assert_eq!(certificate.expected_outcome, certificate.actual_outcome);
+    assert_eq!(
+        certificate.execution_provider_kind,
+        ExecutionProviderKind::ShardLoomKernel
+    );
+    assert_eq!(certificate.provider_scope, "native");
+    assert!(!certificate.external_query_engine_invoked);
 }
 
 #[test]
@@ -80,4 +87,18 @@ fn execution_certificate_blocks_diagnostic_errors() {
     let certificate = ExecutionCertificate::evaluate(input);
 
     assert_eq!(certificate.status, ExecutionCertificateStatus::Blocked);
+}
+
+#[test]
+fn execution_certificate_blocks_external_query_engine_providers() {
+    let mut input = certified_input();
+    input.execution_provider_kind = ExecutionProviderKind::ExternalBaseline;
+
+    let certificate = ExecutionCertificate::evaluate(input);
+
+    assert_eq!(certificate.status, ExecutionCertificateStatus::Blocked);
+    assert_eq!(
+        certificate.execution_provider_kind,
+        ExecutionProviderKind::ExternalBaseline
+    );
 }

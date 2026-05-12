@@ -6,7 +6,10 @@
 
 #![allow(clippy::must_use_candidate, clippy::return_self_not_must_use)]
 
-use crate::{Diagnostic, DiagnosticSeverity, ExpectedOutcome, Result, ShardLoomError};
+use crate::{
+    Diagnostic, DiagnosticSeverity, ExpectedOutcome, Result, ShardLoomError,
+    architecture_spine::ExecutionProviderKind,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExecutionCertificateStatus {
@@ -306,6 +309,12 @@ pub fn plan_execution_certificate_evidence_surface() -> ExecutionCertificateEvid
 pub struct ExecutionCertificateInput {
     pub certificate_id: String,
     pub execution_kind: String,
+    pub execution_provider_kind: ExecutionProviderKind,
+    pub provider_scope: String,
+    pub provider_crate: Option<String>,
+    pub provider_version: Option<String>,
+    pub provider_api_surface: Option<String>,
+    pub shardloom_admission_policy: Option<String>,
     pub plan_ref: Option<String>,
     pub input_ref: Option<String>,
     pub output_ref: Option<String>,
@@ -324,6 +333,7 @@ pub struct ExecutionCertificateInput {
     pub write_io: bool,
     pub spill_io_performed: bool,
     pub external_effects_executed: bool,
+    pub external_query_engine_invoked: bool,
     pub unsafe_effect_detected: bool,
     pub fallback_attempted: bool,
     pub fallback_execution_allowed: bool,
@@ -352,6 +362,12 @@ impl ExecutionCertificateInput {
         Ok(Self {
             certificate_id,
             execution_kind,
+            execution_provider_kind: ExecutionProviderKind::ShardLoomKernel,
+            provider_scope: "native".to_string(),
+            provider_crate: None,
+            provider_version: None,
+            provider_api_surface: None,
+            shardloom_admission_policy: None,
             plan_ref: None,
             input_ref: None,
             output_ref: None,
@@ -370,6 +386,7 @@ impl ExecutionCertificateInput {
             write_io: false,
             spill_io_performed: false,
             external_effects_executed: false,
+            external_query_engine_invoked: false,
             unsafe_effect_detected: false,
             fallback_attempted: false,
             fallback_execution_allowed: false,
@@ -393,6 +410,12 @@ pub struct ExecutionCertificate {
     pub schema_version: &'static str,
     pub certificate_id: String,
     pub execution_kind: String,
+    pub execution_provider_kind: ExecutionProviderKind,
+    pub provider_scope: String,
+    pub provider_crate: Option<String>,
+    pub provider_version: Option<String>,
+    pub provider_api_surface: Option<String>,
+    pub shardloom_admission_policy: Option<String>,
     pub status: ExecutionCertificateStatus,
     pub plan_ref: Option<String>,
     pub input_ref: Option<String>,
@@ -412,6 +435,7 @@ pub struct ExecutionCertificate {
     pub write_io: bool,
     pub spill_io_performed: bool,
     pub external_effects_executed: bool,
+    pub external_query_engine_invoked: bool,
     pub unsafe_effect_detected: bool,
     pub fallback_attempted: bool,
     pub fallback_execution_allowed: bool,
@@ -422,8 +446,15 @@ impl ExecutionCertificate {
     pub fn evaluate(input: ExecutionCertificateInput) -> Self {
         let expected_matches_actual =
             input.expected_outcome.is_some() && input.expected_outcome == input.actual_outcome;
+        let external_provider_kind = matches!(
+            input.execution_provider_kind,
+            ExecutionProviderKind::ExternalBaseline
+                | ExecutionProviderKind::ProhibitedExternalFallback
+        );
         let status = if input.fallback_attempted
             || input.fallback_execution_allowed
+            || input.external_query_engine_invoked
+            || external_provider_kind
             || input.unsafe_effect_detected
             || input.has_errors()
         {
@@ -437,6 +468,12 @@ impl ExecutionCertificate {
             schema_version: "shardloom.execution_certificate.v1",
             certificate_id: input.certificate_id,
             execution_kind: input.execution_kind,
+            execution_provider_kind: input.execution_provider_kind,
+            provider_scope: input.provider_scope,
+            provider_crate: input.provider_crate,
+            provider_version: input.provider_version,
+            provider_api_surface: input.provider_api_surface,
+            shardloom_admission_policy: input.shardloom_admission_policy,
             status,
             plan_ref: input.plan_ref,
             input_ref: input.input_ref,
@@ -456,6 +493,7 @@ impl ExecutionCertificate {
             write_io: input.write_io,
             spill_io_performed: input.spill_io_performed,
             external_effects_executed: input.external_effects_executed,
+            external_query_engine_invoked: input.external_query_engine_invoked,
             unsafe_effect_detected: input.unsafe_effect_detected,
             fallback_attempted: input.fallback_attempted,
             fallback_execution_allowed: input.fallback_execution_allowed,
@@ -469,14 +507,19 @@ impl ExecutionCertificate {
     pub const fn fallback_free(&self) -> bool {
         !self.fallback_attempted && !self.fallback_execution_allowed
     }
+    pub const fn external_query_engine_free(&self) -> bool {
+        !self.external_query_engine_invoked
+    }
     pub fn to_human_text(&self) -> String {
         format!(
-            "execution certificate\nschema_version: {}\ncertificate: {}\nexecution_kind: {}\nstatus: {}\ncorrectness_passed: {}\nfallback attempted: {}\nfallback execution: disabled",
+            "execution certificate\nschema_version: {}\ncertificate: {}\nexecution_kind: {}\nexecution_provider_kind: {}\nstatus: {}\ncorrectness_passed: {}\nexternal query engine invoked: {}\nfallback attempted: {}\nfallback execution: disabled",
             self.schema_version,
             self.certificate_id,
             self.execution_kind,
+            self.execution_provider_kind.as_str(),
             self.status.as_str(),
             self.correctness_passed,
+            self.external_query_engine_invoked,
             self.fallback_attempted
         )
     }
@@ -506,6 +549,16 @@ mod tests {
         assert_eq!(certificate.status, ExecutionCertificateStatus::Certified);
         assert!(certificate.is_certified());
         assert!(certificate.fallback_free());
+        assert_eq!(
+            certificate.execution_provider_kind,
+            ExecutionProviderKind::ShardLoomKernel
+        );
+        assert!(certificate.external_query_engine_free());
+        assert!(
+            certificate
+                .to_human_text()
+                .contains("execution_provider_kind: shardloom_kernel")
+        );
         assert!(
             certificate
                 .to_human_text()
@@ -536,6 +589,34 @@ mod tests {
 
         assert_eq!(certificate.status, ExecutionCertificateStatus::Blocked);
         assert!(!certificate.fallback_free());
+    }
+
+    #[test]
+    fn external_query_engine_or_baseline_provider_blocks_certificate() {
+        let mut query_engine_input = certified_input();
+        query_engine_input.external_query_engine_invoked = true;
+
+        let query_engine_certificate = ExecutionCertificate::evaluate(query_engine_input);
+
+        assert_eq!(
+            query_engine_certificate.status,
+            ExecutionCertificateStatus::Blocked
+        );
+        assert!(!query_engine_certificate.external_query_engine_free());
+
+        let mut baseline_input = certified_input();
+        baseline_input.execution_provider_kind = ExecutionProviderKind::ExternalBaseline;
+
+        let baseline_certificate = ExecutionCertificate::evaluate(baseline_input);
+
+        assert_eq!(
+            baseline_certificate.status,
+            ExecutionCertificateStatus::Blocked
+        );
+        assert_eq!(
+            baseline_certificate.execution_provider_kind,
+            ExecutionProviderKind::ExternalBaseline
+        );
     }
 
     #[test]

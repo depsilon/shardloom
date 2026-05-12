@@ -5,9 +5,10 @@ use std::fmt::Write as _;
 
 use shardloom_core::{
     CorrectnessFixture, Diagnostic, DiagnosticCode, DiagnosticSeverity, ExecutionCertificate,
-    ExecutionCertificateInput, ExpectedOutcome, NativeIoAdapterFidelityReport, NativeIoCertificate,
-    NativeIoRepresentationTransition, NativeIoSideEffectReport, NativeIoSinkRequirementReport,
-    NativeIoSourceCapabilityReport, NativeIoSourcePushdownReport, RepresentationState, Result,
+    ExecutionCertificateInput, ExecutionProviderKind, ExpectedOutcome,
+    NativeIoAdapterFidelityReport, NativeIoCertificate, NativeIoRepresentationTransition,
+    NativeIoSideEffectReport, NativeIoSinkRequirementReport, NativeIoSourceCapabilityReport,
+    NativeIoSourcePushdownReport, RepresentationState, Result,
 };
 
 use crate::{
@@ -841,6 +842,11 @@ pub fn local_encoded_count_execution_certificate(
 ) -> Result<ExecutionCertificate> {
     let certificate_id = format!("{}.execution-certificate", fixture.id.as_str());
     let mut input = ExecutionCertificateInput::new(certificate_id, "vortex.local_encoded_count")?;
+    input.execution_provider_kind = ExecutionProviderKind::VortexScan;
+    input.provider_crate = Some("vortex".to_string());
+    input.provider_version = Some("0.70".to_string());
+    input.provider_api_surface = Some("VortexFile::scan.into_array_iter".to_string());
+    input.shardloom_admission_policy = Some("shardloom.vortex.local_scan_primitive.v1".to_string());
     input.plan_ref = Some("vortex-count:local-encoded-count".to_string());
     input.input_ref = encoded_read
         .local_scan_target_uri

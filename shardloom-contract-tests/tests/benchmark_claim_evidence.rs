@@ -39,9 +39,9 @@ fn foundation_benchmark_claim_evidence_is_report_only() {
     assert_eq!(report.required_foundation_metric_count, 21);
     assert_eq!(report.covered_required_foundation_metric_count, 21);
     assert!(report.missing_required_foundation_metrics.is_empty());
-    assert_eq!(report.expected_result_count, 10);
+    assert_eq!(report.expected_result_count, 14);
     assert_eq!(report.result_count, 0);
-    assert_eq!(report.missing_result_count, 10);
+    assert_eq!(report.missing_result_count, 14);
     assert!(report.missing_external_result_count > 0);
     assert!(!report.performance_claim_allowed);
     assert!(!report.superiority_claim_allowed);

@@ -20,9 +20,9 @@ fn correctness_harness_aggregates_current_cg5_evidence_without_execution() {
         report.status,
         CorrectnessDifferentialHarnessStatus::NeedsEvidence
     );
-    assert_eq!(report.fixture_count, 34);
-    assert_eq!(report.fixtures_with_source_ref_count, 16);
-    assert_eq!(report.source_backed_edge_fixture_count, 9);
+    assert_eq!(report.fixture_count, 36);
+    assert_eq!(report.fixtures_with_source_ref_count, 18);
+    assert_eq!(report.source_backed_edge_fixture_count, 11);
     assert_eq!(
         report.source_backed_edge_fixture_id_order,
         vec![
@@ -34,13 +34,15 @@ fn correctness_harness_aggregates_current_cg5_evidence_without_execution() {
             "vortex-edge-project-high-cardinality".to_string(),
             "vortex-edge-filter-project-sorted-dictionary".to_string(),
             "vortex-edge-filter-project-unsorted-rle".to_string(),
+            "vortex-edge-reader-chunk-dictionary-kernel-input".to_string(),
+            "vortex-edge-reader-chunk-run-end-kernel-input".to_string(),
             "vortex-edge-filter-temporal-values".to_string(),
         ]
     );
-    assert_eq!(report.golden_fixture_count, 19);
-    assert_eq!(report.executable_expected_output_count, 18);
-    assert_eq!(report.reference_artifact_count, 18);
-    assert_eq!(report.decoded_reference_output_count, 18);
+    assert_eq!(report.golden_fixture_count, 21);
+    assert_eq!(report.executable_expected_output_count, 20);
+    assert_eq!(report.reference_artifact_count, 20);
+    assert_eq!(report.decoded_reference_output_count, 20);
     assert_eq!(
         report.decoded_reference_artifact_id_order,
         vec![
@@ -62,6 +64,8 @@ fn correctness_harness_aggregates_current_cg5_evidence_without_execution() {
             "vortex-edge-project-high-cardinality.decoded-reference.rows".to_string(),
             "vortex-edge-filter-project-sorted-dictionary.decoded-reference.rows".to_string(),
             "vortex-edge-filter-project-unsorted-rle.decoded-reference.rows".to_string(),
+            "vortex-edge-reader-chunk-dictionary-kernel-input.decoded-reference.rows".to_string(),
+            "vortex-edge-reader-chunk-run-end-kernel-input.decoded-reference.rows".to_string(),
             "vortex-edge-filter-temporal-values.decoded-reference.rows".to_string(),
         ]
     );
@@ -103,7 +107,7 @@ fn correctness_harness_aggregates_current_cg5_evidence_without_execution() {
     );
     assert!(report.deferred_fixture_family_artifacts_test_only);
     assert_eq!(report.baseline_count, 7);
-    assert_eq!(report.external_oracle_result_artifact_count, 63);
+    assert_eq!(report.external_oracle_result_artifact_count, 77);
     assert_eq!(report.external_oracle_result_populated_count, 0);
     assert!(!report.external_oracle_results_populated);
     assert_eq!(

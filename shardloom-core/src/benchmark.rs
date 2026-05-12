@@ -1411,6 +1411,37 @@ fn traditional_analytics_scenario(name: &str) -> BenchmarkScenario {
     scenario
 }
 
+fn source_backed_reader_chunk_scenario(name: &str, operation: &str) -> BenchmarkScenario {
+    let mut scenario = BenchmarkScenario::new(name, WorkloadClass::SingleNodeEncodedExecution)
+        .expect("valid source-backed reader-chunk benchmark scenario");
+    scenario.dataset_name = Some("source-backed-edge-fixtures".to_string());
+    scenario.dataset_scale = Some("tiny_reader_chunk_edges".to_string());
+    scenario.storage_format = Some("vortex".to_string());
+    scenario.query_or_operation = Some(operation.to_string());
+    scenario.correctness_validation = CorrectnessValidationMode::ExpectedOutput;
+    scenario.add_baseline(BaselineEngine::ShardLoom);
+    scenario.add_baseline(BaselineEngine::VortexIntegration);
+    for metric in [
+        BenchmarkMetric::StartupLatencyMillis,
+        BenchmarkMetric::WallTimeMillis,
+        BenchmarkMetric::QueryRuntimeMillis,
+        BenchmarkMetric::PeakMemoryBytes,
+        BenchmarkMetric::BytesRead,
+        BenchmarkMetric::BytesDecoded,
+        BenchmarkMetric::BytesDecodeAvoided,
+        BenchmarkMetric::RowsMaterialized,
+        BenchmarkMetric::RowsMaterializationAvoided,
+        BenchmarkMetric::SegmentsConsidered,
+        BenchmarkMetric::SegmentsPruned,
+        BenchmarkMetric::WorkAvoidedUnits,
+        BenchmarkMetric::SpillRequiredBytes,
+        BenchmarkMetric::SpillAvoidedBytes,
+    ] {
+        scenario.add_required_metric(metric);
+    }
+    scenario
+}
+
 /// Collection of benchmark scenarios for foundation planning.
 #[derive(Debug, Clone, PartialEq)]
 pub struct BenchmarkPlan {
@@ -1470,6 +1501,16 @@ impl BenchmarkPlan {
         scenario.add_required_metric(BenchmarkMetric::SpillRequiredBytes);
         scenario.add_required_metric(BenchmarkMetric::SpillAvoidedBytes);
         plan.add_scenario(scenario);
+
+        plan.add_scenario(source_backed_reader_chunk_scenario(
+            "source-backed dictionary reader chunk",
+            "reader_chunk_dictionary_kernel_input",
+        ));
+
+        plan.add_scenario(source_backed_reader_chunk_scenario(
+            "source-backed run-end reader chunk",
+            "reader_chunk_run_end_kernel_input",
+        ));
 
         let mut scenario = BenchmarkScenario::new(
             "massive object-store scan",
@@ -2062,25 +2103,25 @@ mod tests {
     fn default_foundation_plan_exposes_coverage_inventory() {
         let plan = BenchmarkPlan::default_foundation_plan();
 
-        assert_eq!(plan.scenario_count(), 5);
+        assert_eq!(plan.scenario_count(), 7);
         assert_eq!(plan.required_metrics().len(), 21);
         assert_eq!(BenchmarkPlan::required_foundation_metrics().len(), 21);
         assert_eq!(plan.covered_required_foundation_metric_count(), 21);
         assert!(plan.required_foundation_metrics_covered());
         assert!(plan.missing_required_foundation_metrics().is_empty());
-        assert_eq!(plan.scenario_with_correctness_validation_count(), 5);
-        assert_eq!(plan.scenario_with_required_metrics_count(), 5);
-        assert_eq!(plan.scenario_with_baselines_count(), 5);
-        assert_eq!(plan.expected_result_count(), 10);
+        assert_eq!(plan.scenario_with_correctness_validation_count(), 7);
+        assert_eq!(plan.scenario_with_required_metrics_count(), 7);
+        assert_eq!(plan.scenario_with_baselines_count(), 7);
+        assert_eq!(plan.expected_result_count(), 14);
         assert_eq!(plan.external_baseline_count(), 5);
         assert_eq!(
             plan.baseline_engine_order(),
             vec![
                 "shardloom",
                 "datafusion",
+                "vortex_integration",
                 "spark",
                 "polars",
-                "vortex_integration",
                 "other"
             ]
         );
@@ -2147,11 +2188,11 @@ mod tests {
         );
         assert_eq!(report.report_id, "cg6.benchmark_claim_evidence.aggregate");
         assert_eq!(report.status, BenchmarkClaimEvidenceStatus::NeedsEvidence);
-        assert_eq!(report.scenario_count, 5);
+        assert_eq!(report.scenario_count, 7);
         assert_eq!(report.required_metric_count, 21);
-        assert_eq!(report.expected_result_count, 10);
+        assert_eq!(report.expected_result_count, 14);
         assert_eq!(report.result_count, 0);
-        assert_eq!(report.missing_result_count, 10);
+        assert_eq!(report.missing_result_count, 14);
         assert!(report.missing_external_result_count > 0);
         assert_eq!(
             report.run_manifest_status,

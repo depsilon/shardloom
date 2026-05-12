@@ -26,7 +26,9 @@ pub mod commit_execution_gate;
 pub mod commit_intent;
 pub mod commit_marker;
 pub mod commit_protocol;
+pub mod composite_pushdown;
 pub mod count_readiness;
+pub mod device_residency;
 pub mod encoded_count_approval;
 pub mod encoded_count_physical_kernel;
 pub mod encoded_path_selection;
@@ -39,7 +41,9 @@ pub mod encoded_read_fixture;
 pub mod encoded_read_metadata_probe;
 pub mod encoded_read_probe;
 pub mod encoded_read_readiness;
+pub mod execute_step_evidence;
 pub mod execution_readiness;
+pub mod extension_type_capability;
 pub mod file_io;
 pub mod filtered_count_readiness;
 pub mod generalized_encoded_filter_execution;
@@ -70,8 +74,25 @@ pub mod staged_manifest;
 pub mod staged_output;
 pub mod streaming_batch_runtime;
 pub mod traditional_analytics;
+pub mod vortex_compatibility;
+pub mod vortex_compute_provider;
+pub mod vortex_operational_facets;
+pub mod vortex_scan_compatibility;
 pub mod write_intent;
 
+pub use composite_pushdown::{
+    CompositePushdownCapabilityMatrix, CompositePushdownCapabilityRow, CompositePushdownStatus,
+    plan_composite_pushdown_capability_matrix,
+};
+pub use device_residency::{
+    DeviceResidencyKind, DeviceResidencyOutputBoundary, DeviceResidencyReport,
+    plan_device_residency_report,
+};
+pub use execute_step_evidence::{ExecuteStepEvidence, plan_execute_step_evidence};
+pub use extension_type_capability::{
+    ExtensionTypeCapabilityMatrix, ExtensionTypeCapabilityRow, ExtensionTypeSupportStatus,
+    plan_extension_type_capability_matrix,
+};
 pub use filtered_count_readiness::*;
 pub use generalized_encoded_filter_execution::{
     VortexGeneralizedEncodedFilterExecutionReport, VortexGeneralizedEncodedFilterExecutionStatus,
@@ -96,13 +117,15 @@ pub use generalized_projection_execution::{
     execute_vortex_generalized_projection_from_local_scan_pushdown,
 };
 pub use source_backed_encoded_execution::{
-    VortexReaderBackedEncodedExecutionStatus, VortexReaderBackedEncodedFilterExecutionReport,
+    VortexNativeProviderBoundary, VortexReaderBackedEncodedExecutionStatus,
+    VortexReaderBackedEncodedFilterExecutionReport,
     VortexReaderBackedEncodedProjectionExecutionReport, VortexReaderBackedSplitEvidence,
     VortexReaderGeneratedEncodedKernelInput, VortexReaderGeneratedPreparedBatchEvidence,
     VortexReaderGeneratedPreparedBatchReport, VortexReaderGeneratedPreparedBatchStatus,
+    VortexResidualBoundaryReport, VortexSourceBackedCertificatePairReport,
     VortexSourceBackedEncodedExecutionStatus, VortexSourceBackedEncodedFilterExecutionReport,
     VortexSourceBackedEncodedProjectionColumn, VortexSourceBackedEncodedProjectionExecutionReport,
-    VortexSourceBackedEncodedValuePredicateBatch,
+    VortexSourceBackedEncodedValuePredicateBatch, VortexSourceBackedExpansionEvidenceReport,
     execute_vortex_reader_backed_filter_from_encoded_value_batches,
     execute_vortex_reader_backed_projection_from_encoded_projection_batches,
     execute_vortex_reader_generated_filter_from_encoded_kernel_inputs,
@@ -111,6 +134,27 @@ pub use source_backed_encoded_execution::{
     execute_vortex_source_backed_projection_from_encoded_projection_batches,
     plan_vortex_reader_generated_prepared_batch_envelopes,
     plan_vortex_reader_generated_prepared_batch_kernel_inputs,
+};
+pub use vortex_compatibility::{
+    VortexCompatibilityMatrixReport, VortexCompatibilityMatrixRow, VortexCompatibilityStatus,
+    plan_vortex_compatibility_matrix,
+};
+pub use vortex_compute_provider::{
+    VortexComputeProviderAlignmentReport, VortexComputeProviderReport,
+    VortexIntegrationBoundaryReport, VortexIntegrationBoundaryRow, VortexIntegrationRole,
+    plan_vortex_compute_provider_alignment_report,
+};
+pub use vortex_operational_facets::{
+    ApproxAnalyticsCertificate, CompressionAdvisorReport, ExecutionTelemetryFacet,
+    ForeignRuntimePosture, ForeignRuntimeStatus, ForeignRuntimeSurface,
+    IntegrityAndEncryptionReport, IoBackendEvidence, IoBackendKind, PythonVortexInteropReport,
+    StreamingSinkCertificate, StreamingSinkWriterMode, VortexBenchmarkInterop,
+    VortexBenchmarkInteropRow, VortexOperationalHardeningReport,
+    plan_vortex_operational_hardening_report,
+};
+pub use vortex_scan_compatibility::{
+    VortexScanCompatibilityReport, VortexScanCompatibilityStatus, VortexScanPushdownDecision,
+    VortexScanResidualExecutor, plan_vortex_scan_compatibility,
 };
 
 pub use file_io::{

@@ -53,6 +53,18 @@
       "expected": { "rows": 3 }
     },
     {
+      "fixture_id": "vortex-edge-reader-chunk-dictionary-kernel-input",
+      "operation": "reader_chunk_kernel_input",
+      "edge_cases": ["dictionary_encoded", "no_nulls"],
+      "expected": { "rows": 4 }
+    },
+    {
+      "fixture_id": "vortex-edge-reader-chunk-run-end-kernel-input",
+      "operation": "reader_chunk_kernel_input",
+      "edge_cases": ["run_length_encoded", "no_nulls"],
+      "expected": { "rows": 5 }
+    },
+    {
       "fixture_id": "vortex-edge-filter-temporal-values",
       "operation": "filter",
       "edge_cases": ["temporal_values"],
