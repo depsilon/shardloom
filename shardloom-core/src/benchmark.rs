@@ -1087,6 +1087,15 @@ pub struct BenchmarkClaimEvidenceReport {
     pub planned_surface_count: usize,
     pub blocked_surface_count: usize,
     pub blocked_surface_order: Vec<String>,
+    pub claim_grade_source_backed_benchmark_closeout_required: bool,
+    pub claim_grade_source_backed_benchmark_closeout_allowed: bool,
+    pub claim_grade_source_backed_benchmark_closeout_blocker_order: Vec<String>,
+    pub measured_benchmark_result_rows_required: bool,
+    pub measured_benchmark_result_rows_present: bool,
+    pub reproducibility_manifest_population_required: bool,
+    pub reproducibility_manifest_populated: bool,
+    pub approved_comparison_rows_required: bool,
+    pub approved_comparison_rows_present: bool,
     pub benchmark_execution_implemented: bool,
     pub benchmark_execution_performed: bool,
     pub external_engine_execution: bool,
@@ -1196,6 +1205,22 @@ pub fn benchmark_claim_evidence_from_parts(
     let baselines_fallback_free = plan.baselines_are_fallback_free();
     let fallback_attempted = claim_gate.fallback.attempted();
     let performance_claim_allowed = bundle.can_publish_performance_claim();
+    let measured_benchmark_result_rows_present =
+        claim_gate.benchmark_evidence.is_present() && !comparison_report.results.is_empty();
+    let reproducibility_manifest_populated = claim_gate.reproducibility_evidence.is_present();
+    let approved_comparison_rows_present = comparison_report.missing_results.is_empty()
+        && comparison_report.missing_metrics.is_empty()
+        && missing_external_result_count == 0
+        && !comparison_report.results.is_empty();
+    let claim_grade_source_backed_benchmark_closeout_blocker_order =
+        benchmark_claim_grade_closeout_blockers(
+            measured_benchmark_result_rows_present,
+            reproducibility_manifest_populated,
+            approved_comparison_rows_present,
+        );
+    let claim_grade_source_backed_benchmark_closeout_allowed =
+        claim_grade_source_backed_benchmark_closeout_blocker_order.is_empty()
+            && performance_claim_allowed;
     let blocked_surface_order = benchmark_claim_blocked_surfaces(
         plan,
         run_manifest,
@@ -1276,6 +1301,15 @@ pub fn benchmark_claim_evidence_from_parts(
         planned_surface_count,
         blocked_surface_count,
         blocked_surface_order,
+        claim_grade_source_backed_benchmark_closeout_required: true,
+        claim_grade_source_backed_benchmark_closeout_allowed,
+        claim_grade_source_backed_benchmark_closeout_blocker_order,
+        measured_benchmark_result_rows_required: true,
+        measured_benchmark_result_rows_present,
+        reproducibility_manifest_population_required: true,
+        reproducibility_manifest_populated,
+        approved_comparison_rows_required: true,
+        approved_comparison_rows_present,
         benchmark_execution_implemented: plan.benchmark_execution_implemented(),
         benchmark_execution_performed: false,
         external_engine_execution: false,
@@ -1331,6 +1365,24 @@ fn benchmark_claim_blocked_surfaces(
         blocked.push("claim_publication_gate".to_string());
     }
     blocked
+}
+
+fn benchmark_claim_grade_closeout_blockers(
+    measured_benchmark_result_rows_present: bool,
+    reproducibility_manifest_populated: bool,
+    approved_comparison_rows_present: bool,
+) -> Vec<String> {
+    let mut blockers = Vec::new();
+    if !measured_benchmark_result_rows_present {
+        blockers.push("measured_benchmark_result_rows_not_populated".to_string());
+    }
+    if !reproducibility_manifest_populated {
+        blockers.push("reproducibility_manifest_not_populated".to_string());
+    }
+    if !approved_comparison_rows_present {
+        blockers.push("approved_comparison_rows_missing".to_string());
+    }
+    blockers
 }
 
 fn benchmark_required_metric_sets_match(
@@ -2228,6 +2280,22 @@ mod tests {
         );
         assert_eq!(report.blocked_surface_count, 5);
         assert_eq!(report.planned_surface_count, 4);
+        assert!(report.claim_grade_source_backed_benchmark_closeout_required);
+        assert!(!report.claim_grade_source_backed_benchmark_closeout_allowed);
+        assert_eq!(
+            report.claim_grade_source_backed_benchmark_closeout_blocker_order,
+            vec![
+                "measured_benchmark_result_rows_not_populated".to_string(),
+                "reproducibility_manifest_not_populated".to_string(),
+                "approved_comparison_rows_missing".to_string()
+            ]
+        );
+        assert!(report.measured_benchmark_result_rows_required);
+        assert!(!report.measured_benchmark_result_rows_present);
+        assert!(report.reproducibility_manifest_population_required);
+        assert!(!report.reproducibility_manifest_populated);
+        assert!(report.approved_comparison_rows_required);
+        assert!(!report.approved_comparison_rows_present);
         assert!(!report.performance_claim_allowed);
         assert!(!report.superiority_claim_allowed);
         assert!(!report.best_default_claim_allowed);

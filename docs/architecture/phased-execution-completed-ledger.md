@@ -16,6 +16,37 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: claim-grade source-backed benchmark closeout gate
+  - Primary files:
+    - `shardloom-core/src/benchmark.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/benchmark_claim_evidence_plan_snapshots.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: make claim-grade CG-6 source-backed benchmark closeout explicitly blocked until
+    measured benchmark result rows, populated reproducibility manifests, and approved comparison
+    rows exist.
+  - Checklist:
+    - [x] Add claim-grade source-backed benchmark closeout required/allowed fields and blocker
+          ordering to `BenchmarkClaimEvidenceReport`.
+    - [x] Surface measured-result-row, reproducibility-manifest, and approved-comparison-row
+          requirements through the CLI JSON contract.
+    - [x] Keep performance, superiority, and best-default claims blocked while benchmark closeout
+          evidence is unpopulated.
+    - [x] Preserve no benchmark execution, no data reads, no external engine execution, no writes,
+          and no fallback execution.
+  - Validation status:
+    - [x] `cargo test -p shardloom-core benchmark_claim --lib`
+    - [x] `cargo test -p shardloom-cli --test benchmark_claim_evidence_plan_snapshots`
+    - [x] `cargo fmt --all -- --check`
+    - [x] `cargo clippy -p shardloom-core --lib -- -D warnings`
+    - [x] `cargo clippy -p shardloom-cli --all-targets -- -D warnings`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `git diff --check`
+  - Non-goals preserved:
+    - [x] No benchmark execution, query execution, measured benchmark row population,
+          reproducibility-manifest population, external comparison execution, approved comparison
+          publication, object-store IO, write IO, claim publication, external engine fallback, or
+          fallback execution.
 - [x] Session label: claim-grade correctness closeout gate
   - Primary files:
     - `shardloom-core/src/correctness.rs`
