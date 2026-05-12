@@ -150,6 +150,11 @@ The prepared/source-backed execution family now contains the `vortex-encoded-rea
 and feature-gated spike behavior; `vortex-encoded-read-execute` keeps its existing executor contract
 while broader prepared/source-backed extraction continues.
 
+The Vortex primitive execution family now starts its physical split in
+`shardloom-cli/src/vortex_primitive_execution.rs` with `vortex-count`. Broader count benchmark,
+filtered count, projection, filter-project, query trace, and local engine handlers remain staged for
+later extraction.
+
 Command family classification lives in `shardloom-cli/src/command_family.rs` and is emitted in the
 typed lifecycle payload as `command_family`. This gives status/capabilities, Vortex primitive,
 prepared/source-backed, evidence/certificate, benchmark, packaging/deployment, Foundry,

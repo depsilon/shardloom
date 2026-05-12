@@ -16,6 +16,35 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 Vortex count primitive handler module split
+  - Primary files:
+    - `shardloom-cli/src/vortex_primitive_execution.rs`
+    - `shardloom-cli/src/main.rs`
+    - `docs/architecture/typed-command-result-envelope.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/rfcs/0039-typed-command-result-envelope-cli-modularity.md`
+  - Scope: move the first Vortex primitive execution handler, `vortex-count`, into a focused
+    module while leaving count benchmark, filtered count, projection, filter-project, query trace,
+    and local engine extraction for later slices.
+  - Checklist:
+    - [x] Add `shardloom-cli/src/vortex_primitive_execution.rs`.
+    - [x] Delegate `vortex-count` from `main.rs`.
+    - [x] Preserve metadata-only and explicit local encoded count behavior.
+    - [x] Keep broader Vortex primitive benchmark/filter/project/run handlers staged.
+    - [x] Update Priority 3.9 docs, RFC traceability, and RFC 0039 status.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo check -p shardloom-cli --bin shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli command_family`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli vortex_count_parse_local_encoded_count_flag`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test typed_envelope_contract_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test python_wrapper_snapshots`
+    - [x] `.\target\debug\shardloom.exe vortex-count file:///tmp/example.vortex --format json`
+          returned the existing metadata-only unsupported boundary with `fallback_attempted=false`.
+  - Runtime stance: handler split only; no new Vortex runtime behavior, dataset reads beyond the
+    existing explicit command contract, external engine invocation, or fallback execution is
+    authorized.
+
 - [x] Session label: Priority 3.9 prepared/source-backed encoded-read handler module split
   - Primary files:
     - `shardloom-cli/src/prepared_source_backed_execution.rs`
