@@ -21,6 +21,14 @@ ShardLoom needs a portable, deterministic contract for source-to-sink data flow 
 ## Core concept
 Universal I/O is a native contract layer, not a decoded-batch normalization step.
 
+ShardLoom is standalone from external query-engine fallback, not isolated from
+Vortex compute. Upstream Vortex array, compute, scan, source, and sink APIs may
+serve as Vortex-native execution providers when they are admitted through
+ShardLoom policy, version-recorded, feature-gated, and reported through
+ShardLoom certificates. Vortex query-engine integrations that delegate residual
+work to DataFusion, DuckDB, Spark, Polars, Velox, or similar engines remain
+external baselines or interoperability references only.
+
 ## Vortex Scan API alignment
 Vortex's Scan API direction is an important design reference for CG-19, especially its source/sink boundary, split-based work units, filter/projection pushdown, compressed data flow, and independently executable split model.
 
@@ -41,6 +49,15 @@ Vortex's own operator/vector, GPU, Arrow device array, cuDF, and Arrow-oriented 
 - `AdapterFidelityReport`
 - `MaterializationBoundaryReport`
 - `NativeIoCertificate`
+- `VortexCompatibilityMatrix`
+- `VortexScanCompatibilityReport`
+- `VortexComputeProviderReport`
+- `ResidualBoundaryReport`
+- `VortexIntegrationBoundaryReport`
+- `IoBackendEvidence`
+- `StreamingSinkCertificate`
+- `ExecutionTelemetryFacet`
+- `IntegrityAndEncryptionReport`
 
 ## Field-level contract sketches
 
@@ -221,6 +238,7 @@ Required fields:
 - `unsafe_rejected_reason`
 - `semantic_profile`
 - `residual_required`
+- `residual_executor`
 - `fallback_attempted=false`
 
 Pushdown boundaries:
@@ -228,7 +246,167 @@ Pushdown boundaries:
 - `residual_expression` must be present whenever `guarantee` is not fully exact for the whole predicate/projection.
 - Conservative pushdown may include false positives but must not exclude valid rows.
 - Unsafe source behavior must be rejected instead of delegated or retried through another execution engine.
+- If a source or Vortex-native provider accepts only part of a predicate/projection, the residual must be executed by ShardLoom-native code or blocked with diagnostics.
+- `residual_executor` values are `none`, `shardloom_native`, `unsupported_blocked`, `external_baseline_only`, and `prohibited_external_fallback`.
 - Pushdown proof is source capability evidence; it is not fallback execution.
+
+## Vortex-native provider and upstream alignment
+
+CG-19 must distinguish a Vortex-native execution provider from external
+query-engine fallback.
+
+`ExecutionProviderKind` values:
+- `shardloom_kernel`
+- `shardloom_metadata`
+- `vortex_array_kernel`
+- `vortex_compute_function`
+- `vortex_scan`
+- `vortex_source`
+- `vortex_sink`
+- `compatibility_import`
+- `compatibility_export`
+- `external_baseline`
+- `prohibited_external_fallback`
+
+`VortexComputeProviderReport` fields:
+- `provider_kind`
+- `vortex_version`
+- `feature_gate`
+- `provider_api_surface`
+- `operation`
+- `dtype_support`
+- `encoding_support`
+- `layout_support`
+- `null_semantics`
+- `selection_vector_behavior`
+- `materialization_behavior`
+- `decoded_reference_status`
+- `residual_required`
+- `residual_executor`
+- `external_engine_invoked=false`
+- `fallback_attempted=false`
+- `diagnostics`
+
+Vortex-native provider rules:
+- Upstream Vortex array, compute, scan, source, and sink APIs may be native
+  providers when invoked through approved ShardLoom boundaries.
+- Provider execution must record Vortex version, feature gate, API surface,
+  representation transitions, materialization boundaries, residual executor,
+  and fallback status.
+- Vortex DataFusion, DuckDB, Spark, Trino, or similar integrations must not be
+  used to execute unsupported ShardLoom residual work.
+- External integrations may be benchmark, oracle, migration, or interoperability
+  references only.
+
+## Vortex compatibility and scan alignment
+
+`VortexCompatibilityMatrix` fields:
+- `vortex_crate_version`
+- `vortex_file_format_assumption`
+- `rust_toolchain_compatibility`
+- `crate_feature_set_enabled`
+- `local_file_read_support`
+- `local_file_write_support`
+- `scan_api_status`
+- `source_sink_api_status`
+- `split_serialization_status`
+- `dtype_mapping_status`
+- `layout_mapping_status`
+- `statistics_mapping_status`
+- `dictionary_rle_constant_sparse_status`
+- `nested_list_status`
+- `arrow_boundary_status`
+- `python_pyvortex_compatibility`
+- `object_store_status`
+- `gpu_device_status`
+- `extension_dtype_status`
+- `known_unsupported_vortex_apis`
+- `external_integration_status`
+
+`VortexScanCompatibilityReport` fields:
+- `scan_request_fields`
+- `projection_status`
+- `filter_status`
+- `limit_status`
+- `field_mask_status`
+- `split_estimates`
+- `split_serialization_status`
+- `sink_requirement_mapping`
+- `pushdown_decision`
+- `residual_expression`
+- `residual_executor`
+- `native_io_certificate_refs`
+- `fallback_attempted=false`
+
+`VortexIntegrationBoundaryReport` fields:
+- `integration_name`
+- `role`
+- `allowed_in_core`
+- `allowed_in_benchmark`
+- `allowed_in_oracle`
+- `may_execute_shardloom_plan`
+- `may_execute_residual`
+- `fallback_attempted=false`
+
+Integration roles include `upstream_vortex_native_api_allowed`,
+`vortex_datafusion_baseline_only`, `vortex_duckdb_baseline_only`,
+`vortex_spark_baseline_only`, `vortex_trino_baseline_only`,
+`unsupported_as_runtime`, and `prohibited_fallback`.
+
+## IO, sink, telemetry, and integrity evidence
+
+`IoBackendEvidence` fields:
+- `backend_kind`
+- `read_at_count`
+- `object_request_count`
+- `coalesced_request_count`
+- `requested_bytes`
+- `returned_bytes`
+- `useful_bytes`
+- `read_amplification_ratio`
+- `prefetch_registered`
+- `prefetch_resolved`
+- `prefetch_dropped`
+- `segment_cache_hits`
+- `segment_cache_misses`
+- `backend_concurrency`
+- `coalescing_policy`
+- `sub_segment_read_supported`
+- `fallback_attempted=false`
+
+`StreamingSinkCertificate` fields:
+- `writer_mode`
+- `flush_policy`
+- `buffered_rows`
+- `buffered_bytes`
+- `emitted_micro_segments`
+- `compression_strategy`
+- `backpressure_state`
+- `sink_commit_status`
+- `recovery_status`
+- `output_manifest_ref`
+- `fallback_attempted=false`
+
+`ExecutionTelemetryFacet` fields:
+- `trace_id`
+- `span_refs`
+- `operator_metric_refs`
+- `io_metric_refs`
+- `certificate_refs`
+- `profile_refs`
+- `perfetto_trace_ref`
+- `fallback_attempted=false`
+
+`IntegrityAndEncryptionReport` fields:
+- `checksum_present`
+- `checksum_verified`
+- `encryption_present`
+- `encryption_supported`
+- `key_policy_ref`
+- `decrypted_boundary`
+- `integrity_error_policy`
+- `unsupported_encryption_diagnostic`
+- `fallback_attempted=false`
 
 ## Sink requirements
 
@@ -365,6 +543,12 @@ This RFC defines the contract foundation for CG-19 (Universal Native I/O Envelop
 
 ## No-fallback and no-delegation policy
 Universal I/O contracts must never imply execution fallback. Unsupported paths fail explicitly with deterministic diagnostics.
+
+Using a policy-admitted upstream Vortex array, compute, scan, source, or sink
+API as a Vortex-native execution provider is allowed when evidence is recorded.
+Using a Vortex query-engine integration, DataFusion, DuckDB, Spark, Polars,
+Velox, or another external engine to execute unsupported residual work is
+fallback/delegation and remains prohibited.
 
 ## Future implementation phases
 Future phases may implement these contracts incrementally in planner diagnostics, explain/estimate outputs, adapter interfaces, and execution certificates.

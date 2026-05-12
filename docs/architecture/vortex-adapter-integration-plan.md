@@ -4,6 +4,13 @@
 
 ShardLoom will integrate Vortex through a narrow adapter boundary so core crates stay ShardLoom-domain-first while Vortex-specific integration remains isolated.
 
+The adapter boundary may use upstream Vortex array, compute, scan, source, and
+sink APIs as Vortex-native execution providers when a phase-plan item approves
+the behavior and ShardLoom records provider, version, feature-gate,
+representation, residual, materialization, certificate, and no-fallback
+evidence. It must not use Vortex query-engine integrations to execute
+unsupported ShardLoom work.
+
 Active phase status, active queue placement, and CG closeout decisions live in `docs/architecture/phased-execution-plan.md`. This document is the Vortex adapter boundary and rationale ledger; it does not authorize new IO or execution behavior by itself.
 
 Status words in historical sections below describe evidence recorded at the time of the original phase note. They are not active queue state and do not override `phased-execution-plan.md`.
@@ -14,6 +21,9 @@ Status words in historical sections below describe evidence recorded at the time
 - Core crates use ShardLoom domain types.
 - Adapter maps upstream Vortex concepts into ShardLoom concepts.
 - Adapter does not execute fallback engines.
+- Adapter may invoke approved upstream Vortex-native providers, but not Vortex
+  DataFusion, DuckDB, Spark, Trino, or similar query-engine integrations as
+  runtime helpers.
 - Adapter avoids unnecessary decode.
 - Adapter exposes unsupported features as diagnostics.
 - Adapter preserves native Vortex output as highest-fidelity.

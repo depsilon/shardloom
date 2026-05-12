@@ -157,6 +157,285 @@ Contract names:
 - `DeploymentReadinessReport`
 - `ExtensionCapabilityReport`
 - `SecurityGovernanceReport`
+- `EvidenceArtifactEnvelope`
+- `EvidenceArtifactSafety`
+- `ShardLoomExecutionPolicy`
+- `QueryLifecycleContract`
+- `ProtocolSurfaceParityReport`
+- `BenchmarkConstitution`
+- `StandardsDependencyDecision`
+- `RustPerformanceProfileEvidence`
+- `CapabilityExecutionStatus`
+- `CompositePushdownCapabilityMatrix`
+- `ExtensionTypeCapabilityMatrix`
+- `CompressionAdvisorReport`
+- `ForeignRuntimePosture`
+- `PythonVortexInteropReport`
+- `VortexBenchmarkInterop`
+
+## Cross-surface operational contracts
+
+CG-20 capability breadth must share evidence, policy, lifecycle, protocol, and
+benchmark fairness contracts with CG-21, CG-22, and CG-23.
+
+`EvidenceArtifactEnvelope` fields:
+- `artifact_id`
+- `artifact_type`
+- `schema_version`
+- `producer_component`
+- `engine_version`
+- `protocol_version`
+- `created_at`
+- `workload_constitution_ref`
+- `plan_id`
+- `query_id`
+- `run_id`
+- `input_refs`
+- `output_refs`
+- `evidence_refs`
+- `policy_refs`
+- `redaction_policy`
+- `retention_policy`
+- `invalidation_refs`
+- `digest`
+- `diagnostics`
+- `fallback_attempted=false`
+
+`EvidenceArtifactSafety` fields:
+- `data_classification`
+- `contains_user_values`
+- `contains_paths`
+- `contains_credentials=false`
+- `contains_samples`
+- `contains_query_text`
+- `contains_schema_names`
+- `redaction_policy`
+- `retention_policy`
+- `export_allowed`
+- `agent_visible`
+
+`ShardLoomExecutionPolicy` fields:
+- `requested_engine`
+- `allowed_engines`
+- `fallback_policy`
+- `materialization_policy`
+- `decode_policy`
+- `result_delivery_policy`
+- `evidence_policy`
+- `effect_policy`
+- `credential_policy`
+- `redaction_policy`
+- `retention_policy`
+- `memory_policy`
+- `spill_policy`
+- `network_policy`
+- `destructive_operation_policy`
+- `benchmark_policy`
+- `agent_policy`
+
+`QueryLifecycleContract` states:
+- `accepted`
+- `validating`
+- `planned`
+- `blocked`
+- `queued`
+- `running`
+- `cancelling`
+- `cancelled`
+- `failed`
+- `succeeded`
+- `expired`
+
+`ProtocolSurfaceParityReport` surfaces:
+- `cli_json`
+- `python_wrapper`
+- `rest_openapi`
+- `mcp_resources`
+- `flight_adbc_metadata`
+
+Parity requirements:
+- Capability, certificate, result, policy, error, and fallback fields must map
+  across surfaces or carry explicit unavailable reasons.
+- Unsupported diagnostics must report the same blocker, required gate,
+  materialization boundary, rewrite guidance, and no-fallback status.
+- A feature cannot be supported in one public surface and silently unsupported in
+  another.
+
+## Capability execution status
+
+`CapabilityExecutionStatus` values:
+- `unsupported`
+- `declared_only`
+- `report_only`
+- `metadata_only`
+- `shardloom_native`
+- `vortex_native_provider`
+- `shardloom_plus_vortex_native`
+- `compatibility_boundary`
+- `external_baseline_only`
+- `prohibited_fallback`
+
+Rules:
+- `vortex_native_provider` means upstream Vortex or ShardLoom-owned
+  Vortex-aware compute admitted through ShardLoom policy and certificates.
+- `external_baseline_only` may appear in comparison and migration reports but
+  must not be reported as ShardLoom execution.
+- `prohibited_fallback` is a blocked state, not a degraded execution mode.
+
+## Composite pushdown and rich-type capability
+
+`CompositePushdownCapabilityMatrix` tracks:
+- filter + projection
+- filter + limit
+- projection + limit
+- filter + projection + limit
+- ordered limit
+- reverse scan
+- top-N
+- range predicate + projection
+- zone-pruned filter + residual predicate
+- filter-only columns discarded after mask
+
+Composite pushdown support requires correctness, benchmark, execution
+certificate, native I/O, and residual-boundary evidence for the combination,
+not only for each individual primitive.
+
+`ExtensionTypeCapabilityMatrix` categories:
+- vector
+- tensor / matrix
+- fixed-size binary
+- map
+- variant / JSON
+- UUID
+- geospatial WKB / future GeoArrow
+- raster / image reference
+- embedding reference
+- document/media reference
+
+Each row must distinguish dtype recognition, metadata preservation, scan
+support, expression support, write support, and certified execution. Vector
+similarity scans, ANN/top-k/index support, GIS processing, raster/media
+processing, and embedding generation are separate capability rows.
+
+## Workload, benchmark, dependency, and performance evidence
+
+Starter `WorkloadConstitution` catalog entries:
+- `local_vortex_primitives`
+- `local_file_etl`
+- `conda_import_smoke`
+- `python_dataframe_local_etl`
+- `rest_discovery_only`
+- `batch_vortex_analytics`
+- `hybrid_base_delta_fixture`
+- `adapter_vortex_read_write_local`
+- `traditional_analytics_benchmark`
+
+`BenchmarkConstitution` fields:
+- `workload_constitution_ref`
+- `engine_mode`
+- `input_format`
+- `native_vortex_or_compatibility_import`
+- `startup_included`
+- `conversion_included`
+- `result_delivery_included`
+- `cache_policy`
+- `object_store_policy`
+- `warmup_policy`
+- `iterations`
+- `correctness_oracle`
+- `result_materialization_policy`
+- `api_transport_policy`
+- `resource_limits`
+- `claim_level`
+
+`StandardsDependencyDecision` fields:
+- `name`
+- `category`
+- `current_status`
+- `license`
+- `dependency_type`
+- `runtime_required`
+- `default_enabled`
+- `conda_available`
+- `security_review_status`
+- `fallback_risk`
+- `approved_by_rfc`
+
+`RustPerformanceProfileEvidence` fields:
+- `rustc_version`
+- `target_triple`
+- `target_cpu`
+- `opt_level`
+- `lto_mode`
+- `codegen_units`
+- `panic_strategy`
+- `allocator`
+- `simd_feature_flags`
+- `pgo_status`
+- `bolt_status`
+- `binary_size`
+- `benchmark_refs`
+- `correctness_refs`
+
+`CompressionAdvisorReport` fields:
+- `approximate_cardinality`
+- `null_count`
+- `run_count`
+- `sortedness`
+- `value_width`
+- `string_length_distribution`
+- `selected_encoding`
+- `rejected_encodings`
+- `estimated_size`
+- `observed_size`
+- `confidence`
+- `fallback_attempted=false`
+
+Approximate statistics can guide encoding and layout decisions. They are not
+exact correctness evidence and must not be used to publish exact aggregate
+results.
+
+## Runtime and Python/Vortex posture
+
+`ForeignRuntimePosture` surfaces:
+- C FFI
+- C++ wrapper
+- Java/JVM
+- WASM component
+- Arrow C Stream / PyCapsule
+- ADBC / Flight
+
+Python/Conda remains the current distribution priority. Foreign runtimes must
+preserve no-fallback and certificate semantics before exposure.
+
+`PythonVortexInteropReport` fields:
+- `shardloom_package_version`
+- `vortex_data_package_version`
+- `python_version`
+- `import_side_effects`
+- `conversion_boundaries`
+- `materialization_boundaries`
+- `optional_extras_detected`
+- `fallback_attempted=false`
+
+`vortex-data` / PyVortex is optional. PyVortex conversions are explicit
+source/sink, test, or reference boundaries, not fallback execution.
+
+`VortexBenchmarkInterop` fields:
+- `scenario_name`
+- `input_format`
+- `engine`
+- `file_format`
+- `startup_policy`
+- `conversion_policy`
+- `result_policy`
+- `correctness_oracle`
+- `shardloom_native_execution`
+- `vortex_integration_execution`
+- `fallback_attempted=false`
+
+Upstream Vortex benchmark scenarios may become ShardLoom benchmark inputs.
+Upstream Vortex benchmark results are not ShardLoom performance claims.
 
 ## World-class sufficiency gate
 CG-20 is complete only when the capability surface can prove that ShardLoom is the best default option for a declared workload constitution. The proof must be explicit, machine-readable, workload-scoped, and reversible to `not_certified` when evidence drifts.

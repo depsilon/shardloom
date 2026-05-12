@@ -1002,6 +1002,26 @@ The following block CG-22 certification for a declared workload:
 - materialization, decode, or fidelity loss is hidden
 - missing `fallback_attempted=false`
 
+## Shared policy and lifecycle contracts
+
+CG-22 engine selection must consume and emit the same cross-surface contracts
+used by CLI, Python, future REST, and agent workflows:
+
+- `ShardLoomExecutionPolicy` supplies requested engine, allowed engines,
+  fallback policy, materialization policy, result policy, evidence policy,
+  effect policy, memory policy, spill policy, network policy, and agent policy.
+- `QueryLifecycleContract` supplies shared accepted/planned/blocked/queued/
+  running/cancelling/cancelled/failed/succeeded/expired states for batch, live,
+  hybrid, and auto-selected work.
+- `EvidenceArtifactEnvelope` and `EvidenceArtifactSafety` wrap engine selection,
+  state, freshness, delta-overlay, hot/cold contribution, and continuous-view
+  evidence with stable identity, retention, redaction, and no-fallback fields.
+
+Internal engine selection is allowed. External query-engine fallback is not.
+When `auto` selects batch, live, or hybrid, the engine selection report must
+record the selected ShardLoom-native engine and the reason unsupported external
+providers were not invoked.
+
 ## Compatibility with existing gates
 
 CG-22 should not take over lower-level responsibilities:

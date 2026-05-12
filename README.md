@@ -2,6 +2,13 @@
 
 ShardLoom is a standalone encoded-columnar execution engine for computing directly over Vortex-native layouts, preserving encoded representation where possible, and producing Vortex-native or lakehouse-compatible outputs without delegating execution to Spark, DataFusion, DuckDB, Polars, Velox, or another fallback engine.
 
+"Standalone" means standalone from external query-engine fallback, not isolated
+from Vortex itself. ShardLoom may use upstream Vortex array, compute, scan,
+source, and sink APIs as native execution providers when they are admitted
+through ShardLoom policy and reported through ShardLoom certificates. That is
+distinct from delegating unsupported work to DataFusion, DuckDB, Spark, Polars,
+Velox, or Vortex query-engine integrations.
+
 Longer term, ShardLoom is being shaped into a certified data execution fabric: a Vortex-native engine with user-friendly Python, SQL, DataFrame, ETL, adapter, live/hybrid, and remote API surfaces that all preserve the same no-fallback evidence model.
 
 ## Mission
@@ -36,6 +43,7 @@ These are roadmap targets, not blanket support claims. A surface counts as suppo
 The full vocabulary lives in [`docs/architecture/canonical-terminology.md`](docs/architecture/canonical-terminology.md). These terms are the shortest orientation path:
 
 - **native Vortex input/output**: Vortex is the highest-fidelity input and persistence target.
+- **Vortex-native execution provider**: upstream Vortex or ShardLoom-owned Vortex-aware compute admitted through ShardLoom policy and certificate evidence; this is native execution, not external fallback.
 - **encoded-columnar execution**: operators should preserve encoded representation when capability evidence allows it.
 - **metadata-first planning**: answer or prune from metadata before reading data bytes.
 - **zero-decode**: execute over encoded Vortex representation without decoding values.

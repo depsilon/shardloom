@@ -955,6 +955,28 @@ The following block CG-23 certification for a declared workload:
 - external engine is invoked as fallback
 - missing `fallback_attempted=false`
 
+## Shared policy, lifecycle, and parity contracts
+
+CG-23 must not invent a separate remote execution model. REST, event, and
+future agent surfaces should expose the same policy, lifecycle, evidence, and
+diagnostic fields used by CLI and Python:
+
+- `ShardLoomExecutionPolicy` is the execution-capable request policy object.
+- `QueryLifecycleContract` is the state machine for async query, live
+  subscription, hybrid materialized-view, cancellation, retry, result retention,
+  certificate retention, cleanup, and side-effect status.
+- `EvidenceArtifactEnvelope` is the reference wrapper for certificates,
+  profiles, result artifacts, lineage events, benchmark rows, and diagnostics.
+- `EvidenceArtifactSafety` controls redaction, retention, export, and
+  agent-visible evidence.
+- `ProtocolSurfaceParityReport` checks that CLI JSON, Python, REST/OpenAPI,
+  future MCP, and future Flight/ADBC metadata expose consistent fields or
+  explicit unavailable reasons.
+
+Protocol parity is a certification requirement. A REST endpoint cannot report a
+feature as supported if the underlying CLI/Python capability report remains
+planned, unsupported, or missing required certificate evidence.
+
 ## References
 
 - OpenAPI Specification:

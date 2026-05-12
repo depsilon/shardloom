@@ -4,11 +4,31 @@
 
 This document records ShardLoom's first upstream Vortex dependency review for dependency-verification mode only. Integration remains isolated in `shardloom-vortex`, with no execution fallback and no real Vortex file IO in this PR.
 
+This document contains historical dependency-review entries. Current runtime
+support is summarized in `docs/architecture/phased-execution-plan.md` and
+`docs/architecture/vortex-public-api-inventory.md`. Do not infer the current
+executable surface from older PR-specific sections.
+
+## Current support snapshot
+
+- Upstream Vortex remains optional and isolated in `shardloom-vortex`.
+- The tracked direct dependency is `vortex = 0.70`.
+- Approved historical metadata/footer fixture IO and approved local primitive
+  scan paths are recorded in `docs/architecture/phased-execution-plan.md`.
+- Vortex-native array, compute, scan, source, and sink APIs may be future native
+  providers only when feature-gated, version-recorded, policy-admitted, and
+  certificate-backed.
+- Vortex DataFusion, DuckDB, Spark, Trino, and similar integrations remain
+  baseline/reference/oracle surfaces only; they must not execute unsupported
+  ShardLoom residual work.
+- Fallback execution remains disabled.
+
 ## Current status
 
 - Upstream Vortex dependency has been added to `shardloom-vortex`.
-- Scope in this PR is compile/readiness only.
-- Real Vortex file IO is not implemented.
+- Historical scope in the original dependency PR was compile/readiness only.
+- Current executable Vortex support is tracked in the phase plan rather than in
+  this historical review section.
 - Fallback execution remains disabled.
 
 ## Dependency review
