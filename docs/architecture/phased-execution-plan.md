@@ -342,11 +342,11 @@ not by numeric CG order.
           object-store/API/LLM/media/UDF/server claims.
     - [ ] Default effectful features to denied or dry-run unless an explicit policy authorizes
           execution.
-  - [ ] RFC 0024 release engineering, API compatibility, and packaging discipline
+  - [x] RFC 0024 release engineering, API compatibility, and packaging discipline
     - [x] Add schema-version, API-stability, dependency/license, SBOM/provenance, reproducible
           build, release-note, benchmark-accountability, and no-fallback release checks before
           public package/release claims.
-    - [ ] Keep container/server/package publication distinct from local development support and
+    - [x] Keep container/server/package publication distinct from local development support and
           optional benchmark extras.
   - [ ] CG-15 CPU operator specialization
     - [ ] Add SIMD/cache-aware and encoding-aware operator specialization only after correctness

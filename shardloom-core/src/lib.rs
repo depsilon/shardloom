@@ -188,8 +188,10 @@ pub use release::{
     PackageTargetKind, ProjectVersion, PublicSurface, PublicSurfaceKind, ReleaseArtifactKind,
     ReleaseArtifactPlan, ReleaseChannel, ReleaseChecklistItem, ReleaseChecklistItemKind,
     ReleaseEvidenceRequirement, ReleaseEvidenceRequirementKind, ReleaseEvidenceRequirementStatus,
-    ReleasePlan, ReleaseReadinessEvidenceReport, ReleaseReadinessStatus, ReleaseReport,
-    SchemaCompatibilityPlan, SchemaStability,
+    ReleasePlan, ReleasePublicationBoundary, ReleasePublicationBoundaryKind,
+    ReleasePublicationBoundaryReport, ReleasePublicationBoundaryStatus,
+    ReleaseReadinessEvidenceReport, ReleaseReadinessStatus, ReleaseReport, SchemaCompatibilityPlan,
+    SchemaStability,
 };
 pub use schema::{
     CatalogKind, CatalogRef, DeleteModel, DeleteTombstoneCompatibilityLevel,
