@@ -16,6 +16,37 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 diagnostic/explain/estimate handler module split
+  - Primary files:
+    - `shardloom-cli/src/diagnostics.rs`
+    - `shardloom-cli/src/main.rs`
+    - `docs/architecture/typed-command-result-envelope.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/rfcs/0039-typed-command-result-envelope-cli-modularity.md`
+  - Scope: move report-only feature-footprint, doctor, explain, and estimate handlers into a
+    focused diagnostics module.
+  - Checklist:
+    - [x] Add `shardloom-cli/src/diagnostics.rs`.
+    - [x] Delegate `feature-footprint`, `doctor`, `explain`, and `estimate` from `main.rs`.
+    - [x] Keep dataset probes, profile collection, execution, external engines, and fallback
+          disabled.
+    - [x] Update Priority 3.9 docs and RFC traceability while leaving remaining handler families in
+          the Planned queue.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli feature_footprint_command_returns_success --bin shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli doctor_command_returns_success_through_feature_footprint --bin shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli explain_unsupported_returns_non_zero --bin shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli estimate_unsupported_returns_non_zero --bin shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test agent_contract_pack_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test typed_envelope_contract_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-cli --bin shardloom -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `git diff --check`
+  - Runtime stance: handler-placement refactor only; no dataset probe, profile collection, runtime
+    expansion, external engine invocation, network effect, write, materialization, or fallback
+    execution changes.
+
 - [x] Session label: Priority 3.9 operational hardening/security handler module split
   - Primary files:
     - `shardloom-cli/src/operational_hardening.rs`

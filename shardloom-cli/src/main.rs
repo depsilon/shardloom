@@ -17,6 +17,7 @@ use std::{
 mod benchmark_planning;
 mod cli_output;
 mod command_family;
+mod diagnostics;
 mod operational_hardening;
 mod packaging_deployment;
 mod rest_api_planning;
@@ -93,8 +94,8 @@ use shardloom_exec::{
     plan_spill_reservation_integration, roundtrip_spill_payload, spill_payload_fs_feature_enabled,
 };
 use shardloom_plan::{
-    AdaptiveOptimizerMemoryReport, EstimateReport, ExplainReport, ImportedPlanCapabilityGateReport,
-    NativePlanDocument, NativePlanNode, NativePlanNodeKind, ObjectStoreCheckpointRetryInput,
+    AdaptiveOptimizerMemoryReport, ImportedPlanCapabilityGateReport, NativePlanDocument,
+    NativePlanNode, NativePlanNodeKind, ObjectStoreCheckpointRetryInput,
     ObjectStoreCheckpointRetryReport, ObjectStoreCommitProtocolInput,
     ObjectStoreCommitProtocolReport, ObjectStoreDistributedSchedulingPolicy,
     ObjectStoreDistributedSchedulingReport, ObjectStoreRangePlanningPolicy,
@@ -1460,7 +1461,7 @@ fn correctness_harness_fields(
     fields
 }
 
-fn feature_footprint_fields(report: &FeatureFootprintReport) -> Vec<(String, String)> {
+pub(crate) fn feature_footprint_fields(report: &FeatureFootprintReport) -> Vec<(String, String)> {
     let all_gates = report.all_gates();
     vec![
         ("mode".to_string(), "feature_footprint".to_string()),
@@ -21747,81 +21748,9 @@ fn run(args: Vec<String>) -> ExitCode {
             );
             ExitCode::SUCCESS
         }
-        Some("feature-footprint") => {
-            let report = FeatureFootprintReport::contract_only();
-            let status = if report.has_errors() {
-                CommandStatus::Unsupported
-            } else {
-                CommandStatus::Success
-            };
-            emit(
-                "feature-footprint",
-                format,
-                status,
-                "feature footprint report".to_string(),
-                report.to_human_text(),
-                report.diagnostics.clone(),
-                feature_footprint_fields(&report),
-            );
-            if report.has_errors() {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            }
-        }
-        Some("doctor") => {
-            let report = FeatureFootprintReport::contract_only();
-            let status = if report.has_errors() {
-                CommandStatus::Unsupported
-            } else {
-                CommandStatus::Success
-            };
-            let mut fields = feature_footprint_fields(&report);
-            fields.push(("native_input".to_string(), "vortex".to_string()));
-            fields.push(("native_output".to_string(), "vortex".to_string()));
-            fields.push((
-                "doctor_uses_feature_footprint".to_string(),
-                "true".to_string(),
-            ));
-            emit(
-                "doctor",
-                format,
-                status,
-                "doctor checks".to_string(),
-                format!("ShardLoom doctor\n{}", report.to_human_text()),
-                report.diagnostics.clone(),
-                fields,
-            );
-            if report.has_errors() {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            }
-        }
-        Some("explain") => {
-            let operation = args
-                .next()
-                .unwrap_or_else(|| "<unspecified operation>".to_string());
-            let report = ExplainReport::unsupported(
-                operation,
-                "planning",
-                "Real planning is not implemented yet.",
-            );
-            emit(
-                "explain",
-                format,
-                CommandStatus::Unsupported,
-                "explain plan".to_string(),
-                report.to_human_text(),
-                report.diagnostics.clone(),
-                vec![("mode".to_string(), "plan_only".to_string())],
-            );
-            if report.has_errors() {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            }
-        }
+        Some("feature-footprint") => diagnostics::handle_feature_footprint(format),
+        Some("doctor") => diagnostics::handle_doctor(format),
+        Some("explain") => diagnostics::handle_explain(args, format),
         Some("benchmark-plan") => benchmark_planning::handle_benchmark_plan(args, format),
         Some("benchmark-claim-evidence-plan") => {
             benchmark_planning::handle_benchmark_claim_evidence_plan(args, format)
@@ -30060,30 +29989,7 @@ fn run(args: Vec<String>) -> ExitCode {
                 ExitCode::SUCCESS
             }
         }
-        Some("estimate") => {
-            let operation = args
-                .next()
-                .unwrap_or_else(|| "<unspecified operation>".to_string());
-            let report = EstimateReport::unsupported(
-                operation,
-                "estimation",
-                "Real estimation is not implemented yet.",
-            );
-            emit(
-                "estimate",
-                format,
-                CommandStatus::Unsupported,
-                "estimate plan".to_string(),
-                report.to_human_text(),
-                report.diagnostics.clone(),
-                vec![("mode".to_string(), "plan_only".to_string())],
-            );
-            if report.has_errors() {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            }
-        }
+        Some("estimate") => diagnostics::handle_estimate(args, format),
         Some(command) => {
             eprintln!("{}", cli_usage_line());
             let error = cli_unknown_arg_error("shardloom", command);
