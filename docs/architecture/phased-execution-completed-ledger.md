@@ -16,6 +16,37 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 object-store/Vortex runtime helper ownership split
+  - Primary files:
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/src/object_store_planning.rs`
+    - `shardloom-cli/src/vortex_runtime_planning.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/typed-command-result-envelope.md`
+  - Scope: move object-store planning and Vortex runtime-readiness field construction out of
+    `main.rs` while preserving dry-run/planning behavior, no object-store probing, no worker/task
+    execution, no checkpoint or commit writes, and no-fallback evidence.
+  - Checklist:
+    - [x] Move object-store request/range/coalescing/scheduling/checkpoint/retry/commit emitters,
+          field construction, and fixtures into `object_store_planning.rs`.
+    - [x] Move CG-10 object-store runtime promotion field construction into
+          `object_store_planning.rs`.
+    - [x] Move Vortex adaptive sizing, memory bridge, and scheduler bridge field construction into
+          `vortex_runtime_planning.rs`.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo check -p shardloom-cli --bin shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli object_store --bin shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test object_store_request_plan_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test cg10_object_store_runtime_gate`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test cg8_scheduling_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test --workspace --all-targets`
+    - [x] `git diff --check`
+  - Runtime stance: helper/module ownership only; no object-store reads, credential resolution,
+    scheduler worker startup, task execution, checkpoint writes, commit writes, Vortex data reads,
+    external engine execution, or fallback execution is added.
+
 - [x] Session label: Priority 3.9 diagnostics/operational helper ownership split
   - Primary files:
     - `shardloom-cli/src/main.rs`

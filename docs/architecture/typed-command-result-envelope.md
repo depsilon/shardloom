@@ -209,6 +209,14 @@ The engine/runtime planning family now contains `streaming-plan`, `streaming-bat
 datasets, execute tasks, collect profiles, write data, materialize outputs, invoke external engines,
 or weaken no-fallback behavior.
 
+The object-store planning family now contains `object-store-request-plan`,
+`cg10-object-store-runtime-gate`, `object-store-range-plan`, `object-store-coalesce-plan`,
+`object-store-schedule-plan`, `object-store-checkpoint-retry-plan`, and
+`object-store-commit-plan`, and lives in `shardloom-cli/src/object_store_planning.rs`. That module
+also owns object-store request/range/coalescing/scheduling/checkpoint/retry/commit field
+construction and fixtures without probing object stores, starting workers, writing checkpoints, or
+weakening no-fallback behavior.
+
 The extension/UDF planning family now contains `extension-registry`, `extension-inspect`, and
 `udf-runtime-plan`, and lives in `shardloom-cli/src/extension_planning.rs`. These handlers remain
 metadata-only and do not dynamically load extension code, execute UDFs, invoke external services,
@@ -229,6 +237,12 @@ The Vortex primitive execution family now starts its physical split in
 `vortex-bounded-local-exec`, and `vortex-query-trace`. These handler splits preserve the existing
 local primitive, local-engine, bounded-policy, work-avoidance, certificate, why-report, and
 no-fallback output contracts while broader non-primitive handler extraction continues.
+
+The Vortex runtime-readiness family now contains `vortex-adaptive-sizing`, `vortex-memory-plan`,
+`vortex-schedule-plan`, and `vortex-execution-readiness`, and lives in
+`shardloom-cli/src/vortex_runtime_planning.rs`. Adaptive sizing, memory bridge, and scheduler bridge
+field construction is colocated with those handlers while preserving dry-run/readiness planning,
+no task execution, no data reads, no writes, no external engines, and no fallback execution.
 
 The Vortex planning family now has its metadata/report-only module in
 `shardloom-cli/src/vortex_planning.rs`, covering `vortex-metadata-plan`,

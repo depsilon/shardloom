@@ -310,6 +310,12 @@ actionable work.
           runtime-readiness handler clusters into focused modules while preserving existing
           report-only, feature-gated artifact, no-write-by-default, no external engine, and
           no-fallback behavior.
+    - [x] Move object-store planning and Vortex runtime-readiness helper ownership into
+          `shardloom-cli/src/object_store_planning.rs` and
+          `shardloom-cli/src/vortex_runtime_planning.rs`, covering object-store request/range/
+          coalescing/scheduling/checkpoint/commit field construction plus Vortex adaptive sizing,
+          memory bridge, and scheduler bridge fields while preserving no-probe/no-write/
+          no-execution/no-fallback behavior.
     - [ ] Move remaining command-family handlers out of `main.rs` after the shared
           `typed_envelope` routing module and `command_family` taxonomy.
     - [ ] Split handlers by status/capabilities, Vortex primitive execution,
