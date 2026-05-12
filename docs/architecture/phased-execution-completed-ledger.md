@@ -16,6 +16,37 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: CPU specialization admission gates
+  - Primary files:
+    - `shardloom-core/src/cpu_specialization.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/cpu_specialization_snapshots.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: make SIMD, cache-aware, and encoded-layout-aware CPU specialization admission explicit
+    while keeping runtime dispatch blocked until correctness fixtures, certified primitive kernel
+    evidence, and workload benchmark evidence prove a specialization is safe and useful.
+  - Checklist:
+    - [x] Add report fields for certified primitive kernel requirements, workload benchmark
+          requirements, closed correctness and benchmark gates, dispatch-class blockers, and
+          specialization runtime admission.
+    - [x] Add helper methods for `specialization_admission_open` and
+          `dispatch_classes_blocked`.
+    - [x] Expose the admission-gate and dispatch-blocker state through the
+          `cpu-specialization-plan` CLI JSON contract.
+    - [x] Keep planned SIMD/cache/encoded-layout candidates report-only and preserve
+          `fallback_attempted=false`.
+  - Validation status:
+    - [x] `cargo test -p shardloom-core cpu_specialization --lib`
+    - [x] `cargo test -p shardloom-cli cpu_specialization --test cpu_specialization_snapshots`
+    - [x] `cargo fmt --all -- --check`
+    - [x] `cargo clippy -p shardloom-core --lib -- -D warnings`
+    - [x] `cargo clippy -p shardloom-cli --all-targets -- -D warnings`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `git diff --check`
+  - Non-goals preserved:
+    - [x] No host CPU probing, runtime dispatch, unsafe SIMD, operator execution, data read,
+          decode/materialization, row read, Arrow conversion, object-store IO, write IO, spill IO,
+          external engine invocation, fallback execution, or performance/production claim.
 - [x] Session label: fault-tolerance execution promotion gate
   - Primary files:
     - `shardloom-exec/src/recovery.rs`

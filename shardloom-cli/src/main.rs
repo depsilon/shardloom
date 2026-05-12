@@ -6557,6 +6557,32 @@ fn append_cpu_specialization_evidence_fields(
     );
     push_bool_field(
         fields,
+        "certified_primitive_kernel_required",
+        report.certified_primitive_kernel_required,
+    );
+    push_bool_field(
+        fields,
+        "benchmark_workload_evidence_required",
+        report.benchmark_workload_evidence_required,
+    );
+    push_bool_field(
+        fields,
+        "correctness_gate_open",
+        report.correctness_gate_open,
+    );
+    push_bool_field(fields, "benchmark_gate_open", report.benchmark_gate_open);
+    push_bool_field(
+        fields,
+        "specialization_admission_open",
+        report.specialization_admission_open(),
+    );
+    push_bool_field(
+        fields,
+        "dispatch_classes_blocked",
+        report.dispatch_classes_blocked(),
+    );
+    push_bool_field(
+        fields,
         "cpu_feature_guard_required",
         report.cpu_feature_guard_required,
     );
@@ -6581,6 +6607,26 @@ fn append_cpu_specialization_accelerator_fields(
         fields,
         "runtime_dispatch_implemented",
         report.runtime_dispatch_implemented,
+    );
+    push_bool_field(
+        fields,
+        "simd_dispatch_allowed",
+        report.simd_dispatch_allowed,
+    );
+    push_bool_field(
+        fields,
+        "cache_aware_dispatch_allowed",
+        report.cache_aware_dispatch_allowed,
+    );
+    push_bool_field(
+        fields,
+        "encoded_layout_dispatch_allowed",
+        report.encoded_layout_dispatch_allowed,
+    );
+    push_bool_field(
+        fields,
+        "specialization_runtime_allowed",
+        report.specialization_runtime_allowed,
     );
     push_bool_field(fields, "unsafe_code_required", report.unsafe_code_required);
     push_bool_field(fields, "gpu_required", report.gpu_required);

@@ -210,12 +210,28 @@ pub struct CpuOperatorSpecializationReport {
     pub correctness_evidence_required: bool,
     /// Benchmark evidence is required before performance or superiority claims.
     pub benchmark_evidence_required: bool,
+    /// Certified primitive kernel evidence is required before specialization can be admitted.
+    pub certified_primitive_kernel_required: bool,
+    /// Workload-scoped benchmark evidence is required before specialization can be admitted.
+    pub benchmark_workload_evidence_required: bool,
+    /// Correctness gate status for specialized runtime dispatch.
+    pub correctness_gate_open: bool,
+    /// Benchmark gate status for specialized runtime dispatch.
+    pub benchmark_gate_open: bool,
     /// Architecture-specific paths require CPU feature guards.
     pub cpu_feature_guard_required: bool,
     /// Portable native baseline remains required for deterministic execution.
     pub portable_native_baseline_required: bool,
     /// Dispatch decisions must be stable and explainable.
     pub deterministic_dispatch_required: bool,
+    /// SIMD-family dispatch is not allowed until evidence gates open.
+    pub simd_dispatch_allowed: bool,
+    /// Cache-aware dispatch is not allowed until evidence gates open.
+    pub cache_aware_dispatch_allowed: bool,
+    /// Encoded-layout-aware dispatch is not allowed until evidence gates open.
+    pub encoded_layout_dispatch_allowed: bool,
+    /// Runtime specialization remains disabled until all admission gates open.
+    pub specialization_runtime_allowed: bool,
     /// This report does not inspect the host CPU.
     pub host_cpu_probe: bool,
     /// This report does not implement runtime dispatch.
@@ -326,9 +342,17 @@ impl CpuOperatorSpecializationReport {
             ],
             correctness_evidence_required: true,
             benchmark_evidence_required: true,
+            certified_primitive_kernel_required: true,
+            benchmark_workload_evidence_required: true,
+            correctness_gate_open: false,
+            benchmark_gate_open: false,
             cpu_feature_guard_required: true,
             portable_native_baseline_required: true,
             deterministic_dispatch_required: true,
+            simd_dispatch_allowed: false,
+            cache_aware_dispatch_allowed: false,
+            encoded_layout_dispatch_allowed: false,
+            specialization_runtime_allowed: false,
             host_cpu_probe: false,
             runtime_dispatch_implemented: false,
             unsafe_code_required: false,
@@ -413,11 +437,30 @@ impl CpuOperatorSpecializationReport {
             .join(",")
     }
 
+    /// Returns whether runtime specialization admission gates are open.
+    #[must_use]
+    pub const fn specialization_admission_open(&self) -> bool {
+        self.correctness_gate_open
+            && self.benchmark_gate_open
+            && self.specialization_runtime_allowed
+            && self.runtime_dispatch_implemented
+    }
+
+    /// Returns whether all specialized dispatch classes remain blocked.
+    #[must_use]
+    pub const fn dispatch_classes_blocked(&self) -> bool {
+        !self.simd_dispatch_allowed
+            && !self.cache_aware_dispatch_allowed
+            && !self.encoded_layout_dispatch_allowed
+    }
+
     /// Returns whether this report avoids all side effects and execution.
     #[must_use]
     pub const fn is_side_effect_free(&self) -> bool {
         !self.host_cpu_probe
             && !self.runtime_dispatch_implemented
+            && !self.specialization_runtime_allowed
+            && self.dispatch_classes_blocked()
             && !self.runtime_execution
             && !self.data_read
             && !self.data_decoded
@@ -448,7 +491,7 @@ impl CpuOperatorSpecializationReport {
     #[must_use]
     pub fn to_human_text(&self) -> String {
         format!(
-            "cpu operator specialization plan\nschema_version: {}\nreport: {}\nstatus: {}\noperators: {}\nsimd candidates: {}\ncache-aware candidates: {}\nencoded-layout-aware candidates: {}\nhost CPU probe: disabled\nruntime dispatch: disabled\nfallback execution: disabled",
+            "cpu operator specialization plan\nschema_version: {}\nreport: {}\nstatus: {}\noperators: {}\nsimd candidates: {}\ncache-aware candidates: {}\nencoded-layout-aware candidates: {}\nspecialization admission open: {}\nhost CPU probe: disabled\nruntime dispatch: disabled\nfallback execution: disabled",
             self.schema_version,
             self.report_id,
             self.status.as_str(),
@@ -456,6 +499,7 @@ impl CpuOperatorSpecializationReport {
             self.simd_candidate_count(),
             self.cache_aware_candidate_count(),
             self.encoded_layout_aware_candidate_count(),
+            self.specialization_admission_open(),
         )
     }
 }
@@ -490,9 +534,19 @@ mod tests {
         );
         assert!(report.correctness_evidence_required);
         assert!(report.benchmark_evidence_required);
+        assert!(report.certified_primitive_kernel_required);
+        assert!(report.benchmark_workload_evidence_required);
+        assert!(!report.correctness_gate_open);
+        assert!(!report.benchmark_gate_open);
         assert!(report.cpu_feature_guard_required);
         assert!(report.portable_native_baseline_required);
         assert!(report.deterministic_dispatch_required);
+        assert!(!report.simd_dispatch_allowed);
+        assert!(!report.cache_aware_dispatch_allowed);
+        assert!(!report.encoded_layout_dispatch_allowed);
+        assert!(!report.specialization_runtime_allowed);
+        assert!(!report.specialization_admission_open());
+        assert!(report.dispatch_classes_blocked());
         assert!(report.is_side_effect_free());
         assert!(!report.has_errors());
         assert!(!report.host_cpu_probe);

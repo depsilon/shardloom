@@ -60,11 +60,21 @@ fn cpu_specialization_json_preserves_evidence_gates_and_no_execution() {
 
     assert!(output.contains(&field("correctness_evidence_required", "true")));
     assert!(output.contains(&field("benchmark_evidence_required", "true")));
+    assert!(output.contains(&field("certified_primitive_kernel_required", "true")));
+    assert!(output.contains(&field("benchmark_workload_evidence_required", "true")));
+    assert!(output.contains(&field("correctness_gate_open", "false")));
+    assert!(output.contains(&field("benchmark_gate_open", "false")));
+    assert!(output.contains(&field("specialization_admission_open", "false")));
+    assert!(output.contains(&field("dispatch_classes_blocked", "true")));
     assert!(output.contains(&field("cpu_feature_guard_required", "true")));
     assert!(output.contains(&field("portable_native_baseline_required", "true")));
     assert!(output.contains(&field("deterministic_dispatch_required", "true")));
     assert!(output.contains(&field("host_cpu_probe", "false")));
     assert!(output.contains(&field("runtime_dispatch_implemented", "false")));
+    assert!(output.contains(&field("simd_dispatch_allowed", "false")));
+    assert!(output.contains(&field("cache_aware_dispatch_allowed", "false")));
+    assert!(output.contains(&field("encoded_layout_dispatch_allowed", "false")));
+    assert!(output.contains(&field("specialization_runtime_allowed", "false")));
     assert!(output.contains(&field("unsafe_code_required", "false")));
     assert!(output.contains(&field("gpu_required", "false")));
     assert!(output.contains(&field("fpga_required", "false")));
