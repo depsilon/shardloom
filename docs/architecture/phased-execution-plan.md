@@ -391,14 +391,23 @@ not by numeric CG order.
           sketch execution, partial-decode execution, materialization without report, generic sketch
           dependency, claim publication, external engine invocation, or fallback execution.
 - [ ] Priority 3.5 - cross-RFC platform hardening and release-readiness lane
-  - [ ] RFC 0014 / CG-14 memory, spill, and OOM-safe execution
-    - [ ] Turn resource-derived chunk sizing, parallelism, memory reservation, pressure detection,
-          spill policy, and fail-before-OOM diagnostics into runtime behavior after primitive
-          execution is stable.
+  - [x] RFC 0014 / CG-14 memory, spill, and OOM-safe execution
+    - [x] Add a memory runtime hardening gate before turning resource-derived chunk sizing,
+          parallelism, memory reservation release, pressure reaction, spill read/write/cleanup,
+          allocator integration, and fail-before-OOM diagnostics into runtime behavior after
+          primitive execution is stable.
       - [x] Add runtime-facing memory reservation admission that grants requests under the hard
             budget and denies over-budget requests before process OOM with pressure
             before/after, reservation evidence, diagnostics, and `fallback_attempted=false`.
-    - [ ] Require operator-level memory/spill declarations for joins, aggregations, sorts, windows,
+      - [x] Add `MemoryRuntimeHardeningGateReport` and
+            `cg14-memory-runtime-hardening-gate` so existing narrow memory/spill planning evidence
+            is aggregated while resource-derived chunk sizing runtime, adaptive parallelism,
+            reservation release runtime, pressure reaction runtime, native spill read/write,
+            spill cleanup execution, allocator integration, large-workload claims, runtime policy
+            mutation, and fallback execution remain blocked until runtime metrics, memory budgets,
+            reservation lifecycle, spill policy, cleanup/recovery, execution-certificate,
+            Native I/O certificate, benchmark, and no-fallback evidence exist.
+    - [x] Require operator-level memory/spill declarations for joins, aggregations, sorts, windows,
           repartition, shuffle, UDFs, sinks, and external-effect boundaries before large-workload
           claims.
       - [x] Add an operator memory/spill declaration gate report covering required large-workload

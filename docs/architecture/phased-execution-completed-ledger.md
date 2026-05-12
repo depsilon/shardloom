@@ -16,6 +16,41 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: CG-14 memory runtime hardening gate
+  - Primary files:
+    - `shardloom-exec/src/memory.rs`
+    - `shardloom-exec/src/lib.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/cg14_memory_runtime_hardening_gate.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: add a report-only CG-14 memory runtime hardening gate that aggregates existing memory
+    reservation, operator spill declaration, spill reservation, spill lifecycle, and dynamic
+    runtime-promotion evidence while blocking allocator/runtime/spill promotion and large-workload
+    claims until the required metrics, policy, certificate, benchmark, and no-fallback evidence
+    exists.
+  - Checklist:
+    - [x] Add `MemoryRuntimeHardeningGateReport` with ordered existing and blocked memory/spill
+          hardening surfaces.
+    - [x] Preserve runtime chunk sizing, adaptive parallelism, reservation release, pressure
+          reaction, native spill read/write, spill cleanup, allocator integration, runtime policy
+          mutation, and large-workload claim publication as blocked surfaces.
+    - [x] Expose the gate through `cg14-memory-runtime-hardening-gate` JSON/text output.
+  - Validation status:
+    - [x] `cargo test -p shardloom-exec memory_runtime_hardening_gate --lib`
+    - [x] `cargo test -p shardloom-cli --test cg14_memory_runtime_hardening_gate`
+    - [x] `cargo fmt --all -- --check`
+    - [x] `cargo clippy -p shardloom-exec --lib -- -D warnings`
+    - [x] `cargo clippy -p shardloom-cli --all-targets -- -D warnings`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `git diff --check`
+  - Non-goals preserved:
+    - [x] No resource-derived chunk sizing runtime, adaptive parallelism runtime, reservation
+          release runtime, pressure reaction runtime, native spill read/write execution, spill
+          cleanup execution, allocator integration, runtime policy mutation, benchmark execution,
+          data read/materialization, object-store IO, write IO, large-workload claim publication,
+          external engine invocation, or fallback execution.
 - [x] Session label: CG-20 approximate aggregate/sketch function admission gate
   - Primary files:
     - `shardloom-core/src/approx_sketch.rs`

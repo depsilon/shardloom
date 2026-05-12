@@ -52,10 +52,13 @@ pub fn unsupported(operation: &str) -> Result<()> {
 pub use memory::{
     MemoryAdmissionDecisionKind, MemoryAdmissionReport, MemoryBudget, MemoryOwner, MemoryPoolPlan,
     MemoryPoolSnapshot, MemoryPressureLevel, MemoryReservation, MemoryReservationId,
-    MemoryReservationStatus, OomSafetyPlan, OperatorMemoryClass, OperatorMemorySpillDeclaration,
-    OperatorMemorySpillDeclarationReport, OperatorMemorySpillDeclarationStatus, SpillCompression,
-    SpillDecision, SpillDecisionKind, SpillFileRef, SpillFileStatus, SpillFormat, SpillPartition,
-    SpillPlan, SpillPlanStatus, SpillPolicy, SpillReport, plan_operator_memory_spill_declarations,
+    MemoryReservationStatus, MemoryRuntimeHardeningGateEntry, MemoryRuntimeHardeningGateReport,
+    MemoryRuntimeHardeningStatus, MemoryRuntimeHardeningSurface, OomSafetyPlan,
+    OperatorMemoryClass, OperatorMemorySpillDeclaration, OperatorMemorySpillDeclarationReport,
+    OperatorMemorySpillDeclarationStatus, SpillCompression, SpillDecision, SpillDecisionKind,
+    SpillFileRef, SpillFileStatus, SpillFormat, SpillPartition, SpillPlan, SpillPlanStatus,
+    SpillPolicy, SpillReport, plan_memory_runtime_hardening_gate,
+    plan_operator_memory_spill_declarations,
 };
 
 pub use recovery::{
