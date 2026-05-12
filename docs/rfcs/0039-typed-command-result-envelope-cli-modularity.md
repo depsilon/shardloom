@@ -34,7 +34,7 @@ handler module in
 `shardloom-cli/src/extension_planning.rs`, the prepared/source-backed execution handler module in
 `shardloom-cli/src/prepared_source_backed_execution.rs`, the first Vortex primitive execution
 handler module in `shardloom-cli/src/vortex_primitive_execution.rs`, including
-`vortex-query-trace`, and typed-envelope contract snapshots for
+`vortex-count-where` and `vortex-query-trace`, and typed-envelope contract snapshots for
 representative success, error, unsupported, blocked, evidence-incomplete, source-backed, benchmark,
 and Foundry-adjacent report surfaces. Command-family-specific result migration, richer inline
 artifact/report payloads, remaining certified-runtime/missing-binary/Foundry-boundary golden
