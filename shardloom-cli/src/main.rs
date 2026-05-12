@@ -160,9 +160,8 @@ use shardloom_vortex::{
     build_vortex_runtime_task_graph, commit_marker_write_request_from_plan,
     evaluate_vortex_encoded_predicate_segments, evaluate_vortex_encoded_read_readiness,
     evaluate_vortex_execution_readiness, evaluate_vortex_local_encoded_count_physical_kernel,
-    evaluate_vortex_metadata_physical_kernels, evaluate_vortex_query_primitive,
-    evaluate_vortex_selection_vector_filter_kernel, execute_vortex_bounded_local_query,
-    execute_vortex_count_all_from_approved_local_scan,
+    evaluate_vortex_metadata_physical_kernels, evaluate_vortex_selection_vector_filter_kernel,
+    execute_vortex_bounded_local_query, execute_vortex_count_all_from_approved_local_scan,
     execute_vortex_count_all_from_approved_local_scan_result,
     execute_vortex_count_all_from_encoded_count_data_path_approval,
     execute_vortex_encoded_read_contract, execute_vortex_encoded_read_spike,
@@ -12900,7 +12899,7 @@ fn append_vortex_filter_project_local_execution_claim_fields(
     );
 }
 
-fn vortex_filter_human_text(
+pub(crate) fn vortex_filter_human_text(
     result: &VortexQueryPrimitiveResult,
     local_execution: Option<&VortexLocalPrimitiveCliExecutionEvidence>,
 ) -> String {
@@ -12917,7 +12916,7 @@ fn vortex_filter_human_text(
     sections.join("\n\n")
 }
 
-fn vortex_filter_fields(
+pub(crate) fn vortex_filter_fields(
     result: &VortexQueryPrimitiveResult,
     predicate_arg: String,
     local_execution: Option<&VortexLocalPrimitiveCliExecutionEvidence>,
@@ -25975,101 +25974,7 @@ fn run(args: Vec<String>) -> ExitCode {
         Some("vortex-filter-project") => {
             vortex_primitive_execution::handle_vortex_filter_project(args, format)
         }
-        Some("vortex-filter") => {
-            let Some(uri_arg) = args.next() else {
-                eprintln!(
-                    "usage: shardloom vortex-filter <dataset_uri> <predicate> [--execute-local-primitive <memory_gb> <max_parallelism>]"
-                );
-                return ExitCode::from(2);
-            };
-            let Some(predicate_arg) = args.next() else {
-                eprintln!(
-                    "usage: shardloom vortex-filter <dataset_uri> <predicate> [--execute-local-primitive <memory_gb> <max_parallelism>]"
-                );
-                return ExitCode::from(2);
-            };
-            let uri = match DatasetUri::new(uri_arg) {
-                Ok(uri) => uri,
-                Err(error) => {
-                    return emit_error("vortex-filter", format, "vortex filter failed", &error);
-                }
-            };
-            let predicate = match parse_tiny_predicate(&predicate_arg) {
-                Ok(predicate) => predicate,
-                Err(error) => {
-                    return emit_error("vortex-filter", format, "vortex filter failed", &error);
-                }
-            };
-            let local_execution_request =
-                match parse_vortex_local_primitive_cli_execution_args(&mut args) {
-                    Ok(request) => request,
-                    Err(error) => {
-                        return emit_error("vortex-filter", format, "vortex filter failed", &error);
-                    }
-                };
-            let request =
-                shardloom_vortex::VortexQueryPrimitiveRequest::filter(uri.clone(), predicate);
-            let summary = open_vortex_metadata_only(VortexMetadataOpenRequest::metadata_only(uri))
-                .ok()
-                .and_then(|report| report.metadata_summary)
-                .unwrap_or_else(|| {
-                    summarize_vortex_metadata_probe(
-                        &VortexMetadataProbeReport::deferred_api_unclear(),
-                    )
-                });
-            let result = match evaluate_vortex_query_primitive(request.clone(), &summary) {
-                Ok(result) => result,
-                Err(error) => {
-                    return emit_error("vortex-filter", format, "vortex filter failed", &error);
-                }
-            };
-            let local_execution = match local_execution_request.as_ref() {
-                Some(local_request) => {
-                    match vortex_local_primitive_cli_execution_evidence(&request, local_request) {
-                        Ok(evidence) => Some(evidence),
-                        Err(error) => {
-                            return emit_error(
-                                "vortex-filter",
-                                format,
-                                "vortex filter local primitive execution failed",
-                                &error,
-                            );
-                        }
-                    }
-                }
-                None => None,
-            };
-            let command_has_errors = local_execution.as_ref().map_or_else(
-                || result.has_errors(),
-                VortexLocalPrimitiveCliExecutionEvidence::has_errors,
-            );
-            let mut diagnostics = result.diagnostics.clone();
-            if let Some(local) = &local_execution {
-                diagnostics.extend(local.report.diagnostics.clone());
-                diagnostics.extend(local.native_io_certificate.diagnostics.clone());
-                if let Some(certificate) = &local.execution_certificate {
-                    diagnostics.extend(certificate.diagnostics.clone());
-                }
-            }
-            emit(
-                "vortex-filter",
-                format,
-                if command_has_errors {
-                    CommandStatus::Unsupported
-                } else {
-                    CommandStatus::Success
-                },
-                "vortex filter primitive".to_string(),
-                vortex_filter_human_text(&result, local_execution.as_ref()),
-                diagnostics,
-                vortex_filter_fields(&result, predicate_arg, local_execution.as_ref()),
-            );
-            if command_has_errors {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            }
-        }
+        Some("vortex-filter") => vortex_primitive_execution::handle_vortex_filter(args, format),
         Some("vortex-local-exec") => {
             let Some(uri_arg) = args.next() else {
                 eprintln!("usage: shardloom vortex-local-exec <dataset_uri> <primitive>");
@@ -27050,6 +26955,7 @@ mod tests {
         NativeIoSinkRequirementReport, NativeIoSourceCapabilityReport,
         NativeIoSourcePushdownReport, RepresentationState,
     };
+    use shardloom_vortex::evaluate_vortex_query_primitive;
     fn run_test_with_larger_stack(test_name: &str, test_fn: impl FnOnce() + Send + 'static) {
         let handle = std::thread::Builder::new()
             .name(test_name.to_string())
@@ -30862,7 +30768,7 @@ mod tests {
         let result = evaluate_vortex_query_primitive(request, &summary).expect("result");
         let evidence = vortex_count_where_filter_evidence(&predicate, &summary).expect("evidence");
         let count = match &result.value {
-            VortexQueryPrimitiveValue::Count(value) => Some(*value),
+            VortexQueryPrimitiveValue::Count(value) => Some(value.to_owned()),
             _ => None,
         };
 
@@ -30930,7 +30836,7 @@ mod tests {
         let result = evaluate_vortex_query_primitive(request, &summary).expect("result");
         let evidence = vortex_count_where_filter_evidence(&predicate, &summary).expect("evidence");
         let count = match &result.value {
-            VortexQueryPrimitiveValue::Count(value) => Some(*value),
+            VortexQueryPrimitiveValue::Count(value) => Some(value.to_owned()),
             _ => None,
         };
 
