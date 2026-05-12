@@ -2351,7 +2351,7 @@ pub(crate) fn benchmark_plan_for_scope(
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(clippy::struct_excessive_bools)]
-struct VortexCountBenchmarkIterationSummary {
+pub(crate) struct VortexCountBenchmarkIterationSummary {
     duration_micros: u64,
     count_result: Option<u64>,
     arrays_read_count: usize,
@@ -2370,7 +2370,7 @@ struct VortexCountBenchmarkIterationSummary {
 }
 
 impl VortexCountBenchmarkIterationSummary {
-    fn from_reports(
+    pub(crate) fn from_reports(
         duration: Duration,
         encoded_report: &shardloom_vortex::VortexEncodedReadExecutionReport,
         local_report: &VortexLocalExecutionReport,
@@ -2437,7 +2437,7 @@ impl VortexCountBenchmarkIterationSummary {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-struct VortexCountBenchmarkReport {
+pub(crate) struct VortexCountBenchmarkReport {
     dataset_uri: DatasetUri,
     memory_gb: u64,
     max_parallelism: usize,
@@ -2446,11 +2446,11 @@ struct VortexCountBenchmarkReport {
     correctness_evidence: BenchmarkEvidenceState,
     benchmark_result: BenchmarkResult,
     comparison_report: BenchmarkComparisonReport,
-    diagnostics: Vec<Diagnostic>,
+    pub(crate) diagnostics: Vec<Diagnostic>,
 }
 
 impl VortexCountBenchmarkReport {
-    fn from_iterations(
+    pub(crate) fn from_iterations(
         dataset_uri: DatasetUri,
         memory_gb: u64,
         max_parallelism: usize,
@@ -2561,7 +2561,7 @@ impl VortexCountBenchmarkReport {
         })
     }
 
-    fn has_errors(&self) -> bool {
+    pub(crate) fn has_errors(&self) -> bool {
         self.iterations_completed() != self.iterations_requested
             || self.iterations.is_empty()
             || !self.result_consistent()
@@ -2572,7 +2572,7 @@ impl VortexCountBenchmarkReport {
                 .any(VortexCountBenchmarkIterationSummary::has_errors)
     }
 
-    fn to_human_text(&self) -> String {
+    pub(crate) fn to_human_text(&self) -> String {
         format!(
             "vortex local encoded count benchmark\nengine: shardloom\nscenario: local encoded count\ndataset: {}\niterations: {}/{}\ncount: {}\ntotal query runtime micros: {}\navg query runtime micros: {}\nexternal baselines: pandas,polars,duckdb,spark,datafusion,dask comparison-only not executed\ncomparison status: {}\nclaim gate: {}\nfallback execution: disabled",
             self.dataset_uri.as_str(),
@@ -2703,7 +2703,9 @@ fn local_count_benchmark_plan(dataset_uri: &DatasetUri) -> BenchmarkPlan {
     plan
 }
 
-fn vortex_count_benchmark_fields(report: &VortexCountBenchmarkReport) -> Vec<(String, String)> {
+pub(crate) fn vortex_count_benchmark_fields(
+    report: &VortexCountBenchmarkReport,
+) -> Vec<(String, String)> {
     let mut fields = Vec::new();
     append_vortex_count_benchmark_identity_fields(&mut fields, report);
     append_vortex_count_benchmark_claim_fields(&mut fields, report);
@@ -13724,51 +13726,6 @@ pub(crate) fn parse_vortex_spike_args(
     Ok((uri, memory_gb, max_parallelism, execute_local_count))
 }
 
-fn parse_vortex_count_benchmark_args(
-    mut args: std::vec::IntoIter<String>,
-) -> std::result::Result<(DatasetUri, u64, usize, usize), ExitCode> {
-    let Some(dataset_uri) = args.next() else {
-        eprintln!(
-            "usage: shardloom vortex-count-benchmark <dataset_uri> <memory_gb> <max_parallelism> [--iterations <n>]"
-        );
-        return Err(ExitCode::from(2));
-    };
-    let Some(memory_gb_text) = args.next() else {
-        eprintln!(
-            "usage: shardloom vortex-count-benchmark <dataset_uri> <memory_gb> <max_parallelism> [--iterations <n>]"
-        );
-        return Err(ExitCode::from(2));
-    };
-    let Some(max_parallelism_text) = args.next() else {
-        eprintln!(
-            "usage: shardloom vortex-count-benchmark <dataset_uri> <memory_gb> <max_parallelism> [--iterations <n>]"
-        );
-        return Err(ExitCode::from(2));
-    };
-    let uri = DatasetUri::new(dataset_uri).map_err(|_| ExitCode::from(2))?;
-    let memory_gb = memory_gb_text.parse().map_err(|_| ExitCode::from(2))?;
-    let max_parallelism = max_parallelism_text
-        .parse()
-        .map_err(|_| ExitCode::from(2))?;
-    let mut iterations = 3_usize;
-    while let Some(option) = args.next() {
-        if option != "--iterations" {
-            eprintln!("unknown option for shardloom vortex-count-benchmark: {option}");
-            return Err(ExitCode::from(2));
-        }
-        let Some(iterations_text) = args.next() else {
-            eprintln!("usage: shardloom vortex-count-benchmark ... --iterations <n>");
-            return Err(ExitCode::from(2));
-        };
-        iterations = iterations_text.parse().map_err(|_| ExitCode::from(2))?;
-        if iterations == 0 {
-            eprintln!("shardloom vortex-count-benchmark requires at least one iteration");
-            return Err(ExitCode::from(2));
-        }
-    }
-    Ok((uri, memory_gb, max_parallelism, iterations))
-}
-
 pub(crate) fn run_vortex_encoded_read_spike(
     uri: DatasetUri,
     memory_gb: u64,
@@ -13886,78 +13843,6 @@ pub(crate) fn run_vortex_approved_local_encoded_count(
     let readiness_report =
         build_vortex_encoded_count_readiness(uri.clone(), memory_gb, max_parallelism)?;
     run_vortex_approved_local_encoded_count_from_readiness(uri, &readiness_report)
-}
-
-fn handle_vortex_count_benchmark(
-    args: std::vec::IntoIter<String>,
-    format: OutputFormat,
-) -> ExitCode {
-    let (uri, memory_gb, max_parallelism, iteration_count) =
-        match parse_vortex_count_benchmark_args(args) {
-            Ok(parsed) => parsed,
-            Err(code) => return code,
-        };
-    let mut iterations = Vec::new();
-    for _ in 0..iteration_count {
-        let started = Instant::now();
-        let (encoded_report, local_report) = match run_vortex_approved_local_encoded_count(
-            uri.clone(),
-            memory_gb,
-            max_parallelism,
-        ) {
-            Ok(reports) => reports,
-            Err(error) => {
-                return emit_error(
-                    "vortex-count-benchmark",
-                    format,
-                    "vortex count benchmark failed",
-                    &error,
-                );
-            }
-        };
-        let duration = started.elapsed();
-        iterations.push(VortexCountBenchmarkIterationSummary::from_reports(
-            duration,
-            &encoded_report,
-            &local_report,
-        ));
-    }
-    let report = match VortexCountBenchmarkReport::from_iterations(
-        uri,
-        memory_gb,
-        max_parallelism,
-        iteration_count,
-        iterations,
-    ) {
-        Ok(report) => report,
-        Err(error) => {
-            return emit_error(
-                "vortex-count-benchmark",
-                format,
-                "vortex count benchmark report failed",
-                &error,
-            );
-        }
-    };
-    let has_errors = report.has_errors();
-    emit(
-        "vortex-count-benchmark",
-        format,
-        if has_errors {
-            CommandStatus::Unsupported
-        } else {
-            CommandStatus::Success
-        },
-        "vortex local encoded count benchmark".to_string(),
-        report.to_human_text(),
-        report.diagnostics.clone(),
-        vortex_count_benchmark_fields(&report),
-    );
-    if has_errors {
-        ExitCode::from(1)
-    } else {
-        ExitCode::SUCCESS
-    }
 }
 
 pub(crate) fn build_vortex_count_local_streaming_batch_plan(
@@ -26080,7 +25965,9 @@ fn run(args: Vec<String>) -> ExitCode {
             benchmark_runtime::handle_traditional_analytics_vortex_run(args, format)
         }
         Some("vortex-count") => vortex_primitive_execution::handle_vortex_count(args, format),
-        Some("vortex-count-benchmark") => handle_vortex_count_benchmark(args, format),
+        Some("vortex-count-benchmark") => {
+            benchmark_runtime::handle_vortex_count_benchmark(args, format)
+        }
         Some("vortex-count-where") => {
             let Some(uri_arg) = args.next() else {
                 eprintln!(

@@ -174,6 +174,9 @@ actionable work.
     - [x] Move executable traditional-analytics benchmark runtime handlers into
           `shardloom-cli/src/benchmark_runtime.rs` without changing benchmark behavior, adding
           managed-platform lanes, or allowing external engines to become runtime fallback.
+    - [x] Move the local Vortex count benchmark runtime handler, `vortex-count-benchmark`, into
+          `shardloom-cli/src/benchmark_runtime.rs` without changing benchmark semantics, adding
+          external baseline execution, or weakening no-fallback behavior.
     - [x] Move operational hardening/security handlers into
           `shardloom-cli/src/operational_hardening.rs` without resolving credentials, loading
           secrets, executing effects, or weakening no-fallback behavior.

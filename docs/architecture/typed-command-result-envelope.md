@@ -103,10 +103,11 @@ The benchmark planning family currently contains `benchmark-plan` and
 handlers remain report-only and do not run comparative benchmarks, invoke baseline engines, publish
 performance claims, or weaken no-fallback behavior.
 
-The benchmark runtime family currently contains `traditional-analytics-run` and
-`traditional-analytics-vortex-run`, and lives in `shardloom-cli/src/benchmark_runtime.rs`. These
-handlers preserve the existing local benchmark harness behavior; external engines remain
-comparison-only baselines and must not become fallback execution paths.
+The benchmark runtime family currently contains `traditional-analytics-run`,
+`traditional-analytics-vortex-run`, and `vortex-count-benchmark`, and lives in
+`shardloom-cli/src/benchmark_runtime.rs`. These handlers preserve the existing local benchmark
+harness behavior; external engines remain comparison-only baselines and must not become fallback
+execution paths.
 
 The operational hardening/security family currently contains `security-plan`,
 `security-governance-evidence-gate`, `effect-budget-plan`, `agent-safety-plan`, and
@@ -152,8 +153,8 @@ while broader prepared/source-backed extraction continues.
 
 The Vortex primitive execution family now starts its physical split in
 `shardloom-cli/src/vortex_primitive_execution.rs` with `vortex-count` and `vortex-query-trace`.
-Broader count benchmark, filtered count, projection, filter-project, and local engine handlers
-remain staged for later extraction.
+Filtered count, projection, filter-project, and local engine handlers remain staged for later
+extraction.
 
 Command family classification lives in `shardloom-cli/src/command_family.rs` and is emitted in the
 typed lifecycle payload as `command_family`. This gives status/capabilities, Vortex primitive,
