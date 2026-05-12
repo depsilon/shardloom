@@ -14,8 +14,10 @@ use std::{
     time::{Duration, Instant},
 };
 
+mod command_family;
 mod typed_envelope;
 
+use command_family::classify_command;
 use shardloom_core::{
     AgentContractPack, ApproxSketchFunctionGateReport, BaselineEngine,
     BenchmarkClaimEvidenceReport, BenchmarkComparisonReport, BenchmarkEvidenceState,
@@ -3720,7 +3722,8 @@ fn emit(
     diagnostics: Vec<shardloom_core::Diagnostic>,
     fields: Vec<(String, String)>,
 ) {
-    let mut envelope = OutputEnvelope::new(command, status, summary, text);
+    let mut envelope = OutputEnvelope::new(command, status, summary, text)
+        .with_lifecycle_field("command_family", classify_command(command).as_str());
     for diagnostic in diagnostics {
         envelope.add_diagnostic(diagnostic);
     }
@@ -3736,7 +3739,8 @@ fn emit_error(
     summary: &str,
     error: &ShardLoomError,
 ) -> ExitCode {
-    let envelope = OutputEnvelope::from_error(command, summary, error);
+    let envelope = OutputEnvelope::from_error(command, summary, error)
+        .with_lifecycle_field("command_family", classify_command(command).as_str());
     match format {
         OutputFormat::Text => eprintln!("{}", envelope.to_text()),
         OutputFormat::Json => println!("{}", envelope.to_json()),

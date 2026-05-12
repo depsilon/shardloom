@@ -16,6 +16,36 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 CLI command-family taxonomy
+  - Primary files:
+    - `shardloom-cli/src/command_family.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/api_protocol_snapshots.rs`
+    - `docs/architecture/typed-command-result-envelope.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/rfcs/0039-typed-command-result-envelope-cli-modularity.md`
+  - Scope: add a shared CLI command-family taxonomy and emit `command_family` in the typed
+    lifecycle payload so later handler modules can split around stable family names.
+  - Checklist:
+    - [x] Add `CommandFamily` values for status/capabilities, Vortex primitive execution,
+          prepared/source-backed execution, evidence/certificates, benchmarks,
+          packaging/deployment, Foundry, operational hardening, diagnostics, REST/API planning,
+          workflow planning, engine/runtime planning, and other.
+    - [x] Classify representative commands and Vortex/object-store/CG fallback patterns.
+    - [x] Emit `command_family` through the typed lifecycle slot without adding it to the legacy
+          top-level `fields` mirror.
+    - [x] Keep physical handler movement out of `main.rs` active in the Planned queue.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli command_family --bin shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test api_protocol_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-cli --bin shardloom -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `git diff --check`
+  - Runtime stance: protocol/refactor slice only; no command dispatch behavior changes, runtime
+    expansion, external engine invocation, network effect, dataset probe, write, materialization,
+    or fallback execution changes.
+
 - [x] Session label: Priority 3.9 typed envelope CLI module split
   - Primary files:
     - `shardloom-cli/src/typed_envelope.rs`
