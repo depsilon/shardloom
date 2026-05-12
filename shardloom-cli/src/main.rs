@@ -6352,7 +6352,7 @@ fn observability_schema_coverage_fields(
     fields
 }
 
-fn append_vortex_work_avoided_fields(
+pub(crate) fn append_vortex_work_avoided_fields(
     fields: &mut Vec<(String, String)>,
     report: Option<&VortexWorkAvoidedReport>,
 ) {
@@ -13427,7 +13427,7 @@ fn parse_projection_columns(value: &str) -> Result<ProjectionRequest, ShardLoomE
     Ok(ProjectionRequest::columns(columns?))
 }
 
-fn parse_vortex_primitive_request(
+pub(crate) fn parse_vortex_primitive_request(
     uri: DatasetUri,
     primitive_arg: &str,
 ) -> Result<shardloom_vortex::VortexQueryPrimitiveRequest, ShardLoomError> {
@@ -27178,84 +27178,7 @@ fn run(args: Vec<String>) -> ExitCode {
             }
         }
         Some("vortex-query-trace") => {
-            let Some(uri_arg) = args.next() else {
-                eprintln!("usage: shardloom vortex-query-trace <dataset_uri> <primitive>");
-                return ExitCode::from(2);
-            };
-            let Some(primitive_arg) = args.next() else {
-                eprintln!("usage: shardloom vortex-query-trace <dataset_uri> <primitive>");
-                return ExitCode::from(2);
-            };
-            let uri = match DatasetUri::new(uri_arg) {
-                Ok(uri) => uri,
-                Err(error) => {
-                    return emit_error("vortex-query-trace", format, "query trace failed", &error);
-                }
-            };
-            let request = match parse_vortex_primitive_request(uri.clone(), &primitive_arg) {
-                Ok(v) => v,
-                Err(error) => {
-                    return emit_error("vortex-query-trace", format, "query trace failed", &error);
-                }
-            };
-            let summary = open_vortex_metadata_only(VortexMetadataOpenRequest::metadata_only(uri))
-                .ok()
-                .and_then(|report| report.metadata_summary)
-                .unwrap_or_else(|| {
-                    summarize_vortex_metadata_probe(
-                        &VortexMetadataProbeReport::deferred_api_unclear(),
-                    )
-                });
-            let analysis = match shardloom_vortex::evaluate_vortex_query_primitive_with_analysis(
-                request, &summary,
-            ) {
-                Ok(v) => v,
-                Err(error) => {
-                    return emit_error("vortex-query-trace", format, "query trace failed", &error);
-                }
-            };
-            let mut fields = vec![
-                (
-                    "fallback_execution_allowed".to_string(),
-                    "false".to_string(),
-                ),
-                ("mode".to_string(), "vortex_query_trace".to_string()),
-                ("primitive".to_string(), primitive_arg),
-                ("data_read".to_string(), "false".to_string()),
-                ("data_decoded".to_string(), "false".to_string()),
-                ("data_materialized".to_string(), "false".to_string()),
-                ("object_store_io".to_string(), "false".to_string()),
-                ("write_io".to_string(), "false".to_string()),
-                ("spill_io_performed".to_string(), "false".to_string()),
-                ("execution".to_string(), "not_performed".to_string()),
-                (
-                    "decision_trace_entries".to_string(),
-                    analysis.decision_trace.entry_count().to_string(),
-                ),
-                (
-                    "result_known".to_string(),
-                    analysis.result.value.is_known().to_string(),
-                ),
-            ];
-            append_vortex_work_avoided_fields(&mut fields, Some(&analysis.work_avoided));
-            emit(
-                "vortex-query-trace",
-                format,
-                if analysis.has_errors() {
-                    CommandStatus::Unsupported
-                } else {
-                    CommandStatus::Success
-                },
-                "vortex query trace primitive analysis".to_string(),
-                analysis.to_human_text(),
-                analysis.result.diagnostics.clone(),
-                fields,
-            );
-            if analysis.has_errors() {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            }
+            vortex_primitive_execution::handle_vortex_query_trace(args, format)
         }
 
         Some("vortex-metadata-plan") => {

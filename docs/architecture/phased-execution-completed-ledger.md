@@ -16,6 +16,33 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 Vortex query-trace handler module split
+  - Primary files:
+    - `shardloom-cli/src/vortex_primitive_execution.rs`
+    - `shardloom-cli/src/command_family.rs`
+    - `shardloom-cli/src/main.rs`
+    - `docs/architecture/typed-command-result-envelope.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/rfcs/0039-typed-command-result-envelope-cli-modularity.md`
+  - Scope: move the report-only `vortex-query-trace` handler into the Vortex primitive execution
+    module.
+  - Checklist:
+    - [x] Delegate `vortex-query-trace` from `main.rs`.
+    - [x] Classify `vortex-query-trace` as `command_family=vortex_primitive_execution`.
+    - [x] Reuse the existing primitive parser and work-avoidance field routing.
+    - [x] Preserve report-only behavior, no data reads, no materialization, no writes, no external
+          engine invocation, and no fallback execution.
+    - [x] Update Priority 3.9 docs, RFC traceability, and RFC 0039 status.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo check -p shardloom-cli --bin shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test typed_envelope_contract_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test python_wrapper_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli command_family`
+    - [x] `.\target\debug\shardloom.exe vortex-query-trace file:///tmp/example.vortex count --format json`
+  - Runtime stance: handler split only; no new Vortex runtime behavior, dataset reads,
+    materialization, external engine invocation, or fallback execution is authorized.
+
 - [x] Session label: Priority 3.9 Vortex count primitive handler module split
   - Primary files:
     - `shardloom-cli/src/vortex_primitive_execution.rs`
