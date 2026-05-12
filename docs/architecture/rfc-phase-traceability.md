@@ -3123,6 +3123,29 @@ No fallback execution.
   materialization, write IO, spill IO, policy mutation, large-workload claim, external engine
   fallback, or fallback execution.
 
+## CG-9.0 catalog/table metadata integration gate
+
+- `CatalogMetadataIntegrationGateReport` records the promotion boundary for snapshot/manifest
+  metadata reads, catalog table resolution, table metadata reads, partition metadata reads,
+  delete/tombstone metadata reads, CDC metadata reads, table-format dependency admission,
+  commit/recovery metadata binding, and metadata cache invalidation.
+- `cg9-catalog-metadata-gate` exposes stable JSON/text fields for existing report-only
+  table-intelligence and catalog-ref skeleton evidence, blocked metadata-integration surfaces,
+  required catalog/snapshot/schema/partition/delete/dependency/credential/effect/materialization
+  evidence, certificate blockers, side-effect boundaries, claim blockers, and no-fallback status.
+- Existing `TableIntelligenceReport`, schema/partition/delete/table compatibility, CDC/layout/
+  compaction planning, and `CatalogRef` skeleton evidence remain report-only evidence. Catalog
+  resolution, table metadata reads, external table-format dependency activation, credential
+  resolution, metadata-cache runtime, and metadata-integration claims stay blocked until
+  workload-scoped correctness, benchmark, execution-certificate, Native I/O, policy, dependency,
+  and no-fallback evidence exists.
+- Primary RFC linkage: RFC 0004, RFC 0017, RFC 0019, RFC 0020, RFC 0025, and RFC 0028.
+- Related RFCs: RFC 0008, RFC 0012, RFC 0016, RFC 0024, RFC 0029, RFC 0031, RFC 0032, RFC 0033,
+  and RFC 0036.
+- This phase adds no catalog IO, table metadata IO, object-store IO, data reads, writes,
+  credential resolution, table-format dependency activation, metadata-cache runtime,
+  metadata-integration claim, external engine fallback, or fallback execution.
+
 ## CG-9.1 schema evolution compatibility evidence
 
 - `SchemaEvolutionCompatibilityReport` records compatibility level, safe/unsafe change counts,

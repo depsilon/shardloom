@@ -328,7 +328,20 @@ not by numeric CG order.
     - [x] Expose the gate through `cg8-runtime-promotion-gate` without runtime execution, task
           execution, data reads, materialization, object-store IO, write IO, spill IO, policy
           mutation, large-workload claims, or fallback execution.
-  - [ ] CG-9 catalog/table metadata integration.
+  - [x] CG-9 catalog/table metadata integration.
+    - [x] Add `CatalogMetadataIntegrationGateReport` so catalog/table metadata integration
+          surfaces are named and kept blocked behind table-intelligence reports, catalog refs,
+          snapshot refs, schema/partition/delete policy evidence, dependency/license approval,
+          credential/effect policy, materialization boundaries, execution certificates, Native I/O
+          certificates, benchmark evidence, and no-fallback evidence.
+    - [x] Keep existing `TableIntelligenceReport`, schema/partition/delete/table compatibility,
+          CDC/layout/compaction planning, and `CatalogRef` skeleton evidence visible while keeping
+          snapshot/manifest metadata reads, catalog table resolution, table metadata reads,
+          dependency admission, commit/recovery metadata binding, and metadata cache invalidation
+          runtime blocked.
+    - [x] Expose the gate through `cg9-catalog-metadata-gate` without catalog IO, table metadata IO,
+          object-store IO, data reads, writes, credential resolution, table-format dependency
+          activation, metadata-cache runtime, claim publication, or fallback execution.
   - [ ] CG-10 object-store/distributed runtime execution.
   - [ ] CG-20 SQL/DataFrame/UDF/unstructured/media/adapters once the encoded primitive evidence loop
         and importability lane are no longer the bottleneck.
