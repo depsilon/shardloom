@@ -52,20 +52,20 @@ use shardloom_exec::{
     BoundedMemoryPolicy, ByteSize, CancellationReason, CancellationRequest, CancellationScope,
     DynamicSizingFeedbackInput, DynamicSizingFeedbackReport, DynamicWorkShapingReport,
     EncodedStreamingBatchPlanInput, EncodedStreamingBatchPlanReport, MemoryBudget, MemoryOwner,
-    MemoryPoolPlan, OomSafetyPlan, OperatorMemoryClass, ParallelismLimit, ParallelismPlan,
-    RecoveryPlan, RetryPlan, RuntimePlanSkeleton, ShardLoomCancellationExecutionGateReport,
-    ShardLoomCancellationExecutionGateRequest, ShardLoomCancellationExecutionGateSignal,
-    ShardLoomCleanupExecutionRequest, ShardLoomRetryExecutionGateReport,
-    ShardLoomRetryExecutionGateRequest, ShardLoomRetryExecutionGateSignal, SizeEstimate,
-    SizingFeedbackSignal, SizingFeedbackSignalKind, SizingInput, SizingPlan, SpillLifecycleRequest,
-    SpillPayloadFsRef, SpillPayloadId, SpillPayloadPath, SpillPayloadRef,
-    SpillPayloadRoundTripRequest, SpillPayloadWriteRequest, SpillPlan, SpillPolicy,
-    SpillReservationIntegrationRequest, SpillWorkspaceId, SpillWorkspacePath,
-    StreamingPlanSkeleton, StreamingSink, StreamingSource, SyntheticSpillPayload,
-    TaskAttemptRecord, plan_backpressure, plan_cancellation_execution_gate,
+    MemoryPoolPlan, OomSafetyPlan, OperatorMemoryClass, OperatorMemorySpillDeclarationReport,
+    ParallelismLimit, ParallelismPlan, RecoveryPlan, RetryPlan, RuntimePlanSkeleton,
+    ShardLoomCancellationExecutionGateReport, ShardLoomCancellationExecutionGateRequest,
+    ShardLoomCancellationExecutionGateSignal, ShardLoomCleanupExecutionRequest,
+    ShardLoomRetryExecutionGateReport, ShardLoomRetryExecutionGateRequest,
+    ShardLoomRetryExecutionGateSignal, SizeEstimate, SizingFeedbackSignal,
+    SizingFeedbackSignalKind, SizingInput, SizingPlan, SpillLifecycleRequest, SpillPayloadFsRef,
+    SpillPayloadId, SpillPayloadPath, SpillPayloadRef, SpillPayloadRoundTripRequest,
+    SpillPayloadWriteRequest, SpillPlan, SpillPolicy, SpillReservationIntegrationRequest,
+    SpillWorkspaceId, SpillWorkspacePath, StreamingPlanSkeleton, StreamingSink, StreamingSource,
+    SyntheticSpillPayload, TaskAttemptRecord, plan_backpressure, plan_cancellation_execution_gate,
     plan_dynamic_sizing_feedback, plan_dynamic_work_shaping, plan_encoded_streaming_batches,
-    plan_retry_execution_gate, plan_spill_lifecycle, plan_spill_reservation_integration,
-    roundtrip_spill_payload, spill_payload_fs_feature_enabled,
+    plan_operator_memory_spill_declarations, plan_retry_execution_gate, plan_spill_lifecycle,
+    plan_spill_reservation_integration, roundtrip_spill_payload, spill_payload_fs_feature_enabled,
 };
 use shardloom_plan::{
     AdaptiveOptimizerMemoryReport, EstimateReport, ExplainReport, ImportedPlanCapabilityGateReport,
@@ -212,7 +212,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|agent-contract-pack|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance]|security-plan|effect-budget-plan|agent-safety-plan|redaction-plan|kernel-registry|feature-footprint|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|layout-health-plan|compaction-plan|table-intelligence-plan|object-store-request-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|dynamic-work-shaping-plan [balanced|memory-pressure|object-store-throttled|small-tasks]|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|benchmark-claim-evidence-plan [foundation|traditional-analytics]|traditional-analytics-run|traditional-analytics-vortex-run|vortex-count-benchmark|correctness-plan|correctness-harness-plan|execution-certificate-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-filter-project|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|agent-contract-pack|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance]|security-plan|effect-budget-plan|agent-safety-plan|redaction-plan|kernel-registry|feature-footprint|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|layout-health-plan|compaction-plan|table-intelligence-plan|object-store-request-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|dynamic-work-shaping-plan [balanced|memory-pressure|object-store-throttled|small-tasks]|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|benchmark-claim-evidence-plan [foundation|traditional-analytics]|traditional-analytics-run|traditional-analytics-vortex-run|vortex-count-benchmark|correctness-plan|correctness-harness-plan|execution-certificate-plan|recovery-plan|cancellation-plan|retry-plan|observability-plan|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-filter-project|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|operator-memory-spill-declarations|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -5904,6 +5904,90 @@ fn push_u64_field(fields: &mut Vec<(String, String)>, key: &str, value: u64) {
 
 fn push_bool_field(fields: &mut Vec<(String, String)>, key: &str, value: bool) {
     fields.push((key.to_string(), value.to_string()));
+}
+
+fn operator_memory_spill_declaration_fields(
+    report: &OperatorMemorySpillDeclarationReport,
+) -> Vec<(String, String)> {
+    let mut fields = Vec::new();
+    push_field(
+        &mut fields,
+        "mode",
+        "operator_memory_spill_declaration_gate",
+    );
+    push_field(&mut fields, "schema_version", report.schema_version);
+    push_count_field(
+        &mut fields,
+        "operator_declaration_count",
+        report.declaration_count(),
+    );
+    push_count_field(
+        &mut fields,
+        "declared_required_operator_count",
+        report.declared_required_count(),
+    );
+    push_count_field(
+        &mut fields,
+        "missing_required_operator_count",
+        report.missing_required_count(),
+    );
+    push_count_field(
+        &mut fields,
+        "omitted_required_operator_count",
+        report.omitted_required_class_count(),
+    );
+    push_count_field(
+        &mut fields,
+        "claim_blocker_count",
+        report.claim_blocker_count(),
+    );
+    push_bool_field(
+        &mut fields,
+        "large_workload_claim_allowed",
+        report.large_workload_claim_allowed,
+    );
+    push_bool_field(&mut fields, "runtime_execution", report.runtime_execution);
+    push_bool_field(&mut fields, "spill_io_performed", report.spill_io_performed);
+    push_bool_field(&mut fields, "fallback_attempted", report.fallback_attempted);
+    for (index, declaration) in report.declarations.iter().enumerate() {
+        let prefix = format!("operator_declaration_{index}");
+        push_field(
+            &mut fields,
+            &format!("{prefix}_class"),
+            declaration.operator_class.as_str(),
+        );
+        push_field(
+            &mut fields,
+            &format!("{prefix}_status"),
+            declaration.status.as_str(),
+        );
+        push_bool_field(
+            &mut fields,
+            &format!("{prefix}_bounded_memory_required"),
+            declaration.bounded_memory_required,
+        );
+        push_bool_field(
+            &mut fields,
+            &format!("{prefix}_spill_support_required"),
+            declaration.spill_support_required,
+        );
+        push_field(
+            &mut fields,
+            &format!("{prefix}_spill_policy"),
+            declaration.spill_policy.as_str(),
+        );
+        push_bool_field(
+            &mut fields,
+            &format!("{prefix}_effect_boundary_required"),
+            declaration.effect_boundary_required,
+        );
+        push_bool_field(
+            &mut fields,
+            &format!("{prefix}_claim_blocked"),
+            declaration.blocks_large_workload_claim(),
+        );
+    }
+    fields
 }
 
 fn append_vortex_work_avoided_fields(
@@ -18106,6 +18190,20 @@ fn run(args: Vec<String>) -> ExitCode {
                 plan.to_human_text(),
                 vec![],
                 vec![("mode".to_string(), "plan_only".to_string())],
+            );
+            ExitCode::SUCCESS
+        }
+        Some("operator-memory-spill-declarations") => {
+            let command = "operator-memory-spill-declarations";
+            let report = plan_operator_memory_spill_declarations();
+            emit(
+                command,
+                format,
+                CommandStatus::Success,
+                "operator memory/spill declaration gate".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                operator_memory_spill_declaration_fields(&report),
             );
             ExitCode::SUCCESS
         }

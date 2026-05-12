@@ -16,6 +16,34 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: operator memory/spill declaration gate
+  - Primary files:
+    - `shardloom-exec/src/memory.rs`
+    - `shardloom-exec/src/lib.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/operator_memory_spill_declarations.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: add a reportable RFC 0014 gate requiring operator-level memory, spill, cleanup,
+    OOM-safe, and effect-boundary declarations before large-workload claims.
+  - Checklist:
+    - [x] Add `OperatorMemorySpillDeclarationStatus`,
+          `OperatorMemorySpillDeclaration`, and `OperatorMemorySpillDeclarationReport`.
+    - [x] Cover required large-workload classes: aggregate, sort, join, window, repartition,
+          shuffle, UDF, sink, and external-effect boundaries.
+    - [x] Expose claim blockers, missing declaration counts, runtime/spill-IO absence, warning
+          diagnostics, and `fallback_attempted=false`.
+    - [x] Add the `operator-memory-spill-declarations` CLI report and JSON contract tests.
+  - Validation status:
+    - [x] `cargo test -p shardloom-exec memory --lib`
+    - [x] `cargo test -p shardloom-cli operator_memory_spill_declaration --test operator_memory_spill_declarations`
+    - [x] `cargo fmt --all -- --check`
+    - [x] `cargo clippy -p shardloom-exec --lib -- -D warnings`
+    - [x] `cargo clippy -p shardloom-cli --all-targets -- -D warnings`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `git diff --check`
+  - Non-goals preserved:
+    - [x] No live spill execution, no operator spill implementation, no large-workload support
+          claim, no external engine invocation, and no fallback execution.
 - [x] Session label: memory reservation admission and fail-before-OOM diagnostics
   - Primary files:
     - `shardloom-exec/src/memory.rs`
