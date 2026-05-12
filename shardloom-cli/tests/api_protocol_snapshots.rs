@@ -92,10 +92,10 @@ fn api_compat_plan_json_routes_common_fields_into_typed_slots() {
         output.contains("\"policy\":{\"fields\":[{\"key\":\"publish_allowed\",\"value\":\"false\"")
     );
     assert!(output.contains(&field("fallback_execution_allowed", "false")));
-    assert!(
-        output
-            .contains("\"lifecycle\":{\"fields\":[{\"key\":\"mode\",\"value\":\"api_compat_plan\"")
-    );
+    assert!(output.contains(
+        "\"lifecycle\":{\"fields\":[{\"key\":\"command_family\",\"value\":\"rest_api_planning\""
+    ));
+    assert!(output.contains(&field("mode", "api_compat_plan")));
     assert!(output.contains(&field(
         "schema_version",
         "shardloom.cli_api_json_protocol.v1"

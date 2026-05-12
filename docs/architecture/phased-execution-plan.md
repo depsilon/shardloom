@@ -152,7 +152,7 @@ actionable work.
         Foundry boundary reports.
   - [ ] Modularize CLI command routing around typed command handlers and shared rendering.
     - [ ] Move remaining command-family handlers out of `main.rs` after the shared
-          `typed_envelope` routing module.
+          `typed_envelope` routing module and `command_family` taxonomy.
     - [ ] Split handlers by status/capabilities, Vortex primitive execution,
           prepared/source-backed execution, evidence/certificates, benchmarks,
           packaging/deployment, Foundry, operational hardening, diagnostics, and future REST/API

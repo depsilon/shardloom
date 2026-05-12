@@ -12,6 +12,7 @@ OutputEnvelope
 OutputTypedPayload
 OutputTypedRef
 OutputTypedArtifact
+shardloom-cli/src/command_family.rs
 shardloom-cli/src/typed_envelope.rs
 shardloom.output.v2
 ```
@@ -73,6 +74,12 @@ Shared CLI typed-envelope routing lives in `shardloom-cli/src/typed_envelope.rs`
 still live mostly in `main.rs`; the module split is the first modularity step for shared rendering
 and protocol behavior.
 
+Command family classification lives in `shardloom-cli/src/command_family.rs` and is emitted in the
+typed lifecycle payload as `command_family`. This gives status/capabilities, Vortex primitive,
+prepared/source-backed, evidence/certificate, benchmark, packaging/deployment, Foundry,
+operational-hardening, diagnostic, REST/API-planning, workflow-planning, and engine-runtime
+commands a stable family taxonomy before their handlers are physically split.
+
 The old top-level `fields` array is still present as a temporary legacy mirror for existing tests,
 the Python client, and command-family migration safety. It is no longer the intended primary
 machine-readable payload model.
@@ -105,8 +112,8 @@ Attach inline evidence artifacts and richer report payloads through typed slots 
 more than a reference.
 Expand golden fixtures for success, unsupported, blocked, certified execution, evidence incomplete,
 source-backed execution, benchmark rows, missing binary, and Foundry boundary reports.
-Split CLI handlers by capability family and centralize rendering, diagnostics, fallback, policy,
-and side-effect reporting.
+Physically split CLI handlers by capability family and centralize rendering, diagnostics, fallback,
+policy, and side-effect reporting.
 ```
 
 ## Runtime posture
