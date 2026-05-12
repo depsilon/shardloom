@@ -337,15 +337,15 @@ not by numeric CG order.
           into execution paths only after side-effect boundaries and commit semantics are certified.
     - [x] Keep exactly-once, resumability, and recovery claims blocked until CG-4, CG-8, CG-10,
           CG-16, and CG-22 evidence exists for the declared workload.
-  - [ ] RFC 0018 observability, tracing, profiling, and debug bundles
-    - [ ] Add trace/event/profile/log schema coverage for plan, execution, Vortex IO, object-store
+  - [x] RFC 0018 observability, tracing, profiling, and debug bundles
+    - [x] Add trace/event/profile/log schema coverage for plan, execution, Vortex IO, object-store
           IO, memory/spill, translation/output, benchmark, certificate, and unsupported diagnostics.
       - [x] Add an observability schema coverage report for trace spans, structured events,
             profiles, logs, and debug bundles across plan, execution, Vortex IO, object-store IO,
             memory/spill, translation/output, benchmark, certificate, and unsupported diagnostics,
             with local JSON, redaction, certificate-link, no-exporter, no-runtime-collection, and
             `fallback_attempted=false` evidence.
-    - [ ] Keep OpenTelemetry/exporter integration optional and later; first make local
+    - [x] Keep OpenTelemetry/exporter integration optional and later; first make local
           CLI/Python/JSON reports complete, redacted, and certificate-linked.
   - [x] RFC 0019 security, governance, credentials, egress, and agent safety
     - [x] Add credential-reference, permission, redaction, audit, external-effect,
