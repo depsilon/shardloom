@@ -14,6 +14,7 @@ OutputTypedRef
 OutputTypedArtifact
 shardloom-cli/src/command_family.rs
 shardloom-cli/src/cli_output.rs
+shardloom-cli/src/packaging_deployment.rs
 shardloom-cli/src/rest_api_planning.rs
 shardloom-cli/src/status_capabilities.rs
 shardloom-cli/src/typed_envelope.rs
@@ -85,6 +86,11 @@ functions while broader command-family extraction continues.
 The REST/API planning family currently contains `api-compat-plan` and lives in
 `shardloom-cli/src/rest_api_planning.rs`. It remains report-only and does not start a REST server,
 open sockets, perform remote execution, or weaken no-fallback behavior.
+
+The packaging/deployment family currently contains `release-plan`, `package-plan`,
+`agent-contract-pack`, and `python-wrapper-plan`, and lives in
+`shardloom-cli/src/packaging_deployment.rs`. These handlers remain report-only and do not publish
+packages, push artifacts, invoke external engines, or weaken no-fallback behavior.
 
 Command family classification lives in `shardloom-cli/src/command_family.rs` and is emitted in the
 typed lifecycle payload as `command_family`. This gives status/capabilities, Vortex primitive,

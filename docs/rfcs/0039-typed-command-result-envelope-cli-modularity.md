@@ -20,9 +20,10 @@ refs/ids/paths/URIs in `shardloom-cli/src/typed_envelope.rs`, command-family lif
 classification in `shardloom-cli/src/command_family.rs`, shared JSON/text rendering and error
 emission in `shardloom-cli/src/cli_output.rs`, the status/capabilities handler-family module in
 `shardloom-cli/src/status_capabilities.rs`, the REST/API planning handler module in
-`shardloom-cli/src/rest_api_planning.rs`, and typed-envelope contract snapshots for representative
-success, error, unsupported, blocked, evidence-incomplete, source-backed, benchmark, and
-Foundry-adjacent report surfaces. Command-family-specific result migration, richer inline
+`shardloom-cli/src/rest_api_planning.rs`, the packaging/deployment handler module in
+`shardloom-cli/src/packaging_deployment.rs`, and typed-envelope contract snapshots for
+representative success, error, unsupported, blocked, evidence-incomplete, source-backed, benchmark,
+and Foundry-adjacent report surfaces. Command-family-specific result migration, richer inline
 artifact/report payloads, remaining certified-runtime/missing-binary/Foundry-boundary golden
 fixtures, and broader CLI handler modularization remain planned.
 

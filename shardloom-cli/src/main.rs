@@ -16,6 +16,7 @@ use std::{
 
 mod cli_output;
 mod command_family;
+mod packaging_deployment;
 mod rest_api_planning;
 mod status_capabilities;
 mod typed_envelope;
@@ -1790,7 +1791,7 @@ fn append_security_governance_evidence_gate_entry_fields(
     }
 }
 
-fn agent_contract_pack_fields(report: &AgentContractPack) -> Vec<(String, String)> {
+pub(crate) fn agent_contract_pack_fields(report: &AgentContractPack) -> Vec<(String, String)> {
     vec![
         ("mode".to_string(), "agent_contract_pack".to_string()),
         (
@@ -5423,7 +5424,7 @@ fn certification_fields(
     fields
 }
 
-fn release_plan_fields(
+pub(crate) fn release_plan_fields(
     plan: &ReleasePlan,
     evidence: &ReleaseReadinessEvidenceReport,
     publication: &ReleasePublicationBoundaryReport,
@@ -5878,7 +5879,9 @@ pub(crate) fn api_protocol_fields(report: &CliApiJsonProtocolReport) -> Vec<(Str
     fields
 }
 
-fn python_wrapper_fields(report: &PythonWrapperFoundationReport) -> Vec<(String, String)> {
+pub(crate) fn python_wrapper_fields(
+    report: &PythonWrapperFoundationReport,
+) -> Vec<(String, String)> {
     let mut fields = vec![];
     append_python_wrapper_identity_fields(&mut fields, report);
     append_python_wrapper_distribution_fields(&mut fields, report);
@@ -19697,82 +19700,11 @@ fn run(args: Vec<String>) -> ExitCode {
         }
 
         Some("status") => status_capabilities::handle_status(format),
-        Some("release-plan") => {
-            let plan = ReleasePlan::default_foundation_plan();
-            let evidence = plan.release_readiness_evidence();
-            let publication = plan.publication_boundary_report();
-            emit(
-                "release-plan",
-                format,
-                CommandStatus::Success,
-                "release plan skeleton".to_string(),
-                format!(
-                    "{}\n\n{}\n\n{}",
-                    plan.to_human_text(),
-                    evidence.to_human_text(),
-                    publication.to_human_text()
-                ),
-                plan.diagnostics.clone(),
-                release_plan_fields(&plan, &evidence, &publication, "release_plan"),
-            );
-            ExitCode::SUCCESS
-        }
-        Some("package-plan") => {
-            let plan = ReleasePlan::default_foundation_plan();
-            let evidence = plan.release_readiness_evidence();
-            let publication = plan.publication_boundary_report();
-            emit(
-                "package-plan",
-                format,
-                CommandStatus::Success,
-                "package plan skeleton".to_string(),
-                format!(
-                    "{}\n\n{}\n\n{}",
-                    plan.to_human_text(),
-                    evidence.to_human_text(),
-                    publication.to_human_text()
-                ),
-                plan.diagnostics.clone(),
-                release_plan_fields(&plan, &evidence, &publication, "package_plan"),
-            );
-            ExitCode::SUCCESS
-        }
+        Some("release-plan") => packaging_deployment::handle_release_plan(format),
+        Some("package-plan") => packaging_deployment::handle_package_plan(format),
         Some("api-compat-plan") => rest_api_planning::handle_api_compat_plan(format),
-        Some("agent-contract-pack") => {
-            let report = AgentContractPack::default_pack();
-            let status = if report.has_errors() {
-                CommandStatus::Unsupported
-            } else {
-                CommandStatus::Success
-            };
-            emit(
-                "agent-contract-pack",
-                format,
-                status,
-                "agent contract pack".to_string(),
-                report.to_human_text(),
-                report.diagnostics.clone(),
-                agent_contract_pack_fields(&report),
-            );
-            if report.has_errors() {
-                ExitCode::from(1)
-            } else {
-                ExitCode::SUCCESS
-            }
-        }
-        Some("python-wrapper-plan") => {
-            let report = PythonWrapperFoundationReport::contract_only();
-            emit(
-                "python-wrapper-plan",
-                format,
-                report.status(),
-                "python wrapper foundation".to_string(),
-                report.to_human_text(),
-                report.diagnostics.clone(),
-                python_wrapper_fields(&report),
-            );
-            ExitCode::SUCCESS
-        }
+        Some("agent-contract-pack") => packaging_deployment::handle_agent_contract_pack(format),
+        Some("python-wrapper-plan") => packaging_deployment::handle_python_wrapper_plan(format),
 
         Some("input-adapters") => {
             let snapshot = InputAdapterRegistrySnapshot::foundation();
