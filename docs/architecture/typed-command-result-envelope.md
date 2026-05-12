@@ -199,11 +199,12 @@ The Vortex primitive execution family now starts its physical split in
 local primitive, local-engine, bounded-policy, work-avoidance, certificate, why-report, and
 no-fallback output contracts while broader non-primitive handler extraction continues.
 
-The Vortex planning family now has its first metadata/report-only module in
+The Vortex planning family now has its metadata/report-only module in
 `shardloom-cli/src/vortex_planning.rs`, covering `vortex-metadata-plan`,
-`vortex-pruning-plan`, `vortex-metadata-probe`, and `vortex-api-inventory`. These handlers remain
-metadata-only or plan-only surfaces and do not execute tasks, materialize outputs, write data,
-invoke external engines, or weaken no-fallback behavior.
+`vortex-pruning-plan`, `vortex-metadata-probe`, `vortex-api-inventory`,
+`vortex-encoded-path-selection-plan`, and `vortex-generalized-encoded-primitive-gate`. These
+handlers remain metadata-only, plan-only, or report-only surfaces and do not execute tasks,
+materialize outputs, write data, invoke external engines, or weaken no-fallback behavior.
 
 Command family classification lives in `shardloom-cli/src/command_family.rs` and is emitted in the
 typed lifecycle payload as `command_family`. This gives status/capabilities, Vortex primitive,
@@ -228,13 +229,13 @@ certificate-surface report
 Native I/O envelope report
 evidence-incomplete benchmark row report
 benchmark claim evidence report
+certified runtime execution with inline certificates
 Foundry-adjacent optional universal harness report
 ```
 
-Concrete certified runtime execution, missing-binary protocol parity, and first-class Foundry
-boundary-report fixtures remain planned because those surfaces are either feature-gated, owned by
-the Python binary-resolution layer, or not yet represented by a concrete CLI Foundry boundary
-command.
+Missing-binary protocol parity and first-class Foundry boundary-report fixtures remain planned
+because those surfaces are owned by the Python binary-resolution layer or not yet represented by a
+concrete CLI Foundry boundary command.
 
 The old top-level `fields` array is still present as a temporary legacy mirror for existing tests,
 the Python client, and command-family migration safety. It is no longer the intended primary
@@ -268,8 +269,8 @@ payload helpers beyond the first inline report payloads.
 Attach inline evidence artifacts, certificate payloads, Foundry boundary reports, source/sink
 reports, materialization boundary reports, and richer capability snapshots through typed slots where
 a command has more than a reference.
-Finish remaining golden fixtures for certified runtime execution, missing-binary protocol parity,
-and concrete Foundry boundary reports.
+Finish remaining golden fixtures for missing-binary protocol parity and concrete Foundry boundary
+reports.
 Physically split CLI handlers by capability family and continue centralizing diagnostics, fallback,
 policy, and side-effect reporting around the shared renderer.
 ```

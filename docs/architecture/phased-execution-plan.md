@@ -168,8 +168,11 @@ actionable work.
     - [x] Add typed-envelope contract snapshots for success, invalid input, unsupported
           source-backed blocking, capability-claim blocking, certificate-surface reporting,
           evidence-incomplete benchmark rows, and Foundry-adjacent optional harness reporting.
-    - [ ] Add remaining certified runtime execution, missing-binary protocol parity, and concrete
-          Foundry boundary report fixtures once those command surfaces are executable/reportable.
+    - [x] Add feature-gated certified runtime execution typed-envelope coverage for the local
+          Vortex primitive path with inline execution certificate, Native I/O certificate,
+          source, pushdown, sink, and adapter-fidelity artifacts.
+    - [ ] Add remaining missing-binary protocol parity and concrete Foundry boundary report
+          fixtures once those command surfaces are executable/reportable.
   - [ ] Modularize CLI command routing around typed command handlers and shared rendering.
     - [x] Move shared CLI JSON/text rendering and error emission into
           `shardloom-cli/src/cli_output.rs`, backed by the existing `typed_envelope` router and
@@ -250,6 +253,10 @@ actionable work.
           `vortex-metadata-plan`, `vortex-pruning-plan`, `vortex-metadata-probe`, and
           `vortex-api-inventory`, into `shardloom-cli/src/vortex_planning.rs` while preserving
           metadata-only, plan-only, and no-fallback behavior.
+    - [x] Move the Vortex encoded primitive planning reports,
+          `vortex-encoded-path-selection-plan` and `vortex-generalized-encoded-primitive-gate`,
+          into `shardloom-cli/src/vortex_planning.rs` while preserving report-only,
+          side-effect-free, and no-fallback behavior.
     - [x] Move operational runtime, memory/spill, fault-tolerance, observability, object-store,
           plan-portability, CG-20 evidence, Vortex output/commit/staged artifact, and Vortex
           runtime-readiness handler clusters into focused modules while preserving existing

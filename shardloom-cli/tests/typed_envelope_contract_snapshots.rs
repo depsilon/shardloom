@@ -1,3 +1,5 @@
+#[cfg(feature = "vortex-local-primitives")]
+use std::path::PathBuf;
 use std::process::Command;
 
 fn run_command(args: &[&str], expect_success: bool) -> String {
@@ -24,6 +26,19 @@ fn run_command(args: &[&str], expect_success: bool) -> String {
 
 fn field(key: &str, value: &str) -> String {
     format!("{{\"key\":\"{key}\",\"value\":\"{value}\"}}")
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn local_primitive_struct_fixture() -> String {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("workspace root")
+        .join("shardloom-vortex")
+        .join("tests")
+        .join("fixtures")
+        .join("local_primitive_struct_five.vortex")
+        .display()
+        .to_string()
 }
 
 fn assert_common_typed_slots(output: &str, command: &str, status: &str) {
@@ -171,6 +186,87 @@ fn benchmark_claim_evidence_fixture_routes_inline_report_payload() {
     assert!(output.contains(&field("measured_benchmark_result_rows_present", "false")));
     assert!(output.contains("\"artifact_kind\":\"benchmark_claim_evidence_report\""));
     assert!(output.contains("\"artifact_id\":\"cg6.benchmark_claim_evidence.aggregate\""));
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[test]
+fn certified_runtime_execution_fixture_routes_inline_certificates() {
+    let fixture = local_primitive_struct_fixture();
+    let output = run_command(
+        &[
+            "vortex-project",
+            fixture.as_str(),
+            "metric",
+            "--execute-local-primitive",
+            "1",
+            "2",
+            "--format",
+            "json",
+        ],
+        true,
+    );
+
+    assert_common_typed_slots(&output, "vortex-project", "success");
+    assert!(output.contains(&field("command_family", "vortex_primitive_execution")));
+    assert!(output.contains(&field("mode", "vortex_project")));
+    assert!(output.contains(&field(
+        "execution",
+        "local_vortex_project_primitive_performed"
+    )));
+    assert!(output.contains(&field("project_local_execution_status", "executed")));
+    assert!(output.contains(&field(
+        "project_local_execution_mode",
+        "vortex_scan_pushdown"
+    )));
+    assert!(output.contains(&field("project_local_execution_rows_projected", "5")));
+    assert!(output.contains(&field(
+        "project_local_execution_projected_columns",
+        "metric"
+    )));
+    assert!(output.contains(&field(
+        "project_local_execution_native_io_certified",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "project_local_execution_correctness_certified",
+        "true"
+    )));
+    assert!(output.contains(&field("data_read", "true")));
+    assert!(output.contains(&field("data_decoded", "false")));
+    assert!(output.contains(&field("data_materialized", "false")));
+    assert!(output.contains(&field("row_read", "false")));
+    assert!(output.contains(&field("arrow_converted", "false")));
+    assert!(output.contains(&field("fallback_execution_allowed", "false")));
+    assert!(output.contains("\"artifact_kind\":\"native_io_certificate\""));
+    assert!(output.contains("\"artifact_kind\":\"execution_certificate\""));
+    assert!(output.contains("\"artifact_kind\":\"source_report\""));
+    assert!(output.contains("\"artifact_kind\":\"source_pushdown_report\""));
+    assert!(output.contains("\"artifact_kind\":\"sink_report\""));
+    assert!(output.contains("\"artifact_kind\":\"adapter_fidelity_report\""));
+    assert!(output.contains("\"artifact_id\":\"cg19.local_primitive.project_columns.native_io\""));
+    assert!(output.contains(
+        "\"artifact_id\":\"vortex-local-project-struct-five.project_columns.execution-certificate\""
+    ));
+    assert!(output.contains(&field(
+        "local_primitive_execution_certificate_fixture_id",
+        "vortex-local-project-struct-five"
+    )));
+    assert!(output.contains(&field(
+        "local_primitive_execution_certificate_status",
+        "certified"
+    )));
+    assert!(output.contains(&field(
+        "local_primitive_execution_certificate_external_query_engine_invoked",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "local_primitive_execution_certificate_fallback_attempted",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "local_primitive_execution_certificate_fallback_execution_allowed",
+        "false"
+    )));
 }
 
 #[test]
