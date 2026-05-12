@@ -2,12 +2,14 @@
 //!
 //! This module starts the physical split for Vortex primitive command handlers
 //! while preserving existing no-fallback execution contracts. This slice only
-//! owns `vortex-count`, `vortex-count-where`, `vortex-project`, and
-//! `vortex-query-trace`; broader filter/run extraction remains staged.
+//! owns `vortex-count`, `vortex-count-where`, `vortex-project`,
+//! `vortex-filter-project`, and `vortex-query-trace`; broader filter/run
+//! extraction remains staged.
 
 use std::process::ExitCode;
 
 use shardloom_core::{CommandStatus, DatasetUri, OutputFormat, PredicateExpr};
+use shardloom_plan::ProjectionRequest;
 use shardloom_vortex::{
     VortexMetadataOpenRequest, VortexMetadataProbeReport, VortexQueryPrimitiveRequest,
     VortexQueryPrimitiveValue, evaluate_vortex_query_primitive,
@@ -366,6 +368,180 @@ pub(crate) fn handle_vortex_project(
     } else {
         ExitCode::SUCCESS
     }
+}
+
+struct VortexFilterProjectArgs {
+    uri: DatasetUri,
+    predicate_arg: String,
+    columns_arg: String,
+    predicate: PredicateExpr,
+    projection: ProjectionRequest,
+    local_execution_request: Option<crate::VortexLocalPrimitiveCliExecutionRequest>,
+}
+
+pub(crate) fn handle_vortex_filter_project(
+    args: std::vec::IntoIter<String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let parsed = match parse_vortex_filter_project_args(args, format) {
+        Ok(parsed) => parsed,
+        Err(code) => return code,
+    };
+    let VortexFilterProjectArgs {
+        uri,
+        predicate_arg,
+        columns_arg,
+        predicate,
+        projection,
+        local_execution_request,
+    } = parsed;
+    let request =
+        VortexQueryPrimitiveRequest::filter_and_project(uri.clone(), predicate, projection);
+    let summary = open_vortex_metadata_only(VortexMetadataOpenRequest::metadata_only(uri))
+        .ok()
+        .and_then(|report| report.metadata_summary)
+        .unwrap_or_else(|| {
+            summarize_vortex_metadata_probe(&VortexMetadataProbeReport::deferred_api_unclear())
+        });
+    let result = match evaluate_vortex_query_primitive(request.clone(), &summary) {
+        Ok(result) => result,
+        Err(error) => {
+            return emit_error(
+                "vortex-filter-project",
+                format,
+                "vortex filter project failed",
+                &error,
+            );
+        }
+    };
+    let local_execution = match vortex_filter_project_local_execution(
+        &request,
+        local_execution_request.as_ref(),
+        format,
+    ) {
+        Ok(local_execution) => local_execution,
+        Err(code) => return code,
+    };
+    let command_has_errors = local_execution.as_ref().map_or_else(
+        || result.has_errors(),
+        crate::VortexLocalPrimitiveCliExecutionEvidence::has_errors,
+    );
+    let mut diagnostics = result.diagnostics.clone();
+    if let Some(local) = &local_execution {
+        diagnostics.extend(local.report.diagnostics.clone());
+        diagnostics.extend(local.native_io_certificate.diagnostics.clone());
+        if let Some(certificate) = &local.execution_certificate {
+            diagnostics.extend(certificate.diagnostics.clone());
+        }
+    }
+    emit(
+        "vortex-filter-project",
+        format,
+        if command_has_errors {
+            CommandStatus::Unsupported
+        } else {
+            CommandStatus::Success
+        },
+        "vortex filter project primitive".to_string(),
+        crate::vortex_filter_project_human_text(&result, local_execution.as_ref()),
+        diagnostics,
+        crate::vortex_filter_project_fields(
+            &result,
+            predicate_arg,
+            columns_arg,
+            local_execution.as_ref(),
+        ),
+    );
+    if command_has_errors {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+fn parse_vortex_filter_project_args(
+    mut args: std::vec::IntoIter<String>,
+    format: OutputFormat,
+) -> std::result::Result<VortexFilterProjectArgs, ExitCode> {
+    let Some(uri_arg) = args.next() else {
+        eprintln!(
+            "usage: shardloom vortex-filter-project <dataset_uri> <predicate> <columns> [--execute-local-primitive <memory_gb> <max_parallelism>]"
+        );
+        return Err(ExitCode::from(2));
+    };
+    let Some(predicate_arg) = args.next() else {
+        eprintln!(
+            "usage: shardloom vortex-filter-project <dataset_uri> <predicate> <columns> [--execute-local-primitive <memory_gb> <max_parallelism>]"
+        );
+        return Err(ExitCode::from(2));
+    };
+    let Some(columns_arg) = args.next() else {
+        eprintln!(
+            "usage: shardloom vortex-filter-project <dataset_uri> <predicate> <columns> [--execute-local-primitive <memory_gb> <max_parallelism>]"
+        );
+        return Err(ExitCode::from(2));
+    };
+    let uri = DatasetUri::new(uri_arg).map_err(|error| {
+        emit_error(
+            "vortex-filter-project",
+            format,
+            "vortex filter project failed",
+            &error,
+        )
+    })?;
+    let predicate = crate::parse_tiny_predicate(&predicate_arg).map_err(|error| {
+        emit_error(
+            "vortex-filter-project",
+            format,
+            "vortex filter project failed",
+            &error,
+        )
+    })?;
+    let projection = crate::parse_projection_columns(&columns_arg).map_err(|error| {
+        emit_error(
+            "vortex-filter-project",
+            format,
+            "vortex filter project failed",
+            &error,
+        )
+    })?;
+    let local_execution_request = crate::parse_vortex_local_primitive_cli_execution_args(&mut args)
+        .map_err(|error| {
+            emit_error(
+                "vortex-filter-project",
+                format,
+                "vortex filter project failed",
+                &error,
+            )
+        })?;
+    Ok(VortexFilterProjectArgs {
+        uri,
+        predicate_arg,
+        columns_arg,
+        predicate,
+        projection,
+        local_execution_request,
+    })
+}
+
+fn vortex_filter_project_local_execution(
+    request: &VortexQueryPrimitiveRequest,
+    local_execution_request: Option<&crate::VortexLocalPrimitiveCliExecutionRequest>,
+    format: OutputFormat,
+) -> std::result::Result<Option<crate::VortexLocalPrimitiveCliExecutionEvidence>, ExitCode> {
+    let Some(local_request) = local_execution_request else {
+        return Ok(None);
+    };
+    crate::vortex_local_primitive_cli_execution_evidence(request, local_request)
+        .map(Some)
+        .map_err(|error| {
+            emit_error(
+                "vortex-filter-project",
+                format,
+                "vortex filter project local primitive execution failed",
+                &error,
+            )
+        })
 }
 
 fn parse_vortex_count_where_args(
