@@ -170,6 +170,9 @@ actionable work.
     - [x] Move operational hardening/security handlers into
           `shardloom-cli/src/operational_hardening.rs` without resolving credentials, loading
           secrets, executing effects, or weakening no-fallback behavior.
+    - [x] Move diagnostic/explain/estimate handlers into `shardloom-cli/src/diagnostics.rs`
+          without probing datasets, collecting profiles, executing plans, or invoking external
+          engines.
     - [ ] Move remaining command-family handlers out of `main.rs` after the shared
           `typed_envelope` routing module and `command_family` taxonomy.
     - [ ] Split handlers by status/capabilities, Vortex primitive execution,
