@@ -16,6 +16,34 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 prepared/source-backed encoded-read handler module split
+  - Primary files:
+    - `shardloom-cli/src/prepared_source_backed_execution.rs`
+    - `shardloom-cli/src/main.rs`
+    - `docs/architecture/typed-command-result-envelope.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/rfcs/0039-typed-command-result-envelope-cli-modularity.md`
+  - Scope: move prepared/source-backed encoded-read probe and spike CLI handler entry points into
+    a focused module while preserving the existing encoded-read execute contract in `main.rs`.
+  - Checklist:
+    - [x] Add `shardloom-cli/src/prepared_source_backed_execution.rs`.
+    - [x] Delegate `vortex-encoded-read-probe` and `vortex-encoded-read-spike` from `main.rs`.
+    - [x] Preserve the probe-only behavior for `vortex-encoded-read-probe`.
+    - [x] Preserve the feature-gated local encoded-read spike behavior for
+          `vortex-encoded-read-spike`.
+    - [x] Keep `vortex-encoded-read-execute` behavior unchanged for this slice.
+    - [x] Update Priority 3.9 docs, RFC traceability, and RFC 0039 status.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo check -p shardloom-cli --bin shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test typed_envelope_contract_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test python_wrapper_snapshots`
+    - [x] `.\target\debug\shardloom.exe vortex-encoded-read-probe file:///tmp/example.vortex 1 2 --format json`
+          returned the existing unsupported/probe-only boundary with `fallback_attempted=false`.
+    - [x] `.\target\debug\shardloom.exe vortex-encoded-read-spike file:///tmp/example.vortex 1 2 --format json`
+  - Runtime stance: handler split only; no new read behavior, object-store IO, decoded/materialized
+    execution path, external engine invocation, or fallback execution is authorized.
+
 - [x] Session label: Priority 3.9 extension/UDF planning handler module split
   - Primary files:
     - `shardloom-cli/src/extension_planning.rs`

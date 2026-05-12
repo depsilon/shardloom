@@ -196,6 +196,9 @@ actionable work.
     - [x] Move extension/UDF planning handlers into
           `shardloom-cli/src/extension_planning.rs` without dynamic loading, extension code
           execution, UDF execution, external services, writes, or fallback execution.
+    - [x] Move prepared/source-backed encoded-read probe and spike handlers into
+          `shardloom-cli/src/prepared_source_backed_execution.rs` while preserving existing
+          feature gates, no-fallback evidence, and encoded-read execute semantics.
     - [ ] Move remaining command-family handlers out of `main.rs` after the shared
           `typed_envelope` routing module and `command_family` taxonomy.
     - [ ] Split handlers by status/capabilities, Vortex primitive execution,
