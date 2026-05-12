@@ -4,9 +4,9 @@
 //! feature-gated local artifact helpers, and many report-only planning or
 //! promotion-gate commands. Commands must surface unsupported behavior
 //! deterministically and keep external engines as baselines/oracles only, never
-//! fallback execution. Handler modularization and typed envelope replacement are
-//! tracked separately; this file documents the current public posture until that
-//! refactor lands.
+//! fallback execution. Handler modularization is tracked separately; this file
+//! documents the current public posture while shared rendering and envelope
+//! routing move into focused modules.
 
 use std::{
     path::PathBuf,
@@ -14,10 +14,11 @@ use std::{
     time::{Duration, Instant},
 };
 
+mod cli_output;
 mod command_family;
 mod typed_envelope;
 
-use command_family::classify_command;
+use cli_output::{emit, emit_error};
 use shardloom_core::{
     AgentContractPack, ApproxSketchFunctionGateReport, BaselineEngine,
     BenchmarkClaimEvidenceReport, BenchmarkComparisonReport, BenchmarkEvidenceState,
@@ -37,9 +38,9 @@ use shardloom_core::{
     FileRole, IncrementalPlanSkeleton, InputAdapterRegistrySnapshot, KernelRegistrySnapshot,
     LayoutHealthPolicy, LayoutHealthReport, LayoutKind, LogicalDType, ManifestId, ManifestSegment,
     MetricValue, NativeIoCertificate, NativeIoEnvelopeReport, Nullability, ObservabilityPlan,
-    ObservabilitySchemaCoverageReport, OperatorMemoryCertification, OutputEnvelope, OutputFormat,
-    OutputTarget, PartitionEvolutionCompatibilityReport, PartitionField, PartitionSpec,
-    PartitionTransform, PhysicalKernelRegistryPlan, PhysicalOperatorExecutionLevel,
+    ObservabilitySchemaCoverageReport, OperatorMemoryCertification, OutputFormat, OutputTarget,
+    PartitionEvolutionCompatibilityReport, PartitionField, PartitionSpec, PartitionTransform,
+    PhysicalKernelRegistryPlan, PhysicalOperatorExecutionLevel,
     PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorKind, PhysicalOperatorPlan,
     PredicateExpr, PythonWrapperFoundationReport, RedactionPolicy, ReleaseEvidenceRequirementKind,
     ReleasePlan, ReleasePublicationBoundaryKind, ReleasePublicationBoundaryReport,
@@ -197,8 +198,6 @@ use shardloom_vortex::{
     write_vortex_output_payload_artifact, write_vortex_staged_manifest_file,
     write_vortex_staged_marker,
 };
-use typed_envelope::apply_typed_envelope_field;
-
 fn main() -> ExitCode {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
     run_with_cli_stack(args)
@@ -3711,41 +3710,6 @@ fn detect_requested_output_format(args: &[String]) -> OutputFormat {
         }
     }
     format
-}
-
-fn emit(
-    command: &str,
-    format: OutputFormat,
-    status: CommandStatus,
-    summary: String,
-    text: String,
-    diagnostics: Vec<shardloom_core::Diagnostic>,
-    fields: Vec<(String, String)>,
-) {
-    let mut envelope = OutputEnvelope::new(command, status, summary, text)
-        .with_lifecycle_field("command_family", classify_command(command).as_str());
-    for diagnostic in diagnostics {
-        envelope.add_diagnostic(diagnostic);
-    }
-    for (key, value) in fields {
-        envelope = apply_typed_envelope_field(envelope, key, value);
-    }
-    println!("{}", envelope.render(format));
-}
-
-fn emit_error(
-    command: &str,
-    format: OutputFormat,
-    summary: &str,
-    error: &ShardLoomError,
-) -> ExitCode {
-    let envelope = OutputEnvelope::from_error(command, summary, error)
-        .with_lifecycle_field("command_family", classify_command(command).as_str());
-    match format {
-        OutputFormat::Text => eprintln!("{}", envelope.to_text()),
-        OutputFormat::Json => println!("{}", envelope.to_json()),
-    }
-    ExitCode::from(2)
 }
 
 #[allow(clippy::too_many_lines)]

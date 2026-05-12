@@ -17,7 +17,8 @@ The first implementation slices add `shardloom.output.v2`, typed payload slots, 
 reporting, Python typed-payload parsing, shared CLI routing for common policy/lifecycle/capability
 fields, conservative typed reference attachment for explicit result, artifact, and certificate
 refs/ids/paths/URIs in `shardloom-cli/src/typed_envelope.rs`, command-family lifecycle
-classification in `shardloom-cli/src/command_family.rs`, and typed-envelope contract snapshots for
+classification in `shardloom-cli/src/command_family.rs`, shared JSON/text rendering and error
+emission in `shardloom-cli/src/cli_output.rs`, and typed-envelope contract snapshots for
 representative success, error, unsupported, blocked, evidence-incomplete, source-backed, benchmark,
 and Foundry-adjacent report surfaces. Command-family-specific result migration, richer inline
 artifact/report payloads, remaining certified-runtime/missing-binary/Foundry-boundary golden
