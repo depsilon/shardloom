@@ -333,6 +333,31 @@ Use this section for the next implementation sequence. Keep it ordered by depend
 
 ## Active
 
+- [x] Session label: RFC/Vortex provider alignment drift cleanup
+  - Primary files:
+    - `docs/rfcs/0002-no-fallback-and-vortex-io.md`
+    - `docs/skills/vortex/vortex-scan-api.md`
+    - `docs/dependencies/vortex-upstream-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: finish the post-merge status hygiene from CG-5.18 and remove remaining docs wording that could confuse ShardLoom's no-fallback independence with isolation from upstream Vortex-native compute providers.
+  - Checklist:
+    - [x] Move merged CG-5.18 from Active into the completed ledger.
+    - [x] Tighten RFC 0002 standalone-engine wording so ShardLoom owns admission, planning, policy, diagnostics, capability, and certificate semantics while upstream Vortex array/compute/scan/source/sink APIs can be native providers when approved and certified.
+    - [x] Update Vortex Scan API skill prompt language to preserve independent admission/proof semantics instead of implying ShardLoom cannot use upstream Vortex scan/source/sink providers.
+    - [x] Clarify Vortex upstream dependency review top matter as historical PR-era evidence, with current executable support delegated to the phase plan and public API inventory.
+    - [x] Confirm RFC 0031, RFC 0032, RFC 0033, RFC 0034, RFC 0035, terminology, README, AGENTS, and Planned lanes already cover the three newly supplied roadmap items; no additional major CG lane is missing.
+    - [x] Preserve docs-only scope: no runtime behavior, dependency, Vortex API call, reader/writer, benchmark execution, package publication, external engine invocation, superiority claim, or fallback execution.
+  - Validation status:
+    - [x] `RUSTUP_TOOLCHAIN=1.91.1 rustc --version`
+    - [x] `RUSTUP_TOOLCHAIN=1.91.1 cargo fmt --all -- --check`
+    - [x] `git diff --check`
+    - [x] Changed-file hidden/bidi scan passed locally.
+    - [x] Targeted stale provider/dependency-review phrase scan passed locally.
+
+## Completed
+
+### Recent Completed Session Ledger
 - [x] Session label: CG-5.18 claim-gate execution blockers for declared evidence
   - Primary files:
     - `shardloom-core/src/correctness.rs`
@@ -357,10 +382,6 @@ Use this section for the next implementation sequence. Keep it ordered by depend
     - [x] `RUSTUP_TOOLCHAIN=1.91.1 CARGO_TARGET_DIR=target-codex-cg5-claim-blockers-full cargo clippy --workspace --all-targets -- -D warnings`
     - [x] `RUSTUP_TOOLCHAIN=1.91.1 CARGO_TARGET_DIR=target-codex-cg5-claim-blockers-full cargo test --workspace --all-targets`
     - [x] `git diff --check` and changed-file hidden/bidi scan passed locally.
-
-## Completed
-
-### Recent Completed Session Ledger
 - [x] Session label: CG-5.17 source-backed edge fixture and external-oracle artifact metadata
   - Primary files:
     - `shardloom-core/src/correctness.rs`

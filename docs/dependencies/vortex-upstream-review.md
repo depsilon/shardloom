@@ -2,12 +2,14 @@
 
 ## Purpose
 
-This document records ShardLoom's first upstream Vortex dependency review for dependency-verification mode only. Integration remains isolated in `shardloom-vortex`, with no execution fallback and no real Vortex file IO in this PR.
+This document is a historical dependency-review ledger for ShardLoom's upstream
+Vortex dependency. It does not define the current executable Vortex surface.
 
-This document contains historical dependency-review entries. Current runtime
-support is summarized in `docs/architecture/phased-execution-plan.md` and
-`docs/architecture/vortex-public-api-inventory.md`. Do not infer the current
-executable surface from older PR-specific sections.
+Current runtime support is summarized in
+`docs/architecture/phased-execution-plan.md` and
+`docs/architecture/vortex-public-api-inventory.md`. Do not infer current
+executable support from older PR-specific sections that say "this PR" or
+"actual IO implemented."
 
 ## Current support snapshot
 
@@ -31,17 +33,17 @@ executable surface from older PR-specific sections.
   this historical review section.
 - Fallback execution remains disabled.
 
-## Dependency review
+## Historical dependency review
 
 - Crate name: `vortex`
 - Version requested: `0.70`
 - Repository: upstream Vortex repository
 - License: Apache-2.0
 - Purpose: native Vortex format/toolkit integration inside `shardloom-vortex`
-- Current scope: dependency compile/readiness only
-- Public APIs used in this PR: none (compile marker only)
+- Original PR scope: dependency compile/readiness only
+- Public APIs used in the original PR: none (compile marker only)
 - Internal APIs used: none
-- Actual IO implemented: no
+- Actual IO implemented by the original PR: no
 - Fallback engines introduced: no
 - Copied upstream code: no
 - Vendored upstream code: no
@@ -56,12 +58,12 @@ executable surface from older PR-specific sections.
 - Dependency usage is isolated to `shardloom-vortex`.
 - No fallback execution dependency was directly added.
 
-## Dependency addition status
+## Historical dependency addition status
 
 - Upstream Vortex dependency has been added to `shardloom-vortex`.
-- This PR does not implement actual Vortex IO.
-- This PR does not add fallback execution.
-- This PR does not add DataFusion/Spark/DuckDB/Polars/Velox.
+- The original dependency PR did not implement actual Vortex IO.
+- The original dependency PR did not add fallback execution.
+- The original dependency PR did not add DataFusion/Spark/DuckDB/Polars/Velox.
 
 ## Follow-up required
 

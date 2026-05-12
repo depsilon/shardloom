@@ -72,4 +72,4 @@ For source/sink integration:
 
 ## Example Codex prompt fragment
 
-"Use the Vortex Scan API skill. Treat upstream Scan API as a design reference and possible adapter boundary, not as fallback execution. Keep ShardLoom's internal execution independent and preserve compressed paths where possible."
+"Use the Vortex Scan API skill. Treat upstream Scan API as a design reference and possible native-provider boundary, not as fallback execution. Keep ShardLoom's admission, policy, diagnostics, certificate, and capability model independent while preserving compressed paths where possible."
