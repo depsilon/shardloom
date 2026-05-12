@@ -22,7 +22,8 @@ emission in `shardloom-cli/src/cli_output.rs`, the status/capabilities handler-f
 `shardloom-cli/src/status_capabilities.rs`, the REST/API planning handler module in
 `shardloom-cli/src/rest_api_planning.rs`, the packaging/deployment handler module in
 `shardloom-cli/src/packaging_deployment.rs`, the benchmark planning handler module in
-`shardloom-cli/src/benchmark_planning.rs`, the operational hardening/security handler module in
+`shardloom-cli/src/benchmark_planning.rs`, the executable benchmark runtime handler module in
+`shardloom-cli/src/benchmark_runtime.rs`, the operational hardening/security handler module in
 `shardloom-cli/src/operational_hardening.rs`, the diagnostics handler module in
 `shardloom-cli/src/diagnostics.rs`, the evidence/certificate planning handler module in
 `shardloom-cli/src/evidence_certificates.rs`, the workflow/table planning handler module in

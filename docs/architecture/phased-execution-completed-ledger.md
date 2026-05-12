@@ -16,6 +16,31 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 benchmark runtime handler module split
+  - Primary files:
+    - `shardloom-cli/src/benchmark_runtime.rs`
+    - `shardloom-cli/src/main.rs`
+    - `docs/architecture/typed-command-result-envelope.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/rfcs/0039-typed-command-result-envelope-cli-modularity.md`
+  - Scope: move executable traditional-analytics benchmark runtime handlers into a focused CLI
+    module while preserving existing benchmark command behavior and no-fallback boundaries.
+  - Checklist:
+    - [x] Add `shardloom-cli/src/benchmark_runtime.rs`.
+    - [x] Delegate `traditional-analytics-run` and `traditional-analytics-vortex-run` from
+          `main.rs`.
+    - [x] Keep external engines comparison-only; this split does not add managed-platform lanes,
+          runtime fallback, or new performance claims.
+    - [x] Update Priority 3.9 docs, RFC traceability, and RFC 0039 status.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo check -p shardloom-cli --bin shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test python_wrapper_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test typed_envelope_contract_snapshots`
+  - Runtime stance: CLI module split only; no REST server, wrapper ecosystem implementation, new
+    benchmark behavior, managed-platform dependency, external engine invocation, or fallback
+    execution is authorized.
+
 - [x] Session label: Priority 2.7 executable benchmark taxonomy runner
   - Primary files:
     - `benchmarks/common/scenario_catalog.json`
