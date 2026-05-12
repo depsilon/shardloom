@@ -1048,6 +1048,335 @@ pub fn plan_dynamic_work_shaping(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DynamicRuntimePromotionSurface {
+    DynamicSizingFeedbackApplication,
+    BoundedParallelEncodedReadRuntime,
+    SourceBackedReaderSplitParallelism,
+    SchedulerRequeuePolicy,
+    BoundedQueueBackpressureRuntime,
+    MemorySpillReservationRuntime,
+    ObjectStoreRequestBudgetRuntime,
+    BenchmarkCertificateCloseout,
+}
+
+impl DynamicRuntimePromotionSurface {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::DynamicSizingFeedbackApplication => "dynamic_sizing_feedback_application",
+            Self::BoundedParallelEncodedReadRuntime => "bounded_parallel_encoded_read_runtime",
+            Self::SourceBackedReaderSplitParallelism => "source_backed_reader_split_parallelism",
+            Self::SchedulerRequeuePolicy => "scheduler_requeue_policy",
+            Self::BoundedQueueBackpressureRuntime => "bounded_queue_backpressure_runtime",
+            Self::MemorySpillReservationRuntime => "memory_spill_reservation_runtime",
+            Self::ObjectStoreRequestBudgetRuntime => "object_store_request_budget_runtime",
+            Self::BenchmarkCertificateCloseout => "benchmark_certificate_closeout",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DynamicRuntimePromotionStatus {
+    ExistingNarrowLocalEvidence,
+    BlockedUntilCertified,
+}
+
+impl DynamicRuntimePromotionStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::ExistingNarrowLocalEvidence => "existing_narrow_local_evidence",
+            Self::BlockedUntilCertified => "blocked_until_certified",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct DynamicRuntimePromotionGateEntry {
+    pub surface: DynamicRuntimePromotionSurface,
+    pub status: DynamicRuntimePromotionStatus,
+    pub required_evidence: &'static str,
+    pub existing_limited_local_evidence: bool,
+    pub requires_runtime_metrics: bool,
+    pub requires_target_task_policy: bool,
+    pub requires_scheduler_queue_policy: bool,
+    pub requires_memory_reservation_evidence: bool,
+    pub requires_spill_policy_evidence: bool,
+    pub requires_backpressure_evidence: bool,
+    pub requires_cancellation_retry_evidence: bool,
+    pub requires_execution_certificate: bool,
+    pub requires_native_io_certificate: bool,
+    pub requires_benchmark_evidence: bool,
+    pub runtime_promotion_allowed: bool,
+}
+
+impl DynamicRuntimePromotionGateEntry {
+    const fn existing_limited(
+        surface: DynamicRuntimePromotionSurface,
+        required_evidence: &'static str,
+    ) -> Self {
+        Self {
+            surface,
+            status: DynamicRuntimePromotionStatus::ExistingNarrowLocalEvidence,
+            required_evidence,
+            existing_limited_local_evidence: true,
+            requires_runtime_metrics: true,
+            requires_target_task_policy: true,
+            requires_scheduler_queue_policy: true,
+            requires_memory_reservation_evidence: true,
+            requires_spill_policy_evidence: true,
+            requires_backpressure_evidence: true,
+            requires_cancellation_retry_evidence: true,
+            requires_execution_certificate: true,
+            requires_native_io_certificate: true,
+            requires_benchmark_evidence: true,
+            runtime_promotion_allowed: false,
+        }
+    }
+
+    const fn blocked(
+        surface: DynamicRuntimePromotionSurface,
+        required_evidence: &'static str,
+    ) -> Self {
+        Self {
+            surface,
+            status: DynamicRuntimePromotionStatus::BlockedUntilCertified,
+            required_evidence,
+            existing_limited_local_evidence: false,
+            requires_runtime_metrics: true,
+            requires_target_task_policy: true,
+            requires_scheduler_queue_policy: true,
+            requires_memory_reservation_evidence: true,
+            requires_spill_policy_evidence: true,
+            requires_backpressure_evidence: true,
+            requires_cancellation_retry_evidence: true,
+            requires_execution_certificate: true,
+            requires_native_io_certificate: true,
+            requires_benchmark_evidence: true,
+            runtime_promotion_allowed: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct DynamicRuntimePromotionGateReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub entries: Vec<DynamicRuntimePromotionGateEntry>,
+    pub existing_local_streaming_scan_evidence_present: bool,
+    pub existing_local_bounded_metadata_noop_evidence_present: bool,
+    pub existing_local_filter_project_bounded_scan_evidence_present: bool,
+    pub dynamic_feedback_application_allowed: bool,
+    pub bounded_parallel_encoded_read_allowed: bool,
+    pub source_backed_parallel_reader_allowed: bool,
+    pub scheduler_requeue_allowed: bool,
+    pub bounded_backpressure_runtime_allowed: bool,
+    pub memory_spill_reservation_runtime_allowed: bool,
+    pub object_store_request_budget_runtime_allowed: bool,
+    pub runtime_policy_mutation_allowed: bool,
+    pub large_workload_claim_allowed: bool,
+    pub runtime_metrics_required: bool,
+    pub target_task_policy_required: bool,
+    pub scheduler_queue_policy_required: bool,
+    pub memory_reservation_evidence_required: bool,
+    pub spill_policy_evidence_required: bool,
+    pub backpressure_evidence_required: bool,
+    pub cancellation_retry_evidence_required: bool,
+    pub execution_certificate_required: bool,
+    pub native_io_certificate_required: bool,
+    pub benchmark_evidence_required: bool,
+    pub runtime_execution_performed: bool,
+    pub tasks_executed: bool,
+    pub data_read: bool,
+    pub data_materialized: bool,
+    pub object_store_io: bool,
+    pub write_io: bool,
+    pub spill_io_performed: bool,
+    pub feedback_applied: bool,
+    pub policy_mutated: bool,
+    pub fallback_execution_allowed: bool,
+    pub fallback_attempted: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl DynamicRuntimePromotionGateReport {
+    #[must_use]
+    pub fn planning_default() -> Self {
+        Self {
+            schema_version: "shardloom.dynamic_runtime_promotion_gate.v1",
+            report_id: "cg8.dynamic_runtime_promotion_gate",
+            entries: vec![
+                DynamicRuntimePromotionGateEntry::existing_limited(
+                    DynamicRuntimePromotionSurface::DynamicSizingFeedbackApplication,
+                    "existing dynamic sizing feedback reports remain advisory; runtime application requires observed metrics, conservative mutation policy, scheduler requeue semantics, memory/spill proof, certificates, and benchmark evidence",
+                ),
+                DynamicRuntimePromotionGateEntry::existing_limited(
+                    DynamicRuntimePromotionSurface::BoundedParallelEncodedReadRuntime,
+                    "existing narrow local streaming scan and filter/project evidence remains fixture/local scoped; broader parallel encoded reads require source-backed split scheduling, bounded queues, Native I/O certificates, execution certificates, and benchmark evidence",
+                ),
+                DynamicRuntimePromotionGateEntry::blocked(
+                    DynamicRuntimePromotionSurface::SourceBackedReaderSplitParallelism,
+                    "reader-generated split identity, source-backed prepared batches, residual boundaries, selection-vector propagation, cancellation/retry checkpoints, and certificate pairs",
+                ),
+                DynamicRuntimePromotionGateEntry::blocked(
+                    DynamicRuntimePromotionSurface::SchedulerRequeuePolicy,
+                    "stable task identity, queue ownership, requeue invariants, idempotent attempt records, cancellation propagation, and fairness/resource accounting",
+                ),
+                DynamicRuntimePromotionGateEntry::blocked(
+                    DynamicRuntimePromotionSurface::BoundedQueueBackpressureRuntime,
+                    "bounded in-flight chunks, buffered-byte limits, backpressure transitions, downstream sink pressure, spill handoff policy, and runtime metric evidence",
+                ),
+                DynamicRuntimePromotionGateEntry::blocked(
+                    DynamicRuntimePromotionSurface::MemorySpillReservationRuntime,
+                    "operator memory reservations, spill admission, fail-before-OOM diagnostics, cleanup/recovery evidence, and no unbounded buffering proof",
+                ),
+                DynamicRuntimePromotionGateEntry::blocked(
+                    DynamicRuntimePromotionSurface::ObjectStoreRequestBudgetRuntime,
+                    "range request budget, coalescing/prefetch policy, retry/idempotency evidence, object-store request metrics, and cost/fairness accounting",
+                ),
+                DynamicRuntimePromotionGateEntry::blocked(
+                    DynamicRuntimePromotionSurface::BenchmarkCertificateCloseout,
+                    "workload-scoped correctness, benchmark rows, reproducibility, execution certificates, Native I/O certificates, and no-fallback evidence for the promoted runtime",
+                ),
+            ],
+            existing_local_streaming_scan_evidence_present: true,
+            existing_local_bounded_metadata_noop_evidence_present: true,
+            existing_local_filter_project_bounded_scan_evidence_present: true,
+            dynamic_feedback_application_allowed: false,
+            bounded_parallel_encoded_read_allowed: false,
+            source_backed_parallel_reader_allowed: false,
+            scheduler_requeue_allowed: false,
+            bounded_backpressure_runtime_allowed: false,
+            memory_spill_reservation_runtime_allowed: false,
+            object_store_request_budget_runtime_allowed: false,
+            runtime_policy_mutation_allowed: false,
+            large_workload_claim_allowed: false,
+            runtime_metrics_required: true,
+            target_task_policy_required: true,
+            scheduler_queue_policy_required: true,
+            memory_reservation_evidence_required: true,
+            spill_policy_evidence_required: true,
+            backpressure_evidence_required: true,
+            cancellation_retry_evidence_required: true,
+            execution_certificate_required: true,
+            native_io_certificate_required: true,
+            benchmark_evidence_required: true,
+            runtime_execution_performed: false,
+            tasks_executed: false,
+            data_read: false,
+            data_materialized: false,
+            object_store_io: false,
+            write_io: false,
+            spill_io_performed: false,
+            feedback_applied: false,
+            policy_mutated: false,
+            fallback_execution_allowed: false,
+            fallback_attempted: false,
+            diagnostics: Vec::new(),
+        }
+    }
+
+    #[must_use]
+    pub fn surface_count(&self) -> usize {
+        self.entries.len()
+    }
+
+    #[must_use]
+    pub fn existing_limited_surface_count(&self) -> usize {
+        self.entries
+            .iter()
+            .filter(|entry| entry.existing_limited_local_evidence)
+            .count()
+    }
+
+    #[must_use]
+    pub fn blocked_surface_count(&self) -> usize {
+        self.entries
+            .iter()
+            .filter(|entry| entry.status == DynamicRuntimePromotionStatus::BlockedUntilCertified)
+            .count()
+    }
+
+    #[must_use]
+    pub fn runtime_ready_surface_count(&self) -> usize {
+        self.entries
+            .iter()
+            .filter(|entry| entry.runtime_promotion_allowed)
+            .count()
+    }
+
+    #[must_use]
+    pub fn surface_order(&self) -> Vec<&'static str> {
+        self.entries
+            .iter()
+            .map(|entry| entry.surface.as_str())
+            .collect()
+    }
+
+    #[must_use]
+    pub fn runtime_promotions_blocked(&self) -> bool {
+        !self.dynamic_feedback_application_allowed
+            && !self.bounded_parallel_encoded_read_allowed
+            && !self.source_backed_parallel_reader_allowed
+            && !self.scheduler_requeue_allowed
+            && !self.bounded_backpressure_runtime_allowed
+            && !self.memory_spill_reservation_runtime_allowed
+            && !self.object_store_request_budget_runtime_allowed
+            && !self.runtime_policy_mutation_allowed
+            && self.runtime_ready_surface_count() == 0
+    }
+
+    #[must_use]
+    pub const fn side_effect_free(&self) -> bool {
+        !self.runtime_execution_performed
+            && !self.tasks_executed
+            && !self.data_read
+            && !self.data_materialized
+            && !self.object_store_io
+            && !self.write_io
+            && !self.spill_io_performed
+            && !self.feedback_applied
+            && !self.policy_mutated
+            && !self.fallback_execution_allowed
+            && !self.fallback_attempted
+    }
+
+    #[must_use]
+    pub fn claim_blocked(&self) -> bool {
+        !self.large_workload_claim_allowed
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        !self.side_effect_free()
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "dynamic runtime promotion gate\nschema_version: {}\nreport_id: {}\nruntime promotions blocked: {}\nlarge workload claim allowed: {}\nruntime execution: false\ndata read: false\nobject-store IO: false\nwrite IO: false\nspill IO performed: false\nfeedback applied: false\nfallback execution: disabled",
+            self.schema_version,
+            self.report_id,
+            self.runtime_promotions_blocked(),
+            self.large_workload_claim_allowed,
+        )
+    }
+}
+
+#[must_use]
+pub fn plan_dynamic_runtime_promotion_gate() -> DynamicRuntimePromotionGateReport {
+    DynamicRuntimePromotionGateReport::planning_default()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1390,5 +1719,76 @@ mod tests {
                 .to_human_text()
                 .contains("fallback execution: disabled")
         );
+    }
+
+    #[test]
+    fn dynamic_runtime_promotion_gate_tracks_runtime_surfaces() {
+        let report = plan_dynamic_runtime_promotion_gate();
+        assert_eq!(
+            report.schema_version,
+            "shardloom.dynamic_runtime_promotion_gate.v1"
+        );
+        assert_eq!(report.report_id, "cg8.dynamic_runtime_promotion_gate");
+        assert_eq!(report.surface_count(), 8);
+        assert_eq!(report.existing_limited_surface_count(), 2);
+        assert_eq!(report.blocked_surface_count(), 6);
+        assert_eq!(report.runtime_ready_surface_count(), 0);
+        assert!(
+            report.surface_order().contains(
+                &DynamicRuntimePromotionSurface::DynamicSizingFeedbackApplication.as_str()
+            )
+        );
+        assert!(
+            report.surface_order().contains(
+                &DynamicRuntimePromotionSurface::BoundedParallelEncodedReadRuntime.as_str()
+            )
+        );
+        assert!(
+            report
+                .surface_order()
+                .contains(&DynamicRuntimePromotionSurface::BenchmarkCertificateCloseout.as_str())
+        );
+    }
+
+    #[test]
+    fn dynamic_runtime_promotion_gate_blocks_runtime_and_claims() {
+        let report = plan_dynamic_runtime_promotion_gate();
+        assert!(report.existing_local_streaming_scan_evidence_present);
+        assert!(report.existing_local_bounded_metadata_noop_evidence_present);
+        assert!(report.existing_local_filter_project_bounded_scan_evidence_present);
+        assert!(report.runtime_promotions_blocked());
+        assert!(report.claim_blocked());
+        assert!(report.side_effect_free());
+        assert!(!report.has_errors());
+        assert!(!report.dynamic_feedback_application_allowed);
+        assert!(!report.bounded_parallel_encoded_read_allowed);
+        assert!(!report.source_backed_parallel_reader_allowed);
+        assert!(!report.scheduler_requeue_allowed);
+        assert!(!report.bounded_backpressure_runtime_allowed);
+        assert!(!report.memory_spill_reservation_runtime_allowed);
+        assert!(!report.object_store_request_budget_runtime_allowed);
+        assert!(!report.runtime_policy_mutation_allowed);
+        assert!(!report.large_workload_claim_allowed);
+        assert!(report.runtime_metrics_required);
+        assert!(report.target_task_policy_required);
+        assert!(report.scheduler_queue_policy_required);
+        assert!(report.memory_reservation_evidence_required);
+        assert!(report.spill_policy_evidence_required);
+        assert!(report.backpressure_evidence_required);
+        assert!(report.cancellation_retry_evidence_required);
+        assert!(report.execution_certificate_required);
+        assert!(report.native_io_certificate_required);
+        assert!(report.benchmark_evidence_required);
+        assert!(!report.runtime_execution_performed);
+        assert!(!report.tasks_executed);
+        assert!(!report.data_read);
+        assert!(!report.data_materialized);
+        assert!(!report.object_store_io);
+        assert!(!report.write_io);
+        assert!(!report.spill_io_performed);
+        assert!(!report.feedback_applied);
+        assert!(!report.policy_mutated);
+        assert!(!report.fallback_execution_allowed);
+        assert!(!report.fallback_attempted);
     }
 }

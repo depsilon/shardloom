@@ -14,6 +14,7 @@ delegate to another engine.
 
 ```text
 shardloom dynamic-work-shaping-plan [balanced|memory-pressure|object-store-throttled|small-tasks]
+shardloom cg8-runtime-promotion-gate
 ```
 
 The profiles are deterministic examples:
@@ -57,6 +58,30 @@ work provides:
 
 Until those exist, `runtime_feedback_loop_ready=false`,
 `policy_application_ready=false`, and `benchmark_evidence_ready=false`.
+
+## Promotion Gate
+
+`DynamicRuntimePromotionGateReport` is the report-only CG-8 gate for the step after advisory
+planning. It keeps these runtime promotions blocked:
+
+- dynamic sizing feedback application
+- bounded parallel encoded read runtime
+- source-backed reader split parallelism
+- scheduler requeue policy
+- bounded queue/backpressure runtime
+- memory/spill reservation runtime
+- object-store request-budget runtime
+- benchmark and certificate closeout
+
+The gate deliberately treats existing local streaming scan, bounded metadata/no-op, and local
+filter-project bounded scan evidence as narrow local evidence only. Runtime policy mutation and
+broader parallel source-backed reads require runtime metrics, target-task policy, scheduler queue
+policy, memory/spill reservation evidence, backpressure evidence, cancellation/retry evidence,
+execution certificates, Native I/O certificates, benchmark evidence, and no-fallback proof.
+
+`cg8-runtime-promotion-gate` performs no runtime execution, task execution, reads,
+materialization, object-store I/O, writes, spill I/O, feedback application, policy mutation, or
+fallback execution.
 
 ## No-Fallback Policy
 

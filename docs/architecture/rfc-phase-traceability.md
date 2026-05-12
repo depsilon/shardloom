@@ -3102,6 +3102,27 @@ No fallback execution.
   decode/materialization, Arrow conversion, object-store IO, writes, spill IO, benchmark claim,
   production/superiority claim, CG-8 closeout, or fallback behavior.
 
+## CG-8.9 dynamic runtime promotion gate
+
+- `DynamicRuntimePromotionGateReport` records the promotion boundary for dynamic sizing feedback
+  application, bounded parallel encoded reads, source-backed reader split parallelism, scheduler
+  requeue, bounded backpressure runtime, memory/spill reservation runtime, object-store request
+  budgeting, and benchmark/certificate closeout.
+- `cg8-runtime-promotion-gate` exposes stable JSON/text fields for existing narrow local evidence,
+  blocked runtime surfaces, required metrics/policy/memory/spill/backpressure/cancellation/certificate
+  evidence, side-effect boundaries, large-workload claim blockers, and no-fallback status.
+- Existing local streaming scan, bounded metadata/no-op, and local filter-project bounded scan
+  evidence remain narrow evidence only. Runtime policy mutation and broader parallel source-backed
+  read execution stay blocked until workload-scoped correctness, benchmark, execution-certificate,
+  Native I/O, memory/spill, scheduler, and no-fallback evidence exists.
+- Primary RFC linkage: RFC 0013, RFC 0014, RFC 0016, RFC 0017, RFC 0018, RFC 0025, RFC 0027, and
+  RFC 0029.
+- Related RFCs: RFC 0008, RFC 0031, RFC 0032, RFC 0034, and RFC 0035.
+- This phase adds no runtime feedback application, bounded parallel encoded/source-backed read
+  runtime, scheduler requeue, object-store request execution, task execution, data read,
+  materialization, write IO, spill IO, policy mutation, large-workload claim, external engine
+  fallback, or fallback execution.
+
 ## CG-9.1 schema evolution compatibility evidence
 
 - `SchemaEvolutionCompatibilityReport` records compatibility level, safe/unsafe change counts,
