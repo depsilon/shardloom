@@ -53,6 +53,8 @@ fn streaming_batch_plan_preserves_vortex_encoded_batches_without_execution() {
     assert!(output.contains(&field("object_store_io", "false")));
     assert!(output.contains(&field("write_io", "false")));
     assert!(output.contains("\"attempted\":false"));
+    assert!(output.contains("\"artifact_kind\":\"materialization_boundary_report\""));
+    assert!(output.contains("\"artifact_id\":\"streaming-batch-plan.materialization-boundary\""));
 }
 
 #[test]
@@ -83,6 +85,8 @@ fn streaming_batch_plan_compatibility_sink_reports_materialization_boundary() {
     )));
     assert!(output.contains(&field("execution", "not_performed")));
     assert!(output.contains(&field("fallback_execution_allowed", "false")));
+    assert!(output.contains("\"artifact_kind\":\"materialization_boundary_report\""));
+    assert!(output.contains("\"artifact_id\":\"streaming-batch-plan.materialization-boundary\""));
 }
 
 #[test]

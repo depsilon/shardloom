@@ -34,6 +34,8 @@ fn streaming_plan_vortex_target_preserves_encoded_native_boundary() {
     assert!(output.contains("{\"key\":\"best_data_work_level\",\"value\":\"zero_decode\"}"));
     assert!(output.contains("{\"key\":\"runtime_execution\",\"value\":\"false\"}"));
     assert!(output.contains("{\"key\":\"fallback_execution_allowed\",\"value\":\"false\"}"));
+    assert!(output.contains("\"artifact_kind\":\"materialization_boundary_report\""));
+    assert!(output.contains("\"artifact_id\":\"streaming-plan.materialization-boundary\""));
 }
 
 #[test]
@@ -51,4 +53,6 @@ fn streaming_plan_compatibility_target_reports_materialization_boundary() {
     );
     assert!(output.contains("{\"key\":\"runtime_execution\",\"value\":\"false\"}"));
     assert!(output.contains("{\"key\":\"fallback_execution_allowed\",\"value\":\"false\"}"));
+    assert!(output.contains("\"artifact_kind\":\"materialization_boundary_report\""));
+    assert!(output.contains("\"artifact_id\":\"streaming-plan.materialization-boundary\""));
 }

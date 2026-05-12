@@ -67,6 +67,13 @@ const INLINE_PREFIXED_PAYLOAD_SPECS: &[InlinePrefixedPayloadSpec] = &[
         id_key: "local_primitive_execution_certificate_id",
         status_key: "local_primitive_execution_certificate_status",
     },
+    InlinePrefixedPayloadSpec {
+        key_prefix: "streaming_batch_runtime_",
+        artifact_kind: "streaming_batch_runtime_report",
+        emitted_key: "streaming_batch_runtime_report_emitted",
+        id_key: "streaming_batch_runtime_report_id",
+        status_key: "streaming_batch_runtime_status",
+    },
 ];
 
 const EXECUTION_CERTIFICATE_REPORT_PAYLOAD_KEYS: &[&str] = &[
@@ -154,6 +161,48 @@ const BENCHMARK_CLAIM_EVIDENCE_REPORT_PAYLOAD_KEYS: &[&str] = &[
     "benchmark_execution_performed",
     "fallback_execution_allowed",
     "fallback_attempted",
+];
+
+const STREAMING_PLAN_REPORT_PAYLOAD_KEYS: &[&str] = &[
+    "mode",
+    "status",
+    "source_kind",
+    "source_zero_decode",
+    "sink_kind",
+    "sink_accepts_encoded",
+    "sink_requires_materialization",
+    "sink_preserves_metadata",
+    "materialization_required",
+    "best_data_work_level",
+    "runtime_execution",
+    "fallback_execution_allowed",
+];
+
+const STREAMING_BATCH_PLAN_REPORT_PAYLOAD_KEYS: &[&str] = &[
+    "mode",
+    "encoded_streaming_batch_status",
+    "streaming_mode",
+    "source_kind",
+    "source_capability",
+    "sink_kind",
+    "sink_capability",
+    "representation",
+    "zero_decode",
+    "encoded_representation_preserved",
+    "selection_vector_preserved",
+    "materialization_required",
+    "materialization_boundary",
+    "bounded_parallelism",
+    "bounded_memory",
+    "backpressure_bounded",
+    "estimated_batch_count",
+    "estimated_batch_mib",
+    "streams_executed",
+    "tasks_executed",
+    "data_read",
+    "data_decoded",
+    "data_materialized",
+    "fallback_execution_allowed",
 ];
 
 fn typed_envelope_field_slot(key: &str) -> TypedEnvelopeFieldSlot {
@@ -244,6 +293,18 @@ fn inline_report_payload_spec(command: &str) -> Option<InlineReportPayloadSpec> 
             artifact_kind: "benchmark_claim_evidence_report",
             status_key: "claim_gate_status",
             payload_keys: BENCHMARK_CLAIM_EVIDENCE_REPORT_PAYLOAD_KEYS,
+        }),
+        "streaming-plan" => Some(InlineReportPayloadSpec {
+            artifact_id_fallback: "streaming-plan.materialization-boundary",
+            artifact_kind: "materialization_boundary_report",
+            status_key: "status",
+            payload_keys: STREAMING_PLAN_REPORT_PAYLOAD_KEYS,
+        }),
+        "streaming-batch-plan" => Some(InlineReportPayloadSpec {
+            artifact_id_fallback: "streaming-batch-plan.materialization-boundary",
+            artifact_kind: "materialization_boundary_report",
+            status_key: "encoded_streaming_batch_status",
+            payload_keys: STREAMING_BATCH_PLAN_REPORT_PAYLOAD_KEYS,
         }),
         _ => None,
     }
@@ -707,5 +768,84 @@ mod tests {
                 "evidence_unavailable".to_string()
             )]
         );
+    }
+
+    #[test]
+    fn command_fields_attach_inline_streaming_runtime_report_payload() {
+        let envelope = apply_typed_envelope_fields(
+            OutputEnvelope::success("vortex-count", "ok", "ok"),
+            "vortex-count",
+            vec![
+                (
+                    "streaming_batch_runtime_report_emitted".to_string(),
+                    "true".to_string(),
+                ),
+                (
+                    "streaming_batch_runtime_status".to_string(),
+                    "executed".to_string(),
+                ),
+                (
+                    "streaming_batch_runtime_representation".to_string(),
+                    "vortex_encoded".to_string(),
+                ),
+                (
+                    "streaming_batch_runtime_zero_decode".to_string(),
+                    "preserved".to_string(),
+                ),
+            ],
+        );
+
+        assert_eq!(envelope.artifacts.len(), 1);
+        assert_eq!(
+            envelope.artifacts[0].artifact_id,
+            "vortex-count.streaming_batch_runtime_report"
+        );
+        assert_eq!(
+            envelope.artifacts[0].artifact_kind,
+            "streaming_batch_runtime_report"
+        );
+        assert_eq!(envelope.artifacts[0].status, "executed");
+        assert!(envelope.artifacts[0].payload.fields.contains(&(
+            "streaming_batch_runtime_zero_decode".to_string(),
+            "preserved".to_string()
+        )));
+    }
+
+    #[test]
+    fn command_fields_attach_inline_materialization_boundary_report_payload() {
+        let envelope = apply_typed_envelope_fields(
+            OutputEnvelope::success("streaming-batch-plan", "ok", "ok"),
+            "streaming-batch-plan",
+            vec![
+                ("mode".to_string(), "streaming_batch_plan".to_string()),
+                (
+                    "encoded_streaming_batch_status".to_string(),
+                    "requires_materialization".to_string(),
+                ),
+                (
+                    "materialization_boundary".to_string(),
+                    "full_materialization_boundary".to_string(),
+                ),
+                (
+                    "fallback_execution_allowed".to_string(),
+                    "false".to_string(),
+                ),
+            ],
+        );
+
+        assert_eq!(envelope.artifacts.len(), 1);
+        assert_eq!(
+            envelope.artifacts[0].artifact_id,
+            "streaming-batch-plan.materialization-boundary"
+        );
+        assert_eq!(
+            envelope.artifacts[0].artifact_kind,
+            "materialization_boundary_report"
+        );
+        assert_eq!(envelope.artifacts[0].status, "requires_materialization");
+        assert!(envelope.artifacts[0].payload.fields.contains(&(
+            "materialization_boundary".to_string(),
+            "full_materialization_boundary".to_string()
+        )));
     }
 }

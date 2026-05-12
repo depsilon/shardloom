@@ -83,6 +83,7 @@ execution_certificate_report
 native_io_report
 benchmark_plan_report
 benchmark_claim_evidence_report
+materialization_boundary_report
 ```
 
 For runtime commands that already emit certificate field groups, the renderer also attaches inline
@@ -91,11 +92,13 @@ typed artifacts when the existing `*_certificate_emitted` field is true:
 ```text
 execution_certificate
 native_io_certificate
+streaming_batch_runtime_report
 ```
 
 The first prefix helpers cover local CountAll Native I/O certificates and local Vortex primitive
-Native I/O and execution certificates. Unavailable or feature-disabled certificate reports stay as
-regular typed fields and do not create misleading inline certificate artifacts.
+Native I/O and execution certificates, plus emitted Vortex streaming-batch runtime reports.
+Unavailable or feature-disabled certificate reports stay as regular typed fields and do not create
+misleading inline certificate artifacts.
 
 These are protocol payloads only. They do not execute benchmarks, evaluate certificates, read data,
 write artifacts, or turn report-only surfaces into runtime support.
