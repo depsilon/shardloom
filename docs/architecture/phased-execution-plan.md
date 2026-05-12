@@ -1,12 +1,11 @@
 # ShardLoom Phased Execution Plan
 
 ## How to maintain this file
-- Keep working items in exactly three sections: Planned, Active, and Completed.
+- Keep working items in exactly two operational sections: Planned and Completed.
 - Keep Planned in logical implementation order even when CG or phase numbers are out of order.
-- Keep only the current PR/session in Active.
-- Place Active between Planned and Completed so a session block can move from Planned to Active, then from Active to Completed with minimal editing.
-- Move completed session blocks to the top of Completed after merge; do not reshuffle older completed history unless the content is incorrect.
-- Keep detailed phase history below the active/completed queue as provenance, not as a second active queue.
+- Do not keep a separate Active section; the next autonomous work should be the next unchecked Planned checklist item.
+- Move completed session blocks to the top of Completed after merge or session completion; do not reshuffle older completed history unless the content is incorrect.
+- Keep detailed phase history below the Completed queue as provenance, not as a second current queue.
 - Do not duplicate "current" status in multiple places.
 - Do not use stale percentage estimates.
 - CG-1 through CG-23 remain competitive gates, not replacement phase IDs.
@@ -15,12 +14,11 @@
 
 Status reading order:
 1. Planned: next work in logical implementation order.
-2. Active: current PR/session scope only.
-3. Completed: recently finished sessions first, then historical provenance ledgers.
-4. Competitive Engine Gate detailed checklists: attribution detail only; promote new actionable work into Planned before implementation.
+2. Completed: recently finished sessions first, then historical provenance ledgers.
+3. Competitive Engine Gate detailed checklists: attribution detail only; promote new actionable work into Planned before implementation.
 
 ## Architecture Document Ownership
-- This file is the only mutable source of truth for active status, active queue, completed phase ledger, deferred work, and CG closeout state.
+- This file is the only mutable source of truth for planned sequence, completed phase ledger, deferred work, and CG closeout state.
 - Supporting architecture docs may contain rationale, inventories, traceability, and historical ledgers, but they must not introduce a second "current" queue.
 - If a supporting doc discovers new work, add the actionable checklist item here before implementation begins.
 - If a supporting doc records completed history, keep it clearly labeled as a completed ledger or historical note.
@@ -28,13 +26,13 @@ Status reading order:
 Supporting docs:
 - `README.md`
   - Role: project entry point, stable orientation, and compact core-concepts doorway.
-  - Status rule: points to this phase plan for active state; must not duplicate active status checklists or become the full glossary.
+  - Status rule: points to this phase plan for current planned/completed state; must not duplicate working checklists or become the full glossary.
 - `docs/architecture/rfc-phase-traceability.md`
   - Role: maps phases and CG work to governing RFCs.
   - Status rule: may record traceability history, but this file owns current work state.
 - `docs/architecture/capability-certification-sequencing.md`
   - Role: CG-20 sequencing ledger and implementation-order reference.
-  - Status rule: phase-plan checklist owns active CG-20 work items.
+  - Status rule: phase-plan checklist owns planned CG-20 work items.
 - `docs/architecture/vortex-public-api-inventory.md`
   - Role: Vortex public API evidence and adapter-boundary inventory.
   - Status rule: API findings inform CG-1/CG-2/CG-3 queue items here.
@@ -46,7 +44,7 @@ Supporting docs:
   - Status rule: future cleanup must be promoted into this file as a concrete checklist item.
 - `docs/architecture/canonical-terminology.md`
   - Role: authoritative glossary and concept index for ShardLoom vocabulary.
-  - Status rule: defines terms and links to governing RFCs, but does not mark active phase or CG completion.
+  - Status rule: defines terms and links to governing RFCs, but does not mark current phase or CG completion.
 - `docs/architecture/systems-learning-map.md`
   - Role: technique-transfer map from external systems and design references into ShardLoom-native contracts.
   - Status rule: records lessons and guardrails only; it does not authorize dependencies, runtime behavior, or CG completion.
@@ -55,7 +53,7 @@ Supporting docs:
   - Status rule: they guide design decisions but do not mark CG completion.
 - `docs/architecture/operational-evidence-policy-hardening.md`
   - Role: shared evidence, policy, workload, lifecycle, protocol-parity, benchmark-constitution, and artifact-safety contracts for CG-20 through CG-23.
-  - Status rule: contract reference only; actionable implementation work must be represented in this Planned/Active/Completed queue.
+  - Status rule: contract reference only; actionable implementation work must be represented in this Planned/Completed queue.
 - `docs/architecture/vortex-upstream-alignment-hardening.md`
   - Role: Vortex compatibility, Scan API, compute-provider, residual-boundary, device, extension-type, object-store telemetry, integration-boundary, and benchmark-interoperability contract reference.
   - Status rule: contract reference only; it does not authorize new Vortex APIs, dependencies, runtime behavior, claims, or fallback execution.
@@ -77,8 +75,14 @@ Use this section for the next implementation sequence. Keep it ordered by depend
   - [x] Vortex encoded-value predicate bridge feeds sparse selections into selection-vector filter-kernel evidence without reader wiring.
   - [x] Multi-segment Vortex encoded-value filter evidence aggregates prepared encoded batches into complete selection-vector filter-kernel evidence without reader wiring.
   - [x] Prepared encoded projection/filter-project evidence preserves encoded projected batches and safe selection-vector evidence without reader wiring.
-  - [x] Broader generalized encoded-value predicate/filter execution beyond local scan-pushdown and explicit CLI primitive paths.
-  - [x] Broader encoded projection and filter-project execution beyond local scan-pushdown and explicit CLI primitive paths, with no row reads, no Arrow conversion, no object-store IO, no writes, no spill, and no fallback.
+  - [x] Prepared encoded-batch generalized encoded-value predicate/filter evidence beyond local scan-pushdown and explicit CLI primitive paths, without reader-backed/source-backed execution claims.
+  - [x] Prepared encoded-batch generalized projection and filter-project evidence beyond local scan-pushdown and explicit CLI primitive paths, with no row reads, no Arrow conversion, no object-store IO, no writes, no spill, and no fallback.
+- [ ] Priority 1.1 - reader-backed/source-backed generalized encoded execution
+  - [ ] Wire real Vortex reader/source/split paths into the prepared encoded-batch predicate, projection, and filter-project execution surfaces.
+  - [ ] Execute encoded filter, projection, and filter-project work over actual source-backed Vortex paths with explicit source refs, split refs, provider refs, residual boundaries, and representation transitions.
+  - [ ] Keep upstream Vortex-native providers allowed only through feature-gated, version-recorded, policy-admitted, certificate-backed provider boundaries.
+  - [ ] Reject or ShardLoom-native-execute residual expressions; never delegate residual evaluation to DataFusion, DuckDB, Spark, Polars, Velox, Trino, Dask, Ray, or Vortex query-engine integrations.
+  - [ ] Pair each source-backed execution expansion with CG-5 correctness fixtures/reference outputs, CG-6 benchmark rows, CG-16 execution certificates, CG-19 Native I/O certificates, and explicit no-fallback evidence.
 - [ ] Priority 1.5 - CG-20 distribution/importability certification lane
   - [x] Publishable pure-Python wrapper package with wheel/sdist build evidence.
   - [x] Platform-specific Conda CLI binary recipe scaffold, pure-Python wrapper recipe scaffold, and optional one-command metapackage scaffold.
@@ -86,6 +90,15 @@ Use this section for the next implementation sequence. Keep it ordered by depend
   - [x] Fresh-environment import/run smoke evidence for `import shardloom`, CLI binary resolution, `smoke_check()`, protocol/version reporting, and `fallback_attempted=false`.
   - [x] `python-wrapper-plan`, `capabilities python`, `capabilities deployment`, and `world-class-sufficiency-plan` expose packaging/importability state without probes or runtime expansion.
   - [x] Benchmark extras remain optional comparison-only environments and are not dependencies of `conda install shardloom`.
+- [ ] Priority 1.6 - modular compute-engine architecture spine
+  - [ ] Keep the implementation architecture explicitly layered: frontends and adapters lower into ShardLoom logical IR, semantic/profile binding, capability admission, optimizer rewrites, physical planning, execution-provider selection, scheduler/runtime execution, sink delivery, and evidence artifact emission.
+  - [ ] Maintain crisp crate/module boundaries for contracts, logical/physical plans, expressions, operator/function registries, Vortex provider adapters, source/sink adapters, scheduler/runtime, memory/spill, live/hybrid state, catalog/table semantics, observability/evidence, governance/policy, API surfaces, benchmarks, and packaging.
+  - [ ] Promote execution providers as a first-class abstraction so ShardLoom kernels, ShardLoom metadata paths, upstream Vortex-native providers, compatibility boundaries, and external baselines cannot be confused.
+  - [ ] Build operator, function, aggregate, sketch, window, join, sort/top-N, and sink registries around typed capability descriptors, semantic profiles, state contracts, memory declarations, materialization requirements, and certificate requirements before broad API claims.
+  - [ ] Treat DTypes, encoded representation state, selection vectors, segment statistics, null semantics, dictionary/run-length/sparse encodings, materialization/decode boundaries, and Native I/O envelopes as shared data-model primitives, not per-command special cases.
+  - [ ] Give the runtime a task/split graph with dynamic sizing, target-task policy, bounded queues, cancellation, retry, backpressure, memory/spill reservations, object-store request budgets, and cost/fairness accounting before large-workload or live/hybrid claims.
+  - [ ] Make evidence artifacts, diagnostics, lineage, profiles, and benchmark rows first-class outputs of execution rather than log side effects.
+  - [ ] Preserve deterministic unsupported behavior: no hidden external query-engine execution, no silent materialization, no unreported residual evaluation, and no claim-grade support without correctness, benchmark, certificate, Native I/O, policy, and workload evidence.
 - [ ] Priority 2 - evidence loop paired with every execution expansion
   - [x] CG-5/CG-16 fixture-backed execution certificates wired into generalized local primitive filter/projection surfaces.
   - [x] CG-16 evidence-incomplete execution certificates wired into prepared encoded filter/projection surfaces while CG-5 fixture certification remains blocked.
@@ -109,7 +122,8 @@ Use this section for the next implementation sequence. Keep it ordered by depend
   - [ ] Promote `ExecuteStepEvidence` into certificate/report surfaces for deferred, fused, reduced, canonicalized, materialized, and final-representation stages.
   - [ ] Promote `DeviceResidencyReport` into report surfaces for future CPU/GPU/device evidence while keeping CPU default and GPU claims blocked until runtime evidence exists.
   - [ ] Promote `ExtensionTypeCapabilityMatrix` into capability/report surfaces for vector, tensor, map, variant/JSON, UUID, geospatial, raster, embedding, document, and media-reference types without implying execution support.
-  - [ ] Promote `StreamingSinkCertificate`, `IoBackendEvidence`, `ExecutionTelemetryFacet`, `CompressionAdvisorReport`, `IntegrityAndEncryptionReport`, `PythonVortexInteropReport`, and `VortexBenchmarkInterop` into report/code surfaces.
+  - [ ] Promote `StreamingSinkCertificate`, `IoBackendEvidence`, `ExecutionTelemetryFacet`, `ApproxAnalyticsCertificate`, `CompressionAdvisorReport`, `IntegrityAndEncryptionReport`, `PythonVortexInteropReport`, `ForeignRuntimePosture`, and `VortexBenchmarkInterop` into report/code surfaces.
+  - [ ] Keep `ApproxAnalyticsCertificate` separate from `CompressionAdvisorReport`: approximate query answers require exact-reference/error-bound evidence, while compression-advisor sketches guide encoding/layout choices and never count as exact correctness proof.
   - [ ] Keep all items docs/report-only unless later promoted; no Vortex integration fallback, GPU claim, vector/geospatial/media claim, object-store/write/streaming claim, or benchmark superiority claim.
 - [ ] Priority 2.6 - Vortex compute-provider alignment
   - [ ] Keep README, RFCs, terminology, AGENTS, and Vortex inventory language aligned that "standalone" means standalone from external query-engine fallback, not isolated from upstream Vortex compute.
@@ -127,6 +141,9 @@ Use this section for the next implementation sequence. Keep it ordered by depend
   - [ ] CG-10 object-store/distributed runtime execution.
   - [ ] CG-20 SQL/DataFrame/UDF/unstructured/media/adapters once the encoded primitive evidence loop and importability lane are no longer the bottleneck.
   - [ ] CG-20 approximate aggregate/sketch function implementation after function-registry, aggregate-state, sketch-serialization, correctness, benchmark, execution-certificate, and Native I/O evidence gates are ready.
+    - [ ] Support `approx_count_distinct`, grouped approximate distinct, partial sketch merge, sketch serialization/deserialization, stable hash/seed policy, error bounds, confidence, null/string/temporal/dictionary/nested-ish value handling, and exact-reference comparison.
+    - [ ] Add encoded-aware sketch strategies for dictionary values plus row/filter evidence, run-length updates once per run value, sparse selection-vector-aware updates, and explicit materialization boundaries when an encoding-aware path is unavailable.
+    - [ ] Keep DataFusion, Polars, Spark, DuckDB, Dask, pandas, and generic sketch libraries as comparison/reference inputs only unless a dependency/RFC approval explicitly permits a native implementation dependency.
 - [ ] Priority 3.5 - cross-RFC platform hardening and release-readiness lane
   - [ ] RFC 0014 / CG-14 memory, spill, and OOM-safe execution
     - [ ] Turn resource-derived chunk sizing, parallelism, memory reservation, pressure detection, spill policy, and fail-before-OOM diagnostics into runtime behavior after primitive execution is stable.
@@ -173,8 +190,25 @@ Use this section for the next implementation sequence. Keep it ordered by depend
   - [ ] Promote `ProtocolSurfaceParityReport` across CLI JSON, Python wrapper, future REST/OpenAPI, future MCP resources, and future Flight/ADBC metadata.
   - [ ] Add machine-readable starter workload constitution catalog entries for local Vortex primitives, local file ETL, Conda import smoke, Python DataFrame local ETL, REST discovery-only, batch Vortex analytics, hybrid base/delta fixture, local Vortex read/write adapter, and traditional analytics benchmark workloads.
   - [ ] Add the concrete `ShardLoomNative` semantic-profile floor as a reportable/table-backed contract before serious SQL/DataFrame execution.
-  - [ ] Promote `StandardsDependencyDecision`, `BenchmarkConstitution`, and `RustPerformanceProfileEvidence` into report/code surfaces.
+  - [ ] Promote `StandardsDependencyDecision`, `BenchmarkConstitution`, `CostSimulationReport`, and `RustPerformanceProfileEvidence` into report/code surfaces.
+  - [ ] Make benchmark constitutions explicit about workload constitution, engine mode, input format, native Vortex versus compatibility import, startup/conversion/result/API transport inclusion, cache/object-store policy, warmup/iterations, correctness oracle, resource limits, cost assumptions, and claim level.
+  - [ ] Track standards and ecosystem posture for OpenAPI, AsyncAPI, CloudEvents, OpenTelemetry/OTLP, OpenLineage, Arrow Flight/ADBC, Arrow C Stream/PyCapsule, Iceberg REST/Polaris/Gravitino, Delta Sharing, Substrait, WASI/WebAssembly components, MCP, and event substrates as reference-only, schema-only, optional-feature, approved-dependency, or rejected.
+  - [ ] Add a Markdown physical-formatting cleanup pass for phase-plan, RFC, skill, and architecture docs so future diffs, citations, search, and agent review use normal line structure without content churn.
   - [ ] Keep this lane docs/report-only: no runtime, parser, adapter, server, package publication, benchmark execution, external engine invocation, dependency, or fallback execution.
+- [ ] Priority 3.8 - CG-20/CG-23 client and wrapper surface architecture
+  - [ ] Define one canonical client/wrapper architecture: protocol schemas, transport adapters, client core, language SDKs, and ecosystem wrappers.
+  - [ ] Add a wrapper maturity ladder: `W0` declared only, `W1` package/import smoke, `W2` side-effect-free capability discovery, `W3` typed envelope parsing, `W4` plan/explain/validate support, `W5` execute certified local paths, `W6` result delivery and certificate access, and `W7` workload-certified integration.
+  - [ ] Promote shared protocol schema artifacts for `OutputEnvelope`, `CapabilitySnapshot`, `ExecutionCertificate`, `NativeIoCertificate`, `EvidenceArtifactEnvelope`, `ShardLoomExecutionPolicy`, `ResultRef`, problem-details/unsupported diagnostics, `EngineSelectionReport`, `MaterializationBoundaryReport`, `AdapterFidelityReport`, and `BenchmarkClaimEvidenceReport`.
+  - [ ] Add transport abstractions for CLI subprocess, future REST HTTP, future Flight/ADBC data plane, mock transport, and recording/replay transport so wrappers do not parse ad hoc command output.
+  - [ ] Define client-core operations for status, capabilities, adapter discovery, plan validation, explain, execute, query status, cancel, results, certificates, profile, benchmark, migration, and diagnostics independent of transport.
+  - [ ] Track a language SDK registry for the current Python client plus planned Rust, TypeScript/JavaScript, Go, Java/JVM, .NET, R, and future generated OpenAPI clients.
+  - [ ] Track a Python ecosystem wrapper registry for Python DB-API, SQLAlchemy dialect, Ibis backend, pandas/Arrow helpers, and notebook display surfaces, all preserving explicit materialization and no-fallback evidence.
+  - [ ] Track an orchestration and workflow wrapper registry for dbt, Airflow, Dagster, Prefect, and CI/report-viewer integrations, with explain/validate/certificate-first behavior before execution/write support.
+  - [ ] Track remote/data-plane wrapper posture for ADBC, Flight SQL, JDBC via Arrow Flight SQL, ODBC later only if needed, Superset/BI readiness through SQLAlchemy, and Grafana/data-source plugin posture after SQL/API maturity.
+  - [ ] Track safe agent-wrapper posture for MCP resources and tools: read-only resources and dry-run/explain/estimate/certify tools by default; execute/write/cancel require explicit policy and credentials.
+  - [ ] Add `WrapperCapabilityReport` and `ProtocolSurfaceParityReport` coverage so every wrapper reports wrapper version, protocol version, maturity level, supported transports, exposed fields, unavailable fields, materialization behavior, certificate access, and `fallback_attempted`.
+  - [ ] Add golden contract fixtures for envelopes, errors, capabilities, result refs, materialization reports, and certificates before any wrapper can move beyond discovery maturity.
+  - [ ] Preserve wrapper invariants: package import has no execution side effects, client construction does not probe datasets, capability discovery is side-effect-free, unsupported behavior is structured, large results use artifact refs/Arrow/Flight/Vortex outputs instead of giant JSON, and no wrapper may execute unsupported work through external engines.
 - [ ] Priority 4 - CG-21 user data workflow and ETL surface implementation lane
   - [ ] CG-21A install/import/runtime discovery
     - [ ] Provide a one-command local install path once packaging approval is complete.
@@ -226,6 +260,14 @@ Use this section for the next implementation sequence. Keep it ordered by depend
     - [ ] Expose Hive-style partitions, Iceberg-compatible metadata, Delta-compatible metadata, snapshots, schema evolution, delete/tombstone handling, manifests, partition pruning, layout health, and compaction planning as separate maturity surfaces.
     - [ ] Keep metadata discovery separate from table read/write/commit certification.
     - [ ] Block update/delete/merge claims until table semantics, commit/recovery, correctness, and no-fallback evidence exist.
+  - [ ] CG-21S relational, warehouse, and snapshot/export UX
+    - [ ] Track PostgreSQL, MySQL/MariaDB, SQLite, Snowflake-like exports, BigQuery-like exports, JDBC/ODBC bridges, and warehouse/table snapshots as metadata, snapshot/export, oracle, migration, or source-pushdown surfaces before runtime support.
+    - [ ] Report remote-system pushdown as source behavior with residual boundaries, not as ShardLoom-native execution unless ShardLoom executes the residual natively and certificates prove it.
+    - [ ] Prohibit remote SQL engines from executing unsupported ShardLoom plan fragments as fallback.
+  - [ ] CG-21T logs, events, and bounded event ETL UX
+    - [ ] Model line logs, JSON logs, application events, event ids, timestamp parsing, sessionization, deduplication, watermarks, late data, invalid-line quarantine, and bounded micro-batch behavior as explicit ETL workflow surfaces.
+    - [ ] Distinguish finite log/event file processing, bounded micro-batches, and true live streams with state/checkpoint/watermark evidence.
+    - [ ] Keep broker/runtime substrates as adapter/reference candidates, not core fallback dependencies.
   - [ ] CG-21L observability UX
     - [ ] Make `explain`, `estimate`, `profile`, and `certify` available from CLI, Python, and later REST for supported plans.
     - [ ] Report planned versus executed work, work avoided, rows/bytes scanned, segments pruned, bytes decoded, rows materialized, selection-vector use, object-store requests, memory/spill, representation state, and fallback status.
@@ -287,10 +329,11 @@ Use this section for the next implementation sequence. Keep it ordered by depend
     - [ ] Do not claim exactly-once, freshness, recovery, or continuous-view correctness without CG-4/CG-5/CG-8/CG-16 evidence.
 - [ ] Priority 6 - CG-23 REST, event, and remote API surface
   - [ ] CG-23A REST API contract surface
-    - [ ] Define OpenAPI contract files for `/v1` resources before server behavior.
+    - [ ] Define OpenAPI 3.2 or approved-successor contract files for `/v1` resources before server behavior.
     - [ ] Represent health, version, capabilities, adapters, sources, sinks, plans, queries, results, certificates, profiles, benchmarks, migration, lineage, and governance resources.
     - [ ] Require engine mode, fallback policy, materialization policy, result policy, and evidence policy on execution-capable requests.
     - [ ] Include `fallback_attempted=false` or explicit unsupported/failure reason in every response.
+    - [ ] Add an API maturity ladder from declared contract through discovery, plan/explain, local certified batch lifecycle, result delivery, source/sink certification, live/hybrid events, security/governance, and production-certified workload support.
   - [ ] CG-23B REST discovery server
     - [ ] Add optional local `shardloom serve --mode discovery` only after dependency and security approval.
     - [ ] Serve health, version, capabilities, adapters, deployment readiness, and no-dataset smoke checks.
@@ -326,6 +369,11 @@ Use this section for the next implementation sequence. Keep it ordered by depend
     - [ ] Keep MCP tools dry-run/explain/estimate/certify by default.
     - [ ] Require explicit policy and credentials for execute, write, cancel, benchmark, and migration operations.
     - [ ] Preserve no-fallback and external-effect diagnostics in agent-facing responses.
+  - [ ] CG-23J remote standards, lineage, and ecosystem interop posture
+    - [ ] Map OpenTelemetry traces/metrics/logs, OpenLineage runs/jobs/datasets/facets, problem-details errors, CloudEvents, and certificate refs into a single API evidence model.
+    - [ ] Treat Iceberg REST Catalog, Polaris, Gravitino, Delta Sharing, Substrait, WASI/WebAssembly components, NATS JetStream, Redpanda, Kafka-compatible systems, Paimon, Fluss, and similar systems as standards/reference/adapter candidates until a dependency decision and capability contract approve runtime use.
+    - [ ] Keep REST as control plane and proof surface; large payload transfer must use explicit result policies such as Vortex artifact refs, object refs, Arrow IPC boundaries, JSON Lines, or future Flight/ADBC tickets.
+    - [ ] Do not let remote API support weaken local Python/CLI protocol parity, no-fallback execution, materialization reporting, or governance policy.
 - [ ] Priority 7 - CG-21/CG-22/CG-23 integrated certification closeout
   - [ ] Add cross-CG capability snapshots proving CG-21 workflow, CG-22 engine mode, and CG-23 remote API states are visible through capability discovery.
   - [ ] Add cross-CG unsupported diagnostics showing the same blocker across CLI, Python, and future REST.
@@ -333,8 +381,27 @@ Use this section for the next implementation sequence. Keep it ordered by depend
   - [ ] Keep CG-21, CG-22, and CG-23 logically after the current planned CG-1 through CG-20 work unless a later implementation item is explicitly pulled forward as a contract/report-only lane.
   - [ ] Preserve no-runtime, no-dependency, no-fallback, and no-claim posture for docs/report-only synthesis.
 
-## Active
+## Completed
 
+### Recent Completed Session Ledger
+- [x] Session label: phased-plan sequential queue and wrapper architecture hardening
+  - Primary files:
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: remove the unused Active section, make Planned the sequential autonomous work queue, and incorporate the remaining master-architecture, Vortex, benchmark, workload, and client/wrapper items into the planned implementation order.
+  - Checklist:
+    - [x] Simplify the operational status model to Planned then Completed.
+    - [x] Move the completed CG-5.20 session from the stale Active section into the completed ledger.
+    - [x] Narrow previously broad Priority 1 wording to prepared encoded-batch evidence and add the open reader-backed/source-backed generalized encoded execution slice.
+    - [x] Add a modular compute-engine architecture spine for IR, semantic binding, capability admission, provider selection, scheduler/runtime, memory/spill, source/sink, evidence, governance, and API boundaries.
+    - [x] Add missing Vortex, approximate-analytics, compression-advisor, foreign-runtime, standards/dependency, cost-simulation, benchmark-constitution, and Markdown-formatting hooks.
+    - [x] Add a CG-20/CG-23 client and wrapper surface architecture lane covering canonical protocol schemas, transports, client core, SDKs, ecosystem wrappers, wrapper maturity, wrapper capability reports, protocol parity, and golden contract fixtures.
+    - [x] Add relational/warehouse, logs/events, API standards/lineage/ecosystem, and result-delivery details without authorizing runtime behavior or dependencies.
+    - [x] Preserve docs-only scope: no runtime behavior, reader/writer, adapter, SQL/DataFrame/UDF runtime, server implementation, benchmark execution, package publication, dependency, external engine invocation, superiority claim, or fallback execution.
+  - Validation status:
+    - [x] `git diff --check`
+    - [x] Changed-file hidden/bidi scan passed locally.
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; rustc --version`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
 - [x] Session label: CG-5.20 deferred fixture-family artifact slots
   - Primary files:
     - `shardloom-core/src/correctness.rs`
@@ -361,10 +428,6 @@ Use this section for the next implementation sequence. Keep it ordered by depend
     - [x] `RUSTUP_TOOLCHAIN=1.91.1 CARGO_TARGET_DIR=target-codex-cg5-deferred-artifacts-full2 cargo test --workspace --all-targets`
     - [x] `git diff --check`
     - [x] Changed-file hidden/bidi scan passed locally.
-
-## Completed
-
-### Recent Completed Session Ledger
 - [x] Session label: CG-5.19 deferred fixture-family blockers
   - Primary files:
     - `shardloom-core/src/correctness.rs`
@@ -630,7 +693,7 @@ Use this section for the next implementation sequence. Keep it ordered by depend
   - Primary files:
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
-  - Scope: Cross-check the remaining RFC themes against the three-section phase-plan queue and make missing cross-cutting implementation hooks visible without creating a second active-status source.
+  - Scope: Cross-check the remaining RFC themes against the phase-plan queue and make missing cross-cutting implementation hooks visible without creating a second current-status source.
   - Completed:
     - [x] Added a Planned lane for RFC 0014 memory/spill/OOM safety, RFC 0017 recovery/idempotency, RFC 0018 observability/profiling, RFC 0019 security/governance/egress/agent safety, and RFC 0024 release/package discipline.
     - [x] Added explicit Planned hooks for CG-15 CPU specialization, CG-17 stateful reuse/incremental execution, and CG-18 import/deployment/baseline harness maturity.
@@ -746,7 +809,7 @@ Use this section for the next implementation sequence. Keep it ordered by depend
     - `python/src/shardloom/client.py`
     - `python/tests/test_cli_client.py`
     - `docs/architecture/phased-execution-plan.md`
-  - Scope: Resolve the outstanding Codex review findings gathered across recent PRs and restructure this phase plan so future working items move through Planned, Active, and Completed.
+  - Scope: Resolve the outstanding Codex review findings gathered across recent PRs and restructure this phase plan so future working items move through the working queue and completed ledger.
   - Completed:
     - [x] Preserve column-free encoded predicate evidence when column metadata is unavailable.
     - [x] Block mismatched segment/value encodings before filter evidence.
@@ -760,7 +823,7 @@ Use this section for the next implementation sequence. Keep it ordered by depend
     - [x] Make Native I/O materializing transitions require boundary records.
     - [x] Keep local primitive row-skip accounting explicit when runtime accounting is unavailable.
     - [x] Route agent-safe surfaces to certification/plan-only commands.
-    - [x] Reorganize phase-plan working items into Planned, Active, and Completed.
+    - [x] Reorganize phase-plan working items into a planned queue and completed ledger.
     - [x] Run focused tests, full Rust fmt/clippy/test validation, Python client tests, diff checks, and hidden/bidi scan.
   - Explicitly not included: new readers, Parquet/Arrow/JSON/Avro/ORC runtime, adapter execution, SQL/DataFrame runtime, benchmark reruns, superiority claims, CG closeout, or fallback execution.
 - [x] Session label: CG-2.3f / CG-7.29 / CG-13.24 prepared encoded projection/filter-project evidence
@@ -1762,7 +1825,7 @@ Use this section for the next implementation sequence. Keep it ordered by depend
     - None known.
 
 - [x] Follow-up: R5.4.11 architecture document ownership cleanup
-  - Why: Close out remaining R5 planning cleanup before returning to CG implementation; the phase plan must be the definitive status source while companion architecture docs remain useful without competing active queues.
+  - Why: Close out remaining R5 planning cleanup before returning to CG implementation; the phase plan must be the definitive status source while companion architecture docs remain useful without competing current-status queues.
   - Files:
     - `docs/architecture/phased-execution-plan.md`
     - `docs/architecture/rfc-phase-traceability.md`
@@ -1780,7 +1843,7 @@ Use this section for the next implementation sequence. Keep it ordered by depend
     - `docs/architecture/vortex-adapter-integration-plan.md`
     - `docs/architecture/canonical-terminology.md`
   - Acceptance:
-    - `phased-execution-plan.md` explicitly owns active status, active queue, completed ledger, deferred work, and CG closeout state.
+    - `phased-execution-plan.md` explicitly owns the planned sequence, completed ledger, deferred work, and CG closeout state.
     - Cleanup/sequence docs use checklist or completed-ledger structure only where status tracking is meaningful.
     - Conceptual/reference docs use structured maps and guardrails, not misleading completion checklists.
     - Companion docs say they do not authorize runtime behavior or mark CG completion.
@@ -1817,7 +1880,7 @@ Use this section for the next implementation sequence. Keep it ordered by depend
     - `docs/architecture/systems-learning-map.md`
     - `docs/architecture/phased-execution-plan.md`
   - Acceptance:
-    - README stays compact and links to core concepts without duplicating active status or the full glossary.
+    - README stays compact and links to core concepts without duplicating planned/completed status or the full glossary.
     - Canonical terminology owns the ShardLoom glossary/index and links concept groups to governing RFCs.
     - Systems-learning owns external technique transfer, including Modal GPU Glossary lessons, without authorizing dependencies or runtime behavior.
     - Phase plan documents ownership boundaries for README, canonical terminology, and systems-learning.
@@ -1956,8 +2019,8 @@ Use this section for the next implementation sequence. Keep it ordered by depend
   - Why: make CG-20 broad enough for common data/ETL, Python, UDF, universal adapter, and unstructured/media adoption.
   - Acceptance: RFC/sequencing docs cover ETL coverage families, ETL reports, Python wrapper reports, CG-11/CG-20 ownership split, unstructured/media reports, event/API/SaaS adapter roadmap expansion, workload/scorecard/dossier evidence, and no-fallback boundaries.
 - [x] R5.4.13 README roadmap source-of-truth cleanup
-  - Why: keep the repository entry point aligned with the phase plan without creating a second active-status source.
-  - Acceptance: README points to the phase plan for active state, removes stale early-design wording, preserves no-fallback/evidence-gated-claim guardrails, and mentions CG-20 user-capability scope without claiming implementation completion.
+  - Why: keep the repository entry point aligned with the phase plan without creating a second current-status source.
+  - Acceptance: README points to the phase plan for planned/completed state, removes stale early-design wording, preserves no-fallback/evidence-gated-claim guardrails, and mentions CG-20 user-capability scope without claiming implementation completion.
   - Local validation status:
     - docs hygiene scans passed for stale README status wording, hidden/bidi controls, and `git diff --check`
     - full Rust validation passed with toolchain `1.91.1` after one transient Windows linker-file-lock rerun
@@ -1982,7 +2045,7 @@ Use this section for the next implementation sequence. Keep it ordered by depend
 
 ### Implementation Phase Queue
 - [x] R4 Resume CG implementation
-  - Why: Resume implementation once active docs/refactor queue is current or explicitly overridden.
+  - Why: Resume implementation once the current docs/refactor queue is current or explicitly overridden.
   - Acceptance:
     - Maintain no-fallback, explicit diagnostics, and Vortex-native I/O posture.
 - [x] CG-1.2d actual feature-gated local metadata/footer IO path
@@ -3394,7 +3457,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 
 ### Historical CG Completion And Deferred Notes
 
-This section preserves older attribution notes that predate the compact CG rollups above. It is not the active queue; promote any actionable unfinished work into Planned before implementation.
+This section preserves older attribution notes that predate the compact CG rollups above. It is not the current queue; promote any actionable unfinished work into Planned before implementation.
 
 - [x] CG-1.2 metadata/footer execution path has a feature-gated local fixture invocation helper.
 - [x] CG-2.1 metadata-footer count execution bridge consumes the local fixture footer summary.
@@ -3566,7 +3629,7 @@ This section preserves older attribution notes that predate the compact CG rollu
 - Unsupported behavior must fail explicitly with deterministic diagnostics.
 - Vortex is native input and highest-fidelity native output.
 - Compatibility outputs are translation/export targets, not execution fallback.
-- Keep docs/cleanup queue visible when active; do not skip directly to CG work by default.
+- Keep docs/cleanup queue visible when current; do not skip directly to CG work by default.
 - Preserve both canonical phase IDs and CG gate visibility; do not treat CG IDs as replacements.
 - Keep Foundry under CG-18 as optional deployment/comparison context only.
 - Competitive claims require CG-5 correctness and CG-6 benchmarks.
