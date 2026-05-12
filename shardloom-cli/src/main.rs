@@ -41,17 +41,16 @@ use shardloom_core::{
     CdcIncrementalPlanningReport, ChangeSet, ColumnRef, CommandStatus, CompactionPlanningPolicy,
     CompactionPlanningReport, ComparisonOp, CorrectnessFixture, CorrectnessValidationPlan,
     CpuOperatorSpecializationReport, DatasetFormat, DatasetManifest, DatasetRef, DatasetUri,
-    DeleteModel, DeleteTombstoneCompatibilityReport, Diagnostic, EffectBudgetReport,
-    EncodedSegment, EncodingKind, ExecutionCertificate, ExpectedOutcome, FeatureFootprintReport,
-    FieldId, FieldName, FieldPath, FileDescriptor, FileRole, LayoutHealthPolicy,
-    LayoutHealthReport, LayoutKind, LogicalDType, ManifestId, ManifestSegment, NativeIoCertificate,
-    Nullability, ObservabilitySchemaCoverageReport, OperatorMemoryCertification, OutputFormat,
+    DeleteModel, DeleteTombstoneCompatibilityReport, Diagnostic, EncodedSegment, EncodingKind,
+    ExecutionCertificate, ExpectedOutcome, FieldId, FieldName, FieldPath, FileDescriptor, FileRole,
+    LayoutHealthPolicy, LayoutHealthReport, LayoutKind, LogicalDType, ManifestId, ManifestSegment,
+    NativeIoCertificate, Nullability, OperatorMemoryCertification, OutputFormat,
     PartitionEvolutionCompatibilityReport, PartitionField, PartitionSpec, PartitionTransform,
     PredicateExpr, SchemaDefinition, SchemaEvolutionCompatibilityReport, SchemaEvolutionPolicy,
-    SchemaField, SchemaId, SchemaVersion, SecurityGovernanceEvidenceGateReport, SegmentChange,
-    SegmentChangeKind, SegmentId, SegmentLayout, SegmentStats, ShardLoomError, SnapshotId,
-    SnapshotRef, StatValue, StatefulReusePromotionGateReport, StatefulReuseReport,
-    TableCompatibilityPlan, TableCompatibilityReport, TableFormatKind, TableIntelligenceReport,
+    SchemaField, SchemaId, SchemaVersion, SegmentChange, SegmentChangeKind, SegmentId,
+    SegmentLayout, SegmentStats, ShardLoomError, SnapshotId, SnapshotRef, StatValue,
+    StatefulReusePromotionGateReport, StatefulReuseReport, TableCompatibilityPlan,
+    TableCompatibilityReport, TableFormatKind, TableIntelligenceReport,
     evaluate_cdc_incremental_planning, evaluate_compaction_planning,
     evaluate_delete_tombstone_compatibility, evaluate_layout_health,
     evaluate_partition_evolution_compatibility, evaluate_schema_evolution_compatibility,
@@ -497,339 +496,6 @@ pub(crate) fn vortex_encoded_read_metadata_probe_fields(
         ),
         ("execution".to_string(), "not_performed".to_string()),
     ]
-}
-
-#[allow(clippy::too_many_lines)]
-pub(crate) fn feature_footprint_fields(report: &FeatureFootprintReport) -> Vec<(String, String)> {
-    let all_gates = report.all_gates();
-    vec![
-        ("mode".to_string(), "feature_footprint".to_string()),
-        (
-            "schema_version".to_string(),
-            report.schema_version.to_string(),
-        ),
-        ("engine_version".to_string(), report.engine_version.clone()),
-        (
-            "crate_version_count".to_string(),
-            report.crate_versions.len().to_string(),
-        ),
-        (
-            "compiled_feature_count".to_string(),
-            report.compiled_features.len().to_string(),
-        ),
-        (
-            "enabled_feature_count".to_string(),
-            report.enabled_features.len().to_string(),
-        ),
-        (
-            "disabled_feature_count".to_string(),
-            report.disabled_features.len().to_string(),
-        ),
-        (
-            "upstream_vortex_dependency_status".to_string(),
-            report.upstream_vortex_dependency_status.clone(),
-        ),
-        (
-            "upstream_vortex_version".to_string(),
-            report
-                .upstream_vortex_version
-                .clone()
-                .unwrap_or_else(|| "none".to_string()),
-        ),
-        ("all_gate_count".to_string(), all_gates.len().to_string()),
-        (
-            "vortex_gate_count".to_string(),
-            report.vortex_gates.len().to_string(),
-        ),
-        (
-            "encoded_read_gate_count".to_string(),
-            report.encoded_read_gates.len().to_string(),
-        ),
-        (
-            "metadata_io_gate_count".to_string(),
-            report.metadata_io_gates.len().to_string(),
-        ),
-        (
-            "write_gate_count".to_string(),
-            report.write_gates.len().to_string(),
-        ),
-        (
-            "object_store_gate_count".to_string(),
-            report.object_store_gates.len().to_string(),
-        ),
-        (
-            "distributed_execution_gate_count".to_string(),
-            report.distributed_execution_gates.len().to_string(),
-        ),
-        (
-            "gate_status_order".to_string(),
-            all_gates
-                .iter()
-                .map(|gate| format!("{}:{}", gate.name, gate.status.as_str()))
-                .collect::<Vec<_>>()
-                .join(","),
-        ),
-        (
-            "external_baseline_count".to_string(),
-            report.external_baseline_availability.len().to_string(),
-        ),
-        (
-            "external_baseline_runtime_fallback_count".to_string(),
-            report
-                .external_baseline_availability
-                .iter()
-                .filter(|baseline| baseline.runtime_fallback_allowed)
-                .count()
-                .to_string(),
-        ),
-        (
-            "fallback_engines_absent".to_string(),
-            report.fallback_engines_absent.to_string(),
-        ),
-        (
-            "fallback_execution_allowed".to_string(),
-            report.fallback_execution_allowed.to_string(),
-        ),
-        (
-            "diagnostic_count".to_string(),
-            report.diagnostics.len().to_string(),
-        ),
-    ]
-}
-
-pub(crate) fn effect_budget_fields(report: &EffectBudgetReport) -> Vec<(String, String)> {
-    vec![
-        ("mode".to_string(), "effect_budget_plan".to_string()),
-        (
-            "schema_version".to_string(),
-            report.schema_version.to_string(),
-        ),
-        ("report_id".to_string(), report.report_id.to_string()),
-        ("budget_mode".to_string(), report.budget_mode.to_string()),
-        ("entry_count".to_string(), report.entries.len().to_string()),
-        (
-            "denied_scope_count".to_string(),
-            report.denied_scope_count().to_string(),
-        ),
-        (
-            "approved_scope_count".to_string(),
-            report.approved_scope_count().to_string(),
-        ),
-        (
-            "approval_required_scope_count".to_string(),
-            report.approval_required_scope_count().to_string(),
-        ),
-        (
-            "credential_required_scope_count".to_string(),
-            report.credential_required_scope_count().to_string(),
-        ),
-        (
-            "materialization_boundary_required_scope_count".to_string(),
-            report
-                .materialization_boundary_required_scope_count()
-                .to_string(),
-        ),
-        ("scope_order".to_string(), report.scope_order().join(",")),
-        (
-            "external_effects_allowed".to_string(),
-            report.external_effects_allowed.to_string(),
-        ),
-        (
-            "destructive_effects_allowed".to_string(),
-            report.destructive_effects_allowed.to_string(),
-        ),
-        (
-            "network_egress_allowed".to_string(),
-            report.network_egress_allowed.to_string(),
-        ),
-        (
-            "credentials_resolved".to_string(),
-            report.credentials_resolved.to_string(),
-        ),
-        (
-            "secrets_loaded".to_string(),
-            report.secrets_loaded.to_string(),
-        ),
-        (
-            "redaction_policy_required".to_string(),
-            report.redaction_policy_required.to_string(),
-        ),
-        (
-            "audit_required".to_string(),
-            report.audit_required.to_string(),
-        ),
-        (
-            "runtime_execution".to_string(),
-            report.runtime_execution_performed.to_string(),
-        ),
-        (
-            "filesystem_probe".to_string(),
-            report.filesystem_probe.to_string(),
-        ),
-        (
-            "network_probe".to_string(),
-            report.network_probe.to_string(),
-        ),
-        (
-            "catalog_probe".to_string(),
-            report.catalog_probe.to_string(),
-        ),
-        (
-            "side_effect_free".to_string(),
-            report.side_effect_free().to_string(),
-        ),
-        (
-            "fallback_execution_allowed".to_string(),
-            report.fallback_execution_allowed.to_string(),
-        ),
-        (
-            "fallback_attempted".to_string(),
-            report.fallback_attempted.to_string(),
-        ),
-        (
-            "diagnostic_count".to_string(),
-            report.diagnostics.len().to_string(),
-        ),
-    ]
-}
-
-pub(crate) fn security_governance_evidence_gate_fields(
-    report: &SecurityGovernanceEvidenceGateReport,
-) -> Vec<(String, String)> {
-    let mut fields = Vec::new();
-    append_security_governance_evidence_gate_summary_fields(&mut fields, report);
-    append_security_governance_evidence_gate_entry_fields(&mut fields, report);
-    fields
-}
-
-fn append_security_governance_evidence_gate_summary_fields(
-    fields: &mut Vec<(String, String)>,
-    report: &SecurityGovernanceEvidenceGateReport,
-) {
-    push_field(fields, "mode", "security_governance_evidence_gate");
-    push_field(fields, "schema_version", report.schema_version);
-    push_field(fields, "report_id", report.report_id);
-    push_count_field(fields, "evidence_area_count", report.evidence_area_count());
-    push_count_field(
-        fields,
-        "report_only_area_count",
-        report.report_only_area_count(),
-    );
-    push_count_field(
-        fields,
-        "effectful_claim_allowed_count",
-        report.effectful_claim_allowed_count(),
-    );
-    push_field(fields, "area_order", &report.area_order().join(","));
-    push_bool_field(
-        fields,
-        "all_evidence_surfaces_present",
-        report.all_evidence_surfaces_present(),
-    );
-    push_bool_field(
-        fields,
-        "effectful_features_default_denied",
-        report.effectful_features_default_denied,
-    );
-    push_bool_field(
-        fields,
-        "dry_run_required_without_policy",
-        report.dry_run_required_without_policy,
-    );
-    push_bool_field(
-        fields,
-        "credential_references_only",
-        report.credential_references_only,
-    );
-    push_bool_field(fields, "credentials_resolved", report.credentials_resolved);
-    push_bool_field(fields, "secrets_loaded", report.secrets_loaded);
-    push_bool_field(fields, "redaction_required", report.redaction_required);
-    push_bool_field(fields, "audit_required", report.audit_required);
-    push_bool_field(
-        fields,
-        "external_effects_executed",
-        report.external_effects_executed,
-    );
-    push_bool_field(
-        fields,
-        "external_effect_claims_allowed",
-        report.external_effect_claims_allowed,
-    );
-    push_bool_field(
-        fields,
-        "destructive_operations_allowed",
-        report.destructive_operations_allowed,
-    );
-    push_bool_field(fields, "data_egress_allowed", report.data_egress_allowed);
-    push_bool_field(
-        fields,
-        "object_store_claims_blocked",
-        report.object_store_claims_blocked,
-    );
-    push_bool_field(
-        fields,
-        "api_server_claims_blocked",
-        report.api_server_claims_blocked,
-    );
-    push_bool_field(
-        fields,
-        "llm_media_udf_claims_blocked",
-        report.llm_media_udf_claims_blocked,
-    );
-    push_bool_field(
-        fields,
-        "agent_execute_write_cancel_allowed",
-        report.agent_execute_write_cancel_allowed,
-    );
-    push_bool_field(
-        fields,
-        "runtime_execution",
-        report.runtime_execution_performed,
-    );
-    push_bool_field(fields, "side_effect_free", report.side_effect_free());
-    push_bool_field(
-        fields,
-        "claims_blocked_by_default",
-        report.claims_blocked_by_default(),
-    );
-    push_bool_field(
-        fields,
-        "fallback_execution_allowed",
-        report.fallback_execution_allowed,
-    );
-    push_bool_field(fields, "fallback_attempted", report.fallback_attempted);
-    push_count_field(fields, "diagnostic_count", report.diagnostics.len());
-}
-
-fn append_security_governance_evidence_gate_entry_fields(
-    fields: &mut Vec<(String, String)>,
-    report: &SecurityGovernanceEvidenceGateReport,
-) {
-    for (idx, entry) in report.entries.iter().enumerate() {
-        let prefix = format!("security_evidence_area_{idx}");
-        push_field(fields, &format!("{prefix}_name"), entry.area.as_str());
-        push_field(fields, &format!("{prefix}_status"), entry.status.as_str());
-        push_field(
-            fields,
-            &format!("{prefix}_default_policy"),
-            entry.default_policy,
-        );
-        push_field(
-            fields,
-            &format!("{prefix}_required_for_claims"),
-            entry.required_for_claims,
-        );
-        push_field(
-            fields,
-            &format!("{prefix}_evidence_field"),
-            entry.evidence_field,
-        );
-        push_bool_field(
-            fields,
-            &format!("{prefix}_effectful_claim_allowed"),
-            entry.effectful_claim_allowed,
-        );
-    }
 }
 
 pub(crate) fn streaming_plan_fields(plan: &StreamingPlanSkeleton) -> Vec<(String, String)> {
@@ -3401,92 +3067,6 @@ fn append_memory_runtime_hardening_surface_fields(
             entry.fallback_execution_allowed,
         );
     }
-}
-
-fn observability_schema_coverage_fields(
-    report: &ObservabilitySchemaCoverageReport,
-) -> Vec<(String, String)> {
-    let mut fields = Vec::new();
-    push_field(&mut fields, "mode", "observability_schema_coverage");
-    push_field(&mut fields, "schema_version", report.schema_version);
-    push_count_field(&mut fields, "observability_area_count", report.area_count());
-    push_count_field(
-        &mut fields,
-        "complete_observability_area_count",
-        report.complete_area_count(),
-    );
-    push_count_field(
-        &mut fields,
-        "missing_observability_area_count",
-        report.missing_area_count(),
-    );
-    push_bool_field(
-        &mut fields,
-        "schema_coverage_complete",
-        report.schema_coverage_complete(),
-    );
-    push_bool_field(
-        &mut fields,
-        "local_json_required",
-        report.local_json_required,
-    );
-    push_bool_field(
-        &mut fields,
-        "exporter_integration_enabled",
-        report.exporter_integration_enabled,
-    );
-    push_bool_field(
-        &mut fields,
-        "runtime_collection_enabled",
-        report.runtime_collection_enabled,
-    );
-    push_bool_field(
-        &mut fields,
-        "debug_bundle_schema_present",
-        report.debug_bundle_schema_present,
-    );
-    push_bool_field(&mut fields, "redaction_required", report.redaction_required);
-    push_bool_field(
-        &mut fields,
-        "certificate_link_required",
-        report.certificate_link_required,
-    );
-    push_bool_field(&mut fields, "fallback_attempted", report.fallback_attempted);
-    for (index, entry) in report.entries.iter().enumerate() {
-        let prefix = format!("observability_area_{index}");
-        push_field(&mut fields, &format!("{prefix}_name"), entry.area.as_str());
-        push_field(
-            &mut fields,
-            &format!("{prefix}_trace_span_schema"),
-            entry.trace_span_schema.as_str(),
-        );
-        push_field(
-            &mut fields,
-            &format!("{prefix}_structured_event_schema"),
-            entry.structured_event_schema.as_str(),
-        );
-        push_field(
-            &mut fields,
-            &format!("{prefix}_profile_schema"),
-            entry.profile_schema.as_str(),
-        );
-        push_field(
-            &mut fields,
-            &format!("{prefix}_log_schema"),
-            entry.log_schema.as_str(),
-        );
-        push_bool_field(
-            &mut fields,
-            &format!("{prefix}_certificate_link_required"),
-            entry.certificate_link_required,
-        );
-        push_bool_field(
-            &mut fields,
-            &format!("{prefix}_redaction_required"),
-            entry.redaction_required,
-        );
-    }
-    fields
 }
 
 pub(crate) fn append_vortex_work_avoided_fields(
@@ -17957,8 +17537,8 @@ mod tests {
 
     #[test]
     fn effect_budget_fields_include_no_effects_and_no_fallback() {
-        let report = EffectBudgetReport::planning_default();
-        let fields = effect_budget_fields(&report);
+        let report = shardloom_core::EffectBudgetReport::planning_default();
+        let fields = operational_hardening::effect_budget_fields(&report);
 
         assert_eq!(
             output_field(&fields, "schema_version"),
@@ -18179,8 +17759,8 @@ mod tests {
 
     #[test]
     fn feature_footprint_fields_include_no_fallback_and_gate_counts() {
-        let report = FeatureFootprintReport::contract_only();
-        let fields = feature_footprint_fields(&report);
+        let report = shardloom_core::FeatureFootprintReport::contract_only();
+        let fields = diagnostics::feature_footprint_fields(&report);
 
         assert_eq!(
             output_field(&fields, "schema_version"),

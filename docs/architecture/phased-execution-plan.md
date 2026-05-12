@@ -219,6 +219,11 @@ actionable work.
     - [x] Move diagnostic/explain/estimate handlers into `shardloom-cli/src/diagnostics.rs`
           without probing datasets, collecting profiles, executing plans, or invoking external
           engines.
+    - [x] Move diagnostics and operational-policy helper ownership into
+          `shardloom-cli/src/diagnostics.rs` and
+          `shardloom-cli/src/operational_hardening.rs`, covering feature footprint,
+          observability schema coverage, effect budget, and security-governance evidence field
+          construction while preserving report-only/no-probe/no-effect/no-fallback behavior.
     - [x] Move evidence/certificate planning handlers into
           `shardloom-cli/src/evidence_certificates.rs` without running harnesses, reading data,
           emitting runtime certificates from execution, or invoking external engines.

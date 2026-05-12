@@ -7,12 +7,12 @@
 use std::process::ExitCode;
 
 use shardloom_core::{
-    CommandStatus, FeatureFootprintReport, ObservabilityPlan, OutputFormat,
-    RuntimeObservabilityReport, plan_observability_schema_coverage,
+    CommandStatus, FeatureFootprintReport, ObservabilityPlan, ObservabilitySchemaCoverageReport,
+    OutputFormat, RuntimeObservabilityReport, plan_observability_schema_coverage,
 };
 use shardloom_plan::{EstimateReport, ExplainReport};
 
-use crate::{cli_output::emit, feature_footprint_fields, observability_schema_coverage_fields};
+use crate::cli_output::emit;
 
 pub(crate) fn handle_feature_footprint(format: OutputFormat) -> ExitCode {
     let report = FeatureFootprintReport::contract_only();
@@ -241,4 +241,200 @@ fn emit_unsupported_plan_report(
     } else {
         ExitCode::SUCCESS
     }
+}
+
+#[allow(clippy::too_many_lines)]
+pub(crate) fn feature_footprint_fields(report: &FeatureFootprintReport) -> Vec<(String, String)> {
+    let all_gates = report.all_gates();
+    vec![
+        ("mode".to_string(), "feature_footprint".to_string()),
+        (
+            "schema_version".to_string(),
+            report.schema_version.to_string(),
+        ),
+        ("engine_version".to_string(), report.engine_version.clone()),
+        (
+            "crate_version_count".to_string(),
+            report.crate_versions.len().to_string(),
+        ),
+        (
+            "compiled_feature_count".to_string(),
+            report.compiled_features.len().to_string(),
+        ),
+        (
+            "enabled_feature_count".to_string(),
+            report.enabled_features.len().to_string(),
+        ),
+        (
+            "disabled_feature_count".to_string(),
+            report.disabled_features.len().to_string(),
+        ),
+        (
+            "upstream_vortex_dependency_status".to_string(),
+            report.upstream_vortex_dependency_status.clone(),
+        ),
+        (
+            "upstream_vortex_version".to_string(),
+            report
+                .upstream_vortex_version
+                .clone()
+                .unwrap_or_else(|| "none".to_string()),
+        ),
+        ("all_gate_count".to_string(), all_gates.len().to_string()),
+        (
+            "vortex_gate_count".to_string(),
+            report.vortex_gates.len().to_string(),
+        ),
+        (
+            "encoded_read_gate_count".to_string(),
+            report.encoded_read_gates.len().to_string(),
+        ),
+        (
+            "metadata_io_gate_count".to_string(),
+            report.metadata_io_gates.len().to_string(),
+        ),
+        (
+            "write_gate_count".to_string(),
+            report.write_gates.len().to_string(),
+        ),
+        (
+            "object_store_gate_count".to_string(),
+            report.object_store_gates.len().to_string(),
+        ),
+        (
+            "distributed_execution_gate_count".to_string(),
+            report.distributed_execution_gates.len().to_string(),
+        ),
+        (
+            "gate_status_order".to_string(),
+            all_gates
+                .iter()
+                .map(|gate| format!("{}:{}", gate.name, gate.status.as_str()))
+                .collect::<Vec<_>>()
+                .join(","),
+        ),
+        (
+            "external_baseline_count".to_string(),
+            report.external_baseline_availability.len().to_string(),
+        ),
+        (
+            "external_baseline_runtime_fallback_count".to_string(),
+            report
+                .external_baseline_availability
+                .iter()
+                .filter(|baseline| baseline.runtime_fallback_allowed)
+                .count()
+                .to_string(),
+        ),
+        (
+            "fallback_engines_absent".to_string(),
+            report.fallback_engines_absent.to_string(),
+        ),
+        (
+            "fallback_execution_allowed".to_string(),
+            report.fallback_execution_allowed.to_string(),
+        ),
+        (
+            "diagnostic_count".to_string(),
+            report.diagnostics.len().to_string(),
+        ),
+    ]
+}
+
+fn observability_schema_coverage_fields(
+    report: &ObservabilitySchemaCoverageReport,
+) -> Vec<(String, String)> {
+    let mut fields = Vec::new();
+    push_field(&mut fields, "mode", "observability_schema_coverage");
+    push_field(&mut fields, "schema_version", report.schema_version);
+    push_count_field(&mut fields, "observability_area_count", report.area_count());
+    push_count_field(
+        &mut fields,
+        "complete_observability_area_count",
+        report.complete_area_count(),
+    );
+    push_count_field(
+        &mut fields,
+        "missing_observability_area_count",
+        report.missing_area_count(),
+    );
+    push_bool_field(
+        &mut fields,
+        "schema_coverage_complete",
+        report.schema_coverage_complete(),
+    );
+    push_bool_field(
+        &mut fields,
+        "local_json_required",
+        report.local_json_required,
+    );
+    push_bool_field(
+        &mut fields,
+        "exporter_integration_enabled",
+        report.exporter_integration_enabled,
+    );
+    push_bool_field(
+        &mut fields,
+        "runtime_collection_enabled",
+        report.runtime_collection_enabled,
+    );
+    push_bool_field(
+        &mut fields,
+        "debug_bundle_schema_present",
+        report.debug_bundle_schema_present,
+    );
+    push_bool_field(&mut fields, "redaction_required", report.redaction_required);
+    push_bool_field(
+        &mut fields,
+        "certificate_link_required",
+        report.certificate_link_required,
+    );
+    push_bool_field(&mut fields, "fallback_attempted", report.fallback_attempted);
+    for (index, entry) in report.entries.iter().enumerate() {
+        let prefix = format!("observability_area_{index}");
+        push_field(&mut fields, &format!("{prefix}_name"), entry.area.as_str());
+        push_field(
+            &mut fields,
+            &format!("{prefix}_trace_span_schema"),
+            entry.trace_span_schema.as_str(),
+        );
+        push_field(
+            &mut fields,
+            &format!("{prefix}_structured_event_schema"),
+            entry.structured_event_schema.as_str(),
+        );
+        push_field(
+            &mut fields,
+            &format!("{prefix}_profile_schema"),
+            entry.profile_schema.as_str(),
+        );
+        push_field(
+            &mut fields,
+            &format!("{prefix}_log_schema"),
+            entry.log_schema.as_str(),
+        );
+        push_bool_field(
+            &mut fields,
+            &format!("{prefix}_certificate_link_required"),
+            entry.certificate_link_required,
+        );
+        push_bool_field(
+            &mut fields,
+            &format!("{prefix}_redaction_required"),
+            entry.redaction_required,
+        );
+    }
+    fields
+}
+
+fn push_field(fields: &mut Vec<(String, String)>, key: &str, value: &str) {
+    fields.push((key.to_string(), value.to_string()));
+}
+
+fn push_count_field(fields: &mut Vec<(String, String)>, key: &str, value: usize) {
+    push_field(fields, key, &value.to_string());
+}
+
+fn push_bool_field(fields: &mut Vec<(String, String)>, key: &str, value: bool) {
+    push_field(fields, key, &value.to_string());
 }
