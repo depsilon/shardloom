@@ -582,6 +582,80 @@ impl ReleaseReadinessStatus {
         matches!(self, Self::ReadyForRelease)
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReleaseEvidenceRequirementKind {
+    SchemaVersion,
+    ApiStability,
+    DependencyLicense,
+    Sbom,
+    ProvenanceAttestation,
+    ReproducibleBuild,
+    ReleaseNotes,
+    BenchmarkAccountability,
+    NoFallback,
+    HumanApproval,
+}
+as_str_enum!(ReleaseEvidenceRequirementKind{SchemaVersion=>"schema_version",ApiStability=>"api_stability",DependencyLicense=>"dependency_license",Sbom=>"sbom",ProvenanceAttestation=>"provenance_attestation",ReproducibleBuild=>"reproducible_build",ReleaseNotes=>"release_notes",BenchmarkAccountability=>"benchmark_accountability",NoFallback=>"no_fallback",HumanApproval=>"human_approval"});
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReleaseEvidenceRequirementStatus {
+    Present,
+    Planned,
+    Missing,
+    Blocked,
+    NotApplicable,
+}
+as_str_enum!(ReleaseEvidenceRequirementStatus{Present=>"present",Planned=>"planned",Missing=>"missing",Blocked=>"blocked",NotApplicable=>"not_applicable"});
+impl ReleaseEvidenceRequirementStatus {
+    pub const fn satisfies_release_gate(&self) -> bool {
+        matches!(self, Self::Present | Self::NotApplicable)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReleaseEvidenceRequirement {
+    pub kind: ReleaseEvidenceRequirementKind,
+    pub status: ReleaseEvidenceRequirementStatus,
+    pub required_before_publication: bool,
+    pub evidence_ref: Option<String>,
+    pub diagnostic: Option<String>,
+}
+impl ReleaseEvidenceRequirement {
+    pub fn new(
+        kind: ReleaseEvidenceRequirementKind,
+        status: ReleaseEvidenceRequirementStatus,
+        required_before_publication: bool,
+    ) -> Self {
+        Self {
+            kind,
+            status,
+            required_before_publication,
+            evidence_ref: None,
+            diagnostic: None,
+        }
+    }
+    pub fn with_evidence_ref(mut self, evidence_ref: impl Into<String>) -> Self {
+        self.evidence_ref = Some(evidence_ref.into());
+        self
+    }
+    pub fn with_diagnostic(mut self, diagnostic: impl Into<String>) -> Self {
+        self.diagnostic = Some(diagnostic.into());
+        self
+    }
+    pub const fn is_blocking(&self) -> bool {
+        self.required_before_publication && !self.status.satisfies_release_gate()
+    }
+    pub fn summary(&self) -> String {
+        format!(
+            "{} {} required_before_publication={}",
+            self.kind.as_str(),
+            self.status.as_str(),
+            self.required_before_publication
+        )
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReleasePlan {
     pub version: ProjectVersion,
@@ -710,6 +784,9 @@ impl ReleasePlan {
                 .filter(|t| t.enabled && t.kind.requires_external_publish())
                 .all(|t| t.publish_allowed)
     }
+    pub fn release_readiness_evidence(&self) -> ReleaseReadinessEvidenceReport {
+        ReleaseReadinessEvidenceReport::from_plan(self)
+    }
     pub fn has_errors(&self) -> bool {
         self.diagnostics.iter().any(|d| {
             matches!(
@@ -736,6 +813,229 @@ impl ReleasePlan {
         )
     }
 }
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReleaseReadinessEvidenceReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub release_version: String,
+    pub release_channel: ReleaseChannel,
+    pub release_readiness: ReleaseReadinessStatus,
+    pub requirements: Vec<ReleaseEvidenceRequirement>,
+    pub public_release_claim_allowed: bool,
+    pub public_package_claim_allowed: bool,
+    pub runtime_execution: bool,
+    pub external_publish_performed: bool,
+    pub fallback_attempted: bool,
+    pub fallback_execution_allowed: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl ReleaseReadinessEvidenceReport {
+    pub fn from_plan(plan: &ReleasePlan) -> Self {
+        let mut requirements = vec![
+            ReleaseEvidenceRequirement::new(
+                ReleaseEvidenceRequirementKind::SchemaVersion,
+                schema_version_status(plan),
+                true,
+            )
+            .with_evidence_ref("ReleasePlan.schemas"),
+            ReleaseEvidenceRequirement::new(
+                ReleaseEvidenceRequirementKind::ApiStability,
+                api_stability_status(plan),
+                true,
+            )
+            .with_evidence_ref("ReleasePlan.public_surfaces"),
+            ReleaseEvidenceRequirement::new(
+                ReleaseEvidenceRequirementKind::DependencyLicense,
+                dependency_license_status(plan),
+                true,
+            )
+            .with_evidence_ref("ReleasePlan.dependency_reviews"),
+            ReleaseEvidenceRequirement::new(
+                ReleaseEvidenceRequirementKind::Sbom,
+                artifact_status(plan, ReleaseArtifactKind::Sbom),
+                true,
+            )
+            .with_evidence_ref("ReleasePlan.artifacts"),
+            ReleaseEvidenceRequirement::new(
+                ReleaseEvidenceRequirementKind::ProvenanceAttestation,
+                artifact_status(plan, ReleaseArtifactKind::Signature),
+                true,
+            )
+            .with_evidence_ref("ReleasePlan.artifacts"),
+            ReleaseEvidenceRequirement::new(
+                ReleaseEvidenceRequirementKind::ReproducibleBuild,
+                ReleaseEvidenceRequirementStatus::Missing,
+                true,
+            )
+            .with_evidence_ref("release build provenance"),
+            ReleaseEvidenceRequirement::new(
+                ReleaseEvidenceRequirementKind::ReleaseNotes,
+                checklist_status(plan, ReleaseChecklistItemKind::ReleaseNotesWritten),
+                true,
+            )
+            .with_evidence_ref("ReleasePlan.checklist"),
+            ReleaseEvidenceRequirement::new(
+                ReleaseEvidenceRequirementKind::BenchmarkAccountability,
+                checklist_status(plan, ReleaseChecklistItemKind::BenchmarkClaimsVerified),
+                true,
+            )
+            .with_evidence_ref("ReleasePlan.checklist"),
+            ReleaseEvidenceRequirement::new(
+                ReleaseEvidenceRequirementKind::NoFallback,
+                no_fallback_status(plan),
+                true,
+            )
+            .with_evidence_ref("ReleasePlan.no_fallback_check"),
+            ReleaseEvidenceRequirement::new(
+                ReleaseEvidenceRequirementKind::HumanApproval,
+                checklist_status(plan, ReleaseChecklistItemKind::HumanApproval),
+                true,
+            )
+            .with_evidence_ref("ReleasePlan.checklist"),
+        ];
+        for requirement in &mut requirements {
+            if requirement.is_blocking() && requirement.diagnostic.is_none() {
+                requirement.diagnostic = Some(format!(
+                    "{} evidence is required before public release claims",
+                    requirement.kind.as_str()
+                ));
+            }
+        }
+        let public_claim_allowed = plan.publish_allowed()
+            && requirements
+                .iter()
+                .all(|requirement| !requirement.is_blocking());
+        Self {
+            schema_version: "shardloom.release_readiness_evidence.v1",
+            report_id: "release-readiness-foundation",
+            release_version: plan.version.summary(),
+            release_channel: plan.channel,
+            release_readiness: plan.readiness,
+            requirements,
+            public_release_claim_allowed: public_claim_allowed,
+            public_package_claim_allowed: public_claim_allowed,
+            runtime_execution: false,
+            external_publish_performed: false,
+            fallback_attempted: false,
+            fallback_execution_allowed: plan.no_fallback_check.fallback_execution_allowed,
+            diagnostics: plan.diagnostics.clone(),
+        }
+    }
+    pub fn blocking_requirement_count(&self) -> usize {
+        self.requirements
+            .iter()
+            .filter(|requirement| requirement.is_blocking())
+            .count()
+    }
+    pub fn status_for(
+        &self,
+        kind: ReleaseEvidenceRequirementKind,
+    ) -> ReleaseEvidenceRequirementStatus {
+        self.requirements
+            .iter()
+            .find(|requirement| requirement.kind == kind)
+            .map_or(ReleaseEvidenceRequirementStatus::Missing, |requirement| {
+                requirement.status
+            })
+    }
+    pub fn blocking_requirement_names(&self) -> Vec<&'static str> {
+        self.requirements
+            .iter()
+            .filter(|requirement| requirement.is_blocking())
+            .map(|requirement| requirement.kind.as_str())
+            .collect()
+    }
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "release readiness evidence\nschema_version: {}\nrelease_version: {}\nblocking requirements: {}\npublic release claim allowed: {}\nexternal publish performed: {}\nfallback attempted: {}\nfallback execution allowed: {}",
+            self.schema_version,
+            self.release_version,
+            self.blocking_requirement_names().join(", "),
+            self.public_release_claim_allowed,
+            self.external_publish_performed,
+            self.fallback_attempted,
+            self.fallback_execution_allowed
+        )
+    }
+}
+
+fn schema_version_status(plan: &ReleasePlan) -> ReleaseEvidenceRequirementStatus {
+    if plan.schemas.is_empty() {
+        ReleaseEvidenceRequirementStatus::Missing
+    } else if plan
+        .schemas
+        .iter()
+        .all(|schema| schema.stability.is_versioned())
+    {
+        ReleaseEvidenceRequirementStatus::Present
+    } else {
+        ReleaseEvidenceRequirementStatus::Blocked
+    }
+}
+
+fn api_stability_status(plan: &ReleasePlan) -> ReleaseEvidenceRequirementStatus {
+    if plan.public_surfaces.is_empty() {
+        ReleaseEvidenceRequirementStatus::Missing
+    } else {
+        ReleaseEvidenceRequirementStatus::Present
+    }
+}
+
+fn dependency_license_status(plan: &ReleasePlan) -> ReleaseEvidenceRequirementStatus {
+    if plan.dependency_reviews.is_empty() {
+        ReleaseEvidenceRequirementStatus::Missing
+    } else if plan
+        .dependency_reviews
+        .iter()
+        .any(DependencyReview::is_blocking)
+    {
+        ReleaseEvidenceRequirementStatus::Blocked
+    } else {
+        ReleaseEvidenceRequirementStatus::Present
+    }
+}
+
+fn artifact_status(
+    plan: &ReleasePlan,
+    kind: ReleaseArtifactKind,
+) -> ReleaseEvidenceRequirementStatus {
+    plan.artifacts
+        .iter()
+        .find(|artifact| artifact.kind == kind)
+        .map_or(ReleaseEvidenceRequirementStatus::Missing, |artifact| {
+            if artifact.built {
+                ReleaseEvidenceRequirementStatus::Present
+            } else {
+                ReleaseEvidenceRequirementStatus::Planned
+            }
+        })
+}
+
+fn checklist_status(
+    plan: &ReleasePlan,
+    kind: ReleaseChecklistItemKind,
+) -> ReleaseEvidenceRequirementStatus {
+    plan.checklist.iter().find(|item| item.kind == kind).map_or(
+        ReleaseEvidenceRequirementStatus::Missing,
+        |item| match item.status {
+            ChecklistStatus::Passed | ChecklistStatus::Waived | ChecklistStatus::NotApplicable => {
+                ReleaseEvidenceRequirementStatus::Present
+            }
+            ChecklistStatus::Failed => ReleaseEvidenceRequirementStatus::Blocked,
+            ChecklistStatus::NotStarted => ReleaseEvidenceRequirementStatus::Missing,
+        },
+    )
+}
+
+fn no_fallback_status(plan: &ReleasePlan) -> ReleaseEvidenceRequirementStatus {
+    if plan.no_fallback_check.is_clean() {
+        ReleaseEvidenceRequirementStatus::Present
+    } else {
+        ReleaseEvidenceRequirementStatus::Blocked
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReleaseReport {
     pub plan: ReleasePlan,
@@ -916,5 +1216,53 @@ mod tests {
         );
 
         assert!(plan.publish_allowed());
+    }
+
+    #[test]
+    fn release_readiness_evidence_blocks_public_claims_without_required_artifacts() {
+        let plan = ReleasePlan::default_foundation_plan();
+        let evidence = plan.release_readiness_evidence();
+
+        assert_eq!(
+            evidence.schema_version,
+            "shardloom.release_readiness_evidence.v1"
+        );
+        assert_eq!(
+            evidence.status_for(ReleaseEvidenceRequirementKind::SchemaVersion),
+            ReleaseEvidenceRequirementStatus::Present
+        );
+        assert_eq!(
+            evidence.status_for(ReleaseEvidenceRequirementKind::NoFallback),
+            ReleaseEvidenceRequirementStatus::Present
+        );
+        assert_eq!(
+            evidence.status_for(ReleaseEvidenceRequirementKind::Sbom),
+            ReleaseEvidenceRequirementStatus::Missing
+        );
+        assert_eq!(
+            evidence.status_for(ReleaseEvidenceRequirementKind::ProvenanceAttestation),
+            ReleaseEvidenceRequirementStatus::Missing
+        );
+        assert!(evidence.blocking_requirement_count() > 0);
+        assert!(!evidence.public_release_claim_allowed);
+        assert!(!evidence.external_publish_performed);
+        assert!(!evidence.fallback_attempted);
+    }
+
+    #[test]
+    fn release_readiness_evidence_blocks_no_fallback_policy_violations() {
+        let mut plan = ReleasePlan::default_foundation_plan();
+        plan.no_fallback_check = NoFallbackReleaseCheck {
+            fallback_execution_allowed: true,
+            ..NoFallbackReleaseCheck::clean()
+        };
+        let evidence = plan.release_readiness_evidence();
+
+        assert_eq!(
+            evidence.status_for(ReleaseEvidenceRequirementKind::NoFallback),
+            ReleaseEvidenceRequirementStatus::Blocked
+        );
+        assert!(evidence.fallback_execution_allowed);
+        assert!(!evidence.public_package_claim_allowed);
     }
 }

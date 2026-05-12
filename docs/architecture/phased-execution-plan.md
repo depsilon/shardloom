@@ -343,7 +343,7 @@ not by numeric CG order.
     - [ ] Default effectful features to denied or dry-run unless an explicit policy authorizes
           execution.
   - [ ] RFC 0024 release engineering, API compatibility, and packaging discipline
-    - [ ] Add schema-version, API-stability, dependency/license, SBOM/provenance, reproducible
+    - [x] Add schema-version, API-stability, dependency/license, SBOM/provenance, reproducible
           build, release-note, benchmark-accountability, and no-fallback release checks before
           public package/release claims.
     - [ ] Keep container/server/package publication distinct from local development support and

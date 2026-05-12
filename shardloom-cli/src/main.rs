@@ -31,7 +31,8 @@ use shardloom_core::{
     PartitionField, PartitionSpec, PartitionTransform, PhysicalKernelRegistryPlan,
     PhysicalOperatorExecutionLevel, PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorKind,
     PhysicalOperatorPlan, PredicateExpr, PythonWrapperFoundationReport, RedactionPolicy,
-    ReleasePlan, RuntimeObservabilityReport, SchemaDefinition, SchemaEvolutionCompatibilityReport,
+    ReleaseEvidenceRequirementKind, ReleasePlan, ReleaseReadinessEvidenceReport,
+    RuntimeObservabilityReport, SchemaDefinition, SchemaEvolutionCompatibilityReport,
     SchemaEvolutionPolicy, SchemaField, SchemaId, SchemaVersion, SecurityPlan, SegmentChange,
     SegmentChangeKind, SegmentId, SegmentLayout, SegmentStats, ShardLoomError, SnapshotId,
     SnapshotRef, StatValue, StatefulReuseReport, TableCompatibilityPlan, TableCompatibilityReport,
@@ -5216,6 +5217,132 @@ fn certification_fields(
         }
     }
     fields
+}
+
+fn release_plan_fields(
+    plan: &ReleasePlan,
+    evidence: &ReleaseReadinessEvidenceReport,
+    mode: &str,
+) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    push_field(&mut fields, "mode", mode);
+    push_field(&mut fields, "schema_version", evidence.schema_version);
+    push_field(&mut fields, "report_id", evidence.report_id);
+    push_field(&mut fields, "release_version", &evidence.release_version);
+    push_field(
+        &mut fields,
+        "release_channel",
+        evidence.release_channel.as_str(),
+    );
+    push_field(
+        &mut fields,
+        "release_readiness",
+        evidence.release_readiness.as_str(),
+    );
+    push_bool_field(&mut fields, "publish_allowed", plan.publish_allowed());
+    push_bool_field(
+        &mut fields,
+        "public_release_claim_allowed",
+        evidence.public_release_claim_allowed,
+    );
+    push_bool_field(
+        &mut fields,
+        "public_package_claim_allowed",
+        evidence.public_package_claim_allowed,
+    );
+    push_count_field(
+        &mut fields,
+        "blocking_release_requirement_count",
+        evidence.blocking_requirement_count(),
+    );
+    push_count_field(
+        &mut fields,
+        "public_surface_count",
+        plan.public_surfaces.len(),
+    );
+    push_count_field(&mut fields, "schema_count", plan.schemas.len());
+    push_count_field(
+        &mut fields,
+        "package_target_count",
+        plan.package_targets.len(),
+    );
+    push_count_field(&mut fields, "artifact_count", plan.artifacts.len());
+    push_count_field(
+        &mut fields,
+        "dependency_review_count",
+        plan.dependency_reviews.len(),
+    );
+    push_count_field(&mut fields, "release_checklist_count", plan.checklist.len());
+    append_release_evidence_requirement_fields(&mut fields, evidence);
+    push_field(&mut fields, "published", "false");
+    push_field(&mut fields, "write_io", "false");
+    push_field(&mut fields, "execution", "not_performed");
+    push_field(&mut fields, "plan_only", "true");
+    push_field(&mut fields, "external_publish", "not_performed");
+    push_bool_field(
+        &mut fields,
+        "external_publish_performed",
+        evidence.external_publish_performed,
+    );
+    push_bool_field(&mut fields, "runtime_execution", evidence.runtime_execution);
+    push_bool_field(
+        &mut fields,
+        "fallback_execution_allowed",
+        evidence.fallback_execution_allowed,
+    );
+    push_bool_field(
+        &mut fields,
+        "fallback_attempted",
+        evidence.fallback_attempted,
+    );
+    fields
+}
+
+fn append_release_evidence_requirement_fields(
+    fields: &mut Vec<(String, String)>,
+    evidence: &ReleaseReadinessEvidenceReport,
+) {
+    for (field, kind) in [
+        (
+            "schema_version_check",
+            ReleaseEvidenceRequirementKind::SchemaVersion,
+        ),
+        (
+            "api_stability_check",
+            ReleaseEvidenceRequirementKind::ApiStability,
+        ),
+        (
+            "dependency_license_check",
+            ReleaseEvidenceRequirementKind::DependencyLicense,
+        ),
+        ("sbom_check", ReleaseEvidenceRequirementKind::Sbom),
+        (
+            "provenance_attestation_check",
+            ReleaseEvidenceRequirementKind::ProvenanceAttestation,
+        ),
+        (
+            "reproducible_build_check",
+            ReleaseEvidenceRequirementKind::ReproducibleBuild,
+        ),
+        (
+            "release_notes_check",
+            ReleaseEvidenceRequirementKind::ReleaseNotes,
+        ),
+        (
+            "benchmark_accountability_check",
+            ReleaseEvidenceRequirementKind::BenchmarkAccountability,
+        ),
+        (
+            "no_fallback_release_check",
+            ReleaseEvidenceRequirementKind::NoFallback,
+        ),
+        (
+            "human_approval_check",
+            ReleaseEvidenceRequirementKind::HumanApproval,
+        ),
+    ] {
+        push_field(fields, field, evidence.status_for(kind).as_str());
+    }
 }
 
 fn api_protocol_fields(report: &CliApiJsonProtocolReport) -> Vec<(String, String)> {
@@ -16713,51 +16840,29 @@ fn run(args: Vec<String>) -> ExitCode {
         }
         Some("release-plan") => {
             let plan = ReleasePlan::default_foundation_plan();
+            let evidence = plan.release_readiness_evidence();
             emit(
                 "release-plan",
                 format,
                 CommandStatus::Success,
                 "release plan skeleton".to_string(),
-                plan.to_human_text(),
+                format!("{}\n\n{}", plan.to_human_text(), evidence.to_human_text()),
                 plan.diagnostics.clone(),
-                vec![
-                    (
-                        "fallback_execution_allowed".to_string(),
-                        "false".to_string(),
-                    ),
-                    ("mode".to_string(), "release_plan".to_string()),
-                    ("publish_allowed".to_string(), "false".to_string()),
-                    ("published".to_string(), "false".to_string()),
-                    ("write_io".to_string(), "false".to_string()),
-                    ("execution".to_string(), "not_performed".to_string()),
-                    ("plan_only".to_string(), "true".to_string()),
-                    ("external_publish".to_string(), "not_performed".to_string()),
-                ],
+                release_plan_fields(&plan, &evidence, "release_plan"),
             );
             ExitCode::SUCCESS
         }
         Some("package-plan") => {
             let plan = ReleasePlan::default_foundation_plan();
+            let evidence = plan.release_readiness_evidence();
             emit(
                 "package-plan",
                 format,
                 CommandStatus::Success,
                 "package plan skeleton".to_string(),
-                plan.to_human_text(),
+                format!("{}\n\n{}", plan.to_human_text(), evidence.to_human_text()),
                 plan.diagnostics.clone(),
-                vec![
-                    (
-                        "fallback_execution_allowed".to_string(),
-                        "false".to_string(),
-                    ),
-                    ("mode".to_string(), "package_plan".to_string()),
-                    ("publish_allowed".to_string(), "false".to_string()),
-                    ("published".to_string(), "false".to_string()),
-                    ("write_io".to_string(), "false".to_string()),
-                    ("execution".to_string(), "not_performed".to_string()),
-                    ("plan_only".to_string(), "true".to_string()),
-                    ("external_publish".to_string(), "not_performed".to_string()),
-                ],
+                release_plan_fields(&plan, &evidence, "package_plan"),
             );
             ExitCode::SUCCESS
         }
@@ -29657,6 +29762,38 @@ mod tests {
     fn release_plan_returns_success() {
         let code = run(vec!["release-plan".to_string()]);
         assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn release_plan_fields_expose_release_readiness_blockers_without_publish() {
+        let plan = ReleasePlan::default_foundation_plan();
+        let evidence = plan.release_readiness_evidence();
+        let fields = release_plan_fields(&plan, &evidence, "release_plan");
+
+        assert_eq!(
+            output_field(&fields, "schema_version"),
+            "shardloom.release_readiness_evidence.v1"
+        );
+        assert_eq!(output_field(&fields, "mode"), "release_plan");
+        assert_eq!(output_field(&fields, "schema_version_check"), "present");
+        assert_eq!(output_field(&fields, "api_stability_check"), "present");
+        assert_eq!(output_field(&fields, "dependency_license_check"), "missing");
+        assert_eq!(output_field(&fields, "sbom_check"), "missing");
+        assert_eq!(
+            output_field(&fields, "provenance_attestation_check"),
+            "missing"
+        );
+        assert_eq!(
+            output_field(&fields, "no_fallback_release_check"),
+            "present"
+        );
+        assert_eq!(
+            output_field(&fields, "public_release_claim_allowed"),
+            "false"
+        );
+        assert_eq!(output_field(&fields, "external_publish_performed"), "false");
+        assert_eq!(output_field(&fields, "runtime_execution"), "false");
+        assert_eq!(output_field(&fields, "fallback_attempted"), "false");
     }
 
     #[test]
