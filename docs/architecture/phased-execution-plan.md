@@ -314,7 +314,20 @@ not by numeric CG order.
     - [x] Expose the gate through `commit-execution-promotion-gate` without runtime execution,
           write IO, object-store IO, catalog IO, external effects, claim publication, or fallback
           execution.
-  - [ ] CG-8 dynamic sizing feedback execution and bounded parallel encoded/read runtime.
+  - [x] CG-8 dynamic sizing feedback execution and bounded parallel encoded/read runtime.
+    - [x] Add `DynamicRuntimePromotionGateReport` so runtime application of dynamic sizing
+          feedback and bounded parallel encoded/source-backed reads remains blocked until runtime
+          metrics, target-task policy, scheduler queue policy, memory/spill reservation,
+          backpressure, cancellation/retry, execution-certificate, Native I/O, benchmark, and
+          no-fallback evidence exists.
+    - [x] Keep existing local streaming scan, bounded metadata/no-op, and local filter-project
+          bounded scan evidence visible as narrow local evidence while keeping dynamic feedback
+          mutation, bounded parallel encoded reads, source-backed reader split parallelism,
+          scheduler requeue, bounded backpressure runtime, memory/spill runtime, and object-store
+          request-budget runtime blocked.
+    - [x] Expose the gate through `cg8-runtime-promotion-gate` without runtime execution, task
+          execution, data reads, materialization, object-store IO, write IO, spill IO, policy
+          mutation, large-workload claims, or fallback execution.
   - [ ] CG-9 catalog/table metadata integration.
   - [ ] CG-10 object-store/distributed runtime execution.
   - [ ] CG-20 SQL/DataFrame/UDF/unstructured/media/adapters once the encoded primitive evidence loop

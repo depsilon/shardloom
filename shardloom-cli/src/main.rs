@@ -52,8 +52,9 @@ use shardloom_core::{
 use shardloom_exec::{
     AdaptiveSizer, AdaptiveSizingPolicy, AttemptId, BackpressurePlanInput, BackpressurePlanReport,
     BoundedMemoryPolicy, ByteSize, CancellationReason, CancellationRequest, CancellationScope,
-    CommitExecutionPromotionGateReport, DynamicSizingFeedbackInput, DynamicSizingFeedbackReport,
-    DynamicWorkShapingReport, EncodedStreamingBatchPlanInput, EncodedStreamingBatchPlanReport,
+    CommitExecutionPromotionGateReport, DynamicRuntimePromotionGateReport,
+    DynamicSizingFeedbackInput, DynamicSizingFeedbackReport, DynamicWorkShapingReport,
+    EncodedStreamingBatchPlanInput, EncodedStreamingBatchPlanReport,
     FaultTolerancePromotionGateReport, MemoryBudget, MemoryOwner, MemoryPoolPlan, OomSafetyPlan,
     OperatorMemoryClass, OperatorMemorySpillDeclarationReport, ParallelismLimit, ParallelismPlan,
     RecoveryPlan, RetryPlan, RuntimePlanSkeleton, ShardLoomCancellationExecutionGateReport,
@@ -66,10 +67,11 @@ use shardloom_exec::{
     SpillReservationIntegrationRequest, SpillWorkspaceId, SpillWorkspacePath,
     StreamingPlanSkeleton, StreamingSink, StreamingSource, SyntheticSpillPayload,
     TaskAttemptRecord, plan_backpressure, plan_cancellation_execution_gate,
-    plan_commit_execution_promotion_gate, plan_dynamic_sizing_feedback, plan_dynamic_work_shaping,
-    plan_encoded_streaming_batches, plan_fault_tolerance_promotion_gate,
-    plan_operator_memory_spill_declarations, plan_retry_execution_gate, plan_spill_lifecycle,
-    plan_spill_reservation_integration, roundtrip_spill_payload, spill_payload_fs_feature_enabled,
+    plan_commit_execution_promotion_gate, plan_dynamic_runtime_promotion_gate,
+    plan_dynamic_sizing_feedback, plan_dynamic_work_shaping, plan_encoded_streaming_batches,
+    plan_fault_tolerance_promotion_gate, plan_operator_memory_spill_declarations,
+    plan_retry_execution_gate, plan_spill_lifecycle, plan_spill_reservation_integration,
+    roundtrip_spill_payload, spill_payload_fs_feature_enabled,
 };
 use shardloom_plan::{
     AdaptiveOptimizerMemoryReport, EstimateReport, ExplainReport, ImportedPlanCapabilityGateReport,
@@ -216,7 +218,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|agent-contract-pack|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance]|security-plan|security-governance-evidence-gate|effect-budget-plan|agent-safety-plan|redaction-plan|kernel-registry|feature-footprint|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|layout-health-plan|compaction-plan|table-intelligence-plan|object-store-request-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|dynamic-work-shaping-plan [balanced|memory-pressure|object-store-throttled|small-tasks]|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|benchmark-claim-evidence-plan [foundation|traditional-analytics]|traditional-analytics-run|traditional-analytics-vortex-run|vortex-count-benchmark|correctness-plan|correctness-harness-plan|execution-certificate-plan|recovery-plan|commit-execution-promotion-gate|fault-tolerance-promotion-gate|cancellation-plan|retry-plan|observability-plan|observability-schema-coverage|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-filter-project|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|operator-memory-spill-declarations|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|agent-contract-pack|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance]|security-plan|security-governance-evidence-gate|effect-budget-plan|agent-safety-plan|redaction-plan|kernel-registry|feature-footprint|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|layout-health-plan|compaction-plan|table-intelligence-plan|object-store-request-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|dynamic-work-shaping-plan [balanced|memory-pressure|object-store-throttled|small-tasks]|cg8-runtime-promotion-gate|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|benchmark-claim-evidence-plan [foundation|traditional-analytics]|traditional-analytics-run|traditional-analytics-vortex-run|vortex-count-benchmark|correctness-plan|correctness-harness-plan|execution-certificate-plan|recovery-plan|commit-execution-promotion-gate|fault-tolerance-promotion-gate|cancellation-plan|retry-plan|observability-plan|observability-schema-coverage|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-filter-project|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|operator-memory-spill-declarations|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -8051,6 +8053,223 @@ fn dynamic_work_shaping_fields(report: &DynamicWorkShapingReport) -> Vec<(String
         report.is_side_effect_free(),
     );
     push_count_field(&mut fields, "diagnostic_count", report.diagnostics.len());
+    fields
+}
+
+#[allow(clippy::too_many_lines)]
+fn dynamic_runtime_promotion_gate_fields(
+    report: &DynamicRuntimePromotionGateReport,
+) -> Vec<(String, String)> {
+    let mut fields = Vec::new();
+    push_field(&mut fields, "mode", "cg8_runtime_promotion_gate");
+    push_field(&mut fields, "schema_version", report.schema_version);
+    push_field(&mut fields, "report_id", report.report_id);
+    push_count_field(&mut fields, "surface_count", report.surface_count());
+    push_count_field(
+        &mut fields,
+        "existing_limited_surface_count",
+        report.existing_limited_surface_count(),
+    );
+    push_count_field(
+        &mut fields,
+        "blocked_surface_count",
+        report.blocked_surface_count(),
+    );
+    push_count_field(
+        &mut fields,
+        "runtime_ready_surface_count",
+        report.runtime_ready_surface_count(),
+    );
+    push_field(
+        &mut fields,
+        "surface_order",
+        &report.surface_order().join(","),
+    );
+    push_bool_field(
+        &mut fields,
+        "existing_local_streaming_scan_evidence_present",
+        report.existing_local_streaming_scan_evidence_present,
+    );
+    push_bool_field(
+        &mut fields,
+        "existing_local_bounded_metadata_noop_evidence_present",
+        report.existing_local_bounded_metadata_noop_evidence_present,
+    );
+    push_bool_field(
+        &mut fields,
+        "existing_local_filter_project_bounded_scan_evidence_present",
+        report.existing_local_filter_project_bounded_scan_evidence_present,
+    );
+    push_bool_field(
+        &mut fields,
+        "runtime_promotions_blocked",
+        report.runtime_promotions_blocked(),
+    );
+    push_bool_field(&mut fields, "claim_blocked", report.claim_blocked());
+    push_bool_field(&mut fields, "side_effect_free", report.side_effect_free());
+    push_bool_field(
+        &mut fields,
+        "dynamic_feedback_application_allowed",
+        report.dynamic_feedback_application_allowed,
+    );
+    push_bool_field(
+        &mut fields,
+        "bounded_parallel_encoded_read_allowed",
+        report.bounded_parallel_encoded_read_allowed,
+    );
+    push_bool_field(
+        &mut fields,
+        "source_backed_parallel_reader_allowed",
+        report.source_backed_parallel_reader_allowed,
+    );
+    push_bool_field(
+        &mut fields,
+        "scheduler_requeue_allowed",
+        report.scheduler_requeue_allowed,
+    );
+    push_bool_field(
+        &mut fields,
+        "bounded_backpressure_runtime_allowed",
+        report.bounded_backpressure_runtime_allowed,
+    );
+    push_bool_field(
+        &mut fields,
+        "memory_spill_reservation_runtime_allowed",
+        report.memory_spill_reservation_runtime_allowed,
+    );
+    push_bool_field(
+        &mut fields,
+        "object_store_request_budget_runtime_allowed",
+        report.object_store_request_budget_runtime_allowed,
+    );
+    push_bool_field(
+        &mut fields,
+        "runtime_policy_mutation_allowed",
+        report.runtime_policy_mutation_allowed,
+    );
+    push_bool_field(
+        &mut fields,
+        "large_workload_claim_allowed",
+        report.large_workload_claim_allowed,
+    );
+    push_bool_field(
+        &mut fields,
+        "runtime_metrics_required",
+        report.runtime_metrics_required,
+    );
+    push_bool_field(
+        &mut fields,
+        "target_task_policy_required",
+        report.target_task_policy_required,
+    );
+    push_bool_field(
+        &mut fields,
+        "scheduler_queue_policy_required",
+        report.scheduler_queue_policy_required,
+    );
+    push_bool_field(
+        &mut fields,
+        "memory_reservation_evidence_required",
+        report.memory_reservation_evidence_required,
+    );
+    push_bool_field(
+        &mut fields,
+        "spill_policy_evidence_required",
+        report.spill_policy_evidence_required,
+    );
+    push_bool_field(
+        &mut fields,
+        "backpressure_evidence_required",
+        report.backpressure_evidence_required,
+    );
+    push_bool_field(
+        &mut fields,
+        "cancellation_retry_evidence_required",
+        report.cancellation_retry_evidence_required,
+    );
+    push_bool_field(
+        &mut fields,
+        "execution_certificate_required",
+        report.execution_certificate_required,
+    );
+    push_bool_field(
+        &mut fields,
+        "native_io_certificate_required",
+        report.native_io_certificate_required,
+    );
+    push_bool_field(
+        &mut fields,
+        "benchmark_evidence_required",
+        report.benchmark_evidence_required,
+    );
+    push_bool_field(
+        &mut fields,
+        "runtime_execution",
+        report.runtime_execution_performed,
+    );
+    push_bool_field(&mut fields, "tasks_executed", report.tasks_executed);
+    push_bool_field(&mut fields, "data_read", report.data_read);
+    push_bool_field(&mut fields, "data_materialized", report.data_materialized);
+    push_bool_field(&mut fields, "object_store_io", report.object_store_io);
+    push_bool_field(&mut fields, "write_io", report.write_io);
+    push_bool_field(&mut fields, "spill_io_performed", report.spill_io_performed);
+    push_bool_field(&mut fields, "feedback_applied", report.feedback_applied);
+    push_bool_field(&mut fields, "policy_mutated", report.policy_mutated);
+    push_bool_field(
+        &mut fields,
+        "fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(&mut fields, "fallback_attempted", report.fallback_attempted);
+    push_count_field(&mut fields, "diagnostic_count", report.diagnostics.len());
+    for (idx, entry) in report.entries.iter().enumerate() {
+        let prefix = format!("cg8_runtime_surface_{idx}");
+        push_field(
+            &mut fields,
+            &format!("{prefix}_name"),
+            entry.surface.as_str(),
+        );
+        push_field(
+            &mut fields,
+            &format!("{prefix}_status"),
+            entry.status.as_str(),
+        );
+        push_field(
+            &mut fields,
+            &format!("{prefix}_required_evidence"),
+            entry.required_evidence,
+        );
+        push_bool_field(
+            &mut fields,
+            &format!("{prefix}_existing_limited_local_evidence"),
+            entry.existing_limited_local_evidence,
+        );
+        push_bool_field(
+            &mut fields,
+            &format!("{prefix}_requires_runtime_metrics"),
+            entry.requires_runtime_metrics,
+        );
+        push_bool_field(
+            &mut fields,
+            &format!("{prefix}_requires_execution_certificate"),
+            entry.requires_execution_certificate,
+        );
+        push_bool_field(
+            &mut fields,
+            &format!("{prefix}_requires_native_io_certificate"),
+            entry.requires_native_io_certificate,
+        );
+        push_bool_field(
+            &mut fields,
+            &format!("{prefix}_requires_benchmark_evidence"),
+            entry.requires_benchmark_evidence,
+        );
+        push_bool_field(
+            &mut fields,
+            &format!("{prefix}_runtime_promotion_allowed"),
+            entry.runtime_promotion_allowed,
+        );
+    }
     fields
 }
 
@@ -23686,6 +23905,27 @@ fn run(args: Vec<String>) -> ExitCode {
                 report.to_human_text(),
                 report.diagnostics.clone(),
                 dynamic_work_shaping_fields(&report),
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
+        }
+        Some("cg8-runtime-promotion-gate") => {
+            let report = plan_dynamic_runtime_promotion_gate();
+            emit(
+                "cg8-runtime-promotion-gate",
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "CG-8 runtime promotion gate".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                dynamic_runtime_promotion_gate_fields(&report),
             );
             if report.has_errors() {
                 ExitCode::from(1)

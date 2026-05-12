@@ -16,6 +16,41 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: CG-8 dynamic runtime promotion gate
+  - Primary files:
+    - `shardloom-exec/src/sizing.rs`
+    - `shardloom-exec/src/lib.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/cg8_runtime_promotion_gate.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/dynamic-work-shaping.md`
+  - Scope: add a report-only CG-8 promotion gate that keeps dynamic sizing feedback application
+    and bounded parallel encoded/source-backed read runtime blocked until runtime, memory, scheduler,
+    benchmark, certificate, Native I/O, and no-fallback evidence exists.
+  - Checklist:
+    - [x] Add `DynamicRuntimePromotionGateReport` with dynamic feedback application, bounded
+          parallel encoded read, source-backed reader split, scheduler requeue, bounded
+          backpressure, memory/spill reservation, object-store request budget, and benchmark
+          closeout surfaces.
+    - [x] Preserve existing local streaming scan, bounded metadata/no-op, and local filter-project
+          bounded scan evidence as narrow local evidence without promoting broad runtime execution.
+    - [x] Keep runtime policy mutation, bounded parallel source-backed reads, scheduler requeue,
+          object-store request budgeting, large-workload claims, and feedback application blocked.
+    - [x] Expose the gate through `cg8-runtime-promotion-gate` JSON/text output.
+  - Validation status:
+    - [x] `cargo test -p shardloom-exec dynamic_runtime_promotion_gate --lib`
+    - [x] `cargo test -p shardloom-cli --test cg8_runtime_promotion_gate`
+    - [x] `cargo fmt --all -- --check`
+    - [x] `cargo clippy -p shardloom-exec --lib -- -D warnings`
+    - [x] `cargo clippy -p shardloom-cli --all-targets -- -D warnings`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `git diff --check`
+  - Non-goals preserved:
+    - [x] No runtime feedback application, bounded parallel encoded/source-backed read runtime,
+          scheduler requeue, object-store request execution, task execution, data read,
+          materialization, write IO, spill IO, policy mutation, large-workload claim, external
+          engine fallback, or fallback execution.
 - [x] Session label: CG-4 broader commit execution promotion gate
   - Primary files:
     - `shardloom-exec/src/recovery.rs`
