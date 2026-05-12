@@ -225,6 +225,10 @@ actionable work.
     - [x] Move the prepared/source-backed encoded-read API boundary, boundary report, and
           metadata-probe handlers into `shardloom-cli/src/prepared_source_backed_execution.rs`
           while preserving report-only/no-dataset-read/no-fallback behavior.
+    - [x] Move the remaining prepared/source-backed encoded-read readiness and execute handlers
+          into `shardloom-cli/src/prepared_source_backed_execution.rs` while preserving
+          readiness-only, executor-contract, no-read/no-decode/no-materialize, and no-fallback
+          behavior.
     - [x] Move the first Vortex primitive execution handler, `vortex-count`, into
           `shardloom-cli/src/vortex_primitive_execution.rs` while leaving broader
           filter/projection/run/benchmark extraction staged.
@@ -260,6 +264,11 @@ actionable work.
           `vortex-encoded-path-selection-plan` and `vortex-generalized-encoded-primitive-gate`,
           into `shardloom-cli/src/vortex_planning.rs` while preserving report-only,
           side-effect-free, and no-fallback behavior.
+    - [x] Move the broader Vortex metadata/readiness/report-only planning cluster into
+          `shardloom-cli/src/vortex_planning.rs`, covering metadata execution planning, dry-run,
+          base Vortex read/output/translation plans, dependency readiness, mapping reports,
+          metadata-open/summary, and query-primitive planning without enabling dataset execution,
+          materialization, writes, external engines, or fallback behavior.
     - [x] Move operational runtime, memory/spill, fault-tolerance, observability, object-store,
           plan-portability, CG-20 evidence, Vortex output/commit/staged artifact, and Vortex
           runtime-readiness handler clusters into focused modules while preserving existing
