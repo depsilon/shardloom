@@ -75,7 +75,12 @@ fn correctness_harness_json_exposes_fixtures_oracles_and_missing_modes() {
     )));
     assert!(output.contains(&field("decoded_reference_output_coverage_complete", "true")));
     assert!(output.contains(&field("executable_expected_output_count", "18")));
-    assert!(output.contains(&field("not_yet_defined_fixture_count", "8")));
+    assert!(output.contains(&field("not_yet_defined_fixture_count", "0")));
+    assert!(output.contains(&field("deferred_fixture_family_count", "8")));
+    assert!(output.contains(&field(
+        "deferred_fixture_family_id_order",
+        "null-semantics,pruning-correctness,encoded-vs-decoded-reference,nested-data-edge-corpus,dictionary-encoded-edge-corpus,sparse-validity-edge-corpus,run-length-edge-corpus,temporal-semantics"
+    )));
     assert!(output.contains(&field("unsupported_diagnostic_fixture_count", "2")));
     assert!(output.contains(&field("baseline_count", "7")));
     assert!(output.contains(&field(
@@ -92,7 +97,7 @@ fn correctness_harness_json_exposes_fixtures_oracles_and_missing_modes() {
     assert!(output.contains(&field("external_oracle_artifacts_test_only", "true")));
     assert!(output.contains(&field(
         "benchmark_claim_blocker_order",
-        "not_yet_defined_fixtures,external_oracle_results_not_populated,property_fuzz_execution_not_performed"
+        "deferred_fixture_families,external_oracle_results_not_populated,property_fuzz_execution_not_performed"
     )));
     assert!(output.contains(&field("property_fuzz_execution_performed", "false")));
     assert!(

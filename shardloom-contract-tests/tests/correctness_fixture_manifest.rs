@@ -456,7 +456,21 @@ fn foundation_plan_reports_reference_and_gap_counts() {
     );
     assert!(plan.decoded_reference_output_coverage_complete());
     assert_eq!(plan.executable_expected_output_count(), 18);
-    assert_eq!(plan.not_yet_defined_fixture_count(), 8);
+    assert_eq!(plan.not_yet_defined_fixture_count(), 0);
+    assert_eq!(plan.deferred_fixture_family_count(), 8);
+    assert_eq!(
+        plan.deferred_fixture_family_id_order(),
+        vec![
+            "null-semantics",
+            "pruning-correctness",
+            "encoded-vs-decoded-reference",
+            "nested-data-edge-corpus",
+            "dictionary-encoded-edge-corpus",
+            "sparse-validity-edge-corpus",
+            "run-length-edge-corpus",
+            "temporal-semantics",
+        ]
+    );
     assert_eq!(plan.diagnostic_expected_output_count(), 1);
     assert_eq!(plan.unsupported_expected_output_count(), 1);
     assert_eq!(plan.baseline_count(), 7);

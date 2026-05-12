@@ -84,17 +84,19 @@ The report answers:
   Dask, and Velox comparison oracles.
 - External-oracle artifact slots are `declared_not_executed`, comparison-only,
   and record `external_engine_invoked=false` and `fallback_attempted=false`.
-- The benchmark claim gate explicitly reports blockers for remaining
-  `NotYetDefined` fixtures, unpopulated external-oracle result artifacts, and
-  property/fuzz execution not yet performed.
-- Several fixture families still have `NotYetDefined` expected outcomes.
+- The benchmark claim gate explicitly reports blockers for deferred
+  fixture-family requirements, unpopulated external-oracle result artifacts,
+  and property/fuzz execution not yet performed.
+- Current future fixture families no longer use ambiguous `NotYetDefined`
+  expectations; they are explicit deferred fixture-family requirements.
 - Current external oracle coverage is policy-only; no external engines are
   invoked by the harness.
 
 ## Next Implementation Direction
 
 The next CG-5 work should populate and/or execute the declared
-external-oracle artifacts, add property/fuzz execution, and resolve remaining
-`NotYetDefined` fixture families. Those fixtures and runs should come before
-new benchmark claims and should explicitly record no-fallback boundaries,
-semantic profile, materialization boundaries, and reproducible inputs.
+external-oracle artifacts, add property/fuzz execution, and turn deferred
+fixture-family requirements into executable fixtures and reference outputs.
+Those fixtures and runs should come before new benchmark claims and should
+explicitly record no-fallback boundaries, semantic profile, materialization
+boundaries, and reproducible inputs.

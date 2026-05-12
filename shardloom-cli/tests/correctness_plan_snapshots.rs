@@ -71,7 +71,12 @@ fn correctness_plan_json_exposes_reference_and_gap_counts() {
     )));
     assert!(output.contains(&field("decoded_reference_output_coverage_complete", "true")));
     assert!(output.contains(&field("executable_expected_output_count", "18")));
-    assert!(output.contains(&field("not_yet_defined_fixture_count", "8")));
+    assert!(output.contains(&field("not_yet_defined_fixture_count", "0")));
+    assert!(output.contains(&field("deferred_fixture_family_count", "8")));
+    assert!(output.contains(&field(
+        "deferred_fixture_family_id_order",
+        "null-semantics,pruning-correctness,encoded-vs-decoded-reference,nested-data-edge-corpus,dictionary-encoded-edge-corpus,sparse-validity-edge-corpus,run-length-edge-corpus,temporal-semantics"
+    )));
     assert!(output.contains(&field("diagnostic_expected_output_count", "1")));
     assert!(output.contains(&field("unsupported_expected_output_count", "1")));
     assert!(output.contains(&field("baseline_count", "7")));
