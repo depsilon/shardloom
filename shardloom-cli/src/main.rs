@@ -1017,6 +1017,34 @@ fn correctness_plan_fields(plan: &CorrectnessValidationPlan) -> Vec<(String, Str
             plan.deferred_fixture_family_id_order().join(","),
         ),
         (
+            "deferred_fixture_family_artifact_count".to_string(),
+            plan.deferred_fixture_family_artifact_count().to_string(),
+        ),
+        (
+            "deferred_fixture_family_artifact_populated_count".to_string(),
+            plan.deferred_fixture_family_artifact_populated_count()
+                .to_string(),
+        ),
+        (
+            "deferred_fixture_family_artifacts_populated".to_string(),
+            plan.deferred_fixture_family_artifacts_populated()
+                .to_string(),
+        ),
+        (
+            "deferred_fixture_family_artifact_id_order".to_string(),
+            plan.deferred_fixture_family_artifact_id_order().join(","),
+        ),
+        (
+            "deferred_fixture_family_artifact_status_order".to_string(),
+            plan.deferred_fixture_family_artifact_status_order()
+                .join(","),
+        ),
+        (
+            "deferred_fixture_family_artifacts_test_only".to_string(),
+            plan.deferred_fixture_family_artifacts_are_test_only()
+                .to_string(),
+        ),
+        (
             "diagnostic_expected_output_count".to_string(),
             plan.diagnostic_expected_output_count().to_string(),
         ),
@@ -1189,6 +1217,38 @@ fn correctness_harness_fields(
         &mut fields,
         "deferred_fixture_family_id_order",
         &report.deferred_fixture_family_id_order.join(","),
+    );
+    push_count_field(
+        &mut fields,
+        "deferred_fixture_family_artifact_count",
+        report.deferred_fixture_family_artifact_count,
+    );
+    push_count_field(
+        &mut fields,
+        "deferred_fixture_family_artifact_populated_count",
+        report.deferred_fixture_family_artifact_populated_count,
+    );
+    push_bool_field(
+        &mut fields,
+        "deferred_fixture_family_artifacts_populated",
+        report.deferred_fixture_family_artifacts_populated,
+    );
+    push_field(
+        &mut fields,
+        "deferred_fixture_family_artifact_id_order",
+        &report.deferred_fixture_family_artifact_id_order.join(","),
+    );
+    push_field(
+        &mut fields,
+        "deferred_fixture_family_artifact_status_order",
+        &report
+            .deferred_fixture_family_artifact_status_order
+            .join(","),
+    );
+    push_bool_field(
+        &mut fields,
+        "deferred_fixture_family_artifacts_test_only",
+        report.deferred_fixture_family_artifacts_test_only,
     );
     push_count_field(
         &mut fields,
@@ -31699,10 +31759,10 @@ mod tests {
         );
         assert_eq!(output_field(&fields, "harness_status"), "needs_evidence");
         assert_eq!(output_field(&fields, "planned_surface_count"), "9");
-        assert_eq!(output_field(&fields, "blocked_surface_count"), "1");
+        assert_eq!(output_field(&fields, "blocked_surface_count"), "2");
         assert_eq!(
             output_field(&fields, "blocked_surface_order"),
-            "benchmark_claim_gate"
+            "deferred_fixture_family_artifacts,benchmark_claim_gate"
         );
         assert_eq!(output_field(&fields, "baseline_count"), "7");
         assert!(output_field(&fields, "baseline_engine_order").contains("dask"));
@@ -31719,6 +31779,30 @@ mod tests {
         assert!(
             output_field(&fields, "deferred_fixture_family_id_order")
                 .contains("encoded-vs-decoded-reference")
+        );
+        assert_eq!(
+            output_field(&fields, "deferred_fixture_family_artifact_count"),
+            "8"
+        );
+        assert_eq!(
+            output_field(&fields, "deferred_fixture_family_artifact_populated_count"),
+            "0"
+        );
+        assert_eq!(
+            output_field(&fields, "deferred_fixture_family_artifacts_populated"),
+            "false"
+        );
+        assert!(
+            output_field(&fields, "deferred_fixture_family_artifact_id_order")
+                .contains("encoded-vs-decoded-reference.deferred-fixture-family.declared-evidence")
+        );
+        assert_eq!(
+            output_field(&fields, "deferred_fixture_family_artifact_status_order"),
+            "declared_not_populated"
+        );
+        assert_eq!(
+            output_field(&fields, "deferred_fixture_family_artifacts_test_only"),
+            "true"
         );
         assert_eq!(
             output_field(&fields, "external_oracle_result_artifact_count"),
@@ -31742,7 +31826,7 @@ mod tests {
         );
         assert_eq!(
             output_field(&fields, "benchmark_claim_blocker_order"),
-            "deferred_fixture_families,external_oracle_results_not_populated,property_fuzz_execution_not_performed"
+            "deferred_fixture_family_artifacts_not_populated,external_oracle_results_not_populated,property_fuzz_execution_not_performed"
         );
         assert_eq!(
             output_field(&fields, "property_fuzz_execution_performed"),

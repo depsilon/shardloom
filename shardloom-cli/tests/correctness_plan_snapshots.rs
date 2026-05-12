@@ -77,6 +77,27 @@ fn correctness_plan_json_exposes_reference_and_gap_counts() {
         "deferred_fixture_family_id_order",
         "null-semantics,pruning-correctness,encoded-vs-decoded-reference,nested-data-edge-corpus,dictionary-encoded-edge-corpus,sparse-validity-edge-corpus,run-length-edge-corpus,temporal-semantics"
     )));
+    assert!(output.contains(&field("deferred_fixture_family_artifact_count", "8")));
+    assert!(output.contains(&field(
+        "deferred_fixture_family_artifact_populated_count",
+        "0"
+    )));
+    assert!(output.contains(&field(
+        "deferred_fixture_family_artifacts_populated",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "deferred_fixture_family_artifact_id_order",
+        "null-semantics.deferred-fixture-family.declared-evidence,pruning-correctness.deferred-fixture-family.declared-evidence,encoded-vs-decoded-reference.deferred-fixture-family.declared-evidence,nested-data-edge-corpus.deferred-fixture-family.declared-evidence,dictionary-encoded-edge-corpus.deferred-fixture-family.declared-evidence,sparse-validity-edge-corpus.deferred-fixture-family.declared-evidence,run-length-edge-corpus.deferred-fixture-family.declared-evidence,temporal-semantics.deferred-fixture-family.declared-evidence"
+    )));
+    assert!(output.contains(&field(
+        "deferred_fixture_family_artifact_status_order",
+        "declared_not_populated"
+    )));
+    assert!(output.contains(&field(
+        "deferred_fixture_family_artifacts_test_only",
+        "true"
+    )));
     assert!(output.contains(&field("diagnostic_expected_output_count", "1")));
     assert!(output.contains(&field("unsupported_expected_output_count", "1")));
     assert!(output.contains(&field("baseline_count", "7")));

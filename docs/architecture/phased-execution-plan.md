@@ -98,7 +98,8 @@ Use this section for the next implementation sequence. Keep it ordered by depend
     - [x] CG-5.17 source-backed edge fixture manifest coverage and declared external-oracle result artifact slots are present without executing external engines.
     - [x] CG-5.18 benchmark claim gate explicitly stays blocked until external-oracle artifacts are populated and property/fuzz execution is performed.
     - [x] CG-5.19 ambiguous `NotYetDefined` fixtures are replaced with explicit deferred fixture-family blockers.
-    - [ ] Populated/executed external-oracle results, property/fuzz execution, and executable deferred fixture-family evidence remain open before claim-grade correctness closeout.
+    - [x] CG-5.20 deferred fixture-family artifact slots are declared with population status, required refs, and no-execution/no-fallback evidence.
+    - [ ] Populated/executed external-oracle results, property/fuzz execution, and populated executable deferred fixture-family artifacts remain open before claim-grade correctness closeout.
   - [ ] CG-6 query-runtime benchmark rows, reproducibility metadata, work-avoidance evidence, and claim-gate blockers for each new primitive path.
   - [ ] CG-16 execution certificates and CG-19 per-path Native I/O certificates for each supported source/sink path.
 - [ ] Priority 2.5 - Vortex upstream alignment and compatibility hardening
@@ -334,6 +335,36 @@ Use this section for the next implementation sequence. Keep it ordered by depend
 
 ## Active
 
+- [x] Session label: CG-5.20 deferred fixture-family artifact slots
+  - Primary files:
+    - `shardloom-core/src/correctness.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/correctness_plan_snapshots.rs`
+    - `shardloom-cli/tests/correctness_harness_plan_snapshots.rs`
+    - `shardloom-contract-tests/tests/correctness_fixture_manifest.rs`
+    - `shardloom-contract-tests/tests/correctness_differential_harness.rs`
+    - `docs/architecture/correctness-differential-harness.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: add declared evidence artifact slots for deferred fixture-family requirements while preserving the CG-5 benchmark claim gate as blocked until those artifacts are populated.
+  - Checklist:
+    - [x] Add `DeferredFixtureFamilyArtifact` slots for each deferred fixture-family requirement.
+    - [x] Surface artifact count, populated count, populated status, artifact ID order, status order, and test-only status through correctness plan and aggregate harness reports.
+    - [x] Add the `deferred_fixture_family_artifacts` evidence surface and block it while slots remain declared but unpopulated.
+    - [x] Change the benchmark claim blocker from broad `deferred_fixture_families` to `deferred_fixture_family_artifacts_not_populated`.
+    - [x] Preserve no execution: no decoded references, external engines, property/fuzz runs, data reads, writes, object-store IO, benchmark reruns, production certification, superiority claim, or fallback execution.
+  - Validation status:
+    - [x] `RUSTUP_TOOLCHAIN=1.91.1 rustc --version`
+    - [x] `RUSTUP_TOOLCHAIN=1.91.1 cargo fmt --all -- --check`
+    - [x] Focused correctness core, CLI snapshot, contract tests, and stale CLI unit test passed locally.
+    - [x] `RUSTUP_TOOLCHAIN=1.91.1 CARGO_TARGET_DIR=target-codex-cg5-deferred-artifacts-full2 cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `RUSTUP_TOOLCHAIN=1.91.1 CARGO_TARGET_DIR=target-codex-cg5-deferred-artifacts-full2 cargo test --workspace --all-targets`
+    - [x] `git diff --check`
+    - [x] Changed-file hidden/bidi scan passed locally.
+
+## Completed
+
+### Recent Completed Session Ledger
 - [x] Session label: CG-5.19 deferred fixture-family blockers
   - Primary files:
     - `shardloom-core/src/correctness.rs`
@@ -360,10 +391,6 @@ Use this section for the next implementation sequence. Keep it ordered by depend
     - [x] `RUSTUP_TOOLCHAIN=1.91.1 CARGO_TARGET_DIR=target-codex-cg5-deferred-fixtures-full2 cargo test --workspace --all-targets`
     - [x] `git diff --check`
     - [x] Changed-file hidden/bidi scan passed locally.
-
-## Completed
-
-### Recent Completed Session Ledger
 - [x] Session label: RFC/Vortex provider alignment drift cleanup
   - Primary files:
     - `docs/rfcs/0002-no-fallback-and-vortex-io.md`
@@ -2586,6 +2613,7 @@ Status legend:
   - [x] CG-5.17 source-backed edge fixture manifest and declared external-oracle result artifact slots
   - [x] CG-5.18 benchmark claim gate blockers for declared-but-unpopulated external oracles and unperformed property/fuzz execution
   - [x] CG-5.19 deferred fixture-family blockers replace ambiguous `NotYetDefined` expectations
+  - [x] CG-5.20 deferred fixture-family artifact slots declare required evidence refs and population blockers
   - Expected evidence:
     - golden Vortex fixtures
     - decoded reference outputs for future executable fixture families as they are added
@@ -3017,6 +3045,7 @@ Use this section for attributable CG substeps. Keep each item as a checkbox so p
 - [x] CG-5.17 source-backed edge fixture manifest and declared external-oracle result artifact slots are present without execution
 - [x] CG-5.18 benchmark claim gate explicitly blocks on unpopulated external-oracle results and unperformed property/fuzz execution
 - [x] CG-5.19 deferred fixture-family requirements replace ambiguous `NotYetDefined` expectations
+- [x] CG-5.20 deferred fixture-family artifact slots are declared, test-only, unpopulated, and no-fallback
 - [~] decoded-reference output artifacts for future executable fixture families as they are added
 - [~] property/fuzz execution remains deferred; fixture families and reproducible seeds are present
 - [~] populated/executed external-oracle result artifacts remain deferred; declared slots are present for current source-backed edge fixtures
