@@ -5,7 +5,8 @@
 #![allow(
     clippy::must_use_candidate,
     clippy::return_self_not_must_use,
-    clippy::missing_errors_doc
+    clippy::missing_errors_doc,
+    clippy::struct_excessive_bools
 )]
 
 use shardloom_core::{
@@ -1102,6 +1103,266 @@ pub struct RecoveryReport {
     pub cleanup_completed: bool,
     pub diagnostics: Vec<Diagnostic>,
     pub notes: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FaultTolerancePromotionArea {
+    RetryExecution,
+    CancellationPropagation,
+    CleanupExecution,
+    AmbiguousCommitResolution,
+    IdempotencyKeying,
+    RecoveryExecution,
+}
+impl FaultTolerancePromotionArea {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::RetryExecution => "retry_execution",
+            Self::CancellationPropagation => "cancellation_propagation",
+            Self::CleanupExecution => "cleanup_execution",
+            Self::AmbiguousCommitResolution => "ambiguous_commit_resolution",
+            Self::IdempotencyKeying => "idempotency_keying",
+            Self::RecoveryExecution => "recovery_execution",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FaultTolerancePromotionStatus {
+    BlockedUntilCertified,
+    ReportOnly,
+    ExecutionReady,
+}
+impl FaultTolerancePromotionStatus {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::BlockedUntilCertified => "blocked_until_certified",
+            Self::ReportOnly => "report_only",
+            Self::ExecutionReady => "execution_ready",
+        }
+    }
+    pub const fn allows_execution(&self) -> bool {
+        matches!(self, Self::ExecutionReady)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FaultTolerancePromotionGateEntry {
+    pub area: FaultTolerancePromotionArea,
+    pub status: FaultTolerancePromotionStatus,
+    pub required_evidence: &'static str,
+    pub requires_side_effect_boundary: bool,
+    pub requires_commit_semantics: bool,
+    pub execution_allowed: bool,
+}
+impl FaultTolerancePromotionGateEntry {
+    pub const fn blocked(
+        area: FaultTolerancePromotionArea,
+        required_evidence: &'static str,
+        requires_side_effect_boundary: bool,
+        requires_commit_semantics: bool,
+    ) -> Self {
+        Self {
+            area,
+            status: FaultTolerancePromotionStatus::BlockedUntilCertified,
+            required_evidence,
+            requires_side_effect_boundary,
+            requires_commit_semantics,
+            execution_allowed: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FaultTolerancePromotionGateReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub entries: Vec<FaultTolerancePromotionGateEntry>,
+    pub side_effect_boundaries_certified: bool,
+    pub commit_semantics_certified: bool,
+    pub execution_certificate_required: bool,
+    pub native_io_certificate_required: bool,
+    pub cg4_output_commit_evidence_required: bool,
+    pub cg8_write_recovery_evidence_required: bool,
+    pub cg10_object_store_evidence_required: bool,
+    pub cg16_execution_certificate_evidence_required: bool,
+    pub cg22_engine_mode_evidence_required: bool,
+    pub retry_execution_allowed: bool,
+    pub cancellation_execution_allowed: bool,
+    pub cleanup_execution_allowed: bool,
+    pub ambiguous_commit_resolution_allowed: bool,
+    pub idempotent_write_claim_allowed: bool,
+    pub exactly_once_claim_allowed: bool,
+    pub resumability_claim_allowed: bool,
+    pub recovery_claim_allowed: bool,
+    pub runtime_execution_performed: bool,
+    pub object_store_io: bool,
+    pub output_dataset_write: bool,
+    pub external_effects_executed: bool,
+    pub fallback_attempted: bool,
+    pub fallback_execution_allowed: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl FaultTolerancePromotionGateReport {
+    pub fn planning_default() -> Self {
+        Self {
+            schema_version: "shardloom.fault_tolerance_promotion_gate.v1",
+            report_id: "rfc0017.fault_tolerance_promotion_gate",
+            entries: vec![
+                FaultTolerancePromotionGateEntry::blocked(
+                    FaultTolerancePromotionArea::RetryExecution,
+                    "retry policy, attempt identity, cleanup proof, idempotency, and no external-effect duplication evidence",
+                    true,
+                    false,
+                ),
+                FaultTolerancePromotionGateEntry::blocked(
+                    FaultTolerancePromotionArea::CancellationPropagation,
+                    "cooperative cancellation checkpoints, cleanup requirements, effect-boundary policy, and certificate evidence",
+                    true,
+                    false,
+                ),
+                FaultTolerancePromotionGateEntry::blocked(
+                    FaultTolerancePromotionArea::CleanupExecution,
+                    "cleanup target manifest, destructive-operation policy, ownership proof, and post-cleanup audit evidence",
+                    true,
+                    true,
+                ),
+                FaultTolerancePromotionGateEntry::blocked(
+                    FaultTolerancePromotionArea::AmbiguousCommitResolution,
+                    "commit record, manifest pointer, backend atomicity, recovery decision, and audit evidence",
+                    true,
+                    true,
+                ),
+                FaultTolerancePromotionGateEntry::blocked(
+                    FaultTolerancePromotionArea::IdempotencyKeying,
+                    "stable run/task/write keys, duplicate detection, commit identity, and external-effect idempotency evidence",
+                    true,
+                    true,
+                ),
+                FaultTolerancePromotionGateEntry::blocked(
+                    FaultTolerancePromotionArea::RecoveryExecution,
+                    "CG-4, CG-8, CG-10, CG-16, CG-22, source/sink, certificate, and benchmark evidence",
+                    true,
+                    true,
+                ),
+            ],
+            side_effect_boundaries_certified: false,
+            commit_semantics_certified: false,
+            execution_certificate_required: true,
+            native_io_certificate_required: true,
+            cg4_output_commit_evidence_required: true,
+            cg8_write_recovery_evidence_required: true,
+            cg10_object_store_evidence_required: true,
+            cg16_execution_certificate_evidence_required: true,
+            cg22_engine_mode_evidence_required: true,
+            retry_execution_allowed: false,
+            cancellation_execution_allowed: false,
+            cleanup_execution_allowed: false,
+            ambiguous_commit_resolution_allowed: false,
+            idempotent_write_claim_allowed: false,
+            exactly_once_claim_allowed: false,
+            resumability_claim_allowed: false,
+            recovery_claim_allowed: false,
+            runtime_execution_performed: false,
+            object_store_io: false,
+            output_dataset_write: false,
+            external_effects_executed: false,
+            fallback_attempted: false,
+            fallback_execution_allowed: false,
+            diagnostics: Vec::new(),
+        }
+    }
+    pub fn promotion_area_count(&self) -> usize {
+        self.entries.len()
+    }
+    pub fn blocked_area_count(&self) -> usize {
+        self.entries
+            .iter()
+            .filter(|entry| entry.status == FaultTolerancePromotionStatus::BlockedUntilCertified)
+            .count()
+    }
+    pub fn execution_ready_area_count(&self) -> usize {
+        self.entries
+            .iter()
+            .filter(|entry| entry.execution_allowed || entry.status.allows_execution())
+            .count()
+    }
+    pub fn area_order(&self) -> Vec<&'static str> {
+        self.entries
+            .iter()
+            .map(|entry| entry.area.as_str())
+            .collect()
+    }
+    pub fn execution_promotions_blocked(&self) -> bool {
+        !self.retry_execution_allowed
+            && !self.cancellation_execution_allowed
+            && !self.cleanup_execution_allowed
+            && !self.ambiguous_commit_resolution_allowed
+            && !self.idempotent_write_claim_allowed
+            && self.execution_ready_area_count() == 0
+    }
+    pub fn exactly_once_resumability_recovery_claims_blocked(&self) -> bool {
+        !self.exactly_once_claim_allowed
+            && !self.resumability_claim_allowed
+            && !self.recovery_claim_allowed
+    }
+    pub fn side_effect_free(&self) -> bool {
+        self.execution_promotions_blocked()
+            && self.exactly_once_resumability_recovery_claims_blocked()
+            && !self.side_effect_boundaries_certified
+            && !self.commit_semantics_certified
+            && !self.runtime_execution_performed
+            && !self.object_store_io
+            && !self.output_dataset_write
+            && !self.external_effects_executed
+            && !self.fallback_attempted
+            && !self.fallback_execution_allowed
+    }
+    pub fn has_errors(&self) -> bool {
+        !self.side_effect_free() || has_error_diagnostics(&self.diagnostics)
+    }
+    pub fn to_human_text(&self) -> String {
+        let mut out = String::new();
+        let _ = writeln!(out, "fault tolerance promotion gate");
+        let _ = writeln!(out, "schema_version: {}", self.schema_version);
+        let _ = writeln!(out, "report_id: {}", self.report_id);
+        let _ = writeln!(
+            out,
+            "execution promotions blocked: {}",
+            self.execution_promotions_blocked()
+        );
+        let _ = writeln!(
+            out,
+            "exactly-once/resumability/recovery claims blocked: {}",
+            self.exactly_once_resumability_recovery_claims_blocked()
+        );
+        let _ = writeln!(
+            out,
+            "side-effect boundaries certified: {}",
+            self.side_effect_boundaries_certified
+        );
+        let _ = writeln!(
+            out,
+            "commit semantics certified: {}",
+            self.commit_semantics_certified
+        );
+        let _ = writeln!(out, "fallback attempted: {}", self.fallback_attempted);
+        let _ = writeln!(out, "promotion areas:");
+        for entry in &self.entries {
+            let _ = writeln!(
+                out,
+                "  - {} [{}] execution_allowed={}",
+                entry.area.as_str(),
+                entry.status.as_str(),
+                entry.execution_allowed
+            );
+        }
+        out
+    }
+}
+
+pub fn plan_fault_tolerance_promotion_gate() -> FaultTolerancePromotionGateReport {
+    FaultTolerancePromotionGateReport::planning_default()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -3630,6 +3891,44 @@ mod tests {
         let r = RecoveryReport::from_plan(&p);
         assert_eq!(r.status, p.status);
         assert_eq!(r.actions_completed, 0);
+    }
+    #[test]
+    fn fault_tolerance_promotion_gate_blocks_required_execution_areas() {
+        let report = plan_fault_tolerance_promotion_gate();
+        assert_eq!(report.promotion_area_count(), 6);
+        assert_eq!(report.blocked_area_count(), 6);
+        assert_eq!(report.execution_ready_area_count(), 0);
+        assert!(
+            report
+                .area_order()
+                .contains(&FaultTolerancePromotionArea::RetryExecution.as_str())
+        );
+        assert!(
+            report
+                .area_order()
+                .contains(&FaultTolerancePromotionArea::RecoveryExecution.as_str())
+        );
+    }
+    #[test]
+    fn fault_tolerance_promotion_gate_preserves_claim_blockers_and_no_effects() {
+        let report = plan_fault_tolerance_promotion_gate();
+        assert!(report.execution_promotions_blocked());
+        assert!(report.exactly_once_resumability_recovery_claims_blocked());
+        assert!(report.side_effect_free());
+        assert!(!report.has_errors());
+        assert!(!report.retry_execution_allowed);
+        assert!(!report.cancellation_execution_allowed);
+        assert!(!report.cleanup_execution_allowed);
+        assert!(!report.ambiguous_commit_resolution_allowed);
+        assert!(!report.idempotent_write_claim_allowed);
+        assert!(!report.exactly_once_claim_allowed);
+        assert!(!report.resumability_claim_allowed);
+        assert!(!report.recovery_claim_allowed);
+        assert!(!report.object_store_io);
+        assert!(!report.output_dataset_write);
+        assert!(!report.external_effects_executed);
+        assert!(!report.fallback_attempted);
+        assert!(!report.fallback_execution_allowed);
     }
     #[test]
     fn recovery_integration_status_cleanup_required_requires_cleanup() {

@@ -332,10 +332,10 @@ not by numeric CG order.
       - [x] Add an operator memory/spill declaration gate report covering required large-workload
             operator classes, bounded-memory/spill/effect-boundary requirements, claim blockers,
             diagnostics, no runtime execution, no spill IO, and `fallback_attempted=false`.
-  - [ ] RFC 0017 fault tolerance, cancellation, recovery, and idempotency
-    - [ ] Promote retry, cancellation, cleanup, ambiguous commit, idempotency, and recovery plans
+  - [x] RFC 0017 fault tolerance, cancellation, recovery, and idempotency
+    - [x] Promote retry, cancellation, cleanup, ambiguous commit, idempotency, and recovery plans
           into execution paths only after side-effect boundaries and commit semantics are certified.
-    - [ ] Keep exactly-once, resumability, and recovery claims blocked until CG-4, CG-8, CG-10,
+    - [x] Keep exactly-once, resumability, and recovery claims blocked until CG-4, CG-8, CG-10,
           CG-16, and CG-22 evidence exists for the declared workload.
   - [ ] RFC 0018 observability, tracing, profiling, and debug bundles
     - [ ] Add trace/event/profile/log schema coverage for plan, execution, Vortex IO, object-store

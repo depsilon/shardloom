@@ -16,6 +16,37 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: fault-tolerance execution promotion gate
+  - Primary files:
+    - `shardloom-exec/src/recovery.rs`
+    - `shardloom-exec/src/lib.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/fault_tolerance_promotion_gate.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: add an RFC 0017 gate that keeps retry, cancellation, cleanup, ambiguous commit,
+    idempotency, and recovery execution blocked until side-effect boundaries, commit semantics, and
+    CG evidence are certified.
+  - Checklist:
+    - [x] Add `FaultTolerancePromotionArea`, `FaultTolerancePromotionStatus`,
+          `FaultTolerancePromotionGateEntry`, and `FaultTolerancePromotionGateReport`.
+    - [x] Cover retry execution, cancellation propagation, cleanup execution, ambiguous commit
+          resolution, idempotency keying, and recovery execution.
+    - [x] Keep exactly-once, resumability, recovery, idempotent-write, and execution-promotion
+          claims blocked until CG-4, CG-8, CG-10, CG-16, and CG-22 evidence exists.
+    - [x] Add the `fault-tolerance-promotion-gate` CLI report and JSON contract tests.
+  - Validation status:
+    - [x] `cargo test -p shardloom-exec recovery --lib`
+    - [x] `cargo test -p shardloom-cli fault_tolerance_promotion_gate --test fault_tolerance_promotion_gate`
+    - [x] `cargo fmt --all -- --check`
+    - [x] `cargo clippy -p shardloom-exec --lib -- -D warnings`
+    - [x] `cargo clippy -p shardloom-cli --all-targets -- -D warnings`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `git diff --check`
+  - Non-goals preserved:
+    - [x] No retry execution, cancellation propagation, cleanup execution, commit recovery,
+          idempotent write execution, object-store IO, output dataset write, external effect,
+          exactly-once/resumability/recovery claim, external engine invocation, or fallback
+          execution.
 - [x] Session label: security governance evidence gate
   - Primary files:
     - `shardloom-core/src/security.rs`
