@@ -81,13 +81,14 @@ use shardloom_plan::{
     ObjectStoreCommitProtocolReport, ObjectStoreDistributedSchedulingPolicy,
     ObjectStoreDistributedSchedulingReport, ObjectStoreRangePlanningPolicy,
     ObjectStoreRangePlanningReport, ObjectStoreRequestCoalescingReport,
-    ObjectStoreRequestPlannerReport, OptimizerPhase, OptimizerPlanSkeleton, PlanBoundaryKind,
-    PlanCapabilityKind, PlanCapabilityRequirement, PlanExportRequest, PlanId, PlanImportRequest,
-    PlanInteropFormat, PlanLayer, PlanNodeId, PlanPortabilityReport, ProjectionRequest,
-    ScanPlanSkeleton, ScanRequest, plan_adaptive_optimizer_memory,
-    plan_object_store_checkpoint_retry, plan_object_store_commit_protocol,
-    plan_object_store_distributed_scheduling, plan_object_store_ranges,
-    plan_object_store_request_coalescing, plan_object_store_request_planner,
+    ObjectStoreRequestPlannerReport, ObjectStoreRuntimePromotionGateReport, OptimizerPhase,
+    OptimizerPlanSkeleton, PlanBoundaryKind, PlanCapabilityKind, PlanCapabilityRequirement,
+    PlanExportRequest, PlanId, PlanImportRequest, PlanInteropFormat, PlanLayer, PlanNodeId,
+    PlanPortabilityReport, ProjectionRequest, ScanPlanSkeleton, ScanRequest,
+    plan_adaptive_optimizer_memory, plan_object_store_checkpoint_retry,
+    plan_object_store_commit_protocol, plan_object_store_distributed_scheduling,
+    plan_object_store_ranges, plan_object_store_request_coalescing,
+    plan_object_store_request_planner, plan_object_store_runtime_promotion_gate,
     plan_universal_input_source,
 };
 use shardloom_vortex::{
@@ -219,7 +220,7 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     format!(
-        "usage: {} <status|release-plan|package-plan|api-compat-plan|agent-contract-pack|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance]|security-plan|security-governance-evidence-gate|effect-budget-plan|agent-safety-plan|redaction-plan|kernel-registry|feature-footprint|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|layout-health-plan|compaction-plan|table-intelligence-plan|cg9-catalog-metadata-gate|object-store-request-plan|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|dynamic-work-shaping-plan [balanced|memory-pressure|object-store-throttled|small-tasks]|cg8-runtime-promotion-gate|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|benchmark-claim-evidence-plan [foundation|traditional-analytics]|traditional-analytics-run|traditional-analytics-vortex-run|vortex-count-benchmark|correctness-plan|correctness-harness-plan|execution-certificate-plan|recovery-plan|commit-execution-promotion-gate|fault-tolerance-promotion-gate|cancellation-plan|retry-plan|observability-plan|observability-schema-coverage|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-filter-project|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|operator-memory-spill-declarations|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
+        "usage: {} <status|release-plan|package-plan|api-compat-plan|agent-contract-pack|python-wrapper-plan|capabilities [sql|functions|operators|adapters|semantic-profiles|migration|certification|data-etl|python|dataframe|notebook|udfs|universal-adapters|event-api-saas-adapters|unstructured-media|api-surfaces|observability|deployment|extensions|security-governance]|security-plan|security-governance-evidence-gate|effect-budget-plan|agent-safety-plan|redaction-plan|kernel-registry|feature-footprint|doctor|manifest-plan|incremental-plan|stateful-reuse-plan|universal-harness-plan|native-io-envelope-plan|world-class-sufficiency-plan|layout-health-plan|compaction-plan|table-intelligence-plan|cg9-catalog-metadata-gate|object-store-request-plan|cg10-object-store-runtime-gate|object-store-range-plan|object-store-coalesce-plan|object-store-schedule-plan|object-store-checkpoint-retry-plan|object-store-commit-plan|write-intent|scan-plan|streaming-plan|streaming-batch-plan|backpressure-plan|runtime-plan|task-plan|sizing-plan|sizing-feedback-plan|dynamic-work-shaping-plan [balanced|memory-pressure|object-store-throttled|small-tasks]|cg8-runtime-promotion-gate|translation-plan|vortex-plan|vortex-output-plan|vortex-readiness|vortex-api-inventory|vortex-dtype-mapping|vortex-encoding-layout-mapping|vortex-statistics-mapping|vortex-metadata-probe|vortex-file-metadata-open|vortex-metadata-summary|vortex-metadata-plan|vortex-pruning-plan|optimizer-plan|optimizer-adaptive-memory-plan|cpu-specialization-plan|explain|estimate|benchmark-plan|benchmark-claim-evidence-plan [foundation|traditional-analytics]|traditional-analytics-run|traditional-analytics-vortex-run|vortex-count-benchmark|correctness-plan|correctness-harness-plan|execution-certificate-plan|recovery-plan|commit-execution-promotion-gate|fault-tolerance-promotion-gate|cancellation-plan|retry-plan|observability-plan|observability-schema-coverage|runtime-report|profile-plan|plan-ir|plan-import|plan-export|table-compat-plan [aggregate|partition-evolution|delete-semantics]|schema-plan|input-adapters|input-plan|vortex-input-plan|vortex-read-plan|vortex-task-graph|vortex-adaptive-sizing|vortex-memory-plan|vortex-schedule-plan|vortex-execution-readiness|vortex-encoded-path-selection-plan|vortex-generalized-encoded-primitive-gate|vortex-encoded-read-api|vortex-encoded-read-boundary|vortex-encoded-read-metadata-probe|vortex-encoded-read-readiness|vortex-encoded-read-probe|vortex-encoded-read-execute|vortex-encoded-read-spike|vortex-dry-run|vortex-metadata-execute|vortex-query-primitive-plan|vortex-metadata-physical-kernel-plan|vortex-count-readiness-plan|vortex-encoded-count-approval-plan|vortex-layout-driver-approval-plan|vortex-filtered-count-readiness-plan|vortex-projection-readiness-plan|vortex-count|vortex-count-where|vortex-staged-workspace-setup|vortex-staged-marker-write|vortex-staged-manifest-file-plan|vortex-staged-manifest-file-write|vortex-output-payload-plan|vortex-output-payload-artifact-write|vortex-native-count-payload-write|vortex-manifest-finalization-plan|vortex-finalized-manifest-artifact-write|vortex-commit-marker-plan|vortex-commit-marker-write|vortex-commit-intent-plan|vortex-commit-protocol-plan|vortex-local-commit-execute|vortex-local-commit-recovery-plan|vortex-local-commit-rollback-execute|vortex-project|vortex-filter|vortex-filter-project|vortex-query-trace|vortex-local-exec|vortex-bounded-local-exec|vortex-run|operator-memory-spill-declarations|spill-lifecycle|spill-reservation-plan|spill-payload-roundtrip|cleanup-synthetic-payload|retry-gate-plan <signals>|cancellation-gate-plan <signals>> [--format text|json]",
         cli_command_name()
     )
 }
@@ -16646,6 +16647,254 @@ fn append_object_store_request_side_effect_fields(
     push_bool_field(fields, "side_effect_free", report.side_effect_free());
 }
 
+fn object_store_runtime_promotion_gate_fields(
+    report: &ObjectStoreRuntimePromotionGateReport,
+) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    push_field(&mut fields, "mode", "object_store_runtime_promotion_gate");
+    push_field(&mut fields, "schema_version", report.schema_version);
+    push_field(&mut fields, "report_id", report.report_id);
+    push_count_field(&mut fields, "surface_count", report.surface_count());
+    push_count_field(
+        &mut fields,
+        "existing_evidence_surface_count",
+        report.existing_evidence_surface_count(),
+    );
+    push_count_field(
+        &mut fields,
+        "blocked_surface_count",
+        report.blocked_surface_count(),
+    );
+    push_field(
+        &mut fields,
+        "surface_order",
+        &report.surface_order().join(","),
+    );
+    push_field(
+        &mut fields,
+        "existing_report_refs",
+        &report.existing_report_refs.join(","),
+    );
+    append_object_store_runtime_existing_fields(&mut fields, report);
+    append_object_store_runtime_allowed_fields(&mut fields, report);
+    append_object_store_runtime_required_fields(&mut fields, report);
+    append_object_store_runtime_status_fields(&mut fields, report);
+    fields
+}
+
+fn append_object_store_runtime_existing_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &ObjectStoreRuntimePromotionGateReport,
+) {
+    push_bool_field(
+        fields,
+        "existing_request_planner_evidence_present",
+        report.existing_request_planner_evidence_present,
+    );
+    push_bool_field(
+        fields,
+        "existing_range_planning_evidence_present",
+        report.existing_range_planning_evidence_present,
+    );
+    push_bool_field(
+        fields,
+        "existing_coalescing_evidence_present",
+        report.existing_coalescing_evidence_present,
+    );
+    push_bool_field(
+        fields,
+        "existing_distributed_scheduling_evidence_present",
+        report.existing_distributed_scheduling_evidence_present,
+    );
+    push_bool_field(
+        fields,
+        "existing_checkpoint_retry_evidence_present",
+        report.existing_checkpoint_retry_evidence_present,
+    );
+    push_bool_field(
+        fields,
+        "existing_commit_protocol_evidence_present",
+        report.existing_commit_protocol_evidence_present,
+    );
+}
+
+fn append_object_store_runtime_allowed_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &ObjectStoreRuntimePromotionGateReport,
+) {
+    push_bool_field(
+        fields,
+        "range_read_execution_allowed",
+        report.range_read_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "full_file_read_allowed",
+        report.full_file_read_allowed,
+    );
+    push_bool_field(
+        fields,
+        "request_coalescing_runtime_allowed",
+        report.request_coalescing_runtime_allowed,
+    );
+    push_bool_field(
+        fields,
+        "coordinator_start_allowed",
+        report.coordinator_start_allowed,
+    );
+    push_bool_field(fields, "worker_start_allowed", report.worker_start_allowed);
+    push_bool_field(
+        fields,
+        "task_execution_allowed",
+        report.task_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "retry_execution_allowed",
+        report.retry_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "checkpoint_write_allowed",
+        report.checkpoint_write_allowed,
+    );
+    push_bool_field(
+        fields,
+        "cleanup_execution_allowed",
+        report.cleanup_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "commit_execution_allowed",
+        report.commit_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "credential_resolution_allowed",
+        report.credential_resolution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "object_store_io_allowed",
+        report.object_store_io_allowed,
+    );
+    push_bool_field(fields, "data_read_allowed", report.data_read_allowed);
+    push_bool_field(fields, "write_io_allowed", report.write_io_allowed);
+    push_bool_field(
+        fields,
+        "object_store_runtime_claim_allowed",
+        report.object_store_runtime_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "distributed_runtime_claim_allowed",
+        report.distributed_runtime_claim_allowed,
+    );
+}
+
+fn append_object_store_runtime_required_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &ObjectStoreRuntimePromotionGateReport,
+) {
+    push_bool_field(
+        fields,
+        "range_planning_evidence_required",
+        report.range_planning_evidence_required,
+    );
+    push_bool_field(
+        fields,
+        "request_budget_policy_required",
+        report.request_budget_policy_required,
+    );
+    push_bool_field(
+        fields,
+        "provider_capability_policy_required",
+        report.provider_capability_policy_required,
+    );
+    push_bool_field(
+        fields,
+        "credential_effect_policy_required",
+        report.credential_effect_policy_required,
+    );
+    push_bool_field(
+        fields,
+        "scheduler_policy_required",
+        report.scheduler_policy_required,
+    );
+    push_bool_field(
+        fields,
+        "worker_identity_required",
+        report.worker_identity_required,
+    );
+    push_bool_field(
+        fields,
+        "checkpoint_plan_required",
+        report.checkpoint_plan_required,
+    );
+    push_bool_field(
+        fields,
+        "retry_policy_required",
+        report.retry_policy_required,
+    );
+    push_bool_field(
+        fields,
+        "idempotency_keys_required",
+        report.idempotency_keys_required,
+    );
+    push_bool_field(
+        fields,
+        "attempt_records_required",
+        report.attempt_records_required,
+    );
+    push_bool_field(
+        fields,
+        "cleanup_policy_required",
+        report.cleanup_policy_required,
+    );
+    push_bool_field(
+        fields,
+        "atomic_commit_evidence_required",
+        report.atomic_commit_evidence_required,
+    );
+    push_bool_field(
+        fields,
+        "execution_certificate_required",
+        report.execution_certificate_required,
+    );
+    push_bool_field(
+        fields,
+        "native_io_certificate_required",
+        report.native_io_certificate_required,
+    );
+    push_bool_field(
+        fields,
+        "benchmark_evidence_required",
+        report.benchmark_evidence_required,
+    );
+}
+
+fn append_object_store_runtime_status_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &ObjectStoreRuntimePromotionGateReport,
+) {
+    push_bool_field(
+        fields,
+        "runtime_promotions_blocked",
+        report.runtime_promotions_blocked(),
+    );
+    push_bool_field(fields, "claim_blocked", report.claim_blocked());
+    push_bool_field(fields, "fallback_attempted", report.fallback_attempted);
+    push_bool_field(
+        fields,
+        "fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(fields, "side_effect_free", report.side_effect_free());
+    push_count_field(fields, "diagnostic_count", report.diagnostics.len());
+    push_field(fields, "execution", "not_performed");
+    push_field(fields, "plan_only", "true");
+}
+
 fn emit_object_store_range_plan(format: OutputFormat, scenario: &str) -> ExitCode {
     let manifest = match object_store_range_fixture(scenario) {
         Ok(manifest) => manifest,
@@ -20945,6 +21194,35 @@ fn run(args: Vec<String>) -> ExitCode {
                 );
             }
             emit_object_store_request_plan(format, &scenario)
+        }
+        Some("cg10-object-store-runtime-gate") => {
+            if let Some(extra) = args.next() {
+                return emit_error(
+                    "cg10-object-store-runtime-gate",
+                    format,
+                    "CG-10 object-store runtime gate failed",
+                    &cli_unknown_arg_error("cg10-object-store-runtime-gate", &extra),
+                );
+            }
+            let report = plan_object_store_runtime_promotion_gate();
+            emit(
+                "cg10-object-store-runtime-gate",
+                format,
+                if report.has_errors() {
+                    CommandStatus::Unsupported
+                } else {
+                    CommandStatus::Success
+                },
+                "CG-10 object-store runtime promotion gate".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                object_store_runtime_promotion_gate_fields(&report),
+            );
+            if report.has_errors() {
+                ExitCode::from(1)
+            } else {
+                ExitCode::SUCCESS
+            }
         }
         Some("object-store-range-plan") => {
             let scenario = args.next().unwrap_or_else(|| "s3-ranges".to_string());

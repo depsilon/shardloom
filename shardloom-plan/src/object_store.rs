@@ -3,7 +3,7 @@
 //! This module plans request shapes from already-declared manifest byte-range metadata.
 //! It performs no object-store IO, no file reads, no data materialization, and no fallback execution.
 
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, fmt::Write as _};
 
 use shardloom_core::{
     ByteRange, DatasetManifest, DatasetUri, Diagnostic, DiagnosticCategory, DiagnosticCode,
@@ -868,6 +868,505 @@ impl ObjectStoreRequestPlannerReport {
             self.commit_report.status.as_str(),
         )
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ObjectStoreRuntimePromotionSurface {
+    RequestPlannerAggregate,
+    RangeReadExecution,
+    RequestCoalescingRuntime,
+    DistributedCoordinatorStartup,
+    DistributedWorkerStartup,
+    DistributedTaskExecution,
+    CheckpointWriteExecution,
+    RetryExecution,
+    CleanupExecution,
+    ObjectStoreCommitExecution,
+    ProviderCredentialRuntime,
+    BenchmarkCertificateCloseout,
+}
+
+impl ObjectStoreRuntimePromotionSurface {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::RequestPlannerAggregate => "request_planner_aggregate",
+            Self::RangeReadExecution => "range_read_execution",
+            Self::RequestCoalescingRuntime => "request_coalescing_runtime",
+            Self::DistributedCoordinatorStartup => "distributed_coordinator_startup",
+            Self::DistributedWorkerStartup => "distributed_worker_startup",
+            Self::DistributedTaskExecution => "distributed_task_execution",
+            Self::CheckpointWriteExecution => "checkpoint_write_execution",
+            Self::RetryExecution => "retry_execution",
+            Self::CleanupExecution => "cleanup_execution",
+            Self::ObjectStoreCommitExecution => "object_store_commit_execution",
+            Self::ProviderCredentialRuntime => "provider_credential_runtime",
+            Self::BenchmarkCertificateCloseout => "benchmark_certificate_closeout",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ObjectStoreRuntimePromotionStatus {
+    ExistingReportOnlyEvidence,
+    BlockedUntilCertified,
+}
+
+impl ObjectStoreRuntimePromotionStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::ExistingReportOnlyEvidence => "existing_report_only_evidence",
+            Self::BlockedUntilCertified => "blocked_until_certified",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_existing_evidence(&self) -> bool {
+        matches!(self, Self::ExistingReportOnlyEvidence)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct ObjectStoreRuntimePromotionRequirements {
+    pub requires_range_planning: bool,
+    pub requires_request_budget: bool,
+    pub requires_scheduler_policy: bool,
+    pub requires_checkpoint_plan: bool,
+    pub requires_retry_policy: bool,
+    pub requires_commit_atomicity: bool,
+    pub requires_credential_policy: bool,
+    pub requires_benchmark_evidence: bool,
+}
+
+impl ObjectStoreRuntimePromotionRequirements {
+    pub const RANGE_READ: Self = Self {
+        requires_range_planning: true,
+        requires_request_budget: true,
+        requires_scheduler_policy: false,
+        requires_checkpoint_plan: false,
+        requires_retry_policy: false,
+        requires_commit_atomicity: false,
+        requires_credential_policy: true,
+        requires_benchmark_evidence: true,
+    };
+
+    pub const COALESCING_RUNTIME: Self = Self {
+        requires_range_planning: true,
+        requires_request_budget: true,
+        requires_scheduler_policy: false,
+        requires_checkpoint_plan: false,
+        requires_retry_policy: false,
+        requires_commit_atomicity: false,
+        requires_credential_policy: false,
+        requires_benchmark_evidence: true,
+    };
+
+    pub const DISTRIBUTED_RUNTIME: Self = Self {
+        requires_range_planning: true,
+        requires_request_budget: true,
+        requires_scheduler_policy: true,
+        requires_checkpoint_plan: true,
+        requires_retry_policy: true,
+        requires_commit_atomicity: false,
+        requires_credential_policy: true,
+        requires_benchmark_evidence: true,
+    };
+
+    pub const RELIABILITY_RUNTIME: Self = Self {
+        requires_range_planning: true,
+        requires_request_budget: true,
+        requires_scheduler_policy: true,
+        requires_checkpoint_plan: true,
+        requires_retry_policy: true,
+        requires_commit_atomicity: false,
+        requires_credential_policy: true,
+        requires_benchmark_evidence: true,
+    };
+
+    pub const COMMIT_RUNTIME: Self = Self {
+        requires_range_planning: false,
+        requires_request_budget: false,
+        requires_scheduler_policy: false,
+        requires_checkpoint_plan: true,
+        requires_retry_policy: true,
+        requires_commit_atomicity: true,
+        requires_credential_policy: true,
+        requires_benchmark_evidence: true,
+    };
+
+    pub const CREDENTIAL_RUNTIME: Self = Self {
+        requires_range_planning: false,
+        requires_request_budget: false,
+        requires_scheduler_policy: false,
+        requires_checkpoint_plan: false,
+        requires_retry_policy: false,
+        requires_commit_atomicity: false,
+        requires_credential_policy: true,
+        requires_benchmark_evidence: false,
+    };
+
+    pub const BENCHMARK_CLOSEOUT: Self = Self {
+        requires_range_planning: true,
+        requires_request_budget: true,
+        requires_scheduler_policy: true,
+        requires_checkpoint_plan: true,
+        requires_retry_policy: true,
+        requires_commit_atomicity: true,
+        requires_credential_policy: true,
+        requires_benchmark_evidence: true,
+    };
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct ObjectStoreRuntimePromotionGateEntry {
+    pub surface: ObjectStoreRuntimePromotionSurface,
+    pub status: ObjectStoreRuntimePromotionStatus,
+    pub existing_report_ref: Option<&'static str>,
+    pub requirements: ObjectStoreRuntimePromotionRequirements,
+    pub runtime_allowed: bool,
+    pub object_store_io_allowed: bool,
+    pub write_io_allowed: bool,
+    pub fallback_execution_allowed: bool,
+}
+
+impl ObjectStoreRuntimePromotionGateEntry {
+    #[must_use]
+    pub const fn existing(
+        surface: ObjectStoreRuntimePromotionSurface,
+        existing_report_ref: &'static str,
+    ) -> Self {
+        Self {
+            surface,
+            status: ObjectStoreRuntimePromotionStatus::ExistingReportOnlyEvidence,
+            existing_report_ref: Some(existing_report_ref),
+            requirements: ObjectStoreRuntimePromotionRequirements {
+                requires_range_planning: false,
+                requires_request_budget: false,
+                requires_scheduler_policy: false,
+                requires_checkpoint_plan: false,
+                requires_retry_policy: false,
+                requires_commit_atomicity: false,
+                requires_credential_policy: false,
+                requires_benchmark_evidence: false,
+            },
+            runtime_allowed: false,
+            object_store_io_allowed: false,
+            write_io_allowed: false,
+            fallback_execution_allowed: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn blocked(
+        surface: ObjectStoreRuntimePromotionSurface,
+        requirements: ObjectStoreRuntimePromotionRequirements,
+    ) -> Self {
+        Self {
+            surface,
+            status: ObjectStoreRuntimePromotionStatus::BlockedUntilCertified,
+            existing_report_ref: None,
+            requirements,
+            runtime_allowed: false,
+            object_store_io_allowed: false,
+            write_io_allowed: false,
+            fallback_execution_allowed: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn side_effect_free(&self) -> bool {
+        !self.runtime_allowed
+            && !self.object_store_io_allowed
+            && !self.write_io_allowed
+            && !self.fallback_execution_allowed
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct ObjectStoreRuntimePromotionGateReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub entries: Vec<ObjectStoreRuntimePromotionGateEntry>,
+    pub existing_report_refs: Vec<&'static str>,
+    pub existing_request_planner_evidence_present: bool,
+    pub existing_range_planning_evidence_present: bool,
+    pub existing_coalescing_evidence_present: bool,
+    pub existing_distributed_scheduling_evidence_present: bool,
+    pub existing_checkpoint_retry_evidence_present: bool,
+    pub existing_commit_protocol_evidence_present: bool,
+    pub range_read_execution_allowed: bool,
+    pub full_file_read_allowed: bool,
+    pub request_coalescing_runtime_allowed: bool,
+    pub coordinator_start_allowed: bool,
+    pub worker_start_allowed: bool,
+    pub task_execution_allowed: bool,
+    pub retry_execution_allowed: bool,
+    pub checkpoint_write_allowed: bool,
+    pub cleanup_execution_allowed: bool,
+    pub commit_execution_allowed: bool,
+    pub credential_resolution_allowed: bool,
+    pub object_store_io_allowed: bool,
+    pub data_read_allowed: bool,
+    pub write_io_allowed: bool,
+    pub object_store_runtime_claim_allowed: bool,
+    pub distributed_runtime_claim_allowed: bool,
+    pub range_planning_evidence_required: bool,
+    pub request_budget_policy_required: bool,
+    pub provider_capability_policy_required: bool,
+    pub credential_effect_policy_required: bool,
+    pub scheduler_policy_required: bool,
+    pub worker_identity_required: bool,
+    pub checkpoint_plan_required: bool,
+    pub retry_policy_required: bool,
+    pub idempotency_keys_required: bool,
+    pub attempt_records_required: bool,
+    pub cleanup_policy_required: bool,
+    pub atomic_commit_evidence_required: bool,
+    pub execution_certificate_required: bool,
+    pub native_io_certificate_required: bool,
+    pub benchmark_evidence_required: bool,
+    pub fallback_attempted: bool,
+    pub fallback_execution_allowed: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl ObjectStoreRuntimePromotionGateReport {
+    #[must_use]
+    pub fn planning_default() -> Self {
+        Self {
+            schema_version: "shardloom.object_store_runtime_promotion_gate.v1",
+            report_id: "cg10.object_store_runtime_promotion_gate",
+            entries: object_store_runtime_promotion_entries(),
+            existing_report_refs: object_store_runtime_existing_report_refs(),
+            existing_request_planner_evidence_present: true,
+            existing_range_planning_evidence_present: true,
+            existing_coalescing_evidence_present: true,
+            existing_distributed_scheduling_evidence_present: true,
+            existing_checkpoint_retry_evidence_present: true,
+            existing_commit_protocol_evidence_present: true,
+            range_read_execution_allowed: false,
+            full_file_read_allowed: false,
+            request_coalescing_runtime_allowed: false,
+            coordinator_start_allowed: false,
+            worker_start_allowed: false,
+            task_execution_allowed: false,
+            retry_execution_allowed: false,
+            checkpoint_write_allowed: false,
+            cleanup_execution_allowed: false,
+            commit_execution_allowed: false,
+            credential_resolution_allowed: false,
+            object_store_io_allowed: false,
+            data_read_allowed: false,
+            write_io_allowed: false,
+            object_store_runtime_claim_allowed: false,
+            distributed_runtime_claim_allowed: false,
+            range_planning_evidence_required: true,
+            request_budget_policy_required: true,
+            provider_capability_policy_required: true,
+            credential_effect_policy_required: true,
+            scheduler_policy_required: true,
+            worker_identity_required: true,
+            checkpoint_plan_required: true,
+            retry_policy_required: true,
+            idempotency_keys_required: true,
+            attempt_records_required: true,
+            cleanup_policy_required: true,
+            atomic_commit_evidence_required: true,
+            execution_certificate_required: true,
+            native_io_certificate_required: true,
+            benchmark_evidence_required: true,
+            fallback_attempted: false,
+            fallback_execution_allowed: false,
+            diagnostics: Vec::new(),
+        }
+    }
+
+    #[must_use]
+    pub fn surface_count(&self) -> usize {
+        self.entries.len()
+    }
+
+    #[must_use]
+    pub fn existing_evidence_surface_count(&self) -> usize {
+        self.entries
+            .iter()
+            .filter(|entry| entry.status.is_existing_evidence())
+            .count()
+    }
+
+    #[must_use]
+    pub fn blocked_surface_count(&self) -> usize {
+        self.entries
+            .iter()
+            .filter(|entry| {
+                matches!(
+                    entry.status,
+                    ObjectStoreRuntimePromotionStatus::BlockedUntilCertified
+                )
+            })
+            .count()
+    }
+
+    #[must_use]
+    pub fn surface_order(&self) -> Vec<&'static str> {
+        self.entries
+            .iter()
+            .map(|entry| entry.surface.as_str())
+            .collect()
+    }
+
+    #[must_use]
+    pub fn runtime_promotions_blocked(&self) -> bool {
+        !self.range_read_execution_allowed
+            && !self.full_file_read_allowed
+            && !self.request_coalescing_runtime_allowed
+            && !self.coordinator_start_allowed
+            && !self.worker_start_allowed
+            && !self.task_execution_allowed
+            && !self.retry_execution_allowed
+            && !self.checkpoint_write_allowed
+            && !self.cleanup_execution_allowed
+            && !self.commit_execution_allowed
+            && !self.credential_resolution_allowed
+            && !self.object_store_io_allowed
+            && !self.data_read_allowed
+            && !self.write_io_allowed
+            && self
+                .entries
+                .iter()
+                .all(ObjectStoreRuntimePromotionGateEntry::side_effect_free)
+    }
+
+    #[must_use]
+    pub fn claim_blocked(&self) -> bool {
+        !self.object_store_runtime_claim_allowed && !self.distributed_runtime_claim_allowed
+    }
+
+    #[must_use]
+    pub fn side_effect_free(&self) -> bool {
+        self.runtime_promotions_blocked()
+            && !self.fallback_attempted
+            && !self.fallback_execution_allowed
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        !self.side_effect_free()
+            || !self.claim_blocked()
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        let mut out = String::new();
+        let _ = writeln!(out, "schema_version: {}", self.schema_version);
+        let _ = writeln!(out, "report_id: {}", self.report_id);
+        let _ = writeln!(
+            out,
+            "existing report refs: {}",
+            self.existing_report_refs.join(",")
+        );
+        let _ = writeln!(
+            out,
+            "runtime promotions blocked: {}",
+            self.runtime_promotions_blocked()
+        );
+        let _ = writeln!(out, "claim blocked: {}", self.claim_blocked());
+        let _ = writeln!(out, "side effect free: {}", self.side_effect_free());
+        let _ = writeln!(out, "surfaces:");
+        for entry in &self.entries {
+            let _ = writeln!(
+                out,
+                "  - {} [{}] existing_ref={} runtime_allowed={} object_store_io_allowed={} write_io_allowed={} fallback_execution_allowed={}",
+                entry.surface.as_str(),
+                entry.status.as_str(),
+                entry.existing_report_ref.unwrap_or("none"),
+                entry.runtime_allowed,
+                entry.object_store_io_allowed,
+                entry.write_io_allowed,
+                entry.fallback_execution_allowed
+            );
+        }
+        out
+    }
+}
+
+fn object_store_runtime_promotion_entries() -> Vec<ObjectStoreRuntimePromotionGateEntry> {
+    vec![
+        ObjectStoreRuntimePromotionGateEntry::existing(
+            ObjectStoreRuntimePromotionSurface::RequestPlannerAggregate,
+            "cg10.object_store_request_planner.aggregate",
+        ),
+        ObjectStoreRuntimePromotionGateEntry::blocked(
+            ObjectStoreRuntimePromotionSurface::RangeReadExecution,
+            ObjectStoreRuntimePromotionRequirements::RANGE_READ,
+        ),
+        ObjectStoreRuntimePromotionGateEntry::blocked(
+            ObjectStoreRuntimePromotionSurface::RequestCoalescingRuntime,
+            ObjectStoreRuntimePromotionRequirements::COALESCING_RUNTIME,
+        ),
+        ObjectStoreRuntimePromotionGateEntry::blocked(
+            ObjectStoreRuntimePromotionSurface::DistributedCoordinatorStartup,
+            ObjectStoreRuntimePromotionRequirements::DISTRIBUTED_RUNTIME,
+        ),
+        ObjectStoreRuntimePromotionGateEntry::blocked(
+            ObjectStoreRuntimePromotionSurface::DistributedWorkerStartup,
+            ObjectStoreRuntimePromotionRequirements::DISTRIBUTED_RUNTIME,
+        ),
+        ObjectStoreRuntimePromotionGateEntry::blocked(
+            ObjectStoreRuntimePromotionSurface::DistributedTaskExecution,
+            ObjectStoreRuntimePromotionRequirements::DISTRIBUTED_RUNTIME,
+        ),
+        ObjectStoreRuntimePromotionGateEntry::blocked(
+            ObjectStoreRuntimePromotionSurface::CheckpointWriteExecution,
+            ObjectStoreRuntimePromotionRequirements::RELIABILITY_RUNTIME,
+        ),
+        ObjectStoreRuntimePromotionGateEntry::blocked(
+            ObjectStoreRuntimePromotionSurface::RetryExecution,
+            ObjectStoreRuntimePromotionRequirements::RELIABILITY_RUNTIME,
+        ),
+        ObjectStoreRuntimePromotionGateEntry::blocked(
+            ObjectStoreRuntimePromotionSurface::CleanupExecution,
+            ObjectStoreRuntimePromotionRequirements::RELIABILITY_RUNTIME,
+        ),
+        ObjectStoreRuntimePromotionGateEntry::blocked(
+            ObjectStoreRuntimePromotionSurface::ObjectStoreCommitExecution,
+            ObjectStoreRuntimePromotionRequirements::COMMIT_RUNTIME,
+        ),
+        ObjectStoreRuntimePromotionGateEntry::blocked(
+            ObjectStoreRuntimePromotionSurface::ProviderCredentialRuntime,
+            ObjectStoreRuntimePromotionRequirements::CREDENTIAL_RUNTIME,
+        ),
+        ObjectStoreRuntimePromotionGateEntry::blocked(
+            ObjectStoreRuntimePromotionSurface::BenchmarkCertificateCloseout,
+            ObjectStoreRuntimePromotionRequirements::BENCHMARK_CLOSEOUT,
+        ),
+    ]
+}
+
+fn object_store_runtime_existing_report_refs() -> Vec<&'static str> {
+    vec![
+        "cg10.object_store_request_planner.aggregate",
+        "shardloom.object_store_range_planning.v1",
+        "shardloom.object_store_request_coalescing.v1",
+        "shardloom.object_store_distributed_scheduling.v1",
+        "shardloom.object_store_checkpoint_retry.v1",
+        "shardloom.object_store_commit_protocol.v1",
+    ]
+}
+
+#[must_use]
+pub fn plan_object_store_runtime_promotion_gate() -> ObjectStoreRuntimePromotionGateReport {
+    ObjectStoreRuntimePromotionGateReport::planning_default()
 }
 
 /// Plans object-store byte-range request shapes from declared manifest metadata only.
@@ -2351,6 +2850,82 @@ mod tests {
         assert_eq!(report.blocked_surface_count, 1);
         assert!(report.has_errors());
         assert!(report.side_effect_free());
+    }
+
+    #[test]
+    fn object_store_runtime_gate_keeps_execution_surfaces_blocked() {
+        let report = plan_object_store_runtime_promotion_gate();
+
+        assert_eq!(
+            report.schema_version,
+            "shardloom.object_store_runtime_promotion_gate.v1"
+        );
+        assert_eq!(report.report_id, "cg10.object_store_runtime_promotion_gate");
+        assert_eq!(report.surface_count(), 12);
+        assert_eq!(report.existing_evidence_surface_count(), 1);
+        assert_eq!(report.blocked_surface_count(), 11);
+        assert_eq!(
+            report.surface_order(),
+            vec![
+                "request_planner_aggregate",
+                "range_read_execution",
+                "request_coalescing_runtime",
+                "distributed_coordinator_startup",
+                "distributed_worker_startup",
+                "distributed_task_execution",
+                "checkpoint_write_execution",
+                "retry_execution",
+                "cleanup_execution",
+                "object_store_commit_execution",
+                "provider_credential_runtime",
+                "benchmark_certificate_closeout",
+            ]
+        );
+        assert!(report.existing_request_planner_evidence_present);
+        assert!(report.existing_range_planning_evidence_present);
+        assert!(report.existing_coalescing_evidence_present);
+        assert!(report.existing_distributed_scheduling_evidence_present);
+        assert!(report.existing_checkpoint_retry_evidence_present);
+        assert!(report.existing_commit_protocol_evidence_present);
+        assert!(report.runtime_promotions_blocked());
+        assert!(report.claim_blocked());
+        assert!(report.side_effect_free());
+        assert!(!report.has_errors());
+    }
+
+    #[test]
+    fn object_store_runtime_gate_requires_evidence_before_runtime() {
+        let report = plan_object_store_runtime_promotion_gate();
+
+        assert!(report.range_planning_evidence_required);
+        assert!(report.request_budget_policy_required);
+        assert!(report.provider_capability_policy_required);
+        assert!(report.credential_effect_policy_required);
+        assert!(report.scheduler_policy_required);
+        assert!(report.worker_identity_required);
+        assert!(report.checkpoint_plan_required);
+        assert!(report.retry_policy_required);
+        assert!(report.idempotency_keys_required);
+        assert!(report.attempt_records_required);
+        assert!(report.cleanup_policy_required);
+        assert!(report.atomic_commit_evidence_required);
+        assert!(report.execution_certificate_required);
+        assert!(report.native_io_certificate_required);
+        assert!(report.benchmark_evidence_required);
+        assert!(!report.range_read_execution_allowed);
+        assert!(!report.full_file_read_allowed);
+        assert!(!report.coordinator_start_allowed);
+        assert!(!report.worker_start_allowed);
+        assert!(!report.task_execution_allowed);
+        assert!(!report.retry_execution_allowed);
+        assert!(!report.checkpoint_write_allowed);
+        assert!(!report.cleanup_execution_allowed);
+        assert!(!report.commit_execution_allowed);
+        assert!(!report.object_store_io_allowed);
+        assert!(!report.data_read_allowed);
+        assert!(!report.write_io_allowed);
+        assert!(!report.fallback_attempted);
+        assert!(!report.fallback_execution_allowed);
     }
 
     #[test]

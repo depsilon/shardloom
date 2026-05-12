@@ -3398,3 +3398,26 @@ No fallback execution.
   probing, writes, commit execution, cleanup execution, coordinator runtime, worker runtime, task
   execution, parser work, SQL execution, adapter runtime, benchmark claim, production/superiority
   claim, or fallback behavior.
+
+## CG-10.6 object-store/distributed runtime promotion gate
+
+- `ObjectStoreRuntimePromotionGateReport` records the promotion boundary for object-store
+  byte-range reads, request-coalescing runtime, coordinator startup, worker startup, distributed
+  task execution, checkpoint writes, retry execution, cleanup execution, object-store commit
+  execution, provider credential runtime, and benchmark/certificate closeout.
+- `cg10-object-store-runtime-gate` exposes stable JSON/text fields for existing object-store
+  request planner, range planning, coalescing, distributed scheduling, checkpoint/retry, and commit
+  protocol evidence, blocked runtime surfaces, required provider/request-budget/scheduler/
+  reliability/atomicity/credential/benchmark/certificate evidence, side-effect boundaries, runtime
+  claim blockers, and no-fallback status.
+- Existing object-store request planning surfaces remain report-only evidence. Byte-range reads,
+  full-file reads, object-store IO, distributed coordinator/worker startup, task execution,
+  checkpoint/retry/cleanup/commit execution, credential resolution, and runtime claims stay blocked
+  until workload-scoped correctness, benchmark, execution-certificate, Native I/O, policy,
+  provider, and no-fallback evidence exists.
+- Primary RFC linkage: RFC 0008, RFC 0014, RFC 0016, RFC 0017, RFC 0018, RFC 0025, and RFC 0028.
+- Related RFCs: RFC 0004, RFC 0012, RFC 0029, RFC 0031, RFC 0032, RFC 0034, and RFC 0035.
+- This phase adds no byte-range reads, full-file reads, object-store IO, data reads, writes,
+  coordinator startup, worker startup, task execution, checkpoint writes, retry execution, cleanup
+  execution, object-store commit execution, credential resolution, runtime claim, external engine
+  fallback, or fallback execution.

@@ -342,7 +342,20 @@ not by numeric CG order.
     - [x] Expose the gate through `cg9-catalog-metadata-gate` without catalog IO, table metadata IO,
           object-store IO, data reads, writes, credential resolution, table-format dependency
           activation, metadata-cache runtime, claim publication, or fallback execution.
-  - [ ] CG-10 object-store/distributed runtime execution.
+  - [x] CG-10 object-store/distributed runtime execution.
+    - [x] Add `ObjectStoreRuntimePromotionGateReport` so object-store byte-range reads,
+          request-coalescing runtime, coordinator/worker startup, distributed task execution,
+          checkpoint writes, retry execution, cleanup execution, object-store commit execution,
+          credential runtime, and benchmark/certificate closeout remain blocked until provider,
+          request-budget, scheduler, reliability, atomicity, credential/effect, benchmark,
+          execution-certificate, Native I/O, and no-fallback evidence exists.
+    - [x] Keep existing object-store request planner, range planning, request coalescing,
+          distributed scheduling, checkpoint/retry, and commit protocol evidence visible as
+          report-only evidence without promoting object-store IO or distributed runtime behavior.
+    - [x] Expose the gate through `cg10-object-store-runtime-gate` without byte-range reads,
+          full-file reads, object-store IO, data reads, writes, coordinator/worker startup,
+          task execution, checkpoint/retry/cleanup/commit execution, credential resolution, runtime
+          claims, or fallback execution.
   - [ ] CG-20 SQL/DataFrame/UDF/unstructured/media/adapters once the encoded primitive evidence loop
         and importability lane are no longer the bottleneck.
   - [ ] CG-20 approximate aggregate/sketch function implementation after function-registry,

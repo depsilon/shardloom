@@ -16,6 +16,41 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: CG-10 object-store runtime promotion gate
+  - Primary files:
+    - `shardloom-plan/src/object_store.rs`
+    - `shardloom-plan/src/lib.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/cg10_object_store_runtime_gate.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/object-store-request-planner.md`
+  - Scope: add a report-only CG-10 promotion gate that names object-store and distributed runtime
+    surfaces and keeps them blocked until provider, request-budget, scheduler, reliability,
+    atomicity, credential/effect, benchmark, certificate, Native I/O, and no-fallback evidence
+    exists.
+  - Checklist:
+    - [x] Add `ObjectStoreRuntimePromotionGateReport` with request-planner aggregate, range read
+          execution, request-coalescing runtime, distributed coordinator/worker startup,
+          distributed task execution, checkpoint write execution, retry execution, cleanup
+          execution, object-store commit execution, provider credential runtime, and benchmark
+          closeout surfaces.
+    - [x] Preserve existing range planning, request coalescing, distributed scheduling,
+          checkpoint/retry, and commit protocol evidence as report-only evidence without promoting
+          object-store IO or distributed runtime execution.
+    - [x] Expose the gate through `cg10-object-store-runtime-gate` JSON/text output.
+  - Validation status:
+    - [x] `cargo test -p shardloom-plan object_store_runtime_gate --lib`
+    - [x] `cargo test -p shardloom-cli --test cg10_object_store_runtime_gate`
+    - [x] `cargo fmt --all -- --check`
+    - [x] `cargo clippy -p shardloom-plan --lib -- -D warnings`
+    - [x] `cargo clippy -p shardloom-cli --all-targets -- -D warnings`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `git diff --check`
+  - Non-goals preserved:
+    - [x] No byte-range reads, full-file reads, object-store IO, data reads, writes,
+          coordinator/worker startup, task execution, checkpoint/retry/cleanup/commit execution,
+          credential resolution, runtime claim, external engine fallback, or fallback execution.
 - [x] Session label: CG-9 catalog/table metadata integration gate
   - Primary files:
     - `shardloom-core/src/table_intelligence.rs`
