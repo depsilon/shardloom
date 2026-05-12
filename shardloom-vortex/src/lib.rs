@@ -1,15 +1,21 @@
-//! Vortex-native IO contract skeleton for `ShardLoom`.
+//! Vortex-facing execution, planning, and evidence surfaces for `ShardLoom`.
 //!
-//! This crate defines Vortex-facing execution, planning, and evidence surfaces.
-//! Narrow local/prepared/source-backed paths have executable evidence; broader
-//! Scan API, layout, object-store, write, device, and integration behavior stays
+//! Narrow local, prepared-encoded, source-backed, and reader-backed paths have
+//! executable evidence. Broader Scan API, layout/write strategy, object-store,
+//! device/GPU, extension-type, table/catalog, and integration behavior remains
 //! report-only or blocked until explicit provider/certificate evidence exists.
-//! Fallback execution remains disabled.
+//!
+//! Public exports are grouped by posture: Vortex compatibility/provider reports,
+//! narrow executable encoded/local/source-backed paths, readiness and promotion
+//! gates, write/commit artifact helpers, benchmark-only surfaces, and future
+//! runtime bridges. Vortex query-engine integrations and external engines are
+//! never fallback execution paths.
 // Intentionally scoped to `shardloom-vortex`: report-contract modules naturally
 // use pairs like request/report/status/mode/plan. Keep strict `-D warnings`
 // for all other lints, and do not add broader lint exceptions.
 #![allow(clippy::similar_names)]
 
+// Report-only adapter/API inventory and metadata posture.
 pub use adapter::{
     VortexAdapterCapability, VortexAdapterCapabilityReport, VortexAdapterCapabilityStatus,
     VortexApiArea, VortexApiInventoryItem, VortexApiSupportStatus, VortexDTypeMappingReport,
@@ -84,6 +90,8 @@ pub mod vortex_operational_facets;
 pub mod vortex_scan_compatibility;
 pub mod write_intent;
 
+// Report-only compatibility, provider-boundary, runtime-utilization, and
+// benchmark-matrix surfaces.
 pub use composite_pushdown::{
     CompositePushdownCapabilityMatrix, CompositePushdownCapabilityRow, CompositePushdownStatus,
     plan_composite_pushdown_capability_matrix,
@@ -173,6 +181,7 @@ pub use vortex_scan_compatibility::{
     VortexScanResidualExecutor, plan_vortex_scan_compatibility,
 };
 
+// Feature-gated metadata/readiness and plan-only I/O surfaces.
 pub use file_io::{
     VortexFileIoFeatureStatus, VortexMetadataOpenMode, VortexMetadataOpenReport,
     VortexMetadataOpenRequest, VortexMetadataOpenStatus, open_vortex_metadata_only,
@@ -200,6 +209,9 @@ pub use adaptive_sizing::{
     VortexAdaptiveSizingStatus, VortexSegmentSizingInput, VortexSizingEstimateSource,
     size_vortex_runtime_task_graph, vortex_adaptive_sizing_is_side_effect_free,
 };
+
+// Encoded-read, metadata, physical-kernel, and selection-vector readiness or
+// narrow local execution surfaces.
 #[cfg(feature = "vortex-file-io")]
 pub use encoded_read_api::vortex_encoded_read_public_api_compile_probe_summary;
 pub use encoded_read_api::{
@@ -318,6 +330,7 @@ pub use selection_vector_filter_kernel::{
     vortex_selection_vector_filter_kernel_discovery_report,
 };
 
+// Memory, physical-operator, primitive, and decision-trace bridge surfaces.
 pub use memory_bridge::{
     VortexMemoryBridgeInput, VortexMemoryBridgeMode, VortexMemoryBridgeReport,
     VortexMemoryBridgeStatus, VortexTaskMemoryClass, VortexTaskMemoryDecision,
@@ -356,6 +369,8 @@ pub use query_trace::{
     VortexWorkAvoidedReport, VortexWorkAvoidedValue, analyze_vortex_query_primitive_result,
     evaluate_vortex_query_primitive_with_analysis,
 };
+
+// Write/output/commit readiness surfaces and narrow feature-gated local artifact helpers.
 pub use staged_manifest::{
     VortexStagedManifestDraftContent, VortexStagedManifestDraftEffect,
     VortexStagedManifestDraftMode, VortexStagedManifestDraftReport,
@@ -483,6 +498,8 @@ pub use output_payload::{
     vortex_output_payload_is_side_effect_free, write_vortex_native_count_output_payload,
     write_vortex_output_payload_artifact,
 };
+
+// Benchmark-only surfaces. External engines remain comparison-only and never fallback.
 pub use traditional_analytics::{
     TraditionalAnalyticsInputFormat, TraditionalAnalyticsReport, TraditionalAnalyticsRequest,
     TraditionalAnalyticsResourcePolicy, TraditionalAnalyticsScenario,
@@ -490,6 +507,7 @@ pub use traditional_analytics::{
     run_traditional_analytics_benchmark, run_traditional_analytics_vortex_benchmark,
 };
 
+// Runtime bridge, scheduler, bounded execution, and narrow local engine/provider exports.
 pub use write_intent::{
     VortexWriteIntentEffect, VortexWriteIntentMode, VortexWriteIntentReport,
     VortexWriteIntentRequest, VortexWriteIntentSignal, VortexWriteIntentStatus,
@@ -565,6 +583,7 @@ pub use streaming_batch_runtime::{
 };
 pub use top_level_facade::VortexTopLevelExecutionProvider;
 
+// Metadata-summary helpers remain local metadata evidence, not broad scan execution.
 pub use metadata_summary::{
     VortexColumnMetadataSummary, VortexFileMetadataSummary, VortexMetadataAvailability,
     VortexMetadataSummaryReport, VortexMetadataSummaryStatus, VortexSegmentMetadataSummary,
@@ -626,10 +645,10 @@ impl VortexDependencyStatus {
     }
 }
 
-/// Planning/readiness report for a future upstream Vortex dependency PR.
+/// Planning/readiness report for upstream Vortex dependency and adapter posture.
 ///
-/// This type is reporting-only. It does not add dependencies and does not
-/// perform real Vortex file IO.
+/// This type is reporting-only. It does not add dependencies, probe files, or
+/// promote broad adapter reads/writes.
 #[derive(Debug, Clone, PartialEq)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct VortexAdapterReadiness {
@@ -669,7 +688,9 @@ impl VortexAdapterReadiness {
 
     /// Returns readiness state while public upstream API discovery is in progress.
     ///
-    /// This is still non-IO planning mode; actual Vortex reads/writes are not implemented.
+    /// This is still non-IO planning mode; broad Vortex adapter reads/writes
+    /// remain blocked unless a narrower feature-gated helper explicitly
+    /// authorizes them.
     #[must_use]
     pub fn api_discovery_in_progress() -> Self {
         Self {
@@ -688,8 +709,8 @@ impl VortexAdapterReadiness {
 
     /// Returns a compile-only readiness state after adding upstream Vortex.
     ///
-    /// This confirms dependency posture only. Actual Vortex metadata/file IO
-    /// and adapter API integration are intentionally not implemented yet.
+    /// This confirms dependency posture only. It does not by itself approve
+    /// broad Vortex metadata/file I/O or adapter API integration.
     #[must_use]
     pub fn dependency_added_compile_only() -> Self {
         Self {
@@ -750,7 +771,7 @@ impl VortexAdapterReadiness {
             text.push_str("\nupstream Vortex dependency is not added yet");
         } else if !self.public_api_review_complete {
             text.push_str(
-                "\nupstream Vortex dependency is added in compile-only readiness mode; actual Vortex IO is not implemented",
+                "\nupstream Vortex dependency is added in compile-only readiness mode; broad Vortex adapter IO is not promoted",
             );
         }
         if self.diagnostics.is_empty() {
@@ -1566,12 +1587,12 @@ mod tests {
     }
 
     #[test]
-    fn adapter_readiness_dependency_added_compile_only_text_mentions_io_not_implemented() {
+    fn adapter_readiness_dependency_added_compile_only_text_mentions_blocked_adapter_io() {
         let text = VortexAdapterReadiness::dependency_added_compile_only().to_human_text();
         assert!(text.contains("fallback execution: disabled"));
         assert!(
             text.contains("upstream Vortex dependency feature is not enabled in this build")
-                || text.contains("actual Vortex IO is not implemented")
+                || text.contains("broad Vortex adapter IO is not promoted")
         );
     }
 

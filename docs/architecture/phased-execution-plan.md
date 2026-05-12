@@ -81,6 +81,10 @@ Supporting docs:
     matrix orientation.
   - Status rule: records matrix/catalog report surfaces and claim blockers; comparative benchmark
     execution remains a separate planned/release-readiness action.
+- `docs/architecture/crate-posture-public-exports.md`
+  - Role: Priority 2.8 crate posture and public export grouping reference.
+  - Status rule: documents current executable/report-only/blocked/future/prohibited-fallback export
+    posture only; it does not authorize runtime or dependency expansion.
 - `docs/architecture/incumbent-gap-opportunity-map.md`, `lakehouse-value-prop-compatibility.md`,
   `universal-input-contract.md`, and `spill-reservation-lifecycle-integration.md`
   - Role: reference maps and constraints.
@@ -406,17 +410,17 @@ not by numeric CG order.
     - [x] Add timing and support/coverage reports, including provider kind, residual executor,
           representation transitions, certificate status, Native I/O status, materialization/decode
           status, external-engine status, and `fallback_attempted=false`.
-- [ ] Priority 2.8 - crate-level posture and public export cleanup after executable-surface growth
-  - [ ] Refresh crate-level docs and historical posture comments for `shardloom-vortex`,
+- [x] Priority 2.8 - crate-level posture and public export cleanup after executable-surface growth
+  - [x] Refresh crate-level docs and historical posture comments for `shardloom-vortex`,
         `shardloom-plan`, `shardloom-exec`, and `shardloom-cli`.
-    - [ ] Clearly distinguish executable local/prepared/source-backed paths, report-only contract
+    - [x] Clearly distinguish executable local/prepared/source-backed paths, report-only contract
           surfaces, blocked/deferred runtime surfaces, future provider/adapter surfaces, and
           prohibited external fallback.
-    - [ ] Rewrite stale setup-phase or compile-only statements outright where they no longer match
+    - [x] Rewrite stale setup-phase or compile-only statements outright where they no longer match
           current code; retain historical notes only when explicitly labeled historical.
-    - [ ] Group or document public exports by executable paths, report-only planning surfaces,
+    - [x] Group or document public exports by executable paths, report-only planning surfaces,
           blocked runtime surfaces, and future provider/adapter surfaces.
-    - [ ] Do not expand runtime behavior while cleaning docs and export posture.
+    - [x] Do not expand runtime behavior while cleaning docs and export posture.
 - [ ] Priority 3 - broader platform work after the primitive/evidence loop advances
   - [x] CG-4 broader commit execution.
     - [x] Add `CommitExecutionPromotionGateReport` so broader commit surfaces are named and kept

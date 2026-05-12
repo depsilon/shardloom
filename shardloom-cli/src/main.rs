@@ -1,7 +1,12 @@
-//! Command-line entry point for `ShardLoom`.
+//! Command-line entry point and current JSON/text protocol surface for `ShardLoom`.
 //!
-//! The `CLI` remains intentionally small in setup phase and exposes basic
-//! introspection commands for workspace bring-up.
+//! The `CLI` exposes a mix of narrow executable local Vortex paths, explicit
+//! feature-gated local artifact helpers, and many report-only planning or
+//! promotion-gate commands. Commands must surface unsupported behavior
+//! deterministically and keep external engines as baselines/oracles only, never
+//! fallback execution. Handler modularization and typed envelope replacement are
+//! tracked separately; this file documents the current public posture until that
+//! refactor lands.
 
 use std::{
     path::PathBuf,

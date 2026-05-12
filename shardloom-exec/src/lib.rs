@@ -1,9 +1,16 @@
 //! Execution facade for `ShardLoom`.
 //!
-//! This crate owns native execution orchestration contracts with explicit
-//! unsupported-path failures and no fallback delegation architecture. Provider
-//! crates attach concrete execution through the `ShardLoomExecutionProvider`
-//! trait to avoid reversing crate dependencies.
+//! This crate owns provider-neutral execution orchestration contracts with
+//! explicit unsupported-path failures and no fallback delegation. The neutral
+//! `execute` path returns report-only results or deterministic
+//! provider-required blockers; it never reports no-op success for executable
+//! plans. Provider crates attach concrete execution through the
+//! `ShardLoomExecutionProvider` trait to avoid reversing crate dependencies.
+//!
+//! Memory, recovery, sizing, spill, runtime, and streaming exports are mostly
+//! planning or promotion-gate surfaces. Narrow feature-gated local helpers stay
+//! explicit and do not authorize object-store I/O, distributed execution,
+//! external engine invocation, or fallback execution.
 
 use shardloom_core::{Diagnostic, DiagnosticCode, ExecutionProviderKind, FallbackStatus, Result};
 use shardloom_plan::{Plan, PlanKind};
@@ -151,11 +158,12 @@ pub trait ShardLoomExecutionProvider {
     fn execute_plan(&self, plan: &Plan) -> Result<ShardLoomExecutionResult>;
 }
 
-/// Return a simple system status for initial workspace validation.
+/// Return a simple system status for process validation.
 #[must_use]
 pub fn status() -> ExecStatus {
     ExecStatus {
-        summary: "ShardLoom workspace initialized (native Vortex-first skeleton)".to_string(),
+        summary: "ShardLoom workspace initialized (native Vortex-first execution facade)"
+            .to_string(),
     }
 }
 
@@ -187,7 +195,7 @@ pub fn execute_with_provider(
     provider.execute_plan(plan)
 }
 
-/// Fail explicitly for unsupported operations in the early skeleton.
+/// Fail explicitly for unsupported operations in the provider-neutral facade.
 ///
 /// # Errors
 /// Returns an error when the synthetic unsupported plan id cannot be constructed.
@@ -207,6 +215,8 @@ pub fn unsupported(operation: &str) -> Result<ShardLoomExecutionResult> {
     ))
 }
 
+// Memory and spill planning/promotion surfaces; allocator/runtime spill remains
+// evidence-gated unless a specific feature-gated helper says otherwise.
 pub use memory::{
     MemoryAdmissionDecisionKind, MemoryAdmissionReport, MemoryBudget, MemoryOwner, MemoryPoolPlan,
     MemoryPoolSnapshot, MemoryPressureLevel, MemoryReservation, MemoryReservationId,
@@ -219,6 +229,7 @@ pub use memory::{
     plan_operator_memory_spill_declarations,
 };
 
+// Recovery, retry, cancellation, cleanup, and commit promotion contracts.
 pub use recovery::{
     AmbiguousCommitRecord, AttemptId, CancellationReason, CancellationRequest, CancellationScope,
     CancellationStatus, CleanupExecutionOption, CleanupRequirement, CleanupStatus,
@@ -244,6 +255,7 @@ pub use recovery::{
     retry_execution_gate_is_side_effect_free,
 };
 
+// Adaptive sizing and bounded work-shaping planning surfaces.
 pub use sizing::{
     AdaptiveSizer, AdaptiveSizingPolicy, ByteSize, CoalescingPolicy,
     DynamicRuntimePromotionGateEntry, DynamicRuntimePromotionGateReport,
@@ -255,6 +267,7 @@ pub use sizing::{
     plan_dynamic_runtime_promotion_gate, plan_dynamic_sizing_feedback, plan_dynamic_work_shaping,
 };
 
+// Streaming and zero-copy boundary planning surfaces; live execution is blocked.
 pub use streaming::{
     BackpressurePlanInput, BackpressurePlanMode, BackpressurePlanReport, BackpressurePlanStatus,
     BackpressurePolicy, BoundaryInteropKind, BoundedMemoryPolicy, DataWorkLevel,
@@ -267,6 +280,8 @@ pub use streaming::{
 };
 
 pub use spill_lifecycle::*;
+
+// Explicit spill-payload artifact helpers and report-only payload contracts.
 pub use spill_payload::{
     SpillPayloadEffect, SpillPayloadFsFeatureStatus, SpillPayloadFsPlanMode,
     SpillPayloadFsPlanReport, SpillPayloadFsPlanStatus, SpillPayloadFsRef, SpillPayloadId,
@@ -279,6 +294,7 @@ pub use spill_payload::{
     spill_payload_plan_is_side_effect_free, write_spill_payload,
 };
 
+// Runtime task-graph planning surfaces; object-store/distributed task execution is blocked.
 pub use runtime::{
     ByteRangeRequest, ObjectStoreKind, ObjectStoreRef, ReadPolicy, ResourceBudget, RetryPolicy,
     RuntimePlanSkeleton, RuntimePlanningStatus, SegmentTask, ShuffleRequirement, TaskGraph, TaskId,

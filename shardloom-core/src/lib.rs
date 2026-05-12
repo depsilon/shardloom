@@ -1,8 +1,15 @@
 //! Core types and traits shared across `ShardLoom` crates.
 //!
-//! This crate defines minimal cross-cutting contracts for the initial workspace:
-//! identifiers, errors, diagnostics, and capability metadata for native
-//! `Vortex`-first execution.
+//! This crate owns provider-neutral contracts: identifiers, diagnostics,
+//! encoded-data vocabulary, evidence artifacts, Native I/O certificates,
+//! benchmark/correctness contracts, release gates, policy reports, and
+//! user-facing capability surfaces.
+//!
+//! Public exports are contract surfaces. They do not perform dataset reads,
+//! object-store I/O, external engine execution, package publication, model
+//! calls, or fallback execution by themselves. Executable work lives in
+//! provider crates such as `shardloom-vortex` and must attach the relevant
+//! evidence before support or performance claims.
 
 pub mod agent_contract;
 pub mod approx_sketch;
