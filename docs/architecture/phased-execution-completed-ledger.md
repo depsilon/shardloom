@@ -16,6 +16,38 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 extension/UDF planning handler module split
+  - Primary files:
+    - `shardloom-cli/src/extension_planning.rs`
+    - `shardloom-cli/src/command_family.rs`
+    - `shardloom-cli/src/main.rs`
+    - `docs/architecture/typed-command-result-envelope.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/rfcs/0039-typed-command-result-envelope-cli-modularity.md`
+  - Scope: move extension and UDF planning handlers into a focused CLI module and classify them as
+    an explicit extension-planning command family.
+  - Checklist:
+    - [x] Add `shardloom-cli/src/extension_planning.rs`.
+    - [x] Delegate `extension-registry`, `extension-inspect`, and `udf-runtime-plan` from
+          `main.rs`.
+    - [x] Keep these surfaces metadata-only, with no dynamic loading, extension code execution,
+          UDF execution, external service invocation, writes, or fallback execution.
+    - [x] Route the commands through `command_family=extension_planning` in the typed lifecycle
+          payload.
+    - [x] Update Priority 3.9 docs, RFC traceability, and RFC 0039 status.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo check -p shardloom-cli --bin shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli command_family`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test typed_envelope_contract_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test python_wrapper_snapshots`
+    - [x] `.\target\debug\shardloom.exe extension-registry --format json`
+    - [x] `.\target\debug\shardloom.exe extension-inspect example-extension --format json`
+    - [x] `.\target\debug\shardloom.exe udf-runtime-plan wasm --format json`
+  - Runtime stance: handler split and typed lifecycle classification only; no extension loading, UDF
+    runtime, external service invocation, write IO, external engine invocation, or fallback
+    execution is authorized.
+
 - [x] Session label: Priority 3.9 input planning handler module split
   - Primary files:
     - `shardloom-cli/src/input_planning.rs`

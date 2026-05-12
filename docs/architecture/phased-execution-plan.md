@@ -193,6 +193,9 @@ actionable work.
           surfaces into `shardloom-cli/src/engine_runtime_planning.rs` without reading datasets,
           executing tasks, collecting profiles, writing data, materializing outputs, or invoking
           external engines.
+    - [x] Move extension/UDF planning handlers into
+          `shardloom-cli/src/extension_planning.rs` without dynamic loading, extension code
+          execution, UDF execution, external services, writes, or fallback execution.
     - [ ] Move remaining command-family handlers out of `main.rs` after the shared
           `typed_envelope` routing module and `command_family` taxonomy.
     - [ ] Split handlers by status/capabilities, Vortex primitive execution,
