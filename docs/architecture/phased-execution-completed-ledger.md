@@ -16,6 +16,36 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 operational hardening/security handler module split
+  - Primary files:
+    - `shardloom-cli/src/operational_hardening.rs`
+    - `shardloom-cli/src/main.rs`
+    - `docs/architecture/typed-command-result-envelope.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/rfcs/0039-typed-command-result-envelope-cli-modularity.md`
+  - Scope: move report-only security, governance, effect-budget, agent-safety, and redaction
+    handlers into a focused operational hardening module.
+  - Checklist:
+    - [x] Add `shardloom-cli/src/operational_hardening.rs`.
+    - [x] Delegate `security-plan`, `security-governance-evidence-gate`, `effect-budget-plan`,
+          `agent-safety-plan`, and `redaction-plan` from `main.rs`.
+    - [x] Keep credentials, secrets, effects, writes, and fallback disabled.
+    - [x] Update Priority 3.9 docs and RFC traceability while leaving remaining handler families in
+          the Planned queue.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test effect_budget_plan_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test security_governance_evidence_gate`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli security_plan_returns_success --bin shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli effect_budget_plan_returns_success --bin shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test typed_envelope_contract_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-cli --bin shardloom -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `git diff --check`
+  - Runtime stance: handler-placement refactor only; no credential resolution, secret loading,
+    external effect execution, external engine invocation, runtime expansion, dataset probe,
+    network effect, write, materialization, or fallback execution changes.
+
 - [x] Session label: Priority 3.9 benchmark planning handler module split
   - Primary files:
     - `shardloom-cli/src/benchmark_planning.rs`

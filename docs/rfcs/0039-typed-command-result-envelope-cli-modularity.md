@@ -22,9 +22,10 @@ emission in `shardloom-cli/src/cli_output.rs`, the status/capabilities handler-f
 `shardloom-cli/src/status_capabilities.rs`, the REST/API planning handler module in
 `shardloom-cli/src/rest_api_planning.rs`, the packaging/deployment handler module in
 `shardloom-cli/src/packaging_deployment.rs`, the benchmark planning handler module in
-`shardloom-cli/src/benchmark_planning.rs`, and typed-envelope contract snapshots for representative
-success, error, unsupported, blocked, evidence-incomplete, source-backed, benchmark, and
-Foundry-adjacent report surfaces. Command-family-specific result migration, richer inline
+`shardloom-cli/src/benchmark_planning.rs`, the operational hardening/security handler module in
+`shardloom-cli/src/operational_hardening.rs`, and typed-envelope contract snapshots for
+representative success, error, unsupported, blocked, evidence-incomplete, source-backed, benchmark,
+and Foundry-adjacent report surfaces. Command-family-specific result migration, richer inline
 artifact/report payloads, remaining certified-runtime/missing-binary/Foundry-boundary golden
 fixtures, and broader CLI handler modularization remain planned.
 

@@ -97,6 +97,12 @@ The benchmark planning family currently contains `benchmark-plan` and
 handlers remain report-only and do not run comparative benchmarks, invoke baseline engines, publish
 performance claims, or weaken no-fallback behavior.
 
+The operational hardening/security family currently contains `security-plan`,
+`security-governance-evidence-gate`, `effect-budget-plan`, `agent-safety-plan`, and
+`redaction-plan`, and lives in `shardloom-cli/src/operational_hardening.rs`. These handlers remain
+report-only and do not resolve credentials, load secrets, execute effects, write data, or weaken
+no-fallback behavior.
+
 Command family classification lives in `shardloom-cli/src/command_family.rs` and is emitted in the
 typed lifecycle payload as `command_family`. This gives status/capabilities, Vortex primitive,
 prepared/source-backed, evidence/certificate, benchmark, packaging/deployment, Foundry,
