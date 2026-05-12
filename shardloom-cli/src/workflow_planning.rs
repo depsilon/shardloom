@@ -7,10 +7,15 @@
 use std::process::ExitCode;
 
 use shardloom_core::{
-    ChangeSet, CommandStatus, DatasetManifest, DatasetRef, DatasetUri, IncrementalPlanSkeleton,
-    ManifestId, OutputFormat, ShardLoomError, SnapshotId, SnapshotRef,
+    CapabilityCertificationReport, CatalogKind, CatalogRef, ChangeSet, CommandStatus,
+    DatasetManifest, DatasetRef, DatasetUri, IncrementalPlanSkeleton, ManifestId, OutputFormat,
+    OutputTarget, ShardLoomError, SnapshotId, SnapshotRef, WriteIntent,
     plan_catalog_metadata_integration_gate, plan_stateful_reuse,
     plan_stateful_reuse_promotion_gate,
+};
+use shardloom_plan::{
+    ImportedPlanCapabilityGateReport, NativePlanDocument, PlanExportRequest, PlanId,
+    PlanImportRequest, PlanInteropFormat, PlanPortabilityReport, ScanPlanSkeleton, ScanRequest,
 };
 
 use crate::{
@@ -19,7 +24,9 @@ use crate::{
     cli_unknown_arg_error, emit_cdc_incremental_plan, emit_compaction_plan,
     emit_delete_tombstone_plan, emit_layout_health_plan, emit_partition_evolution_plan,
     emit_schema_evolution_plan, emit_schema_plan_skeleton, emit_table_compat_plan,
-    emit_table_compatibility_aggregation, emit_table_intelligence_plan, stateful_reuse_fields,
+    emit_table_compatibility_aggregation, emit_table_intelligence_plan,
+    imported_plan_capability_gate_fields, native_plan_export_document, parse_plan_interop_format,
+    plan_portability_fields, push_count_field, push_field, stateful_reuse_fields,
     stateful_reuse_promotion_gate_fields,
 };
 
@@ -139,6 +146,172 @@ pub(crate) fn handle_schema_plan(
             &cli_unknown_arg_error("schema-plan", value),
         ),
     }
+}
+
+pub(crate) fn handle_catalog_plan(
+    mut args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let kind = match args.next().as_deref() {
+        Some("local") => CatalogKind::LocalManifest,
+        Some("object-store") => CatalogKind::ObjectStoreManifest,
+        Some("iceberg") => CatalogKind::IcebergCompatible,
+        Some("delta") => CatalogKind::DeltaCompatible,
+        Some("hive") => CatalogKind::HiveStylePath,
+        Some("foundry") => CatalogKind::FoundryCompatible,
+        Some(_) | None => CatalogKind::Unknown,
+    };
+    let Some(name) = args.next() else {
+        return emit_error(
+            "catalog-plan",
+            format,
+            "catalog plan failed",
+            &ShardLoomError::InvalidOperation("missing catalog name".to_string()),
+        );
+    };
+    let catalog = match CatalogRef::new(kind, name) {
+        Ok(catalog) => catalog,
+        Err(error) => {
+            return emit_error("catalog-plan", format, "catalog plan failed", &error);
+        }
+    };
+    emit(
+        "catalog-plan",
+        format,
+        CommandStatus::Success,
+        "catalog reference plan skeleton".to_string(),
+        catalog.summary(),
+        vec![],
+        vec![
+            (
+                "fallback_execution_allowed".to_string(),
+                "false".to_string(),
+            ),
+            ("mode".to_string(), "catalog_plan".to_string()),
+            ("write_io".to_string(), "false".to_string()),
+            ("execution".to_string(), "not_performed".to_string()),
+            ("plan_only".to_string(), "true".to_string()),
+            (
+                "table_formats_are".to_string(),
+                "compatibility_targets_not_fallback_engines".to_string(),
+            ),
+        ],
+    );
+    ExitCode::SUCCESS
+}
+
+pub(crate) fn handle_plan_ir(format: OutputFormat) -> ExitCode {
+    let plan_id = match PlanId::new("plan-placeholder") {
+        Ok(v) => v,
+        Err(error) => return emit_error("plan-ir", format, "invalid plan id", &error),
+    };
+    let mut document = NativePlanDocument::empty(plan_id);
+    document.validate_skeleton();
+    let report = PlanPortabilityReport::native_skeleton(&document);
+    emit(
+        "plan-ir",
+        format,
+        CommandStatus::Warning,
+        "native plan ir skeleton".to_string(),
+        format!("{}\n\n{}", document.to_human_text(), report.to_human_text()),
+        report.diagnostics.clone(),
+        plan_portability_fields(&report, "plan_ir"),
+    );
+    ExitCode::SUCCESS
+}
+
+pub(crate) fn handle_plan_import(
+    mut args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let Some(format_raw) = args.next() else {
+        eprintln!("usage: shardloom plan-import <format> <source_label>");
+        return ExitCode::from(2);
+    };
+    let Some(source_label) = args.next() else {
+        eprintln!("usage: shardloom plan-import <format> <source_label>");
+        return ExitCode::from(2);
+    };
+    let format_kind = parse_plan_interop_format(&format_raw);
+    let request = if format_kind == PlanInteropFormat::ShardLoomNative {
+        match PlanImportRequest::from_native_serialized(source_label) {
+            Ok(v) => v,
+            Err(error) => {
+                return emit_error("plan-import", format, "invalid import request", &error);
+            }
+        }
+    } else {
+        match PlanImportRequest::not_implemented(format_kind, source_label) {
+            Ok(v) => v,
+            Err(error) => {
+                return emit_error("plan-import", format, "invalid import request", &error);
+            }
+        }
+    };
+    let report = PlanPortabilityReport::for_import_request(&request);
+    let mut fields = plan_portability_fields(&report, "plan_import");
+    if let Some(document) = &request.imported_document {
+        let certification = CapabilityCertificationReport::contract_only();
+        let gate = ImportedPlanCapabilityGateReport::for_import_request(&request, &certification);
+        push_field(&mut fields, "imported_plan_id", document.id.as_str());
+        push_count_field(
+            &mut fields,
+            "imported_plan_node_count",
+            document.node_count(),
+        );
+        fields.extend(imported_plan_capability_gate_fields(&gate));
+    }
+    emit_plan_portability_report(
+        "plan-import",
+        "plan import",
+        format!("{}\n\n{}", request.summary(), report.to_human_text()),
+        &report,
+        fields,
+        format,
+    )
+}
+
+pub(crate) fn handle_plan_export(
+    mut args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let Some(format_raw) = args.next() else {
+        eprintln!("usage: shardloom plan-export <format>");
+        return ExitCode::from(2);
+    };
+    let format_kind = parse_plan_interop_format(&format_raw);
+    let mut serialized_plan = None;
+    let mut serialized_plan_node_count = None;
+    let request = if format_kind == PlanInteropFormat::ShardLoomNative {
+        let document = match native_plan_export_document() {
+            Ok(document) => document,
+            Err(error) => {
+                return emit_error("plan-export", format, "invalid native plan", &error);
+            }
+        };
+        serialized_plan_node_count = Some(document.node_count());
+        let request = PlanExportRequest::serialized_native(&document);
+        serialized_plan.clone_from(&request.serialized_document);
+        request
+    } else {
+        PlanExportRequest::not_implemented(format_kind)
+    };
+    let report = PlanPortabilityReport::for_export_request(&request);
+    let mut fields = plan_portability_fields(&report, "plan_export");
+    if let Some(serialized_plan) = &serialized_plan {
+        push_field(&mut fields, "serialized_plan", serialized_plan);
+    }
+    if let Some(node_count) = serialized_plan_node_count {
+        push_count_field(&mut fields, "serialized_plan_node_count", node_count);
+    }
+    emit_plan_portability_report(
+        "plan-export",
+        "plan export",
+        format!("{}\n\n{}", request.summary(), report.to_human_text()),
+        &report,
+        fields,
+        format,
+    )
 }
 
 pub(crate) fn handle_table_compat_plan(
@@ -304,6 +477,106 @@ pub(crate) fn handle_stateful_reuse_gate(format: OutputFormat) -> ExitCode {
         report.to_human_text(),
         report.diagnostics.clone(),
         stateful_reuse_promotion_gate_fields(&report),
+    );
+    if report.has_errors() {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+pub(crate) fn handle_write_intent(
+    mut args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let Some(target_uri) = args.next() else {
+        eprintln!("usage: shardloom write-intent <target_uri>");
+        return ExitCode::from(2);
+    };
+    let uri = match DatasetUri::new(target_uri) {
+        Ok(uri) => uri,
+        Err(error) => {
+            eprintln!("invalid dataset uri: {error}");
+            return ExitCode::from(2);
+        }
+    };
+    let intent = WriteIntent::write_not_implemented(OutputTarget::from_uri(uri));
+    emit(
+        "write-intent",
+        format,
+        CommandStatus::Unsupported,
+        "write intent".to_string(),
+        intent.summary(),
+        intent.diagnostics.clone(),
+        vec![],
+    );
+    if intent.has_errors() {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+pub(crate) fn handle_scan_plan(
+    mut args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let Some(dataset_uri) = args.next() else {
+        eprintln!("usage: shardloom scan-plan <dataset_uri>");
+        return ExitCode::from(2);
+    };
+    let uri = match DatasetUri::new(dataset_uri) {
+        Ok(uri) => uri,
+        Err(error) => {
+            eprintln!("invalid dataset uri: {error}");
+            return ExitCode::from(2);
+        }
+    };
+    let dataset = match DatasetRef::from_uri(uri) {
+        Ok(dataset) => dataset,
+        Err(error) => {
+            eprintln!("failed to create dataset reference: {error}");
+            return ExitCode::from(2);
+        }
+    };
+    let request = ScanRequest::new(dataset);
+    let skeleton = ScanPlanSkeleton::plan_only(request);
+    emit(
+        "scan-plan",
+        format,
+        if skeleton.has_errors() {
+            CommandStatus::Unsupported
+        } else {
+            CommandStatus::Success
+        },
+        "scan plan".to_string(),
+        skeleton.to_human_text(),
+        skeleton.diagnostics.clone(),
+        vec![("mode".to_string(), "plan_only".to_string())],
+    );
+    ExitCode::SUCCESS
+}
+
+fn emit_plan_portability_report(
+    command: &str,
+    summary: &str,
+    human_text: String,
+    report: &PlanPortabilityReport,
+    fields: Vec<(String, String)>,
+    format: OutputFormat,
+) -> ExitCode {
+    emit(
+        command,
+        format,
+        if report.has_errors() {
+            CommandStatus::Unsupported
+        } else {
+            CommandStatus::Success
+        },
+        summary.to_string(),
+        human_text,
+        report.diagnostics.clone(),
+        fields,
     );
     if report.has_errors() {
         ExitCode::from(1)

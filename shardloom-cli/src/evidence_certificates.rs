@@ -7,13 +7,19 @@
 use std::process::ExitCode;
 
 use shardloom_core::{
-    CommandStatus, CorrectnessValidationPlan, OutputFormat, plan_correctness_differential_harness,
-    plan_execution_certificate_evidence_surface, plan_native_io_envelope, plan_universal_harness,
+    CommandStatus, CorrectnessValidationPlan, OutputFormat, plan_approx_sketch_function_gate,
+    plan_correctness_differential_harness, plan_execution_certificate_evidence_surface,
+    plan_native_io_envelope, plan_rfc_coverage_followthrough, plan_universal_harness,
+    plan_user_capability_promotion_gate, plan_world_class_sufficiency,
 };
 
 use crate::{
-    cli_output::emit, correctness_harness_fields, correctness_plan_fields,
-    execution_certificate_surface_fields, native_io_envelope_fields, universal_harness_fields,
+    approx_sketch_function_gate_fields,
+    cli_output::{emit, emit_error},
+    cli_unknown_arg_error, correctness_harness_fields, correctness_plan_fields,
+    execution_certificate_surface_fields, native_io_envelope_fields,
+    rfc_coverage_followthrough_fields, universal_harness_fields,
+    user_capability_promotion_gate_fields, world_class_sufficiency_fields,
 };
 
 pub(crate) fn handle_correctness_plan(format: OutputFormat) -> ExitCode {
@@ -79,6 +85,80 @@ pub(crate) fn handle_native_io_envelope_plan(format: OutputFormat) -> ExitCode {
         report.to_human_text(),
         report.diagnostics.clone(),
         native_io_envelope_fields(&report),
+        format,
+    )
+}
+
+pub(crate) fn handle_rfc_coverage_followthrough_plan(format: OutputFormat) -> ExitCode {
+    let report = plan_rfc_coverage_followthrough();
+    emit_report(
+        "rfc-coverage-followthrough-plan",
+        "RFC coverage follow-through plan",
+        report.has_errors(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        rfc_coverage_followthrough_fields(&report),
+        format,
+    )
+}
+
+pub(crate) fn handle_world_class_sufficiency_plan(format: OutputFormat) -> ExitCode {
+    let report = plan_world_class_sufficiency();
+    emit_report(
+        "world-class-sufficiency-plan",
+        "world-class sufficiency plan",
+        report.has_errors(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        world_class_sufficiency_fields(&report),
+        format,
+    )
+}
+
+pub(crate) fn handle_cg20_user_capability_gate(
+    mut args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    if let Some(extra) = args.next() {
+        return emit_error(
+            "cg20-user-capability-gate",
+            format,
+            "CG-20 user capability gate failed",
+            &cli_unknown_arg_error("cg20-user-capability-gate", &extra),
+        );
+    }
+    let report = plan_user_capability_promotion_gate();
+    emit_report(
+        "cg20-user-capability-gate",
+        "CG-20 user capability promotion gate",
+        report.has_errors(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        user_capability_promotion_gate_fields(&report),
+        format,
+    )
+}
+
+pub(crate) fn handle_cg20_approx_sketch_gate(
+    mut args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    if let Some(extra) = args.next() {
+        return emit_error(
+            "cg20-approx-sketch-gate",
+            format,
+            "CG-20 approximate sketch gate failed",
+            &cli_unknown_arg_error("cg20-approx-sketch-gate", &extra),
+        );
+    }
+    let report = plan_approx_sketch_function_gate();
+    emit_report(
+        "cg20-approx-sketch-gate",
+        "CG-20 approximate sketch function gate",
+        report.has_errors(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        approx_sketch_function_gate_fields(&report),
         format,
     )
 }

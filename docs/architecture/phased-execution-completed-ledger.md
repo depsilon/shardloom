@@ -16,6 +16,93 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 typed report payload helper migration slice
+  - Primary files:
+    - `shardloom-cli/src/typed_envelope.rs`
+    - `shardloom-cli/src/cli_output.rs`
+    - `shardloom-cli/tests/typed_envelope_contract_snapshots.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/typed-command-result-envelope.md`
+  - Scope: add a shared batch typed-envelope routing helper and attach first inline report artifact
+    payloads for execution-certificate, Native I/O envelope, benchmark-plan, and benchmark claim
+    evidence JSON outputs while preserving the temporary legacy top-level `fields` mirror for
+    existing clients and tests.
+  - Checklist:
+    - [x] Route command fields through a batch helper before rendering so typed report payloads can
+          be derived from the complete command-family field set.
+    - [x] Attach inline `execution_certificate_report`, `native_io_report`,
+          `benchmark_plan_report`, and `benchmark_claim_evidence_report` artifacts through the
+          typed `artifacts` slot.
+    - [x] Attach inline emitted-runtime `execution_certificate` and `native_io_certificate`
+          artifacts from existing local CountAll and Vortex primitive certificate field prefixes,
+          while skipping unavailable/feature-disabled certificate groups.
+    - [x] Preserve existing policy, lifecycle, capability snapshot, result, reference, diagnostic,
+          fallback, and legacy mirror behavior.
+    - [x] Add typed-envelope unit and integration coverage for the new inline report payloads.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli typed_envelope`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test typed_envelope_contract_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `git diff --check`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo clippy -p shardloom-cli --all-targets -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test --workspace --all-targets`
+  - Runtime stance: protocol-only typed payload migration; no dataset probing, certificate
+    evaluation, benchmark execution, runtime expansion, materialization, writes, external engine
+    invocation, or fallback execution is added.
+
+- [x] Session label: Priority 3.9 operational/runtime, workflow, Vortex output, and Vortex runtime
+      handler module split
+  - Primary files:
+    - `shardloom-cli/src/operational_hardening.rs`
+    - `shardloom-cli/src/object_store_planning.rs`
+    - `shardloom-cli/src/workflow_planning.rs`
+    - `shardloom-cli/src/diagnostics.rs`
+    - `shardloom-cli/src/evidence_certificates.rs`
+    - `shardloom-cli/src/vortex_output_commit.rs`
+    - `shardloom-cli/src/vortex_runtime_planning.rs`
+    - `shardloom-cli/src/main.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/typed-command-result-envelope.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/rfcs/0039-typed-command-result-envelope-cli-modularity.md`
+  - Scope: move large remaining report-only and feature-gated handler clusters out of
+    `main.rs`, including operational runtime memory/spill/fault-tolerance handlers,
+    object-store planning handlers, observability diagnostics, CG-20 evidence gates, catalog and
+    native plan portability handlers, Vortex output/write/commit/staged artifact handlers, and
+    Vortex runtime readiness handlers.
+  - Checklist:
+    - [x] Delegate memory/spill, synthetic spill cleanup, retry, cancellation, recovery, and
+          commit/fault-tolerance promotion gates from `main.rs`.
+    - [x] Delegate object-store request/range/coalescing/scheduling/checkpoint/commit planning from
+          `main.rs`.
+    - [x] Delegate observability report handlers and remaining evidence/CG-20 gates from
+          `main.rs`.
+    - [x] Delegate catalog, native plan IR/import/export, write-intent, and scan-plan workflow
+          handlers from `main.rs`.
+    - [x] Delegate Vortex write-intent, output-payload, manifest, commit-marker, commit-protocol,
+          local-commit, staged-workspace, staged-marker, and staged-manifest handlers from
+          `main.rs`.
+    - [x] Delegate Vortex adaptive sizing, memory, scheduler, and execution-readiness handlers from
+          `main.rs`.
+    - [x] Preserve existing command status mapping, legacy fields, feature gates, and no-fallback
+          status.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo check -p shardloom-cli`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-cli --all-targets -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli`
+  - Vortex-first provider check:
+    - Subject area: Vortex output, commit, staged artifact, and runtime-readiness CLI handler
+      routing.
+    - Decision: `wrap_vortex_concept`; this is a handler-module split around existing report and
+      feature-gated helper surfaces, not a new provider or runtime behavior change.
+    - Evidence added: module boundaries and unchanged CLI tests only.
+    - Gates still blocked: no new Vortex write, commit, runtime, object-store, benchmark,
+      certificate, production claim, external engine, or fallback behavior is authorized.
+  - Runtime stance: handler split only; no dataset probing, runtime expansion, materialization,
+    new writes, credential resolution, external engine invocation, or fallback execution is added.
+
 - [x] Session label: Priority 3.9 Vortex metadata/report-only planning handler module split
   - Primary files:
     - `shardloom-cli/src/vortex_planning.rs`

@@ -6,10 +6,13 @@
 
 use std::process::ExitCode;
 
-use shardloom_core::{CommandStatus, FeatureFootprintReport, OutputFormat};
+use shardloom_core::{
+    CommandStatus, FeatureFootprintReport, ObservabilityPlan, OutputFormat,
+    RuntimeObservabilityReport, plan_observability_schema_coverage,
+};
 use shardloom_plan::{EstimateReport, ExplainReport};
 
-use crate::{cli_output::emit, feature_footprint_fields};
+use crate::{cli_output::emit, feature_footprint_fields, observability_schema_coverage_fields};
 
 pub(crate) fn handle_feature_footprint(format: OutputFormat) -> ExitCode {
     let report = FeatureFootprintReport::contract_only();
@@ -94,6 +97,63 @@ pub(crate) fn handle_estimate(
     )
 }
 
+pub(crate) fn handle_observability_plan(format: OutputFormat) -> ExitCode {
+    let plan = ObservabilityPlan::default_foundation_plan();
+    emit_observability_style_report(
+        "observability-plan",
+        "observability plan",
+        plan.to_human_text(),
+        plan.diagnostics.clone(),
+        "observability_plan",
+        "not_performed",
+        format,
+    )
+}
+
+pub(crate) fn handle_observability_schema_coverage(format: OutputFormat) -> ExitCode {
+    let report = plan_observability_schema_coverage();
+    emit(
+        "observability-schema-coverage",
+        format,
+        CommandStatus::Success,
+        "observability schema coverage".to_string(),
+        report.to_human_text(),
+        vec![],
+        observability_schema_coverage_fields(&report),
+    );
+    ExitCode::SUCCESS
+}
+
+pub(crate) fn handle_runtime_report(format: OutputFormat) -> ExitCode {
+    let report = RuntimeObservabilityReport::not_run();
+    emit_observability_style_report(
+        "runtime-report",
+        "runtime observability report",
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        "runtime_report",
+        "not_performed",
+        format,
+    )
+}
+
+pub(crate) fn handle_profile_plan(format: OutputFormat) -> ExitCode {
+    let plan = ObservabilityPlan::collection_not_implemented(
+        "profiling",
+        "Profiling domain types exist, but runtime profiling collection is not implemented yet.",
+    );
+    emit(
+        "profile-plan",
+        format,
+        CommandStatus::Unsupported,
+        "profiling collection not implemented".to_string(),
+        plan.to_human_text(),
+        plan.diagnostics.clone(),
+        observability_style_fields("profile_plan", "not_performed"),
+    );
+    ExitCode::SUCCESS
+}
+
 fn emit_feature_footprint_report(
     command: &str,
     summary: &str,
@@ -119,6 +179,44 @@ fn emit_feature_footprint_report(
     } else {
         ExitCode::SUCCESS
     }
+}
+
+fn emit_observability_style_report(
+    command: &str,
+    summary: &str,
+    human_text: String,
+    diagnostics: Vec<shardloom_core::Diagnostic>,
+    mode: &str,
+    metrics_collection: &str,
+    format: OutputFormat,
+) -> ExitCode {
+    emit(
+        command,
+        format,
+        CommandStatus::Success,
+        summary.to_string(),
+        human_text,
+        diagnostics,
+        observability_style_fields(mode, metrics_collection),
+    );
+    ExitCode::SUCCESS
+}
+
+fn observability_style_fields(mode: &str, metrics_collection: &str) -> Vec<(String, String)> {
+    vec![
+        (
+            "fallback_execution_allowed".to_string(),
+            "false".to_string(),
+        ),
+        ("mode".to_string(), mode.to_string()),
+        ("write_io".to_string(), "false".to_string()),
+        ("execution".to_string(), "not_performed".to_string()),
+        ("plan_only".to_string(), "true".to_string()),
+        (
+            "metrics_collection".to_string(),
+            metrics_collection.to_string(),
+        ),
+    ]
 }
 
 fn emit_unsupported_plan_report(

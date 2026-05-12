@@ -74,6 +74,32 @@ Reference routing is conservative: requirement booleans such as `execution_certi
 remain payload fields, while explicit `*_ref`, `*_id`, `*_path`, and `*_uri` values become typed
 refs when the value is a real reference rather than `false`, `none`, `not_performed`, or similar.
 
+The renderer now batches command fields before final envelope emission so command-family-specific
+report helpers can attach inline typed artifacts while the temporary legacy `fields` mirror remains
+available. The first inline report payloads are:
+
+```text
+execution_certificate_report
+native_io_report
+benchmark_plan_report
+benchmark_claim_evidence_report
+```
+
+For runtime commands that already emit certificate field groups, the renderer also attaches inline
+typed artifacts when the existing `*_certificate_emitted` field is true:
+
+```text
+execution_certificate
+native_io_certificate
+```
+
+The first prefix helpers cover local CountAll Native I/O certificates and local Vortex primitive
+Native I/O and execution certificates. Unavailable or feature-disabled certificate reports stay as
+regular typed fields and do not create misleading inline certificate artifacts.
+
+These are protocol payloads only. They do not execute benchmarks, evaluate certificates, read data,
+write artifacts, or turn report-only surfaces into runtime support.
+
 Shared CLI JSON/text rendering and error emission lives in `shardloom-cli/src/cli_output.rs`.
 Typed-envelope field/ref routing lives in `shardloom-cli/src/typed_envelope.rs`. Command handlers
 still live mostly in `main.rs`; the output module split is the next modularity step for shared
@@ -184,7 +210,9 @@ invalid-input diagnostics envelope
 unsupported source-backed encoded-read boundary
 blocked capability promotion gate
 certificate-surface report
+Native I/O envelope report
 evidence-incomplete benchmark row report
+benchmark claim evidence report
 Foundry-adjacent optional universal harness report
 ```
 
@@ -220,9 +248,11 @@ payload-specific accessors.
 Remaining work is command-family migration and CLI modularization:
 
 ```text
-Migrate command-family-specific result fields from ad hoc field construction to typed payload helpers.
-Attach inline evidence artifacts and richer report payloads through typed slots where a command has
-more than a reference.
+Continue migrating command-family-specific result fields from ad hoc field construction to typed
+payload helpers beyond the first inline report payloads.
+Attach inline evidence artifacts, certificate payloads, Foundry boundary reports, source/sink
+reports, materialization boundary reports, and richer capability snapshots through typed slots where
+a command has more than a reference.
 Finish remaining golden fixtures for certified runtime execution, missing-binary protocol parity,
 and concrete Foundry boundary reports.
 Physically split CLI handlers by capability family and continue centralizing diagnostics, fallback,
