@@ -95,6 +95,7 @@ fn is_vortex_primitive_command(command: &str) -> bool {
             | "vortex-project"
             | "vortex-filter"
             | "vortex-filter-project"
+            | "vortex-query-trace"
             | "vortex-run"
             | "vortex-local-exec"
             | "vortex-bounded-local-exec"
@@ -253,6 +254,10 @@ mod tests {
         );
         assert_eq!(
             classify_command("vortex-filter-project"),
+            CommandFamily::VortexPrimitiveExecution
+        );
+        assert_eq!(
+            classify_command("vortex-query-trace"),
             CommandFamily::VortexPrimitiveExecution
         );
         assert_eq!(
