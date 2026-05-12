@@ -171,9 +171,15 @@ The operational hardening/security family currently contains `security-plan`,
 report-only and do not resolve credentials, load secrets, execute effects, write data, or weaken
 no-fallback behavior.
 
+Operational-policy field construction is colocated with that family: effect budget and
+security-governance evidence gate fields live in `shardloom-cli/src/operational_hardening.rs`.
+
 The diagnostics family currently contains `feature-footprint`, `doctor`, `explain`, and `estimate`,
 and lives in `shardloom-cli/src/diagnostics.rs`. These handlers remain report-only and do not probe
 datasets, collect profiles, execute plans, invoke external engines, or weaken no-fallback behavior.
+
+Diagnostics field construction is colocated with that family: feature footprint and observability
+schema coverage field groups live in `shardloom-cli/src/diagnostics.rs`.
 
 The evidence/certificate planning family currently contains `correctness-plan`,
 `correctness-harness-plan`, `execution-certificate-plan`, `universal-harness-plan`, and

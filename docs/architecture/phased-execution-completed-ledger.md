@@ -16,6 +16,34 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 diagnostics/operational helper ownership split
+  - Primary files:
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/src/diagnostics.rs`
+    - `shardloom-cli/src/operational_hardening.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/typed-command-result-envelope.md`
+  - Scope: move diagnostics and operational-policy field construction out of `main.rs` while
+    preserving report-only behavior, no host/data probing, no effect execution, and no-fallback
+    evidence.
+  - Checklist:
+    - [x] Route feature footprint and doctor feature-footprint fields through `diagnostics.rs`.
+    - [x] Move observability schema coverage field construction into `diagnostics.rs`.
+    - [x] Move effect budget and security-governance evidence gate field construction into
+          `operational_hardening.rs`.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --bin shardloom feature_footprint`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --bin shardloom effect_budget`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test observability_schema_coverage`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test security_governance_evidence_gate`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test --workspace --all-targets`
+    - [x] `git diff --check`
+  - Runtime stance: helper/module ownership only; no filesystem, network, catalog, adapter, or
+    dataset probing is added, no credentials or secrets are resolved, no effects are executed, and
+    fallback execution remains disabled.
+
 - [x] Session label: Priority 3.9 packaging/API helper ownership split
   - Primary files:
     - `shardloom-cli/src/main.rs`
