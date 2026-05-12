@@ -143,10 +143,10 @@ actionable work.
 - [ ] Priority 3.9 - complete typed command/result envelope and CLI modularity overhaul
   - [ ] Migrate command-family-specific result fields from the temporary top-level legacy `fields`
         mirror into explicit typed result, artifact, certificate, and report payload helpers.
-  - [ ] Attach or reference execution certificates, Native I/O certificates,
+  - [ ] Attach richer inline execution certificates, Native I/O certificates,
         `EvidenceArtifactEnvelope`, materialization boundary reports, benchmark rows, Foundry
-        reports, source/sink reports, and capability snapshots through typed payloads instead of
-        ad hoc fields.
+        reports, source/sink reports, and capability snapshots through typed payloads where a
+        command has more than explicit refs.
   - [ ] Expand golden JSON fixtures for success, unsupported, blocked, certified execution,
         evidence-incomplete execution, source-backed execution, benchmark rows, missing binary, and
         Foundry boundary reports.

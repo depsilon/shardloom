@@ -49,6 +49,25 @@ result
   command-specific result fields that do not match one of the above typed slots
 ```
 
+The renderer also attaches typed references when command fields already carry explicit reference or
+identifier keys:
+
+```text
+certificates
+  execution_certificate, native_io_certificate, and other certificate refs/ids/paths/URIs
+
+artifact_refs
+  evidence artifact, materialization boundary, benchmark row, Foundry report, source report,
+  sink report, and other artifact refs/ids/paths/URIs
+
+result_refs
+  result refs/ids/paths/URIs
+```
+
+Reference routing is conservative: requirement booleans such as `execution_certificate_required`
+remain payload fields, while explicit `*_ref`, `*_id`, `*_path`, and `*_uri` values become typed
+refs when the value is a real reference rather than `false`, `none`, `not_performed`, or similar.
+
 The old top-level `fields` array is still present as a temporary legacy mirror for existing tests,
 the Python client, and command-family migration safety. It is no longer the intended primary
 machine-readable payload model.
@@ -77,8 +96,8 @@ Remaining work is command-family migration and CLI modularization:
 
 ```text
 Migrate command-family-specific result fields from ad hoc field construction to typed payload helpers.
-Attach real execution certificates, Native I/O certificates, evidence artifacts, benchmark rows,
-source/sink reports, and future Foundry reports through typed slots.
+Attach inline evidence artifacts and richer report payloads through typed slots where a command has
+more than a reference.
 Expand golden fixtures for success, unsupported, blocked, certified execution, evidence incomplete,
 source-backed execution, benchmark rows, missing binary, and Foundry boundary reports.
 Split CLI handlers by capability family and centralize rendering, diagnostics, fallback, policy,
