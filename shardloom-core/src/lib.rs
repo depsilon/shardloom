@@ -216,7 +216,9 @@ pub use release::{
     ReleasePlan, ReleasePublicationBoundary, ReleasePublicationBoundaryKind,
     ReleasePublicationBoundaryReport, ReleasePublicationBoundaryStatus,
     ReleaseReadinessEvidenceReport, ReleaseReadinessStatus, ReleaseReport, SchemaCompatibilityPlan,
-    SchemaStability,
+    SchemaStability, WorkspaceFeatureBuildMatrixFeatureSet, WorkspaceFeatureBuildMatrixReport,
+    WorkspaceFeatureBuildMatrixRow, WorkspaceFeatureBuildMatrixRowStatus,
+    plan_workspace_feature_build_matrix,
 };
 pub use schema::{
     CatalogKind, CatalogRef, DeleteModel, DeleteTombstoneCompatibilityLevel,

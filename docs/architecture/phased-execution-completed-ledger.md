@@ -16,6 +16,66 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: phased-plan completed queue compaction
+  - Primary files:
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+  - Scope: move completed checked-off work out of the active Planned queue so the phase plan starts
+    with the next unfinished work while this ledger remains the detailed completed-history home.
+  - Checklist:
+    - [x] Compact completed near-term priorities 1, 1.1, 1.5, 1.6, 1.7, 2, 2.5, 2.6, 2.6.5,
+          2.7, 2.8, and 3 out of `Planned`.
+    - [x] Compact completed Priority 3.5 hardening rows, Priority 3.7, Priority 3.8, and the
+          completed CG-21P.1 sublane out of `Planned`.
+    - [x] Preserve the remaining active queue: Priority 3.5 CG-18, Priority 3.6, Priority 3.9,
+          CG-21P core unstructured/media UX work, and later priorities.
+    - [x] Keep the phase plan `Completed` section pointer-only and keep detailed completion context
+          in this ledger.
+  - Validation:
+    - [x] `rg -n "^- \[x\]|^  - \[x\]|^    - \[x\]" docs\architecture\phased-execution-plan.md`
+          returned no matches.
+    - [x] `git diff --check`
+  - Runtime stance: documentation queue hygiene only; no runtime behavior, dependency, external
+    engine invocation, or fallback execution changes.
+
+- [x] Session label: workspace feature/build validation matrix
+  - Primary files:
+    - `shardloom-core/src/release.rs`
+    - `shardloom-core/src/lib.rs`
+    - `docs/architecture/workspace-feature-build-matrix.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: add a release-readiness feature/build matrix report and documentation covering default,
+    all-features, no-default-features, upstream Vortex, Vortex file I/O, local primitives,
+    encoded-read spike, packaging/deployment, benchmark extras, and future optional Foundry package
+    rows while keeping public release/package claims blocked until release-environment matrix
+    evidence passes.
+  - Vortex-first provider check:
+    - Subject area: Vortex feature-combination validation rows.
+    - Decision: `wrap_vortex_concept`.
+    - Runtime stance: build/check validation only; no package publication, dependency expansion,
+      runtime expansion, external engine invocation, or fallback execution.
+  - Checklist:
+    - [x] Add `WorkspaceFeatureBuildMatrixReport`, row/status enums, and a matrix constructor.
+    - [x] Add docs for the required validation commands and release blockers.
+    - [x] Mark the Priority 3 rollup and Priority 3.5 workspace feature/build matrix complete while
+          leaving CG-18 as the remaining Priority 3.5 item.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-core workspace_feature_build_matrix --lib`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo check --workspace`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo check --workspace --all-features`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo check --workspace --no-default-features`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo check -p shardloom-vortex --features upstream-vortex`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo check -p shardloom-vortex --features vortex-file-io`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo check -p shardloom-vortex --features vortex-local-primitives`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo check -p shardloom-vortex --features vortex-encoded-read-spike`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo check -p shardloom-vortex --features vortex-traditional-analytics-benchmark`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test conda_packaging_recipes`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-core --lib -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy --workspace --all-targets --all-features -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `git diff --check`
+
 - [x] Session label: crate posture and public export cleanup
   - Primary files:
     - `docs/architecture/crate-posture-public-exports.md`
