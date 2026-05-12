@@ -208,9 +208,13 @@ The Vortex planning family now has its metadata/report-only module in
 `vortex-output-plan`, `vortex-readiness`, `vortex-dtype-mapping`,
 `vortex-encoding-layout-mapping`, `vortex-statistics-mapping`,
 `vortex-file-metadata-open`, `vortex-metadata-summary`, and
-`vortex-query-primitive-plan`. These handlers remain metadata-only, plan-only, executor-contract,
-or report-only surfaces and do not execute tasks beyond their existing contract, materialize
-outputs, write data, invoke external engines, or weaken no-fallback behavior.
+`vortex-query-primitive-plan`, `vortex-metadata-physical-kernel-plan`,
+`vortex-count-readiness-plan`, `vortex-encoded-count-approval-plan`,
+`vortex-layout-driver-approval-plan`, `vortex-filtered-count-readiness-plan`, and
+`vortex-projection-readiness-plan`. These handlers remain metadata-only, plan-only,
+executor-contract, local-guard, or report-only surfaces and do not execute tasks beyond their
+existing contract, materialize outputs, write data, invoke external engines, or weaken no-fallback
+behavior.
 
 Command family classification lives in `shardloom-cli/src/command_family.rs` and is emitted in the
 typed lifecycle payload as `command_family`. This gives status/capabilities, Vortex primitive,

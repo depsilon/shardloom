@@ -16,6 +16,39 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 Vortex readiness/approval planning handler split
+  - Primary files:
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/src/vortex_planning.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/typed-command-result-envelope.md`
+  - Scope: move the remaining Vortex readiness/approval planning command handlers out of
+    `main.rs` while keeping report-only behavior, local guard checks, typed envelope fields, and
+    no-fallback evidence stable.
+  - Checklist:
+    - [x] Route `vortex-metadata-physical-kernel-plan`,
+          `vortex-count-readiness-plan`, `vortex-encoded-count-approval-plan`,
+          `vortex-layout-driver-approval-plan`, `vortex-filtered-count-readiness-plan`, and
+          `vortex-projection-readiness-plan` through `vortex_planning.rs`.
+    - [x] Preserve existing metadata physical-kernel evidence requirements, encoded-count local
+          guard behavior, layout-driver approval reporting, and readiness-plan side-effect fields.
+    - [x] Leave shared parsing/field helpers available for tests and follow-up helper migration
+          without changing command output.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --bin shardloom vortex_count_readiness_plan`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --bin shardloom vortex_filtered_count_readiness_plan`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --bin shardloom vortex_projection_readiness`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --bin shardloom vortex_encoded_count_approval_plan`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --bin shardloom vortex_layout_driver_approval_plan`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --bin shardloom vortex_metadata_physical_kernel_plan`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test --workspace --all-targets`
+    - [x] `git diff --check`
+  - Runtime stance: handler routing/module ownership only; no new provider, dataset execution,
+    source/sink I/O, object-store I/O, write path, network effect, materialization, external engine,
+    or fallback execution is added.
+
 - [x] Session label: Priority 3.9 prepared/source-backed and Vortex planning handler split
   - Primary files:
     - `shardloom-cli/src/main.rs`
