@@ -45,7 +45,8 @@ The report answers:
 - `property_fuzzing`
   - Required before broad optimizer/kernel claims.
 - `benchmark_claim_gate`
-  - Keeps competitive claims blocked until correctness evidence is complete.
+  - Keeps competitive claims blocked until correctness evidence is complete,
+    external-oracle results are populated, and property/fuzz execution has run.
 
 ## Acceptance Boundaries
 
@@ -83,6 +84,9 @@ The report answers:
   Dask, and Velox comparison oracles.
 - External-oracle artifact slots are `declared_not_executed`, comparison-only,
   and record `external_engine_invoked=false` and `fallback_attempted=false`.
+- The benchmark claim gate explicitly reports blockers for remaining
+  `NotYetDefined` fixtures, unpopulated external-oracle result artifacts, and
+  property/fuzz execution not yet performed.
 - Several fixture families still have `NotYetDefined` expected outcomes.
 - Current external oracle coverage is policy-only; no external engines are
   invoked by the harness.

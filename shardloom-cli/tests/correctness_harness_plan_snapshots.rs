@@ -83,11 +83,18 @@ fn correctness_harness_json_exposes_fixtures_oracles_and_missing_modes() {
         "spark,datafusion,duckdb,polars,pandas,dask,velox"
     )));
     assert!(output.contains(&field("external_oracle_result_artifact_count", "63")));
+    assert!(output.contains(&field("external_oracle_result_populated_count", "0")));
+    assert!(output.contains(&field("external_oracle_results_populated", "false")));
     assert!(output.contains(&field(
         "external_oracle_result_artifact_status_order",
         "declared_not_executed"
     )));
     assert!(output.contains(&field("external_oracle_artifacts_test_only", "true")));
+    assert!(output.contains(&field(
+        "benchmark_claim_blocker_order",
+        "not_yet_defined_fixtures,external_oracle_results_not_populated,property_fuzz_execution_not_performed"
+    )));
+    assert!(output.contains(&field("property_fuzz_execution_performed", "false")));
     assert!(
         output.contains("vortex-edge-count-all-empty-input.external-oracle.spark.declared-result")
     );

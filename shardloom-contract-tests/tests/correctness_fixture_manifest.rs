@@ -461,6 +461,8 @@ fn foundation_plan_reports_reference_and_gap_counts() {
     assert_eq!(plan.unsupported_expected_output_count(), 1);
     assert_eq!(plan.baseline_count(), 7);
     assert_eq!(plan.external_oracle_result_artifact_count(), 63);
+    assert_eq!(plan.external_oracle_result_populated_count(), 0);
+    assert!(!plan.external_oracle_results_populated());
     assert_eq!(
         plan.external_oracle_result_artifact_status_order(),
         vec!["declared_not_executed"]
