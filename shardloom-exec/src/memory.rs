@@ -601,6 +601,274 @@ impl SpillCompression {
         }
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OperatorMemorySpillDeclarationStatus {
+    Missing,
+    ReportOnly,
+    Certified,
+    Unsupported,
+}
+impl OperatorMemorySpillDeclarationStatus {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Missing => "missing",
+            Self::ReportOnly => "report_only",
+            Self::Certified => "certified",
+            Self::Unsupported => "unsupported",
+        }
+    }
+    pub const fn declaration_present(&self) -> bool {
+        !matches!(self, Self::Missing)
+    }
+    pub const fn can_satisfy_large_workload_claim(&self) -> bool {
+        matches!(self, Self::Certified)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct OperatorMemorySpillDeclaration {
+    pub operator_class: OperatorMemoryClass,
+    pub status: OperatorMemorySpillDeclarationStatus,
+    pub memory_reservation_required: bool,
+    pub bounded_memory_required: bool,
+    pub bounded_memory_declared: bool,
+    pub spill_support_required: bool,
+    pub spill_policy: SpillPolicy,
+    pub spillable_declared: bool,
+    pub cleanup_required: bool,
+    pub cleanup_declared: bool,
+    pub oom_safe_required: bool,
+    pub oom_safe_declared: bool,
+    pub effect_boundary_required: bool,
+    pub effect_boundary_declared: bool,
+    pub evidence_refs: Vec<String>,
+    pub fallback_attempted: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl OperatorMemorySpillDeclaration {
+    pub fn missing_required(operator_class: OperatorMemoryClass) -> Self {
+        let spill_support_required = matches!(
+            operator_class,
+            OperatorMemoryClass::Aggregate
+                | OperatorMemoryClass::Sort
+                | OperatorMemoryClass::Join
+                | OperatorMemoryClass::Window
+                | OperatorMemoryClass::Repartition
+                | OperatorMemoryClass::Shuffle
+                | OperatorMemoryClass::Sink
+        );
+        let effect_boundary_required = matches!(
+            operator_class,
+            OperatorMemoryClass::Udf | OperatorMemoryClass::ExternalEffect
+        );
+        let mut declaration = Self {
+            operator_class,
+            status: OperatorMemorySpillDeclarationStatus::Missing,
+            memory_reservation_required: true,
+            bounded_memory_required: true,
+            bounded_memory_declared: false,
+            spill_support_required,
+            spill_policy: if spill_support_required {
+                SpillPolicy::Required
+            } else {
+                SpillPolicy::DisabledForOperator
+            },
+            spillable_declared: false,
+            cleanup_required: spill_support_required,
+            cleanup_declared: false,
+            oom_safe_required: true,
+            oom_safe_declared: false,
+            effect_boundary_required,
+            effect_boundary_declared: false,
+            evidence_refs: vec![],
+            fallback_attempted: false,
+            diagnostics: vec![],
+        };
+        declaration.diagnostics.push(Diagnostic::new(
+            DiagnosticCode::NotImplemented,
+            DiagnosticSeverity::Warning,
+            DiagnosticCategory::ResourceBudget,
+            "Operator memory/spill declaration is missing; large-workload claims remain blocked.",
+            Some("operator_memory_spill_declaration".to_string()),
+            Some(format!(
+                "operator_class={} requires bounded-memory, OOM-safe, and spill/effect-boundary evidence before large-workload claims; fallback execution was not attempted",
+                operator_class.as_str()
+            )),
+            Some("Add a certified native operator memory/spill declaration before claiming large-workload support.".to_string()),
+            FallbackStatus::disabled_by_policy(),
+        ));
+        declaration
+    }
+
+    pub fn certified(
+        operator_class: OperatorMemoryClass,
+        spill_policy: SpillPolicy,
+        evidence_ref: impl Into<String>,
+    ) -> Result<Self> {
+        let spill_support_required = spill_policy.requires_spill_support();
+        let effect_boundary_required = matches!(
+            operator_class,
+            OperatorMemoryClass::Udf | OperatorMemoryClass::ExternalEffect
+        );
+        Ok(Self {
+            operator_class,
+            status: OperatorMemorySpillDeclarationStatus::Certified,
+            memory_reservation_required: true,
+            bounded_memory_required: true,
+            bounded_memory_declared: true,
+            spill_support_required,
+            spill_policy,
+            spillable_declared: spill_support_required,
+            cleanup_required: spill_support_required,
+            cleanup_declared: spill_support_required,
+            oom_safe_required: true,
+            oom_safe_declared: true,
+            effect_boundary_required,
+            effect_boundary_declared: effect_boundary_required,
+            evidence_refs: vec![non_empty(
+                evidence_ref.into(),
+                "operator declaration evidence ref",
+            )?],
+            fallback_attempted: false,
+            diagnostics: vec![],
+        })
+    }
+
+    pub const fn declaration_present(&self) -> bool {
+        self.status.declaration_present()
+    }
+    pub const fn can_satisfy_large_workload_claim(&self) -> bool {
+        self.status.can_satisfy_large_workload_claim()
+            && (!self.bounded_memory_required || self.bounded_memory_declared)
+            && (!self.spill_support_required || self.spillable_declared)
+            && (!self.cleanup_required || self.cleanup_declared)
+            && (!self.oom_safe_required || self.oom_safe_declared)
+            && (!self.effect_boundary_required || self.effect_boundary_declared)
+            && !self.fallback_attempted
+    }
+    pub const fn blocks_large_workload_claim(&self) -> bool {
+        !self.can_satisfy_large_workload_claim()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct OperatorMemorySpillDeclarationReport {
+    pub schema_version: &'static str,
+    pub declarations: Vec<OperatorMemorySpillDeclaration>,
+    pub runtime_execution: bool,
+    pub spill_io_performed: bool,
+    pub large_workload_claim_allowed: bool,
+    pub fallback_attempted: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl OperatorMemorySpillDeclarationReport {
+    pub fn from_declarations(declarations: Vec<OperatorMemorySpillDeclaration>) -> Self {
+        let omitted_required_class_count = Self::omitted_required_class_count_in(&declarations);
+        let large_workload_claim_allowed = declarations
+            .iter()
+            .all(OperatorMemorySpillDeclaration::can_satisfy_large_workload_claim)
+            && omitted_required_class_count == 0;
+        let fallback_attempted = declarations.iter().any(|d| d.fallback_attempted);
+        let diagnostics = declarations
+            .iter()
+            .flat_map(|d| d.diagnostics.iter().cloned())
+            .collect();
+        Self {
+            schema_version: "shardloom.operator_memory_spill_declaration.v1",
+            declarations,
+            runtime_execution: false,
+            spill_io_performed: false,
+            large_workload_claim_allowed,
+            fallback_attempted,
+            diagnostics,
+        }
+    }
+
+    pub const fn required_large_workload_classes() -> &'static [OperatorMemoryClass] {
+        &[
+            OperatorMemoryClass::Aggregate,
+            OperatorMemoryClass::Sort,
+            OperatorMemoryClass::Join,
+            OperatorMemoryClass::Window,
+            OperatorMemoryClass::Repartition,
+            OperatorMemoryClass::Shuffle,
+            OperatorMemoryClass::Udf,
+            OperatorMemoryClass::Sink,
+            OperatorMemoryClass::ExternalEffect,
+        ]
+    }
+
+    pub fn required_large_workload_gate() -> Self {
+        Self::from_declarations(
+            Self::required_large_workload_classes()
+                .iter()
+                .copied()
+                .map(OperatorMemorySpillDeclaration::missing_required)
+                .collect(),
+        )
+    }
+
+    pub fn declaration_count(&self) -> usize {
+        self.declarations.len()
+    }
+    pub fn declared_required_count(&self) -> usize {
+        self.declarations
+            .iter()
+            .filter(|d| d.declaration_present())
+            .count()
+    }
+    pub fn missing_required_count(&self) -> usize {
+        self.declarations
+            .iter()
+            .filter(|d| !d.declaration_present())
+            .count()
+    }
+    pub fn omitted_required_class_count(&self) -> usize {
+        Self::omitted_required_class_count_in(&self.declarations)
+    }
+    pub fn claim_blocker_count(&self) -> usize {
+        self.declarations
+            .iter()
+            .filter(|d| d.blocks_large_workload_claim())
+            .count()
+            + self.omitted_required_class_count()
+    }
+    fn omitted_required_class_count_in(declarations: &[OperatorMemorySpillDeclaration]) -> usize {
+        Self::required_large_workload_classes()
+            .iter()
+            .filter(|required| !declarations.iter().any(|d| d.operator_class == **required))
+            .count()
+    }
+    pub fn has_errors(&self) -> bool {
+        self.diagnostics.iter().any(|d| {
+            matches!(
+                d.severity,
+                DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+            )
+        })
+    }
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "operator_memory_spill_declaration_report\nschema_version={}\ndeclarations={}\nmissing_required={}\nclaim_blockers={}\nlarge_workload_claim_allowed={}\nruntime_execution={}\nspill_io_performed={}\nfallback_attempted={}",
+            self.schema_version,
+            self.declaration_count(),
+            self.missing_required_count(),
+            self.claim_blocker_count(),
+            self.large_workload_claim_allowed,
+            self.runtime_execution,
+            self.spill_io_performed,
+            self.fallback_attempted
+        )
+    }
+}
+
+pub fn plan_operator_memory_spill_declarations() -> OperatorMemorySpillDeclarationReport {
+    OperatorMemorySpillDeclarationReport::required_large_workload_gate()
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SpillFileStatus {
     Planned,
@@ -1182,6 +1450,71 @@ mod tests {
     #[test]
     fn policy_required_requires_support() {
         assert!(SpillPolicy::Required.requires_spill_support());
+    }
+    #[test]
+    fn operator_memory_spill_gate_lists_required_large_workload_classes() {
+        let report = OperatorMemorySpillDeclarationReport::required_large_workload_gate();
+
+        assert_eq!(report.declaration_count(), 9);
+        assert!(
+            report
+                .declarations
+                .iter()
+                .any(|d| d.operator_class == OperatorMemoryClass::Join)
+        );
+        assert!(
+            report
+                .declarations
+                .iter()
+                .any(|d| d.operator_class == OperatorMemoryClass::ExternalEffect)
+        );
+        assert!(!report.runtime_execution);
+        assert!(!report.spill_io_performed);
+        assert!(!report.fallback_attempted);
+    }
+    #[test]
+    fn missing_operator_memory_spill_declarations_block_large_workload_claims() {
+        let report = plan_operator_memory_spill_declarations();
+
+        assert!(!report.large_workload_claim_allowed);
+        assert_eq!(report.missing_required_count(), 9);
+        assert_eq!(report.claim_blocker_count(), 9);
+        assert_eq!(report.declared_required_count(), 0);
+        assert!(!report.has_errors());
+        assert!(
+            report
+                .to_human_text()
+                .contains("large_workload_claim_allowed=false")
+        );
+    }
+    #[test]
+    fn certified_operator_memory_spill_declarations_can_satisfy_claim_gate() {
+        let declarations = OperatorMemorySpillDeclarationReport::required_large_workload_classes()
+            .iter()
+            .copied()
+            .map(|operator_class| {
+                let spill_policy = if matches!(
+                    operator_class,
+                    OperatorMemoryClass::Udf | OperatorMemoryClass::ExternalEffect
+                ) {
+                    SpillPolicy::DisabledForOperator
+                } else {
+                    SpillPolicy::Required
+                };
+                OperatorMemorySpillDeclaration::certified(
+                    operator_class,
+                    spill_policy,
+                    format!("{}_cert", operator_class.as_str()),
+                )
+                .unwrap()
+            })
+            .collect();
+        let report = OperatorMemorySpillDeclarationReport::from_declarations(declarations);
+
+        assert!(report.large_workload_claim_allowed);
+        assert_eq!(report.missing_required_count(), 0);
+        assert_eq!(report.omitted_required_class_count(), 0);
+        assert_eq!(report.claim_blocker_count(), 0);
     }
     #[test]
     fn format_vortex_native_columnar() {

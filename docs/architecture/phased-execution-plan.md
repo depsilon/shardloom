@@ -329,6 +329,9 @@ not by numeric CG order.
     - [ ] Require operator-level memory/spill declarations for joins, aggregations, sorts, windows,
           repartition, shuffle, UDFs, sinks, and external-effect boundaries before large-workload
           claims.
+      - [x] Add an operator memory/spill declaration gate report covering required large-workload
+            operator classes, bounded-memory/spill/effect-boundary requirements, claim blockers,
+            diagnostics, no runtime execution, no spill IO, and `fallback_attempted=false`.
   - [ ] RFC 0017 fault tolerance, cancellation, recovery, and idempotency
     - [ ] Promote retry, cancellation, cleanup, ambiguous commit, idempotency, and recovery plans
           into execution paths only after side-effect boundaries and commit semantics are certified.
