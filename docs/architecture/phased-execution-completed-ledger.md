@@ -16,6 +16,46 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: P4.1/P4.2 Python context smoke and capability API bundle
+  - Primary files:
+    - `python/src/shardloom/context.py`
+    - `python/src/shardloom/client.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/tests/test_cli_client.py`
+    - `python/README.md`
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-cli/tests/typed_envelope_contract_snapshots.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+  - Scope: add the CG-21 import-friendly Python context surface for no-dataset smoke checks and
+    side-effect-free capability discovery, expose runtime discovery fields on `status`, and document
+    the exact `import shardloom as sl; ctx = sl.context(); ctx.capabilities()` workflow.
+  - Checklist:
+    - [x] Add `shardloom.context()`, `ShardLoomContext`, `CapabilityView`, and
+          `ContextCapabilities` over the existing CLI JSON client.
+    - [x] Keep context construction side-effect-free; explicit methods run only no-dataset CLI JSON
+          commands.
+    - [x] Expand smoke reports with Python package version, resolved CLI command, protocol version,
+          CLI version, platform, feature-gate-like fields, and fallback status.
+    - [x] Add `status` fields for CLI binary version, protocol version, platform OS/arch, and
+          side-effect-free runtime discovery.
+    - [x] Update Python README examples and mark P4.1/P4.2 complete in the active phase plan.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo build -p shardloom-cli --bin shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test typed_envelope_contract_snapshots success_fixture_routes_status_into_typed_envelope`
+    - [x] `$env:PYTHONPATH='python/src'; python -m unittest discover python\tests`
+    - [x] `$env:PYTHONPATH='python/src'; python -m compileall -q python\src\shardloom`
+    - [x] `$env:PYTHONPATH='python/src'; python -c "import shardloom as sl; ctx = sl.context(repo_root='.'); smoke = ctx.smoke_check(); caps = ctx.capabilities(); print(smoke.cli_version); print(smoke.protocol_version); print(smoke.fallback_attempted); print(caps.python.field('scope')); print(caps.sql_support.field('scope')); print(caps.fallback_attempted)"`
+    - [x] fresh local venv editable install plus `ctx.smoke_check()`/`ctx.capabilities()` smoke
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test --workspace --all-targets`
+    - [x] `git diff --check`
+  - Runtime stance: Python context construction remains import-only/config-only. Smoke and
+    capability methods run no-dataset status/capability/adapter discovery commands only; no dataset
+    probing, object-store access, catalog access, SQL execution, DataFrame execution, package
+    publishing, external engine execution, or fallback execution is added.
+
 - [x] Session label: Priority 3.9 workflow/table helper ownership and meaty plan slice restructure
   - Primary files:
     - `shardloom-cli/src/main.rs`

@@ -77,6 +77,30 @@ no-fallback diagnostics plus a `shardloom.output.v2`-shaped error payload via
 missing-binary evidence. Importing the package and constructing
 `ShardLoomClient.from_env()` remain side-effect-free.
 
+For the CG-21 user workflow surface, use `shardloom.context()` when you want a
+short import-friendly entry point for smoke checks and capability discovery:
+
+```python
+import shardloom as sl
+
+ctx = sl.context()
+smoke = ctx.smoke_check()
+capabilities = ctx.capabilities()
+
+print(smoke.python_package_version)
+print(smoke.resolved_cli_path)
+print(smoke.protocol_version)
+print(smoke.fallback_attempted)
+print(capabilities.python.field("scope"))
+print(capabilities.sql_support.capability_state)
+print(capabilities.fallback_attempted)
+```
+
+Constructing the context does not run ShardLoom, inspect datasets, probe object
+stores, touch catalogs, execute SQL, or invoke external engines. The explicit
+`smoke_check()` and `capabilities()` methods run only no-dataset CLI JSON
+commands and preserve no-fallback status.
+
 ## Package Build Smoke
 
 The current package is pure Python and has no runtime dependencies. Release

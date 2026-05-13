@@ -10,9 +10,13 @@ from pathlib import Path
 
 from shardloom import (
     __version__,
+    context as shardloom_context,
+    ContextCapabilities,
+    CapabilityView,
     ShardLoomBinaryNotFoundError,
     ShardLoomClient,
     ShardLoomCommandError,
+    ShardLoomContext,
     ShardLoomProtocolError,
     OutputEnvelope,
 )
@@ -155,6 +159,11 @@ class ShardLoomClientTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             ShardLoomClient.from_env({"SHARDLOOM_TIMEOUT_SECONDS": "soon"})
 
+    def test_context_constructor_is_side_effect_free(self) -> None:
+        ctx = shardloom_context(binary=["definitely-missing-shardloom"])
+
+        self.assertIsInstance(ctx, ShardLoomContext)
+
     def test_smoke_check_runs_no_dataset_commands(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
@@ -163,10 +172,16 @@ class ShardLoomClientTests(unittest.TestCase):
                 args = sys.argv[1:]
                 if args == ["status", "--format", "json"]:
                     command = "status"
-                    fields = [{"key": "engine", "value": "shardloom"}]
+                    fields = [
+                        {"key": "engine", "value": "shardloom"},
+                        {"key": "cli_binary_version", "value": "0.1.0-test"},
+                    ]
                 elif args == ["capabilities", "python", "--format", "json"]:
                     command = "capabilities"
-                    fields = [{"key": "scope", "value": "python"}]
+                    fields = [
+                        {"key": "scope", "value": "python"},
+                        {"key": "surface_components", "value": "thin_cli_json_wrapper,python_api"},
+                    ]
                 elif args == ["capabilities", "deployment", "--format", "json"]:
                     command = "capabilities"
                     fields = [{"key": "scope", "value": "deployment"}]
@@ -199,6 +214,68 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(report.python_capabilities.field("scope"), "python")
         self.assertEqual(report.deployment_capabilities.field("scope"), "deployment")
         self.assertTrue(report.input_adapters.field_bool("plan_only"))
+        self.assertEqual(report.python_package_version, __version__)
+        self.assertEqual(report.protocol_version, "shardloom.output.v2")
+        self.assertEqual(report.cli_version, "0.1.0-test")
+        self.assertEqual(report.resolved_cli_path, sys.executable)
+        self.assertIn("python_api", report.feature_gates)
+
+    def test_context_capabilities_collects_typed_views_without_dataset_commands(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                args = sys.argv[1:]
+                if args == ["status", "--format", "json"]:
+                    command = "status"
+                    fields = [{"key": "fallback_execution_allowed", "value": "false"}]
+                elif args == ["input-adapters", "--format", "json"]:
+                    command = "input-adapters"
+                    fields = [{"key": "plan_only", "value": "true"}]
+                elif len(args) == 4 and args[0] == "capabilities" and args[2:] == ["--format", "json"]:
+                    command = "capabilities"
+                    scope = args[1]
+                    fields = [
+                        {"key": "scope", "value": scope},
+                        {"key": "capability_status", "value": "planned"},
+                    ]
+                    if scope == "adapters":
+                        fields.append({"key": "adapter_certification_required", "value": "true"})
+                    if scope == "operators":
+                        fields.append({"key": "materialization_boundary_reported", "value": "true"})
+                else:
+                    raise AssertionError(args)
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": command,
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": fields,
+                }))
+                """
+            )
+        )
+
+        ctx = shardloom_context(binary=binary)
+        capabilities = ctx.capabilities()
+
+        self.assertIsInstance(capabilities, ContextCapabilities)
+        self.assertIsInstance(capabilities.python, CapabilityView)
+        self.assertEqual(capabilities.python.field("scope"), "python")
+        self.assertEqual(capabilities.deployment.field("scope"), "deployment")
+        self.assertEqual(capabilities.functions.capability_state, "planned")
+        self.assertEqual(capabilities.sql_support.scope, "sql")
+        self.assertIn("adapter_certification_required", capabilities.adapters.required_gates)
+        self.assertIn(
+            "materialization_boundary_reported",
+            capabilities.operators.materialization_boundaries,
+        )
+        self.assertTrue(capabilities.input_adapters.field_bool("plan_only"))
+        self.assertFalse(capabilities.fallback_attempted)
+        self.assertEqual(ctx.functions().field("scope"), "functions")
 
     def test_vortex_run_passes_explicit_runtime_command(self) -> None:
         binary = self.fake_cli(

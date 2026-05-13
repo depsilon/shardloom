@@ -193,7 +193,7 @@ actionable work.
   - Execution rule: runtime work may only use already-approved ShardLoom-native paths. Unsupported
     reads, writes, SQL, DataFrame actions, object-store access, catalogs, external services, and
     external engines must produce deterministic unsupported diagnostics, not fallback execution.
-  - [ ] P4.1 local smoke and runtime discovery bundle.
+  - [x] P4.1 local smoke and runtime discovery bundle.
     - User-visible surface: `import shardloom`, `ShardLoomClient.from_env()`,
       `ShardLoomClient.from_repo()`, `client.smoke_check()`, `shardloom status --format json`,
       `shardloom capabilities python --format json`, and
@@ -203,7 +203,7 @@ actionable work.
       `fallback_attempted=false`; import and constructors remain side-effect-free.
     - Verification: Python unit tests, fresh local venv smoke, CLI status/capability snapshots,
       missing-binary/version-mismatch diagnostics, and full workspace validation.
-  - [ ] P4.2 side-effect-free context and capability API.
+  - [x] P4.2 side-effect-free context and capability API.
     - User-visible surface: `import shardloom as sl; ctx = sl.context(); ctx.capabilities()` plus
       typed Python accessors for adapters, functions, operators, SQL support, deployment,
       certification, materialization boundaries, and unsupported reasons.

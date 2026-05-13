@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import json
 import os
+import platform
 import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping, Sequence
 
+from ._version import __version__
 from .errors import (
     ShardLoomBinaryNotFoundError,
     ShardLoomCommandError,
@@ -69,6 +71,9 @@ class LiveEtlReplayResult:
 class PythonClientSmokeReport:
     """No-dataset Python client smoke-check envelopes."""
 
+    binary_command: tuple[str, ...]
+    python_package_version: str
+    platform: str
     status: OutputEnvelope
     python_capabilities: OutputEnvelope
     deployment_capabilities: OutputEnvelope
@@ -95,6 +100,46 @@ class PythonClientSmokeReport:
             self.deployment_capabilities.command,
             self.input_adapters.command,
         )
+
+    @property
+    def protocol_version(self) -> str:
+        """Return the parsed ShardLoom output protocol version."""
+
+        return self.status.schema_version
+
+    @property
+    def cli_version(self) -> str | None:
+        """Return the CLI version field when the status surface exposes it."""
+
+        return self.status.field("cli_binary_version") or self.status.field("version")
+
+    @property
+    def resolved_cli_path(self) -> str | None:
+        """Return the resolved CLI executable path or command head."""
+
+        return self.binary_command[0] if self.binary_command else None
+
+    @property
+    def feature_gates(self) -> tuple[str, ...]:
+        """Return feature-gate-like runtime fields exposed by smoke envelopes."""
+
+        values: list[str] = []
+        for envelope in (
+            self.status,
+            self.python_capabilities,
+            self.deployment_capabilities,
+            self.input_adapters,
+        ):
+            for key in (
+                "feature_gates",
+                "enabled_feature_gates",
+                "disabled_feature_gates",
+                "surface_components",
+            ):
+                value = envelope.field(key)
+                if value:
+                    values.extend(part.strip() for part in value.split(",") if part.strip())
+        return tuple(dict.fromkeys(values))
 
 
 class ShardLoomClient:
@@ -541,12 +586,21 @@ class ShardLoomClient:
     def smoke_check(self, *, check: bool = True) -> PythonClientSmokeReport:
         """Run no-dataset commands that verify the Python client can reach ShardLoom."""
 
+        binary_command = tuple(self._binary_parts())
         return PythonClientSmokeReport(
+            binary_command=binary_command,
+            python_package_version=__version__,
+            platform=platform.platform(),
             status=self.status(check=check),
             python_capabilities=self.capabilities("python", check=check),
             deployment_capabilities=self.capabilities("deployment", check=check),
             input_adapters=self.input_adapters(check=check),
         )
+
+    def binary_command(self) -> tuple[str, ...]:
+        """Resolve the CLI binary command without running a ShardLoom command."""
+
+        return tuple(self._binary_parts())
 
     def run(self, args: Sequence[CommandPart], *, check: bool = True) -> OutputEnvelope:
         """Invoke a ShardLoom CLI command with JSON output enabled."""
