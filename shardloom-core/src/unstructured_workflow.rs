@@ -309,6 +309,7 @@ pub struct UnstructuredWorkflowBoundaryReport {
     pub embedding_boundaries: Vec<EmbeddingBoundaryReport>,
     pub foundry_media_posture: Vec<FoundryMediaBoundaryPosture>,
     pub foundry_aip_logic_boundary: FoundryAipLogicBoundaryReport,
+    pub foundry_unstructured_surface_names: Vec<&'static str>,
     pub certificate: UnstructuredWorkflowCertificate,
     pub pipeline_owned_operations: Vec<&'static str>,
     pub shardloom_owned_operations: Vec<&'static str>,
@@ -496,6 +497,16 @@ impl UnstructuredWorkflowBoundaryReport {
                 shardloom_native_execution: false,
                 fallback_attempted: false,
             },
+            foundry_unstructured_surface_names: vec![
+                "FoundryMediaSetSource",
+                "FoundryVirtualMediaSetSource",
+                "FoundryMediaSetSink",
+                "FoundryMediaExtractionBoundaryReport",
+                "FoundryModelCallBoundaryReport",
+                "FoundryEmbeddingBoundaryReport",
+                "FoundryAipLogicBoundaryReport",
+                "FoundryUnstructuredWorkflowCertificate",
+            ],
             certificate: UnstructuredWorkflowCertificate {
                 certificate_id: "unstructured_workflow_certificate.v1",
                 maturity: UnstructuredMaturity::U4EmbeddingOrModelBoundaryRecorded,
@@ -574,6 +585,22 @@ impl UnstructuredWorkflowBoundaryReport {
     }
 
     #[must_use]
+    pub fn covers_rfc0036_foundry_unstructured_surfaces(&self) -> bool {
+        [
+            "FoundryMediaSetSource",
+            "FoundryVirtualMediaSetSource",
+            "FoundryMediaSetSink",
+            "FoundryMediaExtractionBoundaryReport",
+            "FoundryModelCallBoundaryReport",
+            "FoundryEmbeddingBoundaryReport",
+            "FoundryAipLogicBoundaryReport",
+            "FoundryUnstructuredWorkflowCertificate",
+        ]
+        .into_iter()
+        .all(|surface| self.foundry_unstructured_surface_names.contains(&surface))
+    }
+
+    #[must_use]
     pub fn no_silent_core_model_or_media_runtime(&self) -> bool {
         [
             "silent_ocr",
@@ -648,6 +675,19 @@ mod tests {
         let report = plan_unstructured_workflow_boundaries();
 
         assert!(report.foundry_posture_is_report_first());
+        assert!(report.covers_rfc0036_foundry_unstructured_surfaces());
+        for surface in [
+            "FoundryMediaSetSource",
+            "FoundryVirtualMediaSetSource",
+            "FoundryMediaSetSink",
+            "FoundryMediaExtractionBoundaryReport",
+            "FoundryModelCallBoundaryReport",
+            "FoundryEmbeddingBoundaryReport",
+            "FoundryAipLogicBoundaryReport",
+            "FoundryUnstructuredWorkflowCertificate",
+        ] {
+            assert!(report.foundry_unstructured_surface_names.contains(&surface));
+        }
         assert!(
             report
                 .foundry_media_posture

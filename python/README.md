@@ -274,6 +274,48 @@ transformations. `plan()`, `explain()`, `estimate()`, `certify()`, and
 not read input files, infer schemas, materialize rows, probe object stores,
 write output, or invoke fallback engines.
 
+Unsupported workflow affordances are explicit report surfaces too. These calls
+are meant to make familiar pandas/Arrow/DataFrame/notebook methods discoverable
+without pretending they execute yet:
+
+```python
+import shardloom as sl
+
+ctx = sl.context()
+workflow = ctx.read_csv("events.csv").filter("amount > 0")
+
+reports = [
+    sl.from_pandas(object()),
+    sl.from_arrow_table(object()),
+    sl.from_arrow_ipc("events.arrow"),
+    workflow.to_pandas(),
+    workflow.to_arrow_table(),
+    workflow.to_arrow_ipc(),
+    workflow.to_numpy(),
+    workflow.to_python_objects(),
+    workflow.schema(),
+    workflow.describe_schema(),
+    workflow.validate_schema({"id": "int64"}),
+    workflow.data_quality_summary(),
+    workflow.quarantine("bad-events.vortex"),
+    workflow.preview(limit=20),
+    workflow.display(),
+]
+
+for report in reports:
+    print(report.operation)
+    print(report.blocker_id)
+    print(report.required_evidence)
+    print(report.suggested_next_action)
+    print(report.runtime_execution, report.data_read, report.write_io)
+```
+
+Every report above is generated through `workflow-unsupported-plan` and returns
+`status="unsupported"` with `fallback_attempted=false`. The methods do not
+import pandas or pyarrow, inspect the passed Python object, materialize rows,
+write quarantine outputs, render notebook display output, invoke Foundry/model
+services, or use another engine as fallback.
+
 ## Package Build Smoke
 
 The current package is pure Python and has no runtime dependencies. Release

@@ -16,6 +16,55 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Audit-F9/F10 workflow parity and Foundry traceability repair
+  - Primary files:
+    - `shardloom-cli/src/workflow_planning.rs`
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-cli/tests/workflow_query_builder_plan_snapshots.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `shardloom-cli/tests/typed_envelope_compatibility_lock.rs`
+    - `python/src/shardloom/query.py`
+    - `python/src/shardloom/context.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/tests/test_query_builder.py`
+    - `README.md`
+    - `python/README.md`
+    - `shardloom-core/src/unstructured_workflow.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: close the two audit findings that were promoted by the RFC/architecture and PR-review
+    subagents after P7.2.
+  - Checklist:
+    - [x] Add report-only unsupported diagnostics and Python helper parity for RFC 0033 workflow
+          boundaries: `from_pandas`, Arrow table/IPC input and output, NumPy/Python-object
+          materialization, schema discovery/description/validation, data-quality summary,
+          quarantine, and notebook preview/display.
+    - [x] Expand CG-21 workflow capability parity and cross-CG blocker fields so those new
+          workflow methods have stable blocker IDs, required evidence, next actions, and typed
+          envelope coverage.
+    - [x] Add exact RFC 0036 Foundry unstructured surface names to the pre-P9 report-only
+          unstructured workflow posture and trace them through P9.4/P9.5 and RFC traceability.
+    - [x] Refresh root and Python READMEs so users can discover and try the current report-only
+          workflow diagnostics without mistaking them for runtime support.
+  - Validation:
+    - [x] `cargo fmt --all -- --check`
+    - [x] `git diff --check`
+    - [x] `cargo test -p shardloom-cli --test workflow_query_builder_plan_snapshots`
+    - [x] `cargo test -p shardloom-cli --test capability_discovery_snapshots`
+    - [x] `cargo test -p shardloom-cli --test typed_envelope_compatibility_lock`
+    - [x] `cargo test -p shardloom-core unstructured_workflow --lib`
+    - [x] `PYTHONPATH=C:\Users\djhei\Projects\shardloom-active\python\src python -m unittest python.tests.test_query_builder`
+    - [x] `PYTHONPATH=C:\Users\djhei\Projects\shardloom-active\python\src python -m compileall -q python\src\shardloom`
+    - [x] `cargo test -p shardloom-cli --bin shardloom`
+    - [x] `PYTHONPATH=C:\Users\djhei\Projects\shardloom-active\python\src python -m unittest discover python\tests`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `cargo test --workspace --all-targets`
+  - Runtime stance: unsupported-diagnostic and traceability surfaces only; no workflow execution,
+    in-memory import/materialization, schema/data-quality runtime, notebook rendering side effects,
+    Foundry invocation, media/model/embedding execution, external engine invocation, or fallback
+    execution.
+
 - [x] Session label: Audit-F7/F8 PR #527/#528 review repair bundle
   - Primary files:
     - `python/src/shardloom/client.py`

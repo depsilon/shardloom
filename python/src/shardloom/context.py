@@ -26,7 +26,17 @@ from .client import (
     WorkloadCertificationDossier,
 )
 from .models import Diagnostic, OutputEnvelope
-from .query import LazyFrame, read_csv, read_json, read_parquet, read_vortex
+from .query import (
+    LazyFrame,
+    UnsupportedWorkflowOperationReport,
+    from_arrow_ipc,
+    from_arrow_table,
+    from_pandas,
+    read_csv,
+    read_json,
+    read_parquet,
+    read_vortex,
+)
 
 DEFAULT_CAPABILITY_SCOPES = (
     "python",
@@ -602,6 +612,51 @@ class ShardLoomContext:
         """Declare a lazy Parquet compatibility source using this context's client."""
 
         return read_parquet(uri, schema=schema, client=self.client, engine_mode=self.engine)
+
+    def from_pandas(
+        self,
+        dataframe: object,
+        *,
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for a pandas in-memory input boundary."""
+
+        return from_pandas(
+            dataframe,
+            client=self.client,
+            engine_mode=self.engine,
+            check=check,
+        )
+
+    def from_arrow_table(
+        self,
+        table: object,
+        *,
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for an Arrow table input boundary."""
+
+        return from_arrow_table(
+            table,
+            client=self.client,
+            engine_mode=self.engine,
+            check=check,
+        )
+
+    def from_arrow_ipc(
+        self,
+        source: object,
+        *,
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for an Arrow IPC input boundary."""
+
+        return from_arrow_ipc(
+            source,
+            client=self.client,
+            engine_mode=self.engine,
+            check=check,
+        )
 
     def _capability_view(self, scope: str, *, check: bool) -> CapabilityView:
         normalized = _normalize_scope_name(scope)
