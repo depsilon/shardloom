@@ -35,6 +35,74 @@ DEFAULT_COMPATIBILITY_SOURCE_SMOKE_INPUTS = (
     ("parquet", "examples/local/fact.parquet"),
     ("arrow_ipc", "examples/local/fact.arrow"),
 )
+DEFAULT_WORKFLOW_READINESS_TARGET_URI = "file://tmp/shardloom-output-readiness/out.vortex"
+DEFAULT_WORKFLOW_READINESS_COMPATIBILITY_TARGET_URI = (
+    "file://tmp/shardloom-output-readiness/out.parquet"
+)
+DEFAULT_WORKFLOW_READINESS_WORKSPACE = "target/shardloom-output-readiness-stage"
+DEFAULT_WORKFLOW_READINESS_REMOTE_SOURCES = (
+    ("s3_parquet", "s3://bucket/data.parquet"),
+    ("gcs_parquet", "gs://bucket/data.parquet"),
+    ("azure_parquet", "abfs://container/data.parquet"),
+    ("http_parquet", "https://example.invalid/data.parquet"),
+)
+DEFAULT_VORTEX_WRITE_INTENT_SIGNALS = (
+    "native-vortex-target",
+    "schema-known",
+    "schema-compatible",
+    "delete-semantics-known",
+    "tombstone-semantics-known",
+    "commit-protocol-available",
+    "staged-output-required",
+)
+DEFAULT_VORTEX_OUTPUT_PAYLOAD_SIGNALS = (
+    "write-intent-ready",
+    "staged-output-ready",
+    "finalized-manifest-ready",
+    "payload-content-available",
+    "local-workspace",
+    "feature-gate-enabled",
+)
+DEFAULT_VORTEX_STAGED_MANIFEST_SIGNALS = (
+    "draft-ready",
+    "workspace-known",
+    "marker-written",
+    "local-workspace",
+)
+DEFAULT_VORTEX_COMMIT_MARKER_SIGNALS = (
+    "commit-protocol-ready",
+    "manifest-finalization-available",
+    "local-workspace",
+    "feature-gate-enabled",
+)
+DEFAULT_VORTEX_COMMIT_INTENT_SIGNALS = (
+    "commit-requested",
+    "staged-manifest-draft-written",
+    "manifest-finalization-available",
+    "commit-protocol-available",
+    "schema-known",
+    "schema-compatible",
+    "delete-semantics-known",
+    "tombstone-semantics-known",
+    "recovery-ready",
+    "retry-gate-open",
+    "cancellation-gate-open",
+    "feature-gate-enabled",
+)
+DEFAULT_VORTEX_COMMIT_PROTOCOL_SIGNALS = (
+    "commit-intent-ready",
+    "draft-manifest-ready",
+    "manifest-finalization-available",
+    "commit-marker-available",
+    "recovery-ready",
+    "feature-gate-enabled",
+)
+DEFAULT_VORTEX_LOCAL_COMMIT_RECOVERY_SIGNALS = (
+    "rollback-requested",
+    "committed-manifest-written",
+    "local-workspace",
+    "cleanup-allowed",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -207,6 +275,79 @@ class CompatibilitySourceSmokeReport:
             source.source_name
             for source in self.sources
             if source.plan.field("capability_status") == "planned"
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class WorkflowReadinessPlan:
+    """One named envelope in the no-write workflow readiness smoke."""
+
+    name: str
+    envelope: OutputEnvelope
+
+
+@dataclass(frozen=True, slots=True)
+class WorkflowReadinessSmokeReport:
+    """No-write planning smoke for output, remote, and evidence readiness."""
+
+    output_commit: tuple[WorkflowReadinessPlan, ...]
+    table_remote: tuple[WorkflowReadinessPlan, ...]
+    evidence: tuple[WorkflowReadinessPlan, ...]
+
+    @property
+    def plans(self) -> tuple[WorkflowReadinessPlan, ...]:
+        """Return all readiness plans in execution order."""
+
+        return (*self.output_commit, *self.table_remote, *self.evidence)
+
+    @property
+    def envelopes(self) -> tuple[OutputEnvelope, ...]:
+        """Return all readiness envelopes in execution order."""
+
+        return tuple(plan.envelope for plan in self.plans)
+
+    @property
+    def plan_names(self) -> tuple[str, ...]:
+        """Return stable readiness plan labels in execution order."""
+
+        return tuple(plan.name for plan in self.plans)
+
+    @property
+    def commands(self) -> tuple[str, ...]:
+        """Return CLI commands executed by the readiness smoke."""
+
+        return tuple(envelope.command for envelope in self.envelopes)
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether any readiness command reported attempted fallback execution."""
+
+        return any(
+            envelope.fallback.attempted
+            or envelope.field_bool("fallback_attempted", False) is True
+            for envelope in self.envelopes
+        )
+
+    @property
+    def all_no_write(self) -> bool:
+        """Whether every readiness envelope preserved the no-write/no-effect contract."""
+
+        return all(_envelope_preserves_no_write(envelope) for envelope in self.envelopes)
+
+    @property
+    def all_report_only_or_planned(self) -> bool:
+        """Whether every envelope stayed in a planning/report-only lifecycle."""
+
+        return all(_envelope_is_report_only_or_planned(envelope) for envelope in self.envelopes)
+
+    @property
+    def blocked_plan_names(self) -> tuple[str, ...]:
+        """Return readiness plans that report blockers or incomplete evidence."""
+
+        return tuple(
+            plan.name
+            for plan in self.plans
+            if _envelope_reports_blocked_or_incomplete(plan.envelope)
         )
 
 
@@ -791,6 +932,407 @@ class ShardLoomClient:
 
         return self.run(["world-class-sufficiency-plan"], check=check)
 
+    def translation_plan(
+        self, target_uri: str | os.PathLike[str], *, check: bool = True
+    ) -> OutputEnvelope:
+        """Return a target translation or compatibility-output planning envelope."""
+
+        return self.run(["translation-plan", str(target_uri)], check=check)
+
+    def plan_export(self, format_kind: str = "native", *, check: bool = True) -> OutputEnvelope:
+        """Return a plan export portability envelope for the requested format."""
+
+        return self.run(["plan-export", format_kind], check=check)
+
+    def vortex_output_plan(
+        self, target_uri: str | os.PathLike[str], *, check: bool = True
+    ) -> OutputEnvelope:
+        """Return a Vortex output target preview envelope."""
+
+        return self.run(["vortex-output-plan", str(target_uri)], check=check)
+
+    def vortex_write_intent_plan(
+        self,
+        target_uri: str | os.PathLike[str],
+        signals: str | Sequence[str],
+        *,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Return Vortex write-intent readiness without writing output data."""
+
+        return self.run(
+            ["vortex-write-intent-plan", str(target_uri), _signals_arg(signals)],
+            check=check,
+        )
+
+    def vortex_output_payload_plan(
+        self,
+        target_uri: str | os.PathLike[str],
+        workspace_path: str | os.PathLike[str],
+        signals: str | Sequence[str],
+        *,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Return Vortex output payload readiness without writing an artifact."""
+
+        return self.run(
+            [
+                "vortex-output-payload-plan",
+                str(target_uri),
+                str(workspace_path),
+                _signals_arg(signals),
+            ],
+            check=check,
+        )
+
+    def vortex_staged_manifest_file_plan(
+        self,
+        workspace_path: str | os.PathLike[str],
+        signals: str | Sequence[str],
+        *,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Return staged manifest file readiness without writing a manifest."""
+
+        return self.run(
+            [
+                "vortex-staged-manifest-file-plan",
+                str(workspace_path),
+                _signals_arg(signals),
+            ],
+            check=check,
+        )
+
+    def vortex_commit_marker_plan(
+        self,
+        workspace_path: str | os.PathLike[str],
+        signals: str | Sequence[str],
+        *,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Return commit marker readiness without writing a marker."""
+
+        return self.run(
+            [
+                "vortex-commit-marker-plan",
+                str(workspace_path),
+                _signals_arg(signals),
+            ],
+            check=check,
+        )
+
+    def vortex_commit_intent_plan(
+        self,
+        target_uri: str | os.PathLike[str],
+        signals: str | Sequence[str],
+        *,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Return Vortex commit-intent readiness without committing manifests."""
+
+        return self.run(
+            ["vortex-commit-intent-plan", str(target_uri), _signals_arg(signals)],
+            check=check,
+        )
+
+    def vortex_commit_protocol_plan(
+        self,
+        target_uri: str | os.PathLike[str],
+        current_state: str,
+        transition: str,
+        signals: str | Sequence[str],
+        *,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Return Vortex commit protocol state transition readiness."""
+
+        return self.run(
+            [
+                "vortex-commit-protocol-plan",
+                str(target_uri),
+                current_state,
+                transition,
+                _signals_arg(signals),
+            ],
+            check=check,
+        )
+
+    def vortex_local_commit_recovery_plan(
+        self,
+        target_uri: str | os.PathLike[str],
+        workspace_path: str | os.PathLike[str],
+        signals: str | Sequence[str],
+        *,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Return local commit recovery readiness without cleanup or rollback effects."""
+
+        return self.run(
+            [
+                "vortex-local-commit-recovery-plan",
+                str(target_uri),
+                str(workspace_path),
+                _signals_arg(signals),
+            ],
+            check=check,
+        )
+
+    def table_compat_plan(
+        self,
+        format_or_mode: str | None = None,
+        scenario: str | None = None,
+        *,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Return table-format compatibility planning for a format or table mode."""
+
+        args = ["table-compat-plan"]
+        if format_or_mode is not None:
+            args.append(format_or_mode)
+        if scenario is not None:
+            args.append(scenario)
+        return self.run(args, check=check)
+
+    def table_intelligence_plan(self, *, check: bool = True) -> OutputEnvelope:
+        """Return table-intelligence report-only readiness."""
+
+        return self.run(["table-intelligence-plan"], check=check)
+
+    def layout_health_plan(
+        self, scenario: str = "healthy", *, check: bool = True
+    ) -> OutputEnvelope:
+        """Return layout-health planning for the requested fixture scenario."""
+
+        return self.run(["layout-health-plan", scenario], check=check)
+
+    def compaction_plan(
+        self, scenario: str = "small-files", *, check: bool = True
+    ) -> OutputEnvelope:
+        """Return compaction planning for the requested fixture scenario."""
+
+        return self.run(["compaction-plan", scenario], check=check)
+
+    def catalog_metadata_gate(self, *, check: bool = True) -> OutputEnvelope:
+        """Return the CG-9 catalog metadata gate report."""
+
+        return self.run(["cg9-catalog-metadata-gate"], check=check)
+
+    def object_store_request_plan(
+        self, scenario: str = "ready", *, check: bool = True
+    ) -> OutputEnvelope:
+        """Return object-store request planning without remote IO."""
+
+        return self.run(["object-store-request-plan", scenario], check=check)
+
+    def object_store_range_plan(
+        self, scenario: str = "s3-ranges", *, check: bool = True
+    ) -> OutputEnvelope:
+        """Return object-store byte-range planning without remote IO."""
+
+        return self.run(["object-store-range-plan", scenario], check=check)
+
+    def object_store_coalesce_plan(
+        self, scenario: str = "s3-ranges", *, check: bool = True
+    ) -> OutputEnvelope:
+        """Return object-store request coalescing planning without remote IO."""
+
+        return self.run(["object-store-coalesce-plan", scenario], check=check)
+
+    def object_store_schedule_plan(
+        self, scenario: str = "s3-ranges", *, check: bool = True
+    ) -> OutputEnvelope:
+        """Return object-store scheduling planning without remote IO."""
+
+        return self.run(["object-store-schedule-plan", scenario], check=check)
+
+    def object_store_checkpoint_retry_plan(
+        self, scenario: str = "ready", *, check: bool = True
+    ) -> OutputEnvelope:
+        """Return object-store checkpoint/retry planning without remote IO."""
+
+        return self.run(["object-store-checkpoint-retry-plan", scenario], check=check)
+
+    def object_store_commit_plan(
+        self, scenario: str = "ready", *, check: bool = True
+    ) -> OutputEnvelope:
+        """Return object-store commit planning without remote IO or writes."""
+
+        return self.run(["object-store-commit-plan", scenario], check=check)
+
+    def correctness_plan(self, *, check: bool = True) -> OutputEnvelope:
+        """Return the correctness evidence planning surface."""
+
+        return self.run(["correctness-plan"], check=check)
+
+    def workflow_readiness_smoke(
+        self,
+        *,
+        target_uri: str | os.PathLike[str] = DEFAULT_WORKFLOW_READINESS_TARGET_URI,
+        workspace_path: str | os.PathLike[str] = DEFAULT_WORKFLOW_READINESS_WORKSPACE,
+        compatibility_target_uri: str | os.PathLike[str] = (
+            DEFAULT_WORKFLOW_READINESS_COMPATIBILITY_TARGET_URI
+        ),
+        remote_sources: Mapping[str, str | os.PathLike[str]] | None = None,
+        check: bool = True,
+    ) -> WorkflowReadinessSmokeReport:
+        """Preview output, remote-data, and evidence readiness without side effects."""
+
+        remote_items = _workflow_remote_source_items(remote_sources)
+        output_commit = (
+            WorkflowReadinessPlan(
+                "vortex_output_target",
+                self.vortex_output_plan(target_uri, check=check),
+            ),
+            WorkflowReadinessPlan(
+                "compatibility_export_target",
+                self.translation_plan(compatibility_target_uri, check=check),
+            ),
+            WorkflowReadinessPlan(
+                "native_plan_export",
+                self.plan_export("native", check=check),
+            ),
+            WorkflowReadinessPlan(
+                "vortex_write_intent",
+                self.vortex_write_intent_plan(
+                    target_uri,
+                    DEFAULT_VORTEX_WRITE_INTENT_SIGNALS,
+                    check=check,
+                ),
+            ),
+            WorkflowReadinessPlan(
+                "vortex_output_payload",
+                self.vortex_output_payload_plan(
+                    target_uri,
+                    workspace_path,
+                    DEFAULT_VORTEX_OUTPUT_PAYLOAD_SIGNALS,
+                    check=check,
+                ),
+            ),
+            WorkflowReadinessPlan(
+                "vortex_staged_manifest",
+                self.vortex_staged_manifest_file_plan(
+                    workspace_path,
+                    DEFAULT_VORTEX_STAGED_MANIFEST_SIGNALS,
+                    check=check,
+                ),
+            ),
+            WorkflowReadinessPlan(
+                "vortex_commit_marker",
+                self.vortex_commit_marker_plan(
+                    workspace_path,
+                    DEFAULT_VORTEX_COMMIT_MARKER_SIGNALS,
+                    check=check,
+                ),
+            ),
+            WorkflowReadinessPlan(
+                "vortex_commit_intent",
+                self.vortex_commit_intent_plan(
+                    target_uri,
+                    DEFAULT_VORTEX_COMMIT_INTENT_SIGNALS,
+                    check=check,
+                ),
+            ),
+            WorkflowReadinessPlan(
+                "vortex_commit_protocol",
+                self.vortex_commit_protocol_plan(
+                    target_uri,
+                    "not-started",
+                    "validate-intent",
+                    DEFAULT_VORTEX_COMMIT_PROTOCOL_SIGNALS,
+                    check=check,
+                ),
+            ),
+            WorkflowReadinessPlan(
+                "vortex_local_commit_recovery",
+                self.vortex_local_commit_recovery_plan(
+                    target_uri,
+                    workspace_path,
+                    DEFAULT_VORTEX_LOCAL_COMMIT_RECOVERY_SIGNALS,
+                    check=check,
+                ),
+            ),
+        )
+        table_remote = (
+            WorkflowReadinessPlan(
+                "table_intelligence",
+                self.table_intelligence_plan(check=check),
+            ),
+            WorkflowReadinessPlan(
+                "table_compat_iceberg",
+                self.table_compat_plan("iceberg", check=check),
+            ),
+            WorkflowReadinessPlan(
+                "table_compat_delta",
+                self.table_compat_plan("delta", check=check),
+            ),
+            WorkflowReadinessPlan(
+                "layout_health",
+                self.layout_health_plan("healthy", check=check),
+            ),
+            WorkflowReadinessPlan(
+                "compaction",
+                self.compaction_plan("small-files", check=check),
+            ),
+            WorkflowReadinessPlan(
+                "catalog_metadata_gate",
+                self.catalog_metadata_gate(check=check),
+            ),
+            WorkflowReadinessPlan(
+                "object_store_request",
+                self.object_store_request_plan("ready", check=check),
+            ),
+            WorkflowReadinessPlan(
+                "object_store_range",
+                self.object_store_range_plan("s3-ranges", check=check),
+            ),
+            WorkflowReadinessPlan(
+                "object_store_coalesce",
+                self.object_store_coalesce_plan("s3-ranges", check=check),
+            ),
+            WorkflowReadinessPlan(
+                "object_store_schedule",
+                self.object_store_schedule_plan("s3-ranges", check=check),
+            ),
+            WorkflowReadinessPlan(
+                "object_store_checkpoint_retry",
+                self.object_store_checkpoint_retry_plan("ready", check=check),
+            ),
+            WorkflowReadinessPlan(
+                "object_store_commit",
+                self.object_store_commit_plan("ready", check=check),
+            ),
+            *(
+                WorkflowReadinessPlan(
+                    f"remote_input_{name}",
+                    self.input_plan(uri, check=check),
+                )
+                for name, uri in remote_items
+            ),
+        )
+        evidence = (
+            WorkflowReadinessPlan(
+                "migration_capabilities",
+                self.capabilities("migration", check=check),
+            ),
+            WorkflowReadinessPlan(
+                "correctness_plan",
+                self.correctness_plan(check=check),
+            ),
+            WorkflowReadinessPlan(
+                "benchmark_claim_evidence",
+                self.benchmark_claim_evidence_plan("foundation", check=check),
+            ),
+            WorkflowReadinessPlan(
+                "world_class_sufficiency",
+                self.world_class_sufficiency_plan(check=check),
+            ),
+        )
+        return WorkflowReadinessSmokeReport(
+            output_commit=output_commit,
+            table_remote=table_remote,
+            evidence=evidence,
+        )
+
     def input_adapters(self, *, check: bool = True) -> OutputEnvelope:
         """Return the universal input adapter registry snapshot."""
 
@@ -1026,6 +1568,75 @@ LOCAL_VORTEX_CERTIFIED_FIELDS = (
     "local_primitive_execution_certificate_correctness_passed",
 )
 
+NO_WRITE_FALSE_FIELDS = (
+    "fallback_attempted",
+    "fallback_execution_allowed",
+    "filesystem_probe",
+    "network_probe",
+    "catalog_probe",
+    "adapter_probe",
+    "runtime_execution",
+    "query_execution",
+    "external_engine_execution",
+    "external_effects_executed",
+    "data_read",
+    "data_materialized",
+    "read_io",
+    "write_io",
+    "object_store_io",
+    "output_data_written",
+    "manifest_written",
+    "manifest_file_written",
+    "draft_file_written",
+    "commit_marker_written",
+    "manifest_finalized",
+    "manifest_committed",
+    "commit_performed",
+    "upstream_vortex_write_called",
+    "recovery_action_executed",
+    "rollback_executed",
+    "cleanup_performed",
+    "write_execution_allowed",
+    "commit_execution_allowed",
+    "payload_write_allowed",
+    "marker_write_allowed",
+    "finalization_execution_allowed",
+    "snapshot_manifest_metadata_read_allowed",
+    "catalog_resolution_allowed",
+    "table_metadata_read_allowed",
+    "catalog_io_allowed",
+    "object_store_io_allowed",
+    "data_io_allowed",
+    "write_io_allowed",
+    "external_table_format_dependency_allowed",
+    "credential_resolution_allowed",
+    "metadata_cache_runtime_allowed",
+    "metadata_integration_claim_allowed",
+    "performance_claim_allowed",
+    "superiority_claim_allowed",
+    "best_default_claim_allowed",
+)
+
+REPORT_ONLY_EXECUTION_VALUES = frozenset(
+    {
+        "not_performed",
+        "local_commit_recovery_planning_only",
+        "marker_write_or_not_performed",
+        "commit_marker_write_or_not_performed",
+        "payload_write_or_not_performed",
+        "native_count_payload_write_or_not_performed",
+    }
+)
+
+BLOCKER_FIELDS = (
+    "claim_blocked",
+    "runtime_promotions_blocked",
+    "metadata_integration_claim_allowed",
+    "performance_claim_allowed",
+    "superiority_claim_allowed",
+    "best_default_claim_allowed",
+)
+
 
 def _all_bool_fields(envelope: OutputEnvelope, keys: Sequence[str]) -> bool:
     return all(envelope.field_bool(key, False) is True for key in keys)
@@ -1050,6 +1661,70 @@ def _compatibility_source_items(
     if any(name.strip() == "" for name, _ in items):
         raise ValueError("source names must not be empty")
     return items
+
+
+def _workflow_remote_source_items(
+    sources: Mapping[str, str | os.PathLike[str]] | None,
+) -> tuple[tuple[str, str | os.PathLike[str]], ...]:
+    if sources is None:
+        return DEFAULT_WORKFLOW_READINESS_REMOTE_SOURCES
+    if not sources:
+        raise ValueError("remote_sources must not be empty")
+    items = tuple((str(name), uri) for name, uri in sources.items())
+    if any(name.strip() == "" for name, _ in items):
+        raise ValueError("remote source names must not be empty")
+    return items
+
+
+def _signals_arg(signals: str | Sequence[str]) -> str:
+    if isinstance(signals, str):
+        value = signals
+    else:
+        values = [str(signal).strip() for signal in signals]
+        if not values:
+            raise ValueError("signals must not be empty")
+        value = ",".join(values)
+    if value.strip() == "":
+        raise ValueError("signals must not be empty")
+    if any(part.strip() == "" for part in value.split(",")):
+        raise ValueError("signals must not contain empty tokens")
+    return value
+
+
+def _envelope_preserves_no_write(envelope: OutputEnvelope) -> bool:
+    if envelope.fallback.attempted or envelope.fallback.allowed:
+        return False
+    return all(
+        envelope.field_bool(key, False) is False
+        for key in NO_WRITE_FALSE_FIELDS
+        if envelope.field(key) is not None
+    )
+
+
+def _envelope_is_report_only_or_planned(envelope: OutputEnvelope) -> bool:
+    execution = envelope.field("execution")
+    if execution is not None and execution not in REPORT_ONLY_EXECUTION_VALUES:
+        return False
+    plan_only = envelope.field("plan_only")
+    if plan_only is not None and envelope.field_bool("plan_only") is not True:
+        return False
+    return True
+
+
+def _envelope_reports_blocked_or_incomplete(envelope: OutputEnvelope) -> bool:
+    if envelope.is_error or envelope.has_error_diagnostics:
+        return True
+    for key in BLOCKER_FIELDS:
+        if envelope.field(key) is None:
+            continue
+        value = envelope.field_bool(key)
+        if key.endswith("_allowed"):
+            if value is False:
+                return True
+        elif value is True:
+            return True
+    status = envelope.field("claim_evidence_status") or envelope.field("claim_gate_status")
+    return status in {"needs_evidence", "evidence_missing", "blocked"}
 
 
 def _columns_arg(columns: str | Sequence[str]) -> str:

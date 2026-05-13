@@ -21,6 +21,7 @@ from shardloom import (
     ShardLoomContext,
     ShardLoomProtocolError,
     OutputEnvelope,
+    WorkflowReadinessSmokeReport,
 )
 
 
@@ -600,6 +601,8 @@ class ShardLoomClientTests(unittest.TestCase):
                 memory_gb=0,
                 max_parallelism=2,
             )
+        with self.assertRaises(ValueError):
+            client.vortex_write_intent_plan("file.vortex", [])
 
     def test_unsupported_envelope_raises_with_diagnostics_and_fallback(self) -> None:
         binary = self.fake_cli(
@@ -1242,6 +1245,206 @@ class ShardLoomClientTests(unittest.TestCase):
         )
 
         self.assertEqual(result.field("scope"), "traditional-analytics")
+
+    def test_workflow_readiness_smoke_dispatches_no_write_planning_bundle(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                target = "file://tmp/out.vortex"
+                compat = "file://tmp/out.parquet"
+                workspace = "target/stage"
+                args = sys.argv[1:]
+
+                def emit(command, fields, diagnostics=None):
+                    print(json.dumps({
+                        "schema_version": "shardloom.output.v2",
+                        "command": command,
+                        "status": "success",
+                        "summary": "ok",
+                        "human_text": "ok",
+                        "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                        "diagnostics": diagnostics or [],
+                        "fields": [
+                            {"key": "fallback_execution_allowed", "value": "false"},
+                            {"key": "execution", "value": "not_performed"},
+                            *fields,
+                        ],
+                    }))
+
+                if args == ["vortex-output-plan", target, "--format", "json"]:
+                    emit("vortex-output-plan", [{"key": "target_format", "value": "vortex"}])
+                elif args == ["translation-plan", compat, "--format", "json"]:
+                    emit("translation-plan", [])
+                elif args == ["plan-export", "native", "--format", "json"]:
+                    emit("plan-export", [
+                        {"key": "plan_only", "value": "true"},
+                        {"key": "write_io", "value": "false"},
+                        {"key": "read_io", "value": "false"},
+                        {"key": "runtime_execution", "value": "false"},
+                        {"key": "external_engine_execution", "value": "false"},
+                    ])
+                elif args[:2] == ["vortex-write-intent-plan", target] and args[-2:] == ["--format", "json"]:
+                    assert args[2] == "native-vortex-target,schema-known,schema-compatible,delete-semantics-known,tombstone-semantics-known,commit-protocol-available,staged-output-required", args
+                    emit("vortex-write-intent-plan", [
+                        {"key": "target_uri", "value": target},
+                        {"key": "target_is_native_vortex", "value": "true"},
+                        {"key": "write_execution_allowed", "value": "false"},
+                        {"key": "output_data_written", "value": "false"},
+                        {"key": "manifest_written", "value": "false"},
+                        {"key": "object_store_io", "value": "false"},
+                        {"key": "upstream_vortex_write_called", "value": "false"},
+                    ])
+                elif args[:3] == ["vortex-output-payload-plan", target, workspace] and args[-2:] == ["--format", "json"]:
+                    emit("vortex-output-payload-plan", [
+                        {"key": "payload_write_allowed", "value": "false"},
+                        {"key": "output_data_written", "value": "false"},
+                        {"key": "object_store_io", "value": "false"},
+                        {"key": "upstream_vortex_write_called", "value": "false"},
+                    ])
+                elif args[:2] == ["vortex-staged-manifest-file-plan", workspace] and args[-2:] == ["--format", "json"]:
+                    emit("vortex-staged-manifest-file-plan", [
+                        {"key": "manifest_file_written", "value": "false"},
+                        {"key": "output_data_written", "value": "false"},
+                        {"key": "object_store_io", "value": "false"},
+                        {"key": "commit_performed", "value": "false"},
+                    ])
+                elif args[:2] == ["vortex-commit-marker-plan", workspace] and args[-2:] == ["--format", "json"]:
+                    emit("vortex-commit-marker-plan", [
+                        {"key": "commit_marker_written", "value": "false"},
+                        {"key": "marker_write_allowed", "value": "false"},
+                        {"key": "manifest_committed", "value": "false"},
+                        {"key": "object_store_io", "value": "false"},
+                    ])
+                elif args[:2] == ["vortex-commit-intent-plan", target] and args[-2:] == ["--format", "json"]:
+                    emit("vortex-commit-intent-plan", [
+                        {"key": "commit_execution_allowed", "value": "false"},
+                        {"key": "manifest_committed", "value": "false"},
+                        {"key": "output_data_written", "value": "false"},
+                        {"key": "object_store_io", "value": "false"},
+                        {"key": "recovery_action_executed", "value": "false"},
+                    ])
+                elif args[:4] == ["vortex-commit-protocol-plan", target, "not-started", "validate-intent"] and args[-2:] == ["--format", "json"]:
+                    emit("vortex-commit-protocol-plan", [
+                        {"key": "commit_execution_allowed", "value": "false"},
+                        {"key": "commit_marker_written", "value": "false"},
+                        {"key": "manifest_committed", "value": "false"},
+                        {"key": "object_store_io", "value": "false"},
+                    ])
+                elif args[:3] == ["vortex-local-commit-recovery-plan", target, workspace] and args[-2:] == ["--format", "json"]:
+                    emit("vortex-local-commit-recovery-plan", [
+                        {"key": "rollback_executed", "value": "false"},
+                        {"key": "cleanup_performed", "value": "false"},
+                        {"key": "object_store_io", "value": "false"},
+                    ])
+                elif args == ["table-intelligence-plan", "--format", "json"]:
+                    emit("table-intelligence-plan", [{"key": "plan_only", "value": "true"}])
+                elif args in (["table-compat-plan", "iceberg", "--format", "json"], ["table-compat-plan", "delta", "--format", "json"]):
+                    emit("table-compat-plan", [
+                        {"key": "plan_only", "value": "true"},
+                        {"key": "write_io", "value": "false"},
+                    ])
+                elif args == ["layout-health-plan", "healthy", "--format", "json"]:
+                    emit("layout-health-plan", [
+                        {"key": "plan_only", "value": "true"},
+                        {"key": "data_read", "value": "false"},
+                        {"key": "write_io", "value": "false"},
+                    ])
+                elif args == ["compaction-plan", "small-files", "--format", "json"]:
+                    emit("compaction-plan", [
+                        {"key": "plan_only", "value": "true"},
+                        {"key": "data_read", "value": "false"},
+                        {"key": "write_io", "value": "false"},
+                    ])
+                elif args == ["cg9-catalog-metadata-gate", "--format", "json"]:
+                    emit("cg9-catalog-metadata-gate", [
+                        {"key": "plan_only", "value": "true"},
+                        {"key": "claim_blocked", "value": "true"},
+                        {"key": "catalog_io_allowed", "value": "false"},
+                        {"key": "object_store_io_allowed", "value": "false"},
+                        {"key": "write_io_allowed", "value": "false"},
+                    ])
+                elif args[0] in {
+                    "object-store-request-plan",
+                    "object-store-range-plan",
+                    "object-store-coalesce-plan",
+                    "object-store-schedule-plan",
+                    "object-store-checkpoint-retry-plan",
+                    "object-store-commit-plan",
+                } and args[-2:] == ["--format", "json"]:
+                    emit(args[0], [
+                        {"key": "plan_only", "value": "true"},
+                        {"key": "data_read", "value": "false"},
+                        {"key": "object_store_io", "value": "false"},
+                        {"key": "write_io", "value": "false"},
+                    ])
+                elif args[0] == "input-plan" and args[-2:] == ["--format", "json"]:
+                    emit("input-plan", [
+                        {"key": "plan_only", "value": "true"},
+                        {"key": "source_kind", "value": "parquet"},
+                        {"key": "capability_status", "value": "planned"},
+                        {"key": "data_read", "value": "false"},
+                        {"key": "data_materialized", "value": "false"},
+                        {"key": "object_store_io", "value": "false"},
+                        {"key": "write_io", "value": "false"},
+                    ])
+                elif args == ["capabilities", "migration", "--format", "json"]:
+                    emit("capabilities", [
+                        {"key": "scope", "value": "migration"},
+                        {"key": "side_effect_free", "value": "true"},
+                        {"key": "migration_report_count", "value": "5"},
+                    ])
+                elif args == ["correctness-plan", "--format", "json"]:
+                    emit("correctness-plan", [
+                        {"key": "status", "value": "planned"},
+                        {"key": "fixture_count", "value": "36"},
+                    ])
+                elif args == ["benchmark-claim-evidence-plan", "foundation", "--format", "json"]:
+                    emit("benchmark-claim-evidence-plan", [
+                        {"key": "claim_evidence_status", "value": "needs_evidence"},
+                        {"key": "performance_claim_allowed", "value": "false"},
+                        {"key": "write_io", "value": "false"},
+                        {"key": "fallback_attempted", "value": "false"},
+                    ], diagnostics=[{
+                        "code": "SL_NOT_IMPLEMENTED",
+                        "severity": "error",
+                        "category": "unsupported_feature",
+                        "message": "needs evidence",
+                        "feature": "benchmark",
+                        "reason": "missing measurements",
+                        "suggested_next_step": "collect evidence",
+                        "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    }])
+                elif args == ["world-class-sufficiency-plan", "--format", "json"]:
+                    emit("world-class-sufficiency-plan", [
+                        {"key": "fallback_attempted", "value": "false"},
+                    ])
+                else:
+                    raise AssertionError(args)
+                """
+            )
+        )
+
+        report = ShardLoomClient(binary=binary).workflow_readiness_smoke(
+            target_uri="file://tmp/out.vortex",
+            compatibility_target_uri="file://tmp/out.parquet",
+            workspace_path="target/stage",
+        )
+
+        self.assertIsInstance(report, WorkflowReadinessSmokeReport)
+        self.assertEqual(len(report.plans), 30)
+        self.assertEqual(report.output_commit[0].name, "vortex_output_target")
+        self.assertIn("remote_input_s3_parquet", report.plan_names)
+        self.assertIn("benchmark_claim_evidence", report.blocked_plan_names)
+        self.assertIn("catalog_metadata_gate", report.blocked_plan_names)
+        self.assertFalse(report.fallback_attempted)
+        self.assertTrue(report.all_no_write)
+        self.assertTrue(report.all_report_only_or_planned)
+        self.assertEqual(
+            report.output_commit[3].envelope.field("target_uri"),
+            "file://tmp/out.vortex",
+        )
 
     def test_input_adapter_and_input_plan_helpers(self) -> None:
         adapters_binary = self.fake_cli(

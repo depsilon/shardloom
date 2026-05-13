@@ -253,41 +253,29 @@ actionable work.
       requirements, and deterministic blockers for unsupported reads or writes.
     - Verification: adapter registry snapshots, Python live-ETL smoke tests, compatibility-boundary
       CLI tests, and no-fallback dependency invariant tests.
-  - [ ] P4.6 output, write, and commit UX bundle.
-    - User-visible surface: `write_vortex`, compatibility export planning, output target preview,
-      temporary-path policy, overwrite/append blockers, commit/recovery readiness, and certificate
-      refs exposed consistently through CLI and Python.
-    - Runnable smoke: a no-write/default smoke must preview output and commit readiness, while any
-      actual local artifact write remains explicit, policy-gated, and certifiable.
-    - Acceptance: safe write planning is usable before execution; any actual local write path must
-      be policy-gated, idempotency-aware, rollback-aware, and certificate-linked. Object-store and
-      catalog writes remain blocked until their lower-level gates prove them.
-    - Verification: Vortex output/commit/staged artifact tests, Python output-planning tests,
-      write-blocker diagnostics, and full workspace validation.
-  - [ ] P4.7 table, catalog, object-store, and remote-data UX bundle.
-    - User-visible surface: users can ask what would be required for Hive-style partitions,
-      Iceberg-compatible metadata, Delta-compatible metadata, object-store ranges, HTTP/S3/GCS/Azure
-      sources, and table maintenance before ShardLoom attempts IO.
-    - Acceptance: metadata discovery, range planning, credentials, request budgets, catalog reads,
-      update/delete/merge, and table commits are separated by maturity and evidence; remote SQL or
-      warehouse pushdown is classified as source/oracle/migration behavior, never fallback.
-    - Verification: CG-9 catalog, CG-10 object-store, table compatibility, plan portability, and
-      unsupported remote-boundary snapshots.
-  - [ ] P4.8 data-quality, diagnostics, and migration-scorecard bundle.
-    - User-visible surface: required-column/type/nullability/uniqueness/order/freshness checks,
-      reject/quarantine planning, migration reports, benchmark readiness, and workload scorecards
-      are visible through CLI and Python without executing unsupported work.
-    - Acceptance: outputs carry diagnostics, certificate refs or blockers, materialization policy,
-      correctness/benchmark evidence status, and no-fallback status for every workflow stage.
-    - Verification: data-quality report tests, universal/correctness harness snapshots, benchmark
-      claim evidence tests, Python unsupported-report tests, and full workspace validation.
-  - [ ] P4.9 user-facing quickstart and proof bundle.
+  - [x] P4.6 workflow readiness, output/remote blockers, and evidence UX bundle.
+    - User-visible surface: `write_vortex` readiness, compatibility export planning, output target
+      preview, temporary-path policy, overwrite/append blockers, commit/recovery readiness,
+      table/catalog/object-store/remote-data blockers, migration/correctness/benchmark evidence
+      readiness, and certificate/blocker refs exposed consistently through CLI and Python.
+    - Runnable smoke: one no-write/default Python smoke must preview output and commit readiness,
+      compatibility export, table/catalog/object-store/HTTP/S3/GCS/Azure planning, and
+      migration/correctness/benchmark evidence status without reading, writing, probing, or
+      materializing data. Actual local artifact writes remain separate explicit commands.
+    - Acceptance: safe write, remote-data, and evidence planning are usable before execution; any
+      actual local write path must stay policy-gated, idempotency-aware, rollback-aware, and
+      certificate-linked. Object-store, catalog, warehouse, and remote-service IO remain blocked
+      until lower-level gates prove them.
+    - Verification: Vortex output/commit/staged artifact tests, table/catalog/object-store planning
+      tests, Python workflow-readiness tests and smoke script, write/remote/evidence blocker
+      diagnostics, and full workspace validation.
+  - [ ] P4.7 end-to-end quickstart and proof bundle.
     - User-visible surface: `python/README.md`, a local quickstart example, and repository smoke
-      scripts show the exact install/import/smoke/capability/plan/execute-supported/diagnose-blocked
-      flow a user can run on the same checkout.
-    - Acceptance: docs separate what is certified, partial, planned, report-only, or unsupported;
-      no public package, superiority, SQL/DataFrame completeness, object-store production, or
-      Foundry claims are made without evidence.
+      scripts show the exact install/import/smoke/capability/source-plan/output-readiness/
+      execute-supported/diagnose-blocked flow a user can run on the same checkout.
+    - Acceptance: docs and scripts separate what is certified, partial, planned, report-only,
+      evidence-incomplete, or unsupported; no public package, superiority, SQL/DataFrame
+      completeness, object-store production, or Foundry claims are made without evidence.
     - Verification: README command smoke where practical, Python examples, CLI snapshots, and full
       workspace validation.
 - [ ] Priority 5 - CG-22 three-engine certified data execution fabric
