@@ -5,8 +5,12 @@ It invokes explicit ShardLoom CLI commands and parses their JSON envelopes.
 """
 
 from .client import (
+    CompatibilitySourcePlan,
+    CompatibilitySourceSmokeReport,
+    DEFAULT_COMPATIBILITY_SOURCE_SMOKE_INPUTS,
     ETL_INPUT_FORMATS,
     LiveEtlReplayResult,
+    LocalVortexPrimitiveSmokeReport,
     PythonClientSmokeReport,
     ShardLoomClient,
 )
@@ -41,10 +45,14 @@ __all__ = [
     "FallbackStatus",
     "FieldEntry",
     "OutputEnvelope",
+    "DEFAULT_COMPATIBILITY_SOURCE_SMOKE_INPUTS",
     "ETL_INPUT_FORMATS",
     "CapabilityView",
+    "CompatibilitySourcePlan",
+    "CompatibilitySourceSmokeReport",
     "ContextCapabilities",
     "LiveEtlReplayResult",
+    "LocalVortexPrimitiveSmokeReport",
     "PythonClientSmokeReport",
     "ShardLoomClient",
     "ShardLoomContext",

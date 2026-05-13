@@ -29,6 +29,12 @@ ENV_BINARY = "SHARDLOOM_BIN"
 ENV_REPO_ROOT = "SHARDLOOM_REPO_ROOT"
 ENV_PROFILE_ORDER = "SHARDLOOM_PROFILE_ORDER"
 ENV_TIMEOUT_SECONDS = "SHARDLOOM_TIMEOUT_SECONDS"
+DEFAULT_COMPATIBILITY_SOURCE_SMOKE_INPUTS = (
+    ("csv", "examples/local/fact.csv"),
+    ("jsonl", "examples/local/events.jsonl"),
+    ("parquet", "examples/local/fact.parquet"),
+    ("arrow_ipc", "examples/local/fact.arrow"),
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,6 +71,143 @@ class LiveEtlReplayResult:
         """Whether the native Vortex replay command was executed."""
 
         return self.native_vortex is not None
+
+
+@dataclass(frozen=True, slots=True)
+class LocalVortexPrimitiveSmokeReport:
+    """Result of the explicit local Vortex primitive smoke workflow."""
+
+    count: OutputEnvelope
+    count_where: OutputEnvelope
+    filter: OutputEnvelope
+    project: OutputEnvelope
+    filter_project: OutputEnvelope
+
+    @property
+    def envelopes(self) -> tuple[OutputEnvelope, ...]:
+        """Return command envelopes in execution order."""
+
+        return (
+            self.count,
+            self.count_where,
+            self.filter,
+            self.project,
+            self.filter_project,
+        )
+
+    @property
+    def commands(self) -> tuple[str, ...]:
+        """Return the local primitive commands executed by the smoke workflow."""
+
+        return tuple(envelope.command for envelope in self.envelopes)
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether any local primitive command reported attempted fallback execution."""
+
+        return any(
+            envelope.fallback.attempted
+            or _any_bool_field(envelope, LOCAL_VORTEX_FALLBACK_ATTEMPTED_FIELDS)
+            for envelope in self.envelopes
+        )
+
+    @property
+    def all_certified(self) -> bool:
+        """Whether every command emitted the expected certified local evidence fields."""
+
+        return all(
+            _all_bool_fields(envelope, LOCAL_VORTEX_CERTIFIED_FIELDS)
+            for envelope in self.envelopes
+        )
+
+    @property
+    def uncertified_commands(self) -> tuple[str, ...]:
+        """Return commands that did not emit both Native I/O and correctness certification."""
+
+        return tuple(
+            envelope.command
+            for envelope in self.envelopes
+            if not _all_bool_fields(envelope, LOCAL_VORTEX_CERTIFIED_FIELDS)
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class CompatibilitySourcePlan:
+    """One report-only compatibility-source input plan."""
+
+    source_name: str
+    dataset_uri: str
+    plan: OutputEnvelope
+
+
+@dataclass(frozen=True, slots=True)
+class CompatibilitySourceSmokeReport:
+    """Report-only compatibility-source planning smoke envelopes."""
+
+    input_adapters: OutputEnvelope
+    native_io_envelope: OutputEnvelope
+    sources: tuple[CompatibilitySourcePlan, ...]
+
+    @property
+    def envelopes(self) -> tuple[OutputEnvelope, ...]:
+        """Return smoke envelopes in execution order."""
+
+        return (
+            self.input_adapters,
+            self.native_io_envelope,
+            *(source.plan for source in self.sources),
+        )
+
+    @property
+    def commands(self) -> tuple[str, ...]:
+        """Return commands executed by the compatibility-source smoke workflow."""
+
+        return tuple(envelope.command for envelope in self.envelopes)
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether any report-only command reported attempted fallback execution."""
+
+        return any(
+            envelope.fallback.attempted
+            or envelope.field_bool("fallback_attempted", False) is True
+            for envelope in self.envelopes
+        )
+
+    @property
+    def all_plan_only(self) -> bool:
+        """Whether every source plan stayed side-effect-free and report-only."""
+
+        return all(
+            source.plan.field_bool("plan_only", False) is True
+            and source.plan.field_bool("data_read", True) is False
+            and source.plan.field_bool("data_materialized", True) is False
+            and source.plan.field_bool("write_io", True) is False
+            and source.plan.field_bool("native_vortex", True) is False
+            and source.plan.field_bool("fallback_execution_allowed", True) is False
+            for source in self.sources
+        )
+
+    @property
+    def compatibility_source_names(self) -> tuple[str, ...]:
+        """Return source labels that planned as structured compatibility inputs."""
+
+        return tuple(
+            source.source_name
+            for source in self.sources
+            if source.plan.field_bool("compatibility_structured", False) is True
+            and source.plan.field_bool("native_vortex", True) is False
+        )
+
+    @property
+    def planned_source_names(self) -> tuple[str, ...]:
+        """Return source labels that are visible but not certified for execution."""
+
+        return tuple(
+            source.source_name
+            for source in self.sources
+            if source.plan.field("capability_status") == "planned"
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -394,6 +537,63 @@ class ShardLoomClient:
         )
         return self.run(args, check=check)
 
+    def local_vortex_primitive_smoke(
+        self,
+        dataset_uri: str | os.PathLike[str],
+        *,
+        predicate: str = "gte:value:3",
+        columns: str | Sequence[str] = ("metric",),
+        memory_gb: int = 1,
+        max_parallelism: int = 2,
+        check: bool = True,
+    ) -> LocalVortexPrimitiveSmokeReport:
+        """Run the certified local Vortex primitive workflow through explicit CLI flags."""
+
+        memory_gb = _positive_int("memory_gb", memory_gb)
+        max_parallelism = _positive_int("max_parallelism", max_parallelism)
+        return LocalVortexPrimitiveSmokeReport(
+            count=self.vortex_run(
+                dataset_uri,
+                "count",
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                check=check,
+            ),
+            count_where=self.vortex_count_where(
+                dataset_uri,
+                predicate,
+                execute_local_primitive=True,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                check=check,
+            ),
+            filter=self.vortex_filter(
+                dataset_uri,
+                predicate,
+                execute_local_primitive=True,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                check=check,
+            ),
+            project=self.vortex_project(
+                dataset_uri,
+                columns,
+                execute_local_primitive=True,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                check=check,
+            ),
+            filter_project=self.vortex_filter_project(
+                dataset_uri,
+                predicate,
+                columns,
+                execute_local_primitive=True,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                check=check,
+            ),
+        )
+
     def traditional_analytics_run(
         self,
         scenario: str,
@@ -603,6 +803,28 @@ class ShardLoomClient:
 
         return self.run(["input-plan", str(dataset_uri)], check=check)
 
+    def compatibility_source_smoke(
+        self,
+        sources: Mapping[str, str | os.PathLike[str]] | None = None,
+        *,
+        check: bool = True,
+    ) -> CompatibilitySourceSmokeReport:
+        """Plan compatibility file sources without reading, writing, or materializing data."""
+
+        source_items = _compatibility_source_items(sources)
+        return CompatibilitySourceSmokeReport(
+            input_adapters=self.input_adapters(check=check),
+            native_io_envelope=self.native_io_envelope_plan(check=check),
+            sources=tuple(
+                CompatibilitySourcePlan(
+                    source_name=name,
+                    dataset_uri=str(uri),
+                    plan=self.input_plan(uri, check=check),
+                )
+                for name, uri in source_items
+            ),
+        )
+
     def vortex_input_plan(
         self, dataset_uri: str | os.PathLike[str], *, check: bool = True
     ) -> OutputEnvelope:
@@ -786,6 +1008,48 @@ def _required_field(envelope: OutputEnvelope, key: str) -> str:
             f"ShardLoom command {envelope.command!r} did not emit required field {key!r}"
         )
     return value
+
+
+LOCAL_VORTEX_FALLBACK_ATTEMPTED_FIELDS = (
+    "local_count_native_io_fallback_attempted",
+    "execution_certificate_fallback_attempted",
+    "filtered_count_local_execution_fallback_attempted",
+    "filter_local_execution_fallback_attempted",
+    "project_local_execution_fallback_attempted",
+    "filter_project_local_execution_fallback_attempted",
+    "local_primitive_native_io_fallback_attempted",
+    "local_primitive_execution_certificate_fallback_attempted",
+)
+
+LOCAL_VORTEX_CERTIFIED_FIELDS = (
+    "local_primitive_native_io_certified",
+    "local_primitive_execution_certificate_correctness_passed",
+)
+
+
+def _all_bool_fields(envelope: OutputEnvelope, keys: Sequence[str]) -> bool:
+    return all(envelope.field_bool(key, False) is True for key in keys)
+
+
+def _any_bool_field(envelope: OutputEnvelope, keys: Sequence[str]) -> bool:
+    return any(
+        envelope.field_bool(key, False) is True
+        for key in keys
+        if envelope.field(key) is not None
+    )
+
+
+def _compatibility_source_items(
+    sources: Mapping[str, str | os.PathLike[str]] | None,
+) -> tuple[tuple[str, str | os.PathLike[str]], ...]:
+    if sources is None:
+        return DEFAULT_COMPATIBILITY_SOURCE_SMOKE_INPUTS
+    if not sources:
+        raise ValueError("sources must not be empty")
+    items = tuple((str(name), uri) for name, uri in sources.items())
+    if any(name.strip() == "" for name, _ in items):
+        raise ValueError("source names must not be empty")
+    return items
 
 
 def _columns_arg(columns: str | Sequence[str]) -> str:

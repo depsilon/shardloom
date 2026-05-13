@@ -219,40 +219,60 @@ print(result.native_vortex.field("source_format") if result.native_vortex else N
 print(result.fallback_attempted)
 ```
 
-For lower-level local Vortex primitive testing, the wrapper exposes the same
-explicit CLI JSON commands used by the current CG-2/CG-13/CG-16/CG-19 evidence
-path:
+For lower-level local Vortex primitive testing, the wrapper exposes a certified
+fixture smoke workflow over the same explicit CLI JSON commands used by the
+current CG-2/CG-13/CG-16/CG-19 evidence path:
 
 ```python
 from shardloom import ShardLoomClient
 
-client = ShardLoomClient.from_repo()
-
-count = client.vortex_count(
-    "fixtures/local_primitive_struct_five.vortex",
-    execute_local_encoded_count=True,
-    memory_gb=1,
-    max_parallelism=2,
+client = ShardLoomClient.from_repo(profile_order=("debug", "release"))
+result = client.local_vortex_primitive_smoke(
+    "shardloom-vortex/tests/fixtures/local_primitive_struct_five.vortex",
 )
 
-filtered = client.vortex_filter_project(
-    "fixtures/local_primitive_struct_five.vortex",
-    "gte:value:3",
-    ["metric"],
-    execute_local_primitive=True,
-    memory_gb=1,
-    max_parallelism=2,
-)
-
-print(count.field("execution_certificate_reported"))
-print(filtered.field("native_io_certificate_reported"))
-print(filtered.fallback.attempted)
+print(result.commands)
+print(result.all_certified)
+print(result.filter_project.field("filter_project_local_execution_rows_projected"))
+print(result.fallback_attempted)
 ```
 
-Execution remains explicit. Calls without `execute_local_encoded_count=True` or
-`execute_local_primitive=True` use the existing metadata/plan evidence surfaces
-where the CLI supports them; local primitive execution also requires explicit
-`memory_gb` and `max_parallelism` caps.
+Count-all uses the explicit `vortex-run <fixture> count <memory_gb>
+<max_parallelism>` runtime command. Count-where, filter, project, and
+filter-project use their `--execute-local-primitive <memory_gb>
+<max_parallelism>` flags. Calls without those explicit execution paths use the
+existing metadata/plan evidence surfaces where the CLI supports them; local
+primitive execution also requires explicit resource caps.
+
+The repository smoke script prints command, status, certificate, Native I/O,
+materialization, work-metric, evidence-artifact, and no-fallback fields:
+
+```powershell
+$env:RUSTUP_TOOLCHAIN = "1.91.1"
+cargo build -p shardloom-cli --features vortex-local-primitives --bin shardloom
+
+$env:PYTHONPATH = "python\src"
+python python\examples\local_vortex_primitives_smoke.py --repo-root .
+```
+
+The compatibility-source planning smoke shows the adjacent report-only boundary
+for CSV, JSONL/NDJSON, Parquet, and Arrow IPC inputs before any execution claim.
+It plans representative local paths without checking that the files exist,
+reading data, writing data, or materializing rows:
+
+```powershell
+$env:PYTHONPATH = "python\src"
+python python\examples\compatibility_source_smoke.py --repo-root .
+```
+
+Override planned sources when you want to inspect your own paths:
+
+```powershell
+python python\examples\compatibility_source_smoke.py --repo-root . `
+  --source csv=data\fact.csv `
+  --source ndjson=data\events.ndjson `
+  --source parquet=data\fact.parquet
+```
 
 Universal I/O is broader than local compatibility files. The current adapter
 registry also makes object-store, catalog, effectful, and unstructured queues

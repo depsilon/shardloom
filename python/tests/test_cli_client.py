@@ -11,8 +11,10 @@ from pathlib import Path
 from shardloom import (
     __version__,
     context as shardloom_context,
+    CompatibilitySourceSmokeReport,
     ContextCapabilities,
     CapabilityView,
+    LocalVortexPrimitiveSmokeReport,
     ShardLoomBinaryNotFoundError,
     ShardLoomClient,
     ShardLoomCommandError,
@@ -416,6 +418,92 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(filtered.command, "vortex-filter")
         self.assertEqual(projected.command, "vortex-project")
         self.assertEqual(filter_project.command, "vortex-filter-project")
+
+    def test_local_vortex_primitive_smoke_dispatches_certified_fixture_workflow(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                args = sys.argv[1:]
+                expected = {
+                    ("vortex-run", "file.vortex", "count", "3", "4", "--format", "json"): (
+                        "vortex-run",
+                        [{"key": "local_primitive_rows_scanned", "value": "5"}],
+                    ),
+                    ("vortex-count-where", "file.vortex", "gte:value:3", "--execute-local-primitive", "3", "4", "--format", "json"): (
+                        "vortex-count-where",
+                        [{"key": "filtered_count_local_execution_rows_selected", "value": "3"}],
+                    ),
+                    ("vortex-filter", "file.vortex", "gte:value:3", "--execute-local-primitive", "3", "4", "--format", "json"): (
+                        "vortex-filter",
+                        [{"key": "filter_local_execution_rows_selected", "value": "3"}],
+                    ),
+                    ("vortex-project", "file.vortex", "metric,value", "--execute-local-primitive", "3", "4", "--format", "json"): (
+                        "vortex-project",
+                        [{"key": "project_local_execution_rows_projected", "value": "5"}],
+                    ),
+                    ("vortex-filter-project", "file.vortex", "gte:value:3", "metric,value", "--execute-local-primitive", "3", "4", "--format", "json"): (
+                        "vortex-filter-project",
+                        [{"key": "filter_project_local_execution_rows_projected", "value": "3"}],
+                    ),
+                }
+                matched = expected.get(tuple(args))
+                if matched is None:
+                    raise AssertionError(args)
+                command, command_fields = matched
+                fields = [
+                    {"key": "fallback_execution_allowed", "value": "false"},
+                    {"key": "local_primitive_native_io_certificate_emitted", "value": "true"},
+                    {"key": "local_primitive_native_io_certificate_status", "value": "certified"},
+                    {"key": "local_primitive_native_io_certified", "value": "true"},
+                    {"key": "local_primitive_native_io_data_materialized", "value": "false"},
+                    {"key": "local_primitive_native_io_fallback_attempted", "value": "false"},
+                    {"key": "local_primitive_execution_certificate_emitted", "value": "true"},
+                    {"key": "local_primitive_execution_certificate_status", "value": "certified"},
+                    {"key": "local_primitive_execution_certificate_correctness_passed", "value": "true"},
+                    {"key": "local_primitive_execution_certificate_fallback_attempted", "value": "false"},
+                ]
+                fields.extend(command_fields)
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": command,
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": fields,
+                }))
+                """
+            )
+        )
+
+        report = ShardLoomClient(binary=binary).local_vortex_primitive_smoke(
+            "file.vortex",
+            columns=("metric", "value"),
+            memory_gb=3,
+            max_parallelism=4,
+        )
+
+        self.assertIsInstance(report, LocalVortexPrimitiveSmokeReport)
+        self.assertEqual(
+            report.commands,
+            (
+                "vortex-run",
+                "vortex-count-where",
+                "vortex-filter",
+                "vortex-project",
+                "vortex-filter-project",
+            ),
+        )
+        self.assertTrue(report.all_certified)
+        self.assertEqual(report.uncertified_commands, ())
+        self.assertFalse(report.fallback_attempted)
+        self.assertEqual(report.count.field_int("local_primitive_rows_scanned"), 5)
+        self.assertEqual(
+            report.filter_project.field_int("filter_project_local_execution_rows_projected"),
+            3,
+        )
 
     def test_vortex_project_helper_dispatches_default_plan_command(self) -> None:
         binary = self.fake_cli(
@@ -1208,6 +1296,92 @@ class ShardLoomClientTests(unittest.TestCase):
 
         self.assertEqual(input_plan.command, "input-plan")
         self.assertTrue(input_plan.field_bool("plan_only"))
+
+    def test_compatibility_source_smoke_dispatches_report_only_input_plans(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                args = sys.argv[1:]
+                fields = []
+                command = args[0] if args else ""
+                if args == ["input-adapters", "--format", "json"]:
+                    fields = [
+                        {"key": "critical_structured_adapter_order", "value": "native_vortex,parquet,arrow_ipc,csv,jsonl"},
+                        {"key": "csv_status", "value": "planned"},
+                        {"key": "jsonl_status", "value": "planned"},
+                        {"key": "parquet_status", "value": "planned"},
+                        {"key": "plan_only", "value": "true"},
+                        {"key": "write_io", "value": "false"},
+                    ]
+                elif args == ["native-io-envelope-plan", "--format", "json"]:
+                    fields = [
+                        {"key": "per_path_certificate_required", "value": "true"},
+                        {"key": "adapter_fidelity_report_required", "value": "true"},
+                        {"key": "materialization_boundary_required_for_rows", "value": "true"},
+                        {"key": "fallback_attempted", "value": "false"},
+                    ]
+                elif args[:1] == ["input-plan"] and args[-2:] == ["--format", "json"]:
+                    uri = args[1]
+                    source_kind = uri.rsplit(".", 1)[-1].replace("ndjson", "jsonl")
+                    fields = [
+                        {"key": "source_kind", "value": source_kind},
+                        {"key": "adapter_kind", "value": "compatibility_file_adapter"},
+                        {"key": "dataset_format", "value": source_kind},
+                        {"key": "capability_status", "value": "planned"},
+                        {"key": "metadata_availability", "value": "deferred"},
+                        {"key": "fidelity", "value": "compatibility_logical"},
+                        {"key": "materialization_risk", "value": "medium"},
+                        {"key": "native_vortex", "value": "false"},
+                        {"key": "compatibility_structured", "value": "true"},
+                        {"key": "plan_only", "value": "true"},
+                        {"key": "data_read", "value": "false"},
+                        {"key": "data_materialized", "value": "false"},
+                        {"key": "write_io", "value": "false"},
+                        {"key": "fallback_execution_allowed", "value": "false"},
+                    ]
+                else:
+                    raise AssertionError(args)
+
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": command,
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": fields,
+                }))
+                """
+            )
+        )
+
+        report = ShardLoomClient(binary=binary).compatibility_source_smoke(
+            {
+                "csv": "fact.csv",
+                "jsonl": "events.jsonl",
+                "parquet": "fact.parquet",
+            }
+        )
+
+        self.assertIsInstance(report, CompatibilitySourceSmokeReport)
+        self.assertEqual(
+            report.commands,
+            (
+                "input-adapters",
+                "native-io-envelope-plan",
+                "input-plan",
+                "input-plan",
+                "input-plan",
+            ),
+        )
+        self.assertEqual(report.compatibility_source_names, ("csv", "jsonl", "parquet"))
+        self.assertEqual(report.planned_source_names, ("csv", "jsonl", "parquet"))
+        self.assertTrue(report.all_plan_only)
+        self.assertFalse(report.fallback_attempted)
+        self.assertEqual(report.sources[1].plan.field("source_kind"), "jsonl")
 
 
 if __name__ == "__main__":
