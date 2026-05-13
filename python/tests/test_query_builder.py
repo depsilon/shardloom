@@ -257,6 +257,26 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "execution_delegated", "value": "false"},
                     ]
+                elif args == ["rest-api-local-lifecycle", "certified-local-batch", "--format", "json"]:
+                    fields = [
+                        {"key": "scenario", "value": "certified-local-batch"},
+                        {"key": "lifecycle_status", "value": "succeeded"},
+                        {"key": "query_id", "value": "query://cg23/certified-local-batch/0001"},
+                        {"key": "result_ref", "value": "result://cg23/certified-local-batch/0001"},
+                        {"key": "lifecycle_operations", "value": "execute,status,cancel,retry,profile,certificates,lineage,results,artifacts,cleanup"},
+                        {"key": "result_policies", "value": "inline_json:decoded_rows,vortex_artifact:native_vortex_artifact,arrow_ipc_decoded_boundary:decoded_columnar_boundary"},
+                        {"key": "inline_json_available", "value": "true"},
+                        {"key": "vortex_artifact_available", "value": "true"},
+                        {"key": "arrow_ipc_materialization", "value": "decoded_columnar_boundary"},
+                        {"key": "arrow_ipc_certified_native", "value": "false"},
+                        {"key": "result_ttl_seconds", "value": "3600"},
+                        {"key": "cleanup_required", "value": "true"},
+                        {"key": "query_execution", "value": "true"},
+                        {"key": "runtime_execution", "value": "true"},
+                        {"key": "local_execution_performed", "value": "true"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "execution_delegated", "value": "false"},
+                    ]
                 else:
                     raise AssertionError(args)
                 print(json.dumps({
@@ -277,6 +297,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         contract = ctx.rest_api_contract_plan()
         discovery = ctx.serve_discovery_contract()
         preview = ctx.rest_api_plan_preview()
+        lifecycle = ctx.rest_api_local_lifecycle()
 
         self.assertEqual(contract.api_version, "v1")
         self.assertEqual(contract.openapi_version, "3.2.0")
@@ -297,6 +318,15 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(preview.runtime_execution)
         self.assertFalse(preview.fallback_attempted)
         self.assertFalse(preview.execution_delegated)
+        self.assertEqual(lifecycle.lifecycle_status, "succeeded")
+        self.assertEqual(lifecycle.result_ref, "result://cg23/certified-local-batch/0001")
+        self.assertTrue(lifecycle.inline_json_available)
+        self.assertTrue(lifecycle.vortex_artifact_available)
+        self.assertFalse(lifecycle.arrow_ipc_certified_native)
+        self.assertTrue(lifecycle.runtime_execution)
+        self.assertTrue(lifecycle.local_execution_performed)
+        self.assertFalse(lifecycle.fallback_attempted)
+        self.assertFalse(lifecycle.execution_delegated)
 
     def test_live_and_hybrid_fixture_reports_are_explicit(self) -> None:
         binary = self.fake_cli(

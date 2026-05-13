@@ -644,6 +644,139 @@ class RestApiPlanPreview:
 
 
 @dataclass(frozen=True, slots=True)
+class RestApiLocalLifecycle:
+    """Typed view over the CG-23 certified local lifecycle and result delivery bundle."""
+
+    envelope: OutputEnvelope
+
+    @property
+    def scenario(self) -> str | None:
+        """Return the deterministic lifecycle scenario."""
+
+        return self.envelope.field("scenario")
+
+    @property
+    def lifecycle_status(self) -> str | None:
+        """Return the lifecycle status."""
+
+        return self.envelope.field("lifecycle_status")
+
+    @property
+    def query_id(self) -> str | None:
+        """Return the query handle."""
+
+        return self.envelope.field("query_id")
+
+    @property
+    def result_ref(self) -> str | None:
+        """Return the result reference, if available."""
+
+        value = self.envelope.field("result_ref")
+        return None if value in {None, "none"} else value
+
+    @property
+    def lifecycle_operations(self) -> tuple[str, ...]:
+        """Return supported lifecycle operations."""
+
+        value = self.envelope.field("lifecycle_operations", "") or ""
+        return tuple(part.strip() for part in value.split(",") if part.strip())
+
+    @property
+    def result_policies(self) -> tuple[str, ...]:
+        """Return result policy materialization summaries."""
+
+        value = self.envelope.field("result_policies", "") or ""
+        return tuple(part.strip() for part in value.split(",") if part.strip())
+
+    @property
+    def inline_json_available(self) -> bool:
+        """Whether inline JSON result delivery is available."""
+
+        return self.envelope.field_bool("inline_json_available", False) is True
+
+    @property
+    def vortex_artifact_available(self) -> bool:
+        """Whether a high-fidelity Vortex artifact result is available."""
+
+        return self.envelope.field_bool("vortex_artifact_available", False) is True
+
+    @property
+    def arrow_ipc_materialization(self) -> str | None:
+        """Return the Arrow IPC materialization classification."""
+
+        return self.envelope.field("arrow_ipc_materialization")
+
+    @property
+    def arrow_ipc_certified_native(self) -> bool:
+        """Whether Arrow IPC is certified as native full-fidelity output."""
+
+        return self.envelope.field_bool("arrow_ipc_certified_native", False) is True
+
+    @property
+    def result_ttl_seconds(self) -> int:
+        """Return local result TTL in seconds."""
+
+        return self.envelope.field_int("result_ttl_seconds", 0) or 0
+
+    @property
+    def cleanup_required(self) -> bool:
+        """Whether lifecycle cleanup is required."""
+
+        return self.envelope.field_bool("cleanup_required", False) is True
+
+    @property
+    def non_certified_path_blocked(self) -> bool:
+        """Whether an uncertified path was blocked before execution."""
+
+        return self.envelope.field_bool("non_certified_path_blocked", False) is True
+
+    @property
+    def cancellation_status(self) -> str | None:
+        """Return cancellation state."""
+
+        return self.envelope.field("cancellation_status")
+
+    @property
+    def retry_status(self) -> str | None:
+        """Return retry state."""
+
+        return self.envelope.field("retry_status")
+
+    @property
+    def query_execution(self) -> bool:
+        """Whether query execution was performed."""
+
+        return self.envelope.field_bool("query_execution", False) is True
+
+    @property
+    def runtime_execution(self) -> bool:
+        """Whether runtime execution was performed."""
+
+        return self.envelope.field_bool("runtime_execution", False) is True
+
+    @property
+    def local_execution_performed(self) -> bool:
+        """Whether the lifecycle used a certified local execution path."""
+
+        return self.envelope.field_bool("local_execution_performed", False) is True
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether lifecycle handling attempted fallback execution."""
+
+        return (
+            self.envelope.fallback.attempted
+            or self.envelope.field_bool("fallback_attempted", False) is True
+        )
+
+    @property
+    def execution_delegated(self) -> bool:
+        """Whether lifecycle handling delegated execution."""
+
+        return self.envelope.field_bool("execution_delegated", False) is True
+
+
+@dataclass(frozen=True, slots=True)
 class LiveChangeContractPlan:
     """Typed convenience view over the CG-22 live change contract."""
 
@@ -1052,6 +1185,18 @@ class ShardLoomClient:
 
         return RestApiPlanPreview(
             self.run(["rest-api-plan-preview", scenario], check=check)
+        )
+
+    def rest_api_local_lifecycle(
+        self,
+        scenario: str = "certified-local-batch",
+        *,
+        check: bool = True,
+    ) -> RestApiLocalLifecycle:
+        """Return a CG-23 certified local lifecycle/result delivery envelope."""
+
+        return RestApiLocalLifecycle(
+            self.run(["rest-api-local-lifecycle", scenario], check=check)
         )
 
     def python_wrapper_plan(self, *, check: bool = True) -> OutputEnvelope:

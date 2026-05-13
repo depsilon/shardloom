@@ -23,6 +23,7 @@ from shardloom import (
     OutputEnvelope,
     RestApiContractPlan,
     RestApiDiscoveryContract,
+    RestApiLocalLifecycle,
     RestApiPlanPreview,
     WorkflowReadinessSmokeReport,
 )
@@ -982,6 +983,73 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertFalse(result.server_started)
         self.assertFalse(result.network_listener_opened)
         self.assertFalse(result.runtime_execution)
+        self.assertFalse(result.fallback_attempted)
+        self.assertFalse(result.execution_delegated)
+
+    def test_rest_api_local_lifecycle_view(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == [
+                    "rest-api-local-lifecycle", "certified-local-batch", "--format", "json"
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "rest-api-local-lifecycle",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "scenario", "value": "certified-local-batch"},
+                        {"key": "lifecycle_status", "value": "succeeded"},
+                        {"key": "query_id", "value": "query://cg23/certified-local-batch/0001"},
+                        {"key": "result_ref", "value": "result://cg23/certified-local-batch/0001"},
+                        {"key": "lifecycle_operations", "value": "execute,status,cancel,retry,profile,certificates,lineage,results,artifacts,cleanup"},
+                        {"key": "result_policies", "value": "inline_json:decoded_rows,vortex_artifact:native_vortex_artifact,arrow_ipc_decoded_boundary:decoded_columnar_boundary"},
+                        {"key": "inline_json_available", "value": "true"},
+                        {"key": "vortex_artifact_available", "value": "true"},
+                        {"key": "arrow_ipc_materialization", "value": "decoded_columnar_boundary"},
+                        {"key": "arrow_ipc_certified_native", "value": "false"},
+                        {"key": "result_ttl_seconds", "value": "3600"},
+                        {"key": "cleanup_required", "value": "true"},
+                        {"key": "non_certified_path_blocked", "value": "false"},
+                        {"key": "cancellation_status", "value": "not_requested"},
+                        {"key": "retry_status", "value": "not_requested"},
+                        {"key": "query_execution", "value": "true"},
+                        {"key": "runtime_execution", "value": "true"},
+                        {"key": "local_execution_performed", "value": "true"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "execution_delegated", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+
+        result = ShardLoomClient(binary=binary).rest_api_local_lifecycle()
+
+        self.assertIsInstance(result, RestApiLocalLifecycle)
+        self.assertEqual(result.scenario, "certified-local-batch")
+        self.assertEqual(result.lifecycle_status, "succeeded")
+        self.assertEqual(result.query_id, "query://cg23/certified-local-batch/0001")
+        self.assertEqual(result.result_ref, "result://cg23/certified-local-batch/0001")
+        self.assertIn("cleanup", result.lifecycle_operations)
+        self.assertIn("vortex_artifact:native_vortex_artifact", result.result_policies)
+        self.assertTrue(result.inline_json_available)
+        self.assertTrue(result.vortex_artifact_available)
+        self.assertEqual(result.arrow_ipc_materialization, "decoded_columnar_boundary")
+        self.assertFalse(result.arrow_ipc_certified_native)
+        self.assertEqual(result.result_ttl_seconds, 3600)
+        self.assertTrue(result.cleanup_required)
+        self.assertFalse(result.non_certified_path_blocked)
+        self.assertEqual(result.cancellation_status, "not_requested")
+        self.assertEqual(result.retry_status, "not_requested")
+        self.assertTrue(result.query_execution)
+        self.assertTrue(result.runtime_execution)
+        self.assertTrue(result.local_execution_performed)
         self.assertFalse(result.fallback_attempted)
         self.assertFalse(result.execution_delegated)
 
