@@ -212,7 +212,7 @@ actionable work.
       stable diagnostics, required gates, rewrite suggestions, and no-fallback fields.
     - Verification: Python model/accessor tests, CLI/Python parity snapshots, no-probe smoke tests,
       and protocol compatibility tests.
-  - [ ] P4.3 lazy workflow/query-builder planning MVP.
+  - [x] P4.3 lazy workflow/query-builder planning MVP.
     - User-visible surface: `sl.read_vortex`, `sl.read_csv`, `sl.read_json`, `sl.read_parquet`,
       `.filter(...)`, `.select(...)`, `.limit(...)`, `.explain()`, `.estimate()`, `.certify()`, and
       `.unsupported_report()` as lazy plan objects.

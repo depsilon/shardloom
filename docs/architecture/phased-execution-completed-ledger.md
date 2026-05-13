@@ -16,6 +16,51 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: P4.3 lazy workflow/query-builder planning MVP
+  - Primary files:
+    - `python/src/shardloom/query.py`
+    - `python/src/shardloom/client.py`
+    - `python/src/shardloom/context.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/tests/test_query_builder.py`
+    - `python/README.md`
+    - `shardloom-cli/src/diagnostics.rs`
+    - `shardloom-cli/tests/workflow_query_builder_plan_snapshots.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+  - Scope: add a pure-Python lazy workflow/query-builder surface for `read_vortex`, `read_csv`,
+    `read_json`, `read_parquet`, `filter`, `select`, `limit`, `plan`, `explain`, `estimate`,
+    `certify`, and `unsupported_report`, backed by explicit CLI JSON report surfaces instead of a
+    DataFrame runtime or fallback engine.
+  - Checklist:
+    - [x] Add immutable lazy workflow declarations that do not inspect files, infer schema, touch
+          catalogs/object stores, materialize rows, or execute engines during construction or
+          transformation chaining.
+    - [x] Expose top-level `shardloom.read_*` helpers and context-bound `ctx.read_*` helpers.
+    - [x] Lower `plan()` to `input-plan` or `vortex-read-plan`, `explain()` to `explain`,
+          `estimate()` to `estimate`, and `certify()` to `execution-certificate-plan`,
+          `native-io-envelope-plan`, and `capabilities certification`.
+    - [x] Aggregate unsupported diagnostics, materialization-boundary fields, and no-fallback
+          status through `unsupported_report()`.
+    - [x] Expand explain/estimate CLI JSON fields with explicit report-only, no-read,
+          no-materialization, no-write, no-external-effect, and no-fallback evidence.
+    - [x] Document a runnable lazy workflow smoke path in `python/README.md`.
+  - Validation:
+    - [x] `$env:PYTHONPATH='python/src'; python -m unittest python.tests.test_query_builder`
+    - [x] `$env:PYTHONPATH='python/src'; python -m compileall -q python\src\shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test workflow_query_builder_plan_snapshots`
+    - [x] `$env:PYTHONPATH='python/src'; python -c "import shardloom as sl; ctx = sl.context(repo_root='.', profile_order=('debug',)); workflow = ctx.read_vortex('shardloom-vortex/tests/fixtures/local_primitive_struct_five.vortex').filter('gte:value:3').select('metric','value').limit(2); plan = workflow.plan(); report = workflow.unsupported_report(); print(workflow.operation_summary); print(plan.command); print(plan.field('plan_only')); print(report.explain.status); print(report.estimate.status); print(report.fallback_attempted); print(len(report.unsupported_reasons))"`
+    - [x] `$env:PYTHONPATH='python/src'; python -c "import shardloom as sl; workflow = sl.read_csv('events.csv', repo_root='.', profile_order=('debug',)).filter('id > 0').select('id').limit(1); plan = workflow.plan(); print(workflow.operation_summary); print(plan.command); print(plan.field('source_kind')); print(plan.field('data_read')); print(plan.fallback.attempted)"`
+    - [x] `$env:PYTHONPATH='python/src'; python -m unittest discover python\tests`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test --workspace --all-targets`
+    - [x] `git diff --check`
+  - Runtime stance: lazy workflow objects are declarations only. Explicit report methods run
+    existing CLI JSON planning/certification/diagnostic commands; no file reads, schema inference,
+    object-store access, catalog access, SQL/DataFrame execution, materialization, writes, external
+    engine execution, or fallback execution is added.
+
 - [x] Session label: P4.1/P4.2 Python context smoke and capability API bundle
   - Primary files:
     - `python/src/shardloom/context.py`

@@ -237,6 +237,26 @@ class ShardLoomClient:
             args.append(scope)
         return self.run(args, check=check)
 
+    def explain(self, operation: str, *, check: bool = True) -> OutputEnvelope:
+        """Return the report-only explain envelope for an operation summary."""
+
+        return self.run(["explain", operation], check=check)
+
+    def estimate(self, operation: str, *, check: bool = True) -> OutputEnvelope:
+        """Return the report-only estimate envelope for an operation summary."""
+
+        return self.run(["estimate", operation], check=check)
+
+    def execution_certificate_plan(self, *, check: bool = True) -> OutputEnvelope:
+        """Return the report-only execution certificate planning envelope."""
+
+        return self.run(["execution-certificate-plan"], check=check)
+
+    def native_io_envelope_plan(self, *, check: bool = True) -> OutputEnvelope:
+        """Return the report-only Native I/O envelope planning envelope."""
+
+        return self.run(["native-io-envelope-plan"], check=check)
+
     def vortex_run(
         self,
         dataset_uri: str | os.PathLike[str],
@@ -582,6 +602,20 @@ class ShardLoomClient:
         """Return a side-effect-free universal input plan for a dataset URI."""
 
         return self.run(["input-plan", str(dataset_uri)], check=check)
+
+    def vortex_input_plan(
+        self, dataset_uri: str | os.PathLike[str], *, check: bool = True
+    ) -> OutputEnvelope:
+        """Return a side-effect-free native Vortex input planning envelope."""
+
+        return self.run(["vortex-input-plan", str(dataset_uri)], check=check)
+
+    def vortex_read_plan(
+        self, dataset_uri: str | os.PathLike[str], *, check: bool = True
+    ) -> OutputEnvelope:
+        """Return a side-effect-free native Vortex read planning envelope."""
+
+        return self.run(["vortex-read-plan", str(dataset_uri)], check=check)
 
     def smoke_check(self, *, check: bool = True) -> PythonClientSmokeReport:
         """Run no-dataset commands that verify the Python client can reach ShardLoom."""

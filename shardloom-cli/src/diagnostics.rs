@@ -234,7 +234,24 @@ fn emit_unsupported_plan_report(
         summary.to_string(),
         human_text,
         diagnostics,
-        vec![("mode".to_string(), "plan_only".to_string())],
+        vec![
+            ("mode".to_string(), "plan_only".to_string()),
+            (
+                "fallback_execution_allowed".to_string(),
+                "false".to_string(),
+            ),
+            ("execution".to_string(), "not_performed".to_string()),
+            ("plan_only".to_string(), "true".to_string()),
+            ("data_read".to_string(), "false".to_string()),
+            ("data_materialized".to_string(), "false".to_string()),
+            (
+                "materialization_boundary_reported".to_string(),
+                "false".to_string(),
+            ),
+            ("object_store_io".to_string(), "false".to_string()),
+            ("write_io".to_string(), "false".to_string()),
+            ("external_effects_executed".to_string(), "false".to_string()),
+        ],
     );
     if has_errors {
         ExitCode::from(1)
