@@ -1,12 +1,13 @@
 use std::fmt::Write as _;
 
 use shardloom_core::{
-    CorrectnessFixture, CorrectnessValidationPlan, Diagnostic, DiagnosticCategory, DiagnosticCode,
-    DiagnosticSeverity, ExecutionCertificate, ExecutionCertificateInput, ExecutionProviderKind,
+    ComparisonOp, CorrectnessFixture, CorrectnessValidationPlan, Diagnostic, DiagnosticCategory,
+    DiagnosticCode, DiagnosticSeverity, EncodedSegment, EncodedValueBatch, EncodedValueRun,
+    EncodingKind, ExecutionCertificate, ExecutionCertificateInput, ExecutionProviderKind,
     ExpectedOutcome, NativeIoAdapterFidelityReport, NativeIoCertificate,
     NativeIoRepresentationTransition, NativeIoSideEffectReport, NativeIoSinkRequirementReport,
     NativeIoSourceCapabilityReport, NativeIoSourcePushdownReport, PredicateExpr,
-    RepresentationState, Result,
+    RepresentationState, Result, StatValue,
 };
 
 use crate::{
@@ -276,7 +277,7 @@ pub fn execute_vortex_generalized_filter_from_encoded_value_batches(
     )?;
     let execution_certificate = prepared_encoded_filter_execution_certificate(
         predicate,
-        batches.len(),
+        batches,
         &predicate_evaluation,
         &filter_kernel,
         &filter_kernel_admission,
@@ -297,14 +298,16 @@ pub fn execute_vortex_generalized_filter_from_encoded_value_batches(
 
 fn prepared_encoded_filter_execution_certificate(
     predicate: &PredicateExpr,
-    encoded_batch_count: usize,
+    batches: &[VortexEncodedValuePredicateBatch],
     predicate_evaluation: &VortexEncodedPredicateEvaluationReport,
     filter_kernel: &VortexSelectionVectorFilterKernelReport,
     filter_kernel_admission: &VortexSelectionVectorFilterKernelAdmissionReport,
     native_io_certificate: &NativeIoCertificate,
 ) -> Result<ExecutionCertificate> {
+    let encoded_batch_count = batches.len();
     let correctness_fixture = prepared_encoded_filter_correctness_fixture(
-        encoded_batch_count,
+        predicate,
+        batches,
         predicate_evaluation,
         filter_kernel,
         native_io_certificate,
@@ -450,12 +453,13 @@ fn extend_prepared_encoded_filter_certificate_diagnostics(
 }
 
 fn prepared_encoded_filter_correctness_fixture(
-    encoded_batch_count: usize,
+    predicate: &PredicateExpr,
+    batches: &[VortexEncodedValuePredicateBatch],
     predicate_evaluation: &VortexEncodedPredicateEvaluationReport,
     filter_kernel: &VortexSelectionVectorFilterKernelReport,
     native_io_certificate: &NativeIoCertificate,
 ) -> Option<CorrectnessFixture> {
-    let matches_prepared_fixture = encoded_batch_count == 2
+    let matches_prepared_fixture = prepared_encoded_filter_fixture_provenance(predicate, batches)
         && predicate_evaluation.segment_report_count == 2
         && filter_kernel.selection_vector_count == 2
         && filter_kernel.selected_row_count == Some(5)
@@ -463,6 +467,69 @@ fn prepared_encoded_filter_correctness_fixture(
     matches_prepared_fixture
         .then(|| correctness_fixture_by_id("vortex-prepared-encoded-filter-dictionary-run"))
         .flatten()
+}
+
+fn prepared_encoded_filter_fixture_provenance(
+    predicate: &PredicateExpr,
+    batches: &[VortexEncodedValuePredicateBatch],
+) -> bool {
+    matches!(
+        predicate,
+        PredicateExpr::Compare {
+            column,
+            op: ComparisonOp::GtEq,
+            value: StatValue::Int64(5),
+        } if column.as_str() == "metric"
+    ) && matches!(
+        batches,
+        [
+            VortexEncodedValuePredicateBatch {
+                segment,
+                values:
+                    EncodedValueBatch::Dictionary {
+                        dictionary,
+                        codes,
+                    },
+            },
+            VortexEncodedValuePredicateBatch {
+                segment: segment_2,
+                values: EncodedValueBatch::RunLength { runs },
+            },
+        ] if encoded_segment_fingerprint(
+            segment,
+            "segment-1.metric",
+            "metric",
+            5,
+            &EncodingKind::Dictionary,
+        ) && dictionary
+            == &vec![
+                Some(StatValue::Int64(1)),
+                Some(StatValue::Int64(5)),
+                None,
+            ]
+            && codes == &vec![Some(0), Some(1), None, Some(1), Some(0)]
+            && encoded_segment_fingerprint(
+                segment_2,
+                "segment-2.metric",
+                "metric",
+                3,
+                &EncodingKind::RunLength,
+            )
+            && runs == &vec![EncodedValueRun::new(Some(StatValue::Int64(9)), 3)]
+    )
+}
+
+fn encoded_segment_fingerprint(
+    segment: &EncodedSegment,
+    id: &str,
+    column: &str,
+    row_count: u64,
+    encoding: &EncodingKind,
+) -> bool {
+    segment.id.as_str() == id
+        && segment.column.as_str() == column
+        && &segment.layout.encoding == encoding
+        && segment.stats.row_count == Some(row_count)
 }
 
 fn correctness_fixture_by_id(id: &str) -> Option<CorrectnessFixture> {
@@ -791,6 +858,42 @@ mod tests {
             "filter"
         );
         assert!(!report.has_errors());
+    }
+
+    #[test]
+    fn prepared_encoded_filter_does_not_certify_matching_counts_without_fixture_provenance() {
+        let predicate = PredicateExpr::Compare {
+            column: column_ref("metric"),
+            op: ComparisonOp::GtEq,
+            value: StatValue::Int64(5),
+        };
+        let batches = vec![
+            VortexEncodedValuePredicateBatch::new(
+                segment("nonfixture-1.metric", 5, EncodingKind::Dictionary),
+                EncodedValueBatch::Dictionary {
+                    dictionary: vec![Some(StatValue::Int64(1)), Some(StatValue::Int64(5)), None],
+                    codes: vec![Some(0), Some(1), None, Some(1), Some(0)],
+                },
+            ),
+            VortexEncodedValuePredicateBatch::new(
+                segment("nonfixture-2.metric", 3, EncodingKind::RunLength),
+                EncodedValueBatch::RunLength {
+                    runs: vec![EncodedValueRun::new(Some(StatValue::Int64(9)), 3)],
+                },
+            ),
+        ];
+
+        let report =
+            execute_vortex_generalized_filter_from_encoded_value_batches(&predicate, &batches)
+                .expect("report");
+
+        assert_eq!(report.selected_row_count, Some(5));
+        assert!(report.runtime_execution_allowed);
+        assert!(report.native_io_certificate.is_certified());
+        assert!(!report.correctness_certified);
+        assert!(!report.execution_certificate.is_certified());
+        assert_eq!(report.execution_certificate.correctness_fixture_id, None);
+        assert!(!report.fallback_attempted);
     }
 
     #[test]

@@ -323,12 +323,16 @@ pub enum ReleaseArtifactKind {
     Sbom,
     Checksum,
     Signature,
+    ProvenanceAttestation,
     Unknown,
 }
-as_str_enum!(ReleaseArtifactKind{RustCrate=>"rust_crate",PythonWheel=>"python_wheel",SourceTarball=>"source_tarball",ContainerImage=>"container_image",CliBinary=>"cli_binary",Documentation=>"documentation",BenchmarkReport=>"benchmark_report",Sbom=>"sbom",Checksum=>"checksum",Signature=>"signature",Unknown=>"unknown"});
+as_str_enum!(ReleaseArtifactKind{RustCrate=>"rust_crate",PythonWheel=>"python_wheel",SourceTarball=>"source_tarball",ContainerImage=>"container_image",CliBinary=>"cli_binary",Documentation=>"documentation",BenchmarkReport=>"benchmark_report",Sbom=>"sbom",Checksum=>"checksum",Signature=>"signature",ProvenanceAttestation=>"provenance_attestation",Unknown=>"unknown"});
 impl ReleaseArtifactKind {
     pub const fn is_supply_chain_artifact(&self) -> bool {
-        matches!(self, Self::Sbom | Self::Checksum | Self::Signature)
+        matches!(
+            self,
+            Self::Sbom | Self::Checksum | Self::Signature | Self::ProvenanceAttestation
+        )
     }
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -865,10 +869,10 @@ impl ReleaseReadinessEvidenceReport {
             .with_evidence_ref("ReleasePlan.artifacts"),
             ReleaseEvidenceRequirement::new(
                 ReleaseEvidenceRequirementKind::ProvenanceAttestation,
-                artifact_status(plan, ReleaseArtifactKind::Signature),
+                artifact_status(plan, ReleaseArtifactKind::ProvenanceAttestation),
                 true,
             )
-            .with_evidence_ref("ReleasePlan.artifacts"),
+            .with_evidence_ref("ReleasePlan.artifacts.provenance_attestation"),
             ReleaseEvidenceRequirement::new(
                 ReleaseEvidenceRequirementKind::ReproducibleBuild,
                 ReleaseEvidenceRequirementStatus::Missing,
@@ -1102,11 +1106,14 @@ impl WorkspaceFeatureBuildMatrixReport {
     pub fn release_claims_remain_blocked(&self) -> bool {
         self.public_release_claim_blocked_until_matrix_passes
             && self.public_package_claim_blocked_until_matrix_passes
-            && self
-                .rows
-                .iter()
-                .filter(|row| row.status != WorkspaceFeatureBuildMatrixRowStatus::NotApplicableYet)
-                .all(|row| !row.status.satisfies_release_claim())
+            && !self.required_matrix_rows_all_passed()
+    }
+
+    pub fn required_matrix_rows_all_passed(&self) -> bool {
+        self.rows
+            .iter()
+            .filter(|row| row.status != WorkspaceFeatureBuildMatrixRowStatus::NotApplicableYet)
+            .all(|row| row.status == WorkspaceFeatureBuildMatrixRowStatus::Passed)
     }
 
     pub fn no_runtime_or_fallback_expansion(&self) -> bool {
@@ -1820,6 +1827,37 @@ mod tests {
     }
 
     #[test]
+    fn release_readiness_evidence_does_not_treat_signature_as_provenance_attestation() {
+        let mut plan = ReleasePlan::default_foundation_plan();
+        plan.add_artifact(
+            ReleaseArtifactPlan::planned(ReleaseArtifactKind::Signature, "release.sig")
+                .expect("signature artifact")
+                .mark_built(true),
+        );
+        let signature_only = plan.release_readiness_evidence();
+
+        assert_eq!(
+            signature_only.status_for(ReleaseEvidenceRequirementKind::ProvenanceAttestation),
+            ReleaseEvidenceRequirementStatus::Missing
+        );
+
+        plan.add_artifact(
+            ReleaseArtifactPlan::planned(
+                ReleaseArtifactKind::ProvenanceAttestation,
+                "release.intoto.jsonl",
+            )
+            .expect("provenance artifact")
+            .mark_built(true),
+        );
+        let with_provenance = plan.release_readiness_evidence();
+
+        assert_eq!(
+            with_provenance.status_for(ReleaseEvidenceRequirementKind::ProvenanceAttestation),
+            ReleaseEvidenceRequirementStatus::Present
+        );
+    }
+
+    #[test]
     fn release_readiness_evidence_blocks_no_fallback_policy_violations() {
         let mut plan = ReleasePlan::default_foundation_plan();
         plan.no_fallback_check = NoFallbackReleaseCheck {
@@ -1934,5 +1972,23 @@ mod tests {
                 .iter()
                 .all(|row| !row.public_release_claim_allowed)
         );
+    }
+
+    #[test]
+    fn workspace_feature_build_matrix_blocks_claims_until_every_required_row_passes() {
+        let mut report = plan_workspace_feature_build_matrix();
+        report.rows[0].status = WorkspaceFeatureBuildMatrixRowStatus::Passed;
+
+        assert!(!report.required_matrix_rows_all_passed());
+        assert!(report.release_claims_remain_blocked());
+
+        for row in &mut report.rows {
+            if row.status != WorkspaceFeatureBuildMatrixRowStatus::NotApplicableYet {
+                row.status = WorkspaceFeatureBuildMatrixRowStatus::Passed;
+            }
+        }
+
+        assert!(report.required_matrix_rows_all_passed());
+        assert!(!report.release_claims_remain_blocked());
     }
 }

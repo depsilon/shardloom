@@ -558,11 +558,7 @@ fn evaluate_operator(
     rows: &[LiveOutputRow],
 ) -> Result<Vec<LiveOutputRow>> {
     match input.operator {
-        LiveFixtureOperator::Filter => Ok(rows
-            .iter()
-            .filter(|row| predicate_matches(&input.predicate, row))
-            .cloned()
-            .collect()),
+        LiveFixtureOperator::Filter => filter_rows_by_predicate(&input.predicate, rows),
         LiveFixtureOperator::Project => Ok(rows.to_vec()),
         LiveFixtureOperator::Count => Ok(vec![LiveOutputRow::synthetic(
             "hybrid",
@@ -570,10 +566,7 @@ fn evaluate_operator(
             usize_to_i64(rows.len()),
         )]),
         LiveFixtureOperator::CountWhere => {
-            let count = rows
-                .iter()
-                .filter(|row| predicate_matches(&input.predicate, row))
-                .count();
+            let count = count_rows_by_predicate(&input.predicate, rows)?;
             Ok(vec![LiveOutputRow::synthetic(
                 "hybrid",
                 "count_where",
@@ -582,6 +575,26 @@ fn evaluate_operator(
         }
         LiveFixtureOperator::GroupCount => group_count(&input.group_column, rows),
     }
+}
+
+fn filter_rows_by_predicate(predicate: &str, rows: &[LiveOutputRow]) -> Result<Vec<LiveOutputRow>> {
+    let mut selected = Vec::new();
+    for row in rows {
+        if predicate_matches(predicate, row)? {
+            selected.push(row.clone());
+        }
+    }
+    Ok(selected)
+}
+
+fn count_rows_by_predicate(predicate: &str, rows: &[LiveOutputRow]) -> Result<usize> {
+    let mut count = 0;
+    for row in rows {
+        if predicate_matches(predicate, row)? {
+            count += 1;
+        }
+    }
+    Ok(count)
 }
 
 fn group_count(group_column: &str, rows: &[LiveOutputRow]) -> Result<Vec<LiveOutputRow>> {
@@ -600,16 +613,21 @@ fn group_count(group_column: &str, rows: &[LiveOutputRow]) -> Result<Vec<LiveOut
         .collect())
 }
 
-fn predicate_matches(predicate: &str, row: &LiveOutputRow) -> bool {
+fn predicate_matches(predicate: &str, row: &LiveOutputRow) -> Result<bool> {
     if let Some(threshold) = predicate.strip_prefix("gte:value:") {
-        return threshold
-            .parse::<i64>()
-            .is_ok_and(|threshold| row.value >= threshold);
+        let threshold = threshold.parse::<i64>().map_err(|_| {
+            ShardLoomError::InvalidOperation(format!(
+                "hybrid predicate gte:value requires an integer threshold, got {threshold}"
+            ))
+        })?;
+        return Ok(row.value >= threshold);
     }
     if let Some(metric) = predicate.strip_prefix("eq:metric:") {
-        return row.metric == metric;
+        return Ok(row.metric == metric);
     }
-    false
+    Err(ShardLoomError::InvalidOperation(format!(
+        "unsupported hybrid predicate: {predicate}"
+    )))
 }
 
 fn delta_overlay_certificate_for(
@@ -1018,10 +1036,26 @@ mod tests {
         let input = HybridFixtureRunInput::new(LiveFixtureOperator::Filter)
             .with_argument(Some("contains:value:3"))
             .expect("argument stored");
-        let report = run_hybrid_fixture(input).expect("fixture runs");
+        let error = run_hybrid_fixture(input).expect_err("invalid predicate rejects");
 
-        assert_eq!(report.output_row_count(), 0);
-        assert!(!report.fallback_attempted());
-        assert!(!report.external_engine_invoked);
+        assert!(
+            error
+                .to_string()
+                .contains("unsupported hybrid predicate: contains:value:3")
+        );
+    }
+
+    #[test]
+    fn hybrid_fixture_rejects_malformed_threshold_predicate_without_fallback() {
+        let input = HybridFixtureRunInput::new(LiveFixtureOperator::CountWhere)
+            .with_argument(Some("gte:value:not-a-number"))
+            .expect("argument stored");
+        let error = run_hybrid_fixture(input).expect_err("invalid predicate rejects");
+
+        assert!(
+            error
+                .to_string()
+                .contains("hybrid predicate gte:value requires an integer threshold")
+        );
     }
 }

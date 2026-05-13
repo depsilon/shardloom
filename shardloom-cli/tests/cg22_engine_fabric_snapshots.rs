@@ -39,14 +39,14 @@ fn engine_selection_auto_snapshot_selects_batch_without_runtime_or_fallback() {
 }
 
 #[test]
-fn engine_selection_live_changelog_selects_live_fixture_without_fallback() {
+fn engine_selection_live_update_selects_live_fixture_without_fallback() {
     let output = run_json(
         &[
             "engine-selection-plan",
             "live",
             "unbounded",
             "append-only",
-            "changelog",
+            "update",
         ],
         true,
     );
@@ -58,6 +58,28 @@ fn engine_selection_live_changelog_selects_live_fixture_without_fallback() {
     assert!(output.contains(&field("external_engine_invoked", "false")));
     assert!(output.contains(&field("fallback_attempted", "false")));
     assert!(output.contains("\"diagnostics\":[]"));
+}
+
+#[test]
+fn engine_selection_live_changelog_rejects_unemitted_output_mode_without_fallback() {
+    let output = run_json(
+        &[
+            "engine-selection-plan",
+            "live",
+            "unbounded",
+            "append-only",
+            "changelog",
+        ],
+        false,
+    );
+
+    assert!(output.contains("\"status\":\"unsupported\""));
+    assert!(output.contains(&field("requested_engine_mode", "live")));
+    assert!(output.contains(&field("selection_status", "rejected")));
+    assert!(output.contains(&field("selected_engine_mode", "none")));
+    assert!(output.contains(&field("external_engine_invoked", "false")));
+    assert!(output.contains(&field("fallback_attempted", "false")));
+    assert!(output.contains("live fixture requires update or continuous-view output modes"));
 }
 
 #[test]

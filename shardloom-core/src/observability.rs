@@ -1077,12 +1077,25 @@ impl ObservabilitySchemaCoverageReport {
 
     #[must_use]
     pub fn missing_area_count(&self) -> usize {
-        self.area_count().saturating_sub(self.complete_area_count())
+        let incomplete_entry_count = self
+            .entries
+            .iter()
+            .filter(|entry| !entry.schema_complete())
+            .count();
+        incomplete_entry_count + self.missing_required_area_count()
     }
 
     #[must_use]
     pub fn schema_coverage_complete(&self) -> bool {
         self.missing_area_count() == 0
+    }
+
+    #[must_use]
+    pub fn missing_required_area_count(&self) -> usize {
+        ObservabilitySchemaArea::required()
+            .iter()
+            .filter(|area| !self.has_area(**area))
+            .count()
     }
 
     #[must_use]
@@ -1342,6 +1355,26 @@ mod tests {
                 .to_human_text()
                 .contains("runtime_collection_enabled=false")
         );
+    }
+    #[test]
+    fn observability_schema_coverage_requires_each_mandatory_area() {
+        let mut report = ObservabilitySchemaCoverageReport::rfc0018_foundation();
+        report
+            .entries
+            .retain(|entry| entry.area != ObservabilitySchemaArea::Certificate);
+        report
+            .entries
+            .push(ObservabilitySchemaCoverageEntry::report_only(
+                ObservabilitySchemaArea::Plan,
+            ));
+
+        assert_eq!(
+            report.area_count(),
+            ObservabilitySchemaArea::required().len()
+        );
+        assert_eq!(report.missing_required_area_count(), 1);
+        assert_eq!(report.missing_area_count(), 1);
+        assert!(!report.schema_coverage_complete());
     }
     #[test]
     fn runtime_report_from_plan_does_not_collect_metrics() {

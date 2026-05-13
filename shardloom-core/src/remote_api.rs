@@ -3644,6 +3644,34 @@ mod tests {
     }
 
     #[test]
+    fn rest_api_maturity_ladder_keeps_data_plane_before_production_claims() {
+        let report = RestApiContractReport::contract_only();
+        let data_plane = report
+            .maturity_stages
+            .iter()
+            .find(|stage| stage.stage_id == "API-A9")
+            .expect("API-A9 stage exists");
+        let production = report
+            .maturity_stages
+            .iter()
+            .find(|stage| stage.stage_id == "API-A10")
+            .expect("API-A10 stage exists");
+
+        assert_eq!(
+            data_plane.label,
+            "columnar_data_plane_and_standards_boundary"
+        );
+        assert_eq!(data_plane.status, RestApiMaturityStatus::AvailableContract);
+        assert!(!data_plane.execution_capable);
+        assert_eq!(production.label, "production_certified_workload_api");
+        assert_eq!(
+            production.status,
+            RestApiMaturityStatus::BlockedUntilEvidence
+        );
+        assert!(production.execution_capable);
+    }
+
+    #[test]
     fn rest_api_discovery_mode_contract_does_not_start_listener() {
         let report = RestApiDiscoveryModeReport::contract_only("127.0.0.1:8787");
 
@@ -4169,6 +4197,15 @@ mod tests {
         assert!(contract.contains("/v1/results/{result_id}/flight-ticket:"));
         assert!(contract.contains("/v1/results/{result_id}/adbc-endpoint:"));
         assert!(contract.contains("/v1/data-plane/standards:"));
+        assert_response_uses_domain_status(&contract, "PlanPreviewResponse", "preview_status");
+        assert_response_uses_domain_status(&contract, "LocalLifecycleResponse", "lifecycle_status");
+        assert_response_uses_domain_status(&contract, "EventStreamResponse", "event_stream_status");
+        assert_response_uses_domain_status(
+            &contract,
+            "SecurityGovernanceResponse",
+            "governance_status",
+        );
+        assert_response_uses_domain_status(&contract, "DataPlaneResponse", "data_plane_status");
 
         let asyncapi_path = manifest_dir.join("..").join(ASYNCAPI_EVENT_CONTRACT_PATH);
         let asyncapi = fs::read_to_string(&asyncapi_path)
@@ -4176,5 +4213,46 @@ mod tests {
         assert!(asyncapi.contains("asyncapi: 3.0.0"));
         assert!(asyncapi.contains("/v1/events/streams/{stream_id}/sse"));
         assert!(asyncapi.contains("CloudEventEnvelope"));
+    }
+
+    fn assert_response_uses_domain_status(contract: &str, schema: &str, field: &str) {
+        let block = openapi_schema_block(contract, schema);
+        assert!(
+            block.contains(&format!("            - {field}")),
+            "{schema} does not require {field}"
+        );
+        assert!(
+            block.contains(&format!("            {field}:")),
+            "{schema} does not define {field}"
+        );
+        assert!(
+            !block.contains("            - status"),
+            "{schema} must not require domain-specific status through OutputEnvelope.status"
+        );
+        assert!(
+            !block.contains("            status:"),
+            "{schema} must not redefine OutputEnvelope.status with a domain enum"
+        );
+    }
+
+    fn openapi_schema_block(contract: &str, schema: &str) -> String {
+        let marker = format!("    {schema}:");
+        let mut block = Vec::new();
+        let mut in_block = false;
+        for line in contract.lines() {
+            if line == marker {
+                in_block = true;
+                block.push(line.to_string());
+                continue;
+            }
+            if in_block && line.starts_with("    ") && !line.starts_with("     ") {
+                break;
+            }
+            if in_block {
+                block.push(line.to_string());
+            }
+        }
+        assert!(in_block, "missing OpenAPI schema block {schema}");
+        block.join("\n")
     }
 }

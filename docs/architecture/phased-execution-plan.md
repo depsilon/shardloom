@@ -135,6 +135,130 @@ Supporting docs:
 Use this section for the next implementation sequence. Keep it ordered by dependency and user value,
 not by numeric CG order.
 
+### Top Findings Intake From Subagent Audits
+
+These items came from the May 13, 2026 subagent audits and sit ahead of the normal P7/P8/P9 queue
+until each finding is fixed, proven already fixed, or folded into a named child slice below. Review
+threads must be re-read with `gh` before implementation because later merged work may already have
+made some comments stale even when GitHub still shows them unresolved.
+
+- [x] Audit-F1 schema-breaking REST/OpenAPI status-field repair bundle.
+  - Source findings: unresolved P1 review comments on PR #520 and PR #521; related REST API schema
+    review should also cover PR #517, PR #518, and PR #519.
+  - Required fixes:
+    - Rename event-stream-specific response state out of inherited `OutputEnvelope.status`; use
+      `event_stream_status` in `EventStreamResponse` so OpenAPI `allOf` does not intersect command
+      envelope statuses with event-stream enum values.
+    - Move security/governance-specific state out of inherited `OutputEnvelope.status`; use
+      `governance_status` in `SecurityGovernanceResponse`.
+    - Audit the other REST response schemas for the same unsatisfiable `allOf` pattern, especially
+      local lifecycle, plan preview, and data-plane response schemas, and keep command-level
+      `status` reserved for `success|warning|error|unsupported`.
+    - Add checked-in OpenAPI/schema assertions or snapshots that fail on future domain-status
+      collisions.
+  - Verification: OpenAPI contract checks, REST API protocol snapshots, Python typed REST helpers,
+    and typed-envelope compatibility locks.
+  - Completed: OpenAPI `LocalLifecycleResponse`, `EventStreamResponse`,
+    `SecurityGovernanceResponse`, and `DataPlaneResponse` now use their existing domain status
+    fields instead of redefining inherited `OutputEnvelope.status`; the checked-in OpenAPI contract
+    test asserts this invariant.
+- [x] Audit-F2 unresolved P1 Codex review-thread correctness and certification repair bundle.
+  - Source findings: GitHub reports unresolved, non-outdated review threads on merged PRs #360 and
+    up. The following P1 threads must be verified against current code and fixed if still valid:
+    - PR #362 `agent_contract.rs`: remove effectful benchmark commands from the agent-safe/
+      side-effect-free surface.
+    - PR #375 `local_primitives.rs`: validate fixture identity before certifying primitive
+      evidence.
+    - PR #395 `encoded_predicate_evaluation.rs`: reject segment/value encoding mismatches before
+      emitting filter evidence.
+    - PR #397 `encoded_projection_execution.rs`: require per-segment projection coverage before
+      preserving filter evidence.
+    - PR #407 `generalized_encoded_filter_execution.rs` and
+      `generalized_encoded_projection_execution.rs`: tie prepared filter/projection certification to
+      real fixture provenance, not coarse counts.
+    - PR #412 `correctness.rs`: keep property/fuzz gate blocked until execution evidence exists.
+    - PR #418 `correctness.rs`: do not permanently block deferred-artifact completion when no
+      deferred families remain.
+    - PR #428 `release.rs`: separate provenance attestation from signature evidence.
+    - PR #431 `memory.rs`: enforce spill-required operator classes in certified declarations.
+    - PR #432 `observability.rs`: validate required observability areas before marking coverage
+      complete.
+    - PR #433 `security.rs`: reject security reports missing mandatory evidence areas.
+    - PR #434 `recovery.rs`: decouple fault-tolerance certification evidence from side-effect
+      checks.
+    - PR #449 `top_level_facade.rs`: preserve reader-backed provider evidence during split
+      conversion.
+    - PR #454 `release.rs`: keep release claims blocked until all required build-matrix rows pass.
+    - PR #455 `universal_harness.rs`: update/reconcile CG-18 status snapshots so tests pass.
+    - PR #515 `engine_modes.rs`: restrict live fixture selection to output modes it can emit.
+    - PR #516 `hybrid_engine.rs`: reject invalid hybrid predicates instead of returning empty
+      success.
+  - Verification: targeted tests for each corrected invariant, then broad workspace fmt/clippy/test
+    when touched surfaces cross crates or affect certification claims.
+  - Completed: current main already had the PR #362, PR #375, PR #395, PR #397, and PR #455
+    concerns fixed or stale. This bundle now fixes the remaining P1s by tying generalized encoded
+    filter/projection certificates to real fixture provenance, preserving reader-backed provider
+    evidence during split conversion, keeping property/fuzz correctness blocked until execution
+    evidence exists, allowing deferred fixture-family artifact closure when no deferred families
+    remain, separating release provenance attestations from signatures, keeping release claims
+    blocked until all required build-matrix rows pass, enforcing spill-required operator
+    certification, requiring mandatory observability/security evidence areas, decoupling
+    fault-tolerance certification evidence from side-effect checks, restricting live fixture
+    output modes to emitted modes, and rejecting unsupported/malformed hybrid predicates without
+    fallback.
+- [ ] Audit-F3 unresolved P2 Codex review-thread triage and repair bundle.
+  - Source findings: unresolved P2 review threads remain on PRs #362, #366, #376, #380, #381,
+    #384, #385, #386, #391, #393, #396, #420, #424, #426, #428, #433, #436, #437, #438, #439,
+    #445, #446, #448, #449, #451, #452, #457, #459, #461, #473, #482, #506, #507, #515, #517,
+    #518, #519, and #520.
+  - Required fixes: re-read each unresolved thread with `gh`/GraphQL, then batch fixes by area:
+    report/schema consistency, no-fallback and certification accuracy, fixture provenance, path
+    handling, Python protocol behavior, command taxonomy, and benchmark/error classification.
+  - Verification: each batch needs targeted regression tests for the reviewed behavior and a final
+    thread-state audit before release readiness.
+- [x] Audit-F4 RFC 0035 API maturity and REST/server drift reconciliation bundle.
+  - Source findings: RFC 0035 defines `API-A9` as production-certified API for a declared workload,
+    while implementation now uses `API-A9` for columnar data-plane/standards boundary and `API-A10`
+    for production-certified workload API.
+  - Required fixes:
+    - Reconcile RFC 0035, `RestApiMaturityStage`, and traceability docs so API-A9/API-A10 semantics
+      are not contradictory.
+    - Decide whether to implement a no-dataset local loopback discovery server slice for
+      `GET /v1/health`, `/v1/version`, `/v1/capabilities`, and `/v1/adapters`, or explicitly keep
+      the current contract-only/no-listener stance reflected in RFC/architecture traceability.
+    - Keep any server slice side-effect-free: no dataset probes, object-store/catalog access,
+      execution, Flight/ADBC startup, broker I/O, external engine invocation, or fallback.
+  - Verification: maturity ladder snapshots, OpenAPI route/schema checks, contract-only vs
+    server-backed behavior tests, and Python/API parity tests.
+  - Completed: RFC 0035 now records `API-A9` as the columnar data-plane/standards boundary and
+    `API-A10` as production-certified workload API; traceability now marks RFC 0035 partially
+    implemented through the Priority 6 contract/report-only lanes and explicitly keeps API-A2 as
+    no-listener discovery until a local loopback server slice is implemented.
+- [x] Audit-F5 RFC/architecture traceability drift reconciliation bundle.
+  - Source findings:
+    - `docs/architecture/rfc-phase-traceability.md` still says CG-21/CG-22/CG-23 implementation
+      queues live in Planned even though large portions of Priority 4, Priority 5, and Priority 6
+      are completed.
+    - Foundry media, virtual media-set, and AIP boundary report-only surfaces already exist in core
+      unstructured workflow code, while P9 still lists related Foundry surfaces as future work.
+    - RFC 0033 DataFrame/ETL UX expectations such as `profile`, `collect`, `to_pandas`, `to_arrow`,
+      `write_vortex`, `write_parquet`, SQL, joins, aggregations, windows, schema contracts, and
+      data-quality APIs remain incomplete or intentionally unsupported/report-only.
+    - Full Foundry package/platform integration remains intentionally deferred to Priority 9.
+  - Required fixes:
+    - Update traceability to distinguish completed report-only surfaces, remaining unsupported
+      runtime work, and intentionally deferred integration work.
+    - Add a CG-21 workflow API completeness/report-only unsupported-diagnostic slice for the
+      missing DataFrame/ETL user methods before any runtime expansion claim.
+    - Inventory existing pre-P9 Foundry report-only code and either connect it to P9 traceability or
+      mark it explicitly as pre-P9 boundary posture.
+  - Verification: docs consistency checks, Python/CLI unsupported-diagnostic parity tests, and
+    no-fallback/no-runtime-effect assertions.
+  - Completed: RFC traceability now distinguishes completed CG-21/CG-22/CG-23 report-only lanes
+    from blocked runtime/certification claims, RFC 0033 and RFC 0036 are marked partially
+    implemented where only report-only surfaces exist, and the missing CG-21 DataFrame/ETL UX
+    method parity work is promoted into P7.0 before broader cross-CG closeout.
+
 ### Near-term Implementation Priority
 
 Completed checked-off work that used to live in this section is recorded in
@@ -144,7 +268,8 @@ actionable work.
 Execution slice rule for autonomy: parent priority checkboxes stay unchecked until every child
 bundle under that priority is complete. Work proceeds from the first unchecked child bundle, but PRs
 should be large enough to ship a usable command/API/report surface with schema, tests, smoke
-commands, and docs. Current large-slice order is P7.1-P7.3, P8.1-P8.3, then P9.1-P9.5.
+commands, and docs. Current large-slice order is Audit-F1-F5, P7.0-P7.3, P8.1-P8.3, then
+P9.1-P9.5.
 
 - [x] Priority 3.9 - CLI contract closeout and ownership cleanup
   - Outcome: finish the typed command/result envelope and CLI modularity work only to the point that
@@ -428,6 +553,17 @@ commands, and docs. Current large-slice order is P7.1-P7.3, P8.1-P8.3, then P9.1
     Python, and API contracts before any broader support claim is made.
   - Slice rule: group closeout work by proof surface, not by source file. A slice must improve a
     user's ability to understand what can be run, what is blocked, and what evidence is missing.
+  - [ ] P7.0 CG-21 workflow API completeness and unsupported-diagnostic parity bundle.
+    - User-visible surface: CLI and Python workflow methods for the missing RFC 0033 DataFrame/ETL
+      affordances (`profile`, `collect`, `to_pandas`, `to_arrow`, `write_vortex`, `write_parquet`,
+      SQL, joins, aggregations, windows, schema contracts, and data-quality checks) return
+      deterministic report-only unsupported diagnostics instead of silent gaps.
+    - Acceptance: every unsupported method has a stable blocker ID, severity, no-fallback stance,
+      required evidence, suggested next action, and matching CLI/Python/API terminology; no data
+      read, materialization, write, parser, object-store/table runtime, external engine, or fallback
+      execution is introduced.
+    - Verification: Python unsupported workflow tests, CLI capability/diagnostic snapshots,
+      typed-envelope/API compatibility locks, and no-runtime/no-fallback smoke assertions.
   - [ ] P7.1 cross-CG capability and unsupported-diagnostic parity bundle.
     - User-visible surface: capability discovery shows CG-21 workflow, CG-22 engine mode, and CG-23
       remote API states through CLI, Python, and future REST views.

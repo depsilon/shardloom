@@ -1090,7 +1090,7 @@ components:
         - type: object
           required:
             - query_id
-            - status
+            - lifecycle_status
             - result_ref
             - result_policies
             - certificates
@@ -1098,7 +1098,7 @@ components:
           properties:
             query_id:
               type: string
-            status:
+            lifecycle_status:
               type: string
               enum: [succeeded, canceled, retry_scheduled, blocked]
             result_ref:
@@ -1203,14 +1203,14 @@ components:
         - type: object
           required:
             - stream_id
-            - status
+            - event_stream_status
             - delivery_protocols
             - event_contracts
             - fallback
           properties:
             stream_id:
               type: string
-            status:
+            event_stream_status:
               type: string
               enum: [certified_fixture, blocked_missing_evidence, unsupported_external_broker]
             engine_mode:
@@ -1360,7 +1360,7 @@ components:
         - $ref: "#/components/schemas/OutputEnvelope"
         - type: object
           required:
-            - status
+            - governance_status
             - auth_postures
             - scopes
             - audit_policies
@@ -1369,7 +1369,7 @@ components:
             - evidence_model
             - fallback
           properties:
-            status:
+            governance_status:
               type: string
               enum: [available_contract, blocked_policy_required, agent_dry_run_only]
             auth_postures:
@@ -1527,12 +1527,12 @@ components:
         - $ref: "#/components/schemas/OutputEnvelope"
         - type: object
           required:
-            - status
+            - data_plane_status
             - transfer_contracts
             - standards
             - fallback
           properties:
-            status:
+            data_plane_status:
               type: string
               enum: [contract_available, optional_transport_planned, standards_matrix_available]
             transfer_contracts:

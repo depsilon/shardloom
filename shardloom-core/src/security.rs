@@ -962,6 +962,20 @@ impl SecurityGovernanceEvidenceArea {
             Self::AgentPolicy => "agent_policy",
         }
     }
+
+    #[must_use]
+    pub const fn required() -> &'static [Self] {
+        &[
+            Self::CredentialReference,
+            Self::PermissionBoundary,
+            Self::RedactionPolicy,
+            Self::AuditTrail,
+            Self::ExternalEffect,
+            Self::DestructiveOperation,
+            Self::DataEgress,
+            Self::AgentPolicy,
+        ]
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1150,11 +1164,25 @@ impl SecurityGovernanceEvidenceGateReport {
 
     #[must_use]
     pub fn all_evidence_surfaces_present(&self) -> bool {
-        self.entries.iter().all(|entry| {
-            !entry.required_for_claims.is_empty()
-                && !entry.default_policy.is_empty()
-                && !entry.evidence_field.is_empty()
-        })
+        self.all_required_evidence_areas_present()
+            && self.entries.iter().all(|entry| {
+                !entry.required_for_claims.is_empty()
+                    && !entry.default_policy.is_empty()
+                    && !entry.evidence_field.is_empty()
+            })
+    }
+
+    #[must_use]
+    pub fn all_required_evidence_areas_present(&self) -> bool {
+        self.missing_required_area_count() == 0
+    }
+
+    #[must_use]
+    pub fn missing_required_area_count(&self) -> usize {
+        SecurityGovernanceEvidenceArea::required()
+            .iter()
+            .filter(|area| !self.entries.iter().any(|entry| entry.area == **area))
+            .count()
     }
 
     #[must_use]
@@ -1386,6 +1414,8 @@ mod tests {
         assert_eq!(report.evidence_area_count(), 8);
         assert_eq!(report.report_only_area_count(), 8);
         assert!(report.all_evidence_surfaces_present());
+        assert!(report.all_required_evidence_areas_present());
+        assert_eq!(report.missing_required_area_count(), 0);
         assert!(
             report
                 .area_order()
@@ -1396,6 +1426,19 @@ mod tests {
                 .area_order()
                 .contains(&SecurityGovernanceEvidenceArea::AgentPolicy.as_str())
         );
+    }
+
+    #[test]
+    fn security_governance_evidence_gate_rejects_missing_required_areas() {
+        let mut report = plan_security_governance_evidence_gate();
+        report
+            .entries
+            .retain(|entry| entry.area != SecurityGovernanceEvidenceArea::AuditTrail);
+
+        assert_eq!(report.missing_required_area_count(), 1);
+        assert!(!report.all_required_evidence_areas_present());
+        assert!(!report.all_evidence_surfaces_present());
+        assert!(report.has_errors());
     }
 
     #[test]

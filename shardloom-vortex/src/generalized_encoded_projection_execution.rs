@@ -2,11 +2,12 @@ use std::fmt::Write as _;
 
 use shardloom_core::{
     ColumnRef, CorrectnessFixture, CorrectnessValidationPlan, Diagnostic, DiagnosticCategory,
-    DiagnosticCode, DiagnosticSeverity, EncodedValueBatch, ExecutionCertificate,
-    ExecutionCertificateInput, ExecutionProviderKind, ExpectedOutcome,
-    NativeIoAdapterFidelityReport, NativeIoCertificate, NativeIoRepresentationTransition,
-    NativeIoSideEffectReport, NativeIoSinkRequirementReport, NativeIoSourceCapabilityReport,
-    NativeIoSourcePushdownReport, RepresentationState, Result,
+    DiagnosticCode, DiagnosticSeverity, EncodedSegment, EncodedValueBatch, EncodedValueRun,
+    EncodingKind, ExecutionCertificate, ExecutionCertificateInput, ExecutionProviderKind,
+    ExpectedOutcome, NativeIoAdapterFidelityReport, NativeIoCertificate,
+    NativeIoRepresentationTransition, NativeIoSideEffectReport, NativeIoSinkRequirementReport,
+    NativeIoSourceCapabilityReport, NativeIoSourcePushdownReport, RepresentationState, Result,
+    StatValue,
 };
 
 use crate::{
@@ -246,6 +247,7 @@ pub fn execute_vortex_generalized_projection_from_encoded_projection_batches(
     let native_io_certificate =
         prepared_encoded_projection_native_io_certificate(&projection_evidence)?;
     let execution_certificate = prepared_encoded_projection_execution_certificate(
+        batches,
         &projection_evidence,
         &native_io_certificate,
     )?;
@@ -259,11 +261,15 @@ pub fn execute_vortex_generalized_projection_from_encoded_projection_batches(
 }
 
 fn prepared_encoded_projection_execution_certificate(
+    batches: &[VortexPreparedEncodedProjectionColumn],
     projection_evidence: &VortexEncodedProjectionExecutionReport,
     native_io_certificate: &NativeIoCertificate,
 ) -> Result<ExecutionCertificate> {
-    let correctness_fixture =
-        prepared_encoded_projection_correctness_fixture(projection_evidence, native_io_certificate);
+    let correctness_fixture = prepared_encoded_projection_correctness_fixture(
+        batches,
+        projection_evidence,
+        native_io_certificate,
+    );
     let mut input = ExecutionCertificateInput::new(
         "cg16.prepared_encoded_projection.execution-certificate",
         EXECUTION_KIND,
@@ -350,6 +356,7 @@ fn prepared_encoded_projection_execution_certificate(
 }
 
 fn prepared_encoded_projection_correctness_fixture(
+    batches: &[VortexPreparedEncodedProjectionColumn],
     projection_evidence: &VortexEncodedProjectionExecutionReport,
     native_io_certificate: &NativeIoCertificate,
 ) -> Option<CorrectnessFixture> {
@@ -363,6 +370,7 @@ fn prepared_encoded_projection_correctness_fixture(
         && projection_evidence.input_batch_count == 2
         && projection_evidence.projected_batch_count == 1
         && projected_rows == Some(3)
+        && prepared_encoded_projection_fixture_provenance(batches)
     {
         return correctness_fixture_by_id("vortex-prepared-encoded-projection-dictionary");
     }
@@ -376,12 +384,108 @@ fn prepared_encoded_projection_correctness_fixture(
         && projection_evidence.projected_batch_count == 2
         && projection_evidence.selected_row_count == Some(5)
         && projected_rows == Some(8)
+        && prepared_encoded_filter_project_fixture_provenance(batches)
     {
         return correctness_fixture_by_id(
             "vortex-prepared-encoded-filter-project-selection-vector",
         );
     }
     None
+}
+
+fn prepared_encoded_projection_fixture_provenance(
+    batches: &[VortexPreparedEncodedProjectionColumn],
+) -> bool {
+    matches!(
+        batches,
+        [
+            VortexPreparedEncodedProjectionColumn {
+                segment,
+                values:
+                    EncodedValueBatch::Dictionary {
+                        dictionary,
+                        codes,
+                    },
+            },
+            VortexPreparedEncodedProjectionColumn {
+                segment: segment_2,
+                values:
+                    EncodedValueBatch::Constant {
+                        value,
+                        row_count,
+                    },
+            },
+        ] if encoded_segment_fingerprint(
+            segment,
+            "segment-1.metric",
+            "metric",
+            3,
+            &EncodingKind::Dictionary,
+        ) && dictionary == &vec![
+            Some(StatValue::Int64(10)),
+            Some(StatValue::Int64(20)),
+        ]
+            && codes == &vec![Some(0), Some(1), Some(0)]
+            && encoded_segment_fingerprint(
+                segment_2,
+                "segment-1.other",
+                "other",
+                3,
+                &EncodingKind::Constant,
+            )
+            && value == &Some(StatValue::Int64(1))
+            && *row_count == 3
+    )
+}
+
+fn prepared_encoded_filter_project_fixture_provenance(
+    batches: &[VortexPreparedEncodedProjectionColumn],
+) -> bool {
+    matches!(
+        batches,
+        [
+            VortexPreparedEncodedProjectionColumn {
+                segment,
+                values:
+                    EncodedValueBatch::Constant {
+                        value,
+                        row_count,
+                    },
+            },
+            VortexPreparedEncodedProjectionColumn {
+                segment: segment_2,
+                values: EncodedValueBatch::RunLength { runs },
+            },
+        ] if encoded_segment_fingerprint(
+            segment,
+            "segment-1.payload",
+            "payload",
+            5,
+            &EncodingKind::Constant,
+        ) && value == &Some(StatValue::Int64(100))
+            && *row_count == 5
+            && encoded_segment_fingerprint(
+                segment_2,
+                "segment-2.payload",
+                "payload",
+                3,
+                &EncodingKind::RunLength,
+            )
+            && runs == &vec![EncodedValueRun::new(Some(StatValue::Int64(200)), 3)]
+    )
+}
+
+fn encoded_segment_fingerprint(
+    segment: &EncodedSegment,
+    id: &str,
+    column: &str,
+    row_count: u64,
+    encoding: &EncodingKind,
+) -> bool {
+    segment.id.as_str() == id
+        && segment.column.as_str() == column
+        && &segment.layout.encoding == encoding
+        && segment.stats.row_count == Some(row_count)
 }
 
 fn string_order_eq(actual: &[String], expected: &[&str]) -> bool {
@@ -770,6 +874,43 @@ mod tests {
     }
 
     #[test]
+    fn prepared_encoded_projection_does_not_certify_matching_counts_without_fixture_provenance() {
+        let batches = vec![
+            prepared_column(
+                "metric",
+                "nonfixture-1.metric",
+                EncodedValueBatch::Dictionary {
+                    dictionary: vec![Some(StatValue::Int64(10)), Some(StatValue::Int64(20))],
+                    codes: vec![Some(0), Some(1), Some(0)],
+                },
+            ),
+            prepared_column(
+                "other",
+                "nonfixture-1.other",
+                EncodedValueBatch::Constant {
+                    value: Some(StatValue::Int64(1)),
+                    row_count: 3,
+                },
+            ),
+        ];
+
+        let report = execute_vortex_generalized_projection_from_encoded_projection_batches(
+            &[column_ref("metric")],
+            &batches,
+            None,
+        )
+        .expect("report");
+
+        assert_eq!(report.projected_row_count, Some(3));
+        assert!(report.runtime_execution_allowed);
+        assert!(report.native_io_certificate.is_certified());
+        assert!(!report.correctness_certified);
+        assert!(!report.execution_certificate.is_certified());
+        assert_eq!(report.execution_certificate.correctness_fixture_id, None);
+        assert!(!report.fallback_attempted);
+    }
+
+    #[test]
     fn prepared_encoded_filter_project_executes_with_selection_vector_evidence() {
         let predicate = PredicateExpr::Compare {
             column: column_ref("metric"),
@@ -866,6 +1007,70 @@ mod tests {
             "filter,project"
         );
         assert!(!report.has_errors());
+    }
+
+    #[test]
+    fn prepared_encoded_filter_project_does_not_certify_matching_counts_without_fixture_provenance()
+    {
+        let predicate = PredicateExpr::Compare {
+            column: column_ref("metric"),
+            op: ComparisonOp::GtEq,
+            value: StatValue::Int64(5),
+        };
+        let filter_batches = vec![
+            VortexEncodedValuePredicateBatch::new(
+                segment("metric", "segment-1.metric", 5, EncodingKind::Dictionary),
+                EncodedValueBatch::Dictionary {
+                    dictionary: vec![Some(StatValue::Int64(1)), Some(StatValue::Int64(5)), None],
+                    codes: vec![Some(0), Some(1), None, Some(1), Some(0)],
+                },
+            ),
+            VortexEncodedValuePredicateBatch::new(
+                segment("metric", "segment-2.metric", 3, EncodingKind::RunLength),
+                EncodedValueBatch::RunLength {
+                    runs: vec![EncodedValueRun::new(Some(StatValue::Int64(9)), 3)],
+                },
+            ),
+        ];
+        let filter_report = execute_vortex_generalized_filter_from_encoded_value_batches(
+            &predicate,
+            &filter_batches,
+        )
+        .expect("filter report");
+
+        let projection_batches = vec![
+            prepared_column(
+                "payload",
+                "nonfixture-1.payload",
+                EncodedValueBatch::Constant {
+                    value: Some(StatValue::Int64(100)),
+                    row_count: 5,
+                },
+            ),
+            prepared_column(
+                "payload",
+                "nonfixture-2.payload",
+                EncodedValueBatch::RunLength {
+                    runs: vec![EncodedValueRun::new(Some(StatValue::Int64(200)), 3)],
+                },
+            ),
+        ];
+
+        let report = execute_vortex_generalized_projection_from_encoded_projection_batches(
+            &[column_ref("payload")],
+            &projection_batches,
+            Some(&filter_report.filter_kernel),
+        )
+        .expect("report");
+
+        assert_eq!(report.selected_row_count, Some(5));
+        assert_eq!(report.projected_row_count, Some(8));
+        assert!(report.runtime_execution_allowed);
+        assert!(report.native_io_certificate.is_certified());
+        assert!(!report.correctness_certified);
+        assert!(!report.execution_certificate.is_certified());
+        assert_eq!(report.execution_certificate.correctness_fixture_id, None);
+        assert!(!report.fallback_attempted);
     }
 
     #[test]

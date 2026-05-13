@@ -129,12 +129,13 @@ fn correctness_harness_aggregates_current_cg5_evidence_without_execution() {
     ));
     assert_eq!(report.generated_property_fixture_count, 3);
     assert_eq!(report.fuzz_seed_count, 3);
-    assert_eq!(report.planned_surface_count, 9);
-    assert_eq!(report.blocked_surface_count, 2);
+    assert_eq!(report.planned_surface_count, 8);
+    assert_eq!(report.blocked_surface_count, 3);
     assert_eq!(
         report.blocked_surface_order,
         vec![
             "deferred_fixture_family_artifacts".to_string(),
+            "property_fuzzing".to_string(),
             "benchmark_claim_gate".to_string()
         ]
     );
