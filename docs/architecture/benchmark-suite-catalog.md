@@ -301,8 +301,12 @@ They are not benchmark dependencies, not default benchmark lanes, and never fall
 
 The suite catalog, executable local analytics taxonomy, and source-backed matrix are populated. The
 default source-backed matrix path remains report-only. The explicit smoke measurement path populates
-fixture benchmark rows for eligible prepared/source-bound/reader-backed encoded rows. It does not
-execute comparative benchmarks and does not publish performance claims.
+fixture benchmark rows for eligible prepared/source-bound/reader-backed encoded rows. The
+ShardLoom traditional analytics lane executes the base-schema expanded taxonomy scenarios
+`filter + projection + limit`, `multi-key group by`, `join + aggregate`, `row number window`,
+`high-cardinality string group/distinct`, and `top-N per group` through the local Vortex
+import/replay/result-sink evidence path. It does not execute comparative benchmarks and does not
+publish performance claims.
 
 `plan_source_backed_benchmark_matrix()` keeps:
 

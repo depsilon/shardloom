@@ -108,6 +108,10 @@ Implemented or actively wired surfaces include:
   compute/write timing fields, local task-graph scheduler evidence, bounded queue/backpressure
   fields, memory reservation/release evidence, retry/cancellation gate status, runtime execution
   certificate status, operator spill blockers, commit/cleanup status, and `fallback_attempted=false`
+- ShardLoom-native benchmark coverage for base-schema taxonomy scenarios beyond the default local
+  suite: filter/projection/limit, multi-key group by, join+aggregate, row-number window,
+  high-cardinality string group/distinct, and top-N per group, with the same replay/result-sink
+  evidence path available through the traditional analytics harness
 - source-backed benchmark matrix smoke measurement for eligible prepared, source-bound, and
   reader-backed constant/dictionary/run-end encoded filter/projection/filter-project rows, with
   provider refs, certificate refs, Native I/O refs, representation transitions, reproducibility
@@ -125,10 +129,10 @@ Still planned or gated:
   server, generated-client, Foundry, and Marketplace surfaces
 - production package publication and public performance/superiority claims
 - claim-grade compute-engine completion: source-backed measured rows beyond fixture-smoke evidence,
-  Vortex layout/write advisor feedback, ShardLoom-native expanded-scenario support, and benchmark
-  promotion
-- full comparative benchmark reruns, ShardLoom-native support for the expanded taxonomy scenarios,
-  write/incremental benchmark promotion, and claim-grade source-backed benchmark promotion
+  Vortex layout/write advisor feedback, remaining extra-column/multi-file/incremental taxonomy
+  support, and benchmark promotion
+- full comparative benchmark reruns, write/incremental benchmark promotion, clean/cast/filter/write
+  execution, and claim-grade source-backed benchmark promotion
 - hard release-readiness gates and public first-10-minutes proof from release artifacts
 - Foundry proof-of-use certification that preserves Foundry as an optional integration boundary
 - any external engine execution as ShardLoom fallback

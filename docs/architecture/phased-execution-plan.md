@@ -202,9 +202,15 @@ from the merged code and tests.
       many-small-files scan, null-heavy aggregate, high-cardinality string group/distinct,
       top-N per group, malformed timestamp cleanup, small-change-over-large-base, and nested JSON
       field scan with unsupported rows instead of crashes for engines that do not implement them.
-    - Remaining taxonomy gap: clean/cast/filter/write and real write-path timing, ShardLoom-native
-      support for the expanded taxonomy scenarios, comparative reruns across selected baselines,
-      and promotion from fixture-smoke measurements to reproducible claim-grade benchmark rows.
+    - Completed sub-slice in ledger: ShardLoom now executes the base-schema expanded taxonomy
+      scenarios `filter + projection + limit`, `multi-key group by`, `join + aggregate`,
+      `row number window`, `high-cardinality string group/distinct`, and `top-N per group` through
+      the local Vortex import/replay/result-sink path with Native I/O and runtime certificate
+      evidence.
+    - Remaining taxonomy gap: clean/cast/filter/write and real write-path timing beyond current
+      result-sink smoke, ShardLoom-native extra-column/multi-file/dirty/nested/CDC/partition
+      scenarios, comparative reruns across selected baselines, and promotion from fixture-smoke
+      measurements to reproducible claim-grade benchmark rows.
     - Acceptance: add executable dataset profiles such as wide/very-wide tables, null-heavy data,
       many-small/few-large files, date partitioning, clustered/unclustered layouts, schema drift,
       dirty CSV, nested JSON, and CDC delta overlay where supported. Add executable scenarios for

@@ -41,6 +41,12 @@ pub enum TraditionalAnalyticsScenario {
     HashJoin,
     WideProjection,
     DistinctCount,
+    FilterProjectionLimit,
+    MultiKeyGroupBy,
+    JoinAggregate,
+    RowNumberWindow,
+    HighCardinalityStringGroupDistinct,
+    TopNPerGroup,
     ScaleStressSkewedJoinAggregation,
     ScaleStressMultiStageEtl,
 }
@@ -57,6 +63,16 @@ impl TraditionalAnalyticsScenario {
             "hash join" | "hash-join" => Ok(Self::HashJoin),
             "wide projection" | "wide-projection" => Ok(Self::WideProjection),
             "distinct count" | "distinct-count" => Ok(Self::DistinctCount),
+            "filter + projection + limit"
+            | "filter-projection-limit"
+            | "filter-and-projection-limit" => Ok(Self::FilterProjectionLimit),
+            "multi-key group by" | "multi-key-group-by" => Ok(Self::MultiKeyGroupBy),
+            "join + aggregate" | "join-aggregate" => Ok(Self::JoinAggregate),
+            "row number window" | "row-number-window" => Ok(Self::RowNumberWindow),
+            "high-cardinality string group/distinct" | "high-cardinality-string-group-distinct" => {
+                Ok(Self::HighCardinalityStringGroupDistinct)
+            }
+            "top-N per group" | "top-n-per-group" | "top-N-per-group" => Ok(Self::TopNPerGroup),
             "scale stress skewed join aggregation" | "scale-stress-skewed-join-aggregation" => {
                 Ok(Self::ScaleStressSkewedJoinAggregation)
             }
@@ -79,6 +95,12 @@ impl TraditionalAnalyticsScenario {
             Self::HashJoin => "hash join",
             Self::WideProjection => "wide projection",
             Self::DistinctCount => "distinct count",
+            Self::FilterProjectionLimit => "filter + projection + limit",
+            Self::MultiKeyGroupBy => "multi-key group by",
+            Self::JoinAggregate => "join + aggregate",
+            Self::RowNumberWindow => "row number window",
+            Self::HighCardinalityStringGroupDistinct => "high-cardinality string group/distinct",
+            Self::TopNPerGroup => "top-N per group",
             Self::ScaleStressSkewedJoinAggregation => "scale stress skewed join aggregation",
             Self::ScaleStressMultiStageEtl => "scale stress multi-stage etl",
         }
@@ -2744,13 +2766,22 @@ fn traditional_runtime_tasks(
 fn scenario_operator_memory_class(scenario: TraditionalAnalyticsScenario) -> OperatorMemoryClass {
     match scenario {
         TraditionalAnalyticsScenario::CsvFileIngest => OperatorMemoryClass::Translation,
-        TraditionalAnalyticsScenario::SelectiveFilter => OperatorMemoryClass::Filter,
+        TraditionalAnalyticsScenario::SelectiveFilter
+        | TraditionalAnalyticsScenario::FilterProjectionLimit => OperatorMemoryClass::Filter,
         TraditionalAnalyticsScenario::GroupByAggregation
-        | TraditionalAnalyticsScenario::DistinctCount => OperatorMemoryClass::Aggregate,
-        TraditionalAnalyticsScenario::SortAndTopK => OperatorMemoryClass::Sort,
+        | TraditionalAnalyticsScenario::DistinctCount
+        | TraditionalAnalyticsScenario::MultiKeyGroupBy
+        | TraditionalAnalyticsScenario::HighCardinalityStringGroupDistinct => {
+            OperatorMemoryClass::Aggregate
+        }
+        TraditionalAnalyticsScenario::SortAndTopK | TraditionalAnalyticsScenario::TopNPerGroup => {
+            OperatorMemoryClass::Sort
+        }
         TraditionalAnalyticsScenario::HashJoin
+        | TraditionalAnalyticsScenario::JoinAggregate
         | TraditionalAnalyticsScenario::ScaleStressSkewedJoinAggregation
         | TraditionalAnalyticsScenario::ScaleStressMultiStageEtl => OperatorMemoryClass::Join,
+        TraditionalAnalyticsScenario::RowNumberWindow => OperatorMemoryClass::Window,
         TraditionalAnalyticsScenario::WideProjection => OperatorMemoryClass::Projection,
     }
 }
@@ -5166,6 +5197,7 @@ fn run_vortex_derived_scenario_from_tables(
     let rows_materialized = result_rows_materialized(&result_json)?;
     let rows_scanned = match scenario {
         TraditionalAnalyticsScenario::HashJoin
+        | TraditionalAnalyticsScenario::JoinAggregate
         | TraditionalAnalyticsScenario::ScaleStressSkewedJoinAggregation
         | TraditionalAnalyticsScenario::ScaleStressMultiStageEtl => {
             checked_usize_sum_to_u64(fact.len(), dim.len())?
@@ -5340,6 +5372,7 @@ fn vortex_file_row_count(path: &std::path::Path) -> Result<u64> {
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[allow(clippy::too_many_lines)]
 fn run_vortex_derived_scenario(
     scenario: TraditionalAnalyticsScenario,
     fact: &VortexFactTable,
@@ -5413,6 +5446,64 @@ fn run_vortex_derived_scenario(
                 "{{\"distinct_category_count\":{}}}",
                 usize_to_u64(distinct)?
             )
+        }
+        TraditionalAnalyticsScenario::FilterProjectionLimit => {
+            let mut rows = (0..fact.len())
+                .filter(|index| fact.flag[*index] == 1 && fact.value[*index] >= 5_000)
+                .map(|index| (fact.id[index], fact.value[index]))
+                .collect::<Vec<_>>();
+            rows.sort_by_key(|(id, _value)| *id);
+            let mut accum = TraditionalGroupAccum::default();
+            for (_id, value) in rows.into_iter().take(100) {
+                accum.add(f64::from(value));
+            }
+            scalar_result_json(accum.row_count, accum.metric_sum)
+        }
+        TraditionalAnalyticsScenario::MultiKeyGroupBy => {
+            let mut groups = BTreeMap::<(u32, String), TraditionalGroupAccum>::new();
+            for index in 0..fact.len() {
+                groups
+                    .entry((fact.group_key[index], fact.category[index].clone()))
+                    .or_default()
+                    .add(fact.metric[index]);
+            }
+            group_category_rows_json(groups)
+        }
+        TraditionalAnalyticsScenario::JoinAggregate => {
+            let mut groups = BTreeMap::<(String, String), TraditionalGroupAccum>::new();
+            for index in 0..fact.len() {
+                if fact.value[index] < 2_500 {
+                    continue;
+                }
+                if let Some(dim_index) = dim_by_key.get(&fact.dim_key[index]) {
+                    groups
+                        .entry((
+                            dim.dim_label[*dim_index].clone(),
+                            fact.category[index].clone(),
+                        ))
+                        .or_default()
+                        .add(fact.metric[index]);
+                }
+            }
+            dim_category_rows_json(groups)
+        }
+        TraditionalAnalyticsScenario::RowNumberWindow => {
+            let rows = ranked_group_rows(fact, 1);
+            rank_rows_json(rows)
+        }
+        TraditionalAnalyticsScenario::HighCardinalityStringGroupDistinct => {
+            let mut groups = BTreeMap::<String, TraditionalGroupAccum>::new();
+            for index in 0..fact.len() {
+                groups
+                    .entry(fact.category[index].clone())
+                    .or_default()
+                    .add(fact.metric[index]);
+            }
+            string_group_distinct_json(groups)
+        }
+        TraditionalAnalyticsScenario::TopNPerGroup => {
+            let rows = ranked_group_rows(fact, 3);
+            rank_rows_json(rows)
         }
         TraditionalAnalyticsScenario::ScaleStressSkewedJoinAggregation => {
             let mut groups = BTreeMap::<u32, TraditionalGroupAccum>::new();
@@ -5501,6 +5592,115 @@ fn string_group_rows_json(
         })
         .collect::<Vec<_>>();
     format!("[{}]", rows.join(","))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn group_category_rows_json(
+    groups: std::collections::BTreeMap<(u32, String), TraditionalGroupAccum>,
+) -> String {
+    let rows = groups
+        .into_iter()
+        .map(|((group_key, category), accum)| {
+            format!(
+                "{{\"group_key\":{group_key},\"category\":{},\"row_count\":{},\"metric_sum\":{}}}",
+                json_string_literal(&category),
+                accum.row_count,
+                json_float(accum.metric_sum)
+            )
+        })
+        .collect::<Vec<_>>();
+    format!("[{}]", rows.join(","))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn dim_category_rows_json(
+    groups: std::collections::BTreeMap<(String, String), TraditionalGroupAccum>,
+) -> String {
+    let rows = groups
+        .into_iter()
+        .map(|((dim_label, category), accum)| {
+            format!(
+                "{{\"dim_label\":{},\"category\":{},\"row_count\":{},\"metric_sum\":{}}}",
+                json_string_literal(&dim_label),
+                json_string_literal(&category),
+                accum.row_count,
+                json_float(accum.metric_sum)
+            )
+        })
+        .collect::<Vec<_>>();
+    format!("[{}]", rows.join(","))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn ranked_group_rows(fact: &VortexFactTable, max_rank: u64) -> Vec<(u32, u64, f64, u64)> {
+    let mut rows = (0..fact.len())
+        .map(|index| (fact.group_key[index], fact.id[index], fact.metric[index]))
+        .collect::<Vec<_>>();
+    rows.sort_by(|left, right| {
+        left.0
+            .cmp(&right.0)
+            .then_with(|| right.2.total_cmp(&left.2))
+            .then_with(|| left.1.cmp(&right.1))
+    });
+    let mut ranked = Vec::new();
+    let mut current_group = None;
+    let mut rank = 0_u64;
+    for (group_key, id, metric) in rows {
+        if current_group == Some(group_key) {
+            rank += 1;
+        } else {
+            current_group = Some(group_key);
+            rank = 1;
+        }
+        if rank <= max_rank {
+            ranked.push((group_key, id, metric, rank));
+        }
+    }
+    ranked
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn rank_rows_json(mut rows: Vec<(u32, u64, f64, u64)>) -> String {
+    rows.sort_by(|left, right| {
+        left.0
+            .cmp(&right.0)
+            .then_with(|| left.3.cmp(&right.3))
+            .then_with(|| left.1.cmp(&right.1))
+    });
+    let rows = rows
+        .into_iter()
+        .map(|(group_key, id, metric, rank)| {
+            format!(
+                "{{\"group_key\":{group_key},\"id\":{id},\"metric\":{},\"rank\":{rank}}}",
+                json_float(metric)
+            )
+        })
+        .collect::<Vec<_>>();
+    format!("[{}]", rows.join(","))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn string_group_distinct_json(
+    groups: std::collections::BTreeMap<String, TraditionalGroupAccum>,
+) -> String {
+    let distinct = groups.len();
+    let rows = groups
+        .into_iter()
+        .take(100)
+        .map(|(category, accum)| {
+            format!(
+                "{{\"category\":{},\"row_count\":{},\"metric_sum\":{}}}",
+                json_string_literal(&category),
+                accum.row_count,
+                json_float(accum.metric_sum)
+            )
+        })
+        .collect::<Vec<_>>();
+    format!(
+        "{{\"distinct_category_count\":{},\"groups\":[{}]}}",
+        distinct,
+        rows.join(",")
+    )
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -5627,6 +5827,14 @@ mod tests {
         assert_eq!(
             TraditionalAnalyticsScenario::parse("scale-stress-multi-stage-etl").unwrap(),
             TraditionalAnalyticsScenario::ScaleStressMultiStageEtl
+        );
+        assert_eq!(
+            TraditionalAnalyticsScenario::parse("filter + projection + limit").unwrap(),
+            TraditionalAnalyticsScenario::FilterProjectionLimit
+        );
+        assert_eq!(
+            TraditionalAnalyticsScenario::parse("top-n-per-group").unwrap(),
+            TraditionalAnalyticsScenario::TopNPerGroup
         );
     }
 
@@ -5885,6 +6093,71 @@ mod tests {
         assert!(!native_report.row_read);
         assert!(!native_report.write_io);
         assert!(!native_report.fallback_execution_allowed);
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn expanded_taxonomy_scenarios_run_against_local_vortex_outputs() {
+        let root = traditional_analytics_test_root("expanded-taxonomy");
+        let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);
+        let cases = [
+            (
+                TraditionalAnalyticsScenario::FilterProjectionLimit,
+                "{\"row_count\":2,\"metric_sum\":14000.0}",
+            ),
+            (
+                TraditionalAnalyticsScenario::MultiKeyGroupBy,
+                "[{\"group_key\":10,\"category\":\"A\",\"row_count\":2,\"metric_sum\":6.5},{\"group_key\":11,\"category\":\"B\",\"row_count\":1,\"metric_sum\":3.5}]",
+            ),
+            (
+                TraditionalAnalyticsScenario::JoinAggregate,
+                "[{\"dim_label\":\"one\",\"category\":\"A\",\"row_count\":2,\"metric_sum\":6.5}]",
+            ),
+            (
+                TraditionalAnalyticsScenario::RowNumberWindow,
+                "[{\"group_key\":10,\"id\":3,\"metric\":4.0,\"rank\":1},{\"group_key\":11,\"id\":2,\"metric\":3.5,\"rank\":1}]",
+            ),
+            (
+                TraditionalAnalyticsScenario::HighCardinalityStringGroupDistinct,
+                "{\"distinct_category_count\":2,\"groups\":[{\"category\":\"A\",\"row_count\":2,\"metric_sum\":6.5},{\"category\":\"B\",\"row_count\":1,\"metric_sum\":3.5}]}",
+            ),
+            (
+                TraditionalAnalyticsScenario::TopNPerGroup,
+                "[{\"group_key\":10,\"id\":3,\"metric\":4.0,\"rank\":1},{\"group_key\":10,\"id\":1,\"metric\":2.5,\"rank\":2},{\"group_key\":11,\"id\":2,\"metric\":3.5,\"rank\":1}]",
+            ),
+        ];
+
+        for (scenario, expected_json) in cases {
+            let report = run_traditional_analytics_benchmark(
+                TraditionalAnalyticsRequest::new(
+                    scenario,
+                    fact_csv.clone(),
+                    dim_csv.clone(),
+                    root.join(format!(
+                        "workspace-{}",
+                        scenario.as_str().replace(['/', ' ', '+'], "-")
+                    )),
+                )
+                .with_input_format(TraditionalAnalyticsInputFormat::Csv)
+                .with_native_vortex_replay_verification(true)
+                .with_result_vortex_write(true),
+            )
+            .unwrap();
+
+            assert_eq!(report.result_json, expected_json, "{}", scenario.as_str());
+            assert!(report.native_io_certificate.is_certified());
+            assert!(report.computed_result_sink_written);
+            assert!(report.computed_result_sink_replay_verified);
+            assert!(!report.fallback_execution_allowed);
+            assert!(report.runtime_task_graph_created);
+            assert!(report.runtime_task_graph_executed);
+            assert_eq!(
+                report.runtime_execution_certificate.status.as_str(),
+                "certified"
+            );
+        }
 
         let _ = std::fs::remove_dir_all(root);
     }
