@@ -1,0 +1,9 @@
+ShardLoom Python package
+
+Copyright 2026 Dylan Justin Heinrich
+
+Licensed under the Apache License, Version 2.0.
+
+This package is the pure Python wrapper for the ShardLoom CLI JSON protocol. It
+does not intentionally include copied third-party implementation code requiring
+additional attribution notices.

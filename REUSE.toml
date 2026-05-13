@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: Apache-2.0
+
+version = 1
+
+[[annotations]]
+path = [
+  ".github/**",
+  "benchmarks/**",
+  "docs/**",
+  "packaging/**",
+  "python/**",
+  "shardloom-*/Cargo.toml",
+  "shardloom-*/src/**",
+  "shardloom-*/tests/**",
+  "Cargo.lock",
+  "Cargo.toml",
+  "LICENSE",
+  "NOTICE",
+  "REUSE.toml",
+  "*.md",
+  "*.yml",
+  "*.yaml",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Dylan Justin Heinrich"
+SPDX-License-Identifier = "Apache-2.0"

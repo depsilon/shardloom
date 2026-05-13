@@ -3,3 +3,8 @@ ShardLoom
 Copyright 2026 Dylan Justin Heinrich
 
 Licensed under the Apache License, Version 2.0.
+
+This source distribution does not intentionally include copied third-party
+implementation code requiring additional attribution notices. Third-party
+dependencies remain under their own licenses and notices, and release artifacts
+should include generated dependency license bundles where applicable.
