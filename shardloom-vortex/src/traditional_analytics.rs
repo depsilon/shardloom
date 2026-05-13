@@ -2929,7 +2929,19 @@ fn read_traditional_fact_csv(path: &std::path::Path) -> Result<Vec<TraditionalFa
     let header = lines.next().ok_or_else(|| {
         ShardLoomError::InvalidOperation(format!("fact CSV '{}' is empty", path.display()))
     })?;
-    if header.trim_end_matches('\r') != "id,group_key,dim_key,value,metric,flag,category" {
+    let header_cols = header.trim_end_matches('\r').split(',').collect::<Vec<_>>();
+    let required_header = [
+        "id",
+        "group_key",
+        "dim_key",
+        "value",
+        "metric",
+        "flag",
+        "category",
+    ];
+    if header_cols.len() < required_header.len()
+        || header_cols[..required_header.len()] != required_header[..]
+    {
         return Err(ShardLoomError::InvalidOperation(format!(
             "fact CSV '{}' does not match the benchmark schema",
             path.display()
@@ -2941,12 +2953,13 @@ fn read_traditional_fact_csv(path: &std::path::Path) -> Result<Vec<TraditionalFa
             continue;
         }
         let cols = line.trim_end_matches('\r').split(',').collect::<Vec<_>>();
-        if cols.len() != 7 {
+        if cols.len() < required_header.len() {
             return Err(ShardLoomError::InvalidOperation(format!(
-                "fact CSV '{}' line {} has {} columns, expected 7",
+                "fact CSV '{}' line {} has {} columns, expected at least {}",
                 path.display(),
                 line_index + 2,
-                cols.len()
+                cols.len(),
+                required_header.len()
             )));
         }
         rows.push(TraditionalFactRow {
@@ -4288,6 +4301,25 @@ mod tests {
         .unwrap();
         std::fs::write(&dim_csv, "dim_key,dim_label,weight\n1,one,1.5\n2,two,2.0\n").unwrap();
         (fact_csv, dim_csv)
+    }
+
+    #[test]
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn fact_csv_reader_accepts_generated_profile_trailing_columns() {
+        let root = traditional_analytics_test_root("wide-csv");
+        std::fs::create_dir_all(&root).unwrap();
+        let fact_csv = root.join("fact.csv");
+        std::fs::write(
+            &fact_csv,
+            "id,group_key,dim_key,value,metric,flag,category,extra_metric_00,event_date\n1,10,1,6000,2.5,1,A,42.0,2024-01-01\n",
+        )
+        .unwrap();
+
+        let rows = read_traditional_fact_csv(&fact_csv).expect("fact rows");
+
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].category, "A");
+        assert_eq!(rows[0].metric, 2.5);
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]

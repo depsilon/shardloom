@@ -16,6 +16,68 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: P7.4.4 benchmark taxonomy and source-backed measured-row smoke bundle
+  - Primary files:
+    - `benchmarks/common/scenario_catalog.json`
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `shardloom-vortex/src/source_backed_benchmark_matrix.rs`
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `README.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `shardloom-exec/src/lib.rs`
+    - `python/src/shardloom/client.py`
+    - `python/tests/test_cli_client.py`
+  - Scope: begin the P7.4.4 benchmark/source-backed closeout with real fixture-smoke measured rows
+    and a broader executable local dataset taxonomy while keeping performance claims blocked.
+  - Checklist:
+    - [x] Add `SourceBackedBenchmarkMeasuredRow` and
+          `measure_source_backed_benchmark_matrix_smoke()` for deterministic in-memory Vortex
+          encoded fixture measurements.
+    - [x] Populate all 15 eligible prepared-batch-only, source-bound encoded, and reader-backed
+          constant/dictionary/run-end filter/projection/filter-project rows with benchmark refs,
+          elapsed nanos, row counts, selected/projected counts, provider kind/API/version, source
+          refs, split refs, representation transitions, execution certificate refs, Native I/O
+          certificate refs/path refs, correctness refs, benchmark constitution, reproducibility
+          refs, and no-fallback evidence.
+    - [x] Keep `plan_source_backed_benchmark_matrix()` report-only and keep measured smoke rows as
+          fixture evidence only: `source_backed_claim_closeout_allowed=false` and
+          `performance_claim_allowed=false`.
+    - [x] Expand the local traditional analytics generator from the prior narrow/skew/high-card
+          set to include wide, very-wide, null-heavy, date-partitioned, poorly clustered, and
+          well-clustered executable local profiles.
+    - [x] Allow the feature-gated ShardLoom traditional analytics CSV reader to accept generated
+          fact CSV profiles with extra trailing columns while still requiring the canonical fact
+          prefix schema.
+    - [x] Update benchmark catalog, README, phase plan, and RFC traceability to separate completed
+          fixture-smoke/source-backed profile work from remaining many-small-files, dirty/schema,
+          nested/CDC, write/incremental, partition-pruning, top-N-per-group, and claim-grade
+          comparative benchmark gaps.
+    - [x] Address still-applicable Codex review findings from PR #534 by deriving Rust typed
+          envelope lifecycle status from the current execution status and reading typed
+          `policy.external_engine_invoked` in the Python execution-result view before legacy field
+          fallback.
+  - Validation:
+    - [x] `python -m compileall -q benchmarks\traditional_analytics\run.py`
+    - [x] `cargo fmt --all -- --check`
+    - [x] `cargo test -p shardloom-vortex source_backed_benchmark_matrix --lib`
+    - [x] `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - [x] `cargo test -p shardloom-vortex fact_csv_reader_accepts_generated_profile_trailing_columns --lib --features vortex-traditional-analytics-benchmark`
+    - [x] `cargo test -p shardloom-exec typed_output_envelope_derives_lifecycle_status_from_current_status --lib`
+    - [x] `$env:PYTHONPATH='C:\Users\djhei\Projects\shardloom-active\python\src'; python -m pytest python\tests\test_cli_client.py -q`
+    - [x] `python -m compileall -q benchmarks\traditional_analytics\run.py python\src python\tests`
+    - [x] `cargo clippy -p shardloom-exec --lib -- -D warnings`
+    - [x] `cargo clippy -p shardloom-vortex --lib -- -D warnings`
+  - Runtime stance: local fixture-smoke benchmark measurement and local dataset generation only.
+    This does not add comparative benchmark publication, source-backed claim-grade promotion,
+    SQL/DataFrame runtime, object-store runtime, write/sink execution, external engine invocation,
+    or fallback execution.
+
 - [x] Session label: P7.4.3 execution artifact richness and provider-evidence preservation bundle
   - Primary files:
     - `shardloom-exec/src/lib.rs`

@@ -38,6 +38,13 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("vortex-traditional-analytics-benchmark"));
     assert!(script.contains("--shardloom-build-profile"));
     assert!(script.contains("failed_result("));
+    assert!(script.contains("\"very_wide_table\""));
+    assert!(script.contains("\"null_heavy\""));
+    assert!(script.contains("\"partitioned_by_date\""));
+    assert!(script.contains("\"poorly_clustered\""));
+    assert!(script.contains("\"well_clustered\""));
+    assert!(script.contains("def generated_fact_extra_columns("));
+    assert!(script.contains("def generated_extra_fact_values("));
 }
 
 #[test]
@@ -132,7 +139,11 @@ fn traditional_benchmark_catalog_declares_taxonomy_and_planned_profiles() {
         "\"narrow_fact_dim\"",
         "\"skewed_keys\"",
         "\"wide_table\"",
+        "\"very_wide_table\"",
         "\"null_heavy\"",
+        "\"partitioned_by_date\"",
+        "\"poorly_clustered\"",
+        "\"well_clustered\"",
         "\"many_small_files\"",
         "\"dirty_csv\"",
         "\"filter + projection + limit\"",

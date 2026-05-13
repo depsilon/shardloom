@@ -98,8 +98,13 @@ Implemented or actively wired surfaces include:
   parse/bind/plan/execute diagnostics, schema/data-quality/quarantine reports, and notebook
   preview/display diagnostics
 - local traditional-analytics benchmark harness support with a machine-readable scenario catalog,
-  taxonomy metadata, benchmark constitution fields, generated dataset profiles, and support/coverage
-  output separate from timing rows
+  taxonomy metadata, benchmark constitution fields, executable generated profiles for wide,
+  very-wide, null-heavy, date-partitioned, clustered, and skewed local data shapes, and
+  support/coverage output separate from timing rows
+- source-backed benchmark matrix smoke measurement for eligible prepared, source-bound, and
+  reader-backed constant/dictionary/run-end encoded filter/projection/filter-project rows, with
+  provider refs, certificate refs, Native I/O refs, representation transitions, reproducibility
+  refs, and no-fallback evidence while still blocking performance claims
 - Vortex-first guardrails and runtime-utilization audit docs covering arrays, layouts, Scan
   Source/Sink/Split concepts, field masks, predicate ordering, I/O evidence, sessions/registries,
   device posture, and extension-type posture
@@ -112,10 +117,10 @@ Still planned or gated:
 - broad SQL, DataFrame, notebook, UDF, adapter, object-store, catalog/table, live/hybrid, REST
   server, generated-client, Foundry, and Marketplace surfaces
 - production package publication and public performance/superiority claims
-- claim-grade compute-engine completion: measured source-backed benchmark rows, sink/write/replay
-  proof, local scheduler and memory/spill maturity, Vortex layout/write advisor feedback, and a
-  workload-certified compute workflow
-- full comparative benchmark reruns and claim-grade source-backed benchmark rows
+- claim-grade compute-engine completion: source-backed measured rows beyond fixture-smoke evidence,
+  sink/write/replay proof, local scheduler and memory/spill maturity, Vortex layout/write advisor
+  feedback, and a workload-certified compute workflow
+- full comparative benchmark reruns and claim-grade source-backed benchmark promotion
 - hard release-readiness gates and public first-10-minutes proof from release artifacts
 - Foundry proof-of-use certification that preserves Foundry as an optional integration boundary
 - any external engine execution as ShardLoom fallback

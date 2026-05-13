@@ -277,6 +277,11 @@ impl ShardLoomExecutionResult {
         self.fallback.attempted
     }
 
+    #[must_use]
+    pub const fn current_lifecycle_status(&self) -> &'static str {
+        self.status.as_str()
+    }
+
     pub fn set_provider_version_if_absent(&mut self, provider_version: Option<&str>) {
         if self.provider_version.is_none()
             && let Some(provider_version) =
@@ -371,7 +376,7 @@ impl ShardLoomExecutionResult {
             ),
             optional_slot(
                 ExecutionEvidenceSlotKind::LifecycleStatus,
-                Some(self.lifecycle_status.as_str()),
+                Some(self.current_lifecycle_status()),
                 true,
                 "execution lifecycle status must be explicit",
             ),
@@ -497,7 +502,7 @@ impl ShardLoomExecutionResult {
                 "external_engine_invoked",
                 bool_str(self.external_engine_invoked),
             )
-            .with_lifecycle_field("lifecycle_status", self.lifecycle_status.clone())
+            .with_lifecycle_field("lifecycle_status", self.current_lifecycle_status())
             .with_lifecycle_field("execution_status", self.status.as_str())
             .with_lifecycle_field(
                 "evidence_completeness_status",
@@ -922,6 +927,21 @@ mod tests {
         assert!(json.contains("\"key\":\"provider_version\",\"value\":\"provider-1\""));
         assert!(json.contains("\"key\":\"fallback_attempted\",\"value\":\"false\""));
         assert_eq!(result.evidence_completeness_status(), "complete");
+    }
+
+    #[test]
+    fn typed_output_envelope_derives_lifecycle_status_from_current_status() {
+        let plan =
+            build_vortex_count_all_plan("plan.count", "file://tmp/data.vortex").expect("plan");
+        let mut result = ShardLoomExecutionResult::executed(&plan);
+        assert_eq!(result.lifecycle_status, "executed");
+
+        result.status = ShardLoomExecutionStatus::BlockedUnsupported;
+        let envelope = result.to_output_envelope("top-level-exec", "blocked");
+        let json = envelope.to_json();
+
+        assert!(json.contains("\"key\":\"lifecycle_status\",\"value\":\"blocked_unsupported\""));
+        assert!(json.contains("\"key\":\"execution_status\",\"value\":\"blocked_unsupported\""));
     }
 
     #[test]
