@@ -23,6 +23,17 @@ from .errors import (
     ShardLoomProtocolError,
 )
 from .models import Diagnostic, FieldEntry, FallbackStatus, OutputEnvelope
+from .query import (
+    LazyFrame,
+    UnsupportedWorkflowReport,
+    WorkflowCertificationReport,
+    WorkflowOperation,
+    WorkflowSource,
+    read_csv,
+    read_json,
+    read_parquet,
+    read_vortex,
+)
 
 __all__ = [
     "__version__",
@@ -38,6 +49,15 @@ __all__ = [
     "ShardLoomClient",
     "ShardLoomContext",
     "context",
+    "LazyFrame",
+    "UnsupportedWorkflowReport",
+    "WorkflowCertificationReport",
+    "WorkflowOperation",
+    "WorkflowSource",
+    "read_vortex",
+    "read_csv",
+    "read_json",
+    "read_parquet",
     "ShardLoomBinaryNotFoundError",
     "ShardLoomCommandError",
     "ShardLoomProtocolError",

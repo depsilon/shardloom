@@ -101,6 +101,41 @@ stores, touch catalogs, execute SQL, or invoke external engines. The explicit
 `smoke_check()` and `capabilities()` methods run only no-dataset CLI JSON
 commands and preserve no-fallback status.
 
+Lazy workflow planning is also available without adding pandas, Polars, Spark,
+DataFusion, or any other execution dependency:
+
+```python
+import shardloom as sl
+
+ctx = sl.context()
+workflow = (
+    ctx.read_vortex("orders.vortex")
+    .filter("gte:value:3")
+    .select("order_id", "amount")
+    .limit(10)
+)
+
+plan = workflow.plan()
+explain = workflow.explain()
+estimate = workflow.estimate()
+certification = workflow.certify()
+unsupported = workflow.unsupported_report()
+
+print(workflow.operation_summary)
+print(plan.field("plan_only"))
+print(explain.status)
+print(estimate.status)
+print(certification.fallback_attempted)
+print(unsupported.fallback_attempted)
+```
+
+The same top-level helpers are exported as `sl.read_vortex`, `sl.read_csv`,
+`sl.read_json`, and `sl.read_parquet`. They only declare sources and
+transformations. `plan()`, `explain()`, `estimate()`, `certify()`, and
+`unsupported_report()` are explicit report calls over CLI JSON surfaces; they do
+not read input files, infer schemas, materialize rows, probe object stores,
+write output, or invoke fallback engines.
+
 ## Package Build Smoke
 
 The current package is pure Python and has no runtime dependencies. Release

@@ -8,6 +8,7 @@ from typing import Mapping, Sequence
 
 from .client import Binary, DEFAULT_PROFILE_ORDER, PythonClientSmokeReport, ShardLoomClient
 from .models import Diagnostic, OutputEnvelope
+from .query import LazyFrame, read_csv, read_json, read_parquet, read_vortex
 
 DEFAULT_CAPABILITY_SCOPES = (
     "python",
@@ -285,6 +286,41 @@ class ShardLoomContext:
         """Return certification capability discovery."""
 
         return self._capability_view("certification", check=check)
+
+    def read_vortex(self, uri: str | os.PathLike[str]) -> LazyFrame:
+        """Declare a lazy native Vortex source using this context's client."""
+
+        return read_vortex(uri, client=self.client)
+
+    def read_csv(
+        self,
+        uri: str | os.PathLike[str],
+        *,
+        schema: Mapping[str, object] | None = None,
+    ) -> LazyFrame:
+        """Declare a lazy CSV compatibility source using this context's client."""
+
+        return read_csv(uri, schema=schema, client=self.client)
+
+    def read_json(
+        self,
+        uri: str | os.PathLike[str],
+        *,
+        schema: Mapping[str, object] | None = None,
+    ) -> LazyFrame:
+        """Declare a lazy JSON/NDJSON compatibility source using this context's client."""
+
+        return read_json(uri, schema=schema, client=self.client)
+
+    def read_parquet(
+        self,
+        uri: str | os.PathLike[str],
+        *,
+        schema: Mapping[str, object] | None = None,
+    ) -> LazyFrame:
+        """Declare a lazy Parquet compatibility source using this context's client."""
+
+        return read_parquet(uri, schema=schema, client=self.client)
 
     def _capability_view(self, scope: str, *, check: bool) -> CapabilityView:
         normalized = _normalize_scope_name(scope)
