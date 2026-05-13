@@ -16,6 +16,54 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: P7.4.4 CDC overlay execution bundle
+  - Primary files:
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `shardloom-cli/src/benchmark_runtime.rs`
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: continue P7.4.4 by promoting the local CDC-overlay `small change over large base`
+    taxonomy row from unsupported ShardLoom coverage into the existing local Vortex
+    import/replay/result-sink path.
+  - Vortex-first provider check:
+    - Subject area: local CDC sidecar ingestion, Vortex persistence, replay, and deterministic
+      small-change overlay computation.
+    - Decision: use the existing feature-gated Vortex write/read provider path and an explicit
+      `--cdc-delta` compatibility sidecar imported into its own Vortex artifact; do not introduce a
+      table-format CDC engine, SQL engine, or external fallback execution.
+    - Evidence added: CDC sidecar source refs, CDC Vortex artifact refs/digests/bytes, runtime
+      task evidence for the extra import, replay/result-sink certificate evidence, and no-fallback
+      benchmark coverage rows.
+    - Gates still blocked: general incremental-state execution, table-format CDC, object-store or
+      catalog change planning, broad CDC claims, and fallback execution.
+  - Checklist:
+    - [x] Add `small change over large base` to ShardLoom's admitted taxonomy-extra scenario list.
+    - [x] Add `--cdc-delta <csv>` to the local `traditional-analytics-run` CLI path and preserve
+          the sidecar through the Python benchmark harness.
+    - [x] Import the CDC sidecar into a separate local Vortex artifact with refs, byte counts, and
+          digest evidence.
+    - [x] Execute deterministic delete/update/insert overlay semantics from Vortex-derived base and
+          CDC arrays without external engine fallback.
+    - [x] Add replay/result-sink tests and deterministic missing-sidecar diagnostics.
+    - [x] Keep README language concise and move detailed status to the benchmark catalog, phase
+          plan, completed ledger, and RFC traceability.
+  - Validation:
+    - [x] `cargo fmt --all -- --check`
+    - [x] `python -m compileall -q benchmarks\traditional_analytics\run.py`
+    - [x] `cargo test -p shardloom-vortex traditional_analytics --lib --features vortex-traditional-analytics-benchmark`
+    - [x] `cargo clippy -p shardloom-vortex --lib --features vortex-traditional-analytics-benchmark -- -D warnings`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `cargo test --workspace --all-targets`
+    - [x] `python benchmarks\traditional_analytics\run.py --engines shardloom,pandas --formats csv,parquet --scenario "small change over large base" --dataset-profile cdc_delta_overlay --rows 96 --iterations 3 --shardloom-build-profile debug --shardloom-result-sink --skip-shardloom-native --no-markdown --output target\codex-p744-cdc-overlay.json --regenerate`
+    - [x] `git diff --check`
+  - Runtime stance: deterministic generated CDC-overlay fixture coverage only. This does not
+    certify arbitrary incremental-state execution, table-format CDC, object-store/catalog change
+    planning, managed baselines, public performance claims, or fallback execution.
+
 - [x] Session label: P7.4.4 dirty/nested execution bundle
   - Primary files:
     - `benchmarks/traditional_analytics/run.py`

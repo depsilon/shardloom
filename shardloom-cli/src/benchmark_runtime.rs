@@ -31,24 +31,25 @@ pub(crate) fn handle_traditional_analytics_run(
 ) -> ExitCode {
     let Some(scenario_text) = args.next() else {
         eprintln!(
-            "usage: shardloom traditional-analytics-run <scenario> <fact_input> <dim_input> [--workspace <dir>] [--input-format auto|csv|jsonl|parquet|arrow-ipc|avro|orc] [--compat-output-format csv|jsonl|parquet|arrow-ipc|avro|orc] [--verify-native-replay] [--write-result-vortex] [--memory-gb <cap>] [--max-parallelism <cap>]"
+            "usage: shardloom traditional-analytics-run <scenario> <fact_input> <dim_input> [--workspace <dir>] [--input-format auto|csv|jsonl|parquet|arrow-ipc|avro|orc] [--cdc-delta <csv>] [--compat-output-format csv|jsonl|parquet|arrow-ipc|avro|orc] [--verify-native-replay] [--write-result-vortex] [--memory-gb <cap>] [--max-parallelism <cap>]"
         );
         return ExitCode::from(2);
     };
     let Some(fact_csv) = args.next() else {
         eprintln!(
-            "usage: shardloom traditional-analytics-run <scenario> <fact_input> <dim_input> [--workspace <dir>] [--input-format auto|csv|jsonl|parquet|arrow-ipc|avro|orc] [--compat-output-format csv|jsonl|parquet|arrow-ipc|avro|orc] [--verify-native-replay] [--write-result-vortex] [--memory-gb <cap>] [--max-parallelism <cap>]"
+            "usage: shardloom traditional-analytics-run <scenario> <fact_input> <dim_input> [--workspace <dir>] [--input-format auto|csv|jsonl|parquet|arrow-ipc|avro|orc] [--cdc-delta <csv>] [--compat-output-format csv|jsonl|parquet|arrow-ipc|avro|orc] [--verify-native-replay] [--write-result-vortex] [--memory-gb <cap>] [--max-parallelism <cap>]"
         );
         return ExitCode::from(2);
     };
     let Some(dim_csv) = args.next() else {
         eprintln!(
-            "usage: shardloom traditional-analytics-run <scenario> <fact_input> <dim_input> [--workspace <dir>] [--input-format auto|csv|jsonl|parquet|arrow-ipc|avro|orc] [--compat-output-format csv|jsonl|parquet|arrow-ipc|avro|orc] [--verify-native-replay] [--write-result-vortex] [--memory-gb <cap>] [--max-parallelism <cap>]"
+            "usage: shardloom traditional-analytics-run <scenario> <fact_input> <dim_input> [--workspace <dir>] [--input-format auto|csv|jsonl|parquet|arrow-ipc|avro|orc] [--cdc-delta <csv>] [--compat-output-format csv|jsonl|parquet|arrow-ipc|avro|orc] [--verify-native-replay] [--write-result-vortex] [--memory-gb <cap>] [--max-parallelism <cap>]"
         );
         return ExitCode::from(2);
     };
     let mut workspace_dir: Option<PathBuf> = None;
     let mut input_format: Option<shardloom_vortex::TraditionalAnalyticsInputFormat> = None;
+    let mut cdc_delta_csv: Option<PathBuf> = None;
     let mut compatibility_output_format: Option<shardloom_vortex::TraditionalAnalyticsInputFormat> =
         None;
     let mut verify_native_vortex_replay = false;
@@ -84,6 +85,13 @@ pub(crate) fn handle_traditional_analytics_run(
                         }
                     }
                 }
+            }
+            "--cdc-delta" => {
+                let Some(value) = args.next() else {
+                    eprintln!("usage: shardloom traditional-analytics-run ... --cdc-delta <csv>");
+                    return ExitCode::from(2);
+                };
+                cdc_delta_csv = Some(PathBuf::from(value));
             }
             "--compat-output-format" => {
                 let Some(value) = args.next() else {
@@ -190,6 +198,7 @@ pub(crate) fn handle_traditional_analytics_run(
         workspace_dir,
     )
     .with_input_format(input_format)
+    .with_cdc_delta_csv(cdc_delta_csv)
     .with_compatibility_output_format(compatibility_output_format)
     .with_native_vortex_replay_verification(verify_native_vortex_replay)
     .with_result_vortex_write(write_result_vortex)

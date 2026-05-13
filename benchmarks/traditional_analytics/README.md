@@ -82,11 +82,12 @@ The `shardloom` lane executes the base-schema taxonomy extras
 `partition pruning`, `many-small-files scan`, `null-heavy aggregate`,
 `high-cardinality string group/distinct`, and `top-N per group`, plus dirty-CSV
 `clean/cast/filter/write`, dirty-CSV `malformed timestamp / dirty CSV`, and `nested JSON field
-scan` through the same local Vortex import/replay/result-sink path as the default scenarios. The
-many-file row uses generated split CSV/JSONL fact parts, the null-heavy row uses generated
-`nullable_metric_00` fixture coverage, and the nested row uses JSONL or Arrow-family fixture inputs.
-Unsupported scenario/profile/engine pairs are reported in the coverage table without invoking a
-fallback engine.
+scan`, plus CDC-overlay `small change over large base`, through the same local Vortex
+import/replay/result-sink path as the default scenarios. The many-file row uses generated split
+CSV/JSONL fact parts, the null-heavy row uses generated `nullable_metric_00` fixture coverage, the
+nested row uses JSONL or Arrow-family fixture inputs, and the CDC row uses an explicit generated
+delta sidecar. Unsupported scenario/profile/engine pairs are reported in the coverage table without
+invoking a fallback engine.
 
 An opt-in stress lane is available with `--include-stress`:
 

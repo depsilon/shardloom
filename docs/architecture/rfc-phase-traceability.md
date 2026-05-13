@@ -86,9 +86,10 @@ execution certificate, materialization/decode-boundary, and `fallback_attempted=
 Dirty CSV `clean/cast/filter/write` now executes through the same local Vortex path with
 dirty-column clean/cast/filter evidence; dirty-CSV `malformed timestamp / dirty CSV` and
 `nested JSON field scan` now execute through the same local Vortex path for generated fixture
-coverage. CDC support remains blocked until the overlay input contract is certified; broader
-table/catalog/object-store partition-pruning, object-store multi-file, and general JSON execution
-claims remain separately blocked.
+coverage. CDC-overlay `small change over large base` now executes through the same local Vortex
+path using an explicit generated delta sidecar imported into a separate Vortex artifact. Broader
+incremental-state execution, table/catalog/object-store partition-pruning, object-store multi-file,
+and general JSON execution claims remain separately blocked.
 
 P7.4.4 closeout sequence: the next benchmark step should run selected local comparative taxonomy
 reruns, preserve coverage rows separately from timing rows, and promote rows only when the artifact

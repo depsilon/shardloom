@@ -102,11 +102,12 @@ coverage, nested JSON payloads, and a deterministic CDC delta overlay. The dirty
 import/replay/result-sink path for ETL/write-path benchmark coverage. The local `partition pruning`
 scenario also executes through ShardLoom's local Vortex path for generated `event_date` fixture
 coverage. The local `many-small-files scan`, `null-heavy aggregate`,
-`malformed timestamp / dirty CSV`, and `nested JSON field scan` scenarios execute through that same
-path for generated split-file, nullable-metric, dirty-column, and nested-payload fixture coverage.
-Remaining advanced rows are still local fixture coverage only. They do not promote
-incremental-state, CDC, general JSON execution, object-store multi-file, object-store/table
-partition pruning, or performance claims without ShardLoom-native evidence and comparative reruns.
+`malformed timestamp / dirty CSV`, `nested JSON field scan`, and `small change over large base`
+scenarios execute through that same path for generated split-file, nullable-metric, dirty-column,
+nested-payload, and explicit CDC-overlay fixture coverage. Remaining advanced rows are still local
+fixture coverage only. They do not promote general incremental-state, general JSON execution,
+object-store multi-file, object-store/table partition pruning, or performance claims without
+ShardLoom-native evidence and comparative reruns.
 
 ## Code Surfaces
 
@@ -329,7 +330,8 @@ ShardLoom traditional analytics lane executes the base-schema expanded taxonomy 
 `partition pruning`, `many-small-files scan`, `null-heavy aggregate`,
 `high-cardinality string group/distinct`, and `top-N per group`, plus dirty-CSV
 `clean/cast/filter/write`, dirty-CSV `malformed timestamp / dirty CSV`, and
-`nested JSON field scan` through the local Vortex import/replay/result-sink evidence path.
+`nested JSON field scan`, plus CDC-overlay `small change over large base`, through the local Vortex
+import/replay/result-sink evidence path.
 Result-sink ShardLoom rows also surface report-only
 Vortex layout/write advisor fields derived from workload, benchmark, runtime, and Native I/O
 evidence. It does not execute comparative benchmarks, apply layout rewrites, or publish performance
