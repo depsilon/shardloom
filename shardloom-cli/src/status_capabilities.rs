@@ -8,9 +8,11 @@ use std::{process::ExitCode, vec::IntoIter};
 
 use shardloom_core::{
     CapabilityCertificationReport, CapabilityCertificationStatus, CommandStatus,
-    EngineCapabilities, OutputFormat, PhysicalOperatorExecutionLevel,
+    EngineCapabilities, EngineCapabilityMatrixReport, OutputFormat, PhysicalOperatorExecutionLevel,
     PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorPlan, ShardLoomError,
-    WorldClassSufficiencyDimensionKind, WorldClassSufficiencyReport, plan_world_class_sufficiency,
+    WorldClassSufficiencyDimensionKind, WorldClassSufficiencyReport, boundedness_vocabulary,
+    engine_mode_vocabulary, output_mode_vocabulary, plan_world_class_sufficiency,
+    update_mode_vocabulary,
 };
 use shardloom_vortex::{
     vortex_encoded_count_local_guard_discovery_report,
@@ -80,6 +82,10 @@ pub(crate) fn handle_capabilities(mut args: IntoIter<String>, format: OutputForm
             &cli_unknown_arg_error("capabilities", &extra),
         );
     }
+    if scope == CapabilityDiscoveryScope::Engines {
+        emit_engine_mode_capabilities(scope, format);
+        return ExitCode::SUCCESS;
+    }
     if scope.world_class_dimension().is_some() {
         let report = plan_world_class_sufficiency();
         emit_world_class_surface_capability(scope, format, &report);
@@ -108,6 +114,82 @@ pub(crate) fn handle_capabilities(mut args: IntoIter<String>, format: OutputForm
         ],
     );
     ExitCode::SUCCESS
+}
+
+fn emit_engine_mode_capabilities(scope: CapabilityDiscoveryScope, format: OutputFormat) {
+    let matrix = EngineCapabilityMatrixReport::cg22_contract();
+    let mut fields =
+        certification_common_fields(&CapabilityCertificationReport::contract_only(), scope);
+    push_field(
+        &mut fields,
+        "engine_capability_schema_version",
+        matrix.schema_version,
+    );
+    push_field(&mut fields, "engine_capability_report_id", matrix.report_id);
+    push_field(
+        &mut fields,
+        "engine_mode_vocabulary",
+        &engine_mode_vocabulary(),
+    );
+    push_field(
+        &mut fields,
+        "boundedness_vocabulary",
+        &boundedness_vocabulary(),
+    );
+    push_field(
+        &mut fields,
+        "update_mode_vocabulary",
+        &update_mode_vocabulary(),
+    );
+    push_field(
+        &mut fields,
+        "output_mode_vocabulary",
+        &output_mode_vocabulary(),
+    );
+    push_count_field(&mut fields, "engine_mode_count", matrix.rows.len());
+    push_count_field(
+        &mut fields,
+        "partially_supported_engine_count",
+        matrix.partially_supported_count(),
+    );
+    push_count_field(&mut fields, "planned_engine_count", matrix.planned_count());
+    push_count_field(
+        &mut fields,
+        "live_hybrid_claim_blocked_count",
+        matrix.live_hybrid_claim_blocked_count(),
+    );
+    for row in &matrix.rows {
+        let prefix = row.engine_mode.as_str();
+        push_field(
+            &mut fields,
+            &format!("{prefix}_support_status"),
+            row.support_status.as_str(),
+        );
+        push_bool_field(
+            &mut fields,
+            &format!("{prefix}_production_claim_allowed"),
+            row.production_claim_allowed,
+        );
+        push_bool_field(
+            &mut fields,
+            &format!("{prefix}_state_required"),
+            row.state_required,
+        );
+        push_bool_field(
+            &mut fields,
+            &format!("{prefix}_checkpoint_required"),
+            row.checkpoint_required,
+        );
+    }
+    emit(
+        "capabilities",
+        format,
+        CommandStatus::Success,
+        "engine mode capabilities".to_string(),
+        matrix.to_human_text(),
+        vec![],
+        fields,
+    );
 }
 
 fn push_field(fields: &mut Vec<(String, String)>, key: &str, value: &str) {
@@ -145,6 +227,7 @@ pub(crate) enum CapabilityDiscoveryScope {
     Deployment,
     Extensions,
     SecurityGovernance,
+    Engines,
 }
 
 impl CapabilityDiscoveryScope {
@@ -171,6 +254,7 @@ impl CapabilityDiscoveryScope {
             Some("deployment") => Ok(Self::Deployment),
             Some("extensions") => Ok(Self::Extensions),
             Some("security-governance") => Ok(Self::SecurityGovernance),
+            Some("engines" | "engine-modes" | "engine_modes") => Ok(Self::Engines),
             Some(value) => Err(cli_unknown_arg_error("capabilities", value)),
         }
     }
@@ -199,6 +283,7 @@ impl CapabilityDiscoveryScope {
             Self::Deployment => "deployment",
             Self::Extensions => "extensions",
             Self::SecurityGovernance => "security_governance",
+            Self::Engines => "engines",
         }
     }
 
@@ -285,7 +370,8 @@ pub(crate) fn certification_fields(
         | CapabilityDiscoveryScope::Observability
         | CapabilityDiscoveryScope::Deployment
         | CapabilityDiscoveryScope::Extensions
-        | CapabilityDiscoveryScope::SecurityGovernance => {}
+        | CapabilityDiscoveryScope::SecurityGovernance
+        | CapabilityDiscoveryScope::Engines => {}
         CapabilityDiscoveryScope::Sql => append_sql_certification_fields(report, &mut fields),
         CapabilityDiscoveryScope::Functions => {
             append_function_certification_fields(report, &mut fields);
@@ -1353,6 +1439,9 @@ fn certification_text(
         | CapabilityDiscoveryScope::Extensions
         | CapabilityDiscoveryScope::SecurityGovernance => {
             unreachable!("world-class user-surface scopes use WorldClassSufficiencyReport")
+        }
+        CapabilityDiscoveryScope::Engines => {
+            unreachable!("engine-mode scope uses EngineCapabilityMatrixReport")
         }
     }
 }

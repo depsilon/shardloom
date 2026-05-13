@@ -208,12 +208,14 @@ intelligence, CG-9 catalog metadata, CDC incremental planning, and stateful reus
 preserves stable JSON/text output and does not add catalog IO, dataset reads, plan execution,
 materialization, writes, or fallback execution.
 
-The engine/runtime planning family now contains `streaming-plan`, `streaming-batch-plan`,
-`backpressure-plan`, `runtime-plan`, `task-plan`, `sizing-plan`, `sizing-feedback-plan`,
-`dynamic-work-shaping-plan`, and `cg8-runtime-promotion-gate`, and lives in
+The engine/runtime planning family now contains `engine-selection-plan`,
+`engine-capability-matrix`, `streaming-plan`, `streaming-batch-plan`, `backpressure-plan`,
+`runtime-plan`, `task-plan`, `sizing-plan`, `sizing-feedback-plan`, `dynamic-work-shaping-plan`,
+and `cg8-runtime-promotion-gate`, and lives in `shardloom-cli/src/engine_fabric_planning.rs` and
 `shardloom-cli/src/engine_runtime_planning.rs`. These handlers remain report-only and do not read
 datasets, execute tasks, collect profiles, write data, materialize outputs, invoke external engines,
-or weaken no-fallback behavior.
+or weaken no-fallback behavior. The CG-22 engine-fabric commands expose internal batch/live/hybrid
+selection and capability posture; they do not authorize live/hybrid runtime execution.
 
 The object-store planning family now contains `object-store-request-plan`,
 `cg10-object-store-runtime-gate`, `object-store-range-plan`, `object-store-coalesce-plan`,

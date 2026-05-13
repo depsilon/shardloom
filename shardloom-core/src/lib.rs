@@ -24,6 +24,7 @@ pub mod dataset;
 pub mod diagnostics;
 pub mod effect_budget;
 pub mod encoded;
+pub mod engine_modes;
 pub mod execution_certificate;
 pub mod expression;
 pub mod extension;
@@ -121,6 +122,12 @@ pub use encoded::{
     SelectionVector, SortOrder, StatValue, StatisticsExactness,
     evaluate_predicate_on_encoded_segment, evaluate_predicate_on_encoded_values,
     prove_predicate_from_stats,
+};
+pub use engine_modes::{
+    Boundedness, EngineCapabilityMatrixReport, EngineCapabilityRow, EngineMode,
+    EngineSelectionReport, EngineSelectionRequest, EngineSelectionStatus, EngineSupportStatus,
+    OutputMode, UpdateMode, boundedness_vocabulary, engine_mode_vocabulary, output_mode_vocabulary,
+    update_mode_vocabulary,
 };
 pub use execution_certificate::{
     ExecutionCertificate, ExecutionCertificateEvidenceSurfaceReport,

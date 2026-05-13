@@ -311,7 +311,9 @@ fn is_workflow_planning_command(command: &str) -> bool {
 fn is_engine_runtime_planning_command(command: &str) -> bool {
     matches!(
         command,
-        "streaming-plan"
+        "engine-selection-plan"
+            | "engine-capability-matrix"
+            | "streaming-plan"
             | "streaming-batch-plan"
             | "backpressure-plan"
             | "runtime-plan"
@@ -409,6 +411,14 @@ mod tests {
         assert_eq!(
             classify_command("input-adapters"),
             CommandFamily::InputPlanning
+        );
+        assert_eq!(
+            classify_command("engine-selection-plan"),
+            CommandFamily::EngineRuntimePlanning
+        );
+        assert_eq!(
+            classify_command("engine-capability-matrix"),
+            CommandFamily::EngineRuntimePlanning
         );
         assert_eq!(
             classify_command("kernel-registry"),

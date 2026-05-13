@@ -45,6 +45,42 @@ const FUNCTION_FIELD_KEYS: [&str; 13] = [
     "planned_count",
 ];
 
+const ENGINE_FIELD_KEYS: [&str; 33] = [
+    "scope",
+    "schema_version",
+    "fallback_execution_allowed",
+    "fallback_attempted",
+    "side_effect_free",
+    "filesystem_probe",
+    "network_probe",
+    "catalog_probe",
+    "adapter_probe",
+    "parser_executed",
+    "runtime_execution",
+    "engine_capability_schema_version",
+    "engine_capability_report_id",
+    "engine_mode_vocabulary",
+    "boundedness_vocabulary",
+    "update_mode_vocabulary",
+    "output_mode_vocabulary",
+    "engine_mode_count",
+    "partially_supported_engine_count",
+    "planned_engine_count",
+    "live_hybrid_claim_blocked_count",
+    "batch_support_status",
+    "batch_production_claim_allowed",
+    "batch_state_required",
+    "batch_checkpoint_required",
+    "live_support_status",
+    "live_production_claim_allowed",
+    "live_state_required",
+    "live_checkpoint_required",
+    "hybrid_support_status",
+    "hybrid_production_claim_allowed",
+    "hybrid_state_required",
+    "hybrid_checkpoint_required",
+];
+
 const OPERATOR_FIELD_KEYS: [&str; 180] = [
     "scope",
     "schema_version",
@@ -348,6 +384,7 @@ fn capability_discovery_json_field_keys_are_stable() {
         ("semantic-profiles", SEMANTIC_PROFILE_FIELD_KEYS.as_slice()),
         ("migration", MIGRATION_FIELD_KEYS.as_slice()),
         ("certification", CERTIFICATION_FIELD_KEYS.as_slice()),
+        ("engines", ENGINE_FIELD_KEYS.as_slice()),
     ] {
         let output = run_capabilities_scope(scope);
         let keys = field_keys(&output);
@@ -387,6 +424,7 @@ fn capability_discovery_json_fields_remain_report_only() {
         "deployment",
         "extensions",
         "security-governance",
+        "engines",
     ] {
         let output = run_capabilities_scope(scope);
         for key in REPORT_ONLY_BOOL_FIELD_KEYS {
@@ -426,6 +464,7 @@ fn capability_discovery_scope_values_are_stable() {
         ("deployment", "deployment"),
         ("extensions", "extensions"),
         ("security-governance", "security_governance"),
+        ("engines", "engines"),
     ] {
         let output = run_capabilities_scope(scope);
         assert!(
@@ -504,6 +543,35 @@ fn operator_capability_discovery_includes_physical_plan_blockers() {
     assert_operator_discovery_selection_vector_filter_kernel(&output);
     assert_operator_discovery_encoded_count_guard(&output);
     assert_operator_discovery_local_vortex_primitive_execution(&output);
+}
+
+#[test]
+fn engine_capability_discovery_exposes_cg22_contract_without_runtime_claims() {
+    let output = run_capabilities_scope("engines");
+
+    assert!(output.contains(&string_field_pair(
+        "engine_capability_schema_version",
+        "shardloom.engine_capability_matrix.v1"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "engine_mode_vocabulary",
+        "batch,live,hybrid,auto"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "boundedness_vocabulary",
+        "bounded,unbounded,snapshot,unknown"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "batch_support_status",
+        "partially_supported"
+    )));
+    assert!(output.contains(&string_field_pair("live_support_status", "planned")));
+    assert!(output.contains(&string_field_pair("hybrid_support_status", "planned")));
+    assert!(output.contains(&field_pair("batch_production_claim_allowed", false)));
+    assert!(output.contains(&field_pair("live_production_claim_allowed", false)));
+    assert!(output.contains(&field_pair("hybrid_production_claim_allowed", false)));
+    assert!(output.contains(&field_pair("live_state_required", true)));
+    assert!(output.contains(&field_pair("hybrid_checkpoint_required", true)));
 }
 
 fn assert_operator_discovery_physical_plan(output: &str) {
