@@ -1528,8 +1528,6 @@ components:
         - type: object
           required:
             - data_plane_status
-            - transfer_contracts
-            - standards
             - fallback
           properties:
             data_plane_status:

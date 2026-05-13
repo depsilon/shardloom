@@ -49,6 +49,23 @@ fn field(key: &str, value: &str) -> String {
     format!("{{\"key\":\"{key}\",\"value\":\"{value}\"}}")
 }
 
+fn openapi_component_block<'a>(openapi: &'a str, component: &str, next_component: &str) -> &'a str {
+    let marker = format!("    {component}:");
+    let next_marker = format!("    {next_component}:");
+    let start = openapi.find(&marker).expect("component starts");
+    let rest = &openapi[start..];
+    let end = rest.find(&next_marker).expect("next component starts");
+    &rest[..end]
+}
+
+fn required_clause(block: &str) -> &str {
+    let start = block.find("          required:").expect("required starts");
+    let end = block
+        .find("          properties:")
+        .expect("properties starts");
+    &block[start..end]
+}
+
 #[test]
 fn rest_api_contract_plan_json_exposes_openapi_discovery_contract() {
     let output = run_cli_json(&["rest-api-contract-plan", "--format", "json"]);
@@ -99,6 +116,21 @@ fn rest_api_contract_plan_json_preserves_no_server_no_probe_policy() {
     assert!(output.contains(&field("external_engine_invoked", "false")));
     assert!(output.contains(&field("fallback_execution_allowed", "false")));
     assert!(output.contains(&field("fallback_attempted", "false")));
+}
+
+#[test]
+fn openapi_data_plane_response_required_fields_match_output_envelope() {
+    let openapi = include_str!("../../docs/api/shardloom-openapi-v1.yaml");
+    let data_plane =
+        openapi_component_block(openapi, "DataPlaneResponse", "EvidenceArtifactEnvelope");
+    let required = required_clause(data_plane);
+
+    assert!(required.contains("- data_plane_status"));
+    assert!(required.contains("- fallback"));
+    assert!(!required.contains("- transfer_contracts"));
+    assert!(!required.contains("- standards"));
+    assert!(!data_plane.contains("          status:"));
+    assert!(data_plane.contains("            data_plane_status:"));
 }
 
 #[test]

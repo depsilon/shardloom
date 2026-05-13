@@ -318,6 +318,14 @@ from the merged code and tests.
     and #396 were verified stale against current tests/implementation.
     Leave Audit-F3 open for the final PR #360+ review-thread state audit and any newly surfaced
     review comments before release readiness.
+  - Progress: Final live GitHub review-thread audit on May 13, 2026 found 67 unresolved PR #360+
+    threads. Current `main` already makes the earlier F1/F2 and Batch A/B concerns stale or fixed,
+    but two live implementation gaps remained: PR #522 still required data-plane fields that the
+    `shardloom.output.v2` envelope does not emit as top-level properties, and PR #523 still accepted
+    unknown reader-backed provider API surface strings by leaking them into static storage. The
+    current closeout batch removes the invalid OpenAPI required fields, adds a contract test for the
+    data-plane schema shape, rejects unknown reader-backed provider API surfaces with a deterministic
+    no-fallback diagnostic, and adds a regression test for the rejection path.
   - Verification: each batch needs targeted regression tests for the reviewed behavior, focused CLI
     and Python protocol tests where contracts change, broad fmt/clippy/workspace validation for
     shared surfaces, and a final PR #360+ review-thread state audit before release readiness.
