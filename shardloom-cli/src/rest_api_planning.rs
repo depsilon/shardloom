@@ -5,9 +5,12 @@
 
 use std::process::ExitCode;
 
-use shardloom_core::{CliApiJsonProtocolReport, OutputFormat, ReleasePlan};
+use shardloom_core::{
+    CliApiJsonProtocolReport, OutputFormat, ReleasePlan, RestApiContractReport,
+    RestApiDiscoveryModeReport, ShardLoomError,
+};
 
-use crate::cli_output::emit;
+use crate::cli_output::{emit, emit_error};
 
 pub(crate) fn handle_api_compat_plan(format: OutputFormat) -> ExitCode {
     let plan = ReleasePlan::default_foundation_plan();
@@ -24,6 +27,102 @@ pub(crate) fn handle_api_compat_plan(format: OutputFormat) -> ExitCode {
         api_protocol_fields(&protocol),
     );
     ExitCode::SUCCESS
+}
+
+pub(crate) fn handle_rest_api_contract_plan(format: OutputFormat) -> ExitCode {
+    let report = RestApiContractReport::contract_only();
+    emit(
+        "rest-api-contract-plan",
+        format,
+        report.status(),
+        "rest api contract and discovery surface".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        rest_api_contract_fields(&report, "rest_api_contract_plan"),
+    );
+    ExitCode::SUCCESS
+}
+
+pub(crate) fn handle_serve_command(
+    mut args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let mut mode: Option<String> = None;
+    let mut bind = "127.0.0.1:8787".to_string();
+
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--mode" => {
+                let Some(value) = args.next() else {
+                    return emit_error(
+                        "serve",
+                        format,
+                        "serve argument parsing failed",
+                        &ShardLoomError::InvalidOperation(
+                            "missing value for --mode; expected discovery".to_string(),
+                        ),
+                    );
+                };
+                mode = Some(value);
+            }
+            "--bind" => {
+                let Some(value) = args.next() else {
+                    return emit_error(
+                        "serve",
+                        format,
+                        "serve argument parsing failed",
+                        &ShardLoomError::InvalidOperation(
+                            "missing value for --bind; expected host:port".to_string(),
+                        ),
+                    );
+                };
+                bind = value;
+            }
+            _ => {
+                return emit_error(
+                    "serve",
+                    format,
+                    "serve argument parsing failed",
+                    &ShardLoomError::InvalidOperation(format!(
+                        "unknown serve argument: {arg}; only --mode discovery and optional --bind are supported"
+                    )),
+                );
+            }
+        }
+    }
+
+    match mode.as_deref() {
+        Some("discovery") => {
+            let report = RestApiDiscoveryModeReport::contract_only(bind);
+            emit(
+                "serve",
+                format,
+                report.status(),
+                "rest discovery mode contract".to_string(),
+                report.to_human_text(),
+                report.diagnostics.clone(),
+                rest_api_discovery_fields(&report),
+            );
+            ExitCode::SUCCESS
+        }
+        Some(other) => emit_error(
+            "serve",
+            format,
+            "serve mode is not available",
+            &ShardLoomError::InvalidOperation(format!(
+                "unsupported serve mode: {other}; only discovery contract mode is available"
+            )),
+        ),
+        None => emit_error(
+            "serve",
+            format,
+            "serve mode is required",
+            &ShardLoomError::InvalidOperation(
+                "serve requires --mode discovery; no server is started by this contract surface"
+                    .to_string(),
+            ),
+        ),
+    }
 }
 
 pub(crate) fn api_protocol_fields(report: &CliApiJsonProtocolReport) -> Vec<(String, String)> {
@@ -124,6 +223,130 @@ pub(crate) fn api_protocol_fields(report: &CliApiJsonProtocolReport) -> Vec<(Str
     );
     push_bool_field(&mut fields, "fallback_attempted", report.fallback_attempted);
     push_count_field(&mut fields, "diagnostic_count", report.diagnostics.len());
+    fields
+}
+
+fn rest_api_contract_fields(
+    report: &RestApiContractReport,
+    mode: &'static str,
+) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    push_field(&mut fields, "mode", mode);
+    push_field(&mut fields, "schema_version", report.schema_version);
+    push_field(&mut fields, "report_id", report.report_id);
+    push_field(&mut fields, "api_version", report.api_version);
+    push_field(&mut fields, "openapi_version", report.openapi_version);
+    push_field(
+        &mut fields,
+        "openapi_contract_path",
+        report.openapi_contract_path,
+    );
+    push_bool_field(
+        &mut fields,
+        "openapi_contract_artifact_checked_in",
+        report.contract_artifact_checked_in,
+    );
+    push_field(
+        &mut fields,
+        "problem_details_media_type",
+        report.problem_details_media_type,
+    );
+    push_field(
+        &mut fields,
+        "represented_resources",
+        &report.represented_resources.join(","),
+    );
+    push_count_field(
+        &mut fields,
+        "represented_resource_count",
+        report.represented_resources.len(),
+    );
+    push_field(
+        &mut fields,
+        "execution_policy_fields",
+        &report.execution_policy_fields.join(","),
+    );
+    push_field(
+        &mut fields,
+        "result_policy_modes",
+        &report.result_policy_modes.join(","),
+    );
+    push_field(
+        &mut fields,
+        "api_maturity_stage_statuses",
+        &report.maturity_stage_summary(),
+    );
+    push_field(
+        &mut fields,
+        "discovery_endpoint_paths",
+        &report.endpoint_paths().join(","),
+    );
+    push_count_field(
+        &mut fields,
+        "discovery_endpoint_count",
+        report.discovery_endpoints.len(),
+    );
+    push_bool_field(
+        &mut fields,
+        "discovery_endpoints_side_effect_free",
+        report.discovery_endpoints_side_effect_free(),
+    );
+    push_bool_field(&mut fields, "server_started", report.server_started);
+    push_bool_field(
+        &mut fields,
+        "network_listener_opened",
+        report.network_listener_opened,
+    );
+    push_bool_field(&mut fields, "network_probe", report.network_listener_opened);
+    push_bool_field(&mut fields, "dataset_probe", report.dataset_probe);
+    push_bool_field(&mut fields, "object_store_io", report.object_store_io);
+    push_bool_field(&mut fields, "catalog_probe", report.catalog_probe);
+    push_bool_field(
+        &mut fields,
+        "credential_resolution",
+        report.credential_resolution,
+    );
+    push_bool_field(&mut fields, "query_execution", report.query_execution);
+    push_bool_field(&mut fields, "runtime_execution", report.runtime_execution);
+    push_bool_field(&mut fields, "write_io", report.write_io);
+    push_bool_field(
+        &mut fields,
+        "external_engine_invoked",
+        report.external_engine_invoked,
+    );
+    push_bool_field(
+        &mut fields,
+        "fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(&mut fields, "fallback_attempted", report.fallback_attempted);
+    push_count_field(&mut fields, "diagnostic_count", report.diagnostics.len());
+    fields
+}
+
+fn rest_api_discovery_fields(report: &RestApiDiscoveryModeReport) -> Vec<(String, String)> {
+    let mut fields = rest_api_contract_fields(&report.contract_report, "rest_api_discovery_mode");
+    push_field(
+        &mut fields,
+        "discovery_schema_version",
+        report.schema_version,
+    );
+    push_field(&mut fields, "discovery_report_id", report.report_id);
+    push_field(&mut fields, "server_mode", report.mode);
+    push_field(&mut fields, "bind", &report.bind);
+    push_field(&mut fields, "health_endpoint", report.health_endpoint);
+    push_field(&mut fields, "version_endpoint", report.version_endpoint);
+    push_field(
+        &mut fields,
+        "capabilities_endpoint",
+        report.capabilities_endpoint,
+    );
+    push_field(&mut fields, "adapters_endpoint", report.adapters_endpoint);
+    push_bool_field(
+        &mut fields,
+        "serve_command_contract_only",
+        !report.server_started,
+    );
     fields
 }
 

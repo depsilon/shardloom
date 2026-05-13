@@ -203,6 +203,72 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(matrix.fallback_attempted)
         self.assertFalse(matrix.external_engine_invoked)
 
+    def test_context_exposes_rest_api_contract_views(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                args = sys.argv[1:]
+                command = args[0]
+                if args == ["rest-api-contract-plan", "--format", "json"]:
+                    fields = [
+                        {"key": "api_version", "value": "v1"},
+                        {"key": "openapi_version", "value": "3.2.0"},
+                        {"key": "openapi_contract_path", "value": "docs/api/shardloom-openapi-v1.yaml"},
+                        {"key": "represented_resources", "value": "health,version,capabilities,governance"},
+                        {"key": "discovery_endpoint_paths", "value": "/v1/health,/v1/capabilities"},
+                        {"key": "openapi_contract_artifact_checked_in", "value": "true"},
+                        {"key": "server_started", "value": "false"},
+                        {"key": "network_listener_opened", "value": "false"},
+                        {"key": "fallback_attempted", "value": "false"},
+                    ]
+                elif args == ["serve", "--mode", "discovery", "--bind", "127.0.0.1:8787", "--format", "json"]:
+                    fields = [
+                        {"key": "api_version", "value": "v1"},
+                        {"key": "openapi_version", "value": "3.2.0"},
+                        {"key": "openapi_contract_path", "value": "docs/api/shardloom-openapi-v1.yaml"},
+                        {"key": "represented_resources", "value": "health,version,capabilities"},
+                        {"key": "discovery_endpoint_paths", "value": "/v1/health,/v1/capabilities"},
+                        {"key": "server_mode", "value": "discovery"},
+                        {"key": "bind", "value": "127.0.0.1:8787"},
+                        {"key": "serve_command_contract_only", "value": "true"},
+                        {"key": "server_started", "value": "false"},
+                        {"key": "network_listener_opened", "value": "false"},
+                        {"key": "fallback_attempted", "value": "false"},
+                    ]
+                else:
+                    raise AssertionError(args)
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": command,
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": fields,
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        contract = ctx.rest_api_contract_plan()
+        discovery = ctx.serve_discovery_contract()
+
+        self.assertEqual(contract.api_version, "v1")
+        self.assertEqual(contract.openapi_version, "3.2.0")
+        self.assertIn("governance", contract.represented_resources)
+        self.assertTrue(contract.contract_artifact_checked_in)
+        self.assertFalse(contract.server_started)
+        self.assertFalse(contract.network_listener_opened)
+        self.assertFalse(contract.fallback_attempted)
+        self.assertEqual(discovery.server_mode, "discovery")
+        self.assertEqual(discovery.bind, "127.0.0.1:8787")
+        self.assertTrue(discovery.contract_only)
+        self.assertFalse(discovery.server_started)
+        self.assertFalse(discovery.network_listener_opened)
+
     def test_live_and_hybrid_fixture_reports_are_explicit(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(

@@ -21,6 +21,8 @@ from shardloom import (
     ShardLoomContext,
     ShardLoomProtocolError,
     OutputEnvelope,
+    RestApiContractPlan,
+    RestApiDiscoveryContract,
     WorkflowReadinessSmokeReport,
 )
 
@@ -814,6 +816,93 @@ class ShardLoomClientTests(unittest.TestCase):
                 os.environ["SHARDLOOM_BIN"] = old
 
         self.assertEqual(result.command, "api-compat-plan")
+
+    def test_rest_api_contract_plan_view(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == ["rest-api-contract-plan", "--format", "json"], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "rest-api-contract-plan",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "api_version", "value": "v1"},
+                        {"key": "openapi_version", "value": "3.2.0"},
+                        {"key": "openapi_contract_path", "value": "docs/api/shardloom-openapi-v1.yaml"},
+                        {"key": "represented_resources", "value": "health,version,capabilities,governance"},
+                        {"key": "discovery_endpoint_paths", "value": "/v1/health,/v1/capabilities"},
+                        {"key": "openapi_contract_artifact_checked_in", "value": "true"},
+                        {"key": "server_started", "value": "false"},
+                        {"key": "network_listener_opened", "value": "false"},
+                        {"key": "fallback_attempted", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+
+        result = ShardLoomClient(binary=binary).rest_api_contract_plan()
+
+        self.assertIsInstance(result, RestApiContractPlan)
+        self.assertEqual(result.api_version, "v1")
+        self.assertEqual(result.openapi_version, "3.2.0")
+        self.assertEqual(result.openapi_contract_path, "docs/api/shardloom-openapi-v1.yaml")
+        self.assertEqual(result.represented_resources[-1], "governance")
+        self.assertEqual(result.discovery_endpoint_paths, ("/v1/health", "/v1/capabilities"))
+        self.assertTrue(result.contract_artifact_checked_in)
+        self.assertFalse(result.server_started)
+        self.assertFalse(result.network_listener_opened)
+        self.assertFalse(result.fallback_attempted)
+
+    def test_serve_discovery_contract_view(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == [
+                    "serve", "--mode", "discovery", "--bind", "127.0.0.1:8787", "--format", "json"
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "serve",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "api_version", "value": "v1"},
+                        {"key": "openapi_version", "value": "3.2.0"},
+                        {"key": "openapi_contract_path", "value": "docs/api/shardloom-openapi-v1.yaml"},
+                        {"key": "represented_resources", "value": "health,version,capabilities"},
+                        {"key": "discovery_endpoint_paths", "value": "/v1/health,/v1/capabilities"},
+                        {"key": "server_mode", "value": "discovery"},
+                        {"key": "bind", "value": "127.0.0.1:8787"},
+                        {"key": "serve_command_contract_only", "value": "true"},
+                        {"key": "server_started", "value": "false"},
+                        {"key": "network_listener_opened", "value": "false"},
+                        {"key": "fallback_attempted", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+
+        result = ShardLoomClient(binary=binary).serve_discovery_contract()
+
+        self.assertIsInstance(result, RestApiDiscoveryContract)
+        self.assertEqual(result.server_mode, "discovery")
+        self.assertEqual(result.bind, "127.0.0.1:8787")
+        self.assertTrue(result.contract_only)
+        self.assertFalse(result.server_started)
+        self.assertFalse(result.network_listener_opened)
+        self.assertFalse(result.fallback_attempted)
 
     def test_env_binary_is_resolved_from_client_environment(self) -> None:
         client = ShardLoomClient(env={"SHARDLOOM_BIN": sys.executable, "PATH": ""})

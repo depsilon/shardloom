@@ -16,6 +16,60 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: P6.1 REST contract, discovery mode, and API maturity bundle
+  - Primary files:
+    - `docs/api/shardloom-openapi-v1.yaml`
+    - `shardloom-core/src/remote_api.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/rest_api_planning.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/src/command_family.rs`
+    - `shardloom-cli/tests/api_protocol_snapshots.rs`
+    - `shardloom-cli/tests/typed_envelope_compatibility_lock.rs`
+    - `python/src/shardloom/client.py`
+    - `python/src/shardloom/context.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/tests/test_cli_client.py`
+    - `python/tests/test_query_builder.py`
+    - `python/README.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+  - Scope: add the first CG-23 contract-first REST/API lane: a checked-in OpenAPI 3.2 `/v1`
+    contract, core REST contract/discovery reports, `rest-api-contract-plan`, contract-only
+    `serve --mode discovery`, Python typed views, and protocol compatibility tests.
+  - Checklist:
+    - [x] Add `docs/api/shardloom-openapi-v1.yaml` with health, version, capabilities, adapters,
+          sources, sinks, plans, queries, results, certificates, profiles, benchmarks, migration,
+          lineage, governance, problem-details errors, output envelopes, and execution request
+          policy schemas.
+    - [x] Add `RestApiContractReport` and `RestApiDiscoveryModeReport` so API maturity stages,
+          represented resources, result policy modes, discovery endpoints, and no-effect policy are
+          testable in core.
+    - [x] Add `rest-api-contract-plan` and contract-only `serve --mode discovery` CLI surfaces with
+          typed-envelope routing through the `rest_api_planning` family.
+    - [x] Expose `ShardLoomClient.rest_api_contract_plan()`,
+          `ShardLoomClient.serve_discovery_contract()`, and matching context helpers.
+    - [x] Mark P6.1 complete while keeping later plan/explain, async lifecycle, event API,
+          security/governance, and columnar data-plane work as separate meaty P6 slices.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-core remote_api --lib`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test api_protocol_snapshots --test typed_envelope_compatibility_lock`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --bin shardloom rest_api -- --nocapture`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo run -q -p shardloom-cli -- rest-api-contract-plan --format json`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo run -q -p shardloom-cli -- serve --mode discovery --format json`
+    - [x] `$env:PYTHONPATH='python/src'; python -m unittest python.tests.test_cli_client python.tests.test_query_builder`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `git diff --check`
+    - [x] `$env:PYTHONPATH='python/src'; python -m compileall -q python\src\shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; $env:CARGO_TARGET_DIR='target-codex-rest-clippy'; cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; $env:CARGO_TARGET_DIR='target-codex-rest-test'; cargo test --workspace --all-targets`
+    - [x] `$env:PYTHONPATH='python/src'; python -m unittest discover python\tests`
+    - [x] `$env:CARGO_INCREMENTAL='0'; $env:CARGO_TARGET_DIR='target-codex-rest-stable-clippy'; cargo +stable clippy --workspace --all-targets -- -D warnings`
+  - Runtime stance: contract/report-only. It does not start a server, open a network listener, probe
+    datasets, contact object stores or catalogs, resolve credentials, execute queries, write data,
+    invoke external engines, or attempt fallback execution.
+
 - [x] Session label: CG-22E/F/G hybrid overlay, Vortex micro-segment flush, and layout-health
       bundle
   - Primary files:
