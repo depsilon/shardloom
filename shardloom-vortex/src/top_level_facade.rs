@@ -200,7 +200,15 @@ impl VortexTopLevelExecutionProvider {
         plan: &Plan,
         reader_backed: &ReaderBackedEncodedPlan,
     ) -> Result<ShardLoomExecutionResult> {
-        let reader_splits = reader_backed_splits(reader_backed)?;
+        let reader_splits = match reader_backed_splits(reader_backed) {
+            Ok(reader_splits) => reader_splits,
+            Err(diagnostic) => {
+                return Ok(ShardLoomExecutionResult::blocked_unsupported(
+                    plan,
+                    *diagnostic,
+                ));
+            }
+        };
         match reader_backed.operation {
             EncodedExecutionOperation::Filter => {
                 let Some(predicate) = reader_backed.predicate.as_ref() else {
@@ -434,10 +442,20 @@ fn source_backed_projection_batches(
 
 fn reader_backed_splits(
     plan: &ReaderBackedEncodedPlan,
-) -> Result<Vec<VortexReaderBackedSplitEvidence>> {
+) -> std::result::Result<Vec<VortexReaderBackedSplitEvidence>, Box<Diagnostic>> {
     plan.reader_splits
         .iter()
         .map(|split| {
+            let provider_api_surface =
+                static_provider_api_surface(&split.provider_api_surface).ok_or_else(|| {
+                    unsupported_bridge_diagnostic(
+                        "reader_backed_provider_api_surface",
+                        &format!(
+                            "reader-backed split `{}` declared unsupported provider API surface `{}`",
+                            split.split_ref, split.provider_api_surface
+                        ),
+                    )
+                })?;
             let mut evidence = VortexReaderBackedSplitEvidence::new(
                 split.source_uri.clone(),
                 split.split_ref.clone(),
@@ -446,12 +464,20 @@ fn reader_backed_splits(
                 split.encoding_id.clone(),
                 split.child_count,
                 split.buffer_count,
-            )?;
+            )
+            .map_err(|error| {
+                unsupported_bridge_diagnostic(
+                    "reader_backed_split_ref",
+                    &format!(
+                        "reader-backed split `{}` could not be converted to Vortex evidence: {error}",
+                        split.split_ref
+                    ),
+                )
+            })?;
             evidence.provider_kind = split.provider_kind.as_str();
-            evidence.provider_api_surface =
-                static_provider_api_surface(&split.provider_api_surface);
+            evidence.provider_api_surface = provider_api_surface;
             evidence.provider_boundary =
-                reader_provider_boundary(split.provider_kind, evidence.provider_api_surface);
+                reader_provider_boundary(split.provider_kind, provider_api_surface);
             Ok(evidence)
         })
         .collect()
@@ -467,23 +493,27 @@ fn reader_provider_boundary(
     boundary
 }
 
-fn static_provider_api_surface(value: &str) -> &'static str {
+fn static_provider_api_surface(value: &str) -> Option<&'static str> {
     match value {
-        "vortex_reader_backed_encoded_filter" => "vortex_reader_backed_encoded_filter",
-        "vortex_reader_backed_encoded_projection" => "vortex_reader_backed_encoded_projection",
+        "vortex_reader_backed_encoded_filter" => Some("vortex_reader_backed_encoded_filter"),
+        "vortex_reader_backed_encoded_projection" => {
+            Some("vortex_reader_backed_encoded_projection")
+        }
         "vortex_reader_backed_encoded_filter_project" => {
-            "vortex_reader_backed_encoded_filter_project"
+            Some("vortex_reader_backed_encoded_filter_project")
         }
-        "vortex_local_primitive" => "vortex_local_primitive",
-        "vortex_prepared_encoded_filter" => "vortex_prepared_encoded_filter",
-        "vortex_prepared_encoded_projection" => "vortex_prepared_encoded_projection",
-        "vortex_prepared_encoded_filter_project" => "vortex_prepared_encoded_filter_project",
-        "vortex_source_backed_encoded_filter" => "vortex_source_backed_encoded_filter",
-        "vortex_source_backed_encoded_projection" => "vortex_source_backed_encoded_projection",
+        "vortex_local_primitive" => Some("vortex_local_primitive"),
+        "vortex_prepared_encoded_filter" => Some("vortex_prepared_encoded_filter"),
+        "vortex_prepared_encoded_projection" => Some("vortex_prepared_encoded_projection"),
+        "vortex_prepared_encoded_filter_project" => Some("vortex_prepared_encoded_filter_project"),
+        "vortex_source_backed_encoded_filter" => Some("vortex_source_backed_encoded_filter"),
+        "vortex_source_backed_encoded_projection" => {
+            Some("vortex_source_backed_encoded_projection")
+        }
         "vortex_source_backed_encoded_filter_project" => {
-            "vortex_source_backed_encoded_filter_project"
+            Some("vortex_source_backed_encoded_filter_project")
         }
-        other => Box::leak(other.to_string().into_boxed_str()),
+        _ => None,
     }
 }
 
@@ -934,6 +964,44 @@ mod tests {
         assert_eq!(
             converted[0].provider_boundary.provider_api_surface,
             "vortex_reader_backed_encoded_projection"
+        );
+    }
+
+    #[test]
+    fn reader_backed_split_conversion_rejects_unknown_provider_surface_without_leak() {
+        let source_uri = DatasetUri::new("file:///tmp/orders.vortex").expect("uri");
+        let split = ReaderBackedSplitRef::new(
+            source_uri.clone(),
+            "reader-split-1",
+            "upstream-reader-boundary-1",
+            ExecutionProviderKind::VortexSource,
+            "attacker-controlled-provider-surface",
+            3,
+            "struct(metric=int64)",
+            "vortex.dictionary",
+            1,
+            2,
+        )
+        .expect("split");
+        let source = UniversalInputSource::from_dataset_uri(source_uri).expect("source");
+        let plan = ReaderBackedEncodedPlan::projection(
+            source,
+            vec![split],
+            vec![column_ref("metric")],
+            vec![],
+        );
+
+        let error = reader_backed_splits(&plan).expect_err("unknown provider surface rejects");
+
+        assert_eq!(
+            error.feature.as_deref(),
+            Some("reader_backed_provider_api_surface")
+        );
+        assert!(
+            error
+                .suggested_next_step
+                .as_deref()
+                .is_some_and(|detail| detail.contains("attacker-controlled-provider-surface"))
         );
     }
 }
