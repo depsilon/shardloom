@@ -276,6 +276,7 @@ fn prepared_encoded_projection_execution_certificate(
     )?;
     input.execution_provider_kind = ExecutionProviderKind::ShardLoomKernel;
     input.provider_crate = Some("shardloom-vortex".to_string());
+    input.provider_version = Some(env!("CARGO_PKG_VERSION").to_string());
     input.provider_api_surface =
         Some("execute_vortex_generalized_projection_from_encoded_projection_batches".to_string());
     input.shardloom_admission_policy = Some("shardloom.prepared_encoded_projection.v1".to_string());

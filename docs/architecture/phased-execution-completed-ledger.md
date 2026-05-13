@@ -16,6 +16,57 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: P7.4.3 execution artifact richness and provider-evidence preservation bundle
+  - Primary files:
+    - `shardloom-exec/src/lib.rs`
+    - `shardloom-vortex/src/top_level_facade.rs`
+    - `shardloom-vortex/src/generalized_encoded_filter_execution.rs`
+    - `shardloom-vortex/src/generalized_encoded_projection_execution.rs`
+    - `python/src/shardloom/client.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/tests/test_cli_client.py`
+    - `README.md`
+    - `python/README.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/typed-command-result-envelope.md`
+    - `docs/rfcs/0038-top-level-plan-execution-facade.md`
+  - Scope: preserve rich provider evidence from top-level execution results through typed Rust
+    results, Vortex provider conversion, typed envelopes, and the Python client view.
+  - Checklist:
+    - [x] Add explicit execution evidence slots for result refs, artifact refs, inline artifacts,
+          execution certificate refs, Native I/O certificate refs, materialization and residual
+          boundary refs, representation transitions, provider version, source refs, split refs,
+          lifecycle status, and fallback status.
+    - [x] Add provider version, lifecycle status, inline artifact payloads, evidence completeness
+          status, and `to_output_envelope()` preservation to `ShardLoomExecutionResult`.
+    - [x] Convert local Vortex primitive, prepared encoded, source-backed, and reader-backed
+          provider reports into inline typed artifacts instead of lossy strings.
+    - [x] Preserve execution certificates, Native I/O certificates, representation transitions,
+          materialization boundaries, provider-boundary artifacts, source-expansion evidence, and
+          certificate-pair evidence where those reports already exist.
+    - [x] Record prepared encoded provider versions on execution certificates so provider dispatch
+          is versioned when surfaced through the facade.
+    - [x] Add Python `ExecutionResultEnvelopeView` and `ExecutionEvidenceSlot` helpers for typed
+          result refs, artifact refs, certificate refs, inline artifacts, representation
+          transitions, provider metadata, fallback status, and incomplete evidence slots.
+    - [x] Fold the May 13 compute-engine closeout intake into the P7.4/P8.4/P9.6 source-of-truth
+          plan without creating a duplicate architecture category.
+  - Validation:
+    - [x] `cargo fmt --all -- --check`
+    - [x] `git diff --check`
+    - [x] `cargo test -p shardloom-exec --lib`
+    - [x] `cargo test -p shardloom-vortex top_level_facade --lib`
+    - [x] `$env:PYTHONPATH='C:\Users\djhei\Projects\shardloom-active\python\src'; python -m pytest python\tests\test_cli_client.py -q`
+    - [x] `$env:PYTHONPATH='C:\Users\djhei\Projects\shardloom-active\python\src'; python -m compileall -q python\src python\tests`
+    - [x] `$env:PYTHONPATH='C:\Users\djhei\Projects\shardloom-active\python\src'; python -m unittest discover python\tests`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `cargo test --workspace --all-targets`
+  - Runtime stance: evidence preservation only. This does not add SQL/DataFrame runtime, benchmark
+    execution, write/sink execution, object-store runtime, Foundry execution, external engine
+    invocation, or fallback execution.
+
 - [x] Session label: P7.4.2 ShardLoomNative semantic conformance and unsupported API parity bundle
   - Primary files:
     - `shardloom-cli/src/semantic_conformance.rs`

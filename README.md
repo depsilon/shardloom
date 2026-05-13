@@ -65,10 +65,10 @@ yet.
 
 Implemented or actively wired surfaces include:
 
-- typed top-level plan variants and execution results for current Vortex primitive, prepared
-  encoded, source-backed, reader-backed, and report-only plan shapes
-- a Vortex top-level execution provider bridge for the current local/prepared/source-backed
-  execution reports
+- typed top-level plan variants and artifact-rich execution results for current Vortex primitive,
+  prepared encoded, source-backed, reader-backed, and report-only plan shapes
+- a Vortex top-level execution provider bridge that preserves current local, prepared encoded,
+  source-backed, and reader-backed provider reports as typed evidence instead of lossy strings
 - `shardloom.output.v2`, a typed CLI JSON envelope with result refs, artifact refs, certificates,
   policy, lifecycle, capability snapshot, diagnostics, fallback status, and a temporary legacy
   `fields` mirror
@@ -88,6 +88,10 @@ Implemented or actively wired surfaces include:
 - `semantic-conformance-suite`, a P7.4 ShardLoomNative semantic fixture surface that executes the
   currently supported in-memory semantic checks, records planned/blocked dimensions, and preserves
   external-oracle-free/no-fallback evidence in the typed CLI envelope
+- top-level execution-result evidence slots for provider version, lifecycle status, result refs,
+  artifact refs, inline artifacts, execution/Native I/O certificates, materialization/residual
+  boundaries, representation transitions, source/split refs, and fallback status, with missing
+  required slots reported as evidence-incomplete
 - Python lazy workflow helpers for current report-only UX, including source declaration, explain,
   estimate, certification inspection, unsupported pandas/Arrow/NumPy/Python-object materialization
   boundaries, DataFrame `with_column`/`group_by`/`agg`/`sort` diagnostics, SQL
@@ -108,9 +112,9 @@ Still planned or gated:
 - broad SQL, DataFrame, notebook, UDF, adapter, object-store, catalog/table, live/hybrid, REST
   server, generated-client, Foundry, and Marketplace surfaces
 - production package publication and public performance/superiority claims
-- claim-grade compute-engine completion: remaining semantic conformance expansion,
-  operator-family certification, measured source-backed benchmark rows, sink/write/replay proof,
-  local scheduler and memory/spill maturity, and a workload-certified compute workflow
+- claim-grade compute-engine completion: measured source-backed benchmark rows, sink/write/replay
+  proof, local scheduler and memory/spill maturity, Vortex layout/write advisor feedback, and a
+  workload-certified compute workflow
 - full comparative benchmark reruns and claim-grade source-backed benchmark rows
 - hard release-readiness gates and public first-10-minutes proof from release artifacts
 - Foundry proof-of-use certification that preserves Foundry as an optional integration boundary
@@ -200,7 +204,11 @@ out-of-scope integration claims before Priority 8/9 evidence exists.
 
 For P7.4 compute closeout, `compute-capability-matrix` and `semantic-conformance-suite` expose the
 current capability ladder and ShardLoomNative semantic fixture status without reading data, running
-SQL/DataFrame workloads, invoking external engines, or attempting fallback.
+SQL/DataFrame workloads, invoking external engines, or attempting fallback. Top-level execution
+results now preserve provider evidence through typed refs, inline artifacts, evidence-slot status,
+provider metadata, lifecycle fields, certificate refs, materialization/representation refs, and
+no-fallback policy fields so clients can distinguish complete evidence from evidence-incomplete
+execution.
 
 It also exposes the current local live ETL smoke commands for explicit testing:
 CSV-to-Vortex through `traditional-analytics-run` and existing native Vortex
