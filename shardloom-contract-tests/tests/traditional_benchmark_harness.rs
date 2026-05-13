@@ -78,6 +78,8 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("def write_nested_json_fixture("));
     assert!(script.contains("def clean_cast_filter_write("));
     assert!(script.contains("scenario_outputs"));
+    assert!(script.contains("def scenario_dataset_profile_block_reason("));
+    assert!(script.contains("requires dataset_profile in"));
     assert!(script.contains("SHARDLOOM_TRADITIONAL_SCENARIOS"));
     assert!(script.contains("does not implement benchmark scenario"));
 }

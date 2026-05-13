@@ -16,6 +16,43 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: P7.4.4 dataset-profile gated comparative rerun bundle
+  - Primary files:
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+  - Scope: continue P7.4.4 by making selected local comparative reruns honor the scenario catalog's
+    dataset-profile compatibility before engine execution.
+  - Checklist:
+    - [x] Add `scenario_dataset_profile_block_reason()` to convert incompatible
+          scenario/profile pairs into deterministic blocked rows.
+    - [x] Apply the block before missing-dependency, unsupported-format, and engine execution paths
+          so coverage stays stable across local environments.
+    - [x] Preserve `fallback_attempted=false` and `external_engine_invoked=false` on blocked
+          profile-mismatch rows.
+    - [x] Update benchmark docs, benchmark catalog, phase plan, completed ledger, and contract
+          tests.
+  - Validation:
+    - [x] `python -m compileall -q benchmarks\traditional_analytics\run.py`
+    - [x] `cargo test -p shardloom-contract-tests traditional_benchmark_harness_lists_all_required_engines`
+    - [x] `cargo fmt --all -- --check`
+    - [x] `cargo test -p shardloom-contract-tests traditional_benchmark`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `python benchmarks\traditional_analytics\run.py --engines shardloom,pandas --formats csv --scenario "clean/cast/filter/write" --dataset-profile narrow_fact_dim --rows 16 --iterations 3 --shardloom-build-profile debug --skip-shardloom-native --no-markdown --output target\codex-p744-profile-gate.json --regenerate`
+    - [x] `python benchmarks\traditional_analytics\run.py --claim-readiness-rerun --dataset-profile narrow_fact_dim --rows 10000 --iterations 3 --shardloom-build-profile debug --skip-shardloom-native --no-markdown --output target\codex-p744-profile-gated-claim-readiness.json --regenerate`
+    - [x] `git diff --check`
+  - Local rerun summary:
+    - [x] The focused profile-mismatch smoke emitted blocked rows for ShardLoom and pandas.
+    - [x] The selected narrow-fact local claim-readiness rerun emitted coverage/timing separation
+          across ShardLoom, ShardLoom Vortex fixture smoke, pandas, Polars, DuckDB, and DataFusion;
+          local DuckDB was a missing optional dependency and remained blocked.
+    - [x] ShardLoom-compatible CSV/Parquet rows had stable three-iteration digests and result-sink
+          write timing; incompatible taxonomy rows stayed blocked. This is local validation
+          evidence only, not a public performance claim.
+
 - [x] Session label: P7.4.4 clean/cast/filter/write execution bundle
   - Primary files:
     - `benchmarks/common/scenario_catalog.json`

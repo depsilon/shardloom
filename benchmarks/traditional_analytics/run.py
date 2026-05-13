@@ -271,6 +271,17 @@ def taxonomy_default_scenarios(include_extra: bool, include_stress: bool) -> tup
     return tuple(scenario for scenario in scenarios if scenario in EXECUTABLE_SCENARIO_ORDER)
 
 
+def scenario_dataset_profile_block_reason(scenario: str, dataset_profile: str) -> str | None:
+    metadata = scenario_metadata(scenario)
+    if metadata.dataset_profiles and dataset_profile not in metadata.dataset_profiles:
+        allowed = ",".join(metadata.dataset_profiles)
+        return (
+            f"scenario '{scenario}' requires dataset_profile in [{allowed}], "
+            f"but current dataset_profile is '{dataset_profile}'"
+        )
+    return None
+
+
 def engine_role(engine: str) -> str:
     if engine.startswith("shardloom"):
         return "shardloom_native"
@@ -4925,12 +4936,15 @@ def main() -> int:
             reason = missing.get(engine, "engine was not initialized")
             for data_format in engine_formats:
                 for scenario in args.scenario_list:
+                    profile_block = scenario_dataset_profile_block_reason(
+                        scenario, args.dataset_profile
+                    )
                     result = failed_result(
                         engine,
                         scenario,
                         data_format,
-                        "missing_dependency",
-                        reason,
+                        "blocked" if profile_block else "missing_dependency",
+                        profile_block or reason,
                         paths,
                         args.iterations,
                     )
@@ -4958,7 +4972,20 @@ def main() -> int:
                 continue
             for data_format in engine_formats:
                 for scenario in args.scenario_list:
-                    if data_format not in runner.formats:
+                    profile_block = scenario_dataset_profile_block_reason(
+                        scenario, args.dataset_profile
+                    )
+                    if profile_block:
+                        result = failed_result(
+                            engine,
+                            scenario,
+                            data_format,
+                            "blocked",
+                            profile_block,
+                            paths,
+                            args.iterations,
+                        )
+                    elif data_format not in runner.formats:
                         result = failed_result(
                             engine,
                             scenario,
