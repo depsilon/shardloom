@@ -352,6 +352,90 @@ class WorkflowReadinessSmokeReport:
 
 
 @dataclass(frozen=True, slots=True)
+class EngineSelectionPlan:
+    """Typed convenience view over the CG-22 engine-selection report."""
+
+    envelope: OutputEnvelope
+
+    @property
+    def requested_engine_mode(self) -> str | None:
+        """Return the requested engine mode."""
+
+        return self.envelope.field("requested_engine_mode")
+
+    @property
+    def selected_engine_mode(self) -> str | None:
+        """Return the selected engine mode, or `none` when rejected."""
+
+        return self.envelope.field("selected_engine_mode")
+
+    @property
+    def selection_status(self) -> str | None:
+        """Return the engine-selection status."""
+
+        return self.envelope.field("selection_status")
+
+    @property
+    def rejection_reasons(self) -> tuple[str, ...]:
+        """Return deterministic engine rejection reasons."""
+
+        value = self.envelope.field("rejection_reasons", "") or ""
+        if value == "none":
+            return ()
+        return tuple(part.strip() for part in value.split(";") if part.strip())
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether engine selection reported fallback execution."""
+
+        return (
+            self.envelope.fallback.attempted
+            or self.envelope.field_bool("fallback_attempted", False) is True
+        )
+
+    @property
+    def external_engine_invoked(self) -> bool:
+        """Whether engine selection invoked an external engine."""
+
+        return self.envelope.field_bool("external_engine_invoked", False) is True
+
+
+@dataclass(frozen=True, slots=True)
+class EngineCapabilityMatrix:
+    """Typed convenience view over the CG-22 engine capability matrix."""
+
+    envelope: OutputEnvelope
+
+    @property
+    def engine_modes(self) -> tuple[str, ...]:
+        """Return engine modes represented in the matrix."""
+
+        value = self.envelope.field("engine_modes", "") or ""
+        return tuple(part.strip() for part in value.split(",") if part.strip())
+
+    @property
+    def live_hybrid_claim_blocked_count(self) -> int:
+        """Return the number of live/hybrid production claims still blocked."""
+
+        return self.envelope.field_int("live_hybrid_claim_blocked_count", 0) or 0
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether matrix discovery reported fallback execution."""
+
+        return (
+            self.envelope.fallback.attempted
+            or self.envelope.field_bool("fallback_attempted", False) is True
+        )
+
+    @property
+    def external_engine_invoked(self) -> bool:
+        """Whether matrix discovery invoked an external engine."""
+
+        return self.envelope.field_bool("external_engine_invoked", False) is True
+
+
+@dataclass(frozen=True, slots=True)
 class PythonClientSmokeReport:
     """No-dataset Python client smoke-check envelopes."""
 
@@ -520,6 +604,35 @@ class ShardLoomClient:
         if scope is not None:
             args.append(scope)
         return self.run(args, check=check)
+
+    def engine_selection_plan(
+        self,
+        engine: str = "auto",
+        *,
+        boundedness: str = "snapshot",
+        update_mode: str = "snapshot",
+        output_mode: str = "snapshot",
+        check: bool = True,
+    ) -> EngineSelectionPlan:
+        """Return the CG-22 report-only engine-selection plan."""
+
+        return EngineSelectionPlan(
+            self.run(
+                [
+                    "engine-selection-plan",
+                    engine,
+                    boundedness,
+                    update_mode,
+                    output_mode,
+                ],
+                check=check,
+            )
+        )
+
+    def engine_capability_matrix(self, *, check: bool = True) -> EngineCapabilityMatrix:
+        """Return the CG-22 report-only per-engine capability matrix."""
+
+        return EngineCapabilityMatrix(self.run(["engine-capability-matrix"], check=check))
 
     def explain(self, operation: str, *, check: bool = True) -> OutputEnvelope:
         """Return the report-only explain envelope for an operation summary."""

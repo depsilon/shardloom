@@ -6,7 +6,7 @@ import os
 from dataclasses import dataclass
 from typing import Mapping, Sequence, cast
 
-from .client import Binary, DEFAULT_PROFILE_ORDER, ShardLoomClient
+from .client import Binary, DEFAULT_PROFILE_ORDER, EngineSelectionPlan, ShardLoomClient
 from .models import Diagnostic, OutputEnvelope
 
 SUPPORTED_SOURCE_FORMATS = ("vortex", "csv", "json", "parquet")
@@ -161,6 +161,7 @@ class LazyFrame:
     source: WorkflowSource
     client: ShardLoomClient
     operations: tuple[WorkflowOperation, ...] = ()
+    engine_mode: str = "auto"
 
     @property
     def source_format(self) -> str:
@@ -181,6 +182,16 @@ class LazyFrame:
         parts = [self.source.to_summary()]
         parts.extend(operation.to_summary() for operation in self.operations)
         return " -> ".join(parts)
+
+    def with_engine(self, engine_mode: str) -> "LazyFrame":
+        """Return this lazy workflow with a different requested engine mode."""
+
+        return LazyFrame(
+            source=self.source,
+            client=self.client,
+            operations=self.operations,
+            engine_mode=_normalize_engine_mode(engine_mode),
+        )
 
     def filter(self, predicate: object) -> "LazyFrame":
         """Return a lazy plan with an added filter predicate."""
@@ -231,6 +242,24 @@ class LazyFrame:
             certification_capabilities=self.client.capabilities("certification", check=check),
         )
 
+    def engine_selection(
+        self,
+        *,
+        boundedness: str = "snapshot",
+        update_mode: str = "snapshot",
+        output_mode: str = "snapshot",
+        check: bool = False,
+    ) -> EngineSelectionPlan:
+        """Return engine selection/rejection for this lazy workflow."""
+
+        return self.client.engine_selection_plan(
+            self.engine_mode,
+            boundedness=boundedness,
+            update_mode=update_mode,
+            output_mode=output_mode,
+            check=check,
+        )
+
     def unsupported_report(self, *, check: bool = False) -> UnsupportedWorkflowReport:
         """Collect unsupported diagnostics and no-fallback evidence for the workflow."""
 
@@ -247,6 +276,7 @@ class LazyFrame:
             source=self.source,
             client=self.client,
             operations=(*self.operations, operation),
+            engine_mode=self.engine_mode,
         )
 
 
@@ -254,11 +284,18 @@ def read_vortex(
     uri: str | os.PathLike[str],
     *,
     client: ShardLoomClient | None = None,
+    engine_mode: str = "auto",
     **client_config: object,
 ) -> LazyFrame:
     """Declare a lazy native Vortex source."""
 
-    return _read_source("vortex", uri, client=client, **client_config)
+    return _read_source(
+        "vortex",
+        uri,
+        client=client,
+        engine_mode=engine_mode,
+        **client_config,
+    )
 
 
 def read_csv(
@@ -266,11 +303,19 @@ def read_csv(
     *,
     schema: Mapping[str, object] | None = None,
     client: ShardLoomClient | None = None,
+    engine_mode: str = "auto",
     **client_config: object,
 ) -> LazyFrame:
     """Declare a lazy CSV compatibility source."""
 
-    return _read_source("csv", uri, schema=schema, client=client, **client_config)
+    return _read_source(
+        "csv",
+        uri,
+        schema=schema,
+        client=client,
+        engine_mode=engine_mode,
+        **client_config,
+    )
 
 
 def read_json(
@@ -278,11 +323,19 @@ def read_json(
     *,
     schema: Mapping[str, object] | None = None,
     client: ShardLoomClient | None = None,
+    engine_mode: str = "auto",
     **client_config: object,
 ) -> LazyFrame:
     """Declare a lazy JSON/NDJSON compatibility source."""
 
-    return _read_source("json", uri, schema=schema, client=client, **client_config)
+    return _read_source(
+        "json",
+        uri,
+        schema=schema,
+        client=client,
+        engine_mode=engine_mode,
+        **client_config,
+    )
 
 
 def read_parquet(
@@ -290,11 +343,19 @@ def read_parquet(
     *,
     schema: Mapping[str, object] | None = None,
     client: ShardLoomClient | None = None,
+    engine_mode: str = "auto",
     **client_config: object,
 ) -> LazyFrame:
     """Declare a lazy Parquet compatibility source."""
 
-    return _read_source("parquet", uri, schema=schema, client=client, **client_config)
+    return _read_source(
+        "parquet",
+        uri,
+        schema=schema,
+        client=client,
+        engine_mode=engine_mode,
+        **client_config,
+    )
 
 
 def _read_source(
@@ -303,6 +364,7 @@ def _read_source(
     *,
     schema: Mapping[str, object] | None = None,
     client: ShardLoomClient | None = None,
+    engine_mode: str = "auto",
     **client_config: object,
 ) -> LazyFrame:
     normalized = source_format.strip().lower().replace("_", "-")
@@ -317,6 +379,7 @@ def _read_source(
             schema=_normalize_schema(schema),
         ),
         client=_client_from_config(client, client_config),
+        engine_mode=_normalize_engine_mode(engine_mode),
     )
 
 
@@ -360,6 +423,13 @@ def _normalize_schema(schema: Mapping[str, object] | None) -> tuple[tuple[str, s
     if schema is None:
         return ()
     return tuple((str(key), str(value)) for key, value in schema.items())
+
+
+def _normalize_engine_mode(engine_mode: str) -> str:
+    normalized = engine_mode.strip().lower().replace("_", "-")
+    if normalized not in {"auto", "batch", "live", "hybrid"}:
+        raise ValueError("engine_mode must be one of ('auto', 'batch', 'live', 'hybrid')")
+    return normalized
 
 
 def _normalize_columns(columns: Sequence[object]) -> tuple[str, ...]:

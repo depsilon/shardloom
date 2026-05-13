@@ -269,6 +269,7 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertIsInstance(capabilities.python, CapabilityView)
         self.assertEqual(capabilities.python.field("scope"), "python")
         self.assertEqual(capabilities.deployment.field("scope"), "deployment")
+        self.assertEqual(capabilities.engines.field("scope"), "engines")
         self.assertEqual(capabilities.functions.capability_state, "planned")
         self.assertEqual(capabilities.sql_support.scope, "sql")
         self.assertIn("adapter_certification_required", capabilities.adapters.required_gates)

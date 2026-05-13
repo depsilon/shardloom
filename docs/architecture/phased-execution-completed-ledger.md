@@ -16,6 +16,61 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: CG-22A/B/H engine contract, per-engine matrix, and Python/API UX bundle
+  - Primary files:
+    - `shardloom-core/src/engine_modes.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/engine_fabric_planning.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/src/command_family.rs`
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-cli/tests/cg22_engine_fabric_snapshots.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `shardloom-cli/tests/typed_envelope_compatibility_lock.rs`
+    - `python/src/shardloom/client.py`
+    - `python/src/shardloom/context.py`
+    - `python/src/shardloom/query.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/tests/test_cli_client.py`
+    - `python/tests/test_query_builder.py`
+    - `python/README.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/typed-command-result-envelope.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+  - Scope: make the first CG-22 user-testable slice report-only but executable from CLI/Python:
+    engine-mode vocabulary, boundedness/update/output-mode contracts, engine selection/rejection,
+    per-engine capability matrix, `capabilities engines`, and Python context/query engine intent.
+  - Checklist:
+    - [x] Add `EngineMode`, `Boundedness`, `UpdateMode`, `OutputMode`,
+          `EngineSelectionReport`, and `EngineCapabilityMatrixReport` core contracts.
+    - [x] Add `engine-selection-plan`, `engine-capability-matrix`, and `capabilities engines`
+          typed envelopes with batch/live/hybrid support rows and live/hybrid production-claim
+          blockers.
+    - [x] Add Python `engine=` context/query intent, explicit engine selection reports, and
+          capability matrix views without running commands during context construction.
+    - [x] Collapse remaining CG-22 work into two larger live/certification and hybrid/flush/layout
+          bundles in the phased plan.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-core engine_modes --lib`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test cg22_engine_fabric_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test capability_discovery_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --test typed_envelope_compatibility_lock representative_cli_json_paths_keep_typed_envelope_contract`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test -p shardloom-cli --bin shardloom engine_selection`
+    - [x] `$env:PYTHONPATH='python/src'; python -m unittest discover python\tests`
+    - [x] `$env:PYTHONPATH='python/src'; python -m compileall -q python\src\shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo run -p shardloom-cli -- engine-selection-plan --format json`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo run -p shardloom-cli -- engine-capability-matrix --format json`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo run -p shardloom-cli -- capabilities engines --format json`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo run -p shardloom-cli -- engine-selection-plan live unbounded append-only changelog --format json` exits nonzero with structured unsupported output
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test --workspace --all-targets`
+    - [x] `git diff --check`
+  - Runtime stance: report-only. No data is read, no output is written, no state store/checkpoint is
+    created, no broker/object-store/catalog is probed, no live/hybrid execution is claimed, and
+    every new surface preserves `external_engine_invoked=false`, `fallback_attempted=false`, and
+    `fallback_execution_allowed=false`.
+
 - [x] Session label: P4.7 end-to-end quickstart and proof bundle
   - Primary files:
     - `python/src/shardloom/quickstart.py`

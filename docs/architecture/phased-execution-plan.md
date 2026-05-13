@@ -279,62 +279,38 @@ actionable work.
     - Verification: README command smoke where practical, Python examples, CLI snapshots, and full
       workspace validation.
 - [ ] Priority 5 - CG-22 three-engine certified data execution fabric
-  - [ ] CG-22A engine-mode contract surface
-    - [ ] Add `EngineMode` values `batch`, `live`, `hybrid`, and `auto`.
-    - [ ] Add `Boundedness`, `UpdateMode`, and `OutputMode` vocabulary and capability discovery.
-    - [ ] Emit `EngineSelectionReport` with requested, allowed, and selected engine modes plus
-          rejection reasons.
-    - [ ] Preserve `external_engine_invoked=false` and `fallback_attempted=false` for every internal
-          engine choice.
-  - [ ] CG-22B per-engine capability matrix
-    - [ ] Track operator/function/source/sink support separately for batch, live, and hybrid.
-    - [ ] Distinguish bounded snapshot support, append-only stream support, upsert/delete/tombstone
-          support, changelog support, and continuous materialized view support.
-    - [ ] Block live/hybrid claims for unsupported global sort, unbounded join, state, checkpoint,
-          or output modes.
-  - [ ] CG-22C live source/change contract
-    - [ ] Define ShardLoom-native `ChangeRecord` with key, operation, sequence, event time,
-          processing time, source offset, schema digest, and payload reference.
-    - [ ] Add append/upsert/delete/retract/tombstone semantics, watermark policy, late-data policy,
-          state TTL, checkpoint policy, and output changelog vocabulary.
-    - [ ] Keep broker/runtime integrations as adapters or future dependencies, not core fallback
-          execution.
-  - [ ] CG-22D narrow in-memory live prototype
-    - [ ] Start with fixture-backed bounded streams for filter, project, count, count_where, and
-          simple group_count.
-    - [ ] Emit state, checkpoint, watermark, lag, output changelog, execution certificate, Native
-          I/O certificate, and no-fallback evidence.
-    - [ ] Avoid calling file polling real streaming until state, watermark, checkpoint, and recovery
-          semantics exist.
-  - [ ] CG-22E hybrid base plus delta overlay
-    - [ ] Combine a local Vortex base with fixture-backed hot deltas, tombstones, deletion vectors,
-          snapshot epoch, and certified merged result.
-    - [ ] Emit `DeltaOverlayCertificate`, `HotColdContributionReport`, snapshot certificate refs,
-          base snapshot id, hot changelog range, warm/cold segment counts, tombstone counts,
-          freshness lag, and no-fallback evidence.
-    - [ ] Keep object-store/table production claims blocked until CG-4/CG-9/CG-10 evidence exists.
-  - [ ] CG-22F Vortex micro-segment flush
-    - [ ] Flush hot append/upsert batches into Vortex micro-segments with local manifest and
-          recovery evidence.
-    - [ ] Preserve representation, statistics, deletion/tombstone, checkpoint, commit, and Native
-          I/O certificate fields.
-    - [ ] Keep compaction and table maintenance separate until commit/recovery paths are certified.
-  - [ ] CG-22G compaction and layout-health planner
-    - [ ] Plan compaction from small-segment pressure, tombstone pressure, partition skew, stale
-          statistics, and layout health.
-    - [ ] Produce compaction recommendations without executing maintenance until
-          write/commit/recovery support is ready.
-  - [ ] CG-22H Python/API engine UX
-    - [ ] Surface `engine="batch"`, `engine="live"`, `engine="hybrid"`, and `engine="auto"`
-          consistently in Python, CLI, and later REST.
-    - [ ] Explain why an engine is selected or rejected, including freshness, consistency,
-          boundedness, state, memory, sink, and unsupported-feature reasons.
-  - [ ] CG-22I state, checkpoint, and freshness certification
-    - [ ] Add `FreshnessCertificate`, `StateCertificate`, and `ContinuousViewCertificate` fields for
-          watermarks, checkpoint ids, state bytes, changelog offsets, recovery status, lag, output
-          mode, and exactly-once/idempotency blockers.
-    - [ ] Do not claim exactly-once, freshness, recovery, or continuous-view correctness without
-          CG-4/CG-5/CG-8/CG-16 evidence.
+  - [x] CG-22A/B/H engine contract, per-engine matrix, and Python/API UX bundle.
+    - Implemented `EngineMode` values `batch`, `live`, `hybrid`, and `auto`, plus
+      `Boundedness`, `UpdateMode`, and `OutputMode` vocabulary.
+    - Added `EngineSelectionReport` and `engine-selection-plan` so users and agents can see
+      requested, allowed, rejected, and selected engine modes with deterministic rejection reasons.
+    - Added `EngineCapabilityMatrixReport`, `engine-capability-matrix`, and `capabilities engines`
+      so batch/live/hybrid operator, function, source, sink, update, changelog, continuous-view,
+      state, checkpoint, global-sort, unbounded-join, and production-claim posture is explicit.
+    - Surfaced `engine="auto"|"batch"|"live"|"hybrid"` through Python context/query helpers without
+      running commands during construction; explicit engine reports preserve
+      `external_engine_invoked=false`, `fallback_attempted=false`, no data reads, no writes, and no
+      runtime execution.
+  - [ ] CG-22C/D/I live source/change, in-memory prototype, and state/freshness certification
+        bundle.
+    - Define ShardLoom-native `ChangeRecord` with key, operation, sequence, event time, processing
+      time, source offset, schema digest, and payload reference.
+    - Add append/upsert/delete/retract/tombstone semantics, watermark policy, late-data policy,
+      state TTL, checkpoint policy, output changelog vocabulary, and fixture-backed bounded streams
+      for filter, project, count, count_where, and simple group_count.
+    - Emit state, checkpoint, watermark, lag, output changelog, execution certificate, Native I/O
+      certificate, `FreshnessCertificate`, `StateCertificate`, `ContinuousViewCertificate`, and
+      no-fallback evidence; keep broker/runtime integrations as adapters or future dependencies.
+  - [ ] CG-22E/F/G hybrid overlay, Vortex micro-segment flush, and layout-health bundle.
+    - Combine a local Vortex base with fixture-backed hot deltas, tombstones, deletion vectors,
+      snapshot epoch, and certified merged results.
+    - Emit `DeltaOverlayCertificate`, `HotColdContributionReport`, snapshot certificate refs, base
+      snapshot id, hot changelog range, warm/cold segment counts, tombstone counts, freshness lag,
+      micro-segment flush evidence, representation/statistics/deletion/checkpoint/commit fields,
+      and no-fallback evidence.
+    - Plan compaction from small-segment pressure, tombstone pressure, partition skew, stale
+      statistics, and layout health without executing maintenance until write/commit/recovery
+      support is certified.
 - [ ] Priority 6 - CG-23 REST, event, and remote API surface
   - [ ] CG-23A REST API contract surface
     - [ ] Define OpenAPI 3.2 or approved-successor contract files for `/v1` resources before server

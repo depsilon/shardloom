@@ -6,7 +6,14 @@ import os
 from dataclasses import dataclass
 from typing import Mapping, Sequence
 
-from .client import Binary, DEFAULT_PROFILE_ORDER, PythonClientSmokeReport, ShardLoomClient
+from .client import (
+    Binary,
+    DEFAULT_PROFILE_ORDER,
+    EngineCapabilityMatrix,
+    EngineSelectionPlan,
+    PythonClientSmokeReport,
+    ShardLoomClient,
+)
 from .models import Diagnostic, OutputEnvelope
 from .query import LazyFrame, read_csv, read_json, read_parquet, read_vortex
 
@@ -18,7 +25,9 @@ DEFAULT_CAPABILITY_SCOPES = (
     "operators",
     "sql",
     "certification",
+    "engines",
 )
+SUPPORTED_ENGINE_MODES = ("auto", "batch", "live", "hybrid")
 
 
 @dataclass(frozen=True, slots=True)
@@ -167,6 +176,12 @@ class ContextCapabilities:
 
         return self.scope("certification")
 
+    @property
+    def engines(self) -> CapabilityView:
+        """Return CG-22 engine-mode capability state."""
+
+        return self.scope("engines")
+
     def scope(self, name: str) -> CapabilityView:
         """Return a capability view by scope name."""
 
@@ -185,14 +200,21 @@ class ShardLoomContext:
     explicit ShardLoom CLI JSON commands through the wrapped client.
     """
 
-    def __init__(self, client: ShardLoomClient | None = None) -> None:
+    def __init__(
+        self,
+        client: ShardLoomClient | None = None,
+        *,
+        engine: str = "auto",
+    ) -> None:
         self.client = client if client is not None else ShardLoomClient.from_env()
+        self.engine = _normalize_engine_mode(engine)
 
     @classmethod
     def from_env(
         cls,
         env: Mapping[str, str] | None = None,
         *,
+        engine: str = "auto",
         profile_order: Sequence[str] | None = None,
         **kwargs: object,
     ) -> "ShardLoomContext":
@@ -203,7 +225,8 @@ class ShardLoomContext:
                 env=env,
                 profile_order=profile_order,
                 **kwargs,
-            )
+            ),
+            engine=engine,
         )
 
     @classmethod
@@ -211,6 +234,7 @@ class ShardLoomContext:
         cls,
         repo_root: str | os.PathLike[str] | None = None,
         *,
+        engine: str = "auto",
         profile_order: Sequence[str] = DEFAULT_PROFILE_ORDER,
         **kwargs: object,
     ) -> "ShardLoomContext":
@@ -221,7 +245,8 @@ class ShardLoomContext:
                 repo_root=repo_root,
                 profile_order=profile_order,
                 **kwargs,
-            )
+            ),
+            engine=engine,
         )
 
     def smoke_check(self, *, check: bool = True) -> PythonClientSmokeReport:
@@ -287,10 +312,38 @@ class ShardLoomContext:
 
         return self._capability_view("certification", check=check)
 
+    def engines(self, *, check: bool = True) -> CapabilityView:
+        """Return CG-22 engine-mode capability discovery."""
+
+        return self._capability_view("engines", check=check)
+
+    def engine_selection(
+        self,
+        *,
+        boundedness: str = "snapshot",
+        update_mode: str = "snapshot",
+        output_mode: str = "snapshot",
+        check: bool = False,
+    ) -> EngineSelectionPlan:
+        """Return engine selection/rejection for this context's requested engine."""
+
+        return self.client.engine_selection_plan(
+            self.engine,
+            boundedness=boundedness,
+            update_mode=update_mode,
+            output_mode=output_mode,
+            check=check,
+        )
+
+    def engine_capability_matrix(self, *, check: bool = True) -> EngineCapabilityMatrix:
+        """Return the CG-22 per-engine capability matrix."""
+
+        return self.client.engine_capability_matrix(check=check)
+
     def read_vortex(self, uri: str | os.PathLike[str]) -> LazyFrame:
         """Declare a lazy native Vortex source using this context's client."""
 
-        return read_vortex(uri, client=self.client)
+        return read_vortex(uri, client=self.client, engine_mode=self.engine)
 
     def read_csv(
         self,
@@ -300,7 +353,7 @@ class ShardLoomContext:
     ) -> LazyFrame:
         """Declare a lazy CSV compatibility source using this context's client."""
 
-        return read_csv(uri, schema=schema, client=self.client)
+        return read_csv(uri, schema=schema, client=self.client, engine_mode=self.engine)
 
     def read_json(
         self,
@@ -310,7 +363,7 @@ class ShardLoomContext:
     ) -> LazyFrame:
         """Declare a lazy JSON/NDJSON compatibility source using this context's client."""
 
-        return read_json(uri, schema=schema, client=self.client)
+        return read_json(uri, schema=schema, client=self.client, engine_mode=self.engine)
 
     def read_parquet(
         self,
@@ -320,7 +373,7 @@ class ShardLoomContext:
     ) -> LazyFrame:
         """Declare a lazy Parquet compatibility source using this context's client."""
 
-        return read_parquet(uri, schema=schema, client=self.client)
+        return read_parquet(uri, schema=schema, client=self.client, engine_mode=self.engine)
 
     def _capability_view(self, scope: str, *, check: bool) -> CapabilityView:
         normalized = _normalize_scope_name(scope)
@@ -333,6 +386,7 @@ class ShardLoomContext:
 def context(
     *,
     client: ShardLoomClient | None = None,
+    engine: str = "auto",
     binary: Binary | None = None,
     env: Mapping[str, str] | None = None,
     cwd: str | os.PathLike[str] | None = None,
@@ -353,7 +407,7 @@ def context(
             for value in (binary, env, cwd, repo_root, profile_order, timeout)
         ):
             raise ValueError("client cannot be combined with client configuration arguments")
-        return ShardLoomContext(client)
+        return ShardLoomContext(client, engine=engine)
     if repo_root is not None:
         return ShardLoomContext.from_repo(
             repo_root,
@@ -362,6 +416,7 @@ def context(
             cwd=cwd,
             profile_order=profile_order or DEFAULT_PROFILE_ORDER,
             timeout=timeout,
+            engine=engine,
         )
     return ShardLoomContext.from_env(
         env=env,
@@ -369,6 +424,7 @@ def context(
         cwd=cwd,
         profile_order=profile_order,
         timeout=timeout,
+        engine=engine,
     )
 
 
@@ -376,4 +432,11 @@ def _normalize_scope_name(scope: str) -> str:
     normalized = scope.strip().lower().replace("_", "-")
     if normalized == "sql-support":
         return "sql"
+    return normalized
+
+
+def _normalize_engine_mode(engine: str) -> str:
+    normalized = engine.strip().lower().replace("_", "-")
+    if normalized not in SUPPORTED_ENGINE_MODES:
+        raise ValueError(f"engine must be one of {SUPPORTED_ENGINE_MODES}; got {engine!r}")
     return normalized

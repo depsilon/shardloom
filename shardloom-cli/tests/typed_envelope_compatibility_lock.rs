@@ -184,6 +184,21 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
             fragments: &["\"artifact_kind\":\"materialization_boundary_report\""],
         },
         EnvelopeCase {
+            name: "engine fabric selection success",
+            args: &["engine-selection-plan", "--format", "json"],
+            command: "engine-selection-plan",
+            status: "success",
+            family: "engine_runtime_planning",
+            success: true,
+            allow_stderr: false,
+            fields: &[
+                ("requested_engine_mode", "auto"),
+                ("selected_engine_mode", "batch"),
+                ("external_engine_invoked", "false"),
+            ],
+            fragments: &["\"report_id\",\"value\":\"cg22.engine_selection\""],
+        },
+        EnvelopeCase {
             name: "vortex runtime success",
             args: &[
                 "vortex-schedule-plan",

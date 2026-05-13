@@ -101,6 +101,118 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(plan.field_bool("data_read"))
         self.assertFalse(plan.fallback.attempted)
 
+    def test_context_engine_intent_is_lazy_and_flows_to_lazy_frame(self) -> None:
+        ctx = ShardLoomContext(
+            ShardLoomClient(binary=["definitely-missing-shardloom"]),
+            engine="hybrid",
+        )
+
+        frame = ctx.read_vortex("orders.vortex").filter("gte:value:3")
+
+        self.assertEqual(ctx.engine, "hybrid")
+        self.assertEqual(frame.engine_mode, "hybrid")
+        self.assertEqual(frame.with_engine("batch").engine_mode, "batch")
+        with self.assertRaises(ValueError):
+            ShardLoomContext(ShardLoomClient(binary=["shardloom"]), engine="spark")
+
+    def test_engine_selection_report_is_explicit_and_no_fallback(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "engine-selection-plan",
+                    "live",
+                    "unbounded",
+                    "append-only",
+                    "changelog",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "engine-selection-plan",
+                    "status": "unsupported",
+                    "summary": "engine selection plan",
+                    "human_text": "rejected",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [{
+                        "code": "SL_NOT_IMPLEMENTED",
+                        "severity": "error",
+                        "category": "unsupported_feature",
+                        "message": "live blocked",
+                        "feature": "engine-selection-plan",
+                        "reason": "live engine is planned but blocked",
+                        "suggested_next_step": "use batch",
+                        "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}
+                    }],
+                    "fields": [
+                        {"key": "requested_engine_mode", "value": "live"},
+                        {"key": "selection_status", "value": "rejected"},
+                        {"key": "selected_engine_mode", "value": "none"},
+                        {"key": "rejection_reasons", "value": "live engine is planned but blocked"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"}
+                    ],
+                }))
+                sys.exit(1)
+                """
+            )
+        )
+        workflow = sl.read_vortex(
+            "orders.vortex",
+            client=ShardLoomClient(binary=binary),
+            engine_mode="live",
+        )
+
+        report = workflow.engine_selection(
+            boundedness="unbounded",
+            update_mode="append-only",
+            output_mode="changelog",
+        )
+
+        self.assertEqual(report.requested_engine_mode, "live")
+        self.assertEqual(report.selection_status, "rejected")
+        self.assertEqual(report.selected_engine_mode, "none")
+        self.assertIn("live engine is planned but blocked", report.rejection_reasons)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_engine_capability_matrix_view_exposes_blocked_live_hybrid_claims(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == ["engine-capability-matrix", "--format", "json"], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "engine-capability-matrix",
+                    "status": "success",
+                    "summary": "engine capability matrix",
+                    "human_text": "matrix",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "engine_modes", "value": "batch,live,hybrid"},
+                        {"key": "live_hybrid_claim_blocked_count", "value": "2"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary), engine="auto")
+
+        matrix = ctx.engine_capability_matrix()
+
+        self.assertEqual(matrix.engine_modes, ("batch", "live", "hybrid"))
+        self.assertEqual(matrix.live_hybrid_claim_blocked_count, 2)
+        self.assertFalse(matrix.fallback_attempted)
+        self.assertFalse(matrix.external_engine_invoked)
+
     def test_lazy_workflow_report_collects_explain_estimate_and_certify_surfaces(self) -> None:
         expected_workflow = (
             "read_vortex(orders.vortex) -> filter(gte:value:3) -> "

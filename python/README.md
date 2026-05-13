@@ -101,6 +101,35 @@ stores, touch catalogs, execute SQL, or invoke external engines. The explicit
 `smoke_check()` and `capabilities()` methods run only no-dataset CLI JSON
 commands and preserve no-fallback status.
 
+Engine intent is report-only and explicit. `engine="auto"` selects the current
+bounded snapshot batch path when allowed; `live` and `hybrid` return structured
+rejection reasons until CG-22 state, checkpoint, freshness, delta-overlay, and
+micro-segment evidence exists:
+
+```python
+import shardloom as sl
+
+ctx = sl.context(engine="hybrid")
+selection = ctx.engine_selection(
+    boundedness="snapshot",
+    update_mode="upsert",
+    output_mode="continuous-view",
+)
+matrix = ctx.engine_capability_matrix()
+
+print(ctx.engine)
+print(selection.selection_status)
+print(selection.selected_engine_mode)
+print(selection.rejection_reasons)
+print(matrix.engine_modes)
+print(matrix.live_hybrid_claim_blocked_count)
+```
+
+These calls do not execute live or hybrid workloads, probe brokers, write
+checkpoints, invoke external engines, or attempt fallback. They expose the same
+CG-22 contract as `shardloom engine-selection-plan`,
+`shardloom engine-capability-matrix`, and `shardloom capabilities engines`.
+
 Lazy workflow planning is also available without adding pandas, Polars, Spark,
 DataFusion, or any other execution dependency:
 
