@@ -49,9 +49,15 @@ GENERATED_DATASET_PROFILES = (
     "wide_table",
     "very_wide_table",
     "null_heavy",
+    "many_small_files",
+    "few_large_files",
     "partitioned_by_date",
     "poorly_clustered",
     "well_clustered",
+    "schema_drift",
+    "dirty_csv",
+    "nested_json",
+    "cdc_delta_overlay",
 )
 SCENARIO_ORDER = (
     "csv/file ingest",
@@ -67,6 +73,14 @@ TAXONOMY_EXTRA_SCENARIO_ORDER = (
     "multi-key group by",
     "join + aggregate",
     "row number window",
+    "partition pruning",
+    "many-small-files scan",
+    "null-heavy aggregate",
+    "high-cardinality string group/distinct",
+    "top-N per group",
+    "malformed timestamp / dirty CSV",
+    "small change over large base",
+    "nested JSON field scan",
 )
 FORMAT_ORDER = ("csv", "jsonl", "parquet", "arrow-ipc", "avro", "orc")
 DEFAULT_FORMAT_ORDER = ("csv", "parquet")
@@ -75,6 +89,7 @@ STRESS_SCENARIO_ORDER = (
     "scale stress skewed join aggregation",
     "scale stress multi-stage etl",
 )
+SHARDLOOM_TRADITIONAL_SCENARIOS = SCENARIO_ORDER + STRESS_SCENARIO_ORDER
 SCENARIO_BYTES = {
     "csv/file ingest": ("fact",),
     "selective filter": ("fact",),
@@ -87,6 +102,14 @@ SCENARIO_BYTES = {
     "multi-key group by": ("fact",),
     "join + aggregate": ("fact", "dim"),
     "row number window": ("fact",),
+    "partition pruning": ("fact",),
+    "many-small-files scan": ("fact",),
+    "null-heavy aggregate": ("fact",),
+    "high-cardinality string group/distinct": ("fact",),
+    "top-N per group": ("fact",),
+    "malformed timestamp / dirty CSV": ("fact",),
+    "small change over large base": ("fact",),
+    "nested JSON field scan": ("fact",),
     "scale stress skewed join aggregation": ("fact", "dim"),
     "scale stress multi-stage etl": ("fact", "dim"),
 }
@@ -113,6 +136,12 @@ class DatasetPaths:
     dim_orc: Path
     rows: int
     dim_rows: int
+    dataset_profile: str = DEFAULT_DATASET_PROFILE
+    fact_extra_columns: tuple[str, ...] = ()
+    fact_csv_parts_dir: Path | None = None
+    fact_jsonl_parts_dir: Path | None = None
+    cdc_delta_csv: Path | None = None
+    nested_jsonl: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -292,12 +321,12 @@ def parse_args() -> argparse.Namespace:
         "--dataset-profile",
         default=DEFAULT_DATASET_PROFILE,
         choices=GENERATED_DATASET_PROFILES,
-        help="Generated local dataset profile. The broader catalog still declares future profiles that require additional runner support.",
+        help="Generated local dataset profile. Some advanced profiles emit fixture sidecars and remain claim-blocked until comparative coverage is promoted.",
     )
     parser.add_argument(
         "--include-taxonomy-extra",
         action="store_true",
-        help="Include opt-in taxonomy scenarios such as filter+projection+limit, multi-key group by, join+aggregate, and row-number window.",
+        help="Include opt-in taxonomy scenarios beyond the default local analytics suite.",
     )
     parser.add_argument(
         "--include-stress",
@@ -424,6 +453,10 @@ def ensure_dataset(
     dim_avro = root / "dim.avro"
     fact_orc = root / "fact.orc"
     dim_orc = root / "dim.orc"
+    fact_csv_parts_dir = root / "fact_csv_parts"
+    fact_jsonl_parts_dir = root / "fact_jsonl_parts"
+    cdc_delta_csv = root / "cdc_delta.csv"
+    nested_jsonl = root / "nested_fact.jsonl"
     metadata_json = root / "dataset.json"
     if regenerate and root.exists():
         shutil.rmtree(root)
@@ -432,9 +465,11 @@ def ensure_dataset(
     expected_metadata = {
         "rows": rows,
         "dim_rows": dim_rows,
-        "schema_version": 5,
+        "schema_version": 6,
         "dataset_profile": dataset_profile,
+        "dataset_file_shape": dataset_file_shape(dataset_profile),
         "fact_extra_columns": list(fact_extra_columns),
+        "fact_file_part_count": fact_file_part_count(dataset_profile, rows),
         "formats": sorted(requested_formats),
     }
     required_paths = [fact_csv, dim_csv]
@@ -448,6 +483,14 @@ def ensure_dataset(
         required_paths.extend([fact_avro, dim_avro])
     if "orc" in requested_formats:
         required_paths.extend([fact_orc, dim_orc])
+    if fact_file_part_count(dataset_profile, rows) > 0:
+        required_paths.append(fact_csv_parts_dir)
+        if "jsonl" in requested_formats:
+            required_paths.append(fact_jsonl_parts_dir)
+    if dataset_profile == "cdc_delta_overlay":
+        required_paths.append(cdc_delta_csv)
+    if dataset_profile == "nested_json":
+        required_paths.append(nested_jsonl)
     if (
         all(path.exists() for path in required_paths)
         and metadata_json.exists()
@@ -470,6 +513,12 @@ def ensure_dataset(
                     dim_orc,
                     rows,
                     dim_rows,
+                    dataset_profile,
+                    fact_extra_columns,
+                    fact_csv_parts_dir,
+                    fact_jsonl_parts_dir,
+                    cdc_delta_csv,
+                    nested_jsonl,
                 )
 
     with fact_csv.open("w", newline="", encoding="utf-8") as handle:
@@ -524,6 +573,17 @@ def ensure_dataset(
     if "jsonl" in requested_formats:
         write_jsonl_copies(fact_csv, dim_csv, fact_jsonl, dim_jsonl)
 
+    write_profile_sidecars(
+        fact_csv,
+        dataset_profile,
+        rows,
+        requested_formats,
+        fact_csv_parts_dir,
+        fact_jsonl_parts_dir,
+        cdc_delta_csv,
+        nested_jsonl,
+    )
+
     with metadata_json.open("w", encoding="utf-8") as handle:
         json.dump(expected_metadata, handle, indent=2, sort_keys=True)
         handle.write("\n")
@@ -558,7 +618,147 @@ def ensure_dataset(
         dim_orc,
         rows,
         dim_rows,
+        dataset_profile,
+        fact_extra_columns,
+        fact_csv_parts_dir,
+        fact_jsonl_parts_dir,
+        cdc_delta_csv,
+        nested_jsonl,
     )
+
+
+def dataset_file_shape(dataset_profile: str) -> str:
+    if dataset_profile == "many_small_files":
+        return "many_small_csv_parts"
+    if dataset_profile == "few_large_files":
+        return "few_large_csv_parts"
+    if dataset_profile == "cdc_delta_overlay":
+        return "base_plus_small_change_overlay"
+    if dataset_profile in {"schema_drift", "dirty_csv", "nested_json"}:
+        return dataset_profile
+    return "single_local_files"
+
+
+def fact_file_part_count(dataset_profile: str, rows: int) -> int:
+    if dataset_profile == "many_small_files":
+        return max(4, min(rows, 32))
+    if dataset_profile == "few_large_files":
+        return max(1, min(rows, 2))
+    return 0
+
+
+def write_profile_sidecars(
+    fact_csv: Path,
+    dataset_profile: str,
+    rows: int,
+    requested_formats: tuple[str, ...],
+    fact_csv_parts_dir: Path,
+    fact_jsonl_parts_dir: Path,
+    cdc_delta_csv: Path,
+    nested_jsonl: Path,
+) -> None:
+    part_count = fact_file_part_count(dataset_profile, rows)
+    if part_count > 0:
+        write_csv_parts(fact_csv, fact_csv_parts_dir, part_count)
+        if "jsonl" in requested_formats:
+            write_jsonl_part_copies(fact_csv_parts_dir, fact_jsonl_parts_dir)
+    if dataset_profile == "cdc_delta_overlay":
+        write_cdc_delta_overlay(fact_csv, cdc_delta_csv)
+    if dataset_profile == "nested_json":
+        write_nested_json_fixture(fact_csv, nested_jsonl)
+
+
+def write_csv_parts(source_csv: Path, target_dir: Path, part_count: int) -> None:
+    if target_dir.exists():
+        shutil.rmtree(target_dir)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    with source_csv.open("r", newline="", encoding="utf-8") as source:
+        reader = csv.reader(source)
+        header = next(reader)
+        writers: list[tuple[Any, Any]] = []
+        try:
+            for index in range(part_count):
+                target = (target_dir / f"part-{index:05d}.csv").open(
+                    "w", newline="", encoding="utf-8"
+                )
+                writer = csv.writer(target)
+                writer.writerow(header)
+                writers.append((target, writer))
+            for row_index, row in enumerate(reader):
+                writers[row_index % part_count][1].writerow(row)
+        finally:
+            for handle, _writer in writers:
+                handle.close()
+
+
+def write_jsonl_part_copies(source_dir: Path, target_dir: Path) -> None:
+    if target_dir.exists():
+        shutil.rmtree(target_dir)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    for source_csv in sorted(source_dir.glob("part-*.csv")):
+        write_jsonl_copy(
+            source_csv,
+            target_dir / f"{source_csv.stem}.jsonl",
+            {
+                "id": int,
+                "group_key": int,
+                "dim_key": int,
+                "value": int,
+                "metric": float,
+                "flag": int,
+                "category": str,
+            },
+        )
+
+
+def write_cdc_delta_overlay(source_csv: Path, target_csv: Path) -> None:
+    with source_csv.open("r", newline="", encoding="utf-8") as source:
+        rows = list(csv.DictReader(source))
+    overlay_size = max(1, min(len(rows), 24))
+    with target_csv.open("w", newline="", encoding="utf-8") as target:
+        fieldnames = ["id", "op", "value", "metric", "effective_ts"]
+        writer = csv.DictWriter(target, fieldnames=fieldnames)
+        writer.writeheader()
+        for index, row in enumerate(rows[:overlay_size]):
+            op = "delete" if index % 7 == 0 else "update"
+            writer.writerow(
+                {
+                    "id": row["id"],
+                    "op": op,
+                    "value": "" if op == "delete" else str(int(row["value"]) + 101),
+                    "metric": "" if op == "delete" else f"{float(row['metric']) + 1.25:.2f}",
+                    "effective_ts": f"2024-12-{(index % 28) + 1:02d}T00:00:00Z",
+                }
+            )
+        for offset in range(max(1, overlay_size // 4)):
+            writer.writerow(
+                {
+                    "id": len(rows) + offset,
+                    "op": "insert",
+                    "value": 9000 + offset,
+                    "metric": f"{250.0 + offset:.2f}",
+                    "effective_ts": f"2024-12-{(offset % 28) + 1:02d}T12:00:00Z",
+                }
+            )
+
+
+def write_nested_json_fixture(source_csv: Path, target_jsonl: Path) -> None:
+    with source_csv.open("r", newline="", encoding="utf-8") as source:
+        with target_jsonl.open("w", encoding="utf-8") as target:
+            for row in csv.DictReader(source):
+                payload = json.loads(row["nested_payload"])
+                target.write(
+                    json.dumps(
+                        {
+                            "id": int(row["id"]),
+                            "group_key": int(row["group_key"]),
+                            "metric": float(row["metric"]),
+                            "nested_payload": payload,
+                        },
+                        separators=(",", ":"),
+                    )
+                )
+                target.write("\n")
 
 
 def generated_group_key(idx: int, dataset_profile: str) -> int:
@@ -584,6 +784,8 @@ def generated_dim_key(idx: int, dim_rows: int, dataset_profile: str) -> int:
 def generated_category(idx: int, group_key: int, dataset_profile: str) -> str:
     if dataset_profile == "high_cardinality_strings":
         return f"c{idx % 10_000}"
+    if dataset_profile == "schema_drift":
+        return f"c{group_key % 10}_v{1 + (idx % 3)}"
     return f"c{group_key % 10}"
 
 
@@ -596,10 +798,20 @@ def generated_fact_extra_columns(dataset_profile: str) -> tuple[str, ...]:
         return tuple(f"nullable_metric_{index:02d}" for index in range(16)) + tuple(
             f"nullable_category_{index:02d}" for index in range(4)
         )
+    if dataset_profile in {"many_small_files", "few_large_files"}:
+        return ("file_bucket", "event_date")
     if dataset_profile == "partitioned_by_date":
         return ("event_date", "partition_year", "partition_month")
     if dataset_profile in {"poorly_clustered", "well_clustered"}:
         return ("cluster_bucket", "event_date")
+    if dataset_profile == "schema_drift":
+        return ("schema_version_tag", "optional_metric_v2", "renamed_metric_candidate")
+    if dataset_profile == "dirty_csv":
+        return ("raw_event_time", "dirty_numeric", "dirty_flag")
+    if dataset_profile == "nested_json":
+        return ("nested_payload", "nested_group", "nested_score")
+    if dataset_profile == "cdc_delta_overlay":
+        return ("cdc_op", "cdc_sequence", "effective_ts", "is_deleted")
     return ()
 
 
@@ -637,6 +849,45 @@ def generated_extra_fact_values(
         elif column == "cluster_bucket":
             cluster_source = group_key if dataset_profile == "well_clustered" else dim_key
             values.append(str(cluster_source % 16))
+        elif column == "file_bucket":
+            values.append(str(idx % (32 if dataset_profile == "many_small_files" else 2)))
+        elif column == "schema_version_tag":
+            values.append(f"schema_v{1 + (idx % 3)}")
+        elif column == "optional_metric_v2":
+            values.append("" if idx % 5 == 0 else f"{metric * 1.1:.2f}")
+        elif column == "renamed_metric_candidate":
+            values.append(f"{metric:.2f}")
+        elif column == "raw_event_time":
+            values.append(
+                "not-a-timestamp" if idx % 11 == 0 else f"{generated_event_date(idx)}T00:00:00Z"
+            )
+        elif column == "dirty_numeric":
+            values.append("bad-number" if idx % 13 == 0 else str(value))
+        elif column == "dirty_flag":
+            values.append("Y" if flag else ("?" if idx % 17 == 0 else "N"))
+        elif column == "nested_payload":
+            values.append(
+                json.dumps(
+                    {
+                        "event": {"date": generated_event_date(idx), "flag": bool(flag)},
+                        "metrics": {"value": value, "score": round(metric / 10.0, 4)},
+                        "labels": [category, f"g{group_key % 5}"],
+                    },
+                    separators=(",", ":"),
+                )
+            )
+        elif column == "nested_group":
+            values.append(f"g{group_key % 5}")
+        elif column == "nested_score":
+            values.append(f"{metric / 10.0:.4f}")
+        elif column == "cdc_op":
+            values.append("base")
+        elif column == "cdc_sequence":
+            values.append(str(idx))
+        elif column == "effective_ts":
+            values.append(f"{generated_event_date(idx)}T00:00:00Z")
+        elif column == "is_deleted":
+            values.append("false")
         else:
             values.append("" if flag else str(value))
     return values
@@ -916,7 +1167,7 @@ def shardloom_runner() -> EngineRunner:
                     scenario, paths, data_format
                 )
             )
-            for scenario in EXECUTABLE_SCENARIO_ORDER
+            for scenario in SHARDLOOM_TRADITIONAL_SCENARIOS
         },
         formats=FORMAT_ORDER,
     )
@@ -1047,7 +1298,7 @@ def shardloom_vortex_runner() -> EngineRunner:
                     scenario, paths, data_format
                 )
             )
-            for scenario in EXECUTABLE_SCENARIO_ORDER
+            for scenario in SHARDLOOM_TRADITIONAL_SCENARIOS
         },
         formats=(SHARDLOOM_VORTEX_FORMAT,),
         prepare=prepare,
@@ -1259,6 +1510,19 @@ def normalize_rank_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return sorted(normalized, key=lambda row: (row["group_key"], row["rank"], row["id"]))
 
 
+def normalize_top_group_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    normalized = [
+        {
+            "group_key": int(row["group_key"]),
+            "id": int(row["id"]),
+            "metric": round_float(row["metric"]),
+            "rank": int(row["rank"]),
+        }
+        for row in rows
+    ]
+    return sorted(normalized, key=lambda row: (row["group_key"], row["rank"], row["id"]))
+
+
 def normalize_complex_etl_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     normalized = [
         {
@@ -1315,6 +1579,14 @@ def dim_path(paths: DatasetPaths, data_format: str) -> Path:
     if data_format == "orc":
         return paths.dim_orc
     raise BenchmarkUnsupported(f"unsupported dimension storage format: {data_format}")
+
+
+def fact_part_paths(paths: DatasetPaths, data_format: str) -> tuple[Path, ...]:
+    if data_format == "csv" and paths.fact_csv_parts_dir is not None:
+        return tuple(sorted(paths.fact_csv_parts_dir.glob("part-*.csv")))
+    if data_format == "jsonl" and paths.fact_jsonl_parts_dir is not None:
+        return tuple(sorted(paths.fact_jsonl_parts_dir.glob("part-*.jsonl")))
+    return ()
 
 
 def scenario_display_name(data_format: str, scenario: str) -> str:
@@ -1381,6 +1653,20 @@ def pandas_runner() -> EngineRunner:
         if data_format == "orc":
             return pd.read_orc(path)
         return pd.read_csv(path)
+
+    def read_fact_parts(paths: DatasetPaths, data_format: str) -> Any:
+        parts = fact_part_paths(paths, data_format)
+        if not parts:
+            raise BenchmarkUnsupported(
+                f"{paths.dataset_profile} does not have {data_format} fact parts"
+            )
+        frames = []
+        for part in parts:
+            if data_format == "jsonl":
+                frames.append(pd.read_json(part, lines=True))
+            else:
+                frames.append(pd.read_csv(part))
+        return pd.concat(frames, ignore_index=True)
 
     def ingest(paths: DatasetPaths, data_format: str) -> Any:
         frame = read_fact(paths, data_format)
@@ -1468,6 +1754,92 @@ def pandas_runner() -> EngineRunner:
         )
         return normalize_rank_rows(rows)
 
+    def partition_pruning(paths: DatasetPaths, data_format: str) -> Any:
+        frame = read_fact(paths, data_format)
+        if "event_date" not in frame.columns:
+            raise BenchmarkUnsupported("partition pruning requires an event_date fixture column")
+        filtered = frame[(frame["event_date"] >= "2024-03-01") & (frame["event_date"] < "2024-06-01")]
+        return normalize_scalar_result(len(filtered), filtered["metric"].sum())
+
+    def many_small_files_scan(paths: DatasetPaths, data_format: str) -> Any:
+        frame = read_fact_parts(paths, data_format)
+        return normalize_scalar_result(len(frame), frame["metric"].sum())
+
+    def null_heavy_aggregate(paths: DatasetPaths, data_format: str) -> Any:
+        frame = read_fact(paths, data_format)
+        if "nullable_metric_00" not in frame.columns:
+            raise BenchmarkUnsupported("null-heavy aggregate requires nullable_metric_00")
+        series = pd.to_numeric(frame["nullable_metric_00"], errors="coerce")
+        return {
+            "row_count": int(series.notna().sum()),
+            "metric_sum": round_float(series.sum(skipna=True)),
+        }
+
+    def high_cardinality_string_group_distinct(paths: DatasetPaths, data_format: str) -> Any:
+        frame = read_fact(paths, data_format)
+        rows = (
+            frame.groupby("category", as_index=False)
+            .agg(row_count=("id", "count"), metric_sum=("metric", "sum"))
+            .to_dict("records")
+        )
+        return {
+            "distinct_category_count": int(frame["category"].nunique()),
+            "groups": normalize_multi_group_rows(rows, ("category",))[:100],
+        }
+
+    def top_n_per_group(paths: DatasetPaths, data_format: str) -> Any:
+        frame = read_fact(paths, data_format)
+        ranked = frame.sort_values(["group_key", "metric", "id"], ascending=[True, False, True])
+        ranked["rank"] = ranked.groupby("group_key").cumcount() + 1
+        rows = ranked[ranked["rank"] <= 3][["group_key", "id", "metric", "rank"]].to_dict(
+            "records"
+        )
+        return normalize_top_group_rows(rows)
+
+    def malformed_timestamp_dirty_csv(paths: DatasetPaths, data_format: str) -> Any:
+        frame = read_fact(paths, data_format)
+        if "raw_event_time" not in frame.columns:
+            raise BenchmarkUnsupported("dirty CSV scenario requires raw_event_time")
+        parsed = pd.to_datetime(
+            frame["raw_event_time"],
+            format="%Y-%m-%dT%H:%M:%SZ",
+            errors="coerce",
+            utc=True,
+        )
+        numeric = pd.to_numeric(frame["dirty_numeric"], errors="coerce")
+        valid = parsed.notna() & numeric.notna()
+        return normalize_scalar_result(int(valid.sum()), numeric[valid].sum())
+
+    def small_change_over_large_base(paths: DatasetPaths, data_format: str) -> Any:
+        if paths.cdc_delta_csv is None or not paths.cdc_delta_csv.exists():
+            raise BenchmarkUnsupported("CDC overlay scenario requires cdc_delta.csv")
+        frame = read_fact(paths, data_format).set_index("id", drop=False)
+        overlay = pd.read_csv(paths.cdc_delta_csv)
+        for row in overlay.to_dict("records"):
+            row_id = int(row["id"])
+            op = str(row["op"])
+            if op == "delete":
+                frame = frame.drop(index=row_id, errors="ignore")
+            else:
+                frame.loc[row_id, "id"] = row_id
+                frame.loc[row_id, "value"] = int(row["value"])
+                frame.loc[row_id, "metric"] = float(row["metric"])
+                frame.loc[row_id, "flag"] = 1
+                frame.loc[row_id, "category"] = f"cdc_{op}"
+        return normalize_scalar_result(len(frame), frame["metric"].sum())
+
+    def nested_json_field_scan(paths: DatasetPaths, data_format: str) -> Any:
+        frame = read_fact(paths, data_format)
+        if "nested_payload" not in frame.columns:
+            raise BenchmarkUnsupported("nested JSON scenario requires nested_payload")
+        scores = []
+        flagged = 0
+        for value in frame["nested_payload"]:
+            payload = json.loads(value) if isinstance(value, str) else value
+            scores.append(float(payload["metrics"]["score"]))
+            flagged += 1 if payload["event"]["flag"] else 0
+        return {"row_count": len(scores), "metric_sum": round_float(sum(scores)), "flagged": flagged}
+
     def scale_stress(paths: DatasetPaths, data_format: str) -> Any:
         fact = read_fact(paths, data_format)
         dim = read_dim(paths, data_format)
@@ -1514,6 +1886,14 @@ def pandas_runner() -> EngineRunner:
             "multi-key group by": multi_key_group_by,
             "join + aggregate": join_aggregate,
             "row number window": row_number_window,
+            "partition pruning": partition_pruning,
+            "many-small-files scan": many_small_files_scan,
+            "null-heavy aggregate": null_heavy_aggregate,
+            "high-cardinality string group/distinct": high_cardinality_string_group_distinct,
+            "top-N per group": top_n_per_group,
+            "malformed timestamp / dirty CSV": malformed_timestamp_dirty_csv,
+            "small change over large base": small_change_over_large_base,
+            "nested JSON field scan": nested_json_field_scan,
             "scale stress skewed join aggregation": scale_stress,
             "scale stress multi-stage etl": complex_etl,
         },
@@ -2482,6 +2862,10 @@ def maybe_path_size(path: Path) -> int | None:
 def scenario_bytes(paths: DatasetPaths, scenario: str, data_format: str) -> int:
     if data_format == SHARDLOOM_VORTEX_FORMAT:
         return 0
+    if scenario == "many-small-files scan":
+        parts = fact_part_paths(paths, data_format)
+        if parts:
+            return sum(path.stat().st_size for path in parts)
     total = 0
     for name in SCENARIO_BYTES[scenario]:
         path = fact_path(paths, data_format) if name == "fact" else dim_path(paths, data_format)
@@ -2692,7 +3076,17 @@ def run_one(
     data_format: str,
     iterations: int,
 ) -> dict[str, Any]:
-    scenario_fn = runner.scenarios[scenario]
+    scenario_fn = runner.scenarios.get(scenario)
+    if scenario_fn is None:
+        return failed_result(
+            runner.name,
+            scenario,
+            data_format,
+            "unsupported",
+            f"{runner.name} does not implement benchmark scenario: {scenario}",
+            paths,
+            iterations,
+        )
     values = []
     evidence_rows = []
     timings = []
@@ -4221,6 +4615,8 @@ def main() -> int:
             "rows": paths.rows,
             "dim_rows": paths.dim_rows,
             "dataset_profile": args.dataset_profile,
+            "dataset_file_shape": dataset_file_shape(args.dataset_profile),
+            "fact_extra_columns": list(paths.fact_extra_columns),
             "fact_csv": str(paths.fact_csv),
             "dim_csv": str(paths.dim_csv),
             "fact_jsonl": str(paths.fact_jsonl),
@@ -4233,6 +4629,20 @@ def main() -> int:
             "dim_avro": str(paths.dim_avro),
             "fact_orc": str(paths.fact_orc),
             "dim_orc": str(paths.dim_orc),
+            "fact_csv_parts_dir": str(paths.fact_csv_parts_dir)
+            if paths.fact_csv_parts_dir is not None
+            else None,
+            "fact_jsonl_parts_dir": str(paths.fact_jsonl_parts_dir)
+            if paths.fact_jsonl_parts_dir is not None
+            else None,
+            "fact_csv_part_count": len(fact_part_paths(paths, "csv")),
+            "fact_jsonl_part_count": len(fact_part_paths(paths, "jsonl")),
+            "cdc_delta_csv": str(paths.cdc_delta_csv)
+            if paths.cdc_delta_csv is not None and paths.cdc_delta_csv.exists()
+            else None,
+            "nested_jsonl": str(paths.nested_jsonl)
+            if paths.nested_jsonl is not None and paths.nested_jsonl.exists()
+            else None,
             "fact_csv_bytes": paths.fact_csv.stat().st_size,
             "dim_csv_bytes": paths.dim_csv.stat().st_size,
             "fact_jsonl_bytes": maybe_path_size(paths.fact_jsonl),

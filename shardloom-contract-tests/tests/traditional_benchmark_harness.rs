@@ -40,11 +40,27 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("failed_result("));
     assert!(script.contains("\"very_wide_table\""));
     assert!(script.contains("\"null_heavy\""));
+    assert!(script.contains("\"many_small_files\""));
+    assert!(script.contains("\"few_large_files\""));
     assert!(script.contains("\"partitioned_by_date\""));
     assert!(script.contains("\"poorly_clustered\""));
     assert!(script.contains("\"well_clustered\""));
+    assert!(script.contains("\"schema_drift\""));
+    assert!(script.contains("\"dirty_csv\""));
+    assert!(script.contains("\"nested_json\""));
+    assert!(script.contains("\"cdc_delta_overlay\""));
+    assert!(script.contains("\"dataset_file_shape\""));
+    assert!(script.contains("\"fact_csv_part_count\""));
+    assert!(script.contains("\"cdc_delta_csv\""));
+    assert!(script.contains("\"nested_jsonl\""));
     assert!(script.contains("def generated_fact_extra_columns("));
     assert!(script.contains("def generated_extra_fact_values("));
+    assert!(script.contains("def write_profile_sidecars("));
+    assert!(script.contains("def write_csv_parts("));
+    assert!(script.contains("def write_cdc_delta_overlay("));
+    assert!(script.contains("def write_nested_json_fixture("));
+    assert!(script.contains("SHARDLOOM_TRADITIONAL_SCENARIOS"));
+    assert!(script.contains("does not implement benchmark scenario"));
 }
 
 #[test]
@@ -61,6 +77,14 @@ fn traditional_benchmark_harness_covers_core_and_stress_scenarios() {
         "hash join",
         "join + aggregate",
         "row number window",
+        "partition pruning",
+        "many-small-files scan",
+        "null-heavy aggregate",
+        "high-cardinality string group/distinct",
+        "top-N per group",
+        "malformed timestamp / dirty CSV",
+        "small change over large base",
+        "nested JSON field scan",
         "wide projection",
         "distinct count",
         "scale stress skewed join aggregation",
@@ -145,15 +169,26 @@ fn traditional_benchmark_catalog_declares_taxonomy_and_planned_profiles() {
         "\"poorly_clustered\"",
         "\"well_clustered\"",
         "\"many_small_files\"",
+        "\"few_large_files\"",
+        "\"schema_drift\"",
         "\"dirty_csv\"",
+        "\"nested_json\"",
+        "\"cdc_delta_overlay\"",
         "\"filter + projection + limit\"",
         "\"multi-key group by\"",
         "\"join + aggregate\"",
         "\"row number window\"",
+        "\"partition pruning\"",
+        "\"many-small-files scan\"",
+        "\"null-heavy aggregate\"",
+        "\"high-cardinality string group/distinct\"",
+        "\"top-N per group\"",
         "\"clean/cast/filter/write\"",
         "\"malformed timestamp / dirty CSV\"",
         "\"small change over large base\"",
+        "\"nested JSON field scan\"",
         "\"executable\": false",
+        "\"executable\": true",
         "\"Photon\"",
         "\"Microsoft Fabric\"",
         "\"Snowflake\"",

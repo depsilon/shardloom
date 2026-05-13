@@ -189,17 +189,18 @@ from the merged code and tests.
     - User-visible surface: benchmark taxonomy coverage that is executable enough to validate
       common compute-engine workload shapes, plus measured source-backed rows for eligible prepared,
       source-bound, and reader-backed encoded filter/projection/filter-project paths.
-    - Completed sub-slice pending ledger move after merge: deterministic fixture-smoke measured
-      rows now populate all 15 eligible prepared/source-bound/reader-backed constant/dictionary/
-      run-end encoded filter/projection/filter-project matrix rows with provider metadata,
-      timing/counts, certificate refs, Native I/O refs, representation transitions,
-      reproducibility refs, and no-fallback evidence while keeping performance claims blocked. The
-      local analytics generator now executes additional wide, very-wide, null-heavy,
-      date-partitioned, poorly clustered, and well-clustered dataset profiles.
-    - Remaining taxonomy gap: many-small/few-large file generation, schema-drift/dirty CSV/nested
-      JSON/CDC overlay fixtures, write/incremental scenario execution, partition-pruning and
-      top-N-per-group coverage rows, and promotion from fixture-smoke measurements to reproducible
-      comparative benchmark rows.
+    - Completed sub-slices in ledger: deterministic fixture-smoke measured rows populate all 15
+      eligible source-backed matrix rows, and the local analytics generator executes wide,
+      very-wide, null-heavy, date-partitioned, clustered, and skewed dataset profiles.
+    - Current follow-up slice: remaining declared catalog profiles now generate runnable local
+      fixture artifacts for many-small/few-large file shapes, schema drift, dirty CSV, nested JSON,
+      and CDC delta overlays. New opt-in local scenarios cover partition pruning,
+      many-small-files scan, null-heavy aggregate, high-cardinality string group/distinct,
+      top-N per group, malformed timestamp cleanup, small-change-over-large-base, and nested JSON
+      field scan with unsupported rows instead of crashes for engines that do not implement them.
+    - Remaining taxonomy gap: clean/cast/filter/write and real write-path timing, ShardLoom-native
+      support for the expanded taxonomy scenarios, comparative reruns across selected baselines,
+      and promotion from fixture-smoke measurements to reproducible claim-grade benchmark rows.
     - Acceptance: add executable dataset profiles such as wide/very-wide tables, null-heavy data,
       many-small/few-large files, date partitioning, clustered/unclustered layouts, schema drift,
       dirty CSV, nested JSON, and CDC delta overlay where supported. Add executable scenarios for

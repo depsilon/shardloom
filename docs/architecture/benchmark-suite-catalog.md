@@ -49,6 +49,14 @@ filter + projection + limit
 multi-key group by
 join + aggregate
 row number window
+partition pruning
+many-small-files scan
+null-heavy aggregate
+high-cardinality string group/distinct
+top-N per group
+malformed timestamp / dirty CSV
+small change over large base
+nested JSON field scan
 ```
 
 The runnable generator currently supports these dataset profiles:
@@ -61,16 +69,22 @@ high_cardinality_strings
 wide_table
 very_wide_table
 null_heavy
+many_small_files
+few_large_files
 partitioned_by_date
 poorly_clustered
 well_clustered
+schema_drift
+dirty_csv
+nested_json
+cdc_delta_overlay
 ```
 
-Other catalog profiles such as `many_small_files`, `few_large_files`, `schema_drift`,
-`dirty_csv`, `nested_json`, and `cdc_delta_overlay` remain declared future coverage until their
-fixtures and engine-specific behavior are implemented. The catalog intentionally includes future
-non-executable ETL, messy-data, and incremental/state scenarios so coverage gaps are visible
-without pretending the local runner can execute them.
+Advanced profiles now emit local fixture sidecars where needed: split CSV/JSONL fact parts for
+many-small/few-large file-shape coverage, malformed timestamp/numeric columns for dirty CSV
+coverage, nested JSON payloads, and a deterministic CDC delta overlay. These rows are still
+local fixture coverage only. They do not promote write-path, incremental-state, partition-pruning,
+or performance claims without ShardLoom-native evidence and comparative reruns.
 
 ## Code Surfaces
 
