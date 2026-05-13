@@ -16,6 +16,43 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Priority 3.9 workflow/table helper ownership and meaty plan slice restructure
+  - Primary files:
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/src/workflow_planning.rs`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/typed-command-result-envelope.md`
+  - Scope: move workflow/table field construction and fixtures out of `main.rs` while preserving
+    stable schema/table compatibility, plan portability, layout/compaction/table intelligence,
+    CG-9 catalog metadata, CDC incremental, and stateful reuse CLI output; restructure the active
+    phase plan into larger user-visible slices with explicit acceptance and verification criteria.
+  - Checklist:
+    - [x] Move workflow/table field builders, fixtures, and module-local helper tests into
+          `workflow_planning.rs`.
+    - [x] Keep Vortex metadata physical-kernel helpers in `main.rs` for the existing Vortex
+          planning call path.
+    - [x] Replace the long Priority 3.9/Priority 4 fine-grained checklist with outcome-oriented
+          P3.9 and CG-21 slices that name concrete CLI/Python surfaces, acceptance criteria, and
+          verification.
+  - Validation:
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo check -p shardloom-cli --bin shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --bin shardloom`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --bin shardloom schema_plan`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --bin shardloom table_compat`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --bin shardloom incremental_plan`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test table_intelligence_plan_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test cg9_catalog_metadata_gate`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test stateful_reuse_plan_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test plan_portability_snapshots`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `$env:RUSTUP_TOOLCHAIN='1.91.1'; $env:CARGO_INCREMENTAL='0'; cargo test --workspace --all-targets`
+    - [x] `git diff --check`
+  - Runtime stance: helper/module ownership and plan restructuring only; no dataset reads, catalog
+    probes, object-store/network access, plan execution, materialization, writes, package
+    publication, external engine execution, or fallback execution is added.
+
 - [x] Session label: Priority 3.9 object-store/Vortex runtime helper ownership split
   - Primary files:
     - `shardloom-cli/src/main.rs`
