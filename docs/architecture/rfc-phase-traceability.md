@@ -94,7 +94,9 @@ rows with `fallback_attempted=false` and `external_engine_invoked=false`, not cr
 to external engines. The harness now records `claim_gate_status`,
 `claim_grade_requirements_met`, `claim_grade_missing_evidence`, and `timing_row_claim_grade` in the
 coverage table so fixture-smoke, not-claim-grade, claim-grade, unsupported, blocked, and external
-baseline rows are machine-distinguishable.
+baseline rows are machine-distinguishable. Result-sink rows also expose
+`scenario_compute_millis`, `computed_result_sink_write_millis`, `computed_result_sink_bytes`, and
+`write_timing_present` so certified local write timing is separated from scenario compute timing.
 
 P7.4.6 update: the feature-gated `local_vortex_analytics_v1` workflow now records local
 task-graph scheduler refs, scheduled/completed task counts, bounded queue/backpressure status,

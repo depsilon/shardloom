@@ -16,6 +16,39 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: P7.4.4 result-sink write timing promotion bundle
+  - Primary files:
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `shardloom-contract-tests/tests/traditional_benchmark_harness.rs`
+    - `README.md`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: continue P7.4.4 by making local Vortex result-sink write timing visible as benchmark
+    metrics and coverage evidence instead of burying it in raw ShardLoom CLI fields.
+  - Checklist:
+    - [x] Promote `scenario_compute_micros` into `scenario_compute_millis`.
+    - [x] Promote `computed_result_sink_write_micros` into
+          `computed_result_sink_write_millis`.
+    - [x] Promote `computed_result_vortex_bytes` into `computed_result_sink_bytes`.
+    - [x] Include result-sink bytes in benchmark `bytes_written`.
+    - [x] Add coverage-table `write_timing_present` and result-sink write timing fields.
+    - [x] Add a Markdown `ShardLoom Result-Sink Write Timing` section.
+    - [x] Update README, benchmark README, benchmark catalog, phase plan, and RFC traceability.
+  - Validation:
+    - [x] `python -m compileall -q benchmarks\traditional_analytics\run.py`
+    - [x] `cargo fmt --all -- --check`
+    - [x] `cargo test -p shardloom-contract-tests traditional_benchmark`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `cargo test --workspace --all-targets -j 1` with `CARGO_INCREMENTAL=0`
+    - [x] `python benchmarks\traditional_analytics\run.py --engines shardloom,pandas --formats csv --scenario "selective filter" --dataset-profile narrow_fact_dim --rows 64 --iterations 1 --shardloom-build-profile debug --shardloom-result-sink --skip-shardloom-native --no-markdown --output target\codex-p744-write-timing.json`
+    - [x] `git diff --check`
+  - Runtime stance: benchmark metric surfacing only. This does not add dirty CSV extra-column
+    ShardLoom execution, broad write-path certification, managed baselines, public performance
+    claims, or fallback execution.
+
 - [x] Session label: P7.4.4 benchmark claim-readiness coverage bundle
   - Primary files:
     - `benchmarks/traditional_analytics/run.py`

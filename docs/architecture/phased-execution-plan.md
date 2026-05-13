@@ -234,6 +234,11 @@ from the merged code and tests.
       can promote to `claim_grade` only when workload scorecard, benchmark/coverage refs,
       execution certificate, source/result Native I/O certificates, materialization boundaries,
       and no-fallback/no-external evidence are present.
+    - Completed sub-slice in ledger: result-sink write cost now appears as top-level benchmark
+      metrics and coverage fields. ShardLoom result-sink rows expose `scenario_compute_millis`,
+      `computed_result_sink_write_millis`, `computed_result_sink_bytes`, `write_timing_present`,
+      and `timing_row_claim_grade`, keeping local Vortex result-write timing separate from scenario
+      compute timing.
     - Promotion rule: do not force ShardLoom-native support for every messy/nested/CDC/file-shape
       scenario before benchmarking. Unsupported expanded taxonomy scenarios are useful evidence
       when they emit deterministic unsupported/blocked rows with `fallback_attempted=false` and
