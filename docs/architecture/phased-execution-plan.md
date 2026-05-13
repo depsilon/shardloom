@@ -191,7 +191,7 @@ actionable work.
       P4 workflow execution; only add Foundry fixtures here if the matching report surface exists.
     - Verification: `typed_envelope_contract_snapshots`, Python client protocol tests, CLI API
       protocol snapshots, and full workspace validation.
-- [ ] Priority 4 - CG-21 user-testable workflow and ETL execution lane
+- [x] Priority 4 - CG-21 user-testable workflow and ETL execution lane
   - Outcome: turn the existing CLI JSON protocol and thin Python wrapper into workflows a user can
     install locally, import, inspect, plan, explain, execute where already certified, and diagnose
     when blocked.
@@ -291,16 +291,19 @@ actionable work.
       running commands during construction; explicit engine reports preserve
       `external_engine_invoked=false`, `fallback_attempted=false`, no data reads, no writes, and no
       runtime execution.
-  - [ ] CG-22C/D/I live source/change, in-memory prototype, and state/freshness certification
+  - [x] CG-22C/D/I live source/change, in-memory prototype, and state/freshness certification
         bundle.
-    - Define ShardLoom-native `ChangeRecord` with key, operation, sequence, event time, processing
-      time, source offset, schema digest, and payload reference.
-    - Add append/upsert/delete/retract/tombstone semantics, watermark policy, late-data policy,
-      state TTL, checkpoint policy, output changelog vocabulary, and fixture-backed bounded streams
-      for filter, project, count, count_where, and simple group_count.
-    - Emit state, checkpoint, watermark, lag, output changelog, execution certificate, Native I/O
-      certificate, `FreshnessCertificate`, `StateCertificate`, `ContinuousViewCertificate`, and
-      no-fallback evidence; keep broker/runtime integrations as adapters or future dependencies.
+    - Added ShardLoom-native `ChangeRecord` with key, operation, sequence, event time, processing
+      time, source offset, schema digest, payload reference, metric, and value fields.
+    - Added append/upsert/delete/retract/tombstone semantics, fixture event-time watermarking,
+      reject-past-watermark late-data policy, retain-until-delete/tombstone state TTL,
+      in-memory deterministic checkpoint policy, output changelog vocabulary, and fixture-backed
+      streams for filter, project, count, count_where, and simple group_count.
+    - Added `live-change-contract-plan`, `live-fixture-run`, and Python context/client wrappers.
+      `live-fixture-run` emits state, checkpoint, watermark, lag, output changelog, execution
+      certificate, Native I/O certificate, `FreshnessCertificate`, `StateCertificate`,
+      `ContinuousViewCertificate`, and no-fallback evidence while keeping broker/object-store
+      integrations deferred.
   - [ ] CG-22E/F/G hybrid overlay, Vortex micro-segment flush, and layout-health bundle.
     - Combine a local Vortex base with fixture-backed hot deltas, tombstones, deletion vectors,
       snapshot epoch, and certified merged results.

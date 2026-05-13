@@ -127,6 +127,65 @@ class ShardLoomClientTests(unittest.TestCase):
 
         self.assertEqual(result.field_map["scope"], "python")
 
+    def test_live_fixture_client_methods_dispatch_expected_commands(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                args = sys.argv[1:]
+                if args == ["live-change-contract-plan", "--format", "json"]:
+                    command = "live-change-contract-plan"
+                    fields = [
+                        {"key": "change_record_field_order", "value": "key,operation,sequence,event_time_ms,processing_time_ms,source_offset,schema_digest,payload_ref"},
+                        {"key": "change_operation_vocabulary", "value": "append,upsert,delete,retract,tombstone"},
+                        {"key": "fixture_operator_vocabulary", "value": "filter,project,count,count_where,group_count"},
+                        {"key": "runtime_execution", "value": "false"},
+                    ]
+                elif args == ["live-fixture-run", "project", "key,metric", "--format", "json"]:
+                    command = "live-fixture-run"
+                    fields = [
+                        {"key": "fixture_operator", "value": "project"},
+                        {"key": "input_change_record_count", "value": "10"},
+                        {"key": "active_state_key_count", "value": "3"},
+                        {"key": "output_row_count", "value": "3"},
+                        {"key": "output_rows", "value": "key=a,metric=east|key=b,metric=west|key=e,metric=east"},
+                        {"key": "freshness_certificate_status", "value": "certified"},
+                        {"key": "state_certificate_status", "value": "certified"},
+                        {"key": "continuous_view_certificate_status", "value": "certified"},
+                        {"key": "execution_certificate_status", "value": "certified"},
+                        {"key": "native_io_certificate_status", "value": "certified"},
+                        {"key": "runtime_execution", "value": "true"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                    ]
+                else:
+                    raise AssertionError(args)
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": command,
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": fields,
+                }))
+                """
+            )
+        )
+        client = ShardLoomClient(binary=binary)
+
+        contract = client.live_change_contract_plan()
+        fixture = client.live_fixture_run("project", ("key", "metric"))
+
+        self.assertEqual(contract.operations, ("append", "upsert", "delete", "retract", "tombstone"))
+        self.assertFalse(contract.runtime_execution)
+        self.assertEqual(fixture.operator, "project")
+        self.assertEqual(fixture.output_row_count, 3)
+        self.assertTrue(fixture.all_certified)
+        self.assertFalse(fixture.fallback_attempted)
+        self.assertFalse(fixture.external_engine_invoked)
+
     def test_from_env_reads_client_configuration_without_running_commands(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(

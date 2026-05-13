@@ -199,6 +199,32 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
             fragments: &["\"report_id\",\"value\":\"cg22.engine_selection\""],
         },
         EnvelopeCase {
+            name: "live fixture runtime success",
+            args: &[
+                "live-fixture-run",
+                "group-count",
+                "metric",
+                "--format",
+                "json",
+            ],
+            command: "live-fixture-run",
+            status: "success",
+            family: "engine_runtime_planning",
+            success: true,
+            allow_stderr: false,
+            fields: &[
+                ("fixture_operator", "group_count"),
+                ("runtime_execution", "true"),
+                ("data_read", "false"),
+                ("write_io", "false"),
+                ("fallback_attempted", "false"),
+            ],
+            fragments: &[
+                "\"id\":\"cg22.live.fixture.group_count.execution\",\"kind\":\"execution_certificate\"",
+                "\"id\":\"cg22.live.fixture.group_count.native_io\",\"kind\":\"native_io_certificate\"",
+            ],
+        },
+        EnvelopeCase {
             name: "vortex runtime success",
             args: &[
                 "vortex-schedule-plan",

@@ -436,6 +436,137 @@ class EngineCapabilityMatrix:
 
 
 @dataclass(frozen=True, slots=True)
+class LiveChangeContractPlan:
+    """Typed convenience view over the CG-22 live change contract."""
+
+    envelope: OutputEnvelope
+
+    @property
+    def change_record_fields(self) -> tuple[str, ...]:
+        """Return required `ChangeRecord` field names in contract order."""
+
+        value = self.envelope.field("change_record_field_order", "") or ""
+        return tuple(part.strip() for part in value.split(",") if part.strip())
+
+    @property
+    def operations(self) -> tuple[str, ...]:
+        """Return supported fixture change operations."""
+
+        value = self.envelope.field("change_operation_vocabulary", "") or ""
+        return tuple(part.strip() for part in value.split(",") if part.strip())
+
+    @property
+    def fixture_operators(self) -> tuple[str, ...]:
+        """Return supported in-memory live fixture operators."""
+
+        value = self.envelope.field("fixture_operator_vocabulary", "") or ""
+        return tuple(part.strip() for part in value.split(",") if part.strip())
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether the contract plan reported fallback execution."""
+
+        return (
+            self.envelope.fallback.attempted
+            or self.envelope.field_bool("fallback_attempted", False) is True
+        )
+
+    @property
+    def runtime_execution(self) -> bool:
+        """Whether the contract plan executed runtime work."""
+
+        return self.envelope.field_bool("runtime_execution", False) is True
+
+
+@dataclass(frozen=True, slots=True)
+class LiveFixtureRunReport:
+    """Typed convenience view over the CG-22 in-memory live fixture run."""
+
+    envelope: OutputEnvelope
+
+    @property
+    def operator(self) -> str | None:
+        """Return the executed fixture operator."""
+
+        return self.envelope.field("fixture_operator")
+
+    @property
+    def input_change_record_count(self) -> int:
+        """Return the number of deterministic fixture change records."""
+
+        return self.envelope.field_int("input_change_record_count", 0) or 0
+
+    @property
+    def active_state_key_count(self) -> int:
+        """Return the active state key count after applying changes."""
+
+        return self.envelope.field_int("active_state_key_count", 0) or 0
+
+    @property
+    def output_row_count(self) -> int:
+        """Return the emitted fixture output row count."""
+
+        return self.envelope.field_int("output_row_count", 0) or 0
+
+    @property
+    def output_rows(self) -> tuple[str, ...]:
+        """Return deterministic output rows from the fixture report."""
+
+        value = self.envelope.field("output_rows", "") or ""
+        if value == "none":
+            return ()
+        return tuple(part.strip() for part in value.split("|") if part.strip())
+
+    @property
+    def all_certified(self) -> bool:
+        """Whether live, execution, and Native I/O certificates are all certified."""
+
+        return all(
+            self.envelope.field(key) == "certified"
+            for key in (
+                "freshness_certificate_status",
+                "state_certificate_status",
+                "continuous_view_certificate_status",
+                "execution_certificate_status",
+                "native_io_certificate_status",
+            )
+        )
+
+    @property
+    def runtime_execution(self) -> bool:
+        """Whether this explicit fixture command performed runtime work."""
+
+        return self.envelope.field_bool("runtime_execution", False) is True
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether the fixture command reported fallback execution."""
+
+        return (
+            self.envelope.fallback.attempted
+            or self.envelope.field_bool("fallback_attempted", False) is True
+        )
+
+    @property
+    def external_engine_invoked(self) -> bool:
+        """Whether the fixture command invoked an external engine."""
+
+        return self.envelope.field_bool("external_engine_invoked", False) is True
+
+    @property
+    def data_read(self) -> bool:
+        """Whether the fixture command read external data."""
+
+        return self.envelope.field_bool("data_read", False) is True
+
+    @property
+    def write_io(self) -> bool:
+        """Whether the fixture command wrote output or checkpoints."""
+
+        return self.envelope.field_bool("write_io", False) is True
+
+
+@dataclass(frozen=True, slots=True)
 class PythonClientSmokeReport:
     """No-dataset Python client smoke-check envelopes."""
 
@@ -633,6 +764,25 @@ class ShardLoomClient:
         """Return the CG-22 report-only per-engine capability matrix."""
 
         return EngineCapabilityMatrix(self.run(["engine-capability-matrix"], check=check))
+
+    def live_change_contract_plan(self, *, check: bool = True) -> LiveChangeContractPlan:
+        """Return the CG-22 report-only live change contract."""
+
+        return LiveChangeContractPlan(self.run(["live-change-contract-plan"], check=check))
+
+    def live_fixture_run(
+        self,
+        operator: str = "filter",
+        argument: str | Sequence[str] | None = None,
+        *,
+        check: bool = True,
+    ) -> LiveFixtureRunReport:
+        """Run the explicit CG-22 in-memory live fixture command."""
+
+        args = ["live-fixture-run", operator]
+        if argument is not None:
+            args.append(str(argument) if isinstance(argument, str) else _columns_arg(argument))
+        return LiveFixtureRunReport(self.run(args, check=check))
 
     def explain(self, operation: str, *, check: bool = True) -> OutputEnvelope:
         """Return the report-only explain envelope for an operation summary."""

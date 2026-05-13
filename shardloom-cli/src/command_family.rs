@@ -313,6 +313,8 @@ fn is_engine_runtime_planning_command(command: &str) -> bool {
         command,
         "engine-selection-plan"
             | "engine-capability-matrix"
+            | "live-change-contract-plan"
+            | "live-fixture-run"
             | "streaming-plan"
             | "streaming-batch-plan"
             | "backpressure-plan"
@@ -418,6 +420,10 @@ mod tests {
         );
         assert_eq!(
             classify_command("engine-capability-matrix"),
+            CommandFamily::EngineRuntimePlanning
+        );
+        assert_eq!(
+            classify_command("live-fixture-run"),
             CommandFamily::EngineRuntimePlanning
         );
         assert_eq!(

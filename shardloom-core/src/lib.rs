@@ -30,6 +30,7 @@ pub mod expression;
 pub mod extension;
 pub mod feature_footprint;
 pub mod input;
+pub mod live_engine;
 pub mod manifest;
 pub mod native_io;
 pub mod observability;
@@ -161,6 +162,14 @@ pub use input::{
     InputCapabilityStatus, InputEffectLevel, InputFidelityLevel, InputMaterializationRisk,
     InputMetadataAvailability, InputSourceId, InputSourceKind, UniversalInputSource,
     input_source_to_dataset_ref,
+};
+
+pub use live_engine::{
+    ChangeOperation, ChangeRecord, CheckpointPolicy, ContinuousViewCertificate,
+    FreshnessCertificate, LateDataPolicy, LiveCertificateStatus, LiveChangeContractReport,
+    LiveFixtureOperator, LiveFixtureRunInput, LiveFixtureRunReport, LiveOutputRow,
+    OutputChangelogEntry, OutputChangelogMode, StateCertificate, StateTtlPolicy, WatermarkPolicy,
+    plan_live_change_contract, run_live_fixture,
 };
 
 pub use manifest::{
