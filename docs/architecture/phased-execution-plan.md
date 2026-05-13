@@ -141,333 +141,140 @@ Completed checked-off work that used to live in this section is recorded in
 `docs/architecture/phased-execution-completed-ledger.md`. Keep this section focused on remaining
 actionable work.
 
-- [ ] Priority 3.9 - complete typed command/result envelope and CLI modularity overhaul
-  - [ ] Migrate command-family-specific result fields from the temporary top-level legacy `fields`
-        mirror into explicit typed result, artifact, certificate, and report payload helpers.
-    - [x] Add shared batch typed-envelope field routing plus inline report artifact helpers for
-          execution-certificate, Native I/O envelope, benchmark-plan, and benchmark claim evidence
-          JSON outputs while preserving the temporary legacy `fields` mirror.
-  - [ ] Attach richer inline execution certificates, Native I/O certificates,
-        `EvidenceArtifactEnvelope`, materialization boundary reports, benchmark rows, Foundry
-        reports, source/sink reports, and capability snapshots through typed payloads where a
-        command has more than explicit refs.
-    - [x] Attach first inline typed report payloads for the execution certificate surface, Native
-          I/O envelope report, benchmark plan report, and benchmark claim evidence report.
-    - [x] Add emitted-runtime certificate prefix helpers so existing local CountAll and Vortex
-          primitive execution/native-I/O certificate field groups become inline typed artifacts
-          when a command actually emits the certificate.
-    - [x] Add inline materialization-boundary report payloads for `streaming-plan` and
-          `streaming-batch-plan`, plus a typed `streaming_batch_runtime_report` payload for emitted
-          Vortex streaming-batch runtime field groups.
-    - [x] Add inline `input-plan` source reports, `input-adapters` capability snapshot enrichment,
-          and emitted local Native I/O source/pushdown/sink/adapter-fidelity subreports for local
-          CountAll and Vortex primitive certificate field groups.
-  - [ ] Expand golden JSON fixtures for success, unsupported, blocked, certified execution,
-        evidence-incomplete execution, source-backed execution, benchmark rows, missing binary, and
-        Foundry boundary reports.
-    - [x] Add typed-envelope contract snapshots for success, invalid input, unsupported
-          source-backed blocking, capability-claim blocking, certificate-surface reporting,
-          evidence-incomplete benchmark rows, and Foundry-adjacent optional harness reporting.
-    - [x] Add feature-gated certified runtime execution typed-envelope coverage for the local
-          Vortex primitive path with inline execution certificate, Native I/O certificate,
-          source, pushdown, sink, and adapter-fidelity artifacts.
-    - [x] Add missing-binary protocol parity coverage in the Python client so deterministic binary
-          resolution errors expose no-fallback diagnostics and a `shardloom.output.v2`-shaped
-          payload without invoking a CLI binary.
-    - [ ] Add remaining concrete Foundry boundary report fixtures once those command surfaces are
-          executable/reportable.
-  - [ ] Modularize CLI command routing around typed command handlers and shared rendering.
-    - [x] Move shared CLI JSON/text rendering and error emission into
-          `shardloom-cli/src/cli_output.rs`, backed by the existing `typed_envelope` router and
-          `command_family` taxonomy.
-    - [x] Move the status/capabilities command-family handlers into
-          `shardloom-cli/src/status_capabilities.rs` without changing command output.
-    - [x] Move status/capability-discovery helper ownership into
-          `shardloom-cli/src/status_capabilities.rs`, covering capability scopes,
-          certification fields/text, operator discovery fields, and world-class surface capability
-          emitters while keeping discovery report-only, side-effect-free, and no-fallback.
-    - [x] Move input adapter/source planning handlers into `shardloom-cli/src/input_planning.rs`
-          without reading datasets, probing object stores, executing tasks, materializing outputs,
-          or invoking external engines.
-    - [x] Move the REST/API planning handler into `shardloom-cli/src/rest_api_planning.rs`
-          without enabling server behavior or remote execution.
-    - [x] Move packaging/deployment handlers into `shardloom-cli/src/packaging_deployment.rs`
-          without publishing packages, pushing artifacts, or invoking external engines.
-    - [x] Move packaging/deployment and REST/API helper ownership into
-          `shardloom-cli/src/packaging_deployment.rs` and
-          `shardloom-cli/src/rest_api_planning.rs`, covering release/package, Conda
-          certification, agent contract, Python wrapper, and CLI API protocol field
-          construction while preserving report-only semantics, no publishing, no server start, and
-          no-fallback behavior.
-    - [x] Move benchmark planning handlers into `shardloom-cli/src/benchmark_planning.rs`
-          without running benchmarks, invoking external engines, or publishing performance claims.
-    - [x] Move executable traditional-analytics benchmark runtime handlers into
-          `shardloom-cli/src/benchmark_runtime.rs` without changing benchmark behavior, adding
-          managed-platform lanes, or allowing external engines to become runtime fallback.
-    - [x] Move the local Vortex count benchmark runtime handler, `vortex-count-benchmark`, into
-          `shardloom-cli/src/benchmark_runtime.rs` without changing benchmark semantics, adding
-          external baseline execution, or weakening no-fallback behavior.
-    - [x] Move benchmark planning/runtime helper ownership into
-          `shardloom-cli/src/benchmark_planning.rs` and
-          `shardloom-cli/src/benchmark_runtime.rs`, covering benchmark plan, benchmark claim
-          evidence, and Vortex count benchmark field construction while preserving report-only
-          planning or local benchmark semantics, comparison-only external baselines, and
-          no-fallback behavior.
-    - [x] Move operational hardening/security handlers into
-          `shardloom-cli/src/operational_hardening.rs` without resolving credentials, loading
-          secrets, executing effects, or weakening no-fallback behavior.
-    - [x] Move diagnostic/explain/estimate handlers into `shardloom-cli/src/diagnostics.rs`
-          without probing datasets, collecting profiles, executing plans, or invoking external
-          engines.
-    - [x] Move diagnostics and operational-policy helper ownership into
-          `shardloom-cli/src/diagnostics.rs` and
-          `shardloom-cli/src/operational_hardening.rs`, covering feature footprint,
-          observability schema coverage, effect budget, and security-governance evidence field
-          construction while preserving report-only/no-probe/no-effect/no-fallback behavior.
-    - [x] Move evidence/certificate planning handlers into
-          `shardloom-cli/src/evidence_certificates.rs` without running harnesses, reading data,
-          emitting runtime certificates from execution, or invoking external engines.
-    - [x] Move evidence/certificate helper ownership into
-          `shardloom-cli/src/evidence_certificates.rs`, covering correctness plan/harness,
-          execution-certificate surface, Native I/O envelope, universal harness, RFC coverage,
-          world-class sufficiency, and CG-20 capability/sketch field construction while keeping
-          everything report-only, side-effect-free, and no-fallback.
-    - [x] Move workflow/table planning handlers for manifest, layout health, compaction, table
-          intelligence, schema evolution, table compatibility, CG-9 catalog metadata,
-          incremental, and stateful reuse surfaces into `shardloom-cli/src/workflow_planning.rs`
-          without reading datasets, probing catalogs, executing plans, writing data,
-          materializing outputs, or invoking external engines.
-    - [x] Move engine/runtime planning handlers for streaming, streaming batch, backpressure,
-          runtime/task, sizing, dynamic sizing feedback, dynamic work shaping, and CG-8 promotion
-          surfaces into `shardloom-cli/src/engine_runtime_planning.rs` without reading datasets,
-          executing tasks, collecting profiles, writing data, materializing outputs, or invoking
-          external engines.
-    - [x] Move extension/UDF planning handlers into
-          `shardloom-cli/src/extension_planning.rs` without dynamic loading, extension code
-          execution, UDF execution, external services, writes, or fallback execution.
-    - [x] Move prepared/source-backed encoded-read probe and spike handlers into
-          `shardloom-cli/src/prepared_source_backed_execution.rs` while preserving existing
-          feature gates, no-fallback evidence, and encoded-read execute semantics.
-    - [x] Move the prepared/source-backed encoded-read API boundary, boundary report, and
-          metadata-probe handlers into `shardloom-cli/src/prepared_source_backed_execution.rs`
-          while preserving report-only/no-dataset-read/no-fallback behavior.
-    - [x] Move the remaining prepared/source-backed encoded-read readiness and execute handlers
-          into `shardloom-cli/src/prepared_source_backed_execution.rs` while preserving
-          readiness-only, executor-contract, no-read/no-decode/no-materialize, and no-fallback
-          behavior.
-    - [x] Move the first Vortex primitive execution handler, `vortex-count`, into
-          `shardloom-cli/src/vortex_primitive_execution.rs` while leaving broader
-          filter/projection/run/benchmark extraction staged.
-    - [x] Move the Vortex primitive trace handler, `vortex-query-trace`, into
-          `shardloom-cli/src/vortex_primitive_execution.rs` while preserving report-only
-          no-fallback trace behavior.
-    - [x] Move the Vortex filtered-count primitive handler, `vortex-count-where`, into
-          `shardloom-cli/src/vortex_primitive_execution.rs` while preserving metadata/filter
-          evidence and optional local primitive execution behavior.
-    - [x] Move the Vortex projection primitive handler, `vortex-project`, into
-          `shardloom-cli/src/vortex_primitive_execution.rs` while preserving metadata/projection
-          evidence and optional local primitive execution behavior.
-    - [x] Move the Vortex filter-project primitive handler, `vortex-filter-project`, into
-          `shardloom-cli/src/vortex_primitive_execution.rs` while preserving metadata/filter-
-          projection evidence and optional local primitive execution behavior.
-    - [x] Move the Vortex filter primitive handler, `vortex-filter`, into
-          `shardloom-cli/src/vortex_primitive_execution.rs` while preserving metadata/selection-
-          vector evidence and optional local primitive execution behavior.
-    - [x] Move the Vortex local execution skeleton handler, `vortex-local-exec`, into
-          `shardloom-cli/src/vortex_primitive_execution.rs` while preserving metadata-only or
-          report-only execution-loop behavior.
-    - [x] Move the Vortex bounded local execution handler, `vortex-bounded-local-exec`, into
-          `shardloom-cli/src/vortex_primitive_execution.rs` while preserving bounded policy,
-          guard-field, and no-fallback behavior.
-    - [x] Move the broader Vortex local engine handler, `vortex-run`, into
-          `shardloom-cli/src/vortex_primitive_execution.rs` while preserving local-engine
-          certificate, why-report, work-avoidance, and no-fallback behavior.
-    - [x] Move the first Vortex metadata/report-only planning handler cluster,
-          `vortex-metadata-plan`, `vortex-pruning-plan`, `vortex-metadata-probe`, and
-          `vortex-api-inventory`, into `shardloom-cli/src/vortex_planning.rs` while preserving
-          metadata-only, plan-only, and no-fallback behavior.
-    - [x] Move the Vortex encoded primitive planning reports,
-          `vortex-encoded-path-selection-plan` and `vortex-generalized-encoded-primitive-gate`,
-          into `shardloom-cli/src/vortex_planning.rs` while preserving report-only,
-          side-effect-free, and no-fallback behavior.
-    - [x] Move the broader Vortex metadata/readiness/report-only planning cluster into
-          `shardloom-cli/src/vortex_planning.rs`, covering metadata execution planning, dry-run,
-          base Vortex read/output/translation plans, dependency readiness, mapping reports,
-          metadata-open/summary, and query-primitive planning without enabling dataset execution,
-          materialization, writes, external engines, or fallback behavior.
-    - [x] Move the remaining Vortex readiness/approval planning handlers into
-          `shardloom-cli/src/vortex_planning.rs`, covering metadata physical-kernel planning,
-          count/filtered-count/projection readiness planning, encoded-count approval planning, and
-          layout-driver approval planning without changing report-only, local-guard, or no-fallback
-          behavior.
-    - [x] Move optimizer, kernel registry, and CPU specialization planning handlers into
-          `shardloom-cli/src/optimizer_planning.rs`, covering `kernel-registry`,
-          `optimizer-plan`, `optimizer-adaptive-memory-plan`, and `cpu-specialization-plan`
-          while preserving report-only kernel registry output, the unsupported optimizer skeleton,
-          CPU/adaptive planning reports, no execution, no writes, and no-fallback behavior.
-    - [x] Move operational runtime, memory/spill, fault-tolerance, observability, object-store,
-          plan-portability, CG-20 evidence, Vortex output/commit/staged artifact, and Vortex
-          runtime-readiness handler clusters into focused modules while preserving existing
-          report-only, feature-gated artifact, no-write-by-default, no external engine, and
-          no-fallback behavior.
-    - [x] Move object-store planning and Vortex runtime-readiness helper ownership into
-          `shardloom-cli/src/object_store_planning.rs` and
-          `shardloom-cli/src/vortex_runtime_planning.rs`, covering object-store request/range/
-          coalescing/scheduling/checkpoint/commit field construction plus Vortex adaptive sizing,
-          memory bridge, and scheduler bridge fields while preserving no-probe/no-write/
-          no-execution/no-fallback behavior.
-    - [ ] Move remaining command-family handlers out of `main.rs` after the shared
-          `typed_envelope` routing module and `command_family` taxonomy.
-    - [ ] Split handlers by status/capabilities, Vortex primitive execution,
-          prepared/source-backed execution, evidence/certificates, benchmarks,
-          packaging/deployment, Foundry, operational hardening, diagnostics, and future REST/API
-          planning families.
-    - [ ] Continue centralizing rendering, diagnostics, fallback fields, policy fields, and
-          side-effect reporting beyond the current typed-envelope field/ref router.
-    - [ ] Ensure no command manually constructs incompatible JSON or omits no-fallback status.
-    - [ ] Keep dataset probes, external-engine execution, materialization, writes, and network
-          effects disabled unless a command contract explicitly allows them and emits evidence.
-- [ ] Priority 4 - CG-21 user data workflow and ETL surface implementation lane
-  - [ ] CG-21A install/import/runtime discovery
-    - [ ] Provide a one-command local install path once packaging approval is complete.
-    - [ ] Keep `import shardloom` side-effect-free with no dataset, filesystem, network, catalog,
-          adapter, SQL, benchmark, or execution probing.
-    - [ ] Report Python package version, CLI binary version, protocol version, feature gates,
-          platform, and `fallback_attempted=false`.
-    - [ ] Make missing-binary, version-mismatch, disabled-feature, and unsupported-runtime
-          diagnostics deterministic and actionable.
-    - [ ] Certify fresh venv/Conda environment smoke checks before public package claims.
-  - [ ] CG-21B context and capability API
-    - [ ] Add side-effect-free Python context constructors for local and future remote use.
-    - [ ] Expose `capabilities`, `adapters`, `functions`, `operators`, `sql_support`, `deployment`,
-          and `certification` through stable machine-readable structures.
-    - [ ] Keep planned, partial, unsupported, feature-gated, effect-gated, materialization-gated,
-          and certified states distinct.
-    - [ ] Include rewrite suggestions, required gates, materialization boundaries, and no-fallback
-          fields in unsupported responses.
-  - [ ] CG-21C source/sink registry and adapter maturity
-    - [ ] Expose source and sink registries without probing datasets by default.
-    - [ ] Track adapter maturity A0-A7 separately for discovery, schema/metadata, read, pushdown,
-          write, commit/recovery, and benchmark certification.
-    - [ ] Separate Vortex-native paths from compatibility import/export paths.
-    - [ ] Require native I/O certificate requirements, pushdown proof, fidelity loss, metadata loss,
-          and materialization risk per adapter path.
-  - [ ] CG-21D Python DataFrame/query-builder
-    - [ ] Build lazy plan objects for `read`, `filter`, `select`, `with_column`, `group_by`, `agg`,
-          `join`, `sort`, `limit`, and write operations.
-    - [ ] Lower all actions through ShardLoom-native capability checks before execution.
-    - [ ] Keep pandas, Polars, Spark, DataFusion, DuckDB, and other engines out of runtime fallback
-          paths.
-    - [ ] Provide `explain`, `estimate`, `profile`, `certify`, `collect`, `to_pandas`, `to_arrow`,
-          `write_vortex`, and compatibility write boundaries with explicit materialization reports.
-  - [ ] CG-21E SQL frontend workflow
-    - [ ] Stage parse, bind, validation, native logical planning, native physical planning, native
-          execution, encoded-capable execution, and workload certification separately.
-    - [ ] Reject unsupported constructs with stable diagnostics rather than delegating to external
-          engines.
-    - [ ] Tie SQL behavior to semantic profiles, catalog/schema availability, function/operator
-          capability, and native I/O evidence.
-  - [ ] CG-21F pandas, Arrow, and NumPy interop boundaries
-    - [ ] Implement `from_pandas`, `to_pandas`, `from_arrow`, `to_arrow`, and NumPy-style boundary
-          helpers only as explicit materialization/source/sink boundaries.
-    - [ ] Emit materialization, fidelity, representation-state, and no-fallback evidence for every
-          conversion.
-    - [ ] Never use pandas, Arrow, or NumPy to execute unsupported ShardLoom plan fragments
-          silently.
-  - [ ] CG-21G data contracts and data quality
-    - [ ] Add required-column, required-type, nullability, uniqueness, ordering, freshness,
-          duplicate-key, parse-failure, and constraint-violation contracts.
-    - [ ] Support count/reject/quarantine policies with explicit rejected-row output contracts
-          before claiming data-quality support.
-    - [ ] Include data-quality summaries, diagnostics, and certificate refs in workflow output.
-  - [ ] CG-21H local structured adapters
-    - [ ] Mature Vortex read/write first as highest-fidelity source and sink.
-    - [ ] Promote CSV, JSON/NDJSON, Parquet, Arrow IPC, Avro, ORC, compressed wrappers, and
-          partitioned directories only through approved dependency/reader boundaries.
-    - [ ] Keep compatibility ingestion honest about decode/materialization and Vortex conversion.
-    - [ ] Add independent read, write, pushdown, commit, correctness, benchmark, and native I/O
-          evidence per format.
-  - [ ] CG-21I output and commit UX
-    - [ ] Surface sink requirements before execution for Vortex, Parquet, CSV, JSON/NDJSON, Arrow
-          IPC, partitioned outputs, append, overwrite, merge, upsert, delete, copy, and export.
-    - [ ] Report temporary path policy, atomicity, idempotency, rollback cleanup, partition layout,
-          side effects, metadata/statistics preservation, and materialization requirements.
-    - [ ] Keep unsafe writes policy-gated and aligned with CG-3/CG-4/CG-19 evidence.
-  - [ ] CG-21J object-store and remote data UX
-    - [ ] Expose S3-compatible, GCS, Azure Blob/ADLS, HTTP range-read, credential, range-planning,
-          coalescing, prefetch, retry, idempotency, and request-budget evidence before remote IO
-          claims.
-    - [ ] Keep object-store paths distinct from distributed execution support.
-    - [ ] Report bytes requested/read, estimated requests, credential boundaries, network effects,
-          and fallback status.
-  - [ ] CG-21K table/catalog/lakehouse UX
-    - [ ] Expose Hive-style partitions, Iceberg-compatible metadata, Delta-compatible metadata,
-          snapshots, schema evolution, delete/tombstone handling, manifests, partition pruning,
-          layout health, and compaction planning as separate maturity surfaces.
-    - [ ] Keep metadata discovery separate from table read/write/commit certification.
-    - [ ] Block update/delete/merge claims until table semantics, commit/recovery, correctness, and
-          no-fallback evidence exist.
-  - [ ] CG-21S relational, warehouse, and snapshot/export UX
-    - [ ] Track PostgreSQL, MySQL/MariaDB, SQLite, Snowflake-like exports, BigQuery-like exports,
-          JDBC/ODBC bridges, and warehouse/table snapshots as metadata, snapshot/export, oracle,
-          migration, or source-pushdown surfaces before runtime support.
-    - [ ] Report remote-system pushdown as source behavior with residual boundaries, not as
-          ShardLoom-native execution unless ShardLoom executes the residual natively and
-          certificates prove it.
-    - [ ] Prohibit remote SQL engines from executing unsupported ShardLoom plan fragments as
-          fallback.
-  - [ ] CG-21T logs, events, and bounded event ETL UX
-    - [ ] Model line logs, JSON logs, application events, event ids, timestamp parsing,
-          sessionization, deduplication, watermarks, late data, invalid-line quarantine, and bounded
-          micro-batch behavior as explicit ETL workflow surfaces.
-    - [ ] Distinguish finite log/event file processing, bounded micro-batches, and true live streams
-          with state/checkpoint/watermark evidence.
-    - [ ] Keep broker/runtime substrates as adapter/reference candidates, not core fallback
-          dependencies.
-  - [ ] CG-21L observability UX
-    - [ ] Make `explain`, `estimate`, `profile`, and `certify` available from CLI, Python, and later
-          REST for supported plans.
-    - [ ] Report planned versus executed work, work avoided, rows/bytes scanned, segments pruned,
-          bytes decoded, rows materialized, selection-vector use, object-store requests,
-          memory/spill, representation state, and fallback status.
-  - [ ] CG-21M benchmark and migration UX
-    - [ ] Keep Spark, DataFusion, Polars, DuckDB, Dask, and pandas optional benchmark/correctness
-          baselines only.
-    - [ ] Add migration reports with supported/unsupported constructs, semantic/function/adapter
-          differences, rewrite suggestions, materialization requirements, Vortex conversion payback,
-          and no-fallback status.
-    - [ ] Require benchmark rows to carry correctness, materialization, native I/O,
-          execution-certificate, and reproducibility evidence before claims.
-  - [ ] CG-21N notebook UX
-    - [ ] Add rich display for schemas, plan trees, capability states, unsupported reasons, sample
-          previews, certificate summaries, benchmark tables, and materialization/fidelity warnings.
-    - [ ] Treat previews as explicit materialization with row limits and redaction policy.
-  - [ ] CG-21O UDF and extension UX
-    - [ ] Support typed Rust-native UDF metadata before broader WASM/Python/external-service UDF
-          execution.
-    - [ ] Require type, null behavior, determinism, volatility, effect level, resource limits,
-          sandbox policy, materialization requirement, failure behavior, timeout, retry, redaction,
-          license/provenance, and no-fallback fields.
-    - [ ] Treat Python/external/LLM/API/model-call UDFs as explicit effect/materialization
-          boundaries until certified native paths exist.
-  - [ ] CG-21P unstructured/media UX
-    - [ ] Model documents, logs, HTML/XML, PDFs, office documents, images, audio, video, archives,
-          binary blobs, extracted text, chunks, metadata, embeddings, and manifests as typed
-          references and explicit effect stages.
-    - [ ] Prohibit silent OCR, media decode, embedding generation, LLM calls, or API calls.
-    - [ ] Report extractor provenance, confidence, redaction, credential boundaries, cost,
-          materialization, and no-fallback evidence.
-  - [ ] CG-21Q security/governance UX
-    - [ ] Add credential boundary reporting, secret redaction, audit events, external read/write
-          permission, destructive operation policy, data classification, PII redaction,
-          data-retention policy, and safe agent-facing API behavior.
-    - [ ] Block governed-workload certification when required governance evidence is missing.
-  - [ ] CG-21R workload scorecards
-    - [ ] Publish workload-scoped scorecards for correctness, performance, cost, memory safety,
-          SQL/function/operator/adapter coverage, Python usability, observability, migration,
-          deployment, governance, extension safety, and no-fallback integrity.
-    - [ ] Allow scorecards to report `not_certified` or `partial_for_workload` without implying
-          broad support.
+- [ ] Priority 3.9 - CLI contract closeout and ownership cleanup
+  - Outcome: finish the typed command/result envelope and CLI modularity work only to the point that
+    every user-facing command emits the same `shardloom.output.v2` contract, no-fallback status,
+    side-effect policy, diagnostics, and typed refs/payloads through shared helpers.
+  - Slice rule: do not open one-checkbox PRs for helper moves. Batch related command-family cleanup
+    into reviewable ownership slices that leave the CLI more reliable or easier to test.
+  - Runtime rule: Priority 3.9 may reorganize handlers, fixtures, field builders, and typed payload
+    routing; it must not add dataset probing, external-engine execution, materialization, writes,
+    network effects, package publishing, server startup, or fallback execution.
+  - [x] P3.9A workflow/table CLI ownership closeout.
+    - User-visible surface: `schema-plan`, `table-compat-plan`, `table-intelligence-plan`,
+      `layout-health-plan`, `compaction-plan`, `plan-import`, `plan-export`, `incremental-plan`,
+      and `stateful-reuse-plan` keep stable JSON/text output.
+    - Acceptance: workflow/table field builders, fixtures, typed payload hooks, and tests live with
+      `workflow_planning.rs`; `main.rs` keeps only routing and truly shared helpers.
+    - Verification: focused workflow/table CLI snapshot tests, the
+      `cargo test -p shardloom-cli --bin shardloom` command, full workspace fmt/clippy/test, and
+      `git diff --check`.
+  - [ ] P3.9B runtime/optimizer/operational CLI ownership closeout.
+    - User-visible surface: `streaming-plan`, `streaming-batch-plan`, `backpressure-plan`,
+      `dynamic-work-shaping-plan`, `optimizer-*`, `kernel-registry`, `memory-*`, `retry-*`,
+      `cancellation-*`, `commit-*`, and operational gate commands keep stable output.
+    - Acceptance: runtime, optimizer, memory/spill, retry/cancel/commit, and operational hardening
+      helpers are owned by their command-family modules with no duplicated manual JSON policy.
+    - Verification: focused engine/runtime, optimizer, operational, and typed-envelope tests plus
+      full workspace fmt/clippy/test.
+  - [ ] P3.9C Vortex primitive and readiness CLI ownership closeout.
+    - User-visible surface: existing Vortex planning/readiness commands and feature-gated local
+      primitive execution commands stay runnable with the same explicit opt-in flags.
+    - Acceptance: Vortex primitive execution, Vortex planning/readiness, prepared/source-backed
+      execution, and Vortex runtime-readiness helpers are module-owned; certificate and Native I/O
+      field groups use shared typed-envelope helpers.
+    - Verification: feature-gated local primitive tests, Vortex readiness/planning snapshots,
+      typed-envelope snapshots, and full workspace validation.
+  - [ ] P3.9D typed envelope compatibility lock.
+    - User-visible surface: every CLI command, including error paths, returns consistent
+      `shardloom.output.v2` JSON when `--format json` is requested.
+    - Acceptance: snapshot coverage exists for success, invalid input, unsupported, blocked,
+      evidence-incomplete, certified local execution, missing-binary Python parity, and concrete
+      Foundry boundary reports once those report surfaces exist.
+    - Verification: `typed_envelope_contract_snapshots`, Python client protocol tests, CLI API
+      protocol snapshots, and full workspace validation.
+- [ ] Priority 4 - CG-21 user-testable workflow and ETL execution lane
+  - Outcome: turn the existing CLI JSON protocol and thin Python wrapper into workflows a user can
+    install locally, import, inspect, plan, explain, execute where already certified, and diagnose
+    when blocked.
+  - Slice rule: each slice must expose a concrete CLI/Python surface, tests, and at least one
+    documented smoke command. Prefer slices that combine several related checkboxes into one usable
+    workflow over single-field or single-helper changes.
+  - Execution rule: runtime work may only use already-approved ShardLoom-native paths. Unsupported
+    reads, writes, SQL, DataFrame actions, object-store access, catalogs, external services, and
+    external engines must produce deterministic unsupported diagnostics, not fallback execution.
+  - [ ] P4.1 local smoke and runtime discovery bundle.
+    - User-visible surface: `import shardloom`, `ShardLoomClient.from_env()`,
+      `ShardLoomClient.from_repo()`, `client.smoke_check()`, `shardloom status --format json`,
+      `shardloom capabilities python --format json`, and
+      `shardloom capabilities deployment --format json`.
+    - Acceptance: smoke output reports Python package version, resolved CLI path, CLI version,
+      protocol version, platform, feature gates, package/deployment maturity, and
+      `fallback_attempted=false`; import and constructors remain side-effect-free.
+    - Verification: Python unit tests, fresh local venv smoke, CLI status/capability snapshots,
+      missing-binary/version-mismatch diagnostics, and full workspace validation.
+  - [ ] P4.2 side-effect-free context and capability API.
+    - User-visible surface: `import shardloom as sl; ctx = sl.context(); ctx.capabilities()` plus
+      typed Python accessors for adapters, functions, operators, SQL support, deployment,
+      certification, materialization boundaries, and unsupported reasons.
+    - Acceptance: capability objects distinguish `certified`, `partial`, `planned`, `unsupported`,
+      `feature_gated`, `effect_gated`, and `materialization_gated`; all unsupported responses carry
+      stable diagnostics, required gates, rewrite suggestions, and no-fallback fields.
+    - Verification: Python model/accessor tests, CLI/Python parity snapshots, no-probe smoke tests,
+      and protocol compatibility tests.
+  - [ ] P4.3 lazy workflow/query-builder planning MVP.
+    - User-visible surface: `sl.read_vortex`, `sl.read_csv`, `sl.read_json`, `sl.read_parquet`,
+      `.filter(...)`, `.select(...)`, `.limit(...)`, `.explain()`, `.estimate()`, `.certify()`, and
+      `.unsupported_report()` as lazy plan objects.
+    - Acceptance: builders lower to ShardLoom logical-plan or report-only CLI surfaces without
+      executing data reads by default; unsupported formats/operators fail deterministically with
+      materialization and no-fallback evidence.
+    - Verification: Python builder unit tests, golden CLI JSON for explain/estimate/certify paths,
+      unsupported-diagnostic parity tests, and no external-engine dependency checks.
+  - [ ] P4.4 first executable local Vortex workflow.
+    - User-visible surface: a documented local `.vortex` fixture workflow that can run count,
+      count-where, filter, project, and filter-project only through existing explicit local
+      primitive flags and the Python client wrappers.
+    - Acceptance: execution emits execution certificates, Native I/O certificates, source/pushdown/
+      sink/adapter-fidelity evidence, materialization state, rows/segments work metrics, and
+      `fallback_attempted=false`; arbitrary non-fixture targets stay usable only at the current
+      uncertified maturity level.
+    - Verification: feature-gated local primitive tests, Python wrapper smoke over repository
+      fixtures, typed-envelope certified execution snapshots, and full workspace validation.
+  - [ ] P4.5 local compatibility-source planning and explicit materialization smoke.
+    - User-visible surface: CSV, JSON/NDJSON, Parquet, and Arrow IPC planning/smoke helpers that
+      can describe schema expectations, decode/materialization boundaries, adapter maturity, and
+      Vortex conversion/write prerequisites before any execution claim.
+    - Acceptance: compatibility inputs are never described as Vortex-native execution; every output
+      includes representation state, fidelity/metadata-loss risk, Native I/O certificate
+      requirements, and deterministic blockers for unsupported reads or writes.
+    - Verification: adapter registry snapshots, Python live-ETL smoke tests, compatibility-boundary
+      CLI tests, and no-fallback dependency invariant tests.
+  - [ ] P4.6 output, write, and commit UX bundle.
+    - User-visible surface: `write_vortex`, compatibility export planning, output target preview,
+      temporary-path policy, overwrite/append blockers, commit/recovery readiness, and certificate
+      refs exposed consistently through CLI and Python.
+    - Acceptance: safe write planning is usable before execution; any actual local write path must
+      be policy-gated, idempotency-aware, rollback-aware, and certificate-linked. Object-store and
+      catalog writes remain blocked until their lower-level gates prove them.
+    - Verification: Vortex output/commit/staged artifact tests, Python output-planning tests,
+      write-blocker diagnostics, and full workspace validation.
+  - [ ] P4.7 table, catalog, object-store, and remote-data UX bundle.
+    - User-visible surface: users can ask what would be required for Hive-style partitions,
+      Iceberg-compatible metadata, Delta-compatible metadata, object-store ranges, HTTP/S3/GCS/Azure
+      sources, and table maintenance before ShardLoom attempts IO.
+    - Acceptance: metadata discovery, range planning, credentials, request budgets, catalog reads,
+      update/delete/merge, and table commits are separated by maturity and evidence; remote SQL or
+      warehouse pushdown is classified as source/oracle/migration behavior, never fallback.
+    - Verification: CG-9 catalog, CG-10 object-store, table compatibility, plan portability, and
+      unsupported remote-boundary snapshots.
+  - [ ] P4.8 data-quality, diagnostics, and migration-scorecard bundle.
+    - User-visible surface: required-column/type/nullability/uniqueness/order/freshness checks,
+      reject/quarantine planning, migration reports, benchmark readiness, and workload scorecards
+      are visible through CLI and Python without executing unsupported work.
+    - Acceptance: outputs carry diagnostics, certificate refs or blockers, materialization policy,
+      correctness/benchmark evidence status, and no-fallback status for every workflow stage.
+    - Verification: data-quality report tests, universal/correctness harness snapshots, benchmark
+      claim evidence tests, Python unsupported-report tests, and full workspace validation.
+  - [ ] P4.9 user-facing quickstart and proof bundle.
+    - User-visible surface: `python/README.md`, a local quickstart example, and repository smoke
+      scripts show the exact install/import/smoke/capability/plan/execute-supported/diagnose-blocked
+      flow a user can run on the same checkout.
+    - Acceptance: docs separate what is certified, partial, planned, report-only, or unsupported;
+      no public package, superiority, SQL/DataFrame completeness, object-store production, or
+      Foundry claims are made without evidence.
+    - Verification: README command smoke where practical, Python examples, CLI snapshots, and full
+      workspace validation.
 - [ ] Priority 5 - CG-22 three-engine certified data execution fabric
   - [ ] CG-22A engine-mode contract surface
     - [ ] Add `EngineMode` values `batch`, `live`, `hybrid`, and `auto`.

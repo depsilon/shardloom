@@ -202,6 +202,12 @@ The workflow/table planning family now contains `manifest-plan`, `layout-health-
 datasets, probe catalogs, execute plans, write data, materialize outputs, invoke external engines,
 or weaken no-fallback behavior.
 
+`shardloom-cli/src/workflow_planning.rs` now also owns workflow/table field construction and
+fixtures for schema/table compatibility, plan import/export, layout health, compaction, table
+intelligence, CG-9 catalog metadata, CDC incremental planning, and stateful reuse. The helper move
+preserves stable JSON/text output and does not add catalog IO, dataset reads, plan execution,
+materialization, writes, or fallback execution.
+
 The engine/runtime planning family now contains `streaming-plan`, `streaming-batch-plan`,
 `backpressure-plan`, `runtime-plan`, `task-plan`, `sizing-plan`, `sizing-feedback-plan`,
 `dynamic-work-shaping-plan`, and `cg8-runtime-promotion-gate`, and lives in
@@ -322,17 +328,13 @@ payload-specific accessors.
 
 ## Remaining Priority 3.9 work
 
-Remaining work is command-family migration and CLI modularization:
+Remaining work is organized as outcome-oriented closeout slices rather than one-helper PRs:
 
 ```text
-Continue migrating command-family-specific result fields from ad hoc field construction to typed
-payload helpers beyond the first inline report payloads.
-Attach inline evidence artifacts, certificate payloads, Foundry boundary reports, source/sink
-reports, materialization boundary reports, and richer capability snapshots through typed slots where
-a command has more than a reference.
-Finish remaining golden fixtures for concrete Foundry boundary reports.
-Physically split CLI handlers by capability family and continue centralizing diagnostics, fallback,
-policy, and side-effect reporting around the shared renderer.
+Runtime/optimizer/operational CLI ownership closeout.
+Vortex primitive and readiness CLI ownership closeout.
+Typed envelope compatibility lock across success, unsupported, blocked, certified, and error paths.
+Concrete Foundry boundary fixtures once those command surfaces exist.
 ```
 
 ## Runtime posture
