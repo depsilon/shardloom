@@ -576,6 +576,30 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
             fragments: &[],
         },
         EnvelopeCase {
+            name: "workload certification dossier",
+            args: &[
+                "workload-certification-dossier",
+                "local-vortex-count",
+                "--format",
+                "json",
+            ],
+            command: "workload-certification-dossier",
+            status: "success",
+            family: "evidence_certificates",
+            success: true,
+            allow_stderr: false,
+            fields: &[
+                (
+                    "schema_version",
+                    "shardloom.workload_certification_dossier.v1",
+                ),
+                ("overall_status", "partial"),
+                ("cg16_execution_certificate_status", "certified"),
+                ("no_fallback", "true"),
+            ],
+            fragments: &[],
+        },
+        EnvelopeCase {
             name: "evidence incomplete benchmark success",
             args: &["benchmark-plan", "foundation", "--format", "json"],
             command: "benchmark-plan",

@@ -214,6 +214,7 @@ fn is_evidence_certificate_command(command: &str) -> bool {
             | "execution-certificate-plan"
             | "native-io-envelope-plan"
             | "benchmark-claim-evidence-plan"
+            | "workload-certification-dossier"
             | "world-class-sufficiency-plan"
             | "cg20-user-capability-gate"
             | "cg20-approx-sketch-gate"
@@ -409,6 +410,10 @@ mod tests {
         );
         assert_eq!(
             classify_command("execution-certificate-plan"),
+            CommandFamily::EvidenceCertificates
+        );
+        assert_eq!(
+            classify_command("workload-certification-dossier"),
             CommandFamily::EvidenceCertificates
         );
         assert_eq!(

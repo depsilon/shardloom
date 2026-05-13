@@ -181,7 +181,7 @@ const REMOTE_API_FIELD_KEYS: [&str; 32] = [
     "event_surface",
 ];
 
-const CROSS_CG_FIELD_KEYS: [&str; 50] = [
+const CROSS_CG_FIELD_KEYS: [&str; 54] = [
     "scope",
     "schema_version",
     "report_id",
@@ -205,6 +205,10 @@ const CROSS_CG_FIELD_KEYS: [&str; 50] = [
     "represented_surfaces",
     "future_rest_view",
     "parity_surface_count",
+    "severity",
+    "blocker_ids",
+    "required_evidence",
+    "suggested_next_action",
     "cg21_workflow_state",
     "cg21_workflow_severity",
     "cg21_workflow_blocker_ids",
@@ -785,6 +789,19 @@ fn cross_cg_capability_parity_surfaces_shared_blocker_contracts() {
     )));
 
     assert!(cross_cg.contains(&string_field_pair("represented_gates", "cg21,cg22,cg23")));
+    assert!(cross_cg.contains(&string_field_pair("severity", "error")));
+    assert!(cross_cg.contains(&string_field_pair(
+        "blocker_ids",
+        "cg21.workflow.profile.runtime_profile_unsupported,cg21.workflow.collect.materialization_unsupported,cg21.workflow.to_pandas.decoded_dataframe_unsupported,cg21.workflow.to_arrow.decoded_columnar_unsupported,cg21.workflow.write_vortex.write_policy_unsupported,cg21.workflow.write_parquet.compatibility_export_unsupported,cg21.workflow.sql.frontend_unsupported,cg21.workflow.join.operator_unsupported,cg21.workflow.aggregate.operator_unsupported,cg21.workflow.window.operator_unsupported,cg21.workflow.schema_contract.enforcement_unsupported,cg21.workflow.data_quality.checks_unsupported,cg22.engine.batch.workload_correctness_evidence,cg22.engine.batch.benchmark_evidence,cg22.engine.batch.broad_source_sink_certification,cg22.engine.live.external_broker_adapters,cg22.engine.live.durable_checkpoint_store,cg22.engine.live.unbounded_runtime_scheduler,cg22.engine.live.workload_correctness_evidence,cg22.engine.live.benchmark_evidence,cg22.engine.hybrid.durable_micro_segment_flush_writes,cg22.engine.hybrid.object_store_commit_protocol,cg22.engine.hybrid.external_catalog_snapshot_discovery,cg22.engine.hybrid.workload_correctness_evidence,cg22.engine.hybrid.benchmark_evidence,cg23.remote_api.plan_preview.unsupported_operator,cg23.remote_api.remote_object_store.unsupported,cg23.remote_api.lifecycle.uncertified_blocked,cg23.remote_api.data_plane.materialization_boundary_required"
+    )));
+    assert!(cross_cg.contains(&string_field_pair(
+        "required_evidence",
+        "execution_certificate,native_io_certificate,operator_capability_matrix,write_intent,rest_api_contract,workload_correctness_evidence,benchmark_evidence,broad_source_sink_certification,durable_checkpoint_store,object_store_commit_protocol,openapi_contract,asyncapi_contract,execution_certificate,native_io_certificate,security_governance_policy,data_plane_fidelity_report"
+    )));
+    assert!(cross_cg.contains(&string_field_pair(
+        "suggested_next_action",
+        "Use workflow-unsupported-plan for method-specific blocker details before requesting execution. Use engine-selection-plan and engine-capability-matrix before making engine-mode execution claims. Use rest-api-contract-plan and rest-api-plan-preview for scenario-specific blockers before enabling remote execution."
+    )));
     assert!(cross_cg.contains(&string_field_pair(
         "cg21_workflow_diagnostic_surface",
         "workflow-unsupported-plan"

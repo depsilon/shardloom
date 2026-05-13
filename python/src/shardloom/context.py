@@ -23,6 +23,7 @@ from .client import (
     RestApiPlanPreview,
     RestApiSecurityGovernance,
     ShardLoomClient,
+    WorkloadCertificationDossier,
 )
 from .models import Diagnostic, OutputEnvelope
 from .query import LazyFrame, read_csv, read_json, read_parquet, read_vortex
@@ -464,6 +465,16 @@ class ShardLoomContext:
         """Return the CG-22 per-engine capability matrix."""
 
         return self.client.engine_capability_matrix(check=check)
+
+    def workload_certification_dossier(
+        self,
+        scenario: str = "local-vortex-count",
+        *,
+        check: bool = True,
+    ) -> WorkloadCertificationDossier:
+        """Return a cross-CG workload certification dossier."""
+
+        return self.client.workload_certification_dossier(scenario, check=check)
 
     def rest_api_contract_plan(self, *, check: bool = True) -> RestApiContractPlan:
         """Return the CG-23 REST/OpenAPI contract plan."""

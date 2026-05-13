@@ -25,6 +25,7 @@ from .client import (
     RestApiPlanPreview,
     RestApiSecurityGovernance,
     ShardLoomClient,
+    WorkloadCertificationDossier,
     WorkflowReadinessPlan,
     WorkflowReadinessSmokeReport,
 )
@@ -84,6 +85,7 @@ __all__ = [
     "RestApiPlanPreview",
     "RestApiSecurityGovernance",
     "ShardLoomClient",
+    "WorkloadCertificationDossier",
     "WorkflowReadinessPlan",
     "WorkflowReadinessSmokeReport",
     "ShardLoomContext",
