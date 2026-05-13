@@ -283,3 +283,123 @@ fn external_examples_include_fixtures_expected_outputs_and_boundaries() {
     assert!(boundary.contains("external_engine_invoked=false"));
     assert!(boundary.contains("never ShardLoom runtime dependencies"));
 }
+
+#[test]
+fn security_rfc_and_p80_plan_are_traceable_without_marking_parent_complete() {
+    let rfc =
+        read_repo_file("docs/rfcs/0043-security-vulnerability-exploit-supply-chain-hardening.md");
+    assert!(rfc.contains("SEC-0 declared only"));
+    assert!(rfc.contains("SEC-9 workload-certified security posture"));
+    for report in [
+        "SecurityThreatModelReport",
+        "DependencyAuditReport",
+        "SupplyChainReleaseEvidence",
+        "RuntimeInputSafetyReport",
+        "WorkspacePathSafetyReport",
+        "EvidenceArtifactSafetyReport",
+        "VulnerabilityResponseReport",
+    ] {
+        assert!(rfc.contains(report), "missing RFC report {report}");
+    }
+    for source in [
+        "https://slsa.dev/spec/v1.1/requirements",
+        "https://github.com/ossf/scorecard",
+        "https://scvs.owasp.org/",
+        "https://docs.github.com/en/code-security/concepts/code-scanning/about-code-scanning",
+    ] {
+        assert!(rfc.contains(source), "missing source reference {source}");
+    }
+    assert!(rfc.contains("fallback_attempted=false"));
+    assert!(rfc.contains("external_engine_invoked=false"));
+    assert!(rfc.contains("Release Blockers"));
+
+    let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    assert!(plan.contains(
+        "- [ ] P8.0 security, vulnerability, exploit, and supply-chain hardening bundle."
+    ));
+    assert!(plan.contains("- [x] P8.0A security RFC and threat model."));
+    assert!(plan.contains("- [x] P8.0B vulnerability disclosure and incident response."));
+    for child in ["P8.0C", "P8.0D", "P8.0E", "P8.0F", "P8.0G"] {
+        assert!(
+            plan.contains(&format!("- [ ] {child}")),
+            "missing open {child}"
+        );
+    }
+    assert!(plan.contains("P8.4 release gate includes security evidence"));
+    assert!(plan.contains("must not publish packages"));
+    assert!(plan.contains("weaken no-fallback policy"));
+
+    let traceability = read_repo_file("docs/architecture/rfc-phase-traceability.md");
+    assert!(traceability.contains("P8.0 - security, vulnerability, exploit"));
+    assert!(traceability.contains("RFC 0043 Security/Vulnerability/Exploit/Supply-Chain"));
+    assert!(traceability.contains("P8.4 gate integration"));
+    assert!(traceability.contains("No package publication"));
+}
+
+#[test]
+fn security_policy_threat_model_and_supply_chain_response_are_present() {
+    let security = read_repo_file("SECURITY.md");
+    for required in [
+        "Supported Versions",
+        "Reporting A Vulnerability",
+        "private security advisory",
+        "acknowledgement target",
+        "initial triage target",
+        "Severity Categories",
+        "Advisory And CVE Policy",
+        "Security Release Policy",
+        "User Notification Policy",
+        "Compromised Package Or Dependency Response",
+        "No-Fallback Security Invariant",
+    ] {
+        assert!(
+            security.contains(required),
+            "missing SECURITY.md field {required}"
+        );
+    }
+    assert!(security.contains("Freeze publication"));
+    assert!(security.contains("Verify source, package contents, checksums, SBOMs, and provenance"));
+    assert!(security.contains("external engine as runtime fallback"));
+
+    let threat_model = read_repo_file("docs/security/threat-model.md");
+    for required in [
+        "Malicious Vortex artifact",
+        "Malformed CSV/JSONL/Parquet/Arrow/Avro/ORC",
+        "Path traversal",
+        "Unsafe symlink or hardlink writes",
+        "Credential leakage",
+        "Poisoned benchmark artifact",
+        "Compromised CI/publishing workflow",
+        "SecurityThreatModelReport",
+        "RuntimeInputSafetyReport",
+        "WorkspacePathSafetyReport",
+        "EvidenceArtifactSafetyReport",
+        "SEC-1 documented policy",
+    ] {
+        assert!(
+            threat_model.contains(required),
+            "missing threat model field {required}"
+        );
+    }
+
+    let response = read_repo_file("docs/security/supply-chain-response.md");
+    for required in [
+        "Compromised dependency",
+        "Yanked crate or package",
+        "Malicious package version",
+        "Compromised PyPI release",
+        "Compromised Conda package",
+        "Compromised GitHub release",
+        "Compromised CI workflow",
+        "Compromised maintainer account",
+        "Freeze publication",
+        "Revoke or rotate credentials",
+        "Verify source, package contents, checksums, SBOMs, and provenance",
+        "No-Fallback Incident Rule",
+    ] {
+        assert!(
+            response.contains(required),
+            "missing response field {required}"
+        );
+    }
+}
