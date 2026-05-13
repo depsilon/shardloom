@@ -149,6 +149,61 @@ class UnsupportedWorkflowReport:
 
 
 @dataclass(frozen=True, slots=True)
+class UnsupportedWorkflowOperationReport:
+    """Report-only unsupported diagnostic for a single workflow affordance."""
+
+    workflow: "LazyFrame"
+    operation: str
+    envelope: OutputEnvelope
+
+    @property
+    def blocker_id(self) -> str | None:
+        """Return the stable blocker ID for this unsupported workflow method."""
+
+        return self.envelope.field("blocker_id")
+
+    @property
+    def required_evidence(self) -> tuple[str, ...]:
+        """Return evidence required before the operation can be certified."""
+
+        value = self.envelope.field("required_evidence", "") or ""
+        return tuple(part.strip() for part in value.split(",") if part.strip())
+
+    @property
+    def suggested_next_action(self) -> str | None:
+        """Return the deterministic next action surfaced by the CLI."""
+
+        return self.envelope.field("suggested_next_action")
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether the unsupported-report path attempted fallback execution."""
+
+        return (
+            self.envelope.fallback.attempted
+            or self.envelope.field_bool("fallback_attempted", False) is True
+        )
+
+    @property
+    def runtime_execution(self) -> bool:
+        """Whether runtime execution occurred while building this report."""
+
+        return self.envelope.field_bool("runtime_execution", False) is True
+
+    @property
+    def data_read(self) -> bool:
+        """Whether data was read while building this report."""
+
+        return self.envelope.field_bool("data_read", False) is True
+
+    @property
+    def write_io(self) -> bool:
+        """Whether write I/O occurred while building this report."""
+
+        return self.envelope.field_bool("write_io", False) is True
+
+
+@dataclass(frozen=True, slots=True)
 class LazyFrame:
     """A lazy ShardLoom workflow plan.
 
@@ -236,6 +291,134 @@ class LazyFrame:
 
         return self.client.estimate(self.operation_summary, check=check)
 
+    def profile(self, *, check: bool = False) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for runtime profile collection."""
+
+        return self._unsupported_operation("profile", check=check)
+
+    def collect(self, *, check: bool = False) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for materializing workflow rows."""
+
+        return self._unsupported_operation("collect", check=check)
+
+    def to_pandas(self, *, check: bool = False) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for pandas materialization."""
+
+        return self._unsupported_operation("to-pandas", check=check)
+
+    def to_arrow(self, *, check: bool = False) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for Arrow materialization."""
+
+        return self._unsupported_operation("to-arrow", check=check)
+
+    def write_vortex(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for native Vortex workflow writes."""
+
+        return self._unsupported_operation("write-vortex", str(target_uri), check=check)
+
+    def write_parquet(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for Parquet compatibility exports."""
+
+        return self._unsupported_operation("write-parquet", str(target_uri), check=check)
+
+    def sql(
+        self,
+        statement: str,
+        *,
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for SQL workflow execution."""
+
+        target = _require_non_empty("sql statement", statement)
+        return self._unsupported_operation("sql", target, check=check)
+
+    def join(
+        self,
+        other: "LazyFrame | str",
+        *,
+        on: str | Sequence[str],
+        how: str = "inner",
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for DataFrame joins."""
+
+        columns = ",".join(_normalize_columns((on,)))
+        right = other.operation_summary if isinstance(other, LazyFrame) else str(other)
+        target = f"{how.strip().lower()}:{columns}:{right}"
+        return self._unsupported_operation("join", target, check=check)
+
+    def aggregate(
+        self,
+        *expressions: object,
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for DataFrame aggregations."""
+
+        return self._unsupported_operation(
+            "aggregate",
+            ",".join(_normalize_columns(expressions)),
+            check=check,
+        )
+
+    def window(
+        self,
+        *expressions: object,
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for DataFrame window functions."""
+
+        return self._unsupported_operation(
+            "window",
+            ",".join(_normalize_columns(expressions)),
+            check=check,
+        )
+
+    def schema_contract(
+        self,
+        schema: Mapping[str, object],
+        *,
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for schema contract enforcement."""
+
+        normalized = _normalize_schema(schema)
+        if not normalized:
+            raise ValueError("schema contract must not be empty")
+        target = ",".join(f"{name}:{dtype}" for name, dtype in normalized)
+        return self._unsupported_operation("schema-contract", target, check=check)
+
+    def data_quality_check(
+        self,
+        *checks: object,
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for data-quality checks."""
+
+        return self._unsupported_operation(
+            "data-quality",
+            ",".join(_normalize_columns(checks)),
+            check=check,
+        )
+
+    def data_quality(
+        self,
+        *checks: object,
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Alias for data-quality check unsupported reporting."""
+
+        return self.data_quality_check(*checks, check=check)
+
     def certify(self, *, check: bool = False) -> WorkflowCertificationReport:
         """Return report-only certificate surfaces for this workflow."""
 
@@ -281,6 +464,25 @@ class LazyFrame:
             client=self.client,
             operations=(*self.operations, operation),
             engine_mode=self.engine_mode,
+        )
+
+    def _unsupported_operation(
+        self,
+        operation: str,
+        target_ref: str | None = None,
+        *,
+        check: bool,
+    ) -> UnsupportedWorkflowOperationReport:
+        envelope = self.client.workflow_unsupported_plan(
+            operation,
+            self.operation_summary,
+            target_ref,
+            check=check,
+        )
+        return UnsupportedWorkflowOperationReport(
+            workflow=self,
+            operation=operation,
+            envelope=envelope,
         )
 
 
@@ -445,6 +647,13 @@ def _normalize_columns(columns: Sequence[object]) -> tuple[str, ...]:
     if not values:
         raise ValueError("select columns must not be empty")
     return tuple(values)
+
+
+def _require_non_empty(name: str, value: object) -> str:
+    text = str(value).strip()
+    if not text:
+        raise ValueError(f"{name} must not be empty")
+    return text
 
 
 def _is_non_string_sequence(value: object) -> bool:

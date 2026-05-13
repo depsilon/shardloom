@@ -301,6 +301,7 @@ fn is_workflow_planning_command(command: &str) -> bool {
     matches!(
         command,
         "schema-plan"
+            | "workflow-unsupported-plan"
             | "translation-plan"
             | "plan-ir"
             | "plan-import"
@@ -459,6 +460,10 @@ mod tests {
             CommandFamily::RestApiPlanning
         );
         assert_eq!(classify_command("serve"), CommandFamily::RestApiPlanning);
+        assert_eq!(
+            classify_command("workflow-unsupported-plan"),
+            CommandFamily::WorkflowPlanning
+        );
         assert_eq!(
             classify_command("input-adapters"),
             CommandFamily::InputPlanning

@@ -1765,6 +1765,21 @@ class ShardLoomClient:
 
         return self.run(["estimate", operation], check=check)
 
+    def workflow_unsupported_plan(
+        self,
+        operation: str,
+        workflow_summary: str,
+        target_ref: str | os.PathLike[str] | None = None,
+        *,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Return a report-only unsupported workflow-operation envelope."""
+
+        command = ["workflow-unsupported-plan", operation, workflow_summary]
+        if target_ref is not None:
+            command.append(str(target_ref))
+        return self.run(command, check=check)
+
     def execution_certificate_plan(self, *, check: bool = True) -> OutputEnvelope:
         """Return the report-only execution certificate planning envelope."""
 

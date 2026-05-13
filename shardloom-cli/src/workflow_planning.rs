@@ -11,9 +11,9 @@ use shardloom_core::{
     CatalogRef, CdcEventKind, CdcEventSummary, CdcIncrementalPlanningReport, ChangeSet, ColumnRef,
     CommandStatus, CompactionPlanningPolicy, CompactionPlanningReport, DatasetFormat,
     DatasetManifest, DatasetRef, DatasetUri, DeleteModel, DeleteTombstoneCompatibilityReport,
-    Diagnostic, EncodedSegment, EncodingKind, FieldId, FieldName, FieldPath, FileDescriptor,
-    FileRole, IncrementalPlanSkeleton, LayoutHealthPolicy, LayoutHealthReport, LayoutKind,
-    LogicalDType, ManifestId, ManifestSegment, Nullability, OutputFormat, OutputTarget,
+    Diagnostic, DiagnosticCode, EncodedSegment, EncodingKind, FieldId, FieldName, FieldPath,
+    FileDescriptor, FileRole, IncrementalPlanSkeleton, LayoutHealthPolicy, LayoutHealthReport,
+    LayoutKind, LogicalDType, ManifestId, ManifestSegment, Nullability, OutputFormat, OutputTarget,
     PartitionEvolutionCompatibilityReport, PartitionField, PartitionSpec, PartitionTransform,
     SchemaDefinition, SchemaEvolutionCompatibilityReport, SchemaEvolutionPolicy, SchemaField,
     SchemaId, SchemaVersion, SegmentChange, SegmentChangeKind, SegmentId, SegmentLayout,
@@ -205,6 +205,66 @@ pub(crate) fn handle_catalog_plan(
         ],
     );
     ExitCode::SUCCESS
+}
+
+pub(crate) fn handle_workflow_unsupported_plan(
+    mut args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let Some(operation_token) = args.next() else {
+        return emit_error(
+            "workflow-unsupported-plan",
+            format,
+            "workflow unsupported plan failed",
+            &ShardLoomError::InvalidOperation(
+                "usage: shardloom workflow-unsupported-plan <operation> [workflow_summary] [target_ref]"
+                    .to_string(),
+            ),
+        );
+    };
+    let Some(operation) = workflow_unsupported_operation(&operation_token) else {
+        return emit_error(
+            "workflow-unsupported-plan",
+            format,
+            "workflow unsupported plan failed",
+            &cli_unknown_arg_error("workflow-unsupported-plan", &operation_token),
+        );
+    };
+    let workflow_summary = args
+        .next()
+        .unwrap_or_else(|| "unspecified_workflow".to_string());
+    let target_ref = args.next().unwrap_or_else(|| "none".to_string());
+    if let Some(extra) = args.next() {
+        return emit_error(
+            "workflow-unsupported-plan",
+            format,
+            "workflow unsupported plan failed",
+            &cli_unknown_arg_error("workflow-unsupported-plan", &extra),
+        );
+    }
+    let diagnostic = Diagnostic::unsupported(
+        operation.diagnostic_code,
+        operation.feature,
+        format!(
+            "{} is not implemented for native ShardLoom workflow execution yet.",
+            operation.label
+        ),
+        Some(operation.suggested_next_action.to_string()),
+    );
+    let human_text = format!(
+        "workflow unsupported operation\noperation: {}\nblocker: {}\nrequired evidence: {}\nexecution: not_performed\nfallback: disabled",
+        operation.operation, operation.blocker_id, operation.required_evidence
+    );
+    emit(
+        "workflow-unsupported-plan",
+        format,
+        CommandStatus::Unsupported,
+        "workflow operation unsupported".to_string(),
+        human_text,
+        vec![diagnostic],
+        workflow_unsupported_fields(operation, &workflow_summary, &target_ref),
+    );
+    ExitCode::from(1)
 }
 
 pub(crate) fn handle_plan_ir(format: OutputFormat) -> ExitCode {
@@ -603,6 +663,292 @@ fn push_count_field(fields: &mut Vec<(String, String)>, key: &str, value: usize)
 fn push_bool_field(fields: &mut Vec<(String, String)>, key: &str, value: bool) {
     push_field(fields, key, &value.to_string());
 }
+
+#[derive(Debug, Clone, Copy)]
+struct WorkflowUnsupportedOperation {
+    operation: &'static str,
+    label: &'static str,
+    surface: &'static str,
+    feature: &'static str,
+    blocker_id: &'static str,
+    required_evidence: &'static str,
+    suggested_next_action: &'static str,
+    diagnostic_code: DiagnosticCode,
+    materialization_required: bool,
+    write_required: bool,
+    runtime_required: bool,
+}
+
+fn workflow_unsupported_operation(token: &str) -> Option<WorkflowUnsupportedOperation> {
+    let normalized = token.trim().to_ascii_lowercase().replace('_', "-");
+    match normalized.as_str() {
+        "profile" => Some(workflow_unsupported_profile()),
+        "collect" => Some(workflow_unsupported_collect()),
+        "to-pandas" => Some(workflow_unsupported_to_pandas()),
+        "to-arrow" => Some(workflow_unsupported_to_arrow()),
+        "write-vortex" => Some(workflow_unsupported_write_vortex()),
+        "write-parquet" => Some(workflow_unsupported_write_parquet()),
+        "sql" => Some(workflow_unsupported_sql()),
+        "join" => Some(workflow_unsupported_join()),
+        "aggregate" | "aggregation" | "group-by" | "groupby" => {
+            Some(workflow_unsupported_aggregate())
+        }
+        "window" | "windows" => Some(workflow_unsupported_window()),
+        "schema-contract" | "schema" => Some(workflow_unsupported_schema_contract()),
+        "data-quality" | "data-quality-check" | "quality" => {
+            Some(workflow_unsupported_data_quality())
+        }
+        _ => None,
+    }
+}
+
+fn workflow_unsupported_profile() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "profile",
+        label: "workflow profile collection",
+        surface: "profile",
+        feature: "cg21.workflow.profile",
+        blocker_id: "cg21.workflow.profile.runtime_profile_unsupported",
+        required_evidence: "runtime_profile_schema,observability_schema_coverage,workload_certificate",
+        suggested_next_action: "Use profile-plan for report-only profiling posture until native workflow profile collection is certified.",
+        diagnostic_code: DiagnosticCode::NotImplemented,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_collect() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "collect",
+        label: "workflow result collection",
+        surface: "materialization",
+        feature: "cg21.workflow.collect",
+        blocker_id: "cg21.workflow.collect.materialization_unsupported",
+        required_evidence: "execution_certificate,native_io_certificate,result_materialization_policy",
+        suggested_next_action: "Use explain, estimate, certify, or an explicit certified local primitive path instead of collect.",
+        diagnostic_code: DiagnosticCode::MaterializationRequired,
+        materialization_required: true,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_to_pandas() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "to_pandas",
+        label: "pandas materialization",
+        surface: "decoded_dataframe_materialization",
+        feature: "cg21.workflow.to_pandas",
+        blocker_id: "cg21.workflow.to_pandas.decoded_dataframe_unsupported",
+        required_evidence: "decoded_columnar_boundary,native_io_certificate,materialization_policy",
+        suggested_next_action: "Request a native result artifact or Arrow boundary report before converting to pandas.",
+        diagnostic_code: DiagnosticCode::MaterializationRequired,
+        materialization_required: true,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_to_arrow() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "to_arrow",
+        label: "Arrow materialization",
+        surface: "decoded_columnar_materialization",
+        feature: "cg21.workflow.to_arrow",
+        blocker_id: "cg21.workflow.to_arrow.decoded_columnar_unsupported",
+        required_evidence: "decoded_columnar_boundary,native_io_certificate,adapter_fidelity_report",
+        suggested_next_action: "Use native Vortex artifact planning until Arrow IPC materialization is certified.",
+        diagnostic_code: DiagnosticCode::MaterializationRequired,
+        materialization_required: true,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_write_vortex() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "write_vortex",
+        label: "native Vortex workflow write",
+        surface: "native_output_write",
+        feature: "cg21.workflow.write_vortex",
+        blocker_id: "cg21.workflow.write_vortex.write_policy_unsupported",
+        required_evidence: "write_intent,staged_manifest,commit_protocol,recovery_certificate",
+        suggested_next_action: "Use write-intent and staged-output readiness reports before enabling explicit Vortex writes.",
+        diagnostic_code: DiagnosticCode::UnsupportedEffect,
+        materialization_required: true,
+        write_required: true,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_write_parquet() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "write_parquet",
+        label: "Parquet compatibility export",
+        surface: "compatibility_export_write",
+        feature: "cg21.workflow.write_parquet",
+        blocker_id: "cg21.workflow.write_parquet.compatibility_export_unsupported",
+        required_evidence: "translation_fidelity_report,decoded_columnar_boundary,write_intent",
+        suggested_next_action: "Use plan-export for compatibility-export posture without writing an artifact.",
+        diagnostic_code: DiagnosticCode::UnsupportedOutputFormat,
+        materialization_required: true,
+        write_required: true,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_sql() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "sql",
+        label: "SQL workflow execution",
+        surface: "sql_frontend",
+        feature: "cg21.workflow.sql",
+        blocker_id: "cg21.workflow.sql.frontend_unsupported",
+        required_evidence: "sql_parser,binder,semantic_profile,operator_capability_matrix",
+        suggested_next_action: "Use capability discovery for SQL posture and keep SQL text in plan-only diagnostics.",
+        diagnostic_code: DiagnosticCode::UnsupportedSql,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_join() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "join",
+        label: "DataFrame join workflow",
+        surface: "dataframe_join",
+        feature: "cg21.workflow.join",
+        blocker_id: "cg21.workflow.join.operator_unsupported",
+        required_evidence: "join_operator_capability,memory_spill_declaration,correctness_fixture",
+        suggested_next_action: "Use capabilities operators and benchmark/correctness reports before relying on joins.",
+        diagnostic_code: DiagnosticCode::UnsupportedSql,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_aggregate() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "aggregate",
+        label: "DataFrame aggregation workflow",
+        surface: "dataframe_aggregation",
+        feature: "cg21.workflow.aggregate",
+        blocker_id: "cg21.workflow.aggregate.operator_unsupported",
+        required_evidence: "aggregate_operator_capability,memory_spill_declaration,correctness_fixture",
+        suggested_next_action: "Use capabilities operators and benchmark/correctness reports before relying on aggregations.",
+        diagnostic_code: DiagnosticCode::UnsupportedSql,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_window() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "window",
+        label: "DataFrame window workflow",
+        surface: "dataframe_window",
+        feature: "cg21.workflow.window",
+        blocker_id: "cg21.workflow.window.operator_unsupported",
+        required_evidence: "window_operator_capability,sort_capability,correctness_fixture",
+        suggested_next_action: "Use capabilities operators and correctness reports before relying on window functions.",
+        diagnostic_code: DiagnosticCode::UnsupportedSql,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_schema_contract() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "schema_contract",
+        label: "workflow schema contract enforcement",
+        surface: "schema_contract",
+        feature: "cg21.workflow.schema_contract",
+        blocker_id: "cg21.workflow.schema_contract.enforcement_unsupported",
+        required_evidence: "schema_plan,table_compatibility_report,validation_certificate",
+        suggested_next_action: "Use schema-plan for report-only schema posture before enforcing workflow schema contracts.",
+        diagnostic_code: DiagnosticCode::NotImplemented,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: false,
+    }
+}
+
+fn workflow_unsupported_data_quality() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "data_quality",
+        label: "data-quality workflow checks",
+        surface: "data_quality",
+        feature: "cg21.workflow.data_quality",
+        blocker_id: "cg21.workflow.data_quality.checks_unsupported",
+        required_evidence: "quality_rule_contract,diagnostic_fixture,correctness_harness",
+        suggested_next_action: "Use table-intelligence-plan and correctness-harness-plan until data-quality checks are certified.",
+        diagnostic_code: DiagnosticCode::NotImplemented,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: false,
+    }
+}
+
+fn workflow_unsupported_fields(
+    operation: WorkflowUnsupportedOperation,
+    workflow_summary: &str,
+    target_ref: &str,
+) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    push_field(&mut fields, "mode", "workflow_unsupported_plan");
+    push_field(
+        &mut fields,
+        "schema_version",
+        "shardloom.workflow_unsupported.v1",
+    );
+    push_field(&mut fields, "report_id", "cg21.workflow.unsupported.parity");
+    push_field(&mut fields, "workflow_operation", operation.operation);
+    push_field(&mut fields, "workflow_surface", operation.surface);
+    push_field(&mut fields, "workflow_summary", workflow_summary);
+    push_field(&mut fields, "target_ref", target_ref);
+    push_field(&mut fields, "blocker_id", operation.blocker_id);
+    push_field(&mut fields, "severity", "error");
+    push_field(&mut fields, "unsupported_status", "unsupported");
+    push_field(
+        &mut fields,
+        "required_evidence",
+        operation.required_evidence,
+    );
+    push_field(
+        &mut fields,
+        "suggested_next_action",
+        operation.suggested_next_action,
+    );
+    push_bool_field(
+        &mut fields,
+        "materialization_required",
+        operation.materialization_required,
+    );
+    push_bool_field(&mut fields, "write_required", operation.write_required);
+    push_bool_field(&mut fields, "runtime_required", operation.runtime_required);
+    push_bool_field(&mut fields, "plan_only", true);
+    push_field(&mut fields, "execution", "not_performed");
+    push_bool_field(&mut fields, "query_execution", false);
+    push_bool_field(&mut fields, "runtime_execution", false);
+    push_bool_field(&mut fields, "data_read", false);
+    push_bool_field(&mut fields, "data_materialized", false);
+    push_bool_field(&mut fields, "read_io", false);
+    push_bool_field(&mut fields, "write_io", false);
+    push_bool_field(&mut fields, "object_store_io", false);
+    push_bool_field(&mut fields, "catalog_probe", false);
+    push_bool_field(&mut fields, "network_probe", false);
+    push_bool_field(&mut fields, "external_engine_invoked", false);
+    push_bool_field(&mut fields, "external_effects_executed", false);
+    push_bool_field(&mut fields, "fallback_execution_allowed", false);
+    push_bool_field(&mut fields, "fallback_attempted", false);
+    fields
+}
+
 pub(crate) fn emit_schema_plan_skeleton(format: OutputFormat) -> ExitCode {
     let schema = match (SchemaId::new("schema-placeholder"), SchemaVersion::new(1)) {
         (Ok(id), Ok(version)) => SchemaDefinition::new(id, version),
