@@ -61,9 +61,16 @@ missing tools:
 python scripts/check_dependency_audit.py
 python scripts/check_dependency_audit.py --include-cargo-audit
 python scripts/check_dependency_audit.py --include-python-packaging
+python scripts/check_dependency_audit.py --release-gate
 ```
 
-`cargo audit` is optional until the maintainer adds it as a hard release gate:
+`--release-gate` is the hard P8.0C release gate. It implies strict missing-tool behavior,
+`cargo-deny`, `cargo audit`, packaging/dev `pip-audit` against the ShardLoom Python project,
+runtime no-fallback dependency checks, benchmark-only dependency classification checks, and JSON
+`DependencyAuditReport` emission under `target/dependency-audit-report.json`. Missing audit tools
+are allowed only outside release-gate mode.
+
+`cargo audit` is optional only outside the release gate:
 
 ```powershell
 cargo install cargo-audit --locked
@@ -74,12 +81,15 @@ cargo audit
 
 ```powershell
 python -m pip install pip-audit
-python -m pip_audit
+python -m pip_audit python
 ```
 
 The Python package currently has no runtime dependencies, so pip-audit output
 must not be treated as evidence that ShardLoom has Python runtime dependency
 requirements.
+
+See `docs/security/dependency-audit-release-gate.md` for the release-gate command, required report
+fields, and no-fallback dependency rule.
 
 The release dry-run proof installs only the local ShardLoom wheel into a clean
 virtual environment and resolves a local CLI binary:
@@ -97,3 +107,17 @@ The all-features Rust tree currently includes duplicate transitive versions
 through optional Vortex/Arrow paths. `deny.toml` warns on multiple versions
 rather than denying them. Duplicate-deny gates should be added only after a
 dedicated dependency cleanup verifies that the all-features tree is clean.
+
+## Current Release-Gate Exceptions
+
+`deny.toml` includes two explicit permissive transitive licenses beyond the
+base allowlist: `0BSD` for `enum-iterator`/`enum-iterator-derive` and `CC0-1.0`
+for `tiny-keccak`. These are admitted because they are permissive/open licenses
+pulled through Vortex/Arrow paths and do not introduce copied incompatible code
+or fallback execution.
+
+`RUSTSEC-2024-0436` for `paste 1.0.15` is waived in cargo-deny because it is an
+unmaintained transitive dependency through upstream Vortex/Arrow/parquet paths,
+`cargo audit` reports it as a warning, and no safe direct upgrade is available
+inside ShardLoom. The waiver must be removed when an upstream-compatible Vortex
+or transitive dependency update drops `paste`.

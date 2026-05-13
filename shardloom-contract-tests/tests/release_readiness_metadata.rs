@@ -97,6 +97,8 @@ fn dependency_audit_scaffolding_documents_policy_and_tools() {
         "BSD-2-Clause",
         "BSD-3-Clause",
         "ISC",
+        "0BSD",
+        "CC0-1.0",
         "Unicode-3.0",
         "Zlib",
     ] {
@@ -105,6 +107,8 @@ fn dependency_audit_scaffolding_documents_policy_and_tools() {
             "missing cargo-deny allow license {allowed}"
         );
     }
+    assert!(deny.contains("RUSTSEC-2024-0436"));
+    assert!(deny.contains("Transitive unmaintained paste 1.0.15"));
     assert!(deny.contains("multiple-versions = \"warn\""));
     assert!(deny.contains("unknown-registry = \"deny\""));
     assert!(deny.contains("unknown-git = \"deny\""));
@@ -124,8 +128,19 @@ fn dependency_audit_scaffolding_documents_policy_and_tools() {
     let script = read_repo_file("scripts/check_dependency_audit.py");
     assert!(script.contains("cargo deny check licenses advisories bans sources"));
     assert!(script.contains("cargo audit"));
+    assert!(script.contains("--release-gate"));
+    assert!(script.contains("strict missing tools"));
     assert!(script.contains("--include-python-packaging"));
     assert!(script.contains("not as a ShardLoom runtime dependency assumption"));
+    assert!(script.contains("PYTHON_PROJECT"));
+    assert!(script.contains("-m\", \"pip_audit\", str(PYTHON_PROJECT)"));
+    assert!(script.contains("shardloom.dependency_audit_report.v1"));
+    assert!(script.contains("DependencyAuditReport"));
+    assert!(script.contains("fallback_dependency_absent"));
+    assert!(script.contains("FORBIDDEN_FALLBACK_DEPENDENCIES"));
+    assert!(script.contains("benchmark_only_external_baselines"));
+    assert!(script.contains("skipped_missing"));
+    assert!(script.contains("missing"));
 
     let dry_run = read_repo_file("scripts/release_dry_run_proof.py");
     assert!(dry_run.contains("build_python_artifacts"));
@@ -148,6 +163,53 @@ fn dependency_audit_scaffolding_documents_policy_and_tools() {
     assert!(policy.contains("must not"));
     assert!(policy.contains("execute unsupported ShardLoom work"));
     assert!(policy.contains("GPL, LGPL, AGPL, SSPL, BUSL"));
+    assert!(policy.contains("python scripts/check_dependency_audit.py --release-gate"));
+    assert!(policy.contains("DependencyAuditReport"));
+    assert!(policy.contains("Current Release-Gate Exceptions"));
+    assert!(policy.contains("0BSD"));
+    assert!(policy.contains("CC0-1.0"));
+    assert!(policy.contains("RUSTSEC-2024-0436"));
+
+    let release_gate = read_repo_file("docs/security/dependency-audit-release-gate.md");
+    for required in [
+        "python scripts\\check_dependency_audit.py --release-gate",
+        "cargo deny check licenses advisories bans sources",
+        "cargo audit",
+        "pip-audit",
+        "shardloom.dependency_audit_report.v1",
+        "cargo_deny_status",
+        "cargo_audit_status",
+        "pip_audit_status",
+        "fallback_dependency_absent",
+        "external_baseline_only",
+        "not ShardLoom runtime dependencies",
+        "Current Waivers",
+        "RUSTSEC-2024-0436",
+        "0BSD",
+        "CC0-1.0",
+    ] {
+        assert!(
+            release_gate.contains(required),
+            "missing release gate doc field {required}"
+        );
+    }
+
+    let benchmark_requirements =
+        read_repo_file("benchmarks/traditional_analytics/requirements.txt");
+    for benchmark_only in [
+        "pandas",
+        "polars",
+        "duckdb",
+        "datafusion",
+        "dask",
+        "pyspark",
+    ] {
+        assert!(benchmark_requirements.contains(benchmark_only));
+        assert!(
+            !read_repo_file("python/pyproject.toml").contains(&format!("{benchmark_only}>")),
+            "{benchmark_only} must not become a Python runtime dependency"
+        );
+    }
 }
 
 #[test]
@@ -319,7 +381,8 @@ fn security_rfc_and_p80_plan_are_traceable_without_marking_parent_complete() {
     ));
     assert!(plan.contains("- [x] P8.0A security RFC and threat model."));
     assert!(plan.contains("- [x] P8.0B vulnerability disclosure and incident response."));
-    for child in ["P8.0C", "P8.0D", "P8.0E", "P8.0F", "P8.0G"] {
+    assert!(plan.contains("- [x] P8.0C dependency, license, and advisory gate hardening."));
+    for child in ["P8.0D", "P8.0E", "P8.0F", "P8.0G"] {
         assert!(
             plan.contains(&format!("- [ ] {child}")),
             "missing open {child}"

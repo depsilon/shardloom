@@ -17,10 +17,10 @@ publish = false
 workspace = true
 
 [dependencies]
-shardloom-core = { path = "../shardloom-core" }
-shardloom-exec = { path = "../shardloom-exec" }
-shardloom-plan = { path = "../shardloom-plan" }
-shardloom-vortex = { path = "../shardloom-vortex" }
+shardloom-core = { version = "0.1.0", path = "../shardloom-core" }
+shardloom-exec = { version = "0.1.0", path = "../shardloom-exec" }
+shardloom-plan = { version = "0.1.0", path = "../shardloom-plan" }
+shardloom-vortex = { version = "0.1.0", path = "../shardloom-vortex" }
 
 [features]
 default = []

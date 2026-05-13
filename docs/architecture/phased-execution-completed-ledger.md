@@ -16,6 +16,40 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: P8.0C dependency/license/advisory release gate bundle
+  - Primary files:
+    - `deny.toml`
+    - `scripts/check_dependency_audit.py`
+    - `docs/security/dependency-audit-release-gate.md`
+    - `docs/legal/dependency-audit.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - workspace crate manifests
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: convert dependency audit scaffolding into a release-gate-capable `DependencyAuditReport`
+    surface with strict missing-tool behavior, cargo-deny/cargo-audit/pip-audit coverage, runtime
+    no-fallback dependency checks, and benchmark-only external baseline classification.
+  - Checklist:
+    - [x] Add `--release-gate` to `scripts/check_dependency_audit.py`; it implies strict missing
+          tools, `cargo deny check licenses advisories bans sources`, `cargo audit`, packaging/dev
+          `pip-audit`, JSON report emission, and no-fallback dependency checks.
+    - [x] Emit `schema_version=shardloom.dependency_audit_report.v1` with RFC 0043
+          `DependencyAuditReport` fields for tool status, license/advisory/yanked/source posture,
+          runtime dependency scope, benchmark dependency scope, and `fallback_dependency_absent`.
+    - [x] Keep local non-release audit mode non-blocking for missing tools while making release-gate
+          and strict-missing modes fail closed.
+    - [x] Document the hard release gate in `docs/security/dependency-audit-release-gate.md` and
+          `docs/legal/dependency-audit.md`.
+    - [x] Update cargo-deny for the current schema, explicit internal path dependency versions,
+          permissive Vortex/Arrow transitive license admissions, and the tracked `paste`
+          unmaintained-dependency waiver.
+    - [x] Add release-readiness contract tests for release-gate flags, report schema, runtime
+          no-fallback dependency scanning, benchmark-only external baseline classification, and
+          documentation.
+  - Runtime stance: audit tooling and docs only. No runtime dependencies, package publication,
+    tags, secrets, external engine runtime, or fallback execution were added.
+
 - [x] Session label: P8.0A/P8.0B security RFC, threat model, and incident-response bundle
   - Primary files:
     - `docs/rfcs/0043-security-vulnerability-exploit-supply-chain-hardening.md`

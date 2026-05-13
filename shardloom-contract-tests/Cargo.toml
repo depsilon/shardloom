@@ -14,7 +14,7 @@ rust-version.workspace = true
 publish = false
 
 [dependencies]
-shardloom-core = { path = "../shardloom-core" }
-shardloom-plan = { path = "../shardloom-plan" }
-shardloom-exec = { path = "../shardloom-exec" }
-shardloom-vortex = { path = "../shardloom-vortex" }
+shardloom-core = { version = "0.1.0", path = "../shardloom-core" }
+shardloom-plan = { version = "0.1.0", path = "../shardloom-plan" }
+shardloom-exec = { version = "0.1.0", path = "../shardloom-exec" }
+shardloom-vortex = { version = "0.1.0", path = "../shardloom-vortex" }
