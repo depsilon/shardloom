@@ -46,6 +46,8 @@ pub enum TraditionalAnalyticsScenario {
     JoinAggregate,
     RowNumberWindow,
     PartitionPruning,
+    ManySmallFilesScan,
+    NullHeavyAggregate,
     HighCardinalityStringGroupDistinct,
     TopNPerGroup,
     CleanCastFilterWrite,
@@ -72,6 +74,8 @@ impl TraditionalAnalyticsScenario {
             "join + aggregate" | "join-aggregate" => Ok(Self::JoinAggregate),
             "row number window" | "row-number-window" => Ok(Self::RowNumberWindow),
             "partition pruning" | "partition-pruning" => Ok(Self::PartitionPruning),
+            "many-small-files scan" | "many-small-files-scan" => Ok(Self::ManySmallFilesScan),
+            "null-heavy aggregate" | "null-heavy-aggregate" => Ok(Self::NullHeavyAggregate),
             "high-cardinality string group/distinct" | "high-cardinality-string-group-distinct" => {
                 Ok(Self::HighCardinalityStringGroupDistinct)
             }
@@ -104,6 +108,8 @@ impl TraditionalAnalyticsScenario {
             Self::JoinAggregate => "join + aggregate",
             Self::RowNumberWindow => "row number window",
             Self::PartitionPruning => "partition pruning",
+            Self::ManySmallFilesScan => "many-small-files scan",
+            Self::NullHeavyAggregate => "null-heavy aggregate",
             Self::HighCardinalityStringGroupDistinct => "high-cardinality string group/distinct",
             Self::TopNPerGroup => "top-N per group",
             Self::CleanCastFilterWrite => "clean/cast/filter/write",
@@ -2056,6 +2062,7 @@ struct TraditionalFactRow {
     flag: u8,
     category: String,
     event_date: Option<String>,
+    nullable_metric_00: Option<String>,
     raw_event_time: Option<String>,
     dirty_numeric: Option<String>,
     dirty_flag: Option<String>,
@@ -2080,6 +2087,7 @@ struct VortexFactTable {
     flag: Vec<u8>,
     category: Vec<String>,
     event_date: Vec<String>,
+    nullable_metric_00: Vec<String>,
     raw_event_time: Vec<String>,
     dirty_numeric: Vec<String>,
     dirty_flag: Vec<String>,
@@ -2311,7 +2319,7 @@ fn run_traditional_analytics_benchmark_enabled(
             request.workspace_dir.display()
         ))
     })?;
-    let fact_source_bytes = file_len(&request.fact_csv, "fact input")?;
+    let fact_source_bytes = fact_source_len(&request.fact_csv, request.input_format, "fact input")?;
     let dim_source_bytes = file_len(&request.dim_csv, "dimension input")?;
     let source_bytes_read = fact_source_bytes
         .checked_add(dim_source_bytes)
@@ -2942,10 +2950,12 @@ fn scenario_operator_memory_class(scenario: TraditionalAnalyticsScenario) -> Ope
         TraditionalAnalyticsScenario::CsvFileIngest => OperatorMemoryClass::Translation,
         TraditionalAnalyticsScenario::SelectiveFilter
         | TraditionalAnalyticsScenario::FilterProjectionLimit
-        | TraditionalAnalyticsScenario::PartitionPruning => OperatorMemoryClass::Filter,
+        | TraditionalAnalyticsScenario::PartitionPruning
+        | TraditionalAnalyticsScenario::ManySmallFilesScan => OperatorMemoryClass::Filter,
         TraditionalAnalyticsScenario::GroupByAggregation
         | TraditionalAnalyticsScenario::DistinctCount
         | TraditionalAnalyticsScenario::MultiKeyGroupBy
+        | TraditionalAnalyticsScenario::NullHeavyAggregate
         | TraditionalAnalyticsScenario::HighCardinalityStringGroupDistinct => {
             OperatorMemoryClass::Aggregate
         }
@@ -3214,6 +3224,18 @@ fn traditional_layout_recommendations(
             "event_date_min_max_and_partition_statistics",
             "cluster_by_event_date_when_filter_selectivity_is_high",
             "event_date",
+        ),
+        TraditionalAnalyticsScenario::ManySmallFilesScan => (
+            "coalesce_small_fact_splits_after_import",
+            "per_split_row_count_and_source_bytes",
+            "compact_small_parts_before_repeated_scan",
+            "file_bucket,event_date",
+        ),
+        TraditionalAnalyticsScenario::NullHeavyAggregate => (
+            "preserve_nullable_metric_validity_statistics",
+            "nullable_metric_00_valid_count_and_sum_profile",
+            "dictionary_or_sparse_validity_when_null_density_is_high",
+            "nullable_metric_00",
         ),
         TraditionalAnalyticsScenario::CsvFileIngest => (
             "preserve_writer_defaults_for_ingest_smoke",
@@ -3794,6 +3816,79 @@ fn file_len(path: &std::path::Path, label: &str) -> Result<u64> {
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn fact_source_len(
+    path: &std::path::Path,
+    input_format: TraditionalAnalyticsInputFormat,
+    label: &str,
+) -> Result<u64> {
+    if !path.is_dir() {
+        return file_len(path, label);
+    }
+    let mut total = 0_u64;
+    for part in fact_input_part_paths(path, input_format, label)? {
+        total = total.checked_add(file_len(&part, label)?).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(format!(
+                "{label} directory '{}' byte count overflow",
+                path.display()
+            ))
+        })?;
+    }
+    Ok(total)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn fact_input_part_paths(
+    path: &std::path::Path,
+    input_format: TraditionalAnalyticsInputFormat,
+    label: &str,
+) -> Result<Vec<PathBuf>> {
+    let extension = match input_format {
+        TraditionalAnalyticsInputFormat::Csv => "csv",
+        TraditionalAnalyticsInputFormat::JsonLines => "jsonl",
+        TraditionalAnalyticsInputFormat::Parquet
+        | TraditionalAnalyticsInputFormat::ArrowIpc
+        | TraditionalAnalyticsInputFormat::Avro
+        | TraditionalAnalyticsInputFormat::Orc => {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "{label} directory '{}' is only supported for split CSV or JSONL inputs; fallback execution was not attempted",
+                path.display()
+            )));
+        }
+    };
+    let entries = std::fs::read_dir(path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to read {label} directory '{}': {error}",
+            path.display()
+        ))
+    })?;
+    let mut parts = Vec::new();
+    for entry in entries {
+        let entry = entry.map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to read {label} directory entry in '{}': {error}",
+                path.display()
+            ))
+        })?;
+        let part_path = entry.path();
+        if part_path.is_file()
+            && part_path
+                .extension()
+                .is_some_and(|value| value == std::ffi::OsStr::new(extension))
+        {
+            parts.push(part_path);
+        }
+    }
+    parts.sort();
+    if parts.is_empty() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "{label} directory '{}' contains no *.{extension} part files; fallback execution was not attempted",
+            path.display()
+        )));
+    }
+    Ok(parts)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn file_digest(path: &std::path::Path, label: &str) -> Result<String> {
     use std::io::Read as _;
 
@@ -3910,6 +4005,7 @@ fn write_fact_vortex(rows: &[TraditionalFactRow], path: &std::path::Path) -> Res
             "flag",
             "category",
             "event_date",
+            "nullable_metric_00",
             "raw_event_time",
             "dirty_numeric",
             "dirty_flag",
@@ -3944,6 +4040,11 @@ fn write_fact_vortex(rows: &[TraditionalFactRow], path: &std::path::Path) -> Res
             VarBinViewArray::from_iter_str(
                 rows.iter()
                     .map(|row| row.event_date.as_deref().unwrap_or("")),
+            )
+            .into_array(),
+            VarBinViewArray::from_iter_str(
+                rows.iter()
+                    .map(|row| row.nullable_metric_00.as_deref().unwrap_or("")),
             )
             .into_array(),
             VarBinViewArray::from_iter_str(
@@ -4500,6 +4601,7 @@ fn read_fact_vortex(path: &std::path::Path) -> Result<VortexFactTable> {
         flag: primitive_field::<u8>(&fields, "flag")?,
         category: utf8_field(&fields, "category")?,
         event_date: optional_utf8_field(&fields, "event_date", row_count)?,
+        nullable_metric_00: optional_utf8_field(&fields, "nullable_metric_00", row_count)?,
         raw_event_time: optional_utf8_field(&fields, "raw_event_time", row_count)?,
         dirty_numeric: optional_utf8_field(&fields, "dirty_numeric", row_count)?,
         dirty_flag: optional_utf8_field(&fields, "dirty_flag", row_count)?,
@@ -4687,6 +4789,23 @@ fn read_traditional_fact_rows(
     input_format: TraditionalAnalyticsInputFormat,
     resource_policy: TraditionalAnalyticsResourcePolicy,
 ) -> Result<Vec<TraditionalFactRow>> {
+    if path.is_dir() {
+        let mut rows = Vec::new();
+        for part in fact_input_part_paths(path, input_format, "fact input")? {
+            rows.extend(read_traditional_fact_rows(
+                &part,
+                input_format,
+                resource_policy,
+            )?);
+        }
+        if rows.is_empty() {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "fact input directory '{}' contains no rows; fallback execution was not attempted",
+                path.display()
+            )));
+        }
+        return Ok(rows);
+    }
     match input_format {
         TraditionalAnalyticsInputFormat::Csv => read_traditional_fact_csv(path),
         TraditionalAnalyticsInputFormat::JsonLines => read_traditional_fact_jsonl(path),
@@ -4767,6 +4886,9 @@ fn read_traditional_fact_csv(path: &std::path::Path) -> Result<Vec<TraditionalFa
     let event_date_index = header_cols
         .iter()
         .position(|column| *column == "event_date");
+    let nullable_metric_00_index = header_cols
+        .iter()
+        .position(|column| *column == "nullable_metric_00");
     let mut rows = Vec::new();
     for (line_index, line) in lines.enumerate() {
         if line.trim().is_empty() {
@@ -4791,6 +4913,7 @@ fn read_traditional_fact_csv(path: &std::path::Path) -> Result<Vec<TraditionalFa
             flag: parse_csv_field(cols[5], path, line_index + 2, "flag")?,
             category: cols[6].to_string(),
             event_date: optional_csv_string(cols.as_slice(), event_date_index),
+            nullable_metric_00: optional_csv_string(cols.as_slice(), nullable_metric_00_index),
             raw_event_time: optional_csv_string(cols.as_slice(), raw_event_time_index),
             dirty_numeric: optional_csv_string(cols.as_slice(), dirty_numeric_index),
             dirty_flag: optional_csv_string(cols.as_slice(), dirty_flag_index),
@@ -4862,6 +4985,12 @@ fn read_traditional_fact_jsonl(path: &std::path::Path) -> Result<Vec<Traditional
                 path,
                 line_index + 1,
                 "event_date",
+            )?,
+            nullable_metric_00: parse_jsonl_optional_string_field(
+                &fields,
+                path,
+                line_index + 1,
+                "nullable_metric_00",
             )?,
             raw_event_time: parse_jsonl_optional_string_field(
                 &fields,
@@ -5357,6 +5486,12 @@ fn fact_rows_from_arrow_batches(
                 flag: arrow_u8_field(batch, path, row_index, "flag")?,
                 category: arrow_string_field(batch, path, row_index, "category")?,
                 event_date: arrow_optional_string_field(batch, path, row_index, "event_date")?,
+                nullable_metric_00: arrow_optional_value_string_field(
+                    batch,
+                    path,
+                    row_index,
+                    "nullable_metric_00",
+                )?,
                 raw_event_time: arrow_optional_string_field(
                     batch,
                     path,
@@ -5599,6 +5734,29 @@ fn arrow_optional_string_field(
         return Ok(None);
     }
     arrow_string_field(batch, path, row_index, field).map(Some)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn arrow_optional_value_string_field(
+    batch: &arrow_array::RecordBatch,
+    path: &std::path::Path,
+    row_index: usize,
+    field: &str,
+) -> Result<Option<String>> {
+    if batch.schema().index_of(field).is_err() {
+        return Ok(None);
+    }
+    let array = arrow_column(batch, path, field)?;
+    if array.is_null(row_index) {
+        return Ok(None);
+    }
+    if array.as_any().is::<arrow_array::StringArray>()
+        || array.as_any().is::<arrow_array::LargeStringArray>()
+        || array.as_any().is::<arrow_array::StringViewArray>()
+    {
+        return arrow_string_field(batch, path, row_index, field).map(Some);
+    }
+    arrow_f64_field(batch, path, row_index, field).map(|value| Some(json_float(value)))
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -5980,6 +6138,10 @@ fn run_vortex_derived_scenario(
             rank_rows_json(rows)
         }
         TraditionalAnalyticsScenario::PartitionPruning => partition_pruning_json(fact)?,
+        TraditionalAnalyticsScenario::ManySmallFilesScan => {
+            scalar_result_json(usize_to_u64(fact.len())?, fact.metric.iter().sum())
+        }
+        TraditionalAnalyticsScenario::NullHeavyAggregate => null_heavy_aggregate_json(fact)?,
         TraditionalAnalyticsScenario::CleanCastFilterWrite => clean_cast_filter_write_json(fact),
         TraditionalAnalyticsScenario::ScaleStressSkewedJoinAggregation => {
             let mut groups = BTreeMap::<u32, TraditionalGroupAccum>::new();
@@ -6063,6 +6225,31 @@ fn partition_pruning_json(fact: &VortexFactTable) -> Result<String> {
         if ("2024-03-01".."2024-06-01").contains(&event_date) {
             accum.add(fact.metric[index]);
         }
+    }
+    Ok(scalar_result_json(accum.row_count, accum.metric_sum))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn null_heavy_aggregate_json(fact: &VortexFactTable) -> Result<String> {
+    if fact.nullable_metric_00.iter().all(String::is_empty) {
+        return Err(ShardLoomError::InvalidOperation(
+            "null-heavy aggregate requires nullable_metric_00 fixture column".to_string(),
+        ));
+    }
+    let mut accum = TraditionalGroupAccum::default();
+    for index in 0..fact.len() {
+        if fact.nullable_metric_00[index].is_empty() {
+            continue;
+        }
+        let value = fact.nullable_metric_00[index]
+            .parse::<f64>()
+            .map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "failed to parse nullable_metric_00 at row {}: {error}",
+                    index + 1
+                ))
+            })?;
+        accum.add(value);
     }
     Ok(scalar_result_json(accum.row_count, accum.metric_sum))
 }
@@ -6369,6 +6556,14 @@ mod tests {
             TraditionalAnalyticsScenario::PartitionPruning
         );
         assert_eq!(
+            TraditionalAnalyticsScenario::parse("many-small-files scan").unwrap(),
+            TraditionalAnalyticsScenario::ManySmallFilesScan
+        );
+        assert_eq!(
+            TraditionalAnalyticsScenario::parse("null-heavy aggregate").unwrap(),
+            TraditionalAnalyticsScenario::NullHeavyAggregate
+        );
+        assert_eq!(
             TraditionalAnalyticsScenario::parse("clean/cast/filter/write").unwrap(),
             TraditionalAnalyticsScenario::CleanCastFilterWrite
         );
@@ -6443,7 +6638,7 @@ mod tests {
         let dim_csv = root.join("dim.csv");
         std::fs::write(
             &fact_csv,
-            "id,group_key,dim_key,value,metric,flag,category,event_date,raw_event_time,dirty_numeric,dirty_flag\n1,10,1,6000,2.5,1,A,2024-03-01,2024-01-01T00:00:00Z,6000,Y\n2,11,2,1000,3.5,0,B,2024-07-01,not-a-timestamp,bad-number,N\n3,10,1,8000,4.0,1,A,2024-05-01,2024-01-03T00:00:00Z,8000,Y\n",
+            "id,group_key,dim_key,value,metric,flag,category,event_date,nullable_metric_00,raw_event_time,dirty_numeric,dirty_flag\n1,10,1,6000,2.5,1,A,2024-03-01,1.25,2024-01-01T00:00:00Z,6000,Y\n2,11,2,1000,3.5,0,B,2024-07-01,,not-a-timestamp,bad-number,N\n3,10,1,8000,4.0,1,A,2024-05-01,3.75,2024-01-03T00:00:00Z,8000,Y\n",
         )
         .unwrap();
         std::fs::write(&dim_csv, "dim_key,dim_label,weight\n1,one,1.5\n2,two,2.0\n").unwrap();
@@ -6467,6 +6662,48 @@ mod tests {
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].category, "A");
         assert_eq!(rows[0].metric, 2.5);
+    }
+
+    #[test]
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn fact_directory_reader_accepts_split_csv_parts() {
+        let root = traditional_analytics_test_root("split-csv");
+        let parts_dir = root.join("fact_parts");
+        std::fs::create_dir_all(&parts_dir).unwrap();
+        let dim_csv = root.join("dim.csv");
+        std::fs::write(
+            parts_dir.join("part-00000.csv"),
+            "id,group_key,dim_key,value,metric,flag,category,event_date\n1,10,1,6000,2.5,1,A,2024-03-01\n",
+        )
+        .unwrap();
+        std::fs::write(
+            parts_dir.join("part-00001.csv"),
+            "id,group_key,dim_key,value,metric,flag,category,event_date\n2,11,2,1000,3.5,0,B,2024-07-01\n",
+        )
+        .unwrap();
+        std::fs::write(&dim_csv, "dim_key,dim_label,weight\n1,one,1.5\n2,two,2.0\n").unwrap();
+
+        let report = run_traditional_analytics_benchmark(
+            TraditionalAnalyticsRequest::new(
+                TraditionalAnalyticsScenario::ManySmallFilesScan,
+                parts_dir,
+                dim_csv,
+                root.join("workspace"),
+            )
+            .with_input_format(TraditionalAnalyticsInputFormat::Csv)
+            .with_native_vortex_replay_verification(true)
+            .with_result_vortex_write(true),
+        )
+        .unwrap();
+
+        assert_eq!(report.result_json, "{\"row_count\":2,\"metric_sum\":6.0}");
+        assert_eq!(report.fact_rows, 2);
+        assert!(report.fact_source_path.is_dir());
+        assert!(report.output_replay_verified);
+        assert!(report.computed_result_sink_replay_verified);
+        assert!(!report.fallback_execution_allowed);
+
+        let _ = std::fs::remove_dir_all(root);
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -6670,6 +6907,14 @@ mod tests {
             (
                 TraditionalAnalyticsScenario::PartitionPruning,
                 "{\"row_count\":2,\"metric_sum\":6.5}",
+            ),
+            (
+                TraditionalAnalyticsScenario::ManySmallFilesScan,
+                "{\"row_count\":3,\"metric_sum\":10.0}",
+            ),
+            (
+                TraditionalAnalyticsScenario::NullHeavyAggregate,
+                "{\"row_count\":2,\"metric_sum\":5.0}",
             ),
         ];
 

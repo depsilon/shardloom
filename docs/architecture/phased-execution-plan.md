@@ -225,10 +225,10 @@ from the merged code and tests.
       `row number window`, `high-cardinality string group/distinct`, and `top-N per group` through
       the local Vortex import/replay/result-sink path with Native I/O and runtime certificate
       evidence.
-    - Remaining taxonomy gap: ShardLoom-native multi-file/nested/CDC scenarios, broader
-      table/catalog/object-store partition-pruning evidence, comparative reruns across selected
-      baselines, and promotion from fixture-smoke measurements to reproducible claim-grade
-      benchmark rows.
+    - Remaining taxonomy gap: ShardLoom-native nested JSON and CDC scenarios, broader
+      table/catalog/object-store partition-pruning and object-store multi-file evidence,
+      comparative reruns across selected baselines, and promotion from fixture-smoke measurements
+      to reproducible claim-grade benchmark rows.
     - Immediate closeout slice: run selected local comparative taxonomy reruns across ShardLoom and
       local optional baselines, keep managed platforms out, emit coverage and timing tables
       separately, and classify each row as supported, unsupported, blocked,
@@ -260,6 +260,11 @@ from the merged code and tests.
       Vortex import/replay/result-sink path for generated `event_date` fixture coverage. This is a
       local benchmark scenario only; broader table/catalog/object-store partition-pruning claims
       remain blocked.
+    - Completed sub-slice in ledger: `many-small-files scan` and `null-heavy aggregate` now execute
+      through the ShardLoom local Vortex import/replay/result-sink path for generated split
+      CSV/JSONL fact parts and `nullable_metric_00` fixture coverage. This does not certify
+      object-store multi-file planning, table/catalog file enumeration, or broad null-semantic
+      operator coverage.
     - Completed sub-slice in ledger: selected local comparative reruns now enforce scenario catalog
       `dataset_profiles` before engine execution. Incompatible taxonomy scenario/profile pairs emit
       deterministic blocked coverage rows with `fallback_attempted=false` and

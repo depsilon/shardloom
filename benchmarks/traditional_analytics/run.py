@@ -97,6 +97,8 @@ SHARDLOOM_TAXONOMY_EXTRA_SCENARIOS = (
     "join + aggregate",
     "row number window",
     "partition pruning",
+    "many-small-files scan",
+    "null-heavy aggregate",
     "high-cardinality string group/distinct",
     "top-N per group",
     "clean/cast/filter/write",
@@ -1171,6 +1173,18 @@ def shardloom_runner() -> EngineRunner:
     env = os.environ.copy()
     env["RUSTUP_TOOLCHAIN"] = env.get("RUSTUP_TOOLCHAIN", "1.91.1")
 
+    def shardloom_fact_source_path(
+        paths: DatasetPaths, scenario: str, data_format: str
+    ) -> Path:
+        if scenario == "many-small-files scan":
+            parts = fact_part_paths(paths, data_format)
+            if not parts:
+                raise BenchmarkUnsupported(
+                    "many-small-files scan requires split CSV or JSONL fact parts"
+                )
+            return parts[0].parent
+        return fact_path(paths, data_format)
+
     def run_scenario(scenario: str, paths: DatasetPaths, data_format: str) -> Any:
         workspace = (
             paths.root / "shardloom_universal_io" / data_format / scenario_slug(scenario)
@@ -1179,7 +1193,7 @@ def shardloom_runner() -> EngineRunner:
             str(binary),
             "traditional-analytics-run",
             scenario,
-            str(fact_path(paths, data_format)),
+            str(shardloom_fact_source_path(paths, scenario, data_format)),
             str(dim_path(paths, data_format)),
             "--workspace",
             str(workspace),

@@ -16,6 +16,57 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: P7.4.4 split-file and null-heavy execution bundle
+  - Primary files:
+    - `benchmarks/traditional_analytics/run.py`
+    - `benchmarks/traditional_analytics/README.md`
+    - `shardloom-vortex/src/traditional_analytics.rs`
+    - `docs/architecture/benchmark-suite-catalog.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: continue P7.4.4 by promoting local `many-small-files scan` and
+    `null-heavy aggregate` taxonomy rows from unsupported ShardLoom coverage into the existing
+    local Vortex import/replay/result-sink path.
+  - Vortex-first provider check:
+    - Subject area: local benchmark source ingestion, Vortex persistence, replay, and temporary
+      benchmark operators.
+    - Decision: use the existing feature-gated Vortex write/read provider path and ShardLoom-native
+      scalar aggregation finish; do not introduce a new external engine dependency or Vortex
+      query-engine integration.
+    - Evidence added: split CSV/JSONL fact directory import, generated `nullable_metric_00`
+      preservation into local Vortex files, runtime certificate/result-sink replay evidence, and
+      no-fallback benchmark coverage rows.
+    - Gates still blocked: object-store multi-file planning, table/catalog file enumeration,
+      nested JSON execution, CDC/incremental execution, and broad null-semantic operator coverage.
+  - Checklist:
+    - [x] Add `many-small-files scan` and `null-heavy aggregate` to ShardLoom's admitted
+          taxonomy-extra scenario list.
+    - [x] Route many-file ShardLoom benchmark rows through generated split CSV/JSONL fact part
+          directories instead of the monolithic fact file.
+    - [x] Preserve generated `nullable_metric_00` fixture values through compatibility import into
+          local Vortex files.
+    - [x] Add deterministic unsupported diagnostics for missing split-file and nullable-metric
+          fixture inputs.
+    - [x] Add runtime memory classes and report-only layout-advisor recommendations for split-file
+          and null-heavy rows.
+    - [x] Update benchmark docs, benchmark catalog, phase plan, completed ledger, and RFC
+          traceability.
+  - Validation:
+    - [x] `cargo fmt --all -- --check`
+    - [x] `python -m compileall -q benchmarks\traditional_analytics\run.py`
+    - [x] `cargo test -p shardloom-vortex traditional_analytics --lib --features vortex-traditional-analytics-benchmark`
+    - [x] `cargo clippy -p shardloom-vortex --lib --features vortex-traditional-analytics-benchmark -- -D warnings`
+    - [x] `cargo clippy --workspace --all-targets -- -D warnings`
+    - [x] `cargo test --workspace --all-targets`
+    - [x] `python benchmarks\traditional_analytics\run.py --engines shardloom,pandas --formats csv,jsonl --scenario "many-small-files scan" --dataset-profile many_small_files --rows 96 --iterations 3 --shardloom-build-profile debug --shardloom-result-sink --skip-shardloom-native --no-markdown --output target\codex-p744-many-small-files.json --regenerate`
+    - [x] `python benchmarks\traditional_analytics\run.py --engines shardloom,pandas --formats csv,parquet --scenario "null-heavy aggregate" --dataset-profile null_heavy --rows 96 --iterations 3 --shardloom-build-profile debug --shardloom-result-sink --skip-shardloom-native --no-markdown --output target\codex-p744-null-heavy-csv-parquet.json --regenerate`
+    - [x] `git diff --check`
+  - Runtime stance: local generated split-file and nullable-metric fixture coverage only. This does
+    not certify object-store multi-file enumeration, table/catalog partition metadata pruning,
+    nested/JSON expression execution, CDC/incremental state, managed baselines, public performance
+    claims, or fallback execution.
+
 - [x] Session label: P7.4.4 partition-pruning execution bundle
   - Primary files:
     - `benchmarks/traditional_analytics/run.py`
